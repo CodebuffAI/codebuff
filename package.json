@@ -1,20 +1,34 @@
 {
-  "name": "scripts",
+  "name": "manicode",
   "version": "1.0.0",
   "scripts": {
-    "code": "ts-node manicode.ts"
+    "code": "ts-node index.ts",
+    "build": "yarn clean && yarn compile",
+    "compile": "tsc -b",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
-    "json2csv": "6.0.0-alpha.2",
-    "lodash": "4.17.21"
+    "@anthropic-ai/sdk": "^0.24.3",
+    "@google-cloud/monitoring": "4.0.0",
+    "@google-cloud/secret-manager": "4.2.1",
+    "@supabase/supabase-js": "2.38.5",
+    "cors": "2.8.5",
+    "dayjs": "1.11.4",
+    "express": "4.18.1",
+    "gcp-metadata": "6.1.0",
+    "lodash": "4.17.21",
+    "zod": "3.21.4"
   },
   "devDependencies": {
     "@types/json2csv": "5.0.3",
-    "@types/node": "20.14.10",
-    "ts-node": "10.9.2",
-    "tsc-alias": "1.8.2",
+    "@types/lodash": "^4.17.6",
+    "@types/node": "^20.14.10",
+    "ts-node": "^10.9.2",
     "tsconfig-paths": "4.1.2",
     "typescript": "5.3.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "private": true
 }

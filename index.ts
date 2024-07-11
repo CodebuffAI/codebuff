@@ -1,12 +1,27 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
-import { model_types } from 'shared/helpers/claude'
 import * as ts from 'typescript'
 
-import { runScript } from 'run-script'
-import { promptClaudeStream, promptClaude } from 'shared/helpers/claude'
-import { filterDefined } from 'common/util/array'
+// import { runScript } from './run-script'
+import { promptClaudeStream, promptClaude, model_types } from './claude'
+import { filterDefined } from './util/array'
+
+const runScript = (fn: () => Promise<void>) => {
+  // Load environment variables from .env file
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    const envLines = envContent.split('\n');
+    for (const line of envLines) {
+      const [key, value] = line.split('=');
+      if (key && value) {
+        process.env[key.trim()] = value.trim();
+      }
+    }
+  }
+  fn()
+}
 
 runScript(async () => {
   const userPrompt = process.argv[2]
@@ -20,7 +35,7 @@ runScript(async () => {
   await manicode(userPrompt)
 })
 
-const manicode = async (firstPrompt: string) => {
+async function manicode(firstPrompt: string) {
   // First prompt to Claude: Ask which files to read
   const fileSelectionPrompt = `
     The user has a coding assignment for you.
@@ -227,7 +242,7 @@ function loadListedFiles(instructions: string) {
   // Read the content of selected files
   return filterDefined(
     filesToRead.map((file) => {
-      const filePath = path.join(__dirname, '..', '..', file)
+      const filePath = path.join(__dirname, file)
       try {
         return `<file path="${file}">\n\n${fs.readFileSync(
           filePath,
@@ -329,7 +344,7 @@ ${fullResponse}`
 }
 
 async function processFileBlock(filePath: string, fileContent: string) {
-  const fullPath = path.join(__dirname, '..', '..', filePath)
+  const fullPath = path.join(__dirname, filePath)
   const currentContent = fs.existsSync(fullPath)
     ? fs.readFileSync(fullPath, 'utf8')
     : ''
@@ -714,7 +729,7 @@ Your Response:
 
   const diffResponse = await promptClaudeWithContinuation(prompt)
 
-  const diffBlocks = []
+  const diffBlocks: { oldContent: string; newContent: string }[] = []
   const fileRegex = /<file>([\s\S]*?)<\/file>/
   const fileMatch = diffResponse.match(fileRegex)
 
@@ -780,50 +795,21 @@ function applyReplacement(
 
 function getSystemPrompt() {
   const codeFiles = getOnlyCodeFiles()
-  const exportedTokens = getExportedTokensForFiles(codeFiles)
-  const filesWithExports = codeFiles
-    .map((filePath) => {
-      const tokens = exportedTokens[filePath]
-      return tokens && tokens.length > 0
-        ? `${filePath}: ${tokens.join(', ')}`
-        : filePath
-    })
-    .join('\n')
-
-  const manifoldInfoPath = path.join(__dirname, '..', '..', 'manifold-info.md')
-  const manifoldInfo = fs.readFileSync(manifoldInfoPath, 'utf8')
-
-  const codeGuidePath = path.join(__dirname, '..', '..', 'code-guide.md')
-  const codeGuide = fs.readFileSync(codeGuidePath, 'utf8')
-
-  const apiSchemaFile = fs.readFileSync(
-    path.join(__dirname, '..', '..', 'common', 'src', 'api', 'schema.ts'),
-    'utf8'
-  )
-
-  const apiGuide = `
-<api_guide>
-Here's our API schema. Each key-value pair in the below object corresponds to an endpoint.
-
-E.g. 'comment' can be accessed at \`api.manifold.markets/v0/comment\`. If 'visibility' is 'public', then you need the '/v0', otherwise, you should omit the version. However, you probably don't need the url, you can use our library function \`api('comment', props)\`, or \`useAPIGetter('comment', props)\`
-${apiSchemaFile}
-</api_guide>
-`
+  // const exportedTokens = getExportedTokensForFiles(codeFiles)
+  // const filesWithExports = codeFiles
+  //   .map((filePath) => {
+  //     const tokens = exportedTokens[filePath]
+  //     return tokens && tokens.length > 0
+  //       ? `${filePath}: ${tokens.join(', ')}`
+  //       : filePath
+  //   })
+  //   .join('\n')
+  const fileBlocks = getFileBlocks(codeFiles)
 
   return `
-<manifold_info>
-${manifoldInfo}
-</manifold_info>
-
-<code_guide>
-${codeGuide}
-</code_guide>
-
-${apiGuide}
-
 <project_files>
-Here are all the code files in our project. If the file has exported tokens, they are listed in the same line in a comma-separated list.
-${filesWithExports}
+Here are all the code files in our project.
+${fileBlocks}
 </project_files>
 
 <editing_instructions>
@@ -886,22 +872,15 @@ function loadAllProjectFiles(projectRoot: string): string[] {
 }
 
 function getOnlyCodeFiles() {
-  const projectRoot = path.join(__dirname, '..', '..')
-  const codeDirs = ['common', 'backend', 'web']
+  const projectRoot = path.join(__dirname)
   const excludedDirs = [
     'node_modules',
     'dist',
-    'scripts',
-    'twitch-bot',
-    'discord-bot',
   ]
-  const includedFiles = ['manicode.ts', 'backfill-unique-bettors-day.ts']
   const allProjectFiles = loadAllProjectFiles(projectRoot)
-    .filter((file) => codeDirs.some((dir) => file.includes(dir)))
     .filter(
       (file) =>
-        !excludedDirs.some((dir) => file.includes('/' + dir + '/')) ||
-        includedFiles.some((name) => file.endsWith(name))
+        !excludedDirs.some((dir) => file.includes('/' + dir + '/'))
     )
     .filter(
       (file) =>
@@ -973,7 +952,7 @@ function getExportedTokensForFiles(
 ): Record<string, string[]> {
   const result: Record<string, string[]> = {}
   const fullFilePaths = filePaths.map((filePath) =>
-    path.join(__dirname, '..', '..', filePath)
+    path.join(__dirname, filePath)
   )
   const program = ts.createProgram(fullFilePaths, {})
 
@@ -996,6 +975,33 @@ function getExportedTokensForFiles(
   }
 
   return result
+}
+
+function getFileBlocks(
+  filePaths: string[]
+) {
+  const result: Record<string, string> = {}
+  const rootDir = path.join(__dirname)
+
+  for (const filePath of filePaths) {
+    const fullPath = path.join(rootDir, filePath)
+    try {
+      const content = fs.readFileSync(fullPath, 'utf8')
+      result[filePath] = content
+    } catch (error) {
+      console.error(`Error reading file ${fullPath}:`, error)
+      result[filePath] = ''
+    }
+  }
+
+  const fileBlocks = filePaths.map((filePath) => {
+    const content = result[filePath]
+    return `<file path="${filePath}">
+${content}
+</file>`
+  })
+
+  return fileBlocks.join('\n')
 }
 
 function getExportedTokens(sourceFile: ts.SourceFile): string[] {

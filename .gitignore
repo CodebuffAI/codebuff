@@ -1,9 +1,8 @@
 .DS_Store
 .idea/
 .vercel
+.env
 node_modules
 yarn-error.log
 dev
-firebase-debug.log
-dev-mantic-markets-firebase-adminsdk*.json
-mantic-markets-firebase-adminsdk*.json
+dist

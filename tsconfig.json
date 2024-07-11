@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+      "composite": true,
+      "module": "CommonJS",
+      "moduleResolution": "node",
+      "esModuleInterop": true,
+      "noImplicitReturns": true,
+      "outDir": "./dist",
+      "sourceMap": true,
+      "strict": true,
+      "target": "esnext",
+      "incremental": true,
+      "isolatedModules": true,
+      "types": ["node"],
+      "typeRoots": ["./node_modules/@types"]
+    },
+    "compileOnSave": true,
+    "include": ["**/*.ts"],
+    "exclude": ["node_modules"]
+  }
+  
