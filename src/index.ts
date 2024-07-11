@@ -6,6 +6,8 @@ import { filterDefined } from '@manicode/common'
 import { getSystemPrompt } from './system-prompt'
 import { createFileBlock, parseFileBlocks, fileRegex, parseFileBlocksWithoutPath, createFileBlockWithoutPath } from './file'
 
+const projectRoot = path.normalize(path.resolve(__dirname, '..'))
+
 const runScript = (fn: () => Promise<void>) => {
   // Load environment variables from .env file
   const envPath = path.join(__dirname, '.env');
@@ -32,39 +34,14 @@ runScript(async () => {
   await manicode(userPrompt)
 })
 
-async function manicode(firstPrompt: string) {
-  // First prompt to Claude: Ask which files to read
-  const fileSelectionPrompt = `
-    The user has a coding assignment for you.
-
-    Can you answer the below prompt with:
-    1. A description of what the user wants done.
-    2. Your best summary of what strategy you will employ to implement it in code (keep it simple!).
-    3. A list of which files (up to 20) would be most relevant to read or write to for providing an accurate response. Please list only the file paths, one per line. You will later respond in a second prompt with edits to make to these files (or what new files to create), so choose the files wisely.
-
-    User's request: ${firstPrompt}
-    `
-
+async function manicode(userPrompt: string) {
   const system = getSystemPrompt()
 
   // Save the system prompt to a file
-  // const systemPromptFilePath = path.join(__dirname, 'system-prompt.md')
+  // const systemPromptFilePath = path.join(projectRoot, 'system-prompt.md')
   // fs.writeFileSync(systemPromptFilePath, system, 'utf8')
 
-  // const fileSelectionResponse = await promptClaudeAndApplyFileChanges(
-  //   fileSelectionPrompt,
-  //   {
-  //     system,
-  //   }
-  // )
-  // const fileContents = loadListedFiles(fileSelectionResponse)
-
-  // Second prompt to Claude: Answer the user's question
-  const secondPrompt = `
-<user_request>
-${firstPrompt}
-</user_request>
-
+  const initialPrompt = `
 <instructions>
 The user has a coding question for you. Please provide a detailed response following this structure:
 
@@ -137,11 +114,11 @@ const Home: React.FC = () => {
 `)}
 </example>
 
-Now, please provide your response based on the following file contents and user request:`
+Now, please provide your response based on the following user request:`
 
-  const fullPrompt = `${secondPrompt}
+  const fullPrompt = `${initialPrompt}
 
-User: ${firstPrompt}
+User: ${userPrompt}
 `
 
   const secondResponse = await promptClaudeAndApplyFileChanges(fullPrompt, {
@@ -154,7 +131,7 @@ User: ${firstPrompt}
   }
 
   const conversationHistory: ConversationEntry[] = [
-    { role: 'user', content: firstPrompt },
+    { role: 'user', content: userPrompt },
     { role: 'assistant', content: secondResponse },
   ]
 
@@ -177,7 +154,6 @@ User: ${firstPrompt}
 
           conversationHistory.push({ role: 'user', content: userInput })
 
-          // Second Claude call: Answer the user's question
           const fullPrompt = conversationHistory
             .map(({ role, content }) => {
               const label =
@@ -185,26 +161,9 @@ User: ${firstPrompt}
               return `${label}\n\n${content}`
             })
             .join('\n\n')
-          // First Claude call: Ask which files to read
-//           const fileSelectionPrompt = `
-// <conversation_history>
-// ${fullPrompt}
-// </conversation_history>
 
-// <instructions>
-// Based on the conversation above, which files do you need to read to answer the user's question? Please list the file paths, one per line. It's recommended you include all files you have edited so far.
-// </instructions>
-// `
           // Get updated system prompt (includes updated list of files)
           const system = getSystemPrompt()
-
-          // const filesToReadResponse = await promptClaudeAndApplyFileChanges(
-          //   fileSelectionPrompt,
-          //   { system }
-          // )
-          // const fileContents = loadListedFiles(filesToReadResponse)
-
-          // const finalPrompt = `${fullPrompt}\n\nRelevant file contents:\n\n${fileContents}`
 
           const claudeResponse = await promptClaudeAndApplyFileChanges(
             fullPrompt,
@@ -218,7 +177,6 @@ User: ${firstPrompt}
             content: claudeResponse,
           })
 
-          // Continue the loop
           promptUser()
         }
       )
@@ -236,7 +194,7 @@ function loadListedFiles(instructions: string) {
   // Read the content of selected files
   return filterDefined(
     filesToRead.map((file) => {
-      const filePath = path.join(__dirname, file)
+      const filePath = path.join(projectRoot, file)
       try {
         return createFileBlock(file, fs.readFileSync(
           filePath,
@@ -335,7 +293,7 @@ ${fullResponse}`
 }
 
 async function processFileBlock(filePath: string, fileContent: string) {
-  const fullPath = path.join(__dirname, filePath)
+  const fullPath = path.join(projectRoot, filePath)
   const currentContent = fs.existsSync(fullPath)
     ? fs.readFileSync(fullPath, 'utf8')
     : ''

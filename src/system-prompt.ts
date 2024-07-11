@@ -5,15 +5,6 @@ import { createFileBlock } from './file'
 
 export function getSystemPrompt() {
   const codeFiles = getOnlyCodeFiles()
-  // const exportedTokens = getExportedTokensForFiles(codeFiles)
-  // const filesWithExports = codeFiles
-  //   .map((filePath) => {
-  //     const tokens = exportedTokens[filePath]
-  //     return tokens && tokens.length > 0
-  //       ? `${filePath}: ${tokens.join(', ')}`
-  //       : filePath
-  //   })
-  //   .join('\n')
   const fileBlocks = getFileBlocks(codeFiles)
 
   return `
@@ -52,6 +43,8 @@ If your response is cut off due to length limitations, do not include the marker
 </important_instruction>`
 }
 
+const projectRoot = path.normalize(path.resolve(__dirname, '..'))
+
 // Function to load file names of every file in the project
 function loadAllProjectFiles(projectRoot: string): string[] {
   const allFiles: string[] = []
@@ -82,7 +75,6 @@ function loadAllProjectFiles(projectRoot: string): string[] {
 }
 
 function getOnlyCodeFiles() {
-  const projectRoot = path.join(__dirname)
   const excludedDirs = [
     'node_modules',
     'dist',
@@ -105,10 +97,9 @@ function getFileBlocks(
   filePaths: string[]
 ) {
   const result: Record<string, string> = {}
-  const rootDir = path.join(__dirname)
 
   for (const filePath of filePaths) {
-    const fullPath = path.join(rootDir, filePath)
+    const fullPath = path.join(projectRoot, filePath)
     try {
       const content = fs.readFileSync(fullPath, 'utf8')
       result[filePath] = content
@@ -130,7 +121,7 @@ function getExportedTokensForFiles(
 ): Record<string, string[]> {
   const result: Record<string, string[]> = {}
   const fullFilePaths = filePaths.map((filePath) =>
-    path.join(__dirname, filePath)
+    path.join(projectRoot, filePath)
   )
   const program = ts.createProgram(fullFilePaths, {})
 
