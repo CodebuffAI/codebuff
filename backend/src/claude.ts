@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { removeUndefinedProps } from '../util/object'
+import { removeUndefinedProps } from '@manicode/common'
 
 export const models = {
   sonnet: 'claude-3-5-sonnet-20240620' as const,

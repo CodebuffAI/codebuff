@@ -1,13 +1,17 @@
 {
-  "name": "manicode-backend",
+  "name": "@manicode/backend",
   "version": "1.0.0",
   "description": "Backend server for Manicode",
-  "main": "server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "ts-node server.ts",
-    "dev": "nodemon --exec ts-node server.ts"
+    "start": "node dist/server.js",
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "build": "tsc",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@manicode/common": "1.0.0",
+    "@anthropic-ai/sdk": "^0.24.3",
     "dotenv": "^10.0.0",
     "express": "^4.17.1",
     "ws": "^8.13.0"

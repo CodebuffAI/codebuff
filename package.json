@@ -1,23 +1,19 @@
 {
   "name": "manicode",
   "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "common",
+    "backend",
+    "."
+  ],
   "scripts": {
     "code": "ts-node index.ts",
-    "build": "yarn clean && yarn compile",
-    "compile": "tsc -b",
-    "clean": "rm -rf dist"
+    "build": "yarn workspaces run build",
+    "clean": "yarn workspaces run clean"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.24.3",
-    "@google-cloud/monitoring": "4.0.0",
-    "@google-cloud/secret-manager": "4.2.1",
-    "@supabase/supabase-js": "2.38.5",
-    "cors": "2.8.5",
-    "dayjs": "1.11.4",
-    "express": "4.18.1",
-    "gcp-metadata": "6.1.0",
-    "lodash": "4.17.21",
-    "zod": "3.21.4"
+    "@manicode/common": "1.0.0"
   },
   "devDependencies": {
     "@types/json2csv": "5.0.3",
@@ -29,6 +25,5 @@
   },
   "engines": {
     "node": ">=20.0.0"
-  },
-  "private": true
+  }
 }

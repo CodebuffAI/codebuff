@@ -6,7 +6,7 @@ import WebSocket from 'ws'
 
 // import { runScript } from './run-script'
 import { promptClaudeStream, promptClaude, model_types } from './claude'
-import { filterDefined } from './util/array'
+import { filterDefined } from '@manicode/common'
 
 const runScript = (fn: () => Promise<void>) => {
   // Load environment variables from .env file

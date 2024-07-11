@@ -9,6 +9,7 @@ export const removeUndefinedProps = <T extends object>(obj: T): T => {
 
   return newObj
 }
+
 export const removeNullOrUndefinedProps = <T extends object>(
   obj: T,
   exceptions?: string[]

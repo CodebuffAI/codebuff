@@ -1,21 +1,28 @@
 {
-    "compilerOptions": {
-      "composite": true,
-      "module": "CommonJS",
-      "moduleResolution": "node",
-      "esModuleInterop": true,
-      "noImplicitReturns": true,
-      "outDir": "./dist",
-      "sourceMap": true,
-      "strict": true,
-      "target": "esnext",
-      "incremental": true,
-      "isolatedModules": true,
-      "types": ["node"],
-      "typeRoots": ["./node_modules/@types"]
-    },
-    "compileOnSave": true,
-    "include": ["**/*.ts"],
-    "exclude": ["node_modules"]
+  "compilerOptions": {
+    "composite": true,
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "noImplicitReturns": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "esnext",
+    "incremental": true,
+    "isolatedModules": true,
+    "types": ["node"],
+    "typeRoots": ["./node_modules/@types"],
+    "baseUrl": ".",
+    "paths": {
+      "@manicode/common": ["common/src"]
+    }
+  },
+  "references": [
+    { "path": "./common" },
+    { "path": "./backend" }
+  ],
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
   }
+}
   
