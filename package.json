@@ -10,7 +10,8 @@
   "scripts": {
     "code": "ts-node index.ts",
     "build": "yarn workspaces run build",
-    "clean": "yarn workspaces run clean"
+    "clean": "yarn workspaces run clean",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
   },
   "dependencies": {
     "@manicode/common": "1.0.0"
@@ -19,6 +20,7 @@
     "@types/json2csv": "5.0.3",
     "@types/lodash": "^4.17.6",
     "@types/node": "^20.14.10",
+    "prettier": "^3.3.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "4.1.2",
     "typescript": "5.3.2"
