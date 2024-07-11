@@ -1,12 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
-import * as ts from 'typescript'
-import WebSocket from 'ws'
-
-// import { runScript } from './run-script'
 import { promptClaudeStream, promptClaude, model_types } from './claude'
 import { filterDefined } from '@manicode/common'
+import { getSystemPrompt } from './system-prompt'
+import { createFileBlock, parseFileBlocks, fileRegex, parseFileBlocksWithoutPath, createFileBlockWithoutPath } from './file'
 
 const runScript = (fn: () => Promise<void>) => {
   // Load environment variables from .env file
@@ -26,41 +24,12 @@ const runScript = (fn: () => Promise<void>) => {
 
 runScript(async () => {
   const userPrompt = process.argv[2]
-  // E.g.:
-  // I want to create a new page which shows off what's happening on manifold right now. Can you use our websocket api to get recent bets on markets and illustrate what's happening in a compelling and useful way?
   if (!userPrompt) {
     console.log('Please provide a prompt on what code to change.')
     return
   }
 
-  // Connect to WebSocket server
-  const ws = new WebSocket('ws://localhost:3000')
-
-  ws.on('open', () => {
-    console.log('Connected to WebSocket server')
-    ws.send(JSON.stringify({ prompt: userPrompt }))
-  })
-
-  ws.on('message', (data: WebSocket.Data) => {
-    const message = JSON.parse(data.toString())
-    if (message.error) {
-      console.error('Error:', message.error)
-    } else if (message.status) {
-      console.log('Status:', message.status)
-    } else if (message.type === 'chunk') {
-      process.stdout.write(message.content)
-    } else if (message.type === 'done') {
-      console.log('\nClaude response complete')
-      ws.close()
-    }
-  })
-
-  ws.on('close', () => {
-    console.log('Disconnected from WebSocket server')
-  })
-
-  // Wait for the WebSocket connection to close
-  await new Promise((resolve) => ws.on('close', resolve))
+  await manicode(userPrompt)
 })
 
 async function manicode(firstPrompt: string) {
@@ -105,13 +74,11 @@ The user has a coding question for you. Please provide a detailed response follo
 
 3. File Modifications: List all files that need to be modified or created, and they will be changed according to your instruction.
 For each file, provide one file block with the file path as an xml attribute and the updated file contents:
-<file path="path/to/new/file.tsx">
-// Entire file contents here
-</file>
+${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
 
 To modify an existing file, use comments to indicate where existing code should be preserved:
-<file path="path/to/existing/file.tsx">
-// ... existing imports...
+${createFileBlock('path/to/existing/file.tsx',
+`// ... existing imports...
 
 // ... existing code ...
 
@@ -122,7 +89,7 @@ function getDesktopNav() {
 }
 
 // ... rest of the file
-</file>
+`)}
 </instructions>
 
 <important_reminders>
@@ -141,15 +108,16 @@ function getDesktopNav() {
 
 3. File Modifications:
 
-<file path="web/components/NewComponent.tsx">
-import React from 'react'
+${createFileBlock('web/components/NewComponent.tsx',
+`import React from 'react'
 
 export const NewComponent: React.FC = () => {
   return <div>This is a new component</div>
 }
-</file>
+`)}
 
-<file path="web/pages/Home.tsx">
+${createFileBlock('web/pages/Home.tsx',
+`// ... existing imports ...
 // ... existing imports ...
 import { AnotherComponentUsedForContext } from '../components/AnotherComponentUsedForContext'
 import { NewComponent } from '../components/NewComponent'
@@ -166,7 +134,7 @@ const Home: React.FC = () => {
 }
 
 // ... rest of the file
-</file>
+`)}
 </example>
 
 Now, please provide your response based on the following file contents and user request:`
@@ -270,10 +238,10 @@ function loadListedFiles(instructions: string) {
     filesToRead.map((file) => {
       const filePath = path.join(__dirname, file)
       try {
-        return `<file path="${file}">\n\n${fs.readFileSync(
+        return createFileBlock(file, fs.readFileSync(
           filePath,
           'utf8'
-        )}\n\n</file>`
+        ))
       } catch (error) {
         return undefined
       }
@@ -299,13 +267,10 @@ async function promptClaudeAndApplyFileChanges(
       currentFileBlock += chunk
       process.stdout.write(chunk)
 
-      const fileRegex = /<file path="([^"]+)">([\s\S]*?)<\/file>/g
-      let fileMatch
-      while ((fileMatch = fileRegex.exec(currentFileBlock)) !== null) {
-        const [, filePath, fileContent] = fileMatch
+      const fileBlocks = parseFileBlocks(currentFileBlock)
+      for (const [filePath, fileContent] of Object.entries(fileBlocks)) {
         fileProcessingPromises.push(processFileBlock(filePath, fileContent))
       }
-
       currentFileBlock = currentFileBlock.replace(fileRegex, '')
     }
 
@@ -443,7 +408,7 @@ Please structure your response in a few steps:
 1. Describe what code changes are being made. What's being inserted? What's being deleted?
 2. Split the changes into logical groups. Describe the sets of lines or logical chunks of code that are being changed. For example, modifying the import section, modifying a function, etc.
 3. Describe what lines of context from the old file you will use for each edit, so that string replacement of the old and new blocks will work correctly. Do not use any comments like "// ... existing code ..." or " ... rest of the file" as part of this context, because these comments don't exist in the old file, so string replacement won't work to make the edit.
-4. Finally, please provide a <file> block containing the <old> and <new> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
+4. Finally, please provide a ${'<' + 'file>'} block containing the <old> and <new> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
 
 IMPORTANT INSTRUCTIONS:
 1. The <old> blocks MUST match a portion of the old file content EXACTLY, character for character. Do not include any comments or placeholders like "// ... existing code ...". Instead, provide the exact lines of code that are being changed.
@@ -508,7 +473,7 @@ import { Input } from './Input'
 - The LoginForm change can replace the whole function.
 
 4. Here are my changes:
-<file>
+${createFileBlockWithoutPath(`
 <old>
 import { Input } from './Input'
 </old>
@@ -545,7 +510,7 @@ function LoginForm() {
   )
 }
 </new>
-</file>
+`)}
 </example_response>
 
 <example_prompt>
@@ -675,7 +640,7 @@ import { SearchIcon } from '@heroicons/react/solid'
 \`\`\`
 
 4. Here are my changes:
-<file>
+${createFileBlockWithoutPath(`
 <old>
 import { SearchIcon } from '@heroicons/react/solid'
 import {
@@ -711,7 +676,7 @@ import {
         icon: NotificationsIcon,
       },
 </new>
-</file>
+`)}
 </example_response>
 
 <important_instruction>
@@ -756,11 +721,8 @@ Your Response:
   const diffResponse = await promptClaudeWithContinuation(prompt)
 
   const diffBlocks: { oldContent: string; newContent: string }[] = []
-  const fileRegex = /<file>([\s\S]*?)<\/file>/
-  const fileMatch = diffResponse.match(fileRegex)
-
-  if (fileMatch) {
-    const fileContent = fileMatch[1]
+  const fileContents = parseFileBlocksWithoutPath(diffResponse)
+  for (const fileContent of fileContents) {
     const blockRegex = /<old>([\s\S]*?)<\/old>\s*<new>([\s\S]*?)<\/new>/g
     let blockMatch
 
@@ -819,104 +781,6 @@ function applyReplacement(
   return null
 }
 
-function getSystemPrompt() {
-  const codeFiles = getOnlyCodeFiles()
-  // const exportedTokens = getExportedTokensForFiles(codeFiles)
-  // const filesWithExports = codeFiles
-  //   .map((filePath) => {
-  //     const tokens = exportedTokens[filePath]
-  //     return tokens && tokens.length > 0
-  //       ? `${filePath}: ${tokens.join(', ')}`
-  //       : filePath
-  //   })
-  //   .join('\n')
-  const fileBlocks = getFileBlocks(codeFiles)
-
-  return `
-<project_files>
-Here are all the code files in our project.
-${fileBlocks}
-</project_files>
-
-<editing_instructions>
-To edit any files, please use the following schema.
-For each file, provide one file block with the file path as an xml attribute and the updated file contents:
-<file path="path/to/new/file.tsx">
-// Entire file contents here
-</file>
-
-To modify an existing file, use comments to indicate where existing code should be preserved:
-<file path="path/to/existing/file.tsx">
-// ... existing imports...
-
-// ... existing code ...
-
-function getDesktopNav() {
-  console.log('Hello from the desktop nav')
-
-  // ... rest of the function
-}
-
-// ... rest of the file
-</file>
-</editing_instructions>
-
-<important_instruction>
-Always end your response with the following marker:
-[END_OF_RESPONSE]
-If your response is cut off due to length limitations, do not include the marker and wait for a follow-up prompt to continue.
-</important_instruction>`
-}
-
-// Function to load file names of every file in the project
-function loadAllProjectFiles(projectRoot: string): string[] {
-  const allFiles: string[] = []
-
-  function getAllFiles(dir: string) {
-    try {
-      const files = fs.readdirSync(dir)
-      files.forEach((file) => {
-        const filePath = path.join(dir, file)
-        try {
-          const stats = fs.statSync(filePath)
-          if (stats.isDirectory()) {
-            getAllFiles(filePath)
-          } else {
-            allFiles.push(filePath)
-          }
-        } catch (error: any) {
-          // do nothing
-        }
-      })
-    } catch (error: any) {
-      // do nothing
-    }
-  }
-
-  getAllFiles(projectRoot)
-  return allFiles
-}
-
-function getOnlyCodeFiles() {
-  const projectRoot = path.join(__dirname)
-  const excludedDirs = [
-    'node_modules',
-    'dist',
-  ]
-  const allProjectFiles = loadAllProjectFiles(projectRoot)
-    .filter(
-      (file) =>
-        !excludedDirs.some((dir) => file.includes('/' + dir + '/'))
-    )
-    .filter(
-      (file) =>
-        file.endsWith('.ts') || file.endsWith('.tsx') || file.endsWith('.sql')
-    )
-    .filter((file) => !file.endsWith('.d.ts'))
-    .map((file) => file.replace(projectRoot + '/', ''))
-  return allProjectFiles
-}
-
 async function promptClaudeForExpansion(
   filePath: string,
   currentContent: string,
@@ -971,103 +835,4 @@ If you can't find a suitable expansion, please respond with "No expansion possib
   }
 
   return null
-}
-
-function getExportedTokensForFiles(
-  filePaths: string[]
-): Record<string, string[]> {
-  const result: Record<string, string[]> = {}
-  const fullFilePaths = filePaths.map((filePath) =>
-    path.join(__dirname, filePath)
-  )
-  const program = ts.createProgram(fullFilePaths, {})
-
-  for (let i = 0; i < filePaths.length; i++) {
-    const filePath = filePaths[i]
-    const fullFilePath = fullFilePaths[i]
-    const sourceFile = program.getSourceFile(fullFilePath)
-    if (sourceFile) {
-      try {
-        const exportedTokens = getExportedTokens(sourceFile)
-        result[filePath] = exportedTokens
-      } catch (error) {
-        console.error(`Error processing file ${fullFilePath}:`, error)
-        result[filePath] = []
-      }
-    } else {
-      // console.error(`Could not find source file: ${fullFilePath}`)
-      result[filePath] = []
-    }
-  }
-
-  return result
-}
-
-function getFileBlocks(
-  filePaths: string[]
-) {
-  const result: Record<string, string> = {}
-  const rootDir = path.join(__dirname)
-
-  for (const filePath of filePaths) {
-    const fullPath = path.join(rootDir, filePath)
-    try {
-      const content = fs.readFileSync(fullPath, 'utf8')
-      result[filePath] = content
-    } catch (error) {
-      console.error(`Error reading file ${fullPath}:`, error)
-      result[filePath] = ''
-    }
-  }
-
-  const fileBlocks = filePaths.map((filePath) => {
-    const content = result[filePath]
-    return `<file path="${filePath}">
-${content}
-</file>`
-  })
-
-  return fileBlocks.join('\n')
-}
-
-function getExportedTokens(sourceFile: ts.SourceFile): string[] {
-  const exportedTokens: string[] = []
-
-  function visit(node: ts.Node) {
-    if (ts.isExportDeclaration(node)) {
-      if (node.exportClause && ts.isNamedExports(node.exportClause)) {
-        node.exportClause.elements.forEach((element) => {
-          exportedTokens.push(element.name.text)
-        })
-      }
-    } else if (
-      ts.isFunctionDeclaration(node) ||
-      ts.isClassDeclaration(node) ||
-      ts.isVariableStatement(node)
-    ) {
-      if (
-        node.modifiers?.some(
-          (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword
-        )
-      ) {
-        if (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) {
-          if (node.name) {
-            exportedTokens.push(node.name.text)
-          }
-        } else if (ts.isVariableStatement(node)) {
-          node.declarationList.declarations.forEach((declaration) => {
-            if (ts.isIdentifier(declaration.name)) {
-              exportedTokens.push(declaration.name.text)
-            }
-          })
-        }
-      }
-    }
-
-    ts.forEachChild(node, visit)
-  }
-
-  visit(sourceFile)
-
-  return exportedTokens
 }

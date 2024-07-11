@@ -15,8 +15,10 @@
     "baseUrl": ".",
     "paths": {
       "@manicode/common": ["common/src"]
-    }
+    },
+    "outDir": "./dist"
   },
+  "include": ["index.ts", "src/**/*"],
   "references": [
     { "path": "./common" },
     { "path": "./backend" }
