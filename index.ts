@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
 import * as ts from 'typescript'
+import WebSocket from 'ws'
 
 // import { runScript } from './run-script'
 import { promptClaudeStream, promptClaude, model_types } from './claude'
@@ -32,7 +33,34 @@ runScript(async () => {
     return
   }
 
-  await manicode(userPrompt)
+  // Connect to WebSocket server
+  const ws = new WebSocket('ws://localhost:3000')
+
+  ws.on('open', () => {
+    console.log('Connected to WebSocket server')
+    ws.send(JSON.stringify({ prompt: userPrompt }))
+  })
+
+  ws.on('message', (data: WebSocket.Data) => {
+    const message = JSON.parse(data.toString())
+    if (message.error) {
+      console.error('Error:', message.error)
+    } else if (message.status) {
+      console.log('Status:', message.status)
+    } else if (message.type === 'chunk') {
+      process.stdout.write(message.content)
+    } else if (message.type === 'done') {
+      console.log('\nClaude response complete')
+      ws.close()
+    }
+  })
+
+  ws.on('close', () => {
+    console.log('Disconnected from WebSocket server')
+  })
+
+  // Wait for the WebSocket connection to close
+  await new Promise((resolve) => ws.on('close', resolve))
 })
 
 async function manicode(firstPrompt: string) {
@@ -54,13 +82,13 @@ async function manicode(firstPrompt: string) {
   // const systemPromptFilePath = path.join(__dirname, 'system-prompt.md')
   // fs.writeFileSync(systemPromptFilePath, system, 'utf8')
 
-  const fileSelectionResponse = await promptClaudeAndApplyFileChanges(
-    fileSelectionPrompt,
-    {
-      system,
-    }
-  )
-  const fileContents = loadListedFiles(fileSelectionResponse)
+  // const fileSelectionResponse = await promptClaudeAndApplyFileChanges(
+  //   fileSelectionPrompt,
+  //   {
+  //     system,
+  //   }
+  // )
+  // const fileContents = loadListedFiles(fileSelectionResponse)
 
   // Second prompt to Claude: Answer the user's question
   const secondPrompt = `
@@ -145,8 +173,6 @@ Now, please provide your response based on the following file contents and user 
 
   const fullPrompt = `${secondPrompt}
 
-${fileContents}
-
 User: ${firstPrompt}
 `
 
@@ -192,28 +218,28 @@ User: ${firstPrompt}
             })
             .join('\n\n')
           // First Claude call: Ask which files to read
-          const fileSelectionPrompt = `
-<conversation_history>
-${fullPrompt}
-</conversation_history>
+//           const fileSelectionPrompt = `
+// <conversation_history>
+// ${fullPrompt}
+// </conversation_history>
 
-<instructions>
-Based on the conversation above, which files do you need to read to answer the user's question? Please list the file paths, one per line. It's recommended you include all files you have edited so far.
-</instructions>
-`
+// <instructions>
+// Based on the conversation above, which files do you need to read to answer the user's question? Please list the file paths, one per line. It's recommended you include all files you have edited so far.
+// </instructions>
+// `
           // Get updated system prompt (includes updated list of files)
           const system = getSystemPrompt()
 
-          const filesToReadResponse = await promptClaudeAndApplyFileChanges(
-            fileSelectionPrompt,
-            { system }
-          )
-          const fileContents = loadListedFiles(filesToReadResponse)
+          // const filesToReadResponse = await promptClaudeAndApplyFileChanges(
+          //   fileSelectionPrompt,
+          //   { system }
+          // )
+          // const fileContents = loadListedFiles(filesToReadResponse)
 
-          const finalPrompt = `${fullPrompt}\n\nRelevant file contents:\n\n${fileContents}`
+          // const finalPrompt = `${fullPrompt}\n\nRelevant file contents:\n\n${fileContents}`
 
           const claudeResponse = await promptClaudeAndApplyFileChanges(
-            finalPrompt,
+            fullPrompt,
             {
               system,
             }
