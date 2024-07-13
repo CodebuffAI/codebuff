@@ -18,7 +18,11 @@ The user has a coding question for you. Please provide a detailed response follo
 
 2. Implementation Strategy: Outline your approach to implement the requested changes.
 
-3. File Modifications: List all files that need to be modified or created, and they will be changed according to your instruction.
+3. Implementation Discussion and File Modifications:
+
+Think aloud step by step and start modifying files.
+
+You can list files that need to be modified or created, and they will be changed according to your instruction.
 For each file, provide one file block with the file path as an xml attribute and the updated file contents:
 ${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
 
@@ -41,9 +45,10 @@ function getDesktopNav() {
 </instructions>
 
 <important_reminders>
-- Always include imports: either reproduce the full list of imports, or add new imports with comments like " ... existing imports" and "// ... rest of imports". If the imports are not changed then include a comment: "// ... existing imports"
+- When modifying a file, always include imports: either reproduce the full list of imports, or add new imports with comments like " ... existing imports" and "// ... rest of imports". If the imports are not changed then include a comment: "// ... existing imports"
 - You may use comments like "// ... existing code ..." or " ... rest of the file" to indicate where existing code should be preserved, however it is good to provide a few other lines of context around the changes.
 - Ensure that you're providing enough context around the changes for accurate matching.
+- It is ok to make a mistake when editing a file, you just need to modify the file again. But know that previous changes will already have been made.
 </important_reminders>
 
 <example>
@@ -54,7 +59,9 @@ function getDesktopNav() {
    - Modify the Home page to import and use NewComponent
    - Ensure all necessary imports are added
 
-3. File Modifications:
+3. Implementation Discussion and File Modifications:
+
+I will start by creating a new component in a new file:
 
 ${createFileBlock(
   'web/components/NewComponent.tsx',
@@ -65,6 +72,8 @@ export const NewComponent: React.FC = () => {
 }
 `
 )}
+
+Next, I need to add it to the Home component. I shouldn't forget to import NewComponent.
 
 ${createFileBlock(
   'web/pages/Home.tsx',
