@@ -1,12 +1,30 @@
+import { z } from 'zod'
+
+export const ProjectFileContextSchema = z.object({
+  filePaths: z.array(z.string()),
+  files: z.record(z.string(), z.string()),
+  exportedTokens: z.record(z.string(), z.array(z.string())),
+})
+
+export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
+
 export const createFileBlock = (filePath: string, content: string) => {
-  return '<' + `file path="${filePath}">
+  return (
+    '<' +
+    `file path="${filePath}">
 ${content}
-</file` + '>'
+</file` +
+    '>'
+  )
 }
 export const createFileBlockWithoutPath = (content: string) => {
-  return '<' + `file>
+  return (
+    '<' +
+    `file>
 ${content}
-</file` + '>'
+</file` +
+    '>'
+  )
 }
 
 export const fileRegex = /<file path="([^"]+)">([\s\S]*?)<\/file>/g

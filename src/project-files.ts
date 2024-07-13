@@ -1,51 +1,37 @@
-import * as fs from 'fs'
-import * as path from 'path'
-import * as ts from 'typescript'
-import { createFileBlock } from './file'
+import fs from 'fs'
+import path from 'path'
+import ts from 'typescript'
 
-export function getSystemPrompt() {
-  const codeFiles = getOnlyCodeFiles()
-  const fileBlocks = getFileBlocks(codeFiles)
-
-  return `
-<project_files>
-Here are all the code files in our project.
-${fileBlocks}
-</project_files>
-
-<editing_instructions>
-To edit any files, please use the following schema.
-For each file, provide one file block with the file path as an xml attribute and the updated file contents:
-<file path="path/to/new/file.tsx">
-// Entire file contents here
-</file>
-
-To modify an existing file, use comments to indicate where existing code should be preserved:
-<file path="path/to/existing/file.tsx">
-// ... existing imports...
-
-// ... existing code ...
-
-function getDesktopNav() {
-  console.log('Hello from the desktop nav')
-
-  // ... rest of the function
-}
-
-// ... rest of the file
-</file>
-</editing_instructions>
-
-<important_instruction>
-Always end your response with the following marker:
-[END_OF_RESPONSE]
-If your response is cut off due to length limitations, do not include the marker and wait for a follow-up prompt to continue.
-</important_instruction>`
-}
+import {
+  createFileBlock,
+  ProjectFileContext,
+} from '@manicode/common/src/util/file'
+import { FileChanges } from 'common/src/actions'
 
 const projectRoot = path.normalize(path.resolve(__dirname, '..'))
 
-// Function to load file names of every file in the project
+export const applyChanges = (changes: FileChanges) => {
+  for (const { filePath, old, new: newContent } of changes) {
+    const fullPath = path.join(projectRoot, filePath)
+    const content = fs.readFileSync(fullPath, 'utf8')
+    const updatedContent = content.replace(old, newContent)
+    fs.writeFileSync(fullPath, updatedContent, 'utf8')
+    console.log(`Updated ${filePath}`)
+  }
+}
+
+export const getProjectFileContext = (): ProjectFileContext => {
+  const filePaths = getOnlyCodeFiles()
+  const files = getFiles(filePaths)
+  const exportedTokens = getExportedTokensForFiles(filePaths)
+
+  return {
+    filePaths,
+    files,
+    exportedTokens,
+  }
+}
+
 function loadAllProjectFiles(projectRoot: string): string[] {
   const allFiles: string[] = []
 
@@ -75,14 +61,10 @@ function loadAllProjectFiles(projectRoot: string): string[] {
 }
 
 function getOnlyCodeFiles() {
-  const excludedDirs = [
-    'node_modules',
-    'dist',
-  ]
+  const excludedDirs = ['node_modules', 'dist']
   const allProjectFiles = loadAllProjectFiles(projectRoot)
     .filter(
-      (file) =>
-        !excludedDirs.some((dir) => file.includes('/' + dir + '/'))
+      (file) => !excludedDirs.some((dir) => file.includes('/' + dir + '/'))
     )
     .filter(
       (file) =>
@@ -93,9 +75,17 @@ function getOnlyCodeFiles() {
   return allProjectFiles
 }
 
-function getFileBlocks(
-  filePaths: string[]
-) {
+function getFiles(filePaths: string[]) {
+  const result: Record<string, string> = {}
+  for (const filePath of filePaths) {
+    const fullPath = path.join(projectRoot, filePath)
+    const content = fs.readFileSync(fullPath, 'utf8')
+    result[filePath] = content
+  }
+  return result
+}
+
+function getFileBlocks(filePaths: string[]) {
   const result: Record<string, string> = {}
 
   for (const filePath of filePaths) {
