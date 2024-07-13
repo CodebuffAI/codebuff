@@ -85,7 +85,7 @@ export class APIRealtimeClient {
       this.receiveMessage(JSON.parse(ev.data as any))
     }
     this.ws.onerror = (ev) => {
-      console.error('API websocket error: ', ev)
+      console.error('API websocket error: ', ev.message)
       // this can fire without an onclose if this is the first time we ever try
       // to connect, so we need to turn on our reconnect in that case
       this.waitAndReconnect()

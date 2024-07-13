@@ -39,10 +39,18 @@ export const onWebsocketAction = (
 ) => {
   console.log('onAction', msg)
 
-  switch (msg.data.type) {
-    case 'user-input':
-      const { input, fileContext } = msg.data
-      onUserInput(ws, input, fileContext)
-      return
+  try {
+    switch (msg.data.type) {
+      case 'user-input':
+        const { input, fileContext } = msg.data
+        onUserInput(ws, input, fileContext)
+        return
+    }
+  } catch (e) {
+    console.error(
+      'Got error running websocket action',
+      msg,
+      e && typeof e === 'object' && 'message' in e ? e.message : e
+    )
   }
 }
