@@ -8,6 +8,7 @@ import {
   createFileBlockWithoutPath,
 } from '@manicode/common/src/util/file'
 import { getSystemPrompt } from './system-prompt'
+import { getTools } from './tools'
 
 export const getInitialPrompt = (userPrompt: string) => {
   return `
@@ -118,6 +119,7 @@ export async function promptClaudeAndGetFileChanges(
   >[] = []
 
   const system = getSystemPrompt(fileContext)
+  const tools = getTools()
 
   while (!isComplete) {
     const stream = promptClaudeStream(prompt, { system })
@@ -126,7 +128,6 @@ export async function promptClaudeAndGetFileChanges(
       fullResponse += chunk
       currentFileBlock += chunk
       onResponseChunk(chunk)
-      // process.stdout.write(chunk)
 
       const fileBlocks = parseFileBlocks(currentFileBlock)
       for (const [filePath, fileContent] of Object.entries(fileBlocks)) {
