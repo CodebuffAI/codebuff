@@ -11,13 +11,19 @@ import { FileChanges } from 'common/src/actions'
 const projectRoot = path.normalize(path.resolve(__dirname, '..'))
 
 export const applyChanges = (changes: FileChanges) => {
-  for (const { filePath, old, new: newContent } of changes) {
+  const changesSuceeded = []
+  for (const change of changes) {
+    const { filePath, old, new: newContent } = change
     const fullPath = path.join(projectRoot, filePath)
     const content = fs.readFileSync(fullPath, 'utf8')
     const updatedContent = content.replace(old, newContent)
-    fs.writeFileSync(fullPath, updatedContent, 'utf8')
-    console.log(`Updated ${filePath}`)
+    if (updatedContent !== content) {
+      fs.writeFileSync(fullPath, updatedContent, 'utf8')
+      console.log(`Updated ${filePath}`)
+      changesSuceeded.push(change)
+    }
   }
+  return changesSuceeded
 }
 
 export const getProjectFileContext = (): ProjectFileContext => {

@@ -27,7 +27,7 @@ runScript(async () => {
 })
 
 interface ConversationEntry {
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
 }
 
@@ -37,7 +37,16 @@ async function manicode(userPrompt: string | undefined) {
   await ws.connect()
 
   ws.subscribe('change-files', (a) => {
-    applyChanges(a.changes)
+    const changesSuceeded = applyChanges(a.changes)
+
+    const content =
+      `The following files were updated based on the assistant's instruction:\n` +
+      changesSuceeded.map(({ filePath }) => filePath).join('\n')
+
+    conversationHistory.push({
+      role: 'system',
+      content,
+    })
   })
 
   const rl = readline.createInterface({
@@ -52,7 +61,12 @@ async function manicode(userPrompt: string | undefined) {
 
     const fullPrompt = conversationHistory
       .map(({ role, content }) => {
-        const label = role === 'user' ? 'The user said:' : 'The assistant said:'
+        const label =
+          role === 'user'
+            ? 'The user said:'
+            : role === 'assistant'
+              ? 'The assistant said:'
+              : 'System:'
         return `${label}\n\n${content}`
       })
       .join('\n\n')
