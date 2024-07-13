@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from '@manicode/common'
+import { Message } from 'common/src/actions'
 
 export const models = {
   sonnet: 'claude-3-5-sonnet-20240620' as const,
@@ -10,7 +11,7 @@ export const models = {
 export type model_types = (typeof models)[keyof typeof models]
 
 export const promptClaudeStream = async function* (
-  prompt: string,
+  messages: Message[],
   options: { system?: string; tools?: Tool[]; model?: model_types } = {}
 ): AsyncGenerator<string, void, unknown> {
   const { model = models.sonnet, system, tools } = options
@@ -28,14 +29,9 @@ export const promptClaudeStream = async function* (
       model,
       max_tokens: 4096,
       temperature: 0,
+      messages,
       system,
       tools,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
     })
   )
 
@@ -83,7 +79,10 @@ export const promptClaude = async (
   options: { system?: string; tools?: Tool[]; model?: model_types } = {}
 ) => {
   let fullResponse = ''
-  for await (const chunk of promptClaudeStream(prompt, options)) {
+  for await (const chunk of promptClaudeStream(
+    [{ role: 'user', content: prompt }],
+    options
+  )) {
     fullResponse += chunk
   }
   return fullResponse

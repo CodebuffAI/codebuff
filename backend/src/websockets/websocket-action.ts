@@ -2,7 +2,7 @@ import { WebSocket } from 'ws'
 import { ClientMessage } from '@manicode/common/src/websockets/websocket-schema'
 import { ProjectFileContext } from 'common/src/util/file'
 import { promptClaudeAndGetFileChanges } from '../prompts'
-import { ServerAction } from 'common/src/actions'
+import { ClientAction, ServerAction } from 'common/src/actions'
 import { sendMessage } from './server'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
@@ -14,11 +14,10 @@ const sendAction = (ws: WebSocket, action: ServerAction) => {
 
 const onUserInput = async (
   ws: WebSocket,
-  input: string,
-  fileContext: ProjectFileContext
+  { messages, fileContext }: Extract<ClientAction, { type: 'user-input' }>
 ) => {
   const { changes } = await promptClaudeAndGetFileChanges(
-    input,
+    messages,
     fileContext,
     (chunk) =>
       sendAction(ws, {
@@ -33,7 +32,7 @@ const onUserInput = async (
   })
 }
 
-export const onWebsocketAction = (
+export const onWebsocketAction = async (
   ws: WebSocket,
   msg: ClientMessage & { type: 'action' }
 ) => {
@@ -42,8 +41,7 @@ export const onWebsocketAction = (
   try {
     switch (msg.data.type) {
       case 'user-input':
-        const { input, fileContext } = msg.data
-        onUserInput(ws, input, fileContext)
+        await onUserInput(ws, msg.data)
         return
     }
   } catch (e) {

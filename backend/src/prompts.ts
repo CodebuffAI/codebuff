@@ -9,6 +9,7 @@ import {
 } from '@manicode/common/src/util/file'
 import { getSystemPrompt } from './system-prompt'
 import { getTools } from './tools'
+import { Message } from 'common/src/actions'
 
 export const getInitialPrompt = (userPrompt: string) => {
   return `
@@ -106,12 +107,12 @@ ${userPrompt}`
 }
 
 export async function promptClaudeAndGetFileChanges(
-  prompt: string,
+  messages: Message[],
   fileContext: ProjectFileContext,
   onResponseChunk: (chunk: string) => void
 ) {
-  const originalPrompt = prompt
   let fullResponse = ''
+  let continuedMessage: Message | null = null
   let currentFileBlock = ''
   let isComplete = false
   const fileProcessingPromises: Promise<
@@ -122,7 +123,10 @@ export async function promptClaudeAndGetFileChanges(
   const tools = getTools()
 
   while (!isComplete) {
-    const stream = promptClaudeStream(prompt, { system })
+    const messagesWithContinuedMessage = continuedMessage
+      ? [...messages, continuedMessage]
+      : messages
+    const stream = promptClaudeStream(messagesWithContinuedMessage, { system })
 
     for await (const chunk of stream) {
       fullResponse += chunk
@@ -142,14 +146,10 @@ export async function promptClaudeAndGetFileChanges(
       isComplete = true
       fullResponse = fullResponse.replace('[END_OF_RESPONSE]', '')
     } else {
-      prompt = `Please continue your previous response. Remember to end with [END_OF_RESPONSE] when you've completed your full answer.
-
-<original_prompt>
-${originalPrompt}
-</original_prompt>
-
-Continue from the very next character of your response:
-${fullResponse}`
+      continuedMessage = {
+        role: 'assistant',
+        content: fullResponse,
+      }
     }
   }
 
@@ -162,12 +162,12 @@ ${fullResponse}`
 }
 
 async function promptClaudeWithContinuation(
-  prompt: string,
+  messages: Message[],
   options: { system?: string; model?: model_types } = {}
 ) {
   let fullResponse = ''
+  let continuedMessage: Message | null = null
   let isComplete = false
-  const originalPrompt = prompt
 
   // Add the instruction to end with [END_OF_RESPONSE] to the system prompt
   if (options.system) {
@@ -177,7 +177,10 @@ async function promptClaudeWithContinuation(
   }
 
   while (!isComplete) {
-    const stream = promptClaudeStream(prompt, options)
+    const messagesWithContinuedMessage = continuedMessage
+      ? [...messages, continuedMessage]
+      : messages
+    const stream = promptClaudeStream(messagesWithContinuedMessage, options)
 
     for await (const chunk of stream) {
       fullResponse += chunk
@@ -187,14 +190,10 @@ async function promptClaudeWithContinuation(
       isComplete = true
       fullResponse = fullResponse.replace('[END_OF_RESPONSE]', '')
     } else {
-      prompt = `Please continue your previous response. Remember to end with [END_OF_RESPONSE] when you've completed your full answer.
-
-<original_prompt>
-${originalPrompt}
-</original_prompt>
-
-Continue from the very next character of your response (the next char could even be '\n'):
-${fullResponse}`
+      continuedMessage = {
+        role: 'assistant',
+        content: fullResponse,
+      }
     }
   }
 
@@ -590,7 +589,9 @@ ${newContent}
 Your Response:
 `
 
-  const diffResponse = await promptClaudeWithContinuation(prompt)
+  const diffResponse = await promptClaudeWithContinuation([
+    { role: 'user', content: prompt },
+  ])
 
   const diffBlocks: { oldContent: string; newContent: string }[] = []
   const fileContents = parseFileBlocksWithoutPath(diffResponse)

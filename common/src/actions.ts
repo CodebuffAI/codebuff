@@ -1,6 +1,12 @@
 import { z } from 'zod'
 import { ProjectFileContextSchema } from './util/file'
 
+const MessageSchema = z.object({
+  role: z.union([z.literal('user'), z.literal('assistant')]),
+  content: z.string(),
+})
+export type Message = z.infer<typeof MessageSchema>
+
 const CHANGES = z.array(
   z.object({
     filePath: z.string(),
@@ -13,7 +19,7 @@ export type FileChanges = z.infer<typeof CHANGES>
 export const CLIENT_ACTIONS = {
   userInput: z.object({
     type: z.literal('user-input'),
-    input: z.string(),
+    messages: z.array(MessageSchema),
     fileContext: ProjectFileContextSchema,
   }),
   somethingElse: z.object({

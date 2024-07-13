@@ -4,6 +4,8 @@ import * as readline from 'readline'
 import { ProjectFileContext } from '@manicode/common/src/util/file'
 import { applyChanges, getProjectFileContext } from './project-files'
 import { APIRealtimeClient } from 'common/src/websockets/websocket-client'
+import { Message } from 'common/src/actions'
+import { last } from 'lodash'
 
 const runScript = (fn: () => Promise<void>) => {
   // Load environment variables from .env file
@@ -26,11 +28,6 @@ runScript(async () => {
   await manicode(userPrompt)
 })
 
-interface ConversationEntry {
-  role: 'user' | 'assistant' | 'system'
-  content: string
-}
-
 async function manicode(userPrompt: string | undefined) {
   const websockedUrl = 'ws://localhost:3000/ws'
   const ws = new APIRealtimeClient(websockedUrl)
@@ -43,8 +40,8 @@ async function manicode(userPrompt: string | undefined) {
       `The following files were updated based on the assistant's instruction:\n` +
       changesSuceeded.map(({ filePath }) => filePath).join('\n')
 
-    conversationHistory.push({
-      role: 'system',
+    messageHistory.push({
+      role: 'user',
       content,
     })
   })
@@ -54,33 +51,26 @@ async function manicode(userPrompt: string | undefined) {
     output: process.stdout,
   })
 
-  const conversationHistory: ConversationEntry[] = []
+  const messageHistory: Message[] = []
 
   const handleUserInput = async (userInput: string) => {
-    conversationHistory.push({ role: 'user', content: userInput })
-
-    const fullPrompt = conversationHistory
-      .map(({ role, content }) => {
-        const label =
-          role === 'user'
-            ? 'The user said:'
-            : role === 'assistant'
-              ? 'The assistant said:'
-              : 'System:'
-        return `${label}\n\n${content}`
-      })
-      .join('\n\n')
+    const lastMessage = last(messageHistory)
+    if (lastMessage && lastMessage.role === 'user') {
+      lastMessage.content += `\n\n${userInput}`
+    } else {
+      messageHistory.push({ role: 'user', content: userInput })
+    }
 
     // Get updated file context
     const fileContext = getProjectFileContext()
 
     const claudeResponse = await sendUserInputAndAwaitResponse(
       ws,
-      fullPrompt,
+      messageHistory,
       fileContext
     )
 
-    conversationHistory.push({
+    messageHistory.push({
       role: 'assistant',
       content: claudeResponse,
     })
@@ -110,7 +100,7 @@ async function manicode(userPrompt: string | undefined) {
 
 async function sendUserInputAndAwaitResponse(
   ws: APIRealtimeClient,
-  input: string,
+  messageHistory: Message[],
   fileContext: ProjectFileContext
 ) {
   let response = ''
@@ -128,7 +118,7 @@ async function sendUserInputAndAwaitResponse(
 
     ws.sendAction({
       type: 'user-input',
-      input,
+      messages: messageHistory,
       fileContext,
     })
   })
