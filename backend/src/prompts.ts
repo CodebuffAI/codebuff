@@ -1,3 +1,4 @@
+import { Tool } from '@anthropic-ai/sdk/resources'
 import { promptClaudeStream, promptClaude, model_types } from './claude'
 import {
   ProjectFileContext,
@@ -10,6 +11,7 @@ import {
 import { getSystemPrompt } from './system-prompt'
 import { getTools } from './tools'
 import { Message } from 'common/src/actions'
+import { ToolCall } from 'common/src/actions'
 
 export const getInitialPrompt = (userPrompt: string) => {
   return `
@@ -112,6 +114,7 @@ export async function promptClaudeAndGetFileChanges(
   onResponseChunk: (chunk: string) => void
 ) {
   let fullResponse = ''
+  let toolCall: ToolCall | null = null
   let continuedMessage: Message | null = null
   let currentFileBlock = ''
   let isComplete = false
@@ -126,29 +129,51 @@ export async function promptClaudeAndGetFileChanges(
     const messagesWithContinuedMessage = continuedMessage
       ? [...messages, continuedMessage]
       : messages
-    const stream = promptClaudeStream(messagesWithContinuedMessage, { system })
+    const stream = promptClaudeStream(messagesWithContinuedMessage, {
+      system,
+      tools,
+    })
+
+    const fileBlocksFromToolCalls = parseFileBlocks(
+      messages
+        .filter((m) => typeof m.content === 'object')
+        .map((m) => m.content)
+        .flat()
+        .filter(
+          (c) =>
+            typeof c === 'object' && 'type' in c && c.type === 'tool_result'
+        )
+        .map((c) => (c as any).content as string)
+        .join('\n')
+    )
 
     for await (const chunk of stream) {
+      if (typeof chunk === 'object') {
+        toolCall = chunk
+        isComplete = true
+        break
+      }
+
       fullResponse += chunk
       currentFileBlock += chunk
       onResponseChunk(chunk)
 
       const fileBlocks = parseFileBlocks(currentFileBlock)
-      for (const [filePath, fileContent] of Object.entries(fileBlocks)) {
+      for (const [filePath, newFileContent] of Object.entries(fileBlocks)) {
+        const oldContent: string | undefined = fileBlocksFromToolCalls[filePath]
         fileProcessingPromises.push(
-          processFileBlock(fileContext, filePath, fileContent)
+          processFileBlock(fileContext, filePath, oldContent, newFileContent)
         )
       }
       currentFileBlock = currentFileBlock.replace(fileRegex, '')
-    }
-
-    if (fullResponse.includes('[END_OF_RESPONSE]')) {
-      isComplete = true
-      fullResponse = fullResponse.replace('[END_OF_RESPONSE]', '')
-    } else {
-      continuedMessage = {
-        role: 'assistant',
-        content: fullResponse,
+      if (fullResponse.includes('[END_OF_RESPONSE]')) {
+        isComplete = true
+        fullResponse = fullResponse.replace('[END_OF_RESPONSE]', '')
+      } else {
+        continuedMessage = {
+          role: 'assistant',
+          content: fullResponse,
+        }
       }
     }
   }
@@ -158,14 +183,16 @@ export async function promptClaudeAndGetFileChanges(
   return {
     response: fullResponse,
     changes,
+    toolCall,
   }
 }
 
 async function promptClaudeWithContinuation(
   messages: Message[],
-  options: { system?: string; model?: model_types } = {}
+  options: { system?: string; tools?: Tool[]; model?: model_types } = {}
 ) {
   let fullResponse = ''
+  let toolCall: ToolCall | null = null
   let continuedMessage: Message | null = null
   let isComplete = false
 
@@ -180,9 +207,15 @@ async function promptClaudeWithContinuation(
     const messagesWithContinuedMessage = continuedMessage
       ? [...messages, continuedMessage]
       : messages
+    console.log('prompt claude with continuation', messagesWithContinuedMessage)
     const stream = promptClaudeStream(messagesWithContinuedMessage, options)
 
     for await (const chunk of stream) {
+      if (typeof chunk === 'object') {
+        toolCall = chunk
+        isComplete = true
+        break
+      }
       fullResponse += chunk
     }
 
@@ -197,23 +230,29 @@ async function promptClaudeWithContinuation(
     }
   }
 
-  return fullResponse
+  return { response: fullResponse, toolCall }
 }
 
 async function processFileBlock(
   fileContext: ProjectFileContext,
   filePath: string,
-  fileContent: string
+  oldContent: string | undefined,
+  newContent: string
 ) {
-  const currentContent = fileContext.files[filePath]
+  const fileExisted = fileContext.filePaths.includes(filePath)
 
-  if (!currentContent) {
+  if (!fileExisted) {
     console.log(`Created new file: ${filePath}`)
-    return [{ filePath, old: '', new: fileContent }]
+    return [{ filePath, old: '', new: newContent }]
+  }
+
+  if (!oldContent) {
+    console.error('Old content not found for file: ', filePath)
+    return []
   }
   // File exists, generate diff
-  const diffBlocks = await generateDiffBlocks(currentContent, fileContent)
-  let updatedContent = currentContent
+  const diffBlocks = await generateDiffBlocks(oldContent, newContent)
+  let updatedContent = oldContent
 
   const changes: { filePath: string; old: string; new: string }[] = []
   for (const { oldContent, newContent } of diffBlocks) {
@@ -259,7 +298,7 @@ async function processFileBlock(
     }
   }
 
-  if (updatedContent === currentContent) {
+  if (updatedContent === oldContent) {
     console.log(`No changes made to file: ${filePath}`)
     return []
   }
@@ -589,12 +628,12 @@ ${newContent}
 Your Response:
 `
 
-  const diffResponse = await promptClaudeWithContinuation([
+  const { response } = await promptClaudeWithContinuation([
     { role: 'user', content: prompt },
   ])
 
   const diffBlocks: { oldContent: string; newContent: string }[] = []
-  const fileContents = parseFileBlocksWithoutPath(diffResponse)
+  const fileContents = parseFileBlocksWithoutPath(response)
   for (const fileContent of fileContents) {
     const blockRegex = /<old>([\s\S]*?)<\/old>\s*<new>([\s\S]*?)<\/new>/g
     let blockMatch

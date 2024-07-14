@@ -28,12 +28,10 @@ export const applyChanges = (changes: FileChanges) => {
 
 export const getProjectFileContext = (): ProjectFileContext => {
   const filePaths = getOnlyCodeFiles()
-  const files = getFiles(filePaths)
   const exportedTokens = getExportedTokensForFiles(filePaths)
 
   return {
     filePaths,
-    files,
     exportedTokens,
   }
 }
@@ -91,7 +89,7 @@ function getFiles(filePaths: string[]) {
   return result
 }
 
-function getFileBlocks(filePaths: string[]) {
+export function getFileBlocks(filePaths: string[]) {
   const result: Record<string, string> = {}
 
   for (const filePath of filePaths) {

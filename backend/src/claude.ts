@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from '@manicode/common'
-import { Message } from 'common/src/actions'
+import { Message, ToolCall } from 'common/src/actions'
 
 export const models = {
   sonnet: 'claude-3-5-sonnet-20240620' as const,
@@ -13,7 +13,7 @@ export type model_types = (typeof models)[keyof typeof models]
 export const promptClaudeStream = async function* (
   messages: Message[],
   options: { system?: string; tools?: Tool[]; model?: model_types } = {}
-): AsyncGenerator<string, void, unknown> {
+): AsyncGenerator<string | ToolCall, void, unknown> {
   const { model = models.sonnet, system, tools } = options
 
   const apiKey = process.env.ANTHROPIC_API_KEY
@@ -39,7 +39,6 @@ export const promptClaudeStream = async function* (
     name: '',
     id: '',
     json: '',
-    input: {},
   }
   for await (const chunk of stream) {
     const { type } = chunk
@@ -53,11 +52,10 @@ export const promptClaudeStream = async function* (
       type === 'content_block_start' &&
       chunk.content_block.type === 'tool_use'
     ) {
-      const { name, id, input } = chunk.content_block
+      const { name, id } = chunk.content_block
       toolInfo = {
         name,
         id,
-        input: input as {},
         json: '',
       }
     }
@@ -68,8 +66,9 @@ export const promptClaudeStream = async function* (
       toolInfo.json += chunk.delta.partial_json
     }
     if (type === 'message_delta' && chunk.delta.stop_reason === 'tool_use') {
-      const { name, id, input, json } = toolInfo
-      // yield { name, id, input, json }
+      const { name, id, json } = toolInfo
+      const input = JSON.parse(json)
+      yield { name, id, input }
     }
   }
 }

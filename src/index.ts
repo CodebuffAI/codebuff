@@ -2,7 +2,11 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
 import { ProjectFileContext } from '@manicode/common/src/util/file'
-import { applyChanges, getProjectFileContext } from './project-files'
+import {
+  applyChanges,
+  getProjectFileContext,
+  getFileBlocks,
+} from './project-files'
 import { APIRealtimeClient } from 'common/src/websockets/websocket-client'
 import { Message } from 'common/src/actions'
 import { last } from 'lodash'
@@ -36,14 +40,59 @@ async function manicode(userPrompt: string | undefined) {
   ws.subscribe('change-files', (a) => {
     const changesSuceeded = applyChanges(a.changes)
 
-    const content =
-      `The following files were updated based on the assistant's instruction:\n` +
-      changesSuceeded.map(({ filePath }) => filePath).join('\n')
+    if (changesSuceeded.length > 0) {
+      const content =
+        `The following files were updated based on the assistant's instruction:\n` +
+        changesSuceeded.map(({ filePath }) => filePath).join('\n')
+
+      messageHistory.push({
+        role: 'user',
+        content,
+      })
+    }
+  })
+
+  ws.subscribe('tool-call', (a) => {
+    const { response, data } = a
+    const { id, name, input } = data
 
     messageHistory.push({
-      role: 'user',
-      content,
+      role: 'assistant',
+      content: [
+        {
+          type: 'text',
+          text: response,
+        },
+        {
+          type: 'tool_use',
+          id,
+          name,
+          input,
+        },
+      ],
     })
+
+    if (name === 'read_files') {
+      const { file_paths } = input
+      const files = getFileBlocks(file_paths)
+
+      messageHistory.push({
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: id,
+            content: files,
+          },
+        ],
+      })
+
+      ws.sendAction({
+        type: 'user-input',
+        messages: messageHistory,
+        fileContext: getProjectFileContext(),
+      })
+    }
   })
 
   const rl = readline.createInterface({

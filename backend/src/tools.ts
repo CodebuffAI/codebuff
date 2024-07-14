@@ -14,7 +14,6 @@ export const getTools = (): Tool[] => {
           },
         },
       },
-      required: 'file_paths',
     } as Tool,
   ]
 }

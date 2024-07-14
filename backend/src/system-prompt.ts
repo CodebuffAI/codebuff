@@ -1,14 +1,17 @@
-import { ProjectFileContext, createFileBlock } from '@manicode/common/src/util/file'
+import { ProjectFileContext } from '@manicode/common/src/util/file'
 
 export function getSystemPrompt(fileContext: ProjectFileContext) {
-  const { filePaths, files, exportedTokens } = fileContext
-
-  const fileBlocks = Object.keys(files).map(filePath => createFileBlock(filePath, files[filePath]))
+  const { filePaths, exportedTokens } = fileContext
 
   return `
 <project_files>
 Here are all the code files in our project.
-${fileBlocks.join('\n')}
+${filePaths
+  .map((path) => {
+    const tokens = exportedTokens[path] ?? []
+    return tokens.length === 0 ? path : `${path} ${tokens.join(',')}`
+  })
+  .join('\n')}
 </project_files>
 
 <editing_instructions>

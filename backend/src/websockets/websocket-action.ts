@@ -16,7 +16,7 @@ const onUserInput = async (
   ws: WebSocket,
   { messages, fileContext }: Extract<ClientAction, { type: 'user-input' }>
 ) => {
-  const { changes } = await promptClaudeAndGetFileChanges(
+  const { changes, toolCall, response } = await promptClaudeAndGetFileChanges(
     messages,
     fileContext,
     (chunk) =>
@@ -26,10 +26,20 @@ const onUserInput = async (
       })
   )
 
-  sendAction(ws, {
-    type: 'change-files',
-    changes,
-  })
+  if (changes.length > 0) {
+    sendAction(ws, {
+      type: 'change-files',
+      changes,
+    })
+  }
+
+  if (toolCall) {
+    sendAction(ws, {
+      type: 'tool-call',
+      response,
+      data: toolCall,
+    })
+  }
 }
 
 export const onWebsocketAction = async (

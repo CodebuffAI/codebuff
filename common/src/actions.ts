@@ -3,7 +3,28 @@ import { ProjectFileContextSchema } from './util/file'
 
 const MessageSchema = z.object({
   role: z.union([z.literal('user'), z.literal('assistant')]),
-  content: z.string(),
+  content: z.union([
+    z.string(),
+    z.array(
+      z.union([
+        z.object({
+          type: z.literal('text'),
+          text: z.string(),
+        }),
+        z.object({
+          type: z.literal('tool_use'),
+          id: z.string(),
+          name: z.string(),
+          input: z.record(z.string(), z.any()),
+        }),
+        z.object({
+          type: z.literal('tool_result'),
+          tool_use_id: z.string(),
+          content: z.string(),
+        }),
+      ])
+    ),
+  ]),
 })
 export type Message = z.infer<typeof MessageSchema>
 
@@ -15,6 +36,13 @@ const CHANGES = z.array(
   })
 )
 export type FileChanges = z.infer<typeof CHANGES>
+
+export const ToolCallSchema = z.object({
+  name: z.string(),
+  id: z.string(),
+  input: z.record(z.string(), z.any()),
+})
+export type ToolCall = z.infer<typeof ToolCallSchema>
 
 export const CLIENT_ACTIONS = {
   userInput: z.object({
@@ -43,9 +71,15 @@ export const SERVER_ACTIONS = {
     type: z.literal('change-files'),
     changes: CHANGES,
   }),
+  toolCall: z.object({
+    type: z.literal('tool-call'),
+    response: z.string(),
+    data: ToolCallSchema,
+  }),
 }
 export const SERVER_ACTION_SCHEMA = z.union([
   SERVER_ACTIONS.responseChunk,
   SERVER_ACTIONS.changeFiles,
+  SERVER_ACTIONS.toolCall,
 ])
 export type ServerAction = z.infer<typeof SERVER_ACTION_SCHEMA>
