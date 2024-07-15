@@ -149,3 +149,10 @@ This file contains various ideas about how Manicode could work. Most of them are
     - Share manicode rank
     - Share wins: Your prompt, and the result
     - Refer friends. Get $15 credit each
+
+
+
+Wish list
+- Give the assistant full command of the terminal so it can run stuff like `yarn add` or `git commit`
+- Use the up and down arrow keys to scroll through previous messages. Use escape to show menu, and keys to navigate (e.g. to create a new chat, exit, etc.)
+- Add a rigorous testing suite to make sure each prompt is working as intended across many cases.
