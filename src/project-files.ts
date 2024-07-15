@@ -27,12 +27,17 @@ export const applyChanges = (changes: FileChanges) => {
 }
 
 export const getProjectFileContext = (): ProjectFileContext => {
-  const filePaths = getOnlyCodeFiles()
+  const filePaths = getProjectFilePaths()
+  const knowledgeFilePaths = filePaths.filter((filePath) =>
+    filePath.endsWith('knowledge.md')
+  )
+  const knowledgeFiles = getKnowledgeFiles(knowledgeFilePaths)
   const exportedTokens = getExportedTokensForFiles(filePaths)
 
   return {
     filePaths,
     exportedTokens,
+    knowledgeFiles,
   }
 }
 
@@ -64,19 +69,18 @@ function loadAllProjectFiles(projectRoot: string): string[] {
   return allFiles
 }
 
-function getOnlyCodeFiles() {
-  const excludedDirs = ['node_modules', 'dist']
+function getProjectFilePaths() {
+  const excludedDirs = ['node_modules', 'dist', '.git']
   const allProjectFiles = loadAllProjectFiles(projectRoot)
     .filter(
       (file) => !excludedDirs.some((dir) => file.includes('/' + dir + '/'))
     )
-    .filter(
-      (file) =>
-        file.endsWith('.ts') || file.endsWith('.tsx') || file.endsWith('.sql')
-    )
-    .filter((file) => !file.endsWith('.d.ts'))
     .map((file) => file.replace(projectRoot + '/', ''))
   return allProjectFiles
+}
+
+function getKnowledgeFiles(knowledgeFilePaths: string[]) {
+  return getFiles(knowledgeFilePaths)
 }
 
 function getFiles(filePaths: string[]) {
