@@ -39,7 +39,7 @@ ${Object.entries(knowledgeFiles)
 
 You have access to all the files in the project. Before producing advise or code, you should first review all the relevant files. Start by reading a few files, and then decide if you should read more. You can do this by using the read_files tool and passing it the list of file paths to read those files. In particular, whenever you are going to edit a file, you should use the read_files tool first.
 
-Here is a list of all the files in our project, along with their exported tokens (if any):
+Here is a list of all the files in our project, along with their exported tokens (if any). If a file is not listed here, it does not exist.
 
 <project_files>
 ${filePaths
@@ -51,13 +51,12 @@ ${filePaths
 </project_files>
 
 <editing_instructions>
-To edit any files, please use the following schema.
-For each file, provide one file block with the file path as an xml attribute and the updated file contents:
-<file path="path/to/new/file.tsx">
-// Entire file contents here
-</file>
+To create a new file, simply provide a file block with the file path as an xml attribute and the file contents:
+${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
 
-To modify an existing file, use comments to indicate where existing code should be preserved:
+If the file already exists, this will overwrite the file with the new contents.
+
+When modifying an existing file, use comments to indicate where existing code should be preserved:
 <file path="path/to/existing/file.tsx">
 // ... existing imports...
 

@@ -16,6 +16,9 @@ const onUserInput = async (
   ws: WebSocket,
   { messages, fileContext }: Extract<ClientAction, { type: 'user-input' }>
 ) => {
+  const lastMessage = messages[messages.length - 1]
+  if (typeof lastMessage.content === 'string')
+    console.log('Input:', lastMessage)
   const { changes, toolCall, response } = await promptClaudeAndGetFileChanges(
     messages,
     fileContext,
@@ -34,6 +37,7 @@ const onUserInput = async (
   }
 
   if (toolCall) {
+    console.log('toolCall', toolCall.name, toolCall.input)
     sendAction(ws, {
       type: 'tool-call',
       response,
@@ -46,8 +50,6 @@ export const onWebsocketAction = async (
   ws: WebSocket,
   msg: ClientMessage & { type: 'action' }
 ) => {
-  console.log('onAction', msg)
-
   try {
     switch (msg.data.type) {
       case 'user-input':

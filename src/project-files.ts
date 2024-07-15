@@ -15,11 +15,19 @@ export const applyChanges = (changes: FileChanges) => {
   for (const change of changes) {
     const { filePath, old, new: newContent } = change
     const fullPath = path.join(projectRoot, filePath)
-    const content = fs.readFileSync(fullPath, 'utf8')
-    const updatedContent = content.replace(old, newContent)
+    let content = ''
+    let updatedContent = newContent
+
+    const fileAlreadyExists = fs.existsSync(fullPath)
+    if (fileAlreadyExists) {
+      content = fs.readFileSync(fullPath, 'utf8')
+      updatedContent = content.replace(old, newContent)
+    }
+
     if (updatedContent !== content) {
+      fs.mkdirSync(path.dirname(fullPath), { recursive: true })
       fs.writeFileSync(fullPath, updatedContent, 'utf8')
-      console.log(`Updated ${filePath}`)
+      console.log(fileAlreadyExists ? 'Updated' : 'Created', filePath)
       changesSuceeded.push(change)
     }
   }
@@ -102,8 +110,20 @@ export function getFileBlocks(filePaths: string[]) {
       const content = fs.readFileSync(fullPath, 'utf8')
       result[filePath] = content
     } catch (error) {
-      console.error(`Error reading file ${fullPath}:`, error)
-      result[filePath] = ''
+      const fileDoesNotExist =
+        error instanceof Error &&
+        error.message.includes('no such file or directory')
+
+      result[filePath] = fileDoesNotExist
+        ? '[FILE_DOES_NOT_EXIST]'
+        : '[FILE_READ_ERROR]'
+
+      if (!fileDoesNotExist) {
+        console.error(
+          `Error reading file ${fullPath}:`,
+          error instanceof Error ? error.message : error
+        )
+      }
     }
   }
 
