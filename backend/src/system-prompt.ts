@@ -60,8 +60,9 @@ ${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
 If the file already exists, this will overwrite the file with the new contents.
 
 When modifying an existing file, use comments to indicate where existing code should be preserved:
-<file path="path/to/existing/file.tsx">
-// ... existing imports...
+${createFileBlock(
+  'path/to/existing/file.tsx',
+  `// ... existing imports...
 
 // ... existing code ...
 
@@ -72,7 +73,8 @@ function getDesktopNav() {
 }
 
 // ... rest of the file
-</file>
+`
+)}
 </editing_instructions>
 
 # Response format
