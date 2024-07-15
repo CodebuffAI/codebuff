@@ -2,6 +2,7 @@ import {
   ProjectFileContext,
   createFileBlock,
 } from '@manicode/common/src/util/file'
+import { STOP_MARKER } from '@manicode/common/src/prompts'
 
 export function getSystemPrompt(fileContext: ProjectFileContext) {
   const { filePaths, exportedTokens, knowledgeFiles } = fileContext
@@ -37,7 +38,9 @@ ${Object.entries(knowledgeFiles)
 
 # Coding
 
-You have access to all the files in the project. Before producing advise or code, you should first review all the relevant files. Start by reading a few files, and then decide if you should read more. You can do this by using the read_files tool and passing it the list of file paths to read those files. In particular, whenever you are going to edit a file, you should use the read_files tool first.
+You have access to all the files in the project. Before producing advice or code, you should first review all the relevant files. Start by reading a few files, and then decide if you should read more. You can do this by using the read_files tool and passing it the list of file paths to read those files. In particular, whenever you are going to edit a file, you should use the read_files tool first, unless the file does not exist.
+
+Only attempt to read files that are listed in the <project_files> section below. If a file is not listed there, it does not exist in the project, and you should not try to read it.
 
 Here is a list of all the files in our project, along with their exported tokens (if any). If a file is not listed here, it does not exist.
 
@@ -78,7 +81,7 @@ Continue as long as you are making progress toward the user's request.
 
 <important_instruction>
 Always end your response with the following marker:
-[END_OF_RESPONSE]
+${STOP_MARKER}
 If your response is cut off due to length limitations, do not include the marker and wait for a follow-up prompt to continue.
 This marker helps ensure that your entire response has been received and processed correctly.
 </important_instruction>`

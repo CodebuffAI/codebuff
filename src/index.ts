@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
+import { last } from 'lodash'
 import { ProjectFileContext } from '@manicode/common/src/util/file'
 import {
   applyChanges,
@@ -9,7 +10,7 @@ import {
 } from './project-files'
 import { APIRealtimeClient } from 'common/src/websockets/websocket-client'
 import { Message } from 'common/src/actions'
-import { last } from 'lodash'
+import { STOP_MARKER } from '@manicode/common/src/prompts'
 
 const runScript = (fn: () => Promise<void>) => {
   // Load environment variables from .env file
@@ -159,7 +160,7 @@ async function sendUserInputAndAwaitResponse(
       process.stdout.write(chunk)
       response += chunk
 
-      if (response.includes('[END_OF_RESPONSE]')) {
+      if (response.includes(STOP_MARKER)) {
         unsubscribe()
         resolve(response)
       }

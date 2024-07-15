@@ -9,6 +9,7 @@ import {
   createFileBlockWithoutPath,
 } from '@manicode/common/src/util/file'
 import { getSystemPrompt } from './system-prompt'
+import { STOP_MARKER } from '@manicode/common/src/prompts'
 import { getTools } from './tools'
 import { Message } from 'common/src/actions'
 import { ToolCall } from 'common/src/actions'
@@ -166,9 +167,9 @@ export async function promptClaudeAndGetFileChanges(
         )
       }
       currentFileBlock = currentFileBlock.replace(fileRegex, '')
-      if (fullResponse.includes('[END_OF_RESPONSE]')) {
+      if (fullResponse.includes(STOP_MARKER)) {
         isComplete = true
-        fullResponse = fullResponse.replace('[END_OF_RESPONSE]', '')
+        fullResponse = fullResponse.replace(STOP_MARKER, '')
       } else {
         continuedMessage = {
           role: 'assistant',
@@ -196,11 +197,11 @@ async function promptClaudeWithContinuation(
   let continuedMessage: Message | null = null
   let isComplete = false
 
-  // Add the instruction to end with [END_OF_RESPONSE] to the system prompt
+  // Add the instruction to end with the stop market to the system prompt
   if (options.system) {
-    options.system += '\n\nAlways end your response with "[END_OF_RESPONSE]".'
+    options.system += `\n\nAlways end your response with "${STOP_MARKER}".`
   } else {
-    options.system = 'Always end your response with "[END_OF_RESPONSE]".'
+    options.system = `Always end your response with "${STOP_MARKER}".`
   }
 
   while (!isComplete) {
@@ -219,9 +220,9 @@ async function promptClaudeWithContinuation(
       fullResponse += chunk
     }
 
-    if (fullResponse.includes('[END_OF_RESPONSE]')) {
+    if (fullResponse.includes(STOP_MARKER)) {
       isComplete = true
-      fullResponse = fullResponse.replace('[END_OF_RESPONSE]', '')
+      fullResponse = fullResponse.replace(STOP_MARKER, '')
     } else {
       continuedMessage = {
         role: 'assistant',
