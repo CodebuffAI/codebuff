@@ -38,6 +38,21 @@ async function manicode(userPrompt: string | undefined) {
   const ws = new APIRealtimeClient(websockedUrl)
   await ws.connect()
 
+  const messageHistory: Message[] = []
+  
+  const addUserMessage = (userInput: string) => {
+    const lastMessage = last(messageHistory)
+    if (
+      lastMessage &&
+      lastMessage.role === 'user' &&
+      typeof lastMessage.content === 'string'
+    ) {
+      lastMessage.content += `\n\n${userInput}`
+    } else {
+      messageHistory.push({ role: 'user', content: userInput })
+    }
+  }
+
   ws.subscribe('change-files', (a) => {
     const changesSuceeded = applyChanges(a.changes)
 
@@ -46,10 +61,7 @@ async function manicode(userPrompt: string | undefined) {
         `The following files were updated based on the assistant's instruction:\n` +
         changesSuceeded.map(({ filePath }) => filePath).join('\n')
 
-      messageHistory.push({
-        role: 'user',
-        content,
-      })
+      addUserMessage(content)
     }
   })
 
@@ -101,15 +113,8 @@ async function manicode(userPrompt: string | undefined) {
     output: process.stdout,
   })
 
-  const messageHistory: Message[] = []
-
   const handleUserInput = async (userInput: string) => {
-    const lastMessage = last(messageHistory)
-    if (lastMessage && lastMessage.role === 'user') {
-      lastMessage.content += `\n\n${userInput}`
-    } else {
-      messageHistory.push({ role: 'user', content: userInput })
-    }
+    addUserMessage(userInput)
 
     // Get updated file context
     const fileContext = getProjectFileContext()
