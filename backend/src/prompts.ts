@@ -132,8 +132,7 @@ export async function promptClaudeAndGetFileChanges(
       .map((m) => m.content)
       .flat()
       .filter(
-        (c) =>
-          typeof c === 'object' && 'type' in c && c.type === 'tool_result'
+        (c) => typeof c === 'object' && 'type' in c && c.type === 'tool_result'
       )
       .map((c) => (c as any).content as string)
       .join('\n')
@@ -165,7 +164,7 @@ export async function promptClaudeAndGetFileChanges(
         fileProcessingPromises.push(
           processFileBlock(fileContext, filePath, oldContent, newFileContent)
         )
-        
+
         currentFileBlock = currentFileBlock.replace(fileRegex, '')
       }
 
@@ -302,6 +301,15 @@ async function processFileBlock(
         }
       }
     }
+  }
+
+  if (changes.length === 0) {
+    // If no changes, set file anyway for good measure.
+    changes.push({
+      filePath,
+      old: oldContent,
+      new: newContent,
+    })
   }
 
   if (updatedContent === oldContent) {
