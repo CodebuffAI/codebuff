@@ -156,3 +156,4 @@ Wish list
 - Give the assistant full command of the terminal so it can run stuff like `yarn add` or `git commit`
 - Use the up and down arrow keys to scroll through previous messages. Use escape to show menu, and keys to navigate (e.g. to create a new chat, exit, etc.)
 - Add a rigorous testing suite to make sure each prompt is working as intended across many cases.
+- Save conversations locally in a file. Maybe .manicode? Include a setting for setting the root directory (and thus defaulting to running manicode in that directory so it can always see the whole project)?

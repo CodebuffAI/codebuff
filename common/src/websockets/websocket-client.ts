@@ -196,7 +196,7 @@ export class APIRealtimeClient {
   }
 
   sendAction(action: ClientAction) {
-    this.sendMessage('action', {
+    return this.sendMessage('action', {
       data: action,
     })
   }

@@ -4,10 +4,11 @@
   "description": "Backend server for Manicode",
   "main": "dist/server.js",
   "scripts": {
-    "start": "node dist/server.js",
-    "dev": "nodemon --exec ts-node src/server.ts",
+    "start-js": "node dist/server.js",
     "build": "tsc",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "start": "ts-node src/server.ts"
   },
   "dependencies": {
     "@manicode/common": "1.0.0",
