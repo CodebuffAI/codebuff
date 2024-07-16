@@ -147,7 +147,6 @@ export async function promptClaudeAndGetFileChanges(
         .map((c) => (c as any).content as string)
         .join('\n')
     )
-    console.log('files from toolcalls', Object.keys(fileBlocksFromToolCalls))
 
     for await (const chunk of stream) {
       if (typeof chunk === 'object') {
