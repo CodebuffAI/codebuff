@@ -7,3 +7,4 @@ yarn-error.log
 dev
 dist
 tsconfig.tsbuildinfo
+.manicode

@@ -11,6 +11,7 @@ import {
 import { APIRealtimeClient } from 'common/src/websockets/websocket-client'
 import { Message } from 'common/src/actions'
 import { STOP_MARKER } from '@manicode/common/src/prompts'
+import { ChatStorage } from './chat-storage'
 
 const runScript = (fn: () => Promise<void>) => {
   // Load environment variables from .env file
@@ -38,18 +39,24 @@ async function manicode(userPrompt: string | undefined) {
   const ws = new APIRealtimeClient(websockedUrl)
   await ws.connect()
 
-  const messageHistory: Message[] = []
+  const projectRoot = path.resolve(__dirname, '..')
+  const chatStorage = new ChatStorage(projectRoot)
+
+  let currentChat = chatStorage.createChat()
+  console.log(`Started new chat session with ID: ${currentChat.id}`)
 
   const addUserMessage = (userInput: string) => {
-    const lastMessage = last(messageHistory)
+    const lastMessage = last(currentChat.messages)
     if (
       lastMessage &&
       lastMessage.role === 'user' &&
       typeof lastMessage.content === 'string'
     ) {
       lastMessage.content += `\n\n${userInput}`
+      chatStorage.addMessage(currentChat.id, lastMessage)
     } else {
-      messageHistory.push({ role: 'user', content: userInput })
+      const newMessage: Message = { role: 'user', content: userInput }
+      currentChat = chatStorage.addMessage(currentChat.id, newMessage) || currentChat
     }
   }
 
@@ -69,7 +76,7 @@ async function manicode(userPrompt: string | undefined) {
     const { response, data } = a
     const { id, name, input } = data
 
-    messageHistory.push({
+    const assistantMessage: Message = {
       role: 'assistant',
       content: [
         {
@@ -83,13 +90,14 @@ async function manicode(userPrompt: string | undefined) {
           input,
         },
       ],
-    })
+    }
+    currentChat = chatStorage.addMessage(currentChat.id, assistantMessage) || currentChat
 
     if (name === 'read_files') {
       const { file_paths } = input
       const files = getFileBlocks(file_paths)
 
-      messageHistory.push({
+      const toolResultMessage: Message = {
         role: 'user',
         content: [
           {
@@ -98,11 +106,12 @@ async function manicode(userPrompt: string | undefined) {
             content: files,
           },
         ],
-      })
+      }
+      currentChat = chatStorage.addMessage(currentChat.id, toolResultMessage) || currentChat
 
       ws.sendAction({
         type: 'user-input',
-        messages: messageHistory,
+        messages: currentChat.messages,
         fileContext: getProjectFileContext(),
       })
     }
@@ -121,14 +130,15 @@ async function manicode(userPrompt: string | undefined) {
 
     const mannyResponse = await sendUserInputAndAwaitResponse(
       ws,
-      messageHistory,
+      currentChat.messages,
       fileContext
     )
 
-    messageHistory.push({
+    const assistantMessage: Message = {
       role: 'assistant',
       content: mannyResponse,
-    })
+    }
+    currentChat = chatStorage.addMessage(currentChat.id, assistantMessage) || currentChat
   }
 
   await new Promise<void>((resolve) => {
@@ -137,13 +147,34 @@ async function manicode(userPrompt: string | undefined) {
       if (exitWords.includes(userInput.trim().toLowerCase())) {
         rl.close()
         resolve()
+      } else if (userInput.trim().toLowerCase() === 'new chat') {
+        currentChat = chatStorage.createChat([])
+        console.log(`Started new chat session with ID: ${currentChat.id}`)
+        promptUser()
+      } else if (userInput.trim().toLowerCase().startsWith('load chat ')) {
+        const chatId = userInput.trim().split(' ')[2]
+        const loadedChat = chatStorage.getChat(chatId)
+        if (loadedChat) {
+          currentChat = loadedChat
+          console.log(`Loaded chat session with ID: ${currentChat.id}`)
+        } else {
+          console.log(`Chat session with ID ${chatId} not found.`)
+        }
+        promptUser()
+      } else if (userInput.trim().toLowerCase() === 'list chats') {
+        const chats = chatStorage.listChats()
+        console.log('Available chat sessions:')
+        chats.forEach(chat => {
+          console.log(`- ID: ${chat.id}, Created: ${chat.createdAt}, Updated: ${chat.updatedAt}`)
+        })
+        promptUser()
       } else {
         handleUserInput(userInput).then(promptUser)
       }
     }
 
     function promptUser() {
-      rl.question('Enter your prompt for Manny (or type "quit" or "q"):\n>', onInput)
+      rl.question('Enter your prompt for Manny (or type "new chat", "load chat <id>", "list chats", or "quit"):\n>', onInput)
     }
 
     if (userPrompt) onInput(userPrompt)

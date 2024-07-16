@@ -23,6 +23,7 @@ There are three top-level code directories:
 3. **File Management**: Reads, parses, and modifies project files.
 4. **Action Handling**: Processes various client and server actions.
 5. **Message History**: Manages conversation history between the user and Manny.
+6. **Chat Storage**: Persists chat sessions and allows users to manage multiple conversations.
 
 ## Important Files
 
@@ -42,4 +43,3 @@ There are three top-level code directories:
 ## TODO
 
 - Implement error handling for edge cases.
-- Optimize performance for large codebases.
