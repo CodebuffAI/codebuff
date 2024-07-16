@@ -147,6 +147,7 @@ export async function promptClaudeAndGetFileChanges(
         .map((c) => (c as any).content as string)
         .join('\n')
     )
+    console.log('files from toolcalls', Object.keys(fileBlocksFromToolCalls))
 
     for await (const chunk of stream) {
       if (typeof chunk === 'object') {
@@ -208,7 +209,10 @@ async function promptClaudeWithContinuation(
     const messagesWithContinuedMessage = continuedMessage
       ? [...messages, continuedMessage]
       : messages
-    console.log('prompt claude with continuation', messagesWithContinuedMessage)
+    console.log(
+      'prompt claude with continuation',
+      messagesWithContinuedMessage.length
+    )
     const stream = promptClaudeStream(messagesWithContinuedMessage, options)
 
     for await (const chunk of stream) {
@@ -248,8 +252,7 @@ async function processFileBlock(
   }
 
   if (!oldContent) {
-    console.error('Old content not found for file: ', filePath)
-    return []
+    throw new Error('Old content not found for file: ' + filePath)
   }
   // File exists, generate diff
   const diffBlocks = await generateDiffBlocks(oldContent, newContent)

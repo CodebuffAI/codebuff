@@ -26,6 +26,13 @@ Types of information to include in the knowledge file:
 - Technical goals that are in progress. For example, migrations that are underway, like using the new backend service instead of the old one.
 - Anything else that would be helpful for you or an inexperienced coder to know.
 
+Guidelines for updating knowledge files:
+1. Be concise and focused on the most important aspects of the project.
+2. Maintain a balance between different components and features in the documentation.
+3. Integrate new knowledge into existing sections when possible, rather than creating new, detailed sections for minor changes.
+4. Evaluate the overall impact of new information on the project as a whole before adding it.
+5. Avoid overemphasizing recent changes or the aspect you're currently working on.
+
 You should use markdown features to improve clarity in knowledge files: different heading levels, coding blocks, bullet points, dividers and so on. 
 
 Don't be afraid to refactor sections or merge similar content to improve readability. If adding new knowledge, consider how it might fit into existing sections, or create a new section.
