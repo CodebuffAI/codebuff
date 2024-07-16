@@ -87,6 +87,10 @@ export class ChatStorage {
   }
 
   private generateChatId(): string {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+    const now = new Date()
+    const datePart = now.toISOString().split('T')[0] // YYYY-MM-DD
+    const timePart = now.toISOString().split('T')[1].replace(/:/g, '-').split('.')[0] // HH-MM-SS
+    const randomPart = Math.random().toString(36).substr(2, 5)
+    return `${datePart}_${timePart}_${randomPart}`
   }
 }
