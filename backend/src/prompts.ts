@@ -126,6 +126,19 @@ export async function promptClaudeAndGetFileChanges(
   const system = getSystemPrompt(fileContext)
   const tools = getTools()
 
+  const fileBlocksFromToolCalls = parseFileBlocks(
+    messages
+      .filter((m) => typeof m.content === 'object')
+      .map((m) => m.content)
+      .flat()
+      .filter(
+        (c) =>
+          typeof c === 'object' && 'type' in c && c.type === 'tool_result'
+      )
+      .map((c) => (c as any).content as string)
+      .join('\n')
+  )
+
   while (!isComplete) {
     const messagesWithContinuedMessage = continuedMessage
       ? [...messages, continuedMessage]
@@ -134,19 +147,6 @@ export async function promptClaudeAndGetFileChanges(
       system,
       tools,
     })
-
-    const fileBlocksFromToolCalls = parseFileBlocks(
-      messages
-        .filter((m) => typeof m.content === 'object')
-        .map((m) => m.content)
-        .flat()
-        .filter(
-          (c) =>
-            typeof c === 'object' && 'type' in c && c.type === 'tool_result'
-        )
-        .map((c) => (c as any).content as string)
-        .join('\n')
-    )
 
     for await (const chunk of stream) {
       if (typeof chunk === 'object') {
@@ -165,8 +165,10 @@ export async function promptClaudeAndGetFileChanges(
         fileProcessingPromises.push(
           processFileBlock(fileContext, filePath, oldContent, newFileContent)
         )
+        
+        currentFileBlock = currentFileBlock.replace(fileRegex, '')
       }
-      currentFileBlock = currentFileBlock.replace(fileRegex, '')
+
       if (fullResponse.includes(STOP_MARKER)) {
         isComplete = true
         fullResponse = fullResponse.replace(STOP_MARKER, '')
@@ -243,6 +245,7 @@ async function processFileBlock(
   oldContent: string | undefined,
   newContent: string
 ) {
+  console.log('process file block', filePath)
   const fileExisted = fileContext.filePaths.includes(filePath)
 
   if (!fileExisted) {
