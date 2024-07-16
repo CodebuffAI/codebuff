@@ -1,32 +1,30 @@
 import { z } from 'zod'
 import { ProjectFileContextSchema } from './util/file'
 
+const MessageContentObjectSchema = z.union([
+  z.object({
+    type: z.literal('text'),
+    text: z.string(),
+  }),
+  z.object({
+    type: z.literal('tool_use'),
+    id: z.string(),
+    name: z.string(),
+    input: z.record(z.string(), z.any()),
+  }),
+  z.object({
+    type: z.literal('tool_result'),
+    tool_use_id: z.string(),
+    content: z.string(),
+  }),
+])
+
 const MessageSchema = z.object({
   role: z.union([z.literal('user'), z.literal('assistant')]),
-  content: z.union([
-    z.string(),
-    z.array(
-      z.union([
-        z.object({
-          type: z.literal('text'),
-          text: z.string(),
-        }),
-        z.object({
-          type: z.literal('tool_use'),
-          id: z.string(),
-          name: z.string(),
-          input: z.record(z.string(), z.any()),
-        }),
-        z.object({
-          type: z.literal('tool_result'),
-          tool_use_id: z.string(),
-          content: z.string(),
-        }),
-      ])
-    ),
-  ]),
+  content: z.union([z.string(), z.array(MessageContentObjectSchema)]),
 })
 export type Message = z.infer<typeof MessageSchema>
+export type MessageContentObject = z.infer<typeof MessageContentObjectSchema>
 
 const CHANGES = z.array(
   z.object({

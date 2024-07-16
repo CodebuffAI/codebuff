@@ -39,7 +39,7 @@ async function manicode(userPrompt: string | undefined) {
   await ws.connect()
 
   const messageHistory: Message[] = []
-  
+
   const addUserMessage = (userInput: string) => {
     const lastMessage = last(messageHistory)
     if (
@@ -61,7 +61,7 @@ async function manicode(userPrompt: string | undefined) {
         `The following files were updated based on the assistant's instruction:\n` +
         changesSuceeded.map(({ filePath }) => filePath).join('\n')
 
-      addUserMessage(content)
+      // addUserMessage(content)
     }
   })
 
