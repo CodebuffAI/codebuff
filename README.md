@@ -1,2 +1,0 @@
-# manicode
-Generate manifold code

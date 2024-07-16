@@ -58,7 +58,7 @@ async function manicode(userPrompt: string | undefined) {
 
     if (changesSuceeded.length > 0) {
       const content =
-        `The following files were updated based on the assistant's instruction:\n` +
+        `The following files were updated based on Manny's instruction:\n` +
         changesSuceeded.map(({ filePath }) => filePath).join('\n')
 
       // addUserMessage(content)
@@ -119,7 +119,7 @@ async function manicode(userPrompt: string | undefined) {
     // Get updated file context
     const fileContext = getProjectFileContext()
 
-    const claudeResponse = await sendUserInputAndAwaitResponse(
+    const mannyResponse = await sendUserInputAndAwaitResponse(
       ws,
       messageHistory,
       fileContext
@@ -127,7 +127,7 @@ async function manicode(userPrompt: string | undefined) {
 
     messageHistory.push({
       role: 'assistant',
-      content: claudeResponse,
+      content: mannyResponse,
     })
   }
 
@@ -143,14 +143,14 @@ async function manicode(userPrompt: string | undefined) {
     }
 
     function promptUser() {
-      rl.question('Enter your prompt (or type "quit" or "q"):\n>', onInput)
+      rl.question('Enter your prompt for Manny (or type "quit" or "q"):\n>', onInput)
     }
 
     if (userPrompt) onInput(userPrompt)
     else promptUser()
   })
 
-  console.log('Manicode session ended.')
+  console.log('Manicode session with Manny ended.')
 }
 
 async function sendUserInputAndAwaitResponse(

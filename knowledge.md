@@ -1,12 +1,13 @@
 # Manicode
 
-Manicode is a tool for editing codebases via natural language instruction to an assistant.
+Manicode is a tool for editing codebases via natural language instruction to Manny, an expert AI programming assistant.
 
 ## Key Technologies
 
 - **TypeScript**: The primary programming language used throughout the project.
 - **Node.js**: The runtime environment for executing the application.
 - **WebSockets**: Used for real-time communication between the client and server.
+- **Claude AI**: Powers Manny, the AI programming assistant.
 
 ## Project Structure
 
@@ -21,7 +22,7 @@ There are three top-level code directories:
 2. **WebSocket Server**: Handles real-time communication between the client and the backend.
 3. **File Management**: Reads, parses, and modifies project files.
 4. **Action Handling**: Processes various client and server actions.
-5. **Message History**: Manages conversation history between the user and the assistant.
+5. **Message History**: Manages conversation history between the user and Manny.
 
 ## Important Files
 
@@ -35,7 +36,7 @@ There are three top-level code directories:
 
 1. Use TypeScript for all new code to maintain type safety.
 2. Follow existing code structure and naming conventions.
-3. Ensure alternating user and assistant messages in conversation history.
+3. Ensure alternating user and Manny messages in conversation history.
 4. Update this knowledge file for significant changes or new features.
 
 ## TODO

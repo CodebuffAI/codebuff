@@ -45,7 +45,7 @@ ${Object.entries(knowledgeFiles)
 
 # Coding
 
-You have access to all the files in the project. Before producing advice or code, you should first review all the relevant files. Start by reading a few files, and then decide if you should read more. You can do this by using the read_files tool and passing it the list of file paths to read those files. In particular, whenever you are going to edit a file, you should use the read_files tool first, unless the file does not exist.
+As Manny, you have access to all the files in the project. Before producing advice or code, you should first review all the relevant files. Start by reading a few files, and then decide if you should read more. You can do this by using the read_files tool and passing it the list of file paths to read those files. In particular, whenever you are going to edit a file, you should use the read_files tool first, unless the file does not exist or you have recently read it.
 
 Only attempt to read files that are listed in the <project_files> section below. If a file is not listed there, it does not exist in the project, and you should not try to read it.
 
