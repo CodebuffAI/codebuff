@@ -56,7 +56,8 @@ async function manicode(userPrompt: string | undefined) {
       chatStorage.addMessage(currentChat.id, lastMessage)
     } else {
       const newMessage: Message = { role: 'user', content: userInput }
-      currentChat = chatStorage.addMessage(currentChat.id, newMessage) || currentChat
+      currentChat =
+        chatStorage.addMessage(currentChat.id, newMessage) || currentChat
     }
   }
 
@@ -91,7 +92,8 @@ async function manicode(userPrompt: string | undefined) {
         },
       ],
     }
-    currentChat = chatStorage.addMessage(currentChat.id, assistantMessage) || currentChat
+    currentChat =
+      chatStorage.addMessage(currentChat.id, assistantMessage) || currentChat
 
     if (name === 'read_files') {
       const { file_paths } = input
@@ -107,7 +109,8 @@ async function manicode(userPrompt: string | undefined) {
           },
         ],
       }
-      currentChat = chatStorage.addMessage(currentChat.id, toolResultMessage) || currentChat
+      currentChat =
+        chatStorage.addMessage(currentChat.id, toolResultMessage) || currentChat
 
       ws.sendAction({
         type: 'user-input',
@@ -130,7 +133,8 @@ async function manicode(userPrompt: string | undefined) {
   let stopResponseRequested = false
 
   process.stdin.on('data', (key: string) => {
-    if (key === '\u001B') { // ESC key
+    const ESC_KEY = '\u001B'
+    if (key === ESC_KEY) {
       if (isReceivingResponse) {
         stopResponseRequested = true
         console.log('\n[Response stopped by user]')
@@ -156,12 +160,15 @@ async function manicode(userPrompt: string | undefined) {
 
     isReceivingResponse = false
 
-    if (!stopResponseRequested) {
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: mannyResponse,
-      }
-      currentChat = chatStorage.addMessage(currentChat.id, assistantMessage) || currentChat
+    const assistantMessage: Message = {
+      role: 'assistant',
+      content: mannyResponse,
+    }
+    currentChat =
+      chatStorage.addMessage(currentChat.id, assistantMessage) || currentChat
+
+    if (stopResponseRequested) {
+      console.log('\n[Response stopped by user. Partial response saved.]')
     }
   }
 
@@ -188,8 +195,10 @@ async function manicode(userPrompt: string | undefined) {
       } else if (userInput.trim().toLowerCase() === 'list chats') {
         const chats = chatStorage.listChats()
         console.log('Available chat sessions:')
-        chats.forEach(chat => {
-          console.log(`- ID: ${chat.id}, Created: ${chat.createdAt}, Updated: ${chat.updatedAt}`)
+        chats.forEach((chat) => {
+          console.log(
+            `- ID: ${chat.id}, Created: ${chat.createdAt}, Updated: ${chat.updatedAt}`
+          )
         })
         promptUser()
       } else {
@@ -198,7 +207,10 @@ async function manicode(userPrompt: string | undefined) {
     }
 
     function promptUser() {
-      rl.question('Enter your prompt for Manny (or type "new chat", "load chat <id>", "list chats", or "quit"):\n>', onInput)
+      rl.question(
+        'Enter your prompt for Manny (or type "new chat", "load chat <id>", "list chats", or "quit"):\n>',
+        onInput
+      )
     }
 
     if (userPrompt) onInput(userPrompt)
@@ -221,8 +233,14 @@ async function sendUserInputAndAwaitResponse(
       process.stdout.write(chunk)
       response += chunk
 
-      if (response.includes(STOP_MARKER) || isStopRequested()) {
+      const stopRequested = isStopRequested()
+      if (response.includes(STOP_MARKER) || stopRequested) {
         unsubscribe()
+        // Remove the STOP_MARKER if it exists
+        response = response.replace(STOP_MARKER, '').trim()
+        if (stopRequested) {
+          response += '\n[RESPONSE_STOPPED_BY_USER]'
+        }
         resolve(response)
       }
     })
