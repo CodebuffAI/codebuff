@@ -1,4 +1,5 @@
 import { Tool } from '@anthropic-ai/sdk/resources'
+
 import { promptClaudeStream, promptClaude, model_types } from './claude'
 import {
   ProjectFileContext,
@@ -13,6 +14,7 @@ import { STOP_MARKER } from '@manicode/common/src/prompts'
 import { getTools } from './tools'
 import { Message } from 'common/src/actions'
 import { ToolCall } from 'common/src/actions'
+import { debugLog } from './debug'
 
 export const getInitialPrompt = (userPrompt: string) => {
   return `
@@ -114,6 +116,7 @@ export async function promptClaudeAndGetFileChanges(
   fileContext: ProjectFileContext,
   onResponseChunk: (chunk: string) => void
 ) {
+  debugLog('Starting promptClaudeAndGetFileChanges')
   let fullResponse = ''
   let toolCall: ToolCall | null = null
   let continuedMessage: Message | null = null
@@ -122,6 +125,7 @@ export async function promptClaudeAndGetFileChanges(
   const fileProcessingPromises: Promise<
     { filePath: string; old: string; new: string }[]
   >[] = []
+  const processedFiles = new Set<string>() // Add this line to track processed files
 
   const system = getSystemPrompt(fileContext)
   const tools = getTools()
@@ -138,6 +142,8 @@ export async function promptClaudeAndGetFileChanges(
       .join('\n')
   )
 
+  debugLog('File blocks from tool calls:', fileBlocksFromToolCalls)
+
   while (!isComplete) {
     const messagesWithContinuedMessage = continuedMessage
       ? [...messages, continuedMessage]
@@ -151,6 +157,7 @@ export async function promptClaudeAndGetFileChanges(
       if (typeof chunk === 'object') {
         toolCall = chunk
         isComplete = true
+        debugLog('Received tool call:', toolCall)
         break
       }
 
@@ -160,10 +167,13 @@ export async function promptClaudeAndGetFileChanges(
 
       const fileBlocks = parseFileBlocks(currentFileBlock)
       for (const [filePath, newFileContent] of Object.entries(fileBlocks)) {
-        const oldContent: string | undefined = fileBlocksFromToolCalls[filePath]
-        fileProcessingPromises.push(
-          processFileBlock(fileContext, filePath, oldContent, newFileContent)
-        )
+        if (!processedFiles.has(filePath)) { // Add this check
+          const oldContent: string | undefined = fileBlocksFromToolCalls[filePath]
+          fileProcessingPromises.push(
+            processFileBlock(fileContext, filePath, oldContent, newFileContent)
+          )
+          processedFiles.add(filePath) // Add this line to mark the file as processed
+        }
 
         currentFileBlock = currentFileBlock.replace(fileRegex, '')
       }
@@ -171,6 +181,7 @@ export async function promptClaudeAndGetFileChanges(
       if (fullResponse.includes(STOP_MARKER)) {
         isComplete = true
         fullResponse = fullResponse.replace(STOP_MARKER, '')
+        debugLog('Reached STOP_MARKER')
       } else {
         continuedMessage = {
           role: 'assistant',
@@ -181,10 +192,23 @@ export async function promptClaudeAndGetFileChanges(
   }
 
   const changes = (await Promise.all(fileProcessingPromises)).flat()
+  debugLog('Final changes:', changes)
+
+  // Add this section to log each unique file change
+  const uniqueChanges = new Map<string, { old: string; new: string }>()
+  for (const change of changes) {
+    uniqueChanges.set(change.filePath, { old: change.old, new: change.new })
+  }
+  for (const [filePath, change] of uniqueChanges.entries()) {
+    debugLog(`Updated file: ${filePath}`, change)
+  }
 
   return {
     response: fullResponse,
-    changes,
+    changes: Array.from(uniqueChanges.entries()).map(([filePath, change]) => ({
+      filePath,
+      ...change,
+    })),
     toolCall,
   }
 }
@@ -209,7 +233,7 @@ async function promptClaudeWithContinuation(
     const messagesWithContinuedMessage = continuedMessage
       ? [...messages, continuedMessage]
       : messages
-    console.log(
+    debugLog(
       'prompt claude with continuation',
       messagesWithContinuedMessage.length
     )
@@ -244,11 +268,11 @@ async function processFileBlock(
   oldContent: string | undefined,
   newContent: string
 ) {
-  console.log('process file block', filePath)
+  debugLog('process file block', filePath)
   const fileExisted = fileContext.filePaths.includes(filePath)
 
   if (!fileExisted) {
-    console.log(`Created new file: ${filePath}`)
+    debugLog(`Created new file: ${filePath}`)
     return [{ filePath, old: '', new: newContent }]
   }
 
@@ -266,8 +290,12 @@ async function processFileBlock(
     if (replaced) {
       updatedContent = replaced
       changes.push({ filePath, old: oldContent, new: newContent })
+      debugLog(`Applied change to ${filePath}:`, {
+        old: oldContent,
+        new: newContent,
+      })
     } else {
-      console.log(
+      debugLog(
         `Couldn't find simple match for replacement in file: ${filePath}. Attempting to expand...`
       )
       const expandedReplacement = await promptClaudeForExpansion(
@@ -284,15 +312,15 @@ async function processFileBlock(
         )
         if (expandedReplaced) {
           updatedContent = expandedReplaced
-          console.log('Successfully applied expanded replacement.')
+          debugLog('Successfully applied expanded replacement.')
           changes.push({
             filePath,
             old: expandedReplacement.oldContent,
             new: expandedReplacement.newContent,
           })
         } else {
-          console.log('Warning: Could not apply expanded replacement.')
-          console.log(
+          debugLog('Warning: Could not apply expanded replacement.')
+          debugLog(
             'Original old:',
             oldContent,
             'expandedReplacement:',
@@ -313,15 +341,19 @@ async function processFileBlock(
   }
 
   if (updatedContent === oldContent) {
-    console.log(`No changes made to file: ${filePath}`)
+    debugLog(`No changes made to file: ${filePath}`)
     return []
   }
 
-  console.log(`Updated file: ${filePath}`)
+  debugLog(`Updated file: ${filePath}`)
   return changes
 }
 
 async function generateDiffBlocks(currentContent: string, newContent: string) {
+  debugLog('Generating diff blocks...')
+  debugLog('Current content:', currentContent)
+  debugLog('New content:', newContent)
+
   const prompt = `
 I have a new version of a file, and I want to change the old file into the new file. I need to generate <old> and <new> blocks to represent the exact line-by-line differences so I can string replace the old content to the new content. If there are multiple changes, provide multiple pairs of blocks.
 
@@ -646,6 +678,8 @@ Your Response:
     { role: 'user', content: prompt },
   ])
 
+  debugLog('Claude response:', response)
+
   const diffBlocks: { oldContent: string; newContent: string }[] = []
   const fileContents = parseFileBlocksWithoutPath(response)
   for (const fileContent of fileContents) {
@@ -660,6 +694,8 @@ Your Response:
     }
   }
 
+  debugLog('Generated diff blocks:', JSON.stringify(diffBlocks, null, 2))
+
   return diffBlocks
 }
 
@@ -673,7 +709,7 @@ function applyReplacement(
 
   // First, try an exact match
   if (content.includes(trimmedOldContent)) {
-    console.log('worked with exact match')
+    debugLog('worked with exact match')
     return content.replace(trimmedOldContent, trimmedNewContent)
   }
 
@@ -699,7 +735,7 @@ function applyReplacement(
         .map((line) => leadingWhitespace + line)
         .join('\n')
 
-      console.log('worked with flexible whitespace')
+      debugLog('worked with flexible whitespace')
       return content.replace(matchedContent, indentedNewContent)
     }
   }

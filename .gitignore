@@ -8,3 +8,4 @@ dev
 dist
 tsconfig.tsbuildinfo
 .manicode
+debug.log

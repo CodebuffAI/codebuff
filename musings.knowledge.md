@@ -157,3 +157,8 @@ Wish list
 - Use the up and down arrow keys to scroll through previous messages. Use escape to show menu, and keys to navigate (e.g. to create a new chat, exit, etc.)
 - Add a rigorous testing suite to make sure each prompt is working as intended across many cases.
 - Save conversations locally in a file. Maybe .manicode? Include a setting for setting the root directory (and thus defaulting to running manicode in that directory so it can always see the whole project)?
+
+
+Problems
+- Not all edits going through: fail to create appropriate diff blocks
+- "// ... (rest of the file remains unchanged)" got added and replaced the rest of the file
