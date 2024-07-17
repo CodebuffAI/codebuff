@@ -33,6 +33,8 @@ ${filePaths
 </project_files>
 
 <editing_instructions>
+You implement edits by writing out <file> blocks. The user does not need to copy this code to make the edit, it is done automatically.
+
 To create a new file, simply provide a file block with the file path as an xml attribute and the file contents:
 ${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
 
@@ -54,6 +56,8 @@ function getDesktopNav() {
 // ... rest of the file
 `
 )}
+
+Do not include comments you wouldn't want in the final code. For example, "// Add this check" or "// Add this line to track processed files" is not needed, because you are directly adding the check rather than asking the user to add it.
 </editing_instructions>
 
 # Knowledge
