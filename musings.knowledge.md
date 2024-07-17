@@ -166,3 +166,4 @@ Problems
 - Improve speed by prompting it to rely more on diffs instead of reproducing the whole file
 - Prompt engineer it to automatically make knowledge changes when you correct it
 - it's doing a poor job loading all the relevant files into context. Need to add more explicity steps for this.
+- Dawson's case of wanting it to scrape documentation from a url and answer questions with it.

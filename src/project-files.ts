@@ -31,7 +31,7 @@ export const applyChanges = (changes: FileChanges) => {
       console.log(fileAlreadyExists ? 'Updated' : 'Created', filePath)
       changesSuceeded.push(change)
     } else {
-      console.log('No changes to', filePath)
+      console.log('Change did not go through for', filePath)
     }
   }
   return changesSuceeded

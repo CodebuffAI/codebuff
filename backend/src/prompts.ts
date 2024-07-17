@@ -270,15 +270,9 @@ async function processFileBlock(
 
   const changes: { filePath: string; old: string; new: string }[] = []
   for (const { oldContent, newContent } of diffBlocks) {
-    const trimmedOldContent = oldContent.trim()
-    const trimmedNewContent = newContent.trim()
-
-    if (updatedContent.includes(trimmedOldContent)) {
+    if (updatedContent.includes(oldContent)) {
       debugLog('Replacement worked with exact match')
-      updatedContent = updatedContent.replace(
-        trimmedOldContent,
-        trimmedNewContent
-      )
+      updatedContent = updatedContent.replace(oldContent, newContent)
       changes.push({ filePath, old: oldContent, new: newContent })
       console.log('Applied a change to', filePath)
       debugLog(`Applied a change to ${filePath}:`, {
@@ -660,8 +654,8 @@ Your Response:
 
     while ((blockMatch = blockRegex.exec(fileContent)) !== null) {
       diffBlocks.push({
-        oldContent: blockMatch[1],
-        newContent: blockMatch[2],
+        oldContent: blockMatch[1].trim(),
+        newContent: blockMatch[2].trim(),
       })
     }
   }
