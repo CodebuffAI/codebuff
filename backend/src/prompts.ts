@@ -276,17 +276,22 @@ async function processFileBlock(
 
   const changes: { filePath: string; old: string; new: string }[] = []
   for (const { oldContent, newContent } of diffBlocks) {
-    const replaced = applyReplacement(updatedContent, oldContent, newContent)
+    const trimmedOldContent = oldContent.trim()
+    const trimmedNewContent = newContent.trim()
 
-    if (replaced) {
-      updatedContent = replaced
+    if (updatedContent.includes(trimmedOldContent)) {
+      debugLog('Replacement worked with exact match')
+      updatedContent = updatedContent.replace(
+        trimmedOldContent,
+        trimmedNewContent
+      )
       changes.push({ filePath, old: oldContent, new: newContent })
       debugLog(`Applied change to ${filePath}:`, {
         old: oldContent,
         new: newContent,
       })
     } else {
-      debugLog(`Failed to apply change for ${filePath}. Skipping this change.`)
+      debugLog('Failed to find a match for replacement in', filePath)
       debugLog('Old content:', oldContent)
       debugLog('New content:', newContent)
     }
@@ -653,53 +658,6 @@ Your Response:
   }
 
   return diffBlocks
-}
-
-function applyReplacement(
-  content: string,
-  oldContent: string,
-  newContent: string
-): string | null {
-  const trimmedOldContent = oldContent.trim()
-  const trimmedNewContent = newContent.trim()
-
-  // First, try an exact match
-  if (content.includes(trimmedOldContent)) {
-    debugLog('Replacement worked with exact match')
-    return content.replace(trimmedOldContent, trimmedNewContent)
-  }
-
-  debugLog('Exact match failed, attempting flexible whitespace match')
-
-  // If exact match fails, try matching with flexible whitespace
-  const oldLines = trimmedOldContent
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-  const contentLines = content.split('\n')
-
-  for (let i = 0; i <= contentLines.length - oldLines.length; i++) {
-    const potentialMatch = contentLines.slice(i, i + oldLines.length)
-    if (
-      potentialMatch.every((line, index) =>
-        line.trim().includes(oldLines[index])
-      )
-    ) {
-      // Found a match with flexible whitespace
-      const matchedContent = potentialMatch.join('\n')
-      const leadingWhitespace = potentialMatch[0].match(/^\s*/)?.[0] || ''
-      const indentedNewContent = trimmedNewContent
-        .split('\n')
-        .map((line) => leadingWhitespace + line)
-        .join('\n')
-
-      debugLog('Replacement worked with flexible whitespace')
-      return content.replace(matchedContent, indentedNewContent)
-    }
-  }
-
-  debugLog('Failed to find a match for replacement')
-  return null
 }
 
 async function promptClaudeForExpansion(
