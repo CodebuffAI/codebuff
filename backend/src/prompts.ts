@@ -316,16 +316,16 @@ Please structure your response in a few steps:
 1. Describe what code changes are being made. What's being inserted? What's being deleted?
 2. Split the changes into logical groups. Describe the sets of lines or logical chunks of code that are being changed. For example, modifying the import section, modifying a function, etc.
 3. Describe what lines of context from the old file you will use for each edit, so that string replacement of the old and new blocks will work correctly. Do not use any comments like "// ... existing code ..." or " ... rest of the file" as part of this context, because these comments don't exist in the old file, so string replacement won't work to make the edit.
-4. Describe the level of indendation in the old file, e.g. 4 spaces. You will use the same level of indention.
+4. Analyze the indentation used in the old file. Three questions: Is it using spaces or tabs? How many spaces are used for each indentation level? How many indentation levels are used in the code being changed?
 5. Finally, please provide a ${'<' + 'file>'} block containing the <old> and <new> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
 
 IMPORTANT INSTRUCTIONS:
-1. The <old> blocks MUST match a portion of the old file content EXACTLY, character for character. Do not include any comments or placeholders like "// ... existing code ...". Instead, provide the exact lines of code that are being changed.
+1. The <old> blocks MUST match a portion of the old file content EXACTLY, character for character, including indentation and empty lines. Do not include any comments or placeholders like "// ... existing code ...". Instead, provide the exact lines of code that are being changed.
 2. Ensure that you're providing enough context in the <old> blocks to match exactly one location in the file.
-3. The <old> blocks should have as few lines as possible. Consider matching only a few lines around the change! Do not include dozens of lines of imports for no reason.
-4. It's important that the <old> block matches the same indentation as the original file.
-5. The <new> blocks should contain the updated code that replaces the content in the corresponding <old> block. Do not include any comments or placeholders like "// ... existing code ...".
-6. Create separate <old> and <new> blocks for each distinct change in the file.
+3. The <old> blocks should have as few lines as possible while still providing enough context for a single match. Try to match only a few lines around the change.
+4. The <new> blocks should contain the updated code that replaces the content in the corresponding <old> block, maintaining the same indentation style and level as the original file.
+5. Create separate <old> and <new> blocks for each distinct change in the file.
+6. Pay close attention to the indentation of both the <old> and <new> blocks. They should match the indentation style and level of the original file exactly.
 
 <example_prompt>
 Old file content:
