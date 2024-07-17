@@ -1,4 +1,5 @@
 import { Tool } from '@anthropic-ai/sdk/resources'
+import { WebSocket } from 'ws'
 
 import { promptClaudeStream, promptClaude, model_types } from './claude'
 import {
@@ -6,8 +7,6 @@ import {
   createFileBlock,
   parseFileBlocks,
   fileRegex,
-  parseFileBlocksWithoutPath,
-  createFileBlockWithoutPath,
 } from '@manicode/common/src/util/file'
 import { getSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from '@manicode/common/src/prompts'
@@ -15,6 +14,7 @@ import { getTools } from './tools'
 import { Message } from 'common/src/actions'
 import { ToolCall } from 'common/src/actions'
 import { debugLog } from './debug'
+import { requestFile } from './websockets/websocket-action'
 
 export const getInitialPrompt = (userPrompt: string) => {
   return `
@@ -112,6 +112,7 @@ ${userPrompt}`
 }
 
 export async function promptClaudeAndGetFileChanges(
+  ws: WebSocket,
   messages: Message[],
   fileContext: ProjectFileContext,
   onResponseChunk: (chunk: string) => void
@@ -132,20 +133,6 @@ export async function promptClaudeAndGetFileChanges(
 
   const system = getSystemPrompt(fileContext)
   const tools = getTools()
-
-  const fileBlocksFromToolCalls = parseFileBlocks(
-    messages
-      .filter((m) => typeof m.content === 'object')
-      .map((m) => m.content)
-      .flat()
-      .filter(
-        (c) => typeof c === 'object' && 'type' in c && c.type === 'tool_result'
-      )
-      .map((c) => (c as any).content as string)
-      .join('\n')
-  )
-
-  debugLog('File blocks from tool calls:', Object.keys(fileBlocksFromToolCalls))
 
   while (!isComplete) {
     const messagesWithContinuedMessage = continuedMessage
@@ -170,16 +157,8 @@ export async function promptClaudeAndGetFileChanges(
 
       const fileBlocks = parseFileBlocks(currentFileBlock)
       for (const [filePath, newFileContent] of Object.entries(fileBlocks)) {
-        // TODO: Include newly created files?
-        const oldContent: string | undefined = fileBlocksFromToolCalls[filePath]
         fileProcessingPromises.push(
-          processFileBlock(
-            messages,
-            fileContext,
-            filePath,
-            oldContent,
-            newFileContent
-          )
+          processFileBlock(ws, messages, filePath, newFileContent)
         )
 
         currentFileBlock = currentFileBlock.replace(fileRegex, '')
@@ -258,24 +237,18 @@ async function promptClaudeWithContinuation(
 }
 
 async function processFileBlock(
+  ws: WebSocket,
   messageHistory: Message[],
-  fileContext: ProjectFileContext,
   filePath: string,
-  oldContent: string | undefined,
   newContent: string
 ) {
-  
   debugLog('Processing file block', filePath)
-  const fileExisted = fileContext.filePaths.includes(filePath)
 
-  if (!fileExisted) {
+  const oldContent = await requestFile(ws, filePath)
+
+  if (oldContent === null) {
     debugLog(`Created new file: ${filePath}`)
     return [{ filePath, old: '', new: newContent }]
-  }
-
-  if (!oldContent) {
-    debugLog(`Error: Old content not found for file: ${filePath}`)
-    return []
   }
 
   // File exists, generate diff

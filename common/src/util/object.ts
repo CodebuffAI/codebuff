@@ -88,3 +88,15 @@ export const hasSignificantDeepChanges = <T extends object>(
 
   return false
 }
+
+export const filterObject = <T extends object>(obj: T, predicate: (value: any, key: keyof T) => boolean): { [P in keyof T]: T[P] } => {
+  const result = {} as { [P in keyof T]: T[P] }
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      if (predicate(obj[key], key)) {
+        result[key] = obj[key]
+      }
+    }
+  }
+  return result
+}

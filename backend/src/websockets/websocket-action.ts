@@ -1,9 +1,9 @@
 import { WebSocket } from 'ws'
 import { ClientMessage } from '@manicode/common/src/websockets/websocket-schema'
-import { ProjectFileContext } from 'common/src/util/file'
 import { promptClaudeAndGetFileChanges } from '../prompts'
 import { ClientAction, ServerAction } from 'common/src/actions'
 import { sendMessage } from './server'
+import { isEqual } from 'lodash'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -13,13 +13,14 @@ const sendAction = (ws: WebSocket, action: ServerAction) => {
 }
 
 const onUserInput = async (
-  ws: WebSocket,
-  { messages, fileContext }: Extract<ClientAction, { type: 'user-input' }>
+  { messages, fileContext }: Extract<ClientAction, { type: 'user-input' }>,
+  ws: WebSocket
 ) => {
   const lastMessage = messages[messages.length - 1]
   if (typeof lastMessage.content === 'string')
     console.log('Input:', lastMessage)
   const { changes, toolCall, response } = await promptClaudeAndGetFileChanges(
+    ws,
     messages,
     fileContext,
     (chunk) =>
@@ -46,21 +47,63 @@ const onUserInput = async (
   }
 }
 
+const callbacksByAction = {} as Record<
+  ClientAction['type'],
+  ((action: ClientAction, ws: WebSocket) => void)[]
+>
+
+export const subscribeToAction = <T extends ClientAction['type']>(
+  type: T,
+  callback: (action: Extract<ClientAction, { type: T }>, ws: WebSocket) => void
+) => {
+  callbacksByAction[type] = (callbacksByAction[type] ?? []).concat(
+    callback as (action: ClientAction, ws: WebSocket) => void
+  )
+  return () => {
+    callbacksByAction[type] = (callbacksByAction[type] ?? []).filter(
+      (cb) => cb !== callback
+    )
+  }
+}
+
 export const onWebsocketAction = async (
   ws: WebSocket,
   msg: ClientMessage & { type: 'action' }
 ) => {
+  const callbacks = callbacksByAction[msg.data.type] ?? []
   try {
-    switch (msg.data.type) {
-      case 'user-input':
-        await onUserInput(ws, msg.data)
-        return
+    for (const callback of callbacks) {
+      callback(msg.data, ws)
     }
   } catch (e) {
     console.error(
-      'Got error running websocket action',
+      'Got error running subscribeToAction callback',
       msg,
       e && typeof e === 'object' && 'message' in e ? e.message : e
     )
   }
+}
+
+subscribeToAction('user-input', onUserInput)
+
+export async function requestFiles(ws: WebSocket, filePaths: string[]) {
+  return new Promise<Record<string, string | null>>((resolve) => {
+    const unsubscribe = subscribeToAction('read-files-response', (action) => {
+      console.log('read-files-response', action)
+      const receivedFilePaths = Object.keys(action.files)
+      if (isEqual(receivedFilePaths, filePaths)) {
+        unsubscribe()
+        resolve(action.files)
+      }
+    })
+    sendAction(ws, {
+      type: 'read-files',
+      filePaths,
+    })
+  })
+}
+
+export async function requestFile(ws: WebSocket, filePath: string) {
+  const files = await requestFiles(ws, [filePath])
+  return files[filePath]
 }

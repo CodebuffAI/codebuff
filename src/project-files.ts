@@ -7,6 +7,7 @@ import {
   ProjectFileContext,
 } from '@manicode/common/src/util/file'
 import { FileChanges } from 'common/src/actions'
+import { filterObject } from '@manicode/common'
 
 const projectRoot = path.normalize(path.resolve(__dirname, '..'))
 
@@ -29,8 +30,7 @@ export const applyChanges = (changes: FileChanges) => {
       fs.writeFileSync(fullPath, updatedContent, 'utf8')
       console.log(fileAlreadyExists ? 'Updated' : 'Created', filePath)
       changesSuceeded.push(change)
-    }
-    else {
+    } else {
       console.log('No changes to', filePath)
     }
   }
@@ -91,15 +91,22 @@ function getProjectFilePaths() {
 }
 
 function getKnowledgeFiles(knowledgeFilePaths: string[]) {
-  return getFiles(knowledgeFilePaths)
+  return filterObject(
+    getFiles(knowledgeFilePaths),
+    (value) => value !== null
+  ) as Record<string, string>
 }
 
-function getFiles(filePaths: string[]) {
-  const result: Record<string, string> = {}
+export function getFiles(filePaths: string[]) {
+  const result: Record<string, string | null> = {}
   for (const filePath of filePaths) {
     const fullPath = path.join(projectRoot, filePath)
-    const content = fs.readFileSync(fullPath, 'utf8')
-    result[filePath] = content
+    try {
+      const content = fs.readFileSync(fullPath, 'utf8')
+      result[filePath] = content
+    } catch (error) {
+      result[filePath] = null
+    }
   }
   return result
 }

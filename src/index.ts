@@ -7,6 +7,7 @@ import {
   applyChanges,
   getProjectFileContext,
   getFileBlocks,
+  getFiles,
 } from './project-files'
 import { APIRealtimeClient } from 'common/src/websockets/websocket-client'
 import { Message } from 'common/src/actions'
@@ -118,6 +119,16 @@ async function manicode(userPrompt: string | undefined) {
         fileContext: getProjectFileContext(),
       })
     }
+  })
+
+  ws.subscribe('read-files', (a) => {
+    const { filePaths } = a
+    const files = getFiles(filePaths)
+
+    ws.sendAction({
+      type: 'read-files-response',
+      files,
+    })
   })
 
   const rl = readline.createInterface({

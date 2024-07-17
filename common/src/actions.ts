@@ -48,15 +48,15 @@ export const CLIENT_ACTIONS = {
     messages: z.array(MessageSchema),
     fileContext: ProjectFileContextSchema,
   }),
-  somethingElse: z.object({
-    type: z.literal('something-else'),
-    message: z.string(),
+  readFilesResponse: z.object({
+    type: z.literal('read-files-response'),
+    files: z.record(z.string(), z.union([z.string(), z.null()])),
   }),
 } as const
 
 export const CLIENT_ACTION_SCHEMA = z.union([
   CLIENT_ACTIONS.userInput,
-  CLIENT_ACTIONS.somethingElse,
+  CLIENT_ACTIONS.readFilesResponse,
 ])
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
@@ -69,6 +69,10 @@ export const SERVER_ACTIONS = {
     type: z.literal('change-files'),
     changes: CHANGES,
   }),
+  readFiles: z.object({
+    type: z.literal('read-files'),
+    filePaths: z.array(z.string()),
+  }),
   toolCall: z.object({
     type: z.literal('tool-call'),
     response: z.string(),
@@ -78,6 +82,7 @@ export const SERVER_ACTIONS = {
 export const SERVER_ACTION_SCHEMA = z.union([
   SERVER_ACTIONS.responseChunk,
   SERVER_ACTIONS.changeFiles,
+  SERVER_ACTIONS.readFiles,
   SERVER_ACTIONS.toolCall,
 ])
 export type ServerAction = z.infer<typeof SERVER_ACTION_SCHEMA>
