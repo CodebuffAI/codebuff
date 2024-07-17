@@ -134,6 +134,14 @@ export async function promptClaudeAndGetFileChanges(
   const system = getSystemPrompt(fileContext)
   const tools = getTools()
 
+  const lastMessage = messages[messages.length - 1]
+  if (typeof lastMessage.content === 'string') {
+    lastMessage.content = `${lastMessage.content}
+
+<additional_instruction>Please request as many files as would help answer the user's question using the read_files tool</additional_instruction>
+<additional_instruction>If you learn something based on the user's feedback or from thinking deeply about the problem, please update a knowledge file consisely.</additional_instruction>`
+  }
+
   while (!isComplete) {
     const messagesWithContinuedMessage = continuedMessage
       ? [...messages, continuedMessage]

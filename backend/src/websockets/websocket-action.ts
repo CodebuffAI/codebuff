@@ -89,7 +89,6 @@ subscribeToAction('user-input', onUserInput)
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {
     const unsubscribe = subscribeToAction('read-files-response', (action) => {
-      console.log('read-files-response', action)
       const receivedFilePaths = Object.keys(action.files)
       if (isEqual(receivedFilePaths, filePaths)) {
         unsubscribe()
