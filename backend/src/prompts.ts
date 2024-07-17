@@ -116,7 +116,11 @@ export async function promptClaudeAndGetFileChanges(
   fileContext: ProjectFileContext,
   onResponseChunk: (chunk: string) => void
 ) {
-  debugLog('Starting promptClaudeAndGetFileChanges')
+  debugLog(
+    'Starting promptClaudeAndGetFileChanges',
+    'messages:',
+    messages.length
+  )
   let fullResponse = ''
   let toolCall: ToolCall | null = null
   let continuedMessage: Message | null = null
@@ -125,7 +129,6 @@ export async function promptClaudeAndGetFileChanges(
   const fileProcessingPromises: Promise<
     { filePath: string; old: string; new: string }[]
   >[] = []
-  const processedFiles = new Set<string>() // Add this line to track processed files
 
   const system = getSystemPrompt(fileContext)
   const tools = getTools()
@@ -142,7 +145,7 @@ export async function promptClaudeAndGetFileChanges(
       .join('\n')
   )
 
-  debugLog('File blocks from tool calls:', fileBlocksFromToolCalls)
+  debugLog('File blocks from tool calls:', Object.keys(fileBlocksFromToolCalls))
 
   while (!isComplete) {
     const messagesWithContinuedMessage = continuedMessage
@@ -167,13 +170,11 @@ export async function promptClaudeAndGetFileChanges(
 
       const fileBlocks = parseFileBlocks(currentFileBlock)
       for (const [filePath, newFileContent] of Object.entries(fileBlocks)) {
-        if (!processedFiles.has(filePath)) { // Add this check
-          const oldContent: string | undefined = fileBlocksFromToolCalls[filePath]
-          fileProcessingPromises.push(
-            processFileBlock(fileContext, filePath, oldContent, newFileContent)
-          )
-          processedFiles.add(filePath) // Add this line to mark the file as processed
-        }
+        // TODO: Include newly created files?
+        const oldContent: string | undefined = fileBlocksFromToolCalls[filePath]
+        fileProcessingPromises.push(
+          processFileBlock(fileContext, filePath, oldContent, newFileContent)
+        )
 
         currentFileBlock = currentFileBlock.replace(fileRegex, '')
       }
@@ -194,21 +195,9 @@ export async function promptClaudeAndGetFileChanges(
   const changes = (await Promise.all(fileProcessingPromises)).flat()
   debugLog('Final changes:', changes)
 
-  // Add this section to log each unique file change
-  const uniqueChanges = new Map<string, { old: string; new: string }>()
-  for (const change of changes) {
-    uniqueChanges.set(change.filePath, { old: change.old, new: change.new })
-  }
-  for (const [filePath, change] of uniqueChanges.entries()) {
-    debugLog(`Updated file: ${filePath}`, change)
-  }
-
   return {
     response: fullResponse,
-    changes: Array.from(uniqueChanges.entries()).map(([filePath, change]) => ({
-      filePath,
-      ...change,
-    })),
+    changes,
     toolCall,
   }
 }
@@ -268,7 +257,7 @@ async function processFileBlock(
   oldContent: string | undefined,
   newContent: string
 ) {
-  debugLog('process file block', filePath)
+  debugLog('Processing file block', filePath)
   const fileExisted = fileContext.filePaths.includes(filePath)
 
   if (!fileExisted) {
@@ -277,8 +266,10 @@ async function processFileBlock(
   }
 
   if (!oldContent) {
-    throw new Error('Old content not found for file: ' + filePath)
+    debugLog(`Error: Old content not found for file: ${filePath}`)
+    return []
   }
+
   // File exists, generate diff
   const diffBlocks = await generateDiffBlocks(oldContent, newContent)
   let updatedContent = oldContent
@@ -295,53 +286,14 @@ async function processFileBlock(
         new: newContent,
       })
     } else {
-      debugLog(
-        `Couldn't find simple match for replacement in file: ${filePath}. Attempting to expand...`
-      )
-      const expandedReplacement = await promptClaudeForExpansion(
-        filePath,
-        updatedContent,
-        oldContent,
-        newContent
-      )
-      if (expandedReplacement) {
-        const expandedReplaced = applyReplacement(
-          updatedContent,
-          expandedReplacement.oldContent,
-          expandedReplacement.newContent
-        )
-        if (expandedReplaced) {
-          updatedContent = expandedReplaced
-          debugLog('Successfully applied expanded replacement.')
-          changes.push({
-            filePath,
-            old: expandedReplacement.oldContent,
-            new: expandedReplacement.newContent,
-          })
-        } else {
-          debugLog('Warning: Could not apply expanded replacement.')
-          debugLog(
-            'Original old:',
-            oldContent,
-            'expandedReplacement:',
-            expandedReplacement.oldContent
-          )
-        }
-      }
+      debugLog(`Failed to apply change for ${filePath}. Skipping this change.`)
+      debugLog('Old content:', oldContent)
+      debugLog('New content:', newContent)
     }
   }
 
   if (changes.length === 0) {
-    // If no changes, set file anyway for good measure.
-    changes.push({
-      filePath,
-      old: oldContent,
-      new: newContent,
-    })
-  }
-
-  if (updatedContent === oldContent) {
-    debugLog(`No changes made to file: ${filePath}`)
+    debugLog(`No changes applied to file: ${filePath}`)
     return []
   }
 
@@ -364,14 +316,16 @@ Please structure your response in a few steps:
 1. Describe what code changes are being made. What's being inserted? What's being deleted?
 2. Split the changes into logical groups. Describe the sets of lines or logical chunks of code that are being changed. For example, modifying the import section, modifying a function, etc.
 3. Describe what lines of context from the old file you will use for each edit, so that string replacement of the old and new blocks will work correctly. Do not use any comments like "// ... existing code ..." or " ... rest of the file" as part of this context, because these comments don't exist in the old file, so string replacement won't work to make the edit.
-4. Finally, please provide a ${'<' + 'file>'} block containing the <old> and <new> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
+4. Describe the level of indendation in the old file, e.g. 4 spaces. You will use the same level of indention.
+5. Finally, please provide a ${'<' + 'file>'} block containing the <old> and <new> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
 
 IMPORTANT INSTRUCTIONS:
 1. The <old> blocks MUST match a portion of the old file content EXACTLY, character for character. Do not include any comments or placeholders like "// ... existing code ...". Instead, provide the exact lines of code that are being changed.
 2. Ensure that you're providing enough context in the <old> blocks to match exactly one location in the file.
 3. The <old> blocks should have as few lines as possible. Consider matching only a few lines around the change! Do not include dozens of lines of imports for no reason.
-4. The <new> blocks should contain the updated code that replaces the content in the corresponding <old> block. Do not include any comments or placeholders like "// ... existing code ...".
-5. Create separate <old> and <new> blocks for each distinct change in the file.
+4. It's important that the <old> block matches the same indentation as the original file.
+5. The <new> blocks should contain the updated code that replaces the content in the corresponding <old> block. Do not include any comments or placeholders like "// ... existing code ...".
+6. Create separate <old> and <new> blocks for each distinct change in the file.
 
 <example_prompt>
 Old file content:
@@ -678,7 +632,7 @@ Your Response:
     { role: 'user', content: prompt },
   ])
 
-  debugLog('Claude response:', response)
+  debugLog('Claude response for diff blocks:', response)
 
   const diffBlocks: { oldContent: string; newContent: string }[] = []
   const fileContents = parseFileBlocksWithoutPath(response)
@@ -688,13 +642,15 @@ Your Response:
 
     while ((blockMatch = blockRegex.exec(fileContent)) !== null) {
       diffBlocks.push({
-        oldContent: blockMatch[1].trim(),
-        newContent: blockMatch[2].trim(),
+        oldContent: blockMatch[1],
+        newContent: blockMatch[2],
       })
     }
   }
 
-  debugLog('Generated diff blocks:', JSON.stringify(diffBlocks, null, 2))
+  if (diffBlocks.length === 0) {
+    debugLog('Warning: No diff blocks generated')
+  }
 
   return diffBlocks
 }
@@ -709,9 +665,11 @@ function applyReplacement(
 
   // First, try an exact match
   if (content.includes(trimmedOldContent)) {
-    debugLog('worked with exact match')
+    debugLog('Replacement worked with exact match')
     return content.replace(trimmedOldContent, trimmedNewContent)
   }
+
+  debugLog('Exact match failed, attempting flexible whitespace match')
 
   // If exact match fails, try matching with flexible whitespace
   const oldLines = trimmedOldContent
@@ -735,11 +693,12 @@ function applyReplacement(
         .map((line) => leadingWhitespace + line)
         .join('\n')
 
-      debugLog('worked with flexible whitespace')
+      debugLog('Replacement worked with flexible whitespace')
       return content.replace(matchedContent, indentedNewContent)
     }
   }
 
+  debugLog('Failed to find a match for replacement')
   return null
 }
 

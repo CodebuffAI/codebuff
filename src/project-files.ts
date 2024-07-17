@@ -30,6 +30,9 @@ export const applyChanges = (changes: FileChanges) => {
       console.log(fileAlreadyExists ? 'Updated' : 'Created', filePath)
       changesSuceeded.push(change)
     }
+    else {
+      console.log('No changes to', filePath)
+    }
   }
   return changesSuceeded
 }

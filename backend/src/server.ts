@@ -5,7 +5,7 @@ import { listen as webSocketListen } from './websockets/server'
 import { clearDebugLog, debugLog } from './debug'
 
 dotenv.config()
-clearDebugLog()
+// clearDebugLog()
 
 const app = express()
 const port = process.env.PORT || 3000
