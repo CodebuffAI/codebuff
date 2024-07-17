@@ -122,23 +122,47 @@ async function manicode(userPrompt: string | undefined) {
     output: process.stdout,
   })
 
+  process.stdin.setRawMode(true)
+  process.stdin.resume()
+  process.stdin.setEncoding('utf8')
+
+  let isReceivingResponse = false
+  let stopResponseRequested = false
+
+  process.stdin.on('data', (key: string) => {
+    if (key === '\u001B') { // ESC key
+      if (isReceivingResponse) {
+        stopResponseRequested = true
+        console.log('\n[Response stopped by user]')
+      }
+    }
+  })
+
   const handleUserInput = async (userInput: string) => {
     addUserMessage(userInput)
 
     // Get updated file context
     const fileContext = getProjectFileContext()
 
+    isReceivingResponse = true
+    stopResponseRequested = false
+
     const mannyResponse = await sendUserInputAndAwaitResponse(
       ws,
       currentChat.messages,
-      fileContext
+      fileContext,
+      () => stopResponseRequested
     )
 
-    const assistantMessage: Message = {
-      role: 'assistant',
-      content: mannyResponse,
+    isReceivingResponse = false
+
+    if (!stopResponseRequested) {
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: mannyResponse,
+      }
+      currentChat = chatStorage.addMessage(currentChat.id, assistantMessage) || currentChat
     }
-    currentChat = chatStorage.addMessage(currentChat.id, assistantMessage) || currentChat
   }
 
   await new Promise<void>((resolve) => {
@@ -187,7 +211,8 @@ async function manicode(userPrompt: string | undefined) {
 async function sendUserInputAndAwaitResponse(
   ws: APIRealtimeClient,
   messageHistory: Message[],
-  fileContext: ProjectFileContext
+  fileContext: ProjectFileContext,
+  isStopRequested: () => boolean
 ) {
   let response = ''
   return await new Promise<string>((resolve) => {
@@ -196,7 +221,7 @@ async function sendUserInputAndAwaitResponse(
       process.stdout.write(chunk)
       response += chunk
 
-      if (response.includes(STOP_MARKER)) {
+      if (response.includes(STOP_MARKER) || isStopRequested()) {
         unsubscribe()
         resolve(response)
       }
