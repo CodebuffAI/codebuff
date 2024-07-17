@@ -173,7 +173,13 @@ export async function promptClaudeAndGetFileChanges(
         // TODO: Include newly created files?
         const oldContent: string | undefined = fileBlocksFromToolCalls[filePath]
         fileProcessingPromises.push(
-          processFileBlock(messages, fileContext, filePath, oldContent, newFileContent)
+          processFileBlock(
+            messages,
+            fileContext,
+            filePath,
+            oldContent,
+            newFileContent
+          )
         )
 
         currentFileBlock = currentFileBlock.replace(fileRegex, '')
@@ -258,6 +264,7 @@ async function processFileBlock(
   oldContent: string | undefined,
   newContent: string
 ) {
+  
   debugLog('Processing file block', filePath)
   const fileExisted = fileContext.filePaths.includes(filePath)
 
@@ -272,7 +279,12 @@ async function processFileBlock(
   }
 
   // File exists, generate diff
-  const diffBlocks = await generateDiffBlocks(messageHistory, oldContent, newContent)
+  const diffBlocks = await generateDiffBlocks(
+    messageHistory,
+    filePath,
+    oldContent,
+    newContent
+  )
   let updatedContent = oldContent
 
   const changes: { filePath: string; old: string; new: string }[] = []
@@ -287,7 +299,8 @@ async function processFileBlock(
         trimmedNewContent
       )
       changes.push({ filePath, old: oldContent, new: newContent })
-      debugLog(`Applied change to ${filePath}:`, {
+      console.log('Applied a change to', filePath)
+      debugLog(`Applied a change to ${filePath}:`, {
         old: oldContent,
         new: newContent,
       })
@@ -307,8 +320,15 @@ async function processFileBlock(
   return changes
 }
 
-async function generateDiffBlocks(messageHistory: Message[], currentContent: string, newContent: string) {
-  debugLog('Generating diff blocks...')
+async function generateDiffBlocks(
+  messageHistory: Message[],
+  filePath: string,
+  currentContent: string,
+  newContent: string
+) {
+  const logMessage = `Generating diff blocks for ${filePath}`
+  console.log(logMessage)
+  debugLog(logMessage)
   debugLog('Current content:', currentContent)
   debugLog('New content:', newContent)
 
@@ -389,8 +409,8 @@ import { Input } from './Input'
 - The LoginForm change can replace the whole function.
 
 4. Here are my changes:
-${createFileBlockWithoutPath(`
-<old>
+${createFileBlock(
+  `<old>
 import { Input } from './Input'
 </old>
 <new>
@@ -426,7 +446,9 @@ function LoginForm() {
   )
 }
 </new>
-`)}
+`,
+  filePath
+)}
 </example_response>
 
 <example_prompt>
@@ -556,8 +578,8 @@ import { SearchIcon } from '@heroicons/react/solid'
 \`\`\`
 
 4. Here are my changes:
-${createFileBlockWithoutPath(`
-<old>
+${createFileBlock(
+  `<old>
 import { SearchIcon } from '@heroicons/react/solid'
 import {
   GlobeAltIcon,
@@ -592,7 +614,9 @@ import {
         icon: NotificationsIcon,
       },
 </new>
-`)}
+`,
+  filePath
+)}
 </example_response>
 
 <important_instruction>
@@ -626,6 +650,8 @@ ${messageHistory.map((m) => `${m.role}: ${m.content}`).join('\n\n')}
 
 Now, here is the prompt.
 
+File path: ${filePath}
+
 Old file content:
 \`\`\`
 ${currentContent}
@@ -646,8 +672,8 @@ Your Response:
   debugLog('Claude response for diff blocks:', response)
 
   const diffBlocks: { oldContent: string; newContent: string }[] = []
-  const fileContents = parseFileBlocksWithoutPath(response)
-  for (const fileContent of fileContents) {
+  const files = parseFileBlocks(response)
+  for (const fileContent of Object.values(files)) {
     const blockRegex = /<old>([\s\S]*?)<\/old>\s*<new>([\s\S]*?)<\/new>/g
     let blockMatch
 
