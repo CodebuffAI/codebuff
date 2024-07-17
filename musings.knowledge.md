@@ -163,3 +163,5 @@ Problems
 - Not all edits going through: fail to create appropriate diff blocks
 - "// ... (rest of the file remains unchanged)" got added and replaced the rest of the file
 - Should indicate if diff is still generating somehow...
+- Improve speed by prompting it to rely more on diffs instead of reproducing the whole file
+- Prompt engineer it to automatically make knowledge changes when you correct it

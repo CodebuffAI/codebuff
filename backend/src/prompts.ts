@@ -173,7 +173,7 @@ export async function promptClaudeAndGetFileChanges(
         // TODO: Include newly created files?
         const oldContent: string | undefined = fileBlocksFromToolCalls[filePath]
         fileProcessingPromises.push(
-          processFileBlock(fileContext, filePath, oldContent, newFileContent)
+          processFileBlock(messages, fileContext, filePath, oldContent, newFileContent)
         )
 
         currentFileBlock = currentFileBlock.replace(fileRegex, '')
@@ -252,6 +252,7 @@ async function promptClaudeWithContinuation(
 }
 
 async function processFileBlock(
+  messageHistory: Message[],
   fileContext: ProjectFileContext,
   filePath: string,
   oldContent: string | undefined,
@@ -271,7 +272,7 @@ async function processFileBlock(
   }
 
   // File exists, generate diff
-  const diffBlocks = await generateDiffBlocks(oldContent, newContent)
+  const diffBlocks = await generateDiffBlocks(messageHistory, oldContent, newContent)
   let updatedContent = oldContent
 
   const changes: { filePath: string; old: string; new: string }[] = []
@@ -306,7 +307,7 @@ async function processFileBlock(
   return changes
 }
 
-async function generateDiffBlocks(currentContent: string, newContent: string) {
+async function generateDiffBlocks(messageHistory: Message[], currentContent: string, newContent: string) {
   debugLog('Generating diff blocks...')
   debugLog('Current content:', currentContent)
   debugLog('New content:', newContent)
@@ -617,6 +618,11 @@ function applyReplacement(
 }
 \`\`\`
 </important_instruction>
+
+Here is the message history in case it is relevant to the code changes:
+<message_history>
+${messageHistory.map((m) => `${m.role}: ${m.content}`).join('\n\n')}
+</message_history>
 
 Now, here is the prompt.
 
