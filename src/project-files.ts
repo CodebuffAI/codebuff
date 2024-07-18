@@ -4,7 +4,7 @@ import ts from 'typescript'
 
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { FileChanges } from 'common/actions'
-import { filterObject } from 'common'
+import { filterObject } from 'common/util/object'
 
 const projectRoot = path.normalize(path.resolve(__dirname, '..'))
 
@@ -25,7 +25,6 @@ export const applyChanges = (changes: FileChanges) => {
     if (updatedContent !== content) {
       fs.mkdirSync(path.dirname(fullPath), { recursive: true })
       fs.writeFileSync(fullPath, updatedContent, 'utf8')
-      console.log(fileAlreadyExists ? 'Updated' : 'Created', filePath)
       changesSuceeded.push(change)
     } else {
       console.log('Change did not go through for', filePath)
