@@ -2,6 +2,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from '@manicode/common'
 import { Message, ToolCall } from 'common/src/actions'
+import { STOP_MARKER } from 'common/src/prompts'
+import { debugLog } from './debug'
 
 export const models = {
   sonnet: 'claude-3-5-sonnet-20240620' as const,
@@ -85,4 +87,47 @@ export const promptClaude = async (
     fullResponse += chunk
   }
   return fullResponse
+}
+
+export async function promptClaudeWithContinuation(
+  messages: Message[],
+  options: { system?: string; model?: model_types } = {}
+) {
+  let fullResponse = ''
+  let continuedMessage: Message | null = null
+  let isComplete = false
+
+  // Add the instruction to end with the stop market to the system prompt
+  if (options.system) {
+    options.system += `\n\nAlways end your response with "${STOP_MARKER}".`
+  } else {
+    options.system = `Always end your response with "${STOP_MARKER}".`
+  }
+
+  while (!isComplete) {
+    const messagesWithContinuedMessage = continuedMessage
+      ? [...messages, continuedMessage]
+      : messages
+    debugLog(
+      'prompt claude with continuation',
+      messagesWithContinuedMessage.length
+    )
+    const stream = promptClaudeStream(messagesWithContinuedMessage, options)
+
+    for await (const chunk of stream) {
+      fullResponse += chunk
+    }
+
+    if (fullResponse.includes(STOP_MARKER)) {
+      isComplete = true
+      fullResponse = fullResponse.replace(STOP_MARKER, '')
+    } else {
+      continuedMessage = {
+        role: 'assistant',
+        content: fullResponse,
+      }
+    }
+  }
+
+  return { response: fullResponse }
 }

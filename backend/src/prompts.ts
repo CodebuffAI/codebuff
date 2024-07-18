@@ -1,7 +1,6 @@
-import { Tool } from '@anthropic-ai/sdk/resources'
 import { WebSocket } from 'ws'
 
-import { promptClaudeStream, model_types } from './claude'
+import { promptClaudeStream, promptClaudeWithContinuation } from './claude'
 import {
   ProjectFileContext,
   createFileBlock,
@@ -113,56 +112,6 @@ export async function promptClaudeAndGetFileChanges(
   }
 }
 
-async function promptClaudeWithContinuation(
-  messages: Message[],
-  options: { system?: string; tools?: Tool[]; model?: model_types } = {}
-) {
-  let fullResponse = ''
-  let toolCall: ToolCall | null = null
-  let continuedMessage: Message | null = null
-  let isComplete = false
-
-  // Add the instruction to end with the stop market to the system prompt
-  if (options.system) {
-    options.system += `\n\nAlways end your response with "${STOP_MARKER}".`
-  } else {
-    options.system = `Always end your response with "${STOP_MARKER}".`
-  }
-
-  while (!isComplete) {
-    const messagesWithContinuedMessage = continuedMessage
-      ? [...messages, continuedMessage]
-      : messages
-    debugLog(
-      'prompt claude with continuation',
-      messagesWithContinuedMessage.length
-    )
-    const stream = promptClaudeStream(messagesWithContinuedMessage, options)
-
-    for await (const chunk of stream) {
-      if (typeof chunk === 'object') {
-        console.log('Did a tool call and it probably shouldnt have', chunk)
-        toolCall = chunk
-        isComplete = true
-        break
-      }
-      fullResponse += chunk
-    }
-
-    if (fullResponse.includes(STOP_MARKER)) {
-      isComplete = true
-      fullResponse = fullResponse.replace(STOP_MARKER, '')
-    } else {
-      continuedMessage = {
-        role: 'assistant',
-        content: fullResponse,
-      }
-    }
-  }
-
-  return { response: fullResponse, toolCall }
-}
-
 async function processFileBlock(
   ws: WebSocket,
   messageHistory: Message[],
@@ -214,7 +163,7 @@ async function processFileBlock(
   return changes
 }
 
-async function generateDiffBlocks(
+export async function generateDiffBlocks(
   messageHistory: Message[],
   filePath: string,
   currentContent: string,
@@ -260,6 +209,7 @@ IMPORTANT INSTRUCTIONS:
 4. The <new> blocks should contain the updated code that replaces the content in the corresponding <old> block, maintaining the same indentation style and level as the original file.
 5. Create separate <old> and <new> blocks for each distinct change in the file.
 6. Pay close attention to the indentation of both the <old> and <new> blocks. They should match the indentation style and level of the original file exactly.
+7. If the new content contains comments about edits that should be made, you should remove those. E.g. Remove comments like "// Add these new functions at the top of the file"
 
 <example_prompt>
 Old file content:

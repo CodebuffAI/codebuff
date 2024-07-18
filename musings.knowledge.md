@@ -167,3 +167,4 @@ Problems
 - Dawson's case of wanting it to scrape documentation from a url and answer questions with it.
 - Indenting fails when it makes multiple changes with different indent levels.
 - More chain of thought for main prompt. <planning> blocks, <code_review>, <brainstorm>, etc.
+- Delete files
