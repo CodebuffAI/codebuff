@@ -6,12 +6,12 @@ import {
   createFileBlock,
   parseFileBlocks,
   fileRegex,
-} from '@manicode/common/src/util/file'
+} from 'common/util/file'
 import { getSystemPrompt } from './system-prompt'
-import { STOP_MARKER } from '@manicode/common/src/constants'
+import { STOP_MARKER } from 'common/constants'
 import { getTools } from './tools'
-import { Message } from 'common/src/actions'
-import { ToolCall } from 'common/src/actions'
+import { Message } from 'common/actions'
+import { ToolCall } from 'common/actions'
 import { debugLog } from './debug'
 import { requestFile } from './websockets/websocket-action'
 
@@ -89,10 +89,8 @@ export async function promptClaudeAndGetFileChanges(
     } else {
       console.log('continuing to generate')
       debugLog('continuing to generate')
-      const fullResponseMinusLastLine = fullResponse
-        .split('\n')
-        .slice(0, -1)
-        .join('\n') + '\n'
+      const fullResponseMinusLastLine =
+        fullResponse.split('\n').slice(0, -1).join('\n') + '\n'
       continuedMessages = [
         {
           role: 'assistant',

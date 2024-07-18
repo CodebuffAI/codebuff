@@ -12,4 +12,8 @@ module.exports = {
       tsconfig: 'tsconfig.json',
     },
   },
+  moduleNameMapper: {
+    '^common(.*)$': '<rootDir>/../common/src$1',
+  },
+  moduleDirectories: ['node_modules', '../node_modules'],
 }

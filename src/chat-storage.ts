@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { Message } from 'common/src/actions'
+import { Message } from 'common/actions'
 
 const MANICODE_DIR = '.manicode'
 const CHATS_DIR = 'chats'

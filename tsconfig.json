@@ -14,17 +14,13 @@
     "typeRoots": ["./node_modules/@types"],
     "baseUrl": ".",
     "paths": {
-      "@manicode/common": ["common/src"]
+      "common/*": ["common/src/*"]
     },
     "outDir": "./dist"
   },
   "include": ["src/**/*"],
-  "references": [
-    { "path": "./common" },
-    { "path": "./backend" }
-  ],
+  "references": [{ "path": "./common" }, { "path": "./backend" }],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }
 }
-  

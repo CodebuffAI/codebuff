@@ -1,8 +1,5 @@
-import {
-  ProjectFileContext,
-  createFileBlock,
-} from '@manicode/common/src/util/file'
-import { STOP_MARKER } from '@manicode/common/src/constants'
+import { ProjectFileContext, createFileBlock } from 'common/util/file'
+import { STOP_MARKER } from 'common/constants'
 
 export function getSystemPrompt(fileContext: ProjectFileContext) {
   const { filePaths, exportedTokens, knowledgeFiles } = fileContext

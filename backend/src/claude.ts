@@ -1,8 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { Tool } from '@anthropic-ai/sdk/resources'
-import { removeUndefinedProps } from '@manicode/common'
-import { Message, ToolCall } from 'common/src/actions'
-import { STOP_MARKER } from 'common/src/constants'
+import { removeUndefinedProps } from 'common/util/object'
+import { Message, ToolCall } from 'common/actions'
+import { STOP_MARKER } from 'common/constants'
 import { debugLog } from './debug'
 
 export const models = {

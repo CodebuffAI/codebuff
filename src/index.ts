@@ -1,17 +1,16 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
-import { last } from 'lodash'
-import { ProjectFileContext } from '@manicode/common/src/util/file'
+import { ProjectFileContext } from 'common/util/file'
 import {
   applyChanges,
   getProjectFileContext,
   getFileBlocks,
   getFiles,
 } from './project-files'
-import { APIRealtimeClient } from 'common/src/websockets/websocket-client'
-import { Message } from 'common/src/actions'
-import { STOP_MARKER } from '@manicode/common/src/prompts'
+import { APIRealtimeClient } from 'common/websockets/websocket-client'
+import { Message } from 'common/actions'
+import { STOP_MARKER } from 'common/constants'
 import { ChatStorage } from './chat-storage'
 
 const runScript = (fn: () => Promise<void>) => {

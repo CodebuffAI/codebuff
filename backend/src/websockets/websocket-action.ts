@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws'
-import { ClientMessage } from '@manicode/common/src/websockets/websocket-schema'
+import { ClientMessage } from 'common/websockets/websocket-schema'
 import { promptClaudeAndGetFileChanges } from '../prompts'
-import { ClientAction, ServerAction } from 'common/src/actions'
+import { ClientAction, ServerAction } from 'common/actions'
 import { sendMessage } from './server'
 import { isEqual } from 'lodash'
 

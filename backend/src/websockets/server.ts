@@ -5,7 +5,7 @@ import {
   ClientMessage,
   ServerMessage,
   CLIENT_MESSAGE_SCHEMA,
-} from '@manicode/common/src/websockets/websocket-schema'
+} from 'common/websockets/websocket-schema'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
 
@@ -114,7 +114,6 @@ export function listen(server: HttpServer, path: string) {
     console.log('WS client connected.')
     SWITCHBOARD.connect(ws)
     ws.on('message', (data) => {
-      console.log('got message', data)
       const result = processMessage(ws, data)
       // mqp: check ws.readyState before sending?
       ws.send(JSON.stringify(result))

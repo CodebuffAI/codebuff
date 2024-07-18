@@ -1,6 +1,6 @@
 // import { getSecrets } from 'common/secrets'
 import Anthropic from '@anthropic-ai/sdk'
-import { removeUndefinedProps } from '@manicode/common'
+import { removeUndefinedProps } from 'common'
 
 export const models = {
   sonnet: 'claude-3-5-sonnet-20240620' as const,
@@ -39,7 +39,10 @@ export const promptClaudeStream = async function* (
   )
 
   for await (const chunk of stream) {
-    if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+    if (
+      chunk.type === 'content_block_delta' &&
+      chunk.delta.type === 'text_delta'
+    ) {
       yield chunk.delta.text
     }
   }

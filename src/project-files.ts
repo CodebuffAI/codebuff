@@ -2,12 +2,9 @@ import fs from 'fs'
 import path from 'path'
 import ts from 'typescript'
 
-import {
-  createFileBlock,
-  ProjectFileContext,
-} from '@manicode/common/src/util/file'
-import { FileChanges } from 'common/src/actions'
-import { filterObject } from '@manicode/common'
+import { createFileBlock, ProjectFileContext } from 'common/util/file'
+import { FileChanges } from 'common/actions'
+import { filterObject } from 'common'
 
 const projectRoot = path.normalize(path.resolve(__dirname, '..'))
 

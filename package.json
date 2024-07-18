@@ -14,7 +14,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
   },
   "dependencies": {
-    "@manicode/common": "1.0.0"
+    "common": "1.0.0"
   },
   "devDependencies": {
     "@types/json2csv": "5.0.3",

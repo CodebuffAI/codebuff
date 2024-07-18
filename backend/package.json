@@ -1,5 +1,5 @@
 {
-  "name": "@manicode/backend",
+  "name": "backend",
   "version": "1.0.0",
   "description": "Backend server for Manicode",
   "main": "dist/server.js",
@@ -13,7 +13,7 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
-    "@manicode/common": "1.0.0",
+    "common": "1.0.0",
     "@anthropic-ai/sdk": "^0.24.3",
     "dotenv": "^10.0.0",
     "express": "^4.17.1",
