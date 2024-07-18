@@ -118,6 +118,11 @@ export async function promptClaudeWithContinuation(
       fullResponse += chunk
     }
 
+    if (continuedMessage) {
+      debugLog('Continuation response:', fullResponse)
+      console.log('got continuation response')
+    }
+
     if (fullResponse.includes(STOP_MARKER)) {
       isComplete = true
       fullResponse = fullResponse.replace(STOP_MARKER, '')

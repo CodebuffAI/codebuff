@@ -121,9 +121,9 @@ After you have read a file and are intending to edit it, be sure to not use the 
 
 Continue as long as you are making progress toward the user's request.
 
-If there is an important piece of code to understand, you should first create a <code_review> block and describe what is happening in the code.
+After reading files with code you need to understand, you should create a <code_review> block and describe what is happening in the code.
 
-If the user is asking you to do something non-obvious, you should create a <planning> block to discuss what your plan is.
+After understanding the user request and the code, you should create a <planning> block to discuss what your plan is to solve the user's problem.
 
 <important_instruction>
 Always end your response with the following marker:

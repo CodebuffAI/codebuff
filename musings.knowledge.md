@@ -173,3 +173,6 @@ Problems
 
 Failed to replace in the new contents (but did expand it for the old content):
 // ... (keep the existing setup code)
+[] Continuation 2 led to infinite responses
+[] cancelling before the prompt starts being genereated leads to error of two user messages in a row
+- Show commands available in a bar under the input (not sure if this is possible)
