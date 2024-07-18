@@ -16,101 +16,6 @@ import { ToolCall } from 'common/src/actions'
 import { debugLog } from './debug'
 import { requestFile } from './websockets/websocket-action'
 
-export const getInitialPrompt = (userPrompt: string) => {
-  return `
-<instructions>
-The user has a coding question for you. Please provide a detailed response following this structure:
-
-1. User Request: Briefly restate what the user wants to accomplish.
-
-2. Implementation Strategy: Outline your approach to implement the requested changes.
-
-3. Implementation Discussion and File Modifications:
-
-Think aloud step by step and start modifying files.
-
-You can list files that need to be modified or created, and they will be changed according to your instruction.
-For each file, provide one file block with the file path as an xml attribute and the updated file contents:
-${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
-
-To modify an existing file, use comments to indicate where existing code should be preserved:
-${createFileBlock(
-  'path/to/existing/file.tsx',
-  `// ... existing imports...
-
-// ... existing code ...
-
-function getDesktopNav() {
-  console.log('Hello from the desktop nav')
-
-  // ... rest of the function
-}
-
-// ... rest of the file
-`
-)}
-</instructions>
-
-<important_reminders>
-- When modifying a file, always include imports: either reproduce the full list of imports, or add new imports with comments like " ... existing imports" and "// ... rest of imports". If the imports are not changed then include a comment: "// ... existing imports"
-- You may use comments like "// ... existing code ..." or " ... rest of the file" to indicate where existing code should be preserved, however it is good to provide a few other lines of context around the changes.
-- Ensure that you're providing enough context around the changes for accurate matching.
-- It is ok to make a mistake when editing a file, you just need to modify the file again. But know that previous changes will already have been made.
-</important_reminders>
-
-<example>
-1. User Request: Add a new NewComponent and use it in the Home page.
-
-2. Implementation Strategy:
-   - Create a new file for NewComponent
-   - Modify the Home page to import and use NewComponent
-   - Ensure all necessary imports are added
-
-3. Implementation Discussion and File Modifications:
-
-I will start by creating a new component in a new file:
-
-${createFileBlock(
-  'web/components/NewComponent.tsx',
-  `import React from 'react'
-
-export const NewComponent: React.FC = () => {
-  return <div>This is a new component</div>
-}
-`
-)}
-
-Next, I need to add it to the Home component. I shouldn't forget to import NewComponent.
-
-${createFileBlock(
-  'web/pages/Home.tsx',
-  `// ... existing imports ...
-// ... existing imports ...
-import { AnotherComponentUsedForContext } from '../components/AnotherComponentUsedForContext'
-import { NewComponent } from '../components/NewComponent'
-
-const Home: React.FC = () => {
-  // ... existing code ...
-  return (
-    <div>
-      <h1>Welcome to the Home page</h1>
-      <SomeExistingComponent />
-      <NewComponent />
-    </div>
-  )
-}
-
-// ... rest of the file
-`
-)}
-</example>
-
-Now, please provide your response based on the following user request:
-
-User:
-${userPrompt}`
-}
-
 export async function promptClaudeAndGetFileChanges(
   ws: WebSocket,
   messages: Message[],
@@ -139,7 +44,7 @@ export async function promptClaudeAndGetFileChanges(
     lastMessage.content = `${lastMessage.content}
 
 <additional_instruction>Please request as many files as would help answer the user's question using the read_files tool</additional_instruction>
-<additional_instruction>If you learn something based on the user's feedback or from thinking deeply about the problem, please update a knowledge file consisely.</additional_instruction>`
+<additional_instruction>If the user gave feedback and it helped you understand something better, please add a short note to a knowledge file that condenses what you learned.</additional_instruction>`
   }
 
   while (!isComplete) {
@@ -223,6 +128,7 @@ async function promptClaudeWithContinuation(
 
     for await (const chunk of stream) {
       if (typeof chunk === 'object') {
+        console.log('Did a tool call and it probably shouldnt have', chunk)
         toolCall = chunk
         isComplete = true
         break

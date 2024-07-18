@@ -160,10 +160,9 @@ Wish list
 
 
 Problems
-- Not all edits going through: fail to create appropriate diff blocks
-- "// ... (rest of the file remains unchanged)" got added and replaced the rest of the file
 - Should indicate if diff is still generating somehow...
 - Improve speed by prompting it to rely more on diffs instead of reproducing the whole file
-- Prompt engineer it to automatically make knowledge changes when you correct it
-- it's doing a poor job loading all the relevant files into context. Need to add more explicity steps for this.
+[x] Prompt engineer it to automatically make knowledge changes when you correct it
+[x] it's doing a poor job loading all the relevant files into context. Need to add more explicity steps for this.
 - Dawson's case of wanting it to scrape documentation from a url and answer questions with it.
+- Indenting fails when it makes multiple changes with different indent levels.
