@@ -8,7 +8,7 @@
     "."
   ],
   "scripts": {
-    "code": "ts-node index.ts",
+    "code": "ts-node src/index.ts",
     "build": "yarn workspaces run build",
     "clean": "yarn workspaces run clean",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\""

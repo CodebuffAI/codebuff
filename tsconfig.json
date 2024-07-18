@@ -18,7 +18,7 @@
     },
     "outDir": "./dist"
   },
-  "include": ["index.ts", "src/**/*"],
+  "include": ["src/**/*"],
   "references": [
     { "path": "./common" },
     { "path": "./backend" }
