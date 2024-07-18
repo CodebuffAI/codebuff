@@ -29,6 +29,8 @@ const runScript = (fn: () => Promise<void>) => {
   fn()
 }
 
+let responseBuffer = ''
+
 runScript(async () => {
   const userPrompt = process.argv[2] || undefined
   await manicode(userPrompt)
@@ -121,12 +123,20 @@ async function manicode(userPrompt: string | undefined) {
   let isReceivingResponse = false
   let stopResponseRequested = false
 
+  const clearLine = () => {
+    process.stdout.clearLine(0)
+    process.stdout.cursorTo(0)
+  }
+
   process.stdin.on('data', (key: string) => {
     const ESC_KEY = '\u001B'
     if (key === ESC_KEY) {
       if (isReceivingResponse) {
         stopResponseRequested = true
+        clearLine()
         console.log('\n[Response stopped by user]')
+        isReceivingResponse = false
+        promptUser()
       } else {
         console.log('\nExiting. Manicode out!')
         process.exit(0)
@@ -135,7 +145,8 @@ async function manicode(userPrompt: string | undefined) {
   })
 
   const handleUserInput = async (userInput: string) => {
-    console.log('...')
+    clearLine()
+    process.stdout.write('...')
 
     const newMessage: Message = { role: 'user', content: userInput }
     chatStorage.addMessage(currentChat, newMessage)
@@ -145,6 +156,7 @@ async function manicode(userPrompt: string | undefined) {
 
     isReceivingResponse = true
     stopResponseRequested = false
+    responseBuffer = ''
 
     const mannyResponse = await sendUserInputAndAwaitResponse(
       ws,
@@ -155,25 +167,33 @@ async function manicode(userPrompt: string | undefined) {
 
     isReceivingResponse = false
 
-    const assistantMessage: Message = {
-      role: 'assistant',
-      content: mannyResponse,
-    }
-    chatStorage.addMessage(currentChat, assistantMessage)
-
-    if (stopResponseRequested) {
-      console.log('\n[Response stopped by user. Partial response saved.]')
+    if (!stopResponseRequested) {
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: mannyResponse,
+      }
+      chatStorage.addMessage(currentChat, assistantMessage)
+    } else {
+      const partialResponse = responseBuffer.trim()
+      if (partialResponse) {
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: partialResponse + '\n[RESPONSE_STOPPED_BY_USER]',
+        }
+        chatStorage.addMessage(currentChat, assistantMessage)
+      }
     }
   }
 
-  await new Promise<void>((resolve) => {
-    function onInput(userInput: string) {
-      if (userInput.trim().toLowerCase() === 'new chat') {
+  function promptUser() {
+    clearLine()
+    rl.question('> ', (input) => {
+      if (input.trim().toLowerCase() === 'new chat') {
         currentChat = chatStorage.createChat([])
         console.log(`Started new chat session with ID: ${currentChat.id}`)
         promptUser()
-      } else if (userInput.trim().toLowerCase().startsWith('load chat ')) {
-        const chatId = userInput.trim().split(' ')[2]
+      } else if (input.trim().toLowerCase().startsWith('load chat ')) {
+        const chatId = input.trim().split(' ')[2]
         const loadedChat = chatStorage.getChat(chatId)
         if (loadedChat) {
           currentChat = loadedChat
@@ -182,7 +202,7 @@ async function manicode(userPrompt: string | undefined) {
           console.log(`Chat session with ID ${chatId} not found.`)
         }
         promptUser()
-      } else if (userInput.trim().toLowerCase() === 'list chats') {
+      } else if (input.trim().toLowerCase() === 'list chats') {
         const chats = chatStorage.listChats()
         console.log('Available chat sessions:')
         chats.forEach((chat) => {
@@ -192,17 +212,17 @@ async function manicode(userPrompt: string | undefined) {
         })
         promptUser()
       } else {
-        handleUserInput(userInput).then(promptUser)
+        handleUserInput(input).then(promptUser)
       }
-    }
+    })
+  }
 
-    function promptUser() {
-      rl.question('> ', onInput)
-    }
-
-    if (userPrompt) onInput(userPrompt)
-    else promptUser()
-  })
+  if (userPrompt) {
+    await handleUserInput(userPrompt)
+    promptUser()
+  } else {
+    promptUser()
+  }
 }
 
 async function sendUserInputAndAwaitResponse(
@@ -211,23 +231,24 @@ async function sendUserInputAndAwaitResponse(
   fileContext: ProjectFileContext,
   isStopRequested: () => boolean
 ) {
-  let response = ''
   return await new Promise<string>((resolve) => {
     const unsubscribe = ws.subscribe('response-chunk', (a) => {
       const { chunk } = a
-      process.stdout.write(chunk)
-      response += chunk
 
-      const stopRequested = isStopRequested()
-      if (response.includes(STOP_MARKER) || stopRequested) {
+      if (isStopRequested()) {
         unsubscribe()
+        resolve(responseBuffer)
+        return
+      }
 
-        response = response.replace(STOP_MARKER, '').trim()
-        if (stopRequested) {
-          response += '\n[RESPONSE_STOPPED_BY_USER]'
-        }
+      process.stdout.write(chunk)
+      responseBuffer += chunk
+
+      if (responseBuffer.includes(STOP_MARKER)) {
+        unsubscribe()
+        responseBuffer = responseBuffer.replace(STOP_MARKER, '').trim()
         console.log()
-        resolve(response)
+        resolve(responseBuffer)
       }
     })
 

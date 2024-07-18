@@ -161,6 +161,7 @@ Wish list
 
 Problems
 - Should indicate if diff is still generating somehow...
+    - send to client the file changes still planned. Wait for them before allowing user input?
 - Improve speed by prompting it to rely more on diffs instead of reproducing the whole file
 [x] Prompt engineer it to automatically make knowledge changes when you correct it
 [x] it's doing a poor job loading all the relevant files into context. Need to add more explicity steps for this.
