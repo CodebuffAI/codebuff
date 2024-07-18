@@ -8,7 +8,7 @@ import {
   fileRegex,
 } from '@manicode/common/src/util/file'
 import { getSystemPrompt } from './system-prompt'
-import { STOP_MARKER } from '@manicode/common/src/prompts'
+import { STOP_MARKER } from '@manicode/common/src/constants'
 import { getTools } from './tools'
 import { Message } from 'common/src/actions'
 import { ToolCall } from 'common/src/actions'
@@ -89,14 +89,19 @@ export async function promptClaudeAndGetFileChanges(
     } else {
       console.log('continuing to generate')
       debugLog('continuing to generate')
+      const fullResponseMinusLastLine = fullResponse
+        .split('\n')
+        .slice(0, -1)
+        .join('\n') + '\n'
       continuedMessages = [
         {
           role: 'assistant',
-          content: fullResponse,
+          content: fullResponseMinusLastLine,
         },
         {
           role: 'user',
-          content: 'Please continue from the very next character',
+          content:
+            'You got cut off, but please continue from the very next line of your response. Do not repeat anything you have just said. Just continue as if there were no interruption from the very last character of your last response.',
         },
       ]
     }

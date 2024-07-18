@@ -2,7 +2,7 @@ import {
   ProjectFileContext,
   createFileBlock,
 } from '@manicode/common/src/util/file'
-import { STOP_MARKER } from '@manicode/common/src/prompts'
+import { STOP_MARKER } from '@manicode/common/src/constants'
 
 export function getSystemPrompt(fileContext: ProjectFileContext) {
   const { filePaths, exportedTokens, knowledgeFiles } = fileContext
@@ -123,6 +123,10 @@ After you have read a file and are intending to edit it, be sure to not use the 
 # Response format
 
 Continue as long as you are making progress toward the user's request.
+
+If there is an important piece of code to understand, you should first create a <code_review> block and describe what is happening in the code.
+
+If the user is asking you to do something non-obvious, you should create a <planning> block to discuss what your plan is.
 
 <important_instruction>
 Always end your response with the following marker:
