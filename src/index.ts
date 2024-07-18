@@ -111,25 +111,32 @@ async function manicode(userPrompt: string | undefined) {
     })
   })
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  })
-
   process.stdin.setRawMode(true)
   process.stdin.resume()
   process.stdin.setEncoding('utf8')
 
   let isReceivingResponse = false
   let stopResponseRequested = false
+  let responseBuffer = ''
+  let inputBuffer = ''
+  let historyIndex = -1
+  const history: string[] = []
 
   const clearLine = () => {
     process.stdout.clearLine(0)
     process.stdout.cursorTo(0)
   }
 
+  const refreshLine = () => {
+    clearLine()
+    process.stdout.write(`> ${inputBuffer}`)
+  }
+
   process.stdin.on('data', (key: string) => {
     const ESC_KEY = '\u001B'
+    const ENTER_KEY = '\r'
+    const BACKSPACE_KEY = '\x7F'
+
     if (key === ESC_KEY) {
       if (isReceivingResponse) {
         stopResponseRequested = true
@@ -141,6 +148,38 @@ async function manicode(userPrompt: string | undefined) {
         console.log('\nExiting. Manicode out!')
         process.exit(0)
       }
+    } else if (key === ENTER_KEY) {
+      console.log() // Move to the next line
+      const input = inputBuffer.trim()
+      inputBuffer = ''
+      historyIndex = -1
+      if (input) {
+        history.unshift(input)
+        handleUserInput(input).then(promptUser)
+      } else {
+        promptUser()
+      }
+    } else if (key === BACKSPACE_KEY) {
+      if (inputBuffer.length > 0) {
+        inputBuffer = inputBuffer.slice(0, -1)
+        refreshLine()
+      }
+    } else if (key === '\u001B[A' || key === '\u001B[B') { // Up or Down arrow
+      if (key === '\u001B[A' && historyIndex < history.length - 1) {
+        historyIndex++
+      } else if (key === '\u001B[B' && historyIndex > -1) {
+        historyIndex--
+      }
+      
+      if (historyIndex === -1) {
+        inputBuffer = ''
+      } else {
+        inputBuffer = history[historyIndex]
+      }
+      refreshLine()
+    } else {
+      inputBuffer += key
+      process.stdout.write(key)
     }
   })
 
@@ -187,34 +226,7 @@ async function manicode(userPrompt: string | undefined) {
 
   function promptUser() {
     clearLine()
-    rl.question('> ', (input) => {
-      if (input.trim().toLowerCase() === 'new chat') {
-        currentChat = chatStorage.createChat([])
-        console.log(`Started new chat session with ID: ${currentChat.id}`)
-        promptUser()
-      } else if (input.trim().toLowerCase().startsWith('load chat ')) {
-        const chatId = input.trim().split(' ')[2]
-        const loadedChat = chatStorage.getChat(chatId)
-        if (loadedChat) {
-          currentChat = loadedChat
-          console.log(`Loaded chat session with ID: ${currentChat.id}`)
-        } else {
-          console.log(`Chat session with ID ${chatId} not found.`)
-        }
-        promptUser()
-      } else if (input.trim().toLowerCase() === 'list chats') {
-        const chats = chatStorage.listChats()
-        console.log('Available chat sessions:')
-        chats.forEach((chat) => {
-          console.log(
-            `- ID: ${chat.id}, Created: ${chat.createdAt}, Updated: ${chat.updatedAt}`
-          )
-        })
-        promptUser()
-      } else {
-        handleUserInput(input).then(promptUser)
-      }
-    })
+    process.stdout.write('> ')
   }
 
   if (userPrompt) {
