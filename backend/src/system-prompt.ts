@@ -34,7 +34,7 @@ ${filePaths
 </project_files>
 
 <editing_instructions>
-You implement edits by writing out <file> blocks. The user does not need to copy this code to make the edit, it is done automatically.
+You implement edits by writing out <file> blocks. The user does not need to copy this code to make the edit, the file change is done automatically.
 
 To create a new file, simply provide a file block with the file path as an xml attribute and the file contents:
 ${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}

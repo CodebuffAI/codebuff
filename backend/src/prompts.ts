@@ -213,18 +213,32 @@ async function generateDiffBlocks(
   debugLog('Current content:', currentContent)
   debugLog('New content:', newContent)
 
-  const prompt = `
-I have a new version of a file, and I want to change the old file into the new file. I need to generate <old> and <new> blocks to represent the exact line-by-line differences so I can string replace the old content to the new content. If there are multiple changes, provide multiple pairs of blocks.
+  const prompt = `I have a new version of a file, and I want to change the old file into the new file. I need to generate <old> and <new> blocks to represent the exact line-by-line differences so I can string replace the old content to the new content.
 
-The new file may use shorthand such as "// ... existing code ..." or " ... rest of the file" to indicate unchanged code. However, we do not want to include these in your <old> or <new> blocks, because we want to replace the exact lines of code that are being changed.
+Example of how to represent a single change with <old> and <new> blocks:
+${createFileBlock(
+  `<old>
+import { Button } from './Button'
+</old>
+<new>
+import { FancyButton } from './FancyButton'
+</new>
+`,
+  filePath
+)}
+
+If there are multiple changes, provide multiple pairs of old and new blocks within the file block.
+
+The provided new file may use shorthand such as "// ... existing code ..." or " ... rest of the file" to indicate unchanged code. However, we do not want to include these in your <old> or <new> blocks, because we want to replace the exact lines of code that are being changed.
 
 Please structure your response in a few steps:
 
 1. Describe what code changes are being made. What's being inserted? What's being deleted?
 2. Split the changes into logical groups. Describe the sets of lines or logical chunks of code that are being changed. For example, modifying the import section, modifying a function, etc.
 3. Describe what lines of context from the old file you will use for each edit, so that string replacement of the old and new blocks will work correctly. Do not use any comments like "// ... existing code ..." or " ... rest of the file" as part of this context, because these comments don't exist in the old file, so string replacement won't work to make the edit.
-4. Analyze the indentation used in the old file. Three questions: Is it using spaces or tabs? How many spaces are used for each indentation level? How many indentation levels are used in the code being changed?
-5. Finally, please provide a ${'<' + 'file>'} block containing the <old> and <new> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
+4. Analyze the indentation used in the old file. Is it using spaces or tabs? How many spaces are used for each indentation level?
+5. How many indentation levels are used in each modified section?
+6. Finally, please provide a ${'<' + 'file>'} block containing the <old> and <new> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
 
 IMPORTANT INSTRUCTIONS:
 1. The <old> blocks MUST match a portion of the old file content EXACTLY, character for character, including indentation and empty lines. Do not include any comments or placeholders like "// ... existing code ...". Instead, provide the exact lines of code that are being changed.
@@ -289,7 +303,9 @@ import { Input } from './Input'
 
 - The LoginForm change can replace the whole function.
 
-4. Here are my changes:
+4. It's using 2 spaces for indentation.
+5. The LoginForm function is not indented.
+6. Here are my changes:
 ${createFileBlock(
   `<old>
 import { Input } from './Input'
@@ -458,7 +474,9 @@ import { SearchIcon } from '@heroicons/react/solid'
       },
 \`\`\`
 
-4. Here are my changes:
+4. It's using 2 spaces for indentation.
+5. The imports are not indented. The Notification items are indented 3 levels in the modified section (6 spaces).
+6. Here are my changes:
 ${createFileBlock(
   `<old>
 import { SearchIcon } from '@heroicons/react/solid'
@@ -571,59 +589,4 @@ Your Response:
   }
 
   return diffBlocks
-}
-
-async function promptClaudeForExpansion(
-  filePath: string,
-  currentContent: string,
-  oldContent: string,
-  newContent: string
-) {
-  const prompt = `
-I'm trying to apply a code replacement, but the replacement content doesn't match exactly. Can you help expand the replacement to match the existing code?
-
-File: ${filePath}
-
-Current file content:
-\`\`\`
-${currentContent}
-\`\`\`
-
-Old content to find:
-\`\`\`
-${oldContent}
-\`\`\`
-
-New content to replace with:
-\`\`\`
-${newContent}
-\`\`\`
-
-Please provide an expanded version of the old content that matches the existing code, and the corresponding expanded version of the new content to replace with. Use the following format:
-
-<old>
-// Expanded old content here
-</old>
-
-<new>
-// Expanded new content here
-</new>
-
-If you can't find a suitable expansion, please respond with "No expansion possible."
-`
-
-  // Consider adding a system prompt?
-  const expandedResponse = await promptClaude(prompt)
-
-  const expandedOldMatch = expandedResponse.match(/<old>([\s\S]*?)<\/old>/)
-  const expandedNewMatch = expandedResponse.match(/<new>([\s\S]*?)<\/new>/)
-
-  if (expandedOldMatch && expandedNewMatch) {
-    return {
-      oldContent: expandedOldMatch[1].trim(),
-      newContent: expandedNewMatch[1].trim(),
-    }
-  }
-
-  return null
 }
