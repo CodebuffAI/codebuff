@@ -51,6 +51,10 @@ export async function promptClaudeAndGetFileChanges(
     const messagesWithContinuedMessage = continuedMessage
       ? [...messages, continuedMessage]
       : messages
+    console.log(
+      'Prompting claude num messages:',
+      messagesWithContinuedMessage.length
+    )
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
       tools,
@@ -219,14 +223,14 @@ async function generateDiffBlocks(
 
 Example of how to represent a single change with <old> and <new> blocks:
 ${createFileBlock(
+  filePath,
   `<old>
 import { Button } from './Button'
 </old>
 <new>
 import { FancyButton } from './FancyButton'
 </new>
-`,
-  filePath
+`
 )}
 
 If there are multiple changes, provide multiple pairs of old and new blocks within the file block.
@@ -309,6 +313,7 @@ import { Input } from './Input'
 5. The LoginForm function is not indented.
 6. Here are my changes:
 ${createFileBlock(
+  filePath,
   `<old>
 import { Input } from './Input'
 </old>
@@ -345,8 +350,7 @@ function LoginForm() {
   )
 }
 </new>
-`,
-  filePath
+`
 )}
 </example_response>
 
@@ -480,6 +484,7 @@ import { SearchIcon } from '@heroicons/react/solid'
 5. The imports are not indented. The Notification items are indented 3 levels in the modified section (6 spaces).
 6. Here are my changes:
 ${createFileBlock(
+  filePath,
   `<old>
 import { SearchIcon } from '@heroicons/react/solid'
 import {
@@ -515,8 +520,7 @@ import {
         icon: NotificationsIcon,
       },
 </new>
-`,
-  filePath
+`
 )}
 </example_response>
 
@@ -587,7 +591,8 @@ Your Response:
   }
 
   if (diffBlocks.length === 0) {
-    debugLog('Warning: No diff blocks generated')
+    console.log('No diff blocks generated', filePath)
+    debugLog('Warning: No diff blocks generated', filePath)
   }
 
   return diffBlocks
