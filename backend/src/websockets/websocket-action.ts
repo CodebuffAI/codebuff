@@ -72,14 +72,13 @@ export const onWebsocketAction = async (
 ) => {
   const callbacks = callbacksByAction[msg.data.type] ?? []
   try {
-    for (const callback of callbacks) {
-      callback(msg.data, ws)
-    }
+    await Promise.all(callbacks.map((cb) => cb(msg.data, ws)))
   } catch (e) {
     console.error(
       'Got error running subscribeToAction callback',
       msg,
-      e && typeof e === 'object' && 'message' in e ? e.message : e
+      e && typeof e === 'object' && 'message' in e ? e.message : e,
+      msg
     )
   }
 }
