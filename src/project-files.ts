@@ -48,10 +48,17 @@ export const getProjectFileContext = (): ProjectFileContext => {
   }
 }
 
-function loadAllProjectFiles(projectRoot: string): string[] {
+function loadAllProjectFiles(
+  projectRoot: string,
+  excludedDirs: string[]
+): string[] {
   const allFiles: string[] = []
 
   function getAllFiles(dir: string) {
+    if (excludedDirs.some((dirName) => dir.includes(dirName))) {
+      return
+    }
+
     try {
       const files = fs.readdirSync(dir)
       files.forEach((file) => {
@@ -78,11 +85,9 @@ function loadAllProjectFiles(projectRoot: string): string[] {
 
 function getProjectFilePaths() {
   const excludedDirs = ['node_modules', 'dist', '.git']
-  const allProjectFiles = loadAllProjectFiles(projectRoot)
-    .filter(
-      (file) => !excludedDirs.some((dir) => file.includes('/' + dir + '/'))
-    )
-    .map((file) => file.replace(projectRoot + '/', ''))
+  const allProjectFiles = loadAllProjectFiles(projectRoot, excludedDirs).map(
+    (file) => file.replace(projectRoot + '/', '')
+  )
   return allProjectFiles
 }
 

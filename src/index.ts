@@ -35,6 +35,8 @@ runScript(async () => {
 })
 
 async function manicode(userPrompt: string | undefined) {
+  console.log('What would you like to do?')
+
   const websockedUrl = 'ws://localhost:3000/ws'
   const ws = new APIRealtimeClient(websockedUrl)
   await ws.connect()
@@ -43,15 +45,12 @@ async function manicode(userPrompt: string | undefined) {
   const chatStorage = new ChatStorage(projectRoot)
 
   let currentChat = chatStorage.createChat()
-  console.log(`Started new chat session with ID: ${currentChat.id}`)
 
   ws.subscribe('change-files', (a) => {
     const changesSuceeded = applyChanges(a.changes)
-
-    if (changesSuceeded.length > 0) {
-      const content =
-        `The following files were updated based on Manny's instruction:\n` +
-        changesSuceeded.map(({ filePath }) => filePath).join('\n')
+    for (const change of changesSuceeded) {
+      const { filePath, old } = change
+      console.log('>', old ? 'Updated' : 'Created', filePath)
     }
   })
 
@@ -128,11 +127,16 @@ async function manicode(userPrompt: string | undefined) {
       if (isReceivingResponse) {
         stopResponseRequested = true
         console.log('\n[Response stopped by user]')
+      } else {
+        console.log('\nExiting. Manicode out!')
+        process.exit(0)
       }
     }
   })
 
   const handleUserInput = async (userInput: string) => {
+    console.log('...')
+
     const newMessage: Message = { role: 'user', content: userInput }
     chatStorage.addMessage(currentChat, newMessage)
 
@@ -164,11 +168,7 @@ async function manicode(userPrompt: string | undefined) {
 
   await new Promise<void>((resolve) => {
     function onInput(userInput: string) {
-      const exitWords = ['exit', 'quit', 'q']
-      if (exitWords.includes(userInput.trim().toLowerCase())) {
-        rl.close()
-        resolve()
-      } else if (userInput.trim().toLowerCase() === 'new chat') {
+      if (userInput.trim().toLowerCase() === 'new chat') {
         currentChat = chatStorage.createChat([])
         console.log(`Started new chat session with ID: ${currentChat.id}`)
         promptUser()
@@ -197,17 +197,12 @@ async function manicode(userPrompt: string | undefined) {
     }
 
     function promptUser() {
-      rl.question(
-        'Enter your prompt for Manny (or type "new chat", "load chat <id>", "list chats", or "quit"):\n>',
-        onInput
-      )
+      rl.question('> ', onInput)
     }
 
     if (userPrompt) onInput(userPrompt)
     else promptUser()
   })
-
-  console.log('Manicode session with Manny ended.')
 }
 
 async function sendUserInputAndAwaitResponse(
@@ -226,11 +221,12 @@ async function sendUserInputAndAwaitResponse(
       const stopRequested = isStopRequested()
       if (response.includes(STOP_MARKER) || stopRequested) {
         unsubscribe()
-        // Remove the STOP_MARKER if it exists
+
         response = response.replace(STOP_MARKER, '').trim()
         if (stopRequested) {
           response += '\n[RESPONSE_STOPPED_BY_USER]'
         }
+        console.log()
         resolve(response)
       }
     })
