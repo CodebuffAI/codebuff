@@ -136,7 +136,6 @@ async function manicode(userPrompt: string | undefined) {
   const handleUserInput = async (userInput: string) => {
     const newMessage: Message = { role: 'user', content: userInput }
     chatStorage.addMessage(currentChat, newMessage)
-    console.log('currentChat', currentChat)
 
     // Get updated file context
     const fileContext = getProjectFileContext()

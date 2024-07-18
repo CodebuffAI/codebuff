@@ -29,7 +29,7 @@ export async function promptClaudeAndGetFileChanges(
   )
   let fullResponse = ''
   let toolCall: ToolCall | null = null
-  let continuedMessage: Message | null = null
+  let continuedMessages: Message[] = []
   let currentFileBlock = ''
   let isComplete = false
   const fileProcessingPromises: Promise<
@@ -48,8 +48,8 @@ export async function promptClaudeAndGetFileChanges(
   }
 
   while (!isComplete) {
-    const messagesWithContinuedMessage = continuedMessage
-      ? [...messages, continuedMessage]
+    const messagesWithContinuedMessage = continuedMessages
+      ? [...messages, ...continuedMessages]
       : messages
     console.log(
       'Prompting claude num messages:',
@@ -63,7 +63,6 @@ export async function promptClaudeAndGetFileChanges(
     for await (const chunk of stream) {
       if (typeof chunk === 'object') {
         toolCall = chunk
-        isComplete = true
         debugLog('Received tool call:', toolCall)
         break
       }
@@ -86,13 +85,21 @@ export async function promptClaudeAndGetFileChanges(
       isComplete = true
       fullResponse = fullResponse.replace(STOP_MARKER, '')
       debugLog('Reached STOP_MARKER')
+    } else if (toolCall) {
+      isComplete = true
     } else {
       console.log('continuing to generate')
       debugLog('continuing to generate')
-      continuedMessage = {
-        role: 'assistant',
-        content: fullResponse,
-      }
+      continuedMessages = [
+        {
+          role: 'assistant',
+          content: fullResponse,
+        },
+        {
+          role: 'user',
+          content: 'Please continue from the very next character',
+        },
+      ]
     }
   }
 
