@@ -77,8 +77,7 @@ export const onWebsocketAction = async (
     console.error(
       'Got error running subscribeToAction callback',
       msg,
-      e && typeof e === 'object' && 'message' in e ? e.message : e,
-      msg
+      e && typeof e === 'object' && 'message' in e ? e.message : e
     )
   }
 }

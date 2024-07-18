@@ -75,7 +75,7 @@ async function manicode(userPrompt: string | undefined) {
         },
       ],
     }
-    chatStorage.addMessage(currentChat.id, assistantMessage)
+    chatStorage.addMessage(currentChat, assistantMessage)
 
     if (name === 'read_files') {
       const { file_paths } = input
@@ -91,7 +91,7 @@ async function manicode(userPrompt: string | undefined) {
           },
         ],
       }
-      chatStorage.addMessage(currentChat.id, toolResultMessage)
+      chatStorage.addMessage(currentChat, toolResultMessage)
 
       ws.sendAction({
         type: 'user-input',
@@ -135,7 +135,8 @@ async function manicode(userPrompt: string | undefined) {
 
   const handleUserInput = async (userInput: string) => {
     const newMessage: Message = { role: 'user', content: userInput }
-    chatStorage.addMessage(currentChat.id, newMessage)
+    chatStorage.addMessage(currentChat, newMessage)
+    console.log('currentChat', currentChat)
 
     // Get updated file context
     const fileContext = getProjectFileContext()
@@ -156,7 +157,7 @@ async function manicode(userPrompt: string | undefined) {
       role: 'assistant',
       content: mannyResponse,
     }
-    chatStorage.addMessage(currentChat.id, assistantMessage)
+    chatStorage.addMessage(currentChat, assistantMessage)
 
     if (stopResponseRequested) {
       console.log('\n[Response stopped by user. Partial response saved.]')

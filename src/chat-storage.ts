@@ -1,4 +1,3 @@
-
 import * as fs from 'fs'
 import * as path from 'path'
 import { Message } from 'common/src/actions'
@@ -52,15 +51,10 @@ export class ChatStorage {
     return null
   }
 
-  addMessage(chatId: string, message: Message): Chat | null {
-    const chat = this.getChat(chatId)
-    if (chat) {
-      chat.messages.push(message)
-      chat.updatedAt = new Date().toISOString()
-      this.saveChat(chat)
-      return chat
-    }
-    return null
+  addMessage(chat: Chat, message: Message) {
+    chat.messages.push(message)
+    chat.updatedAt = new Date().toISOString()
+    this.saveChat(chat)
   }
 
   deleteChat(chatId: string): boolean {
@@ -73,8 +67,10 @@ export class ChatStorage {
   }
 
   listChats(): Chat[] {
-    const chatFiles = fs.readdirSync(this.baseDir).filter(file => file.endsWith('.json'))
-    return chatFiles.map(file => {
+    const chatFiles = fs
+      .readdirSync(this.baseDir)
+      .filter((file) => file.endsWith('.json'))
+    return chatFiles.map((file) => {
       const filePath = path.join(this.baseDir, file)
       const fileContent = fs.readFileSync(filePath, 'utf-8')
       return JSON.parse(fileContent) as Chat
@@ -89,7 +85,11 @@ export class ChatStorage {
   private generateChatId(): string {
     const now = new Date()
     const datePart = now.toISOString().split('T')[0] // YYYY-MM-DD
-    const timePart = now.toISOString().split('T')[1].replace(/:/g, '-').split('.')[0] // HH-MM-SS
+    const timePart = now
+      .toISOString()
+      .split('T')[1]
+      .replace(/:/g, '-')
+      .split('.')[0] // HH-MM-SS
     const randomPart = Math.random().toString(36).substr(2, 5)
     return `${datePart}_${timePart}_${randomPart}`
   }
