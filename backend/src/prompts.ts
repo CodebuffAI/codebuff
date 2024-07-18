@@ -1,7 +1,7 @@
 import { Tool } from '@anthropic-ai/sdk/resources'
 import { WebSocket } from 'ws'
 
-import { promptClaudeStream, promptClaude, model_types } from './claude'
+import { promptClaudeStream, model_types } from './claude'
 import {
   ProjectFileContext,
   createFileBlock,
@@ -40,7 +40,7 @@ export async function promptClaudeAndGetFileChanges(
   const tools = getTools()
 
   const lastMessage = messages[messages.length - 1]
-  if (typeof lastMessage.content === 'string') {
+  if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
     lastMessage.content = `${lastMessage.content}
 
 <additional_instruction>Please request as many files as would help answer the user's question using the read_files tool</additional_instruction>
@@ -76,16 +76,18 @@ export async function promptClaudeAndGetFileChanges(
 
         currentFileBlock = currentFileBlock.replace(fileRegex, '')
       }
+    }
 
-      if (fullResponse.includes(STOP_MARKER)) {
-        isComplete = true
-        fullResponse = fullResponse.replace(STOP_MARKER, '')
-        debugLog('Reached STOP_MARKER')
-      } else {
-        continuedMessage = {
-          role: 'assistant',
-          content: fullResponse,
-        }
+    if (fullResponse.includes(STOP_MARKER)) {
+      isComplete = true
+      fullResponse = fullResponse.replace(STOP_MARKER, '')
+      debugLog('Reached STOP_MARKER')
+    } else {
+      console.log('continuing to generate')
+      debugLog('continuing to generate')
+      continuedMessage = {
+        role: 'assistant',
+        content: fullResponse,
       }
     }
   }

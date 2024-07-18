@@ -46,22 +46,6 @@ async function manicode(userPrompt: string | undefined) {
   let currentChat = chatStorage.createChat()
   console.log(`Started new chat session with ID: ${currentChat.id}`)
 
-  const addUserMessage = (userInput: string) => {
-    const lastMessage = last(currentChat.messages)
-    if (
-      lastMessage &&
-      lastMessage.role === 'user' &&
-      typeof lastMessage.content === 'string'
-    ) {
-      lastMessage.content += `\n\n${userInput}`
-      chatStorage.addMessage(currentChat.id, lastMessage)
-    } else {
-      const newMessage: Message = { role: 'user', content: userInput }
-      currentChat =
-        chatStorage.addMessage(currentChat.id, newMessage) || currentChat
-    }
-  }
-
   ws.subscribe('change-files', (a) => {
     const changesSuceeded = applyChanges(a.changes)
 
@@ -69,8 +53,6 @@ async function manicode(userPrompt: string | undefined) {
       const content =
         `The following files were updated based on Manny's instruction:\n` +
         changesSuceeded.map(({ filePath }) => filePath).join('\n')
-
-      // addUserMessage(content)
     }
   })
 
@@ -93,8 +75,7 @@ async function manicode(userPrompt: string | undefined) {
         },
       ],
     }
-    currentChat =
-      chatStorage.addMessage(currentChat.id, assistantMessage) || currentChat
+    chatStorage.addMessage(currentChat.id, assistantMessage)
 
     if (name === 'read_files') {
       const { file_paths } = input
@@ -110,8 +91,7 @@ async function manicode(userPrompt: string | undefined) {
           },
         ],
       }
-      currentChat =
-        chatStorage.addMessage(currentChat.id, toolResultMessage) || currentChat
+      chatStorage.addMessage(currentChat.id, toolResultMessage)
 
       ws.sendAction({
         type: 'user-input',
@@ -154,7 +134,8 @@ async function manicode(userPrompt: string | undefined) {
   })
 
   const handleUserInput = async (userInput: string) => {
-    addUserMessage(userInput)
+    const newMessage: Message = { role: 'user', content: userInput }
+    chatStorage.addMessage(currentChat.id, newMessage)
 
     // Get updated file context
     const fileContext = getProjectFileContext()
@@ -175,8 +156,7 @@ async function manicode(userPrompt: string | undefined) {
       role: 'assistant',
       content: mannyResponse,
     }
-    currentChat =
-      chatStorage.addMessage(currentChat.id, assistantMessage) || currentChat
+    chatStorage.addMessage(currentChat.id, assistantMessage)
 
     if (stopResponseRequested) {
       console.log('\n[Response stopped by user. Partial response saved.]')
