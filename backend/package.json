@@ -10,7 +10,8 @@
     "dev": "nodemon --exec ts-node src/server.ts",
     "start": "ts-node src/server.ts",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "common": "1.0.0",
