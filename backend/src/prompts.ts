@@ -122,7 +122,6 @@ ${STOP_MARKER}`
   }
 
   const changes = (await Promise.all(fileProcessingPromises)).flat()
-  debugLog('Final changes:', changes)
 
   return {
     response: fullResponse,
@@ -163,8 +162,8 @@ async function processFileBlock(
       changes.push({ filePath, old: searchContent, new: replaceContent })
       console.log('Applied a change to', filePath)
       debugLog(`Applied a change to ${filePath}:`, {
-        old: oldContent,
-        new: newContent,
+        old: searchContent,
+        new: replaceContent,
       })
     } else {
       debugLog('Failed to find a match for replacement in', filePath)

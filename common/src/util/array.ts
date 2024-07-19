@@ -29,4 +29,3 @@ export function groupConsecutive<T, U>(xs: T[], key: (x: T) => U) {
   result.push(curr)
   return result
 }
-
