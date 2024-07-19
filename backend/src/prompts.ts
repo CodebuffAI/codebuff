@@ -209,7 +209,7 @@ import { FancyButton } from './FancyButton'
 
 If there are multiple changes, provide multiple pairs of search and replace blocks within the file block.
 
-The provided new file may use shorthand such as "// ... existing code ..." or " ... rest of the file" to indicate unchanged code. However, we do not want to include these in your <search> or <replace> blocks, because we want to replace the exact lines of code that are being changed.
+The provided new file may use shorthand such as "// ... existing code ..." to indicate unchanged code. However, we do not want to include these in your <search> or <replace> blocks, because we want to replace the exact lines of code that are being changed.
 
 Please structure your response in a few steps:
 
@@ -217,7 +217,7 @@ Please structure your response in a few steps:
 2. Split the changes into logical groups. List the sets of lines or logical chunks of code that are being changed and assign each a letter. For example:
 A. modifying the import section
 B. modifying a function
-3. For each edit (denoted by a letter), describe what lines of context from the old file you will use, so that string replacement of the search and replace blocks will work correctly. Do not use any comments like "// ... existing code ..." or " ... rest of the file" as part of this context, because these comments don't exist in the old file, so string replacement won't work to make the edit.
+3. For each edit (denoted by a letter), describe what lines of context from the old file you will use, so that string replacement of the search and replace blocks will work correctly. Do not use any comments like "// ... existing code ..." as part of this context, because these comments don't exist in the old file, so string replacement won't work to make the edit.
 Then write out one line of code from the old file that would start each of these lines of context in the <search> block.
 4. Analyze the indentation used in the old file. Is it using spaces or tabs? How many spaces are used for each indentation level?
 For each edit assigned a letter, please list how many indentation levels are used in the first line being modified in the old file. It's important to match be able to match the indention in the old file. For example:
@@ -226,10 +226,10 @@ B. 1 level of indentation for the variable in the old file
 5. Finally, please provide a ${'<' + 'file>'} block containing the <search> and <replace> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
 
 IMPORTANT INSTRUCTIONS:
-1. The <search> blocks MUST match a portion of the old file content EXACTLY, character for character, including indentation and empty lines. Do not include any comments or placeholders like "// ... existing code ..." or "// ... rest of the file" in the <search> blocks. Instead, provide the exact lines of code that are being changed.
+1. The <search> blocks MUST match a portion of the old file content EXACTLY, character for character, including indentation and empty lines. Do not include any comments or placeholders like "// ... existing code ..." in the <search> blocks. Instead, provide the exact lines of code that are being changed.
 2. Ensure that you're providing enough context in the <search> blocks to match exactly one location in the file.
 3. The <search> blocks should have as few lines as possible while still providing enough context for a single match. Try to match only a few lines around the change.
-4. The <replace> blocks should contain the updated code that replaces the content in the corresponding <search> block, maintaining the same indentation style and level as the original file. <replace> blocks should also not include comments like "// ... existing code ..." or "// ... rest of the function".
+4. The <replace> blocks should contain the updated code that replaces the content in the corresponding <search> block, maintaining the same indentation style and level as the original file. <replace> blocks should also not include comments like "// ... existing code ...".
 5. Create separate <search> and <replace> blocks for each distinct change in the file.
 6. Pay close attention to the indentation of both the <search> and <replace> blocks. They should match the indentation style and level of the original file exactly.
 7. If the new content contains comments about edits that should be made, you should remove those. E.g. Remove comments like "// Add these new functions at the top of the file"
@@ -258,7 +258,7 @@ export default LoginForm`
 New file content:
 ${createFileBlock(
   'components/login-form.tsx',
-  `// ... existing imports ...
+  `// ... existing code ...
 import { useForm } from 'react-hook-form'
 
 function LoginForm() {
@@ -402,7 +402,7 @@ const getMobileNav = () => {
 New file content:
 ${createFileBlock(
   'components/desktop-nav.tsx',
-  `// ... existing imports ...
+  `// ... existing code ...
 import { SearchIcon } from '@heroicons/react/solid'
 import {
   GlobeAltIcon,
@@ -412,7 +412,7 @@ import {
   NotificationsIcon,
 } from '@heroicons/react/outline'
 
-// ... rest of the imports
+// ... existing code ...
 
 const getDesktopNav = (
   loggedIn: boolean,
@@ -438,13 +438,13 @@ const getDesktopNav = (
         icon: NotificationsIcon,
       },
 
-      // ... rest of the items
+      // ... existing code ...
     )
 
-  // ... rest of the function
+  // ... existing code ...
 }
 
-// ... rest of the file`
+// ... existing code ...`
 )}
 </example_prompt>
 
@@ -556,7 +556,7 @@ ${createFileBlock(filePath, newContent)}
 Your Response:
 `
 
-  fs.writeFileSync('./diff-prompt.txt', prompt)
+  // fs.writeFileSync('./diff-prompt.txt', prompt)
 
   const { response } = await promptClaudeWithContinuation([
     { role: 'user', content: prompt },

@@ -40,22 +40,22 @@ ${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
 
 If the file already exists, this will overwrite the file with the new contents.
 
-When modifying an existing file, use comments to indicate where existing code should be preserved:
+When modifying an existing file, use the comment "// ... existing code ..." to indicate where existing code should be preserved:
 ${createFileBlock(
   'path/to/existing/file.tsx',
-  `// ... existing imports...
-
-// ... existing code ...
+  `// ... existing code ...
 
 function getDesktopNav() {
   console.log('Hello from the desktop nav')
 
-  // ... rest of the function
+  // ... existing code ...
 }
 
-// ... rest of the file
+// ... existing code ...
 `
 )}
+
+Do not use other variations like "// (keep existing code)" or "// ... rest of the file" to keep things consistent and easier to parse out the changes.
 
 Do not include comments you wouldn't want in the final code. For example, "// Add this check" or "// Add this line to track processed files" is not needed, because you are directly adding the check rather than asking the user to add it.
 </editing_instructions>
