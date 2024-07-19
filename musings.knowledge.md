@@ -176,3 +176,6 @@ Failed to replace in the new contents (but did expand it for the old content):
 [] Continuation 2 led to infinite responses
 [] cancelling before the prompt starts being genereated leads to error of two user messages in a row
 - Show commands available in a bar under the input (not sure if this is possible)
+- Escalate when old diff does not match. Got case where a helper function in the middle of two others was moved up, but diff didn't match because it ignored the helper function.
+- Stuck in loop: Prompting claude num messages: 21, continuing to generate
+- Backspace after typing more than one line is buggy

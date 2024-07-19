@@ -43,7 +43,8 @@ export async function promptClaudeAndGetFileChanges(
     lastMessage.content = `${lastMessage.content}
 
 <additional_instruction>Please request as many files as would help answer the user's question using the read_files tool</additional_instruction>
-<additional_instruction>If the user gave feedback and it helped you understand something better, please add a short note to a knowledge file that condenses what you learned.</additional_instruction>`
+<additional_instruction>If the user gave feedback and it helped you understand something better, please edit a knowledge file with a short note that condenses what you learned.</additional_instruction>
+<additional_instruction>Please end your response with the string "${STOP_MARKER}" when you are done generating your response.</additional_instruction>`
   }
 
   while (!isComplete) {
@@ -51,6 +52,10 @@ export async function promptClaudeAndGetFileChanges(
       ? [...messages, ...continuedMessages]
       : messages
     console.log(
+      'Prompting claude num messages:',
+      messagesWithContinuedMessage.length
+    )
+    debugLog(
       'Prompting claude num messages:',
       messagesWithContinuedMessage.length
     )
