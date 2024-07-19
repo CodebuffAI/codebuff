@@ -42,9 +42,16 @@ export async function promptClaudeAndGetFileChanges(
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
     lastMessage.content = `${lastMessage.content}
 
-<additional_instruction>Please request as many files as would help answer the user's question using the read_files tool</additional_instruction>
-<additional_instruction>If the user gave feedback and it helped you understand something better, please edit a knowledge file with a short note that condenses what you learned.</additional_instruction>
-<additional_instruction>Please end your response with the string "${STOP_MARKER}" when you are done generating your response.</additional_instruction>`
+<additional_instruction>
+Please request as many files as would help answer the user's question using the read_files tool
+</additional_instruction>
+<additional_instruction>
+If the user gave feedback and it helped you understand something better, please edit a knowledge file with a short note that condenses what you learned.
+</additional_instruction>
+<additional_instruction>
+Always end your response with the following marker:
+${STOP_MARKER}
+</additional_instruction>`
   }
 
   while (!isComplete) {
@@ -145,10 +152,10 @@ async function processFileBlock(
   let updatedContent = oldContent
 
   const changes: { filePath: string; old: string; new: string }[] = []
-  for (const { oldContent, newContent } of diffBlocks) {
-    if (updatedContent.includes(oldContent)) {
+  for (const { searchContent, replaceContent } of diffBlocks) {
+    if (updatedContent.includes(searchContent)) {
       debugLog('Replacement worked with exact match')
-      updatedContent = updatedContent.replace(oldContent, newContent)
+      updatedContent = updatedContent.replace(searchContent, replaceContent)
       changes.push({ filePath, old: oldContent, new: newContent })
       console.log('Applied a change to', filePath)
       debugLog(`Applied a change to ${filePath}:`, {
@@ -174,49 +181,49 @@ async function processFileBlock(
 export async function generateDiffBlocks(
   messageHistory: Message[],
   filePath: string,
-  currentContent: string,
+  oldContent: string,
   newContent: string
 ) {
   const logMessage = `Generating diff blocks for ${filePath}`
   console.log(logMessage)
   debugLog(logMessage)
-  debugLog('Current content:', currentContent)
+  debugLog('Old content:', oldContent)
   debugLog('New content:', newContent)
 
-  const prompt = `I have a new version of a file, and I want to change the old file into the new file. I need to generate <old> and <new> blocks to represent the exact line-by-line differences so I can string replace the old content to the new content.
+  const prompt = `I have a new version of a file, and I want to change the old file into the new file. I need to generate <search> and <replace> blocks to represent the exact line-by-line differences so I can string replace the old content to the new content.
 
-Example of how to represent a single change with <old> and <new> blocks:
+Example of how to represent a single change with <search> and <replace> blocks:
 ${createFileBlock(
   filePath,
-  `<old>
+  `<search>
 import { Button } from './Button'
-</old>
-<new>
+</search>
+<replace>
 import { FancyButton } from './FancyButton'
-</new>
+</replace>
 `
 )}
 
-If there are multiple changes, provide multiple pairs of old and new blocks within the file block.
+If there are multiple changes, provide multiple pairs of search and replace blocks within the file block.
 
-The provided new file may use shorthand such as "// ... existing code ..." or " ... rest of the file" to indicate unchanged code. However, we do not want to include these in your <old> or <new> blocks, because we want to replace the exact lines of code that are being changed.
+The provided new file may use shorthand such as "// ... existing code ..." or " ... rest of the file" to indicate unchanged code. However, we do not want to include these in your <search> or <replace> blocks, because we want to replace the exact lines of code that are being changed.
 
 Please structure your response in a few steps:
 
 1. Describe what code changes are being made. What's being inserted? What's being deleted?
 2. Split the changes into logical groups. Describe the sets of lines or logical chunks of code that are being changed. For example, modifying the import section, modifying a function, etc.
-3. Describe what lines of context from the old file you will use for each edit, so that string replacement of the old and new blocks will work correctly. Do not use any comments like "// ... existing code ..." or " ... rest of the file" as part of this context, because these comments don't exist in the old file, so string replacement won't work to make the edit.
+3. Describe what lines of context from the old file you will use for each edit, so that string replacement of the search and replace blocks will work correctly. Do not use any comments like "// ... existing code ..." or " ... rest of the file" as part of this context, because these comments don't exist in the old file, so string replacement won't work to make the edit.
 4. Analyze the indentation used in the old file. Is it using spaces or tabs? How many spaces are used for each indentation level?
 5. How many indentation levels are used in each modified section?
-6. Finally, please provide a ${'<' + 'file>'} block containing the <old> and <new> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
+6. Finally, please provide a ${'<' + 'file>'} block containing the <search> and <replace> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
 
 IMPORTANT INSTRUCTIONS:
-1. The <old> blocks MUST match a portion of the old file content EXACTLY, character for character, including indentation and empty lines. Do not include any comments or placeholders like "// ... existing code ...". Instead, provide the exact lines of code that are being changed.
-2. Ensure that you're providing enough context in the <old> blocks to match exactly one location in the file.
-3. The <old> blocks should have as few lines as possible while still providing enough context for a single match. Try to match only a few lines around the change.
-4. The <new> blocks should contain the updated code that replaces the content in the corresponding <old> block, maintaining the same indentation style and level as the original file.
-5. Create separate <old> and <new> blocks for each distinct change in the file.
-6. Pay close attention to the indentation of both the <old> and <new> blocks. They should match the indentation style and level of the original file exactly.
+1. The <search> blocks MUST match a portion of the old file content EXACTLY, character for character, including indentation and empty lines. Do not include any comments or placeholders like "// ... existing code ...". Instead, provide the exact lines of code that are being changed.
+2. Ensure that you're providing enough context in the <search> blocks to match exactly one location in the file.
+3. The <search> blocks should have as few lines as possible while still providing enough context for a single match. Try to match only a few lines around the change.
+4. The <replace> blocks should contain the updated code that replaces the content in the corresponding <search> block, maintaining the same indentation style and level as the original file.
+5. Create separate <search> and <replace> blocks for each distinct change in the file.
+6. Pay close attention to the indentation of both the <search> and <replace> blocks. They should match the indentation style and level of the original file exactly.
 7. If the new content contains comments about edits that should be made, you should remove those. E.g. Remove comments like "// Add these new functions at the top of the file"
 
 <example_prompt>
@@ -258,6 +265,7 @@ function LoginForm() {
       <Button type="submit">Log In</Button>
     </form>
   )
+}
 \`\`\`
 </example_prompt>
 
@@ -279,15 +287,15 @@ import { Input } from './Input'
 6. Here are my changes:
 ${createFileBlock(
   filePath,
-  `<old>
+  `<search>
 import { Input } from './Input'
-</old>
-<new>
+</search>
+<replace>
 import { Input } from './Input'
 import { useForm } from 'react-hook-form'
-</new>
+</replace>
 
-<old>
+<search>
 function LoginForm() {
   return (
     <form>
@@ -297,8 +305,8 @@ function LoginForm() {
     </form>
   )
 }
-</old>
-<new>
+</search>
+<replace>
 function LoginForm() {
   const { register, handleSubmit } = useForm()
 
@@ -314,7 +322,7 @@ function LoginForm() {
     </form>
   )
 }
-</new>
+</replace>
 `
 )}
 </example_response>
@@ -450,7 +458,7 @@ import { SearchIcon } from '@heroicons/react/solid'
 6. Here are my changes:
 ${createFileBlock(
   filePath,
-  `<old>
+  `<search>
 import { SearchIcon } from '@heroicons/react/solid'
 import {
   GlobeAltIcon,
@@ -459,8 +467,8 @@ import {
   UserAddIcon,
   BellIcon,
 } from '@heroicons/react/outline'
-</old>
-<new>
+</search>
+<replace>
 import { SearchIcon } from '@heroicons/react/solid'
 import {
   GlobeAltIcon,
@@ -469,22 +477,22 @@ import {
   UserAddIcon,
   NotificationsIcon,
 } from '@heroicons/react/outline'
-</new>
+</replace>
 
-<old>
+<search>
       {
         name: 'Notifications',
         href: '/notifications',
         icon: BellIcon,
       },
-</old>
-<new>
+</search>
+<replace>
       {
         name: 'Notifications',
         href: '/notifications',
         icon: NotificationsIcon,
       },
-</new>
+</replace>
 `
 )}
 </example_response>
@@ -497,15 +505,15 @@ That is because we are using a very simple string replacement system to update t
 \`\`\`
 function applyReplacement(
   content: string,
-  oldContent: string,
-  newContent: string
+  searchContent: string,
+  replaceContent: string
 ): string | null {
-  const trimmedOldContent = oldContent.trim()
-  const trimmedNewContent = newContent.trim()
+  const trimmedSearchContent = searchContent.trim()
+  const trimmedReplaceContent = replaceContent.trim()
 
-  if (content.includes(trimmedOldContent)) {
-    // Old content must match a substring of content exactly.
-    return content.replace(trimmedOldContent, trimmedNewContent)
+  if (content.includes(trimmedSearchContent)) {
+    // Search content must match a substring of content exactly.
+    return content.replace(trimmedSearchContent, trimmedReplaceContent)
   }
 
   return null
@@ -524,7 +532,7 @@ File path: ${filePath}
 
 Old file content:
 \`\`\`
-${currentContent}
+${oldContent}
 \`\`\`
 
 New file content:
@@ -544,7 +552,7 @@ Your Response:
   const { diffBlocks, diffBlocksThatDidntMatch } = parseAndGetDiffBlocks(
     response,
     filePath,
-    currentContent
+    oldContent
   )
   for (const change of diffBlocksThatDidntMatch) {
     console.log('diff block didnt match', filePath)
@@ -561,18 +569,18 @@ Here is the previous prompt that the assistant was given:
 ${prompt}
 </prompt>
 
-The assistant generated the following <old> and <new> blocks where the <old> content did not match the old file contents:
+The assistant generated the following <search> and <replace> blocks where the <search> content did not match the old file contents:
 
-${diffBlocksThatDidntMatch.map((change) => `<old>${change.oldContent}</old>\n<new>${change.newContent}</new>`).join('\n\n')}
+${diffBlocksThatDidntMatch.map((change) => `<search>${change.searchContent}</search>\n<replace>${change.replaceContent}</replace>`).join('\n\n')}
 
-It also generated these <old> and <new> blocks which were able to be applied to the old file content:
+It also generated these <search> and <replace> blocks which were able to be applied to the old file content:
 
-${diffBlocks.map((change) => `<old>${change.oldContent}</old>\n<new>${change.newContent}</new>`).join('\n\n')}
+${diffBlocks.map((change) => `<search>${change.searchContent}</search>\n<replace>${change.replaceContent}</replace>`).join('\n\n')}
 
 You should:
 1. Use <thinking> blocks to explain what might have gone wrong in the result of the last prompt.
-2. Within a <strategy> block, provide a new strategy to cover all the changes from the old file to the new file. List each intended edit that will become an <old> and <new> block.
-3. Provide the complete set of <old> and <new> changes within a <file path="${filePath}"></file> block to make the intended edit from the old file to the new file.
+2. Within a <strategy> block, provide a new strategy to cover all the changes from the old file to the new file. List each intended edit that will become a <search> and <replace> block.
+3. Provide the complete set of <search> and <replace> changes within a <file path="${filePath}"></file> block to make the intended edit from the old file to the new file.
 `
     console.log('Trying a second prompt for getDiffBlocks', filePath)
     debugLog('Trying a second prompt for getDiffBlocks', filePath)
@@ -584,7 +592,7 @@ You should:
     const {
       diffBlocks: newDiffBlocks,
       diffBlocksThatDidntMatch: newDiffBlocksThatDidntMatch,
-    } = parseAndGetDiffBlocks(response, filePath, currentContent)
+    } = parseAndGetDiffBlocks(response, filePath, oldContent)
     for (const change of newDiffBlocksThatDidntMatch) {
       console.log('Still found new diff block didnt match', filePath)
       debugLog('Warning: Still found new diff block didnt match', filePath)
@@ -600,21 +608,24 @@ const parseAndGetDiffBlocks = (
   filePath: string,
   oldFileContent: string
 ) => {
-  const diffBlocksThatDidntMatch: { oldContent: string; newContent: string }[] =
-    []
-  const diffBlocks: { oldContent: string; newContent: string }[] = []
+  const diffBlocksThatDidntMatch: {
+    searchContent: string
+    replaceContent: string
+  }[] = []
+  const diffBlocks: { searchContent: string; replaceContent: string }[] = []
   const files = parseFileBlocks(response)
   for (const fileContent of Object.values(files)) {
-    const blockRegex = /<old>([\s\S]*?)<\/old>\s*<new>([\s\S]*?)<\/new>/g
+    const blockRegex =
+      /<search>([\s\S]*?)<\/search>\s*<replace>([\s\S]*?)<\/replace>/g
     let blockMatch
 
     while ((blockMatch = blockRegex.exec(fileContent)) !== null) {
       const change = {
-        oldContent: blockMatch[1].trim(),
-        newContent: blockMatch[2].trim(),
+        searchContent: blockMatch[1].trim(),
+        replaceContent: blockMatch[2].trim(),
       }
 
-      if (oldFileContent.includes(change.oldContent)) {
+      if (oldFileContent.includes(change.searchContent)) {
         diffBlocks.push(change)
       } else {
         diffBlocksThatDidntMatch.push(change)
