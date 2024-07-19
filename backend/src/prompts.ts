@@ -1,4 +1,5 @@
 import { WebSocket } from 'ws'
+import fs from 'fs'
 
 import { promptClaudeStream, promptClaudeWithContinuation } from './claude'
 import {
@@ -51,7 +52,10 @@ If the user gave feedback and it helped you understand something better, please 
 <additional_instruction>
 Always end your response with the following marker:
 ${STOP_MARKER}
-</additional_instruction>`
+</additional_instruction>
+
+This prompt is complete.
+${STOP_MARKER}`
   }
 
   while (!isComplete) {
@@ -156,7 +160,7 @@ async function processFileBlock(
     if (updatedContent.includes(searchContent)) {
       debugLog('Replacement worked with exact match')
       updatedContent = updatedContent.replace(searchContent, replaceContent)
-      changes.push({ filePath, old: oldContent, new: newContent })
+      changes.push({ filePath, old: searchContent, new: replaceContent })
       console.log('Applied a change to', filePath)
       debugLog(`Applied a change to ${filePath}:`, {
         old: oldContent,
@@ -200,8 +204,7 @@ import { Button } from './Button'
 </search>
 <replace>
 import { FancyButton } from './FancyButton'
-</replace>
-`
+</replace>`
 )}
 
 If there are multiple changes, provide multiple pairs of search and replace blocks within the file block.
@@ -214,26 +217,28 @@ Please structure your response in a few steps:
 2. Split the changes into logical groups. List the sets of lines or logical chunks of code that are being changed and assign each a letter. For example:
 A. modifying the import section
 B. modifying a function
-3. For each edit assigned a letter, describe what lines of context from the old file you will use, so that string replacement of the search and replace blocks will work correctly. Do not use any comments like "// ... existing code ..." or " ... rest of the file" as part of this context, because these comments don't exist in the old file, so string replacement won't work to make the edit.
+3. For each edit (denoted by a letter), describe what lines of context from the old file you will use, so that string replacement of the search and replace blocks will work correctly. Do not use any comments like "// ... existing code ..." or " ... rest of the file" as part of this context, because these comments don't exist in the old file, so string replacement won't work to make the edit.
+Then write out one line of code from the old file that would start each of these lines of context in the <search> block.
 4. Analyze the indentation used in the old file. Is it using spaces or tabs? How many spaces are used for each indentation level?
-5. For each edit assigned a letter, please list how many indentation levels are used in the first line being modified in the old file and in the new file. It's important to match be able to match the indention in the old file. For example:
-A. 0 levels of indentation for the function in the old file, 0 levels in the new file
-B. 1 level of indentation for the variable in the old file, 2 levels in the new file
-6. Finally, please provide a ${'<' + 'file>'} block containing the <search> and <replace> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
+For each edit assigned a letter, please list how many indentation levels are used in the first line being modified in the old file. It's important to match be able to match the indention in the old file. For example:
+A. 0 levels of indentation for the function in the old file
+B. 1 level of indentation for the variable in the old file
+5. Finally, please provide a ${'<' + 'file>'} block containing the <search> and <replace> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
 
 IMPORTANT INSTRUCTIONS:
-1. The <search> blocks MUST match a portion of the old file content EXACTLY, character for character, including indentation and empty lines. Do not include any comments or placeholders like "// ... existing code ...". Instead, provide the exact lines of code that are being changed.
+1. The <search> blocks MUST match a portion of the old file content EXACTLY, character for character, including indentation and empty lines. Do not include any comments or placeholders like "// ... existing code ..." or "// ... rest of the file" in the <search> blocks. Instead, provide the exact lines of code that are being changed.
 2. Ensure that you're providing enough context in the <search> blocks to match exactly one location in the file.
 3. The <search> blocks should have as few lines as possible while still providing enough context for a single match. Try to match only a few lines around the change.
-4. The <replace> blocks should contain the updated code that replaces the content in the corresponding <search> block, maintaining the same indentation style and level as the original file.
+4. The <replace> blocks should contain the updated code that replaces the content in the corresponding <search> block, maintaining the same indentation style and level as the original file. <replace> blocks should also not include comments like "// ... existing code ..." or "// ... rest of the function".
 5. Create separate <search> and <replace> blocks for each distinct change in the file.
 6. Pay close attention to the indentation of both the <search> and <replace> blocks. They should match the indentation style and level of the original file exactly.
 7. If the new content contains comments about edits that should be made, you should remove those. E.g. Remove comments like "// Add these new functions at the top of the file"
 
 <example_prompt>
 Old file content:
-\`\`\`
-import React from 'react'
+${createFileBlock(
+  'components/login-form.tsx',
+  `import React from 'react'
 import { Button } from './Button'
 import { Input } from './Input'
 
@@ -247,12 +252,13 @@ export function LoginForm() {
   )
 }
 
-export default LoginForm
-\`\`\`
+export default LoginForm`
+)}
 
 New file content:
-\`\`\`
-// ... existing imports ...
+${createFileBlock(
+  'components/login-form.tsx',
+  `// ... existing imports ...
 import { useForm } from 'react-hook-form'
 
 function LoginForm() {
@@ -269,8 +275,8 @@ function LoginForm() {
       <Button type="submit">Log In</Button>
     </form>
   )
-}
-\`\`\`
+}`
+)}
 </example_prompt>
 
 <example_response>
@@ -281,16 +287,17 @@ A. Adding a new import
 B. Modifying the LoginForm component
 
 3. Context for each edit:
-A. We'll use the line importing Input as context for the new import.
-B. We'll replace the entire LoginForm function.
+A. We'll use the line importing Input as context for the new import:
+\`import { Input } from './Input'\`
+
+B. We'll replace the entire LoginForm function (first line below):
+\`function LoginForm() {\`
 
 4. It's using 2 spaces for indentation.
+A. 0 levels of indentation for the import in old file
+B. 0 levels of indentation for the LoginForm function in old file
 
-5. Indentation levels:
-A. 0 levels of indentation for the import in old file, 0 levels in new file
-B. 0 levels of indentation for the LoginForm function in old file, 0 levels in new file
-
-6. Here are the <search> and <replace> blocks:
+5. Here are the <search> and <replace> blocks:
 
 ${createFileBlock(
   filePath,
@@ -329,15 +336,15 @@ export function LoginForm() {
     </form>
   )
 }
-</replace>
-`
+</replace>`
 )}
 </example_response>
 
 <example_prompt>
 Old file content:
-\`\`\`
-import React from 'react'
+${createFileBlock(
+  'components/desktop-nav.tsx',
+  `import React from 'react'
 import { SearchIcon } from '@heroicons/react/solid'
 import {
   GlobeAltIcon,
@@ -389,13 +396,13 @@ const getMobileNav = () => {
     { name: 'Browse', href: '/home', icon: SearchIcon },
     { name: 'Sign Up', href: '/sign-up', icon: UserAddIcon }
   )
-}
-
-\`\`\`
+}`
+)}
 
 New file content:
-\`\`\`
-// ... existing imports ...
+${createFileBlock(
+  'components/desktop-nav.tsx',
+  `// ... existing imports ...
 import { SearchIcon } from '@heroicons/react/solid'
 import {
   GlobeAltIcon,
@@ -437,8 +444,8 @@ const getDesktopNav = (
   // ... rest of the function
 }
 
-// ... rest of the file
-\`\`\`
+// ... rest of the file`
+)}
 </example_prompt>
 
 <example_response>
@@ -449,16 +456,27 @@ A. Modifying the import statement
 B. Updating the icon in the getDesktopNav function
 
 3. Context for each edit:
-A. We'll use the entire import statement for @heroicons/react/outline as context.
-B. We'll use the Notifications item in the buildArray function as context.
+A. We'll use the entire import statement for @heroicons/react/outline as context:
+\`import {
+  GlobeAltIcon,
+  UserIcon,
+  LightningBoltIcon,
+  UserAddIcon,
+  BellIcon,
+} from '@heroicons/react/outline'\`
+
+B. We'll use the Notifications item in the buildArray function as context:
+\`{
+  name: 'Notifications',
+  href: '/notifications',
+  icon: BellIcon,
+}\`
 
 4. The file is using 2 spaces for indentation.
+A. 0 levels of indentation for the import statement in old file
+B. 3 levels of indentation (6 spaces) for the Notifications item in old file
 
-5. Indentation levels:
-A. 0 levels of indentation for the import statement in old file, 0 levels in new file
-B. 3 levels of indentation (6 spaces) for the Notifications item in old file, 3 levels in new file
-
-6. Here are the <search> and <replace> blocks:
+5. Here are the <search> and <replace> blocks:
 
 ${createFileBlock(
   filePath,
@@ -494,8 +512,7 @@ B. <search>
         href: '/notifications',
         icon: NotificationsIcon,
       },
-</replace>
-`
+</replace>`
 )}
 </example_response>
 
@@ -530,20 +547,16 @@ ${messageHistory.map((m) => `${m.role}: ${m.content}`).join('\n\n')}
 
 Now, here is the prompt.
 
-File path: ${filePath}
-
 Old file content:
-\`\`\`
-${oldContent}
-\`\`\`
+${createFileBlock(filePath, oldContent)}
 
 New file content:
-\`\`\`
-${newContent}
-\`\`\`
+${createFileBlock(filePath, newContent)}
 
 Your Response:
 `
+
+  fs.writeFileSync('./diff-prompt.txt', prompt)
 
   const { response } = await promptClaudeWithContinuation([
     { role: 'user', content: prompt },
@@ -581,7 +594,7 @@ ${diffBlocks.map((change) => `<search>${change.searchContent}</search>\n<replace
 
 You should:
 1. Use <thinking> blocks to explain what might have gone wrong in the result of the last prompt.
-2. Within a <strategy> block, provide a new strategy to cover all the changes from the old file to the new file. List each intended edit that will become a <search> and <replace> block.
+2. Within a <strategy> block, provide a new strategy to cover all the changes from the old file to the new file. List each intended edit that will become a <search> and <replace> block. Note that comments such as "// ... existing code ..." or "// ... rest of the file" should not be included in the <search> or <replace> blocks.
 3. Provide the complete set of <search> and <replace> changes within a <file path="${filePath}"></file> block to make the intended edit from the old file to the new file.
 `
     console.log('Trying a second prompt for getDiffBlocks', filePath)
@@ -636,6 +649,8 @@ const parseAndGetDiffBlocks = (
           change.replaceContent
         )
         if (newChange) {
+          console.log('Matched with indentation modification')
+          debugLog('Matched with indentation modification')
           diffBlocks.push(newChange)
         } else {
           diffBlocksThatDidntMatch.push(change)
