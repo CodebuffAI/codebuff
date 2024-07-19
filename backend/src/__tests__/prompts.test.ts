@@ -5,7 +5,7 @@ const CLAUDE_CALL_TIMEOUT = 1000 * 60
 
 describe('generateDiffBlocks', () => {
   it(
-    'should generate <old> and <new> blocks for small change',
+    'should generate <search> and <replace> blocks for small change',
     async () => {
       const oldCode = `import React from 'react'
 
@@ -27,8 +27,8 @@ const FunButton = () => {
       )
 
       let updatedContent = oldCode
-      for (const { oldContent, newContent } of diffBlocks) {
-        updatedContent = updatedContent.replace(oldContent, newContent)
+      for (const { searchContent, replaceContent } of diffBlocks) {
+        updatedContent = updatedContent.replace(searchContent, replaceContent)
       }
       expect(updatedContent).toEqual(newCode)
     },
@@ -54,10 +54,14 @@ const FunButton = () => {
       )
 
       let updatedContent = oldCode
-      for (const { oldContent, newContent } of diffBlocks) {
-        updatedContent = updatedContent.replace(oldContent, newContent)
+      for (const { searchContent, replaceContent } of diffBlocks) {
+        updatedContent = updatedContent.replace(searchContent, replaceContent)
       }
-      expect(updatedContent).toEqual(newCode)
+      const newGoal = fs.readFileSync(
+        'src/__tests__/__mock-data__/index-new-goal.ts',
+        'utf8'
+      )
+      expect(updatedContent).toEqual(newGoal)
     },
     CLAUDE_CALL_TIMEOUT
   )

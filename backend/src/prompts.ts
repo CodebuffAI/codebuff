@@ -211,10 +211,14 @@ The provided new file may use shorthand such as "// ... existing code ..." or " 
 Please structure your response in a few steps:
 
 1. Describe what code changes are being made. What's being inserted? What's being deleted?
-2. Split the changes into logical groups. Describe the sets of lines or logical chunks of code that are being changed. For example, modifying the import section, modifying a function, etc.
-3. Describe what lines of context from the old file you will use for each edit, so that string replacement of the search and replace blocks will work correctly. Do not use any comments like "// ... existing code ..." or " ... rest of the file" as part of this context, because these comments don't exist in the old file, so string replacement won't work to make the edit.
+2. Split the changes into logical groups. List the sets of lines or logical chunks of code that are being changed and assign each a letter. For example:
+A. modifying the import section
+B. modifying a function
+3. For each edit assigned a letter, describe what lines of context from the old file you will use, so that string replacement of the search and replace blocks will work correctly. Do not use any comments like "// ... existing code ..." or " ... rest of the file" as part of this context, because these comments don't exist in the old file, so string replacement won't work to make the edit.
 4. Analyze the indentation used in the old file. Is it using spaces or tabs? How many spaces are used for each indentation level?
-5. How many indentation levels are used in each modified section?
+5. For each edit assigned a letter, please list how many indentation levels are used in the first line being modified in the old file and in the new file. It's important to match be able to match the indention in the old file. For example:
+A. 0 levels of indentation for the function in the old file, 0 levels in the new file
+B. 1 level of indentation for the variable in the old file, 2 levels in the new file
 6. Finally, please provide a ${'<' + 'file>'} block containing the <search> and <replace> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
 
 IMPORTANT INSTRUCTIONS:
@@ -271,23 +275,26 @@ function LoginForm() {
 
 <example_response>
 1. The user is adding a new import and changing the form to use react-hook-form.
-2. The import section is being modified, and the LoginForm component is being modified.
-3.
 
-- The inserted import can be after the line:
+2. The changes can be split into two logical groups:
+A. Adding a new import
+B. Modifying the LoginForm component
 
-\`\`\`
-import { Input } from './Input'
-\`\`\`
-
-- The LoginForm change can replace the whole function.
+3. Context for each edit:
+A. We'll use the line importing Input as context for the new import.
+B. We'll replace the entire LoginForm function.
 
 4. It's using 2 spaces for indentation.
-5. The LoginForm function is not indented.
-6. Here are my changes:
+
+5. Indentation levels:
+A. 0 levels of indentation for the import in old file, 0 levels in new file
+B. 0 levels of indentation for the LoginForm function in old file, 0 levels in new file
+
+6. Here are the <search> and <replace> blocks:
+
 ${createFileBlock(
   filePath,
-  `<search>
+  `A. <search>
 import { Input } from './Input'
 </search>
 <replace>
@@ -295,8 +302,8 @@ import { Input } from './Input'
 import { useForm } from 'react-hook-form'
 </replace>
 
-<search>
-function LoginForm() {
+B. <search>
+export function LoginForm() {
   return (
     <form>
       <Input type="email" placeholder="Email" />
@@ -307,7 +314,7 @@ function LoginForm() {
 }
 </search>
 <replace>
-function LoginForm() {
+export function LoginForm() {
   const { register, handleSubmit } = useForm()
 
   const onSubmit = (data) => {
@@ -435,31 +442,27 @@ const getDesktopNav = (
 </example_prompt>
 
 <example_response>
-1. The user is changing the icon for the notification nav item.
-2. There is a new import for the BellIcon, and then the icon is changed within the getDesktopNav function.
-3.
+1. The code changes involve updating the import for the notification icon and changing the icon used in the getDesktopNav function.
 
-- The import can be updated after the line:
-\`\`\`
-import { SearchIcon } from '@heroicons/react/solid'
-\`\`\`
+2. The changes can be split into two logical groups:
+A. Modifying the import statement
+B. Updating the icon in the getDesktopNav function
 
-- The icon change can be made by replacing the item in the list:
-\`\`\`
-      {
-        name: 'Notifications',
-        href: '/notifications',
-        icon: BellIcon,
-      },
-\`\`\`
+3. Context for each edit:
+A. We'll use the entire import statement for @heroicons/react/outline as context.
+B. We'll use the Notifications item in the buildArray function as context.
 
-4. It's using 2 spaces for indentation.
-5. The imports are not indented. The Notification items are indented 3 levels in the modified section (6 spaces).
-6. Here are my changes:
+4. The file is using 2 spaces for indentation.
+
+5. Indentation levels:
+A. 0 levels of indentation for the import statement in old file, 0 levels in new file
+B. 3 levels of indentation (6 spaces) for the Notifications item in old file, 3 levels in new file
+
+6. Here are the <search> and <replace> blocks:
+
 ${createFileBlock(
   filePath,
-  `<search>
-import { SearchIcon } from '@heroicons/react/solid'
+  `A. <search>
 import {
   GlobeAltIcon,
   UserIcon,
@@ -469,7 +472,6 @@ import {
 } from '@heroicons/react/outline'
 </search>
 <replace>
-import { SearchIcon } from '@heroicons/react/solid'
 import {
   GlobeAltIcon,
   UserIcon,
@@ -479,7 +481,7 @@ import {
 } from '@heroicons/react/outline'
 </replace>
 
-<search>
+B. <search>
       {
         name: 'Notifications',
         href: '/notifications',
@@ -628,9 +630,16 @@ const parseAndGetDiffBlocks = (
       if (oldFileContent.includes(change.searchContent)) {
         diffBlocks.push(change)
       } else {
-        diffBlocksThatDidntMatch.push(change)
-        console.log('diff block didnt match', filePath)
-        debugLog('Warning: diff block didnt match', filePath)
+        const newChange = tryToDoStringReplacementWithExtraIndentation(
+          oldFileContent,
+          change.searchContent,
+          change.replaceContent
+        )
+        if (newChange) {
+          diffBlocks.push(newChange)
+        } else {
+          diffBlocksThatDidntMatch.push(change)
+        }
       }
     }
   }
@@ -638,4 +647,42 @@ const parseAndGetDiffBlocks = (
     diffBlocks,
     diffBlocksThatDidntMatch,
   }
+}
+
+const tryToDoStringReplacementWithExtraIndentation = (
+  oldFileContent: string,
+  searchContent: string,
+  replaceContent: string
+) => {
+  for (let i = 1; i <= 12; i++) {
+    const searchContentWithIndentation = searchContent
+      .split('\n')
+      .map((line) => (line ? ' '.repeat(i) + line : line))
+      .join('\n')
+    if (oldFileContent.includes(searchContentWithIndentation)) {
+      return {
+        searchContent: searchContentWithIndentation,
+        replaceContent: replaceContent
+          .split('\n')
+          .map((line) => (line ? ' '.repeat(i) + line : line))
+          .join('\n'),
+      }
+    }
+  }
+  for (let i = 1; i <= 6; i++) {
+    const searchContentWithIndentation = searchContent
+      .split('\n')
+      .map((line) => (line ? '\t'.repeat(i) + line : line))
+      .join('\n')
+    if (oldFileContent.includes(searchContentWithIndentation)) {
+      return {
+        searchContent: searchContentWithIndentation,
+        replaceContent: replaceContent
+          .split('\n')
+          .map((line) => (line ? '\t'.repeat(i) + line : line))
+          .join('\n'),
+      }
+    }
+  }
+  return null
 }
