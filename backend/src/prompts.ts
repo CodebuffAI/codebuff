@@ -536,6 +536,67 @@ Your Response:
 
   debugLog('Claude response for diff blocks:', response)
 
+  const { diffBlocks, diffBlocksThatDidntMatch } = parseAndGetDiffBlocks(
+    response,
+    filePath,
+    currentContent
+  )
+  for (const change of diffBlocksThatDidntMatch) {
+    console.log('diff block didnt match', filePath)
+    debugLog('Warning: diff block didnt match', filePath)
+  }
+  if (diffBlocks.length === 0 && diffBlocksThatDidntMatch.length === 0) {
+    console.log('No diff blocks generated', filePath)
+    debugLog('Warning: No diff blocks generated', filePath)
+  } else if (diffBlocksThatDidntMatch.length > 0) {
+    const newPrompt = `The assistant failed to find a match for the following changes in the file ${filePath}. Please help the assistant understand what the changes should be.
+
+Here is the previous prompt that the assistant was given:
+<prompt>
+${prompt}
+</prompt>
+
+The assistant generated the following <old> and <new> blocks where the <old> content did not match the old file contents:
+
+${diffBlocksThatDidntMatch.map((change) => `<old>${change.oldContent}</old>\n<new>${change.newContent}</new>`).join('\n\n')}
+
+It also generated these <old> and <new> blocks which were able to be applied to the old file content:
+
+${diffBlocks.map((change) => `<old>${change.oldContent}</old>\n<new>${change.newContent}</new>`).join('\n\n')}
+
+You should:
+1. Use <thinking> blocks to explain what might have gone wrong in the result of the last prompt.
+2. Within a <strategy> block, provide a new strategy to cover all the changes from the old file to the new file. List each intended edit that will become an <old> and <new> block.
+3. Provide the complete set of <old> and <new> changes within a <file path="${filePath}"></file> block to make the intended edit from the old file to the new file.
+`
+    console.log('Trying a second prompt for getDiffBlocks', filePath)
+    debugLog('Trying a second prompt for getDiffBlocks', filePath)
+    const { response } = await promptClaudeWithContinuation([
+      { role: 'user', content: newPrompt },
+    ])
+    debugLog('Second Claude response for diff blocks:', response)
+
+    const {
+      diffBlocks: newDiffBlocks,
+      diffBlocksThatDidntMatch: newDiffBlocksThatDidntMatch,
+    } = parseAndGetDiffBlocks(response, filePath, currentContent)
+    for (const change of newDiffBlocksThatDidntMatch) {
+      console.log('Still found new diff block didnt match', filePath)
+      debugLog('Warning: Still found new diff block didnt match', filePath)
+    }
+    return newDiffBlocks
+  }
+
+  return diffBlocks
+}
+
+const parseAndGetDiffBlocks = (
+  response: string,
+  filePath: string,
+  oldFileContent: string
+) => {
+  const diffBlocksThatDidntMatch: { oldContent: string; newContent: string }[] =
+    []
   const diffBlocks: { oldContent: string; newContent: string }[] = []
   const files = parseFileBlocks(response)
   for (const fileContent of Object.values(files)) {
@@ -543,17 +604,22 @@ Your Response:
     let blockMatch
 
     while ((blockMatch = blockRegex.exec(fileContent)) !== null) {
-      diffBlocks.push({
+      const change = {
         oldContent: blockMatch[1].trim(),
         newContent: blockMatch[2].trim(),
-      })
+      }
+
+      if (oldFileContent.includes(change.oldContent)) {
+        diffBlocks.push(change)
+      } else {
+        diffBlocksThatDidntMatch.push(change)
+        console.log('diff block didnt match', filePath)
+        debugLog('Warning: diff block didnt match', filePath)
+      }
     }
   }
-
-  if (diffBlocks.length === 0) {
-    console.log('No diff blocks generated', filePath)
-    debugLog('Warning: No diff blocks generated', filePath)
+  return {
+    diffBlocks,
+    diffBlocksThatDidntMatch,
   }
-
-  return diffBlocks
 }
