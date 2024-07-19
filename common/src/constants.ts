@@ -1,1 +1,1 @@
-export const STOP_MARKER = '[' + 'END_OF_RESPONSE]'
+export const STOP_MARKER = '[' + 'END]'

@@ -25,6 +25,5 @@ async function manicode(userPrompt: string | undefined) {
 
   if (userPrompt) {
     await cli.handleUserInput(userPrompt)
-    cli.promptUser()
   }
 }

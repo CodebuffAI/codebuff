@@ -132,7 +132,8 @@ Finally, if the plan is somewhat complex, you should then explain the reasoning 
 <important_instruction>
 Always end your response with the following marker:
 ${STOP_MARKER}
-If your response is cut off due to length limitations, do not include the marker and wait for a follow-up prompt to continue.
+
 This marker helps ensure that your entire response has been received and processed correctly.
+If you don't end with this marker, you will automatically be prompted to continue. However, it is good to stop your response with this token so the user can give further guidence. 
 </important_instruction>`
 }
