@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import { generateDiffBlocks } from '../prompts'
 
 const CLAUDE_CALL_TIMEOUT = 1000 * 60
@@ -21,6 +22,33 @@ const FunButton = () => {
       const diffBlocks = await generateDiffBlocks(
         [],
         'src/example.ts',
+        oldCode,
+        newCode
+      )
+
+      let updatedContent = oldCode
+      for (const { oldContent, newContent } of diffBlocks) {
+        updatedContent = updatedContent.replace(oldContent, newContent)
+      }
+      expect(updatedContent).toEqual(newCode)
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
+
+  it(
+    'should handle various indentation levels in complex change',
+    async () => {
+      const oldCode = fs.readFileSync(
+        'src/__tests__/__mock-data__/index-old.ts',
+        'utf8'
+      )
+      const newCode = fs.readFileSync(
+        'src/__tests__/__mock-data__/index-new.ts',
+        'utf8'
+      )
+      const diffBlocks = await generateDiffBlocks(
+        [],
+        'src/index.ts',
         oldCode,
         newCode
       )
