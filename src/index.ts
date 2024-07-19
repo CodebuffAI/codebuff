@@ -127,14 +127,39 @@ async function manicode(userPrompt: string | undefined) {
   const NEW_CHAT_OPTION = '+ New chat'
   const CHATS_PER_PAGE = 5
 
-  const clearLine = () => {
-    process.stdout.clearLine(0)
-    process.stdout.cursorTo(0)
-  }
+  let previousLines = 1 // Keep track of the number of lines used in the previous render
 
   const refreshLine = () => {
-    clearLine()
+    const terminalWidth = process.stdout.columns
+
+    const promptLength = 2 // Length of "> "
+    const currentLines = Math.max(
+      1,
+      Math.ceil((promptLength + inputBuffer.length) / terminalWidth)
+    )
+
+    // Move the cursor back to the beginning of the input line
+    process.stdout.cursorTo(0)
+    process.stdout.moveCursor(0, -(previousLines - 1))
+
+    // Clear the lines
+    for (let i = 0; i < previousLines; i++) {
+      process.stdout.clearLine(0)
+      if (i < previousLines - 1) {
+        process.stdout.moveCursor(0, 1)
+      }
+    }
+    // Move back and print the buffer
+    process.stdout.cursorTo(0)
+    process.stdout.moveCursor(0, -(previousLines - 1))
     process.stdout.write(`> ${inputBuffer}`)
+
+    previousLines = currentLines
+  }
+
+  const clearCurrentLine = () => {
+    process.stdout.clearLine(0)
+    process.stdout.cursorTo(0)
   }
 
   const displayMenu = () => {
@@ -198,7 +223,7 @@ async function manicode(userPrompt: string | undefined) {
     if (key === ESC_KEY) {
       if (isReceivingResponse) {
         stopResponseRequested = true
-        clearLine()
+        clearCurrentLine()
         console.log('\n[Response stopped by user]')
         isReceivingResponse = false
         promptUser()
@@ -254,6 +279,7 @@ async function manicode(userPrompt: string | undefined) {
       console.log() // Move to the next line
       const input = inputBuffer.trim()
       inputBuffer = ''
+      previousLines = 1 // Reset previousLines after input is submitted
       historyIndex = -1
       if (input) {
         history.unshift(input)
@@ -282,12 +308,12 @@ async function manicode(userPrompt: string | undefined) {
       refreshLine()
     } else {
       inputBuffer += key
-      process.stdout.write(key)
+      refreshLine()
     }
   })
 
   const handleUserInput = async (userInput: string) => {
-    clearLine()
+    clearCurrentLine()
     process.stdout.write('...')
 
     const newMessage: Message = { role: 'user', content: userInput }
@@ -328,8 +354,7 @@ async function manicode(userPrompt: string | undefined) {
   }
 
   function promptUser() {
-    clearLine()
-    process.stdout.write('> ')
+    refreshLine()
   }
 
   if (userPrompt) {
