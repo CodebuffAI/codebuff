@@ -39,11 +39,11 @@ const FunButton = () => {
     'should handle various indentation levels in complex change',
     async () => {
       const oldCode = fs.readFileSync(
-        'src/__tests__/__mock-data__/index-old.ts',
+        'src/__tests__/__mock-data__/indentation/index-old.ts',
         'utf8'
       )
       const newCode = fs.readFileSync(
-        'src/__tests__/__mock-data__/index-new.ts',
+        'src/__tests__/__mock-data__/indentation/index-new.ts',
         'utf8'
       )
       const diffBlocks = await generateDiffBlocks(
@@ -58,7 +58,38 @@ const FunButton = () => {
         updatedContent = updatedContent.replace(searchContent, replaceContent)
       }
       const newGoal = fs.readFileSync(
-        'src/__tests__/__mock-data__/index-new-goal.ts',
+        'src/__tests__/__mock-data__/indentation/index-new-goal.ts',
+        'utf8'
+      )
+      expect(updatedContent).toEqual(newGoal)
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
+
+  it(
+    'should handle lots of comments to keep existing code',
+    async () => {
+      const oldCode = fs.readFileSync(
+        'src/__tests__/__mock-data__/existing-comments/index-old.ts',
+        'utf8'
+      )
+      const newCode = fs.readFileSync(
+        'src/__tests__/__mock-data__/existing-comments/index-new.ts',
+        'utf8'
+      )
+      const diffBlocks = await generateDiffBlocks(
+        [],
+        'src/index.ts',
+        oldCode,
+        newCode
+      )
+
+      let updatedContent = oldCode
+      for (const { searchContent, replaceContent } of diffBlocks) {
+        updatedContent = updatedContent.replace(searchContent, replaceContent)
+      }
+      const newGoal = fs.readFileSync(
+        'src/__tests__/__mock-data__/existing-comments/index-new-goal.ts',
         'utf8'
       )
       expect(updatedContent).toEqual(newGoal)
