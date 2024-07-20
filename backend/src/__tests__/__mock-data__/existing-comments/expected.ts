@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
@@ -138,6 +137,25 @@ async function manicode(userPrompt: string | undefined) {
     process.stdout.write(`> ${inputBuffer}`)
   }
 
+  const initializeMenu = () => {
+    const chats = chatStorage.listChats()
+    const totalItems = chats.length + 1 // +1 for the NEW_CHAT_OPTION
+    const middleIndex = Math.floor(CHATS_PER_PAGE / 2)
+
+    const currentChatIndex = chats.findIndex(chat => chat.id === currentChat.id)
+
+    if (currentChatIndex !== -1) {
+      menuSelectedIndex = currentChatIndex
+    } else {
+      menuSelectedIndex = Math.min(middleIndex, totalItems - 1)
+    }
+
+    menuOffset = Math.max(0, Math.min(menuSelectedIndex - middleIndex, totalItems - CHATS_PER_PAGE))
+
+    isInMenu = true
+    displayMenu()
+  }
+
   const displayMenu = () => {
     console.clear()
     console.log('Chat History:')
@@ -164,24 +182,6 @@ async function manicode(userPrompt: string | undefined) {
     }
 
     console.log('\nUse arrow keys to navigate, SPACE to select, ESC to exit')
-  }
-  const initializeMenu = () => {
-    const chats = chatStorage.listChats()
-    const totalItems = chats.length + 1 // +1 for the NEW_CHAT_OPTION
-    const middleIndex = Math.floor(CHATS_PER_PAGE / 2)
-
-    const currentChatIndex = chats.findIndex(chat => chat.id === currentChat.id)
-
-    if (currentChatIndex !== -1) {
-      menuSelectedIndex = currentChatIndex
-    } else {
-      menuSelectedIndex = Math.min(middleIndex, totalItems - 1)
-    }
-
-    menuOffset = Math.max(0, Math.min(menuSelectedIndex - middleIndex, totalItems - CHATS_PER_PAGE))
-
-    isInMenu = true
-    displayMenu()
   }
 
   process.stdin.on('data', (key: string) => {
@@ -258,7 +258,8 @@ async function manicode(userPrompt: string | undefined) {
         inputBuffer = inputBuffer.slice(0, -1)
         refreshLine()
       }
-    } else if (key === '\u001B[A' || key === '\u001B[B') { // Up or Down arrow
+    } else if (key === '\u001B[A' || key === '\u001B[B') {
+      // Up or Down arrow
       if (key === '\u001B[A' && historyIndex < history.length - 1) {
         historyIndex++
       } else if (key === '\u001B[B' && historyIndex > -1) {
@@ -319,12 +320,8 @@ async function manicode(userPrompt: string | undefined) {
   }
 
   function promptUser() {
-    if (currentChat.messages.length === 0) {
-      initializeMenu()
-    } else {
-      clearLine()
-      process.stdout.write('> ')
-    }
+    clearLine()
+    process.stdout.write('> ')
   }
 
   if (userPrompt) {

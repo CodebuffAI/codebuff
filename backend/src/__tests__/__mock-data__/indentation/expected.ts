@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
@@ -142,41 +141,54 @@ async function manicode(userPrompt: string | undefined) {
     console.clear()
     console.log('Chat History:')
     const chats = chatStorage.listChats()
-    const totalItems = chats.length + 1 // +1 for the "New Chat" option
-    const startIndex = menuOffset
-    const endIndex = Math.min(startIndex + CHATS_PER_PAGE, totalItems)
+    const totalChats = chats.length
 
-    for (let i = startIndex; i < endIndex; i++) {
-      if (i < chats.length) {
-        const chat = chats[i]
-        const isSelected = i === menuSelectedIndex
-        const marker = isSelected ? '>' : ' '
-        console.log(`${marker} ${chat.id} (${new Date(chat.updatedAt).toLocaleString()})`)
-      } else {
-        const isSelected = i === menuSelectedIndex
-        const marker = isSelected ? '>' : ' '
-        console.log(`${marker} ${NEW_CHAT_OPTION}`)
-      }
+    if (totalChats === 0) {
+      console.log('No chats available.')
+      console.log(`\n${NEW_CHAT_OPTION}`)
+      return
     }
 
-    if (totalItems > CHATS_PER_PAGE) {
-      console.log(`\nShowing ${startIndex + 1}-${endIndex} of ${totalItems} items`)
+    const visibleRange = 5 // Total number of chats to display (2 on each side + 1 selected)
+    const halfRange = Math.floor(visibleRange / 2)
+
+    let startIndex = Math.max(0, menuSelectedIndex - halfRange)
+    let endIndex = Math.min(totalChats - 1, startIndex + visibleRange - 1)
+
+    // Adjust startIndex if we're near the end of the list
+    if (endIndex - startIndex < visibleRange - 1) {
+      startIndex = Math.max(0, endIndex - visibleRange + 1)
     }
 
+    if (startIndex > 0) {
+      console.log('...')
+    }
+
+    for (let i = startIndex; i <= endIndex; i++) {
+      const chat = chats[i]
+      const isSelected = i === menuSelectedIndex
+      const marker = isSelected ? '>' : ' '
+      console.log(`${marker} ${chat.id} (${new Date(chat.updatedAt).toLocaleString()})`)
+    }
+
+    if (endIndex < totalChats - 1) {
+      console.log('...')
+    }
+
+    console.log(`\n${NEW_CHAT_OPTION}`)
     console.log('\nUse arrow keys to navigate, SPACE to select, ESC to exit')
   }
+
   const initializeMenu = () => {
     const chats = chatStorage.listChats()
     const currentChatIndex = chats.findIndex(chat => chat.id === currentChat.id)
-    
+
     if (currentChatIndex !== -1) {
       menuSelectedIndex = currentChatIndex
-      menuOffset = Math.max(0, Math.min(currentChatIndex, chats.length - CHATS_PER_PAGE + 1))
     } else {
       menuSelectedIndex = 0
-      menuOffset = 0
     }
-    
+
     isInMenu = true
     displayMenu()
   }
@@ -204,25 +216,19 @@ async function manicode(userPrompt: string | undefined) {
       }
     } else if (isInMenu) {
       const chats = chatStorage.listChats()
-      const totalItems = chats.length + 1 // +1 for the "New Chat" option
+      const totalChats = chats.length
       if (key === '\u001B[A') { // Up arrow
-        if (menuSelectedIndex > menuOffset) {
+        if (menuSelectedIndex > 0) {
           menuSelectedIndex--
-        } else if (menuOffset > 0) {
-          menuOffset--
-          menuSelectedIndex--
+          displayMenu()
         }
-        displayMenu()
       } else if (key === '\u001B[B') { // Down arrow
-        if (menuSelectedIndex < Math.min(menuOffset + CHATS_PER_PAGE - 1, totalItems - 1)) {
+        if (menuSelectedIndex < totalChats - 1) {
           menuSelectedIndex++
-        } else if (menuOffset + CHATS_PER_PAGE < totalItems) {
-          menuOffset++
-          menuSelectedIndex++
+          displayMenu()
         }
-        displayMenu()
       } else if (key === SPACE_KEY) {
-        if (menuSelectedIndex < chats.length) {
+        if (menuSelectedIndex < totalChats) {
           currentChat = chats[menuSelectedIndex]
           isInMenu = false
           console.clear()
@@ -253,7 +259,8 @@ async function manicode(userPrompt: string | undefined) {
         inputBuffer = inputBuffer.slice(0, -1)
         refreshLine()
       }
-    } else if (key === '\u001B[A' || key === '\u001B[B') { // Up or Down arrow
+    } else if (key === '\u001B[A' || key === '\u001B[B') {
+      // Up or Down arrow
       if (key === '\u001B[A' && historyIndex < history.length - 1) {
         historyIndex++
       } else if (key === '\u001B[B' && historyIndex > -1) {

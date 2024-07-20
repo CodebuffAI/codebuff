@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
@@ -142,53 +141,41 @@ async function manicode(userPrompt: string | undefined) {
     console.clear()
     console.log('Chat History:')
     const chats = chatStorage.listChats()
-    const totalChats = chats.length
+    const totalItems = chats.length + 1 // +1 for the "New Chat" option
+    const startIndex = menuOffset
+    const endIndex = Math.min(startIndex + CHATS_PER_PAGE, totalItems)
 
-    if (totalChats === 0) {
-      console.log('No chats available.')
-      console.log(`\n${NEW_CHAT_OPTION}`)
-      return
+    for (let i = startIndex; i < endIndex; i++) {
+      if (i < chats.length) {
+        const chat = chats[i]
+        const isSelected = i === menuSelectedIndex
+        const marker = isSelected ? '>' : ' '
+        console.log(`${marker} ${chat.id} (${new Date(chat.updatedAt).toLocaleString()})`)
+      } else {
+        const isSelected = i === menuSelectedIndex
+        const marker = isSelected ? '>' : ' '
+        console.log(`${marker} ${NEW_CHAT_OPTION}`)
+      }
     }
 
-    const visibleRange = 5 // Total number of chats to display (2 on each side + 1 selected)
-    const halfRange = Math.floor(visibleRange / 2)
-
-    let startIndex = Math.max(0, menuSelectedIndex - halfRange)
-    let endIndex = Math.min(totalChats - 1, startIndex + visibleRange - 1)
-
-    // Adjust startIndex if we're near the end of the list
-    if (endIndex - startIndex < visibleRange - 1) {
-      startIndex = Math.max(0, endIndex - visibleRange + 1)
+    if (totalItems > CHATS_PER_PAGE) {
+      console.log(`\nShowing ${startIndex + 1}-${endIndex} of ${totalItems} items`)
     }
 
-    if (startIndex > 0) {
-      console.log('...')
-    }
-
-    for (let i = startIndex; i <= endIndex; i++) {
-      const chat = chats[i]
-      const isSelected = i === menuSelectedIndex
-      const marker = isSelected ? '>' : ' '
-      console.log(`${marker} ${chat.id} (${new Date(chat.updatedAt).toLocaleString()})`)
-    }
-
-    if (endIndex < totalChats - 1) {
-      console.log('...')
-    }
-
-    console.log(`\n${NEW_CHAT_OPTION}`)
     console.log('\nUse arrow keys to navigate, SPACE to select, ESC to exit')
   }
   const initializeMenu = () => {
     const chats = chatStorage.listChats()
     const currentChatIndex = chats.findIndex(chat => chat.id === currentChat.id)
-
+    
     if (currentChatIndex !== -1) {
       menuSelectedIndex = currentChatIndex
+      menuOffset = Math.max(0, Math.min(currentChatIndex, chats.length - CHATS_PER_PAGE + 1))
     } else {
       menuSelectedIndex = 0
+      menuOffset = 0
     }
-
+    
     isInMenu = true
     displayMenu()
   }
@@ -216,19 +203,25 @@ async function manicode(userPrompt: string | undefined) {
       }
     } else if (isInMenu) {
       const chats = chatStorage.listChats()
-      const totalChats = chats.length
+      const totalItems = chats.length + 1 // +1 for the "New Chat" option
       if (key === '\u001B[A') { // Up arrow
-        if (menuSelectedIndex > 0) {
+        if (menuSelectedIndex > menuOffset) {
           menuSelectedIndex--
-          displayMenu()
+        } else if (menuOffset > 0) {
+          menuOffset--
+          menuSelectedIndex--
         }
+        displayMenu()
       } else if (key === '\u001B[B') { // Down arrow
-        if (menuSelectedIndex < totalChats - 1) {
+        if (menuSelectedIndex < Math.min(menuOffset + CHATS_PER_PAGE - 1, totalItems - 1)) {
           menuSelectedIndex++
-          displayMenu()
+        } else if (menuOffset + CHATS_PER_PAGE < totalItems) {
+          menuOffset++
+          menuSelectedIndex++
         }
+        displayMenu()
       } else if (key === SPACE_KEY) {
-        if (menuSelectedIndex < totalChats) {
+        if (menuSelectedIndex < chats.length) {
           currentChat = chats[menuSelectedIndex]
           isInMenu = false
           console.clear()

@@ -1,36 +1,25 @@
 import * as fs from 'fs'
-import { generateDiffBlocks } from '../generate-diffs-prompt'
+import { generateDiffs } from '../generate-diffs-haiku'
 
 const CLAUDE_CALL_TIMEOUT = 1000 * 60
 
-describe('generateDiffBlocks', () => {
+const runDiffTest = async (dir: string, mockFilePath: string) => {
+  const oldFile = fs.readFileSync(`${dir}/old.ts`, 'utf8')
+  const newFile = fs.readFileSync(`${dir}/new.ts`, 'utf8')
+  const expectedFile = fs.readFileSync(`${dir}/expected.ts`, 'utf8')
+  const diffBlocks = await generateDiffs(oldFile, newFile, mockFilePath, [])
+  let updatedContent = oldFile
+  for (const { searchContent, replaceContent } of diffBlocks) {
+    updatedContent = updatedContent.replace(searchContent, replaceContent)
+  }
+  expect(updatedContent).toEqual(expectedFile)
+}
+
+describe('generateDiffs', () => {
   it(
-    'should generate <search> and <replace> blocks for small change',
+    'should generate diff for simple change',
     async () => {
-      const oldCode = `import React from 'react'
-
-const Button = () => {
-  return <button>Click me</button>
-}
-`
-      const newCode = `import React from 'react'
-
-const FunButton = () => {
-  return <button>Fun Button</button>
-}
-`
-      const diffBlocks = await generateDiffBlocks(
-        [],
-        'src/example.ts',
-        oldCode,
-        newCode
-      )
-
-      let updatedContent = oldCode
-      for (const { searchContent, replaceContent } of diffBlocks) {
-        updatedContent = updatedContent.replace(searchContent, replaceContent)
-      }
-      expect(updatedContent).toEqual(newCode)
+      await runDiffTest('src/__tests__/__mock-data__/simple', 'button.tsx')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -38,30 +27,10 @@ const FunButton = () => {
   it(
     'should handle various indentation levels in complex change',
     async () => {
-      const oldCode = fs.readFileSync(
-        'src/__tests__/__mock-data__/indentation/index-old.ts',
-        'utf8'
+      await runDiffTest(
+        'src/__tests__/__mock-data__/indentation',
+        'src/index.ts'
       )
-      const newCode = fs.readFileSync(
-        'src/__tests__/__mock-data__/indentation/index-new.ts',
-        'utf8'
-      )
-      const diffBlocks = await generateDiffBlocks(
-        [],
-        'src/index.ts',
-        oldCode,
-        newCode
-      )
-
-      let updatedContent = oldCode
-      for (const { searchContent, replaceContent } of diffBlocks) {
-        updatedContent = updatedContent.replace(searchContent, replaceContent)
-      }
-      const newGoal = fs.readFileSync(
-        'src/__tests__/__mock-data__/indentation/index-new-goal.ts',
-        'utf8'
-      )
-      expect(updatedContent).toEqual(newGoal)
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -69,30 +38,21 @@ const FunButton = () => {
   it(
     'should handle lots of comments to keep existing code',
     async () => {
-      const oldCode = fs.readFileSync(
-        'src/__tests__/__mock-data__/existing-comments/index-old.ts',
-        'utf8'
+      await runDiffTest(
+        'src/__tests__/__mock-data__/existing-comments',
+        'src/index.ts'
       )
-      const newCode = fs.readFileSync(
-        'src/__tests__/__mock-data__/existing-comments/index-new.ts',
-        'utf8'
-      )
-      const diffBlocks = await generateDiffBlocks(
-        [],
-        'src/index.ts',
-        oldCode,
-        newCode
-      )
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
 
-      let updatedContent = oldCode
-      for (const { searchContent, replaceContent } of diffBlocks) {
-        updatedContent = updatedContent.replace(searchContent, replaceContent)
-      }
-      const newGoal = fs.readFileSync(
-        'src/__tests__/__mock-data__/existing-comments/index-new-goal.ts',
-        'utf8'
+  it(
+    'should handle long template string in system prompt',
+    async () => {
+      await runDiffTest(
+        'src/__tests__/__mock-data__/system-prompt',
+        'src/system-prompt.ts'
       )
-      expect(updatedContent).toEqual(newGoal)
     },
     CLAUDE_CALL_TIMEOUT
   )

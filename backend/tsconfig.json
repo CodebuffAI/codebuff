@@ -10,5 +10,6 @@
     }
   },
   "include": ["src/**/*"],
+  "exclude": ["src/**/__mock-data__/**/*"],
   "references": [{ "path": "../common" }]
 }
