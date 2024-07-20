@@ -8,18 +8,26 @@ const CHATS_DIR = 'chats'
 interface Chat {
   id: string
   messages: Message[]
+  fileVersions: FileVersion[]
   createdAt: string
   updatedAt: string
+}
+
+interface FileVersion {
+  messageIndex: number
+  files: Record<string, string>
 }
 
 export class ChatStorage {
   private baseDir: string
   private currentChat: Chat
+  private currentVersionIndex: number
 
   constructor(projectRoot: string) {
     this.baseDir = path.join(projectRoot, MANICODE_DIR, CHATS_DIR)
     this.ensureDirectoryExists()
     this.currentChat = this.createChat()
+    this.currentVersionIndex = -1
   }
 
   private ensureDirectoryExists(): void {
@@ -36,6 +44,7 @@ export class ChatStorage {
     const chat: Chat = {
       id: this.generateChatId(),
       messages,
+      fileVersions: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -104,8 +113,51 @@ export class ChatStorage {
     const chat = this.getChat(chatId)
     if (chat) {
       this.currentChat = chat
+      this.currentVersionIndex = chat.fileVersions.length - 1
     } else {
       throw new Error(`Chat with id ${chatId} not found`)
     }
+  }
+
+  getCurrentVersion(): FileVersion | null {
+    if (
+      this.currentVersionIndex >= 0 &&
+      this.currentVersionIndex < this.currentChat.fileVersions.length
+    ) {
+      return this.currentChat.fileVersions[this.currentVersionIndex]
+    }
+    return null
+  }
+
+  navigateVersion(direction: 'left' | 'right'): boolean {
+    if (direction === 'left' && this.currentVersionIndex > 0) {
+      this.currentVersionIndex--
+      return true
+    } else if (
+      direction === 'right' &&
+      this.currentVersionIndex < this.currentChat.fileVersions.length - 1
+    ) {
+      this.currentVersionIndex++
+      return true
+    }
+    return false
+  }
+
+  saveCurrentFileState(files: Record<string, string>) {
+    const currentVersion = this.getCurrentVersion()
+    if (currentVersion) {
+      currentVersion.files = files
+    } else {
+      this.addNewFileState(files)
+    }
+  }
+
+  addNewFileState(files: Record<string, string>) {
+    const newVersion: FileVersion = {
+      messageIndex: this.currentChat.messages.length - 1,
+      files,
+    }
+    this.currentChat.fileVersions.push(newVersion)
+    this.currentVersionIndex = this.currentChat.fileVersions.length - 1
   }
 }

@@ -33,12 +33,12 @@ export const applyChanges = (changes: FileChanges) => {
   return changesSuceeded
 }
 
-export const getProjectFileContext = (): ProjectFileContext => {
+export const getProjectFileContext = () => {
   const filePaths = getProjectFilePaths()
   const knowledgeFilePaths = filePaths.filter((filePath) =>
     filePath.endsWith('knowledge.md')
   )
-  const knowledgeFiles = getKnowledgeFiles(knowledgeFilePaths)
+  const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
   const exportedTokens = getExportedTokensForFiles(filePaths)
 
   return {
@@ -91,13 +91,6 @@ function getProjectFilePaths() {
   return allProjectFiles
 }
 
-function getKnowledgeFiles(knowledgeFilePaths: string[]) {
-  return filterObject(
-    getFiles(knowledgeFilePaths),
-    (value) => value !== null
-  ) as Record<string, string>
-}
-
 export function getFiles(filePaths: string[]) {
   const result: Record<string, string | null> = {}
   for (const filePath of filePaths) {
@@ -110,6 +103,20 @@ export function getFiles(filePaths: string[]) {
     }
   }
   return result
+}
+
+export function getExistingFiles(filePaths: string[]) {
+  return filterObject(getFiles(filePaths), (value) => value !== null) as Record<
+    string,
+    string
+  >
+}
+
+export function setFiles(files: Record<string, string>) {
+  for (const [filePath, content] of Object.entries(files)) {
+    const fullPath = path.join(projectRoot, filePath)
+    fs.writeFileSync(fullPath, content, 'utf8')
+  }
 }
 
 export function getFileBlocks(filePaths: string[]) {

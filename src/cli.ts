@@ -4,7 +4,7 @@ import { ChatStorage } from './chat-storage'
 import { ChatClient } from './chat-client'
 import { Message } from 'common/actions'
 import { displayMenu, initializeMenu, navigateMenu, selectChat } from './menu'
-import { applyChanges } from './project-files'
+import { applyChanges, getExistingFiles, setFiles } from './project-files'
 import { STOP_MARKER } from 'common/constants'
 
 export class CLI {
@@ -39,6 +39,10 @@ export class CLI {
     const ENTER_KEY = '\r'
     const BACKSPACE_KEY = '\x7F'
     const SPACE_KEY = ' '
+    const UP_ARROW = '\u001B[A'
+    const DOWN_ARROW = '\u001B[B'
+    const LEFT_ARROW = '\u001B[D'
+    const RIGHT_ARROW = '\u001B[C'
 
     if (key === ESC_KEY) {
       this.handleEscKey()
@@ -48,8 +52,10 @@ export class CLI {
       this.handleEnterKey()
     } else if (key === BACKSPACE_KEY) {
       this.handleBackspaceKey()
-    } else if (key === '\u001B[A' || key === '\u001B[B') {
-      this.handleArrowKeys(key)
+    } else if (key === UP_ARROW || key === DOWN_ARROW) {
+      this.handleUpDownArrowKeys(key === UP_ARROW ? 'up' : 'down')
+    } else if (key === LEFT_ARROW || key === RIGHT_ARROW) {
+      this.handleLeftRightArrowKeys(key === LEFT_ARROW ? 'left' : 'right')
     } else {
       this.inputBuffer += key
       this.refreshLine()
@@ -118,10 +124,10 @@ export class CLI {
     }
   }
 
-  private handleArrowKeys(key: string) {
-    if (key === '\u001B[A' && this.historyIndex < this.history.length - 1) {
+  private handleUpDownArrowKeys(direction: 'up' | 'down') {
+    if (direction === 'up' && this.historyIndex < this.history.length - 1) {
       this.historyIndex++
-    } else if (key === '\u001B[B' && this.historyIndex > -1) {
+    } else if (direction === 'down' && this.historyIndex > -1) {
       this.historyIndex--
     }
 
@@ -131,6 +137,29 @@ export class CLI {
       this.inputBuffer = this.history[this.historyIndex]
     }
     this.refreshLine()
+  }
+
+  private async handleLeftRightArrowKeys(direction: 'left' | 'right') {
+    const currentVersion = this.chatStorage.getCurrentVersion()
+    const filePaths = Object.keys(currentVersion ? currentVersion.files : {})
+    const currentFiles = getExistingFiles(filePaths)
+    this.chatStorage.saveCurrentFileState(currentFiles)
+
+    const navigated = this.chatStorage.navigateVersion(direction)
+
+    if (navigated) {
+      const files = this.applyAndDisplayCurrentFileVersion()
+      console.log('Loaded files:', Object.keys(files).join(', '))
+    }
+  }
+
+  private applyAndDisplayCurrentFileVersion() {
+    const currentVersion = this.chatStorage.getCurrentVersion()
+    if (currentVersion) {
+      setFiles(currentVersion.files)
+      return currentVersion.files
+    }
+    return {}
   }
 
   private refreshLine() {
@@ -178,16 +207,23 @@ export class CLI {
     this.responseBuffer = ''
 
     const onStreamEnd = () => {
-      console.log('\nGenerating file changes...')
+      console.log('\n\nGenerating file changes. Please wait...')
     }
     const { response, changes } =
       await this.sendUserInputAndAwaitResponse(onStreamEnd)
+
+    const filesChanged = uniqBy(changes, 'filePath').map(
+      (change) => change.filePath
+    )
+    const currentFiles = getExistingFiles(filesChanged)
+    this.chatStorage.saveCurrentFileState(currentFiles)
+
     const changesSuceeded = applyChanges(changes)
     for (const change of uniqBy(changesSuceeded, 'filePath')) {
       const { filePath, old } = change
       console.log('-', old ? 'Updated' : 'Created', filePath)
     }
-    console.log('Complete!')
+    console.log('Complete!\n')
 
     this.isReceivingResponse = false
 
@@ -200,6 +236,8 @@ export class CLI {
         this.chatStorage.getCurrentChat(),
         assistantMessage
       )
+      const updatedFiles = getExistingFiles(filesChanged)
+      this.chatStorage.addNewFileState(updatedFiles)
     } else {
       const partialResponse = this.responseBuffer.trim()
       if (partialResponse) {
