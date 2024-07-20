@@ -104,6 +104,18 @@ The backend handles file operations for the Manicode project:
 6. **Environment Variables**: Use environment variables for configuration and sensitive information.
 7. **Code Style**: Follow consistent coding style and use tools like Prettier for formatting.
 
+## Diffing Algorithm
+
+- The `generateDiffBlocks` function uses a sliding window approach to find matches between old and new file content.
+- The `windowSize` parameter in `findNextMatch` affects the algorithm's behavior:
+  - Larger values can help handle scattered small changes better.
+  - However, increasing `windowSize` has downsides:
+    - Decreased performance (O(windowSize^2) time complexity per `findNextMatch` call).
+    - Potential for less accurate diffs with very large values.
+    - May mask large-scale structural changes if set too high.
+  - The optimal `windowSize` depends on typical file structures and change patterns in the project.
+  - Consider profiling with different `windowSize` values to find the best balance for your use case.
+
 ## TODO
 
 - Implement authentication and authorization for WebSocket connections.
