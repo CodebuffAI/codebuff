@@ -3,7 +3,7 @@ import { uniqBy } from 'lodash'
 import { ChatStorage } from './chat-storage'
 import { ChatClient } from './chat-client'
 import { Message } from 'common/actions'
-import { displayMenu, initializeMenu, navigateMenu, selectChat } from './menu'
+import { displayMenu } from './menu'
 import { applyChanges, getExistingFiles, setFiles } from './project-files'
 import { STOP_MARKER } from 'common/constants'
 
@@ -47,7 +47,11 @@ export class CLI {
     if (key === ESC_KEY) {
       this.handleEscKey()
     } else if (this.isInMenu) {
-      this.handleMenuNavigation(key)
+      if (key === SPACE_KEY) {
+        this.isInMenu = false
+        console.clear()
+        this.promptUser()
+      }
     } else if (key === ENTER_KEY) {
       this.handleEnterKey()
     } else if (key === BACKSPACE_KEY) {
@@ -75,31 +79,8 @@ export class CLI {
       console.log('Exiting. Manicode out!')
       process.exit(0)
     } else {
-      initializeMenu(this.chatStorage)
+      displayMenu()
       this.isInMenu = true
-    }
-  }
-
-  private handleMenuNavigation(key: string) {
-    if (key === ' ' || key === '\r') {
-      const selectedChatId = selectChat(this.chatStorage)
-      if (selectedChatId) {
-        this.chatStorage.setCurrentChat(selectedChatId)
-        this.isInMenu = false
-        console.clear()
-        console.log(`Switched to chat: ${selectedChatId}`)
-        this.promptUser()
-      } else {
-        // Create a new chat
-        const newChat = this.chatStorage.createChat()
-        this.isInMenu = false
-        console.clear()
-        console.log(`Created new chat: ${newChat.id}`)
-        this.promptUser()
-      }
-    } else {
-      navigateMenu(this.chatStorage, key)
-      displayMenu(this.chatStorage)
     }
   }
 
