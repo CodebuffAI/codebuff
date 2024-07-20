@@ -1,12 +1,7 @@
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
-import {
-  applyChanges,
-  getFileBlocks,
-  getFiles,
-  getProjectFileContext,
-} from './project-files'
+import { getFileBlocks, getFiles, getProjectFileContext } from './project-files'
 import { ChatStorage } from './chat-storage'
-import { Message } from 'common/actions'
+import { FileChanges, Message } from 'common/actions'
 
 export class ChatClient {
   private ws: APIRealtimeClient
@@ -23,16 +18,8 @@ export class ChatClient {
   }
 
   private setupSubscriptions() {
-    this.ws.subscribe('change-files', (a) => {
-      const changesSuceeded = applyChanges(a.changes)
-      for (const change of changesSuceeded) {
-        const { filePath, old } = change
-        console.log('>', old ? 'Updated' : 'Created', filePath)
-      }
-    })
-
     this.ws.subscribe('tool-call', (a) => {
-      const { response, data } = a
+      const { response, changes, data } = a
       const { id, name, input } = data
 
       const assistantMessage: Message = {
@@ -74,7 +61,7 @@ export class ChatClient {
           toolResultMessage
         )
 
-        this.sendUserInput()
+        this.sendUserInput(changes)
       }
     })
 
@@ -89,18 +76,47 @@ export class ChatClient {
     })
   }
 
-  sendUserInput() {
+  sendUserInput(previousChanges: FileChanges) {
     this.ws.sendAction({
       type: 'user-input',
       messages: this.chatStorage.getCurrentChat().messages,
       fileContext: getProjectFileContext(),
+      previousChanges,
     })
   }
 
-  subscribeToResponseChunks(callback: (chunk: string) => void) {
-    return this.ws.subscribe('response-chunk', (a) => {
-      const { chunk } = a
-      callback(chunk)
+  subscribeToResponse(onChunk: (chunk: string) => void) {
+    let unsubscribe: () => void
+    const unsubscribeWrapper = () => {
+      unsubscribe()
+    }
+
+    const resolvePromise = new Promise<{
+      response: string
+      changes: FileChanges
+    }>((resolve) => {
+      const unsubscribeChunks = this.ws.subscribe('response-chunk', (a) => {
+        const { chunk } = a
+        onChunk(chunk)
+      })
+
+      const unsubscribeComplete = this.ws.subscribe(
+        'response-complete',
+        (a) => {
+          unsubscribeChunks()
+          unsubscribeComplete()
+          resolve(a)
+        }
+      )
+      unsubscribe = () => {
+        unsubscribeChunks()
+        unsubscribeComplete()
+      }
     })
+
+    return {
+      result: resolvePromise,
+      unsubscribe: unsubscribeWrapper,
+    }
   }
 }

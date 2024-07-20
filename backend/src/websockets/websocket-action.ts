@@ -13,13 +13,17 @@ const sendAction = (ws: WebSocket, action: ServerAction) => {
 }
 
 const onUserInput = async (
-  { messages, fileContext }: Extract<ClientAction, { type: 'user-input' }>,
+  {
+    messages,
+    fileContext,
+    previousChanges,
+  }: Extract<ClientAction, { type: 'user-input' }>,
   ws: WebSocket
 ) => {
   const lastMessage = messages[messages.length - 1]
   if (typeof lastMessage.content === 'string')
     console.log('Input:', lastMessage)
-  const { changes, toolCall, response } = await mainPrompt(
+  const { toolCall, response, changes } = await mainPrompt(
     ws,
     messages,
     fileContext,
@@ -30,12 +34,7 @@ const onUserInput = async (
       })
   )
 
-  if (changes.length > 0) {
-    sendAction(ws, {
-      type: 'change-files',
-      changes,
-    })
-  }
+  const allChanges = [...previousChanges, ...changes]
 
   if (toolCall) {
     console.log('toolCall', toolCall.name, toolCall.input)
@@ -43,6 +42,14 @@ const onUserInput = async (
       type: 'tool-call',
       response,
       data: toolCall,
+      changes: allChanges,
+    })
+  } else {
+    console.log('response-complete')
+    sendAction(ws, {
+      type: 'response-complete',
+      response,
+      changes: allChanges,
     })
   }
 }

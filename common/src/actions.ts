@@ -47,6 +47,7 @@ export const CLIENT_ACTIONS = {
     type: z.literal('user-input'),
     messages: z.array(MessageSchema),
     fileContext: ProjectFileContextSchema,
+    previousChanges: CHANGES,
   }),
   readFilesResponse: z.object({
     type: z.literal('read-files-response'),
@@ -65,8 +66,9 @@ export const SERVER_ACTIONS = {
     type: z.literal('response-chunk'),
     chunk: z.string(),
   }),
-  changeFiles: z.object({
-    type: z.literal('change-files'),
+  responseComplete: z.object({
+    type: z.literal('response-complete'),
+    response: z.string(),
     changes: CHANGES,
   }),
   readFiles: z.object({
@@ -77,11 +79,12 @@ export const SERVER_ACTIONS = {
     type: z.literal('tool-call'),
     response: z.string(),
     data: ToolCallSchema,
+    changes: CHANGES,
   }),
 }
 export const SERVER_ACTION_SCHEMA = z.union([
   SERVER_ACTIONS.responseChunk,
-  SERVER_ACTIONS.changeFiles,
+  SERVER_ACTIONS.responseComplete,
   SERVER_ACTIONS.readFiles,
   SERVER_ACTIONS.toolCall,
 ])

@@ -1,8 +1,11 @@
+import { uniqBy } from 'lodash'
+
 import { ChatStorage } from './chat-storage'
 import { ChatClient } from './chat-client'
 import { Message } from 'common/actions'
-import { STOP_MARKER } from 'common/constants'
 import { displayMenu, initializeMenu, navigateMenu, selectChat } from './menu'
+import { applyChanges } from './project-files'
+import { STOP_MARKER } from 'common/constants'
 
 export class CLI {
   private chatStorage: ChatStorage
@@ -174,14 +177,24 @@ export class CLI {
     this.stopResponseRequested = false
     this.responseBuffer = ''
 
-    const mannyResponse = await this.sendUserInputAndAwaitResponse()
+    const onStreamEnd = () => {
+      console.log('\nGenerating file changes...')
+    }
+    const { response, changes } =
+      await this.sendUserInputAndAwaitResponse(onStreamEnd)
+    const changesSuceeded = applyChanges(changes)
+    for (const change of uniqBy(changesSuceeded, 'filePath')) {
+      const { filePath, old } = change
+      console.log('-', old ? 'Updated' : 'Created', filePath)
+    }
+    console.log('Complete!')
 
     this.isReceivingResponse = false
 
     if (!this.stopResponseRequested) {
       const assistantMessage: Message = {
         role: 'assistant',
-        content: mannyResponse,
+        content: response,
       }
       this.chatStorage.addMessage(
         this.chatStorage.getCurrentChat(),
@@ -202,12 +215,11 @@ export class CLI {
     }
   }
 
-  private async sendUserInputAndAwaitResponse(): Promise<string> {
-    return new Promise<string>((resolve) => {
-      const unsubscribe = this.chartClient.subscribeToResponseChunks((chunk) => {
+  private async sendUserInputAndAwaitResponse(onStreamEnd: () => void) {
+    const { unsubscribe, result } = this.chartClient.subscribeToResponse(
+      (chunk) => {
         if (this.stopResponseRequested) {
           unsubscribe()
-          resolve(this.responseBuffer)
           return
         }
 
@@ -215,17 +227,14 @@ export class CLI {
         this.responseBuffer += chunk
 
         if (this.responseBuffer.includes(STOP_MARKER)) {
-          unsubscribe()
-          this.responseBuffer = this.responseBuffer
-            .replace(STOP_MARKER, '')
-            .trim()
-          console.log()
-          resolve(this.responseBuffer)
+          onStreamEnd()
         }
-      })
+      }
+    )
 
-      this.chartClient.sendUserInput()
-    })
+    this.chartClient.sendUserInput([])
+
+    return await result
   }
 
   promptUser() {
