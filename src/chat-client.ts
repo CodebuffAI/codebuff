@@ -1,9 +1,14 @@
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
-import { applyChanges, getFileBlocks, getFiles, getProjectFileContext } from './project-files'
+import {
+  applyChanges,
+  getFileBlocks,
+  getFiles,
+  getProjectFileContext,
+} from './project-files'
 import { ChatStorage } from './chat-storage'
 import { Message } from 'common/actions'
 
-export class WebSocketClient {
+export class ChatClient {
   private ws: APIRealtimeClient
   private chatStorage: ChatStorage
 
@@ -45,7 +50,10 @@ export class WebSocketClient {
           },
         ],
       }
-      this.chatStorage.addMessage(this.chatStorage.getCurrentChat(), assistantMessage)
+      this.chatStorage.addMessage(
+        this.chatStorage.getCurrentChat(),
+        assistantMessage
+      )
 
       if (name === 'read_files') {
         const { file_paths } = input
@@ -61,7 +69,10 @@ export class WebSocketClient {
             },
           ],
         }
-        this.chatStorage.addMessage(this.chatStorage.getCurrentChat(), toolResultMessage)
+        this.chatStorage.addMessage(
+          this.chatStorage.getCurrentChat(),
+          toolResultMessage
+        )
 
         this.sendUserInput()
       }

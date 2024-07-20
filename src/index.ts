@@ -1,5 +1,5 @@
 import { loadEnvironmentVariables, websocketUrl, projectRoot } from './config'
-import { WebSocketClient } from './websocket-client'
+import { ChatClient } from './chat-client'
 import { ChatStorage } from './chat-storage'
 import { CLI } from './cli'
 
@@ -17,7 +17,7 @@ async function manicode(userPrompt: string | undefined) {
   console.log('What would you like to do?')
 
   const chatStorage = new ChatStorage(projectRoot)
-  const wsClient = new WebSocketClient(websocketUrl, chatStorage)
+  const wsClient = new ChatClient(websocketUrl, chatStorage)
   await wsClient.connect()
 
   const cli = new CLI(chatStorage, wsClient)

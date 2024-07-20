@@ -1,13 +1,12 @@
-
 import { ChatStorage } from './chat-storage'
-import { WebSocketClient } from './websocket-client'
+import { ChatClient } from './chat-client'
 import { Message } from 'common/actions'
 import { STOP_MARKER } from 'common/constants'
 import { displayMenu, initializeMenu, navigateMenu, selectChat } from './menu'
 
 export class CLI {
   private chatStorage: ChatStorage
-  private wsClient: WebSocketClient
+  private chartClient: ChatClient
   private inputBuffer: string = ''
   private history: string[] = []
   private historyIndex: number = -1
@@ -17,9 +16,9 @@ export class CLI {
   private previousLines: number = 1
   private isInMenu: boolean = false
 
-  constructor(chatStorage: ChatStorage, wsClient: WebSocketClient) {
+  constructor(chatStorage: ChatStorage, wsClient: ChatClient) {
     this.chatStorage = chatStorage
-    this.wsClient = wsClient
+    this.chartClient = wsClient
   }
 
   start() {
@@ -184,7 +183,10 @@ export class CLI {
         role: 'assistant',
         content: mannyResponse,
       }
-      this.chatStorage.addMessage(this.chatStorage.getCurrentChat(), assistantMessage)
+      this.chatStorage.addMessage(
+        this.chatStorage.getCurrentChat(),
+        assistantMessage
+      )
     } else {
       const partialResponse = this.responseBuffer.trim()
       if (partialResponse) {
@@ -192,14 +194,17 @@ export class CLI {
           role: 'assistant',
           content: partialResponse + '\n[RESPONSE_STOPPED_BY_USER]',
         }
-        this.chatStorage.addMessage(this.chatStorage.getCurrentChat(), assistantMessage)
+        this.chatStorage.addMessage(
+          this.chatStorage.getCurrentChat(),
+          assistantMessage
+        )
       }
     }
   }
 
   private async sendUserInputAndAwaitResponse(): Promise<string> {
     return new Promise<string>((resolve) => {
-      const unsubscribe = this.wsClient.subscribeToResponseChunks((chunk) => {
+      const unsubscribe = this.chartClient.subscribeToResponseChunks((chunk) => {
         if (this.stopResponseRequested) {
           unsubscribe()
           resolve(this.responseBuffer)
@@ -211,13 +216,15 @@ export class CLI {
 
         if (this.responseBuffer.includes(STOP_MARKER)) {
           unsubscribe()
-          this.responseBuffer = this.responseBuffer.replace(STOP_MARKER, '').trim()
+          this.responseBuffer = this.responseBuffer
+            .replace(STOP_MARKER, '')
+            .trim()
           console.log()
           resolve(this.responseBuffer)
         }
       })
 
-      this.wsClient.sendUserInput()
+      this.chartClient.sendUserInput()
     })
   }
 
