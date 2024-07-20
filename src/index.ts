@@ -4,7 +4,7 @@ import { ChatStorage } from './chat-storage'
 import { CLI } from './cli'
 
 async function manicode(userPrompt: string | undefined) {
-  console.log('What would you like to do?')
+  console.log('What would you like to do? (Press ESC for menu)')
 
   const chatStorage = new ChatStorage(projectRoot)
   const wsClient = new ChatClient(websocketUrl, chatStorage)

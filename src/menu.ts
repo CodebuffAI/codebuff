@@ -7,11 +7,11 @@ export function displayMenu() {
 | | | | | | (_| | | | | | (_| (_) | (_| |  __/
 |_| |_| |_|\\__,_|_| |_|_|\\___\\___/ \\__,_|\\___|
 `)
-  console.log('\nPress SPACE to continue, ESC to exit\n\n')
-  console.log('Tips')
+  console.log('\nPress SPACE to chat, ESC to exit\n\n')
+  console.log('TODO')
   console.log('')
   console.log(
-    '() Create a knowledge.md file in any directory and write down your wisdom for Manny, your assistant.'
+    '() Create a knowledge.md file and write down your wisdom for Manny, your assistant.'
   )
   console.log('')
   console.log(
