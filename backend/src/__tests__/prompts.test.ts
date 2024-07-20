@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import { generateDiffBlocks } from '../prompts'
+import { generateDiffBlocks } from '../generate-diffs-prompt'
 
 const CLAUDE_CALL_TIMEOUT = 1000 * 60
 

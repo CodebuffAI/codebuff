@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws'
 import { ClientMessage } from 'common/websockets/websocket-schema'
-import { promptClaudeAndGetFileChanges } from '../prompts'
+import { mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction } from 'common/actions'
 import { sendMessage } from './server'
 import { isEqual } from 'lodash'
@@ -19,7 +19,7 @@ const onUserInput = async (
   const lastMessage = messages[messages.length - 1]
   if (typeof lastMessage.content === 'string')
     console.log('Input:', lastMessage)
-  const { changes, toolCall, response } = await promptClaudeAndGetFileChanges(
+  const { changes, toolCall, response } = await mainPrompt(
     ws,
     messages,
     fileContext,
