@@ -1,5 +1,8 @@
 import * as fs from 'fs'
-import { generateDiffs } from '../generate-diffs-haiku'
+import { generatePatch } from '../generate-diffs-via-expansion'
+import { generateDiffBlocks } from '../generate-diffs-prompt'
+import { applyPatch } from 'diff'
+import { debugLog } from '../debug'
 
 const CLAUDE_CALL_TIMEOUT = 1000 * 60
 
@@ -7,11 +10,23 @@ const runDiffTest = async (dir: string, mockFilePath: string) => {
   const oldFile = fs.readFileSync(`${dir}/old.ts`, 'utf8')
   const newFile = fs.readFileSync(`${dir}/new.ts`, 'utf8')
   const expectedFile = fs.readFileSync(`${dir}/expected.ts`, 'utf8')
-  const diffBlocks = await generateDiffs(oldFile, newFile, mockFilePath, [])
+  // const patch = await generatePatch(oldFile, newFile, mockFilePath, [])
+  // const updatedFile = applyPatch(oldFile, patch)
+  // debugLog('path', patch)
+
+  const diffBlocks = await generateDiffBlocks(
+    [],
+    mockFilePath,
+    oldFile,
+    newFile
+  )
+  debugLog('diffBlocks', diffBlocks)
+
   let updatedContent = oldFile
   for (const { searchContent, replaceContent } of diffBlocks) {
     updatedContent = updatedContent.replace(searchContent, replaceContent)
   }
+
   expect(updatedContent).toEqual(expectedFile)
 }
 
