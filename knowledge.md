@@ -24,6 +24,7 @@ There are three top-level code directories:
 4. **Action Handling**: Processes various client and server actions.
 5. **Message History**: Manages conversation history between the user and Manny.
 6. **Chat Storage**: Persists chat sessions and allows users to manage multiple conversations.
+7. **Knowledge Management**: Handles the creation, updating, and organization of knowledge files.
 
 ## Important Files
 
@@ -32,14 +33,21 @@ There are three top-level code directories:
 - `common/src/actions.ts`: Defines schemas for client and server actions.
 - `src/project-files.ts`: Handles project file operations.
 - `src/index.ts`: Contains main application logic and user input handling.
+- `knowledge.md`: Stores project-wide knowledge and best practices.
 
 ## Development Guidelines
 
 1. Use TypeScript for all new code to maintain type safety.
 2. Follow existing code structure and naming conventions.
 3. Ensure alternating user and Manny messages in conversation history.
-4. Update this knowledge file for significant changes or new features.
+4. Update knowledge files for significant changes or new features.
+5. Write clear, concise comments and documentation for complex logic.
+
+## Knowledge Management
+
+- Knowledge is stored in `knowledge.md` files, which can be created in relevant directories throughout the project.
+- Manny automatically updates knowledge files when learning new information or correcting mistakes.
+- Developers are encouraged to review and commit knowledge file changes to share insights across the team.
 
 ## TODO
-
-- Implement error handling for edge cases.
+- Try a better diffing strategy?
