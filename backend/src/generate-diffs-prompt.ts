@@ -15,7 +15,9 @@ export async function generateDiffBlocks(
   debugLog('Old content:', oldContent)
   debugLog('New content:', newContent)
 
-  const prompt = `I have a new version of a file, and I want to change the old file into the new file. I need to generate <search> and <replace> blocks to represent the exact line-by-line differences so I can string replace the old content to the new content.
+  const prompt = `I have a new version of a file with placeholder comments like "// ... existing code ...", and I want to change the old file into the new file without the placeholder comments.
+  
+I need to generate <search> and <replace> blocks to represent the exact line-by-line differences so I can string replace the old content to the new content.
 
 Example of how to represent a single change with <search> and <replace> blocks:
 ${createFileBlock(
@@ -76,7 +78,7 @@ export function LoginForm() {
 export default LoginForm`
 )}
 
-New file content:
+New file content (with placeholders):
 ${createFileBlock(
   'components/login-form.tsx',
   `// ... existing code ...
@@ -220,7 +222,7 @@ const getMobileNav = () => {
 }`
 )}
 
-New file content:
+New file content (with placeholders):
 ${createFileBlock(
   'components/desktop-nav.tsx',
   `// ... existing code ...
@@ -371,7 +373,7 @@ Now, here is the prompt.
 Old file content:
 ${createFileBlock(filePath, oldContent)}
 
-New file content:
+New file content (with placeholders):
 ${createFileBlock(filePath, newContent)}
 
 Your Response:

@@ -55,7 +55,7 @@ function getDesktopNav() {
 `
 )}
 
-Do not use other variations like "// (keep existing code)" or "// ... rest of the file" to keep things consistent and easier to parse out the changes.
+If you forget to include "// ... existing code ..." then the rest of the file will be deleted, which you should be careful of!
 
 Do not include comments you wouldn't want in the final code. For example, "// Add this check" or "// Add this line to track processed files" is not needed, because you are directly adding the check rather than asking the user to add it.
 </editing_instructions>
