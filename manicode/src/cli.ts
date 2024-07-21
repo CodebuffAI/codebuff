@@ -2,14 +2,14 @@ import { uniqBy } from 'lodash'
 
 import { ChatStorage } from './chat-storage'
 import { ChatClient } from './chat-client'
-import { Message } from 'common/actions'
+import { Message, FileChanges } from 'common/actions'
 import { displayMenu } from './menu'
 import { applyChanges, getExistingFiles, setFiles } from './project-files'
 import { STOP_MARKER } from 'common/constants'
 
 export class CLI {
   private chatStorage: ChatStorage
-  private chartClient: ChatClient
+  private chatClient: ChatClient
   private inputBuffer: string = ''
   private history: string[] = []
   private historyIndex: number = -1
@@ -22,7 +22,7 @@ export class CLI {
 
   constructor(chatStorage: ChatStorage, wsClient: ChatClient) {
     this.chatStorage = chatStorage
-    this.chartClient = wsClient
+    this.chatClient = wsClient
   }
 
   start() {
@@ -220,52 +220,48 @@ export class CLI {
 
     this.isReceivingResponse = false
 
-    if (!this.stopResponseRequested) {
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: response,
-      }
-      this.chatStorage.addMessage(
-        this.chatStorage.getCurrentChat(),
-        assistantMessage
-      )
-      const updatedFiles = getExistingFiles(filesChanged)
-      this.chatStorage.addNewFileState(updatedFiles)
-    } else {
-      const partialResponse = this.responseBuffer.trim()
-      if (partialResponse) {
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: partialResponse + '\n[RESPONSE_STOPPED_BY_USER]',
-        }
-        this.chatStorage.addMessage(
-          this.chatStorage.getCurrentChat(),
-          assistantMessage
-        )
-      }
+    const assistantMessage: Message = {
+      role: 'assistant',
+      content: response,
     }
-  }
-
-  private async sendUserInputAndAwaitResponse(onStreamEnd: () => void) {
-    const { unsubscribe, result } = this.chartClient.subscribeToResponse(
-      (chunk) => {
-        if (this.stopResponseRequested) {
-          unsubscribe()
-          return
-        }
-
-        process.stdout.write(chunk)
-        this.responseBuffer += chunk
-
-        if (this.responseBuffer.includes(STOP_MARKER)) {
-          onStreamEnd()
-        }
-      }
+    this.chatStorage.addMessage(
+      this.chatStorage.getCurrentChat(),
+      assistantMessage
     )
 
-    this.chartClient.sendUserInput([])
+    const updatedFiles = getExistingFiles(filesChanged)
+    this.chatStorage.addNewFileState(updatedFiles)
+  }
 
-    return await result
+  private sendUserInputAndAwaitResponse(onStreamEnd: () => void) {
+    return new Promise<{
+      response: string
+      changes: FileChanges
+    }>(async (resolve) => {
+      const { unsubscribe, result } = this.chatClient.subscribeToResponse(
+        (chunk) => {
+          if (this.stopResponseRequested) {
+            unsubscribe()
+            resolve({
+              response: this.responseBuffer + '\n[RESPONSE_STOPPED_BY_USER]',
+              changes: [],
+            })
+            return
+          }
+
+          process.stdout.write(chunk)
+          this.responseBuffer += chunk
+
+          if (this.responseBuffer.includes(STOP_MARKER)) {
+            onStreamEnd()
+          }
+        }
+      )
+
+      this.chatClient.sendUserInput([])
+
+      resolve(await result)
+    })
   }
 
   promptUser() {
