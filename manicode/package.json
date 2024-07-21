@@ -6,10 +6,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "manicode": "dist/bin/manicode.js"
+    "manicode": "dist/manicode.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "yarn build:common && yarn build:manicode && yarn dist:copy",
+    "build:common": "cd ../common && yarn build && cd ../manicode",
+    "build:manicode": "tsc",
+    "dist:copy": "mkdir -p dist/common && cp -r ../common/dist/ dist/common && cp package.json dist && cp ../yarn.lock dist",
     "clean": "rm -rf dist",
     "prepublishOnly": "yarn build",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
