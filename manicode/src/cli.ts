@@ -18,6 +18,7 @@ export class CLI {
   private responseBuffer: string = ''
   private previousLines: number = 1
   private isInMenu: boolean = false
+  private savedInput: string = '' // New property to store the current input when navigating history
 
   constructor(chatStorage: ChatStorage, wsClient: ChatClient) {
     this.chatStorage = chatStorage
@@ -91,6 +92,7 @@ export class CLI {
     this.inputBuffer = ''
     this.previousLines = 1 // Reset previousLines after input is submitted
     this.historyIndex = -1
+    this.savedInput = '' // Reset savedInput when submitting a new command
     if (input) {
       this.history.unshift(input)
       this.handleUserInput(input).then(() => this.promptUser())
@@ -107,17 +109,22 @@ export class CLI {
   }
 
   private handleUpDownArrowKeys(direction: 'up' | 'down') {
-    if (direction === 'up' && this.historyIndex < this.history.length - 1) {
-      this.historyIndex++
-    } else if (direction === 'down' && this.historyIndex > -1) {
-      this.historyIndex--
+    if (this.historyIndex === -1) {
+      this.savedInput = this.inputBuffer // Save current input before navigating history
     }
 
-    if (this.historyIndex === -1) {
-      this.inputBuffer = ''
-    } else {
+    if (direction === 'up' && this.historyIndex < this.history.length - 1) {
+      this.historyIndex++
       this.inputBuffer = this.history[this.historyIndex]
+    } else if (direction === 'down' && this.historyIndex > -1) {
+      this.historyIndex--
+      if (this.historyIndex === -1) {
+        this.inputBuffer = this.savedInput // Restore saved input when reaching the end of history
+      } else {
+        this.inputBuffer = this.history[this.historyIndex]
+      }
     }
+
     this.refreshLine()
   }
 
