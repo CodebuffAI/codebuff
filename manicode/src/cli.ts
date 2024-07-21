@@ -62,7 +62,8 @@ export class CLI {
       this.handleLeftRightArrowKeys(key === LEFT_ARROW ? 'left' : 'right')
     } else {
       this.inputBuffer += key
-      this.refreshLine()
+      process.stdout.write(key)
+      this.previousLines = this.getInputLineCount()
     }
   }
 
@@ -143,14 +144,18 @@ export class CLI {
     return {}
   }
 
-  private refreshLine() {
+  private getInputLineCount() {
     const terminalWidth = process.stdout.columns
 
     const promptLength = 2 // Length of "> "
-    const currentLines = Math.max(
+    return Math.max(
       1,
       Math.ceil((promptLength + this.inputBuffer.length) / terminalWidth)
     )
+  }
+
+  private refreshLine() {
+    const currentLines = this.getInputLineCount()
 
     // Move the cursor back to the beginning of the input line
     process.stdout.cursorTo(0)
