@@ -4,17 +4,16 @@
   "description": "Backend server for Manicode",
   "main": "dist/server.js",
   "scripts": {
+    "start": "ts-node src/server.ts",
     "start-js": "node dist/server.js",
     "build": "tsc",
     "clean": "rm -rf dist",
-    "dev": "nodemon --exec ts-node src/server.ts",
-    "start": "ts-node src/server.ts",
+    "dev": "nodemon --exec ts-node -r tsconfig-paths/register src/server.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "common": "1.0.0",
     "@anthropic-ai/sdk": "^0.24.3",
     "dotenv": "^10.0.0",
     "express": "^4.17.1",

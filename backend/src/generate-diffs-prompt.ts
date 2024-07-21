@@ -2,6 +2,7 @@ import { promptClaudeWithContinuation } from './claude'
 import { createFileBlock, parseFileBlocks } from 'common/util/file'
 import { Message } from 'common/actions'
 import { debugLog } from './debug'
+import { STOP_MARKER } from 'common/constants'
 
 export async function generateDiffBlocks(
   messageHistory: Message[],
@@ -419,6 +420,9 @@ You should:
 1. Use <thinking> blocks to explain what might have gone wrong in the result of the last prompt.
 2. Within a <strategy> block, provide a new strategy to cover all the changes from the old file to the new file. List each intended edit that will become a <search> and <replace> block. Note that comments such as "// ... existing code ..." or "// ... rest of the file" should not be included in the <search> or <replace> blocks.
 3. Provide the complete set of <search> and <replace> changes within a <file path="${filePath}"></file> block to make the intended edit from the old file to the new file.
+
+Please make sure to end your response with the following string:
+${STOP_MARKER}
 `
     console.log('Trying a second prompt for getDiffBlocks', filePath)
     debugLog('Trying a second prompt for getDiffBlocks', filePath)

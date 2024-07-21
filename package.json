@@ -1,29 +1,22 @@
+
 {
-  "name": "manicode",
+  "name": "manicode-project",
   "version": "1.0.0",
   "private": true,
   "workspaces": [
     "common",
     "backend",
-    "."
+    "manicode"
   ],
   "scripts": {
-    "code": "ts-node src/index.ts",
     "build": "yarn workspaces run build",
     "clean": "yarn workspaces run clean",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
   },
-  "dependencies": {
-    "common": "1.0.0"
-  },
   "devDependencies": {
-    "@types/json2csv": "5.0.3",
-    "@types/lodash": "^4.17.6",
-    "@types/node": "^20.14.10",
     "prettier": "^3.3.2",
-    "ts-node": "^10.9.2",
-    "tsconfig-paths": "4.1.2",
-    "typescript": "5.3.2"
+    "typescript": "5.3.2",
+    "tsconfig-paths": "4.1.2"
   },
   "engines": {
     "node": ">=20.0.0"

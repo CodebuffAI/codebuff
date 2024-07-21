@@ -1,15 +1,28 @@
 {
-  "extends": "../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist",
     "rootDir": "./src",
+    "composite": true,
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "noImplicitReturns": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "esnext",
+    "incremental": true,
+    "isolatedModules": true,
     "types": ["node", "jest"],
     "baseUrl": ".",
     "paths": {
       "common/*": ["../common/src/*"]
-    }
+    },
+    "typeRoots": ["./node_modules/@types", "../node_modules/@types"],
+    "outDir": "./dist"
   },
   "include": ["src/**/*"],
   "exclude": ["src/**/__mock-data__/**/*"],
-  "references": [{ "path": "../common" }]
+  "references": [{ "path": "../common" }],
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  }
 }

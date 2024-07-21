@@ -179,3 +179,13 @@ Failed to replace in the new contents (but did expand it for the old content):
 - Escalate when old diff does not match. Got case where a helper function in the middle of two others was moved up, but diff didn't match because it ignored the helper function.
 - Stuck in loop: Prompting claude num messages: 21, continuing to generate
 - Backspace after typing more than one line is buggy
+
+
+- How it could run bash:
+1. First, let's build the `common` package:
+
+```bash
+cd common
+yarn build
+cd ..
+```

@@ -11,12 +11,15 @@
     "incremental": true,
     "isolatedModules": true,
     "types": ["node"],
-    "typeRoots": ["../node_modules/@types"],
+    "typeRoots": ["./node_modules/@types", "../node_modules/@types"],
     "baseUrl": ".",
-    "outDir": "./dist",
-    "rootDir": "./src"
+    "paths": {
+      "common/*": ["../common/src/*"]
+    },
+    "outDir": "./dist"
   },
   "include": ["src/**/*"],
+  "references": [{ "path": "../common" }],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }
