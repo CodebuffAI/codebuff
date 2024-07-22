@@ -11,7 +11,8 @@ This document provides an overview of the Manicode backend architecture, key com
 4. [WebSocket Communication](#websocket-communication)
 5. [Claude Integration](#claude-integration)
 6. [File Management](#file-management)
-7. [Development Guidelines](#development-guidelines)
+7. [Web Scraping](#web-scraping)
+8. [Development Guidelines](#development-guidelines)
 
 ## Project Structure
 
@@ -115,6 +116,14 @@ The backend handles file operations for the Manicode project:
     - May mask large-scale structural changes if set too high.
   - The optimal `windowSize` depends on typical file structures and change patterns in the project.
   - Consider profiling with different `windowSize` values to find the best balance for your use case.
+
+## Web Scraping
+
+The backend now includes a web scraping tool that allows the AI assistant to retrieve content from external web pages. This functionality is useful for gathering information from documentation, APIs, or other web-based resources.
+
+- **Tool Name**: `scrape_web_page`
+- **Input**: A URL of the web page to scrape
+- **Output**: The content of the scraped web page
 
 ## TODO
 

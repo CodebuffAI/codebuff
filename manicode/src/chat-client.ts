@@ -1,7 +1,8 @@
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
-import { getFileBlocks, getFiles, getProjectFileContext } from './project-files'
+import { getFiles, getProjectFileContext } from './project-files'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
+import { toolHandlers } from './tool-handlers'
 
 export class ChatClient {
   private ws: APIRealtimeClient
@@ -18,7 +19,7 @@ export class ChatClient {
   }
 
   private setupSubscriptions() {
-    this.ws.subscribe('tool-call', (a) => {
+    this.ws.subscribe('tool-call', async (a) => {
       const { response, changes, data } = a
       const { id, name, input } = data
 
@@ -42,17 +43,16 @@ export class ChatClient {
         assistantMessage
       )
 
-      if (name === 'read_files') {
-        const { file_paths } = input
-        const files = getFileBlocks(file_paths)
-
+      const handler = toolHandlers[name]
+      if (handler) {
+        const content = await handler(input, id)
         const toolResultMessage: Message = {
           role: 'user',
           content: [
             {
               type: 'tool_result',
               tool_use_id: id,
-              content: files,
+              content,
             },
           ],
         }
@@ -60,8 +60,9 @@ export class ChatClient {
           this.chatStorage.getCurrentChat(),
           toolResultMessage
         )
-
-        this.sendUserInput(changes)
+        await this.sendUserInput(changes)
+      } else {
+        console.error(`No handler found for tool: ${name}`)
       }
     })
 

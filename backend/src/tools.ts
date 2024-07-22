@@ -15,5 +15,18 @@ export const getTools = (): Tool[] => {
         },
       },
     } as Tool,
+    {
+      name: 'scrape_web_page',
+      description: `Retrieves the content of a web page given a URL. This tool is helpful when you need to gather information from external sources, such as documentation, APIs, or other web-based resources. Use this tool when the user asks for information that might be available on a specific website or when you need to reference external documentation to answer a question or solve a problem.`,
+      input_schema: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description: 'The URL of the web page to scrape',
+          },
+        },
+      },
+    } as Tool,
   ]
 }
