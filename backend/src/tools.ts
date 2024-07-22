@@ -28,5 +28,22 @@ export const getTools = (): Tool[] => {
         },
       },
     } as Tool,
+    {
+      name: 'search_manifold_markets',
+      description: `Searches for relevant markets on Manifold and returns a list of Yes/No markets with their probabilities. This tool should be used when the user wants to know about a future event, like who will win the next presidential election. You can search for a relevant prediction market, which is a question about the future, and get the market's forecast as a probability which you can interpret.`,
+      input_schema: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query for finding relevant binary markets',
+          },
+          limit: {
+            type: 'number',
+            description: 'The maximum number of markets to return (default: 5)',
+          },
+        },
+      },
+    } as Tool,
   ]
 }
