@@ -47,7 +47,8 @@ export const getProjectFileContext = async () => {
   const knowledgeFilePaths = filePaths.filter((filePath) =>
     filePath.endsWith('knowledge.md')
   )
-  const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
+  const knowledgeFiles =
+    await getExistingFilesWithScrapedContent(knowledgeFilePaths)
   const exportedTokens = getExportedTokensForFiles(filePaths)
 
   return {
@@ -129,6 +130,17 @@ export async function getExistingFilesWithScrapedContent(
 
   for (const [filePath, content] of Object.entries(files)) {
     result[filePath] = content
+
+    if (filePath.endsWith('knowledge.md')) {
+      const urls = parseUrlsFromContent(content)
+      for (const url of urls) {
+        const scrapedContent = await scrapeWebPage(url)
+        if (scrapedContent) {
+          result[filePath] +=
+            `\n\n<web_scraped_content url="${url}">\n${scrapedContent}\n</web_scraped_content>`
+        }
+      }
+    }
   }
 
   return result

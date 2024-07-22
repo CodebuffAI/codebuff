@@ -9,6 +9,9 @@ import { getProjectFileContext } from './project-files'
 async function manicode(userPrompt: string | undefined) {
   console.log('What would you like to do? (Press ESC for menu)')
 
+  // Preload.
+  getProjectFileContext()
+
   const chatStorage = new ChatStorage(projectRoot)
   const client = new ChatClient(websocketUrl, chatStorage)
 

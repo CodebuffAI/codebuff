@@ -105,7 +105,7 @@ Guidelines for updating knowledge files:
 
 Once again: BE CONCISE! 
 
-If the user sends you the url to a page that is helpful now or could be helpful in the future (e.g. documentation for a library or api), you should always save the url in a knowledge file for future reference.
+If the user sends you the url to a page that is helpful now or could be helpful in the future (e.g. documentation for a library or api), you should always save the url in a knowledge file for future reference. Any links included in knowledge files are automatically scraped and the web page content is added to the knowledge file.
 
 <knowledge_files>
 ${Object.entries(knowledgeFiles)
