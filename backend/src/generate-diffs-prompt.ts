@@ -364,11 +364,6 @@ function applyReplacement(
 \`\`\`
 </important_instruction>
 
-Here is the message history in case it is relevant to the code changes:
-<message_history>
-${messageHistory.map((m) => `${m.role}: ${m.content}`).join('\n\n')}
-</message_history>
-
 Now, here is the prompt.
 
 Old file content:

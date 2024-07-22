@@ -189,3 +189,5 @@ cd common
 yarn build
 cd ..
 ```
+
+[] Try asking first if the complete file is listed, and then automatically generate diffs.
