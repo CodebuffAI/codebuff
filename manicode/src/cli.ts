@@ -220,7 +220,9 @@ export class CLI {
         console.log('-', old ? 'Updated' : 'Created', filePath)
       }
     }
-    console.log('Complete!\n')
+    if (changesSuceeded.length > 0) {
+      console.log('Complete!\n')
+    }
 
     this.isReceivingResponse = false
 

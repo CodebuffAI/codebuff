@@ -23,34 +23,53 @@ const onUserInput = async (
   const lastMessage = messages[messages.length - 1]
   if (typeof lastMessage.content === 'string')
     console.log('Input:', lastMessage)
-  const { toolCall, response, changes } = await mainPrompt(
-    ws,
-    messages,
-    fileContext,
-    (chunk) =>
+
+  try {
+    const { toolCall, response, changes } = await mainPrompt(
+      ws,
+      messages,
+      fileContext,
+      (chunk) =>
+        sendAction(ws, {
+          type: 'response-chunk',
+          chunk,
+        })
+    )
+    const allChanges = [...previousChanges, ...changes]
+
+    if (toolCall) {
+      console.log('toolCall', toolCall.name, toolCall.input)
       sendAction(ws, {
-        type: 'response-chunk',
-        chunk,
+        type: 'tool-call',
+        response,
+        data: toolCall,
+        changes: allChanges,
       })
-  )
-
-  const allChanges = [...previousChanges, ...changes]
-
-  if (toolCall) {
-    console.log('toolCall', toolCall.name, toolCall.input)
+    } else {
+      console.log('response-complete')
+      sendAction(ws, {
+        type: 'response-complete',
+        response,
+        changes: allChanges,
+      })
+    }
+  } catch (e) {
+    console.error('Error in mainPrompt', e)
+    const response =
+      e && typeof e === 'object' && 'message' in e
+        ? `\n\nError: ${e.message}`
+        : ''
     sendAction(ws, {
-      type: 'tool-call',
-      response,
-      data: toolCall,
-      changes: allChanges,
+      type: 'response-chunk',
+      chunk: response,
     })
-  } else {
-    console.log('response-complete')
-    sendAction(ws, {
-      type: 'response-complete',
-      response,
-      changes: allChanges,
-    })
+    setTimeout(() => {
+      sendAction(ws, {
+        type: 'response-complete',
+        response,
+        changes: [],
+      })
+    }, 100)
   }
 }
 
