@@ -213,8 +213,12 @@ export class CLI {
 
     const changesSuceeded = applyChanges(changes)
     for (const change of uniqBy(changesSuceeded, 'filePath')) {
-      const { filePath, old } = change
-      console.log('-', old ? 'Updated' : 'Created', filePath)
+      const { filePath, old, new: newContent } = change
+      if (newContent === '[DELETE]') {
+        console.log('-', 'Deleted', filePath)
+      } else {
+        console.log('-', old ? 'Updated' : 'Created', filePath)
+      }
     }
     console.log('Complete!\n')
 

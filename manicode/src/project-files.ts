@@ -6,28 +6,36 @@ import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { FileChanges } from 'common/actions'
 import { filterObject } from 'common/util/object'
 
-const projectRoot = path.normalize(path.resolve(__dirname, '..'))
+const projectRoot = path.normalize(path.resolve(__dirname, '../..'))
 
 export const applyChanges = (changes: FileChanges) => {
   const changesSuceeded = []
   for (const change of changes) {
     const { filePath, old, new: newContent } = change
     const fullPath = path.join(projectRoot, filePath)
-    let content = ''
-    let updatedContent = newContent
 
-    const fileAlreadyExists = fs.existsSync(fullPath)
-    if (fileAlreadyExists) {
-      content = fs.readFileSync(fullPath, 'utf8')
-      updatedContent = content.replace(old, newContent)
-    }
-
-    if (updatedContent !== content) {
-      fs.mkdirSync(path.dirname(fullPath), { recursive: true })
-      fs.writeFileSync(fullPath, updatedContent, 'utf8')
-      changesSuceeded.push(change)
+    if (newContent === '[DELETE]') {
+      if (deleteFile(fullPath)) {
+        changesSuceeded.push(change)
+        console.log('Deleted file:', filePath)
+      }
     } else {
-      console.log('Change did not go through for', filePath)
+      let content = ''
+      let updatedContent = newContent
+
+      const fileAlreadyExists = fs.existsSync(fullPath)
+      if (fileAlreadyExists) {
+        content = fs.readFileSync(fullPath, 'utf8')
+        updatedContent = content.replace(old, newContent)
+      }
+
+      if (updatedContent !== content) {
+        fs.mkdirSync(path.dirname(fullPath), { recursive: true })
+        fs.writeFileSync(fullPath, updatedContent, 'utf8')
+        changesSuceeded.push(change)
+      } else {
+        console.log('Change did not go through for', filePath)
+      }
     }
   }
   return changesSuceeded
@@ -222,4 +230,17 @@ function getExportedTokens(sourceFile: ts.SourceFile): string[] {
   visit(sourceFile)
 
   return exportedTokens
+}
+
+export const deleteFile = (fullPath: string): boolean => {
+  try {
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath)
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error(`Error deleting file ${fullPath}:`, error)
+    return false
+  }
 }

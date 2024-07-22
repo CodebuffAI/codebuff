@@ -58,6 +58,10 @@ function getDesktopNav() {
 If you forget to include "// ... existing code ..." then the rest of the file will be deleted, which you should be careful of!
 
 Do not include comments you wouldn't want in the final code. For example, "// Add this check" or "// Add this line to track processed files" is not needed, because you are directly adding the check rather than asking the user to add it.
+
+You also have the ability to delete files using a special [DELETE] token. To delete a file, include a file block with just '[DELETE]' in the body. For example:
+
+${createFileBlock('path/to/file/to/delete.txt', '[DELETE]')}
 </editing_instructions>
 
 # Knowledge
