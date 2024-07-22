@@ -82,4 +82,15 @@ describe('generateDiffs', () => {
     },
     CLAUDE_CALL_TIMEOUT
   )
+
+  it(
+    'should handle many updates',
+    async () => {
+      await runDiffTest(
+        'src/__tests__/__mock-data__/many-updates',
+        'src/chat-client.ts'
+      )
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
 })
