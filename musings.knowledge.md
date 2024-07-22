@@ -160,27 +160,27 @@ Wish list
 
 
 Problems
-- Should indicate if diff is still generating somehow...
+[x] Should indicate if diff is still generating somehow...
     - send to client the file changes still planned. Wait for them before allowing user input?
 - Improve speed by prompting it to rely more on diffs instead of reproducing the whole file
 [x] Prompt engineer it to automatically make knowledge changes when you correct it
 [x] it's doing a poor job loading all the relevant files into context. Need to add more explicity steps for this.
-- Dawson's case of wanting it to scrape documentation from a url and answer questions with it.
 [x] Indenting fails when it makes multiple changes with different indent levels.
 [x] More chain of thought for main prompt. <planning> blocks, <code_review>, <brainstorm>, etc.
-- Delete files
+[x] Delete files
 [x] Shift + Enter, and pasting in stuff with new lines. Update: not really possible
 
-Failed to replace in the new contents (but did expand it for the old content):
+[x] Failed to replace in the new contents (but did expand it for the old content):
 // ... (keep the existing setup code)
-[] Continuation 2 led to infinite responses
-[] cancelling before the prompt starts being genereated leads to error of two user messages in a row
+[x] Continuation 2 led to infinite responses
+[x] cancelling before the prompt starts being genereated leads to error of two user messages in a row
 - Show commands available in a bar under the input (not sure if this is possible)
-- Escalate when old diff does not match. Got case where a helper function in the middle of two others was moved up, but diff didn't match because it ignored the helper function.
-- Stuck in loop: Prompting claude num messages: 21, continuing to generate
-- Backspace after typing more than one line is buggy
+[x] Escalate when old diff does not match. Got case where a helper function in the middle of two others was moved up, but diff didn't match because it ignored the helper function.
+[x] Stuck in loop: Prompting claude num messages: 21, continuing to generate
+[x] Backspace after typing more than one line is buggy
 
-
+- Dawson's case of wanting it to scrape documentation from a url and answer questions with it.
+- x% knowledge written in menu based on number of commits to knowledge files
 - How it could run bash:
 1. First, let's build the `common` package:
 

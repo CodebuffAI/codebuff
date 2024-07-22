@@ -71,4 +71,15 @@ describe('generateDiffs', () => {
     },
     CLAUDE_CALL_TIMEOUT
   )
+
+  it(
+    'should not duplicate code from old',
+    async () => {
+      await runDiffTest(
+        'src/__tests__/__mock-data__/duplicate-imports',
+        'src/tools.ts'
+      )
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
 })

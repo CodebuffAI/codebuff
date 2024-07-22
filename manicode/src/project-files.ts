@@ -5,6 +5,7 @@ import ts from 'typescript'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { FileChanges } from 'common/actions'
 import { filterObject } from 'common/util/object'
+import { scrapeWebPage, parseUrlsFromContent } from './web-scraper'
 
 const projectRoot = path.normalize(path.resolve(__dirname, '../..'))
 
@@ -41,12 +42,13 @@ export const applyChanges = (changes: FileChanges) => {
   return changesSuceeded
 }
 
-export const getProjectFileContext = () => {
+export const getProjectFileContext = async () => {
   const filePaths = getProjectFilePaths()
   const knowledgeFilePaths = filePaths.filter((filePath) =>
     filePath.endsWith('knowledge.md')
   )
-  const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
+  const knowledgeFiles =
+    await getExistingFilesWithScrapedContent(knowledgeFilePaths)
   const exportedTokens = getExportedTokensForFiles(filePaths)
 
   return {
@@ -118,6 +120,30 @@ export function getExistingFiles(filePaths: string[]) {
     string,
     string
   >
+}
+
+export async function getExistingFilesWithScrapedContent(
+  filePaths: string[]
+): Promise<Record<string, string>> {
+  const files = getExistingFiles(filePaths)
+  const result: Record<string, string> = {}
+
+  for (const [filePath, content] of Object.entries(files)) {
+    result[filePath] = content
+
+    if (filePath.endsWith('knowledge.md')) {
+      const urls = parseUrlsFromContent(content)
+      for (const url of urls) {
+        const scrapedContent = await scrapeWebPage(url)
+        if (scrapedContent) {
+          result[filePath] +=
+            `\n\n<web_scraped_content url="${url}">\n${scrapedContent}\n</web_scraped_content>`
+        }
+      }
+    }
+  }
+
+  return result
 }
 
 export function setFiles(files: Record<string, string>) {

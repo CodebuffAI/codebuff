@@ -76,11 +76,12 @@ export class ChatClient {
     })
   }
 
-  sendUserInput(previousChanges: FileChanges) {
+  async sendUserInput(previousChanges: FileChanges) {
+    const fileContext = await getProjectFileContext()
     this.ws.sendAction({
       type: 'user-input',
       messages: this.chatStorage.getCurrentChat().messages,
-      fileContext: getProjectFileContext(),
+      fileContext,
       previousChanges,
     })
   }

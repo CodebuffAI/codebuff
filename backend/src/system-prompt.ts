@@ -88,6 +88,7 @@ Types of information to include in knowledge files:
 - Tips and tricks
 - Style preferences for the codebase
 - Technical goals that are in progress. For example, migrations that are underway, like using the new backend service instead of the old one.
+- Links to reference pages that are helpful. For example, the url of documentation for an api you are using.
 - Anything else that would be helpful for you or an inexperienced coder to know
 
 What should not be included:
@@ -103,6 +104,8 @@ Guidelines for updating knowledge files:
 - Use markdown features to improve clarity in knowledge files: headings, coding blocks, lists, dividers and so on. 
 
 Once again: BE CONCISE! 
+
+If the user sends you the url to a page that is helpful now or could be helpful in the future (e.g. documentation for a library or api), you should save the url in a knowledge file. Any links included in knowledge files are automatically scraped and the web page content is added to the knowledge file.
 
 <knowledge_files>
 ${Object.entries(knowledgeFiles)

@@ -1,34 +1,38 @@
-
 {
   "name": "manicode",
   "version": "1.0.0",
-  "description": "Manicode client package",
+  "description": "AI dev assistant",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "manicode": "dist/manicode.js"
   },
   "scripts": {
-    "build": "yarn build:common && yarn build:manicode && yarn dist:copy",
-    "build:common": "cd ../common && yarn build && cd ../manicode",
-    "build:manicode": "tsc",
+    "build": "yarn build:common && tsc && yarn copy-files",
+    "build:common": "cd ../common && yarn build",
+    "copy-files": "cp -R ../common/dist/* dist/ && cp -R src/prompts dist/prompts",
     "dist:copy": "mkdir -p dist/common && cp -r ../common/dist/ dist/common && cp package.json dist && cp ../yarn.lock dist",
     "clean": "rm -rf dist",
     "prepublishOnly": "yarn build",
-    "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "start-js": "node dist/index.js",
+    "start": "ts-node src/index.ts"
   },
   "files": [
     "dist",
     "README.md"
   ],
   "dependencies": {
+    "axios": "^0.24.0",
+    "cheerio": "^1.0.0-rc.10",
     "common": "1.0.0",
-    "lodash": "^4.17.21"
+    "lodash": "^4.17.21",
+    "ws": "^8.2.3"
   },
   "devDependencies": {
-    "@types/lodash": "^4.17.6",
-    "@types/node": "^20.14.10",
-    "typescript": "5.3.2"
+    "@types/lodash": "^4.14.176",
+    "@types/node": "^16.11.6",
+    "@types/ws": "^8.2.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
