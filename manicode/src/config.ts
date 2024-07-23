@@ -16,5 +16,5 @@ export function loadEnvironmentVariables() {
   }
 }
 
-export const websocketUrl = 'ws://localhost:3000/ws'
+export const websocketUrl = 'ws://localhost:4242/ws'
 export const projectRoot = path.resolve(__dirname, '..')

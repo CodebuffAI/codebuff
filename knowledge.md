@@ -51,3 +51,8 @@ There are three top-level code directories:
 
 ## TODO
 - Try a better diffing strategy?
+
+
+# Code guide
+
+- We don't specify return types for functions, since Typescript will infer them. 

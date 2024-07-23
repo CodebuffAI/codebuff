@@ -189,5 +189,12 @@ cd common
 yarn build
 cd ..
 ```
+Important. Can use commandline to search for code. Could move files.
 
 [] Try asking first if the complete file is listed, and then automatically generate diffs.
+
+[] create some structure in a knowledge file for users to initially fill out.
+- Project overview
+ - Goals
+ - Project structure
+ - Coding do's and don'ts

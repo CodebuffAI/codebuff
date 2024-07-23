@@ -8,11 +8,12 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "lodash": "4.17.21",
+    "lodash": "*",
     "zod": "3.23.8"
   },
-  "devDependencies": {
-    "@types/lodash": "^4.17.6",
-    "typescript": "5.3.2"
+  "peerDependencies": {
+    "@types/node": "*",
+    "@types/lodash": "*",
+    "typescript": "*"
   }
 }
