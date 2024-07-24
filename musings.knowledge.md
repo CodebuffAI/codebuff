@@ -198,3 +198,5 @@ Important. Can use commandline to search for code. Could move files.
  - Goals
  - Project structure
  - Coding do's and don'ts
+
+ [] reverting doesn't work with created files

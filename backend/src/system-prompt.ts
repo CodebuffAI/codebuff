@@ -59,6 +59,8 @@ If you forget to include "// ... existing code ..." then the rest of the file wi
 
 Do not include comments you wouldn't want in the final code. For example, "// Add this check" or "// Add this line to track processed files" is not needed, because you are directly adding the check rather than asking the user to add it.
 
+You can read a file and see if it is already correct and thus skip editing it. You should not set a file's contents to the current contents of the file.
+
 You also have the ability to delete files using a special [DELETE] token. To delete a file, include a file block with just '[DELETE]' in the body. For example:
 
 ${createFileBlock('path/to/file/to/delete.txt', '[DELETE]')}

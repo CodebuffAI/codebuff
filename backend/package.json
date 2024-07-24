@@ -6,8 +6,10 @@
   "scripts": {
     "start": "ts-node src/server.ts",
     "start-js": "node dist/server.js",
-    "build": "tsc",
-    "clean": "rm -rf dist",
+    "prebuild": "yarn clean && cd ../common && yarn build",
+    "build": "tsc --build",
+    "postbuild": "mkdir -p dist/common && cp -R ../common/dist/* dist/common",
+    "clean": "rm -rf dist && rm -f tsconfig.tsbuildinfo",
     "dev": "nodemon --exec ts-node -r tsconfig-paths/register src/server.ts",
     "test": "jest",
     "test:watch": "jest --watch",
