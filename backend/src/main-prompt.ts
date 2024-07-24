@@ -46,7 +46,9 @@ export async function mainPrompt(
     lastMessage.content = `${lastMessage.content}
 
 <additional_instruction>
-Please request as many files as would help answer the user's question using the read_files tool
+If the user provided a url, please use the scrape_web_page tool on to better answer their question.
+
+Then, please request as many files as would help answer the user's question using the read_files tool.
 </additional_instruction>
 <additional_instruction>
 If the user gave feedback and it helped you understand something better, please edit a knowledge file with a short note that condenses what you learned.
