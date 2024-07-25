@@ -5,8 +5,9 @@ FROM node:20
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
-# Copy package.json files
-COPY package.json yarn.lock ./
+ENV NODE_ENV=production
+
+COPY package.json yarn.lock .env ./
 
 RUN yarn install --production
 
