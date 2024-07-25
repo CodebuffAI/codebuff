@@ -105,18 +105,6 @@ The backend handles file operations for the Manicode project:
 6. **Environment Variables**: Use environment variables for configuration and sensitive information.
 7. **Code Style**: Follow consistent coding style and use tools like Prettier for formatting.
 
-## Diffing Algorithm
-
-- The `generateDiffBlocks` function uses a sliding window approach to find matches between old and new file content.
-- The `windowSize` parameter in `findNextMatch` affects the algorithm's behavior:
-  - Larger values can help handle scattered small changes better.
-  - However, increasing `windowSize` has downsides:
-    - Decreased performance (O(windowSize^2) time complexity per `findNextMatch` call).
-    - Potential for less accurate diffs with very large values.
-    - May mask large-scale structural changes if set too high.
-  - The optimal `windowSize` depends on typical file structures and change patterns in the project.
-  - Consider profiling with different `windowSize` values to find the best balance for your use case.
-
 ## Web Scraping
 
 The backend now includes a web scraping tool that allows the AI assistant to retrieve content from external web pages. This functionality is useful for gathering information from documentation, APIs, or other web-based resources.
@@ -132,3 +120,17 @@ The backend now includes a web scraping tool that allows the AI assistant to ret
 - Develop a caching mechanism for frequently accessed file contents.
 - Implement rate limiting for AI requests to manage resource usage.
 - Create a robust testing suite for backend components.
+
+## Debugging Docker Issues
+
+- When encountering "Cannot find module" errors in a Docker container, it's important to verify the contents of the container itself, not just the local build.
+- SSH access to the machine running the Docker container provides valuable debugging capabilities.
+- The `dist` directory being correct locally doesn't guarantee it's correct inside the container.
+- If a container is continuously restarting, it often indicates that the application is crashing immediately after starting. This prevents executing commands inside the container directly.
+- The absence of the `dist` directory in the Docker container can cause "Cannot find module" errors, even if the directory exists locally.
+
+## Git and Docker Best Practices
+
+- The `dist` directory should be ignored by Git to avoid checking in build files.
+- However, the `dist` directory needs to be included in the Docker image for the application to run correctly.
+- The build process should occur before creating the Docker image to ensure the latest compiled files are included.

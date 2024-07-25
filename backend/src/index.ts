@@ -27,6 +27,7 @@ app.use(
   }
 )
 
+console.log('init server')
 const server = http.createServer(app)
 
 server.listen(port, () => {

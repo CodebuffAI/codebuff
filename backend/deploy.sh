@@ -6,7 +6,7 @@ GCP_PROJECT=${GCP_PROJECT:-"manicode-430317"}
 APP_PORT=${APP_PORT:-"4242"}
 VM_NAME=${VM_NAME:-"manicode-backend"}
 VM_ZONE=${VM_ZONE:-"us-east4-a"}
-VM_MACHINE_TYPE=${VM_MACHINE_TYPE:-"e2-micro"}
+VM_ADDRESS=${VM_ADDRESS:-"34.48.175.155"}
 
 echo "Using VM: $VM_NAME in zone: $VM_ZONE"
 echo "Google Cloud Project: $GCP_PROJECT"
@@ -18,7 +18,7 @@ yarn build
 
 # Build and tag the Docker image
 echo "Building Docker image..."
-docker build --build-arg APP_PORT=$APP_PORT -t gcr.io/$GCP_PROJECT/manicode-backend:latest .
+docker build --build-arg APP_PORT=$APP_PORT -t gcr.io/$GCP_PROJECT/manicode-backend:latest --platform linux/amd64 .
 
 # Push the image to Google Container Registry
 echo "Pushing image to Google Container Registry..."
@@ -45,13 +45,15 @@ echo "Creating new VM instance with container..."
 gcloud compute instances create-with-container $VM_NAME \
     --zone=$VM_ZONE \
     --project=$GCP_PROJECT \
-    --machine-type=$VM_MACHINE_TYPE \
+    --address=$VM_ADDRESS \
     --container-image=gcr.io/$GCP_PROJECT/manicode-backend:latest \
     --container-env=APP_PORT=$APP_PORT \
+    --machine-type=n2-standard-2 \
+    --image-project "cos-cloud" \
+    --image-family "cos-109-lts" \
     --tags=http-server \
     --scopes=https://www.googleapis.com/auth/cloud-platform \
-    --image-family=cos-stable \
-    --image-project=cos-cloud \
+    --container-mount-host-path=mount-path=/app/logs,host-path=/var/log/app,mode=rw \
     --boot-disk-size=10GB \
     --boot-disk-type=pd-balanced
 

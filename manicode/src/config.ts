@@ -1,4 +1,3 @@
-
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -16,5 +15,9 @@ export function loadEnvironmentVariables() {
   }
 }
 
-export const websocketUrl = 'ws://localhost:4242/ws'
+const isProduction = false // process.env.NODE_ENV === 'production'
+console.log('isProduction', isProduction, process.env.NODE_ENV)
+export const websocketUrl = isProduction
+  ? 'wss://manicode.ai:4242/ws'
+  : 'ws://localhost:4242/ws'
 export const projectRoot = path.resolve(__dirname, '..')

@@ -92,6 +92,7 @@ function processMessage(ws: WebSocket, data: RawData): ServerMessage<'ack'> {
 }
 
 export function listen(server: HttpServer, path: string) {
+  console.log('listen on websocket')
   const wss = new WebSocketServer({ server, path })
   let deadConnectionCleaner: NodeJS.Timeout | undefined
   wss.on('listening', () => {
