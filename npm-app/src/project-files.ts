@@ -94,7 +94,7 @@ function loadAllProjectFiles(
 function getProjectFilePaths() {
   const excludedDirs = ['node_modules', 'dist', '.git']
   const allProjectFiles = loadAllProjectFiles(projectRoot, excludedDirs).map(
-    (file) => file.replace(projectRoot + '/', '')
+    (file) => path.relative(projectRoot, file)
   )
   return allProjectFiles
 }

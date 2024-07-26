@@ -1,6 +1,6 @@
 {
   "name": "manicode",
-  "version": "1.0.11",
+  "version": "1.0.13",
   "description": "AI dev assistant",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,13 +11,14 @@
     "prebuild": "yarn clean && cd ../common && yarn build",
     "build": "tsc && tsc-alias",
     "postbuild": "mkdir -p dist/common && cp -r ../common/dist/* dist/common && tsc-alias",
-    "clean": "rm -rf dist && rm tsconfig.tsbuildinfo",
+    "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
     "prepublishOnly": "yarn build && node clean-package.js",
     "postpublish": "node -e \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\"",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "start-js": "node dist/index.js",
     "start": "ts-node src/index.ts",
-    "start-prod": "NODE_ENV=production ts-node src/index.ts"
+    "start-prod": "NODE_ENV=production ts-node src/index.ts",
+    "ssh": "gcloud compute ssh manicode-backend --zone=us-east4-a"
   },
   "files": [
     "dist",
