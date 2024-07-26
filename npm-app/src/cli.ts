@@ -1,15 +1,15 @@
 import { uniqBy } from 'lodash'
 
 import { ChatStorage } from './chat-storage'
-import { ChatClient } from './chat-client'
+import { Client } from './client'
 import { Message, FileChanges } from 'common/actions'
 import { displayMenu } from './menu'
 import { applyChanges, getExistingFiles, setFiles } from './project-files'
 import { STOP_MARKER } from 'common/constants'
 
 export class CLI {
+  private client: Client
   private chatStorage: ChatStorage
-  private chatClient: ChatClient
   private inputBuffer: string = ''
   private history: string[] = []
   private historyIndex: number = -1
@@ -20,9 +20,9 @@ export class CLI {
   private isInMenu: boolean = false
   private savedInput: string = '' // New property to store the current input when navigating history
 
-  constructor(chatStorage: ChatStorage, wsClient: ChatClient) {
+  constructor(client: Client, chatStorage: ChatStorage) {
+    this.client = client
     this.chatStorage = chatStorage
-    this.chatClient = wsClient
   }
 
   start() {
@@ -247,7 +247,7 @@ export class CLI {
       response: string
       changes: FileChanges
     }>(async (resolve) => {
-      const { unsubscribe, result } = this.chatClient.subscribeToResponse(
+      const { unsubscribe, result } = this.client.subscribeToResponse(
         (chunk) => {
           if (this.stopResponseRequested) {
             unsubscribe()
@@ -267,7 +267,7 @@ export class CLI {
         }
       )
 
-      this.chatClient.sendUserInput([])
+      this.client.sendUserInput([])
 
       resolve(await result)
     })

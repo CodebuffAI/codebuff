@@ -4,22 +4,22 @@ import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
 
-export class ChatClient {
-  private ws: APIRealtimeClient
+export class Client {
+  private webSocket: APIRealtimeClient
   private chatStorage: ChatStorage
 
   constructor(websocketUrl: string, chatStorage: ChatStorage) {
-    this.ws = new APIRealtimeClient(websocketUrl)
+    this.webSocket = new APIRealtimeClient(websocketUrl)
     this.chatStorage = chatStorage
   }
 
   async connect() {
-    await this.ws.connect()
+    await this.webSocket.connect()
     this.setupSubscriptions()
   }
 
   private setupSubscriptions() {
-    this.ws.subscribe('tool-call', async (a) => {
+    this.webSocket.subscribe('tool-call', async (a) => {
       const { response, changes, data } = a
       const { id, name, input } = data
 
@@ -66,11 +66,11 @@ export class ChatClient {
       }
     })
 
-    this.ws.subscribe('read-files', (a) => {
+    this.webSocket.subscribe('read-files', (a) => {
       const { filePaths } = a
       const files = getFiles(filePaths)
 
-      this.ws.sendAction({
+      this.webSocket.sendAction({
         type: 'read-files-response',
         files,
       })
@@ -79,7 +79,7 @@ export class ChatClient {
 
   async sendUserInput(previousChanges: FileChanges) {
     const fileContext = await getProjectFileContext()
-    this.ws.sendAction({
+    this.webSocket.sendAction({
       type: 'user-input',
       messages: this.chatStorage.getCurrentChat().messages,
       fileContext,
@@ -97,12 +97,12 @@ export class ChatClient {
       response: string
       changes: FileChanges
     }>((resolve) => {
-      const unsubscribeChunks = this.ws.subscribe('response-chunk', (a) => {
+      const unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
         const { chunk } = a
         onChunk(chunk)
       })
 
-      const unsubscribeComplete = this.ws.subscribe(
+      const unsubscribeComplete = this.webSocket.subscribe(
         'response-complete',
         (a) => {
           unsubscribeChunks()
