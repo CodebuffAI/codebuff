@@ -6,7 +6,7 @@
   "workspaces": [
     "common",
     "backend",
-    "manicode"
+    "npm-app"
   ],
   "scripts": {
     "build": "yarn workspaces run build",

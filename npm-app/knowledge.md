@@ -43,7 +43,7 @@ The `dist/` directory contains the compiled JavaScript files and is created duri
 The build process is defined in `package.json`:
 
 1. Builds the `common` project (located in a sibling directory).
-2. Builds the `manicode` project using TypeScript.
+2. Builds the `npm-app` project using TypeScript.
 3. Copies necessary files from the `common` project and the current project to the `dist/` directory.
 
 ## Dependencies
