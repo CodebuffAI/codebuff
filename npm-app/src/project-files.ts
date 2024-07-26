@@ -1,6 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-import ts from 'typescript'
 
 import { createFileBlock } from 'common/util/file'
 import { FileChanges } from 'common/actions'
@@ -48,7 +47,7 @@ export const getProjectFileContext = async () => {
   )
   const knowledgeFiles =
     await getExistingFilesWithScrapedContent(knowledgeFilePaths)
-  const exportedTokens = getExportedTokensForFiles(filePaths)
+  const exportedTokens = {} // getExportedTokensForFiles(filePaths)
 
   return {
     filePaths,
@@ -185,6 +184,7 @@ export function getFileBlocks(filePaths: string[]) {
   return fileBlocks.join('\n')
 }
 
+/*
 function getExportedTokensForFiles(
   filePaths: string[]
 ): Record<string, string[]> {
@@ -256,6 +256,7 @@ function getExportedTokens(sourceFile: ts.SourceFile): string[] {
 
   return exportedTokens
 }
+*/
 
 export const deleteFile = (fullPath: string): boolean => {
   try {
