@@ -203,3 +203,9 @@ Important. Can use commandline to search for code. Could move files.
  [] File paths using too much context?
  [] Error on server didn't print the error (or maybe it did and the terminal overwrote it...)
  [] Change ip address to be from api.manicode.ai
+
+Notes from Janna & Stephen test
+[] backspace on windows doesn't clear the char, just moves cursor
+[] Tried to do left arrow and it didn't work
+[] Failed to apply any edits. They all failed even after a second attempt. This was on Windows
+[] CTRL-C doesn't work
