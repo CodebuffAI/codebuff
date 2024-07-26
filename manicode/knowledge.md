@@ -66,6 +66,34 @@ Manicode can be started by running the `manicode` command in the terminal after 
 
 Manicode encourages storing knowledge alongside code using `knowledge.md` files. These files provide context, guidance, and tips for the AI as it performs tasks.
 
+## Build and Publish Process
+
+When publishing the Manicode package, we use a custom process to ensure that only necessary information is included in the published package and that the environment is set correctly:
+
+1. The `prepublishOnly` script runs `clean-package.js` before publishing.
+2. `clean-package.js` does the following:
+   - Saves the current `package.json` to `temp.package.json`.
+   - Modifies the original `package.json` by removing `devDependencies`, `peerDependencies`, and unnecessary `scripts`.
+   - Writes the modified `package.json` back to its original location.
+   - Adds `process.env.NODE_ENV = 'production';` as the second line of `dist/index.js`.
+3. npm publishes the package using the modified `package.json`.
+4. The `postpublish` script restores the original `package.json` from `temp.package.json` and then deletes the temporary file.
+
+This approach ensures that:
+- The published package only includes necessary dependencies and scripts.
+- The development environment remains intact after publishing.
+- NODE_ENV is set to 'production' for the published package at runtime.
+
+To publish the package:
+
+```bash
+npm publish
+```
+
+This will automatically run the `prepublishOnly` and `postpublish` scripts to handle the `package.json` modifications, environment setting, and cleanup.
+
+Remember to increment the version number in `package.json` before publishing a new version.
+
 ## Note on Project Evolution
 
 As an AI-powered tool, Manicode is designed to learn and evolve. It can update knowledge files as it works, improving its understanding and capabilities over time.

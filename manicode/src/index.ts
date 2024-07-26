@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { loadEnvironmentVariables, projectRoot, websocketUrl } from './config'
+import { projectRoot, websocketUrl } from './config'
 import { ChatClient } from './chat-client'
 import { ChatStorage } from './chat-storage'
 import { CLI } from './cli'
@@ -26,7 +26,6 @@ async function manicode(userPrompt: string | undefined) {
 }
 
 if (require.main === module) {
-  loadEnvironmentVariables()
   const userPrompt = process.argv[2] || undefined
   manicode(userPrompt)
 }

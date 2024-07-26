@@ -1,6 +1,6 @@
 {
   "name": "manicode",
-  "version": "1.0.7",
+  "version": "1.0.9",
   "description": "AI dev assistant",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,6 +12,8 @@
     "build": "tsc && tsc-alias",
     "postbuild": "mkdir -p dist/common && cp -r ../common/dist/* dist/common && tsc-alias",
     "clean": "rm -rf dist && rm tsconfig.tsbuildinfo",
+    "prepublishOnly": "yarn build && node clean-package.js",
+    "postpublish": "node -e \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\"",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "start-js": "node dist/index.js",
     "start": "ts-node src/index.ts",
