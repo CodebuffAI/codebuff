@@ -200,3 +200,6 @@ Important. Can use commandline to search for code. Could move files.
  - Coding do's and don'ts
 
  [] reverting doesn't work with created files
+ [] File paths using too much context?
+ [] Error on server didn't print the error (or maybe it did and the terminal overwrote it...)
+ [] Change ip address to be from api.manicode.ai
