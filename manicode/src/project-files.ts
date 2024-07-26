@@ -2,12 +2,11 @@ import fs from 'fs'
 import path from 'path'
 import ts from 'typescript'
 
-import { createFileBlock, ProjectFileContext } from 'common/util/file'
+import { createFileBlock } from 'common/util/file'
 import { FileChanges } from 'common/actions'
 import { filterObject } from 'common/util/object'
 import { scrapeWebPage, parseUrlsFromContent } from './web-scraper'
-
-const projectRoot = path.normalize(path.resolve(__dirname, '../..'))
+import { projectRoot } from './config'
 
 export const applyChanges = (changes: FileChanges) => {
   const changesSuceeded = []

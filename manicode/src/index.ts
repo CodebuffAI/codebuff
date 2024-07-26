@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { projectRoot, websocketUrl } from './config'
+import { websocketUrl } from './config'
 import { ChatClient } from './chat-client'
 import { ChatStorage } from './chat-storage'
 import { CLI } from './cli'
@@ -12,7 +12,7 @@ async function manicode(userPrompt: string | undefined) {
   // Preload.
   getProjectFileContext()
 
-  const chatStorage = new ChatStorage(projectRoot)
+  const chatStorage = new ChatStorage()
   const client = new ChatClient(websocketUrl, chatStorage)
 
   const cli = new CLI(chatStorage, client)
