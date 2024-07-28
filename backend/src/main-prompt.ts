@@ -148,11 +148,15 @@ async function processFileBlock(
     return [{ filePath, old: '', new: newContent }]
   }
 
-  // File exists, generate diff
+  const lineEnding = oldContent.includes('\r\n') ? '\r\n' : '\n'
+
+  const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
+  const normalizedOldContent = normalizeLineEndings(oldContent)
+
   const diffBlocks = await generateDiffBlocks(
     messageHistory,
     filePath,
-    oldContent,
+    normalizedOldContent,
     newContent
   )
   let updatedContent = oldContent
@@ -181,5 +185,10 @@ async function processFileBlock(
   }
 
   debugLog(`Updated file: ${filePath}`)
-  return changes
+  const changesWithOriginalLineEndings = changes.map((change) => ({
+    ...change,
+    old: change.old.replace(/\n/g, lineEnding),
+    new: change.new.replace(/\n/g, lineEnding),
+  }))
+  return changesWithOriginalLineEndings
 }
