@@ -199,12 +199,9 @@ export class CLI {
     this.stopResponseRequested = false
     this.responseBuffer = ''
 
-    const onStreamEnd = (response: string) => {
-      if (response.includes('<' + '/file>'))
-        console.log('\n\nGenerating file changes. Please wait...')
-    }
-    const { response, changes } =
-      await this.sendUserInputAndAwaitResponse(onStreamEnd)
+    const { response, changes } = await this.sendUserInputAndAwaitResponse()
+    if (!this.stopResponseRequested && response.includes('<' + '/file>'))
+      console.log('\n\nGenerating file changes. Please wait...')
 
     const filesChanged = uniqBy(changes, 'filePath').map(
       (change) => change.filePath
@@ -240,9 +237,7 @@ export class CLI {
     this.chatStorage.addNewFileState(updatedFiles)
   }
 
-  private sendUserInputAndAwaitResponse(
-    onStreamEnd: (response: string) => void
-  ) {
+  private sendUserInputAndAwaitResponse() {
     return new Promise<{
       response: string
       changes: FileChanges
@@ -260,10 +255,6 @@ export class CLI {
 
           process.stdout.write(chunk)
           this.responseBuffer += chunk
-
-          if (this.responseBuffer.includes(STOP_MARKER)) {
-            onStreamEnd(this.responseBuffer)
-          }
         }
       )
 

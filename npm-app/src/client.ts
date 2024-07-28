@@ -23,6 +23,12 @@ export class Client {
       const { response, changes, data } = a
       const { id, name, input } = data
 
+      const messages = this.chatStorage.getCurrentChat().messages
+      if (messages[messages.length - 1].role === 'assistant') {
+        // Probably the last response from the assistant was cancelled and added immediately.
+        return 
+      }
+
       const assistantMessage: Message = {
         role: 'assistant',
         content: [
@@ -105,8 +111,7 @@ export class Client {
       const unsubscribeComplete = this.webSocket.subscribe(
         'response-complete',
         (a) => {
-          unsubscribeChunks()
-          unsubscribeComplete()
+          unsubscribe()
           resolve(a)
         }
       )
