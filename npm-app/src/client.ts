@@ -26,7 +26,7 @@ export class Client {
       const messages = this.chatStorage.getCurrentChat().messages
       if (messages[messages.length - 1].role === 'assistant') {
         // Probably the last response from the assistant was cancelled and added immediately.
-        return 
+        return
       }
 
       const assistantMessage: Message = {
@@ -94,36 +94,50 @@ export class Client {
   }
 
   subscribeToResponse(onChunk: (chunk: string) => void) {
-    let unsubscribe: () => void
-    const unsubscribeWrapper = () => {
-      unsubscribe()
-    }
-
-    const resolvePromise = new Promise<{
+    let responseBuffer = ''
+    let resolveResponse: (value: {
       response: string
       changes: FileChanges
-    }>((resolve) => {
-      const unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
-        const { chunk } = a
-        onChunk(chunk)
-      })
+      wasStoppedByUser: boolean
+    }) => void
+    let rejectResponse: (reason?: any) => void
+    let unsubscribeChunks: () => void
+    let unsubscribeComplete: () => void
 
-      const unsubscribeComplete = this.webSocket.subscribe(
-        'response-complete',
-        (a) => {
-          unsubscribe()
-          resolve(a)
-        }
-      )
-      unsubscribe = () => {
-        unsubscribeChunks()
-        unsubscribeComplete()
-      }
+    const responsePromise = new Promise<{
+      response: string
+      changes: FileChanges
+      wasStoppedByUser: boolean
+    }>((resolve, reject) => {
+      resolveResponse = resolve
+      rejectResponse = reject
+    })
+
+    const stopResponse = () => {
+      unsubscribeChunks()
+      unsubscribeComplete()
+      resolveResponse({
+        response: responseBuffer + '\n[RESPONSE_STOPPED_BY_USER]',
+        changes: [],
+        wasStoppedByUser: true,
+      })
+    }
+
+    unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
+      const { chunk } = a
+      responseBuffer += chunk
+      onChunk(chunk)
+    })
+
+    unsubscribeComplete = this.webSocket.subscribe('response-complete', (a) => {
+      unsubscribeChunks()
+      unsubscribeComplete()
+      resolveResponse({ ...a, wasStoppedByUser: false })
     })
 
     return {
-      result: resolvePromise,
-      unsubscribe: unsubscribeWrapper,
+      responsePromise,
+      stopResponse,
     }
   }
 }

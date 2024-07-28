@@ -14,11 +14,10 @@ export class CLI {
   private history: string[] = []
   private historyIndex: number = -1
   private isReceivingResponse: boolean = false
-  private stopResponseRequested: boolean = false
-  private responseBuffer: string = ''
   private previousLines: number = 1
   private isInMenu: boolean = false
-  private savedInput: string = '' // New property to store the current input when navigating history
+  private savedInput: string = ''
+  private stopResponse: (() => void) | null = null
 
   constructor(client: Client, chatStorage: ChatStorage) {
     this.client = client
@@ -69,8 +68,8 @@ export class CLI {
   }
 
   private handleEscKey() {
-    if (this.isReceivingResponse) {
-      this.stopResponseRequested = true
+    if (this.isReceivingResponse && this.stopResponse) {
+      this.stopResponse()
       this.clearCurrentLine()
       console.log('\n[Response stopped by user]')
       this.isReceivingResponse = false
@@ -196,11 +195,10 @@ export class CLI {
     this.chatStorage.addMessage(this.chatStorage.getCurrentChat(), newMessage)
 
     this.isReceivingResponse = true
-    this.stopResponseRequested = false
-    this.responseBuffer = ''
+    const { response, changes, wasStoppedByUser } = await this.sendUserInputAndAwaitResponse()
+    this.isReceivingResponse = false
 
-    const { response, changes } = await this.sendUserInputAndAwaitResponse()
-    if (!this.stopResponseRequested && response.includes('<' + '/file>'))
+    if (!wasStoppedByUser && response.includes('<' + '/file>'))
       console.log('\n\nGenerating file changes. Please wait...')
 
     const filesChanged = uniqBy(changes, 'filePath').map(
@@ -222,8 +220,6 @@ export class CLI {
       console.log('Complete!\n')
     }
 
-    this.isReceivingResponse = false
-
     const assistantMessage: Message = {
       role: 'assistant',
       content: response,
@@ -237,31 +233,19 @@ export class CLI {
     this.chatStorage.addNewFileState(updatedFiles)
   }
 
-  private sendUserInputAndAwaitResponse() {
-    return new Promise<{
-      response: string
-      changes: FileChanges
-    }>(async (resolve) => {
-      const { unsubscribe, result } = this.client.subscribeToResponse(
-        (chunk) => {
-          if (this.stopResponseRequested) {
-            unsubscribe()
-            resolve({
-              response: this.responseBuffer + '\n[RESPONSE_STOPPED_BY_USER]',
-              changes: [],
-            })
-            return
-          }
+  private async sendUserInputAndAwaitResponse() {
+    const { responsePromise, stopResponse } = this.client.subscribeToResponse(
+      (chunk) => {
+        process.stdout.write(chunk)
+      }
+    )
 
-          process.stdout.write(chunk)
-          this.responseBuffer += chunk
-        }
-      )
+    this.stopResponse = stopResponse
+    this.client.sendUserInput([])
 
-      this.client.sendUserInput([])
-
-      resolve(await result)
-    })
+    const result = await responsePromise
+    this.stopResponse = null
+    return result
   }
 
   promptUser() {
