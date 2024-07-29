@@ -147,7 +147,7 @@ Continue as long as you are making progress toward the user's request.
 
 After reading files with code you need to understand, you should create a <code_review> block and describe what is happening in the code.
 
-After understanding the user request and the code, you should create a <planning> block to discuss what your plan is to solve the user's problem.
+After understanding the user request and the code, you should create a <brainstorm> block to consider possible plans to solve the user's problem. You should consider if there a better plan than the first one you think of. Choose the best one.
 
 Finally, if the plan is somewhat complex, you should then explain the reasoning behind the plan step-by-step. If you discover an error, you should correct it and then explain the reasoning behind the corrected plan.
 
