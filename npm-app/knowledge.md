@@ -94,7 +94,24 @@ This will automatically run the `prepublishOnly` and `postpublish` scripts to ha
 
 Remember to increment the version number in `package.json` before publishing a new version.
 
+## CLI Functionality
+
+The CLI (Command Line Interface) has been updated to provide a more standard terminal experience:
+
+1. **Input Handling**: Uses the `readline` module for improved key handling.
+2. **Navigation**:
+   - Left and right arrow keys move the cursor within the input.
+   - Up and down arrow keys navigate through command history.
+3. **File Version Control**:
+   - `Ctrl+Z`: Undo file changes (navigate to previous version)
+   - `Ctrl+Y`: Redo file changes (navigate to next version)
+4. **Application Control**:
+   - `Ctrl+C`: Exit the application
+   - `Esc`: Toggle menu or stop the current AI response
+5. **Input Submission**: Press Enter to submit the current input.
+
+These changes aim to provide a more intuitive and familiar experience for users while maintaining the unique features of Manicode.
+
 ## Note on Project Evolution
 
 As an AI-powered tool, Manicode is designed to learn and evolve. It can update knowledge files as it works, improving its understanding and capabilities over time.
-

@@ -130,12 +130,12 @@ export class ChatStorage {
     return null
   }
 
-  navigateVersion(direction: 'left' | 'right'): boolean {
-    if (direction === 'left' && this.currentVersionIndex > 0) {
+  navigateVersion(direction: 'undo' | 'redo'): boolean {
+    if (direction === 'undo' && this.currentVersionIndex > 0) {
       this.currentVersionIndex--
       return true
     } else if (
-      direction === 'right' &&
+      direction === 'redo' &&
       this.currentVersionIndex < this.currentChat.fileVersions.length - 1
     ) {
       this.currentVersionIndex++
