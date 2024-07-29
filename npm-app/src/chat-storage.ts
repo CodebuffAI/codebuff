@@ -91,7 +91,7 @@ export class ChatStorage {
 
   private saveChat(chat: Chat): void {
     const filePath = this.getFilePath(chat.id)
-    fs.writeFileSync(filePath, JSON.stringify(chat, null, 2))
+    // fs.writeFileSync(filePath, JSON.stringify(chat, null, 2))
   }
 
   private generateChatId(): string {
