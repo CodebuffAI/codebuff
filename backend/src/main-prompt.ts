@@ -133,7 +133,7 @@ ${STOP_MARKER}`
   }
 }
 
-async function processFileBlock(
+export async function processFileBlock(
   ws: WebSocket,
   messageHistory: Message[],
   filePath: string,
@@ -152,14 +152,15 @@ async function processFileBlock(
 
   const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
   const normalizedOldContent = normalizeLineEndings(oldContent)
+  const normalizedNewContent = normalizeLineEndings(newContent)
 
   const diffBlocks = await generateDiffBlocks(
     messageHistory,
     filePath,
     normalizedOldContent,
-    newContent
+    normalizedNewContent
   )
-  let updatedContent = oldContent
+  let updatedContent = normalizedOldContent
 
   const changes: { filePath: string; old: string; new: string }[] = []
   for (const { searchContent, replaceContent } of diffBlocks) {
