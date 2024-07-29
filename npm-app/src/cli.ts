@@ -37,28 +37,27 @@ export class CLI {
       if (this.isReceivingResponse) {
         this.handleStopResponse()
       } else {
-        console.log('\nExiting. Manicode out!')
-        process.exit(0)
+        this.handleExit()
       }
     })
 
     process.stdin.on('keypress', (_, key) => {
-      if (key.ctrl && key.name === 'z') {
-        this.handleCtrlZ()
-      } else if (key.ctrl && key.name === 'y') {
-        this.handleCtrlY()
+      if ((key.ctrl || key.meta) && key.name === 'u') {
+        this.handleUndo()
+      } else if ((key.ctrl || key.meta) && key.name === 'r') {
+        this.handleRedo()
       } else if (key.name === 'escape') {
         this.handleEscKey()
       }
     })
   }
 
-  private handleCtrlZ() {
+  private handleUndo() {
     this.navigateFileVersion('undo')
     this.rl.prompt()
   }
 
-  private handleCtrlY() {
+  private handleRedo() {
     this.navigateFileVersion('redo')
     this.rl.prompt()
   }
@@ -87,6 +86,11 @@ export class CLI {
     this.rl.prompt()
   }
 
+  private handleExit() {
+    console.log('Exiting. Manicode out!')
+    process.exit(0)
+  }
+
   private handleEscKey() {
     if (this.isReceivingResponse) {
       this.handleStopResponse()
@@ -111,6 +115,22 @@ export class CLI {
 
   public async handleUserInput(userInput: string) {
     if (!userInput) return
+
+    // Handle "undo" and "redo" commands
+    if (userInput === 'undo') {
+      this.handleUndo()
+      return
+    } else if (userInput === 'redo') {
+      this.handleRedo()
+      return
+    } else if (
+      userInput === 'quit' ||
+      userInput === 'exit' ||
+      userInput === 'q'
+    ) {
+      this.handleExit()
+      return
+    }
 
     console.log('...')
 

@@ -103,8 +103,8 @@ The CLI (Command Line Interface) has been updated to provide a more standard ter
    - Left and right arrow keys move the cursor within the input.
    - Up and down arrow keys navigate through command history.
 3. **File Version Control**:
-   - `Ctrl+Z`: Undo file changes (navigate to previous version)
-   - `Ctrl+Y`: Redo file changes (navigate to next version)
+   - `Ctrl+U`: Undo file changes (navigate to previous version)
+   - `Ctrl+R`: Redo file changes (navigate to next version)
 4. **Application Control**:
    - `Ctrl+C`: Exit the application
    - `Esc`: Toggle menu or stop the current AI response
