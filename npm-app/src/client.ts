@@ -3,6 +3,7 @@ import { getFiles, getProjectFileContext } from './project-files'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
+import { STOP_MARKER } from 'common/constants'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -127,6 +128,12 @@ export class Client {
       const { chunk } = a
       responseBuffer += chunk
       onChunk(chunk)
+
+      // Print a message when the response is complete, before the file changes are generated.
+      if (responseBuffer.includes(STOP_MARKER)) {
+        if (responseBuffer.includes('<' + '/file>'))
+          console.log('\n\nGenerating file changes. Please wait...')
+      }
     })
 
     unsubscribeComplete = this.webSocket.subscribe('response-complete', (a) => {

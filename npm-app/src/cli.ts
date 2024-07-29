@@ -195,11 +195,8 @@ export class CLI {
     this.chatStorage.addMessage(this.chatStorage.getCurrentChat(), newMessage)
 
     this.isReceivingResponse = true
-    const { response, changes, wasStoppedByUser } = await this.sendUserInputAndAwaitResponse()
+    const { response, changes } = await this.sendUserInputAndAwaitResponse()
     this.isReceivingResponse = false
-
-    if (!wasStoppedByUser && response.includes('<' + '/file>'))
-      console.log('\n\nGenerating file changes. Please wait...')
 
     const filesChanged = uniqBy(changes, 'filePath').map(
       (change) => change.filePath
