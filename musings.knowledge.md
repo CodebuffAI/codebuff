@@ -205,7 +205,7 @@ Important. Can use commandline to search for code. Could move files.
  [] Change ip address to be from api.manicode.ai
 
 Notes from Janna & Stephen test
-[] backspace on windows doesn't clear the char, just moves cursor
-[] Tried to do left arrow and it didn't work
-[] Failed to apply any edits. They all failed even after a second attempt. This was on Windows
-[] CTRL-C doesn't work
+[x] backspace on windows doesn't clear the char, just moves cursor
+[x] Tried to do left arrow and it didn't work
+[x] Failed to apply any edits. They all failed even after a second attempt. This was on Windows
+[x] CTRL-C doesn't work
