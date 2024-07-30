@@ -85,7 +85,6 @@ export class CLI {
     if (this.stopResponse) {
       this.stopResponse()
     }
-    this.rl.prompt()
   }
 
   private handleExit() {
