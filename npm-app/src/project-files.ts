@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import * as ignore from 'ignore'
 
 import { createFileBlock } from 'common/util/file'
 import { FileChanges } from 'common/actions'
@@ -42,6 +43,7 @@ export const applyChanges = (changes: FileChanges) => {
 
 export const getProjectFileContext = async () => {
   const filePaths = getProjectFilePaths()
+  console.log('got file paths', filePaths)
   const knowledgeFilePaths = filePaths.filter((filePath) =>
     filePath.endsWith('knowledge.md')
   )
@@ -56,47 +58,59 @@ export const getProjectFileContext = async () => {
   }
 }
 
-function loadAllProjectFiles(
-  projectRoot: string,
-  excludedDirs: string[]
-): string[] {
+function parseGitignore(dirPath: string): ignore.Ignore {
+  const ig = ignore.default()
+  const gitignorePath = path.join(dirPath, '.gitignore')
+
+  if (fs.existsSync(gitignorePath)) {
+    const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8')
+    ig.add(gitignoreContent)
+  }
+
+  return ig
+}
+
+function loadAllProjectFiles(projectRoot: string): string[] {
   const allFiles: string[] = []
 
-  function getAllFiles(dir: string) {
-    if (excludedDirs.some((dirName) => dir.includes(dirName))) {
-      return
-    }
+  function getAllFiles(dir: string, parentIgnore: ignore.Ignore) {
+    const currentIgnore = parseGitignore(dir)
+    const mergedIgnore = ignore.default().add(parentIgnore).add(currentIgnore)
 
     try {
       const files = fs.readdirSync(dir)
-      files.forEach((file) => {
+      for (const file of files) {
         const filePath = path.join(dir, file)
+        const relativeFilePath = path.relative(projectRoot, filePath)
+
+        if (mergedIgnore.ignores(relativeFilePath)) {
+          continue
+        }
+
         try {
           const stats = fs.statSync(filePath)
           if (stats.isDirectory()) {
-            getAllFiles(filePath)
+            getAllFiles(filePath, mergedIgnore)
           } else {
             allFiles.push(filePath)
           }
         } catch (error: any) {
-          // do nothing
+          console.error(`Error processing file ${filePath}:`, error)
         }
-      })
+      }
     } catch (error: any) {
-      // do nothing
+      console.error(`Error reading directory ${dir}:`, error)
     }
   }
 
-  getAllFiles(projectRoot)
+  getAllFiles(projectRoot, ignore.default())
   return allFiles
 }
 
 function getProjectFilePaths() {
-  const excludedDirs = ['node_modules', 'dist', '.git']
-  const allProjectFiles = loadAllProjectFiles(projectRoot, excludedDirs).map(
-    (file) => path.relative(projectRoot, file)
+  return loadAllProjectFiles(projectRoot).map((file) =>
+    path.relative(projectRoot, file)
   )
-  return allProjectFiles
 }
 
 export function getFiles(filePaths: string[]) {

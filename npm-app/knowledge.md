@@ -28,6 +28,12 @@ The `src/` directory contains the main TypeScript source files:
 
 The `dist/` directory contains the compiled JavaScript files and is created during the build process.
 
+## Project File Handling
+
+- Manny can only view files that are not gitignored. This is partially to save tokens when we list out all the files.
+- Multiple `.gitignore` files can exist throughout the project structure.
+- When traversing the project structure, we need to accumulate and apply ignore patterns from all encountered `.gitignore` files.
+
 ## Key Components
 
 1. **ChatClient**: Manages WebSocket communication with the server, handles subscriptions, and processes messages.
