@@ -372,8 +372,7 @@ ${createFileBlock(filePath, oldContent)}
 New file content (with placeholders):
 ${createFileBlock(filePath, newContent)}
 
-Your Response:
-`
+Your Response:`
 
   // fs.writeFileSync('./diff-prompt.txt', prompt)
 
