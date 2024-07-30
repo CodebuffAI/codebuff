@@ -65,6 +65,8 @@ You can read a file and see if it is already correct and thus skip editing it. Y
 You also have the ability to delete files using a special [DELETE] token. To delete a file, include a file block with just '[DELETE]' in the body. For example:
 
 ${createFileBlock('path/to/file/to/delete.txt', '[DELETE]')}
+
+All changes to files in your response are only actually made after the end of your response, i.e. after you print the ${STOP_MARKER} token. You should not expect the file changes to be made until then.
 </editing_instructions>
 
 # Knowledge
