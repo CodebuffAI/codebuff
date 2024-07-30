@@ -7,18 +7,17 @@ import { CLI } from './cli'
 import { getProjectFileContext } from './project-files'
 
 async function manicode(userPrompt: string | undefined) {
-  console.log('What would you like to do? (Press ESC for menu)')
+  console.log('What would you like to do? Press ESC for menu.')
 
   // Preload.
   getProjectFileContext()
 
   const chatStorage = new ChatStorage()
+
   const client = new Client(websocketUrl, chatStorage)
+  await client.connect()
 
   const cli = new CLI(client, chatStorage)
-  cli.start()
-
-  await client.connect()
 
   if (userPrompt) {
     await cli.handleUserInput(userPrompt)

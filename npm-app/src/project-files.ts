@@ -43,7 +43,6 @@ export const applyChanges = (changes: FileChanges) => {
 
 export const getProjectFileContext = async () => {
   const filePaths = getProjectFilePaths()
-  console.log('got file paths', filePaths)
   const knowledgeFilePaths = filePaths.filter((filePath) =>
     filePath.endsWith('knowledge.md')
   )

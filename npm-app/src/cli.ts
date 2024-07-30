@@ -24,9 +24,7 @@ export class CLI {
       prompt: '> ',
       historySize: 1000,
     })
-  }
 
-  start() {
     this.rl.prompt()
 
     this.rl.on('line', (line) => {
@@ -50,6 +48,10 @@ export class CLI {
         this.handleEscKey()
       }
     })
+  }
+
+  private printInitialPrompt() {
+    console.log('What would you like to do? Press ESC for menu.')
   }
 
   private handleUndo() {
@@ -97,6 +99,7 @@ export class CLI {
     } else if (this.isInMenu) {
       this.isInMenu = false
       console.clear()
+      this.printInitialPrompt()
       this.rl.prompt()
     } else {
       displayMenu()
