@@ -2,7 +2,7 @@ import { ProjectFileContext, createFileBlock } from 'common/util/file'
 import { STOP_MARKER } from 'common/constants'
 
 export function getSystemPrompt(fileContext: ProjectFileContext) {
-  const { filePaths, exportedTokens, knowledgeFiles } = fileContext
+  const { currentWorkingDirectory, filePaths, exportedTokens, knowledgeFiles } = fileContext
 
   return `You are Manny, an expert programmer assistant with extensive knowledge across backend and frontend technologies. You are a strong technical writer that communicates with clarity. You are concise. You produce opinions and code that are as simple as possible while accomplishing their purpose.
 
@@ -151,6 +151,8 @@ You can use the run_terminal_command tool to execute shell commands in the user'
 3. Running build or test scripts (e.g., "npm run build" or "npm test")
 4. Installing dependencies (e.g., "npm install <package-name>")
 5. Performing git operations (e.g., "git status")
+
+The current working directory is ${currentWorkingDirectory}. Try to return back to the original working directory after running terminal commands.
 
 When using this tool, keep the following guidelines in mind:
 

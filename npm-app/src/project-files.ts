@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import * as ignore from 'ignore'
 
-import { createFileBlock } from 'common/util/file'
+import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { FileChanges } from 'common/actions'
 import { filterObject } from 'common/util/object'
 import { scrapeWebPage, parseUrlsFromContent } from './web-scraper'
@@ -50,11 +50,14 @@ export const getProjectFileContext = async () => {
     await getExistingFilesWithScrapedContent(knowledgeFilePaths)
   const exportedTokens = {} // getExportedTokensForFiles(filePaths)
 
-  return {
+  const projectFileContext: ProjectFileContext = {
+    currentWorkingDirectory: projectRoot,
     filePaths,
     exportedTokens,
     knowledgeFiles,
   }
+
+  return projectFileContext
 }
 
 function parseGitignore(dirPath: string): ignore.Ignore {

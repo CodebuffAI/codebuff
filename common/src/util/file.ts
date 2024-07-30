@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 export const ProjectFileContextSchema = z.object({
+  currentWorkingDirectory: z.string(),
   filePaths: z.array(z.string()),
   exportedTokens: z.record(z.string(), z.array(z.string())),
   knowledgeFiles: z.record(z.string(), z.string()),
