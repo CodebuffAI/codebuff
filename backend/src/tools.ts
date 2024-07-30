@@ -45,5 +45,19 @@ export const getTools = (): Tool[] => {
         },
       },
     } as Tool,
+    {
+      name: 'run_terminal_command',
+      description: `Executes a command in the terminal and returns the result. This tool allows the assistant to run shell commands, which can be useful for various tasks such as grepping for code references, installing dependencies, running scripts, or performing system operations. Use this tool when you need to execute a specific command in the user's terminal.`,
+      input_schema: {
+        type: 'object',
+        properties: {
+          command: {
+            type: 'string',
+            description: 'The command to run in the terminal',
+          },
+        },
+        required: ['command'],
+      },
+    } as Tool,
   ]
 }

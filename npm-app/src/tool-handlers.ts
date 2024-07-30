@@ -1,6 +1,10 @@
 import { getFileBlocks } from './project-files'
 import { scrapeWebPage } from './web-scraper'
 import { searchManifoldMarkets } from './manifold-api'
+import { exec } from 'child_process'
+import { promisify } from 'util'
+
+const execAsync = promisify(exec)
 
 export type ToolHandler = (input: any, id: string) => Promise<string>
 
@@ -38,8 +42,26 @@ export const handleSearchManifoldMarkets: ToolHandler = async (
   }
 }
 
+export const handleRunTerminalCommand: ToolHandler = async (
+  input: { command: string },
+  id: string
+) => {
+  const { command } = input
+  try {
+    const { stdout, stderr } = await execAsync(command)
+    if (stderr) {
+      return `<terminal_command_error>${stderr}</terminal_command_error>`
+    }
+    return `<terminal_command_result>${stdout}</terminal_command_result>`
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return `<terminal_command_error>Failed to execute command: ${message}</terminal_command_error>`
+  }
+}
+
 export const toolHandlers: Record<string, ToolHandler> = {
   read_files: handleReadFiles,
   scrape_web_page: handleScrapeWebPage,
   search_manifold_markets: handleSearchManifoldMarkets,
+  run_terminal_command: handleRunTerminalCommand,
 }

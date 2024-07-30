@@ -25,6 +25,7 @@ There are three top-level code directories:
 5. **Message History**: Manages conversation history between the user and Manny.
 6. **Chat Storage**: Persists chat sessions and allows users to manage multiple conversations.
 7. **Knowledge Management**: Handles the creation, updating, and organization of knowledge files.
+8. **Terminal Command Execution**: Allows Manny to run shell commands in the user's terminal.
 
 ## Important Files
 
@@ -48,6 +49,17 @@ There are three top-level code directories:
 - Knowledge is stored in `knowledge.md` files, which can be created in relevant directories throughout the project.
 - Manny automatically updates knowledge files when learning new information or correcting mistakes.
 - Developers are encouraged to review and commit knowledge file changes to share insights across the team.
+
+## Terminal Command Execution
+
+Manny can now execute terminal commands using the `run_terminal_command` tool. This feature allows Manny to perform various tasks such as:
+
+- Searching files with grep
+- Installing dependencies
+- Running build or test scripts
+- Checking versions of installed tools
+- Performing git operations
+- Creating, moving, or deleting files and directories
 
 ## TODO
 - Try a better diffing strategy?

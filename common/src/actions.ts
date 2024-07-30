@@ -53,11 +53,16 @@ export const CLIENT_ACTIONS = {
     type: z.literal('read-files-response'),
     files: z.record(z.string(), z.union([z.string(), z.null()])),
   }),
+  runTerminalCommand: z.object({
+    type: z.literal('run-terminal-command'),
+    command: z.string(),
+  }),
 } as const
 
 export const CLIENT_ACTION_SCHEMA = z.union([
   CLIENT_ACTIONS.userInput,
   CLIENT_ACTIONS.readFilesResponse,
+  CLIENT_ACTIONS.runTerminalCommand,
 ])
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
@@ -81,11 +86,16 @@ export const SERVER_ACTIONS = {
     data: ToolCallSchema,
     changes: CHANGES,
   }),
+  terminalCommandResult: z.object({
+    type: z.literal('terminal-command-result'),
+    result: z.string(),
+  }),
 }
 export const SERVER_ACTION_SCHEMA = z.union([
   SERVER_ACTIONS.responseChunk,
   SERVER_ACTIONS.responseComplete,
   SERVER_ACTIONS.readFiles,
   SERVER_ACTIONS.toolCall,
+  SERVER_ACTIONS.terminalCommandResult,
 ])
 export type ServerAction = z.infer<typeof SERVER_ACTION_SCHEMA>
