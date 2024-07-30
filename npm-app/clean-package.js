@@ -25,7 +25,7 @@ if (fs.existsSync(indexJsPath)) {
   if (!indexJsContent.includes(envLine)) {
     const lines = indexJsContent.split('\n');
     lines.splice(1, 0, envLine); // Insert after the shebang line
-    indexJsContent = lines.join('\n');
+    indexJsContent = lines.join('\n') + '\n';
     fs.writeFileSync(indexJsPath, indexJsContent);
     console.log('NODE_ENV setting added to index.js');
   } else {
