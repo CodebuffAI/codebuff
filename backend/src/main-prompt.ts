@@ -16,6 +16,7 @@ import { ToolCall } from 'common/actions'
 import { debugLog } from './debug'
 import { requestFile } from './websockets/websocket-action'
 import { generateDiffBlocks } from './generate-diffs-prompt'
+import { Tool } from '@anthropic-ai/sdk/resources'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -68,24 +69,8 @@ ${STOP_MARKER}`
     const messagesWithContinuedMessage = continuedMessages
       ? [...messages, ...continuedMessages]
       : messages
-    console.log(
-      'Prompting claude num messages:',
-      messagesWithContinuedMessage.length
-    )
-    debugLog(
-      'Prompting claude num messages:',
-      messagesWithContinuedMessage.length
-    )
 
-    // Save prompt debug information to a JSON file
-    const promptDebugInfo = {
-      messages: JSON.stringify(messagesWithContinuedMessage).length,
-      system: system.length,
-      tools: JSON.stringify(tools).length,
-    }
-
-    const debugFilePath = path.join(__dirname, 'prompt.debug.json')
-    fs.appendFileSync(debugFilePath, JSON.stringify(promptDebugInfo, null, 2))
+    savePromptLengthInfo(messagesWithContinuedMessage, system, tools)
 
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
@@ -205,4 +190,41 @@ export async function processFileBlock(
     new: change.new.replace(/\n/g, lineEnding),
   }))
   return changesWithOriginalLineEndings
+}
+
+const savePromptLengthInfo = (
+  messages: Message[],
+  system: string,
+  tools: Tool[]
+) => {
+  console.log('Prompting claude num messages:', messages.length)
+  debugLog('Prompting claude num messages:', messages.length)
+
+  const lastMessageContent = messages[messages.length - 1].content
+
+  // Save prompt debug information to a JSON array
+  const promptDebugInfo = {
+    input:
+      typeof lastMessageContent === 'string' ? lastMessageContent : '[object]',
+    messages: JSON.stringify(messages).length,
+    system: system.length,
+    tools: JSON.stringify(tools).length,
+    timestamp: new Date().toISOString(), // Add a timestamp for each entry
+  }
+
+  debugLog(JSON.stringify(promptDebugInfo))
+
+  const debugFilePath = path.join(__dirname, 'prompt.debug.json')
+
+  let debugArray = []
+  try {
+    const existingData = fs.readFileSync(debugFilePath, 'utf8')
+    debugArray = JSON.parse(existingData)
+  } catch (error) {
+    // If file doesn't exist or is empty, start with an empty array
+  }
+
+  debugArray.push(promptDebugInfo)
+
+  fs.writeFileSync(debugFilePath, JSON.stringify(debugArray, null, 2))
 }
