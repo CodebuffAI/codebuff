@@ -1,4 +1,6 @@
 import { WebSocket } from 'ws'
+import fs from 'fs'
+import path from 'path'
 
 import { promptClaudeStream } from './claude'
 import {
@@ -74,6 +76,17 @@ ${STOP_MARKER}`
       'Prompting claude num messages:',
       messagesWithContinuedMessage.length
     )
+
+    // Save prompt debug information to a JSON file
+    const promptDebugInfo = {
+      messages: JSON.stringify(messagesWithContinuedMessage).length,
+      system: system.length,
+      tools: JSON.stringify(tools).length,
+    }
+
+    const debugFilePath = path.join(__dirname, 'prompt.debug.json')
+    fs.appendFileSync(debugFilePath, JSON.stringify(promptDebugInfo, null, 2))
+
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
       tools,
