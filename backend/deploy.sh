@@ -35,27 +35,30 @@ if ! gcloud compute firewall-rules describe $FIREWALL_RULE_NAME --project=$GCP_P
 fi
 
 # Create or update the VM instance with the container
-# Check if the VM instance already exists
 if gcloud compute instances describe $VM_NAME --zone=$VM_ZONE --project=$GCP_PROJECT &>/dev/null; then
-    echo "Existing VM instance found. Deleting it to create a new container-based instance..."
-    gcloud compute instances delete $VM_NAME --zone=$VM_ZONE --project=$GCP_PROJECT --quiet
+    echo "Existing VM instance found. Updating the container..."
+    gcloud compute instances update-container $VM_NAME \
+        --zone=$VM_ZONE \
+        --project=$GCP_PROJECT \
+        --container-image=gcr.io/$GCP_PROJECT/manicode-backend:latest \
+        --container-env=APP_PORT=$APP_PORT
+else
+    echo "Creating new VM instance with container..."
+    gcloud compute instances create-with-container $VM_NAME \
+        --zone=$VM_ZONE \
+        --project=$GCP_PROJECT \
+        --address=$VM_ADDRESS \
+        --container-image=gcr.io/$GCP_PROJECT/manicode-backend:latest \
+        --container-env=APP_PORT=$APP_PORT \
+        --machine-type=n2-standard-2 \
+        --image-project "cos-cloud" \
+        --image-family "cos-109-lts" \
+        --tags=http-server \
+        --scopes=https://www.googleapis.com/auth/cloud-platform \
+        --container-mount-host-path=mount-path=/app/logs,host-path=/var/log/app,mode=rw \
+        --boot-disk-size=10GB \
+        --boot-disk-type=pd-balanced
 fi
-
-echo "Creating new VM instance with container..."
-gcloud compute instances create-with-container $VM_NAME \
-    --zone=$VM_ZONE \
-    --project=$GCP_PROJECT \
-    --address=$VM_ADDRESS \
-    --container-image=gcr.io/$GCP_PROJECT/manicode-backend:latest \
-    --container-env=APP_PORT=$APP_PORT \
-    --machine-type=n2-standard-2 \
-    --image-project "cos-cloud" \
-    --image-family "cos-109-lts" \
-    --tags=http-server \
-    --scopes=https://www.googleapis.com/auth/cloud-platform \
-    --container-mount-host-path=mount-path=/app/logs,host-path=/var/log/app,mode=rw \
-    --boot-disk-size=10GB \
-    --boot-disk-type=pd-balanced
 
 # Wait for the VM to be ready (adjust the sleep time if needed)
 echo "Waiting for VM to be ready..."
