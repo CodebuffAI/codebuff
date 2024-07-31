@@ -7,8 +7,6 @@ import { CLI } from './cli'
 import { getProjectFileContext } from './project-files'
 
 async function manicode(userPrompt: string | undefined) {
-  console.log('What would you like to do? Press ESC for menu.')
-
   // Preload.
   getProjectFileContext()
 
@@ -21,6 +19,8 @@ async function manicode(userPrompt: string | undefined) {
 
   if (userPrompt) {
     await cli.handleUserInput(userPrompt)
+  } else {
+    cli.printInitialPrompt()
   }
 }
 

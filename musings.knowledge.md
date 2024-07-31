@@ -181,7 +181,7 @@ Problems
 
 - Dawson's case of wanting it to scrape documentation from a url and answer questions with it.
 - x% knowledge written in menu based on number of commits to knowledge files
-- How it could run bash:
+[x] How it could run bash:
 1. First, let's build the `common` package:
 
 ```bash
@@ -209,3 +209,6 @@ Notes from Janna & Stephen test
 [x] Tried to do left arrow and it didn't work
 [x] Failed to apply any edits. They all failed even after a second attempt. This was on Windows
 [x] CTRL-C doesn't work
+
+[] Kill if it continues too far without user prompt.
+[] Give it a new marker token that will await all file changes, so then it can run tsc or tests, etc.

@@ -25,10 +25,10 @@ export class CLI {
       historySize: 1000,
     })
 
-    this.rl.prompt()
-
     this.rl.on('line', (line) => {
-      this.handleUserInput(line.trim()).then(() => this.rl.prompt())
+      if (!this.isReceivingResponse) {
+        this.handleUserInput(line.trim())
+      }
     })
 
     this.rl.on('SIGINT', () => {
@@ -50,8 +50,9 @@ export class CLI {
     })
   }
 
-  private printInitialPrompt() {
+  public printInitialPrompt() {
     console.log('What would you like to do? Press ESC for menu.')
+    this.rl.prompt()
   }
 
   private handleUndo() {
@@ -99,7 +100,6 @@ export class CLI {
       this.isInMenu = false
       console.clear()
       this.printInitialPrompt()
-      this.rl.prompt()
     } else {
       displayMenu()
       this.isInMenu = true
@@ -160,7 +160,7 @@ export class CLI {
     }
     if (changesSuceeded.length > 0) {
       console.log('Complete!\n')
-    }
+    } else console.log()
 
     const assistantMessage: Message = {
       role: 'assistant',
@@ -173,6 +173,8 @@ export class CLI {
 
     const updatedFiles = getExistingFiles(filesChanged)
     this.chatStorage.addNewFileState(updatedFiles)
+
+    this.rl.prompt()
   }
 
   private async sendUserInputAndAwaitResponse() {
