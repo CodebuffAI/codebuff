@@ -1,8 +1,23 @@
-import { ProjectFileContext, createFileBlock } from 'common/util/file'
+import {
+  ProjectFileContext,
+  createFileBlock,
+  FileTreeNode,
+} from 'common/util/file'
 import { STOP_MARKER } from 'common/constants'
 
+function printFileTree(node: FileTreeNode, depth: number = 0): string {
+  const indent = '\t'.repeat(depth)
+  let result = `${indent}${node.name}${node.type === 'directory' ? '/' : ''}\n`
+  if (node.children) {
+    for (const child of node.children) {
+      result += printFileTree(child, depth + 1)
+    }
+  }
+  return result
+}
+
 export function getSystemPrompt(fileContext: ProjectFileContext) {
-  const { currentWorkingDirectory, filePaths, exportedTokens, knowledgeFiles } =
+  const { currentWorkingDirectory, fileTree, exportedTokens, knowledgeFiles } =
     fileContext
 
   return `You are Manny, an expert programmer assistant with extensive knowledge across backend and frontend technologies. You are a strong technical writer that communicates with clarity. You are concise. You produce opinions and code that are as simple as possible while accomplishing their purpose.
@@ -22,15 +37,10 @@ As Manny, you have access to all the files in the project. Before producing advi
 
 Only attempt to read files that are listed in the <project_files> section below. If a file is not listed there, it does not exist in the project (or is gitignored), and you should not try to read it.
 
-Here is a list of all the files in our project, along with their exported tokens (if any):
+Here is the directory structure of our project:
 
 <project_files>
-${filePaths
-  .map((path) => {
-    const tokens = exportedTokens[path] ?? []
-    return tokens.length === 0 ? path : `${path} ${tokens.join(',')}`
-  })
-  .join('\n')}
+${printFileTree(fileTree)}
 </project_files>
 
 <editing_instructions>

@@ -43,6 +43,7 @@ There are three top-level code directories:
 3. Ensure alternating user and Manny messages in conversation history.
 4. Update knowledge files for significant changes or new features.
 5. Write clear, concise comments and documentation for complex logic.
+6. Remember that imports automatically remove 'src' from the path. When editing files, always include 'src' in the file path if it's part of the actual directory structure.
 
 ## Knowledge Management
 
@@ -61,10 +62,14 @@ Manny can now execute terminal commands using the `run_terminal_command` tool. T
 - Performing git operations
 - Creating, moving, or deleting files and directories
 
-## TODO
-- Try a better diffing strategy?
+## Important Constraints
 
+- **Max Tokens Limit**: The context for Claude AI has a maximum limit of 200,000 tokens. This is an important constraint to consider when designing prompts and managing project file information.
+
+## TODO
+- None
 
 # Code guide
 
 - We don't specify return types for functions, since Typescript will infer them. 
+- Always include 'src' in file paths when it's part of the actual directory structure, even though imports automatically remove it. 

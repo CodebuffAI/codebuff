@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import * as ignore from 'ignore'
 
-import { createFileBlock, ProjectFileContext } from 'common/util/file'
+import { createFileBlock, ProjectFileContext, FileTreeNode } from 'common/util/file'
 import { FileChanges } from 'common/actions'
 import { filterObject } from 'common/util/object'
 import { scrapeWebPage, parseUrlsFromContent } from './web-scraper'
@@ -47,8 +47,8 @@ export const applyChanges = (changes: FileChanges) => {
 }
 
 export const getProjectFileContext = async () => {
-  const filePaths = getProjectFilePaths()
-  const knowledgeFilePaths = filePaths.filter((filePath) =>
+  const fileTree = getProjectFileTree()
+  const knowledgeFilePaths = getAllFilePaths(fileTree).filter((filePath) =>
     filePath.endsWith('knowledge.md')
   )
   const knowledgeFiles =
@@ -57,7 +57,7 @@ export const getProjectFileContext = async () => {
 
   const projectFileContext: ProjectFileContext = {
     currentWorkingDirectory: projectRoot,
-    filePaths,
+    fileTree,
     exportedTokens,
     knowledgeFiles,
   }
@@ -112,12 +112,6 @@ function loadAllProjectFiles(projectRoot: string): string[] {
 
   getAllFiles(projectRoot, ignore.default())
   return allFiles
-}
-
-function getProjectFilePaths() {
-  return loadAllProjectFiles(projectRoot).map((file) =>
-    path.relative(projectRoot, file)
-  )
 }
 
 export function getFiles(filePaths: string[]) {
@@ -290,4 +284,63 @@ export const deleteFile = (fullPath: string): boolean => {
     console.error(`Error deleting file ${fullPath}:`, error)
     return false
   }
+}
+
+function getProjectFileTree(): FileTreeNode {
+  const rootIgnore = parseGitignore(projectRoot)
+  rootIgnore.add('.git')
+
+  function buildTree(dir: string, parentIgnore: ignore.Ignore): FileTreeNode {
+    const currentIgnore = parseGitignore(dir)
+    const mergedIgnore = ignore.default().add(parentIgnore).add(currentIgnore)
+
+    const name = path.basename(dir)
+    const children: FileTreeNode[] = []
+
+    try {
+      const files = fs.readdirSync(dir)
+      for (const file of files) {
+        const filePath = path.join(dir, file)
+        const relativeFilePath = path.relative(projectRoot, filePath)
+
+        if (mergedIgnore.ignores(relativeFilePath)) {
+          continue
+        }
+
+        try {
+          const stats = fs.statSync(filePath)
+          if (stats.isDirectory()) {
+            children.push(buildTree(filePath, mergedIgnore))
+          } else {
+            children.push({
+              name: file,
+              type: 'file',
+            })
+          }
+        } catch (error: any) {
+          console.error(`Error processing file ${filePath}:`, error)
+        }
+      }
+    } catch (error: any) {
+      console.error(`Error reading directory ${dir}:`, error)
+    }
+
+    return {
+      name,
+      type: 'directory',
+      children,
+    }
+  }
+
+  return buildTree(projectRoot, rootIgnore)
+}
+
+function getAllFilePaths(node: FileTreeNode, basePath: string = ''): string[] {
+  if (node.type === 'file') {
+    return [path.join(basePath, node.name)]
+  }
+
+  return (node.children || []).flatMap((child) =>
+    getAllFilePaths(child, path.join(basePath, node.name))
+  )
 }

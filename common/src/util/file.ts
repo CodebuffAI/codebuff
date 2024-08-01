@@ -1,8 +1,20 @@
 import { z } from 'zod'
 
+export const FileTreeNodeSchema: z.ZodType<FileTreeNode> = z.object({
+  name: z.string(),
+  type: z.enum(['file', 'directory']),
+  children: z.lazy(() => z.array(FileTreeNodeSchema).optional()),
+})
+
+export interface FileTreeNode {
+  name: string
+  type: 'file' | 'directory'
+  children?: FileTreeNode[]
+}
+
 export const ProjectFileContextSchema = z.object({
   currentWorkingDirectory: z.string(),
-  filePaths: z.array(z.string()),
+  fileTree: FileTreeNodeSchema,
   exportedTokens: z.record(z.string(), z.array(z.string())),
   knowledgeFiles: z.record(z.string(), z.string()),
 })
