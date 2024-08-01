@@ -4,9 +4,11 @@ import { websocketUrl } from './config'
 import { Client } from './client'
 import { ChatStorage } from './chat-storage'
 import { CLI } from './cli'
-import { getProjectFileContext } from './project-files'
+import { getProjectFileContext, initProjectRoot } from './project-files'
 
-async function manicode(userPrompt: string | undefined) {
+async function manicode(projectDir: string | undefined) {
+  initProjectRoot(projectDir)
+
   // Preload.
   getProjectFileContext()
 
@@ -16,15 +18,10 @@ async function manicode(userPrompt: string | undefined) {
   await client.connect()
 
   const cli = new CLI(client, chatStorage)
-
-  if (userPrompt) {
-    await cli.handleUserInput(userPrompt)
-  } else {
-    cli.printInitialPrompt()
-  }
+  cli.printInitialPrompt()
 }
 
 if (require.main === module) {
-  const userPrompt = process.argv[2] || undefined
-  manicode(userPrompt)
+  const projectDir = process.argv[2]
+  manicode(projectDir)
 }

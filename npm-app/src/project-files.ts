@@ -6,7 +6,12 @@ import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { FileChanges } from 'common/actions'
 import { filterObject } from 'common/util/object'
 import { scrapeWebPage, parseUrlsFromContent } from './web-scraper'
-import { projectRoot } from './config'
+
+let projectRoot: string
+
+export function initProjectRoot(dir: string | undefined) {
+  projectRoot = path.resolve(dir || process.cwd())
+}
 
 export const applyChanges = (changes: FileChanges) => {
   const changesSuceeded = []

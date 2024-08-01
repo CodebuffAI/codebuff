@@ -16,8 +16,8 @@
     "prepublishOnly": "yarn build && node clean-package.js",
     "postpublish": "node -e \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\"",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "start-js": "node dist/index.js",
-    "start": "ts-node src/index.ts",
+    "start-js": "node dist/index.js ..",
+    "start": "ts-node src/index.ts ..",
     "start-prod": "NODE_ENV=production ts-node src/index.ts",
     "ssh": "gcloud compute ssh manicode-backend --zone=us-east4-a"
   },

@@ -115,7 +115,7 @@ export class CLI {
     return {}
   }
 
-  public async handleUserInput(userInput: string) {
+  private async handleUserInput(userInput: string) {
     if (!userInput) return
 
     // Handle "undo" and "redo" commands
