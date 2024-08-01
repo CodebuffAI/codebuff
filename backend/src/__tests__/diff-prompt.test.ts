@@ -4,7 +4,7 @@ import { generateDiffBlocks } from '../generate-diffs-prompt'
 import { applyPatch } from 'diff'
 import { debugLog } from '../debug'
 
-const CLAUDE_CALL_TIMEOUT = 1000 * 150
+const CLAUDE_CALL_TIMEOUT = 1000 * 200
 
 const runDiffTest = async (dir: string, mockFilePath: string) => {
   const oldFile = fs.readFileSync(`${dir}/old.ts`, 'utf8')
@@ -94,13 +94,10 @@ describe('generateDiffs', () => {
     CLAUDE_CALL_TIMEOUT
   )
 
-  it.only(
+  it(
     'should work on large javascript file, graph',
     async () => {
-      await runDiffTest(
-        'src/__tests__/__mock-data__/graph',
-        'src/graph.ts'
-      )
+      await runDiffTest('src/__tests__/__mock-data__/graph', 'src/graph.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
