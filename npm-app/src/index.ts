@@ -8,7 +8,9 @@ import { getProjectFileContext, initProjectRoot } from './project-files'
 
 async function manicode(projectDir: string | undefined) {
   const dir = initProjectRoot(projectDir)
-  console.log(`Manicode will read and write files in "${dir}". Press ESC for menu.`)
+  console.log(
+    `Manicode will read and write files in "${dir}". Press ESC for menu.`
+  )
   // Preload.
   getProjectFileContext()
 
