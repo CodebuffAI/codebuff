@@ -2,7 +2,11 @@ import fs from 'fs'
 import path from 'path'
 import * as ignore from 'ignore'
 
-import { createFileBlock, ProjectFileContext, FileTreeNode } from 'common/util/file'
+import {
+  createFileBlock,
+  ProjectFileContext,
+  FileTreeNode,
+} from 'common/util/file'
 import { FileChanges } from 'common/actions'
 import { filterObject } from 'common/util/object'
 import { scrapeWebPage, parseUrlsFromContent } from './web-scraper'
@@ -318,11 +322,13 @@ function getProjectFileTree(): FileTreeNode {
             })
           }
         } catch (error: any) {
-          console.error(`Error processing file ${filePath}:`, error)
+          // Don't print errors, you probably just don't have access to the file.
+          // console.error(`Error processing file ${filePath}:`, error)
         }
       }
     } catch (error: any) {
-      console.error(`Error reading directory ${dir}:`, error)
+      // Don't print errors, you probably just don't have access to the directory.
+      // console.error(`Error reading directory ${dir}:`, error)
     }
 
     return {
