@@ -26,7 +26,7 @@ export class CLI {
     })
 
     this.rl.on('line', (line) => {
-      if (!this.isReceivingResponse) {
+      if (!this.isReceivingResponse && !this.isInMenu) {
         this.handleUserInput(line.trim())
       }
     })
@@ -51,7 +51,7 @@ export class CLI {
   }
 
   public printInitialPrompt() {
-    console.log('What would you like to do? Press ESC for menu.')
+    console.log('What would you like to do?')
     this.rl.prompt()
   }
 

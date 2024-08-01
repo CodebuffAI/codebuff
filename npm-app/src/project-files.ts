@@ -15,6 +15,7 @@ let projectRoot: string
 
 export function initProjectRoot(dir: string | undefined) {
   projectRoot = path.resolve(dir || process.cwd())
+  return projectRoot
 }
 
 export const applyChanges = (changes: FileChanges) => {
