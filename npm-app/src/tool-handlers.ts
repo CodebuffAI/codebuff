@@ -49,10 +49,7 @@ export const handleRunTerminalCommand: ToolHandler = async (
   const { command } = input
   try {
     const { stdout, stderr } = await execAsync(command)
-    if (stderr) {
-      return `<terminal_command_error>${stderr}</terminal_command_error>`
-    }
-    return `<terminal_command_result>${stdout}</terminal_command_result>`
+    return `<terminal_command_result>\n<stdout>${stdout}</stdout>\n<stderr>${stderr}</stderr>\n</terminal_command_result>`
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return `<terminal_command_error>Failed to execute command: ${message}</terminal_command_error>`
