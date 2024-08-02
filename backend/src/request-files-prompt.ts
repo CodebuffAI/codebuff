@@ -1,3 +1,5 @@
+import { uniq } from 'lodash'
+
 import { Message } from 'common/actions'
 import {
   ProjectFileContext,
@@ -24,18 +26,10 @@ export async function requestRelevantFiles(
     ),
   ])
 
-  debugLog('Key files:', keyResult.files)
-  debugLog('Key request time:', keyResult.duration.toFixed(0), 'ms')
-  debugLog('Comprehensive files:', comprehensiveResult.files)
-  debugLog(
-    'Comprehensive request time:',
-    comprehensiveResult.duration.toFixed(0),
-    'ms'
-  )
+  const dedupedFiles = uniq([...keyResult.files, ...comprehensiveResult.files])
 
-  const dedupedFiles = Array.from(
-    new Set([...keyResult.files, ...comprehensiveResult.files])
-  )
+  debugLog('Key files:', keyResult.files)
+  debugLog('Comprehensive files:', comprehensiveResult.files)
   debugLog('Deduped files:', dedupedFiles)
 
   return dedupedFiles
@@ -51,9 +45,15 @@ async function getRelevantFiles(
   const end = performance.now()
   const duration = end - start
 
+  debugLog(`${requestType} response time:`, duration.toFixed(0), 'ms')
+  debugLog(`${requestType} response:`, response)
+
   const fileListMatch = response.match(/<file_list>([\s\S]*?)<\/file_list>/)
   if (!fileListMatch) {
     console.error(
+      `Failed to extract file list from Claude response for ${requestType} request`
+    )
+    debugLog(
       `Failed to extract file list from Claude response for ${requestType} request`
     )
     return { files: [], duration }

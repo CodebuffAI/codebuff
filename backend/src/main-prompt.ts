@@ -36,7 +36,6 @@ export async function mainPrompt(
   )
 
   const relevantFiles = await requestRelevantFiles(messages, fileContext)
-  debugLog('Relevant files:', relevantFiles)
 
   // Load relevant files content
   const fileContents = await requestFiles(ws, relevantFiles)
@@ -64,6 +63,8 @@ export async function mainPrompt(
 <relevant_files>
 Here are some relevant files to aid in the user request, ordered by most important first:
 ${fileBlocks}
+
+You can read more files with the read_files tool.
 </relevant_files>
 
 <additional_instruction>
