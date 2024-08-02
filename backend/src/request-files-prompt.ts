@@ -3,7 +3,7 @@ import {
   ProjectFileContext,
   printFileTree,
   createFileBlock,
-} from 'common/src/util/file'
+} from 'common/util/file'
 import { models, promptClaude } from './claude'
 import { debugLog } from './debug'
 
