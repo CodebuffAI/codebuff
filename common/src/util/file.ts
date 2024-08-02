@@ -62,3 +62,14 @@ export const parseFileBlocksWithoutPath = (fileBlocks: string) => {
   }
   return files
 }
+
+export function printFileTree(node: FileTreeNode, depth: number = 0): string {
+  const indent = '\t'.repeat(depth)
+  let result = `${indent}${node.name}${node.type === 'directory' ? '/' : ''}\n`
+  if (node.children) {
+    for (const child of node.children) {
+      result += printFileTree(child, depth + 1)
+    }
+  }
+  return result
+}
