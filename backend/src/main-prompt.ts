@@ -1,12 +1,14 @@
 import { WebSocket } from 'ws'
 import fs from 'fs'
 import path from 'path'
+import { Tool } from '@anthropic-ai/sdk/resources'
 
 import { promptClaudeStream } from './claude'
 import {
   ProjectFileContext,
   parseFileBlocks,
   fileRegex,
+  createFileBlock,
 } from 'common/util/file'
 import { getSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
@@ -14,9 +16,9 @@ import { getTools } from './tools'
 import { Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './debug'
-import { requestFile } from './websockets/websocket-action'
+import { requestFiles, requestFile } from './websockets/websocket-action'
 import { generateDiffBlocks } from './generate-diffs-prompt'
-import { Tool } from '@anthropic-ai/sdk/resources'
+import { requestRelevantFiles } from './request-files-prompt'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -32,6 +34,17 @@ export async function mainPrompt(
     'messages:',
     messages.length
   )
+
+  const relevantFiles = await requestRelevantFiles(messages, fileContext)
+  debugLog('Relevant files:', relevantFiles)
+
+  // Load relevant files content
+  const fileContents = await requestFiles(ws, relevantFiles)
+  const fileBlocks = Object.entries(fileContents)
+    .filter(([_, content]) => content !== null)
+    .map(([filePath, content]) => createFileBlock(filePath, content!))
+    .join('\n')
+
   let fullResponse = ''
   let toolCall: ToolCall | null = null
   let continuedMessages: Message[] = []
@@ -47,6 +60,10 @@ export async function mainPrompt(
   const lastMessage = messages[messages.length - 1]
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
     lastMessage.content = `${lastMessage.content}
+
+<relevant_files>
+${fileBlocks}
+</relevant_files>
 
 <additional_instruction>
 Always end your response with the following marker:
