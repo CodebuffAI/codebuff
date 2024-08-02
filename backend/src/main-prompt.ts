@@ -62,6 +62,7 @@ export async function mainPrompt(
     lastMessage.content = `${lastMessage.content}
 
 <relevant_files>
+Here are some relevant files to aid in the user request, ordered by most important first:
 ${fileBlocks}
 </relevant_files>
 

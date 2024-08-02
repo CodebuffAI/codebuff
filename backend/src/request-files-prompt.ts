@@ -108,6 +108,7 @@ Please follow these steps to determine which files to request:
 3. Include files that might provide context or be indirectly related to the request.
 4. Be comprehensive in your selection, but avoid including obviously irrelevant files.
 5. Include any files previously referenced in the conversation.
+6. Order the files by most important first.
 
 Provide a brief explanation of your selection process, then list all the file paths you think might be relevant for addressing the user's request.
 
@@ -165,6 +166,7 @@ Please follow these steps to determine which key files to request:
    - Primary test files (if testing is involved)
 3. Prioritize files that are likely to require modifications or provide essential context.
 4. Limit your selection to approximately 6 files to ensure a focused approach.
+5. Order the files by most important first.
 
 Provide a brief explanation of your selection process, then list the file paths you think are most crucial for addressing the user's request.
 
