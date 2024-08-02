@@ -5,35 +5,21 @@ This document provides an overview of the Manicode backend architecture, key com
 
 ## Table of Contents
 
-1. [Project Structure](#project-structure)
+1. [Architecture Overview](#architecture-overview)
 2. [Key Technologies](#key-technologies)
 3. [Main Components](#main-components)
 4. [WebSocket Communication](#websocket-communication)
 5. [Claude Integration](#claude-integration)
 6. [File Management](#file-management)
-7. [Web Scraping](#web-scraping)
-8. [Development Guidelines](#development-guidelines)
-9. [Prompts](#prompts)
+7. [Tool Handling](#tool-handling)
+8. [Error Handling and Debugging](#error-handling-and-debugging)
+9. [Build and Deployment](#build-and-deployment)
+10. [Security Considerations](#security-considerations)
+11. [TODO List](#todo-list)
 
-## Project Structure
+## Architecture Overview
 
-The backend directory is organized as follows:
-
-```
-backend/
-├── src/
-│   ├── websockets/
-│   │   ├── server.ts
-│   │   ├── switchboard.ts
-│   │   └── websocket-action.ts
-│   ├── claude.ts
-│   ├── prompts.ts
-│   ├── server.ts
-│   ├── system-prompt.ts
-│   └── tools.ts
-├── package.json
-└── tsconfig.json
-```
+The Manicode backend is built on Node.js using TypeScript. It uses an Express server for HTTP requests and a WebSocket server for real-time communication with clients. The backend integrates with the Claude AI model to process user inputs and generate code changes.
 
 ## Key Technologies
 
@@ -45,33 +31,21 @@ backend/
 
 ## Main Components
 
-### 1. Server (server.ts)
+1. **Express Server (index.ts)**: The main entry point for the backend application. It sets up the Express server and initializes the WebSocket server.
 
-The main entry point for the backend application. It sets up the Express server and initializes the WebSocket server.
+2. **WebSocket Server (websockets/server.ts)**: Handles real-time communication with clients. It manages connections, message parsing, and routing of WebSocket messages.
 
-### 2. WebSocket Server (websockets/server.ts)
+3. **Claude Integration (claude.ts)**: Provides functions for interacting with the Claude AI model, including streaming responses and handling tool calls.
 
-Handles real-time communication with clients. It manages connections, message parsing, and routing of WebSocket messages.
+4. **Main Prompt Handler (main-prompt.ts)**: Processes user inputs, generates responses, and manages file changes and tool calls.
 
-### 3. Switchboard (websockets/switchboard.ts)
+5. **System Prompt Generator (system-prompt.ts)**: Creates the initial prompt for the AI assistant with project-specific context and instructions.
 
-Manages client connections, subscriptions, and topics. It's responsible for tracking client states and handling pub/sub functionality.
+6. **File Diff Generation (generate-diffs-prompt.ts, generate-diffs-via-expansion.ts)**: Generates diffs for file changes and handles expansion of shortened file content.
 
-### 4. Claude Integration (claude.ts)
+7. **Relevant File Request (request-files-prompt.ts)**: Determines which files are relevant for a given user request.
 
-Provides functions for interacting with the Claude AI model, including streaming responses and handling tool calls.
-
-### 5. Prompts (prompts.ts)
-
-Contains functions for generating prompts, processing Claude's responses, and managing file changes based on AI suggestions.
-
-### 6. System Prompt (system-prompt.ts)
-
-Generates the system prompt used for initializing the AI assistant with project-specific context and instructions.
-
-### 7. Tools (tools.ts)
-
-Defines the available tools that can be used by the AI assistant, such as reading project files.
+8. **Tools Definition (tools.ts)**: Defines the available tools that can be used by the AI assistant.
 
 ## WebSocket Communication
 
@@ -114,13 +88,39 @@ The backend now includes a web scraping tool that allows the AI assistant to ret
 - **Input**: A URL of the web page to scrape
 - **Output**: The content of the scraped web page
 
-## TODO
+## Tool Handling
 
-- Implement authentication and authorization for WebSocket connections.
-- Add more comprehensive error handling and logging.
-- Develop a caching mechanism for frequently accessed file contents.
-- Implement rate limiting for AI requests to manage resource usage.
-- Create a robust testing suite for backend components.
+The backend implements a tool handling system that allows the AI assistant to perform various actions:
+
+1. **Tool Definition**: Tools are defined in `tools.ts`, specifying their name, description, and input schema.
+2. **Available Tools**: Current tools include read_files, scrape_web_page, search_manifold_markets, and run_terminal_command.
+3. **Tool Execution**: When the AI makes a tool call, the backend processes it and provides the results back to the AI.
+
+## Error Handling and Debugging
+
+1. **Logging**: The `debug.ts` file provides logging functionality for debugging purposes.
+2. **Error Catching**: WebSocket errors are caught and logged in both server and client code.
+3. **Graceful Degradation**: The system attempts to handle errors gracefully, providing meaningful error messages when possible.
+
+## Build and Deployment
+
+1. **Build Process**: The backend uses TypeScript compilation to build the project.
+2. **Docker Support**: A Dockerfile is provided for containerization of the backend.
+3. **Deployment Script**: The `deploy.sh` script automates the build and deployment process to Google Cloud Platform.
+
+## Security Considerations
+
+1. **Environment Variables**: Sensitive information (e.g., API keys) is stored in environment variables.
+2. **Input Validation**: User input is validated and sanitized before processing.
+3. **File Access Restrictions**: File operations are restricted to the project directory to prevent unauthorized access.
+
+## TODO List
+
+1. Implement authentication and authorization for WebSocket connections.
+2. Add more comprehensive error handling and logging.
+3. Implement rate limiting for AI requests to manage resource usage.
+4. Create a robust testing suite for backend components.
+5. Optimize the file diff generation process for better reliability and performance.
 
 ## Debugging Docker Issues
 
