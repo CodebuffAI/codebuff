@@ -2,6 +2,14 @@
 
 Manicode is a tool for editing codebases via natural language instruction to Manny, an expert AI programming assistant.
 
+## Project Goals
+
+1. **Developer Productivity**: Reduce the time and effort required for common programming tasks, allowing developers to focus on higher-level problem-solving.
+
+2. **Learning and Adaptation**: Develop a system that learns from user interactions and improves its assistance over time.
+
+3. **Focus on power users**: Make expert software engineers move even faster.
+
 ## Key Technologies
 
 - **TypeScript**: The primary programming language used throughout the project.
