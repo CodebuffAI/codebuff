@@ -76,47 +76,13 @@ function parseGitignore(dirPath: string): ignore.Ignore {
 
   if (fs.existsSync(gitignorePath)) {
     const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8')
-    ig.add(gitignoreContent)
-  }
-
-  return ig
-}
-
-function loadAllProjectFiles(projectRoot: string): string[] {
-  const allFiles: string[] = []
-
-  function getAllFiles(dir: string, parentIgnore: ignore.Ignore) {
-    const currentIgnore = parseGitignore(dir)
-    const mergedIgnore = ignore.default().add(parentIgnore).add(currentIgnore)
-
-    try {
-      const files = fs.readdirSync(dir)
-      for (const file of files) {
-        const filePath = path.join(dir, file)
-        const relativeFilePath = path.relative(projectRoot, filePath)
-
-        if (mergedIgnore.ignores(relativeFilePath)) {
-          continue
-        }
-
-        try {
-          const stats = fs.statSync(filePath)
-          if (stats.isDirectory()) {
-            getAllFiles(filePath, mergedIgnore)
-          } else {
-            allFiles.push(filePath)
-          }
-        } catch (error: any) {
-          console.error(`Error processing file ${filePath}:`, error)
-        }
-      }
-    } catch (error: any) {
-      console.error(`Error reading directory ${dir}:`, error)
+    const lines = gitignoreContent.split('\n')
+    for (const line of lines) {
+      ig.add(line.startsWith('/') ? line.slice(1) : line)
     }
   }
 
-  getAllFiles(projectRoot, ignore.default())
-  return allFiles
+  return ig
 }
 
 export function getFiles(filePaths: string[]) {
@@ -292,13 +258,12 @@ export const deleteFile = (fullPath: string): boolean => {
 }
 
 function getProjectFileTree(): FileTreeNode {
-  const rootIgnore = parseGitignore(projectRoot)
-  rootIgnore.add('.git')
+  const defaultIgnore = ignore.default()
+  defaultIgnore.add('.git')
 
   function buildTree(dir: string, parentIgnore: ignore.Ignore): FileTreeNode {
     const currentIgnore = parseGitignore(dir)
     const mergedIgnore = ignore.default().add(parentIgnore).add(currentIgnore)
-
     const name = path.basename(dir)
     const children: FileTreeNode[] = []
 
@@ -339,7 +304,7 @@ function getProjectFileTree(): FileTreeNode {
     }
   }
 
-  return buildTree(projectRoot, rootIgnore)
+  return buildTree(projectRoot, defaultIgnore)
 }
 
 function getAllFilePaths(node: FileTreeNode, basePath: string = ''): string[] {
