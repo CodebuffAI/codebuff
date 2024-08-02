@@ -36,6 +36,9 @@ export async function mainPrompt(
   )
 
   const relevantFiles = await requestRelevantFiles(messages, fileContext)
+  onResponseChunk(
+    `Reading the following files...\n${relevantFiles.join(', ')}\n`
+  )
 
   // Load relevant files content
   const fileContents = await requestFiles(ws, relevantFiles)

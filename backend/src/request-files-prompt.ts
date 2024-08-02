@@ -45,6 +45,7 @@ async function getRelevantFiles(
   const end = performance.now()
   const duration = end - start
 
+  debugLog(`${requestType} prompt:`, prompt)
   debugLog(`${requestType} response time:`, duration.toFixed(0), 'ms')
   debugLog(`${requestType} response:`, response)
 

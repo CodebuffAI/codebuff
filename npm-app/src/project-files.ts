@@ -257,14 +257,13 @@ export const deleteFile = (fullPath: string): boolean => {
   }
 }
 
-function getProjectFileTree(): FileTreeNode {
+function getProjectFileTree(): FileTreeNode[] {
   const defaultIgnore = ignore.default()
   defaultIgnore.add('.git')
 
-  function buildTree(dir: string, parentIgnore: ignore.Ignore): FileTreeNode {
+  function buildTree(dir: string, parentIgnore: ignore.Ignore): FileTreeNode[] {
     const currentIgnore = parseGitignore(dir)
     const mergedIgnore = ignore.default().add(parentIgnore).add(currentIgnore)
-    const name = path.basename(dir)
     const children: FileTreeNode[] = []
 
     try {
@@ -280,7 +279,11 @@ function getProjectFileTree(): FileTreeNode {
         try {
           const stats = fs.statSync(filePath)
           if (stats.isDirectory()) {
-            children.push(buildTree(filePath, mergedIgnore))
+            children.push({
+              name: file,
+              type: 'directory',
+              children: buildTree(filePath, mergedIgnore),
+            })
           } else {
             children.push({
               name: file,
@@ -297,22 +300,17 @@ function getProjectFileTree(): FileTreeNode {
       // console.error(`Error reading directory ${dir}:`, error)
     }
 
-    return {
-      name,
-      type: 'directory',
-      children,
-    }
+    return children
   }
 
   return buildTree(projectRoot, defaultIgnore)
 }
 
-function getAllFilePaths(node: FileTreeNode, basePath: string = ''): string[] {
-  if (node.type === 'file') {
-    return [path.join(basePath, node.name)]
-  }
-
-  return (node.children || []).flatMap((child) =>
-    getAllFilePaths(child, path.join(basePath, node.name))
-  )
+function getAllFilePaths(nodes: FileTreeNode[], basePath: string = ''): string[] {
+  return nodes.flatMap((node) => {
+    if (node.type === 'file') {
+      return [path.join(basePath, node.name)]
+    }
+    return getAllFilePaths(node.children || [], path.join(basePath, node.name))
+  })
 }

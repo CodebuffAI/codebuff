@@ -14,7 +14,7 @@ export interface FileTreeNode {
 
 export const ProjectFileContextSchema = z.object({
   currentWorkingDirectory: z.string(),
-  fileTree: FileTreeNodeSchema,
+  fileTree: z.array(FileTreeNodeSchema),
   exportedTokens: z.record(z.string(), z.array(z.string())),
   knowledgeFiles: z.record(z.string(), z.string()),
 })
@@ -63,13 +63,14 @@ export const parseFileBlocksWithoutPath = (fileBlocks: string) => {
   return files
 }
 
-export function printFileTree(node: FileTreeNode, depth: number = 0): string {
-  const indent = '\t'.repeat(depth)
-  let result = `${indent}${node.name}${node.type === 'directory' ? '/' : ''}\n`
-  if (node.children) {
-    for (const child of node.children) {
-      result += printFileTree(child, depth + 1)
+export function printFileTree(nodes: FileTreeNode[], depth: number = 0): string {
+  let result = '';
+  for (const node of nodes) {
+    const indent = '\t'.repeat(depth);
+    result += `${indent}${node.name}${node.type === 'directory' ? '/' : ''}\n`;
+    if (node.type === 'directory' && node.children) {
+      result += printFileTree(node.children, depth + 1);
     }
   }
-  return result
+  return result;
 }
