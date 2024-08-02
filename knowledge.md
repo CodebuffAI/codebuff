@@ -74,8 +74,61 @@ Manny can now execute terminal commands using the `run_terminal_command` tool. T
 
 - **Max Tokens Limit**: The context for Claude AI has a maximum limit of 200,000 tokens. This is an important constraint to consider when designing prompts and managing project file information.
 
+## WebSocket Communication Flow
+
+1. Client connects to the WebSocket server.
+2. Client sends user input and file context to the server.
+3. Server processes the input using Claude AI.
+4. Server streams response chunks back to the client.
+5. Client receives and displays the response in real-time.
+6. Server sends file changes to the client for application.
+
+## File Versioning System
+
+- The ChatStorage class manages file versions for each chat session.
+- Users can navigate between file versions using CTRL+U (undo) and CTRL+R (redo).
+- File versions are stored as snapshots of the entire file state at each change.
+
+## Tool Handling System
+
+- Tools are defined in `backend/src/tools.ts` and implemented in `npm-app/src/tool-handlers.ts`.
+- Available tools: read_files, scrape_web_page, search_manifold_markets, run_terminal_command.
+- The backend uses tool calls to request additional information or perform actions.
+- The client-side handles tool calls and sends results back to the server.
+
+## CLI Interface Features
+
+- Non-canonical mode for improved key handling.
+- Navigation using arrow keys for input and command history.
+- File version control using CTRL+U and CTRL+R.
+- ESC key to toggle menu or stop AI response.
+- CTRL+C to exit the application.
+
+## Build and Publish Process
+
+- The `prepublishOnly` script runs `clean-package.js` before publishing.
+- `clean-package.js` modifies `package.json` to remove unnecessary information.
+- The `postpublish` script restores the original `package.json`.
+- NODE_ENV is set to 'production' for the published package at runtime.
+
+## Error Handling and Debugging
+
+- The `debug.ts` file provides logging functionality for debugging.
+- Error messages are logged to the console and, in some cases, to a debug log file.
+- WebSocket errors are caught and logged in the server and client code.
+
+## Security Considerations
+
+- The project uses environment variables for sensitive information (e.g., API keys).
+- WebSocket connections should be secured in production (e.g., using WSS).
+- User input is validated and sanitized before processing.
+- File operations are restricted to the project directory to prevent unauthorized access.
+
 ## TODO
-- None
+- Implement authentication and authorization for WebSocket connections.
+- Add more comprehensive error handling and logging.
+- Implement rate limiting for AI requests to manage resource usage.
+- Create a robust testing suite for all components.
 
 # Code guide
 

@@ -13,6 +13,7 @@ This document provides an overview of the Manicode backend architecture, key com
 6. [File Management](#file-management)
 7. [Web Scraping](#web-scraping)
 8. [Development Guidelines](#development-guidelines)
+9. [Prompts](#prompts)
 
 ## Project Structure
 
@@ -134,3 +135,23 @@ The backend now includes a web scraping tool that allows the AI assistant to ret
 - The `dist` directory should be ignored by Git to avoid checking in build files.
 - However, the `dist` directory needs to be included in the Docker image for the application to run correctly.
 - The build process should occur before creating the Docker image to ensure the latest compiled files are included.
+
+## Prompts
+
+The backend uses several prompts to guide the AI assistant's behavior:
+
+1. **System Prompt**: Initializes the AI assistant with project-specific context and instructions.
+2. **Request Files Prompt**: Determines which files are relevant to a user's request.
+3. **Main Prompt**: Processes the user's input and generates responses, including code changes.
+
+### Request Files Prompt
+
+- Located in `src/request-files-prompt.ts`
+- Purpose: Identify all potentially relevant files for a user's request
+- Key features:
+  - Uses chain-of-thought reasoning to consider all possible relevant files
+  - Aims to be comprehensive, requesting up to 100 files or more if necessary
+  - Considers indirect dependencies and files that provide context
+  - Outputs a thought process and a list of file paths
+
+The Request Files Prompt is executed before the Main Prompt to ensure that all necessary files are loaded into the system context before processing the user's request.

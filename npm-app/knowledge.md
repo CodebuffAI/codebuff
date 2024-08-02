@@ -121,3 +121,56 @@ These changes aim to provide a more intuitive and familiar experience for users 
 ## Note on Project Evolution
 
 As an AI-powered tool, Manicode is designed to learn and evolve. It can update knowledge files as it works, improving its understanding and capabilities over time.
+
+## WebSocket Communication
+
+The `Client` class in `client.ts` manages WebSocket communication with the server:
+
+- Connects to the WebSocket server specified in the configuration.
+- Sends user input and receives responses from the AI.
+- Handles tool calls and their responses.
+- Manages the response stream, allowing for real-time updates and the ability to stop ongoing responses.
+
+## File Management
+
+The `project-files.ts` module handles all file-related operations:
+
+- Reads and writes files within the project directory.
+- Traverses the project structure, respecting `.gitignore` files.
+- Applies changes to files based on AI suggestions.
+- Manages file versioning for undo/redo functionality.
+
+## Tool Handlers
+
+The `tool-handlers.ts` file implements handlers for various tools:
+
+- `read_files`: Reads contents of specified files.
+- `scrape_web_page`: Retrieves content from a given URL.
+- `search_manifold_markets`: Searches for relevant prediction markets.
+- `run_terminal_command`: Executes shell commands in the user's terminal.
+
+These tools extend Manicode's capabilities, allowing it to gather information and perform actions beyond simple code manipulation.
+
+## Error Handling
+
+Error handling is implemented throughout the application:
+
+- WebSocket connection errors are caught and logged.
+- File read/write errors are handled gracefully.
+- Tool execution errors are captured and reported back to the AI.
+
+Developers should continue to improve error handling to ensure a smooth user experience and easier debugging.
+
+## Security Considerations
+
+- The application runs commands in the user's terminal, which could potentially be dangerous. Users should be cautious when using Manicode on sensitive projects.
+- File operations are restricted to the project directory to prevent unauthorized access to the user's system.
+- Web scraping and external API calls (e.g., Manifold Markets) should be used responsibly and in compliance with the respective services' terms of use.
+
+## Future Improvements
+
+1. Implement user authentication for the WebSocket connection.
+2. Add more robust error handling and user-friendly error messages.
+3. Implement a caching system for frequently accessed files to improve performance.
+4. Create a comprehensive test suite to ensure reliability across different environments.
+5. Enhance the CLI with more features, such as chat history browsing and export/import functionality.
