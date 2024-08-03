@@ -12,7 +12,6 @@ const runDiffTest = async (dir: string, mockFilePath: string) => {
 
   const patch = await generatePatch(oldFile, newFile, mockFilePath, [])
   const updatedFile = applyPatch(oldFile, patch)
-  debugLog('patch', patch)
 
   expect(updatedFile).toEqual(expectedFile)
 }
