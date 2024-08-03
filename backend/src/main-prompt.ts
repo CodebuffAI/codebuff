@@ -147,7 +147,7 @@ ${STOP_MARKER}
 }
 
 function getRelevantFileInfoMessage(filePaths: string[]) {
-  return `Reading the following files...\n<files>${filePaths.join(', ')}</files>\n`
+  return `Reading the following files...<files>${filePaths.join(', ')}</files>\n\n`
 }
 
 async function updateFileContext(

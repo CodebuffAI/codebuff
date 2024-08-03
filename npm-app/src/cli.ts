@@ -1,5 +1,6 @@
 import { uniqBy } from 'lodash'
 import * as readline from 'readline'
+import chalk from 'chalk'
 
 import { ChatStorage } from './chat-storage'
 import { Client } from './client'
@@ -66,7 +67,7 @@ export class CLI {
   }
 
   private navigateFileVersion(direction: 'undo' | 'redo') {
-    console.log('Navigating file version', direction)
+    console.log(chalk.blue(`Navigating file version ${direction}`))
     const currentVersion = this.chatStorage.getCurrentVersion()
     const filePaths = Object.keys(currentVersion ? currentVersion.files : {})
     const currentFiles = getExistingFiles(filePaths)
@@ -76,12 +77,15 @@ export class CLI {
 
     if (navigated) {
       const files = this.applyAndDisplayCurrentFileVersion()
-      console.log('Loaded files:', Object.keys(files).join(', '))
+      console.log(
+        chalk.green('Loaded files:'),
+        chalk.cyan(Object.keys(files).join(', '))
+      )
     }
   }
 
   private handleStopResponse() {
-    console.log('\n[Response stopped by user]')
+    console.log(chalk.yellow('\n[Response stopped by user]'))
     this.isReceivingResponse = false
     if (this.stopResponse) {
       this.stopResponse()
@@ -89,7 +93,7 @@ export class CLI {
   }
 
   private handleExit() {
-    console.log('Exiting. Manicode out!')
+    console.log(chalk.magenta('Exiting. Manicode out!'))
     process.exit(0)
   }
 
@@ -134,7 +138,7 @@ export class CLI {
       return
     }
 
-    console.log('...')
+    console.log(chalk.gray('...'))
 
     const newMessage: Message = { role: 'user', content: userInput }
     this.chatStorage.addMessage(this.chatStorage.getCurrentChat(), newMessage)
@@ -153,13 +157,13 @@ export class CLI {
     for (const change of uniqBy(changesSuceeded, 'filePath')) {
       const { filePath, old, new: newContent } = change
       if (newContent === '[DELETE]') {
-        console.log('-', 'Deleted', filePath)
+        console.log(chalk.red('-', 'Deleted', filePath))
       } else {
-        console.log('-', old ? 'Updated' : 'Created', filePath)
+        console.log(chalk.green('-', old ? 'Updated' : 'Created', filePath))
       }
     }
     if (changesSuceeded.length > 0) {
-      console.log('Complete!\n')
+      console.log(chalk.green('Complete!\n'))
     } else console.log()
 
     const assistantMessage: Message = {
