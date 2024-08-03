@@ -216,3 +216,4 @@ Notes from Janna & Stephen test
     - Before editing a file, get it to say what changes it will make and then edit just those sections.
 [] Consider confirming with the user whether to go ahead and make a change if not that confident or want more input from the user
 [] Force updates: run the command to update app.
+[] Store previous user input's and always include that history in system prompt.

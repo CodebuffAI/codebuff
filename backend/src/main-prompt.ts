@@ -108,7 +108,6 @@ ${STOP_MARKER}
       debugLog('Reached STOP_MARKER')
     } else if (toolCall) {
       if (toolCall.name === 'update_file_context') {
-        console.log('tool call update_file_context', toolCall.input['prompt'])
         const relevantFiles = await requestRelevantFiles(
           messages,
           fileContext,

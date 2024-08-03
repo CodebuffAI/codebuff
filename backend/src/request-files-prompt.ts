@@ -112,7 +112,7 @@ Additionally, the assistant has requested files with the following prompt:
 
 Please follow these steps to determine which files to request:
 
-1. Analyze the user's last request and the assitant's prompt and identify all components or tasks involved.
+1. Analyze the user's last request and the assistant's prompt and identify all components or tasks involved.
 2. Consider all areas of the codebase that might be related to the request, including:
    - Main functionality files
    - Configuration files
@@ -180,7 +180,7 @@ Additionally, the assistant has requested files with the following prompt:
 
 Please follow these steps to determine which key files to request:
 
-1. Analyze the user's last request and the assitant's prompt and identify the core components or tasks.
+1. Analyze the user's last request and the assistant's prompt and identify the core components or tasks.
 2. Focus on the most critical areas of the codebase that are directly related to the request, such as:
    - Main functionality files
    - Key configuration files
