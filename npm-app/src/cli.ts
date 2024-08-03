@@ -79,7 +79,7 @@ export class CLI {
       const files = this.applyAndDisplayCurrentFileVersion()
       console.log(
         chalk.green('Loaded files:'),
-        chalk.cyan(Object.keys(files).join(', '))
+        chalk.green(Object.keys(files).join(', '))
       )
     }
   }
@@ -163,7 +163,7 @@ export class CLI {
       }
     }
     if (changesSuceeded.length > 0) {
-      console.log(chalk.green('Complete!\n'))
+      console.log('Complete!\n')
     } else console.log()
 
     const assistantMessage: Message = {
