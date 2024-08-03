@@ -12,7 +12,7 @@ async function manicode(projectDir: string | undefined) {
     `Manicode will read and write files in "${dir}". Press ESC for menu.`
   )
   // Preload.
-  getProjectFileContext()
+  getProjectFileContext([])
 
   const chatStorage = new ChatStorage()
 

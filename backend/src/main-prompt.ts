@@ -35,40 +35,32 @@ export async function mainPrompt(
     messages.length
   )
 
-  const relevantFiles = await requestRelevantFiles(messages, fileContext)
-  onResponseChunk(
-    `Reading the following files...\n${relevantFiles.join(', ')}\n`
-  )
-
-  // Load relevant files content
-  const fileContents = await requestFiles(ws, relevantFiles)
-  const fileBlocks = Object.entries(fileContents)
-    .filter(([_, content]) => content !== null)
-    .map(([filePath, content]) => createFileBlock(filePath, content!))
-    .join('\n')
-
   let fullResponse = ''
+
+  if (Object.keys(fileContext.files).length === 0) {
+    // If the fileContext.files is empty, use prompts to select files and add them to context.
+    const responseChunk = await updateFileContext(
+      ws,
+      fileContext,
+      messages,
+      null,
+      onResponseChunk
+    )
+    fullResponse += responseChunk
+  }
+
+  const tools = getTools()
+  const lastMessage = messages[messages.length - 1]
+  const fileProcessingPromises: Promise<
+    { filePath: string; old: string; new: string }[]
+  >[] = []
   let toolCall: ToolCall | null = null
   let continuedMessages: Message[] = []
   let currentFileBlock = ''
   let isComplete = false
-  const fileProcessingPromises: Promise<
-    { filePath: string; old: string; new: string }[]
-  >[] = []
 
-  const system = getSystemPrompt(fileContext)
-  const tools = getTools()
-
-  const lastMessage = messages[messages.length - 1]
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
     lastMessage.content = `${lastMessage.content}
-
-<relevant_files>
-Here are some relevant files to aid in the user request, ordered by most important first:
-${fileBlocks}
-
-You can read more files with the read_files tool.
-</relevant_files>
 
 <additional_instruction>
 Always end your response with the following marker:
@@ -77,6 +69,7 @@ ${STOP_MARKER}
   }
 
   while (!isComplete) {
+    const system = getSystemPrompt(fileContext)
     const messagesWithContinuedMessage = continuedMessages
       ? [...messages, ...continuedMessages]
       : messages
@@ -114,6 +107,17 @@ ${STOP_MARKER}
       fullResponse = fullResponse.replace(STOP_MARKER, '')
       debugLog('Reached STOP_MARKER')
     } else if (toolCall) {
+      if (toolCall.name === 'update_file_context') {
+        console.log('tool call update_file_context', toolCall.input['prompt'])
+        const relevantFiles = await requestRelevantFiles(
+          messages,
+          fileContext,
+          toolCall.input['prompt']
+        )
+        const responseChunk = getRelevantFileInfoMessage(relevantFiles)
+        onResponseChunk(responseChunk)
+        fullResponse += responseChunk
+      }
       isComplete = true
     } else {
       console.log('continuing to generate')
@@ -140,6 +144,37 @@ ${STOP_MARKER}
     changes,
     toolCall,
   }
+}
+
+function getRelevantFileInfoMessage(filePaths: string[]) {
+  return `Reading the following files...\n<files>${filePaths.join(', ')}</files>\n`
+}
+
+async function updateFileContext(
+  ws: WebSocket,
+  fileContext: ProjectFileContext,
+  messages: Message[],
+  prompt: string | null,
+  onResponseChunk: (chunk: string) => void
+) {
+  const relevantFiles = await requestRelevantFiles(
+    messages,
+    fileContext,
+    prompt
+  )
+
+  const responseChunk = getRelevantFileInfoMessage(relevantFiles)
+  onResponseChunk(responseChunk)
+
+  // Load relevant files content
+  const fileContents = await requestFiles(ws, relevantFiles)
+  const files = Object.fromEntries(
+    Object.entries(fileContents).filter(([_, content]) => content !== null)
+  ) as { [path: string]: string }
+
+  fileContext.files = files
+
+  return responseChunk
 }
 
 export async function processFileBlock(

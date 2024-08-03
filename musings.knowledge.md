@@ -213,4 +213,6 @@ Notes from Janna & Stephen test
 [] Kill if it continues too far without user prompt.
 [] Give it a new marker token that will await all file changes, so then it can run tsc or tests, etc.
 [] Prompt it not to generate the whole file when just making a local edit. Consider just reproducting the function edited. Or a block a code.
+    - Before editing a file, get it to say what changes it will make and then edit just those sections.
 [] Consider confirming with the user whether to go ahead and make a change if not that confident or want more input from the user
+[] Force updates: run the command to update app.

@@ -85,10 +85,21 @@ export class Client {
   }
 
   async sendUserInput(previousChanges: FileChanges) {
-    const fileContext = await getProjectFileContext()
+    const messages = this.chatStorage.getCurrentChat().messages
+    const messageText = messages.map((m) => JSON.stringify(m.content)).join('\n')
+    const filesContent = messageText.match(/<files>(.*?)<\/files>/gs)
+    const lastFilesContent = filesContent
+      ? filesContent[filesContent.length - 1]
+      : ''
+    const fileList = lastFilesContent
+      .replace(/<\/?files>/g, '')
+      .trim()
+      .split(', ')
+
+    const fileContext = await getProjectFileContext(fileList)
     this.webSocket.sendAction({
       type: 'user-input',
-      messages: this.chatStorage.getCurrentChat().messages,
+      messages,
       fileContext,
       previousChanges,
     })

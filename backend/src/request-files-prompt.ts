@@ -11,16 +11,21 @@ import { debugLog } from './debug'
 
 export async function requestRelevantFiles(
   messages: Message[],
-  fileContext: ProjectFileContext
+  fileContext: ProjectFileContext,
+  requestPrompt: string | null
 ): Promise<string[]> {
   const [keyResult, comprehensiveResult] = await Promise.all([
     getRelevantFiles(
-      generateKeyRequestFilesPrompt(messages, fileContext),
+      generateKeyRequestFilesPrompt(messages, fileContext, requestPrompt),
       models.sonnet,
       'Key'
     ),
     getRelevantFiles(
-      generateComprehensiveRequestFilesPrompt(messages, fileContext),
+      generateComprehensiveRequestFilesPrompt(
+        messages,
+        fileContext,
+        requestPrompt
+      ),
       models.haiku,
       'Comprehensive'
     ),
@@ -70,7 +75,8 @@ async function getRelevantFiles(
 
 function generateComprehensiveRequestFilesPrompt(
   messages: Message[],
-  fileContext: ProjectFileContext
+  fileContext: ProjectFileContext,
+  requestPrompt: string | null
 ): string {
   const { knowledgeFiles } = fileContext
   return `You are an AI assistant tasked with identifying relevant files for a user's request in a software project. Your goal is to select all files that might be useful for understanding and addressing the user's needs.
@@ -96,10 +102,17 @@ ${messages
   )
   .join('\n')}
 </message_history>
+${
+  requestPrompt
+    ? `
+Additionally, the assistant has requested files with the following prompt:
+<request_prompt>${requestPrompt}</request_prompt>`
+    : ''
+}
 
 Please follow these steps to determine which files to request:
 
-1. Analyze the user's last request and identify all components or tasks involved.
+1. Analyze the user's last request and the assitant's prompt and identify all components or tasks involved.
 2. Consider all areas of the codebase that might be related to the request, including:
    - Main functionality files
    - Configuration files
@@ -130,7 +143,8 @@ List each file path on a new line without any additional characters or formattin
 
 function generateKeyRequestFilesPrompt(
   messages: Message[],
-  fileContext: ProjectFileContext
+  fileContext: ProjectFileContext,
+  requestPrompt: string | null
 ): string {
   const { knowledgeFiles } = fileContext
   return `You are an AI assistant tasked with identifying the most relevant files for a user's request in a software project. Your goal is to select approximately 6 key files that are crucial for understanding and addressing the user's needs.
@@ -156,10 +170,17 @@ ${messages
   )
   .join('\n')}
 </message_history>
+${
+  requestPrompt
+    ? `
+Additionally, the assistant has requested files with the following prompt:
+<request_prompt>${requestPrompt}</request_prompt>`
+    : ''
+}
 
 Please follow these steps to determine which key files to request:
 
-1. Analyze the user's last request and identify the core components or tasks.
+1. Analyze the user's last request and the assitant's prompt and identify the core components or tasks.
 2. Focus on the most critical areas of the codebase that are directly related to the request, such as:
    - Main functionality files
    - Key configuration files

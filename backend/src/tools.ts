@@ -3,16 +3,18 @@ import { Tool } from '@anthropic-ai/sdk/resources'
 export const getTools = (): Tool[] => {
   return [
     {
-      name: 'read_files',
-      description: `Retrieves the current contents of files given a list of file paths in the user's project. You should provide an array of file paths that refer to existing files in the user's project. The tool will provide the file contents for each. It should be used frequently and liberally to gain context on the user's coding questions and before modifying each file. You should not invoke the tool more than once to read the same file if it likely has not changed. This tool should not be used to create or modify files directly -- only to read them.`,
+      name: 'update_file_context',
+      description: `Updates the context with a new set of files. Another assistant will try to choose files that will be helpful based on the message history. You should also provide a prompt that describes in natural language what files to add or remove from the context.`,
       input_schema: {
         type: 'object',
         properties: {
-          file_paths: {
-            type: 'array',
-            description: 'The file paths to read',
+          prompt: {
+            type: 'string',
+            description:
+              'A prompt that describes in natural language what files to add or remove from the context. You can list specific files, or give general instructions about what files to include.',
           },
         },
+        required: ['prompt'],
       },
     } as Tool,
     {
@@ -26,23 +28,7 @@ export const getTools = (): Tool[] => {
             description: 'The URL of the web page to scrape',
           },
         },
-      },
-    } as Tool,
-    {
-      name: 'search_manifold_markets',
-      description: `Searches for relevant markets on Manifold and returns a list of Yes/No markets with their probabilities. This tool should be used when the user wants to know about a future event, like who will win the next presidential election. You can search for a relevant prediction market, which is a question about the future, and get the market's forecast as a probability which you can interpret.`,
-      input_schema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'The search query for finding relevant binary markets',
-          },
-          limit: {
-            type: 'number',
-            description: 'The maximum number of markets to return (default: 5)',
-          },
-        },
+        required: ['url'],
       },
     } as Tool,
     {
@@ -59,5 +45,22 @@ export const getTools = (): Tool[] => {
         required: ['command'],
       },
     } as Tool,
+    // {
+    //   name: 'search_manifold_markets',
+    //   description: `Searches for relevant markets on Manifold and returns a list of Yes/No markets with their probabilities. This tool should be used when the user wants to know about a future event, like who will win the next presidential election. You can search for a relevant prediction market, which is a question about the future, and get the market's forecast as a probability which you can interpret.`,
+    //   input_schema: {
+    //     type: 'object',
+    //     properties: {
+    //       query: {
+    //         type: 'string',
+    //         description: 'The search query for finding relevant binary markets',
+    //       },
+    //       limit: {
+    //         type: 'number',
+    //         description: 'The maximum number of markets to return (default: 5)',
+    //       },
+    //     },
+    //   },
+    // } as Tool,
   ]
 }

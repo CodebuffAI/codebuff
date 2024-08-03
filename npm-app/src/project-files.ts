@@ -51,7 +51,7 @@ export const applyChanges = (changes: FileChanges) => {
   return changesSuceeded
 }
 
-export const getProjectFileContext = async () => {
+export const getProjectFileContext = async (fileList: string[]) => {
   const fileTree = getProjectFileTree()
   const knowledgeFilePaths = getAllFilePaths(fileTree).filter((filePath) =>
     filePath.endsWith('knowledge.md')
@@ -60,11 +60,14 @@ export const getProjectFileContext = async () => {
     await getExistingFilesWithScrapedContent(knowledgeFilePaths)
   const exportedTokens = {} // getExportedTokensForFiles(filePaths)
 
+  const files = getExistingFiles(fileList)
+
   const projectFileContext: ProjectFileContext = {
     currentWorkingDirectory: projectRoot,
     fileTree,
     exportedTokens,
     knowledgeFiles,
+    files,
   }
 
   return projectFileContext

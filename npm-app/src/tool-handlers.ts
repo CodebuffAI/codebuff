@@ -8,12 +8,11 @@ const execAsync = promisify(exec)
 
 export type ToolHandler = (input: any, id: string) => Promise<string>
 
-export const handleReadFiles: ToolHandler = async (
-  input: { file_paths: string[] },
+export const handleUpdateFileContext: ToolHandler = async (
+  input: { prompt: string },
   id: string
 ) => {
-  const { file_paths } = input
-  return getFileBlocks(file_paths)
+  return ''
 }
 
 export const handleScrapeWebPage: ToolHandler = async (
@@ -57,7 +56,7 @@ export const handleRunTerminalCommand: ToolHandler = async (
 }
 
 export const toolHandlers: Record<string, ToolHandler> = {
-  read_files: handleReadFiles,
+  update_file_context: handleUpdateFileContext,
   scrape_web_page: handleScrapeWebPage,
   search_manifold_markets: handleSearchManifoldMarkets,
   run_terminal_command: handleRunTerminalCommand,
