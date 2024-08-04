@@ -26,13 +26,7 @@ const MessageSchema = z.object({
 export type Message = z.infer<typeof MessageSchema>
 export type MessageContentObject = z.infer<typeof MessageContentObjectSchema>
 
-const CHANGES = z.array(
-  z.object({
-    filePath: z.string(),
-    old: z.string(),
-    new: z.string(),
-  })
-)
+export const CHANGES = z.array(z.string())
 export type FileChanges = z.infer<typeof CHANGES>
 
 export const ToolCallSchema = z.object({

@@ -2,13 +2,13 @@ import { WebSocket } from 'ws'
 import fs from 'fs'
 import path from 'path'
 import { Tool } from '@anthropic-ai/sdk/resources'
+import { createPatch } from 'diff'
 
 import { promptClaudeStream } from './claude'
 import {
   ProjectFileContext,
   parseFileBlocks,
   fileRegex,
-  createFileBlock,
 } from 'common/util/file'
 import { getSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
@@ -17,7 +17,7 @@ import { Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './debug'
 import { requestFiles, requestFile } from './websockets/websocket-action'
-import { generateDiffBlocks } from './generate-diffs-prompt'
+import { generatePatch } from './generate-diffs-via-expansion'
 import { requestRelevantFiles } from './request-files-prompt'
 
 /**
@@ -51,9 +51,7 @@ export async function mainPrompt(
 
   const tools = getTools()
   const lastMessage = messages[messages.length - 1]
-  const fileProcessingPromises: Promise<
-    { filePath: string; old: string; new: string }[]
-  >[] = []
+  const fileProcessingPromises: Promise<string>[] = []
   let toolCall: ToolCall | null = null
   let continuedMessages: Message[] = []
   let currentFileBlock = ''
@@ -136,7 +134,7 @@ ${STOP_MARKER}
     }
   }
 
-  const changes = (await Promise.all(fileProcessingPromises)).flat()
+  const changes = await Promise.all(fileProcessingPromises)
 
   return {
     response: fullResponse,
@@ -188,53 +186,17 @@ export async function processFileBlock(
 
   if (oldContent === null) {
     debugLog(`Created new file: ${filePath}`)
-    return [{ filePath, old: '', new: newContent }]
+    return createPatch(filePath, '', newContent)
   }
 
-  const lineEnding = oldContent.includes('\r\n') ? '\r\n' : '\n'
-
-  const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
-  const normalizedOldContent = normalizeLineEndings(oldContent)
-  const normalizedNewContent = normalizeLineEndings(newContent)
-
-  const diffBlocks = await generateDiffBlocks(
-    messageHistory,
+  const patch = await generatePatch(
+    oldContent,
+    newContent,
     filePath,
-    normalizedOldContent,
-    normalizedNewContent
+    messageHistory
   )
-  let updatedContent = normalizedOldContent
-
-  const changes: { filePath: string; old: string; new: string }[] = []
-  for (const { searchContent, replaceContent } of diffBlocks) {
-    if (updatedContent.includes(searchContent)) {
-      debugLog('Replacement worked with exact match')
-      updatedContent = updatedContent.replace(searchContent, replaceContent)
-      changes.push({ filePath, old: searchContent, new: replaceContent })
-      console.log('Applied a change to', filePath)
-      debugLog(`Applied a change to ${filePath}:`, {
-        old: searchContent,
-        new: replaceContent,
-      })
-    } else {
-      debugLog('Failed to find a match for replacement in', filePath)
-      debugLog('Old content:', oldContent)
-      debugLog('New content:', newContent)
-    }
-  }
-
-  if (changes.length === 0) {
-    debugLog(`No changes applied to file: ${filePath}`)
-    return []
-  }
-
-  debugLog(`Updated file: ${filePath}`)
-  const changesWithOriginalLineEndings = changes.map((change) => ({
-    ...change,
-    old: change.old.replace(/\n/g, lineEnding),
-    new: change.new.replace(/\n/g, lineEnding),
-  }))
-  return changesWithOriginalLineEndings
+  debugLog(`Generated patch for file: ${filePath}`)
+  return patch
 }
 
 const savePromptLengthInfo = (

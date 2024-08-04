@@ -1,3 +1,4 @@
+import { applyPatch } from 'diff'
 import fs from 'fs'
 import path from 'path'
 import * as ignore from 'ignore'
@@ -18,37 +19,38 @@ export function initProjectRoot(dir: string | undefined) {
   return projectRoot
 }
 
-export const applyChanges = (changes: FileChanges) => {
-  const changesSuceeded = []
-  for (const change of changes) {
-    const { filePath, old, new: newContent } = change
+export function applyChanges(changes: FileChanges) {
+  const created: string[] = []
+  const modified: string[] = []
+
+  for (const patch of changes) {
+    const [filePath, ...patchLines] = patch.split('\n')
     const fullPath = path.join(projectRoot, filePath)
 
-    if (newContent === '[DELETE]') {
-      if (deleteFile(fullPath)) {
-        changesSuceeded.push(change)
-        console.log('Deleted file:', filePath)
-      }
+    let oldContent = ''
+    if (fs.existsSync(fullPath)) {
+      oldContent = fs.readFileSync(fullPath, 'utf-8')
+    }
+
+    const newContent = applyPatch(oldContent, patchLines.join('\n'))
+
+    if (typeof newContent === 'boolean') {
+      console.error(`Failed to apply patch to ${filePath}`)
     } else {
-      let content = ''
-      let updatedContent = newContent
-
-      const fileAlreadyExists = fs.existsSync(fullPath)
-      if (fileAlreadyExists) {
-        content = fs.readFileSync(fullPath, 'utf8')
-        updatedContent = content.replace(old, newContent)
-      }
-
-      if (updatedContent !== content) {
-        fs.mkdirSync(path.dirname(fullPath), { recursive: true })
-        fs.writeFileSync(fullPath, updatedContent, 'utf8')
-        changesSuceeded.push(change)
-      } else {
-        console.log('Change did not go through for', filePath)
+      try {
+        fs.writeFileSync(fullPath, newContent)
+        if (oldContent === '') {
+          created.push(filePath)
+        } else {
+          modified.push(filePath)
+        }
+      } catch (error) {
+        console.error(`Failed to write file ${fullPath}:`, error)
       }
     }
   }
-  return changesSuceeded
+
+  return { created, modified }
 }
 
 export const getProjectFileContext = async (fileList: string[]) => {
@@ -309,7 +311,10 @@ function getProjectFileTree(): FileTreeNode[] {
   return buildTree(projectRoot, defaultIgnore)
 }
 
-function getAllFilePaths(nodes: FileTreeNode[], basePath: string = ''): string[] {
+function getAllFilePaths(
+  nodes: FileTreeNode[],
+  basePath: string = ''
+): string[] {
   return nodes.flatMap((node) => {
     if (node.type === 'file') {
       return [path.join(basePath, node.name)]

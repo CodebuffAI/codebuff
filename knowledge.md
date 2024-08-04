@@ -2,6 +2,17 @@
 
 Manicode is a tool for editing codebases via natural language instruction to Manny, an expert AI programming assistant.
 
+## File Change Management
+
+Manicode uses the generate diffs by expansion strategy for managing file changes. This approach has Haiku expand a file with placeholders into the full file, and then generates string patches instead of search and replace blocks.
+
+Key points:
+- The FileChanges type is an array of string patches.
+- The mainPrompt function uses the generatePatch function from generate-diffs-via-expansion.ts to create patches.
+- The client-side code applies patches using the applyPatch function from the 'diff' library.
+
+This change improves the accuracy and reliability of file modifications, especially for complex changes or when dealing with large files.
+
 ## Project Goals
 
 1. **Developer Productivity**: Reduce the time and effort required for common programming tasks, allowing developers to focus on higher-level problem-solving.

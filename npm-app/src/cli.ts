@@ -1,4 +1,5 @@
-import { uniqBy } from 'lodash'
+import { uniq } from 'lodash'
+import { getFilePathFromPatch } from 'common/util/file'
 import * as readline from 'readline'
 import chalk from 'chalk'
 
@@ -147,22 +148,18 @@ export class CLI {
     const { response, changes } = await this.sendUserInputAndAwaitResponse()
     this.isReceivingResponse = false
 
-    const filesChanged = uniqBy(changes, 'filePath').map(
-      (change) => change.filePath
-    )
+    const filesChanged = uniq(changes.map(getFilePathFromPatch))
     const currentFiles = getExistingFiles(filesChanged)
     this.chatStorage.saveCurrentFileState(currentFiles)
 
-    const changesSuceeded = applyChanges(changes)
-    for (const change of uniqBy(changesSuceeded, 'filePath')) {
-      const { filePath, old, new: newContent } = change
-      if (newContent === '[DELETE]') {
-        console.log(chalk.red('-', 'Deleted', filePath))
-      } else {
-        console.log(chalk.green('-', old ? 'Updated' : 'Created', filePath))
-      }
+    const { created, modified } = applyChanges(changes)
+    for (const file of created) {
+      console.log(chalk.green('-', 'Created', file))
     }
-    if (changesSuceeded.length > 0) {
+    for (const file of modified) {
+      console.log(chalk.green('-', 'Updated', file))
+    }
+    if (created.length > 0 || modified.length > 0) {
       console.log('Complete!\n')
     } else console.log()
 

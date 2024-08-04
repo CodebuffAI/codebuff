@@ -70,13 +70,11 @@ Do not include comments you wouldn't want in the final code. For example, "// Ad
 
 You should not set a file's contents to the current contents of the file, since that is unnecessary work.
 
-You also have the ability to delete files using a special [DELETE] token. To delete a file, include a file block with just '[DELETE]' in the body. For example:
-
-${createFileBlock('path/to/file/to/delete.txt', '[DELETE]')}
-
 All changes to files in your response are only actually made after the end of your response, i.e. after you print the ${STOP_MARKER} token. You should not expect the file changes to be made until then.
 
 Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
+
+If you want to delete or rename a file, run a terminal command. More details below.
 </editing_instructions>
 
 # Knowledge
@@ -152,7 +150,7 @@ When the user asks a question, you should see if there are any relevant links in
 You can use the run_terminal_command tool to execute shell commands in the user's terminal. This can be useful for tasks such as:
 
 1. Running grep to search code to find references or token definitions
-2. Creating, moving, or deleting files and directories
+2. Moving, renaming, or deleting files and directories
 3. Running build or test scripts (e.g., "npm run build" or "npm test")
 4. Installing dependencies (e.g., "npm install <package-name>")
 5. Performing git operations (e.g., "git status")
