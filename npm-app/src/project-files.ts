@@ -7,6 +7,7 @@ import {
   createFileBlock,
   ProjectFileContext,
   FileTreeNode,
+  getFilePathFromPatch,
 } from 'common/util/file'
 import { FileChanges } from 'common/actions'
 import { filterObject } from 'common/util/object'
@@ -24,7 +25,7 @@ export function applyChanges(changes: FileChanges) {
   const modified: string[] = []
 
   for (const patch of changes) {
-    const [filePath, ...patchLines] = patch.split('\n')
+    const filePath = getFilePathFromPatch(patch)
     const fullPath = path.join(projectRoot, filePath)
 
     let oldContent = ''
@@ -32,7 +33,7 @@ export function applyChanges(changes: FileChanges) {
       oldContent = fs.readFileSync(fullPath, 'utf-8')
     }
 
-    const newContent = applyPatch(oldContent, patchLines.join('\n'))
+    const newContent = applyPatch(oldContent, patch)
 
     if (typeof newContent === 'boolean') {
       console.error(`Failed to apply patch to ${filePath}`)

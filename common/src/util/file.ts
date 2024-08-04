@@ -82,8 +82,9 @@ export function printFileTree(
 export function getFilePathFromPatch(patch: string): string {
   const lines = patch.split('\n')
   if (lines.length > 0) {
-    const match = lines[0].match(/^diff --git a\/(.*) b\/(.*)$/)
-    if (match && match[1] === match[2]) {
+    const indexLine = lines[0]
+    const match = indexLine.match(/^Index: (.+)$/)
+    if (match) {
       return match[1]
     }
   }
