@@ -87,4 +87,12 @@ describe('generatePatch', () => {
     },
     CLAUDE_CALL_TIMEOUT
   )
+
+  it(
+    'should work on actions with 3 comments to expand',
+    async () => {
+      await runDiffTest('src/__tests__/__mock-data__/actions', 'src/action.ts')
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
 })
