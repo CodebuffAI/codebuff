@@ -39,6 +39,7 @@ export type ToolCall = z.infer<typeof ToolCallSchema>
 export const CLIENT_ACTIONS = {
   userInput: z.object({
     type: z.literal('user-input'),
+    userInputId: z.string(),
     messages: z.array(MessageSchema),
     fileContext: ProjectFileContextSchema,
     previousChanges: CHANGES,
@@ -63,10 +64,12 @@ export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 export const SERVER_ACTIONS = {
   responseChunk: z.object({
     type: z.literal('response-chunk'),
+    userInputId: z.string(),
     chunk: z.string(),
   }),
   responseComplete: z.object({
     type: z.literal('response-complete'),
+    userInputId: z.string(),
     response: z.string(),
     changes: CHANGES,
   }),
@@ -76,12 +79,14 @@ export const SERVER_ACTIONS = {
   }),
   toolCall: z.object({
     type: z.literal('tool-call'),
+    userInputId: z.string(),
     response: z.string(),
     data: ToolCallSchema,
     changes: CHANGES,
   }),
   terminalCommandResult: z.object({
     type: z.literal('terminal-command-result'),
+    userInputId: z.string(),
     result: z.string(),
   }),
 }

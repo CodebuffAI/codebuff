@@ -14,6 +14,7 @@ const sendAction = (ws: WebSocket, action: ServerAction) => {
 
 const onUserInput = async (
   {
+    userInputId,
     messages,
     fileContext,
     previousChanges,
@@ -32,6 +33,7 @@ const onUserInput = async (
       (chunk) =>
         sendAction(ws, {
           type: 'response-chunk',
+          userInputId,
           chunk,
         })
     )
@@ -41,6 +43,7 @@ const onUserInput = async (
       console.log('toolCall', toolCall.name, toolCall.input)
       sendAction(ws, {
         type: 'tool-call',
+        userInputId,
         response,
         data: toolCall,
         changes: allChanges,
@@ -49,6 +52,7 @@ const onUserInput = async (
       console.log('response-complete')
       sendAction(ws, {
         type: 'response-complete',
+        userInputId,
         response,
         changes: allChanges,
       })
@@ -61,11 +65,13 @@ const onUserInput = async (
         : ''
     sendAction(ws, {
       type: 'response-chunk',
+      userInputId,
       chunk: response,
     })
     setTimeout(() => {
       sendAction(ws, {
         type: 'response-complete',
+        userInputId,
         response,
         changes: [],
       })

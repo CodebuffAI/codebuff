@@ -33,11 +33,15 @@
     "diff": "^5.2.0",
     "ignore": "^5.3.1",
     "lodash": "*",
+    "nanoid": "^5.0.7",
     "ws": "^8.2.3",
     "zod": "^3.21.4"
   },
   "devDependencies": {
-    "@types/ws": "^8.2.0"
+    "@types/lodash": "^4.17.7",
+    "@types/node": "^22.1.0",
+    "@types/ws": "^8.2.0",
+    "typescript": "^5.5.4"
   },
   "peerDependencies": {
     "@types/lodash": "*",

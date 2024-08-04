@@ -1,4 +1,3 @@
-
 # Manicode Project Structure
 
 ## Overview
@@ -100,6 +99,16 @@ This will automatically run the `prepublishOnly` and `postpublish` scripts to ha
 
 Remember to increment the version number in `package.json` before publishing a new version.
 
+## Package Management
+
+Manicode uses Yarn as its package manager. Always use Yarn commands for managing dependencies instead of npm.
+
+Key points:
+- Use `yarn add <package-name>` to install new packages.
+- Use `yarn remove <package-name>` to remove packages.
+- Use `yarn install` to install all dependencies after cloning the repository.
+
+
 ## CLI Functionality
 
 The CLI (Command Line Interface) has been updated to provide a more standard terminal experience:
@@ -174,3 +183,12 @@ Developers should continue to improve error handling to ensure a smooth user exp
 3. Implement a caching system for frequently accessed files to improve performance.
 4. Create a comprehensive test suite to ensure reliability across different environments.
 5. Enhance the CLI with more features, such as chat history browsing and export/import functionality.
+
+## User Input ID System
+
+1. Each user input generates a unique user input ID (using nanoid) on the client-side.
+2. The user input ID is passed to the server with the user input.
+3. All related responses, including tool calls and response chunks, include this user input ID.
+4. The user input ID remains consistent for all interactions related to a single user input.
+
+This system allows for better tracking and correlation of user inputs with their corresponding responses and tool calls, while avoiding potential conflicts with individual message IDs.

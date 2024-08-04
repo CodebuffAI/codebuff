@@ -21,7 +21,7 @@ export class Client {
 
   private setupSubscriptions() {
     this.webSocket.subscribe('tool-call', async (a) => {
-      const { response, changes, data } = a
+      const { response, changes, data, userInputId } = a
       const { id, name, input } = data
 
       const messages = this.chatStorage.getCurrentChat().messages
@@ -67,7 +67,7 @@ export class Client {
           this.chatStorage.getCurrentChat(),
           toolResultMessage
         )
-        await this.sendUserInput(changes)
+        await this.sendUserInput(changes, userInputId)
       } else {
         console.error(`No handler found for tool: ${name}`)
       }
@@ -84,9 +84,11 @@ export class Client {
     })
   }
 
-  async sendUserInput(previousChanges: FileChanges) {
+  async sendUserInput(previousChanges: FileChanges, userInputId: string) {
     const messages = this.chatStorage.getCurrentChat().messages
-    const messageText = messages.map((m) => JSON.stringify(m.content)).join('\n')
+    const messageText = messages
+      .map((m) => JSON.stringify(m.content))
+      .join('\n')
     const filesContent = messageText.match(/<files>(.*?)<\/files>/gs)
     const lastFilesContent = filesContent
       ? filesContent[filesContent.length - 1]
@@ -99,13 +101,14 @@ export class Client {
     const fileContext = await getProjectFileContext(fileList)
     this.webSocket.sendAction({
       type: 'user-input',
+      userInputId,
       messages,
       fileContext,
       previousChanges,
     })
   }
 
-  subscribeToResponse(onChunk: (chunk: string) => void) {
+  subscribeToResponse(onChunk: (chunk: string) => void, userInputId: string) {
     let responseBuffer = ''
     let resolveResponse: (value: {
       response: string
@@ -136,6 +139,7 @@ export class Client {
     }
 
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
+      if (a.userInputId !== userInputId) return
       const { chunk } = a
       responseBuffer += chunk
       onChunk(chunk)
@@ -148,6 +152,7 @@ export class Client {
     })
 
     unsubscribeComplete = this.webSocket.subscribe('response-complete', (a) => {
+      if (a.userInputId !== userInputId) return
       unsubscribeChunks()
       unsubscribeComplete()
       resolveResponse({ ...a, wasStoppedByUser: false })
