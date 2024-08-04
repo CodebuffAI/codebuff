@@ -97,8 +97,8 @@ ${printFileTree(fileContext.fileTree)}
 ${messages
   .map((message) =>
     message.role === 'user'
-      ? `<user>${message.content}</user>`
-      : `<assistant>${message.content}</assistant>`
+      ? `<user>${JSON.stringify(message.content)}</user>`
+      : `<assistant>${JSON.stringify(message.content)}</assistant>`
   )
   .join('\n')}
 </message_history>
@@ -165,8 +165,8 @@ ${printFileTree(fileContext.fileTree)}
 ${messages
   .map((message) =>
     message.role === 'user'
-      ? `<user>${message.content}</user>`
-      : `<assistant>${message.content}</assistant>`
+      ? `<user>${JSON.stringify(message.content)}</user>`
+      : `<assistant>${JSON.stringify(message.content)}</assistant>`
   )
   .join('\n')}
 </message_history>

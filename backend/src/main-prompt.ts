@@ -185,6 +185,7 @@ export async function processFileBlock(
   const oldContent = await requestFile(ws, filePath)
 
   if (oldContent === null) {
+    console.log(`Created new file: ${filePath}`)
     debugLog(`Created new file: ${filePath}`)
     return createPatch(filePath, '', newContent)
   }
@@ -195,6 +196,7 @@ export async function processFileBlock(
     filePath,
     messageHistory
   )
+  console.log(`Generated patch for file: ${filePath}`)
   debugLog(`Generated patch for file: ${filePath}`)
   return patch
 }
