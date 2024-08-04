@@ -8,6 +8,7 @@ import {
 } from 'common/util/file'
 import { model_types, models, promptClaude } from './claude'
 import { debugLog } from './debug'
+import { STOP_MARKER } from 'common/constants'
 
 export async function requestRelevantFiles(
   messages: Message[],
@@ -73,15 +74,28 @@ async function getRelevantFiles(
   return { files, duration }
 }
 
-function generateComprehensiveRequestFilesPrompt(
+const innerPromptContent = (
   messages: Message[],
   fileContext: ProjectFileContext,
   requestPrompt: string | null
-): string {
+) => {
   const { knowledgeFiles } = fileContext
-  return `You are an AI assistant tasked with identifying relevant files for a user's request in a software project. Your goal is to select all files that might be useful for understanding and addressing the user's needs.
 
-The following files include useful background knowledge for your task:
+  const messagesString = messages
+    .map((message) =>
+      message.role === 'user'
+        ? `<user>${JSON.stringify(message.content)}</user>`
+        : `<assistant>${JSON.stringify(message.content)}</assistant>`
+    )
+    .join('\n')
+    .replaceAll(STOP_MARKER, '')
+
+  const requestPromptString = requestPrompt
+    ? `\nAdditionally, the assistant has requested files with the following prompt:
+<request_prompt>${requestPrompt}</request_prompt>`
+    : ''
+
+  return `The following files include useful background knowledge for your task:
 <knowledge_files>
 ${Object.entries(knowledgeFiles)
   .map(([path, content]) => createFileBlock(path, content))
@@ -94,21 +108,19 @@ ${printFileTree(fileContext.fileTree)}
 </file_tree>
 
 <message_history>
-${messages
-  .map((message) =>
-    message.role === 'user'
-      ? `<user>${JSON.stringify(message.content)}</user>`
-      : `<assistant>${JSON.stringify(message.content)}</assistant>`
-  )
-  .join('\n')}
+${messagesString}
 </message_history>
-${
-  requestPrompt
-    ? `
-Additionally, the assistant has requested files with the following prompt:
-<request_prompt>${requestPrompt}</request_prompt>`
-    : ''
+${requestPromptString}`
 }
+
+function generateComprehensiveRequestFilesPrompt(
+  messages: Message[],
+  fileContext: ProjectFileContext,
+  requestPrompt: string | null
+): string {
+  return `You are an AI assistant tasked with identifying relevant files for a user's request in a software project. Your goal is to select all files that might be useful for understanding and addressing the user's needs.
+
+${innerPromptContent(messages, fileContext, requestPrompt)}
 
 Please follow these steps to determine which files to request:
 
@@ -146,37 +158,9 @@ function generateKeyRequestFilesPrompt(
   fileContext: ProjectFileContext,
   requestPrompt: string | null
 ): string {
-  const { knowledgeFiles } = fileContext
   return `You are an AI assistant tasked with identifying the most relevant files for a user's request in a software project. Your goal is to select approximately 6 key files that are crucial for understanding and addressing the user's needs.
 
-The following files include useful background knowledge for your task:
-<knowledge_files>
-${Object.entries(knowledgeFiles)
-  .map(([path, content]) => createFileBlock(path, content))
-  .join('\n')}
-</knowledge_files>
-
-Here are all the files in the project you could request:
-<file_tree>
-${printFileTree(fileContext.fileTree)}
-</file_tree>
-
-<message_history>
-${messages
-  .map((message) =>
-    message.role === 'user'
-      ? `<user>${JSON.stringify(message.content)}</user>`
-      : `<assistant>${JSON.stringify(message.content)}</assistant>`
-  )
-  .join('\n')}
-</message_history>
-${
-  requestPrompt
-    ? `
-Additionally, the assistant has requested files with the following prompt:
-<request_prompt>${requestPrompt}</request_prompt>`
-    : ''
-}
+${innerPromptContent(messages, fileContext, requestPrompt)}
 
 Please follow these steps to determine which key files to request:
 

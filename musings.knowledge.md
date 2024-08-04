@@ -211,8 +211,6 @@ Notes from Janna & Stephen test
 [x] CTRL-C doesn't work
 
 [] Kill if it continues too far without user prompt.
-[] Give it a new marker token that will await all file changes, so then it can run tsc or tests, etc.
-    - It is using grep to see if changes went through, but they haven't so gets in a loop.
 [] Prompt it not to generate the whole file when just making a local edit. Consider just reproducting the function edited. Or a block a code.
     - Before editing a file, get it to say what changes it will make and then edit just those sections.
 [] Consider confirming with the user whether to go ahead and make a change if not that confident or want more input from the user
@@ -222,4 +220,9 @@ Notes from Janna & Stephen test
 [] It keeps requesting files that are already in its context. Need to highlight those paths again somewhere?
     - Requests a file before editing that it just got.
 [] Knowledge files should be treated more like regular files, but with system prompts to frequently include them
+
+
+-- Instead, of below, apply edits immediately. Track all changes for a message via an id. Fix conccurent request by subscribing/unsubscribing to response with id.
+[] Give it a new marker token that will await all file changes, so then it can run tsc or tests, etc.
+    - It is using grep to see if changes went through, but they haven't so gets in a loop.
 [] Was able to start a concurrent request after cancelling the last one...
