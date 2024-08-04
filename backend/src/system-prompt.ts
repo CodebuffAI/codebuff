@@ -31,7 +31,7 @@ ${printFileTree(fileTree)}
 Here are some files that were selected to aid in the user request, ordered by most important first:
 ${fileBlocks}
 
-Use the tool update_file_context to change the set of files listed here.
+Use the tool update_file_context to change the set of files listed here. You should not use this tool to read a file that is already included.
 </relevant_files>
 
 As you can see, some files that you might find useful are already provided. If the included set of files is not sufficient to address the user's request, you should use the update_file_context tool to update the set of files and their contents.
@@ -137,9 +137,9 @@ You have access to the following tools:
 
 The system prompt already includes some files and their content that you might find useful. If the included set of files is not sufficient to address the user's request, you should use the update_file_context tool to update the set of files and their contents.
 
-Use this tool when you need to read more files or want to update the set of files included in your system prompt.
+Use this tool only when you need to read different files than what were included.
 
-If you are intending to edit a file that is not included in the set of files, you should first use the update_file_context tool with a prompt to read that file.
+If you are intending to edit a file that is not included in the set of files, you should first use the update_file_context tool with a prompt to read that file. If the file is already included, you do not need to read it again.
 
 ## Web scraping
 
@@ -183,7 +183,7 @@ General case:
 
 5. Finally, if the user gave feedback and it helped you understand something better, please edit a knowledge file with a short note that condenses what you learned.
 
-You may edit files to address the user's request, but make sure you have that file in the <relevant_files> block of the system prompt and request it with the update_file_context tool otherwise.
+You may then edit files to address the user's request.
 
 <important_instruction>
 Always end your response with the following marker:
