@@ -226,3 +226,4 @@ Notes from Janna & Stephen test
 [] Give it a new marker token that will await all file changes, so then it can run tsc or tests, etc.
     - It is using grep to see if changes went through, but they haven't so gets in a loop.
 [] Was able to start a concurrent request after cancelling the last one...
+[] Changes behavior like removing if guard if statements at the top, removing cases of logs/errors, adds <form>. It should only do the minimal change and assume existing code is there for a reason.
