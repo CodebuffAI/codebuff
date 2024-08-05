@@ -227,3 +227,5 @@ Notes from Janna & Stephen test
     - It is using grep to see if changes went through, but they haven't so gets in a loop.
 [] Was able to start a concurrent request after cancelling the last one...
 [] Changes behavior like removing if guard if statements at the top, removing cases of logs/errors, adds <form>. It should only do the minimal change and assume existing code is there for a reason.
+[] Terminal command that doesn't finish bricks manicode
+[x] Easy to forget to run it in root directory.

@@ -5,12 +5,25 @@ import { Client } from './client'
 import { ChatStorage } from './chat-storage'
 import { CLI } from './cli'
 import { getProjectFileContext, initProjectRoot } from './project-files'
+import fs from 'fs'
+import path from 'path'
+import chalk from 'chalk'
 
 async function manicode(projectDir: string | undefined) {
   const dir = initProjectRoot(projectDir)
   console.log(
     `Manicode will read and write files in "${dir}". Press ESC for menu.`
   )
+
+  const gitDir = path.join(dir, '.git')
+  if (!fs.existsSync(gitDir)) {
+    console.warn(
+      chalk.yellow(
+        'Warning: No .git directory found. Make sure you are at the top level of your project.'
+      )
+    )
+  }
+
   // Preload.
   getProjectFileContext([])
 

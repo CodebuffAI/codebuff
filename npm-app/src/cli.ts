@@ -94,6 +94,7 @@ export class CLI {
   }
 
   private handleExit() {
+    process.stdout.clearLine(0)
     console.log(chalk.magenta('Exiting. Manicode out!'))
     process.exit(0)
   }
