@@ -144,6 +144,9 @@ ${STOP_MARKER}
 }
 
 function getRelevantFileInfoMessage(filePaths: string[]) {
+  if (filePaths.length === 0) {
+    return ''
+  }
   return `Reading the following files...<files>${filePaths.join(', ')}</files>\n\n`
 }
 
@@ -159,6 +162,10 @@ async function updateFileContext(
     fileContext,
     prompt
   )
+
+  if (relevantFiles.length === 0) {
+    return ''
+  }
 
   const responseChunk = getRelevantFileInfoMessage(relevantFiles)
   onResponseChunk(responseChunk)

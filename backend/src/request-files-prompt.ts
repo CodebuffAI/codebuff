@@ -9,28 +9,40 @@ import {
 import { model_types, models, promptClaude } from './claude'
 import { debugLog } from './debug'
 import { STOP_MARKER } from 'common/constants'
+import { promptOpenAI } from './openai-api'
 
 export async function requestRelevantFiles(
   messages: Message[],
   fileContext: ProjectFileContext,
   requestPrompt: string | null
 ): Promise<string[]> {
-  const [keyResult, comprehensiveResult] = await Promise.all([
-    getRelevantFiles(
-      generateKeyRequestFilesPrompt(messages, fileContext, requestPrompt),
-      models.sonnet,
-      'Key'
+  const keyPromise = getRelevantFiles(
+    generateKeyRequestFilesPrompt(messages, fileContext, requestPrompt),
+    models.sonnet,
+    'Key'
+  )
+
+  const comprehensivePromise = getRelevantFiles(
+    generateComprehensiveRequestFilesPrompt(
+      messages,
+      fileContext,
+      requestPrompt
     ),
-    getRelevantFiles(
-      generateComprehensiveRequestFilesPrompt(
-        messages,
-        fileContext,
-        requestPrompt
-      ),
-      models.haiku,
-      'Comprehensive'
-    ),
-  ])
+    'gpt-4o-mini',
+    'Comprehensive'
+  )
+
+  const keyResult = await keyPromise
+
+  // Early return if key result is empty
+  if (keyResult.files.length === 0) {
+    debugLog('Key files: []')
+    debugLog('Comprehensive files: (not fetched)')
+    debugLog('Deduped files: []')
+    return []
+  }
+
+  const comprehensiveResult = await comprehensivePromise
 
   const dedupedFiles = uniq([...keyResult.files, ...comprehensiveResult.files])
 
@@ -43,11 +55,13 @@ export async function requestRelevantFiles(
 
 async function getRelevantFiles(
   prompt: string,
-  model: model_types,
+  model: model_types | 'gpt-4o-mini',
   requestType: string
 ): Promise<{ files: string[]; duration: number }> {
   const start = performance.now()
-  const response = await promptClaude(prompt, { model })
+  const response = await (model === 'gpt-4o-mini'
+    ? promptOpenAI([{ role: 'user', content: prompt }], model)
+    : promptClaude(prompt, { model }))
   const end = performance.now()
   const duration = end - start
 
@@ -137,6 +151,8 @@ Please follow these steps to determine which files to request:
 
 Provide a brief explanation of your selection process, then list all the file paths you think might be relevant for addressing the user's request.
 
+If the last user message appears to be running a terminal command, such as \`npm run test\` or \`yarn build\`, then do not request any files.
+
 Your response should be in the following format:
 
 <thought_process>
@@ -174,6 +190,8 @@ Please follow these steps to determine which key files to request:
 5. Order the files by most important first.
 
 Provide a brief explanation of your selection process, then list the file paths you think are most crucial for addressing the user's request.
+
+If the last user message appears to be running a terminal command, such as \`npm run test\` or \`yarn build\`, then do not request any files.
 
 Your response should be in the following format:
 
