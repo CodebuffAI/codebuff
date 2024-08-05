@@ -108,7 +108,11 @@ export class Client {
     })
   }
 
-  subscribeToResponse(onChunk: (chunk: string) => void, userInputId: string) {
+  subscribeToResponse(
+    onChunk: (chunk: string) => void,
+    userInputId: string,
+    onStreamStart: () => void
+  ) {
     let responseBuffer = ''
     let resolveResponse: (value: {
       response: string
@@ -118,6 +122,7 @@ export class Client {
     let rejectResponse: (reason?: any) => void
     let unsubscribeChunks: () => void
     let unsubscribeComplete: () => void
+    let streamStarted = false
 
     const responsePromise = new Promise<{
       response: string
@@ -141,6 +146,12 @@ export class Client {
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
+      
+      if (!streamStarted) {
+        streamStarted = true
+        onStreamStart()
+      }
+      
       responseBuffer += chunk
       onChunk(chunk)
 

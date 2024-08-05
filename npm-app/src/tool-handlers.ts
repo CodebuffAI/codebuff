@@ -70,6 +70,7 @@ export const handleRunTerminalCommand: ToolHandler = async (
     childProcess.on('close', (code) => {
       clearTimeout(timer)
       resolve(formatResult(stdout, stderr, false, code))
+      console.log(chalk.blue(`Command finished with exit code: ${code}`))
     })
 
     childProcess.on('error', (error) => {

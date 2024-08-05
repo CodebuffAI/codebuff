@@ -16,6 +16,7 @@ export class CLI {
   private isReceivingResponse: boolean = false
   private isInMenu: boolean = false
   private stopResponse: (() => void) | null = null
+  private loadingInterval: NodeJS.Timeout | null = null
 
   constructor(client: Client, chatStorage: ChatStorage) {
     this.client = client
@@ -91,6 +92,7 @@ export class CLI {
     if (this.stopResponse) {
       this.stopResponse()
     }
+    this.stopLoadingAnimation()
   }
 
   private handleExit() {
@@ -121,6 +123,26 @@ export class CLI {
     return {}
   }
 
+  private startLoadingAnimation() {
+    const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+    let i = 0
+    this.loadingInterval = setInterval(() => {
+      process.stdout.clearLine(0)
+      process.stdout.cursorTo(0)
+      process.stdout.write(chalk.blue(`${chars[i]} Thinking...`))
+      i = (i + 1) % chars.length
+    }, 100)
+  }
+
+  private stopLoadingAnimation() {
+    if (this.loadingInterval) {
+      clearInterval(this.loadingInterval)
+      this.loadingInterval = null
+      process.stdout.clearLine(0)
+      process.stdout.cursorTo(0)
+    }
+  }
+
   private async handleUserInput(userInput: string) {
     if (!userInput) return
 
@@ -140,7 +162,7 @@ export class CLI {
       return
     }
 
-    console.log(chalk.gray('...'))
+    this.startLoadingAnimation()
 
     const newMessage: Message = { role: 'user', content: userInput }
     this.chatStorage.addMessage(this.chatStorage.getCurrentChat(), newMessage)
@@ -148,6 +170,8 @@ export class CLI {
     this.isReceivingResponse = true
     const { response, changes } = await this.sendUserInputAndAwaitResponse()
     this.isReceivingResponse = false
+
+    this.stopLoadingAnimation()
 
     const filesChanged = uniq(changes.map(getFilePathFromPatch))
     const currentFiles = getExistingFiles(filesChanged)
@@ -186,7 +210,8 @@ export class CLI {
       (chunk) => {
         process.stdout.write(chunk)
       },
-      userInputId
+      userInputId,
+      () => this.stopLoadingAnimation()
     )
 
     this.stopResponse = stopResponse
