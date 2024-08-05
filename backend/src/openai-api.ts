@@ -6,13 +6,14 @@ const configuration = new Configuration({
 
 const openai = new OpenAIApi(configuration)
 
-export async function sendChatMessage(
-  messages: ChatCompletionRequestMessage[]
+export async function promptOpenAI(
+  messages: ChatCompletionRequestMessage[],
+  model: string
 ) {
   try {
     const response = await openai.createChatCompletion({
-      model: 'gpt-4o',
-      messages: messages,
+      model,
+      messages,
     })
 
     if (

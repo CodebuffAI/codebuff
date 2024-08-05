@@ -5,6 +5,7 @@ import { models } from './claude'
 import { debugLog } from './debug'
 import { Message } from 'common/actions'
 import { createFileBlock } from 'common/util/file'
+import { promptOpenAI } from './openai-api'
 
 export async function generatePatch(
   oldContent: string,
@@ -580,8 +581,8 @@ B. <sections-to-expand>
 </sections-to-expand>
 
 C. ${createFileBlock(
-  'src/TaskManager.tsx',
-  `import React, { useState, useEffect } from 'react';
+    'src/TaskManager.tsx',
+    `import React, { useState, useEffect } from 'react';
 import { Task, User, Priority } from './types';
 import { fetchTasks, updateTask, createTask } from './api';
 
@@ -667,7 +668,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ user }) => {
 
 export default TaskManager;
 `
-)}
+  )}
 </example>
 
 Now, please provide your response for the following old and new file contents, following the format shown in the examples above.
@@ -677,9 +678,15 @@ ${createFileBlock(filePath, oldContent)}
 
 New file content (with placeholders):
 ${createFileBlock(filePath, newContent)}`
-  const expandedContentResponse = await promptClaude(prompt, {
-    model: models.haiku,
-  })
+  const expandedContentResponse = await promptOpenAI(
+    [
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    'gpt-4o-mini'
+  )
 
   debugLog(
     'Expanded content response for filePath',
