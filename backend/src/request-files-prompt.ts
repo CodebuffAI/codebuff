@@ -30,7 +30,10 @@ export async function requestRelevantFiles(
     ),
     'gpt-4o-mini',
     'Comprehensive'
-  )
+  ).catch((error) => {
+    console.error('Error requesting files:', error)
+    return { files: [], duration: 0 }
+  })
 
   const keyResult = await keyPromise
 

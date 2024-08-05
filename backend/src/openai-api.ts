@@ -40,7 +40,12 @@ export async function promptOpenAI(
       throw new Error('No response from OpenAI')
     }
   } catch (error) {
-    console.error('Error calling OpenAI API:', error)
+    console.error(
+      'Error calling OpenAI API:',
+      error && typeof error === 'object' && 'message' in error
+        ? error.message
+        : 'Unknown error'
+    )
     throw error
   }
 }
