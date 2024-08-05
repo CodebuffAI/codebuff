@@ -17,7 +17,7 @@ import { Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './debug'
 import { requestFiles, requestFile } from './websockets/websocket-action'
-import { generatePatch } from './generate-diffs-via-expansion'
+import { generatePatch } from './generate-patch'
 import { requestRelevantFiles } from './request-files-prompt'
 
 /**

@@ -4,6 +4,48 @@ import { Message } from 'common/actions'
 import { debugLog } from './debug'
 import { STOP_MARKER } from 'common/constants'
 
+export async function generateExpandedFileWithDiffBlocks(
+  messageHistory: Message[],
+  filePath: string,
+  oldContent: string,
+  newContent: string
+) {
+  const diffBlocks = await generateDiffBlocks(
+    messageHistory,
+    filePath,
+    oldContent,
+    newContent
+  )
+
+  let updatedContent = oldContent
+
+  const changes: { filePath: string; old: string; new: string }[] = []
+  for (const { searchContent, replaceContent } of diffBlocks) {
+    if (updatedContent.includes(searchContent)) {
+      updatedContent = updatedContent.replace(searchContent, replaceContent)
+      changes.push({ filePath, old: searchContent, new: replaceContent })
+
+      debugLog('Replacement worked with exact match')
+      console.log('Applied a change to', filePath)
+      debugLog(`Applied a change to ${filePath}:`, {
+        old: searchContent,
+        new: replaceContent,
+      })
+    } else {
+      debugLog('Failed to find a match for replacement in', filePath)
+      debugLog('Old content:', oldContent)
+      debugLog('New content:', newContent)
+    }
+  }
+
+  if (changes.length === 0) {
+    debugLog(`No changes applied to file: ${filePath}`)
+  } else {
+    debugLog(`Updated file: ${filePath}`)
+  }
+  return updatedContent
+}
+
 export async function generateDiffBlocks(
   messageHistory: Message[],
   filePath: string,

@@ -1,26 +1,7 @@
-import { createPatch } from 'diff'
-
-import { promptClaude } from './claude'
-import { models } from './claude'
 import { debugLog } from './debug'
 import { Message } from 'common/actions'
 import { createFileBlock } from 'common/util/file'
 import { promptOpenAI } from './openai-api'
-
-export async function generatePatch(
-  oldContent: string,
-  newContent: string,
-  filePath: string,
-  messageHistory: Message[]
-) {
-  const expandedContent = await expandNewContent(
-    oldContent,
-    newContent,
-    filePath,
-    messageHistory
-  )
-  return createPatch(filePath, oldContent, expandedContent)
-}
 
 export async function expandNewContent(
   oldContent: string,
