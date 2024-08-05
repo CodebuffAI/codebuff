@@ -107,7 +107,7 @@ describe('generatePatch', () => {
   it(
     'should add import and use it later in long file',
     async () => {
-      await runPatchTest('src/__tests__/__mock-data__/schema', 'src/app.ts')
+      await runPatchTest('src/__tests__/__mock-data__/app', 'src/app.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )

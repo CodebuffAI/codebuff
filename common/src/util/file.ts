@@ -49,7 +49,7 @@ export const parseFileBlocks = (fileBlocks: string) => {
   const files: Record<string, string> = {}
   while ((fileMatch = fileRegex.exec(fileBlocks)) !== null) {
     const [, filePath, fileContent] = fileMatch
-    files[filePath] = fileContent
+    files[filePath] = fileContent.startsWith('\n') ? fileContent.slice(1) : fileContent
   }
   return files
 }
@@ -59,7 +59,7 @@ export const parseFileBlocksWithoutPath = (fileBlocks: string) => {
   const files: string[] = []
   while ((fileMatch = fileWithNoPathRegex.exec(fileBlocks)) !== null) {
     const [, fileContent] = fileMatch
-    files.push(fileContent)
+    files.push(fileContent.startsWith('\n') ? fileContent.slice(1) : fileContent)
   }
   return files
 }
