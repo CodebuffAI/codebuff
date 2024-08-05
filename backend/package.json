@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Backend server for Manicode",
   "main": "dist/index.js",
+  "license": "UNLICENSED",
   "scripts": {
     "start": "ts-node -r tsconfig-paths/register src/index.ts",
     "start-js": "node dist/index.js",
