@@ -1,10 +1,7 @@
-import { getFileBlocks } from './project-files'
 import { scrapeWebPage } from './web-scraper'
 import { searchManifoldMarkets } from './manifold-api'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-
-const execAsync = promisify(exec)
+import { spawn } from 'child_process'
+import chalk from 'chalk'
 
 export type ToolHandler = (input: any, id: string) => Promise<string>
 
@@ -46,13 +43,61 @@ export const handleRunTerminalCommand: ToolHandler = async (
   id: string
 ) => {
   const { command } = input
-  try {
-    const { stdout, stderr } = await execAsync(command)
-    return `<terminal_command_result>\n<stdout>${stdout}</stdout>\n<stderr>${stderr}</stderr>\n</terminal_command_result>`
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return `<terminal_command_error>Failed to execute command: ${message}</terminal_command_error>`
+  return new Promise((resolve) => {
+    let stdout = ''
+    let stderr = ''
+    const MAX_EXECUTION_TIME = 10_000
+
+    console.log()
+    console.log(chalk.blue(`> ${command}`))
+    const childProcess = spawn(command, { shell: true })
+
+    const timer = setTimeout(() => {
+      childProcess.kill()
+      resolve(formatResult(stdout, stderr, true))
+    }, MAX_EXECUTION_TIME)
+
+    childProcess.stdout.on('data', (data) => {
+      process.stdout.write(data.toString())
+      stdout += data.toString()
+    })
+
+    childProcess.stderr.on('data', (data) => {
+      process.stderr.write(data.toString())
+      stderr += data.toString()
+    })
+
+    childProcess.on('close', (code) => {
+      clearTimeout(timer)
+      resolve(formatResult(stdout, stderr, false, code))
+    })
+
+    childProcess.on('error', (error) => {
+      clearTimeout(timer)
+      resolve(
+        `<terminal_command_error>Failed to execute command: ${error.message}</terminal_command_error>`
+      )
+    })
+  })
+}
+
+function formatResult(
+  stdout: string,
+  stderr: string,
+  timedOut: boolean,
+  exitCode?: number | null
+): string {
+  let result = '<terminal_command_result>\n'
+  result += `<stdout>${stdout}</stdout>\n`
+  result += `<stderr>${stderr}</stderr>\n`
+  if (timedOut) {
+    result +=
+      '<status>Command timed out after 2 seconds. Partial results shown.</status>\n'
+  } else if (exitCode !== undefined && exitCode !== null) {
+    result += `<exit_code>${exitCode}</exit_code>\n`
   }
+  result += '</terminal_command_result>'
+  return result
 }
 
 export const toolHandlers: Record<string, ToolHandler> = {
