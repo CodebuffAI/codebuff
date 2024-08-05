@@ -1,15 +1,23 @@
 import { Configuration, OpenAIApi, ChatCompletionRequestMessage } from 'openai'
 
-const configuration = new Configuration({
-  apiKey: process.env.OPEN_AI_KEY,
-})
+let openai: OpenAIApi | null = null
 
-const openai = new OpenAIApi(configuration)
+const getOpenAI = () => {
+  if (!openai) {
+    const configuration = new Configuration({
+      apiKey: process.env.OPEN_AI_KEY,
+    })
+    openai = new OpenAIApi(configuration)
+  }
+
+  return openai
+}
 
 export async function promptOpenAI(
   messages: ChatCompletionRequestMessage[],
   model: string
 ) {
+  const openai = getOpenAI()
   try {
     const response = await openai.createChatCompletion({
       model,
