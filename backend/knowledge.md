@@ -1,4 +1,3 @@
-
 # Manicode Backend
 
 This document provides an overview of the Manicode backend architecture, key components, and important concepts.
@@ -155,3 +154,10 @@ The backend uses several prompts to guide the AI assistant's behavior:
   - Outputs a thought process and a list of file paths
 
 The Request Files Prompt is executed before the Main Prompt to ensure that all necessary files are loaded into the system context before processing the user's request.
+
+## File Diff Generation
+
+The backend uses two main strategies for generating file diffs:
+
+1. **Diff Blocks Generation**: Implemented in `generate-diffs-prompt.ts`.
+2. **Diff via Expansion**: Implemented in `generate-diffs-via-expansion.ts`.
