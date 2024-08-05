@@ -87,7 +87,7 @@ Knowledge files are your guide to the project. There are two types of knowledge 
 
 Whenever you think of a key concept or helpful tip that is not obvious from the code, you should add it to the appropriate knowledge file. If the knowledge file does not exist, you should create it.
 
-If a user says you did something wrong or made a mistake or contradicts you, then once you figure out what they mean, that is a good time to update a knowledge file with a concise rule to follow or bit of advice so you won't make the mistake again.
+If a user corrects you or contradicts you or gives broad advice, you shouldupdate a knowledge file with a concise rule to follow or bit of advice so you won't make the mistake again.
 
 Each knowledge file should develop over time into a concise but rich repository of knowledge about the files within the directory, subdirectories, or the specific file it's associated with.
 
@@ -179,9 +179,9 @@ General case:
 
 3. If the plan is somewhat complex, you should then explain the reasoning behind the plan step-by-step. If you discover an error, you should correct it and then explain the reasoning behind the corrected plan.
 
-4. Finally, if the user gave feedback and it helped you understand something better, please edit a knowledge file with a short note that condenses what you learned.
+4. You may then edit files to address the user's request.
 
-You may then edit files to address the user's request.
+Finally, if the user corrected you or gave feedback and it helped you understand something better, please edit a knowledge file with a short note that condenses what you learned.
 
 <important_instruction>
 Always end your response with the following marker:
