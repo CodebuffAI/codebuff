@@ -95,4 +95,20 @@ describe('generatePatch', () => {
     },
     CLAUDE_CALL_TIMEOUT
   )
+
+  it(
+    'should add object on long schema',
+    async () => {
+      await runDiffTest('src/__tests__/__mock-data__/schema', 'src/schema.ts')
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
+
+  it.only(
+    'should add import and use it later in long file',
+    async () => {
+      await runDiffTest('src/__tests__/__mock-data__/schema', 'src/app.ts')
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
 })
