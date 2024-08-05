@@ -24,7 +24,13 @@ export const promptClaudeStream = async function* (
     throw new Error('Missing ANTHROPIC_API_KEY')
   }
 
-  const anthropic = new Anthropic({ apiKey })
+  const anthropic = new Anthropic({
+    apiKey,
+    baseURL: 'https://anthropic.helicone.ai/',
+    defaultHeaders: {
+      'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
+    },
+  })
 
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
