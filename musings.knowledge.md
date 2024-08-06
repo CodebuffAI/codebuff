@@ -200,9 +200,9 @@ Important. Can use commandline to search for code. Could move files.
  - Coding do's and don'ts
 
  [] reverting doesn't work with created files
- [] File paths using too much context?
+ [x] File paths using too much context?
  [x] Error on server didn't print the error (or maybe it did and the terminal overwrote it...)
- [] Change ip address to be from api.manicode.ai
+ [x] Change ip address to be from api.manicode.ai
 
 Notes from Janna & Stephen test
 [x] backspace on windows doesn't clear the char, just moves cursor
@@ -213,9 +213,10 @@ Notes from Janna & Stephen test
 [] Kill if it continues too far without user prompt.
 [] Prompt it not to generate the whole file when just making a local edit. Consider just reproducting the function edited. Or a block a code.
     - Before editing a file, get it to say what changes it will make and then edit just those sections.
-[] Consider confirming with the user whether to go ahead and make a change if not that confident or want more input from the user
+[x] Consider confirming with the user whether to go ahead and make a change if not that confident or want more input from the user
 [] Force updates: run the command to update app.
 [] Store previous user input's and always include that history in system prompt.
+    - Can also allow you to press up arrow to go through whole history
 [] Changes prompt is printing object for most previous messages in message history
 [] It keeps requesting files that are already in its context. Need to highlight those paths again somewhere?
     - Requests a file before editing that it just got.

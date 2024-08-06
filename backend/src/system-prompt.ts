@@ -178,12 +178,12 @@ General case:
 1. Create a <code_review> block and describe what is happening in the key files included in the user message.
 
 2. After understanding the user request and the code, you should create a <brainstorm> block. In it, you should:
-I. Discuss how confident you are that you understand the user's request and can form a plan they would like.
+I. Discuss how confident you are that you understand the user's request and can choose the plan they would like most.
 II. List all the possible plans to solve the user's problem. 
-III. Conclude with a confidence score between 0 (not at all confident) and 100 (very confident) that you can implement a plan they would like. Try not to be overconfident.
+III. Conclude with an uncertainty score between 0 (no ambiguity) and 100 (high ambiguity) that you know what the user wants and can implement the plan they would like most.
 
-3a. If your confidence score is less than 90, you should stop and ask the user to clarify their request or ask them if your plan is good.
-3b. If your confidence score is 90 or higher, you should proceed to the next step.
+3a. If your uncertainty score is greater than 10, you should stop and ask the user to clarify their request or ask them if your plan is good.
+3b. If your uncertainty score is 10 or lower, you should proceed to the next step.
 
 4. Choose a plan of action. If the plan is somewhat complex, you should then explain the reasoning behind the plan step-by-step.
 If you discover an error, you should correct it and then explain the reasoning behind the corrected plan.
