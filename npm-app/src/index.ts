@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 
-import { websocketUrl } from './config'
-import { Client } from './client'
-import { ChatStorage } from './chat-storage'
-import { CLI } from './cli'
-import { getProjectFileContext, initProjectRoot } from './project-files'
 import fs from 'fs'
 import path from 'path'
 import chalk from 'chalk'
 
+import { websocketUrl, initFingerprint } from './config'
+import { Client } from './client'
+import { ChatStorage } from './chat-storage'
+import { CLI } from './cli'
+import { getProjectFileContext, initProjectRoot } from './project-files'
+
 async function manicode(projectDir: string | undefined) {
+  const fingerprintPromise = initFingerprint()
   const dir = initProjectRoot(projectDir)
   console.log(
     `Manicode will read and write files in "${dir}". Press ESC for menu.`
@@ -26,6 +28,8 @@ async function manicode(projectDir: string | undefined) {
 
   // Preload.
   getProjectFileContext([])
+
+  const fingerprintId = await fingerprintPromise
 
   const chatStorage = new ChatStorage()
 
@@ -52,3 +56,4 @@ if (require.main === module) {
 
   manicode(arg)
 }
+

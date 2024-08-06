@@ -811,6 +811,13 @@
   resolved "https://registry.npmjs.org/@types/stack-utils/-/stack-utils-2.0.3.tgz"
   integrity sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==
 
+"@types/systeminformation@^3.54.1":
+  version "3.54.1"
+  resolved "https://registry.yarnpkg.com/@types/systeminformation/-/systeminformation-3.54.1.tgz#bbc1b9e4ae2e60d45f75906029c6fb5436e1c5cb"
+  integrity sha512-vvisj2mdWygyc0jk/5XtSVq9gtxCmF3nrGwv8wVway8pwNRhtPji/MU9dc1L0F6rl0F/NFIHa4ScRU7wmNaHmg==
+  dependencies:
+    systeminformation "*"
+
 "@types/ws@^8.2.0":
   version "8.5.11"
   resolved "https://registry.npmjs.org/@types/ws/-/ws-8.5.11.tgz"
@@ -1881,6 +1888,13 @@ humanize-ms@^1.2.1:
   integrity sha512-Fl70vYtsAFb/C06PTS9dZBo7ihau+Tu/DNCk/OyHhea07S+aeMWpFFkUaXRa8fI+ScZbEI8dfSxwY7gxZ9SAVQ==
   dependencies:
     ms "^2.0.0"
+
+hw-fingerprint@^3.1.1:
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/hw-fingerprint/-/hw-fingerprint-3.1.1.tgz#34d8c320a68ff0c071e6106e5d518e7c8317ef54"
+  integrity sha512-8ODAS71qSV1g6KtWx044kw9Oy4yebwW9wjftT7HZ57bySpHnWcvxIQxNuxPtgXtKck7zwgtdItQpw1teWhd2QA==
+  dependencies:
+    systeminformation "^5.21.8"
 
 iconv-lite@0.4.24:
   version "0.4.24"
@@ -3154,6 +3168,11 @@ supports-preserve-symlinks-flag@^1.0.0:
   version "1.0.0"
   resolved "https://registry.npmjs.org/supports-preserve-symlinks-flag/-/supports-preserve-symlinks-flag-1.0.0.tgz"
   integrity sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==
+
+systeminformation@*, systeminformation@^5.21.8, systeminformation@^5.23.4:
+  version "5.23.4"
+  resolved "https://registry.yarnpkg.com/systeminformation/-/systeminformation-5.23.4.tgz#7e554d72e117b4b1976de3d2cf5b466cf10fde72"
+  integrity sha512-mD2R9xnOzKOOmIVtxekosf/ghOE/DGLqAPmsEgQMWJK0pMKxBtX19riz1Ss0tN4omcfS2FQ2RDJ4lkxgADxIPw==
 
 test-exclude@^6.0.0:
   version "6.0.0"

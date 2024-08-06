@@ -34,12 +34,14 @@
     "ignore": "^5.3.1",
     "lodash": "*",
     "nanoid": "^5.0.7",
+    "systeminformation": "^5.23.4",
     "ws": "^8.2.3",
     "zod": "^3.21.4"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.7",
     "@types/node": "^22.1.0",
+    "@types/systeminformation": "^3.54.1",
     "@types/ws": "^8.2.0",
     "typescript": "^5.5.4"
   },
