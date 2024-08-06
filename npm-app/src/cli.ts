@@ -14,9 +14,9 @@ export class CLI {
   private chatStorage: ChatStorage
   private rl: readline.Interface
   private isReceivingResponse: boolean = false
-  private isInMenu: boolean = false
   private stopResponse: (() => void) | null = null
   private loadingInterval: NodeJS.Timeout | null = null
+  private lastInputWasMenu: boolean = false
 
   constructor(client: Client, chatStorage: ChatStorage) {
     this.client = client
@@ -29,7 +29,7 @@ export class CLI {
     })
 
     this.rl.on('line', (line) => {
-      if (!this.isReceivingResponse && !this.isInMenu) {
+      if (!this.isReceivingResponse) {
         this.handleUserInput(line.trim())
       }
     })
@@ -104,13 +104,12 @@ export class CLI {
   private handleEscKey() {
     if (this.isReceivingResponse) {
       this.handleStopResponse()
-    } else if (this.isInMenu) {
-      this.isInMenu = false
-      console.clear()
-      this.printInitialPrompt()
     } else {
-      displayMenu()
-      this.isInMenu = true
+      if (!this.lastInputWasMenu) {
+        this.lastInputWasMenu = true
+        displayMenu()
+        this.rl.prompt()
+      }
     }
   }
 
@@ -145,6 +144,7 @@ export class CLI {
 
   private async handleUserInput(userInput: string) {
     if (!userInput) return
+    this.lastInputWasMenu = false
 
     // Handle "undo" and "redo" commands
     if (userInput === 'undo') {
