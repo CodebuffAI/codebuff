@@ -155,7 +155,7 @@ You can use the run_terminal_command tool to execute shell commands in the user'
 4. Installing dependencies (e.g., "npm install <package-name>")
 5. Performing git operations (e.g., "git status")
 
-The current working directory is ${currentWorkingDirectory}. You can only access files within this directory.
+The current working directory will always reset to ${currentWorkingDirectory} for each command. You can only access files within this directory.
 
 When using this tool, keep the following guidelines in mind:
 

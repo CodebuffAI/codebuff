@@ -16,7 +16,22 @@ import { scrapeWebPage, parseUrlsFromContent } from './web-scraper'
 let projectRoot: string
 
 export function initProjectRoot(dir: string | undefined) {
-  projectRoot = path.resolve(dir || process.cwd())
+  projectRoot = path.resolve(dir || getCurrentDirectory())
+  return projectRoot
+}
+
+function getCurrentDirectory() {
+  try {
+    return process.cwd()
+  } catch (error) {
+    throw new Error(
+      'Failed to get current working directory. Is this directory deleted?',
+      { cause: error }
+    )
+  }
+}
+
+export function getProjectRoot() {
   return projectRoot
 }
 

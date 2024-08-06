@@ -1,4 +1,4 @@
-import { projectRoot } from './config'
+import { getProjectRoot } from './project-files'
 
 export function displayMenu() {
   console.clear()
@@ -11,7 +11,7 @@ export function displayMenu() {
 `)
   console.log('\nPress ESC to close menu, CTRL-C to exit app\n')
   console.log(
-    `Manicode is your AI coding assistant. It will read and write files within your current directory (${projectRoot}), run commands in your terminal, and scrape the web to accomplish tasks you give it.\n`
+    `Manicode is your AI coding assistant. It will read and write files within your current directory (${getProjectRoot()}), run commands in your terminal, and scrape the web to accomplish tasks you give it.\n`
   )
   console.log(
     'Ask it to implement small features, write unit tests, write scripts, or give advice.\n'

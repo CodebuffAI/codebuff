@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { Message } from 'common/actions'
-import { projectRoot } from './config'
+import { getProjectRoot } from './project-files'
 
 const MANICODE_DIR = '.manicode'
 const CHATS_DIR = 'chats'
@@ -25,7 +25,7 @@ export class ChatStorage {
   private currentVersionIndex: number
 
   constructor() {
-    this.baseDir = path.join(projectRoot, MANICODE_DIR, CHATS_DIR)
+    this.baseDir = path.join(getProjectRoot(), MANICODE_DIR, CHATS_DIR)
     this.ensureDirectoryExists()
     this.currentChat = this.createChat()
     this.currentVersionIndex = -1

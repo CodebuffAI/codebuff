@@ -2,7 +2,7 @@ import { spawn } from 'child_process'
 import chalk from 'chalk'
 import { scrapeWebPage } from './web-scraper'
 import { searchManifoldMarkets } from './manifold-api'
-import { projectRoot } from './config'
+import { getProjectRoot } from './project-files'
 
 export type ToolHandler = (input: any, id: string) => Promise<string>
 
@@ -44,7 +44,7 @@ export const handleRunTerminalCommand: ToolHandler = async (
   id: string
 ) => {
   const { command } = input
-  const commandWithNavigationToProjectRoot = `cd ${projectRoot} && ${command}`
+  const commandWithNavigationToProjectRoot = `cd ${getProjectRoot()} && ${command}`
   return new Promise((resolve) => {
     let stdout = ''
     let stderr = ''
