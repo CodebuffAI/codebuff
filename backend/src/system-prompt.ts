@@ -181,9 +181,8 @@ General case:
 I. Discuss how much uncertainty or ambiguity there is in fulfilling the user's request and knowing what plan they would like most.
 II. List all the possible plans to solve the user's problem. 
 III. Conclude with an uncertainty score between 0 (no ambiguity) and 100 (high ambiguity) that you know what the user wants and can implement the plan they would like most.
-
-3a. If your uncertainty score is greater than 5, you should stop and ask the user to clarify their request or ask them if your plan is good.
-3b. If your uncertainty score is 5 or lower, you should proceed to the next step.
+If your uncertainty score is greater than 5, you should stop and ask the user to clarify their request or ask them if your plan is good.
+If your uncertainty score is 5 or lower, you should proceed to the next step.
 
 4. Choose a plan of action. If the plan is somewhat complex, you should then explain the reasoning behind the plan step-by-step.
 If you discover an error, you should correct it and then explain the reasoning behind the corrected plan.
