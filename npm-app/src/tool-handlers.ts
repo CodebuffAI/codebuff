@@ -58,7 +58,13 @@ export const handleRunTerminalCommand: ToolHandler = async (
 
     const timer = setTimeout(() => {
       childProcess.kill()
-      resolve(formatResult(stdout, stderr, true))
+      resolve(
+        formatResult(
+          stdout,
+          stderr,
+          `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds. Partial results shown.`
+        )
+      )
     }, MAX_EXECUTION_TIME)
 
     childProcess.stdout.on('data', (data) => {
@@ -73,7 +79,7 @@ export const handleRunTerminalCommand: ToolHandler = async (
 
     childProcess.on('close', (code) => {
       clearTimeout(timer)
-      resolve(formatResult(stdout, stderr, false, code))
+      resolve(formatResult(stdout, stderr, 'Command completed', code))
       console.log(chalk.blue(`Command finished with exit code: ${code}`))
     })
 
@@ -89,16 +95,16 @@ export const handleRunTerminalCommand: ToolHandler = async (
 function formatResult(
   stdout: string,
   stderr: string,
-  timedOut: boolean,
+  status?: string,
   exitCode?: number | null
 ): string {
   let result = '<terminal_command_result>\n'
   result += `<stdout>${stdout}</stdout>\n`
   result += `<stderr>${stderr}</stderr>\n`
-  if (timedOut) {
-    result +=
-      '<status>Command timed out after 2 seconds. Partial results shown.</status>\n'
-  } else if (exitCode !== undefined && exitCode !== null) {
+  if (status !== undefined) {
+    result += `<status>${status}</status>\n`
+  }
+  if (exitCode !== undefined && exitCode !== null) {
     result += `<exit_code>${exitCode}</exit_code>\n`
   }
   result += '</terminal_command_result>'
