@@ -183,10 +183,11 @@ II. List all the possible plans to solve the user's problem.
 III. Conclude with a confidence score between 0 (not at all confident) and 100 (very confident) that you can implement a plan they would like. Try not to be overconfident.
 
 3a. If your confidence score is less than 90, you should stop and ask the user to clarify their request or ask them if your plan is good.
-
 3b. If your confidence score is 90 or higher, you should proceed to the next step.
 
-4. Choose a plan of action. If the plan is somewhat complex, you should then explain the reasoning behind the plan step-by-step. If you discover an error, you should correct it and then explain the reasoning behind the corrected plan.
+4. Choose a plan of action. If the plan is somewhat complex, you should then explain the reasoning behind the plan step-by-step.
+If you discover an error, you should correct it and then explain the reasoning behind the corrected plan.
+If you need to read more files, use the update_file_context tool and go back to step 1 to review the files.
 
 5. You may then edit files to address the user's request.
 
