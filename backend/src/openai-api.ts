@@ -7,7 +7,7 @@ const getOpenAI = () => {
     const configuration = new Configuration({
       apiKey: process.env.OPEN_AI_KEY,
       baseOptions: {
-        url: 'https://oai.hconeai.com/v1',
+        url: 'https://oai.helicone.ai/v1',
         headers: {
           'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
         },

@@ -230,3 +230,4 @@ Notes from Janna & Stephen test
 [] Changes behavior like removing if guard if statements at the top, removing cases of logs/errors, adds <form>. It should only do the minimal change and assume existing code is there for a reason.
 [x] Terminal command that doesn't finish bricks manicode
 [x] Easy to forget to run it in root directory.
+[] It's not saving useful info like that this is a Windows machine and it shouldn't be using grep into a knowledge file.
