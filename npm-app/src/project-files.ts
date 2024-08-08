@@ -54,6 +54,11 @@ export function applyChanges(changes: FileChanges) {
       console.error(`Failed to apply patch to ${filePath}`)
     } else {
       try {
+        // Ensure the directory exists
+        const dirPath = path.dirname(fullPath)
+        fs.mkdirSync(dirPath, { recursive: true })
+
+        // Write the file
         fs.writeFileSync(fullPath, newContent)
         if (oldContent === '') {
           created.push(filePath)
