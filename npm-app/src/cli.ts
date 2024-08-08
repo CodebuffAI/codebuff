@@ -19,6 +19,8 @@ export class CLI {
   private lastInputWasMenu: boolean = false
   private lastInputTime: number = 0
   private consecutiveFastInputs: number = 0
+  private pastedContent: string = ''
+  private isPasting: boolean = false
 
   constructor(client: Client, chatStorage: ChatStorage) {
     this.client = client
@@ -31,10 +33,7 @@ export class CLI {
     })
 
     this.rl.on('line', (line) => {
-      this.detectPasting()
-      if (!this.isReceivingResponse && !this.isPasting()) {
-        this.handleUserInput(line.trim())
-      }
+      this.handleInput(line)
     })
 
     this.rl.on('SIGINT', () => {
@@ -64,15 +63,30 @@ export class CLI {
 
     if (timeDiff < 5) {
       this.consecutiveFastInputs++
+      if (this.consecutiveFastInputs >= 2) {
+        this.isPasting = true
+      }
     } else {
       this.consecutiveFastInputs = 0
+      if (this.isPasting) {
+        this.isPasting = false
+      }
     }
 
     this.lastInputTime = currentTime
   }
 
-  private isPasting() {
-    return this.consecutiveFastInputs >= 2
+  private handleInput(line: string) {
+    if (this.isPasting) {
+      this.pastedContent += line + '\n'
+    } else if (!this.isReceivingResponse) {
+      if (this.pastedContent) {
+        this.handleUserInput((this.pastedContent + line).trim())
+        this.pastedContent = ''
+      } else {
+        this.handleUserInput(line.trim())
+      }
+    }
   }
 
   public printInitialPrompt() {
