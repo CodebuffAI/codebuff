@@ -17,6 +17,8 @@ export class CLI {
   private stopResponse: (() => void) | null = null
   private loadingInterval: NodeJS.Timeout | null = null
   private lastInputWasMenu: boolean = false
+  private lastInputTime: number = 0
+  private consecutiveFastInputs: number = 0
 
   constructor(client: Client, chatStorage: ChatStorage) {
     this.client = client
@@ -29,7 +31,8 @@ export class CLI {
     })
 
     this.rl.on('line', (line) => {
-      if (!this.isReceivingResponse) {
+      this.detectPasting()
+      if (!this.isReceivingResponse && !this.isPasting()) {
         this.handleUserInput(line.trim())
       }
     })
@@ -43,6 +46,8 @@ export class CLI {
     })
 
     process.stdin.on('keypress', (_, key) => {
+      this.detectPasting()
+
       if ((key.ctrl || key.meta) && key.name === 'u') {
         this.handleUndo()
       } else if ((key.ctrl || key.meta) && key.name === 'r') {
@@ -51,6 +56,23 @@ export class CLI {
         this.handleEscKey()
       }
     })
+  }
+
+  private detectPasting() {
+    const currentTime = Date.now()
+    const timeDiff = currentTime - this.lastInputTime
+
+    if (timeDiff < 5) {
+      this.consecutiveFastInputs++
+    } else {
+      this.consecutiveFastInputs = 0
+    }
+
+    this.lastInputTime = currentTime
+  }
+
+  private isPasting() {
+    return this.consecutiveFastInputs >= 2
   }
 
   public printInitialPrompt() {
