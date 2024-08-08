@@ -1,0 +1,74 @@
+[x] Should indicate if diff is still generating somehow...
+    - send to client the file changes still planned. Wait for them before allowing user input?
+- Improve speed by prompting it to rely more on diffs instead of reproducing the whole file
+[x] Prompt engineer it to automatically make knowledge changes when you correct it
+[x] it's doing a poor job loading all the relevant files into context. Need to add more explicity steps for this.
+[x] Indenting fails when it makes multiple changes with different indent levels.
+[x] More chain of thought for main prompt. <planning> blocks, <code_review>, <brainstorm>, etc.
+[x] Delete files
+[x] Shift + Enter, and pasting in stuff with new lines. Update: not really possible
+
+[x] Failed to replace in the new contents (but did expand it for the old content):
+// ... (keep the existing setup code)
+[x] Continuation 2 led to infinite responses
+[x] cancelling before the prompt starts being genereated leads to error of two user messages in a row
+- Show commands available in a bar under the input (not sure if this is possible)
+[x] Escalate when old diff does not match. Got case where a helper function in the middle of two others was moved up, but diff didn't match because it ignored the helper function.
+[x] Stuck in loop: Prompting claude num messages: 21, continuing to generate
+[x] Backspace after typing more than one line is buggy
+
+- Dawson's case of wanting it to scrape documentation from a url and answer questions with it.
+- x% knowledge written in menu based on number of commits to knowledge files
+[x] How it could run bash:
+1. First, let's build the `common` package:
+
+```bash
+cd common
+yarn build
+cd ..
+```
+Important. Can use commandline to search for code. Could move files.
+
+[x] Try asking first if the complete file is listed, and then automatically generate diffs.
+
+[] create some structure in a knowledge file for users to initially fill out.
+- Project overview
+ - Goals
+ - Project structure
+ - Coding do's and don'ts
+
+ [] reverting doesn't work with created files
+ [x] File paths using too much context?
+ [x] Error on server didn't print the error (or maybe it did and the terminal overwrote it...)
+ [x] Change ip address to be from api.manicode.ai
+
+Notes from Janna & Stephen test
+[x] backspace on windows doesn't clear the char, just moves cursor
+[x] Tried to do left arrow and it didn't work
+[x] Failed to apply any edits. They all failed even after a second attempt. This was on Windows
+[x] CTRL-C doesn't work
+
+[] Kill if it continues too far without user prompt.
+[] Prompt it not to generate the whole file when just making a local edit. Consider just reproducting the function edited. Or a block a code.
+    - Before editing a file, get it to say what changes it will make and then edit just those sections.
+[x] Consider confirming with the user whether to go ahead and make a change if not that confident or want more input from the user
+[] Force updates: run the command to update app.
+[] Store previous user input's and always include that history in system prompt.
+    - Can also allow you to press up arrow to go through whole history
+[] Changes prompt is printing object for most previous messages in message history
+[] It keeps requesting files that are already in its context. Need to highlight those paths again somewhere?
+    - Requests a file before editing that it just got.
+[] Knowledge files should be treated more like regular files, but with system prompts to frequently include them
+
+
+-- Instead, of below, apply edits immediately. Track all changes for a message via an id. Fix conccurent request by subscribing/unsubscribing to response with id.
+[] Give it a new marker token that will await all file changes, so then it can run tsc or tests, etc.
+    - It is using grep to see if changes went through, but they haven't so gets in a loop.
+[x] Was able to start a concurrent request after cancelling the last one...
+[] Changes behavior like removing if guard if statements at the top, removing cases of logs/errors, adds <form>. It should only do the minimal change and assume existing code is there for a reason.
+[x] Terminal command that doesn't finish bricks manicode
+[x] Easy to forget to run it in root directory.
+[] It's not saving useful info like that this is a Windows machine and it shouldn't be using grep into a knowledge file.
+[] Budget of tokens when reading files, and skip files that put it over the limit.
+[] Didn't load the url I gave it
+[] Still does too many extra things
