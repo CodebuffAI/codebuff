@@ -4,7 +4,7 @@ import {
   printFileTree,
 } from 'common/util/file'
 import { STOP_MARKER } from 'common/constants'
-import { countTokens, countTokensForFiles } from './util/token-counter'
+import { countTokensForFiles } from './util/token-counter'
 import { debugLog } from './util/debug'
 
 export function getSystemPrompt(fileContext: ProjectFileContext) {
@@ -184,20 +184,24 @@ General case:
 1. Create a <code_review> block and describe what is happening in the key files included in the user message.
 
 2. After understanding the user request and the code, you should create a <brainstorm> block. In it, you should:
-I. Discuss how much uncertainty or ambiguity there is in fulfilling the user's request and knowing what plan they would like most.
-II. List all the possible plans to solve the user's problem. 
-III. Conclude with an uncertainty score between 0 (no ambiguity) and 100 (high ambiguity) that you know what the user wants and can implement the plan they would like most.
+I. List all the possible plans to solve the user's problem. 
+II. Discuss how much uncertainty or ambiguity there is in fulfilling the user's request and knowing what plan they would like most.
+Assign an uncertainty score between 0 (no ambiguity) and 100 (high ambiguity) that you know what the user wants and can implement the plan they would like most.
 If your uncertainty score is greater than 5, you should stop and ask the user to clarify their request or ask them if your plan is good.
 If your uncertainty score is 5 or lower, you should proceed to the next step.
+III. Decide on a plan to address the user's request.
 
-4. Choose a plan of action. If the plan is somewhat complex, you should then explain the reasoning behind the plan step-by-step.
+3. If the plan is somewhat complex, you should then explain the reasoning behind the plan step-by-step.
 If you discover an error, you should correct it and then explain the reasoning behind the corrected plan.
 If you need to read more files, use the update_file_context tool and go back to step 1 to review the files.
 
-5. You may then edit files to address the user's request.
+4. You may then edit files to address the user's request, but make as few changes as possible.
 
 Finally, if the user corrected you or gave feedback and it helped you understand something better, please edit a knowledge file with a short note that condenses what you learned.
 
+<important_instruction>
+Confine your edits to only what is directly necessary. Preserve the behavior of all existing code. Change only what you must to accomplish the user's request.
+</important_instruction>
 <important_instruction>
 Always end your response with the following marker:
 ${STOP_MARKER}
