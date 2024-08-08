@@ -4,12 +4,18 @@ import {
   printFileTree,
 } from 'common/util/file'
 import { STOP_MARKER } from 'common/constants'
+import { countTokens, countTokensForFiles } from './util/token-counter'
+import { debugLog } from './util/debug'
 
 export function getSystemPrompt(fileContext: ProjectFileContext) {
   const { currentWorkingDirectory, fileTree, exportedTokens, knowledgeFiles } =
     fileContext
 
-  const fileBlocks = Object.entries(fileContext.files)
+  const truncatedFiles = getTruncatedFilesBasedOnTokenBudget(
+    fileContext,
+    100_000
+  )
+  const fileBlocks = Object.entries(truncatedFiles)
     .map(([filePath, content]) => createFileBlock(filePath, content!))
     .join('\n')
 
@@ -199,4 +205,29 @@ ${STOP_MARKER}
 This marker helps ensure that your entire response has been received and processed correctly.
 If you don't end with this marker, you will automatically be prompted to continue. However, it is good to stop your response with this token so the user can give further guidence.
 </important_instruction>`
+}
+
+const getTruncatedFilesBasedOnTokenBudget = (
+  fileContext: ProjectFileContext,
+  tokenBudget: number
+) => {
+  const tokenCounts = countTokensForFiles(fileContext.files)
+  const truncatedFiles: Record<string, string> = {}
+  let totalTokens = 0
+
+  debugLog('Token counts for files:', tokenCounts)
+
+  for (const [filePath, content] of Object.entries(fileContext.files)) {
+    const fileTokens = tokenCounts[filePath] || 0
+    if (totalTokens + fileTokens <= tokenBudget) {
+      truncatedFiles[filePath] = content
+      totalTokens += fileTokens
+    } else {
+      truncatedFiles[filePath] = '[TRUNCATED TO FIT TOKEN BUDGET]'
+    }
+  }
+
+  debugLog('After truncation totalTokens', totalTokens)
+
+  return truncatedFiles
 }

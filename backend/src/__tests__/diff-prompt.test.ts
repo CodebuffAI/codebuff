@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import { generateExpandedFileWithDiffBlocks } from '../generate-diffs-prompt'
-import { debugLog } from '../debug'
+import { debugLog } from '../util/debug'
 
 const CLAUDE_CALL_TIMEOUT = 1000 * 200
 

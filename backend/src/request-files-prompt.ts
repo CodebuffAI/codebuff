@@ -7,7 +7,7 @@ import {
   createFileBlock,
 } from 'common/util/file'
 import { model_types, models, promptClaude } from './claude'
-import { debugLog } from './debug'
+import { debugLog } from './util/debug'
 import { STOP_MARKER } from 'common/constants'
 import { promptOpenAI } from './openai-api'
 
@@ -51,7 +51,6 @@ export async function requestRelevantFiles(
 
   debugLog('Key files:', keyResult.files)
   debugLog('Comprehensive files:', comprehensiveResult.files)
-  debugLog('Deduped files:', dedupedFiles)
 
   return dedupedFiles
 }

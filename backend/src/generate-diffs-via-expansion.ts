@@ -1,4 +1,4 @@
-import { debugLog } from './debug'
+import { debugLog } from './util/debug'
 import { Message } from 'common/actions'
 import { createFileBlock } from 'common/util/file'
 import { promptOpenAI } from './openai-api'

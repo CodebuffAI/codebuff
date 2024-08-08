@@ -231,3 +231,6 @@ Notes from Janna & Stephen test
 [x] Terminal command that doesn't finish bricks manicode
 [x] Easy to forget to run it in root directory.
 [] It's not saving useful info like that this is a Windows machine and it shouldn't be using grep into a knowledge file.
+[] Budget of tokens when reading files, and skip files that put it over the limit.
+[] Didn't load the url I gave it
+[] Still does too many extra things

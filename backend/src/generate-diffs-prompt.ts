@@ -1,7 +1,7 @@
 import { promptClaudeWithContinuation } from './claude'
 import { createFileBlock, parseFileBlocks } from 'common/util/file'
 import { Message } from 'common/actions'
-import { debugLog } from './debug'
+import { debugLog } from './util/debug'
 import { STOP_MARKER } from 'common/constants'
 
 export async function generateExpandedFileWithDiffBlocks(

@@ -1889,13 +1889,6 @@ humanize-ms@^1.2.1:
   dependencies:
     ms "^2.0.0"
 
-hw-fingerprint@^3.1.1:
-  version "3.1.1"
-  resolved "https://registry.yarnpkg.com/hw-fingerprint/-/hw-fingerprint-3.1.1.tgz#34d8c320a68ff0c071e6106e5d518e7c8317ef54"
-  integrity sha512-8ODAS71qSV1g6KtWx044kw9Oy4yebwW9wjftT7HZ57bySpHnWcvxIQxNuxPtgXtKck7zwgtdItQpw1teWhd2QA==
-  dependencies:
-    systeminformation "^5.21.8"
-
 iconv-lite@0.4.24:
   version "0.4.24"
   resolved "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.4.24.tgz"
@@ -3169,7 +3162,7 @@ supports-preserve-symlinks-flag@^1.0.0:
   resolved "https://registry.npmjs.org/supports-preserve-symlinks-flag/-/supports-preserve-symlinks-flag-1.0.0.tgz"
   integrity sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==
 
-systeminformation@*, systeminformation@^5.21.8, systeminformation@^5.23.4:
+systeminformation@*, systeminformation@^5.23.4:
   version "5.23.4"
   resolved "https://registry.yarnpkg.com/systeminformation/-/systeminformation-5.23.4.tgz#7e554d72e117b4b1976de3d2cf5b466cf10fde72"
   integrity sha512-mD2R9xnOzKOOmIVtxekosf/ghOE/DGLqAPmsEgQMWJK0pMKxBtX19riz1Ss0tN4omcfS2FQ2RDJ4lkxgADxIPw==
@@ -3182,6 +3175,11 @@ test-exclude@^6.0.0:
     "@istanbuljs/schema" "^0.1.2"
     glob "^7.1.4"
     minimatch "^3.0.4"
+
+tiktoken@^1.0.15:
+  version "1.0.15"
+  resolved "https://registry.yarnpkg.com/tiktoken/-/tiktoken-1.0.15.tgz#a1e11681fa51b50c81bb7eaaee53b7a66e844a23"
+  integrity sha512-sCsrq/vMWUSEW29CJLNmPvWxlVp7yh2tlkAjpJltIKqp5CKf98ZNpdeHRmAlPVFlGEbswDc6SmI8vz64W/qErw==
 
 tmpl@1.0.5:
   version "1.0.5"

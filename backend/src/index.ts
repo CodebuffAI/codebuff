@@ -2,7 +2,7 @@ import express from 'express'
 import dotenv from 'dotenv'
 import http from 'http'
 import { listen as webSocketListen } from './websockets/server'
-import { debugLog } from './debug'
+import { debugLog } from './util/debug'
 
 dotenv.config()
 

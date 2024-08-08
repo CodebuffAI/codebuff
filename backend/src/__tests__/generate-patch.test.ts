@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import { generatePatch } from '../generate-patch'
 import { applyPatch } from 'diff'
-import { debugLog } from '../debug'
+import { debugLog } from '../util/debug'
 
 const CLAUDE_CALL_TIMEOUT = 1000 * 150
 

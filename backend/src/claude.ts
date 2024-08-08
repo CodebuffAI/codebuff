@@ -3,7 +3,7 @@ import { Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from 'common/util/object'
 import { Message, ToolCall } from 'common/actions'
 import { STOP_MARKER } from 'common/constants'
-import { debugLog } from './debug'
+import { debugLog } from './util/debug'
 
 export const models = {
   sonnet: 'claude-3-5-sonnet-20240620' as const,
