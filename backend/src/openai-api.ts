@@ -1,41 +1,38 @@
-import { Configuration, OpenAIApi, ChatCompletionRequestMessage } from 'openai'
+import OpenAI from 'openai'
 
-let openai: OpenAIApi | null = null
+let openai: OpenAI | null = null
 
 const getOpenAI = () => {
   if (!openai) {
-    const configuration = new Configuration({
+    openai = new OpenAI({
       apiKey: process.env.OPEN_AI_KEY,
-      baseOptions: {
-        url: 'https://oai.helicone.ai/v1',
-        headers: {
-          'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
-        },
+      baseURL: 'https://oai.helicone.ai/v1',
+      defaultHeaders: {
+        'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
       },
     })
-    openai = new OpenAIApi(configuration)
   }
 
   return openai
 }
 
 export async function promptOpenAI(
-  messages: ChatCompletionRequestMessage[],
+  messages: OpenAI.Chat.ChatCompletionMessageParam[],
   model: string
 ) {
   const openai = getOpenAI()
   try {
-    const response = await openai.createChatCompletion({
+    const response = await openai.chat.completions.create({
       model,
       messages,
     })
 
     if (
-      response.data.choices &&
-      response.data.choices.length > 0 &&
-      response.data.choices[0].message
+      response.choices &&
+      response.choices.length > 0 &&
+      response.choices[0].message
     ) {
-      return response.data.choices[0].message.content || ''
+      return response.choices[0].message.content || ''
     } else {
       throw new Error('No response from OpenAI')
     }
