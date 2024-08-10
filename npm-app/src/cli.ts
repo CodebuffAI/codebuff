@@ -77,6 +77,7 @@ export class CLI {
   }
 
   private handleInput(line: string) {
+    this.detectPasting()
     if (this.isPasting) {
       this.pastedContent += line + '\n'
     } else if (!this.isReceivingResponse) {

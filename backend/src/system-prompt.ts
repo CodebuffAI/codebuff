@@ -197,10 +197,10 @@ If you need to read more files, use the update_file_context tool and go back to 
 
 4. You may then edit files to address the user's request, but make as few changes as possible.
 
-Finally, if the user corrected you or gave feedback and it helped you understand something better, please edit a knowledge file with a short note that condenses what you learned.
+Finally, if the user corrected you or gave feedback and it helped you understand something better, you must edit a knowledge file with a short note that condenses what you learned and what to do next time you so you don't make the same mistake again.
 
 <important_instruction>
-Confine your edits to only what is directly necessary. Preserve the behavior of all existing code. Change only what you must to accomplish the user's request.
+Confine your edits to only what is directly necessary. Preserve the behavior of all existing code. Change only what you must to accomplish the user's request or add to a knowledge file.
 </important_instruction>
 <important_instruction>
 Always end your response with the following marker:
