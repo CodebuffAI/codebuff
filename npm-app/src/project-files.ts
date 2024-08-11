@@ -11,7 +11,7 @@ import {
 } from 'common/util/file'
 import { FileChanges } from 'common/actions'
 import { filterObject } from 'common/util/object'
-import { scrapeWebPage, parseUrlsFromContent } from './web-scraper'
+import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 
 let projectRoot: string
 
@@ -142,13 +142,11 @@ export async function getExistingFilesWithScrapedContent(
     result[filePath] = content
 
     if (filePath.endsWith('knowledge.md')) {
-      const urls = parseUrlsFromContent(content)
-      for (const url of urls) {
-        const scrapedContent = await scrapeWebPage(url)
-        if (scrapedContent) {
-          result[filePath] +=
-            `\n\n<web_scraped_content url="${url}">\n${scrapedContent}\n</web_scraped_content>`
-        }
+      const scrapedBlocks = await getScrapedContentBlocks(
+        parseUrlsFromContent(content)
+      )
+      for (const block of scrapedBlocks) {
+        result[filePath] += `\n\n${block}`
       }
     }
   }

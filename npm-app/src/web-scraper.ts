@@ -36,3 +36,16 @@ export function parseUrlsFromContent(content: string): string[] {
   const urlRegex = /https?:\/\/[^\s]+/g
   return content.match(urlRegex) || []
 }
+
+export async function getScrapedContentBlocks(urls: string[]) {
+  const blocks: string[] = []
+  for (const url of urls) {
+    const scrapedContent = await scrapeWebPage(url)
+    if (scrapedContent) {
+      blocks.push(
+        `<web_scraped_content url="${url}">\n${scrapedContent}\n</web_scraped_content>`
+      )
+    }
+  }
+  return blocks
+}

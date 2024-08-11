@@ -15,6 +15,7 @@ This document provides an overview of the Manicode backend architecture, key com
 9. [Build and Deployment](#build-and-deployment)
 10. [Security Considerations](#security-considerations)
 11. [TODO List](#todo-list)
+12. [Automatic URL Detection and Scraping](#automatic-url-detection-and-scraping)
 
 ## Architecture Overview
 

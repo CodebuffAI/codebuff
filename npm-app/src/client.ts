@@ -5,6 +5,7 @@ import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
 import { STOP_MARKER } from 'common/constants'
 import { fingerprintId } from './config'
+import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -98,6 +99,17 @@ export class Client {
       .replace(/<\/?files>/g, '')
       .trim()
       .split(', ')
+      .filter((str) => str)
+
+    const lastMessage = messages[messages.length - 1]
+    if (
+      lastMessage.role === 'user' &&
+      typeof lastMessage.content === 'string'
+    ) {
+      const urls = parseUrlsFromContent(lastMessage.content)
+      const blocks = await getScrapedContentBlocks(urls)
+      lastMessage.content += '\n\n' + blocks.join('\n\n')
+    }
 
     const fileContext = await getProjectFileContext(fileList)
     this.webSocket.sendAction({
