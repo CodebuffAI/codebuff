@@ -117,4 +117,12 @@ describe('generatePatch', () => {
     },
     CLAUDE_CALL_TIMEOUT
   )
+
+  it(
+    'should remove try catch in delete comment',
+    async () => {
+      await runPatchTest('src/__tests__/__mock-data__/delete-comment', 'src/delete-comment.ts')
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
 })
