@@ -37,6 +37,7 @@ export const promptClaudeStream = async function* (
       'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
       'Helicone-User-Id': userId,
       'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
+      'Helicone-LLM-Security-Enabled': 'true',
     },
   })
 
