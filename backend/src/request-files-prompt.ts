@@ -17,12 +17,12 @@ export async function requestRelevantFiles(
   requestPrompt: string | null,
   userId: string
 ): Promise<string[]> {
-  const keyPromise = getRelevantFiles(
-    generateKeyRequestFilesPrompt(messages, fileContext, requestPrompt),
-    models.sonnet,
-    'Key',
-    userId
-  )
+  // const keyPromise = getRelevantFiles(
+  //   generateKeyRequestFilesPrompt(messages, fileContext, requestPrompt),
+  //   models.sonnet,
+  //   'Key',
+  //   userId
+  // )
 
   const comprehensivePromise = getRelevantFiles(
     generateComprehensiveRequestFilesPrompt(
@@ -30,7 +30,7 @@ export async function requestRelevantFiles(
       fileContext,
       requestPrompt
     ),
-    'gpt-4o-mini',
+    'gpt-4o-2024-08-06',
     'Comprehensive',
     userId
   ).catch((error) => {
@@ -38,36 +38,36 @@ export async function requestRelevantFiles(
     return { files: [], duration: 0 }
   })
 
-  const keyResult = await keyPromise
+  // const keyResult = await keyPromise
 
-  // Early return if key result is empty
-  if (keyResult.files.length === 0) {
-    debugLog('Key files: []')
-    debugLog('Comprehensive files: (not fetched)')
-    debugLog('Deduped files: []')
-    return []
-  }
+  // // Early return if key result is empty
+  // if (keyResult.files.length === 0) {
+  //   debugLog('Key files: []')
+  //   debugLog('Comprehensive files: (not fetched)')
+  //   debugLog('Deduped files: []')
+  //   return []
+  // }
 
   const comprehensiveResult = await comprehensivePromise
 
-  const dedupedFiles = uniq([...keyResult.files, ...comprehensiveResult.files])
+  // const dedupedFiles = uniq([...keyResult.files, ...comprehensiveResult.files])
 
-  debugLog('Key files:', keyResult.files)
+  // debugLog('Key files:', keyResult.files)
   debugLog('Comprehensive files:', comprehensiveResult.files)
 
-  return dedupedFiles
+  return comprehensiveResult.files
 }
 
 async function getRelevantFiles(
   prompt: string,
-  model: model_types | 'gpt-4o-mini',
+  model: model_types | 'gpt-4o-mini' | 'gpt-4o-2024-08-06',
   requestType: string,
   userId: string
 ): Promise<{ files: string[]; duration: number }> {
   const start = performance.now()
-  const response = await (model === 'gpt-4o-mini'
+  const response = await (model.startsWith('gpt')
     ? promptOpenAI(userId, [{ role: 'user', content: prompt }], model)
-    : promptClaude(prompt, { model, userId }))
+    : promptClaude(prompt, { model: model as model_types, userId }))
   const end = performance.now()
   const duration = end - start
 
