@@ -17,7 +17,7 @@ export const ProjectFileContextSchema = z.object({
   fileTree: z.array(FileTreeNodeSchema),
   exportedTokens: z.record(z.string(), z.array(z.string())),
   knowledgeFiles: z.record(z.string(), z.string()),
-  files: z.record(z.string(), z.string()),
+  files: z.record(z.string(), z.string().nullable()),
 })
 
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
@@ -49,7 +49,9 @@ export const parseFileBlocks = (fileBlocks: string) => {
   const files: Record<string, string> = {}
   while ((fileMatch = fileRegex.exec(fileBlocks)) !== null) {
     const [, filePath, fileContent] = fileMatch
-    files[filePath] = fileContent.startsWith('\n') ? fileContent.slice(1) : fileContent
+    files[filePath] = fileContent.startsWith('\n')
+      ? fileContent.slice(1)
+      : fileContent
   }
   return files
 }
@@ -59,7 +61,9 @@ export const parseFileBlocksWithoutPath = (fileBlocks: string) => {
   const files: string[] = []
   while ((fileMatch = fileWithNoPathRegex.exec(fileBlocks)) !== null) {
     const [, fileContent] = fileMatch
-    files.push(fileContent.startsWith('\n') ? fileContent.slice(1) : fileContent)
+    files.push(
+      fileContent.startsWith('\n') ? fileContent.slice(1) : fileContent
+    )
   }
   return files
 }

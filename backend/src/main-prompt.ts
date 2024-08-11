@@ -170,13 +170,8 @@ async function updateFileContext(
   const responseChunk = getRelevantFileInfoMessage(relevantFiles)
   onResponseChunk(responseChunk)
 
-  // Load relevant files content
-  const fileContents = await requestFiles(ws, relevantFiles)
-  const files = Object.fromEntries(
-    Object.entries(fileContents).filter(([_, content]) => content !== null)
-  ) as { [path: string]: string }
-
-  fileContext.files = files
+  // Load relevant files into fileContext
+  fileContext.files = await requestFiles(ws, relevantFiles)
 
   return responseChunk
 }

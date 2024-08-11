@@ -73,3 +73,4 @@ Notes from Janna & Stephen test
 [x] Budget of tokens when reading files, and skip files that put it over the limit.
 [] Didn't load the url I gave it
 [] Still does too many extra things
+[x] Doesn't consistently request new files when it needs to

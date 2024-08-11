@@ -83,7 +83,7 @@ export const getProjectFileContext = async (fileList: string[]) => {
     await getExistingFilesWithScrapedContent(knowledgeFilePaths)
   const exportedTokens = {} // getExportedTokensForFiles(filePaths)
 
-  const files = getExistingFiles(fileList)
+  const files = getFiles(fileList)
 
   const projectFileContext: ProjectFileContext = {
     currentWorkingDirectory: projectRoot,

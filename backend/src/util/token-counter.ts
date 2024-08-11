@@ -11,12 +11,12 @@ export function countTokens(
 }
 
 export function countTokensForFiles(
-  files: Record<string, string>,
+  files: Record<string, string | null>,
   model: TiktokenModel = 'gpt-4o'
 ): Record<string, number> {
   const tokenCounts: Record<string, number> = {}
   for (const [filePath, content] of Object.entries(files)) {
-    tokenCounts[filePath] = countTokens(content, model)
+    tokenCounts[filePath] = content ? countTokens(content, model) : 0
   }
   return tokenCounts
 }
