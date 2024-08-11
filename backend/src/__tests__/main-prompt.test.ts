@@ -62,6 +62,7 @@ describe('processFileBlock', () => {
 
     expect(mockRequestFile).toHaveBeenCalledWith(mockWs, filePath)
     expect(mockExpandNewContent).toHaveBeenCalledWith(
+      'userId',
       oldContentNormalized,
       newContentNormalized,
       filePath,

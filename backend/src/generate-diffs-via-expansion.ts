@@ -668,7 +668,7 @@ ${createFileBlock(filePath, newContent)}`
         content: prompt,
       },
     ],
-    'gpt-4o-mini'
+    'gpt-4o-2024-08-06'
   )
 
   debugLog(
