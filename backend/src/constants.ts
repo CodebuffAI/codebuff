@@ -1,0 +1,1 @@
+export const RATE_LIMIT_POLICY = '2000;w=86400;u=cents;s=user'

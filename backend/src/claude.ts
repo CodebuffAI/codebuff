@@ -4,6 +4,7 @@ import { removeUndefinedProps } from 'common/util/object'
 import { Message, ToolCall } from 'common/actions'
 import { STOP_MARKER } from 'common/constants'
 import { debugLog } from './util/debug'
+import { RATE_LIMIT_POLICY } from './constants'
 
 export const models = {
   sonnet: 'claude-3-5-sonnet-20240620' as const,
@@ -14,7 +15,12 @@ export type model_types = (typeof models)[keyof typeof models]
 
 export const promptClaudeStream = async function* (
   messages: Message[],
-  options: { system?: string; tools?: Tool[]; model?: model_types; userId: string }
+  options: {
+    system?: string
+    tools?: Tool[]
+    model?: model_types
+    userId: string
+  }
 ): AsyncGenerator<string | ToolCall, void, unknown> {
   const { model = models.sonnet, system, tools, userId } = options
 
@@ -30,6 +36,7 @@ export const promptClaudeStream = async function* (
     defaultHeaders: {
       'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
       'Helicone-User-Id': userId,
+      'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
     },
   })
 
@@ -84,7 +91,12 @@ export const promptClaudeStream = async function* (
 
 export const promptClaude = async (
   prompt: string,
-  options: { system?: string; tools?: Tool[]; model?: model_types; userId: string }
+  options: {
+    system?: string
+    tools?: Tool[]
+    model?: model_types
+    userId: string
+  }
 ) => {
   let fullResponse = ''
   for await (const chunk of promptClaudeStream(

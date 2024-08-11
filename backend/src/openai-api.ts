@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { RATE_LIMIT_POLICY } from './constants'
 
 let openai: OpenAI | null = null
 
@@ -10,6 +11,7 @@ const getOpenAI = (userId: string) => {
       defaultHeaders: {
         'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
         'Helicone-User-Id': userId,
+        'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
       },
     })
   }
@@ -20,7 +22,7 @@ const getOpenAI = (userId: string) => {
 export async function promptOpenAI(
   userId: string,
   messages: OpenAI.Chat.ChatCompletionMessageParam[],
-  model: string,
+  model: string
 ) {
   const openai = getOpenAI(userId)
   try {
