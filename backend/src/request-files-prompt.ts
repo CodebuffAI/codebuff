@@ -14,12 +14,14 @@ import { promptOpenAI } from './openai-api'
 export async function requestRelevantFiles(
   messages: Message[],
   fileContext: ProjectFileContext,
-  requestPrompt: string | null
+  requestPrompt: string | null,
+  userId: string
 ): Promise<string[]> {
   const keyPromise = getRelevantFiles(
     generateKeyRequestFilesPrompt(messages, fileContext, requestPrompt),
     models.sonnet,
-    'Key'
+    'Key',
+    userId
   )
 
   const comprehensivePromise = getRelevantFiles(
@@ -29,7 +31,8 @@ export async function requestRelevantFiles(
       requestPrompt
     ),
     'gpt-4o-mini',
-    'Comprehensive'
+    'Comprehensive',
+    userId
   ).catch((error) => {
     console.error('Error requesting files:', error)
     return { files: [], duration: 0 }
@@ -58,12 +61,13 @@ export async function requestRelevantFiles(
 async function getRelevantFiles(
   prompt: string,
   model: model_types | 'gpt-4o-mini',
-  requestType: string
+  requestType: string,
+  userId: string
 ): Promise<{ files: string[]; duration: number }> {
   const start = performance.now()
   const response = await (model === 'gpt-4o-mini'
-    ? promptOpenAI([{ role: 'user', content: prompt }], model)
-    : promptClaude(prompt, { model }))
+    ? promptOpenAI(userId, [{ role: 'user', content: prompt }], model)
+    : promptClaude(prompt, { model, userId }))
   const end = performance.now()
   const duration = end - start
 

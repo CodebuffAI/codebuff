@@ -39,6 +39,7 @@ export type ToolCall = z.infer<typeof ToolCallSchema>
 export const CLIENT_ACTIONS = {
   userInput: z.object({
     type: z.literal('user-input'),
+    fingerprintId: z.string(),
     userInputId: z.string(),
     messages: z.array(MessageSchema),
     fileContext: ProjectFileContextSchema,

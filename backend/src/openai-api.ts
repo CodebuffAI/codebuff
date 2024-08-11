@@ -2,13 +2,14 @@ import OpenAI from 'openai'
 
 let openai: OpenAI | null = null
 
-const getOpenAI = () => {
+const getOpenAI = (userId: string) => {
   if (!openai) {
     openai = new OpenAI({
       apiKey: process.env.OPEN_AI_KEY,
       baseURL: 'https://oai.helicone.ai/v1',
       defaultHeaders: {
         'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
+        'Helicone-User-Id': userId,
       },
     })
   }
@@ -17,10 +18,11 @@ const getOpenAI = () => {
 }
 
 export async function promptOpenAI(
+  userId: string,
   messages: OpenAI.Chat.ChatCompletionMessageParam[],
-  model: string
+  model: string,
 ) {
-  const openai = getOpenAI()
+  const openai = getOpenAI(userId)
   try {
     const response = await openai.chat.completions.create({
       model,

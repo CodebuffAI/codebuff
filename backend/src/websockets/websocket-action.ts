@@ -14,6 +14,7 @@ const sendAction = (ws: WebSocket, action: ServerAction) => {
 
 const onUserInput = async (
   {
+    fingerprintId,
     userInputId,
     messages,
     fileContext,
@@ -30,6 +31,7 @@ const onUserInput = async (
       ws,
       messages,
       fileContext,
+      fingerprintId,
       (chunk) =>
         sendAction(ws, {
           type: 'response-chunk',

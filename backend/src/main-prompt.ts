@@ -27,6 +27,7 @@ export async function mainPrompt(
   ws: WebSocket,
   messages: Message[],
   fileContext: ProjectFileContext,
+  userId: string,
   onResponseChunk: (chunk: string) => void
 ) {
   debugLog(
@@ -44,7 +45,8 @@ export async function mainPrompt(
       fileContext,
       messages,
       null,
-      onResponseChunk
+      onResponseChunk,
+      userId
     )
     fullResponse += responseChunk
   }
@@ -77,6 +79,7 @@ ${STOP_MARKER}
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
       tools,
+      userId,
     })
 
     for await (const chunk of stream) {
@@ -109,7 +112,8 @@ ${STOP_MARKER}
         const relevantFiles = await requestRelevantFiles(
           messages,
           fileContext,
-          toolCall.input['prompt']
+          toolCall.input['prompt'],
+          userId
         )
         const responseChunk = getRelevantFileInfoMessage(relevantFiles)
         onResponseChunk(responseChunk)
@@ -155,12 +159,14 @@ async function updateFileContext(
   fileContext: ProjectFileContext,
   messages: Message[],
   prompt: string | null,
-  onResponseChunk: (chunk: string) => void
+  onResponseChunk: (chunk: string) => void,
+  userId: string
 ) {
   const relevantFiles = await requestRelevantFiles(
     messages,
     fileContext,
-    prompt
+    prompt,
+    userId
   )
 
   if (relevantFiles.length === 0) {

@@ -74,7 +74,7 @@ function getDesktopNav() {
 
 If you forget to include "// ... existing code ..." then the rest of the file will be deleted, which you should be careful of!
 
-Do not include comments you wouldn't want in the final code. For example, "// Add this check" or "// Add this line to track processed files" is not needed, because you are directly adding the check rather than asking the user to add it.
+Do not include comments you wouldn't want in the final code. For example, do not add comments like "// Add this check" or "// Add this line".
 
 You should not set a file's contents to the current contents of the file, since that is unnecessary work.
 

@@ -14,9 +14,9 @@ export type model_types = (typeof models)[keyof typeof models]
 
 export const promptClaudeStream = async function* (
   messages: Message[],
-  options: { system?: string; tools?: Tool[]; model?: model_types } = {}
+  options: { system?: string; tools?: Tool[]; model?: model_types; userId: string }
 ): AsyncGenerator<string | ToolCall, void, unknown> {
-  const { model = models.sonnet, system, tools } = options
+  const { model = models.sonnet, system, tools, userId } = options
 
   const apiKey = process.env.ANTHROPIC_API_KEY
 
@@ -29,6 +29,7 @@ export const promptClaudeStream = async function* (
     baseURL: 'https://anthropic.helicone.ai/',
     defaultHeaders: {
       'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
+      'Helicone-User-Id': userId,
     },
   })
 
@@ -83,7 +84,7 @@ export const promptClaudeStream = async function* (
 
 export const promptClaude = async (
   prompt: string,
-  options: { system?: string; tools?: Tool[]; model?: model_types } = {}
+  options: { system?: string; tools?: Tool[]; model?: model_types; userId: string }
 ) => {
   let fullResponse = ''
   for await (const chunk of promptClaudeStream(
@@ -97,7 +98,7 @@ export const promptClaude = async (
 
 export async function promptClaudeWithContinuation(
   messages: Message[],
-  options: { system?: string; model?: model_types } = {}
+  options: { system?: string; model?: model_types; userId: string }
 ) {
   let fullResponse = ''
   let continuedMessage: Message | null = null

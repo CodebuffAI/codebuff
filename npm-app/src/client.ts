@@ -4,6 +4,7 @@ import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
 import { STOP_MARKER } from 'common/constants'
+import { fingerprintId } from './config'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -105,6 +106,7 @@ export class Client {
       messages,
       fileContext,
       previousChanges,
+      fingerprintId,
     })
   }
 
@@ -146,12 +148,12 @@ export class Client {
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
-      
+
       if (!streamStarted) {
         streamStarted = true
         onStreamStart()
       }
-      
+
       responseBuffer += chunk
       onChunk(chunk)
 

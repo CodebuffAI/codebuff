@@ -74,3 +74,5 @@ Notes from Janna & Stephen test
 [] Didn't load the url I gave it
 [] Still does too many extra things
 [x] Doesn't consistently request new files when it needs to
+[] Scrape urls by default, like we request files by default
+[] The user may have edited files since your last change. Please try to notice and perserve those changes. Don't overwrite these please!
