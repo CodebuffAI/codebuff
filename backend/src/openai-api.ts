@@ -1,5 +1,8 @@
 import OpenAI from 'openai'
 import { RATE_LIMIT_POLICY } from './constants'
+import { STOP_MARKER } from 'common/constants'
+
+type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
 let openai: OpenAI | null = null
 
@@ -22,7 +25,7 @@ const getOpenAI = (userId: string) => {
 
 export async function promptOpenAI(
   userId: string,
-  messages: OpenAI.Chat.ChatCompletionMessageParam[],
+  messages: OpenAIMessage[],
   model: string
 ) {
   const openai = getOpenAI(userId)
@@ -50,4 +53,78 @@ export async function promptOpenAI(
     )
     throw error
   }
+}
+
+export async function promptOpenAIWithContinuation(
+  messages: OpenAIMessage[],
+  options: { model: string; userId: string }
+) {
+  const { model, userId } = options
+  let fullResponse = ''
+  let continuedMessage: OpenAIMessage | null = null
+  let isComplete = false
+
+  // Add the instruction to end with the stop marker to the last user message
+  const lastUserMessageIndex = messages.findLastIndex(
+    (msg) => msg.role === 'user'
+  )
+  if (lastUserMessageIndex !== -1) {
+    messages[lastUserMessageIndex].content +=
+      `\n\nAlways end your response with "${STOP_MARKER}".`
+  } else {
+    messages.push({
+      role: 'user',
+      content: `Always end your response with "${STOP_MARKER}".`,
+    })
+  }
+
+  const openai = getOpenAI(userId)
+
+  while (!isComplete) {
+    const messagesWithContinuedMessage = continuedMessage
+      ? [...messages, continuedMessage]
+      : messages
+
+    try {
+      const stream = await openai.chat.completions.create({
+        model,
+        messages: messagesWithContinuedMessage,
+        stream: true,
+      })
+
+      for await (const chunk of stream) {
+        if (chunk.choices[0]?.delta?.content) {
+          fullResponse += chunk.choices[0].delta.content
+        }
+      }
+
+      if (continuedMessage) {
+        console.log('got continuation response')
+      }
+
+      if (fullResponse.includes(STOP_MARKER)) {
+        isComplete = true
+        fullResponse = fullResponse.replace(STOP_MARKER, '')
+      } else {
+        continuedMessage = {
+          role: 'assistant',
+          content: fullResponse,
+        }
+        messages.push({
+          role: 'user',
+          content: `You got cut off, but please continue from the very next line of your response. Do not repeat anything you have just said. Just continue as if there were no interruption from the very last character of your last response. (Alternatively, just end your response with the following marker if you were done generating and want to allow the user to give further guidance: ${STOP_MARKER})`,
+        })
+      }
+    } catch (error) {
+      console.error(
+        'Error calling OpenAI API:',
+        error && typeof error === 'object' && 'message' in error
+          ? error.message
+          : 'Unknown error'
+      )
+      throw error
+    }
+  }
+
+  return fullResponse
 }

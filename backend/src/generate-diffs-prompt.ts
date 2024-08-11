@@ -1,8 +1,8 @@
-import { promptClaudeWithContinuation } from './claude'
 import { createFileBlock, parseFileBlocks } from 'common/util/file'
 import { Message } from 'common/actions'
 import { debugLog } from './util/debug'
 import { STOP_MARKER } from 'common/constants'
+import { promptOpenAIWithContinuation } from './openai-api'
 
 export async function generateExpandedFileWithDiffBlocks(
   userId: string,
@@ -92,7 +92,7 @@ Then write out one line of code from the old file that would start each of these
 For each edit assigned a letter, please list how many indentation levels are used in the first line being modified in the old file. It's important to match be able to match the indention in the old file. For example:
 A. 0 levels of indentation for the function in the old file
 B. 1 level of indentation for the variable in the old file
-5. Finally, please provide a ${'<' + 'file>'} block containing the <search> and <replace> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes.
+5. Finally, please provide a ${'<' + 'file>'} block containing the <search> and <replace> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes uniquely.
 
 IMPORTANT INSTRUCTIONS:
 1. The <search> blocks MUST match a portion of the old file content EXACTLY, character for character, including indentation and empty lines. Do not include any comments or placeholders like "// ... existing code ..." in the <search> blocks. Instead, provide the exact lines of code that are being changed.
@@ -421,12 +421,16 @@ Your Response:`
 
   // fs.writeFileSync('./diff-prompt.txt', prompt)
 
-  const { response } = await promptClaudeWithContinuation(
+  // const { response } = await promptClaudeWithContinuation(
+  //   [{ role: 'user', content: prompt }],
+  //   { userId }
+  // )
+  const response = await promptOpenAIWithContinuation(
     [{ role: 'user', content: prompt }],
-    { userId }
+    { model: 'gpt-4o-2024-08-06', userId }
   )
 
-  debugLog('Claude response for diff blocks:', response)
+  debugLog('OpenAI response for diff blocks:', response)
 
   const { diffBlocks, diffBlocksThatDidntMatch } = parseAndGetDiffBlocks(
     response,
@@ -466,9 +470,9 @@ ${STOP_MARKER}
 `
     console.log('Trying a second prompt for getDiffBlocks', filePath)
     debugLog('Trying a second prompt for getDiffBlocks', filePath)
-    const { response } = await promptClaudeWithContinuation(
+    const response = await promptOpenAIWithContinuation(
       [{ role: 'user', content: newPrompt }],
-      { userId }
+      { userId, model: 'gpt-4o-2024-08-06' }
     )
     debugLog('Second Claude response for diff blocks:', response)
 
