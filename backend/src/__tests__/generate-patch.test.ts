@@ -10,7 +10,13 @@ const runPatchTest = async (dir: string, mockFilePath: string) => {
   const newFile = fs.readFileSync(`${dir}/new.ts`, 'utf8')
   const expectedFile = fs.readFileSync(`${dir}/expected.ts`, 'utf8')
 
-  const patch = await generatePatch(oldFile, newFile, mockFilePath, [])
+  const patch = await generatePatch(
+    'userId',
+    oldFile,
+    newFile,
+    mockFilePath,
+    []
+  )
   const updatedFile = applyPatch(oldFile, patch)
 
   expect(updatedFile).toEqual(expectedFile)

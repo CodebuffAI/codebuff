@@ -96,7 +96,7 @@ ${STOP_MARKER}
       const fileBlocks = parseFileBlocks(currentFileBlock)
       for (const [filePath, newFileContent] of Object.entries(fileBlocks)) {
         fileProcessingPromises.push(
-          processFileBlock(ws, messages, filePath, newFileContent)
+          processFileBlock(userId, ws, messages, filePath, newFileContent)
         )
 
         currentFileBlock = currentFileBlock.replace(fileRegex, '')
@@ -183,6 +183,7 @@ async function updateFileContext(
 }
 
 export async function processFileBlock(
+  userId: string,
   ws: WebSocket,
   messageHistory: Message[],
   filePath: string,
@@ -199,6 +200,7 @@ export async function processFileBlock(
   }
 
   const patch = await generatePatch(
+    userId,
     oldContent,
     newContent,
     filePath,

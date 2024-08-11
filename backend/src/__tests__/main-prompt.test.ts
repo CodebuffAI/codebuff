@@ -43,12 +43,20 @@ describe('processFileBlock', () => {
       mockRequestFile
 
     // Mock expandNewContent
-    const mockExpandNewContent = jest.fn().mockResolvedValue(newContentNormalized)
+    const mockExpandNewContent = jest
+      .fn()
+      .mockResolvedValue(newContentNormalized)
     ;(expandNewContent as jest.Mock).mockImplementation(mockExpandNewContent)
 
     const filePath = 'test.ts'
 
-    const patch = await processFileBlock(mockWs, [], filePath, newContent)
+    const patch = await processFileBlock(
+      'userId',
+      mockWs,
+      [],
+      filePath,
+      newContent
+    )
     const updatedFile = applyPatch(oldContent, patch)
     expect(updatedFile).toEqual(newContent)
 

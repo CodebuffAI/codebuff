@@ -4,6 +4,7 @@ import { createFileBlock } from 'common/util/file'
 import { promptOpenAI } from './openai-api'
 
 export async function expandNewContent(
+  userId: string,
   oldContent: string,
   newContent: string,
   filePath: string,
@@ -660,6 +661,7 @@ ${createFileBlock(filePath, oldContent)}
 New file content (with placeholders):
 ${createFileBlock(filePath, newContent)}`
   const expandedContentResponse = await promptOpenAI(
+    userId,
     [
       {
         role: 'user',

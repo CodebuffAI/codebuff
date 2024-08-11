@@ -5,12 +5,14 @@ import { debugLog } from './util/debug'
 import { STOP_MARKER } from 'common/constants'
 
 export async function generateExpandedFileWithDiffBlocks(
+  userId: string,
   messageHistory: Message[],
   filePath: string,
   oldContent: string,
   newContent: string
 ) {
   const diffBlocks = await generateDiffBlocks(
+    userId,
     messageHistory,
     filePath,
     oldContent,
@@ -47,6 +49,7 @@ export async function generateExpandedFileWithDiffBlocks(
 }
 
 export async function generateDiffBlocks(
+  userId: string,
   messageHistory: Message[],
   filePath: string,
   oldContent: string,
@@ -418,9 +421,10 @@ Your Response:`
 
   // fs.writeFileSync('./diff-prompt.txt', prompt)
 
-  const { response } = await promptClaudeWithContinuation([
-    { role: 'user', content: prompt },
-  ])
+  const { response } = await promptClaudeWithContinuation(
+    [{ role: 'user', content: prompt }],
+    { userId }
+  )
 
   debugLog('Claude response for diff blocks:', response)
 
@@ -462,9 +466,10 @@ ${STOP_MARKER}
 `
     console.log('Trying a second prompt for getDiffBlocks', filePath)
     debugLog('Trying a second prompt for getDiffBlocks', filePath)
-    const { response } = await promptClaudeWithContinuation([
-      { role: 'user', content: newPrompt },
-    ])
+    const { response } = await promptClaudeWithContinuation(
+      [{ role: 'user', content: newPrompt }],
+      { userId }
+    )
     debugLog('Second Claude response for diff blocks:', response)
 
     const {

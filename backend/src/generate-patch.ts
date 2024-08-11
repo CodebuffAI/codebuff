@@ -7,6 +7,7 @@ import { generateExpandedFileWithDiffBlocks } from './generate-diffs-prompt'
 const LARGE_FILE_CHARACTERS = 10000
 
 export async function generatePatch(
+  userId: string,
   oldContent: string,
   newContent: string,
   filePath: string,
@@ -23,6 +24,7 @@ export async function generatePatch(
     newContent.length < LARGE_FILE_CHARACTERS / 3
   ) {
     updatedFile = await generateExpandedFileWithDiffBlocks(
+      userId,
       messageHistory,
       filePath,
       normalizedOldContent,
@@ -30,6 +32,7 @@ export async function generatePatch(
     )
   } else {
     updatedFile = await expandNewContent(
+      userId,
       normalizedOldContent,
       normalizedNewContent,
       filePath,
