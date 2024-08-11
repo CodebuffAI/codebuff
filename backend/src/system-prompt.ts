@@ -7,7 +7,10 @@ import { STOP_MARKER } from 'common/constants'
 import { countTokensForFiles } from './util/token-counter'
 import { debugLog } from './util/debug'
 
-export function getSystemPrompt(fileContext: ProjectFileContext) {
+export function getSystemPrompt(
+  fileContext: ProjectFileContext,
+  checkFiles: boolean
+) {
   const { currentWorkingDirectory, fileTree, exportedTokens, knowledgeFiles } =
     fileContext
 
@@ -186,11 +189,14 @@ A. If a user writes what looks like a terminal command, you should execute it. T
 B. If the user provided a url, please use the scrape_web_page tool on it to better answer their question, and then proceed to the general case below.
 
 General case:
-1. Check if there are any files that were not provided that you need to read or intend to modify before continuing. If so, use the update_file_context tool to request them. Remember, any files that are not listed in the <project_file_tree> block should not be requested since they don't exist.
+${
+  checkFiles
+    ? `0. Check if there are any files that were not provided that you need to read or intend to modify before continuing. If so, use the update_file_context tool to request them. Remember, any files that are not listed in the <project_file_tree> block should not be requested since they don't exist.\n`
+    : ''
+}
+1. Create a <code_review> block and describe what is happening in the key files included in the user message.
 
-2. Create a <code_review> block and describe what is happening in the key files included in the user message.
-
-3. After understanding the user request and the code, you should create a <brainstorm> block. In it, you should:
+2. After understanding the user request and the code, you should create a <brainstorm> block. In it, you should:
 I. List all the possible plans to solve the user's problem. 
 II. Discuss how much uncertainty or ambiguity there is in fulfilling the user's request and knowing what plan they would like most.
 Assign an uncertainty score between 0 (no ambiguity) and 100 (high ambiguity) that you know what the user wants and can implement the plan they would like most.
@@ -198,11 +204,11 @@ If your uncertainty score is greater than 5, you should stop and ask the user to
 If your uncertainty score is 5 or lower, you should proceed to the next step.
 III. Decide on a plan to address the user's request.
 
-4. If the plan is somewhat complex, you should then explain the reasoning behind the plan step-by-step.
+3. If the plan is somewhat complex, you should then explain the reasoning behind the plan step-by-step.
 If you discover an error, you should correct it and then explain the reasoning behind the corrected plan.
 If you need to read more files, use the update_file_context tool and go back to step 1 to review the files.
 
-5. You may then edit files to address the user's request, but make as few changes as possible.
+4. You may then edit files to address the user's request, but make as few changes as possible.
 
 Finally, if the user corrected you or gave feedback and it helped you understand something better, you must edit a knowledge file with a short note that condenses what you learned and what to do next time you so you don't make the same mistake again.
 

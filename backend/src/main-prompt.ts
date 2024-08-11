@@ -38,6 +38,7 @@ export async function mainPrompt(
 
   let fullResponse = ''
 
+  let shouldCheckFiles = true
   if (Object.keys(fileContext.files).length === 0) {
     // If the fileContext.files is empty, use prompts to select files and add them to context.
     const responseChunk = await updateFileContext(
@@ -49,6 +50,7 @@ export async function mainPrompt(
       userId
     )
     fullResponse += responseChunk
+    shouldCheckFiles = false
   }
 
   const tools = getTools()
@@ -69,7 +71,7 @@ ${STOP_MARKER}
   }
 
   while (!isComplete) {
-    const system = getSystemPrompt(fileContext)
+    const system = getSystemPrompt(fileContext, shouldCheckFiles)
     const messagesWithContinuedMessage = continuedMessages
       ? [...messages, ...continuedMessages]
       : messages
