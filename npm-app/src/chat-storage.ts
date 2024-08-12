@@ -26,7 +26,7 @@ export class ChatStorage {
 
   constructor() {
     this.baseDir = path.join(getProjectRoot(), MANICODE_DIR, CHATS_DIR)
-    this.ensureDirectoryExists()
+    // this.ensureDirectoryExists()
     this.currentChat = this.createChat()
     this.currentVersionIndex = -1
   }
