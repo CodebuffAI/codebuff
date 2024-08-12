@@ -52,6 +52,8 @@ You can also grep for tokens to inform you of which files to request with the up
 Before you edit any file, you must make sure it is provided in the system prompt <relevant_files> block. If not, you should use the update_file_context tool to ask for the file, unless the file does not exist yet.
 </important_instructions>
 
+The user may have edited files since your last change. Please try to notice and perserve those changes. Don't overwrite any user edits please!
+
 <editing_instructions>
 You implement edits by writing out <file> blocks. The user does not need to copy this code to make the edit, the file change is done automatically.
 

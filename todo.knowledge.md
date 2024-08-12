@@ -71,9 +71,8 @@ Notes from Janna & Stephen test
 [x] Allow pasting new lines based on timing strategy
 [] It's not saving useful info like that this is a Windows machine and it shouldn't be using grep into a knowledge file.
 [x] Budget of tokens when reading files, and skip files that put it over the limit.
-[] Didn't load the url I gave it
-[] Still does too many extra things
+[x] Still does too many extra things
 [x] Doesn't consistently request new files when it needs to
-[] Scrape urls by default, like we request files by default
-[] The user may have edited files since your last change. Please try to notice and perserve those changes. Don't overwrite these please!
+[x] Scrape urls by default, like we request files by default
+[x] The user may have edited files since your last change. Please try to notice and perserve those changes. Don't overwrite these please!
 [] Show a message when manicode is out of date. Or figure out how to automatically update.
