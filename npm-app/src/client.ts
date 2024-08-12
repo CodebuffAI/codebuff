@@ -94,7 +94,7 @@ export class Client {
       if (!isUpToDate) {
         console.warn(
           chalk.yellow(
-            `\nThere's a new version of Manicode (${packageJson.version})! Please update to version ${latestVersion} to ensure proper functionality.\nUpdate now by running: npm install -g manicode`
+            `\nThere's a new version of Manicode! Please update to ensure proper functionality.\nUpdate now by running: npm install -g manicode`
           )
         )
       }
