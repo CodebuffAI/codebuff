@@ -33,6 +33,7 @@ export async function promptOpenAI(
     const response = await openai.chat.completions.create({
       model,
       messages,
+      temperature: 0,
     })
 
     if (
@@ -90,6 +91,7 @@ export async function promptOpenAIWithContinuation(
         model,
         messages: messagesWithContinuedMessage,
         stream: true,
+        temperature: 0,
       })
 
       for await (const chunk of stream) {

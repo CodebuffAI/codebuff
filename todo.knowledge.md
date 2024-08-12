@@ -78,3 +78,6 @@ Notes from Janna & Stephen test
 [] Show a message when manicode is out of date. Or figure out how to automatically update.
 [] The "// add this blah" comments are really annoying. Strip them out in the diff step
 [] The comprehensive files list generates a huge amount of thinking that is probably slow
+[x] Try a lower temperature. Might prevent it from doing random stuff. 
+    - apparently it's been 0 this whole time, huh (for claude)
+    - Also openai defaults to 0
