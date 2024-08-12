@@ -1,0 +1,2 @@
+[console_scripts]
+manicode = manicode:main

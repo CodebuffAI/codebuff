@@ -145,3 +145,11 @@ Manny can now execute terminal commands using the `run_terminal_command` tool. T
 
 - We don't specify return types for functions, since Typescript will infer them. 
 - Always include 'src' in file paths when it's part of the actual directory structure, even though imports automatically remove it. 
+
+## Python Package
+
+A Python package for Manicode has been created as a skeleton in python-app. Key points:
+
+- It's currently a placeholder that prints a message about the package coming soon and suggests installing the npm version.
+
+- The Python package is intended to be developed further in the future to provide similar functionality to the npm version.
