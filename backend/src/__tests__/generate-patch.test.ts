@@ -121,7 +121,21 @@ describe('generatePatch', () => {
   it(
     'should remove try catch in delete comment',
     async () => {
-      await runPatchTest('src/__tests__/__mock-data__/delete-comment', 'src/delete-comment.ts')
+      await runPatchTest(
+        'src/__tests__/__mock-data__/delete-comment',
+        'src/delete-comment.ts'
+      )
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
+
+  it(
+    'should work for missing-line-actions',
+    async () => {
+      await runPatchTest(
+        'src/__tests__/__mock-data__/missing-line-actions',
+        'src/actions.ts'
+      )
     },
     CLAUDE_CALL_TIMEOUT
   )
