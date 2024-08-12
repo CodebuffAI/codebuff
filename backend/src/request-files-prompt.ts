@@ -17,6 +17,7 @@ export async function requestRelevantFiles(
   requestPrompt: string | null,
   userId: string
 ): Promise<string[]> {
+  const previousFiles = Object.keys(fileContext.files)
   // const keyPromise = getRelevantFiles(
   //   generateKeyRequestFilesPrompt(messages, fileContext, requestPrompt),
   //   models.sonnet,
@@ -55,7 +56,8 @@ export async function requestRelevantFiles(
   // debugLog('Key files:', keyResult.files)
   debugLog('Comprehensive files:', comprehensiveResult.files)
 
-  return comprehensiveResult.files
+  const newFiles = uniq([...comprehensiveResult.files, ...previousFiles])
+  return newFiles
 }
 
 async function getRelevantFiles(
