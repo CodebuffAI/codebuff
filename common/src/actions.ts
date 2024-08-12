@@ -53,12 +53,17 @@ export const CLIENT_ACTIONS = {
     type: z.literal('run-terminal-command'),
     command: z.string(),
   }),
+  checkNpmVersion: z.object({
+    type: z.literal('check-npm-version'),
+    version: z.string(),
+  }),
 } as const
 
 export const CLIENT_ACTION_SCHEMA = z.union([
   CLIENT_ACTIONS.userInput,
   CLIENT_ACTIONS.readFilesResponse,
   CLIENT_ACTIONS.runTerminalCommand,
+  CLIENT_ACTIONS.checkNpmVersion,
 ])
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
@@ -90,6 +95,11 @@ export const SERVER_ACTIONS = {
     userInputId: z.string(),
     result: z.string(),
   }),
+  npmVersionStatus: z.object({
+    type: z.literal('npm-version-status'),
+    isUpToDate: z.boolean(),
+    latestVersion: z.string(),
+  }),
 }
 export const SERVER_ACTION_SCHEMA = z.union([
   SERVER_ACTIONS.responseChunk,
@@ -97,5 +107,6 @@ export const SERVER_ACTION_SCHEMA = z.union([
   SERVER_ACTIONS.readFiles,
   SERVER_ACTIONS.toolCall,
   SERVER_ACTIONS.terminalCommandResult,
+  SERVER_ACTIONS.npmVersionStatus,
 ])
 export type ServerAction = z.infer<typeof SERVER_ACTION_SCHEMA>

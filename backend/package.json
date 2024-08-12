@@ -1,13 +1,13 @@
 {
   "name": "backend",
-  "version": "1.0.0",
+  "version": "1.0.39",
   "description": "Backend server for Manicode",
   "main": "dist/index.js",
   "license": "UNLICENSED",
   "scripts": {
     "start": "ts-node -r tsconfig-paths/register src/index.ts",
     "start-js": "node dist/index.js",
-    "prebuild": "yarn clean && cd ../common && yarn build",
+    "prebuild": "yarn clean && cd ../common && yarn build && node ../scripts/build-version-info.js",
     "build": "tsc --build && tsc-alias",
     "postbuild": "mkdir -p dist/common && cp -R ../common/dist/* dist/common && tsc-alias",
     "clean": "rm -rf dist && rm -f tsconfig.tsbuildinfo",
@@ -22,7 +22,7 @@
     "dotenv": "^10.0.0",
     "express": "^4.17.1",
     "lodash": "*",
-    "openai": "^4.55.4", 
+    "openai": "^4.55.4",
     "tiktoken": "^1.0.15",
     "ws": "^8.13.0",
     "zod": "^3.21.4"

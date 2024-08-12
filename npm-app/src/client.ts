@@ -1,3 +1,6 @@
+import chalk from 'chalk' // Add this import
+
+import packageJson from '../package.json'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import { getFiles, getProjectFileContext } from './project-files'
 import { ChatStorage } from './chat-storage'
@@ -19,6 +22,7 @@ export class Client {
   async connect() {
     await this.webSocket.connect()
     this.setupSubscriptions()
+    this.checkNpmVersion()
   }
 
   private setupSubscriptions() {
@@ -83,6 +87,24 @@ export class Client {
         type: 'read-files-response',
         files,
       })
+    })
+
+    this.webSocket.subscribe('npm-version-status', (action) => {
+      const { isUpToDate, latestVersion } = action
+      if (!isUpToDate) {
+        console.warn(
+          chalk.yellow(
+            `\nThere's a new version of Manicode (${packageJson.version})! Please update to version ${latestVersion} to ensure proper functionality.\nUpdate now by running: npm install -g manicode`
+          )
+        )
+      }
+    })
+  }
+
+  private checkNpmVersion() {
+    this.webSocket.sendAction({
+      type: 'check-npm-version',
+      version: packageJson.version,
     })
   }
 

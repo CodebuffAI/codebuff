@@ -117,7 +117,7 @@ ${STOP_MARKER}
           toolCall.input['prompt'],
           userId
         )
-        const responseChunk = getRelevantFileInfoMessage(relevantFiles)
+        const responseChunk = '\n' + getRelevantFileInfoMessage(relevantFiles)
         onResponseChunk(responseChunk)
         fullResponse += responseChunk
       }

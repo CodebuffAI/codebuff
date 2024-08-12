@@ -17,9 +17,10 @@
       "common/*": ["../common/src/*"]
     },
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "resolveJsonModule": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "package.json"],
   "references": [{ "path": "../common" }],
   "ts-node": {
     "require": ["tsconfig-paths/register"]

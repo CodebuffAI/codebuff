@@ -4,6 +4,8 @@ import { mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction } from 'common/actions'
 import { sendMessage } from './server'
 import { isEqual } from 'lodash'
+import fs from 'fs'
+import path from 'path'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -81,6 +83,23 @@ const onUserInput = async (
   }
 }
 
+const onCheckNpmVersion = async (
+  { version }: Extract<ClientAction, { type: 'check-npm-version' }>,
+  ws: WebSocket
+) => {
+  const backendPackageJsonPath = path.join(__dirname, '..', '..', 'package.json')
+  const backendPackageJson = JSON.parse(fs.readFileSync(backendPackageJsonPath, 'utf-8'))
+  const latestVersion = backendPackageJson.version
+
+  const isUpToDate = version === latestVersion
+
+  sendAction(ws, {
+    type: 'npm-version-status',
+    isUpToDate,
+    latestVersion,
+  })
+}
+
 const callbacksByAction = {} as Record<
   ClientAction['type'],
   ((action: ClientAction, ws: WebSocket) => void)[]
@@ -117,6 +136,7 @@ export const onWebsocketAction = async (
 }
 
 subscribeToAction('user-input', onUserInput)
+subscribeToAction('check-npm-version', onCheckNpmVersion)
 
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {

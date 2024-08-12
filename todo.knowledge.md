@@ -76,3 +76,5 @@ Notes from Janna & Stephen test
 [x] Scrape urls by default, like we request files by default
 [x] The user may have edited files since your last change. Please try to notice and perserve those changes. Don't overwrite these please!
 [] Show a message when manicode is out of date. Or figure out how to automatically update.
+[] The "// add this blah" comments are really annoying. Strip them out in the diff step
+[] The comprehensive files list generates a huge amount of thinking that is probably slow

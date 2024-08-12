@@ -192,3 +192,12 @@ Developers should continue to improve error handling to ensure a smooth user exp
 4. The user input ID remains consistent for all interactions related to a single user input.
 
 This system allows for better tracking and correlation of user inputs with their corresponding responses and tool calls, while avoiding potential conflicts with individual message IDs.
+
+## Version Checking
+
+- The `Client` class in `client.ts` includes a subscription to 'npm-version-status' that checks if the current version is up to date.
+- If a newer version is available, a warning is displayed in yellow text using the `chalk` library.
+- Users are instructed to update using the command: `npm install -g manicode`
+- The version check is performed as part of the WebSocket subscription setup.
+
+## End of Document
