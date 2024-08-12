@@ -17,7 +17,7 @@
 [x] Stuck in loop: Prompting claude num messages: 21, continuing to generate
 [x] Backspace after typing more than one line is buggy
 
-- Dawson's case of wanting it to scrape documentation from a url and answer questions with it.
+[x] Dawson's case of wanting it to scrape documentation from a url and answer questions with it.
 - x% knowledge written in menu based on number of commits to knowledge files
 [x] How it could run bash:
 1. First, let's build the `common` package:
@@ -62,8 +62,9 @@ Notes from Janna & Stephen test
 
 
 -- Instead, of below, apply edits immediately. Track all changes for a message via an id. Fix conccurent request by subscribing/unsubscribing to response with id.
-[] Give it a new marker token that will await all file changes, so then it can run tsc or tests, etc.
+[x] Give it a new marker token that will await all file changes, so then it can run tsc or tests, etc.
     - It is using grep to see if changes went through, but they haven't so gets in a loop.
+    - Realized we could just apply the edits before the tool call. We were already passing them through.
 [x] Was able to start a concurrent request after cancelling the last one...
 [] Changes behavior like removing if guard if statements at the top, removing cases of logs/errors, adds <form>. It should only do the minimal change and assume existing code is there for a reason.
 [x] Terminal command that doesn't finish bricks manicode
@@ -75,10 +76,12 @@ Notes from Janna & Stephen test
 [x] Doesn't consistently request new files when it needs to
 [x] Scrape urls by default, like we request files by default
 [x] The user may have edited files since your last change. Please try to notice and perserve those changes. Don't overwrite these please!
-[] Show a message when manicode is out of date. Or figure out how to automatically update.
+[x] Show a message when manicode is out of date. Or figure out how to automatically update.
 [] The "// add this blah" comments are really annoying. Strip them out in the diff step
 [] The comprehensive files list generates a huge amount of thinking that is probably slow
 [x] Try a lower temperature. Might prevent it from doing random stuff. 
     - apparently it's been 0 this whole time, huh (for claude)
     - Also openai defaults to 0
-[] Add current file diff from main into context
+[] Add current file diff from main into context (git status/git diff?)
+
+[] It thought that update_file_context would create a file? (a knowledge file?)
