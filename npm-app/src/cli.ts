@@ -211,8 +211,7 @@ export class CLI {
     this.stopLoadingAnimation()
 
     const filesChanged = uniq(changes.map(getFilePathFromPatch))
-    const currentFiles = getExistingFiles(filesChanged)
-    this.chatStorage.saveCurrentFileState(currentFiles)
+    const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
 
     const { created, modified } = applyChanges(changes)
     for (const file of created) {
@@ -234,7 +233,7 @@ export class CLI {
       assistantMessage
     )
 
-    const updatedFiles = getExistingFiles(filesChanged)
+    const updatedFiles = getExistingFiles(allFilesChanged)
     this.chatStorage.addNewFileState(updatedFiles)
 
     this.rl.prompt()

@@ -83,8 +83,6 @@ Do not include comments you wouldn't want in the final code. For example, do not
 
 You should not set a file's contents to the current contents of the file, since that is unnecessary work.
 
-All changes to files in your response are only actually made after the end of your response, i.e. after you print the ${STOP_MARKER} token. You should not expect the file changes to be made until then.
-
 Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 
 If you want to delete or rename a file, run a terminal command. More details below.
@@ -121,6 +119,7 @@ What should not be included:
 - Detailed documentation of a single file (use file-specific knowledge files for this)
 - Restated code or interfaces in natural language
 - Lots of detail about a minor change
+- Documentation of the code you just wrote, unless there's something very unintuitive
 
 Guidelines for updating knowledge files:
 - Be concise and focused on the most important aspects of the project
@@ -212,7 +211,7 @@ If you need to read more files, use the update_file_context tool and go back to 
 
 4. You may then edit files to address the user's request, but make as few changes as possible.
 
-Finally, if the user corrected you or gave feedback and it helped you understand something better, you must edit a knowledge file with a short note that condenses what you learned and what to do next time you so you don't make the same mistake again.
+If the user corrected you or gave feedback and it helped you understand something better, you must edit a knowledge file with a short note that condenses what you learned and what to do next time you so you don't make the same mistake again. Pure documentation of code doesn't need to be added to knowlege.
 
 <important_instruction>
 Confine your edits to only what is directly necessary. Preserve the behavior of all existing code. Change only what you must to accomplish the user's request or add to a knowledge file.

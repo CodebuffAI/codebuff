@@ -81,3 +81,4 @@ Notes from Janna & Stephen test
 [x] Try a lower temperature. Might prevent it from doing random stuff. 
     - apparently it's been 0 this whole time, huh (for claude)
     - Also openai defaults to 0
+[] Add current file diff from main into context

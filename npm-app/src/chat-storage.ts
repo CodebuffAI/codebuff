@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { Message } from 'common/actions'
-import { getProjectRoot } from './project-files'
+import { getExistingFiles, getProjectRoot } from './project-files'
 
 const MANICODE_DIR = '.manicode'
 const CHATS_DIR = 'chats'
@@ -142,6 +142,19 @@ export class ChatStorage {
       return true
     }
     return false
+  }
+
+  saveFilesChanged(filesChanged: string[]) {
+    const currentVersion = this.getCurrentVersion()
+    if (currentVersion) {
+      const newFilesChanged = filesChanged.filter(
+        (f) => !currentVersion.files[f]
+      )
+      const updatedFiles = getExistingFiles(newFilesChanged)
+      currentVersion.files = { ...currentVersion.files, ...updatedFiles }
+      return Object.keys(currentVersion.files)
+    }
+    return []
   }
 
   saveCurrentFileState(files: Record<string, string>) {

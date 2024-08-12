@@ -2,13 +2,15 @@ import chalk from 'chalk' // Add this import
 
 import packageJson from '../package.json'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
-import { getFiles, getProjectFileContext } from './project-files'
+import { applyChanges, getFiles, getProjectFileContext } from './project-files'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
 import { STOP_MARKER } from 'common/constants'
 import { fingerprintId } from './config'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
+import { uniq } from 'lodash'
+import { getFilePathFromPatch } from 'common/util/file'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -28,9 +30,16 @@ export class Client {
   private setupSubscriptions() {
     this.webSocket.subscribe('tool-call', async (a) => {
       const { response, changes, data, userInputId } = a
+
+      const filesChanged = uniq(changes.map(getFilePathFromPatch))
+      this.chatStorage.saveFilesChanged(filesChanged)
+
+      applyChanges(changes)
+
       const { id, name, input } = data
 
-      const messages = this.chatStorage.getCurrentChat().messages
+      const currentChat = this.chatStorage.getCurrentChat()
+      const messages = currentChat.messages
       if (messages[messages.length - 1].role === 'assistant') {
         // Probably the last response from the assistant was cancelled and added immediately.
         return
