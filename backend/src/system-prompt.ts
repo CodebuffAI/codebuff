@@ -79,6 +79,12 @@ function getDesktopNav() {
 
 If you forget to include "// ... existing code ..." then the rest of the file will be deleted, which you should be careful of!
 
+<important_instruction>
+Don't forget to add the placeholder comment "// ... existing code ..." between any sections of code you are editing. If you don't, then all the code in between will be deleted!
+</important_instruction>
+
+Try not to reproduce long continuous sections of the file which are unchanged. Use the placeholder comment "// ... existing code ..." to abbreviate these sections.
+
 Do not include comments you wouldn't want in the final code. For example, do not add comments like "// Add this check" or "// Add this line".
 
 You should not set a file's contents to the current contents of the file, since that is unnecessary work.

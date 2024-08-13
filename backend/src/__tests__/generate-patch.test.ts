@@ -15,7 +15,8 @@ const runPatchTest = async (dir: string, mockFilePath: string) => {
     oldFile,
     newFile,
     mockFilePath,
-    []
+    [],
+    ''
   )
   const updatedFile = applyPatch(oldFile, patch)
 

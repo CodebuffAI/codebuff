@@ -12,6 +12,7 @@ const runDiffTest = async (dir: string, mockFilePath: string) => {
   const updatedFile = await generateExpandedFileWithDiffBlocks(
     'userId',
     [],
+    '',
     mockFilePath,
     oldFile,
     newFile

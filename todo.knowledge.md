@@ -55,8 +55,8 @@ Notes from Janna & Stephen test
 [] Force updates: run the command to update app.
 [] Store previous user input's and always include that history in system prompt.
     - Can also allow you to press up arrow to go through whole history
-[] Changes prompt is printing object for most previous messages in message history
-[] It keeps requesting files that are already in its context. Need to highlight those paths again somewhere?
+[x] Changes prompt is printing object for most previous messages in message history
+[x] It keeps requesting files that are already in its context. Need to highlight those paths again somewhere?
     - Requests a file before editing that it just got.
 [] Knowledge files should be treated more like regular files, but with system prompts to frequently include them
 
@@ -85,3 +85,5 @@ Notes from Janna & Stephen test
 [] Add current file diff from main into context (git status/git diff?)
 
 [] It thought that update_file_context would create a file? (a knowledge file?)
+[] Claude doesn't leave a comment that there's more code in between when it should. Then lots gets deleted
+[] Try using the native stop marker feature

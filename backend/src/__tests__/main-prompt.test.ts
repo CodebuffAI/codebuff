@@ -54,6 +54,7 @@ describe('processFileBlock', () => {
       'userId',
       mockWs,
       [],
+      '',
       filePath,
       newContent
     )

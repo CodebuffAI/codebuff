@@ -11,7 +11,8 @@ export async function generatePatch(
   oldContent: string,
   newContent: string,
   filePath: string,
-  messageHistory: Message[]
+  messageHistory: Message[],
+  fullResponse: string
 ) {
   const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
   const lineEnding = oldContent.includes('\r\n') ? '\r\n' : '\n'
@@ -26,6 +27,7 @@ export async function generatePatch(
     updatedFile = await generateExpandedFileWithDiffBlocks(
       userId,
       messageHistory,
+      fullResponse,
       filePath,
       normalizedOldContent,
       normalizedNewContent
@@ -36,7 +38,8 @@ export async function generatePatch(
       normalizedOldContent,
       normalizedNewContent,
       filePath,
-      messageHistory
+      messageHistory,
+      fullResponse
     )
   }
   updatedFile = updatedFile.replaceAll('\n', lineEnding)

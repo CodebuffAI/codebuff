@@ -8,21 +8,22 @@ export async function expandNewContent(
   oldContent: string,
   newContent: string,
   filePath: string,
-  messageHistory: Message[]
+  messageHistory: Message[],
+  fullResponse: string
 ): Promise<string> {
-  const prompt = `You are an expert programmer tasked with expanding a shortened version of a file into its full content. The shortened version uses comments like "// ... existing code ..." or "// ... rest of the function ..." or "// keep existing code ..." to indicate unchanged sections. Your task is to replace these comments with the actual code from the old version of the file.
+  const prompt = `<assistant_message_context>${fullResponse}</assistant_message_context>
+
+You are an expert programmer tasked with expanding a shortened version of a file into its full content. The shortened version uses comments like "// ... existing code ..." or "// ... rest of the function ..." or "// keep existing code ..." to indicate unchanged sections. Your task is to replace these comments with the actual code from the old version of the file.
 
 Your response should follow the following format:
-A. Please discuss the changes in the new file content compared to the old file content in <discussion> blocks.
+A. Please discuss the changes in the new file content compared to the old file content in a <discussion> block.
 
-B. In <sections-to-expand> blocks, please list the comments that should be expanded and where they are. If there are none, please say that the new content is already expanded.
+B. In a <sections-to-expand> block, please list the comments that should be expanded and where they are. If there are none, please say that the new content is already expanded.
 
 C1. If there are no comments to expand, write: ${createFileBlock(filePath, '[ALREADY_EXPANDED]')}
 
 C2. Otherwise, in a <file> block, please expand each comment listed in <sections-to-expand> with the appropriate code from the old file to create the full expanded content of the new file.
 This requires you to compose the resulting file with exact lines from the old file and new file only. You are just copying whole lines character for character. Maintain the exact indentation and formatting of both the old and new content. Do not add any extra comments or explanations.
-
-Pay particular attention to the last lines of the old file, which might have important closing brackets to copy over.
 
 Output the full content of the new file within a <file> block, using the provided file path as an attribute.
 

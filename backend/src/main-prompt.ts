@@ -98,7 +98,7 @@ ${STOP_MARKER}
       const fileBlocks = parseFileBlocks(currentFileBlock)
       for (const [filePath, newFileContent] of Object.entries(fileBlocks)) {
         fileProcessingPromises.push(
-          processFileBlock(userId, ws, messages, filePath, newFileContent)
+          processFileBlock(userId, ws, messages, fullResponse, filePath, newFileContent)
         )
 
         currentFileBlock = currentFileBlock.replace(fileRegex, '')
@@ -188,6 +188,7 @@ export async function processFileBlock(
   userId: string,
   ws: WebSocket,
   messageHistory: Message[],
+  fullResponse: string,
   filePath: string,
   newContent: string
 ) {
@@ -206,7 +207,8 @@ export async function processFileBlock(
     oldContent,
     newContent,
     filePath,
-    messageHistory
+    messageHistory,
+    fullResponse
   )
   console.log(`Generated patch for file: ${filePath}`)
   debugLog(`Generated patch for file: ${filePath}`)

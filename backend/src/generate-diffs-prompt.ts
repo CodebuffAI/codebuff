@@ -7,6 +7,7 @@ import { promptOpenAIWithContinuation } from './openai-api'
 export async function generateExpandedFileWithDiffBlocks(
   userId: string,
   messageHistory: Message[],
+  fullResponse: string,
   filePath: string,
   oldContent: string,
   newContent: string
