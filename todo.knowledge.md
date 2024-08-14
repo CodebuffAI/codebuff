@@ -87,3 +87,4 @@ Notes from Janna & Stephen test
 [] It thought that update_file_context would create a file? (a knowledge file?)
 [] Claude doesn't leave a comment that there's more code in between when it should. Then lots gets deleted
 [] Try using the native stop marker feature
+[] Use tree sitter to include exported tokens ttps://github.com/tree-sitter/node-tree-sitter
