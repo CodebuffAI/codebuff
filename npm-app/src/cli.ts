@@ -16,7 +16,7 @@ export class CLI {
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
   private loadingInterval: NodeJS.Timeout | null = null
-  private lastInputWasMenu: boolean = false
+
   private lastInputTime: number = 0
   private consecutiveFastInputs: number = 0
   private pastedContent: string = ''
@@ -173,7 +173,6 @@ export class CLI {
 
   private async handleUserInput(userInput: string) {
     if (!userInput) return
-    this.lastInputWasMenu = false
 
     // Handle commands
     if (userInput === 'help' || userInput === 'h') {

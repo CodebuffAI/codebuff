@@ -53,16 +53,22 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
   console.log(
     'Ask Manicode to implement small features, refactor code, write unit tests, write scripts, or give advice.\n'
   )
-  console.log('Press CTRL-C to exit app')
-  console.log('Press ESC to cancel generation')
-  console.log('Type "undo" or "u" to undo the last change')
-  console.log('Type "redo" or "r" to redo the last change')
-  console.log('Type "help" or "h" to print this menu\n')
+
+  console.log('COMMANDS')
+  console.log('- Press CTRL-C to exit app')
+  console.log('- Press ESC to cancel generation')
+  console.log('- Type "undo" or "u" to undo the last change')
+  console.log('- Type "redo" or "r" to redo the last change')
+  console.log('- Type "help" or "h" to print this menu\n')
 
   console.log('TIPS')
   console.log(
-    '() Create a knowledge.md file and collect specific points of advice. The assistant will use this knowledge to improve its responses.'
+    '() Say: "Create knowledge files for my codebase" to generate and store information that will help Manicode understand your project.'
   )
+  console.log(
+    '() Add to knowledge files when Manicode makes mistakes. Usually there is context that Manicode is missing that led to the mistake, and adding this information will help Manicode improve its responses.'
+  )
+  console.log('Say: "Don\'t change any files" if you want it to think first')
   console.log(
     '() Email your feedback to james@manifold.markets. Thanks for using Manicode!'
   )
