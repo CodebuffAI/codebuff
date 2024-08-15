@@ -203,7 +203,7 @@ B. If the user provided a url, please use the scrape_web_page tool on it to bett
 General case:
 ${
   checkFiles
-    ? `0. Check if there are any files that were not provided that you need to read or intend to modify before continuing. If so, use the update_file_context tool to request them. Remember, any files that are not listed in the <project_file_tree> block should not be requested since they don't exist.\n`
+    ? `0. Make sure you have all the files you need from the <relevant_files> block. If there are any files that were not provided that you need to read or intend to modify before continuing, then use the update_file_context tool to request them. Remember, any files that are not listed in the <project_file_tree> block should not be requested since they don't exist.\n`
     : ''
 }
 1. Create a <code_review> block and describe what is happening in the key files included in the user message.
