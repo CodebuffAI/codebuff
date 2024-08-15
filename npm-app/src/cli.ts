@@ -8,7 +8,12 @@ import { ChatStorage } from './chat-storage'
 import { Client } from './client'
 import { Message } from 'common/actions'
 import { displayMenu } from './menu'
-import { applyChanges, getExistingFiles, setFiles } from './project-files'
+import {
+  applyChanges,
+  getExistingFiles,
+  getProjectRoot,
+  setFiles,
+} from './project-files'
 
 export class CLI {
   private client: Client
@@ -265,7 +270,7 @@ export class CLI {
 }
 
 const stageChanges = () => {
-  exec('git add .', (error, stdout, stderr) => {
+  exec(`cd ${getProjectRoot()} && git add .`, (error, stdout, stderr) => {
     if (error) {
       return
     }
