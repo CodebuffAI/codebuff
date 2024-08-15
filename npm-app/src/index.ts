@@ -14,7 +14,7 @@ async function manicode(projectDir: string | undefined) {
   const fingerprintPromise = initFingerprint()
   const dir = initProjectRoot(projectDir)
   console.log(
-    `Manicode will read and write files in "${dir}". Press ESC for menu.`
+    `Manicode will read and write files in "${dir}". Type "help" for a list of commands`
   )
 
   const gitDir = path.join(dir, '.git')

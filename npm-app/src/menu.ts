@@ -53,16 +53,15 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
   console.log(
     'Ask Manicode to implement small features, refactor code, write unit tests, write scripts, or give advice.\n'
   )
-  console.log('Press CTRL-C to exit app\n')
+  console.log('Press CTRL-C to exit app')
+  console.log('Press ESC to cancel generation')
+  console.log('Type "undo" or "u" to undo the last change')
+  console.log('Type "redo" or "r" to redo the last change')
+  console.log('Type "help" or "h" to print this menu\n')
+
   console.log('TIPS')
   console.log(
     '() Create a knowledge.md file and collect specific points of advice. The assistant will use this knowledge to improve its responses.'
-  )
-  console.log(
-    '() Press the CTRL-U to undo file changes from the conversation. Press CTRL-R to redo.'
-  )
-  console.log(
-    '() Press ESC or CTRL-C while Manicode is generating a response to cut it off.'
   )
   console.log(
     '() Email your feedback to james@manifold.markets. Thanks for using Manicode!'

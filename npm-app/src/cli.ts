@@ -43,18 +43,6 @@ export class CLI {
         this.handleExit()
       }
     })
-
-    process.stdin.on('keypress', (_, key) => {
-      this.detectPasting()
-
-      if ((key.ctrl || key.meta) && key.name === 'u') {
-        this.handleUndo()
-      } else if ((key.ctrl || key.meta) && key.name === 'r') {
-        this.handleRedo()
-      } else if (key.name === 'escape') {
-        this.handleEscKey()
-      }
-    })
   }
 
   private detectPasting() {
@@ -106,7 +94,11 @@ export class CLI {
   }
 
   private navigateFileVersion(direction: 'undo' | 'redo') {
-    console.log(chalk.blue(`Navigating file version ${direction}`))
+    console.log(
+      direction === 'undo'
+        ? chalk.blue('Undoing last change')
+        : chalk.blue('Redoing last change')
+    )
     const currentVersion = this.chatStorage.getCurrentVersion()
     const filePaths = Object.keys(currentVersion ? currentVersion.files : {})
     const currentFiles = getExistingFiles(filePaths)
@@ -183,11 +175,16 @@ export class CLI {
     if (!userInput) return
     this.lastInputWasMenu = false
 
-    // Handle "undo" and "redo" commands
-    if (userInput === 'undo') {
+    // Handle commands
+    if (userInput === 'help' || userInput === 'h') {
+      displayMenu()
+      this.rl.prompt()
+      return
+    }
+    if (userInput === 'undo' || userInput === 'u') {
       this.handleUndo()
       return
-    } else if (userInput === 'redo') {
+    } else if (userInput === 'redo' || userInput === 'r') {
       this.handleRedo()
       return
     } else if (
