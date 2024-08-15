@@ -43,6 +43,12 @@ export class CLI {
         this.handleExit()
       }
     })
+
+    process.stdin.on('keypress', (_, key) => {
+      if (key.name === 'escape') {
+        this.handleEscKey()
+      }
+    })
   }
 
   private detectPasting() {
@@ -133,12 +139,6 @@ export class CLI {
   private handleEscKey() {
     if (this.isReceivingResponse) {
       this.handleStopResponse()
-    } else {
-      if (!this.lastInputWasMenu) {
-        this.lastInputWasMenu = true
-        displayMenu()
-        this.rl.prompt()
-      }
     }
   }
 
