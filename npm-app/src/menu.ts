@@ -69,7 +69,7 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
     '() Add to knowledge files when Manicode makes mistakes. Usually there is context that Manicode is missing that led to the mistake, and adding this information will help Manicode improve its responses.'
   )
   console.log(
-    '() Say: "Don\'t change any files" if you want it to think first.'
+    '() Append "Don\'t change any files" to your prompt if you want it to think before making changes.'
   )
   console.log(
     '() Email your feedback to james@manifold.markets. Thanks for using Manicode!'

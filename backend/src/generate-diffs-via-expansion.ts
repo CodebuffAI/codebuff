@@ -691,6 +691,10 @@ ${createFileBlock(filePath, newContent)}`
     }
     return content + '\n'
   } else {
-    throw new Error('Failed to extract file content from Claude Haiku response')
+    console.error(
+      'Failed to extract file content from expanded content response'
+    )
+    debugLog('!Failed to extract file content from expanded content response!')
+    return oldContent
   }
 }

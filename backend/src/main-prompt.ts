@@ -98,7 +98,17 @@ ${STOP_MARKER}
       const fileBlocks = parseFileBlocks(currentFileBlock)
       for (const [filePath, newFileContent] of Object.entries(fileBlocks)) {
         fileProcessingPromises.push(
-          processFileBlock(userId, ws, messages, fullResponse, filePath, newFileContent)
+          processFileBlock(
+            userId,
+            ws,
+            messages,
+            fullResponse,
+            filePath,
+            newFileContent
+          ).catch((error) => {
+            console.error('Error processing file block', error)
+            return ''
+          })
         )
 
         currentFileBlock = currentFileBlock.replace(fileRegex, '')
@@ -140,7 +150,9 @@ ${STOP_MARKER}
     }
   }
 
-  const changes = await Promise.all(fileProcessingPromises)
+  const changes = (await Promise.all(fileProcessingPromises)).filter(
+    (change) => change !== ''
+  )
 
   return {
     response: fullResponse,

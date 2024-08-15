@@ -249,7 +249,10 @@ export class CLI {
         process.stdout.write(chunk)
       },
       userInputId,
-      () => this.stopLoadingAnimation()
+      () => {
+        this.stopLoadingAnimation()
+        console.log()
+      }
     )
 
     this.stopResponse = stopResponse
