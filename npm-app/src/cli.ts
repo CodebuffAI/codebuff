@@ -100,11 +100,6 @@ export class CLI {
   }
 
   private navigateFileVersion(direction: 'undo' | 'redo') {
-    console.log(
-      direction === 'undo'
-        ? chalk.blue('Undoing last change')
-        : chalk.blue('Redoing last change')
-    )
     const currentVersion = this.chatStorage.getCurrentVersion()
     const filePaths = Object.keys(currentVersion ? currentVersion.files : {})
     const currentFiles = getExistingFiles(filePaths)
@@ -113,10 +108,19 @@ export class CLI {
     const navigated = this.chatStorage.navigateVersion(direction)
 
     if (navigated) {
+      console.log(
+        direction === 'undo'
+          ? chalk.blue('Undoing last change')
+          : chalk.blue('Redoing last change')
+      )
       const files = this.applyAndDisplayCurrentFileVersion()
       console.log(
         chalk.green('Loaded files:'),
         chalk.green(Object.keys(files).join(', '))
+      )
+    } else {
+      console.log(
+        chalk.blue(`No more ${direction === 'undo' ? 'undo' : 'redo'}s`)
       )
     }
   }
