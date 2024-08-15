@@ -140,4 +140,15 @@ describe('generatePatch', () => {
     },
     CLAUDE_CALL_TIMEOUT
   )
+
+  it(
+    'should work for hallucinated',
+    async () => {
+      await runPatchTest(
+        'src/__tests__/__mock-data__/hallucinated',
+        'src/main-prompt.ts'
+      )
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
 })
