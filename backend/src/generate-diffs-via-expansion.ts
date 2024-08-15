@@ -27,6 +27,8 @@ This requires you to compose the resulting file with exact lines from the old fi
 
 Output the full content of the new file within a <file> block, using the provided file path as an attribute.
 
+If comments are being added that describe the change that is being made, such as "// Add this import" or "// Add this function" or "// Update this log", then please ommit these lines from the new file.
+
 Here are four examples to illustrate the task:
 
 Example 1 (Simple change):
@@ -306,7 +308,7 @@ import { fetchUserAddress } from './api';
 
 interface UserProfileProps {
   user: User;
-  onUpdate: (updatedUser: User) => void;
+  onUpdate: (updatedUser: User) => void; // Add this prop
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate }) => {
@@ -465,7 +467,7 @@ ${createFileBlock(
   'src/TaskManager.tsx',
   `import React, { useState, useEffect } from 'react';
 import { Task, User, Priority } from './types';
-import { fetchTasks, updateTask, createTask } from './api';
+import { fetchTasks, updateTask, createTask } from './api'; // Update this import
 
 // ... existing code ...
 
