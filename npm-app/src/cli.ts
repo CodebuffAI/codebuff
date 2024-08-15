@@ -2,6 +2,7 @@ import { uniq } from 'lodash'
 import { getFilePathFromPatch } from 'common/util/file'
 import * as readline from 'readline'
 import chalk from 'chalk'
+import { exec } from 'child_process'
 
 import { ChatStorage } from './chat-storage'
 import { Client } from './client'
@@ -205,6 +206,7 @@ export class CLI {
     this.chatStorage.addMessage(this.chatStorage.getCurrentChat(), newMessage)
 
     this.isReceivingResponse = true
+    stageChanges()
     const { response, changes } = await this.sendUserInputAndAwaitResponse()
     this.isReceivingResponse = false
 
@@ -257,4 +259,12 @@ export class CLI {
     this.stopResponse = null
     return result
   }
+}
+
+const stageChanges = () => {
+  exec('git add .', (error, stdout, stderr) => {
+    if (error) {
+      return
+    }
+  })
 }
