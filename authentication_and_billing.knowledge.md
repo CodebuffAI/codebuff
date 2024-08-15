@@ -23,9 +23,14 @@ This document outlines the planned features and implementation strategy for addi
 
 ### 2. Database Integration (PostgreSQL)
 
-- Set up a PostgreSQL database on the server
+- Set up a PostgreSQL database on Google Cloud SQL
+- Database name: manicode
+- Host: [Your Cloud SQL instance IP]
+- Port: 5432
+- User: [Your database user]
+- Password: [Your database password]
 - Create tables for user information, referrals, and usage data
-- Implement database connection and query functions in the backend
+- Implement database connection and query functions in the backend (see backend/src/db.ts)
 
 ### 3. OAuth Integration (Google and GitHub)
 
@@ -102,4 +107,3 @@ This document outlines the planned features and implementation strategy for addi
 - User Experience: Make the authentication process as smooth as possible, especially when redirecting to the browser for OAuth.
 - Error Handling: Implement robust error handling and provide clear feedback to users.
 - Documentation: Keep documentation up-to-date as new features are implemented.
-

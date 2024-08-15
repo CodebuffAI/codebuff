@@ -44,12 +44,18 @@ if gcloud compute instances describe $VM_NAME --zone=$VM_ZONE --project=$GCP_PRO
         --container-env=APP_PORT=$APP_PORT
 else
     echo "Creating new VM instance with container..."
+    DB_USER="your_db_user"
+    DB_PASSWORD="your_db_password"
+    DB_NAME="manicode"
+    DB_HOST="your_cloud_sql_instance_ip"
+    DB_PORT="5432"
+
     gcloud compute instances create-with-container $VM_NAME \
         --zone=$VM_ZONE \
         --project=$GCP_PROJECT \
         --address=$VM_ADDRESS \
         --container-image=gcr.io/$GCP_PROJECT/manicode-backend:latest \
-        --container-env=APP_PORT=$APP_PORT \
+        --container-env=APP_PORT=$APP_PORT,DB_USER=$DB_USER,DB_PASSWORD=$DB_PASSWORD,DB_NAME=$DB_NAME,DB_HOST=$DB_HOST,DB_PORT=$DB_PORT \
         --machine-type=n2-standard-2 \
         --image-project "cos-cloud" \
         --image-family "cos-109-lts" \
