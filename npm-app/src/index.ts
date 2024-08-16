@@ -12,18 +12,6 @@ import { getProjectFileContext, initProjectRoot } from './project-files'
 
 async function manicode(projectDir: string | undefined) {
   const dir = initProjectRoot(projectDir)
-  console.log(
-    `Manicode will read and write files in "${dir}". Type "help" for a list of commands`
-  )
-
-  const gitDir = path.join(dir, '.git')
-  if (!fs.existsSync(gitDir)) {
-    console.warn(
-      chalk.yellow(
-        'Warning: No .git directory found. Make sure you are at the top level of your project.'
-      )
-    )
-  }
 
   // Preload stuff.
   const fingerprintPromise = initFingerprint()
@@ -39,6 +27,20 @@ async function manicode(projectDir: string | undefined) {
   ])
 
   const cli = new CLI(client, chatStorage, readyPromise)
+
+  console.log(
+    `Manicode will read and write files in "${dir}". Type "help" for a list of commands`
+  )
+
+  const gitDir = path.join(dir, '.git')
+  if (!fs.existsSync(gitDir)) {
+    console.warn(
+      chalk.yellow(
+        'Warning: No .git directory found. Make sure you are at the top level of your project.'
+      )
+    )
+  }
+
   cli.printInitialPrompt()
 }
 

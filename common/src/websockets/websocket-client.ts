@@ -1,4 +1,5 @@
 import { WebSocket } from 'ws'
+import chalk from 'chalk'
 
 import { ServerAction, ClientAction } from '../actions'
 import {
@@ -60,6 +61,7 @@ export class APIRealtimeClient {
   txns: Map<number, OutstandingTxn>
   connectTimeout?: NodeJS.Timeout
   heartbeat?: NodeJS.Timeout
+  hadError = false
 
   constructor(url: string) {
     this.url = url
@@ -82,10 +84,17 @@ export class APIRealtimeClient {
     // in order to check the semantics of events etc.
     this.ws = new WebSocket(this.url)
     this.ws.onmessage = (ev) => {
+      if (this.hadError) {
+        this.hadError = false
+        console.log(chalk.green('Reconnected!'))
+      }
       this.receiveMessage(JSON.parse(ev.data as any))
     }
     this.ws.onerror = (ev) => {
-      console.error('API websocket error: ', ev.message)
+      if (!this.hadError) {
+        this.hadError = true
+        console.error(chalk.yellow('\nCould not connect. Retrying...'))
+      }
       // this can fire without an onclose if this is the first time we ever try
       // to connect, so we need to turn on our reconnect in that case
       this.waitAndReconnect()
