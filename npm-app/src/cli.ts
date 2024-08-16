@@ -116,8 +116,8 @@ export class CLI {
     if (navigated) {
       console.log(
         direction === 'undo'
-          ? chalk.blue('Undoing last change')
-          : chalk.blue('Redoing last change')
+          ? chalk.blue('Undo last change')
+          : chalk.blue('Redo last change')
       )
       const files = this.applyAndDisplayCurrentFileVersion()
       console.log(

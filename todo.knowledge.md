@@ -88,3 +88,7 @@ Notes from Janna & Stephen test
 [] Claude doesn't leave a comment that there's more code in between when it should. Then lots gets deleted
 [] Try using the native stop marker feature
 [] Use tree sitter to include exported tokens ttps://github.com/tree-sitter/node-tree-sitter
+[] Multiple file blocks for the same file could fail to patch
+[] Still hallucinating without getting the file: Totally destroyed my package .json by removing random scripts & dependencies, changing a bunch of stuff around
+[] Create tests for the full user input. Set up fake project data for this.
+[] Use gpt-4o mini to grade tests
