@@ -74,26 +74,33 @@ export function applyChanges(changes: FileChanges) {
   return { created, modified }
 }
 
+let cachedProjectFileContext: ProjectFileContext | undefined
+
 export const getProjectFileContext = async (fileList: string[]) => {
-  const fileTree = getProjectFileTree()
-  const knowledgeFilePaths = getAllFilePaths(fileTree).filter((filePath) =>
-    filePath.endsWith('knowledge.md')
-  )
-  const knowledgeFiles =
-    await getExistingFilesWithScrapedContent(knowledgeFilePaths)
-  const exportedTokens = {} // getExportedTokensForFiles(filePaths)
+  if (!cachedProjectFileContext) {
+    const fileTree = getProjectFileTree()
+    const knowledgeFilePaths = getAllFilePaths(fileTree).filter((filePath) =>
+      filePath.endsWith('knowledge.md')
+    )
+    const knowledgeFiles =
+      await getExistingFilesWithScrapedContent(knowledgeFilePaths)
+    const exportedTokens = {} // getExportedTokensForFiles(filePaths)
 
-  const files = getFiles(fileList)
+    const files = getFiles(fileList)
 
-  const projectFileContext: ProjectFileContext = {
-    currentWorkingDirectory: projectRoot,
-    fileTree,
-    exportedTokens,
-    knowledgeFiles,
-    files,
+    cachedProjectFileContext = {
+      currentWorkingDirectory: projectRoot,
+      fileTree,
+      exportedTokens,
+      knowledgeFiles,
+      files,
+    }
+  } else {
+    const files = getFiles(fileList)
+    cachedProjectFileContext = { ...cachedProjectFileContext, files }
   }
 
-  return projectFileContext
+  return cachedProjectFileContext
 }
 
 function parseGitignore(dirPath: string): ignore.Ignore {

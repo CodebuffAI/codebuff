@@ -217,6 +217,8 @@ Within this project directory, here is the file tree. It includes everything exc
 <project_file_tree>
 ${printFileTree(fileTree)}
 </project_file_tree>
+
+Note: the project file tree is cached from the start of this conversation.
 `.trim()
 }
 
@@ -231,6 +233,8 @@ ${Object.entries(knowledgeFiles)
   .map(([path, content]) => createFileBlock(path, content))
   .join('\n')}
 </knowledge_files>
+
+Note: the knowledge files are cached from the start of this conversation.
 `.trim()
 }
 
