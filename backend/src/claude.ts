@@ -34,6 +34,7 @@ export const promptClaudeStream = async function* (
     apiKey,
     baseURL: 'https://anthropic.helicone.ai/',
     defaultHeaders: {
+      'anthropic-beta': 'prompt-caching-2024-07-31',
       'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
       'Helicone-User-Id': userId,
       'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,

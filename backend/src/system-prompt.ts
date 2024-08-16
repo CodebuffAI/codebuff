@@ -17,7 +17,11 @@ export function getSystemPrompt(
   )
   const files = Object.keys(truncatedFiles)
 
-  return `
+  return [
+    {
+      type: 'text',
+      cache_control: { type: 'ephemeral' },
+      text: `
 ${introPrompt}
 
 ${editingFilesPrompt}
@@ -28,10 +32,18 @@ ${toolsPrompt}
 
 ${getProjectFileTreePrompt(fileContext)}
 
-${getRelevantFilesPrompt(fileContext, truncatedFiles)}
+${getRelevantFilesPromptPart1(fileContext)}
+`.trim(),
+    },
 
+    {
+      type: 'text',
+      text: `
+${getRelevantFilesPromptPart2(fileContext, truncatedFiles)}
 ${getResponseFormatPrompt(checkFiles, files)}
-`.trim()
+`.trimEnd(),
+    },
+  ]
 }
 
 const introPrompt = `
@@ -208,7 +220,21 @@ ${printFileTree(fileTree)}
 `.trim()
 }
 
-const getRelevantFilesPrompt = (
+const getRelevantFilesPromptPart1 = (fileContext: ProjectFileContext) => {
+  const { knowledgeFiles } = fileContext
+
+  return `
+# Relevant files
+
+<knowledge_files>
+${Object.entries(knowledgeFiles)
+  .map(([path, content]) => createFileBlock(path, content))
+  .join('\n')}
+</knowledge_files>
+`.trim()
+}
+
+const getRelevantFilesPromptPart2 = (
   fileContext: ProjectFileContext,
   truncatedFiles: Record<string, string | null>
 ) => {
@@ -227,14 +253,6 @@ const getRelevantFilesPrompt = (
     .join('\n')
 
   return `
-# Relevant files
-
-<knowledge_files>
-${Object.entries(knowledgeFiles)
-  .map(([path, content]) => createFileBlock(path, content))
-  .join('\n')}
-</knowledge_files>
-
 <relevant_files>
 Here are some files that were selected to aid in the user request, ordered by most important first:
 ${fileBlocks}
