@@ -18,6 +18,7 @@ import {
 export class CLI {
   private client: Client
   private chatStorage: ChatStorage
+  private readyPromise: Promise<any>
   private rl: readline.Interface
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
@@ -28,9 +29,14 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
 
-  constructor(client: Client, chatStorage: ChatStorage) {
+  constructor(
+    client: Client,
+    chatStorage: ChatStorage,
+    readyPromise: Promise<any>
+  ) {
     this.client = client
     this.chatStorage = chatStorage
+    this.readyPromise = readyPromise
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -206,6 +212,7 @@ export class CLI {
     }
 
     this.startLoadingAnimation()
+    await this.readyPromise
 
     const newMessage: Message = { role: 'user', content: userInput }
     this.chatStorage.addMessage(this.chatStorage.getCurrentChat(), newMessage)

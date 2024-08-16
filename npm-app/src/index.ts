@@ -11,7 +11,6 @@ import { CLI } from './cli'
 import { getProjectFileContext, initProjectRoot } from './project-files'
 
 async function manicode(projectDir: string | undefined) {
-  const fingerprintPromise = initFingerprint()
   const dir = initProjectRoot(projectDir)
   console.log(
     `Manicode will read and write files in "${dir}". Type "help" for a list of commands`
@@ -26,17 +25,20 @@ async function manicode(projectDir: string | undefined) {
     )
   }
 
-  // Preload.
-  getProjectFileContext([])
-
-  const fingerprintId = await fingerprintPromise
+  // Preload stuff.
+  const fingerprintPromise = initFingerprint()
+  const initProjectFileContextPromise = getProjectFileContext([])
 
   const chatStorage = new ChatStorage()
-
   const client = new Client(websocketUrl, chatStorage)
-  await client.connect()
 
-  const cli = new CLI(client, chatStorage)
+  const readyPromise = Promise.all([
+    fingerprintPromise,
+    initProjectFileContextPromise,
+    client.connect(),
+  ])
+
+  const cli = new CLI(client, chatStorage, readyPromise)
   cli.printInitialPrompt()
 }
 
@@ -56,4 +58,3 @@ if (require.main === module) {
 
   manicode(arg)
 }
-
