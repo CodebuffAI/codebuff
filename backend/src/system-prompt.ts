@@ -19,8 +19,8 @@ export function getSystemPrompt(
 
   return [
     {
-      type: 'text',
-      cache_control: { type: 'ephemeral' },
+      type: 'text' as const,
+      cache_control: { type: 'ephemeral' as const },
       text: `
 ${introPrompt}
 
@@ -37,7 +37,7 @@ ${getRelevantFilesPromptPart1(fileContext)}
     },
 
     {
-      type: 'text',
+      type: 'text' as const,
       text: `
 ${getRelevantFilesPromptPart2(fileContext, truncatedFiles)}
 ${getResponseFormatPrompt(checkFiles, files)}

@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { Tool } from '@anthropic-ai/sdk/resources'
+import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from 'common/util/object'
 import { Message, ToolCall } from 'common/actions'
 import { STOP_MARKER } from 'common/constants'
@@ -16,7 +16,7 @@ export type model_types = (typeof models)[keyof typeof models]
 export const promptClaudeStream = async function* (
   messages: Message[],
   options: {
-    system?: string
+    system?: string | Array<TextBlockParam>
     tools?: Tool[]
     model?: model_types
     userId: string

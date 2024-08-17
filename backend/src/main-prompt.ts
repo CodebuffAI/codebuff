@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws'
 import fs from 'fs'
 import path from 'path'
-import { Tool } from '@anthropic-ai/sdk/resources'
+import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { createPatch } from 'diff'
 
 import { promptClaudeStream } from './claude'
@@ -232,7 +232,7 @@ export async function processFileBlock(
 
 const savePromptLengthInfo = (
   messages: Message[],
-  system: string,
+  system: string | Array<TextBlockParam>,
   tools: Tool[]
 ) => {
   console.log('Prompting claude num messages:', messages.length)
