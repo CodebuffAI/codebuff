@@ -165,5 +165,5 @@ The Manicode backend implements a version checking mechanism to ensure clients a
 
 To maintain correct versioning:
 - Always update the version in npm-app/package.json when making releases.
-- Run `yarn build` to ensure backend/package.json is updated before deployment.
+- Run `bun run build` to ensure backend/package.json is updated before deployment.
 - Implement proper error handling for version mismatches in both client and server code.

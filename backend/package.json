@@ -5,13 +5,13 @@
   "main": "dist/index.js",
   "license": "UNLICENSED",
   "scripts": {
-    "start": "ts-node -r tsconfig-paths/register src/index.ts",
-    "start-js": "node dist/index.js",
-    "prebuild": "yarn clean && cd ../common && yarn build && node ../scripts/build-version-info.js",
+    "start": "bun run -r tsconfig-paths/register src/index.ts",
+    "start-js": "bun run dist/index.js",
+    "prebuild": "bun clean && cd ../common && bun run ../scripts/build-version-info.js",
     "build": "tsc --build && tsc-alias",
     "postbuild": "mkdir -p dist/common && cp -R ../common/dist/* dist/common && tsc-alias",
     "clean": "rm -rf dist && rm -f tsconfig.tsbuildinfo",
-    "dev": "nodemon --exec ts-node -r tsconfig-paths/register src/index.ts",
+    "dev": "nodemon --exec bun run -r tsconfig-paths/register src/index.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
@@ -35,7 +35,6 @@
     "jest": "^29.5.0",
     "nodemon": "^2.0.15",
     "ts-jest": "^29.1.0",
-    "ts-node": "^10.4.0",
     "tsc-alias": "^1.8.6",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.0.0"

@@ -101,12 +101,12 @@ Remember to increment the version number in `package.json` before publishing a n
 
 ## Package Management
 
-Manicode uses Yarn as its package manager. Always use Yarn commands for managing dependencies instead of npm.
+Manicode uses Bun as its package manager. Always use Bun commands for managing dependencies instead of npm.
 
 Key points:
-- Use `yarn add <package-name>` to install new packages.
-- Use `yarn remove <package-name>` to remove packages.
-- Use `yarn install` to install all dependencies after cloning the repository.
+- Use `bun add <package-name>` to install new packages.
+- Use `bun remove <package-name>` to remove packages.
+- Use `bun install` to install all dependencies after cloning the repository.
 
 
 ## CLI Functionality

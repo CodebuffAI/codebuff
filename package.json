@@ -9,9 +9,7 @@
     "npm-app"
   ],
   "scripts": {
-    "start": "yarn --cwd npm-app start",
-    "build": "yarn workspaces run build",
-    "clean": "yarn workspaces run clean",
+    "start": "bun --cwd npm-app start",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
   },
   "dependencies": {
