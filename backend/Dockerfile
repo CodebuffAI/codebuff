@@ -27,6 +27,7 @@ COPY . .
 FROM base AS release
 COPY --from=install /temp/prod/node_modules node_modules
 COPY src .
+COPY .env .
 COPY package.json .
 COPY tsconfig.json .
 

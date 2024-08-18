@@ -87,9 +87,15 @@ const onCheckNpmVersion = async (
   { version }: Extract<ClientAction, { type: 'check-npm-version' }>,
   ws: WebSocket
 ) => {
-  const backendPackageJsonPath = path.join(__dirname, '..', '..', 'package.json')
-  const backendPackageJson = JSON.parse(fs.readFileSync(backendPackageJsonPath, 'utf-8'))
-  const latestVersion = backendPackageJson.version
+  let latestVersion = version
+
+  if (process.env.NODE_ENV === 'production') {
+    const backendPackageJsonPath = path.join(__dirname, '..', 'package.json')
+    const backendPackageJson = JSON.parse(
+      fs.readFileSync(backendPackageJsonPath, 'utf-8')
+    )
+    latestVersion = backendPackageJson.version
+  }
 
   const isUpToDate = version === latestVersion
 

@@ -60,6 +60,7 @@ export class CLI {
       if (key.name === 'escape') {
         this.handleEscKey()
       }
+      this.detectPasting()
     })
   }
 
