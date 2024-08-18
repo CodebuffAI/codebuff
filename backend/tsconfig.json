@@ -14,7 +14,7 @@
     "types": ["node", "jest"],
     "baseUrl": ".",
     "paths": {
-      "common/*": ["../common/src/*"]
+      "common/*": ["./src/common/*", "../common/src/*"]
     },
     "typeRoots": ["./node_modules/@types", "../node_modules/@types"],
     "outDir": "./dist"

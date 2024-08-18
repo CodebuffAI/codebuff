@@ -12,13 +12,16 @@ echo "Using VM: $VM_NAME in zone: $VM_ZONE"
 echo "Google Cloud Project: $GCP_PROJECT"
 echo "Application Port: $APP_PORT"
 
-# Build the project
-echo "Building the project..."
-yarn build
+echo "Copying common files..."
+mkdir -p ./src/common
+cp -R ../common/src/* ./src/common/
 
 # Build and tag the Docker image
 echo "Building Docker image..."
 docker build --build-arg APP_PORT=$APP_PORT -t gcr.io/$GCP_PROJECT/manicode-backend:latest --platform linux/amd64 .
+
+echo "Removing copied common TypeScript files..."
+rm -rf ./src/common/
 
 # Push the image to Google Container Registry
 echo "Pushing image to Google Container Registry..."

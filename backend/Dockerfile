@@ -1,22 +1,39 @@
-
-# Use an official Node.js runtime as the base image
-FROM node:20
-
-# Set the working directory in the container
+# use the official Bun image
+# see all versions at https://hub.docker.com/r/oven/bun/tags
+FROM oven/bun:1 AS base
 WORKDIR /usr/src/app
 
 ENV NODE_ENV=production
 
-COPY package.json yarn.lock .env ./
+# install dependencies into temp directory
+# this will cache them and speed up future builds
+FROM base AS install
+RUN mkdir -p /temp/dev
+COPY package.json tsconfig.json /temp/dev/
+RUN cd /temp/dev && bun install
 
-RUN yarn install --production
+# install with --production (exclude devDependencies)
+RUN mkdir -p /temp/prod
+COPY package.json tsconfig.json /temp/prod/
+RUN cd /temp/prod && bun install --production
 
-COPY dist ./dist
+# copy node_modules from temp directory
+# then copy all (non-ignored) project files into the image
+FROM base AS prerelease
+COPY --from=install /temp/dev/node_modules node_modules
+COPY . .
 
-# Debug: List contents of the app directory
-RUN ls -la /usr/src/app && echo "Contents of dist:" && ls -la /usr/src/app/dist
-# Expose the port the app runs on
-EXPOSE 4242
+# copy production dependencies and source code into final image
+FROM base AS release
+COPY --from=install /temp/prod/node_modules node_modules
+COPY src .
+COPY package.json .
+COPY tsconfig.json .
 
-# Command to run the application
-CMD ["yarn", "start-js"]
+# Set permissions for the application directory
+RUN chown -R bun:bun /usr/src/app
+
+# run the app
+USER bun
+EXPOSE 4242/tcp
+ENTRYPOINT [ "bun", "run", "index.ts" ]
