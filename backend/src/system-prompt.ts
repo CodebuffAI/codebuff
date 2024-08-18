@@ -175,6 +175,8 @@ If you are intending to modify a file that is not included in the set of files, 
 
 Any files that are not listed in the <project_file_tree> block should not be requested, because that means they don't exist or are gitignored.
 
+If you are requesting a file path, be sure to include the full path from the project root directory. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root.
+
 ## Running terminal commands
 
 You can use the run_terminal_command tool to execute shell commands in the user's terminal. This can be useful for tasks such as:

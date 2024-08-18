@@ -173,7 +173,9 @@ path/to/file2.ts
 ...
 </file_list>
 
-List each file path on a new line without any additional characters or formatting.`
+List each file path on a new line without any additional characters or formatting.
+
+Be sure to include the full path from the project root directory for each file. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.`
 }
 
 function generateKeyRequestFilesPrompt(
