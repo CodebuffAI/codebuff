@@ -26,17 +26,17 @@
     "README.md"
   ],
   "dependencies": {
-    "@types/diff": "^5.2.1",
-    "axios": "^0.24.0",
-    "chalk": "^4.1.2",
-    "cheerio": "^1.0.0-rc.10",
-    "diff": "^5.2.0",
-    "ignore": "^5.3.1",
+    "@types/diff": "5.2.1",
+    "axios": "1.7.4",
+    "chalk": "5.3.0",
+    "cheerio": "1.0.0",
+    "diff": "5.2.0",
+    "ignore": "5.3.2",
     "lodash": "*",
-    "nanoid": "^5.0.7",
-    "systeminformation": "^5.23.4",
-    "ws": "^8.2.3",
-    "zod": "^3.21.4"
+    "nanoid": "5.0.7",
+    "systeminformation": "5.23.4",
+    "ws": "8.18.0",
+    "zod": "3.23.8"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.7",
