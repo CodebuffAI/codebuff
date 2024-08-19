@@ -15,7 +15,6 @@ interface Chat {
 }
 
 interface FileVersion {
-  messageIndex: number
   files: Record<string, string>
 }
 
@@ -131,7 +130,7 @@ export class ChatStorage {
   }
 
   navigateVersion(direction: 'undo' | 'redo'): boolean {
-    if (direction === 'undo' && this.currentVersionIndex > 0) {
+    if (direction === 'undo' && this.currentVersionIndex >= 0) {
       this.currentVersionIndex--
       return true
     } else if (
@@ -168,7 +167,6 @@ export class ChatStorage {
 
   addNewFileState(files: Record<string, string>) {
     const newVersion: FileVersion = {
-      messageIndex: this.currentChat.messages.length - 1,
       files,
     }
     this.currentChat.fileVersions.push(newVersion)
