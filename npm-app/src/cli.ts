@@ -68,7 +68,7 @@ export class CLI {
     const currentTime = Date.now()
     const timeDiff = currentTime - this.lastInputTime
 
-    if (timeDiff < 5) {
+    if (timeDiff < 10) {
       this.consecutiveFastInputs++
       if (this.consecutiveFastInputs >= 2) {
         this.isPasting = true
