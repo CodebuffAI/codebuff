@@ -9,7 +9,7 @@
     "manicode": "dist/index.js"
   },
   "scripts": {
-    "prebuild": "bun clean && cd ../common",
+    "prebuild": "bun clean && cd ../common && bun run build",
     "build": "tsc && tsc-alias",
     "postbuild": "mkdir -p dist/common && cp -r ../common/dist/* dist/common && tsc-alias",
     "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
@@ -28,7 +28,7 @@
   "dependencies": {
     "@types/diff": "5.2.1",
     "axios": "1.7.4",
-    "chalk": "5.3.0",
+    "chalk": "4.1.2",
     "cheerio": "1.0.0",
     "diff": "5.2.0",
     "ignore": "5.3.2",
