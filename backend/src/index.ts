@@ -36,3 +36,7 @@ server.listen(port, () => {
 })
 
 webSocketListen(server, '/ws')
+
+process.on('SIGINT', () => {
+  process.exit()
+})
