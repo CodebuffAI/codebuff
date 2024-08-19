@@ -144,16 +144,15 @@ export class ChatStorage {
   }
 
   saveFilesChanged(filesChanged: string[]) {
-    const currentVersion = this.getCurrentVersion()
-    if (currentVersion) {
-      const newFilesChanged = filesChanged.filter(
-        (f) => !currentVersion.files[f]
-      )
-      const updatedFiles = getExistingFiles(newFilesChanged)
-      currentVersion.files = { ...currentVersion.files, ...updatedFiles }
-      return Object.keys(currentVersion.files)
+    let currentVersion = this.getCurrentVersion()
+    if (!currentVersion) {
+      this.addNewFileState({})
+      currentVersion = this.getCurrentVersion() as FileVersion
     }
-    return []
+    const newFilesChanged = filesChanged.filter((f) => !currentVersion.files[f])
+    const updatedFiles = getExistingFiles(newFilesChanged)
+    currentVersion.files = { ...currentVersion.files, ...updatedFiles }
+    return Object.keys(currentVersion.files)
   }
 
   saveCurrentFileState(files: Record<string, string>) {
