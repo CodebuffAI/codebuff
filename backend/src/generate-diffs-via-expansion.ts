@@ -675,6 +675,11 @@ ${createFileBlock(filePath, newContent)}`
   )
 
   debugLog(
+    'New file (unexpanded) for filePath',
+    filePath,
+    newContent
+  )
+  debugLog(
     'Expanded content response for filePath',
     filePath,
     expandedContentResponse

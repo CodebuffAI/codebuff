@@ -88,7 +88,14 @@ Notes from Janna & Stephen test
 [] Claude doesn't leave a comment that there's more code in between when it should. Then lots gets deleted
 [] Try using the native stop marker feature
 [] Use tree sitter to include exported tokens ttps://github.com/tree-sitter/node-tree-sitter
+    See how github implemented code search: ttps://docs.github.com/en/repositories/working-with-files/using-files/navigating-code-on-github#precise-and-search-based-navigation
 [] Multiple file blocks for the same file could fail to patch
 [] Still hallucinating without getting the file: Totally destroyed my package .json by removing random scripts & dependencies, changing a bunch of stuff around
 [] Create tests for the full user input. Set up fake project data for this.
 [] Use gpt-4o mini to grade tests
+
+[] Updated a function in a file, but didn't include comments at the top or bottom for existing code
+[] Looks in wrong directory for a file, e.g. web/components/comments instead of web/components/buttons
+    web/components/profile/profile-comments.tsx instead of web/components/comments/profile-comments.tsx
+[] Ari: editing is failing: deleting sections of code it shouldn't.
+    - [J] Removes commented out code, other comments
