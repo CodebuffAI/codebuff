@@ -99,11 +99,15 @@ export function listen(server: HttpServer, path: string) {
     console.log(`Web socket server listening on ${path}.`)
     deadConnectionCleaner = setInterval(function ping() {
       const now = Date.now()
-      for (const ws of wss.clients) {
-        const lastSeen = SWITCHBOARD.getClient(ws).lastSeen
-        if (lastSeen < now - CONNECTION_TIMEOUT_MS) {
-          ws.terminate()
+      try {
+        for (const ws of wss.clients) {
+          const lastSeen = SWITCHBOARD.getClient(ws).lastSeen
+          if (lastSeen < now - CONNECTION_TIMEOUT_MS) {
+            ws.terminate()
+          }
         }
+      } catch (error) {
+        console.error('Error in deadConnectionCleaner', error)
       }
     }, CONNECTION_TIMEOUT_MS)
   })
