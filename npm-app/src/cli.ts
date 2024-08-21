@@ -4,6 +4,7 @@ import * as readline from 'readline'
 import chalk from 'chalk'
 import { exec } from 'child_process'
 
+import { websocketUrl } from './config'
 import { ChatStorage } from './chat-storage'
 import { Client } from './client'
 import { Message } from 'common/actions'
@@ -29,14 +30,15 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
 
-  constructor(
-    client: Client,
-    chatStorage: ChatStorage,
-    readyPromise: Promise<any>
-  ) {
-    this.client = client
-    this.chatStorage = chatStorage
-    this.readyPromise = readyPromise
+  constructor(readyPromise: Promise<any>) {
+    this.chatStorage = new ChatStorage()
+    this.client = new Client(
+      websocketUrl,
+      this.chatStorage,
+      this.onWebSocketError.bind(this)
+    )
+
+    this.readyPromise = Promise.all([readyPromise, this.client.connect()])
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -62,6 +64,16 @@ export class CLI {
       }
       this.detectPasting()
     })
+  }
+
+  private onWebSocketError() {
+    this.stopLoadingAnimation()
+    this.isReceivingResponse = false
+    if (this.stopResponse) {
+      this.stopResponse()
+      this.stopResponse = null
+    }
+    console.error(chalk.yellow('\nCould not connect. Retrying...'))
   }
 
   private detectPasting() {

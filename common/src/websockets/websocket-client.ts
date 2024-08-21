@@ -62,12 +62,14 @@ export class APIRealtimeClient {
   connectTimeout?: NodeJS.Timeout
   heartbeat?: NodeJS.Timeout
   hadError = false
+  onError: () => void
 
-  constructor(url: string) {
+  constructor(url: string, onError: () => void) {
     this.url = url
     this.txid = 0
     this.txns = new Map()
     this.subscribers = new Map()
+    this.onError = onError
   }
 
   get state() {
@@ -92,8 +94,8 @@ export class APIRealtimeClient {
     }
     this.ws.onerror = (ev) => {
       if (!this.hadError) {
+        this.onError()
         this.hadError = true
-        console.error(chalk.yellow('\nCould not connect. Retrying...'))
       }
       // this can fire without an onclose if this is the first time we ever try
       // to connect, so we need to turn on our reconnect in that case

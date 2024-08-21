@@ -16,8 +16,12 @@ export class Client {
   private webSocket: APIRealtimeClient
   private chatStorage: ChatStorage
 
-  constructor(websocketUrl: string, chatStorage: ChatStorage) {
-    this.webSocket = new APIRealtimeClient(websocketUrl)
+  constructor(
+    websocketUrl: string,
+    chatStorage: ChatStorage,
+    onWebSocketError: () => void
+  ) {
+    this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
   }
 
