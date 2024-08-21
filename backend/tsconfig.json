@@ -11,7 +11,7 @@
     "target": "esnext",
     "incremental": true,
     "isolatedModules": true,
-    "types": ["node", "jest"],
+    "types": ["node", "jest", "bun-types"],
     "baseUrl": ".",
     "paths": {
       "common/*": ["./src/common/*", "../common/src/*"]

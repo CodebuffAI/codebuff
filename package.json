@@ -18,9 +18,10 @@
   "devDependencies": {
     "@types/lodash": "4.17.7",
     "@types/node": "20.11.18",
+    "bun-types": "^1.1.25",
     "prettier": "3.3.2",
-    "typescript": "5.5.4",
-    "tsconfig-paths": "4.2.0"
+    "tsconfig-paths": "4.2.0",
+    "typescript": "5.5.4"
   },
   "engines": {
     "node": ">=20.0.0"
