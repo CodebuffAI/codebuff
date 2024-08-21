@@ -280,16 +280,18 @@ The goal is to make as few changes as possible to the codebase to address the us
 When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.
 
 Special cases:
+
 A. If a user writes what looks like a terminal command, you should execute it. The result of the command is already printed to the user. Do not write any further text after running the command, unless the user has asked explicitly for more information.
 
 B. If the user provided a url, please use the scrape_web_page tool on it to better answer their question, and then proceed to the general case below.
 
 General case:
+
 ${bulletNumber++}. Create a <code_review> block and describe what is happening in the key files included in the user message.
 
 ${
   checkFiles
-    ? `${bulletNumber++}. You are reading the following files: <files>${files.join(', ')}</files>. Carefully consider if there are any files not listed here that you need to read or intend to modify before continuing in order to address the last user request. If you have all the files you need, write "I have all the files I need". Otherwise, use the update_file_context tool to request them. Remember, any files that are not listed in the <project_file_tree> block should not be requested since they don't exist.\n`
+    ? `${bulletNumber++}. Request files. You are reading the following files: <files>${files.join(', ')}</files>.  Carefully consider if there are any files not listed here that you need to read or intend to modify before continuing in order to address the last user request. If you think you have all the files you need, please double check. Use the update_file_context tool to request any files you need. Otherwise, write "I have all the files I need". Remember, any files that are not listed in the <project_file_tree> block should not be requested since they don't exist.\n`
     : ''
 }
 
