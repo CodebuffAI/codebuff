@@ -270,8 +270,9 @@ As you can see, some files that you might find useful are already provided. If t
 `.trim()
 }
 
-const getResponseFormatPrompt = (checkFiles: boolean, files: string[]) =>
-  `
+const getResponseFormatPrompt = (checkFiles: boolean, files: string[]) => {
+  let bulletNumber = 1
+  return `
 # Response format
 
 The goal is to make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more.
@@ -284,14 +285,15 @@ A. If a user writes what looks like a terminal command, you should execute it. T
 B. If the user provided a url, please use the scrape_web_page tool on it to better answer their question, and then proceed to the general case below.
 
 General case:
+${bulletNumber++}. Create a <code_review> block and describe what is happening in the key files included in the user message.
+
 ${
   checkFiles
-    ? `0. You are reading the following files: <files>${files.join(', ')}</files>. Carefully consider if there are any files not listed here that you need to read or intend to modify before continuing in order to address the last user request. If you have all the files you need, write "I have all the files I need". Otherwise, use the update_file_context tool to request them. Remember, any files that are not listed in the <project_file_tree> block should not be requested since they don't exist.\n`
+    ? `${bulletNumber++}. You are reading the following files: <files>${files.join(', ')}</files>. Carefully consider if there are any files not listed here that you need to read or intend to modify before continuing in order to address the last user request. If you have all the files you need, write "I have all the files I need". Otherwise, use the update_file_context tool to request them. Remember, any files that are not listed in the <project_file_tree> block should not be requested since they don't exist.\n`
     : ''
 }
-1. Create a <code_review> block and describe what is happening in the key files included in the user message.
 
-2. After understanding the user request and the code, you should create a <brainstorm> block. In it, you should:
+${bulletNumber++}. After understanding the user request and the code, you should create a <brainstorm> block. In it, you should:
 I. List all the possible plans to solve the user's problem. 
 II. Discuss how much uncertainty or ambiguity there is in fulfilling the user's request and knowing what plan they would like most.
 Assign an uncertainty score between 0 (no ambiguity) and 100 (high ambiguity) that you know what the user wants and can implement the plan they would like most.
@@ -299,11 +301,11 @@ If your uncertainty score is greater than 5, you should pause, not modify any fi
 If your uncertainty score is 5 or lower, you should proceed to the next step.
 III. Decide on a plan to address the user's request. What is the core of what the user wants done? Only implement that, and leave the rest as a follow up.
 
-3. If the plan is somewhat complex, you should then explain the reasoning behind the plan step-by-step.
+${bulletNumber++}. If the plan is somewhat complex, you should then explain the reasoning behind the plan step-by-step.
 If you discover an error, you should correct it and then explain the reasoning behind the corrected plan.
 If you need to read more files, use the update_file_context tool and go back to step 1 to review the files.
 
-4. You may edit files to address the user's request (but make as few changes as possible!) and run commands in the terminal (but try not to run too many commands!). However, you should stop after a second attempt at any task has failed and ask the user how to proceed (e.g. you ran tests and they have failed twice, or you tried to compile and it failed twice.) It is a bad experience for the user when you keep trying for a third time in a row without checking to see how they user wants to proceed.
+${bulletNumber++}. You may edit files to address the user's request (but make as few changes as possible!) and run commands in the terminal (but try not to run too many commands!). However, you should stop after a second attempt at any task has failed and ask the user how to proceed (e.g. you ran tests and they have failed twice, or you tried to compile and it failed twice.) It is a bad experience for the user when you keep trying for a third time in a row without checking to see how they user wants to proceed.
 
 If the user corrected you or gave feedback and it helped you understand something better, you must edit a knowledge file with a short note that condenses what you learned and what to do next time you so you don't make the same mistake again. Pure documentation of code doesn't need to be added to knowlege. But if the user says use yarn instead of npm, or to use one function instead of another, or to use a certain style, or that you should always write tests, then this is good information to add to a knoweldge file (create the file if it doesn't exist!).
 
@@ -317,6 +319,7 @@ ${STOP_MARKER}
 This marker helps ensure that your entire response has been received and processed correctly.
 If you don't end with this marker, you will automatically be prompted to continue. However, it is good to stop your response with this token so the user can give further guidence.
 </important_instruction>`.trim()
+}
 
 const getTruncatedFilesBasedOnTokenBudget = (
   fileContext: ProjectFileContext,
