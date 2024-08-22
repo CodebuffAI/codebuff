@@ -5,11 +5,7 @@ import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { createPatch } from 'diff'
 
 import { promptClaudeStream } from './claude'
-import {
-  ProjectFileContext,
-  parseFileBlocks,
-  fileRegex,
-} from 'common/util/file'
+import { ProjectFileContext } from 'common/util/file'
 import { getSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
 import { getTools } from './tools'
@@ -19,6 +15,7 @@ import { debugLog } from './util/debug'
 import { requestFiles, requestFile } from './websockets/websocket-action'
 import { generatePatch } from './generate-patch'
 import { requestRelevantFiles } from './request-files-prompt'
+import { processStreamWithFiles } from './process-stream'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -58,7 +55,6 @@ export async function mainPrompt(
   const fileProcessingPromises: Promise<string>[] = []
   let toolCall: ToolCall | null = null
   let continuedMessages: Message[] = []
-  let currentFileBlock = ''
   let isComplete = false
 
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
@@ -86,20 +82,13 @@ ${STOP_MARKER}
       tools,
       userId,
     })
-
-    for await (const chunk of stream) {
-      if (typeof chunk === 'object') {
-        toolCall = chunk
-        debugLog('Received tool call:', toolCall)
-        break
-      }
-
-      fullResponse += chunk
-      currentFileBlock += chunk
-      onResponseChunk(chunk)
-
-      const fileBlocks = parseFileBlocks(currentFileBlock)
-      for (const [filePath, newFileContent] of Object.entries(fileBlocks)) {
+    const fileStream = processStreamWithFiles(
+      stream,
+      (_filePath) => {
+        onResponseChunk('Modifying...')
+      },
+      (filePath, fileContent) => {
+        console.log('on file!', filePath)
         fileProcessingPromises.push(
           processFileBlock(
             userId,
@@ -107,15 +96,24 @@ ${STOP_MARKER}
             messages,
             fullResponse,
             filePath,
-            newFileContent
+            fileContent
           ).catch((error) => {
             console.error('Error processing file block', error)
             return ''
           })
         )
-
-        currentFileBlock = currentFileBlock.replace(fileRegex, '')
       }
+    )
+
+    for await (const chunk of fileStream) {
+      if (typeof chunk === 'object') {
+        toolCall = chunk
+        debugLog('Received tool call:', toolCall)
+        continue
+      }
+
+      fullResponse += chunk
+      onResponseChunk(chunk)
     }
 
     if (fullResponse.includes(STOP_MARKER)) {
