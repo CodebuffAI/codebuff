@@ -99,3 +99,4 @@ Notes from Janna & Stephen test
     web/components/profile/profile-comments.tsx instead of web/components/comments/profile-comments.tsx
 [] Ari: editing is failing: deleting sections of code it shouldn't.
     - [J] Removes commented out code, other comments
+    - [J] Removed an export for no reason

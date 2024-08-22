@@ -16,6 +16,7 @@ import { requestFiles, requestFile } from './websockets/websocket-action'
 import { generatePatch } from './generate-patch'
 import { requestRelevantFiles } from './request-files-prompt'
 import { processStreamWithFiles } from './process-stream'
+import { editPrompt } from './edit-prompt'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -215,10 +216,18 @@ export async function processFileBlock(
     return createPatch(filePath, '', newContent)
   }
 
+  const updatedContent = await editPrompt(
+    userId,
+    filePath,
+    newContent,
+    oldContent,
+    messageHistory
+  )
+
   const patch = await generatePatch(
     userId,
     oldContent,
-    newContent,
+    updatedContent,
     filePath,
     messageHistory,
     fullResponse
