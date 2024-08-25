@@ -112,23 +112,24 @@ export const promptClaude = async (
 
 export async function promptClaudeWithContinuation(
   messages: Message[],
-  options: { system?: string; model?: model_types; userId: string }
+  options: {
+    system?: string | Array<TextBlockParam>
+    tools?: Tool[]
+    model?: model_types
+    userId: string
+    checkComplete?: (response: string) => boolean
+  }
 ) {
   let fullResponse = ''
-  let continuedMessage: Message | null = null
+  let continuedMessages: Message[] = []
   let isComplete = false
 
-  // Add the instruction to end with the stop market to the system prompt
-  if (options.system) {
-    options.system += `\n\nAlways end your response with "${STOP_MARKER}".`
-  } else {
+  if (!options.system) {
     options.system = `Always end your response with "${STOP_MARKER}".`
   }
 
   while (!isComplete) {
-    const messagesWithContinuedMessage = continuedMessage
-      ? [...messages, continuedMessage]
-      : messages
+    const messagesWithContinuedMessage = [...messages, ...continuedMessages]
     debugLog(
       'prompt claude with continuation',
       messagesWithContinuedMessage.length
@@ -139,19 +140,31 @@ export async function promptClaudeWithContinuation(
       fullResponse += chunk
     }
 
-    if (continuedMessage) {
+    if (continuedMessages.length > 0) {
       debugLog('Continuation response:', fullResponse)
       console.log('got continuation response')
     }
 
+    if (options.checkComplete) {
+      isComplete = options.checkComplete(fullResponse)
+    }
     if (fullResponse.includes(STOP_MARKER)) {
       isComplete = true
       fullResponse = fullResponse.replace(STOP_MARKER, '')
-    } else {
-      continuedMessage = {
-        role: 'assistant',
-        content: fullResponse,
-      }
+    }
+    if (!isComplete) {
+      const fullResponseMinusLastLine =
+        fullResponse.split('\n').slice(0, -1).join('\n') + '\n'
+      continuedMessages = [
+        {
+          role: 'assistant',
+          content: fullResponseMinusLastLine,
+        },
+        {
+          role: 'user',
+          content: `You got cut off, but please continue from the very next line of your response. Do not repeat anything you have just said. Just continue as if there were no interruption from the very last character of your last response. (Alternatively, just end your response with the following marker if you were done generating and want to allow the user to give further guidance: ${STOP_MARKER})`,
+        },
+      ]
     }
   }
 

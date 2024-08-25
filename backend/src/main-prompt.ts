@@ -94,6 +94,8 @@ ${STOP_MARKER}
           processFileBlock(
             userId,
             ws,
+            tools,
+            system,
             messages,
             fullResponse,
             filePath,
@@ -201,6 +203,8 @@ async function updateFileContext(
 export async function processFileBlock(
   userId: string,
   ws: WebSocket,
+  tools: Tool[],
+  system: string | Array<TextBlockParam>,
   messageHistory: Message[],
   fullResponse: string,
   filePath: string,
@@ -210,19 +214,22 @@ export async function processFileBlock(
 
   const oldContent = await requestFile(ws, filePath)
 
+  const updatedContent = await editPrompt(
+    userId,
+    system,
+    tools,
+    messageHistory,
+    fullResponse,
+    filePath,
+    newContent,
+    oldContent ?? '[FILE_DOES_NOT_EXIST]'
+  )
+
   if (oldContent === null) {
     console.log(`Created new file: ${filePath}`)
     debugLog(`Created new file: ${filePath}`)
-    return createPatch(filePath, '', newContent)
+    return createPatch(filePath, '', updatedContent)
   }
-
-  const updatedContent = await editPrompt(
-    userId,
-    filePath,
-    newContent,
-    oldContent,
-    messageHistory
-  )
 
   const patch = await generatePatch(
     userId,

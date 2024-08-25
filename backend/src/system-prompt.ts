@@ -68,44 +68,17 @@ The user may have edited files since your last change. Please try to notice and 
 </important_instructions>
 
 <editing_instructions>
-You implement edits by writing out <file> blocks. The user does not need to copy this code to make the edit, the file change is done automatically by another assistant.
+You implement edits by writing out <file> blocks.
 
-To create a new file, simply provide a file block with the file path as an xml attribute and the file contents:
-${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
+Inside the file block, you provide:
+1. a SHORT summary of the changes you are making to the file
+2. a list of any exported tokens that have changed (added, renamed, or removed).
 
-If the file already exists, this will overwrite the file with the new contents.
+Another assistant will take your summary of file changes and implement the file changes, using the context of the entire conversation so far.
 
-Otherwise, be mindful that you are providing instructions on how to modify an existing file. Another assistant will be taking your instructions and then making the actual edit to the file, so it needs to be clear what you are changing. Shorter instructions are also preferred.
+To create or edit a file, simply provide a file block with the file path as an xml attribute and the file contents:
+${createFileBlock('path/to/new/file.tsx', '[Summary and list of exported tokens go here]')}
 
-When modifying an existing file, try to excerpt only the section you are actually changing. Use comments like "// ... existing code ..." to indicate where existing code should be preserved:
-
-${createFileBlock(
-  'path/to/existing/file.tsx',
-  `// ... existing code ...
-
-function getDesktopNav() {
-  console.log('I\'ve just edited in this console.log statement')
-
-  // ... existing code ...
-}
-
-// ... existing code ...
-`
-)}
-
-Be sure to give enough lines of context around the code you are editing so that the other assistant can make the edit in the correct place. But adding more than 2-3 lines of context is probably unnecessary.
-
-<important_instruction>
-Don't forget to add the placeholder comment "// ... existing code ..." between any sections of code you are editing. If you don't, then all the code in between will be deleted!
-</important_instruction>
-
-Do not reproduce long continuous sections of the file which are unchanged. Use the placeholder comment "// ... existing code ..." to abbreviate these sections.
-
-Do not include comments you wouldn't want in the final code. For example, do not add comments like "// Add this check" or "// Add this line".
-
-You should not set a file's contents to the current contents of the file, since that is unnecessary work.
-
-Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 
 If you want to delete or rename a file, run a terminal command. More details below.
 </editing_instructions>
