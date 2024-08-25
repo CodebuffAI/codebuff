@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "start": "bun --cwd npm-app start",
+    "start-manifold": "bun --cwd npm-app start-manifold",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
   },
   "dependencies": {

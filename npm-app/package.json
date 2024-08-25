@@ -18,6 +18,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "start-js": "bun run dist/index.js ..",
     "start": "ts-node src/index.ts ..",
+    "start-manifold": "ts-node src/index.ts ../../manifold",
     "start-prod": "NODE_ENV=production ts-node src/index.ts",
     "ssh": "gcloud compute ssh manicode-backend --zone=us-east4-a"
   },
