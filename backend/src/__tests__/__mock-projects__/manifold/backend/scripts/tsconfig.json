@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./",
+    "composite": true,
+    "module": "commonjs",
+    "noImplicitReturns": true,
+    "outDir": "./lib",
+    "strict": true,
+    "target": "esnext",
+    "paths": {
+      "common/*": ["../../common/src/*", "../../../common/lib/*"],
+      "functions/*": ["../functions/src/*", "../../functions/lib/*"],
+      "api/*": ["../api/src/*", "../../api/lib/*"],
+      "shared/*": ["../shared/src/*", "../../shared/lib/*"],
+      "scheduler/*": ["../scheduler/src/*", "../../scheduler/lib/*"],
+      "scripts/*": ["./src/*"]
+    }
+  },
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  },
+  "references": [
+    {
+      "path": "../../common"
+    },
+    {
+      "path": "../shared"
+    },
+    {
+      "path": "../functions"
+    },
+    {
+      "path": "../api"
+    },
+    {
+      "path": "../scheduler"
+    }
+  ],
+  "compileOnSave": true
+}

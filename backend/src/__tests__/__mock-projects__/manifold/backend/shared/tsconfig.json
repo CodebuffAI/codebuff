@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "rootDir": "src",
+    "composite": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noImplicitReturns": true,
+    "outDir": "lib",
+    "tsBuildInfoFile": "lib/tsconfig.tsbuildinfo",
+    "sourceMap": true,
+    "strict": true,
+    "target": "es2017",
+    "incremental": true,
+    "isolatedModules": true,
+    "paths": {
+      "common/*": ["../../common/src/*", "../../../common/lib/*"],
+      "shared/*": ["./src/*"]
+    }
+  },
+  "references": [{ "path": "../../common" }],
+  "include": ["src/**/*.ts"]
+}

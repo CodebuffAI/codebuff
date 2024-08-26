@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "rootDir": "src",
+    "composite": true,
+    "module": "commonjs",
+    "noImplicitReturns": true,
+    "outDir": "./lib",
+    "tsBuildInfoFile": "lib/tsconfig.tsbuildinfo",
+    "sourceMap": true,
+    "strict": true,
+    "target": "es2022",
+    "incremental": true,
+    "isolatedModules": true,
+    "paths": {
+      "common/*": ["../../common/src/*", "../../../common/lib/*"],
+      "shared/*": ["../shared/src/*", "../../shared/lib/*"]
+    }
+  },
+  "references": [{ "path": "../../common" }, { "path": "../shared" }],
+  "compileOnSave": true,
+  "include": ["src/**/*.ts"],
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  }
+}
