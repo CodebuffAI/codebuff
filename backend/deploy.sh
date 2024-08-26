@@ -19,15 +19,14 @@ cp -R ../common/src/* ./src/common/
 # Build and tag the Docker image
 echo "Building Docker image..."
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
-docker build --build-arg APP_PORT=$APP_PORT -t gcr.io/$GCP_PROJECT/$VM_NAME:latest -t gcr.io/$GCP_PROJECT/$VM_NAME:$TIMESTAMP --platform linux/amd64 .
+docker build --build-arg APP_PORT=$APP_PORT -t gcr.io/$GCP_PROJECT/$VM_NAME:$TIMESTAMP --platform linux/amd64 .
 
 echo "Removing copied common TypeScript files..."
 rm -rf ./src/common/
 
 # Push the image to Google Container Registry
 echo "Pushing image to Google Container Registry..."
-docker push gcr.io/$GCP_PROJECT/$VM_NAME:latest
-# docker push gcr.io/$GCP_PROJECT/$VM_NAME:$TIMESTAMP
+docker push gcr.io/$GCP_PROJECT/$VM_NAME:$TIMESTAMP
 
 # Ensure the firewall rule for the app port exists
 FIREWALL_RULE_NAME="allow-$APP_PORT"
