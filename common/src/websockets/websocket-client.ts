@@ -128,7 +128,7 @@ export class APIRealtimeClient {
           console.info('API websocket opened.')
         }
         this.heartbeat = setInterval(
-          async () => this.sendMessage('ping', {}).catch(console.error),
+          async () => this.sendMessage('ping', {}).catch(() => {}),
           30000
         )
 

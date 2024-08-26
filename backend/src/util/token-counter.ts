@@ -4,10 +4,15 @@ export function countTokens(
   text: string,
   model: TiktokenModel = 'gpt-4o'
 ): number {
-  const encoder = encoding_for_model(model)
-  const tokens = encoder.encode(text)
-  encoder.free()
-  return tokens.length
+  try {
+    const encoder = encoding_for_model(model)
+    const tokens = encoder.encode(text)
+    encoder.free()
+    return tokens.length
+  } catch (e) {
+    console.error('Error counting tokens', e)
+    return Math.ceil(text.length / 3)
+  }
 }
 
 export function countTokensForFiles(

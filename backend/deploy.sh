@@ -18,14 +18,15 @@ cp -R ../common/src/* ./src/common/
 
 # Build and tag the Docker image
 echo "Building Docker image..."
-docker build --build-arg APP_PORT=$APP_PORT -t gcr.io/$GCP_PROJECT/manicode-backend:latest --platform linux/amd64 .
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+docker build --build-arg APP_PORT=$APP_PORT -t gcr.io/$GCP_PROJECT/$VM_NAME:$TIMESTAMP --platform linux/amd64 .
 
 echo "Removing copied common TypeScript files..."
 rm -rf ./src/common/
 
 # Push the image to Google Container Registry
 echo "Pushing image to Google Container Registry..."
-docker push gcr.io/manicode-430317/manicode-backend:latest
+docker push gcr.io/$GCP_PROJECT/$VM_NAME:$TIMESTAMP
 
 # Ensure the firewall rule for the app port exists
 FIREWALL_RULE_NAME="allow-$APP_PORT"
@@ -43,7 +44,7 @@ if gcloud compute instances describe $VM_NAME --zone=$VM_ZONE --project=$GCP_PRO
     gcloud compute instances update-container $VM_NAME \
         --zone=$VM_ZONE \
         --project=$GCP_PROJECT \
-        --container-image=gcr.io/$GCP_PROJECT/manicode-backend:latest \
+        --container-image=gcr.io/$GCP_PROJECT/$VM_NAME:latest \
         --container-env=APP_PORT=$APP_PORT
 else
     echo "Creating new VM instance with container..."
@@ -51,7 +52,7 @@ else
         --zone=$VM_ZONE \
         --project=$GCP_PROJECT \
         --address=$VM_ADDRESS \
-        --container-image=gcr.io/$GCP_PROJECT/manicode-backend:latest \
+        --container-image=gcr.io/$GCP_PROJECT/$VM_NAME:latest \
         --container-env=APP_PORT=$APP_PORT \
         --machine-type=n2-standard-2 \
         --image-project "cos-cloud" \

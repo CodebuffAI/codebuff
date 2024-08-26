@@ -100,3 +100,5 @@ Notes from Janna & Stephen test
 [] Ari: editing is failing: deleting sections of code it shouldn't.
     - [J] Removes commented out code, other comments
     - [J] Removed an export for no reason
+[] Doesn't give up control after running terminal commands. Just keeps running more
+[] Says reconnected, but actually doesn't go after
