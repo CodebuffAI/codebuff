@@ -1,0 +1,6 @@
+.gitignore
+.gcloudignore
+/tsconfig.json
+/deploy-feedmaker.sh
+/src/
+/lib/

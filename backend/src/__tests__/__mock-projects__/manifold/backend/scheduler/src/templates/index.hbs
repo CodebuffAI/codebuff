@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang='en'>
+  <head>
+    <style>
+     html, body { margin: 0; }
+     body { padding: 0.5em; font-family: sans-serif; }
+     header { margin-bottom: 1em; }
+     h1 { margin: 0 0 0.5em 0; font-size: 2em; }
+     h2 { margin: 0 0 0.5em 0; }
+     p { margin: 0 0 0.25em 0; }
+     .btn {
+       display: inline-block;
+       padding: 0.35em 1.2em;
+       border: 0.1em solid black;
+       margin: 0 0 0 1em;
+     }
+     .btn-resume { background-color: #04AA6D; color: white; }
+     .btn-pause { background-color: #6D4008; color: white; }
+     .btn-trigger { background-color: #1D008A; color: white; }
+     .job {
+       border-top: 1px solid;
+       padding: 1em 0;
+     }
+     .row {
+       display: flex;
+       flex-direction: row;
+       align-items: baseline;
+     }
+    </style>
+    <title>{{env}} scheduled jobs</title>
+  </head>
+  <body>
+    <header>
+      <h1>{{env}} scheduled jobs</h1>
+      <p><a href="https://console.cloud.google.com/compute/instancesDetail/zones/us-central1-a/instances/scheduler?project=mantic-markets">Instance admin page</a></p>
+      <p><a href=https://console.cloud.google.com/logs/query;query=%2528resource.type%3D%22gce_instance%22%20AND%20resource.labels.instance_id%3D%222197410635874355668%22%2529%20OR%20%2528resource.type%3D%22global%22%20AND%20jsonPayload.instance.id%3D%222197410635874355668%22%2529;cursorTimestamp=2024-06-05T17:25:12.017179727Z;duration=PT1H?project=mantic-markets">Instance logs</a></p>
+    </header>
+    <section>
+      {{#each jobs}}
+        <article class="job job-{{status}}">
+          <h2>{{name}} &mdash; {{pattern}}</h2>
+          {{#if running}}
+            <p>Currently running since {{currentRunStart}} ({{currentRunDurationMins}}mins)</p>
+          {{/if}}
+          <div class="row">
+            {{#if paused}}
+              <p>Paused.</p>
+              <form action="/jobs/{{name}}/resume" method="post">
+                <input class="btn btn-resume" type="submit" value="Resume" />
+              </form>
+            {{else}}
+              {{#if nextRunStart}}
+                <p>Next run: {{nextRunStart}} ({{nextRunInMins}}mins)</p>
+              {{else}}
+                <p>Not scheduled to run automatically.</p>
+              {{/if}}
+              <form action="/jobs/{{name}}/pause" method="post">
+                <input class="btn btn-pause" type="submit" value="Pause" />
+              </form>
+              {{#unless running}}
+                <form action="/jobs/{{name}}/trigger" method="post">
+                  <input class="btn btn-trigger" type="submit" value="Run now" />
+                </form>
+              {{/unless}}
+            {{/if}}
+          </div>
+        </article>
+      {{/each}}
+    </section>
+  </body>
+  <script type="text/javascript">
+   function onSubmit(e) {
+     e.preventDefault()
+     fetch(e.target.action, { method: e.target.method }).then(() => location.reload())
+   }
+   const forms = document.body.getElementsByTagName("form")
+   for (const form of forms) {
+     form.addEventListener("submit", onSubmit)
+   }
+  </script>
+</html>

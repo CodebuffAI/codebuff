@@ -1,0 +1,38 @@
+{
+  "name": "common",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -b && tsc-alias",
+    "compile": "tsc -b",
+    "alias": "tsc-alias",
+    "verify": "yarn --cwd=.. verify",
+    "verify:dir": "npx eslint . --max-warnings 0",
+    "test": "jest",
+    "regen-types": "supabase gen types typescript --project-id pxidrgkatumlvfqaxcll --schema public > ./src/supabase/schema.ts && npx prettier --write ./src/supabase/schema.ts",
+    "regen-types-dev": "supabase gen types typescript --project-id mfodonznyfxllcezufgr --schema public > ./src/supabase/schema.ts && npx prettier --write ./src/supabase/schema.ts"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@supabase/supabase-js": "2.38.5",
+    "@tiptap/core": "2.0.0-beta.204",
+    "@tiptap/extension-image": "2.0.0-beta.204",
+    "@tiptap/extension-link": "2.0.0-beta.204",
+    "@tiptap/extension-mention": "2.0.0-beta.204",
+    "@tiptap/starter-kit": "2.0.0-beta.204",
+    "@tiptap/suggestion": "2.0.0-beta.204",
+    "dayjs": "1.11.4",
+    "link-preview-js": "3.0.4",
+    "lodash": "4.17.21",
+    "string-similarity": "4.0.4",
+    "zod": "3.21.4"
+  },
+  "devDependencies": {
+    "@types/jest": "29.2.4",
+    "@types/lodash": "4.14.178",
+    "@types/string-similarity": "4.0.0",
+    "jest": "29.3.1",
+    "supabase": "1.190.0",
+    "ts-jest": "29.0.3"
+  }
+}
