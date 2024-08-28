@@ -38,13 +38,18 @@ if ! gcloud compute firewall-rules describe $FIREWALL_RULE_NAME --project=$GCP_P
         --project=$GCP_PROJECT
 fi
 
+echo "Cleaning up old Docker resources on the VM..."
+gcloud compute ssh $VM_NAME --zone=$VM_ZONE --project=$GCP_PROJECT --command="
+    docker system prune -af --volumes
+"
+
 # Create or update the VM instance with the container
 if gcloud compute instances describe $VM_NAME --zone=$VM_ZONE --project=$GCP_PROJECT &>/dev/null; then
     echo "Existing VM instance found. Updating the container..."
     gcloud compute instances update-container $VM_NAME \
         --zone=$VM_ZONE \
         --project=$GCP_PROJECT \
-        --container-image=gcr.io/$GCP_PROJECT/$VM_NAME:latest \
+        --container-image=gcr.io/$GCP_PROJECT/$VM_NAME:$TIMESTAMP \
         --container-env=APP_PORT=$APP_PORT
 else
     echo "Creating new VM instance with container..."
@@ -52,7 +57,7 @@ else
         --zone=$VM_ZONE \
         --project=$GCP_PROJECT \
         --address=$VM_ADDRESS \
-        --container-image=gcr.io/$GCP_PROJECT/$VM_NAME:latest \
+        --container-image=gcr.io/$GCP_PROJECT/$VM_NAME:$TIMESTAMP \
         --container-env=APP_PORT=$APP_PORT \
         --machine-type=n2-standard-2 \
         --image-project "cos-cloud" \
@@ -60,11 +65,10 @@ else
         --tags=http-server \
         --scopes=https://www.googleapis.com/auth/cloud-platform \
         --container-mount-host-path=mount-path=/app/logs,host-path=/var/log/app,mode=rw \
-        --boot-disk-size=20GB \  # Increased from 10GB to 20GB for more storage space
+        --boot-disk-size=10GB \
         --boot-disk-type=pd-balanced
 fi
 
-# Wait for the VM to be ready (adjust the sleep time if needed)
 echo "Waiting for VM to be ready..."
 sleep 60
 
