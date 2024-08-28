@@ -57,7 +57,7 @@ export async function mainPrompt(
   let continuedMessages: Message[] = []
   let isComplete = false
   let iterationCount = 0
-  const MAX_ITERATIONS = 20
+  const MAX_ITERATIONS = 10
 
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
     lastMessage.content = `${lastMessage.content}
