@@ -60,7 +60,7 @@ else
         --tags=http-server \
         --scopes=https://www.googleapis.com/auth/cloud-platform \
         --container-mount-host-path=mount-path=/app/logs,host-path=/var/log/app,mode=rw \
-        --boot-disk-size=10GB \
+        --boot-disk-size=20GB \  # Increased from 10GB to 20GB for more storage space
         --boot-disk-type=pd-balanced
 fi
 
