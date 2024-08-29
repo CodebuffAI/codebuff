@@ -57,6 +57,8 @@ export async function mainPrompt(
   let toolCall: ToolCall | null = null
   let continuedMessages: Message[] = []
   let isComplete = false
+  let iterationCount = 0
+  const MAX_ITERATIONS = 10
 
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
     lastMessage.content = `${lastMessage.content}
@@ -70,7 +72,7 @@ ${STOP_MARKER}
 </additional_instruction>`
   }
 
-  while (!isComplete) {
+  while (!isComplete && iterationCount < MAX_ITERATIONS) {
     const system = getSystemPrompt(fileContext, shouldCheckFiles)
     const messagesWithContinuedMessage = continuedMessages
       ? [...messages, ...continuedMessages]
@@ -152,6 +154,13 @@ ${STOP_MARKER}
         },
       ]
     }
+
+    iterationCount++
+  }
+
+  if (iterationCount >= MAX_ITERATIONS) {
+    console.log('Reached maximum number of iterations in mainPrompt')
+    debugLog('Reached maximum number of iterations in mainPrompt')
   }
 
   const changes = (await Promise.all(fileProcessingPromises)).filter(

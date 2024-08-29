@@ -1,6 +1,6 @@
 # Manicode
 
-Manicode is an AGI-level coding assistant that runs from your command line. It has access to all files in your project and carries out tasks for you.
+Manicode is an AI coding assistant that runs from your command line. It has access to all files in your project and carries out tasks for you.
 
 ## Installation
 
