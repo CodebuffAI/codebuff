@@ -2,9 +2,10 @@ import { test } from 'bun:test'
 
 export function projectTest(
   testName: string,
-  fn: (
+  fn: (functions: {
     expectTrue: (description: string, condition: boolean) => void
-  ) => Promise<void>
+    incrementScore: (amount: number, max: number, description: string) => void
+  }) => Promise<void>
 ) {
   let score = 0
   let maxScore = 0
@@ -18,10 +19,16 @@ export function projectTest(
     }
   }
 
+  const incrementScore = (amount: number, max: number, description: string) => {
+    score += amount
+    maxScore += max
+    console.log(`${description} - score: ${score}/${maxScore}`)
+  }
+
   test(
     testName,
     async () => {
-      await fn(expectTrue)
+      await fn({ expectTrue, incrementScore })
       console.log(`${testName} - score: ${score}/${maxScore}`)
     },
     { timeout: 200_000 }

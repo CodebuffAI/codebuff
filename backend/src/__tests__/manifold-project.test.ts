@@ -1,4 +1,4 @@
-import { test, expect, jest } from 'bun:test'
+import { jest } from 'bun:test'
 import path from 'path'
 import fs from 'fs'
 import { WebSocket } from 'ws'
@@ -73,7 +73,14 @@ async function runMainPrompt(
   )
 }
 
-projectTest('manifold project', async (expectTrue) => {
+function extractErrorFiles(output: string): string[] {
+  const lines = output.split('\n')
+  return lines
+    .filter((line) => line.includes(': error TS'))
+    .map((line) => line.split('(')[0].trim())
+}
+
+projectTest('manifold project', async ({ expectTrue, incrementScore }) => {
   const fileContext = getProjectFileContext()
   const { changes } = await runMainPrompt(fileContext, [
     {
@@ -89,25 +96,31 @@ projectTest('manifold project', async (expectTrue) => {
 
   const filesChanged = changes.map(getFilePathFromPatch)
   expectTrue(
-    'includes the correct files',
-    filesChanged.includes('backend/api/src/delete-comment.ts') &&
-      filesChanged.includes('backend/api/src/app.ts') &&
-      filesChanged.includes('common/src/api/schema.ts')
+    'includes delete-comment.ts file',
+    filesChanged.includes('backend/api/src/delete-comment.ts')
   )
-
-  console.log(changes)
+  expectTrue(
+    'includes app.ts file',
+    filesChanged.includes('backend/api/src/app.ts')
+  )
+  expectTrue(
+    'includes schema.ts file',
+    filesChanged.includes('common/src/api/schema.ts')
+  )
 
   await applyAndRevertChanges(
     fileContext.currentWorkingDirectory,
     changes,
     async () => {
-      const tscResult = await runTerminalCommand(
+      const compileResult = await runTerminalCommand(
         `cd ${fileContext.currentWorkingDirectory}/backend/api && yarn compile`
       )
-      console.log(tscResult)
-      expectTrue(
-        'No type errors',
-        tscResult.exitCode === 0
+      const errorFiles = extractErrorFiles(compileResult.stdout)
+      const scoreChange = Math.max(3 - errorFiles.length, 0)
+      incrementScore(
+        scoreChange,
+        3,
+        `${errorFiles.length} files with type errors`
       )
     }
   )
