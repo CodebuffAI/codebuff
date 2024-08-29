@@ -16,7 +16,7 @@
     "paths": {
       "common/*": ["./src/common/*", "../common/src/*"]
     },
-    "typeRoots": ["./node_modules/@types", "../node_modules/@types"],
+    "typeRoots": ["./node_modules/@types"],
     "outDir": "./dist"
   },
   "include": ["src/**/*"],

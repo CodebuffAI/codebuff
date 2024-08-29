@@ -1,17 +1,13 @@
-import { applyPatch } from 'diff'
 import fs from 'fs'
 import path from 'path'
-import * as ignore from 'ignore'
 
-import {
-  createFileBlock,
-  ProjectFileContext,
-  FileTreeNode,
-  getFilePathFromPatch,
-} from 'common/util/file'
-import { FileChanges } from 'common/actions'
+import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { filterObject } from 'common/util/object'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
+import {
+  getProjectFileTree,
+  getAllFilePaths,
+} from 'common/src/project-file-tree'
 
 let projectRoot: string
 
@@ -35,50 +31,11 @@ export function getProjectRoot() {
   return projectRoot
 }
 
-export function applyChanges(changes: FileChanges) {
-  const created: string[] = []
-  const modified: string[] = []
-
-  for (const patch of changes) {
-    const filePath = getFilePathFromPatch(patch)
-    const fullPath = path.join(projectRoot, filePath)
-
-    let oldContent = ''
-    if (fs.existsSync(fullPath)) {
-      oldContent = fs.readFileSync(fullPath, 'utf-8')
-    }
-
-    const newContent = applyPatch(oldContent, patch)
-
-    if (typeof newContent === 'boolean') {
-      console.error(`Failed to apply patch to ${filePath}`)
-    } else {
-      try {
-        // Ensure the directory exists
-        const dirPath = path.dirname(fullPath)
-        fs.mkdirSync(dirPath, { recursive: true })
-
-        // Write the file
-        fs.writeFileSync(fullPath, newContent)
-        if (oldContent === '') {
-          created.push(filePath)
-        } else {
-          modified.push(filePath)
-        }
-      } catch (error) {
-        console.error(`Failed to write file ${fullPath}:`, error)
-      }
-    }
-  }
-
-  return { created, modified }
-}
-
 let cachedProjectFileContext: ProjectFileContext | undefined
 
 export const getProjectFileContext = async (fileList: string[]) => {
   if (!cachedProjectFileContext) {
-    const fileTree = getProjectFileTree()
+    const fileTree = getProjectFileTree(projectRoot)
     const knowledgeFilePaths = getAllFilePaths(fileTree).filter((filePath) =>
       filePath.endsWith('knowledge.md')
     )
@@ -101,21 +58,6 @@ export const getProjectFileContext = async (fileList: string[]) => {
   }
 
   return cachedProjectFileContext
-}
-
-function parseGitignore(dirPath: string): ignore.Ignore {
-  const ig = ignore.default()
-  const gitignorePath = path.join(dirPath, '.gitignore')
-
-  if (fs.existsSync(gitignorePath)) {
-    const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8')
-    const lines = gitignoreContent.split('\n')
-    for (const line of lines) {
-      ig.add(line.startsWith('/') ? line.slice(1) : line)
-    }
-  }
-
-  return ig
 }
 
 export function getFiles(filePaths: string[]) {
@@ -286,65 +228,4 @@ export const deleteFile = (fullPath: string): boolean => {
     console.error(`Error deleting file ${fullPath}:`, error)
     return false
   }
-}
-
-function getProjectFileTree(): FileTreeNode[] {
-  const defaultIgnore = ignore.default()
-  defaultIgnore.add('.git')
-
-  function buildTree(dir: string, parentIgnore: ignore.Ignore): FileTreeNode[] {
-    const currentIgnore = parseGitignore(dir)
-    const mergedIgnore = ignore.default().add(parentIgnore).add(currentIgnore)
-    const children: FileTreeNode[] = []
-
-    try {
-      const files = fs.readdirSync(dir)
-      for (const file of files) {
-        const filePath = path.join(dir, file)
-        const relativeFilePath = path.relative(projectRoot, filePath)
-
-        if (mergedIgnore.ignores(relativeFilePath)) {
-          continue
-        }
-
-        try {
-          const stats = fs.statSync(filePath)
-          if (stats.isDirectory()) {
-            children.push({
-              name: file,
-              type: 'directory',
-              children: buildTree(filePath, mergedIgnore),
-            })
-          } else {
-            children.push({
-              name: file,
-              type: 'file',
-            })
-          }
-        } catch (error: any) {
-          // Don't print errors, you probably just don't have access to the file.
-          // console.error(`Error processing file ${filePath}:`, error)
-        }
-      }
-    } catch (error: any) {
-      // Don't print errors, you probably just don't have access to the directory.
-      // console.error(`Error reading directory ${dir}:`, error)
-    }
-
-    return children
-  }
-
-  return buildTree(projectRoot, defaultIgnore)
-}
-
-function getAllFilePaths(
-  nodes: FileTreeNode[],
-  basePath: string = ''
-): string[] {
-  return nodes.flatMap((node) => {
-    if (node.type === 'file') {
-      return [path.join(basePath, node.name)]
-    }
-    return getAllFilePaths(node.children || [], path.join(basePath, node.name))
-  })
 }

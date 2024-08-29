@@ -2,7 +2,8 @@ import chalk from 'chalk' // Add this import
 
 import packageJson from '../package.json'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
-import { applyChanges, getFiles, getProjectFileContext } from './project-files'
+import { getFiles, getProjectFileContext, getProjectRoot } from './project-files'
+import { applyChanges } from 'common/util/changes'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
@@ -38,7 +39,7 @@ export class Client {
       const filesChanged = uniq(changes.map(getFilePathFromPatch))
       this.chatStorage.saveFilesChanged(filesChanged)
 
-      applyChanges(changes)
+      applyChanges(getProjectRoot(), changes)
 
       const { id, name, input } = data
 
