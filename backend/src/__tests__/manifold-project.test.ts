@@ -13,6 +13,7 @@ import {
   getAllFilePaths,
 } from 'common/src/project-file-tree'
 import { EventEmitter } from 'events'
+import { projectTest } from './score-tests'
 
 function readMockFile(filePath: string): string | null {
   const fullPath = path.join(__dirname, '__mock-projects__/manifold', filePath)
@@ -49,8 +50,7 @@ const mockRequestFiles = jest.spyOn(websocketActionModule, 'requestFiles')
 
 async function runMainPrompt(
   fileContext: ProjectFileContext,
-  messages: Message[],
-  userInput: string
+  messages: Message[]
 ) {
   const mockWs = new EventEmitter() as WebSocket
   mockWs.send = jest.fn()
@@ -66,47 +66,52 @@ async function runMainPrompt(
 
   return await mainPromptModule.mainPrompt(
     mockWs,
-    [...messages, { role: 'user', content: userInput }],
+    messages,
     fileContext,
     'test-user-id',
     (chunk: string) => process.stdout.write(chunk)
   )
 }
 
-test(
-  'manifold project',
-  async () => {
-    const fileContext = getProjectFileContext()
-    const { changes } = await runMainPrompt(
-      fileContext,
-      [],
-      'Add an endpoint to delete a comment'
-    )
+projectTest('manifold project', async (expectTrue) => {
+  const fileContext = getProjectFileContext()
+  const { changes } = await runMainPrompt(fileContext, [
+    {
+      role: 'user',
+      content: 'Add an endpoint to delete a comment',
+    },
+  ])
 
-    const filesChanged = changes.map(getFilePathFromPatch)
-    expect(
-      filesChanged.includes('backend/api/src/delete-comment.ts') &&
-        filesChanged.includes('backend/api/src/app.ts') &&
-        filesChanged.includes('common/src/api/schema.ts')
-    ).toBe(true)
+  expectTrue(
+    'mockRequestFiles was called once',
+    mockRequestFiles.mock.calls.length === 1
+  )
 
-    expect(mockRequestFiles).toHaveBeenCalled()
-    console.log(changes)
+  const filesChanged = changes.map(getFilePathFromPatch)
+  expectTrue(
+    'includes the correct files',
+    filesChanged.includes('backend/api/src/delete-comment.ts') &&
+      filesChanged.includes('backend/api/src/app.ts') &&
+      filesChanged.includes('common/src/api/schema.ts')
+  )
 
-    await applyAndRevertChanges(
-      fileContext.currentWorkingDirectory,
-      changes,
-      async () => {
-        const tscResult = await runTerminalCommand(
-          `cd ${fileContext.currentWorkingDirectory}/backend/api && yarn compile`
-        )
-        console.log(tscResult)
-        expect(tscResult.exitCode).toBe(0)
-      }
-    )
-  },
-  { timeout: 200_000 }
-)
+  console.log(changes)
+
+  await applyAndRevertChanges(
+    fileContext.currentWorkingDirectory,
+    changes,
+    async () => {
+      const tscResult = await runTerminalCommand(
+        `cd ${fileContext.currentWorkingDirectory}/backend/api && yarn compile`
+      )
+      console.log(tscResult)
+      expectTrue(
+        'No type errors',
+        tscResult.exitCode === 0
+      )
+    }
+  )
+})
 
 async function runTerminalCommand(command: string) {
   return new Promise<{ stdout: string; stderr: string; exitCode: number }>(
