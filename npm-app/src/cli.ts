@@ -1,5 +1,6 @@
 import { uniq } from 'lodash'
 import { getFilePathFromPatch } from 'common/util/file'
+import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
 import chalk from 'chalk'
 import { exec } from 'child_process'
@@ -10,7 +11,6 @@ import { Client } from './client'
 import { Message } from 'common/actions'
 import { displayMenu } from './menu'
 import {
-  applyChanges,
   getExistingFiles,
   getProjectRoot,
   setFiles,
@@ -240,7 +240,7 @@ export class CLI {
     const filesChanged = uniq(changes.map(getFilePathFromPatch))
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
 
-    const { created, modified } = applyChanges(changes)
+    const { created, modified } = applyChanges(getProjectRoot(), changes)
     for (const file of created) {
       console.log(chalk.green('-', 'Created', file))
     }
