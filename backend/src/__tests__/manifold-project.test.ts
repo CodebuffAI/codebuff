@@ -1,8 +1,10 @@
 import { jest } from 'bun:test'
 import path from 'path'
 import fs from 'fs'
+import { range } from 'lodash'
 import { WebSocket } from 'ws'
 
+import { ScoreTestContext } from './score-tests'
 import * as mainPromptModule from '../main-prompt'
 import * as websocketActionModule from '../websockets/websocket-action'
 import { getFilePathFromPatch, ProjectFileContext } from 'common/util/file'
@@ -14,6 +16,69 @@ import {
 } from 'common/src/project-file-tree'
 import { EventEmitter } from 'events'
 import { projectTest } from './score-tests'
+import { FileChanges } from 'common/actions'
+
+projectTest('manifold project', async (getContext) => {
+  const { currentWorkingDirectory } = getProjectFileContext()
+  await runTerminalCommand(
+    `cd ${currentWorkingDirectory}/backend/api && yarn compile`
+  )
+
+  const tests = [{ description: 'test delete comment', fn: testDeleteComment }]
+
+  // Run each test multiple times all in parallel
+  const repeatCount = 3
+  await Promise.all(
+    tests.map(async ({ description, fn }) => {
+      const scoreTestContext = getContext(description)
+      await Promise.all(range(repeatCount).map(() => fn(scoreTestContext)))
+    })
+  )
+})
+
+const testDeleteComment = async ({
+  expectTrue,
+  incrementScore,
+}: ScoreTestContext) => {
+  const fileContext = getProjectFileContext()
+  const { changes } = await runMainPrompt(fileContext, [
+    {
+      role: 'user',
+      content: 'Add an endpoint to delete a comment',
+    },
+  ])
+
+  const filesChanged = changes.map(getFilePathFromPatch)
+  expectTrue(
+    'includes delete-comment.ts file',
+    filesChanged.includes('backend/api/src/delete-comment.ts')
+  )
+  expectTrue(
+    'includes app.ts file',
+    filesChanged.includes('backend/api/src/app.ts')
+  )
+  expectTrue(
+    'includes schema.ts file',
+    filesChanged.includes('common/src/api/schema.ts')
+  )
+
+  await applyAndRevertChangesSequentially(
+    fileContext.currentWorkingDirectory,
+    changes,
+    async () => {
+      const compileResult = await runTerminalCommand(
+        `cd ${fileContext.currentWorkingDirectory}/backend/api && yarn compile`
+      )
+      const errorFiles = extractErrorFiles(compileResult.stdout)
+      const scoreChange = Math.max(3 - errorFiles.length, 0)
+      incrementScore(
+        scoreChange,
+        3,
+        `${errorFiles.join(', ')}: ${errorFiles.length} files with type errors`
+      )
+    }
+  )
+}
 
 function readMockFile(filePath: string): string | null {
   const fullPath = path.join(__dirname, '__mock-projects__/manifold', filePath)
@@ -80,52 +145,6 @@ function extractErrorFiles(output: string): string[] {
     .map((line) => line.split('(')[0].trim())
 }
 
-projectTest('manifold project', async ({ expectTrue, incrementScore }) => {
-  const fileContext = getProjectFileContext()
-  const { changes } = await runMainPrompt(fileContext, [
-    {
-      role: 'user',
-      content: 'Add an endpoint to delete a comment',
-    },
-  ])
-
-  expectTrue(
-    'mockRequestFiles was called once',
-    mockRequestFiles.mock.calls.length === 1
-  )
-
-  const filesChanged = changes.map(getFilePathFromPatch)
-  expectTrue(
-    'includes delete-comment.ts file',
-    filesChanged.includes('backend/api/src/delete-comment.ts')
-  )
-  expectTrue(
-    'includes app.ts file',
-    filesChanged.includes('backend/api/src/app.ts')
-  )
-  expectTrue(
-    'includes schema.ts file',
-    filesChanged.includes('common/src/api/schema.ts')
-  )
-
-  await applyAndRevertChanges(
-    fileContext.currentWorkingDirectory,
-    changes,
-    async () => {
-      const compileResult = await runTerminalCommand(
-        `cd ${fileContext.currentWorkingDirectory}/backend/api && yarn compile`
-      )
-      const errorFiles = extractErrorFiles(compileResult.stdout)
-      const scoreChange = Math.max(3 - errorFiles.length, 0)
-      incrementScore(
-        scoreChange,
-        3,
-        `${errorFiles.length} files with type errors`
-      )
-    }
-  )
-})
-
 async function runTerminalCommand(command: string) {
   return new Promise<{ stdout: string; stderr: string; exitCode: number }>(
     (resolve) => {
@@ -140,3 +159,37 @@ async function runTerminalCommand(command: string) {
     }
   )
 }
+
+const applyAndRevertChangesSequentially = (() => {
+  const queue: Array<() => Promise<void>> = []
+  let isProcessing = false
+
+  const processQueue = async () => {
+    if (isProcessing || queue.length === 0) return
+    isProcessing = true
+    const nextOperation = queue.shift()
+    if (nextOperation) {
+      await nextOperation()
+    }
+    isProcessing = false
+    processQueue()
+  }
+
+  return async (
+    projectRoot: string,
+    changes: FileChanges,
+    onApply: () => Promise<void>
+  ) => {
+    return new Promise<void>((resolve, reject) => {
+      queue.push(async () => {
+        try {
+          await applyAndRevertChanges(projectRoot, changes, onApply)
+          resolve()
+        } catch (error) {
+          reject(error)
+        }
+      })
+      processQueue()
+    })
+  }
+})()
