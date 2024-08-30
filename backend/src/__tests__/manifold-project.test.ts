@@ -24,7 +24,13 @@ projectTest('manifold project', async (getContext) => {
     `cd ${currentWorkingDirectory}/backend/api && yarn compile`
   )
 
-  const tests = [{ description: 'test delete comment', fn: testDeleteComment }]
+  const tests = [
+    { description: 'test delete comment', fn: testDeleteComment },
+    {
+      description: 'test delete comment without knowledge',
+      fn: testDeleteCommentWithoutKnowledge,
+    },
+  ]
 
   // Run each test multiple times all in parallel
   const repeatCount = 3
@@ -41,6 +47,52 @@ const testDeleteComment = async ({
   incrementScore,
 }: ScoreTestContext) => {
   const fileContext = getProjectFileContext()
+  const { changes } = await runMainPrompt(fileContext, [
+    {
+      role: 'user',
+      content: 'Add an endpoint to delete a comment',
+    },
+  ])
+
+  const filesChanged = changes.map(getFilePathFromPatch)
+  expectTrue(
+    'includes delete-comment.ts file',
+    filesChanged.includes('backend/api/src/delete-comment.ts')
+  )
+  expectTrue(
+    'includes app.ts file',
+    filesChanged.includes('backend/api/src/app.ts')
+  )
+  expectTrue(
+    'includes schema.ts file',
+    filesChanged.includes('common/src/api/schema.ts')
+  )
+
+  await applyAndRevertChangesSequentially(
+    fileContext.currentWorkingDirectory,
+    changes,
+    async () => {
+      const compileResult = await runTerminalCommand(
+        `cd ${fileContext.currentWorkingDirectory}/backend/api && yarn compile`
+      )
+      const errorFiles = extractErrorFiles(compileResult.stdout)
+      const scoreChange = Math.max(3 - errorFiles.length, 0)
+      incrementScore(
+        scoreChange,
+        3,
+        `${errorFiles.join(', ')}: ${errorFiles.length} files with type errors`
+      )
+    }
+  )
+}
+
+const testDeleteCommentWithoutKnowledge = async ({
+  expectTrue,
+  incrementScore,
+}: ScoreTestContext) => {
+  const fileContext = getProjectFileContext()
+  fileContext.knowledgeFiles = {}
+
   const { changes } = await runMainPrompt(fileContext, [
     {
       role: 'user',
@@ -134,7 +186,7 @@ async function runMainPrompt(
     messages,
     fileContext,
     'test-user-id',
-    (chunk: string) => process.stdout.write(chunk)
+    (chunk: string) => {} //process.stdout.write(chunk)
   )
 }
 
