@@ -10,8 +10,8 @@
     "sourceMap": true,
     "strict": true,
     "target": "es2017",
-    "incremental": true,
     "isolatedModules": true,
+    "declarationMap": true,
     "paths": {
       "common/*": ["../../common/src/*", "../../../common/lib/*"],
       "shared/*": ["./src/*"]

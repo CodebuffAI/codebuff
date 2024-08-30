@@ -9,7 +9,6 @@
     "sourceMap": true,
     "strict": true,
     "target": "es2017",
-    "incremental": true,
     "isolatedModules": true,
     "paths": {
       "common/*": ["../../common/src/*", "../../../common/lib/*"],
