@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import { RATE_LIMIT_POLICY } from './constants'
 import { STOP_MARKER } from 'common/constants'
+import { Stream } from 'openai/streaming'
 
 type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -23,6 +24,11 @@ const getOpenAI = (userId: string) => {
   return openai
 }
 
+const timeoutPromise = (ms: number) =>
+  new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('OpenAI API request timed out')), ms)
+  )
+
 export async function promptOpenAI(
   userId: string,
   messages: OpenAIMessage[],
@@ -30,11 +36,14 @@ export async function promptOpenAI(
 ) {
   const openai = getOpenAI(userId)
   try {
-    const response = await openai.chat.completions.create({
-      model,
-      messages,
-      temperature: 0,
-    })
+    const response = await Promise.race([
+      openai.chat.completions.create({
+        model,
+        messages,
+        temperature: 0,
+      }),
+      timeoutPromise(60000) as Promise<OpenAI.Chat.ChatCompletion>,
+    ])
 
     if (
       response.choices &&
@@ -87,12 +96,17 @@ export async function promptOpenAIWithContinuation(
       : messages
 
     try {
-      const stream = await openai.chat.completions.create({
-        model,
-        messages: messagesWithContinuedMessage,
-        stream: true,
-        temperature: 0,
-      })
+      const stream = await Promise.race([
+        openai.chat.completions.create({
+          model,
+          messages: messagesWithContinuedMessage,
+          stream: true,
+          temperature: 0,
+        }),
+        timeoutPromise(60000) as Promise<
+          Stream<OpenAI.Chat.Completions.ChatCompletionChunk>
+        >,
+      ])
 
       for await (const chunk of stream) {
         if (chunk.choices[0]?.delta?.content) {
