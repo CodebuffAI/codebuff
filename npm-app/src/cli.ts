@@ -45,9 +45,10 @@ export class CLI {
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: `${parse(getProjectRoot()).base} > `,
       historySize: 1000,
     })
+
+    this.setPrompt()
 
     this.rl.on('line', (line) => {
       this.handleInput(line)
@@ -110,6 +111,12 @@ export class CLI {
         this.handleUserInput(line.trim())
       }
     }
+  }
+
+  private setPrompt() {
+    this.rl.setPrompt(
+      chalk.green(`${parse(getCurrentWorkingDirectory()).base} > `)
+    )
   }
 
   public printInitialPrompt() {
@@ -227,15 +234,22 @@ export class CLI {
       return
     }
 
-    const result = await handleRunTerminalCommand(
-      { command: userInput },
-      'user',
-      'user'
-    )
-    if (result !== 'command not found') {
-      this.rl.setPrompt(`${parse(getCurrentWorkingDirectory()).base} > `)
-      this.rl.prompt()
-      return
+    const skippedTerminalCommands = ['what ', 'which ']
+    if (
+      !skippedTerminalCommands.some((command) =>
+        userInput.toLowerCase().startsWith(command)
+      )
+    ) {
+      const result = await handleRunTerminalCommand(
+        { command: userInput },
+        'user',
+        'user'
+      )
+      if (result !== 'command not found') {
+        this.setPrompt()
+        this.rl.prompt()
+        return
+      }
     }
 
     this.startLoadingAnimation()
@@ -285,7 +299,7 @@ export class CLI {
 
     const { responsePromise, stopResponse } = this.client.subscribeToResponse(
       (chunk) => {
-        process.stdout.write(chunk)
+        process.stdout.write(chalk.blue(chunk))
       },
       userInputId,
       () => {
