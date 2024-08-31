@@ -1,8 +1,9 @@
 import { spawn } from 'child_process'
 import chalk from 'chalk'
+import path from 'path'
 import { scrapeWebPage } from './web-scraper'
 import { searchManifoldMarkets } from './manifold-api'
-import { getProjectRoot } from './project-files'
+import { getCurrentWorkingDirectory, setCurrentWorkingDirectory } from './project-files'
 
 export type ToolHandler = (input: any, id: string) => Promise<string>
 
@@ -45,7 +46,6 @@ export const handleRunTerminalCommand = async (
   mode: 'user' | 'assistant'
 ): Promise<string> => {
   const { command } = input
-  const commandWithNavigationToProjectRoot = `cd ${getProjectRoot()} && ${command}`
   return new Promise((resolve) => {
     let stdout = ''
     let stderr = ''
@@ -55,8 +55,9 @@ export const handleRunTerminalCommand = async (
       console.log()
       console.log(chalk.blue(`> ${command}`))
     }
-    const childProcess = spawn(commandWithNavigationToProjectRoot, {
+    const childProcess = spawn(command, {
       shell: true,
+      cwd: getCurrentWorkingDirectory(),
     })
 
     const timer = setTimeout(() => {
@@ -87,6 +88,11 @@ export const handleRunTerminalCommand = async (
     })
 
     childProcess.on('close', (code) => {
+      if (command.startsWith('cd ')) {
+        const newWorkingDirectory = command.split(' ')[1]
+        setCurrentWorkingDirectory(path.join(getCurrentWorkingDirectory(), newWorkingDirectory))
+      }
+
       clearTimeout(timer)
       resolve(formatResult(stdout, stderr, 'Command completed', code))
       if (mode === 'assistant') {

@@ -16,6 +16,16 @@ export function initProjectRoot(dir: string | undefined) {
   return projectRoot
 }
 
+let currentWorkingDirectory: string = ''
+
+export function getCurrentWorkingDirectory(): string {
+  return currentWorkingDirectory || getProjectRoot()
+}
+
+export function setCurrentWorkingDirectory(directory: string) {
+  currentWorkingDirectory = directory
+}
+
 function getCurrentDirectory() {
   try {
     return process.cwd()

@@ -11,7 +11,12 @@ import { ChatStorage } from './chat-storage'
 import { Client } from './client'
 import { Message } from 'common/actions'
 import { displayMenu } from './menu'
-import { getExistingFiles, getProjectRoot, setFiles } from './project-files'
+import {
+  getCurrentWorkingDirectory,
+  getExistingFiles,
+  getProjectRoot,
+  setFiles,
+} from './project-files'
 import { handleRunTerminalCommand } from './tool-handlers'
 
 export class CLI {
@@ -228,6 +233,7 @@ export class CLI {
       'user'
     )
     if (result !== 'command not found') {
+      this.rl.setPrompt(`${parse(getCurrentWorkingDirectory()).base} > `)
       this.rl.prompt()
       return
     }
