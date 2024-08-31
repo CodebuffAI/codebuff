@@ -74,8 +74,7 @@ export function printFileTree(
 ): string {
   let result = ''
   for (const node of nodes) {
-    const indent = '\t'.repeat(depth)
-    result += `${indent}${node.name}${node.type === 'directory' ? '/' : ''}\n`
+    result += `${depth > 0 ? `${depth} ` : ''}${node.name}${node.type === 'directory' ? '/' : ''}\n`
     if (node.type === 'directory' && node.children) {
       result += printFileTree(node.children, depth + 1)
     }

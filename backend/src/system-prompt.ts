@@ -219,7 +219,7 @@ The following is the path to the project on the user's computer. It is also the 
 ${currentWorkingDirectory}
 </project_path>
 
-Within this project directory, here is the file tree. It includes everything except files that are .gitignored:
+Within this project directory, here is the file tree. It includes everything except files that are .gitignored. Note that the number before each file or directory is the depth of the file in the directory tree:
 
 <project_file_tree>
 ${printFileTree(fileTree)}
