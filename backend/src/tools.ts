@@ -4,7 +4,7 @@ export const getTools = (): Tool[] => {
   return [
     {
       name: 'update_file_context',
-      description: `Updates the context with a new set of files. Another assistant will try to choose files that will be helpful based on the message history. You should also provide a prompt that describes in natural language what files to add or remove from the context.`,
+      description: `Updates the context with a the set of existing files you want to read. Another assistant will try to choose files that will be helpful based on the message history. You should also provide a prompt that describes in natural language what files to add or remove from the context. Do not use this tool to create a new file, only to read existing files.`,
       input_schema: {
         type: 'object',
         properties: {
