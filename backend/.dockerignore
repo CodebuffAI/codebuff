@@ -1,3 +1,4 @@
 node_modules
 debug.log
 prompt.debug.json
+__tests__

@@ -9,6 +9,7 @@
     "clean": "rm -rf dist && rm tsconfig.tsbuildinfo"
   },
   "dependencies": {
+    "ignore": "5.3.2",
     "lodash": "*",
     "zod": "3.23.8"
   },
