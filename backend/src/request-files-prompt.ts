@@ -132,18 +132,7 @@ async function getRelevantFiles(
   debugLog(`${requestType} response time:`, duration.toFixed(0), 'ms')
   debugLog(`${requestType} response:`, response)
 
-  const fileListMatch = response.match(/<file_list>([\s\S]*?)<\/file_list>/)
-  if (!fileListMatch) {
-    console.error(
-      `Failed to extract file list from Claude response for ${requestType} request`
-    )
-    debugLog(
-      `Failed to extract file list from Claude response for ${requestType} request`
-    )
-    return { files: [], duration }
-  }
-
-  const files = fileListMatch[1]
+  const files = response
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
@@ -214,11 +203,10 @@ Please provide no commentary and list the file paths you think are useful but no
 
 Your response should be in the following format:
 
-<file_list>
 path/to/file1.ts
 path/to/file2.ts
+path/to/file3.ts
 ...
-</file_list>
 
 List each file path on a new line without any additional characters or formatting.
 
@@ -228,9 +216,7 @@ That means every file that is not at the project root should start with one of t
 ${topLevelDirectories(fileContext).join('\n')}
 
 Example response:
-<file_list>
 ${getExampleFileList(fileContext).join('\n')}
-</file_list>
 `.trim()
 }
 
@@ -266,14 +252,12 @@ Do not include any files with 'knowledge.md' in the name, because these files wi
 Please provide no commentary and only list the file paths you think are most crucial for addressing the user's request.
 
 Your response should be in the following format:
-
-<file_list>
 path/to/file1.ts
 path/to/file2.ts
+path/to/file3.ts
 ...
-</file_list>
 
-Remember to focus on the most important files and limit your selection to around 6 files. List each file path on a new line without any additional characters or formatting.
+Remember to focus on the most important files and limit your selection to around 10 files. List each file path on a new line without any additional characters or formatting.
 
 Be sure to include the full path from the project root directory for each file. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.
 
@@ -281,8 +265,6 @@ That means every file that is not at the project root should start with one of t
 ${topLevelDirectories(fileContext).join('\n')}
 
 Example response:
-<file_list>
 ${getExampleFileList(fileContext).join('\n')}
-</file_list>
 `.trim()
 }
