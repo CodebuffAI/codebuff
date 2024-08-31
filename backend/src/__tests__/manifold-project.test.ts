@@ -25,6 +25,7 @@ projectTest('manifold project', async (getContext) => {
   )
 
   const tests = [
+    { description: 'test full file path', fn: testFullFilePath },
     { description: 'test delete comment', fn: testDeleteComment },
     {
       description: 'test delete comment without knowledge',
@@ -41,6 +42,34 @@ projectTest('manifold project', async (getContext) => {
     })
   )
 })
+
+const testFullFilePath = async ({ expectTrue }: ScoreTestContext) => {
+  const fileContext = getProjectFileContext()
+  const { changes } = await runMainPrompt(fileContext, [
+    {
+      role: 'user',
+      content:
+        'Can you add a console.log statement to components/like-button.ts with all the props?',
+    },
+  ])
+
+  const filePathToPatch = Object.fromEntries(
+    changes.map((patch) => [getFilePathFromPatch(patch), patch])
+  )
+  const filesChanged = Object.keys(filePathToPatch)
+
+  expectTrue(
+    'includes like-button.tsx file',
+    filesChanged.includes('web/components/contract/like-button.tsx')
+  )
+
+  const likeButtonFile =
+    filePathToPatch['web/components/contract/like-button.tsx']
+  expectTrue(
+    'like-button.tsx includes console.log',
+    !!likeButtonFile && likeButtonFile.includes('console.log(')
+  )
+}
 
 const testDeleteComment = async ({
   expectTrue,

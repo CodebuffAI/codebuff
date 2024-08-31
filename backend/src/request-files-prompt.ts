@@ -1,15 +1,12 @@
-import { uniq } from 'lodash'
+import { shuffle, uniq } from 'lodash'
+import { dirname } from 'path'
 
 import { Message } from 'common/actions'
-import {
-  ProjectFileContext,
-  printFileTree,
-  createFileBlock,
-} from 'common/util/file'
+import { ProjectFileContext } from 'common/util/file'
 import { model_types, models, promptClaude } from './claude'
 import { debugLog } from './util/debug'
-import { STOP_MARKER } from 'common/constants'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
+import { getAllFilePaths } from 'common/project-file-tree'
 
 export async function requestRelevantFiles(
   {
@@ -105,11 +102,7 @@ export async function requestRelevantFiles(
   debugLog('Key files:', keyResult.files)
   debugLog('Non-obvious files:', nonObviousResult.files)
 
-  return uniq([
-    ...keyResult.files,
-    ...nonObviousResult.files,
-    ...previousFiles,
-  ])
+  return uniq([...keyResult.files, ...nonObviousResult.files, ...previousFiles])
 }
 
 async function getRelevantFiles(
@@ -158,6 +151,35 @@ async function getRelevantFiles(
   return { files, duration }
 }
 
+function topLevelDirectories(fileContext: ProjectFileContext) {
+  const { fileTree } = fileContext
+  return fileTree
+    .filter((node) => node.type === 'directory')
+    .map((node) => node.name)
+}
+
+function getExampleFileList(fileContext: ProjectFileContext) {
+  const { fileTree } = fileContext
+
+  const filePaths = getAllFilePaths(fileTree)
+  const randomFilePaths = shuffle(filePaths)
+  const selectedFiles = new Set()
+  const selectedDirectories = new Set()
+
+  for (const filePath of randomFilePaths) {
+    if (
+      selectedFiles.has(filePath) ||
+      selectedDirectories.has(dirname(filePath))
+    ) {
+      continue
+    }
+    selectedFiles.add(filePath)
+    selectedDirectories.add(dirname(filePath))
+  }
+
+  return uniq([...selectedFiles, ...randomFilePaths]).slice(0, 10)
+}
+
 function generateNonObviousRequestFilesPrompt(
   userPrompt: string | null,
   assistantPrompt: string | null,
@@ -200,7 +222,16 @@ path/to/file2.ts
 
 List each file path on a new line without any additional characters or formatting.
 
-Be sure to include the full path from the project root directory for each file. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.`
+Be sure to include the full path from the project root directory for each file. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.
+
+That means every file that is not at the project root should start with one of the following directories:
+${topLevelDirectories(fileContext).join('\n')}
+
+Example response:
+<file_list>
+${getExampleFileList(fileContext).join('\n')}
+</file_list>
+`.trim()
 }
 
 function generateKeyRequestFilesPrompt(
@@ -244,5 +275,14 @@ path/to/file2.ts
 
 Remember to focus on the most important files and limit your selection to around 6 files. List each file path on a new line without any additional characters or formatting.
 
-Be sure to include the full path from the project root directory for each file. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.`
+Be sure to include the full path from the project root directory for each file. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.
+
+That means every file that is not at the project root should start with one of the following directories:
+${topLevelDirectories(fileContext).join('\n')}
+
+Example response:
+<file_list>
+${getExampleFileList(fileContext).join('\n')}
+</file_list>
+`.trim()
 }

@@ -101,3 +101,10 @@ Notes from Janna & Stephen test
     - [J] Removes commented out code, other comments
 [] Doesn't give up control after running terminal commands. Just keeps running more
 [] Says reconnected, but actually doesn't go after
+[] Run in a containerls
+    - Maybe distribute as brew package which would have more permissions?
+    - Check files being edited to be within project dir (no '..')
+[] Send a command, then just run it. if it goes through, print.
+    - thefuck util that could change 
+    - should look more like shell
+    - could have two panel one for you, other shows claude's response. Claude's commands go on your side
