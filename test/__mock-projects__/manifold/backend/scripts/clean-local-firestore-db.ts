@@ -7,7 +7,7 @@ import { PrivateUser, User } from 'common/user'
 import { getDefaultNotificationPreferences } from 'common/user-notification-preferences'
 import { getAllUsers, isProd } from 'shared/utils'
 import { mapAsync } from 'common/lib/util/promise'
-import { FieldValue } from 'firebase-admin/lib/firestore'
+import { FieldValue } from 'firebase-admin/firestore'
 
 const firestore = admin.firestore()
 // Run export FIRESTORE_EMULATOR_HOST="localhost:8080" in the terminal before running this script

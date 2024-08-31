@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "backend/*": ["../backend/src/*"],
+      "common/*": ["../common/src/*"]
+    },
+    "types": ["bun-types"]
+  },
+  "include": ["__src__/**/*"],
+  "exclude": ["node_modules", "__mock-projects__/**/*"]
+}

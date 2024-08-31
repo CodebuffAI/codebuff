@@ -1,8 +1,10 @@
+import { expect, describe, it } from 'bun:test'
 import * as fs from 'fs'
-import { generatePatch } from '../generate-patch'
+import path from 'path'
 import { applyPatch } from 'diff'
-import { debugLog } from '../util/debug'
+import { generatePatch } from 'backend/generate-patch'
 
+const mockDataDir = path.join(__dirname, '../__mock-data__')
 const CLAUDE_CALL_TIMEOUT = 1000 * 150
 
 const runPatchTest = async (dir: string, mockFilePath: string) => {
@@ -27,7 +29,7 @@ describe('generatePatch', () => {
   it(
     'should generate diff for simple change',
     async () => {
-      await runPatchTest('src/__tests__/__mock-data__/simple', 'button.tsx')
+      await runPatchTest(`${mockDataDir}/simple`, 'button.tsx')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -35,10 +37,7 @@ describe('generatePatch', () => {
   it(
     'should handle various indentation levels in complex change',
     async () => {
-      await runPatchTest(
-        'src/__tests__/__mock-data__/indentation',
-        'src/index.ts'
-      )
+      await runPatchTest(`${mockDataDir}/indentation`, 'src/index.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -46,10 +45,7 @@ describe('generatePatch', () => {
   it(
     'should handle lots of comments to keep existing code',
     async () => {
-      await runPatchTest(
-        'src/__tests__/__mock-data__/existing-comments',
-        'src/index.ts'
-      )
+      await runPatchTest(`${mockDataDir}/existing-comments`, 'src/index.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -57,10 +53,7 @@ describe('generatePatch', () => {
   it(
     'should handle long template string in system prompt',
     async () => {
-      await runPatchTest(
-        'src/__tests__/__mock-data__/system-prompt',
-        'src/system-prompt.ts'
-      )
+      await runPatchTest(`${mockDataDir}/system-prompt`, 'src/system-prompt.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -68,10 +61,7 @@ describe('generatePatch', () => {
   it(
     'should not duplicate code from old',
     async () => {
-      await runPatchTest(
-        'src/__tests__/__mock-data__/duplicate-imports',
-        'src/tools.ts'
-      )
+      await runPatchTest(`${mockDataDir}/duplicate-imports`, 'src/tools.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -79,10 +69,7 @@ describe('generatePatch', () => {
   it(
     'should handle many updates',
     async () => {
-      await runPatchTest(
-        'src/__tests__/__mock-data__/many-updates',
-        'src/chat-client.ts'
-      )
+      await runPatchTest(`${mockDataDir}/many-updates`, 'src/chat-client.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -90,7 +77,7 @@ describe('generatePatch', () => {
   it(
     'should work on large javascript file, graph',
     async () => {
-      await runPatchTest('src/__tests__/__mock-data__/graph', 'src/graph.ts')
+      await runPatchTest(`${mockDataDir}/graph`, 'src/graph.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -98,7 +85,7 @@ describe('generatePatch', () => {
   it(
     'should work on actions with 3 comments to expand',
     async () => {
-      await runPatchTest('src/__tests__/__mock-data__/actions', 'src/action.ts')
+      await runPatchTest(`${mockDataDir}/actions`, 'src/action.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -106,7 +93,7 @@ describe('generatePatch', () => {
   it(
     'should add object on long schema',
     async () => {
-      await runPatchTest('src/__tests__/__mock-data__/schema', 'src/schema.ts')
+      await runPatchTest(`${mockDataDir}/schema`, 'src/schema.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -114,7 +101,7 @@ describe('generatePatch', () => {
   it(
     'should add import and use it later in long file',
     async () => {
-      await runPatchTest('src/__tests__/__mock-data__/app', 'src/app.ts')
+      await runPatchTest(`${mockDataDir}/app`, 'src/app.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -123,7 +110,7 @@ describe('generatePatch', () => {
     'should remove try catch in delete comment',
     async () => {
       await runPatchTest(
-        'src/__tests__/__mock-data__/delete-comment',
+        `${mockDataDir}/delete-comment`,
         'src/delete-comment.ts'
       )
     },
@@ -134,7 +121,7 @@ describe('generatePatch', () => {
     'should work for missing-line-actions',
     async () => {
       await runPatchTest(
-        'src/__tests__/__mock-data__/missing-line-actions',
+        `${mockDataDir}/missing-line-actions`,
         'src/actions.ts'
       )
     },
@@ -144,10 +131,7 @@ describe('generatePatch', () => {
   it(
     'should work for hallucinated',
     async () => {
-      await runPatchTest(
-        'src/__tests__/__mock-data__/hallucinated',
-        'src/main-prompt.ts'
-      )
+      await runPatchTest(`${mockDataDir}/hallucinated`, 'src/main-prompt.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )

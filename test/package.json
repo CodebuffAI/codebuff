@@ -1,0 +1,15 @@
+{
+  "name": "manicode-tests",
+  "version": "1.0.0",
+  "description": "Test package for Manicode",
+  "scripts": {
+    "test": "bun test __src__",
+    "test-manifold": "bun test manifold-project.test.ts"
+  },
+  "dependencies": {
+    "backend": "file:../backend"
+  },
+  "devDependencies": {
+    "bun-types": "^1.1.26"
+  }
+}

@@ -1,12 +1,11 @@
-import { jest } from 'bun:test'
+import { mock } from 'bun:test'
 import path from 'path'
 import fs from 'fs'
 import { range } from 'lodash'
 import { WebSocket } from 'ws'
 
 import { ScoreTestContext } from './score-tests'
-import * as mainPromptModule from '../main-prompt'
-import * as websocketActionModule from '../websockets/websocket-action'
+import * as mainPromptModule from 'backend/main-prompt'
 import { getFilePathFromPatch, ProjectFileContext } from 'common/util/file'
 import { applyAndRevertChanges } from 'common/util/changes'
 import { Message } from 'common/actions'
@@ -15,8 +14,10 @@ import {
   getAllFilePaths,
 } from 'common/src/project-file-tree'
 import { EventEmitter } from 'events'
-import { projectTest } from './score-tests'
 import { FileChanges } from 'common/actions'
+import { projectTest } from './score-tests'
+
+const mockProjectRoot = path.join(__dirname, '../__mock-projects__/manifold')
 
 projectTest('manifold project', async (getContext) => {
   const { currentWorkingDirectory } = getProjectFileContext()
@@ -188,8 +189,18 @@ const testDeleteCommentWithoutKnowledge = async ({
   )
 }
 
+mock.module('backend/websockets/websocket-action', () => ({
+  requestFiles: (ws: WebSocket, filePaths: string[]) => {
+    const files: Record<string, string | null> = {}
+    for (const filePath of filePaths) {
+      files[filePath] = readMockFile(filePath)
+    }
+    return Promise.resolve(files)
+  },
+}))
+
 function readMockFile(filePath: string): string | null {
-  const fullPath = path.join(__dirname, '__mock-projects__/manifold', filePath)
+  const fullPath = path.join(mockProjectRoot, filePath)
   try {
     return fs.readFileSync(fullPath, 'utf-8')
   } catch (error) {
@@ -198,7 +209,6 @@ function readMockFile(filePath: string): string | null {
 }
 
 function getProjectFileContext(): ProjectFileContext {
-  const mockProjectRoot = path.join(__dirname, '__mock-projects__/manifold')
   const fileTree = getProjectFileTree(mockProjectRoot)
   const knowledgeFilePaths = getAllFilePaths(fileTree).filter((filePath) =>
     filePath.endsWith('knowledge.md')
@@ -219,30 +229,20 @@ function getProjectFileContext(): ProjectFileContext {
   }
 }
 
-const mockRequestFiles = jest.spyOn(websocketActionModule, 'requestFiles')
-
 async function runMainPrompt(
   fileContext: ProjectFileContext,
   messages: Message[]
 ) {
   const mockWs = new EventEmitter() as WebSocket
-  mockWs.send = jest.fn()
-  mockWs.close = jest.fn()
-
-  mockRequestFiles.mockImplementation((ws: WebSocket, filePaths: string[]) => {
-    const files: Record<string, string | null> = {}
-    for (const filePath of filePaths) {
-      files[filePath] = readMockFile(filePath)
-    }
-    return Promise.resolve(files)
-  })
+  mockWs.send = mock()
+  mockWs.close = mock()
 
   return await mainPromptModule.mainPrompt(
     mockWs,
     messages,
     fileContext,
     'test-user-id',
-    (chunk: string) => {} //process.stdout.write(chunk)
+    (chunk: string) => {} // process.stdout.write(chunk)
   )
 }
 

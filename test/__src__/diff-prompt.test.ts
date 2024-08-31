@@ -1,7 +1,9 @@
+import { expect, describe, it } from 'bun:test'
 import * as fs from 'fs'
-import { generateExpandedFileWithDiffBlocks } from '../generate-diffs-prompt'
-import { debugLog } from '../util/debug'
+import path from 'path'
+import { generateExpandedFileWithDiffBlocks } from 'backend/generate-diffs-prompt'
 
+const mockDataDir = path.join(__dirname, '../__mock-data__')
 const CLAUDE_CALL_TIMEOUT = 1000 * 200
 
 const runDiffTest = async (dir: string, mockFilePath: string) => {
@@ -25,7 +27,7 @@ describe('generateDiffs', () => {
   it(
     'should generate diff for simple change',
     async () => {
-      await runDiffTest('src/__tests__/__mock-data__/simple', 'button.tsx')
+      await runDiffTest(`${mockDataDir}/simple`, 'button.tsx')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -33,10 +35,7 @@ describe('generateDiffs', () => {
   it(
     'should handle various indentation levels in complex change',
     async () => {
-      await runDiffTest(
-        'src/__tests__/__mock-data__/indentation',
-        'src/index.ts'
-      )
+      await runDiffTest(`${mockDataDir}/indentation`, 'index.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -44,10 +43,7 @@ describe('generateDiffs', () => {
   it(
     'should handle lots of comments to keep existing code',
     async () => {
-      await runDiffTest(
-        'src/__tests__/__mock-data__/existing-comments',
-        'src/index.ts'
-      )
+      await runDiffTest(`${mockDataDir}/existing-comments`, 'index.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -55,10 +51,7 @@ describe('generateDiffs', () => {
   it(
     'should handle long template string in system prompt',
     async () => {
-      await runDiffTest(
-        'src/__tests__/__mock-data__/system-prompt',
-        'src/system-prompt.ts'
-      )
+      await runDiffTest(`${mockDataDir}/system-prompt`, 'system-prompt.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -66,10 +59,7 @@ describe('generateDiffs', () => {
   it(
     'should not duplicate code from old',
     async () => {
-      await runDiffTest(
-        'src/__tests__/__mock-data__/duplicate-imports',
-        'src/tools.ts'
-      )
+      await runDiffTest(`${mockDataDir}/duplicate-imports`, 'tools.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -77,10 +67,7 @@ describe('generateDiffs', () => {
   it(
     'should handle many updates',
     async () => {
-      await runDiffTest(
-        'src/__tests__/__mock-data__/many-updates',
-        'src/chat-client.ts'
-      )
+      await runDiffTest(`${mockDataDir}/many-updates`, 'chat-client.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -88,7 +75,7 @@ describe('generateDiffs', () => {
   it(
     'should work on large javascript file, graph',
     async () => {
-      await runDiffTest('src/__tests__/__mock-data__/graph', 'src/graph.ts')
+      await runDiffTest(`${mockDataDir}/graph`, 'graph.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -96,7 +83,7 @@ describe('generateDiffs', () => {
   it(
     'should work on actions with 3 comments to expand',
     async () => {
-      await runDiffTest('src/__tests__/__mock-data__/actions', 'src/action.ts')
+      await runDiffTest(`${mockDataDir}/actions`, 'action.ts')
     },
     CLAUDE_CALL_TIMEOUT
   )

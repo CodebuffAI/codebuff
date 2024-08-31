@@ -1,5 +1,5 @@
 import { runScript } from './run-script'
-import { createCashContract } from '../shared/src/create-cash-contract'
+import { createCashContract } from 'shared/src/create-cash-contract'
 
 runScript(async ({ pg }) => {
   const manaContractId = process.argv[2]

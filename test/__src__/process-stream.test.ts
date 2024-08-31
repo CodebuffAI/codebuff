@@ -1,5 +1,6 @@
 import { test, expect, mock } from 'bun:test'
-import { processStreamWithFiles } from '../process-stream'
+import { processStreamWithFiles } from 'backend/process-stream'
+
 test('processStreamWithFiles basic functionality', async () => {
   const mockStream = async function* () {
     yield 'before'

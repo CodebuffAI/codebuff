@@ -54,12 +54,12 @@ export function projectTest(
     testName,
     async () => {
       await fn(getContext)
-      console.log(`${testName} - score: ${score}/${maxScore}`)
       for (const subTestName in subScores) {
         console.log(
           `${subTestName} - score: ${subScores[subTestName].score}/${subScores[subTestName].max}`
         )
       }
+      console.log(`${testName} - score: ${score}/${maxScore}`)
     },
     { timeout: 200_000 }
   )
