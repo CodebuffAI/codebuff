@@ -88,23 +88,23 @@ export const promptClaudeStream = async function* (
       const input = JSON.parse(json)
       yield { name, id, input }
     }
+    // if (type === 'message_start') {
+    //   console.log('message start', chunk)
+    // }
   }
 }
 
 export const promptClaude = async (
-  prompt: string,
+  messages: Message[],
   options: {
-    system?: string
+    system?: string | Array<TextBlockParam>
     tools?: Tool[]
     model?: model_types
     userId: string
   }
 ) => {
   let fullResponse = ''
-  for await (const chunk of promptClaudeStream(
-    [{ role: 'user', content: prompt }],
-    options
-  )) {
+  for await (const chunk of promptClaudeStream(messages, options)) {
     fullResponse += chunk
   }
   return fullResponse

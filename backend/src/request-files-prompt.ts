@@ -9,29 +9,53 @@ import {
 import { model_types, models, promptClaude } from './claude'
 import { debugLog } from './util/debug'
 import { STOP_MARKER } from 'common/constants'
-import { promptOpenAI } from './openai-api'
+import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 
 export async function requestRelevantFiles(
-  messages: Message[],
+  {
+    messages,
+    system,
+    tools,
+  }: {
+    messages: Message[]
+    system: string | Array<TextBlockParam>
+    tools: Tool[]
+  },
   fileContext: ProjectFileContext,
-  requestPrompt: string | null,
+  assistantPrompt: string | null,
   userId: string
 ): Promise<string[]> {
   const previousFiles = Object.keys(fileContext.files)
-  // const keyPromise = getRelevantFiles(
-  //   generateKeyRequestFilesPrompt(messages, fileContext, requestPrompt),
-  //   models.sonnet,
-  //   'Key',
-  //   userId
-  // )
+
+  const lastMessage = messages[messages.length - 1]
+  const messagesExcludingLastIfByUser =
+    lastMessage.role === 'user' ? messages.slice(0, -1) : messages
+  const userPrompt =
+    lastMessage.role === 'user'
+      ? typeof lastMessage.content === 'string'
+        ? lastMessage.content
+        : JSON.stringify(lastMessage.content)
+      : null
+  const prompt = generateComprehensiveRequestFilesPrompt(
+    userPrompt,
+    assistantPrompt,
+    fileContext
+  )
+  const messagesWithPrompt = [
+    ...messagesExcludingLastIfByUser,
+    {
+      role: 'user' as const,
+      content: prompt,
+    },
+  ]
 
   const comprehensivePromise = getRelevantFiles(
-    generateComprehensiveRequestFilesPrompt(
-      messages,
-      fileContext,
-      requestPrompt
-    ),
-    'gpt-4o-2024-08-06',
+    {
+      messages: messagesWithPrompt,
+      system,
+      tools,
+    },
+    models.haiku,
     'Comprehensive',
     userId
   ).catch((error) => {
@@ -39,37 +63,76 @@ export async function requestRelevantFiles(
     return { files: [], duration: 0 }
   })
 
-  // const keyResult = await keyPromise
+  const keyPrompt = generateKeyRequestFilesPrompt(
+    userPrompt,
+    assistantPrompt,
+    fileContext
+  )
+  const keyMessages = [
+    ...messagesExcludingLastIfByUser,
+    {
+      role: 'user' as const,
+      content: keyPrompt,
+    },
+  ]
 
-  // // Early return if key result is empty
-  // if (keyResult.files.length === 0) {
-  //   debugLog('Key files: []')
-  //   debugLog('Comprehensive files: (not fetched)')
-  //   debugLog('Deduped files: []')
-  //   return []
-  // }
+  const keyPromise = getRelevantFiles(
+    {
+      messages: keyMessages,
+      system,
+      tools,
+    },
+    models.sonnet,
+    'Key',
+    userId
+  ).catch((error) => {
+    console.error('Error requesting key files:', error)
+    return { files: [], duration: 0 }
+  })
+
+  const keyResult = await keyPromise
+
+  // Early return if key result is empty
+  if (keyResult.files.length === 0) {
+    debugLog('Key files: []')
+    debugLog('Comprehensive files: (not fetched)')
+    debugLog('Deduped files: []')
+    return []
+  }
 
   const comprehensiveResult = await comprehensivePromise
 
-  // const dedupedFiles = uniq([...keyResult.files, ...comprehensiveResult.files])
-
-  // debugLog('Key files:', keyResult.files)
+  debugLog('Key files:', keyResult.files)
   debugLog('Comprehensive files:', comprehensiveResult.files)
 
-  const newFiles = uniq([...comprehensiveResult.files, ...previousFiles])
-  return newFiles
+  return uniq([
+    ...keyResult.files,
+    ...comprehensiveResult.files,
+    ...previousFiles,
+  ])
 }
 
 async function getRelevantFiles(
-  prompt: string,
-  model: model_types | 'gpt-4o-mini' | 'gpt-4o-2024-08-06',
+  {
+    messages,
+    system,
+    tools,
+  }: {
+    messages: Message[]
+    system: string | Array<TextBlockParam>
+    tools: Tool[]
+  },
+  model: model_types,
   requestType: string,
   userId: string
 ): Promise<{ files: string[]; duration: number }> {
   const start = performance.now()
-  const response = await (model.startsWith('gpt')
-    ? promptOpenAI(userId, [{ role: 'user', content: prompt }], model)
-    : promptClaude(prompt, { model: model as model_types, userId }))
+  const response = await promptClaude(messages, {
+    model: model as model_types,
+    system,
+    tools,
+    userId,
+  })
   const end = performance.now()
   const duration = end - start
 
@@ -95,53 +158,19 @@ async function getRelevantFiles(
   return { files, duration }
 }
 
-const innerPromptContent = (
-  messages: Message[],
-  fileContext: ProjectFileContext,
-  requestPrompt: string | null
-) => {
-  const { knowledgeFiles } = fileContext
-
-  const messagesString = messages
-    .map((message) =>
-      message.role === 'user'
-        ? `<user>${JSON.stringify(message.content)}</user>`
-        : `<assistant>${JSON.stringify(message.content)}</assistant>`
-    )
-    .join('\n')
-    .replaceAll(STOP_MARKER, '')
-
-  const requestPromptString = requestPrompt
-    ? `\nAdditionally, the assistant has requested files with the following prompt:
-<request_prompt>${requestPrompt}</request_prompt>`
-    : ''
-
-  return `The following files include useful background knowledge for your task:
-<knowledge_files>
-${Object.entries(knowledgeFiles)
-  .map(([path, content]) => createFileBlock(path, content))
-  .join('\n')}
-</knowledge_files>
-
-Here are all the files in the project you could request:
-<file_tree>
-${printFileTree(fileContext.fileTree)}
-</file_tree>
-
-<message_history>
-${messagesString}
-</message_history>
-${requestPromptString}`
+function generateComprehensiveRequestFilesPrompt(
+  userPrompt: string | null,
+  assistantPrompt: string | null,
+  fileContext: ProjectFileContext
+): string {
+  return `
+${
+  userPrompt
+    ? `<user_prompt>${userPrompt}</user_prompt>`
+    : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
 }
 
-function generateComprehensiveRequestFilesPrompt(
-  messages: Message[],
-  fileContext: ProjectFileContext,
-  requestPrompt: string | null
-): string {
-  return `You are an AI assistant tasked with identifying relevant files for a user's request in a software project. Your goal is to select all files that might be useful for understanding and addressing the user's needs.
-
-${innerPromptContent(messages, fileContext, requestPrompt)}
+Based on this conversation, please identify the relevant files for a user's request in a software project. Your goal is to select all files that might be useful for understanding and addressing the user's needs.
 
 Please follow these steps to determine which files to request:
 
@@ -179,13 +208,18 @@ Be sure to include the full path from the project root directory for each file. 
 }
 
 function generateKeyRequestFilesPrompt(
-  messages: Message[],
-  fileContext: ProjectFileContext,
-  requestPrompt: string | null
+  userPrompt: string | null,
+  assistantPrompt: string | null,
+  fileContext: ProjectFileContext
 ): string {
-  return `You are an AI assistant tasked with identifying the most relevant files for a user's request in a software project. Your goal is to select approximately 6 key files that are crucial for understanding and addressing the user's needs.
+  return `
+${
+  userPrompt
+    ? `<user_prompt>${userPrompt}</user_prompt>`
+    : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
+}
 
-${innerPromptContent(messages, fileContext, requestPrompt)}
+Based on this conversation, please identify the key relevant files for a user's request in a software project. Your goal is to select approximately 6 key files that are crucial for understanding and addressing the user's needs.
 
 Please follow these steps to determine which key files to request:
 
@@ -199,15 +233,11 @@ Please follow these steps to determine which key files to request:
 4. Limit your selection to approximately 6 files to ensure a focused approach.
 5. Order the files by most important first.
 
-Provide a brief explanation of your selection process, then list the file paths you think are most crucial for addressing the user's request.
+Please provide no commentary and only list the file paths you think are most crucial for addressing the user's request.
 
 If the last user message appears to be running a terminal command, such as \`npm run test\` or \`yarn build\`, then do not request any files.
 
 Your response should be in the following format:
-
-<thought_process>
-Your brief explanation here...
-</thought_process>
 
 <file_list>
 path/to/file1.ts
@@ -215,5 +245,7 @@ path/to/file2.ts
 ...
 </file_list>
 
-Remember to focus on the most important files and limit your selection to around 6 files. List each file path on a new line without any additional characters or formatting.`
+Remember to focus on the most important files and limit your selection to around 6 files. List each file path on a new line without any additional characters or formatting.
+
+Be sure to include the full path from the project root directory for each file. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.`
 }

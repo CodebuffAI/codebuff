@@ -34,14 +34,16 @@ export async function mainPrompt(
   )
 
   let fullResponse = ''
+  const tools = getTools()
 
   let shouldCheckFiles = true
   if (Object.keys(fileContext.files).length === 0) {
+    const system = getSystemPrompt(fileContext, shouldCheckFiles)
     // If the fileContext.files is empty, use prompts to select files and add them to context.
     const responseChunk = await updateFileContext(
       ws,
       fileContext,
-      messages,
+      { messages, system, tools },
       null,
       onResponseChunk,
       userId
@@ -50,7 +52,6 @@ export async function mainPrompt(
     shouldCheckFiles = false
   }
 
-  const tools = getTools()
   const lastMessage = messages[messages.length - 1]
   const fileProcessingPromises: Promise<string>[] = []
   let toolCall: ToolCall | null = null
@@ -125,7 +126,11 @@ ${STOP_MARKER}
     } else if (toolCall) {
       if (toolCall.name === 'update_file_context') {
         const relevantFiles = await requestRelevantFiles(
-          messages,
+          {
+            messages,
+            system,
+            tools,
+          },
           fileContext,
           toolCall.input['prompt'],
           userId
@@ -181,13 +186,21 @@ function getRelevantFileInfoMessage(filePaths: string[]) {
 async function updateFileContext(
   ws: WebSocket,
   fileContext: ProjectFileContext,
-  messages: Message[],
+  {
+    messages,
+    system,
+    tools,
+  }: {
+    messages: Message[]
+    system: string | Array<TextBlockParam>
+    tools: Tool[]
+  },
   prompt: string | null,
   onResponseChunk: (chunk: string) => void,
   userId: string
 ) {
   const relevantFiles = await requestRelevantFiles(
-    messages,
+    { messages, system, tools },
     fileContext,
     prompt,
     userId

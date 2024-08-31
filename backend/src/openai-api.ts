@@ -3,7 +3,7 @@ import { RATE_LIMIT_POLICY } from './constants'
 import { STOP_MARKER } from 'common/constants'
 import { Stream } from 'openai/streaming'
 
-type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
+export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
 let openai: OpenAI | null = null
 
