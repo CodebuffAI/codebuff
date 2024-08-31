@@ -1,6 +1,6 @@
 import { encoding_for_model } from 'tiktoken'
 
-const encoder = encoding_for_model('gpt-4o-2024-08-06')
+const encoder = encoding_for_model('gpt-4o')
 
 export function countTokens(text: string): number {
   try {
