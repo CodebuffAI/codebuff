@@ -70,7 +70,7 @@ else
 fi
 
 echo "Waiting for VM to be ready..."
-sleep 60
+sleep 10
 
 echo "Deployment completed successfully!"
 echo "Your application should now be accessible at: http://$(gcloud compute instances describe $VM_NAME --zone=$VM_ZONE --project=$GCP_PROJECT --format='get(networkInterfaces[0].accessConfigs[0].natIP)'):$APP_PORT"

@@ -4,10 +4,7 @@ import path from 'path'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { filterObject } from 'common/util/object'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
-import {
-  getProjectFileTree,
-  getAllFilePaths,
-} from 'common/src/project-file-tree'
+import { getProjectFileTree, getAllFilePaths } from 'common/project-file-tree'
 
 let projectRoot: string
 
