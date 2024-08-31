@@ -67,7 +67,9 @@ export async function applyAndRevertChanges(
   }
   for (const [filePath, oldContent] of Object.entries(files)) {
     if (oldContent === '[DOES_NOT_EXIST]') {
-      fs.unlinkSync(path.join(projectRoot, filePath))
+      if (fs.existsSync(path.join(projectRoot, filePath))) {
+        fs.unlinkSync(path.join(projectRoot, filePath))
+      }
     } else {
       fs.writeFileSync(path.join(projectRoot, filePath), oldContent)
     }

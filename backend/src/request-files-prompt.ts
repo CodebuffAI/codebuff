@@ -36,7 +36,8 @@ export async function requestRelevantFiles(
         ? lastMessage.content
         : JSON.stringify(lastMessage.content)
       : null
-  const prompt = generateComprehensiveRequestFilesPrompt(
+
+  const prompt = generateNonObviousRequestFilesPrompt(
     userPrompt,
     assistantPrompt,
     fileContext
@@ -48,15 +49,14 @@ export async function requestRelevantFiles(
       content: prompt,
     },
   ]
-
-  const comprehensivePromise = getRelevantFiles(
+  const nonObviousPromise = getRelevantFiles(
     {
       messages: messagesWithPrompt,
       system,
       tools,
     },
-    models.haiku,
-    'Comprehensive',
+    models.sonnet,
+    'Non-obvious',
     userId
   ).catch((error) => {
     console.error('Error requesting files:', error)
@@ -95,19 +95,19 @@ export async function requestRelevantFiles(
   // Early return if key result is empty
   if (keyResult.files.length === 0) {
     debugLog('Key files: []')
-    debugLog('Comprehensive files: (not fetched)')
+    debugLog('Non-obvious files: (not fetched)')
     debugLog('Deduped files: []')
     return []
   }
 
-  const comprehensiveResult = await comprehensivePromise
+  const nonObviousResult = await nonObviousPromise
 
   debugLog('Key files:', keyResult.files)
-  debugLog('Comprehensive files:', comprehensiveResult.files)
+  debugLog('Non-obvious files:', nonObviousResult.files)
 
   return uniq([
     ...keyResult.files,
-    ...comprehensiveResult.files,
+    ...nonObviousResult.files,
     ...previousFiles,
   ])
 }
@@ -128,7 +128,7 @@ async function getRelevantFiles(
 ): Promise<{ files: string[]; duration: number }> {
   const start = performance.now()
   const response = await promptClaude(messages, {
-    model: model as model_types,
+    model,
     system,
     tools,
     userId,
@@ -158,7 +158,7 @@ async function getRelevantFiles(
   return { files, duration }
 }
 
-function generateComprehensiveRequestFilesPrompt(
+function generateNonObviousRequestFilesPrompt(
   userPrompt: string | null,
   assistantPrompt: string | null,
   fileContext: ProjectFileContext
@@ -170,7 +170,8 @@ ${
     : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
 }
 
-Based on this conversation, please identify the relevant files for a user's request in a software project. Your goal is to select all files that might be useful for understanding and addressing the user's needs.
+Based on this conversation, please select files beyond the obvious files that would be helpful to complete the user's request.
+Select files that might be useful for understanding and addressing the user's needs, but you would not choose first if you were asked.
 
 Please follow these steps to determine which files to request:
 
@@ -183,18 +184,13 @@ Please follow these steps to determine which files to request:
    - Documentation files
 3. Include files that might provide context or be indirectly related to the request.
 4. Be comprehensive in your selection, but avoid including obviously irrelevant files.
-5. Include any files previously referenced in the conversation.
-6. Order the files by most important first.
+5. Try to list up to 10 files.
 
-Provide a brief explanation of your selection process, then list all the file paths you think might be relevant for addressing the user's request.
+Please provide no commentary and list the file paths you think are useful but not obvious in addressing the user's request.
 
 If the last user message appears to be running a terminal command, such as \`npm run test\` or \`yarn build\`, then do not request any files.
 
 Your response should be in the following format:
-
-<thought_process>
-Your brief explanation here...
-</thought_process>
 
 <file_list>
 path/to/file1.ts
@@ -229,8 +225,9 @@ Please follow these steps to determine which key files to request:
    - Key configuration files
    - Central utility functions
    - Primary test files (if testing is involved)
+   - Documentation files
 3. Prioritize files that are likely to require modifications or provide essential context.
-4. Limit your selection to approximately 6 files to ensure a focused approach.
+4. Limit your selection to approximately 10 files to ensure a focused approach.
 5. Order the files by most important first.
 
 Please provide no commentary and only list the file paths you think are most crucial for addressing the user's request.
