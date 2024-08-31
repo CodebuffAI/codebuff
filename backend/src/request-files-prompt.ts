@@ -208,6 +208,8 @@ Please follow these steps to determine which files to request:
 4. Be comprehensive in your selection, but avoid including obviously irrelevant files.
 5. Try to list up to 10 files.
 
+Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
+
 Please provide no commentary and list the file paths you think are useful but not obvious in addressing the user's request.
 
 Your response should be in the following format:
@@ -258,6 +260,8 @@ Please follow these steps to determine which key files to request:
 3. Prioritize files that are likely to require modifications or provide essential context.
 4. Limit your selection to approximately 10 files to ensure a focused approach.
 5. Order the files by most important first.
+
+Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
 
 Please provide no commentary and only list the file paths you think are most crucial for addressing the user's request.
 
