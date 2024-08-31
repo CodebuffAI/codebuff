@@ -64,7 +64,7 @@ export async function mainPrompt(
     lastMessage.content = `${lastMessage.content}
 
 <additional_instruction>
-Please make as few changes to the code as possible and complete only the core of what is requested. Then pause to get more instructions from the user.
+Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.
 </additional_instruction>
 <additional_instruction>
 Always end your response with the following marker:

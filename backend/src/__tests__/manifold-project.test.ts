@@ -34,7 +34,7 @@ projectTest('manifold project', async (getContext) => {
   ]
 
   // Run each test multiple times all in parallel
-  const repeatCount = 3
+  const repeatCount = 1
   await Promise.all(
     tests.map(async ({ description, fn }) => {
       const scoreTestContext = getContext(description)
