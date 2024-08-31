@@ -17,6 +17,7 @@ import { EventEmitter } from 'events'
 import { FileChanges } from 'common/actions'
 import { projectTest } from './score-tests'
 
+const DEBUG_MODE = false
 const mockProjectRoot = path.join(__dirname, '../__mock-projects__/manifold')
 
 projectTest('manifold project', async (getContext) => {
@@ -242,7 +243,11 @@ async function runMainPrompt(
     messages,
     fileContext,
     'test-user-id',
-    (chunk: string) => {} // process.stdout.write(chunk)
+    (chunk: string) => {
+      if (DEBUG_MODE) {
+        process.stdout.write(chunk)
+      }
+    }
   )
 }
 

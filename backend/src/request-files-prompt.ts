@@ -1,4 +1,4 @@
-import { shuffle, uniq } from 'lodash'
+import { range, shuffle, uniq } from 'lodash'
 import { dirname } from 'path'
 
 import { Message } from 'common/actions'
@@ -23,6 +23,7 @@ export async function requestRelevantFiles(
   userId: string
 ): Promise<string[]> {
   const previousFiles = Object.keys(fileContext.files)
+  const countPerRequest = 4
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -34,75 +35,70 @@ export async function requestRelevantFiles(
         : JSON.stringify(lastMessage.content)
       : null
 
-  const prompt = generateNonObviousRequestFilesPrompt(
-    userPrompt,
-    assistantPrompt,
-    fileContext
+  const numNonObviousPrompts = 3
+  const nonObviousPrompts = range(1, numNonObviousPrompts + 1).map((index) =>
+    generateNonObviousRequestFilesPrompt(
+      userPrompt,
+      assistantPrompt,
+      fileContext,
+      countPerRequest,
+      index * 2 - 1
+    )
   )
-  const messagesWithPrompt = [
-    ...messagesExcludingLastIfByUser,
-    {
-      role: 'user' as const,
-      content: prompt,
-    },
-  ]
-  const nonObviousPromise = getRelevantFiles(
-    {
-      messages: messagesWithPrompt,
-      system,
-      tools,
-    },
-    models.sonnet,
-    'Non-obvious',
-    userId
-  ).catch((error) => {
-    console.error('Error requesting files:', error)
-    return { files: [], duration: 0 }
-  })
-
-  const keyPrompt = generateKeyRequestFilesPrompt(
-    userPrompt,
-    assistantPrompt,
-    fileContext
+  const nonObviousPromises = nonObviousPrompts.map((nonObviousPrompt, index) =>
+    getRelevantFiles(
+      {
+        messages: messagesExcludingLastIfByUser,
+        system,
+        tools,
+      },
+      nonObviousPrompt,
+      models.sonnet,
+      `Non-obvious ${index + 1}`,
+      userId
+    ).catch((error) => {
+      console.error('Error requesting files:', error)
+      return { files: [], duration: 0 }
+    })
   )
-  const keyMessages = [
-    ...messagesExcludingLastIfByUser,
-    {
-      role: 'user' as const,
-      content: keyPrompt,
-    },
-  ]
 
-  const keyPromise = getRelevantFiles(
-    {
-      messages: keyMessages,
-      system,
-      tools,
-    },
-    models.sonnet,
-    'Key',
-    userId
-  ).catch((error) => {
-    console.error('Error requesting key files:', error)
-    return { files: [], duration: 0 }
-  })
+  const numKeyPrompts = 3
+  const keyPrompts = range(1, numKeyPrompts + 1).map((index) =>
+    generateKeyRequestFilesPrompt(
+      userPrompt,
+      assistantPrompt,
+      fileContext,
+      index * 2 - 1,
+      countPerRequest
+    )
+  )
 
-  const keyResult = await keyPromise
+  const keyPromises = keyPrompts.map((keyPrompt, index) =>
+    getRelevantFiles(
+      {
+        messages: messagesExcludingLastIfByUser,
+        system,
+        tools,
+      },
+      keyPrompt,
+      models.sonnet,
+      `Key ${index + 1}`,
+      userId
+    ).catch((error) => {
+      console.error('Error requesting key files:', error)
+      return { files: [], duration: 0 }
+    })
+  )
 
-  // Early return if key result is empty
-  if (keyResult.files.length === 0) {
-    debugLog('Key files: []')
-    debugLog('Non-obvious files: (not fetched)')
-    debugLog('Deduped files: []')
-    return []
-  }
+  const keyResults = await Promise.all(keyPromises)
+  const keyFiles = keyResults.flatMap((result) => result.files)
+  const nonObviousResults = await Promise.all(nonObviousPromises)
+  const nonObviousFiles = nonObviousResults.flatMap((result) => result.files)
 
-  const nonObviousResult = await nonObviousPromise
+  debugLog('Key files:', keyFiles)
+  debugLog('Non-obvious files:', nonObviousFiles)
 
-  debugLog('Key files:', keyResult.files)
-  debugLog('Non-obvious files:', nonObviousResult.files)
-
-  return uniq([...keyResult.files, ...nonObviousResult.files, ...previousFiles])
+  return uniq([...keyFiles, ...nonObviousFiles, ...previousFiles])
 }
 
 async function getRelevantFiles(
@@ -115,12 +111,20 @@ async function getRelevantFiles(
     system: string | Array<TextBlockParam>
     tools: Tool[]
   },
+  userPrompt: string,
   model: model_types,
   requestType: string,
   userId: string
 ): Promise<{ files: string[]; duration: number }> {
+  const messagesWithPrompt = [
+    ...messages,
+    {
+      role: 'user' as const,
+      content: userPrompt,
+    },
+  ]
   const start = performance.now()
-  const response = await promptClaude(messages, {
+  const response = await promptClaude(messagesWithPrompt, {
     model,
     system,
     tools,
@@ -147,7 +151,7 @@ function topLevelDirectories(fileContext: ProjectFileContext) {
     .map((node) => node.name)
 }
 
-function getExampleFileList(fileContext: ProjectFileContext) {
+function getExampleFileList(fileContext: ProjectFileContext, count: number) {
   const { fileTree } = fileContext
 
   const filePaths = getAllFilePaths(fileTree)
@@ -166,13 +170,15 @@ function getExampleFileList(fileContext: ProjectFileContext) {
     selectedDirectories.add(dirname(filePath))
   }
 
-  return uniq([...selectedFiles, ...randomFilePaths]).slice(0, 10)
+  return uniq([...selectedFiles, ...randomFilePaths]).slice(0, count)
 }
 
 function generateNonObviousRequestFilesPrompt(
   userPrompt: string | null,
   assistantPrompt: string | null,
-  fileContext: ProjectFileContext
+  fileContext: ProjectFileContext,
+  count: number,
+  index: number
 ): string {
   return `
 ${
@@ -181,8 +187,10 @@ ${
     : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
 }
 
+This is request #${index} for non-obvious project files.
+
 Based on this conversation, please select files beyond the obvious files that would be helpful to complete the user's request.
-Select files that might be useful for understanding and addressing the user's needs, but you would not choose first if you were asked.
+Select files that might be useful for understanding and addressing the user's needs, but you would not choose in the first ${count * index + 10} files if you were asked.
 
 Please follow these steps to determine which files to request:
 
@@ -195,7 +203,7 @@ Please follow these steps to determine which files to request:
    - Documentation files
 3. Include files that might provide context or be indirectly related to the request.
 4. Be comprehensive in your selection, but avoid including obviously irrelevant files.
-5. Try to list up to 10 files.
+5. Try to list exactly ${count} files.
 
 Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
 
@@ -203,10 +211,9 @@ Please provide no commentary and list the file paths you think are useful but no
 
 Your response should be in the following format:
 
-path/to/file1.ts
-path/to/file2.ts
-path/to/file3.ts
-...
+${range(count)
+  .map((i) => `path/to/file${i + 1}.ts`)
+  .join('\n')}
 
 List each file path on a new line without any additional characters or formatting.
 
@@ -216,15 +223,19 @@ That means every file that is not at the project root should start with one of t
 ${topLevelDirectories(fileContext).join('\n')}
 
 Example response:
-${getExampleFileList(fileContext).join('\n')}
+${getExampleFileList(fileContext, count).join('\n')}
 `.trim()
 }
 
 function generateKeyRequestFilesPrompt(
   userPrompt: string | null,
   assistantPrompt: string | null,
-  fileContext: ProjectFileContext
+  fileContext: ProjectFileContext,
+  index: number,
+  count: number
 ): string {
+  const start = (index - 1) * count + 1
+  const end = start + count - 1
   return `
 ${
   userPrompt
@@ -232,7 +243,9 @@ ${
     : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
 }
 
-Based on this conversation, please identify the key relevant files for a user's request in a software project. Your goal is to select approximately 6 key files that are crucial for understanding and addressing the user's needs.
+This is request #${index} for key project files.
+
+Based on this conversation, please identify the most relevant files for a user's request in a software project, sort them from most to least relevant, and then output just the files from index ${start}-${end} in this sorted list.
 
 Please follow these steps to determine which key files to request:
 
@@ -249,15 +262,14 @@ Please follow these steps to determine which key files to request:
 
 Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
 
-Please provide no commentary and only list the file paths you think are most crucial for addressing the user's request.
+Please provide no commentary and only list the file paths at index ${start} through ${end} of the most relevant files that you think are most crucial for addressing the user's request.
 
 Your response should be in the following format:
-path/to/file1.ts
-path/to/file2.ts
-path/to/file3.ts
-...
+${range(count)
+  .map((i) => `path/to/file${i + 1}.ts`)
+  .join('\n')}
 
-Remember to focus on the most important files and limit your selection to around 10 files. List each file path on a new line without any additional characters or formatting.
+Remember to focus on the most important files and limit your selection to exactly ${count} files. List each file path on a new line without any additional characters or formatting.
 
 Be sure to include the full path from the project root directory for each file. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.
 
@@ -265,6 +277,6 @@ That means every file that is not at the project root should start with one of t
 ${topLevelDirectories(fileContext).join('\n')}
 
 Example response:
-${getExampleFileList(fileContext).join('\n')}
+${getExampleFileList(fileContext, count).join('\n')}
 `.trim()
 }
