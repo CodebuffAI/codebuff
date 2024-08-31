@@ -4,17 +4,15 @@ import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
 import chalk from 'chalk'
 import { exec } from 'child_process'
+import { parse } from 'path'
 
 import { websocketUrl } from './config'
 import { ChatStorage } from './chat-storage'
 import { Client } from './client'
 import { Message } from 'common/actions'
 import { displayMenu } from './menu'
-import {
-  getExistingFiles,
-  getProjectRoot,
-  setFiles,
-} from './project-files'
+import { getExistingFiles, getProjectRoot, setFiles } from './project-files'
+import { handleRunTerminalCommand } from './tool-handlers'
 
 export class CLI {
   private client: Client
@@ -42,7 +40,7 @@ export class CLI {
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: '> ',
+      prompt: `${parse(getProjectRoot()).base} > `,
       historySize: 1000,
     })
 
@@ -221,6 +219,16 @@ export class CLI {
       userInput === 'q'
     ) {
       this.handleExit()
+      return
+    }
+
+    const result = await handleRunTerminalCommand(
+      { command: userInput },
+      'user',
+      'user'
+    )
+    if (result !== 'command not found') {
+      this.rl.prompt()
       return
     }
 

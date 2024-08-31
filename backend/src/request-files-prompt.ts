@@ -210,8 +210,6 @@ Please follow these steps to determine which files to request:
 
 Please provide no commentary and list the file paths you think are useful but not obvious in addressing the user's request.
 
-If the last user message appears to be running a terminal command, such as \`npm run test\` or \`yarn build\`, then do not request any files.
-
 Your response should be in the following format:
 
 <file_list>
@@ -262,8 +260,6 @@ Please follow these steps to determine which key files to request:
 5. Order the files by most important first.
 
 Please provide no commentary and only list the file paths you think are most crucial for addressing the user's request.
-
-If the last user message appears to be running a terminal command, such as \`npm run test\` or \`yarn build\`, then do not request any files.
 
 Your response should be in the following format:
 

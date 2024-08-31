@@ -39,10 +39,11 @@ export const handleSearchManifoldMarkets: ToolHandler = async (
   }
 }
 
-export const handleRunTerminalCommand: ToolHandler = async (
+export const handleRunTerminalCommand = async (
   input: { command: string },
-  id: string
-) => {
+  id: string,
+  mode: 'user' | 'assistant'
+): Promise<string> => {
   const { command } = input
   const commandWithNavigationToProjectRoot = `cd ${getProjectRoot()} && ${command}`
   return new Promise((resolve) => {
@@ -50,21 +51,25 @@ export const handleRunTerminalCommand: ToolHandler = async (
     let stderr = ''
     const MAX_EXECUTION_TIME = 10_000
 
-    console.log()
-    console.log(chalk.blue(`> ${command}`))
+    if (mode === 'assistant') {
+      console.log()
+      console.log(chalk.blue(`> ${command}`))
+    }
     const childProcess = spawn(commandWithNavigationToProjectRoot, {
       shell: true,
     })
 
     const timer = setTimeout(() => {
-      childProcess.kill()
-      resolve(
-        formatResult(
-          stdout,
-          stderr,
-          `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds. Partial results shown.`
+      if (mode === 'assistant') {
+        childProcess.kill()
+        resolve(
+          formatResult(
+            stdout,
+            stderr,
+            `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds. Partial results shown.`
+          )
         )
-      )
+      }
     }, MAX_EXECUTION_TIME)
 
     childProcess.stdout.on('data', (data) => {
@@ -73,14 +78,20 @@ export const handleRunTerminalCommand: ToolHandler = async (
     })
 
     childProcess.stderr.on('data', (data) => {
-      process.stderr.write(data.toString())
-      stderr += data.toString()
+      if (mode === 'user' && data.toString().includes('command not found')) {
+        resolve('command not found')
+      } else {
+        process.stderr.write(data.toString())
+        stderr += data.toString()
+      }
     })
 
     childProcess.on('close', (code) => {
       clearTimeout(timer)
       resolve(formatResult(stdout, stderr, 'Command completed', code))
-      console.log(chalk.blue(`Command finished with exit code: ${code}`))
+      if (mode === 'assistant') {
+        console.log(chalk.blue(`Command finished with exit code: ${code}`))
+      }
     })
 
     childProcess.on('error', (error) => {
@@ -115,5 +126,6 @@ export const toolHandlers: Record<string, ToolHandler> = {
   update_file_context: handleUpdateFileContext,
   scrape_web_page: handleScrapeWebPage,
   search_manifold_markets: handleSearchManifoldMarkets,
-  run_terminal_command: handleRunTerminalCommand,
+  run_terminal_command: ((input, id) =>
+    handleRunTerminalCommand(input, id, 'assistant')) as ToolHandler,
 }
