@@ -3,21 +3,26 @@ import {
   createFileBlock,
   printFileTree,
 } from 'common/util/file'
+import { buildArray } from 'common/util/array'
 import { STOP_MARKER } from 'common/constants'
 import { countTokensForFiles } from './util/token-counter'
 import { debugLog } from './util/debug'
 
 export function getSystemPrompt(
   fileContext: ProjectFileContext,
-  checkFiles: boolean
+  options: {
+    checkFiles?: boolean
+    onlyCachePrefix?: boolean
+  } = {}
 ) {
+  const { checkFiles, onlyCachePrefix } = options
   const truncatedFiles = getTruncatedFilesBasedOnTokenBudget(
     fileContext,
     100_000
   )
   const files = Object.keys(truncatedFiles)
 
-  return [
+  return buildArray(
     {
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
@@ -36,14 +41,14 @@ ${getRelevantFilesPromptPart1(fileContext)}
 `.trim(),
     },
 
-    {
+    !onlyCachePrefix && {
       type: 'text' as const,
       text: `
 ${getRelevantFilesPromptPart2(fileContext, truncatedFiles)}
-${getResponseFormatPrompt(checkFiles, files)}
+${getResponseFormatPrompt(checkFiles ?? false, files)}
 `.trimEnd(),
-    },
-  ]
+    }
+  )
 }
 
 const introPrompt = `

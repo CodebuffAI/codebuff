@@ -41,7 +41,10 @@ export class CLI {
       this.onWebSocketError.bind(this)
     )
 
-    this.readyPromise = Promise.all([readyPromise, this.client.connect()])
+    this.readyPromise = Promise.all([
+      readyPromise.then(() => this.client.warmContextCache()),
+      this.client.connect(),
+    ])
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,

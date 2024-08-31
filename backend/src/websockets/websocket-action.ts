@@ -6,6 +6,9 @@ import { sendMessage } from './server'
 import { isEqual } from 'lodash'
 import fs from 'fs'
 import path from 'path'
+import { getTools } from 'src/tools'
+import { getSystemPrompt } from 'src/system-prompt'
+import { promptClaude, models } from 'src/claude'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -106,6 +109,36 @@ const onCheckNpmVersion = async (
   })
 }
 
+const onWarmContextCache = async (
+  {
+    fileContext,
+    fingerprintId,
+  }: Extract<ClientAction, { type: 'warm-context-cache' }>,
+  ws: WebSocket
+) => {
+  const startTime = Date.now()
+  const tools = getTools()
+  const system = getSystemPrompt(fileContext, { onlyCachePrefix: true })
+  await promptClaude(
+    [
+      {
+        role: 'user',
+        content: 'please respond with just a single word "manicode"',
+      },
+    ],
+    {
+      model: models.sonnet,
+      system,
+      tools,
+      userId: fingerprintId,
+    }
+  )
+  sendAction(ws, {
+    type: 'warm-context-cache-response',
+  })
+  console.log('Warming context cache done', Date.now() - startTime)
+}
+
 const callbacksByAction = {} as Record<
   ClientAction['type'],
   ((action: ClientAction, ws: WebSocket) => void)[]
@@ -143,6 +176,7 @@ export const onWebsocketAction = async (
 
 subscribeToAction('user-input', onUserInput)
 subscribeToAction('check-npm-version', onCheckNpmVersion)
+subscribeToAction('warm-context-cache', onWarmContextCache)
 
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {

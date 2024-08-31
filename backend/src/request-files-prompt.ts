@@ -209,8 +209,7 @@ Do not include any files with 'knowledge.md' in the name, because these files wi
 
 Please provide no commentary and list the file paths you think are useful but not obvious in addressing the user's request.
 
-Your response should be in the following format:
-
+Your response contain only files separated by new lines in the following format:
 ${range(count)
   .map((i) => `path/to/file${i + 1}.ts`)
   .join('\n')}
@@ -264,7 +263,7 @@ Do not include any files with 'knowledge.md' in the name, because these files wi
 
 Please provide no commentary and only list the file paths at index ${start} through ${end} of the most relevant files that you think are most crucial for addressing the user's request.
 
-Your response should be in the following format:
+Your response contain only files separated by new lines in the following format:
 ${range(count)
   .map((i) => `path/to/file${i + 1}.ts`)
   .join('\n')}

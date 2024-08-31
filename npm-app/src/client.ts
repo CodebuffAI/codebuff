@@ -1,8 +1,12 @@
-import chalk from 'chalk' // Add this import
+import chalk from 'chalk'
 
 import packageJson from '../package.json'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
-import { getFiles, getProjectFileContext, getProjectRoot } from './project-files'
+import {
+  getFiles,
+  getProjectFileContext,
+  getProjectRoot,
+} from './project-files'
 import { applyChanges } from 'common/util/changes'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
@@ -223,5 +227,31 @@ export class Client {
       responsePromise,
       stopResponse,
     }
+  }
+
+  public async warmContextCache() {
+    const fileContext = await getProjectFileContext([])
+
+    return new Promise<void>((resolve) => {
+      this.webSocket.subscribe('warm-context-cache-response', () => {
+        resolve()
+      })
+
+      this.webSocket
+        .sendAction({
+          type: 'warm-context-cache',
+          fileContext,
+          fingerprintId,
+        })
+        .catch((e) => {
+          // console.error('Error warming context cache', e)
+          resolve()
+        })
+
+      // If it takes too long, resolve the promise to avoid hanging the CLI.
+      setTimeout(() => {
+        resolve()
+      }, 15_000)
+    })
   }
 }
