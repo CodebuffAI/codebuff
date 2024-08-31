@@ -82,7 +82,12 @@ export const handleRunTerminalCommand = async (
     })
 
     childProcess.stderr.on('data', (data) => {
-      if (mode === 'user' && data.toString().includes('command not found')) {
+      const dataStr = data.toString()
+      if (
+        mode === 'user' &&
+        (dataStr.includes('command not found') ||
+          dataStr.includes('syntax error'))
+      ) {
         resolve('command not found')
       } else {
         process.stderr.write(data.toString())
