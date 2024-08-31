@@ -54,7 +54,10 @@ const testDeleteComment = async ({
     },
   ])
 
-  const filesChanged = changes.map(getFilePathFromPatch)
+  const filePathToPatch = Object.fromEntries(
+    changes.map((patch) => [getFilePathFromPatch(patch), patch])
+  )
+  const filesChanged = Object.keys(filePathToPatch)
   expectTrue(
     'includes delete-comment.ts file',
     filesChanged.includes('backend/api/src/delete-comment.ts')
@@ -66,6 +69,16 @@ const testDeleteComment = async ({
   expectTrue(
     'includes schema.ts file',
     filesChanged.includes('common/src/api/schema.ts')
+  )
+
+  const deleteCommentFile = filePathToPatch['backend/api/src/delete-comment.ts']
+  expectTrue(
+    'delete-comment.ts references comment_id',
+    !!deleteCommentFile && deleteCommentFile.includes('comment_id')
+  )
+  expectTrue(
+    'delete-comment.ts references isAdmin',
+    !!deleteCommentFile && deleteCommentFile.includes('isAdmin')
   )
 
   await applyAndRevertChangesSequentially(
@@ -100,7 +113,11 @@ const testDeleteCommentWithoutKnowledge = async ({
     },
   ])
 
-  const filesChanged = changes.map(getFilePathFromPatch)
+  const filePathToPatch = Object.fromEntries(
+    changes.map((patch) => [getFilePathFromPatch(patch), patch])
+  )
+  const filesChanged = Object.keys(filePathToPatch)
+
   expectTrue(
     'includes delete-comment.ts file',
     filesChanged.includes('backend/api/src/delete-comment.ts')
@@ -112,6 +129,16 @@ const testDeleteCommentWithoutKnowledge = async ({
   expectTrue(
     'includes schema.ts file',
     filesChanged.includes('common/src/api/schema.ts')
+  )
+
+  const deleteCommentFile = filePathToPatch['backend/api/src/delete-comment.ts']
+  expectTrue(
+    'delete-comment.ts references comment_id',
+    !!deleteCommentFile && deleteCommentFile.includes('comment_id')
+  )
+  expectTrue(
+    'delete-comment.ts references isAdmin',
+    !!deleteCommentFile && deleteCommentFile.includes('isAdmin')
   )
 
   await applyAndRevertChangesSequentially(
