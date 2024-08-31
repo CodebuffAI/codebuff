@@ -6,9 +6,9 @@ import { sendMessage } from './server'
 import { isEqual } from 'lodash'
 import fs from 'fs'
 import path from 'path'
-import { getTools } from 'src/tools'
-import { getSystemPrompt } from 'src/system-prompt'
-import { promptClaude, models } from 'src/claude'
+import { getTools } from '../tools'
+import { getSystemPrompt } from '../system-prompt'
+import { promptClaude, models } from '../claude'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
