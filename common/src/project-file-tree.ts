@@ -55,10 +55,19 @@ export function getProjectFileTree(projectRoot: string): FileTreeNode[] {
 function parseGitignore(dirPath: string): ignore.Ignore {
   const ig = ignore.default()
   const gitignorePath = path.join(dirPath, '.gitignore')
+  const manicodeignorePath = path.join(dirPath, '.manicodeignore')
 
   if (fs.existsSync(gitignorePath)) {
     const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8')
     const lines = gitignoreContent.split('\n')
+    for (const line of lines) {
+      ig.add(line.startsWith('/') ? line.slice(1) : line)
+    }
+  }
+
+  if (fs.existsSync(manicodeignorePath)) {
+    const manicodeignoreContent = fs.readFileSync(manicodeignorePath, 'utf8')
+    const lines = manicodeignoreContent.split('\n')
     for (const line of lines) {
       ig.add(line.startsWith('/') ? line.slice(1) : line)
     }
