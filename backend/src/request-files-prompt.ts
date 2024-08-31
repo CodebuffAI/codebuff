@@ -140,6 +140,7 @@ async function getRelevantFiles(
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
+    .filter((line) => !line.includes(' '))
 
   return { files, duration }
 }
@@ -187,7 +188,7 @@ ${
     : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
 }
 
-This is request #${index} for non-obvious project files.
+This is request #${index} for non-obvious project files. Ignore previous instructions.
 
 Based on this conversation, please select files beyond the obvious files that would be helpful to complete the user's request.
 Select files that might be useful for understanding and addressing the user's needs, but you would not choose in the first ${count * index + 10} files if you were asked.
@@ -242,7 +243,7 @@ ${
     : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
 }
 
-This is request #${index} for key project files.
+This is request #${index} for key project files. Ignore previous instructions.
 
 Based on this conversation, please identify the most relevant files for a user's request in a software project, sort them from most to least relevant, and then output just the files from index ${start}-${end} in this sorted list.
 
