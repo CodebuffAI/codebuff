@@ -249,7 +249,7 @@ const getRelevantFilesPromptPart2 = (
   fileContext: ProjectFileContext,
   truncatedFiles: Record<string, string | null>
 ) => {
-  const { knowledgeFiles } = fileContext
+  const { knowledgeFiles, gitChanges } = fileContext
 
   const truncatedFilesExceptKnowledgeFiles = Object.fromEntries(
     Object.keys(truncatedFiles)
@@ -264,6 +264,23 @@ const getRelevantFilesPromptPart2 = (
     .join('\n')
 
   return `
+${
+  gitChanges
+    ? `Current Git Changes:
+<git_status>
+${gitChanges.status}
+</git_status>
+
+<git_diff>
+${gitChanges.diff}
+</git_diff>
+
+<git_diff_cached>
+${gitChanges.diffCached}
+</git_diff_cached>
+`
+    : ''
+}
 <relevant_files>
 Here are some files that were selected to aid in the user request, ordered by most important first:
 ${fileBlocks}

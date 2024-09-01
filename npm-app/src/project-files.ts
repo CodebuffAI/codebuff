@@ -1,10 +1,14 @@
 import fs from 'fs'
 import path from 'path'
+import { exec } from 'child_process'
+import { promisify } from 'util'
 
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { filterObject } from 'common/util/object'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 import { getProjectFileTree, getAllFilePaths } from 'common/project-file-tree'
+
+const execAsync = promisify(exec)
 
 let projectRoot: string
 
@@ -52,19 +56,35 @@ export const getProjectFileContext = async (fileList: string[]) => {
 
     const files = getFiles(fileList)
 
+    const gitChanges = await getGitChanges()
+
     cachedProjectFileContext = {
       currentWorkingDirectory: projectRoot,
       fileTree,
       exportedTokens,
       knowledgeFiles,
       files,
+      gitChanges,
     }
   } else {
     const files = getFiles(fileList)
-    cachedProjectFileContext = { ...cachedProjectFileContext, files }
+    const gitChanges = await getGitChanges()
+    cachedProjectFileContext = { ...cachedProjectFileContext, files, gitChanges }
   }
 
   return cachedProjectFileContext
+}
+
+async function getGitChanges(): Promise<{ status: string; diff: string; diffCached: string }> {
+  try {
+    const { stdout: status } = await execAsync('git status', { cwd: projectRoot })
+    const { stdout: diff } = await execAsync('git diff', { cwd: projectRoot })
+    const { stdout: diffCached } = await execAsync('git diff --cached', { cwd: projectRoot })
+    return { status, diff, diffCached }
+  } catch (error) {
+    console.error('Error getting git changes:', error)
+    return { status: '', diff: '', diffCached: '' }
+  }
 }
 
 export function getFiles(filePaths: string[]) {

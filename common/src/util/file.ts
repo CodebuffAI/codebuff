@@ -14,10 +14,15 @@ export interface FileTreeNode {
 
 export const ProjectFileContextSchema = z.object({
   currentWorkingDirectory: z.string(),
-  fileTree: z.array(FileTreeNodeSchema),
+  fileTree: z.array(z.custom<FileTreeNode>()),
   exportedTokens: z.record(z.string(), z.array(z.string())),
   knowledgeFiles: z.record(z.string(), z.string()),
   files: z.record(z.string(), z.string().nullable()),
+  gitChanges: z.object({
+    status: z.string(),
+    diff: z.string(),
+    diffCached: z.string(), // Add this line
+  }),
 })
 
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
