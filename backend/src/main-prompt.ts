@@ -8,7 +8,6 @@ import { promptClaudeStream } from './claude'
 import { ProjectFileContext } from 'common/util/file'
 import { getSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
-import { getTools } from './tools'
 import { Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './util/debug'
@@ -34,7 +33,6 @@ export async function mainPrompt(
   )
 
   let fullResponse = ''
-  const tools = getTools()
 
   let shouldCheckFiles = true
   if (Object.keys(fileContext.files).length === 0) {
@@ -45,7 +43,7 @@ export async function mainPrompt(
     const responseChunk = await updateFileContext(
       ws,
       fileContext,
-      { messages, system, tools },
+      { messages, system },
       null,
       onResponseChunk,
       userId
@@ -82,11 +80,10 @@ ${STOP_MARKER}
       ? [...messages, ...continuedMessages]
       : messages
 
-    savePromptLengthInfo(messagesWithContinuedMessage, system, tools)
+    savePromptLengthInfo(messagesWithContinuedMessage, system)
 
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
-      tools,
       userId,
     })
     const fileStream = processStreamWithFiles(
@@ -133,7 +130,6 @@ ${STOP_MARKER}
           {
             messages,
             system,
-            tools,
           },
           fileContext,
           toolCall.input['prompt'],
@@ -193,18 +189,16 @@ async function updateFileContext(
   {
     messages,
     system,
-    tools,
   }: {
     messages: Message[]
     system: string | Array<TextBlockParam>
-    tools: Tool[]
   },
   prompt: string | null,
   onResponseChunk: (chunk: string) => void,
   userId: string
 ) {
   const relevantFiles = await requestRelevantFiles(
-    { messages, system, tools },
+    { messages, system },
     fileContext,
     prompt,
     userId
@@ -256,8 +250,7 @@ export async function processFileBlock(
 
 const savePromptLengthInfo = (
   messages: Message[],
-  system: string | Array<TextBlockParam>,
-  tools: Tool[]
+  system: string | Array<TextBlockParam>
 ) => {
   console.log('Prompting claude num messages:', messages.length)
   debugLog('Prompting claude num messages:', messages.length)
@@ -270,8 +263,7 @@ const savePromptLengthInfo = (
       typeof lastMessageContent === 'string' ? lastMessageContent : '[object]',
     messages: JSON.stringify(messages).length,
     system: system.length,
-    tools: JSON.stringify(tools).length,
-    timestamp: new Date().toISOString(), // Add a timestamp for each entry
+    timestamp: new Date().toISOString(),
   }
 
   debugLog(JSON.stringify(promptDebugInfo))

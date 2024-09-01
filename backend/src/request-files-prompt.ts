@@ -12,11 +12,9 @@ export async function requestRelevantFiles(
   {
     messages,
     system,
-    tools,
   }: {
     messages: Message[]
     system: string | Array<TextBlockParam>
-    tools: Tool[]
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
@@ -50,7 +48,6 @@ export async function requestRelevantFiles(
       {
         messages: messagesExcludingLastIfByUser,
         system,
-        tools,
       },
       nonObviousPrompt,
       models.sonnet,
@@ -78,7 +75,6 @@ export async function requestRelevantFiles(
       {
         messages: messagesExcludingLastIfByUser,
         system,
-        tools,
       },
       keyPrompt,
       models.sonnet,
@@ -105,11 +101,9 @@ async function getRelevantFiles(
   {
     messages,
     system,
-    tools,
   }: {
     messages: Message[]
     system: string | Array<TextBlockParam>
-    tools: Tool[]
   },
   userPrompt: string,
   model: model_types,
@@ -127,7 +121,6 @@ async function getRelevantFiles(
   const response = await promptClaude(messagesWithPrompt, {
     model,
     system,
-    tools,
     userId,
   })
   const end = performance.now()
