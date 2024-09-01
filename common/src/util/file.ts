@@ -21,7 +21,8 @@ export const ProjectFileContextSchema = z.object({
   gitChanges: z.object({
     status: z.string(),
     diff: z.string(),
-    diffCached: z.string(), // Add this line
+    diffCached: z.string(),
+    lastCommitMessages: z.string(),
   }),
 })
 

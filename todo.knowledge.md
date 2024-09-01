@@ -108,3 +108,4 @@ Notes from Janna & Stephen test
     - thefuck util that could change 
     - should look more like shell
     - could have two panel one for you, other shows claude's response. Claude's commands go on your side
+[] Got file path wrong: backend instead of npm-app for project-files

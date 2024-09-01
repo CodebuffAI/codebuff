@@ -69,21 +69,41 @@ export const getProjectFileContext = async (fileList: string[]) => {
   } else {
     const files = getFiles(fileList)
     const gitChanges = await getGitChanges()
-    cachedProjectFileContext = { ...cachedProjectFileContext, files, gitChanges }
+    cachedProjectFileContext = {
+      ...cachedProjectFileContext,
+      files,
+      gitChanges,
+    }
   }
 
   return cachedProjectFileContext
 }
 
-async function getGitChanges(): Promise<{ status: string; diff: string; diffCached: string }> {
+async function getGitChanges() {
   try {
-    const { stdout: status } = await execAsync('git status', { cwd: projectRoot })
+    const { stdout: status } = await execAsync('git status', {
+      cwd: projectRoot,
+    })
     const { stdout: diff } = await execAsync('git diff', { cwd: projectRoot })
-    const { stdout: diffCached } = await execAsync('git diff --cached', { cwd: projectRoot })
-    return { status, diff, diffCached }
+    const { stdout: diffCached } = await execAsync('git diff --cached', {
+      cwd: projectRoot,
+    })
+    const { stdout: shortLogOutput } = await execAsync(
+      'git shortlog HEAD~100..HEAD',
+      {
+        cwd: projectRoot,
+      }
+    )
+    const shortLogLines = shortLogOutput.trim().split('\n')
+    const lastCommitMessages = shortLogLines
+      .slice(1)
+      .reverse()
+      .map((line) => line.trim())
+      .join('\n')
+
+    return { status, diff, diffCached, lastCommitMessages }
   } catch (error) {
-    console.error('Error getting git changes:', error)
-    return { status: '', diff: '', diffCached: '' }
+    return { status: '', diff: '', diffCached: '', lastCommitMessages: '' }
   }
 }
 

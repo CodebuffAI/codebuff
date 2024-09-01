@@ -278,6 +278,10 @@ ${gitChanges.diff}
 <git_diff_cached>
 ${gitChanges.diffCached}
 </git_diff_cached>
+
+<git_commit_messages_most_recent_first>
+${gitChanges.lastCommitMessages}
+</git_commit_messages_most_recent_first>
 `
     : ''
 }
