@@ -237,7 +237,9 @@ export class CLI {
       return
     }
 
-    const skippedTerminalCommands = ['what ', 'which ']
+    const skippedTerminalCommands = ['what', 'which', 'file'].map(
+      (str) => `${str} `
+    )
     if (
       !skippedTerminalCommands.some((command) =>
         userInput.toLowerCase().startsWith(command)
