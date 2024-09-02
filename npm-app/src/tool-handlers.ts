@@ -86,7 +86,10 @@ export const handleRunTerminalCommand = async (
       if (
         mode === 'user' &&
         (dataStr.includes('command not found') ||
-          dataStr.includes('syntax error'))
+          dataStr.includes('syntax error') ||
+          dataStr.includes(
+            'is not recognized as an internal or external command'
+          ))
       ) {
         resolve('command not found')
       } else {
