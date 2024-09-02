@@ -19,13 +19,15 @@ export const layer3 = async (
   userId: string,
   messages: Message[],
   fileContext: ProjectFileContext,
-  extraFiles: Record<string, string | null>,
   onResponseChunk: (chunk: string) => void
 ) => {
-  let fullResponse = ''
+  // Prefill the response so that we talk directly to the user.
+  let fullResponse = `Based on the above discussion, I'll proceed to answer the user's request:`
   const fileProcessingPromises: Promise<string>[] = []
   let toolCall: ToolCall | null = null
-  let continuedMessages: Message[] = []
+  let continuedMessages: Message[] = [
+    { role: 'assistant', content: fullResponse },
+  ]
   let isComplete = false
   let iterationCount = 0
   const MAX_ITERATIONS = 10

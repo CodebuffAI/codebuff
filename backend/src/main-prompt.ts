@@ -24,82 +24,127 @@ export async function mainPrompt(
 
   let layer = Object.keys(fileContext.files).length === 0 ? 1 : 2
 
+  let printedResponse = ''
   let fullResponse = ''
-  const extraFiles: Record<string, string | null> = {}
+  const continuedMessages: Message[] = []
 
   while (true) {
+    console.log('layer', layer)
+    const messagesWithContinuedMessages = [...messages, ...continuedMessages]
     if (layer === 1) {
-      const { files, responseChunk } = await layer1(
+      const { files } = await layer1(
         ws,
         userId,
-        messages,
+        messagesWithContinuedMessages,
         fileContext
       )
-      const lastMessage = messages[messages.length - 1]
-      const input = lastMessage.content as string
-      lastMessage.content = [
-        {
-          type: 'text',
-          text: input,
-          cache_control: { type: 'ephemeral' as const },
-        },
-      ]
+
+      const filesInfoMessage = getRelevantFileInfoMessage(files)
+      onResponseChunk(filesInfoMessage)
 
       fileContext.files = files
-      fullResponse += responseChunk
+      printedResponse += filesInfoMessage
+      fullResponse += filesInfoMessage
       layer = 2
 
-      const system = getSystemPrompt(fileContext)
-      await promptClaude(messages, {
-        model: models.sonnet,
-        system,
-        userId,
-        maxTokens: 0,
-      })
+      await warmCache(fileContext, messagesWithContinuedMessages, userId)
     } else if (layer === 2) {
-      // TODO: A way to loop back to layer 2.
-      const { files, codeReviewResponse, brainstormResponse } = await layer2(
-        ws,
-        userId,
-        messages,
-        fileContext,
-        onResponseChunk
-      )
-      Object.assign(extraFiles, files)
-      fullResponse += brainstormResponse
+      const { files, codeReviewResponse, brainstormResponse, choosePlanInfo } =
+        await layer2(
+          ws,
+          userId,
+          messagesWithContinuedMessages,
+          fileContext,
+          onResponseChunk
+        )
 
-      const prefilledResponse = `
-<extra_files>
-${extraFiles}
-</extra_files>
+      const filesInfoMessage = getRelevantFileInfoMessage(files)
+
+      fileContext.files = files
+
+      const assistantResponse = `
+${filesInfoMessage}
 <code_review>
 ${codeReviewResponse}
-</code_review>
 </code_review>
 <brainstorm>
 ${brainstormResponse}
 </brainstorm>
+<choose_plan>
+${choosePlanInfo.fullResponse}
+</choose_plan>
       `.trim()
+      console.log('<layer_2>', assistantResponse, '</layer_2>')
+      fullResponse += assistantResponse
 
-      messages.push({
-        role: 'assistant',
-        content: prefilledResponse,
-      })
+      continuedMessages.push(
+        {
+          role: 'assistant',
+          content: assistantResponse,
+        },
+        {
+          role: 'user',
+          content: 'Continue',
+        }
+      )
 
-      layer = 3
+      const { chosenPlan } = choosePlanInfo
+      if (chosenPlan === 'PAUSE') {
+        onResponseChunk(choosePlanInfo.fullResponse)
+        printedResponse += choosePlanInfo.fullResponse
+        return {
+          response: fullResponse,
+          changes: [],
+        }
+      } else if (chosenPlan === 'GATHER_MORE_INFO') {
+        layer = 2
+        await warmCache(fileContext, messagesWithContinuedMessages, userId)
+      } else if (chosenPlan === 'PROCEED') layer = 3
     } else if (layer === 3) {
       const { changes, response } = await layer3(
         ws,
         userId,
-        messages,
+        messagesWithContinuedMessages,
         fileContext,
-        extraFiles,
         onResponseChunk
       )
+
+      printedResponse += response
+      fullResponse += response
+
       return {
         response: fullResponse,
         changes,
       }
     }
   }
+}
+
+const warmCache = async (
+  fileContext: ProjectFileContext,
+  messages: Message[],
+  userId: string
+) => {
+  console.log('Starting to warm cache')
+  const startTime = Date.now()
+  const system = getSystemPrompt(fileContext)
+  await promptClaude(messages, {
+    model: models.sonnet,
+    system,
+    userId,
+    maxTokens: 1,
+  })
+  const endTime = Date.now()
+  const duration = endTime - startTime
+  console.log(`Warmed cache in ${duration}ms`)
+}
+
+function getRelevantFileInfoMessage(files: {
+  [filePath: string]: string | null
+}) {
+  const filePaths = Object.keys(files)
+  if (filePaths.length === 0) {
+    return ''
+  }
+  return `Reading the following files...<files>${filePaths.join(', ')}</files>\n\n`
 }

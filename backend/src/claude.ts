@@ -25,7 +25,7 @@ export const promptClaudeStream = async function* (
     userId: string
   }
 ): AsyncGenerator<string | ToolCall, void, unknown> {
-  const { model = models.sonnet, system, tools, userId } = options
+  const { model = models.sonnet, system, tools, userId, maxTokens } = options
 
   const apiKey = process.env.ANTHROPIC_API_KEY
 
@@ -48,7 +48,7 @@ export const promptClaudeStream = async function* (
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
       model,
-      max_tokens: 4096,
+      max_tokens: maxTokens ?? 4096,
       temperature: 0,
       messages,
       system,

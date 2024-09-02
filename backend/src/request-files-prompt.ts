@@ -32,6 +32,49 @@ export async function requestRelevantFiles(
   return await requestFiles(ws, filePaths)
 }
 
+export async function requestAdditionalFiles(
+  ws: WebSocket,
+  {
+    messages,
+    system,
+  }: {
+    messages: Message[]
+    system: System
+  },
+  fileContext: ProjectFileContext,
+  userId: string
+) {
+  const lastMessage = messages[messages.length - 1]
+  const messagesExcludingLastIfByUser =
+    lastMessage.role === 'user' ? messages.slice(0, -1) : messages
+  const userPrompt =
+    lastMessage.role === 'user'
+      ? typeof lastMessage.content === 'string'
+        ? lastMessage.content
+        : JSON.stringify(lastMessage.content)
+      : null
+
+  const prompt = generateRequestAdditionalFilesPrompt(
+    userPrompt,
+    null,
+    fileContext
+  )
+  const { files } = await getRelevantFiles(
+    { messages: messagesExcludingLastIfByUser, system },
+    prompt,
+    models.sonnet,
+    'Additional files',
+    userId
+  ).catch((error) => {
+    console.error('Error requesting additional files:', error)
+    return { files: [], duration: 0 }
+  })
+  console.log('Additional files:', files)
+  const previousFiles = Object.keys(fileContext.files)
+  const uniqueFiles = uniq([...files, ...previousFiles])
+  return await requestFiles(ws, uniqueFiles)
+}
+
 export async function requestRelevantFilesPrompt(
   {
     messages,
@@ -309,5 +352,50 @@ ${topLevelDirectories(fileContext).join('\n')}
 
 Example response:
 ${getExampleFileList(fileContext, count).join('\n')}
+`.trim()
+}
+
+function generateRequestAdditionalFilesPrompt(
+  userPrompt: string | null,
+  assistantPrompt: string | null,
+  fileContext: ProjectFileContext
+): string {
+  const previousFiles = Object.keys(fileContext.files)
+  return `
+${
+  userPrompt
+    ? `<user_prompt>${userPrompt}</user_prompt>`
+    : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
+}
+
+The following files have already been requested:
+${previousFiles.join('\n')}
+
+What are the most important new files that the user needs to understand to complete their request?
+
+Consider the following steps:
+1. Analyze the conversation history to understand the user's last request and identify the core components or tasks.
+2. Focus on the most critical areas of the codebase that are directly related to the request, such as:
+   - Main functionality files
+   - Key configuration files
+   - Central utility functions
+   - Primary test files (if testing is involved)
+   - Documentation files
+3. Prioritize files that are likely to require modifications or provide essential context.
+4. Consider files one step removed from the core files you would first request.
+5. Order the files by most important first.
+
+Please provide no commentary and only list the file paths in the following format:
+${range(3)
+  .map((i) => `path/to/file${i + 1}.ts`)
+  .join('\n')}
+...
+
+Remember to focus on the most important files. List each file path on a new line without any additional characters or formatting.
+
+Be sure to include the full path from the project root directory for each file. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.
+
+Example response:
+${getExampleFileList(fileContext, 10).join('\n')}
 `.trim()
 }

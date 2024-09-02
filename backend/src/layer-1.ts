@@ -27,25 +27,19 @@ export const layer1 = async (
     userId
   )
 
-  const filePaths = Object.keys(files)
-  const responseChunk = getRelevantFileInfoMessage(filePaths)
-
-  return { responseChunk, files }
+  return { files }
 }
 
-function getRelevantFileInfoMessage(filePaths: string[]) {
-  if (filePaths.length === 0) {
-    return ''
-  }
-  return `Reading the following files...<files>${filePaths.join(', ')}</files>\n\n`
-}
-
-const skipToLayer3 = (ws: WebSocket, userId: string, messages: Message[], fileContext: ProjectFileContext) => {
+const skipToLayer3 = (
+  ws: WebSocket,
+  userId: string,
+  messages: Message[],
+  fileContext: ProjectFileContext
+) => {
   const lastMessage = messages[messages.length - 1]
   assert(lastMessage.role === 'user', 'Last message must be from user')
 
   const system = getSystemPrompt(fileContext, {
     checkFiles: false,
   })
-  
 }

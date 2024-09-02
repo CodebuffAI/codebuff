@@ -1,5 +1,4 @@
 import { WebSocket } from 'ws'
-import { Message as AnthropicMessage } from '@anthropic-ai/sdk/resources'
 
 import { ClientMessage } from 'common/websockets/websocket-schema'
 import { mainPrompt } from '../main-prompt'
@@ -8,7 +7,6 @@ import { sendMessage } from './server'
 import { isEqual } from 'lodash'
 import fs from 'fs'
 import path from 'path'
-import { getTools } from '../tools'
 import { getSystemPrompt } from '../system-prompt'
 import { promptClaude, models } from '../claude'
 
@@ -129,6 +127,7 @@ const onWarmContextCache = async (
       model: models.sonnet,
       system,
       userId: fingerprintId,
+      maxTokens: 1,
     }
   )
   sendAction(ws, {
