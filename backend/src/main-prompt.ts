@@ -1,24 +1,14 @@
 import { WebSocket } from 'ws'
-import fs from 'fs'
-import path from 'path'
-import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
-import { createPatch } from 'diff'
 
-import { promptClaudeStream } from './claude'
 import { ProjectFileContext } from 'common/util/file'
-import { getSystemPrompt } from './system-prompt'
-import { STOP_MARKER } from 'common/constants'
 import { Message } from 'common/actions'
-import { ToolCall } from 'common/actions'
 import { debugLog } from './util/debug'
-import { requestFiles, requestFile } from './websockets/websocket-action'
-import { generatePatch } from './generate-patch'
-import { requestRelevantFiles } from './request-files-prompt'
-import { processStreamWithFiles } from './process-stream'
+import { layer1 } from './layer-1'
+import { layer2 } from './layer-2'
+import { layer3 } from './layer-3'
+import { getSystemPrompt } from './system-prompt'
+import { models, promptClaude } from './claude'
 
-/**
- * Prompt claude, handle tool calls, and generate file changes.
- */
 export async function mainPrompt(
   ws: WebSocket,
   messages: Message[],
@@ -32,253 +22,84 @@ export async function mainPrompt(
     messages.length
   )
 
+  let layer = Object.keys(fileContext.files).length === 0 ? 1 : 2
+
   let fullResponse = ''
+  const extraFiles: Record<string, string | null> = {}
 
-  let shouldCheckFiles = true
-  if (Object.keys(fileContext.files).length === 0) {
-    const system = getSystemPrompt(fileContext, {
-      checkFiles: true,
-    })
-    // If the fileContext.files is empty, use prompts to select files and add them to context.
-    const responseChunk = await updateFileContext(
-      ws,
-      fileContext,
-      { messages, system },
-      null,
-      onResponseChunk,
-      userId
-    )
-    fullResponse += responseChunk
-    shouldCheckFiles = false
-  }
-
-  const lastMessage = messages[messages.length - 1]
-  const fileProcessingPromises: Promise<string>[] = []
-  let toolCall: ToolCall | null = null
-  let continuedMessages: Message[] = []
-  let isComplete = false
-  let iterationCount = 0
-  const MAX_ITERATIONS = 10
-
-  if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
-    lastMessage.content = `${lastMessage.content}
-
-<additional_instruction>
-Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.
-</additional_instruction>
-<additional_instruction>
-Always end your response with the following marker:
-${STOP_MARKER}
-</additional_instruction>`
-  }
-
-  while (!isComplete && iterationCount < MAX_ITERATIONS) {
-    const system = getSystemPrompt(fileContext, {
-      checkFiles: shouldCheckFiles,
-    })
-    const messagesWithContinuedMessage = continuedMessages
-      ? [...messages, ...continuedMessages]
-      : messages
-
-    savePromptLengthInfo(messagesWithContinuedMessage, system)
-
-    const stream = promptClaudeStream(messagesWithContinuedMessage, {
-      system,
-      userId,
-    })
-    const fileStream = processStreamWithFiles(
-      stream,
-      (_filePath) => {
-        onResponseChunk('Modifying...')
-      },
-      (filePath, fileContent) => {
-        console.log('on file!', filePath)
-        fileProcessingPromises.push(
-          processFileBlock(
-            userId,
-            ws,
-            messages,
-            fullResponse,
-            filePath,
-            fileContent
-          ).catch((error) => {
-            console.error('Error processing file block', error)
-            return ''
-          })
-        )
-      }
-    )
-
-    for await (const chunk of fileStream) {
-      if (typeof chunk === 'object') {
-        toolCall = chunk
-        debugLog('Received tool call:', toolCall)
-        continue
-      }
-
-      fullResponse += chunk
-      onResponseChunk(chunk)
-    }
-
-    if (fullResponse.includes(STOP_MARKER)) {
-      isComplete = true
-      fullResponse = fullResponse.replace(STOP_MARKER, '')
-      debugLog('Reached STOP_MARKER')
-    } else if (toolCall) {
-      if (toolCall.name === 'update_file_context') {
-        const relevantFiles = await requestRelevantFiles(
-          {
-            messages,
-            system,
-          },
-          fileContext,
-          toolCall.input['prompt'],
-          userId
-        )
-        const responseChunk = '\n' + getRelevantFileInfoMessage(relevantFiles)
-        onResponseChunk(responseChunk)
-        fullResponse += responseChunk
-      }
-      isComplete = true
-    } else {
-      console.log('continuing to generate')
-      debugLog('continuing to generate')
-      const fullResponseMinusLastLine =
-        fullResponse.split('\n').slice(0, -1).join('\n') + '\n'
-      continuedMessages = [
+  while (true) {
+    if (layer === 1) {
+      const { files, responseChunk } = await layer1(
+        ws,
+        userId,
+        messages,
+        fileContext
+      )
+      const lastMessage = messages[messages.length - 1]
+      const input = lastMessage.content as string
+      lastMessage.content = [
         {
-          role: 'assistant',
-          content: fullResponseMinusLastLine,
-        },
-        {
-          role: 'user',
-          content: `You got cut off, but please continue from the very next line of your response. Do not repeat anything you have just said. Just continue as if there were no interruption from the very last character of your last response. (Alternatively, just end your response with the following marker if you were done generating and want to allow the user to give further guidance: ${STOP_MARKER})`,
+          type: 'text',
+          text: input,
+          cache_control: { type: 'ephemeral' as const },
         },
       ]
+
+      fileContext.files = files
+      fullResponse += responseChunk
+      layer = 2
+
+      const system = getSystemPrompt(fileContext)
+      await promptClaude(messages, {
+        model: models.sonnet,
+        system,
+        userId,
+        maxTokens: 0,
+      })
+    } else if (layer === 2) {
+      // TODO: A way to loop back to layer 2.
+      const { files, codeReviewResponse, brainstormResponse } = await layer2(
+        ws,
+        userId,
+        messages,
+        fileContext,
+        onResponseChunk
+      )
+      Object.assign(extraFiles, files)
+      fullResponse += brainstormResponse
+
+      const prefilledResponse = `
+<extra_files>
+${extraFiles}
+</extra_files>
+<code_review>
+${codeReviewResponse}
+</code_review>
+</code_review>
+<brainstorm>
+${brainstormResponse}
+</brainstorm>
+      `.trim()
+
+      messages.push({
+        role: 'assistant',
+        content: prefilledResponse,
+      })
+
+      layer = 3
+    } else if (layer === 3) {
+      const { changes, response } = await layer3(
+        ws,
+        userId,
+        messages,
+        fileContext,
+        extraFiles,
+        onResponseChunk
+      )
+      return {
+        response: fullResponse,
+        changes,
+      }
     }
-
-    iterationCount++
   }
-
-  if (iterationCount >= MAX_ITERATIONS) {
-    console.log('Reached maximum number of iterations in mainPrompt')
-    debugLog('Reached maximum number of iterations in mainPrompt')
-  }
-
-  const changes = (await Promise.all(fileProcessingPromises)).filter(
-    (change) => change !== ''
-  )
-
-  return {
-    response: fullResponse,
-    changes,
-    toolCall,
-  }
-}
-
-function getRelevantFileInfoMessage(filePaths: string[]) {
-  if (filePaths.length === 0) {
-    return ''
-  }
-  return `Reading the following files...<files>${filePaths.join(', ')}</files>\n\n`
-}
-
-async function updateFileContext(
-  ws: WebSocket,
-  fileContext: ProjectFileContext,
-  {
-    messages,
-    system,
-  }: {
-    messages: Message[]
-    system: string | Array<TextBlockParam>
-  },
-  prompt: string | null,
-  onResponseChunk: (chunk: string) => void,
-  userId: string
-) {
-  const relevantFiles = await requestRelevantFiles(
-    { messages, system },
-    fileContext,
-    prompt,
-    userId
-  )
-
-  if (relevantFiles.length === 0) {
-    return ''
-  }
-
-  const responseChunk = getRelevantFileInfoMessage(relevantFiles)
-  onResponseChunk(responseChunk)
-
-  // Load relevant files into fileContext
-  fileContext.files = await requestFiles(ws, relevantFiles)
-
-  return responseChunk
-}
-
-export async function processFileBlock(
-  userId: string,
-  ws: WebSocket,
-  messageHistory: Message[],
-  fullResponse: string,
-  filePath: string,
-  newContent: string
-) {
-  debugLog('Processing file block', filePath)
-
-  const oldContent = await requestFile(ws, filePath)
-
-  if (oldContent === null) {
-    console.log(`Created new file: ${filePath}`)
-    debugLog(`Created new file: ${filePath}`)
-    return createPatch(filePath, '', newContent)
-  }
-
-  const patch = await generatePatch(
-    userId,
-    oldContent,
-    newContent,
-    filePath,
-    messageHistory,
-    fullResponse
-  )
-  console.log(`Generated patch for file: ${filePath}`)
-  debugLog(`Generated patch for file: ${filePath}`)
-  return patch
-}
-
-const savePromptLengthInfo = (
-  messages: Message[],
-  system: string | Array<TextBlockParam>
-) => {
-  console.log('Prompting claude num messages:', messages.length)
-  debugLog('Prompting claude num messages:', messages.length)
-
-  const lastMessageContent = messages[messages.length - 1].content
-
-  // Save prompt debug information to a JSON array
-  const promptDebugInfo = {
-    input:
-      typeof lastMessageContent === 'string' ? lastMessageContent : '[object]',
-    messages: JSON.stringify(messages).length,
-    system: system.length,
-    timestamp: new Date().toISOString(),
-  }
-
-  debugLog(JSON.stringify(promptDebugInfo))
-
-  const debugFilePath = path.join(__dirname, 'prompt.debug.json')
-
-  let debugArray = []
-  try {
-    const existingData = fs.readFileSync(debugFilePath, 'utf8')
-    debugArray = JSON.parse(existingData)
-  } catch (error) {
-    // If file doesn't exist or is empty, start with an empty array
-  }
-
-  debugArray.push(promptDebugInfo)
-
-  fs.writeFileSync(debugFilePath, JSON.stringify(debugArray, null, 2))
 }

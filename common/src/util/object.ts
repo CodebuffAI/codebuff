@@ -100,3 +100,15 @@ export const filterObject = <T extends object>(obj: T, predicate: (value: any, k
   }
   return result
 }
+
+/**
+ * Asserts that a condition is true. If the condition is false, it throws an error with the provided message.
+ * @param condition The condition to check
+ * @param message The error message to display if the condition is false
+ * @throws {Error} If the condition is false
+ */
+export function assert(condition: boolean, message: string): asserts condition {
+  if (!condition) {
+    throw new Error(`Assertion failed: ${message}`);
+  }
+}

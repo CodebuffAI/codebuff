@@ -1,20 +1,44 @@
 import { range, shuffle, uniq } from 'lodash'
 import { dirname } from 'path'
+import { WebSocket } from 'ws'
 
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
-import { model_types, models, promptClaude } from './claude'
+import { model_types, models, promptClaude, System } from './claude'
 import { debugLog } from './util/debug'
-import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
+import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { getAllFilePaths } from 'common/project-file-tree'
+import { requestFiles } from './websockets/websocket-action'
 
 export async function requestRelevantFiles(
+  ws: WebSocket,
   {
     messages,
     system,
   }: {
     messages: Message[]
-    system: string | Array<TextBlockParam>
+    system: System
+  },
+  fileContext: ProjectFileContext,
+  assistantPrompt: string | null,
+  userId: string
+) {
+  const filePaths = await requestRelevantFilesPrompt(
+    { messages, system },
+    fileContext,
+    assistantPrompt,
+    userId
+  )
+  return await requestFiles(ws, filePaths)
+}
+
+export async function requestRelevantFilesPrompt(
+  {
+    messages,
+    system,
+  }: {
+    messages: Message[]
+    system: System
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
@@ -39,6 +63,7 @@ export async function requestRelevantFiles(
       userPrompt,
       assistantPrompt,
       fileContext,
+      previousFiles,
       countPerRequest,
       index * 2 - 1
     )
@@ -65,6 +90,7 @@ export async function requestRelevantFiles(
       userPrompt,
       assistantPrompt,
       fileContext,
+      previousFiles,
       index * 2 - 1,
       countPerRequest
     )
@@ -171,6 +197,7 @@ function generateNonObviousRequestFilesPrompt(
   userPrompt: string | null,
   assistantPrompt: string | null,
   fileContext: ProjectFileContext,
+  previousFiles: string[],
   count: number,
   index: number
 ): string {
@@ -200,6 +227,11 @@ Please follow these steps to determine which files to request:
 5. Try to list exactly ${count} files.
 
 Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
+${
+  previousFiles.length > 0
+    ? `Do not include any of the following files that have already been requested in previous instructions:\n${previousFiles.join('\n')}`
+    : ''
+}
 
 Please provide no commentary and list the file paths you think are useful but not obvious in addressing the user's request.
 
@@ -224,6 +256,7 @@ function generateKeyRequestFilesPrompt(
   userPrompt: string | null,
   assistantPrompt: string | null,
   fileContext: ProjectFileContext,
+  previousFiles: string[],
   index: number,
   count: number
 ): string {
@@ -254,6 +287,11 @@ Please follow these steps to determine which key files to request:
 5. Order the files by most important first.
 
 Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
+${
+  previousFiles.length > 0
+    ? `Do not include any of the following files that have already been requested in previous instructions:\n${previousFiles.join('\n')}`
+    : ''
+}
 
 Please provide no commentary and only list the file paths at index ${start} through ${end} of the most relevant files that you think are most crucial for addressing the user's request.
 

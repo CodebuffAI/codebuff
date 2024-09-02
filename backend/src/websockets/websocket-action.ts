@@ -1,4 +1,6 @@
 import { WebSocket } from 'ws'
+import { Message as AnthropicMessage } from '@anthropic-ai/sdk/resources'
+
 import { ClientMessage } from 'common/websockets/websocket-schema'
 import { mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction } from 'common/actions'
@@ -32,7 +34,7 @@ const onUserInput = async (
     console.log('Input:', lastMessage)
 
   try {
-    const { toolCall, response, changes } = await mainPrompt(
+    const { response, changes } = await mainPrompt(
       ws,
       messages,
       fileContext,
@@ -46,24 +48,22 @@ const onUserInput = async (
     )
     const allChanges = [...previousChanges, ...changes]
 
-    if (toolCall) {
-      console.log('toolCall', toolCall.name, toolCall.input)
-      sendAction(ws, {
-        type: 'tool-call',
-        userInputId,
-        response,
-        data: toolCall,
-        changes: allChanges,
-      })
-    } else {
-      console.log('response-complete')
-      sendAction(ws, {
-        type: 'response-complete',
-        userInputId,
-        response,
-        changes: allChanges,
-      })
-    }
+    // if (toolCall) {
+    //   console.log('toolCall', toolCall.name, toolCall.input)
+    //   sendAction(ws, {
+    //     type: 'tool-call',
+    //     userInputId,
+    //     response,
+    //     data: toolCall,
+    //     changes: allChanges,
+    //   })
+    console.log('response-complete')
+    sendAction(ws, {
+      type: 'response-complete',
+      userInputId,
+      response,
+      changes: allChanges,
+    })
   } catch (e) {
     console.error('Error in mainPrompt', e)
     const response =
@@ -117,7 +117,6 @@ const onWarmContextCache = async (
   ws: WebSocket
 ) => {
   const startTime = Date.now()
-  const tools = getTools()
   const system = getSystemPrompt(fileContext, { onlyCachePrefix: true })
   await promptClaude(
     [
@@ -129,7 +128,6 @@ const onWarmContextCache = async (
     {
       model: models.sonnet,
       system,
-      tools,
       userId: fingerprintId,
     }
   )

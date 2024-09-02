@@ -13,12 +13,15 @@ export const models = {
 
 export type model_types = (typeof models)[keyof typeof models]
 
+export type System = string | Array<TextBlockParam>
+
 export const promptClaudeStream = async function* (
   messages: Message[],
   options: {
-    system?: string | Array<TextBlockParam>
+    system?: System
     tools?: Tool[]
     model?: model_types
+    maxTokens?: number
     userId: string
   }
 ): AsyncGenerator<string | ToolCall, void, unknown> {
@@ -100,6 +103,7 @@ export const promptClaude = async (
     system?: string | Array<TextBlockParam>
     tools?: Tool[]
     model?: model_types
+    maxTokens?: number
     userId: string
   }
 ) => {
