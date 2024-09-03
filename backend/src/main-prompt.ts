@@ -96,6 +96,7 @@ ${STOP_MARKER}
       },
       (filePath, fileContent) => {
         console.log('on file!', filePath)
+        fullResponse += fileContent
         fileProcessingPromises.push(
           processFileBlock(
             userId,
