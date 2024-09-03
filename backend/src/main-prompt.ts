@@ -30,6 +30,8 @@ export async function mainPrompt(
 
   while (true) {
     console.log('layer', layer)
+    const startTime = Date.now()
+
     const messagesWithContinuedMessages = [...messages, ...continuedMessages]
     if (layer === 1) {
       const { files } = await layer1(
@@ -46,6 +48,8 @@ export async function mainPrompt(
       printedResponse += filesInfoMessage
       fullResponse += filesInfoMessage
       layer = 2
+
+      console.log(`Layer 1 took ${Date.now() - startTime}ms`)
 
       await warmCache(fileContext, messagesWithContinuedMessages, userId)
     } else if (layer === 2) {
@@ -88,6 +92,8 @@ ${choosePlanInfo.fullResponse}
         }
       )
 
+      console.log(`Layer 2 took ${Date.now() - startTime}ms`)
+
       const { chosenPlan } = choosePlanInfo
       if (chosenPlan === 'PAUSE') {
         onResponseChunk(choosePlanInfo.fullResponse)
@@ -111,6 +117,8 @@ ${choosePlanInfo.fullResponse}
 
       printedResponse += response
       fullResponse += response
+
+      console.log(`Layer 3 took ${Date.now() - startTime}ms`)
 
       return {
         response: fullResponse,

@@ -162,18 +162,32 @@ Please write out a <chosen_plan> block that contains "PROCEED", "PAUSE", or "GAT
 }
 
 const parseChoosePlanPrompt = (response: string) => {
-  const uncertaintyScoreRegex = /<uncertainty_score>(.*?)<\/uncertainty_score>/
-  const chosenPlanRegex = /<chosen_plan>(.*?)<\/chosen_plan>/
+  const uncertaintyScoreRegex =
+    /<uncertainty_score>[\s\S]*?<\/uncertainty_score>/s
+  const chosenPlanRegex = /<chosen_plan>[\s\S]*?<\/chosen_plan>/s
 
   const uncertaintyScoreMatch = response.match(uncertaintyScoreRegex)
   const chosenPlanMatch = response.match(chosenPlanRegex)
 
-  if (!uncertaintyScoreMatch || !chosenPlanMatch) {
-    throw new Error('Could not parse choose plan prompt')
+  let uncertaintyScore = 0
+  let chosenPlanStr = 'PAUSE'
+  if (!uncertaintyScoreMatch) {
+    console.error('Could not parse uncertainty score', response)
+  } else {
+    uncertaintyScore = parseInt(
+      uncertaintyScoreMatch[0].replace(/<\/?uncertainty_score>/g, '').trim(),
+      10
+    )
   }
-  const uncertaintyScore = parseInt(uncertaintyScoreMatch[1], 10)
-  const chosenPlanStr = chosenPlanMatch[1] as PossiblePlan
-  const chosenPlan = possiblePlans.includes(chosenPlanStr)
+  if (!chosenPlanMatch) {
+    console.error('Could not parse chosen plan', response)
+  } else {
+    chosenPlanStr = chosenPlanMatch[0]
+      .replace(/<\/?chosen_plan>/g, '')
+      .trim() as PossiblePlan
+  }
+
+  const chosenPlan = possiblePlans.includes(chosenPlanStr as PossiblePlan)
     ? chosenPlanStr
     : ('PAUSE' as const)
 
