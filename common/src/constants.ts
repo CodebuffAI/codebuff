@@ -1,1 +1,30 @@
 export const STOP_MARKER = '[' + 'END]'
+
+export const SKIPPED_TERMINAL_COMMANDS = [
+  'continue',
+  'date',
+  'head',
+  'history',
+  'if',
+  'jobs',
+  'less',
+  'man',
+  'more',
+  'nice',
+  'read',
+  'set',
+  'sort',
+  'split',
+  'tail',
+  'test',
+  'time',
+  'top',
+  'touch',
+  'type',
+  'unset',
+  'what',
+  'which',
+  'who',
+  'write',
+  'yes'
+];

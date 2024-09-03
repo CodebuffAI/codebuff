@@ -18,6 +18,7 @@ import {
   setFiles,
 } from './project-files'
 import { handleRunTerminalCommand } from './tool-handlers'
+import { SKIPPED_TERMINAL_COMMANDS } from 'common/constants'
 
 export class CLI {
   private client: Client
@@ -237,11 +238,8 @@ export class CLI {
       return
     }
 
-    const skippedTerminalCommands = ['what', 'which', 'file'].map(
-      (str) => `${str} `
-    )
     if (
-      !skippedTerminalCommands.some((command) =>
+      !SKIPPED_TERMINAL_COMMANDS.some((command) =>
         userInput.toLowerCase().startsWith(command)
       )
     ) {
