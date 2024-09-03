@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "1.0.51",
+  "version": "1.0.50",
   "description": "Backend server for Manicode",
   "main": "dist/index.js",
   "license": "UNLICENSED",
@@ -17,7 +17,7 @@
     "test:watch": "bun test --watch"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.26.1",
+    "@anthropic-ai/sdk": "0.27.1",
     "diff": "5.2.0",
     "dotenv": "16.4.5",
     "express": "4.19.2",

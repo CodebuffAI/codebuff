@@ -5,6 +5,9 @@ const MessageContentObjectSchema = z.union([
   z.object({
     type: z.literal('text'),
     text: z.string(),
+    cache_control: z.object({
+      type: z.literal('ephemeral'),
+    }).optional(),
   }),
   z.object({
     type: z.literal('tool_use'),

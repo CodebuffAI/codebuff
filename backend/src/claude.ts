@@ -13,16 +13,19 @@ export const models = {
 
 export type model_types = (typeof models)[keyof typeof models]
 
+export type System = string | Array<TextBlockParam>
+
 export const promptClaudeStream = async function* (
   messages: Message[],
   options: {
-    system?: string | Array<TextBlockParam>
+    system?: System
     tools?: Tool[]
     model?: model_types
+    maxTokens?: number
     userId: string
   }
 ): AsyncGenerator<string | ToolCall, void, unknown> {
-  const { model = models.sonnet, system, tools, userId } = options
+  const { model = models.sonnet, system, tools, userId, maxTokens } = options
 
   const apiKey = process.env.ANTHROPIC_API_KEY
 
@@ -45,7 +48,7 @@ export const promptClaudeStream = async function* (
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
       model,
-      max_tokens: 4096,
+      max_tokens: maxTokens ?? 4096,
       temperature: 0,
       messages,
       system,
@@ -100,6 +103,7 @@ export const promptClaude = async (
     system?: string | Array<TextBlockParam>
     tools?: Tool[]
     model?: model_types
+    maxTokens?: number
     userId: string
   }
 ) => {
