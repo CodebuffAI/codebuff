@@ -42,7 +42,7 @@ export async function promptOpenAI(
         messages,
         temperature: 0,
       }),
-      timeoutPromise(60000) as Promise<OpenAI.Chat.ChatCompletion>,
+      timeoutPromise(120000) as Promise<OpenAI.Chat.ChatCompletion>,
     ])
 
     if (
@@ -143,4 +143,30 @@ export async function promptOpenAIWithContinuation(
   }
 
   return fullResponse
+}
+
+export async function promptOpenAIStream(
+  userId: string,
+  messages: OpenAIMessage[],
+  model: string
+): Promise<Stream<OpenAI.Chat.Completions.ChatCompletionChunk>> {
+  const openai = getOpenAI(userId)
+  try {
+    const stream = await openai.chat.completions.create({
+      model,
+      messages,
+      temperature: 0,
+      stream: true,
+    })
+
+    return stream
+  } catch (error) {
+    console.error(
+      'Error calling OpenAI API:',
+      error && typeof error === 'object' && 'message' in error
+        ? error.message
+        : 'Unknown error'
+    )
+    throw error
+  }
 }

@@ -3,6 +3,7 @@ import { createPatch } from 'diff'
 import { Message } from 'common/actions'
 import { expandNewContent } from './generate-diffs-via-expansion'
 import { generateExpandedFileWithDiffBlocks } from './generate-diffs-prompt'
+import { expandNewContentUsingLineNumbers } from './expand-with-line-numbers'
 
 const LARGE_FILE_CHARACTERS = 10000
 
@@ -19,29 +20,14 @@ export async function generatePatch(
   const normalizedOldContent = normalizeLineEndings(oldContent)
   const normalizedNewContent = normalizeLineEndings(newContent)
 
-  let updatedFile: string
-  if (
-    oldContent.length > LARGE_FILE_CHARACTERS &&
-    newContent.length < LARGE_FILE_CHARACTERS / 3
-  ) {
-    updatedFile = await generateExpandedFileWithDiffBlocks(
-      userId,
-      messageHistory,
-      fullResponse,
-      filePath,
-      normalizedOldContent,
-      normalizedNewContent
-    )
-  } else {
-    updatedFile = await expandNewContent(
-      userId,
-      normalizedOldContent,
-      normalizedNewContent,
-      filePath,
-      messageHistory,
-      fullResponse
-    )
-  }
+  let updatedFile = await expandNewContentUsingLineNumbers(
+    userId,
+    normalizedOldContent,
+    normalizedNewContent,
+    filePath,
+    messageHistory,
+    fullResponse
+  )
   updatedFile = updatedFile.replaceAll('\n', lineEnding)
   return createPatch(filePath, oldContent, updatedFile)
 }
