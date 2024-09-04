@@ -15,6 +15,7 @@ export async function generateExpandedFileWithDiffBlocks(
   const diffBlocks = await generateDiffBlocks(
     userId,
     messageHistory,
+    fullResponse,
     filePath,
     oldContent,
     newContent
@@ -52,6 +53,7 @@ export async function generateExpandedFileWithDiffBlocks(
 export async function generateDiffBlocks(
   userId: string,
   messageHistory: Message[],
+  fullResponse: string,
   filePath: string,
   oldContent: string,
   newContent: string
@@ -62,7 +64,16 @@ export async function generateDiffBlocks(
   debugLog('Old content:', oldContent)
   debugLog('New content:', newContent)
 
-  const prompt = `I have a new version of a file with placeholder comments like "// ... existing code ...", and I want to change the old file into the new file without the placeholder comments.
+  const prompt = `
+The following is a conversation with a user leading up to your task:
+  
+<message_history>${messageHistory.map((msg) => `<${msg.role}>${msg.content}</${msg.role}>`).join('\n')}</message_history>
+
+<assistant_message_partial_response>${fullResponse}</assistant_message_partial_response>
+  
+Your task: I have a new version of a file with placeholder comments like "// ... existing code ..." or "# ... existing code ...", and I want to change the old file into the expanded new file without the placeholder comments.
+
+Consider the intent of the user: if only one function or code block is shown, don't delete everything else that was not shown.
   
 I need to generate <search> and <replace> blocks to represent the exact line-by-line differences so I can string replace the old content to the new content.
 
@@ -446,7 +457,8 @@ Your Response:`
     console.log('No diff blocks generated', filePath)
     debugLog('Warning: No diff blocks generated', filePath)
   } else if (diffBlocksThatDidntMatch.length > 0) {
-    const newPrompt = `The assistant failed to find a match for the following changes in the file ${filePath}. Please help the assistant understand what the changes should be.
+    const newPrompt =
+      `The assistant failed to find a match for the following changes in the file ${filePath}. Please help the assistant understand what the changes should be.
 
 Here is the previous prompt that the assistant was given:
 <prompt>
@@ -468,7 +480,7 @@ You should:
 
 Please make sure to end your response with the following string:
 ${STOP_MARKER}
-`
+`.trim()
     console.log('Trying a second prompt for getDiffBlocks', filePath)
     debugLog('Trying a second prompt for getDiffBlocks', filePath)
     const response = await promptOpenAIWithContinuation(

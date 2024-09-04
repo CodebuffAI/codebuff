@@ -11,9 +11,16 @@ export async function expandNewContent(
   messageHistory: Message[],
   fullResponse: string
 ): Promise<string> {
-  const prompt = `<assistant_message_context>${fullResponse}</assistant_message_context>
+  const prompt = `
+The following is a conversation with a user leading up to your task:
+  
+<message_history>${messageHistory.map((msg) => `<${msg.role}>${msg.content}</${msg.role}>`).join('\n')}</message_history>
 
-You are an expert programmer tasked with expanding a shortened version of a file into its full content. The shortened version uses comments like "// ... existing code ..." or "// ... rest of the function ..." or "// keep existing code ..." to indicate unchanged sections. Your task is to replace these comments with the actual code from the old version of the file.
+<assistant_message_partial_response>${fullResponse}</assistant_message_partial_response>
+
+Your task: You are an expert programmer tasked with expanding a shortened version of a file into its full content. The shortened file to be expanded will be provided at the end of this message. This shortened version uses comments like "// ... existing code ..." or "# ... rest of the function ..." or "// keep existing code ..." to indicate unchanged sections. Your task is to replace these comments with the actual code from the old version of the file.
+
+Consider the intent of the user: if only one function or code block is shown, don't delete everything else that was not shown.
 
 Your response should follow the following format:
 A. Please discuss the changes in the new file content compared to the old file content in a <discussion> block.
@@ -27,7 +34,7 @@ This requires you to compose the resulting file with exact lines from the old fi
 
 Output the full content of the new file within a <file> block, using the provided file path as an attribute.
 
-If comments are being added that describe the change that is being made, such as "// Add this import" or "// Add this function" or "// Update this log", then please ommit these lines from the new file.
+If comments are being added that describe the change that is being made, such as "# Add this import" or "// Add this function" or "// Update this log", then please ommit these lines from the new file.
 
 Here are four examples to illustrate the task:
 
@@ -662,7 +669,8 @@ Old file content:
 ${createFileBlock(filePath, oldContent)}
 
 New file content (with placeholders):
-${createFileBlock(filePath, newContent)}`
+${createFileBlock(filePath, newContent)}
+`.trim()
   const expandedContentResponse = await promptOpenAI(
     userId,
     [
@@ -674,11 +682,7 @@ ${createFileBlock(filePath, newContent)}`
     'gpt-4o-2024-08-06'
   )
 
-  debugLog(
-    'New file (unexpanded) for filePath',
-    filePath,
-    newContent
-  )
+  debugLog('New file (unexpanded) for filePath', filePath, newContent)
   debugLog(
     'Expanded content response for filePath',
     filePath,
