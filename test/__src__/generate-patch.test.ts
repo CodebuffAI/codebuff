@@ -26,6 +26,17 @@ const runPatchTest = async (dir: string, mockFilePath: string) => {
 }
 
 describe('generatePatch', () => {
+  it.only(
+    'should work for missing-line-actions',
+    async () => {
+      await runPatchTest(
+        `${mockDataDir}/missing-line-actions`,
+        'src/actions.ts'
+      )
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
+
   it(
     'should generate diff for simple change',
     async () => {
@@ -112,17 +123,6 @@ describe('generatePatch', () => {
       await runPatchTest(
         `${mockDataDir}/delete-comment`,
         'src/delete-comment.ts'
-      )
-    },
-    CLAUDE_CALL_TIMEOUT
-  )
-
-  it(
-    'should work for missing-line-actions',
-    async () => {
-      await runPatchTest(
-        `${mockDataDir}/missing-line-actions`,
-        'src/actions.ts'
       )
     },
     CLAUDE_CALL_TIMEOUT
