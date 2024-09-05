@@ -1,6 +1,8 @@
-# Manicode
+# The AI tool for senior engineers
 
-Manicode is an AI coding assistant that runs from your command line. It has access to all files in your project and carries out tasks for you.
+Go faster every day, even in large codebases!
+
+Run `manicode` from your terminal. Tell it what to do. It will read and write to files in your project to swiftly accomplish tasks.
 
 ## Installation
 
@@ -35,12 +37,12 @@ To unlock the full benefits of modern LLMs, we recommend storing knowledge along
 
 Manicode can fluently read and write files, so it will add knowledge as it goes. You don't need to write knowledge manually!
 
-Some have said every change should be paried with a unit test. In 2024, every change should come with a knowledge update!
+Some have said every change should be paired with a unit test. In 2024, every change should come with a knowledge update!
 
 ## Tips
 
 1. Create a `knowledge.md` file and collect specific points of advice. The assistant will use this knowledge to improve its responses.
-2. Press `Ctrl+U` to undo file changes from the conversation. Press `Ctrl+R` to redo file changes
+2. Type `undo` or `redo` to revert or reapply file changes from the conversation. 
 3. Press `Esc` or `Ctrl+C` while Manicode is generating a response to stop it.
 
 ## Feedback

@@ -103,7 +103,7 @@ export async function promptOpenAIWithContinuation(
           stream: true,
           temperature: 0,
         }),
-        timeoutPromise(60000) as Promise<
+        timeoutPromise(120000) as Promise<
           Stream<OpenAI.Chat.Completions.ChatCompletionChunk>
         >,
       ])
