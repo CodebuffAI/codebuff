@@ -42,7 +42,7 @@ export async function promptOpenAI(
         messages,
         temperature: 0,
       }),
-      timeoutPromise(60000) as Promise<OpenAI.Chat.ChatCompletion>,
+      timeoutPromise(120000) as Promise<OpenAI.Chat.ChatCompletion>,
     ])
 
     if (
@@ -103,7 +103,7 @@ export async function promptOpenAIWithContinuation(
           stream: true,
           temperature: 0,
         }),
-        timeoutPromise(60000) as Promise<
+        timeoutPromise(120000) as Promise<
           Stream<OpenAI.Chat.Completions.ChatCompletionChunk>
         >,
       ])
