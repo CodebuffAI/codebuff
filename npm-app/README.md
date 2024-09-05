@@ -1,8 +1,6 @@
 # The AI tool for senior engineers
 
-Manicode makes experienced engineers more productive, every day.
-
-Go faster, even in large codebases!
+Go faster every day, even in large codebases!
 
 Run `manicode` from your terminal. Tell it what to do. It will read and write to files in your project to swiftly accomplish tasks.
 

@@ -45,8 +45,16 @@ export function getProjectRoot() {
 let cachedProjectFileContext: ProjectFileContext | undefined
 
 export const getProjectFileContext = async (fileList: string[]) => {
-  if (!cachedProjectFileContext) {
-    const fileTree = getProjectFileTree(projectRoot)
+  const root = getProjectRoot()
+  const cwd = getCurrentWorkingDirectory()
+
+  const contextRoot = path.relative(root, cwd).startsWith('..') ? cwd : root
+
+  if (
+    !cachedProjectFileContext ||
+    cachedProjectFileContext.currentWorkingDirectory !== contextRoot
+  ) {
+    const fileTree = getProjectFileTree(contextRoot)
     const knowledgeFilePaths = getAllFilePaths(fileTree).filter((filePath) =>
       filePath.endsWith('knowledge.md')
     )
@@ -59,7 +67,7 @@ export const getProjectFileContext = async (fileList: string[]) => {
     const gitChanges = await getGitChanges()
 
     cachedProjectFileContext = {
-      currentWorkingDirectory: projectRoot,
+      currentWorkingDirectory: contextRoot,
       fileTree,
       exportedTokens,
       knowledgeFiles,
