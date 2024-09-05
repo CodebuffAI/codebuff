@@ -3,7 +3,6 @@ import { getFilePathFromPatch } from 'common/util/file'
 import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
 import chalk from 'chalk'
-import { exec } from 'child_process'
 import { parse } from 'path'
 
 import { websocketUrl } from './config'
@@ -262,7 +261,6 @@ export class CLI {
     this.chatStorage.addMessage(this.chatStorage.getCurrentChat(), newMessage)
 
     this.isReceivingResponse = true
-    stageChanges()
     const { response, changes } = await this.sendUserInputAndAwaitResponse()
     this.isReceivingResponse = false
 
@@ -318,12 +316,4 @@ export class CLI {
     this.stopResponse = null
     return result
   }
-}
-
-const stageChanges = () => {
-  exec(`cd ${getProjectRoot()} && git add .`, (error, stdout, stderr) => {
-    if (error) {
-      return
-    }
-  })
 }
