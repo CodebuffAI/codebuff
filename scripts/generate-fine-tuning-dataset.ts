@@ -31,6 +31,7 @@ const PARALLEL_PROCESSES = 20
 const BLACK_LIST_STRINGS = ['This file was automatically generated']
 
 interface DatasetEntry {
+  filePath: string
   oldFile: string
   newFile: string
   patch: string
@@ -68,6 +69,7 @@ Please provide a sketch of how to turn the old file into the new file. First, ex
 
   const response = await promptClaude([{ role: 'user', content: prompt }], {
     userId: 'fine-tuning-dataset-generator',
+    ignoreHelicone: true,
   })
 
   // Extract the content from the <file> block
@@ -170,12 +172,12 @@ async function createDataset(project: { name: string; path: string }) {
           }
 
           // Get the file content before and after the commit
-          const oldContent = execSync(
-            `git show ${commitHash}^:${file}`
-          ).toString().replace(/\r\n/g, '\n')
-          const newContent = execSync(
-            `git show ${commitHash}:${file}`
-          ).toString().replace(/\r\n/g, '\n')
+          const oldContent = execSync(`git show ${commitHash}^:${file}`)
+            .toString()
+            .replace(/\r\n/g, '\n')
+          const newContent = execSync(`git show ${commitHash}:${file}`)
+            .toString()
+            .replace(/\r\n/g, '\n')
 
           // Check if the file contains any blacklisted strings
           if (
@@ -190,7 +192,9 @@ async function createDataset(project: { name: string; path: string }) {
           // Generate the git diff patch
           const patch = execSync(
             `git diff ${commitHash}^ ${commitHash} -- ${file}`
-          ).toString().replace(/\r\n/g, '\n')
+          )
+            .toString()
+            .replace(/\r\n/g, '\n')
 
           // Generate Claude sketch
           console.log(`Generating Claude sketch for ${file}`)
@@ -211,6 +215,7 @@ async function createDataset(project: { name: string; path: string }) {
           console.log(`Saved Claude's sketch to ${sketchFilePath}`)
 
           dataset.push({
+            filePath: file,
             oldFile: oldContent,
             newFile: newContent,
             patch: patch,
@@ -244,11 +249,29 @@ async function createDataset(project: { name: string; path: string }) {
   )
   const jsonlContent = dataset
     .map((entry) => {
+      const oldFileWithLineNumbers = entry.oldFile
+        .split('\n')
+        .map((line, index) => `${index + 1}|${line}`)
+        .join('\n')
       const conversation = {
         messages: [
           {
             role: 'user',
-            content: `Here's an old file content:\n\n${entry.oldFile}\n\nAnd here's a sketch of the changes:\n\n${entry.claudeSketch}\n\nPlease produce a patch file based on this information.`,
+            content: `
+Here's an old file for ${entry.filePath}:
+
+\`\`\`
+${oldFileWithLineNumbers}
+\`\`\`
+
+And here's a sketch of the changes:
+
+\`\`\`
+${entry.claudeSketch}
+\`\`\`
+
+Please produce a patch file based on this change.
+`.trim(),
           },
           {
             role: 'assistant',

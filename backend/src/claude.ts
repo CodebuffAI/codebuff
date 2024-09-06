@@ -23,9 +23,17 @@ export const promptClaudeStream = async function* (
     model?: model_types
     maxTokens?: number
     userId: string
+    ignoreHelicone?: boolean
   }
 ): AsyncGenerator<string | ToolCall, void, unknown> {
-  const { model = models.sonnet, system, tools, userId, maxTokens } = options
+  const {
+    model = models.sonnet,
+    system,
+    tools,
+    userId,
+    maxTokens,
+    ignoreHelicone = false,
+  } = options
 
   const apiKey = process.env.ANTHROPIC_API_KEY
 
@@ -35,13 +43,21 @@ export const promptClaudeStream = async function* (
 
   const anthropic = new Anthropic({
     apiKey,
-    baseURL: 'https://anthropic.helicone.ai/',
+    ...(ignoreHelicone
+      ? {}
+      : {
+          baseURL: 'https://anthropic.helicone.ai/',
+        }),
     defaultHeaders: {
       'anthropic-beta': 'prompt-caching-2024-07-31',
-      'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
-      'Helicone-User-Id': userId,
-      'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
-      'Helicone-LLM-Security-Enabled': 'true',
+      ...(ignoreHelicone
+        ? {}
+        : {
+            'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
+            'Helicone-User-Id': userId,
+            'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
+            'Helicone-LLM-Security-Enabled': 'true',
+          }),
     },
   })
 
@@ -100,11 +116,12 @@ export const promptClaudeStream = async function* (
 export const promptClaude = async (
   messages: Message[],
   options: {
+    userId: string
     system?: string | Array<TextBlockParam>
     tools?: Tool[]
     model?: model_types
     maxTokens?: number
-    userId: string
+    ignoreHelicone?: boolean
   }
 ) => {
   let fullResponse = ''
@@ -116,7 +133,12 @@ export const promptClaude = async (
 
 export async function promptClaudeWithContinuation(
   messages: Message[],
-  options: { system?: string; model?: model_types; userId: string }
+  options: {
+    userId: string
+    system?: string
+    model?: model_types
+    ignoreHelicone?: boolean
+  }
 ) {
   let fullResponse = ''
   let continuedMessage: Message | null = null
