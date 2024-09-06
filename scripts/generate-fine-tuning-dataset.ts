@@ -1,7 +1,7 @@
 import { execSync } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
-import { promptClaudeWithContinuation } from '../backend/src/claude'
+import { promptClaude } from '../backend/src/claude'
 import dotenv from 'dotenv'
 import { shuffle } from 'lodash'
 
@@ -11,26 +11,24 @@ const MANICODE_PROJECT_PATH = '/Users/jahooma/manicode'
 
 const PROJECTS_LIST = [
   {
-    name: 'manifold',
-    path: '/Users/jahooma/manifold',
+    name: 'jpcsp',
+    path: `${MANICODE_PROJECT_PATH}/test/__mock-projects__/jpcsp`,
   },
   {
     name: 'litestar',
-    path: `${MANICODE_PROJECT_PATH}/test/__mock-projects__/litestar`
+    path: `${MANICODE_PROJECT_PATH}/test/__mock-projects__/litestar`,
   },
   {
-    name: 'libgdx',
-    path: `${MANICODE_PROJECT_PATH}/test/__mock-projects__/libgdx`,
+    name: 'manifold',
+    path: '/Users/jahooma/manifold',
   },
 ]
 
 const NUMBER_OF_COMMITS = 1000
-const FILES_TO_PROCESS = 20
+const FILES_TO_PROCESS = 200
 const PARALLEL_PROCESSES = 20
 
-const BLACK_LIST_STRINGS = [
-  'This file was automatically generated'
-]
+const BLACK_LIST_STRINGS = ['This file was automatically generated']
 
 interface DatasetEntry {
   oldFile: string
@@ -68,10 +66,9 @@ ${patch}
 Please provide a sketch of how to turn the old file into the new file. First, explain the changes in a <discussion> block. Then, write out the new file in a <file> block, but use comments like "// ... existing code ..." (or "# ... existing code ..." or similar for different languages) for sections that were unchanged. Explain the changes as if you were instructing a human on how to modify the old file into the new file.
 `
 
-  const { response } = await promptClaudeWithContinuation(
-    [{ role: 'user', content: prompt }],
-    { userId: 'fine-tuning-dataset-generator' }
-  )
+  const response = await promptClaude([{ role: 'user', content: prompt }], {
+    userId: 'fine-tuning-dataset-generator',
+  })
 
   // Extract the content from the <file> block
   const fileContentMatch = response.match(/<file>([\s\S]*?)<\/file>/)
@@ -181,7 +178,11 @@ async function createDataset(project: { name: string; path: string }) {
           ).toString()
 
           // Check if the file contains any blacklisted strings
-          if (BLACK_LIST_STRINGS.some(str => oldContent.includes(str) || newContent.includes(str))) {
+          if (
+            BLACK_LIST_STRINGS.some(
+              (str) => oldContent.includes(str) || newContent.includes(str)
+            )
+          ) {
             console.log(`Skipping ${file}: Contains blacklisted string`)
             return
           }
@@ -198,6 +199,10 @@ async function createDataset(project: { name: string; path: string }) {
             newContent,
             patch
           )
+          if (!claudeSketch) {
+            console.log(`Skipping ${file}: Claude sketch is empty`)
+            return
+          }
 
           // Save Claude's sketch to a file in the tmp directory
           const sketchFileName = `${project.name}_${commitHash}_${file.replace(/\//g, '_')}.txt`
