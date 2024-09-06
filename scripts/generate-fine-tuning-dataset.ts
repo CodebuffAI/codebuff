@@ -9,23 +9,28 @@ dotenv.config({ path: path.resolve(__dirname, '../backend/.env') })
 
 const MANICODE_PROJECT_PATH = '/Users/jahooma/manicode'
 
-const MANIFOLD_PROJECT_PATH = '/Users/jahooma/manifold'
-const LITESTAR_PROJECT_PATH = `${MANICODE_PROJECT_PATH}/test/__mock-projects__/litestar`
-
 const PROJECTS_LIST = [
   {
     name: 'manifold',
-    path: MANIFOLD_PROJECT_PATH,
+    path: '/Users/jahooma/manifold',
   },
   {
     name: 'litestar',
-    path: LITESTAR_PROJECT_PATH,
+    path: `${MANICODE_PROJECT_PATH}/test/__mock-projects__/litestar`
+  },
+  {
+    name: 'libgdx',
+    path: `${MANICODE_PROJECT_PATH}/test/__mock-projects__/libgdx`,
   },
 ]
 
 const NUMBER_OF_COMMITS = 1000
-const FILES_TO_PROCESS = 100
+const FILES_TO_PROCESS = 20
 const PARALLEL_PROCESSES = 20
+
+const BLACK_LIST_STRINGS = [
+  'This file was automatically generated'
+]
 
 interface DatasetEntry {
   oldFile: string
@@ -174,6 +179,12 @@ async function createDataset(project: { name: string; path: string }) {
           const newContent = execSync(
             `git show ${commitHash}:${file}`
           ).toString()
+
+          // Check if the file contains any blacklisted strings
+          if (BLACK_LIST_STRINGS.some(str => oldContent.includes(str) || newContent.includes(str))) {
+            console.log(`Skipping ${file}: Contains blacklisted string`)
+            return
+          }
 
           // Generate the git diff patch
           const patch = execSync(
