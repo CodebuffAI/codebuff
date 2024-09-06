@@ -172,10 +172,10 @@ async function createDataset(project: { name: string; path: string }) {
           // Get the file content before and after the commit
           const oldContent = execSync(
             `git show ${commitHash}^:${file}`
-          ).toString()
+          ).toString().replace(/\r\n/g, '\n')
           const newContent = execSync(
             `git show ${commitHash}:${file}`
-          ).toString()
+          ).toString().replace(/\r\n/g, '\n')
 
           // Check if the file contains any blacklisted strings
           if (
@@ -190,7 +190,7 @@ async function createDataset(project: { name: string; path: string }) {
           // Generate the git diff patch
           const patch = execSync(
             `git diff ${commitHash}^ ${commitHash} -- ${file}`
-          ).toString()
+          ).toString().replace(/\r\n/g, '\n')
 
           // Generate Claude sketch
           console.log(`Generating Claude sketch for ${file}`)
