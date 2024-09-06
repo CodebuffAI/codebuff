@@ -1,9 +1,13 @@
 export const applyPatch = (oldContent: string, patch: string): string => {
   const lines = oldContent.split('\n')
-  const pathWithoutFinalNewLine = patch.endsWith('\n')
-    ? patch.slice(0, -1)
-    : patch
-  const patchLines = pathWithoutFinalNewLine.split('\n').slice(4)
+
+  const patchLines = patch.split('\n')
+  const indexOfFirstHunk = patchLines.findIndex((line) => line.startsWith('@@'))
+  patchLines.splice(0, indexOfFirstHunk)
+  if (patch.endsWith('\n')) {
+    patchLines.pop()
+  }
+
   const newLines: string[] = []
   let oldIndex = 0
 
