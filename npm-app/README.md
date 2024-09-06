@@ -1,8 +1,8 @@
 # The AI coder for serious engineers
 
-Use Manicode to write code faster every day.
+Use Manicode to edit large codebases from your terminal.
 
-Intended for experienced engineers in large codebases.
+Intended for every day use by experienced engineers.
 
 1. Run `manicode` from your terminal.
 2. Tell it what to do.
@@ -48,7 +48,7 @@ Some have said every change should be paired with a unit test. In 2024, every ch
 ## Tips
 
 1. Create a `knowledge.md` file and collect specific points of advice. The assistant will use this knowledge to improve its responses.
-2. Type `undo` or `redo` to revert or reapply file changes from the conversation. 
+2. Type `undo` or `redo` to revert or reapply file changes from the conversation.
 3. Press `Esc` or `Ctrl+C` while Manicode is generating a response to stop it.
 
 ## Feedback
