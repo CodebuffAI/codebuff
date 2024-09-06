@@ -8,8 +8,8 @@ dotenv.config({ path: path.resolve(__dirname, '../backend/.env') })
 
 const MANICODE_PROJECT_PATH = '/Users/jahooma/manicode'
 const MANIFOLD_PROJECT_PATH = '/Users/jahooma/manifold'
-const NUMBER_OF_COMMITS = 1000
-const FILES_TO_PROCESS = 100
+const NUMBER_OF_COMMITS = 100
+const FILES_TO_PROCESS = 10
 const PARALLEL_PROCESSES = 3
 
 interface DatasetEntry {
@@ -156,6 +156,27 @@ const createDataset = async () => {
 
   console.log(`Dataset created with ${dataset.length} entries.`)
   console.log(`Dataset saved to: ${outputPath}`)
+
+  // Create fine-tuning-data-manifold.jsonl
+  const jsonlOutputPath = path.join(process.cwd(), 'fine-tuning-data-manifold.jsonl')
+  const jsonlContent = dataset.map(entry => {
+    const conversation = {
+      messages: [
+        {
+          role: "user",
+          content: `Here's an old file content:\n\n${entry.oldFile}\n\nAnd here's a sketch of the changes:\n\n${entry.claudeSketch}\n\nPlease produce a patch file based on this information.`
+        },
+        {
+          role: "assistant",
+          content: entry.patch
+        }
+      ]
+    }
+    return JSON.stringify(conversation)
+  }).join('\n')
+
+  fs.writeFileSync(jsonlOutputPath, jsonlContent)
+  console.log(`JSONL file for fine-tuning created at: ${jsonlOutputPath}`)
 }
 
 createDataset().catch(console.error)
