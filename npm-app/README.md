@@ -1,8 +1,12 @@
-# The AI tool for senior engineers
+# The AI coder for serious engineers
 
-Go faster every day, even in large codebases!
+Use Manicode to write code faster every day.
 
-Run `manicode` from your terminal. Tell it what to do. It will read and write to files in your project to swiftly accomplish tasks.
+Intended for experienced engineers in large codebases.
+
+1. Run `manicode` from your terminal.
+2. Tell it what to do.
+3. It will read and write to files in your project to produce the code you want.
 
 ## Installation
 
@@ -21,6 +25,8 @@ manicode [project-directory]
 ```
 
 If no project directory is specified, Manicode will use the current directory.
+
+After running `manicode`, simply chat with it to say what coding task you want done.
 
 ## Features
 
