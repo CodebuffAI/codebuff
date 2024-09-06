@@ -55,7 +55,6 @@ export const applyPatch = (oldContent: string, patch: string): string => {
         j++
       }
 
-      console.log('startLineToTry', startLineToTry, 'oldIndex', oldIndex)
       let matchIndex = findContextMatch(
         contextLines,
         startLineToTry ?? oldIndex
@@ -65,6 +64,15 @@ export const applyPatch = (oldContent: string, patch: string): string => {
       }
       if (matchIndex === -1) {
         matchIndex = findContextMatchTrimmed(contextLines, oldIndex)
+      }
+      // TODO: try matching with the after context lines?
+      if (
+        matchIndex === -1 &&
+        startLineToTry !== undefined &&
+        startLineToTry > oldIndex
+      ) {
+        // We didn't find a match, just try anyway with the parsed line number.
+        oldIndex = startLineToTry
       }
       if (matchIndex !== -1) {
         // Add lines from old content up to the match
