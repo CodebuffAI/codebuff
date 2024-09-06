@@ -65,10 +65,6 @@ const editingFilesPrompt = `
 # Editing files
 
 <important_instructions>
-Before you edit any file, you must make sure it is provided in the system prompt <relevant_files> block. If not, you should use the update_file_context tool to ask for the file, unless the file does not exist yet.
-</important_instructions>
-
-<important_instructions>
 The user may have edited files since your last change. Please try to notice and perserve those changes. Don't overwrite any user edits please!
 </important_instructions>
 
@@ -219,7 +215,7 @@ The following is the path to the project on the user's computer. It is also the 
 ${currentWorkingDirectory}
 </project_path>
 
-Within this project directory, here is the file tree. It includes everything except files that are .gitignored. Note that the number before each file or directory is the depth of the file in the directory tree:
+Within this project directory, here is the file tree. It includes everything except files that are .gitignored.
 
 <project_file_tree>
 ${printFileTree(fileTree)}

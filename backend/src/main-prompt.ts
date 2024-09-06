@@ -9,7 +9,7 @@ import { ProjectFileContext } from 'common/util/file'
 import { getSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
 import { getTools } from './tools'
-import { Message } from 'common/actions'
+import { FileChange, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './util/debug'
 import { requestFiles, requestFile } from './websockets/websocket-action'
@@ -55,7 +55,7 @@ export async function mainPrompt(
   }
 
   const lastMessage = messages[messages.length - 1]
-  const fileProcessingPromises: Promise<string>[] = []
+  const fileProcessingPromises: Promise<FileChange | null>[] = []
   let toolCall: ToolCall | null = null
   let continuedMessages: Message[] = []
   let isComplete = false
@@ -106,7 +106,7 @@ ${STOP_MARKER}
             fileContent
           ).catch((error) => {
             console.error('Error processing file block', error)
-            return ''
+            return null
           })
         )
         fullResponse += fileContent
@@ -171,7 +171,7 @@ ${STOP_MARKER}
   }
 
   const changes = (await Promise.all(fileProcessingPromises)).filter(
-    (change) => change !== ''
+    (change) => change !== null
   )
 
   return {
@@ -231,7 +231,7 @@ export async function processFileBlock(
   fullResponse: string,
   filePath: string,
   newContent: string
-) {
+): Promise<FileChange> {
   debugLog('Processing file block', filePath)
 
   const oldContent = await requestFile(ws, filePath)
@@ -239,7 +239,7 @@ export async function processFileBlock(
   if (oldContent === null) {
     console.log(`Created new file: ${filePath}`)
     debugLog(`Created new file: ${filePath}`)
-    return createPatch(filePath, '', newContent)
+    return { filePath, content: newContent, type: 'file' }
   }
 
   const patch = await generatePatch(
@@ -252,7 +252,7 @@ export async function processFileBlock(
   )
   console.log(`Generated patch for file: ${filePath}`)
   debugLog(`Generated patch for file: ${filePath}`)
-  return patch
+  return { filePath, content: patch, type: 'patch' }
 }
 
 const savePromptLengthInfo = (

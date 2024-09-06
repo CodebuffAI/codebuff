@@ -80,22 +80,10 @@ export function printFileTree(
 ): string {
   let result = ''
   for (const node of nodes) {
-    result += `${depth > 0 ? `${depth} ` : ''}${node.name}${node.type === 'directory' ? '/' : ''}\n`
+    result += `${' '.repeat(depth)}${node.name}${node.type === 'directory' ? '/' : ''}\n`
     if (node.type === 'directory' && node.children) {
       result += printFileTree(node.children, depth + 1)
     }
   }
   return result
-}
-
-export function getFilePathFromPatch(patch: string): string {
-  const lines = patch.split('\n')
-  if (lines.length > 0) {
-    const indexLine = lines[0]
-    const match = indexLine.match(/^Index: (.+)$/)
-    if (match) {
-      return match[1]
-    }
-  }
-  throw new Error('Invalid patch format: Unable to extract file path')
 }

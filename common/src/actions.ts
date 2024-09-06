@@ -5,9 +5,11 @@ const MessageContentObjectSchema = z.union([
   z.object({
     type: z.literal('text'),
     text: z.string(),
-    cache_control: z.object({
-      type: z.literal('ephemeral'),
-    }).optional(),
+    cache_control: z
+      .object({
+        type: z.literal('ephemeral'),
+      })
+      .optional(),
   }),
   z.object({
     type: z.literal('tool_use'),
@@ -29,7 +31,13 @@ const MessageSchema = z.object({
 export type Message = z.infer<typeof MessageSchema>
 export type MessageContentObject = z.infer<typeof MessageContentObjectSchema>
 
-export const CHANGES = z.array(z.string())
+export const FileChangeSchema = z.object({
+  type: z.enum(['patch', 'file']),
+  filePath: z.string(),
+  content: z.string(),
+})
+export type FileChange = z.infer<typeof FileChangeSchema>
+export const CHANGES = z.array(FileChangeSchema)
 export type FileChanges = z.infer<typeof CHANGES>
 
 export const ToolCallSchema = z.object({

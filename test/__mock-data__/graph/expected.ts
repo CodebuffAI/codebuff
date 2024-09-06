@@ -254,4 +254,4 @@ if (isBrowser) {
     });
 } else {
     console.warn('This script is intended to run in a browser environment.');
-}
+};

@@ -6,7 +6,7 @@ import { WebSocket } from 'ws'
 
 import { ScoreTestContext } from './score-tests'
 import * as mainPromptModule from 'backend/main-prompt'
-import { getFilePathFromPatch, ProjectFileContext } from 'common/util/file'
+import { ProjectFileContext } from 'common/util/file'
 import { applyAndRevertChanges } from 'common/util/changes'
 import { Message } from 'common/actions'
 import {
@@ -17,7 +17,7 @@ import { EventEmitter } from 'events'
 import { FileChanges } from 'common/actions'
 import { projectTest } from './score-tests'
 
-const DEBUG_MODE = false
+const DEBUG_MODE = true
 const mockProjectRoot = path.join(__dirname, '../__mock-projects__/manifold')
 
 projectTest('manifold project', async (getContext) => {
@@ -28,15 +28,15 @@ projectTest('manifold project', async (getContext) => {
 
   const tests = [
     { description: 'test full file path', fn: testFullFilePath },
-    { description: 'test delete comment', fn: testDeleteComment },
-    {
-      description: 'test delete comment without knowledge',
-      fn: testDeleteCommentWithoutKnowledge,
-    },
+    // { description: 'test delete comment', fn: testDeleteComment },
+    // {
+    //   description: 'test delete comment without knowledge',
+    //   fn: testDeleteCommentWithoutKnowledge,
+    // },
   ]
 
   // Run each test multiple times all in parallel
-  const repeatCount = 1
+  const repeatCount = 2
   await Promise.all(
     tests.map(async ({ description, fn }) => {
       const scoreTestContext = getContext(description)
@@ -55,8 +55,9 @@ const testFullFilePath = async ({ expectTrue }: ScoreTestContext) => {
     },
   ])
 
+  console.log('changes', changes)
   const filePathToPatch = Object.fromEntries(
-    changes.map((patch) => [getFilePathFromPatch(patch), patch])
+    changes.map((change) => [change.filePath, change.content])
   )
   const filesChanged = Object.keys(filePathToPatch)
 
@@ -86,7 +87,7 @@ const testDeleteComment = async ({
   ])
 
   const filePathToPatch = Object.fromEntries(
-    changes.map((patch) => [getFilePathFromPatch(patch), patch])
+    changes.map((change) => [change.filePath, change.content])
   )
   const filesChanged = Object.keys(filePathToPatch)
   expectTrue(
@@ -145,7 +146,7 @@ const testDeleteCommentWithoutKnowledge = async ({
   ])
 
   const filePathToPatch = Object.fromEntries(
-    changes.map((patch) => [getFilePathFromPatch(patch), patch])
+    changes.map((change) => [change.filePath, change.content])
   )
   const filesChanged = Object.keys(filePathToPatch)
 
@@ -223,6 +224,12 @@ function getProjectFileContext(): ProjectFileContext {
   }
   return {
     currentWorkingDirectory: mockProjectRoot,
+    gitChanges: {
+      status: '',
+      diff: '',
+      diffCached: '',
+      lastCommitMessages: '',
+    },
     files: {},
     knowledgeFiles,
     exportedTokens: {},

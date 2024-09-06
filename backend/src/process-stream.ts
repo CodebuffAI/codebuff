@@ -38,7 +38,9 @@ export async function* processStreamWithFiles<T extends string | object>(
         if (closeMatch) {
           const closeIndex = closeMatch.index
 
-          const fileContent = buffer.slice(0, closeIndex)
+          const fileContent = buffer.startsWith('\n')
+            ? buffer.slice(1, closeIndex)
+            : buffer.slice(0, closeIndex)
           onFile(currentFilePath, fileContent)
           currentFilePath = ''
 

@@ -5,7 +5,7 @@
   "scripts": {
     "test": "bun test __src__",
     "test-manifold": "bun test manifold-project.test.ts",
-    "test-diff": "bun test generate-patch.test.ts"
+    "test-patch": "bun test generate-patch.test.ts"
   },
   "dependencies": {
     "backend": "file:../backend"

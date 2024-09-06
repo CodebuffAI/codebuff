@@ -15,7 +15,6 @@ import { STOP_MARKER } from 'common/constants'
 import { fingerprintId } from './config'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 import { uniq } from 'lodash'
-import { getFilePathFromPatch } from 'common/util/file'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -40,7 +39,7 @@ export class Client {
     this.webSocket.subscribe('tool-call', async (a) => {
       const { response, changes, data, userInputId } = a
 
-      const filesChanged = uniq(changes.map(getFilePathFromPatch))
+      const filesChanged = uniq(changes.map((change) => change.filePath))
       this.chatStorage.saveFilesChanged(filesChanged)
 
       applyChanges(getProjectRoot(), changes)

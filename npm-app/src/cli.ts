@@ -1,5 +1,4 @@
 import { uniq } from 'lodash'
-import { getFilePathFromPatch } from 'common/util/file'
 import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
 import chalk from 'chalk'
@@ -266,7 +265,7 @@ export class CLI {
 
     this.stopLoadingAnimation()
 
-    const filesChanged = uniq(changes.map(getFilePathFromPatch))
+    const filesChanged = uniq(changes.map((change) => change.filePath))
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
 
     const { created, modified } = applyChanges(getProjectRoot(), changes)

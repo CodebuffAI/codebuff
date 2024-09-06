@@ -34,7 +34,7 @@ describe('processFileBlock', () => {
 
     const filePath = 'test.ts'
 
-    const patch = await processFileBlock(
+    const { type, content } = await processFileBlock(
       'userId',
       mockWs,
       [],
@@ -42,7 +42,8 @@ describe('processFileBlock', () => {
       filePath,
       newContent
     )
-    const updatedFile = applyPatch(oldContent, patch)
+    const updatedFile =
+      type === 'patch' ? applyPatch(oldContent, content) : content
     expect(updatedFile).toEqual(newContent)
 
     expect(mockRequestFile).toHaveBeenCalledWith(mockWs, filePath)

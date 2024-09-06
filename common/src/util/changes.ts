@@ -1,43 +1,31 @@
 import fs from 'fs'
 import path from 'path'
-import { applyPatch } from 'diff'
-
 import { FileChanges } from '../actions'
-import { getFilePathFromPatch } from './file'
+import { applyPatch } from './patch'
 
 export function applyChanges(projectRoot: string, changes: FileChanges) {
   const created: string[] = []
   const modified: string[] = []
 
-  for (const patch of changes) {
-    const filePath = getFilePathFromPatch(patch)
+  for (const change of changes) {
+    const { filePath, content, type } = change
     const fullPath = path.join(projectRoot, filePath)
-
-    let oldContent = ''
-    if (fs.existsSync(fullPath)) {
-      oldContent = fs.readFileSync(fullPath, 'utf-8')
-    }
-
-    const newContent = applyPatch(oldContent, patch)
-
-    if (typeof newContent === 'boolean') {
-      console.error(`Failed to apply patch to ${filePath}`)
-    } else {
-      try {
-        // Ensure the directory exists
-        const dirPath = path.dirname(fullPath)
-        fs.mkdirSync(dirPath, { recursive: true })
-
-        // Write the file
+    try {
+      const fileExists = fs.existsSync(fullPath)
+      if (type === 'file') {
+        fs.writeFileSync(fullPath, content)
+      } else {
+        const oldContent = fs.readFileSync(fullPath, 'utf-8')
+        const newContent = applyPatch(oldContent, content)
         fs.writeFileSync(fullPath, newContent)
-        if (oldContent === '') {
-          created.push(filePath)
-        } else {
-          modified.push(filePath)
-        }
-      } catch (error) {
-        console.error(`Failed to write file ${fullPath}:`, error)
       }
+      if (fileExists) {
+        modified.push(filePath)
+      } else {
+        created.push(filePath)
+      }
+    } catch (error) {
+      console.error(`Failed to apply patch to ${filePath}:`, error, content)
     }
   }
 
@@ -49,7 +37,7 @@ export async function applyAndRevertChanges(
   changes: FileChanges,
   onApply: () => Promise<void>
 ) {
-  const filesChanged = changes.map(getFilePathFromPatch)
+  const filesChanged = changes.map((change) => change.filePath)
   const files = Object.fromEntries(
     filesChanged.map((filePath) => {
       const fullPath = path.join(projectRoot, filePath)

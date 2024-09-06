@@ -1,10 +1,5 @@
-import { createPatch } from 'diff'
-
 import { Message } from 'common/actions'
-import { expandNewContent } from './generate-diffs-via-expansion'
-import { generateExpandedFileWithDiffBlocks } from './generate-diffs-prompt'
-
-const LARGE_FILE_CHARACTERS = 10000
+import { promptOpenAI } from './openai-api'
 
 export async function generatePatch(
   userId: string,
@@ -19,29 +14,56 @@ export async function generatePatch(
   const normalizedOldContent = normalizeLineEndings(oldContent)
   const normalizedNewContent = normalizeLineEndings(newContent)
 
-  let updatedFile: string
-  if (
-    oldContent.length > LARGE_FILE_CHARACTERS &&
-    newContent.length < LARGE_FILE_CHARACTERS / 3
-  ) {
-    updatedFile = await generateExpandedFileWithDiffBlocks(
-      userId,
-      messageHistory,
-      fullResponse,
-      filePath,
-      normalizedOldContent,
-      normalizedNewContent
-    )
-  } else {
-    updatedFile = await expandNewContent(
-      userId,
-      normalizedOldContent,
-      normalizedNewContent,
-      filePath,
-      messageHistory,
-      fullResponse
-    )
-  }
-  updatedFile = updatedFile.replaceAll('\n', lineEnding)
-  return createPatch(filePath, oldContent, updatedFile)
+  const patch = await generatePatchPrompt(
+    userId,
+    normalizedOldContent,
+    normalizedNewContent,
+    filePath,
+    messageHistory,
+    fullResponse
+  )
+  console.log('got patch', newContent, '\n\n', patch)
+  const updatedPatch = patch.replaceAll('\n', lineEnding)
+  return updatedPatch
+}
+
+const generatePatchPrompt = async (
+  userId: string,
+  oldContent: string,
+  newContent: string,
+  filePath: string,
+  messageHistory: Message[],
+  fullResponse: string
+) => {
+  const oldFileWithLineNumbers = oldContent
+    .split('\n')
+    .map((line, index) => `${index + 1}|${line}`)
+    .join('\n')
+  const prompt = `
+Here's an old file for ${filePath}:
+
+\`\`\`
+${oldFileWithLineNumbers}
+\`\`\`
+
+And here's a sketch of the changes:
+
+\`\`\`
+${newContent}
+\`\`\`
+
+Please produce a patch file based on this change.
+`.trim()
+
+  const messages = [
+    {
+      role: 'user' as const,
+      content: prompt,
+    },
+  ]
+  return await promptOpenAI(
+    userId,
+    messages,
+    'ft:gpt-4o-2024-08-06:manifold-markets:run-1:A4VfZwvz'
+  )
 }
