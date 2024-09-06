@@ -23,9 +23,9 @@ const PROJECTS_LIST = [
   },
 ]
 
-const NUMBER_OF_COMMITS = 100
-const FILES_TO_PROCESS = 10
-const PARALLEL_PROCESSES = 3
+const NUMBER_OF_COMMITS = 1000
+const FILES_TO_PROCESS = 100
+const PARALLEL_PROCESSES = 20
 
 interface DatasetEntry {
   oldFile: string
@@ -60,7 +60,7 @@ Here's the patch showing the differences:
 ${patch}
 \`\`\`
 
-Please provide a sketch of how to turn the old file into the new file. First, explain the changes in a <discussion> block. Then, write out the new file in a <file> block, but use comments like "// ... existing code ..." for sections that were unchanged. Explain the changes as if you were instructing a human on how to modify the old file into the new file.
+Please provide a sketch of how to turn the old file into the new file. First, explain the changes in a <discussion> block. Then, write out the new file in a <file> block, but use comments like "// ... existing code ..." (or "# ... existing code ..." or similar for different languages) for sections that were unchanged. Explain the changes as if you were instructing a human on how to modify the old file into the new file.
 `
 
   const { response } = await promptClaudeWithContinuation(
@@ -76,6 +76,7 @@ Please provide a sketch of how to turn the old file into the new file. First, ex
 async function createDataset(project: { name: string; path: string }) {
   console.log(`Creating dataset for project: ${project.name}`)
   const dataset: DatasetEntry[] = []
+  let processedFiles = 0
 
   // Create tmp directory if it doesn't exist
   const tmpDir = path.join(process.cwd(), 'tmp')
@@ -96,10 +97,7 @@ async function createDataset(project: { name: string; path: string }) {
     process.chdir(project.path)
     console.log(`Changed to directory: ${project.path}`)
   } catch (error) {
-    console.error(
-      `Failed to change to directory ${project.path}:`,
-      error
-    )
+    console.error(`Failed to change to directory ${project.path}:`, error)
     return
   }
 
@@ -111,84 +109,140 @@ async function createDataset(project: { name: string; path: string }) {
     .split('\n')
 
   // Get all changed files from the last 1000 commits
-  const allChangedFiles = allCommitHashes.flatMap(commitHash => 
+  const allChangedFiles = allCommitHashes.flatMap((commitHash) =>
     execSync(`git diff-tree --no-commit-id --name-only -r ${commitHash}`)
       .toString()
       .split('\n')
-      .filter(file => file.endsWith('.ts') || file.endsWith('.tsx'))
+      .filter(
+        (file) =>
+          file.endsWith('.ts') ||
+          file.endsWith('.tsx') ||
+          file.endsWith('.py') ||
+          file.endsWith('.js') ||
+          file.endsWith('.jsx') ||
+          file.endsWith('.java') ||
+          file.endsWith('.go') ||
+          file.endsWith('.c') ||
+          file.endsWith('.cpp') ||
+          file.endsWith('.h') ||
+          file.endsWith('.hpp') ||
+          file.endsWith('.rs') ||
+          file.endsWith('.md')
+      )
   )
 
-  // Randomly select 100 unique files
-  const filesToProcess = [...new Set(allChangedFiles)]
-    .sort(() => 0.5 - Math.random())
-    .slice(0, FILES_TO_PROCESS)
+  const shuffledFiles = [...new Set(allChangedFiles)].sort(
+    () => 0.5 - Math.random()
+  )
 
-  console.log(`Randomly selected ${filesToProcess.length} files to process.`)
+  console.log(`Randomly selected ${shuffledFiles.length} files to process.`)
 
-  // Process files in parallel
-  for (let i = 0; i < filesToProcess.length; i += PARALLEL_PROCESSES) {
-    const batch = filesToProcess.slice(i, i + PARALLEL_PROCESSES)
-    await Promise.all(batch.map(async (file) => {
-      try {
-        console.log(`Processing file: ${file}`)
-        const commitHash = execSync(`git log -n 1 --pretty=format:"%H" -- ${file}`).toString()
-        
-        // Get the file content before and after the commit
-        const oldContent = execSync(`git show ${commitHash}^:${file}`).toString()
-        const newContent = execSync(`git show ${commitHash}:${file}`).toString()
+  // Process files until we have 100 valid entries or run out of files
+  for (
+    let i = 0;
+    i < shuffledFiles.length && processedFiles < FILES_TO_PROCESS;
+    i += PARALLEL_PROCESSES
+  ) {
+    const batch = shuffledFiles.slice(i, i + PARALLEL_PROCESSES)
+    await Promise.all(
+      batch.map(async (file) => {
+        if (processedFiles >= FILES_TO_PROCESS) return
 
-        // Generate the git diff patch
-        const patch = execSync(`git diff ${commitHash}^ ${commitHash} -- ${file}`).toString()
+        try {
+          console.log(`Processing file: ${file}`)
+          const commitHash = execSync(
+            `git log -n 1 --pretty=format:"%H" -- ${file}`
+          ).toString()
 
-        // Generate Claude sketch
-        console.log(`Generating Claude sketch for ${file}`)
-        const claudeSketch = await generateClaudeSketch(oldContent, newContent, patch)
+          // Check the number of lines changed
+          const diffStats = execSync(
+            `git diff ${commitHash}^ ${commitHash} -- ${file} | grep -E "^[-+]" | wc -l`
+          )
+            .toString()
+            .trim()
+          const linesChanged = parseInt(diffStats, 10)
 
-        // Save Claude's sketch to a file in the tmp directory
-        const sketchFileName = `${project.name}_${commitHash}_${file.replace(/\//g, '_')}.txt`
-        const sketchFilePath = path.join(tmpDir, sketchFileName)
-        fs.writeFileSync(sketchFilePath, claudeSketch)
-        console.log(`Saved Claude's sketch to ${sketchFilePath}`)
+          if (linesChanged < 10) {
+            console.log(`Skipping ${file}: Only ${linesChanged} lines changed`)
+            return
+          }
 
-        dataset.push({
-          oldFile: oldContent,
-          newFile: newContent,
-          patch: patch,
-          claudeSketch: claudeSketch,
-        })
-        console.log(`Added entry for ${file} to dataset.`)
-      } catch (error: any) {
-        console.error(`Error processing file ${file}:`, error.message)
-      }
-    }))
+          // Get the file content before and after the commit
+          const oldContent = execSync(
+            `git show ${commitHash}^:${file}`
+          ).toString()
+          const newContent = execSync(
+            `git show ${commitHash}:${file}`
+          ).toString()
+
+          // Generate the git diff patch
+          const patch = execSync(
+            `git diff ${commitHash}^ ${commitHash} -- ${file}`
+          ).toString()
+
+          // Generate Claude sketch
+          console.log(`Generating Claude sketch for ${file}`)
+          const claudeSketch = await generateClaudeSketch(
+            oldContent,
+            newContent,
+            patch
+          )
+
+          // Save Claude's sketch to a file in the tmp directory
+          const sketchFileName = `${project.name}_${commitHash}_${file.replace(/\//g, '_')}.txt`
+          const sketchFilePath = path.join(tmpDir, sketchFileName)
+          fs.writeFileSync(sketchFilePath, claudeSketch)
+          console.log(`Saved Claude's sketch to ${sketchFilePath}`)
+
+          dataset.push({
+            oldFile: oldContent,
+            newFile: newContent,
+            patch: patch,
+            claudeSketch: claudeSketch,
+          })
+          console.log(`Added entry for ${file} to dataset.`)
+          processedFiles++
+        } catch (error: any) {
+          console.error(`Error processing file ${file}:`, error.message)
+        }
+      })
+    )
   }
 
   process.chdir(MANICODE_PROJECT_PATH)
 
   // Save the dataset to a JSON file
-  const outputPath = path.join(process.cwd(), `fine_tuning_dataset_${project.name}.json`)
+  const outputPath = path.join(
+    process.cwd(),
+    `fine_tuning_dataset_${project.name}.json`
+  )
   fs.writeFileSync(outputPath, JSON.stringify(dataset, null, 2))
 
   console.log(`Dataset created with ${dataset.length} entries.`)
   console.log(`Dataset saved to: ${outputPath}`)
 
   // Create fine-tuning-data-[project-name].jsonl
-  const jsonlOutputPath = path.join(process.cwd(), `fine-tuning-data-${project.name}.jsonl`)
-  const jsonlContent = dataset.map(entry => {
-    const conversation = {
-      messages: [
-        {
-          role: "user",
-          content: `Here's an old file content:\n\n${entry.oldFile}\n\nAnd here's a sketch of the changes:\n\n${entry.claudeSketch}\n\nPlease produce a patch file based on this information.`
-        },
-        {
-          role: "assistant",
-          content: entry.patch
-        }
-      ]
-    }
-    return JSON.stringify(conversation)
-  }).join('\n')
+  const jsonlOutputPath = path.join(
+    process.cwd(),
+    `fine-tuning-data-${project.name}.jsonl`
+  )
+  const jsonlContent = dataset
+    .map((entry) => {
+      const conversation = {
+        messages: [
+          {
+            role: 'user',
+            content: `Here's an old file content:\n\n${entry.oldFile}\n\nAnd here's a sketch of the changes:\n\n${entry.claudeSketch}\n\nPlease produce a patch file based on this information.`,
+          },
+          {
+            role: 'assistant',
+            content: entry.patch,
+          },
+        ],
+      }
+      return JSON.stringify(conversation)
+    })
+    .join('\n')
 
   fs.writeFileSync(jsonlOutputPath, jsonlContent)
   console.log(`JSONL file for fine-tuning created at: ${jsonlOutputPath}`)
@@ -205,10 +259,15 @@ function createTrainingAndValidationDatasets() {
   const allData: string[] = []
 
   // Read all JSONL files
-  PROJECTS_LIST.forEach(project => {
-    const jsonlPath = path.join(process.cwd(), `fine-tuning-data-${project.name}.jsonl`)
+  PROJECTS_LIST.forEach((project) => {
+    const jsonlPath = path.join(
+      process.cwd(),
+      `fine-tuning-data-${project.name}.jsonl`
+    )
     const jsonlContent = fs.readFileSync(jsonlPath, 'utf-8')
-    const jsonlData = jsonlContent.split('\n').filter(line => line.trim() !== '')
+    const jsonlData = jsonlContent
+      .split('\n')
+      .filter((line) => line.trim() !== '')
     allData.push(...jsonlData)
   })
 
@@ -221,12 +280,18 @@ function createTrainingAndValidationDatasets() {
   const validationData = shuffledData.slice(splitIndex)
 
   // Write training data
-  const trainingOutputPath = path.join(process.cwd(), `fine-tuning-training-data-${currentDate}.jsonl`)
+  const trainingOutputPath = path.join(
+    process.cwd(),
+    `fine-tuning-training-data-${currentDate}.jsonl`
+  )
   fs.writeFileSync(trainingOutputPath, trainingData.join('\n'))
   console.log(`Training data saved to: ${trainingOutputPath}`)
 
   // Write validation data
-  const validationOutputPath = path.join(process.cwd(), `fine-tuning-validation-data-${currentDate}.jsonl`)
+  const validationOutputPath = path.join(
+    process.cwd(),
+    `fine-tuning-validation-data-${currentDate}.jsonl`
+  )
   fs.writeFileSync(validationOutputPath, validationData.join('\n'))
   console.log(`Validation data saved to: ${validationOutputPath}`)
 }
