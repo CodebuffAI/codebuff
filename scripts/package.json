@@ -1,0 +1,13 @@
+{
+  "name": "manicode-tests",
+  "version": "1.0.0",
+  "description": "Scripts package for Manicode",
+  "scripts": {
+  },
+  "dependencies": {
+    "backend": "file:../backend"
+  },
+  "devDependencies": {
+    "bun-types": "^1.1.26"
+  }
+}
