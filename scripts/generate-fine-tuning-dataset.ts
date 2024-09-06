@@ -3,11 +3,26 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { promptClaudeWithContinuation } from '../backend/src/claude'
 import dotenv from 'dotenv'
+import { shuffle } from 'lodash'
 
 dotenv.config({ path: path.resolve(__dirname, '../backend/.env') })
 
 const MANICODE_PROJECT_PATH = '/Users/jahooma/manicode'
+
 const MANIFOLD_PROJECT_PATH = '/Users/jahooma/manifold'
+const LITESTAR_PROJECT_PATH = `${MANICODE_PROJECT_PATH}/test/__mock-projects__/litestar`
+
+const PROJECTS_LIST = [
+  {
+    name: 'manifold',
+    path: MANIFOLD_PROJECT_PATH,
+  },
+  {
+    name: 'litestar',
+    path: LITESTAR_PROJECT_PATH,
+  },
+]
+
 const NUMBER_OF_COMMITS = 100
 const FILES_TO_PROCESS = 10
 const PARALLEL_PROCESSES = 3
@@ -58,8 +73,8 @@ Please provide a sketch of how to turn the old file into the new file. First, ex
   return fileContentMatch ? fileContentMatch[1].trim() : ''
 }
 
-const createDataset = async () => {
-  console.log('Creating dataset...')
+async function createDataset(project: { name: string; path: string }) {
+  console.log(`Creating dataset for project: ${project.name}`)
   const dataset: DatasetEntry[] = []
 
   // Create tmp directory if it doesn't exist
@@ -76,13 +91,13 @@ const createDataset = async () => {
     return
   }
 
-  // Change to the Manifold project directory
+  // Change to the project directory
   try {
-    process.chdir(MANIFOLD_PROJECT_PATH)
-    console.log(`Changed to directory: ${MANIFOLD_PROJECT_PATH}`)
+    process.chdir(project.path)
+    console.log(`Changed to directory: ${project.path}`)
   } catch (error) {
     console.error(
-      `Failed to change to directory ${MANIFOLD_PROJECT_PATH}:`,
+      `Failed to change to directory ${project.path}:`,
       error
     )
     return
@@ -130,7 +145,7 @@ const createDataset = async () => {
         const claudeSketch = await generateClaudeSketch(oldContent, newContent, patch)
 
         // Save Claude's sketch to a file in the tmp directory
-        const sketchFileName = `${commitHash}_${file.replace(/\//g, '_')}.txt`
+        const sketchFileName = `${project.name}_${commitHash}_${file.replace(/\//g, '_')}.txt`
         const sketchFilePath = path.join(tmpDir, sketchFileName)
         fs.writeFileSync(sketchFilePath, claudeSketch)
         console.log(`Saved Claude's sketch to ${sketchFilePath}`)
@@ -151,14 +166,14 @@ const createDataset = async () => {
   process.chdir(MANICODE_PROJECT_PATH)
 
   // Save the dataset to a JSON file
-  const outputPath = path.join(process.cwd(), 'fine_tuning_dataset.json')
+  const outputPath = path.join(process.cwd(), `fine_tuning_dataset_${project.name}.json`)
   fs.writeFileSync(outputPath, JSON.stringify(dataset, null, 2))
 
   console.log(`Dataset created with ${dataset.length} entries.`)
   console.log(`Dataset saved to: ${outputPath}`)
 
-  // Create fine-tuning-data-manifold.jsonl
-  const jsonlOutputPath = path.join(process.cwd(), 'fine-tuning-data-manifold.jsonl')
+  // Create fine-tuning-data-[project-name].jsonl
+  const jsonlOutputPath = path.join(process.cwd(), `fine-tuning-data-${project.name}.jsonl`)
   const jsonlContent = dataset.map(entry => {
     const conversation = {
       messages: [
@@ -179,4 +194,46 @@ const createDataset = async () => {
   console.log(`JSONL file for fine-tuning created at: ${jsonlOutputPath}`)
 }
 
-createDataset().catch(console.error)
+async function createDatasets() {
+  for (const project of PROJECTS_LIST) {
+    await createDataset(project)
+  }
+}
+
+function createTrainingAndValidationDatasets() {
+  const currentDate = new Date().toISOString().split('T')[0]
+  const allData: string[] = []
+
+  // Read all JSONL files
+  PROJECTS_LIST.forEach(project => {
+    const jsonlPath = path.join(process.cwd(), `fine-tuning-data-${project.name}.jsonl`)
+    const jsonlContent = fs.readFileSync(jsonlPath, 'utf-8')
+    const jsonlData = jsonlContent.split('\n').filter(line => line.trim() !== '')
+    allData.push(...jsonlData)
+  })
+
+  // Shuffle the data
+  const shuffledData = shuffle(allData)
+
+  // Split into training (75%) and validation (25%) sets
+  const splitIndex = Math.floor(shuffledData.length * 0.75)
+  const trainingData = shuffledData.slice(0, splitIndex)
+  const validationData = shuffledData.slice(splitIndex)
+
+  // Write training data
+  const trainingOutputPath = path.join(process.cwd(), `fine-tuning-training-data-${currentDate}.jsonl`)
+  fs.writeFileSync(trainingOutputPath, trainingData.join('\n'))
+  console.log(`Training data saved to: ${trainingOutputPath}`)
+
+  // Write validation data
+  const validationOutputPath = path.join(process.cwd(), `fine-tuning-validation-data-${currentDate}.jsonl`)
+  fs.writeFileSync(validationOutputPath, validationData.join('\n'))
+  console.log(`Validation data saved to: ${validationOutputPath}`)
+}
+
+async function main() {
+  await createDatasets()
+  createTrainingAndValidationDatasets()
+}
+
+main().catch(console.error)
