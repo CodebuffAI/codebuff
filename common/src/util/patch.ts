@@ -36,6 +36,15 @@ export const applyPatch = (oldContent: string, patch: string): string => {
     const line = patchLines[i]
 
     if (line.startsWith('@@')) {
+      let startLineToTry: number | undefined
+      // Parse the line numbers from the hunk header
+      const match = line.match(/@@ -(\d+)(?:,\d+)? \+\d+(?:,\d+)? @@/)
+      if (match) {
+        const startLine = parseInt(match[1], 10)
+        startLineToTry = startLine - 1 // Adjust for 0-based index
+      } else {
+        // console.error('Failed to parse hunk header:', line)
+      }
       // Start of a new hunk
       const contextLines: string[] = []
       let j = i + 1
@@ -46,23 +55,23 @@ export const applyPatch = (oldContent: string, patch: string): string => {
         j++
       }
 
-      const matchIndex = findContextMatch(contextLines, oldIndex)
+      console.log('startLineToTry', startLineToTry, 'oldIndex', oldIndex)
+      let matchIndex = findContextMatch(
+        contextLines,
+        startLineToTry ?? oldIndex
+      )
+      if (matchIndex === -1) {
+        matchIndex = findContextMatch(contextLines, oldIndex)
+      }
+      if (matchIndex === -1) {
+        matchIndex = findContextMatchTrimmed(contextLines, oldIndex)
+      }
       if (matchIndex !== -1) {
         // Add lines from old content up to the match
         newLines.push(...lines.slice(oldIndex, matchIndex))
         oldIndex = matchIndex
       } else {
-        const matchIndexTrimmed = findContextMatchTrimmed(
-          contextLines,
-          oldIndex
-        )
-        if (matchIndexTrimmed !== -1) {
-          // Add lines from old content up to the match
-          newLines.push(...lines.slice(oldIndex, matchIndexTrimmed))
-          oldIndex = matchIndexTrimmed
-        } else {
-          console.log('No match found for context lines:', contextLines)
-        }
+        // console.log('No match found for context lines:', contextLines)
       }
     } else if (line.startsWith('-')) {
       // Remove line (skip it in the output)
@@ -74,7 +83,7 @@ export const applyPatch = (oldContent: string, patch: string): string => {
       if (
         patchLines.slice(i + 1, i + 4).some((line) => line.startsWith('@@ '))
       ) {
-        console.log('Skipping ending context lines')
+        // console.log('Skipping ending context lines')
         // Skip ending context lines
         continue
       }
