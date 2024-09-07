@@ -60,10 +60,9 @@ export const getProjectFileContext = async (fileList: string[]) => {
     )
     const knowledgeFiles =
       await getExistingFilesWithScrapedContent(knowledgeFilePaths)
+
     // const allFilePaths = getAllFilePaths(fileTree)
-    // const exportedTokens = getExportedTokens(
-    //   allFilePaths.map((filePath) => path.join(contextRoot, filePath))
-    // )
+    // const tokenScores = getFileTokenScores(contextRoot, allFilePaths)
     // // Save exportedTokens to a file
     // const exportedTokensFilePath = path.join(
     //   contextRoot,
@@ -72,7 +71,7 @@ export const getProjectFileContext = async (fileList: string[]) => {
     // try {
     //   fs.writeFileSync(
     //     exportedTokensFilePath,
-    //     JSON.stringify(exportedTokens, null, 2)
+    //     JSON.stringify(tokenScores, null, 2)
     //   )
     //   console.log(`Exported tokens saved to ${exportedTokensFilePath}`)
     // } catch (error) {
