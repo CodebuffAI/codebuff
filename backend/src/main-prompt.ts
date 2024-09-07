@@ -252,6 +252,7 @@ export async function processFileBlock(
   )
   console.log(`Generated patch for file: ${filePath}`)
   debugLog(`Generated patch for file: ${filePath}`)
+  debugLog('oldContent\n', oldContent, '\npatch\n', patch)
   return { filePath, content: patch, type: 'patch' }
 }
 

@@ -60,7 +60,24 @@ export const getProjectFileContext = async (fileList: string[]) => {
     )
     const knowledgeFiles =
       await getExistingFilesWithScrapedContent(knowledgeFilePaths)
-    const exportedTokens = {} // getExportedTokensForFiles(filePaths)
+    // const allFilePaths = getAllFilePaths(fileTree)
+    // const exportedTokens = getExportedTokens(
+    //   allFilePaths.map((filePath) => path.join(contextRoot, filePath))
+    // )
+    // // Save exportedTokens to a file
+    // const exportedTokensFilePath = path.join(
+    //   contextRoot,
+    //   'exported-tokens.json'
+    // )
+    // try {
+    //   fs.writeFileSync(
+    //     exportedTokensFilePath,
+    //     JSON.stringify(exportedTokens, null, 2)
+    //   )
+    //   console.log(`Exported tokens saved to ${exportedTokensFilePath}`)
+    // } catch (error) {
+    //   console.error(`Failed to save exported tokens to file: ${error}`)
+    // }
 
     const files = getFiles(fileList)
 
@@ -69,7 +86,7 @@ export const getProjectFileContext = async (fileList: string[]) => {
     cachedProjectFileContext = {
       currentWorkingDirectory: contextRoot,
       fileTree,
-      exportedTokens,
+      exportedTokens: {},
       knowledgeFiles,
       files,
       gitChanges,
