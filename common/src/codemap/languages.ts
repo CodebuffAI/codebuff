@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import * as path from 'path'
 import TypeScriptLanguage from 'tree-sitter-typescript'
 import JavaScriptLanguage from 'tree-sitter-javascript'
@@ -9,14 +10,18 @@ import CSharpLanguage from 'tree-sitter-c-sharp'
 import CPPLanguage from 'tree-sitter-cpp'
 import PHPLanguage from 'tree-sitter-php'
 import RustLanguage from 'tree-sitter-rust'
+import Parser from 'tree-sitter'
+import { Query } from 'tree-sitter'
 
 interface LanguageConfig {
   language: any
   extensions: string[]
   queryFile: string
+  parser: Parser
+  query: Query
 }
 
-const languageConfigs: LanguageConfig[] = [
+const languageConfigs: Omit<LanguageConfig, 'parser' | 'query'>[] = [
   {
     language: TypeScriptLanguage.typescript,
     extensions: ['.ts', '.tsx'],
@@ -73,5 +78,28 @@ export function getLanguageConfig(
   filePath: string
 ): LanguageConfig | undefined {
   const extension = path.extname(filePath)
-  return languageConfigs.find((config) => config.extensions.includes(extension))
+  const config = languageConfigs.find((config) =>
+    config.extensions.includes(extension)
+  ) as LanguageConfig | undefined
+  if (!config) return undefined
+
+  if (!config.parser) {
+    const parser = new Parser()
+    parser.setLanguage(config.language)
+
+    try {
+      const queryFilePath = path.join(
+        __dirname,
+        'tree-sitter-queries',
+        config.queryFile
+      )
+      const queryString = fs.readFileSync(queryFilePath, 'utf8')
+      config.query = new Query(parser.getLanguage(), queryString)
+      config.parser = parser
+    } catch (e) {
+      return undefined
+    }
+  }
+
+  return config
 }

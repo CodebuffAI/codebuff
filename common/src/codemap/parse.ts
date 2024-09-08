@@ -4,28 +4,21 @@ import Parser from 'tree-sitter'
 
 import { getLanguageConfig } from './languages'
 
-const parser = new Parser()
-const { Query } = Parser
-
 export function getFileTokenScores(projectRoot: string, filePaths: string[]) {
+  const startTime = Date.now()
   const tokenScores: { [filePath: string]: { [token: string]: number } } = {}
   const externalCalls: { [token: string]: number } = {}
 
   for (const filePath of filePaths) {
     const fullPath = path.join(projectRoot, filePath)
-    const dirs = path.dirname(fullPath).split(path.sep)
-    const depth = dirs.length
-    if (
-      fs.existsSync(fullPath) &&
-      fs.statSync(fullPath).isFile() &&
-      !!getLanguageConfig(fullPath)
-    ) {
+    if (!!getLanguageConfig(fullPath)) {
       const { identifiers, calls, numLines } = parseTokens(fullPath)
-      console.log(identifiers)
 
       const tokenScoresForFile: { [token: string]: number } = {}
       tokenScores[filePath] = tokenScoresForFile
 
+      const dirs = path.dirname(fullPath).split(path.sep)
+      const depth = dirs.length
       const tokenBaseScore =
         0.8 ** depth * Math.sqrt(numLines / (identifiers.length + 1))
 
@@ -47,48 +40,37 @@ export function getFileTokenScores(projectRoot: string, filePaths: string[]) {
     }
   }
 
+  const endTime = Date.now()
+  console.log(`Parsed ${filePaths.length} files in ${endTime - startTime}ms`)
+
   return tokenScores
 }
 
 export function parseTokens(filePath: string) {
   const languageConfig = getLanguageConfig(filePath)
-  if (!languageConfig) {
-    console.warn(`Unsupported file type: ${filePath}`)
-    return {
-      numLines: 0,
-      identifiers: [] as string[],
-      calls: [] as string[],
+  if (languageConfig) {
+    const { parser, query } = languageConfig
+
+    try {
+      const sourceCode = fs.readFileSync(filePath, 'utf8')
+      const numLines = sourceCode.match(/\n/g)?.length ?? 0 + 1
+      const parseResults = parseFile(parser, query, sourceCode)
+      const identifiers = parseResults.identifier
+      const calls = parseResults['call.identifier']
+      return {
+        numLines,
+        identifiers: identifiers ?? [],
+        calls: calls ?? [],
+      }
+    } catch (e) {
+      console.error(`Error parsing query: ${e}`)
+      console.log(filePath)
     }
   }
-
-  parser.setLanguage(languageConfig.language)
-
-  const queryFilePath = path.join(
-    __dirname,
-    'tree-sitter-queries',
-    languageConfig.queryFile
-  )
-  const queryString = fs.readFileSync(queryFilePath, 'utf8')
-  try {
-    const query = new Query(parser.getLanguage(), queryString)
-    const sourceCode = fs.readFileSync(filePath, 'utf8')
-    const numLines = sourceCode.match(/\n/g)?.length ?? 0 + 1
-    const parseResults = parseFile(parser, query, sourceCode)
-    const identifiers = parseResults.identifier
-    const calls = parseResults['call.identifier']
-    return {
-      numLines,
-      identifiers: identifiers ?? [],
-      calls: calls ?? [],
-    }
-  } catch (e) {
-    console.error(`Error parsing query: ${e}`)
-    console.log(filePath)
-    return {
-      numLines: 0,
-      identifiers: [] as string[],
-      calls: [] as string[],
-    }
+  return {
+    numLines: 0,
+    identifiers: [] as string[],
+    calls: [] as string[],
   }
 }
 
