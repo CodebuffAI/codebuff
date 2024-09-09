@@ -26,5 +26,8 @@ export const SKIPPED_TERMINAL_COMMANDS = [
   'which',
   'who',
   'write',
-  'yes'
-];
+  'yes',
+  'help',
+  'find',
+  'kill',
+]

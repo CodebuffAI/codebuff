@@ -239,7 +239,8 @@ export class CLI {
     if (
       !SKIPPED_TERMINAL_COMMANDS.some((command) =>
         userInput.toLowerCase().startsWith(command)
-      )
+      ) &&
+      userInput.split(' ').length < 4
     ) {
       const result = await handleRunTerminalCommand(
         { command: userInput },
