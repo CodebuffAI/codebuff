@@ -56,7 +56,7 @@
     "@types/node": "^22.1.0",
     "@types/systeminformation": "^3.54.1",
     "@types/ws": "^8.2.0",
-    "typescript": "^5.5.4"
+    "typescript": "5.5.4"
   },
   "peerDependencies": {
     "@types/lodash": "*",
