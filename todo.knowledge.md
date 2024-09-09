@@ -78,7 +78,7 @@ Notes from Janna & Stephen test
 [x] The user may have edited files since your last change. Please try to notice and perserve those changes. Don't overwrite these please!
 [x] Show a message when manicode is out of date. Or figure out how to automatically update.
 [] The "// add this blah" comments are really annoying. Strip them out in the diff step
-[] The comprehensive files list generates a huge amount of thinking that is probably slow
+[x] The comprehensive files list generates a huge amount of thinking that is probably slow
 [x] Try a lower temperature. Might prevent it from doing random stuff. 
     - apparently it's been 0 this whole time, huh (for claude)
     - Also openai defaults to 0
@@ -104,8 +104,9 @@ Notes from Janna & Stephen test
 [] Run in a containerls
     - Maybe distribute as brew package which would have more permissions?
     - Check files being edited to be within project dir (no '..')
-[] Send a command, then just run it. if it goes through, print.
+[x] Send a command, then just run it. if it goes through, print.
     - thefuck util that could change 
     - should look more like shell
     - could have two panel one for you, other shows claude's response. Claude's commands go on your side
 [] Got file path wrong: backend instead of npm-app for project-files
+[] Still is overwritting a user's change every time
