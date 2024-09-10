@@ -4,6 +4,8 @@ import Parser from 'tree-sitter'
 
 import { getLanguageConfig } from './languages'
 
+const IGNORE_TOKENS = ['__init__', '__post_init__', '__call__']
+
 export function getFileTokenScores(projectRoot: string, filePaths: string[]) {
   const startTime = Date.now()
   const tokenScores: { [filePath: string]: { [token: string]: number } } = {}
@@ -23,7 +25,9 @@ export function getFileTokenScores(projectRoot: string, filePaths: string[]) {
         0.8 ** depth * Math.sqrt(numLines / (identifiers.length + 1))
 
       for (const identifier of identifiers) {
-        tokenScoresForFile[identifier] = tokenBaseScore
+        if (!IGNORE_TOKENS.includes(identifier)) {
+          tokenScoresForFile[identifier] = tokenBaseScore
+        }
       }
       for (const call of calls) {
         if (!tokenScoresForFile[call]) {
@@ -79,7 +83,9 @@ function parseFile(
   query: Parser.Query,
   sourceCode: string
 ): { [key: string]: string[] } {
-  const tree = parser.parse(sourceCode)
+  const tree = parser.parse(sourceCode, undefined, {
+    bufferSize: 1024 * 1024,
+  })
   const captures = query.captures(tree.rootNode)
   const result: { [key: string]: string[] } = {}
 

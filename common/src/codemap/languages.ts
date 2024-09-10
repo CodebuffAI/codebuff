@@ -24,7 +24,12 @@ interface LanguageConfig {
 const languageConfigs: Omit<LanguageConfig, 'parser' | 'query'>[] = [
   {
     language: TypeScriptLanguage.typescript,
-    extensions: ['.ts', '.tsx'],
+    extensions: ['.ts'],
+    queryFile: 'tree-sitter-typescript-tags.scm',
+  },
+  {
+    language: TypeScriptLanguage.tsx,
+    extensions: ['.tsx'],
     queryFile: 'tree-sitter-typescript-tags.scm',
   },
   {
@@ -97,6 +102,7 @@ export function getLanguageConfig(
       config.query = new Query(parser.getLanguage(), queryString)
       config.parser = parser
     } catch (e) {
+      // console.log('error', filePath, e)
       return undefined
     }
   }
