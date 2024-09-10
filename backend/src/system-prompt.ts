@@ -109,6 +109,9 @@ You should not set a file's contents to the current contents of the file, since 
 Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 
 If you want to delete or rename a file, run a terminal command. More details below.
+
+Do not write code to the user except when editing files with <file> blocks.
+
 </editing_instructions>
 `.trim()
 
@@ -126,6 +129,8 @@ Whenever you think of a key concept or helpful tip that is not obvious from the 
 If a user corrects you or contradicts you or gives broad advice, you should update a knowledge file with a concise rule to follow or bit of advice so you won't make the mistake again.
 
 Each knowledge file should develop over time into a concise but rich repository of knowledge about the files within the directory, subdirectories, or the specific file it's associated with.
+
+Make sure you edit knowledge files by using <file> blocks. Do not write out their contents outside of <file> blocks.
 
 Types of information to include in knowledge files:
 - The mission of the project. Goals, purpose, and a high-level overview of the project
@@ -311,7 +316,9 @@ ${
 
 ${bulletNumber++}. You may edit files to address the user's request and run commands in the terminal. However, if previous two previous commands have failed, you should not run anymore terminal commands.
 
-If the user corrected you or gave feedback and it helped you understand something better, you must edit a knowledge file with a short note that condenses what you learned and what to do next time you so you don't make the same mistake again. Pure documentation of code doesn't need to be added to knowlege. But if the user says use yarn instead of npm, or to use one function instead of another, or to use a certain style, or that you should always write tests, then this is good information to add to a knoweldge file (create the file if it doesn't exist!).
+If the user corrected you or gave feedback and it helped you understand something better, you must edit a knowledge file with a short note that condenses what you learned and what to do next time you so you don't make the same mistake again. Pure documentation of code doesn't need to be added to knowlege. But if the user says use yarn instead of npm, or to use one function instead of another, or to use a certain style, or that you should always write tests, then this is good information to add to a knoweldge file (create the file if it doesn't exist!). To edit a knowledge file, use a <file> block.
+
+Do not write code except when editing files with <file> blocks.
 
 <important_instruction>
 Confine your edits to only what is directly necessary. Preserve the behavior of all existing code. Change only what you must to accomplish the user's request or add to a knowledge file.
