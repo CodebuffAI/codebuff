@@ -23,7 +23,7 @@ export async function requestRelevantFiles(
   userId: string
 ): Promise<string[]> {
   const previousFiles = Object.keys(fileContext.files)
-  const countPerRequest = 4
+  const countPerRequest = assistantPrompt ? 8 : 4
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -35,7 +35,7 @@ export async function requestRelevantFiles(
         : JSON.stringify(lastMessage.content)
       : null
 
-  const numNonObviousPrompts = 3
+  const numNonObviousPrompts = assistantPrompt ? 1 : 3
   const nonObviousPrompts = range(1, numNonObviousPrompts + 1).map((index) =>
     generateNonObviousRequestFilesPrompt(
       userPrompt,
@@ -62,7 +62,7 @@ export async function requestRelevantFiles(
     })
   )
 
-  const numKeyPrompts = 3
+  const numKeyPrompts = assistantPrompt ? 1 : 3
   const keyPrompts = range(1, numKeyPrompts + 1).map((index) =>
     generateKeyRequestFilesPrompt(
       userPrompt,
