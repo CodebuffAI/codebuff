@@ -2,11 +2,14 @@ import {
   ProjectFileContext,
   createFileBlock,
   printFileTree,
+  printFileTreeWithTokens,
 } from 'common/util/file'
 import { buildArray } from 'common/util/array'
 import { STOP_MARKER } from 'common/constants'
-import { countTokensForFiles } from './util/token-counter'
+import { countTokens, countTokensForFiles } from './util/token-counter'
 import { debugLog } from './util/debug'
+import { sortBy, sum } from 'lodash'
+import { filterObject } from 'common/util/object'
 
 export function getSystemPrompt(
   fileContext: ProjectFileContext,
@@ -209,7 +212,11 @@ Scrape any url that could help address the user's request.
 `.trim()
 
 const getProjectFileTreePrompt = (fileContext: ProjectFileContext) => {
-  const { fileTree, currentWorkingDirectory } = fileContext
+  const { currentWorkingDirectory } = fileContext
+  const { printedTree } = truncateFileTreeBasedOnTokenBudget(
+    fileContext,
+    75_000
+  )
   return `
 # Project file tree
 
@@ -223,7 +230,7 @@ ${currentWorkingDirectory}
 Within this project directory, here is the file tree. It includes everything except files that are .gitignored.
 
 <project_file_tree>
-${printFileTree(fileTree)}
+${printedTree}
 </project_file_tree>
 
 Note: the project file tree is cached from the start of this conversation.
@@ -355,4 +362,72 @@ const getTruncatedFilesBasedOnTokenBudget = (
   debugLog('After truncation totalTokens', totalTokens)
 
   return truncatedFiles
+}
+
+const truncateFileTreeBasedOnTokenBudget = (
+  fileContext: ProjectFileContext,
+  tokenBudget: number
+) => {
+  const { fileTree, fileTokenScores } = fileContext
+  const treeWithTokens = printFileTreeWithTokens(fileTree, fileTokenScores)
+  const treeWithTokensCount = countTokens(treeWithTokens)
+
+  if (treeWithTokensCount <= tokenBudget) {
+    return { printedTree: treeWithTokens, tokenCount: treeWithTokensCount }
+  }
+
+  const tree = printFileTree(fileTree)
+  const treeTokenCount = countTokens(tree)
+
+  if (treeTokenCount <= tokenBudget) {
+    let frac = 1
+    while (frac > 0.02) {
+      frac = 0.9 * (frac - 0.02)
+      const fileTokenScoresSubset = chooseSubsetOfFileTokenScores(
+        fileTokenScores,
+        frac
+      )
+      const printedTree = printFileTreeWithTokens(
+        fileTree,
+        fileTokenScoresSubset
+      )
+      const tokenCount = countTokens(printedTree)
+
+      if (tokenCount <= tokenBudget) {
+        return { printedTree, tokenCount }
+      }
+    }
+  }
+
+  return { printedTree: tree, tokenCount: treeTokenCount }
+}
+
+const chooseSubsetOfFileTokenScores = (
+  fileTokenScores: Record<string, Record<string, number>>,
+  frac: number
+) => {
+  const fileToAverageScore = Object.entries(fileTokenScores).map(
+    ([filePath, scores]) => {
+      const values = Object.values(scores)
+      const averageScore = sum(values) / values.length
+      return [filePath, averageScore] as const
+    }
+  )
+
+  const sortedFileToAverageScore = sortBy(
+    fileToAverageScore,
+    ([filePath, score]) => score,
+    'desc'
+  )
+
+  const numFilesToInclude = Math.floor(
+    Object.keys(fileTokenScores).length * frac
+  )
+
+  const filesIncluded = new Set(
+    sortedFileToAverageScore
+      .slice(0, numFilesToInclude)
+      .map(([filePath]) => filePath)
+  )
+  return filterObject(fileTokenScores, (_, key) => filesIncluded.has(key))
 }

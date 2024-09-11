@@ -15,7 +15,7 @@ export interface FileTreeNode {
 export const ProjectFileContextSchema = z.object({
   currentWorkingDirectory: z.string(),
   fileTree: z.array(z.custom<FileTreeNode>()),
-  exportedTokens: z.record(z.string(), z.array(z.string())),
+  fileTokenScores: z.record(z.string(), z.record(z.string(), z.number())),
   knowledgeFiles: z.record(z.string(), z.string()),
   files: z.record(z.string(), z.string().nullable()),
   gitChanges: z.object({
@@ -79,11 +79,42 @@ export function printFileTree(
   depth: number = 0
 ): string {
   let result = ''
+  const indentation = '\t'.repeat(depth)
   for (const node of nodes) {
-    result += `${' '.repeat(depth)}${node.name}${node.type === 'directory' ? '/' : ''}\n`
+    result += `${indentation}${node.name}${node.type === 'directory' ? '/' : ''}\n`
     if (node.type === 'directory' && node.children) {
       result += printFileTree(node.children, depth + 1)
     }
+  }
+  return result
+}
+
+export function printFileTreeWithTokens(
+  nodes: FileTreeNode[],
+  fileTokenScores: Record<string, Record<string, number>>,
+  path: string[] = []
+): string {
+  let result = ''
+  const depth = path.length
+  const indentToken = '\t'
+  const indentation = indentToken.repeat(depth)
+  const indentationWithFile = indentToken.repeat(depth + 1)
+  for (const node of nodes) {
+    result += `${indentation}${node.name}${node.type === 'directory' ? '/' : ''}`
+    path.push(node.name)
+    const filePath = path.join('/')
+    const tokenScores = fileTokenScores[filePath]
+    if (node.type === 'file' && tokenScores) {
+      const tokens = Object.keys(tokenScores)
+      if (tokens.length > 0) {
+        result += `\n${indentationWithFile}${tokens.join(' ')}`
+      }
+    }
+    result += '\n'
+    if (node.type === 'directory' && node.children) {
+      result += printFileTreeWithTokens(node.children, fileTokenScores, path)
+    }
+    path.pop()
   }
   return result
 }

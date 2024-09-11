@@ -4,7 +4,7 @@ import Parser from 'tree-sitter'
 
 import { getLanguageConfig } from './languages'
 
-const IGNORE_TOKENS = ['__init__', '__post_init__', '__call__']
+const IGNORE_TOKENS = ['__init__', '__post_init__', '__call__', 'constructor']
 
 export function getFileTokenScores(projectRoot: string, filePaths: string[]) {
   const startTime = Date.now()
@@ -40,6 +40,7 @@ export function getFileTokenScores(projectRoot: string, filePaths: string[]) {
   for (const scores of Object.values(tokenScores)) {
     for (const token of Object.keys(scores)) {
       const numCalls = externalCalls[token] ?? 0
+      if (typeof numCalls !== 'number') continue
       scores[token] *= 1 + Math.log(1 + numCalls)
     }
   }

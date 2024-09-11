@@ -7,6 +7,7 @@ import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { filterObject } from 'common/util/object'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 import { getProjectFileTree, getAllFilePaths } from 'common/project-file-tree'
+import { getFileTokenScores } from 'common/codemap/parse'
 
 const execAsync = promisify(exec)
 
@@ -61,22 +62,23 @@ export const getProjectFileContext = async (fileList: string[]) => {
     const knowledgeFiles =
       await getExistingFilesWithScrapedContent(knowledgeFilePaths)
 
-    // const allFilePaths = getAllFilePaths(fileTree)
-    // const tokenScores = getFileTokenScores(contextRoot, allFilePaths)
-    // // Save exportedTokens to a file
-    // const exportedTokensFilePath = path.join(
-    //   contextRoot,
-    //   'exported-tokens.json'
-    // )
-    // try {
-    //   fs.writeFileSync(
-    //     exportedTokensFilePath,
-    //     JSON.stringify(tokenScores, null, 2)
-    //   )
-    //   console.log(`Exported tokens saved to ${exportedTokensFilePath}`)
-    // } catch (error) {
-    //   console.error(`Failed to save exported tokens to file: ${error}`)
-    // }
+    const allFilePaths = getAllFilePaths(fileTree)
+    const fileTokenScores = getFileTokenScores(contextRoot, allFilePaths)
+
+    // Save exportedTokens to a file
+    const exportedTokensFilePath = path.join(
+      contextRoot,
+      'exported-tokens.json'
+    )
+    try {
+      fs.writeFileSync(
+        exportedTokensFilePath,
+        JSON.stringify(fileTokenScores, null, 2)
+      )
+      console.log(`Exported tokens saved to ${exportedTokensFilePath}`)
+    } catch (error) {
+      console.error(`Failed to save exported tokens to file: ${error}`)
+    }
 
     const files = getFiles(fileList)
 
@@ -85,7 +87,7 @@ export const getProjectFileContext = async (fileList: string[]) => {
     cachedProjectFileContext = {
       currentWorkingDirectory: contextRoot,
       fileTree,
-      exportedTokens: {},
+      fileTokenScores,
       knowledgeFiles,
       files,
       gitChanges,
@@ -113,7 +115,7 @@ async function getGitChanges() {
       cwd: projectRoot,
     })
     const { stdout: shortLogOutput } = await execAsync(
-      'git shortlog HEAD~100..HEAD',
+      'git shortlog HEAD~10..HEAD',
       {
         cwd: projectRoot,
       }

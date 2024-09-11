@@ -12,6 +12,8 @@
     "start": "bun --cwd npm-app start",
     "start-manifold": "bun --cwd npm-app start-manifold",
     "start-litestar": "bun --cwd npm-app start-litestar",
+    "start-jpcsp": "bun --cwd npm-app start-jpcsp",
+    "start-vscode": "bun --cwd npm-app start-vscode",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "bump": "bun run scripts/bump-version.ts"
   },

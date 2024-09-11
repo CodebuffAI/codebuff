@@ -45,6 +45,7 @@ function parseMessage(data: RawData): ClientMessage {
         error: i.message,
       }
     })
+    console.error(issues, result.error.errors)
     throw new MessageParseError('Error parsing message.', issues)
   } else {
     return result.data
