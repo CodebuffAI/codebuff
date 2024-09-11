@@ -298,7 +298,7 @@ export class CLI {
 
     const { responsePromise, stopResponse } = this.client.subscribeToResponse(
       (chunk) => {
-        process.stdout.write(bold(chunk))
+        process.stdout.write(chunk)
       },
       userInputId,
       () => {
