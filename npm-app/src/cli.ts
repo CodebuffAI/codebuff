@@ -1,7 +1,7 @@
 import { uniq } from 'lodash'
 import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
-import chalk from 'chalk'
+import { green, yellow, bold } from 'picocolors'
 import { parse } from 'path'
 
 import { websocketUrl } from './config'
@@ -79,7 +79,7 @@ export class CLI {
       this.stopResponse()
       this.stopResponse = null
     }
-    console.error(chalk.yellow('\nCould not connect. Retrying...'))
+    console.error(yellow('\nCould not connect. Retrying...'))
   }
 
   private detectPasting() {
@@ -116,9 +116,7 @@ export class CLI {
   }
 
   private setPrompt() {
-    this.rl.setPrompt(
-      chalk.green(`${parse(getCurrentWorkingDirectory()).base} > `)
-    )
+    this.rl.setPrompt(green(`${parse(getCurrentWorkingDirectory()).base} > `))
   }
 
   public printInitialPrompt() {
@@ -147,23 +145,23 @@ export class CLI {
     if (navigated) {
       console.log(
         direction === 'undo'
-          ? chalk.green('Undo last change')
-          : chalk.green('Redo last change')
+          ? green('Undo last change')
+          : green('Redo last change')
       )
       const files = this.applyAndDisplayCurrentFileVersion()
       console.log(
-        chalk.green('Loaded files:'),
-        chalk.green(Object.keys(files).join(', '))
+        green('Loaded files:'),
+        green(Object.keys(files).join(', '))
       )
     } else {
       console.log(
-        chalk.green(`No more ${direction === 'undo' ? 'undo' : 'redo'}s`)
+        green(`No more ${direction === 'undo' ? 'undo' : 'redo'}s`)
       )
     }
   }
 
   private handleStopResponse() {
-    console.log(chalk.yellow('\n[Response stopped by user]'))
+    console.log(yellow('\n[Response stopped by user]'))
     this.isReceivingResponse = false
     if (this.stopResponse) {
       this.stopResponse()
@@ -173,7 +171,7 @@ export class CLI {
 
   private handleExit() {
     process.stdout.clearLine(0)
-    console.log(chalk.green('Exiting. Manicode out!'))
+    console.log(green('Exiting. Manicode out!'))
     process.exit(0)
   }
 
@@ -198,7 +196,7 @@ export class CLI {
     this.loadingInterval = setInterval(() => {
       process.stdout.clearLine(0)
       process.stdout.cursorTo(0)
-      process.stdout.write(chalk.green(`${chars[i]} Thinking...`))
+      process.stdout.write(green(`${chars[i]} Thinking...`))
       i = (i + 1) % chars.length
     }, 100)
   }
@@ -271,10 +269,10 @@ export class CLI {
 
     const { created, modified } = applyChanges(getProjectRoot(), changes)
     for (const file of created) {
-      console.log(chalk.green('-', 'Created', file))
+      console.log(green(`- Created ${file}`))
     }
     for (const file of modified) {
-      console.log(chalk.green('-', 'Updated', file))
+      console.log(green(`- Updated ${file}`))
     }
     if (created.length > 0 || modified.length > 0) {
       console.log('Complete!\n')
@@ -300,7 +298,7 @@ export class CLI {
 
     const { responsePromise, stopResponse } = this.client.subscribeToResponse(
       (chunk) => {
-        process.stdout.write(chalk.bold(chunk))
+        process.stdout.write(bold(chunk))
       },
       userInputId,
       () => {

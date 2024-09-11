@@ -196,7 +196,7 @@ This system allows for better tracking and correlation of user inputs with their
 ## Version Checking
 
 - The `Client` class in `client.ts` includes a subscription to 'npm-version-status' that checks if the current version is up to date.
-- If a newer version is available, a warning is displayed in yellow text using the `chalk` library.
+- If a newer version is available, a warning is displayed in yellow text.
 - Users are instructed to update using the command: `npm install -g manicode`
 - The version check is performed as part of the WebSocket subscription setup.
 

@@ -1,5 +1,6 @@
 import { getProjectRoot } from './project-files'
-import chalk from 'chalk'
+import picocolors from 'picocolors'
+import { bold, green } from 'picocolors'
 
 const getRandomColors = () => {
   const allColors = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan']
@@ -25,7 +26,7 @@ export function displayMenu() {
       .split('')
       .map((char) => {
         const color = getRandomColor()
-        return (chalk as any)[color](char)
+        return (picocolors as any)[color](char)
       })
       .join('')
   }
@@ -45,7 +46,7 @@ ${colorizeRandom('██║ ╚═╝ ██║')}${colorizeRandom('██║  �
 ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═╝')}${colorizeRandom('╚═╝  ╚═══╝')}${colorizeRandom('╚═╝')}${colorizeRandom('  ╚═════╝')}${colorizeRandom(' ╚════╝ ')}${colorizeRandom('╚═════╝ ')}${colorizeRandom('╚══════╝')}
 `)
   console.log(
-    chalk.bold.blue('Welcome to Manicode - Your AI-powered coding assistant!\n')
+    bold(green('Welcome to Manicode - Your AI-powered coding assistant!\n'))
   )
   console.log(
     `Manicode will read and write files within your current directory (${getProjectRoot()}), run commands in your terminal, and scrape the web to accomplish tasks you give it.\n`
@@ -69,7 +70,7 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
     '() Add to knowledge files when Manicode makes mistakes. Usually there is context that Manicode is missing that led to the mistake, and adding this information will help Manicode improve its responses.'
   )
   console.log(
-    '() Append "Don\'t change any files" to your prompt if you want it to think before making changes.'
+    '() Add "Don\'t change any files" to your prompt if you want it to think before making changes.'
   )
   console.log(
     '() Email your feedback to james@manifold.markets. Thanks for using Manicode!'

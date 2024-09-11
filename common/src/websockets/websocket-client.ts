@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws'
-import chalk from 'chalk'
+import { green } from 'picocolors'
 
 import { ServerAction, ClientAction } from '../actions'
 import {
@@ -88,7 +88,7 @@ export class APIRealtimeClient {
     this.ws.onmessage = (ev) => {
       if (this.hadError) {
         this.hadError = false
-        console.log(chalk.green('Reconnected!'))
+        console.log(green('Reconnected!'))
       }
       this.receiveMessage(JSON.parse(ev.data as any))
     }

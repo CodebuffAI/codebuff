@@ -2,7 +2,7 @@
 
 import fs from 'fs'
 import path from 'path'
-import chalk from 'chalk'
+import { yellow } from 'picocolors'
 
 import { initFingerprint } from './config'
 import { CLI } from './cli'
@@ -29,7 +29,7 @@ async function manicode(projectDir: string | undefined) {
   const gitDir = path.join(dir, '.git')
   if (!fs.existsSync(gitDir)) {
     console.warn(
-      chalk.yellow(
+      yellow(
         'Warning: No .git directory found. Make sure you are at the top level of your project.'
       )
     )
