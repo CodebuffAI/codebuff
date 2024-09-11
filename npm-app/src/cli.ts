@@ -147,8 +147,8 @@ export class CLI {
     if (navigated) {
       console.log(
         direction === 'undo'
-          ? chalk.blue('Undo last change')
-          : chalk.blue('Redo last change')
+          ? chalk.green('Undo last change')
+          : chalk.green('Redo last change')
       )
       const files = this.applyAndDisplayCurrentFileVersion()
       console.log(
@@ -157,7 +157,7 @@ export class CLI {
       )
     } else {
       console.log(
-        chalk.blue(`No more ${direction === 'undo' ? 'undo' : 'redo'}s`)
+        chalk.green(`No more ${direction === 'undo' ? 'undo' : 'redo'}s`)
       )
     }
   }
@@ -173,7 +173,7 @@ export class CLI {
 
   private handleExit() {
     process.stdout.clearLine(0)
-    console.log(chalk.magenta('Exiting. Manicode out!'))
+    console.log(chalk.green('Exiting. Manicode out!'))
     process.exit(0)
   }
 
@@ -198,7 +198,7 @@ export class CLI {
     this.loadingInterval = setInterval(() => {
       process.stdout.clearLine(0)
       process.stdout.cursorTo(0)
-      process.stdout.write(chalk.blue(`${chars[i]} Thinking...`))
+      process.stdout.write(chalk.green(`${chars[i]} Thinking...`))
       i = (i + 1) % chars.length
     }, 100)
   }
@@ -300,7 +300,7 @@ export class CLI {
 
     const { responsePromise, stopResponse } = this.client.subscribeToResponse(
       (chunk) => {
-        process.stdout.write(chalk.blue(chunk))
+        process.stdout.write(chalk.bold(chunk))
       },
       userInputId,
       () => {
