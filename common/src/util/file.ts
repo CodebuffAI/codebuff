@@ -79,7 +79,7 @@ export function printFileTree(
   depth: number = 0
 ): string {
   let result = ''
-  const indentation = '\t'.repeat(depth)
+  const indentation = ' '.repeat(depth)
   for (const node of nodes) {
     result += `${indentation}${node.name}${node.type === 'directory' ? '/' : ''}\n`
     if (node.type === 'directory' && node.children) {
@@ -96,7 +96,7 @@ export function printFileTreeWithTokens(
 ): string {
   let result = ''
   const depth = path.length
-  const indentToken = '\t'
+  const indentToken = ' '
   const indentation = indentToken.repeat(depth)
   const indentationWithFile = indentToken.repeat(depth + 1)
   for (const node of nodes) {

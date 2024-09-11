@@ -16,6 +16,7 @@ import { requestFiles, requestFile } from './websockets/websocket-action'
 import { generatePatch } from './generate-patch'
 import { requestRelevantFiles } from './request-files-prompt'
 import { processStreamWithFiles } from './process-stream'
+import { countTokens } from './util/token-counter'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -81,6 +82,9 @@ ${STOP_MARKER}
     const messagesWithContinuedMessage = continuedMessages
       ? [...messages, ...continuedMessages]
       : messages
+
+    console.log('system tokens', countTokens(JSON.stringify(system)))
+    console.log('messages tokens', countTokens(JSON.stringify(messages)))
 
     savePromptLengthInfo(messagesWithContinuedMessage, system, tools)
 

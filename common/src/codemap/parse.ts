@@ -46,7 +46,19 @@ export function getFileTokenScores(projectRoot: string, filePaths: string[]) {
   }
 
   const endTime = Date.now()
-  console.log(`Parsed ${filePaths.length} files in ${endTime - startTime}ms`)
+  // console.log(`Parsed ${filePaths.length} files in ${endTime - startTime}ms`)
+
+  // Save exportedTokens to a file
+  // const exportedTokensFilePath = path.join(projectRoot, 'exported-tokens.json')
+  // try {
+  //   fs.writeFileSync(
+  //     exportedTokensFilePath,
+  //     JSON.stringify(tokenScores, null, 2)
+  //   )
+  //   console.log(`Exported tokens saved to ${exportedTokensFilePath}`)
+  // } catch (error) {
+  //   console.error(`Failed to save exported tokens to file: ${error}`)
+  // }
 
   return tokenScores
 }
@@ -68,8 +80,8 @@ export function parseTokens(filePath: string) {
         calls: calls ?? [],
       }
     } catch (e) {
-      console.error(`Error parsing query: ${e}`)
-      console.log(filePath)
+      // console.error(`Error parsing query: ${e}`)
+      // console.log(filePath)
     }
   }
   return {

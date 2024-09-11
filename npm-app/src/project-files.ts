@@ -65,21 +65,6 @@ export const getProjectFileContext = async (fileList: string[]) => {
     const allFilePaths = getAllFilePaths(fileTree)
     const fileTokenScores = getFileTokenScores(contextRoot, allFilePaths)
 
-    // Save exportedTokens to a file
-    const exportedTokensFilePath = path.join(
-      contextRoot,
-      'exported-tokens.json'
-    )
-    try {
-      fs.writeFileSync(
-        exportedTokensFilePath,
-        JSON.stringify(fileTokenScores, null, 2)
-      )
-      console.log(`Exported tokens saved to ${exportedTokensFilePath}`)
-    } catch (error) {
-      console.error(`Failed to save exported tokens to file: ${error}`)
-    }
-
     const files = getFiles(fileList)
 
     const gitChanges = await getGitChanges()

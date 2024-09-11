@@ -21,7 +21,7 @@ export function getSystemPrompt(
   const { checkFiles, onlyCachePrefix } = options
   const truncatedFiles = getTruncatedFilesBasedOnTokenBudget(
     fileContext,
-    100_000
+    80_000
   )
   const files = Object.keys(truncatedFiles)
 
@@ -215,7 +215,7 @@ const getProjectFileTreePrompt = (fileContext: ProjectFileContext) => {
   const { currentWorkingDirectory } = fileContext
   const { printedTree } = truncateFileTreeBasedOnTokenBudget(
     fileContext,
-    75_000
+    60_000
   )
   return `
 # Project file tree
