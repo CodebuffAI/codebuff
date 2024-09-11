@@ -19,3 +19,8 @@
 
 ; Enum variant usage
 (scoped_identifier path: (identifier) name: (identifier) @call.identifier)
+
+; implementations
+
+(impl_item trait: (type_identifier) @call.identifier)
+(impl_item type: (type_identifier) @call.identifier !trait)
