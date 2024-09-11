@@ -1,4 +1,4 @@
-(struct_specifier name: (type_identifier) @identifier)
+(struct_specifier name: (type_identifier) @identifier body:(_))
 
 (declaration type: (union_specifier name: (type_identifier) @identifier))
 

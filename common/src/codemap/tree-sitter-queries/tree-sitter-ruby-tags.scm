@@ -1,45 +1,39 @@
 ; Method definitions
 
 (
-  (comment)* @doc
-  .
   [
     (method
-      name: (_) @name.definition.method) @definition.method
+      name: (_) @identifier) 
     (singleton_method
-      name: (_) @name.definition.method) @definition.method
+      name: (_) @identifier)
   ]
-  (#strip! @doc "^#\\s*")
-  (#select-adjacent! @doc @definition.method)
 )
 
 (alias
-  name: (_) @name.definition.method) @definition.method
+  name: (_) @identifier)
 
-(setter
-  (identifier) @ignore)
+; (setter
+;  (identifier) @identifier)
 
 ; Class definitions
 
 (
-  (comment)* @doc
+  (comment)*
   .
   [
     (class
       name: [
-        (constant) @name.definition.class
+        (constant) @identifier
         (scope_resolution
-          name: (_) @name.definition.class)
-      ]) @definition.class
+          name: (_) @identifier)
+      ])
     (singleton_class
       value: [
-        (constant) @name.definition.class
+        (constant) @identifier
         (scope_resolution
-          name: (_) @name.definition.class)
-      ]) @definition.class
+          name: (_) @identifier)
+      ])
   ]
-  (#strip! @doc "^#\\s*")
-  (#select-adjacent! @doc @definition.class)
 )
 
 ; Module definitions
@@ -47,18 +41,18 @@
 (
   (module
     name: [
-      (constant) @name.definition.module
+      (constant) @identifier
       (scope_resolution
-        name: (_) @name.definition.module)
-    ]) @definition.module
+        name: (_) @identifier)
+    ])
 )
 
 ; Calls
 
-(call method: (identifier) @name.reference.call) @reference.call
+(call method: (identifier) @call.identifier)
 
 (
-  [(identifier) (constant)] @name.reference.call @reference.call
+  [(identifier) (constant)] @call.identifier
   (#is-not? local)
-  (#not-match? @name.reference.call "^(lambda|load|require|require_relative|__FILE__|__LINE__)$")
+  (#not-match? @call.identifier "^(lambda|load|require|require_relative|__FILE__|__LINE__)$")
 )

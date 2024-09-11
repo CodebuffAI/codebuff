@@ -1,5 +1,8 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import Parser from 'tree-sitter'
+import { Query } from 'tree-sitter'
+
 import TypeScriptLanguage from 'tree-sitter-typescript'
 import JavaScriptLanguage from 'tree-sitter-javascript'
 import PythonLanguage from 'tree-sitter-python'
@@ -8,11 +11,10 @@ import CSharpLanguage from 'tree-sitter-c-sharp'
 import CPPLanguage from 'tree-sitter-cpp'
 import CLanguage from 'tree-sitter-c'
 import RustLanguage from 'tree-sitter-rust'
-// import RubyLanguage from 'tree-sitter-ruby'
-// import GoLanguage from 'tree-sitter-go'
-// import PHPLanguage from 'tree-sitter-php'
-import Parser from 'tree-sitter'
-import { Query } from 'tree-sitter'
+import RubyLanguage from 'tree-sitter-ruby'
+import GoLanguage from 'tree-sitter-go'
+import PHPLanguage from 'tree-sitter-php'
+
 import { DEBUG_PARSING } from './parse'
 
 interface LanguageConfig {
@@ -57,7 +59,7 @@ const languageConfigs: Omit<LanguageConfig, 'parser' | 'query'>[] = [
   {
     language: CLanguage,
     extensions: ['.c', '.h'],
-    queryFile: 'tree-sitter-cpp-tags.scm',
+    queryFile: 'tree-sitter-c-tags.scm',
   },
   {
     language: CPPLanguage,
@@ -69,21 +71,21 @@ const languageConfigs: Omit<LanguageConfig, 'parser' | 'query'>[] = [
     extensions: ['.rs'],
     queryFile: 'tree-sitter-rust-tags.scm',
   },
-  // {
-  //   language: RubyLanguage,
-  //   extensions: ['.rb'],
-  //   queryFile: 'tree-sitter-ruby-tags.scm',
-  // },
-  // {
-  //   language: GoLanguage,
-  //   extensions: ['.go'],
-  //   queryFile: 'tree-sitter-go-tags.scm',
-  // },
-  // {
-  //   language: PHPLanguage,
-  //   extensions: ['.php'],
-  //   queryFile: 'tree-sitter-php-tags.scm',
-  // },
+  {
+    language: RubyLanguage,
+    extensions: ['.rb'],
+    queryFile: 'tree-sitter-ruby-tags.scm',
+  },
+  {
+    language: GoLanguage,
+    extensions: ['.go'],
+    queryFile: 'tree-sitter-go-tags.scm',
+  },
+  {
+    language: PHPLanguage.php,
+    extensions: ['.php'],
+    queryFile: 'tree-sitter-php-tags.scm',
+  },
 ]
 
 export function getLanguageConfig(
