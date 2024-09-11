@@ -9,9 +9,10 @@ import PythonLanguage from 'tree-sitter-python'
 // import CSharpLanguage from 'tree-sitter-c-sharp'
 // import CPPLanguage from 'tree-sitter-cpp'
 // import PHPLanguage from 'tree-sitter-php'
-// import RustLanguage from 'tree-sitter-rust'
+import RustLanguage from 'tree-sitter-rust'
 import Parser from 'tree-sitter'
 import { Query } from 'tree-sitter'
+import { DEBUG_PARSING } from './parse'
 
 interface LanguageConfig {
   language: any
@@ -72,11 +73,11 @@ const languageConfigs: Omit<LanguageConfig, 'parser' | 'query'>[] = [
   //   extensions: ['.php'],
   //   queryFile: 'tree-sitter-php-tags.scm',
   // },
-  // {
-  //   language: RustLanguage,
-  //   extensions: ['.rs'],
-  //   queryFile: 'tree-sitter-rust-tags.scm',
-  // },
+  {
+    language: RustLanguage,
+    extensions: ['.rs'],
+    queryFile: 'tree-sitter-rust-tags.scm',
+  },
 ]
 
 export function getLanguageConfig(
@@ -102,7 +103,9 @@ export function getLanguageConfig(
       config.query = new Query(parser.getLanguage(), queryString)
       config.parser = parser
     } catch (e) {
-      // console.log('error', filePath, e)
+      if (DEBUG_PARSING) {
+        console.log('error', filePath, e)
+      }
       return undefined
     }
   }
