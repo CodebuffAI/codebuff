@@ -8,7 +8,8 @@
     "test-patch": "bun test generate-patch.test.ts"
   },
   "dependencies": {
-    "backend": "file:../backend"
+    "backend": "file:../backend",
+    "common": "file:../common"
   },
   "devDependencies": {
     "bun-types": "^1.1.26"

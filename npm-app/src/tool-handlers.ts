@@ -1,6 +1,7 @@
 import { spawn } from 'child_process'
-import chalk from 'chalk'
 import path from 'path'
+import { green } from 'picocolors'
+
 import { scrapeWebPage } from './web-scraper'
 import { searchManifoldMarkets } from './manifold-api'
 import {
@@ -56,7 +57,7 @@ export const handleRunTerminalCommand = async (
 
     if (mode === 'assistant') {
       console.log()
-      console.log(chalk.blue(`> ${command}`))
+      console.log(green(`> ${command}`))
     }
     const childProcess = spawn(command, {
       shell: true,
@@ -109,7 +110,7 @@ export const handleRunTerminalCommand = async (
       clearTimeout(timer)
       resolve(formatResult(stdout, stderr, 'Command completed', code))
       if (mode === 'assistant') {
-        console.log(chalk.blue(`Command finished with exit code: ${code}`))
+        console.log(green(`Command finished with exit code: ${code}`))
       }
     })
 
