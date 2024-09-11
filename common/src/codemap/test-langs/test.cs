@@ -1,14 +1,34 @@
 using System;
 
-public class Greeting
+// Interface definition
+public interface IGreeter
 {
-    public static string Greet(string name)
+    string Greet(string name);
+}
+
+// Class implementation
+public class Greeting : IGreeter
+{
+    private readonly string _prefix;
+
+    public Greeting(string prefix)
     {
-        return $"Hello, {name}!";
+        _prefix = prefix;
     }
 
+    public string Greet(string name)
+    {
+        return $"{_prefix}, {name}!";
+    }
+
+    // Static method
+    public static void PrintGreeting(IGreeter greeter, string name)
+    {
+        Console.WriteLine(greeter.Greet(name));
+    }
     public static void Main()
     {
-        Console.WriteLine(Greet("World"));
+        var greeting = new Greeting("Hello");
+        PrintGreeting(greeting, "World");
     }
 }
