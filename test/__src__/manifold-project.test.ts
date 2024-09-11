@@ -13,6 +13,7 @@ import {
   getProjectFileTree,
   getAllFilePaths,
 } from 'common/src/project-file-tree'
+import { getFileTokenScores } from 'common/src/codemap/parse'
 import { EventEmitter } from 'events'
 import { FileChanges } from 'common/actions'
 import { projectTest } from './score-tests'
@@ -21,7 +22,7 @@ const DEBUG_MODE = true
 const mockProjectRoot = path.join(__dirname, '../__mock-projects__/manifold')
 
 projectTest('manifold project', async (getContext) => {
-  const { currentWorkingDirectory } = getProjectFileContext()
+  const { currentWorkingDirectory } = await getProjectFileContext()
   await runTerminalCommand(
     `cd ${currentWorkingDirectory}/backend/api && yarn compile`
   )
@@ -46,7 +47,7 @@ projectTest('manifold project', async (getContext) => {
 })
 
 const testFullFilePath = async ({ expectTrue }: ScoreTestContext) => {
-  const fileContext = getProjectFileContext()
+  const fileContext = await getProjectFileContext()
   const { changes } = await runMainPrompt(fileContext, [
     {
       role: 'user',
@@ -78,7 +79,7 @@ const testDeleteComment = async ({
   expectTrue,
   incrementScore,
 }: ScoreTestContext) => {
-  const fileContext = getProjectFileContext()
+  const fileContext = await getProjectFileContext()
   const { changes } = await runMainPrompt(fileContext, [
     {
       role: 'user',
@@ -135,7 +136,7 @@ const testDeleteCommentWithoutKnowledge = async ({
   expectTrue,
   incrementScore,
 }: ScoreTestContext) => {
-  const fileContext = getProjectFileContext()
+  const fileContext = await getProjectFileContext()
   fileContext.knowledgeFiles = {}
 
   const { changes } = await runMainPrompt(fileContext, [
@@ -210,9 +211,10 @@ function readMockFile(filePath: string): string | null {
   }
 }
 
-function getProjectFileContext(): ProjectFileContext {
+async function getProjectFileContext(): Promise<ProjectFileContext> {
   const fileTree = getProjectFileTree(mockProjectRoot)
-  const knowledgeFilePaths = getAllFilePaths(fileTree).filter((filePath) =>
+  const allFilePaths = getAllFilePaths(fileTree)
+  const knowledgeFilePaths = allFilePaths.filter((filePath) =>
     filePath.endsWith('knowledge.md')
   )
   const knowledgeFiles: Record<string, string> = {}
@@ -222,6 +224,10 @@ function getProjectFileContext(): ProjectFileContext {
       knowledgeFiles[filePath] = content
     }
   }
+  const fileTokenScores = await getFileTokenScores(
+    mockProjectRoot,
+    allFilePaths
+  )
   return {
     currentWorkingDirectory: mockProjectRoot,
     gitChanges: {
@@ -232,7 +238,7 @@ function getProjectFileContext(): ProjectFileContext {
     },
     files: {},
     knowledgeFiles,
-    exportedTokens: {},
+    fileTokenScores,
     fileTree,
   }
 }

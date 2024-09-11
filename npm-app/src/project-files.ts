@@ -63,7 +63,7 @@ export const getProjectFileContext = async (fileList: string[]) => {
       await getExistingFilesWithScrapedContent(knowledgeFilePaths)
 
     const allFilePaths = getAllFilePaths(fileTree)
-    const fileTokenScores = getFileTokenScores(contextRoot, allFilePaths)
+    const fileTokenScores = await getFileTokenScores(contextRoot, allFilePaths)
 
     const files = getFiles(fileList)
 

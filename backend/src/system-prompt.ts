@@ -25,7 +25,7 @@ export function getSystemPrompt(
   )
   const files = Object.keys(truncatedFiles)
 
-  return buildArray(
+  const systemPrompt = buildArray(
     {
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
@@ -52,6 +52,8 @@ ${getResponseFormatPrompt(checkFiles ?? false, files)}
 `.trimEnd(),
     }
   )
+
+  return systemPrompt
 }
 
 const introPrompt = `

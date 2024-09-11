@@ -3,94 +3,84 @@ import * as path from 'path'
 import Parser from 'tree-sitter'
 import { Query } from 'tree-sitter'
 
-import TypeScriptLanguage from 'tree-sitter-typescript'
-import JavaScriptLanguage from 'tree-sitter-javascript'
-import PythonLanguage from 'tree-sitter-python'
-import JavaLanguage from 'tree-sitter-java'
-import CSharpLanguage from 'tree-sitter-c-sharp'
-import CPPLanguage from 'tree-sitter-cpp'
-import CLanguage from 'tree-sitter-c'
-import RustLanguage from 'tree-sitter-rust'
-import RubyLanguage from 'tree-sitter-ruby'
-import GoLanguage from 'tree-sitter-go'
-import PHPLanguage from 'tree-sitter-php'
-
 import { DEBUG_PARSING } from './parse'
 
 interface LanguageConfig {
   language: any
   extensions: string[]
+  packageName: string
   queryFile: string
   parser: Parser
   query: Query
 }
 
-const languageConfigs: Omit<LanguageConfig, 'parser' | 'query'>[] = [
-  {
-    language: TypeScriptLanguage.typescript,
-    extensions: ['.ts'],
-    queryFile: 'tree-sitter-typescript-tags.scm',
-  },
-  {
-    language: TypeScriptLanguage.tsx,
-    extensions: ['.tsx'],
-    queryFile: 'tree-sitter-typescript-tags.scm',
-  },
-  {
-    language: JavaScriptLanguage,
-    extensions: ['.js', '.jsx'],
-    queryFile: 'tree-sitter-javascript-tags.scm',
-  },
-  {
-    language: PythonLanguage,
-    extensions: ['.py'],
-    queryFile: 'tree-sitter-python-tags.scm',
-  },
-  {
-    language: JavaLanguage,
-    extensions: ['.java'],
-    queryFile: 'tree-sitter-java-tags.scm',
-  },
-  {
-    language: CSharpLanguage,
-    extensions: ['.cs'],
-    queryFile: 'tree-sitter-c_sharp-tags.scm',
-  },
-  {
-    language: CLanguage,
-    extensions: ['.c', '.h'],
-    queryFile: 'tree-sitter-c-tags.scm',
-  },
-  {
-    language: CPPLanguage,
-    extensions: ['.cpp', '.hpp'],
-    queryFile: 'tree-sitter-cpp-tags.scm',
-  },
-  {
-    language: RustLanguage,
-    extensions: ['.rs'],
-    queryFile: 'tree-sitter-rust-tags.scm',
-  },
-  {
-    language: RubyLanguage,
-    extensions: ['.rb'],
-    queryFile: 'tree-sitter-ruby-tags.scm',
-  },
-  {
-    language: GoLanguage,
-    extensions: ['.go'],
-    queryFile: 'tree-sitter-go-tags.scm',
-  },
-  {
-    language: PHPLanguage.php,
-    extensions: ['.php'],
-    queryFile: 'tree-sitter-php-tags.scm',
-  },
-]
+const languageConfigs: Omit<LanguageConfig, 'parser' | 'query' | 'language'>[] =
+  [
+    {
+      extensions: ['.ts'],
+      queryFile: 'tree-sitter-typescript-tags.scm',
+      packageName: 'tree-sitter-typescript',
+    },
+    {
+      extensions: ['.tsx'],
+      queryFile: 'tree-sitter-typescript-tags.scm',
+      packageName: 'tree-sitter-typescript',
+    },
+    {
+      extensions: ['.js', '.jsx'],
+      queryFile: 'tree-sitter-javascript-tags.scm',
+      packageName: 'tree-sitter-javascript',
+    },
+    {
+      extensions: ['.py'],
+      queryFile: 'tree-sitter-python-tags.scm',
+      packageName: 'tree-sitter-python',
+    },
+    {
+      extensions: ['.java'],
+      queryFile: 'tree-sitter-java-tags.scm',
+      packageName: 'tree-sitter-java',
+    },
+    {
+      extensions: ['.cs'],
+      queryFile: 'tree-sitter-c_sharp-tags.scm',
+      packageName: 'tree-sitter-c-sharp',
+    },
+    {
+      extensions: ['.c', '.h'],
+      queryFile: 'tree-sitter-c-tags.scm',
+      packageName: 'tree-sitter-c',
+    },
+    {
+      extensions: ['.cpp', '.hpp'],
+      queryFile: 'tree-sitter-cpp-tags.scm',
+      packageName: 'tree-sitter-cpp',
+    },
+    {
+      extensions: ['.rs'],
+      queryFile: 'tree-sitter-rust-tags.scm',
+      packageName: 'tree-sitter-rust',
+    },
+    {
+      extensions: ['.rb'],
+      queryFile: 'tree-sitter-ruby-tags.scm',
+      packageName: 'tree-sitter-ruby',
+    },
+    {
+      extensions: ['.go'],
+      queryFile: 'tree-sitter-go-tags.scm',
+      packageName: 'tree-sitter-go',
+    },
+    {
+      extensions: ['.php'],
+      queryFile: 'tree-sitter-php-tags.scm',
+      packageName: 'tree-sitter-php',
+    },
+  ]
 
-export function getLanguageConfig(
+export async function getLanguageConfig(
   filePath: string
-): LanguageConfig | undefined {
+): Promise<LanguageConfig | undefined> {
   const extension = path.extname(filePath)
   const config = languageConfigs.find((config) =>
     config.extensions.includes(extension)
@@ -99,9 +89,19 @@ export function getLanguageConfig(
 
   if (!config.parser) {
     const parser = new Parser()
-    parser.setLanguage(config.language)
 
     try {
+      const languageModule = await import(config.packageName)
+      const language =
+        extension === '.ts'
+          ? languageModule.typescript
+          : extension === '.tsx'
+            ? languageModule.tsx
+            : extension === '.php'
+              ? languageModule.php
+              : languageModule
+      parser.setLanguage(language)
+
       const queryFilePath = path.join(
         __dirname,
         'tree-sitter-queries',
@@ -110,6 +110,7 @@ export function getLanguageConfig(
       const queryString = fs.readFileSync(queryFilePath, 'utf8')
       config.query = new Query(parser.getLanguage(), queryString)
       config.parser = parser
+      config.language = language
     } catch (e) {
       if (DEBUG_PARSING) {
         console.log('error', filePath, e)
@@ -118,5 +119,5 @@ export function getLanguageConfig(
     }
   }
 
-  return config
+  return config 
 }
