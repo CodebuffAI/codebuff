@@ -1,12 +1,10 @@
 # The AI coder for serious engineers
 
-Use Manicode to edit large codebases from your terminal.
+Manicode helps you generate better code from your terminal.
 
-Intended for every day use by experienced engineers.
-
-1. Run `manicode` from your terminal.
-2. Tell it what to do.
-3. It will read and write to files in your project to produce the code you want.
+1. Run `manicode` from your project directory
+2. Tell it what to do
+3. It will read and write to files to produce the code you want
 
 ## Installation
 
