@@ -49,6 +49,23 @@ Some have said every change should be paired with a unit test. In 2024, every ch
 2. Type `undo` or `redo` to revert or reapply file changes from the conversation.
 3. Press `Esc` or `Ctrl+C` while Manicode is generating a response to stop it.
 
+## Troubleshooting
+
+If you are getting permission errors when installing globally with '-g', or when running `manicode`, try installing node with a version managager.
+
+### For OSX or Unix, use [nvm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
+Run:
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+```
+
+### For Windows, use [nvm-windows](https://github.com/coreybutler/nvm-windows)
+
+Make sure to uninstall your existing node program. Then run this executable:
+
+[Download the release .exe](https://github.com/coreybutler/nvm-windows/releases)
+
 ## Feedback
 
 We value your input! Please email your feedback to james@manifold.markets. Thank you for using Manicode!
