@@ -51,18 +51,17 @@ Some have said every change should be paired with a unit test. In 2024, every ch
 
 ## Troubleshooting
 
-If you are getting permission errors when installing globally with '-g', or when running `manicode`, try installing node with a version managager.
+If you are getting permission errors when installing globally with '-g', or when running `manicode`, try [installing node with a version manager](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
 
-### For OSX or Unix, use [nvm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
-Run:
+#### For OSX or Unix, use [nvm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). Run:
 
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 ```
 
-### For Windows, use [nvm-windows](https://github.com/coreybutler/nvm-windows)
+#### For Windows, use [nvm-windows](https://github.com/coreybutler/nvm-windows):
 
-Make sure to uninstall your existing node program. Then run this executable:
+Make sure to uninstall your existing node program. Then get this executable:
 
 [Download the release .exe](https://github.com/coreybutler/nvm-windows/releases)
 
