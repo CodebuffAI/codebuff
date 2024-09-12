@@ -60,7 +60,7 @@ To get started with Manicode, follow these steps:
    - Press Ctrl+U to undo changes and Ctrl+R to redo
    - Press Esc to toggle the menu or stop the current AI response
 
-## How to Set Up Locally
+## Setting Up Locally
 
 If you want to set up Manicode for local development:
 
@@ -70,13 +70,33 @@ If you want to set up Manicode for local development:
 
 3. Run `bun install` to install the dependencies. (See [here](https://bun.sh/docs/installation) for instructions on how to install Bun.)
 
-4. Run `bun run dev:start-server` to start the server.
+4. To start both the server and client, use the provided script:
 
-5. In another terminal, run `bun run dev:start-client` to start the client.
+   ```
+   chmod +x start-dev.sh
+   ./start-dev.sh
+   ```
+
+   This script will start the server first, wait for it to be ready, and then start the client. Each will run in a separate terminal window.
+
+   Note: This script currently works on macOS. For other operating systems, you may need to start the server and client manually in separate terminal windows.
+
+   If you prefer to use VSCode terminals, you can run:
+
+   ```
+   ./start-dev.sh --vscode
+   ```
+
+   This will open VSCode (if it's not already open), create two integrated terminals, and run the server and client commands automatically.
+
+Alternatively, you can start the server and client manually in separate terminal windows:
+
+- In one terminal, run `bun run dev:start-server` to start the server.
+
+In another terminal, run `bun run dev:start-client` to start the client.
 
 ## Licensing
 
-This project consists of two parts with different licensing terms:
 
 1. NPM Package: The npm package contained in this project is licensed under the MIT License. See the LICENSE file in the npm package directory for details.
 

@@ -9,9 +9,8 @@
     "npm-app"
   ],
   "scripts": {
-    "start": "bun --cwd npm-app start",
-    "dev:start-client": "cd npm-app && bun run start",
-    "dev:start-server": "cd backend && bun run start",
+    "start-client": "bun --cwd npm-app start",
+    "start-server": "bun --cwd backend start",
     "start-manifold": "bun --cwd npm-app start-manifold",
     "start-litestar": "bun --cwd npm-app start-litestar",
     "start-jpcsp": "bun --cwd npm-app start-jpcsp",
