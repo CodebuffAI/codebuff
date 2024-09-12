@@ -9,7 +9,8 @@
     "npm-app"
   ],
   "scripts": {
-    "start": "bun --cwd npm-app start",
+    "start-client": "bun --cwd npm-app start",
+    "start-server": "bun --cwd backend start",
     "start-manifold": "bun --cwd npm-app start-manifold",
     "start-litestar": "bun --cwd npm-app start-litestar",
     "start-jpcsp": "bun --cwd npm-app start-jpcsp",
@@ -19,8 +20,10 @@
     "bump": "bun run scripts/bump-version.ts"
   },
   "dependencies": {
-    "lodash": "4.17.21"
+    "lodash": "4.17.21",
+    "ts-node": "^10.9.2"
   },
+  "packageManager": "bun@1.1.27",
   "devDependencies": {
     "@types/lodash": "4.17.7",
     "@types/node": "20.11.18",
