@@ -2,7 +2,6 @@ import { WebSocket } from 'ws'
 import fs from 'fs'
 import path from 'path'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
-import { createPatch } from 'diff'
 
 import { promptClaudeStream } from './claude'
 import { ProjectFileContext } from 'common/util/file'
