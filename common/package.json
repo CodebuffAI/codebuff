@@ -5,7 +5,7 @@
   "types": "dist/index.d.ts",
   "license": "UNLICENSED",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -R src/codemap/tree-sitter-queries dist/codemap/",
     "clean": "rm -rf dist && rm tsconfig.tsbuildinfo"
   },
   "dependencies": {
