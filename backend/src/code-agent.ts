@@ -32,21 +32,24 @@ export const codeAgent = async (
       content,
     },
   ] as OpenAIMessage[]
-  console.log('messagesWithContext', messagesWithContext)
 
   onResponseChunk('Generating response with o1-preview...\n\n')
 
-  const response = await promptOpenAI(
-    userId,
-    messagesWithContext,
-    'o1-preview',
-    { temperature: 1 }
-  )
+  const response = await promptOpenAI(userId, messagesWithContext, 'o1-mini', {
+    temperature: 1,
+  })
 
   onResponseChunk(response + '\n')
   console.log('response', response)
+  const modifiedResponse = response
+    .split('\n')
+    .filter((line) => {
+      !line.includes('```')
+    })
+    .join('\n')
 
-  const fileBlocks = parseFileBlocks(response)
+  console.log('modifiedResponse', modifiedResponse)
+  const fileBlocks = parseFileBlocks(modifiedResponse)
   const changes = await Promise.all(
     Object.entries(fileBlocks).map(([filePath, fileBlock]) =>
       processFileBlock(userId, ws, messages, response, filePath, fileBlock)
