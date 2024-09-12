@@ -16,7 +16,9 @@ import { generatePatch } from './generate-patch'
 import { requestRelevantFiles } from './request-files-prompt'
 import { processStreamWithFiles } from './process-stream'
 import { countTokens } from './util/token-counter'
+import { codeAgent } from './code-agent'
 
+const O1_ENABLED = true
 /**
  * Prompt claude, handle tool calls, and generate file changes.
  */
@@ -37,7 +39,7 @@ export async function mainPrompt(
   const tools = getTools()
 
   let shouldCheckFiles = true
-  if (Object.keys(fileContext.files).length === 0) {
+  if (Object.keys(fileContext.files).length === 0 || O1_ENABLED) {
     const system = getSystemPrompt(fileContext, {
       checkFiles: true,
     })
@@ -52,6 +54,10 @@ export async function mainPrompt(
     )
     fullResponse += responseChunk
     shouldCheckFiles = false
+  }
+
+  if (O1_ENABLED) {
+    return await codeAgent(userId, fileContext, messages, ws, onResponseChunk)
   }
 
   const lastMessage = messages[messages.length - 1]

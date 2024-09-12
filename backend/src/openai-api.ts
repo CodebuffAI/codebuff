@@ -32,7 +32,8 @@ const timeoutPromise = (ms: number) =>
 export async function promptOpenAI(
   userId: string,
   messages: OpenAIMessage[],
-  model: string
+  model: string,
+  options: { temperature?: number } = {}
 ) {
   const openai = getOpenAI(userId)
   try {
@@ -40,7 +41,7 @@ export async function promptOpenAI(
       openai.chat.completions.create({
         model,
         messages,
-        temperature: 0,
+        temperature: options.temperature || 0,
       }),
       timeoutPromise(200000) as Promise<OpenAI.Chat.ChatCompletion>,
     ])
