@@ -43,7 +43,7 @@ export async function promptOpenAI(
         messages,
         temperature: options.temperature || 0,
       }),
-      timeoutPromise(200000) as Promise<OpenAI.Chat.ChatCompletion>,
+      timeoutPromise(1_000_000) as Promise<OpenAI.Chat.ChatCompletion>,
     ])
 
     if (
