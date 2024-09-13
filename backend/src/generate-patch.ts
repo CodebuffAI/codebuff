@@ -27,6 +27,21 @@ export async function generatePatch(
   return updatedPatch
 }
 
+/**
+ * Generates a patch file based on the differences between the old and new file contents.
+ *
+ * This function analyzes the modifications made to a file by comparing its original content (`oldContent`)
+ * with the updated content (`newContent`). It leverages the user's message history and the full AI response
+ * to ensure that the generated patch accurately reflects the intended changes in a context-aware manner.
+ *
+ * @param userId - The unique identifier of the user initiating the patch generation.
+ * @param oldContent - The original content of the file before any changes.
+ * @param newContent - The updated content of the file after modifications.
+ * @param filePath - The specific file path where the patch will be applied.
+ * @param messageHistory - An array of previous messages exchanged, providing context for the changes.
+ * @param fullResponse - The complete response from the AI, which may include explanations or additional instructions relevant to the patch.
+ * @returns A string representing the generated patch that can be applied to the original file.
+ */
 const generatePatchPrompt = async (
   userId: string,
   oldContent: string,
