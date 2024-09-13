@@ -1,11 +1,11 @@
 import {
   ProjectFileContext,
-  createFileBlock,
+  createMarkdownFileBlock,
+  createMarkdownPatchBlock,
   printFileTree,
   printFileTreeWithTokens,
 } from 'common/util/file'
 import { buildArray } from 'common/util/array'
-import { STOP_MARKER } from 'common/constants'
 import { countTokens, countTokensForFiles } from './util/token-counter'
 import { debugLog } from './util/debug'
 import { sortBy, sum } from 'lodash'
@@ -83,20 +83,18 @@ The user may have edited files since your last change. Please try to notice and 
 </important_instructions>
 
 <editing_instructions>
-You implement edits by writing a patch file within <file> tags, which are automatically applied once written.
+You implement edits by writing patch files within \`\`\` tags, which are automatically applied once written.
 
-Use this format to create or modify files:
-${createFileBlock('path/to/file.tsx', patchExample)}
+Use this example format to create or modify a file:
+${createMarkdownPatchBlock(patchExample)}
 
-Try to make the patch as small as possible. Do not include more than 3 lines of context around each hunk in the patch.
+Please create one patch per file changed. Try to make the patch as small as possible. Do not include more than 3 lines of context around each hunk in the patch.
 
 Do not include comments you wouldn't want in the final code. For example, do not add comments like "// Add this check" or "// Add this line".
 
 Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 
 If you want to delete or rename a file, run a terminal command. More details below.
-
-Do not write code to the user except for the patch within <file> tags.
 </editing_instructions>
 `.trim()
 
@@ -115,7 +113,7 @@ If a user corrects you or contradicts you or gives broad advice, you should upda
 
 Each knowledge file should develop over time into a concise but rich repository of knowledge about the files within the directory, subdirectories, or the specific file it's associated with.
 
-Make sure you edit knowledge files by using <file> blocks. Do not write out their contents outside of <file> blocks.
+Make sure you edit knowledge files by using \`\`\` tags. Do not write out their contents outside of \`\`\` tags.
 
 Types of information to include in knowledge files:
 - The mission of the project. Goals, purpose, and a high-level overview of the project
@@ -178,7 +176,7 @@ You can use the run_terminal_command tool to execute shell commands in the user'
 4. Running grep to search code to find references or token definitions
 5. Performing git operations (e.g., "git status")
 
-Do not use the run_terminal_command tool to create or edit files. You should instead write out <file> blocks for that as detailed above in the <editing_instructions> block.
+Do not use the run_terminal_command tool to create or edit files. You should instead write out \`\`\` tags for that as detailed above in the <editing_instructions> block.
 
 The current working directory will always reset to project root directory for each command. You can only access files within this directory (or sub-directories).
 
@@ -227,7 +225,7 @@ const getRelevantFilesPromptPart1 = (fileContext: ProjectFileContext) => {
 
 <knowledge_files>
 ${Object.entries(knowledgeFiles)
-  .map(([path, content]) => createFileBlock(path, content))
+  .map(([path, content]) => createMarkdownFileBlock(path, content))
   .join('\n')}
 </knowledge_files>
 
@@ -249,7 +247,7 @@ const getRelevantFilesPromptPart2 = (
 
   const fileBlocks = Object.entries(truncatedFilesExceptKnowledgeFiles)
     .map(([filePath, content]) =>
-      createFileBlock(filePath, content ?? '[FILE_DOES_NOT_EXIST]')
+      createMarkdownFileBlock(filePath, content ?? '[FILE_DOES_NOT_EXIST]')
     )
     .join('\n')
 
@@ -290,10 +288,6 @@ const getResponseFormatPrompt = (checkFiles: boolean, files: string[]) => {
   return `
 # Response format
 
-The goal is to make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more.
-
-When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.
-
 Steps:
 
 ${
@@ -304,20 +298,14 @@ ${
 
 ${bulletNumber++}. You may edit files to address the user's request and run commands in the terminal. However, if previous two previous commands have failed, you should not run anymore terminal commands.
 
-If the user corrected you or gave feedback and it helped you understand something better, you must edit a knowledge file with a short note that condenses what you learned and what to do next time you so you don't make the same mistake again. Pure documentation of code doesn't need to be added to knowlege. But if the user says use yarn instead of npm, or to use one function instead of another, or to use a certain style, or that you should always write tests, then this is good information to add to a knoweldge file (create the file if it doesn't exist!). To edit a knowledge file, use a <file> block.
+Do not write out code to the user except for the patch within \`\`\` tags.
 
-Do not write code except when editing files with <file> blocks.
+If the user corrected you or gave feedback and it helped you understand something better, you must edit a knowledge file with a short note that condenses what you learned and what to do next time you so you don't make the same mistake again. Pure documentation of code doesn't need to be added to knowlege. But if the user says use yarn instead of npm, or to use one function instead of another, or to use a certain style, or that you should always write tests, then this is good information to add to a knoweldge file (create the file if it doesn't exist!).
 
 <important_instruction>
-Confine your edits to only what is directly necessary. Preserve the behavior of all existing code. Change only what you must to accomplish the user's request or add to a knowledge file.
+Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.
 </important_instruction>
-<important_instruction>
-Always end your response with the following marker:
-${STOP_MARKER}
-
-This marker helps ensure that your entire response has been received and processed correctly.
-If you don't end with this marker, you will automatically be prompted to continue. However, it is good to stop your response with this token so the user can give further guidence.
-</important_instruction>`.trim()
+`.trim()
 }
 
 const getTruncatedFilesBasedOnTokenBudget = (

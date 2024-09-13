@@ -47,6 +47,23 @@ ${content}
   )
 }
 
+export const createMarkdownPatchBlock = (content: string) => {
+  return `
+\`\`\`diff
+${content}
+\`\`\`
+`.trim()
+}
+
+export const createMarkdownFileBlock = (filePath: string, content: string) => {
+  return `
+${filePath}
+\`\`\`
+${content}
+\`\`\`
+`.trim()
+}
+
 export const fileRegex = /<file path="([^"]+)">([\s\S]*?)<\/file>/g
 export const fileWithNoPathRegex = /<file>([\s\S]*?)<\/file>/g
 
@@ -72,6 +89,35 @@ export const parseFileBlocksWithoutPath = (fileBlocks: string) => {
     )
   }
   return files
+}
+
+export const parseMarkdownPatchBlocks = (fileBlocks: string) => {
+  const lines = fileBlocks.split('\n')
+  const patches: string[] = []
+  let currentPatch = ''
+  for (const line of lines) {
+    if (line.startsWith('```diff')) {
+      currentPatch = ''
+    } else if (line.startsWith('```')) {
+      console.log('currentPatch', currentPatch)
+      patches.push(currentPatch)
+      currentPatch = ''
+    } else {
+      currentPatch += line + '\n'
+    }
+  }
+  const patchWithFilePath = patches.map((patch) => {
+    const filePath = patch.match(/^\s*diff --git a\/(.+?)\s/m)?.[1]
+    console.log('filePath', filePath)
+    if (!filePath) {
+      throw new Error('Invalid patch')
+    }
+    return {
+      filePath,
+      patch,
+    }
+  })
+  return patchWithFilePath
 }
 
 export function printFileTree(

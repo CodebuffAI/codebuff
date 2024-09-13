@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws'
 
 import { Message } from 'common/actions'
-import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
+import { parseMarkdownPatchBlocks, ProjectFileContext } from 'common/util/file'
 import { getCoderPrompt } from './system-prompt'
 import { assert } from 'common/util/object'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
@@ -47,18 +47,8 @@ export const codeAgent = async (
     'Last user message must be text'
   )
 
-  const warningPrompt = `
-<additional_instruction>
-Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.
-</additional_instruction>
-`.trim()
   const infoPrompt = `Please use the above information to answer the user's question:`
-  const content = [
-    coderPrompt,
-    warningPrompt,
-    infoPrompt,
-    lastMessage.content,
-  ].join('\n\n')
+  const content = [coderPrompt, infoPrompt, lastMessage.content].join('\n\n')
 
   const messagesWithContext = [
     ...messages.slice(0, -1),
@@ -81,20 +71,12 @@ Please preserve as much of the existing code, its comments, and its behavior as 
 
   onResponseChunk(response + '\n')
   console.log('response', response)
-  const modifiedResponse = response
-    .split('\n')
-    .filter((line) => !line.includes('```'))
-    .join('\n')
-
-  console.log('modifiedResponse', modifiedResponse)
-  const fileBlocks = parseFileBlocks(modifiedResponse)
-  const changes: FileChange[] = await Promise.all(
-    Object.entries(fileBlocks).map(([filePath, fileBlock]) => ({
-      filePath,
-      content: fileBlock,
-      type: 'patch',
-    }))
-  )
+  const patches = parseMarkdownPatchBlocks(response)
+  const changes: FileChange[] = patches.map(({ filePath, patch }) => ({
+    filePath,
+    content: patch,
+    type: 'patch',
+  }))
 
   console.log('changes', changes)
 
