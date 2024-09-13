@@ -41,7 +41,7 @@ export async function promptOpenAI(
       openai.chat.completions.create({
         model,
         messages,
-        temperature: options.temperature || 1,
+        temperature: options.temperature ?? 1,
       }),
       timeoutPromise(1_000_000) as Promise<OpenAI.Chat.ChatCompletion>,
     ])

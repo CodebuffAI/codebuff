@@ -47,8 +47,18 @@ export const codeAgent = async (
     'Last user message must be text'
   )
 
+  const warningPrompt = `
+<additional_instruction>
+Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.
+</additional_instruction>
+`.trim()
   const infoPrompt = `Please use the above information to answer the user's question:`
-  const content = [coderPrompt, infoPrompt, lastMessage.content].join('\n\n')
+  const content = [
+    coderPrompt,
+    warningPrompt,
+    infoPrompt,
+    lastMessage.content,
+  ].join('\n\n')
 
   const messagesWithContext = [
     ...messages.slice(0, -1),
@@ -60,9 +70,14 @@ export const codeAgent = async (
 
   onResponseChunk('Generating response with o1-preview...\n\n')
 
-  const response = await promptOpenAI(userId, messagesWithContext, 'o1-preview', {
-    temperature: 1,
-  })
+  const response = await promptOpenAI(
+    userId,
+    messagesWithContext,
+    'o1-preview',
+    {
+      temperature: 1,
+    }
+  )
 
   onResponseChunk(response + '\n')
   console.log('response', response)

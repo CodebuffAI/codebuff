@@ -15,7 +15,7 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
       if (type === 'file') {
         fs.writeFileSync(fullPath, content)
       } else {
-        const oldContent = fs.readFileSync(fullPath, 'utf-8')
+        const oldContent = fileExists ? fs.readFileSync(fullPath, 'utf-8') : ''
         const newContent = applyPatch(oldContent, content)
         fs.writeFileSync(fullPath, newContent)
       }
