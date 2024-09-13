@@ -5,7 +5,7 @@ import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 
 import { promptClaudeStream } from './claude'
 import { ProjectFileContext } from 'common/util/file'
-import { getSystemPrompt } from './system-prompt'
+import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
 import { getTools } from './tools'
 import { FileChange, Message } from 'common/actions'
@@ -38,9 +38,7 @@ export async function mainPrompt(
 
   let shouldCheckFiles = true
   if (Object.keys(fileContext.files).length === 0) {
-    const system = getSystemPrompt(fileContext, {
-      checkFiles: true,
-    })
+    const system = getSearchSystemPrompt(fileContext)
     // If the fileContext.files is empty, use prompts to select files and add them to context.
     const responseChunk = await updateFileContext(
       ws,
@@ -75,15 +73,12 @@ ${STOP_MARKER}
   }
 
   while (!isComplete && iterationCount < MAX_ITERATIONS) {
-    const system = getSystemPrompt(fileContext, {
+    const system = getAgentSystemPrompt(fileContext, {
       checkFiles: shouldCheckFiles,
     })
     const messagesWithContinuedMessage = continuedMessages
       ? [...messages, ...continuedMessages]
       : messages
-
-    console.log('system tokens', countTokens(JSON.stringify(system)))
-    console.log('messages tokens', countTokens(JSON.stringify(messages)))
 
     savePromptLengthInfo(messagesWithContinuedMessage, system, tools)
 
@@ -136,7 +131,7 @@ ${STOP_MARKER}
         const relevantFiles = await requestRelevantFiles(
           {
             messages,
-            system,
+            system: getSearchSystemPrompt(fileContext),
             tools,
           },
           fileContext,

@@ -1,5 +1,6 @@
 import { Message } from 'common/actions'
 import { promptOpenAI } from './openai-api'
+import { debugLog } from './util/debug'
 
 export async function generatePatch(
   userId: string,
@@ -22,7 +23,7 @@ export async function generatePatch(
     messageHistory,
     fullResponse
   )
-  console.log('got patch', newContent, '\n\n', patch)
+  debugLog('got patch', newContent, '\n\n', patch)
   const updatedPatch = patch.replaceAll('\n', lineEnding)
   return updatedPatch
 }
