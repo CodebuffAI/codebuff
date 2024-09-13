@@ -5,7 +5,7 @@ import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { getCoderPrompt } from './system-prompt'
 import { assert } from 'common/util/object'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
-import { processFileBlock } from './main-prompt'
+import { FileChange } from 'common/actions'
 
 /**
  * Handles code-related actions by interacting with the AI assistant to generate and apply code changes.
@@ -37,7 +37,9 @@ export const codeAgent = async (
   ws: WebSocket,
   onResponseChunk: (chunk: string) => void
 ) => {
-  const coderPrompt = getCoderPrompt(fileContext)
+  const coderPrompt = getCoderPrompt(fileContext, {
+    checkFiles: true,
+  })
   const lastMessage = messages[messages.length - 1]
   assert(lastMessage.role === 'user', 'Last message must be from user')
   assert(
@@ -58,7 +60,7 @@ export const codeAgent = async (
 
   onResponseChunk('Generating response with o1-preview...\n\n')
 
-  const response = await promptOpenAI(userId, messagesWithContext, 'o1-mini', {
+  const response = await promptOpenAI(userId, messagesWithContext, 'o1-preview', {
     temperature: 1,
   })
 
@@ -71,10 +73,12 @@ export const codeAgent = async (
 
   console.log('modifiedResponse', modifiedResponse)
   const fileBlocks = parseFileBlocks(modifiedResponse)
-  const changes = await Promise.all(
-    Object.entries(fileBlocks).map(([filePath, fileBlock]) =>
-      processFileBlock(userId, ws, messages, response, filePath, fileBlock)
-    )
+  const changes: FileChange[] = await Promise.all(
+    Object.entries(fileBlocks).map(([filePath, fileBlock]) => ({
+      filePath,
+      content: fileBlock,
+      type: 'patch',
+    }))
   )
 
   console.log('changes', changes)

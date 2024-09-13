@@ -11,14 +11,7 @@ import { debugLog } from './util/debug'
 import { sortBy, sum } from 'lodash'
 import { filterObject } from 'common/util/object'
 
-export function getSystemPrompt(
-  fileContext: ProjectFileContext,
-  options: {
-    checkFiles?: boolean
-    onlyCachePrefix?: boolean
-  } = {}
-) {
-  const { checkFiles, onlyCachePrefix } = options
+export function getSystemPrompt(fileContext: ProjectFileContext) {
   const truncatedFiles = getTruncatedFilesBasedOnTokenBudget(
     fileContext,
     80_000
@@ -29,44 +22,42 @@ export function getSystemPrompt(
     {
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
-      text: `
-${introPrompt}
-
-${editingFilesPrompt}
-
-${knowledgeFilesPrompt}
-
-${toolsPrompt}
-
-${getProjectFileTreePrompt(fileContext)}
-
-${getRelevantFilesPromptPart1(fileContext)}
-`.trim(),
+      text: [
+        getProjectFileTreePrompt(fileContext),
+        getRelevantFilesPromptPart1(fileContext),
+      ].join('\n\n'),
     },
 
-    !onlyCachePrefix && {
+    files.length > 0 && {
       type: 'text' as const,
-      text: `
-${getRelevantFilesPromptPart2(fileContext, truncatedFiles)}
-${getResponseFormatPrompt(checkFiles ?? false, files)}
-`.trimEnd(),
+      text: [getRelevantFilesPromptPart2(fileContext, truncatedFiles)].join(
+        '\n\n'
+      ),
     }
   )
 
   return systemPrompt
 }
 
-export const getCoderPrompt = (fileContext: ProjectFileContext) => {
+export const getCoderPrompt = (
+  fileContext: ProjectFileContext,
+  options: {
+    checkFiles?: boolean
+  }
+) => {
+  const { checkFiles } = options
   const truncatedFiles = getTruncatedFilesBasedOnTokenBudget(
     fileContext,
     80_000
   )
+  const files = Object.keys(truncatedFiles)
   return [
     introPrompt,
     editingFilesPrompt,
     knowledgeFilesPrompt,
     getRelevantFilesPromptPart1(fileContext),
     getRelevantFilesPromptPart2(fileContext, truncatedFiles),
+    getResponseFormatPrompt(checkFiles ?? false, files),
   ].join('\n\n')
 }
 
@@ -80,6 +71,10 @@ You are assisting the user with one particular coding project to which you have 
 If you are unsure about the answer to a user's question, you should say "I don't have enough information to confidently answer your question." If the scope of the change the user is requesting is too large to implement all at once (e.g. requires greater than 750 lines of code), you can tell the user the scope is too big and ask which sub-problem to focus on first.
 `.trim()
 
+const patchExample = `
+diff --git a/web/components/feed/comment-on-answer.tsx b/web/components/feed/comment-on-answer.tsx\nindex 81027aad0..8b85b91c1 100644\n--- a/web/components/feed/comment-on-answer.tsx\n+++ b/web/components/feed/comment-on-answer.tsx\n@@ -4,22 +4,16 @@ import { Col } from 'web/components/layout/col'\n import { Row } from 'web/components/layout/row'\n import { UserLink } from 'web/components/widgets/user-link'\n import Curve from 'web/lib/icons/comment-curve.svg'\n-import { getAnswerColor, useChartAnswers } from '../charts/contract/choice'\n+import { getAnswerColor } from '../charts/contract/choice'\n import { useDisplayUserByIdOrAnswer } from 'web/hooks/use-user-supabase'\n import { XCircleIcon } from '@heroicons/react/solid'\n import { RelativeTimestamp } from 'web/components/relative-timestamp'\n import { UserHovercard } from '../user/user-hovercard'\n-import { MultiContract } from 'common/contract'\n \n-export function CommentOnAnswer(props: {\n-  answer: Answer\n-  contract: MultiContract\n-  clear?: () => void\n-}) {\n-  const { answer, contract, clear } = props\n+export function CommentOnAnswer(props: { answer: Answer; clear?: () => void }) {\n+  const { answer, clear } = props\n \n-  const answersArray = useChartAnswers(contract).map((answer) => answer.text)\n-  const color = getAnswerColor(answer, answersArray)\n+  const color = getAnswerColor(answer)\n \n   return (\n     <Row className=\"items-end pl-2\">\n
+`.trim()
+
 const editingFilesPrompt = `
 # Editing files
 
@@ -88,49 +83,20 @@ The user may have edited files since your last change. Please try to notice and 
 </important_instructions>
 
 <editing_instructions>
-You implement edits by writing out <file> blocks. The user does not need to copy this code to make the edit, the file change is done automatically by another assistant.
+You implement edits by writing a patch file within <file> tags, which are automatically applied once written.
 
-To create a new file, simply provide a file block with the file path as an xml attribute and the file contents:
-${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
+Use this format to create or modify files:
+${createFileBlock('path/to/file.tsx', patchExample)}
 
-If the file already exists, this will overwrite the file with the new contents.
-
-Otherwise, be mindful that you are providing instructions on how to modify an existing file. Another assistant will be taking your instructions and then making the actual edit to the file, so it needs to be clear what you are changing. Shorter instructions are also preferred.
-
-When modifying an existing file, try to excerpt only the section you are actually changing. Use comments like "// ... existing code ..." to indicate where existing code should be preserved:
-
-${createFileBlock(
-  'path/to/existing/file.tsx',
-  `// ... existing code ...
-
-function getDesktopNav() {
-  console.log('I\'ve just edited in this console.log statement')
-
-  // ... existing code ...
-}
-
-// ... existing code ...
-`
-)}
-
-Be sure to give enough lines of context around the code you are editing so that the other assistant can make the edit in the correct place. But adding more than 2-3 lines of context is probably unnecessary.
-
-<important_instruction>
-Don't forget to add the placeholder comment "// ... existing code ..." between any sections of code you are editing. If you don't, then all the code in between will be deleted!
-</important_instruction>
-
-Do not reproduce long continuous sections of the file which are unchanged. Use the placeholder comment "// ... existing code ..." to abbreviate these sections.
+Try to make the patch as small as possible. Do not include more than 3 lines of context around each hunk in the patch.
 
 Do not include comments you wouldn't want in the final code. For example, do not add comments like "// Add this check" or "// Add this line".
-
-You should not set a file's contents to the current contents of the file, since that is unnecessary work.
 
 Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 
 If you want to delete or rename a file, run a terminal command. More details below.
 
-Do not write code to the user except when editing files with <file> blocks.
-
+Do not write code to the user except for the patch within <file> tags.
 </editing_instructions>
 `.trim()
 
@@ -312,13 +278,12 @@ ${gitChanges.lastCommitMessages}
 <relevant_files>
 Here are some files that were selected to aid in the user request, ordered by most important first:
 ${fileBlocks}
-
-Use the tool update_file_context to change the set of files listed here. You should not use this tool to read a file that is already included.
 </relevant_files>
 
 As you can see, some files that you might find useful are already provided. If the included set of files is not sufficient to address the user's request, you should use the update_file_context tool to update the set of files and their contents.
 `.trim()
 }
+// Use the tool update_file_context to change the set of files listed here. You should not use this tool to read a file that is already included.
 
 const getResponseFormatPrompt = (checkFiles: boolean, files: string[]) => {
   let bulletNumber = 1
