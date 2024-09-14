@@ -123,26 +123,25 @@ async function getGitChanges() {
   }
 }
 
-function getChangesSinceLastFileVersion(
+export function getChangesSinceLastFileVersion(
   lastFileVersion: Record<string, string>
 ) {
-  return Object.fromEntries(
-    Object.entries(lastFileVersion)
-      .map(([filePath, file]) => {
-        const fullFilePath = path.join(getProjectRoot(), filePath)
-        try {
-          const currentContent = fs.readFileSync(fullFilePath, 'utf8')
-          if (currentContent === file) {
-            return [filePath, null]
-          }
-          return [filePath, createPatch(filePath, file, currentContent)]
-        } catch (error) {
-          // console.error(`Error reading file ${fullFilePath}:`, error)
-          return [filePath, null]
+  const changes = Object.entries(lastFileVersion)
+    .map(([filePath, file]) => {
+      const fullFilePath = path.join(getProjectRoot(), filePath)
+      try {
+        const currentContent = fs.readFileSync(fullFilePath, 'utf8')
+        if (currentContent === file) {
+          return [filePath, null] as const
         }
-      })
-      .filter(([_, diff]) => diff !== null)
-  )
+        return [filePath, createPatch(filePath, file, currentContent)] as const
+      } catch (error) {
+        // console.error(`Error reading file ${fullFilePath}:`, error)
+        return [filePath, null] as const
+      }
+    })
+    .filter(([_, diff]) => diff !== null) as [string, string][]
+  return Object.fromEntries(changes)
 }
 
 export function getFiles(filePaths: string[]) {

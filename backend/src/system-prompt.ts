@@ -295,7 +295,7 @@ As you can see, some files that you might find useful are already provided. If t
 }
 
 const gitChangesPrompt = (fileContext: ProjectFileContext) => {
-  const { gitChanges, changesSinceLastChat } = fileContext
+  const { gitChanges } = fileContext
   if (!gitChanges) {
     return ''
   }
@@ -316,13 +316,6 @@ ${gitChanges.diffCached}
 <git_commit_messages_most_recent_first>
 ${gitChanges.lastCommitMessages}
 </git_commit_messages_most_recent_first>
-
-The user has made the following changes to the code since your last response. Please try to preserve these changes!
-<user_edits_since_last_chat>
-${Object.entries(changesSinceLastChat)
-  .map(([filePath, diff]) => createFileBlock(filePath, diff))
-  .join('\n')}
-</user_edits_since_last_chat>
 `.trim()
 }
 

@@ -10,6 +10,7 @@ import { Client } from './client'
 import { Message } from 'common/actions'
 import { displayMenu } from './menu'
 import {
+  getChangesSinceLastFileVersion,
   getCurrentWorkingDirectory,
   getExistingFiles,
   getProjectRoot,
@@ -17,6 +18,7 @@ import {
 } from './project-files'
 import { handleRunTerminalCommand } from './tool-handlers'
 import { SKIPPED_TERMINAL_COMMANDS } from 'common/constants'
+import { createFileBlock } from 'common/util/file'
 
 export class CLI {
   private client: Client
@@ -149,14 +151,9 @@ export class CLI {
           : green('Redo last change')
       )
       const files = this.applyAndDisplayCurrentFileVersion()
-      console.log(
-        green('Loaded files:'),
-        green(Object.keys(files).join(', '))
-      )
+      console.log(green('Loaded files:'), green(Object.keys(files).join(', ')))
     } else {
-      console.log(
-        green(`No more ${direction === 'undo' ? 'undo' : 'redo'}s`)
-      )
+      console.log(green(`No more ${direction === 'undo' ? 'undo' : 'redo'}s`))
     }
   }
 
@@ -255,8 +252,24 @@ export class CLI {
     this.startLoadingAnimation()
     await this.readyPromise
 
-    const newMessage: Message = { role: 'user', content: userInput }
     const currentChat = this.chatStorage.getCurrentChat()
+    const { fileVersions } = currentChat
+    const currentFileVersion =
+      fileVersions[fileVersions.length - 1]?.files ?? {}
+    const changesSinceLastFileVersion =
+      getChangesSinceLastFileVersion(currentFileVersion)
+    const changesFileBlocks = Object.entries(changesSinceLastFileVersion).map(
+      ([filePath, patch]) => createFileBlock(filePath, patch)
+    )
+    const changesMessage =
+      changesFileBlocks.length > 0
+        ? `<user_edits_since_last_chat>\n${changesFileBlocks.join('\n')}\n</user_edits_since_last_chat>\n\n`
+        : ''
+
+    const newMessage: Message = {
+      role: 'user',
+      content: `${changesMessage}${userInput}`,
+    }
     this.chatStorage.addMessage(currentChat, newMessage)
 
     this.isReceivingResponse = true
