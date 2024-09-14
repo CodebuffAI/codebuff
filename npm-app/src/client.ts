@@ -19,6 +19,7 @@ import { uniq } from 'lodash'
 export class Client {
   private webSocket: APIRealtimeClient
   private chatStorage: ChatStorage
+  private currentUserInputId: string | undefined
 
   constructor(
     websocketUrl: string,
@@ -38,6 +39,9 @@ export class Client {
   private setupSubscriptions() {
     this.webSocket.subscribe('tool-call', async (a) => {
       const { response, changes, data, userInputId } = a
+      if (userInputId !== this.currentUserInputId) {
+        return
+      }
 
       const filesChanged = uniq(changes.map((change) => change.filePath))
       this.chatStorage.saveFilesChanged(filesChanged)
@@ -126,6 +130,7 @@ export class Client {
   }
 
   async sendUserInput(previousChanges: FileChanges, userInputId: string) {
+    this.currentUserInputId = userInputId
     const currentChat = this.chatStorage.getCurrentChat()
     const { messages, fileVersions } = currentChat
     const messageText = messages
@@ -193,6 +198,7 @@ export class Client {
     })
 
     const stopResponse = () => {
+      this.currentUserInputId = undefined
       unsubscribeChunks()
       unsubscribeComplete()
       resolveResponse({
@@ -226,6 +232,7 @@ export class Client {
       unsubscribeChunks()
       unsubscribeComplete()
       resolveResponse({ ...a, wasStoppedByUser: false })
+      this.currentUserInputId = undefined
     })
 
     return {
