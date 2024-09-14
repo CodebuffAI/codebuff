@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "1.0.60",
+  "version": "1.0.61",
   "description": "Backend server for Manicode",
   "main": "dist/index.js",
   "license": "UNLICENSED",
