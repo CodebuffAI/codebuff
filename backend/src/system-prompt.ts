@@ -120,7 +120,7 @@ Do not write code to the user except when editing files with <file> blocks.
 </editing_instructions>
 `.trim()
 
-const knowledgeFilesPrompt = `
+export const knowledgeFilesPrompt = `
 # Knowledge files
 
 Knowledge files are your guide to the project. There are two types of knowledge files you can create and update:
@@ -304,6 +304,13 @@ Use the tool update_file_context to change the set of files listed here. You sho
 
 As you can see, some files that you might find useful are already provided. If the included set of files is not sufficient to address the user's request, you should use the update_file_context tool to update the set of files and their contents.
 `.trim()
+}
+
+export const getRelevantFilesPrompt = (fileContext: ProjectFileContext) => {
+  const part1 = getRelevantFilesPromptPart1(fileContext)
+  const part2 = getRelevantFilesPromptPart2(fileContext, fileContext.files) // TODO: see if we should remove other files?
+
+  return part1 + part2
 }
 
 const getResponseFormatPrompt = (checkFiles: boolean, files: string[]) => {

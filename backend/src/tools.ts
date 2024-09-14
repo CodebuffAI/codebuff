@@ -64,3 +64,5 @@ export const getTools = (): Tool[] => {
     // } as Tool,
   ]
 }
+
+export const DEFAULT_TOOLS: Tool[] = getTools()

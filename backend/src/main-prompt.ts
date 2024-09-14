@@ -16,6 +16,7 @@ import { generatePatch } from './generate-patch'
 import { requestRelevantFiles } from './request-files-prompt'
 import { processStreamWithFiles } from './process-stream'
 import { countTokens } from './util/token-counter'
+import { generateKnowledgeFiles } from './generate-knowledge-files'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -34,10 +35,12 @@ export async function mainPrompt(
   )
 
   let fullResponse = ''
+  const fileProcessingPromises: Promise<FileChange | null>[] = []
   const tools = getTools()
 
   let shouldCheckFiles = true
   if (Object.keys(fileContext.files).length === 0) {
+    // This is most likely to happen upon the first message from the user
     const system = getSystemPrompt(fileContext, {
       checkFiles: true,
     })
@@ -52,10 +55,16 @@ export async function mainPrompt(
     )
     fullResponse += responseChunk
     shouldCheckFiles = false
+  } else {
+    // Already have context, most likely from an existing chat
+
+    // Generate new/updated knowledge files if there are signficant changes to document
+    fileProcessingPromises.push(
+      generateKnowledgeFiles(userId, ws, fullResponse, fileContext, messages)
+    )
   }
 
   const lastMessage = messages[messages.length - 1]
-  const fileProcessingPromises: Promise<FileChange | null>[] = []
   let toolCall: ToolCall | null = null
   let continuedMessages: Message[] = []
   let isComplete = false

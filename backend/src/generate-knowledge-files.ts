@@ -1,0 +1,67 @@
+import { WebSocket } from 'ws'
+import { FileChange, Message } from 'common/actions'
+import { ProjectFileContext } from 'common/util/file'
+import { processFileBlock } from './main-prompt'
+import { promptClaude } from './claude'
+import { getRelevantFilesPrompt, knowledgeFilesPrompt } from './system-prompt'
+import { DEFAULT_TOOLS } from './tools'
+
+export async function generateKnowledgeFiles(
+  userId: string,
+  ws: WebSocket,
+  fullResponse: string,
+  fileContext: ProjectFileContext,
+  initialMessages: Message[]
+): Promise<FileChange | null> {
+  // Prompt Claude to check for some heuristics around whether or not we've done enough meaningful work to warrant creating a knowledge file.
+  // TODO: take into account the actual diffs the user manually made to the files – these likely represent little issues that we didn't do correctly
+  const systemPrompt = `
+    You are an assistant that helps developers create knowledge files for their codebase. You are helpful and concise, knowing exactly when enough information has been gathered to create a knowledge file.
+
+    The user has provided you with some changes to the codebase. You should use them to create a knowledge file if it's meaningful to do so. If the change is not meaningful, you should not create a knowledge file.
+
+    Here are some examples of meaningful changes:
+    - user added a new package to the project -> this means developers likely want to use this package to extend the project's functionality in a particular way and other developers/LLMs may want to use it as well. A knowledge file would be a great way for everyone to be on the same page about the new package and how it fits into the project.
+    - user has corrected your previous response because you made a mistake -> this means the user had something else in mind. A knowledge file would be a great way for everyone to learn from your mistake and improve your responses in the future.
+    - user has shown they want to continue building upon your previous response -> this means the user is likely satisfied with your previous response. A knowledge file would be a great way to remember what went well and do more of that in the future.
+
+    Here are some relevant files and code diffs that you should consider: 
+    ${getRelevantFilesPrompt(fileContext)}
+    
+    If the change isn't important enough to warrant a new knowledge file, please do not output anything. We don't want to waste the user's time on irrelevant changes.
+    This is also meant to be helpful for future LLMs like yourself. Thus, please be concise and avoid unnecessary details. If the change is important, please provide a detailed description of what we're doing and why.
+    Again, this is  meant to be useful for both humans and LLMs. 
+
+    If you determined that the change is important enough to warrant a knowledge file, please see the following instructions on how to create a helpful knowledge file:
+    ${knowledgeFilesPrompt}
+    
+    Please provide a detailed description of what you're doing and why. Do not include any code or other files in the knowledge file.
+    `
+
+  const messages = initialMessages // TODO: remove last message?
+
+  console.log('Prompting for knowledge file')
+  const response = await promptClaude(messages, {
+    userId,
+    system: systemPrompt,
+    tools: DEFAULT_TOOLS,
+  })
+  const fileContentMatch = response.match(/<file>([\s\S]*?)<\/file>/)
+  const fileContent = fileContentMatch ? fileContentMatch[1].trim() : ''
+  const filePath = 'knowledge.md' // TODO: get path to best location for knowledge file, use `fileContext.currentWorkingDirectory`?
+
+  if (fileContent.length === 0) {
+    console.log('No need to upsert knowledge file.')
+    return null
+  }
+
+  console.log('knowledge file to upsert', filePath, fileContent)
+  return processFileBlock(
+    userId,
+    ws,
+    messages,
+    fullResponse,
+    filePath,
+    fileContent
+  )
+}
