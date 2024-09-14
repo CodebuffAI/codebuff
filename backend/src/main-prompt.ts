@@ -15,7 +15,6 @@ import { requestFiles, requestFile } from './websockets/websocket-action'
 import { generatePatch } from './generate-patch'
 import { requestRelevantFiles } from './request-files-prompt'
 import { processStreamWithFiles } from './process-stream'
-import { countTokens } from './util/token-counter'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -50,6 +49,23 @@ export async function mainPrompt(
     )
     fullResponse += responseChunk
     shouldCheckFiles = false
+  }
+
+  const lastUserMessageIndex = messages.findLastIndex(
+    (message) => message.role === 'user' && typeof message.content === 'string'
+  )
+  const numAssistantMessages = messages
+    .slice(lastUserMessageIndex)
+    .filter((message) => message.role === 'assistant').length
+  const shouldPause = numAssistantMessages >= 3
+  if (shouldPause) {
+    const response = `\nI'll pause to get more instructions from the user.\n`
+    onResponseChunk(response)
+    return {
+      response,
+      changes: [],
+      toolCall: null,
+    }
   }
 
   const lastMessage = messages[messages.length - 1]
