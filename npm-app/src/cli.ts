@@ -1,7 +1,7 @@
 import { uniq } from 'lodash'
 import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
-import { green, yellow, bold } from 'picocolors'
+import { green, yellow } from 'picocolors'
 import { parse } from 'path'
 
 import { websocketUrl } from './config'
@@ -256,7 +256,8 @@ export class CLI {
     await this.readyPromise
 
     const newMessage: Message = { role: 'user', content: userInput }
-    this.chatStorage.addMessage(this.chatStorage.getCurrentChat(), newMessage)
+    const currentChat = this.chatStorage.getCurrentChat()
+    this.chatStorage.addMessage(currentChat, newMessage)
 
     this.isReceivingResponse = true
     const { response, changes } = await this.sendUserInputAndAwaitResponse()

@@ -24,6 +24,7 @@ export const ProjectFileContextSchema = z.object({
     diffCached: z.string(),
     lastCommitMessages: z.string(),
   }),
+  changesSinceLastChat: z.record(z.string(), z.string()),
 })
 
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>

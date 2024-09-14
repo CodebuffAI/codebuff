@@ -126,7 +126,8 @@ export class Client {
   }
 
   async sendUserInput(previousChanges: FileChanges, userInputId: string) {
-    const messages = this.chatStorage.getCurrentChat().messages
+    const currentChat = this.chatStorage.getCurrentChat()
+    const { messages, fileVersions } = currentChat
     const messageText = messages
       .map((m) => JSON.stringify(m.content))
       .join('\n')
@@ -150,7 +151,12 @@ export class Client {
       lastMessage.content += '\n\n' + blocks.join('\n\n')
     }
 
-    const fileContext = await getProjectFileContext(fileList)
+    const currentFileVersion =
+      fileVersions[fileVersions.length - 1]?.files ?? {}
+    const fileContext = await getProjectFileContext(
+      fileList,
+      currentFileVersion
+    )
     this.webSocket.sendAction({
       type: 'user-input',
       userInputId,
@@ -229,7 +235,7 @@ export class Client {
   }
 
   public async warmContextCache() {
-    const fileContext = await getProjectFileContext([])
+    const fileContext = await getProjectFileContext([], {})
 
     return new Promise<void>((resolve) => {
       this.webSocket.subscribe('warm-context-cache-response', () => {
