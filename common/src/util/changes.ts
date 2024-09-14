@@ -12,6 +12,12 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
     const fullPath = path.join(projectRoot, filePath)
     try {
       const fileExists = fs.existsSync(fullPath)
+      if (!fileExists) {
+        // Create directories in the path if they don't exist
+        const dirPath = path.dirname(fullPath)
+        fs.mkdirSync(dirPath, { recursive: true })
+      }
+
       if (type === 'file') {
         fs.writeFileSync(fullPath, content)
       } else {
