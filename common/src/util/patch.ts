@@ -28,7 +28,10 @@ export const applyPatch = (oldContent: string, patch: string): string => {
   ): number => {
     for (let i = startIndex; i < lines.length - contextLines.length; i++) {
       if (
-        contextLines.every((line, j) => lines[i + j].trim() === line.trim())
+        // Match without whitespace, or if the context line is blank.
+        contextLines.every(
+          (line, j) => lines[i + j].trim() === line.trim() || line.trim() === ''
+        )
       ) {
         return i
       }
