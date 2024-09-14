@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws'
-import { FileChange, Message } from 'common/actions'
+import { FileChange, Message, ToolCallSchema } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
 import { processFileBlock } from './main-prompt'
 import { promptClaude } from './claude'
@@ -17,14 +17,13 @@ export async function generateKnowledgeFiles(
   // TODO: take into account the actual diffs the user manually made to the files – these likely represent little issues that we didn't do correctly
   const systemPrompt = `
     You are an assistant that helps developers create knowledge files for their codebase. You are helpful and concise, knowing exactly when enough information has been gathered to create a knowledge file.
-
     The user has provided you with some changes to the codebase. You should use them to create a knowledge file if it's meaningful to do so. If the change is not meaningful, you should not create a knowledge file.
-
     Here are some examples of meaningful changes:
     - user added a new package to the project -> this means developers likely want to use this package to extend the project's functionality in a particular way and other developers/LLMs may want to use it as well. A knowledge file would be a great way for everyone to be on the same page about the new package and how it fits into the project.
     - user has corrected your previous response because you made a mistake -> this means the user had something else in mind. A knowledge file would be a great way for everyone to learn from your mistake and improve your responses in the future.
     - user has shown they want to continue building upon your previous response -> this means the user is likely satisfied with your previous response. A knowledge file would be a great way to remember what went well and do more of that in the future.
-
+    `
+  const userPrompt = `
     Here are some relevant files and code diffs that you should consider: 
     ${getRelevantFilesPrompt(fileContext)}
     
@@ -38,17 +37,29 @@ export async function generateKnowledgeFiles(
     Please provide a detailed description of what you're doing and why. Do not include any code or other files in the knowledge file.
     `
 
-  const messages = initialMessages // TODO: remove last message?
+  const messages = [
+    ...initialMessages,
+    {
+      role: 'assistant' as const,
+      content:
+        "Got it, I'll determine if I need to create/update the knowledge file and generate if necessary. Can you share any relevant information about the project?",
+    },
+    {
+      role: 'user' as const,
+      content: userPrompt,
+    },
+  ]
 
-  console.log('Prompting for knowledge file')
+  console.log('knowledge file messages:', messages)
   const response = await promptClaude(messages, {
     userId,
     system: systemPrompt,
     tools: DEFAULT_TOOLS,
   })
-  const fileContentMatch = response.match(/<file>([\s\S]*?)<\/file>/)
+  const fileContentMatch = response.match(/<file[^>]*>([\s\S]*)<\/file>/)
   const fileContent = fileContentMatch ? fileContentMatch[1].trim() : ''
   const filePath = 'knowledge.md' // TODO: get path to best location for knowledge file, use `fileContext.currentWorkingDirectory`?
+  console.log('knowledge file response:', messages, response)
 
   if (fileContent.length === 0) {
     console.log('No need to upsert knowledge file.')
