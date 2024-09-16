@@ -65,6 +65,7 @@ Please produce a patch file based on this change.
   return await promptOpenAI(
     userId,
     messages,
-    'ft:gpt-4o-2024-08-06:manifold-markets:run-1:A4VfZwvz'
+    'ft:gpt-4o-2024-08-06:manifold-markets::A7wELpag'
+    // 'ft:gpt-4o-2024-08-06:manifold-markets:run-1:A4VfZwvz'
   )
 }
