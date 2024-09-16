@@ -46,54 +46,6 @@ export const getTools = (): Tool[] => {
       },
     } as Tool,
     // {
-    //   name: 'gen_knowledge_file',
-    //   description: `Generates a knowledge file based on the significant and meaningful changes made to the codebase. When there aren't significant changes, don't generate a knowledge file and return null instead. See prompt for more details on what makes a change significant.`,
-    //   input_schema: {
-    //     type: 'object',
-    //     properties: {
-    //       knowledge_file: {
-    //         type: 'object',
-    //         description: 'The proposed knowledge file',
-    //         properties: {
-    //           filePath: {
-    //             type: 'string',
-    //             description:
-    //               'The path to the knowledge file. it should always end with the suffix `knowledge.md`',
-    //           },
-    //           fileContent: {
-    //             type: 'string',
-    //             description:
-    //               'The content of the file that was changed. It should always contain the key information about the project that will be useful for future humans/LLMs.',
-    //           },
-    //         },
-    //         required: ['filePath', 'fileContent'],
-    //       },
-    //     },
-    //     required: ['knowledge_file'],
-    //     // properties: {
-    //     //   changes: {
-    //     //     type: 'array',
-    //     //     description: 'The proposed knowledge files',
-    //     //     items: {
-    //     //       type: 'object',
-    //     //       properties: {
-    //     //         filePath: {
-    //     //           type: 'string',
-    //     //           description: 'The path to the file that was changed',
-    //     //         },
-    //     //         content: {
-    //     //           type: 'string',
-    //     //           description: 'The content of the file that was changed',
-    //     //         },
-    //     //       },
-    //     //       required: ['filePath', 'content'],
-    //     //     },
-    //     //   },
-    //     // },
-    //     // required: ['changes'],
-    //   },
-    // } as Tool,
-    // {
     //   name: 'search_manifold_markets',
     //   description: `Searches for relevant markets on Manifold and returns a list of Yes/No markets with their probabilities. This tool should be used when the user wants to know about a future event, like who will win the next presidential election. You can search for a relevant prediction market, which is a question about the future, and get the market's forecast as a probability which you can interpret.`,
     //   input_schema: {
