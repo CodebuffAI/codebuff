@@ -308,9 +308,9 @@ As you can see, some files that you might find useful are already provided. If t
 
 export const getRelevantFilesPrompt = (fileContext: ProjectFileContext) => {
   const part1 = getRelevantFilesPromptPart1(fileContext)
-  const part2 = getRelevantFilesPromptPart2(fileContext, fileContext.files) // TODO: see if we should remove other files?
+  const part2 = getRelevantFilesPromptPart2(fileContext, fileContext.files)
 
-  return part1 + part2
+  return [part1, part2, editingFilesPrompt].join('\n\n')
 }
 
 const getResponseFormatPrompt = (checkFiles: boolean, files: string[]) => {

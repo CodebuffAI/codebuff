@@ -59,9 +59,16 @@ export async function mainPrompt(
     // Already have context, most likely from an existing chat
 
     // Generate new/updated knowledge files if there are signficant changes to document
-    fileProcessingPromises.push(
-      generateKnowledgeFiles(userId, ws, fullResponse, fileContext, messages)
+    const knowledgeFilePromise = generateKnowledgeFiles(
+      userId,
+      ws,
+      fullResponse,
+      fileContext,
+      messages
     )
+    knowledgeFilePromise.then((fileChanges) => {
+      fileProcessingPromises.push(...fileChanges)
+    })
   }
 
   const lastMessage = messages[messages.length - 1]
