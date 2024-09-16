@@ -23,7 +23,8 @@ export async function generateKnowledgeFiles(
     - user added a new package to the project -> this means developers likely want to use this package to extend the project's functionality in a particular way and other developers/LLMs may want to use it as well. A knowledge file would be a great way for everyone to be on the same page about the new package and how it fits into the project.
     - user has corrected your previous response because you made a mistake -> this means the user had something else in mind. A knowledge file would be a great way for everyone to learn from your mistake and improve your responses in the future.
     - user has shown they want to continue building upon your previous response -> this means the user is likely satisfied with your previous response. A knowledge file would be a great way to remember what went well and do more of that in the future.
-    
+    `
+  const userPrompt = `
     Here are some relevant files and code diffs that you should consider: 
     ${getRelevantFilesPrompt(fileContext)}
     
@@ -33,8 +34,7 @@ export async function generateKnowledgeFiles(
 
     If you determined that the change is important enough to warrant a knowledge file, please see the following instructions on how to create a helpful knowledge file:
     ${knowledgeFilesPrompt}
-    `
-  const userPrompt = `
+
     First, please summarize the changes from the current conversation. If your changes are already noted in the knowledge file, make sure that is reflected in your summary.
     Then, provide a detailed description of what you're doing and why. 
     Finally, see if there's anything _new_ that is meaningful (defined in system prompt above). If there is, then output a knowledge file with <file> blocks.
