@@ -24,24 +24,39 @@ export async function generateKnowledgeFiles(
     - user has corrected your previous response because you made a mistake -> this means the user had something else in mind. A knowledge file would be a great way for everyone to learn from your mistake and improve your responses in the future.
     - user has shown they want to continue building upon your previous response -> this means the user is likely satisfied with your previous response. A knowledge file would be a great way to remember what went well and do more of that in the future.
     
+    Here are some examples of irrelevant changes:
+    - user has asked you to keep adding new features to the project -> this means the user is likely not interested in the project's current functionality and is looking for something else.
+    - code is sufficient to explain the change -> this means developers can easily figure out the context of the change without needing a knowledge file.
+
     Here are some relevant files and code diffs that you should consider: 
     ${getRelevantFilesPrompt(fileContext)}
     
     If you determined that the most recent change is important enough to warrant a knowledge file, please see the following instructions on how to create a helpful knowledge file:
     ${knowledgeFilesPrompt}
-    `
-  const userPrompt = `
-    <reminder>
+    
+    <important>
     If the change isn't important enough to warrant a new knowledge file, please do not output anything. We don't want to waste the user's time on irrelevant changes.
     This is also meant to be helpful for future LLMs like yourself. Thus, please be concise and avoid unnecessary details. If the change is important, please provide a detailed description of what we're doing and why.
     
-    Do not include any code or other files in the knowledge file. Don't use any tools.
-    </reminder>
+    Do not include any code or other files in the knowledge file. Don't use any tools. Make the most minimal changes necessary to the files to ensure the information is captured.
+    </important>
+    `
+  const userPrompt = `    
+    Think before you write the knowledge file in <thinking> tags. Use that space to think about why the change is important and what it means for the project, and verify that we don't already have something similar in the existing knowledge files. Make sure to show your work!
+
+    First, please summarize the conversation in the following format:
+    [user]: [message summary]
+    [assistant]: [message summary]
+    [change made]: [note about the change]
+
+    [user]: [message summary]
+    [assistant]: [message summary]
+    [change made]: [note about the change]
     
-    Think before you write the knowledge file in <thinking> tags. Use that space to think about why the change is important and what it means for the project, and verify that we don't already have something similar in the existing knowledge files.
-    First, please summarize the changes from the current conversation. If a change is already reflected in the knowledge file, don't include it in your summary.
-    Then, use the summary to see if there's anything _new_ that is meaningful (defined in system prompt above). 
-    If there is, then output a knowledge file with <file> blocks.
+    Then, use the summary to see if there's anything _new_ that is meaningful (defined in system prompt above). Write out what you think is new and why it is significant.
+    
+    Then, check the existing knowledge files to see if there isn't something written about it yet. If there is, we don't want to repeat ourselves.
+    Finally, for any meaningful change that hasn't been captured in the knowledge file, you should output a knowledge file with <file> blocks.
     `
 
   const messages = [
@@ -65,7 +80,7 @@ export async function generateKnowledgeFiles(
 
   const files = parseFileBlocks(response)
 
-  console.log('knowledge files to upsert:', Object.keys(files))
+  console.log('knowledge files to upsert:', Object.keys(files), response)
   const fileChangePromises = Object.entries(files).map(
     ([filePath, fileContent]) =>
       processFileBlock(
