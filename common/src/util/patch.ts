@@ -83,11 +83,17 @@ export const applyPatch = (oldContent: string, patch: string): string => {
       }
     } else if (line.startsWith('-')) {
       const lineContent = line.slice(1)
-      if (lineContent.trim() === lines[oldIndex].trim()) {
+      if (oldIndex >= lines.length) {
+        // Do nothing, just skip the line.
+      }
+      else if (lineContent.trim() === lines[oldIndex].trim()) {
         // Remove line (skip it in the output)
         oldIndex++
       } else {
         for (let j = 0; j < 10; j++) {
+          if (oldIndex + j >= lines.length) {
+            break
+          }
           if (lineContent.trim() === lines[oldIndex + j].trim()) {
             // Remove matching line if it's later in the file.
             lines.splice(oldIndex + j, 1)
