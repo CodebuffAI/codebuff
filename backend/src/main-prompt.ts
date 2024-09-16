@@ -4,7 +4,7 @@ import path from 'path'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 
 import { promptClaudeStream } from './claude'
-import { createFileBlock, ProjectFileContext } from 'common/util/file'
+import { ProjectFileContext } from 'common/util/file'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
 import { getTools } from './tools'
@@ -35,6 +35,8 @@ export async function mainPrompt(
   )
 
   let fullResponse = ''
+  let genKnowledgeFilesPromise: Promise<Promise<FileChange>[]> =
+    Promise.resolve([])
   const fileProcessingPromises: Promise<FileChange | null>[] = []
   const tools = getTools()
 
@@ -57,14 +59,13 @@ export async function mainPrompt(
     // Already have context, most likely from existing chat
 
     // Generate new/updated knowledge files if there are signficant changes to document
-    const knowledgeFiles = await generateKnowledgeFiles(
+    genKnowledgeFilesPromise = generateKnowledgeFiles(
       userId,
       ws,
       fullResponse,
       fileContext,
       messages
     )
-    fileProcessingPromises.push(...knowledgeFiles)
   }
 
   const lastUserMessageIndex = messages.findLastIndex(
@@ -198,20 +199,14 @@ ${STOP_MARKER}
     console.log('Reached maximum number of iterations in mainPrompt')
     debugLog('Reached maximum number of iterations in mainPrompt')
   }
-
+  const knowledgeChanges = await genKnowledgeFilesPromise
+  fileProcessingPromises.push(...knowledgeChanges)
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
   )
 
-  const changeAppendix =
-    changes.length > 0
-      ? `\n\n<edits_made_by_assistant>\n${changes
-          .map(({ filePath, content }) => createFileBlock(filePath, content))
-          .join('\n')}\n</edits_made_by_assistant>`
-      : ''
-
   return {
-    response: `${fullResponse}${changeAppendix}`,
+    response: fullResponse,
     changes,
     toolCall,
   }

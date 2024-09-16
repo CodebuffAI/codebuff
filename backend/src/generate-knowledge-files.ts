@@ -52,7 +52,7 @@ export async function generateKnowledgeFiles(
     [assistant]: [message summary]
     [change made]: [note about the change]
     
-    Then, use the summary to see if there's anything _new_ that is meaningful (defined in system prompt above). Write out what you think is new and why it is significant.
+    Then, use the summary to see if there's anything _new_ that is meaningful. Remember: a meaningful change is one that is not easily self-evident in the code. Write out what you think is new and why it is significant.
     
     Then, check the existing knowledge files to see if there isn't something written about it yet. If there is, don't output anything because we don't want to repeat ourselves.
     Finally, for any meaningful change that hasn't been captured in the knowledge file, you should output a knowledge file with <file> blocks.
