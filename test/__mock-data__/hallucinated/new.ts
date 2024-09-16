@@ -1,6 +1,5 @@
 // ... existing imports ...
 
-// Add this new function to process chunks
 function processChunk(chunk: string): string {
   const fileBlockRegex = /<file[\s\S]*?<\/file>/g;
   return chunk.replace(fileBlockRegex, (match) => {

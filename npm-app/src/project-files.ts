@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import { createPatch } from 'diff'
 
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { filterObject } from 'common/util/object'
@@ -45,11 +46,23 @@ export function getProjectRoot() {
 
 let cachedProjectFileContext: ProjectFileContext | undefined
 
-export const getProjectFileContext = async (fileList: string[]) => {
+export const getProjectFileContext = async (
+  fileList: string[],
+  lastFileVersion: Record<string, string>
+) => {
   const root = getProjectRoot()
   const cwd = getCurrentWorkingDirectory()
 
   const contextRoot = path.relative(root, cwd).startsWith('..') ? cwd : root
+
+  const files = getFiles(fileList)
+  const gitChanges = await getGitChanges()
+  const changesSinceLastChat = getChangesSinceLastFileVersion(lastFileVersion)
+  const updatedProps = {
+    files,
+    gitChanges,
+    changesSinceLastChat,
+  }
 
   if (
     !cachedProjectFileContext ||
@@ -65,25 +78,17 @@ export const getProjectFileContext = async (fileList: string[]) => {
     const allFilePaths = getAllFilePaths(fileTree)
     const fileTokenScores = await getFileTokenScores(contextRoot, allFilePaths)
 
-    const files = getFiles(fileList)
-
-    const gitChanges = await getGitChanges()
-
     cachedProjectFileContext = {
       currentWorkingDirectory: contextRoot,
       fileTree,
       fileTokenScores,
       knowledgeFiles,
-      files,
-      gitChanges,
+      ...updatedProps,
     }
   } else {
-    const files = getFiles(fileList)
-    const gitChanges = await getGitChanges()
     cachedProjectFileContext = {
       ...cachedProjectFileContext,
-      files,
-      gitChanges,
+      ...updatedProps,
     }
   }
 
@@ -116,6 +121,27 @@ async function getGitChanges() {
   } catch (error) {
     return { status: '', diff: '', diffCached: '', lastCommitMessages: '' }
   }
+}
+
+export function getChangesSinceLastFileVersion(
+  lastFileVersion: Record<string, string>
+) {
+  const changes = Object.entries(lastFileVersion)
+    .map(([filePath, file]) => {
+      const fullFilePath = path.join(getProjectRoot(), filePath)
+      try {
+        const currentContent = fs.readFileSync(fullFilePath, 'utf8')
+        if (currentContent === file) {
+          return [filePath, null] as const
+        }
+        return [filePath, createPatch(filePath, file, currentContent)] as const
+      } catch (error) {
+        // console.error(`Error reading file ${fullFilePath}:`, error)
+        return [filePath, null] as const
+      }
+    })
+    .filter(([_, diff]) => diff !== null) as [string, string][]
+  return Object.fromEntries(changes)
 }
 
 export function getFiles(filePaths: string[]) {

@@ -34,7 +34,7 @@ const runPatchTest = async (dir: string, mockFilePath: string) => {
 }
 
 describe('generatePatch', () => {
-  it.only(
+  it(
     'should work for missing-line-actions',
     async () => {
       await runPatchTest(

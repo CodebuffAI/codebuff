@@ -13,7 +13,7 @@ async function manicode(projectDir: string | undefined) {
 
   // Preload stuff.
   const fingerprintPromise = initFingerprint()
-  const initProjectFileContextPromise = await getProjectFileContext([])
+  const initProjectFileContextPromise = await getProjectFileContext([], {})
 
   const readyPromise = Promise.all([
     fingerprintPromise,

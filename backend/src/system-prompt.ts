@@ -11,45 +11,54 @@ import { debugLog } from './util/debug'
 import { sortBy, sum } from 'lodash'
 import { filterObject } from 'common/util/object'
 
-export function getSystemPrompt(
+export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
+  const systemPrompt = buildArray({
+    type: 'text' as const,
+    cache_control: { type: 'ephemeral' as const },
+    text: [
+      getProjectFileTreePrompt(fileContext),
+      getRelevantFilesPromptPart1(fileContext),
+      gitChangesPrompt(fileContext),
+    ].join('\n\n'),
+  })
+
+  return systemPrompt
+}
+
+export const getAgentSystemPrompt = (
   fileContext: ProjectFileContext,
-  options: {
-    checkFiles?: boolean
-    onlyCachePrefix?: boolean
-  } = {}
-) {
-  const { checkFiles, onlyCachePrefix } = options
+  options: { checkFiles: boolean }
+) => {
+  const { checkFiles } = options
   const truncatedFiles = getTruncatedFilesBasedOnTokenBudget(
     fileContext,
     80_000
   )
   const files = Object.keys(truncatedFiles)
 
+  const projectFileTreePrompt = getProjectFileTreePrompt(fileContext)
+
   const systemPrompt = buildArray(
     {
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
-      text: `
-${introPrompt}
-
-${editingFilesPrompt}
-
-${knowledgeFilesPrompt}
-
-${toolsPrompt}
-
-${getProjectFileTreePrompt(fileContext)}
-
-${getRelevantFilesPromptPart1(fileContext)}
-`.trim(),
+      text: buildArray(
+        introPrompt,
+        editingFilesPrompt,
+        knowledgeFilesPrompt,
+        toolsPrompt,
+        // For large projects, don't include file tree in agent context.
+        projectFileTreePrompt.length < 40_000 ? projectFileTreePrompt : null,
+        getRelevantFilesPromptPart1(fileContext),
+        getRelevantFilesPromptPart2(fileContext, truncatedFiles)
+      ).join('\n\n'),
     },
-
-    !onlyCachePrefix && {
+    {
       type: 'text' as const,
-      text: `
-${getRelevantFilesPromptPart2(fileContext, truncatedFiles)}
-${getResponseFormatPrompt(checkFiles ?? false, files)}
-`.trimEnd(),
+      text: buildArray(
+        gitChangesPrompt(fileContext),
+        getResponseFormatPrompt(checkFiles, files)
+      ).join('\n\n'),
     }
   )
 
@@ -259,7 +268,7 @@ const getRelevantFilesPromptPart2 = (
   fileContext: ProjectFileContext,
   truncatedFiles: Record<string, string | null>
 ) => {
-  const { knowledgeFiles, gitChanges } = fileContext
+  const { knowledgeFiles } = fileContext
 
   const truncatedFilesExceptKnowledgeFiles = Object.fromEntries(
     Object.keys(truncatedFiles)
@@ -274,9 +283,24 @@ const getRelevantFilesPromptPart2 = (
     .join('\n')
 
   return `
-${
-  gitChanges
-    ? `Current Git Changes:
+<relevant_files>
+Here are some files that were selected to aid in the user request, ordered by most important first:
+${fileBlocks}
+
+Use the tool update_file_context to change the set of files listed here. You should not use this tool to read a file that is already included.
+</relevant_files>
+
+As you can see, some files that you might find useful are already provided. If the included set of files is not sufficient to address the user's request, you should use the update_file_context tool to update the set of files and their contents.
+`.trim()
+}
+
+const gitChangesPrompt = (fileContext: ProjectFileContext) => {
+  const { gitChanges } = fileContext
+  if (!gitChanges) {
+    return ''
+  }
+  return `
+Current Git Changes:
 <git_status>
 ${gitChanges.status}
 </git_status>
@@ -292,17 +316,6 @@ ${gitChanges.diffCached}
 <git_commit_messages_most_recent_first>
 ${gitChanges.lastCommitMessages}
 </git_commit_messages_most_recent_first>
-`
-    : ''
-}
-<relevant_files>
-Here are some files that were selected to aid in the user request, ordered by most important first:
-${fileBlocks}
-
-Use the tool update_file_context to change the set of files listed here. You should not use this tool to read a file that is already included.
-</relevant_files>
-
-As you can see, some files that you might find useful are already provided. If the included set of files is not sufficient to address the user's request, you should use the update_file_context tool to update the set of files and their contents.
 `.trim()
 }
 

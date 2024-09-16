@@ -5,7 +5,7 @@ import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 
 import { promptClaudeStream } from './claude'
 import { ProjectFileContext } from 'common/util/file'
-import { getSystemPrompt } from './system-prompt'
+import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
 import { getTools } from './tools'
 import { FileChange, Message } from 'common/actions'
@@ -40,10 +40,8 @@ export async function mainPrompt(
 
   let shouldCheckFiles = true
   if (Object.keys(fileContext.files).length === 0) {
-    // This is most likely to happen upon the first message from the user
-    const system = getSystemPrompt(fileContext, {
-      checkFiles: true,
-    })
+    // Getting here typically means it's the first message from the user.
+    const system = getSearchSystemPrompt(fileContext)
     // If the fileContext.files is empty, use prompts to select files and add them to context.
     const responseChunk = await updateFileContext(
       ws,
@@ -56,7 +54,7 @@ export async function mainPrompt(
     fullResponse += responseChunk
     shouldCheckFiles = false
   } else {
-    // Already have context, most likely from an existing chat
+    // Already have context, most likely from existing chat
 
     // Generate new/updated knowledge files if there are signficant changes to document
     const knowledgeFilePromise = generateKnowledgeFiles(
@@ -69,6 +67,23 @@ export async function mainPrompt(
     knowledgeFilePromise.then((fileChanges) => {
       fileProcessingPromises.push(...fileChanges)
     })
+  }
+
+  const lastUserMessageIndex = messages.findLastIndex(
+    (message) => message.role === 'user' && typeof message.content === 'string'
+  )
+  const numAssistantMessages = messages
+    .slice(lastUserMessageIndex)
+    .filter((message) => message.role === 'assistant').length
+  const shouldPause = numAssistantMessages >= 3
+  if (shouldPause) {
+    const response = `\nI'll pause to get more instructions from the user.\n`
+    onResponseChunk(response)
+    return {
+      response,
+      changes: [],
+      toolCall: null,
+    }
   }
 
   const lastMessage = messages[messages.length - 1]
@@ -91,15 +106,12 @@ ${STOP_MARKER}
   }
 
   while (!isComplete && iterationCount < MAX_ITERATIONS) {
-    const system = getSystemPrompt(fileContext, {
+    const system = getAgentSystemPrompt(fileContext, {
       checkFiles: shouldCheckFiles,
     })
     const messagesWithContinuedMessage = continuedMessages
       ? [...messages, ...continuedMessages]
       : messages
-
-    console.log('system tokens', countTokens(JSON.stringify(system)))
-    console.log('messages tokens', countTokens(JSON.stringify(messages)))
 
     savePromptLengthInfo(messagesWithContinuedMessage, system, tools)
 
@@ -152,7 +164,7 @@ ${STOP_MARKER}
         const relevantFiles = await requestRelevantFiles(
           {
             messages,
-            system,
+            system: getSearchSystemPrompt(fileContext),
             tools,
           },
           fileContext,

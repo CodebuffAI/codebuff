@@ -19,6 +19,7 @@ import { uniq } from 'lodash'
 export class Client {
   private webSocket: APIRealtimeClient
   private chatStorage: ChatStorage
+  private currentUserInputId: string | undefined
 
   constructor(
     websocketUrl: string,
@@ -38,6 +39,9 @@ export class Client {
   private setupSubscriptions() {
     this.webSocket.subscribe('tool-call', async (a) => {
       const { response, changes, data, userInputId } = a
+      if (userInputId !== this.currentUserInputId) {
+        return
+      }
 
       const filesChanged = uniq(changes.map((change) => change.filePath))
       this.chatStorage.saveFilesChanged(filesChanged)
@@ -126,7 +130,9 @@ export class Client {
   }
 
   async sendUserInput(previousChanges: FileChanges, userInputId: string) {
-    const messages = this.chatStorage.getCurrentChat().messages
+    this.currentUserInputId = userInputId
+    const currentChat = this.chatStorage.getCurrentChat()
+    const { messages, fileVersions } = currentChat
     const messageText = messages
       .map((m) => JSON.stringify(m.content))
       .join('\n')
@@ -150,7 +156,12 @@ export class Client {
       lastMessage.content += '\n\n' + blocks.join('\n\n')
     }
 
-    const fileContext = await getProjectFileContext(fileList)
+    const currentFileVersion =
+      fileVersions[fileVersions.length - 1]?.files ?? {}
+    const fileContext = await getProjectFileContext(
+      fileList,
+      currentFileVersion
+    )
     this.webSocket.sendAction({
       type: 'user-input',
       userInputId,
@@ -187,6 +198,7 @@ export class Client {
     })
 
     const stopResponse = () => {
+      this.currentUserInputId = undefined
       unsubscribeChunks()
       unsubscribeComplete()
       resolveResponse({
@@ -220,6 +232,7 @@ export class Client {
       unsubscribeChunks()
       unsubscribeComplete()
       resolveResponse({ ...a, wasStoppedByUser: false })
+      this.currentUserInputId = undefined
     })
 
     return {
@@ -229,7 +242,7 @@ export class Client {
   }
 
   public async warmContextCache() {
-    const fileContext = await getProjectFileContext([])
+    const fileContext = await getProjectFileContext([], {})
 
     return new Promise<void>((resolve) => {
       this.webSocket.subscribe('warm-context-cache-response', () => {

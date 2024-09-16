@@ -7,7 +7,7 @@ import { isEqual } from 'lodash'
 import fs from 'fs'
 import path from 'path'
 import { getTools } from '../tools'
-import { getSystemPrompt } from '../system-prompt'
+import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude, models } from '../claude'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
@@ -118,7 +118,7 @@ const onWarmContextCache = async (
 ) => {
   const startTime = Date.now()
   const tools = getTools()
-  const system = getSystemPrompt(fileContext, { onlyCachePrefix: true })
+  const system = getSearchSystemPrompt(fileContext)
   await promptClaude(
     [
       {

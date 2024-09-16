@@ -17,7 +17,8 @@
     "start-vscode": "bun --cwd npm-app start-vscode",
     "start-nushell": "bun --cwd npm-app start-nushell",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "bump": "bun run scripts/bump-version.ts"
+    "bump": "bun run scripts/bump-version.ts",
+    "test:patch": "bun test test/__src__/patch.test.ts"
   },
   "dependencies": {
     "lodash": "4.17.21",

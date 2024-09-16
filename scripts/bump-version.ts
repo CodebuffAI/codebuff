@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { execSync } from 'child_process'
 
 function incrementVersion(filePath: string): void {
   const packageJson = JSON.parse(fs.readFileSync(filePath, 'utf8'))
@@ -14,3 +15,9 @@ const backendPath = path.join(__dirname, '..', 'backend', 'package.json')
 
 incrementVersion(npmAppPath)
 incrementVersion(backendPath)
+
+// Commit the changes
+const commitMessage = `Bump version to ${JSON.parse(fs.readFileSync(npmAppPath, 'utf8')).version}`
+execSync(`git add ${npmAppPath} ${backendPath}`)
+execSync(`git commit -m "${commitMessage}"`)
+console.log('Changes committed successfully')
