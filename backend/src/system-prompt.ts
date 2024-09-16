@@ -323,7 +323,7 @@ export const getRelevantFilesPrompt = (fileContext: ProjectFileContext) => {
   const part1 = getRelevantFilesPromptPart1(fileContext)
   const part2 = getRelevantFilesPromptPart2(fileContext, fileContext.files)
 
-  return [part1, part2, editingFilesPrompt].join('\n\n')
+  return [part1, part2].join('\n\n')
 }
 
 const getResponseFormatPrompt = (checkFiles: boolean, files: string[]) => {
