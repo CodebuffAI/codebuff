@@ -258,9 +258,14 @@ export class CLI {
       fileVersions[fileVersions.length - 1]?.files ?? {}
     const changesSinceLastFileVersion =
       getChangesSinceLastFileVersion(currentFileVersion)
-    const changesFileBlocks = Object.entries(changesSinceLastFileVersion).map(
-      ([filePath, patch]) => createFileBlock(filePath, patch)
-    )
+    const changesFileBlocks = Object.entries(changesSinceLastFileVersion)
+      .map(([filePath, patch]) => [
+        filePath,
+        patch.length < 4 * 10_000
+          ? patch
+          : '[LARGE_FILE_CHANGE_TOO_LONG_TO_REPRODUCE]',
+      ])
+      .map(([filePath, patch]) => createFileBlock(filePath, patch))
     const changesMessage =
       changesFileBlocks.length > 0
         ? `<user_edits_since_last_chat>\n${changesFileBlocks.join('\n')}\n</user_edits_since_last_chat>\n\n`

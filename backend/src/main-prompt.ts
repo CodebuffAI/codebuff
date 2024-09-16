@@ -4,7 +4,7 @@ import path from 'path'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 
 import { promptClaudeStream } from './claude'
-import { ProjectFileContext } from 'common/util/file'
+import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
 import { getTools } from './tools'
@@ -203,8 +203,15 @@ ${STOP_MARKER}
     (change) => change !== null
   )
 
+  const changeAppendix =
+    changes.length > 0
+      ? `\n\n<edits_made_by_assistant>\n${changes
+          .map(({ filePath, content }) => createFileBlock(filePath, content))
+          .join('\n')}\n</edits_made_by_assistant>`
+      : ''
+
   return {
-    response: fullResponse,
+    response: `${fullResponse}${changeAppendix}`,
     changes,
     toolCall,
   }
