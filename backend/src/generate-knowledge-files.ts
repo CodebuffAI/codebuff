@@ -5,6 +5,7 @@ import { processFileBlock } from './main-prompt'
 import { promptClaude } from './claude'
 import { getRelevantFilesPrompt, knowledgeFilesPrompt } from './system-prompt'
 import { DEFAULT_TOOLS } from './tools'
+import { debugLog } from './util/debug'
 
 export async function generateKnowledgeFiles(
   userId: string,
@@ -13,6 +14,11 @@ export async function generateKnowledgeFiles(
   fileContext: ProjectFileContext,
   initialMessages: Message[]
 ): Promise<Promise<FileChange>[]> {
+  debugLog('generateKnowledgeFiles', {
+    fullResponse,
+    fileContext,
+    initialMessages,
+  })
   const systemPrompt = `
     You are an assistant that helps developers create knowledge files for their codebase. You are helpful and concise, knowing exactly when enough information has been gathered to create a knowledge file. Here's some more information on knowledge files:
     ${knowledgeFilesPrompt}
@@ -84,7 +90,9 @@ export async function generateKnowledgeFiles(
 
   const files = parseFileBlocks(response)
 
-  console.log('knowledge files to upsert:', Object.keys(files), response)
+  console.log('knowledge files to upsert:', Object.keys(files))
+  debugLog('deciding on upserting knowledge files', response)
+
   const fileChangePromises = Object.entries(files).map(
     ([filePath, fileContent]) =>
       processFileBlock(
