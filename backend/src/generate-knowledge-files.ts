@@ -13,8 +13,6 @@ export async function generateKnowledgeFiles(
   fileContext: ProjectFileContext,
   initialMessages: Message[]
 ): Promise<Promise<FileChange>[]> {
-  // Prompt Claude to check for some heuristics around whether or not we've done enough meaningful work to warrant creating a knowledge file.
-  // TODO: take into account the actual diffs the user manually made to the files – these likely represent little issues that we didn't do correctly
   const systemPrompt = `
     You are an assistant that helps developers create knowledge files for their codebase. You are helpful and concise, knowing exactly when enough information has been gathered to create a knowledge file. Here's some more information on knowledge files:
     ${knowledgeFilesPrompt}
@@ -43,7 +41,7 @@ export async function generateKnowledgeFiles(
   const userPrompt = `    
     Think before you write the knowledge file in <thinking> tags. Use that space to think about why the change is important and what it means for the project, and verify that we don't already have something similar in the existing knowledge files. Make sure to show your work!
 
-    First, please summarize the conversation. For each pair of messages between the user and the assistant, summarize them in the following format:
+    First, please summarize the penultimate and last set of messages between the user and the assistant. Use the following format:
     [user]: [message summary]
     [assistant]: [message summary]
     [change made]: [note about the change]
@@ -52,9 +50,16 @@ export async function generateKnowledgeFiles(
     [assistant]: [message summary]
     [change made]: [note about the change]
     
-    Then, use the summary to see if there's anything _new_ that is meaningful. Remember: a meaningful change is one that is not easily self-evident in the code. Write out what you think is new and why it is significant.
+    Think through this next step carefully by answering the following questions:
+    1. What was the last change asked?
+    1. Is this a minor implementation detail?
+    2. If another developer read the code, would they quickly grasp at what this change does?
+    3. Why would this change not be self-evident in the codebase?
+
+    Evaluate the answer to question 3. Is it a good answer? Why or why not?
     
-    Then, check the existing knowledge files to see if there isn't something written about it yet. If there is, don't output anything because we don't want to repeat ourselves.
+    If the answer was bad, skip the rest of the response and don't output anything.
+    Otherwise, check the existing knowledge files to see if there isn't something written about it yet. If there is, don't output anything because we don't want to repeat ourselves.
     Finally, for any meaningful change that hasn't been captured in the knowledge file, you should output a knowledge file with <file> blocks.
     `
 

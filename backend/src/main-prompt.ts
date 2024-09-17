@@ -2,6 +2,7 @@ import { WebSocket } from 'ws'
 import fs from 'fs'
 import path from 'path'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
+import { match, P } from 'ts-pattern'
 
 import { promptClaudeStream } from './claude'
 import { ProjectFileContext } from 'common/util/file'
@@ -39,6 +40,7 @@ export async function mainPrompt(
     Promise.resolve([])
   const fileProcessingPromises: Promise<FileChange | null>[] = []
   const tools = getTools()
+  const lastMessage = messages[messages.length - 1]
 
   let shouldCheckFiles = true
   if (Object.keys(fileContext.files).length === 0) {
@@ -56,16 +58,25 @@ export async function mainPrompt(
     fullResponse += responseChunk
     shouldCheckFiles = false
   } else {
-    // Already have context, most likely from existing chat
+    // Already have context from existing chat
 
-    // Generate new/updated knowledge files if there are signficant changes to document
-    genKnowledgeFilesPromise = generateKnowledgeFiles(
-      userId,
-      ws,
-      fullResponse,
-      fileContext,
-      messages
-    )
+    // Check if last message was a tool call
+    const isToolCall = match(lastMessage)
+      .with(
+        { role: 'assistant', content: P.array({ type: 'tool_use' }) },
+        () => true
+      )
+      .otherwise(() => false)
+
+    if (!isToolCall) {
+      genKnowledgeFilesPromise = generateKnowledgeFiles(
+        userId,
+        ws,
+        fullResponse,
+        fileContext,
+        messages
+      )
+    }
   }
 
   const lastUserMessageIndex = messages.findLastIndex(
@@ -85,7 +96,6 @@ export async function mainPrompt(
     }
   }
 
-  const lastMessage = messages[messages.length - 1]
   let toolCall: ToolCall | null = null
   let continuedMessages: Message[] = []
   let isComplete = false
