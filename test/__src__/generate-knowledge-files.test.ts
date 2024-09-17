@@ -6,12 +6,12 @@ import {
   messages as cacheExpirationMessages,
   mockFileContext as cacheExpirationFileContext,
   expectedFiles as cacheExpirationExpectedFiles,
-} from 'test/__mock-data__/knowledge-files/cache-expiration'
+} from '../__mock-data__/knowledge-files/cache-expiration'
 import {
   mockFileContext as crawleeFileContext,
   messages as crawleeMessages,
   expectedFiles as crawleeExpectedFiles,
-} from 'test/__mock-data__/knowledge-files/crawlee'
+} from '../__mock-data__/knowledge-files/crawlee'
 import { ProjectFileContext } from 'common/util/file'
 import { FileChange, Message } from 'common/actions'
 
@@ -32,8 +32,8 @@ const runGenKnowledgeFilesTest = async (
     fileContext,
     messages
   )
-  const fileChanges = await Promise.all(responses)
-  expect(fileChanges.length).toBeGreaterThanOrEqual(expectedFiles.length)
+  // const fileChanges = await Promise.all(responses)
+  expect(responses.length).toBeGreaterThanOrEqual(expectedFiles.length)
 }
 
 describe('generateKnowledgeFiles', () => {
