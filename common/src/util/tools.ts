@@ -1,4 +1,17 @@
+import { Message } from 'src/actions'
+import { match, P } from 'ts-pattern'
 import { Tool } from '@anthropic-ai/sdk/resources'
+
+export const didClientUseTool = (message: Message) =>
+  match(message)
+    .with(
+      {
+        role: 'user',
+        content: P.array({ type: 'tool_result' }),
+      },
+      () => true
+    )
+    .otherwise(() => false)
 
 export const getTools = (): Tool[] => {
   return [

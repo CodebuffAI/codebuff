@@ -12,7 +12,7 @@ import {
 } from 'common/util/file'
 import { getSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
-import { getTools } from './tools'
+import { getTools } from 'common/src/util/tools'
 import { Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './util/debug'
@@ -21,11 +21,11 @@ import { generatePatch } from './generate-patch'
 import { requestRelevantFiles } from './request-files-prompt'
 
 function processChunk(chunk: string): string {
-  const fileBlockRegex = /<file[\s\S]*?<\/file>/g;
+  const fileBlockRegex = /<file[\s\S]*?<\/file>/g
   return chunk.replace(fileBlockRegex, (match) => {
-    const firstLine = match.split('\n')[0];
-    return `${firstLine}\n...\n</file>`;
-  });
+    const firstLine = match.split('\n')[0]
+    return `${firstLine}\n...\n</file>`
+  })
 }
 
 async function streamResponse(
@@ -33,29 +33,37 @@ async function streamResponse(
   ws: WebSocket,
   messageId: string
 ): Promise<string> {
-  let fullResponse = '';
-  let currentChunk = '';
+  let fullResponse = ''
+  let currentChunk = ''
 
   for await (const chunk of response) {
-    const content = chunk.choices[0]?.delta?.content || '';
-    fullResponse += content;
-    currentChunk += content;
+    const content = chunk.choices[0]?.delta?.content || ''
+    fullResponse += content
+    currentChunk += content
 
     // Process the chunk when we have a complete sentence or a significant amount of text
-    if (content.includes('.') || content.includes('\n') || currentChunk.length > 100) {
-      const processedChunk = processChunk(currentChunk);
-      ws.send(JSON.stringify({ type: 'chunk', content: processedChunk, messageId }));
-      currentChunk = '';
+    if (
+      content.includes('.') ||
+      content.includes('\n') ||
+      currentChunk.length > 100
+    ) {
+      const processedChunk = processChunk(currentChunk)
+      ws.send(
+        JSON.stringify({ type: 'chunk', content: processedChunk, messageId })
+      )
+      currentChunk = ''
     }
   }
 
   // Send any remaining content
   if (currentChunk) {
-    const processedChunk = processChunk(currentChunk);
-    ws.send(JSON.stringify({ type: 'chunk', content: processedChunk, messageId }));
+    const processedChunk = processChunk(currentChunk)
+    ws.send(
+      JSON.stringify({ type: 'chunk', content: processedChunk, messageId })
+    )
   }
 
-  return fullResponse;
+  return fullResponse
 }
 
 /**
@@ -136,7 +144,14 @@ ${STOP_MARKER}
       const fileBlocks = parseFileBlocks(currentFileBlock)
       for (const [filePath, newFileContent] of Object.entries(fileBlocks)) {
         fileProcessingPromises.push(
-          processFileBlock(userId, ws, messages, fullResponse, filePath, newFileContent)
+          processFileBlock(
+            userId,
+            ws,
+            messages,
+            fullResponse,
+            filePath,
+            newFileContent
+          )
         )
 
         currentFileBlock = currentFileBlock.replace(fileRegex, '')

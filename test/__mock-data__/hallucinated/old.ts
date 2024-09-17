@@ -12,7 +12,7 @@ import {
 } from 'common/util/file'
 import { getSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
-import { getTools } from './tools'
+import { getTools } from 'common/src/util/tools'
 import { Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './util/debug'
@@ -98,7 +98,14 @@ ${STOP_MARKER}
       const fileBlocks = parseFileBlocks(currentFileBlock)
       for (const [filePath, newFileContent] of Object.entries(fileBlocks)) {
         fileProcessingPromises.push(
-          processFileBlock(userId, ws, messages, fullResponse, filePath, newFileContent)
+          processFileBlock(
+            userId,
+            ws,
+            messages,
+            fullResponse,
+            filePath,
+            newFileContent
+          )
         )
 
         currentFileBlock = currentFileBlock.replace(fileRegex, '')

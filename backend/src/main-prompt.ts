@@ -5,10 +5,10 @@ import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { match, P } from 'ts-pattern'
 
 import { promptClaudeStream } from './claude'
-import { ProjectFileContext } from 'common/util/file'
+import { createFileBlock, ProjectFileContext } from 'common/util/file'
+import { didClientUseTool, DEFAULT_TOOLS } from 'common/src/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
-import { getTools } from './tools'
 import { FileChange, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './util/debug'
@@ -39,7 +39,7 @@ export async function mainPrompt(
   let genKnowledgeFilesPromise: Promise<Promise<FileChange>[]> =
     Promise.resolve([])
   const fileProcessingPromises: Promise<FileChange | null>[] = []
-  const tools = getTools()
+  const tools = DEFAULT_TOOLS
   const lastMessage = messages[messages.length - 1]
 
   let shouldCheckFiles = true
@@ -61,17 +61,8 @@ export async function mainPrompt(
     // Already have context from existing chat
 
     // If client used tool, we don't want to generate knowledge files because the user isn't really in control
-    const clientUsedTool = match(lastMessage)
-      .with(
-        {
-          role: 'user',
-          content: P.array({ type: 'tool_result' }),
-        },
-        () => true
-      )
-      .otherwise(() => false)
 
-    if (!clientUsedTool) {
+    if (!didClientUseTool(lastMessage)) {
       genKnowledgeFilesPromise = generateKnowledgeFiles(
         userId,
         ws,
@@ -217,9 +208,15 @@ ${STOP_MARKER}
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
   )
+  const changeAppendix =
+    changes.length > 0
+      ? `\n\n<edits_made_by_assistant>\n${changes
+          .map(({ filePath, content }) => createFileBlock(filePath, content))
+          .join('\n')}\n</edits_made_by_assistant>`
+      : ''
 
   return {
-    response: fullResponse,
+    response: `${fullResponse}${changeAppendix}`,
     changes,
     toolCall,
   }

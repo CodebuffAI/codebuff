@@ -6,7 +6,7 @@ import { sendMessage } from './server'
 import { isEqual } from 'lodash'
 import fs from 'fs'
 import path from 'path'
-import { getTools } from '../tools'
+import { getTools } from 'common/src/util/tools'
 import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude, models } from '../claude'
 

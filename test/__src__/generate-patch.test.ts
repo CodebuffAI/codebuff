@@ -23,12 +23,12 @@ const runPatchTest = async (dir: string, mockFilePath: string) => {
   const updatedFile = applyPatch(oldFile, patch)
 
   // Save the updated file to a temporary location
-  const tmpDir = path.dirname(dir);
-  const tmpFileName = `tmp-${path.basename(dir)}.ts`;
-  const tmpFilePath = path.join(tmpDir, tmpFileName);
-  fs.writeFileSync(tmpFilePath, updatedFile, 'utf8');
+  const tmpDir = path.dirname(dir)
+  const tmpFileName = `tmp-${path.basename(dir)}.ts`
+  const tmpFilePath = path.join(tmpDir, tmpFileName)
+  fs.writeFileSync(tmpFilePath, updatedFile, 'utf8')
 
-  console.log(`Saved updated file to: ${tmpFilePath}`);
+  console.log(`Saved updated file to: ${tmpFilePath}`)
 
   expect(updatedFile).toEqual(expectedFile)
 }
@@ -103,7 +103,10 @@ describe('generatePatch', () => {
   it(
     'should not duplicate code from old',
     async () => {
-      await runPatchTest(`${mockDataDir}/duplicate-imports`, 'src/tools.ts')
+      await runPatchTest(
+        `${mockDataDir}/duplicate-imports`,
+        'common/src/util/tools.ts'
+      )
     },
     CLAUDE_CALL_TIMEOUT
   )
@@ -142,5 +145,4 @@ describe('generatePatch', () => {
     },
     CLAUDE_CALL_TIMEOUT
   )
-
 })
