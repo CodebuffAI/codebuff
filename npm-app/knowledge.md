@@ -53,6 +53,8 @@ The build process is defined in `package.json`:
 
 ## Dependencies
 
+- ts-pattern: Used for pattern matching in TypeScript. Installed to improve type safety and readability when checking message types.
+
 - The project depends on a `common` package (version 1.0.0) which is likely a shared library.
 - Uses `lodash` for utility functions.
 - TypeScript is used for development.
@@ -85,6 +87,7 @@ When publishing the Manicode package, we use a custom process to ensure that onl
 4. The `postpublish` script restores the original `package.json` from `temp.package.json` and then deletes the temporary file.
 
 This approach ensures that:
+
 - The published package only includes necessary dependencies and scripts.
 - The development environment remains intact after publishing.
 - NODE_ENV is set to 'production' for the published package at runtime.
@@ -104,10 +107,10 @@ Remember to increment the version number in `package.json` before publishing a n
 Manicode uses Bun as its package manager. Always use Bun commands for managing dependencies instead of npm.
 
 Key points:
+
 - Use `bun add <package-name>` to install new packages.
 - Use `bun remove <package-name>` to remove packages.
 - Use `bun install` to install all dependencies after cloning the repository.
-
 
 ## CLI Functionality
 

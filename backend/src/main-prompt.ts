@@ -2,12 +2,13 @@ import { WebSocket } from 'ws'
 import fs from 'fs'
 import path from 'path'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
+import { match, P } from 'ts-pattern'
 
 import { promptClaudeStream } from './claude'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
+import { didClientUseTool, DEFAULT_TOOLS } from 'common/src/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
-import { getTools } from './tools'
 import { FileChange, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './util/debug'
@@ -15,6 +16,8 @@ import { requestFiles, requestFile } from './websockets/websocket-action'
 import { generatePatch } from './generate-patch'
 import { requestRelevantFiles } from './request-files-prompt'
 import { processStreamWithFiles } from './process-stream'
+import { countTokens } from './util/token-counter'
+import { generateKnowledgeFiles } from './generate-knowledge-files'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -33,10 +36,15 @@ export async function mainPrompt(
   )
 
   let fullResponse = ''
-  const tools = getTools()
+  let genKnowledgeFilesPromise: Promise<Promise<FileChange>[]> =
+    Promise.resolve([])
+  const fileProcessingPromises: Promise<FileChange | null>[] = []
+  const tools = DEFAULT_TOOLS
+  const lastMessage = messages[messages.length - 1]
 
   let shouldCheckFiles = true
   if (Object.keys(fileContext.files).length === 0) {
+    // Getting here typically means it's the first message from the user.
     const system = getSearchSystemPrompt(fileContext)
     // If the fileContext.files is empty, use prompts to select files and add them to context.
     const responseChunk = await updateFileContext(
@@ -49,6 +57,20 @@ export async function mainPrompt(
     )
     fullResponse += responseChunk
     shouldCheckFiles = false
+  } else {
+    // Already have context from existing chat
+
+    // If client used tool, we don't want to generate knowledge files because the user isn't really in control
+
+    if (!didClientUseTool(lastMessage)) {
+      genKnowledgeFilesPromise = generateKnowledgeFiles(
+        userId,
+        ws,
+        fullResponse,
+        fileContext,
+        messages
+      )
+    }
   }
 
   const lastUserMessageIndex = messages.findLastIndex(
@@ -68,8 +90,6 @@ export async function mainPrompt(
     }
   }
 
-  const lastMessage = messages[messages.length - 1]
-  const fileProcessingPromises: Promise<FileChange | null>[] = []
   let toolCall: ToolCall | null = null
   let continuedMessages: Message[] = []
   let isComplete = false
@@ -183,11 +203,11 @@ ${STOP_MARKER}
     console.log('Reached maximum number of iterations in mainPrompt')
     debugLog('Reached maximum number of iterations in mainPrompt')
   }
-
+  const knowledgeChanges = await genKnowledgeFilesPromise
+  fileProcessingPromises.push(...knowledgeChanges)
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
   )
-
   const changeAppendix =
     changes.length > 0
       ? `\n\n<edits_made_by_assistant>\n${changes

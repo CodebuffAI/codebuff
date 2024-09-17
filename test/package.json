@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "backend": "file:../backend",
-    "common": "file:../common"
+    "common": "file:../common",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "bun-types": "^1.1.26"

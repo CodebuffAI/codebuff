@@ -43,7 +43,7 @@
   "backend/src/system-prompt.ts": {
     "getSystemPrompt": 10.768293153451244
   },
-  "backend/src/tools.ts": {
+  "common/src/util/tools.ts": {
     "getTools": 3.9295594162366996
   },
   "backend/src/util/debug.ts": {
