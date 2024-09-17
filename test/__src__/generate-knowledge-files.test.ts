@@ -32,7 +32,11 @@ const runGenKnowledgeFilesTest = async (
     fileContext,
     messages
   )
-  expect(responses.length).toBeLessThanOrEqual(expectedFiles.length)
+  if (expectedFiles.length > 0) {
+    expect(responses.length).toBeGreaterThanOrEqual(expectedFiles.length)
+  } else {
+    expect(responses.length).toBe(0)
+  }
 }
 
 describe('generateKnowledgeFiles', () => {

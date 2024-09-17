@@ -15,7 +15,6 @@ export async function generateKnowledgeFiles(
   initialMessages: Message[]
 ): Promise<Promise<FileChange>[]> {
   // debugLog('generateKnowledgeFiles', {
-  //   fullResponse,
   //   fileContext,
   //   initialMessages,
   // })
@@ -37,7 +36,7 @@ export async function generateKnowledgeFiles(
     ${getRelevantFilesPrompt(fileContext)}
     
     <important>
-    Reminder: a meaningful change is one that is not easily self-evident in the code. 
+    Reminder: a meaningful change is one that is not self-evident in the code. 
     If the change isn't important enough to warrant a new knowledge file, please do not output anything. We don't want to waste the user's time on irrelevant changes.
     This is also meant to be helpful for future LLMs like yourself. Thus, please be concise and avoid unnecessary details. If the change is important, please provide a detailed description of what we're doing and why.
     
@@ -59,7 +58,7 @@ export async function generateKnowledgeFiles(
     Think through this next step carefully by answering the following questions:
     1. What was the last change asked?
     2. Is this a minor implementation detail?
-    3. If another developer read the code, would they quickly grasp at what this change does?
+    3. If another senior developer read the code, would they quickly grasp at what this change does? Assume they have strong foundational knowledge.
     4. If the answer to question 3 is "no", why not?
 
     Evaluate your answer to question 4 objectively. Is it a good answer? Why or why not?
