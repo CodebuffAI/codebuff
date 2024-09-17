@@ -32,8 +32,7 @@ const runGenKnowledgeFilesTest = async (
     fileContext,
     messages
   )
-  // const fileChanges = await Promise.all(responses)
-  expect(responses.length).toBeGreaterThanOrEqual(expectedFiles.length)
+  expect(responses.length).toBeLessThanOrEqual(expectedFiles.length)
 }
 
 describe('generateKnowledgeFiles', () => {

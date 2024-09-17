@@ -14,11 +14,11 @@ export async function generateKnowledgeFiles(
   fileContext: ProjectFileContext,
   initialMessages: Message[]
 ): Promise<Promise<FileChange>[]> {
-  debugLog('generateKnowledgeFiles', {
-    fullResponse,
-    fileContext,
-    initialMessages,
-  })
+  // debugLog('generateKnowledgeFiles', {
+  //   fullResponse,
+  //   fileContext,
+  //   initialMessages,
+  // })
   const systemPrompt = `
     You are an assistant that helps developers create knowledge files for their codebase. You are helpful and concise, knowing exactly when enough information has been gathered to create a knowledge file. Here's some more information on knowledge files:
     ${knowledgeFilesPrompt}
@@ -62,11 +62,11 @@ export async function generateKnowledgeFiles(
     3. If another developer read the code, would they quickly grasp at what this change does?
     4. If the answer to question 3 is "no", why not?
 
-    Evaluate the last answer objectively. Is it a good answer? Why or why not?
+    Evaluate your answer to question 4 objectively. Is it a good answer? Why or why not?
     
     If the answer was bad, skip the rest of the response and don't output anything.
     Otherwise, check the existing knowledge files to see if there isn't something written about it yet. If there is, don't output anything because we don't want to repeat ourselves.
-    Finally, for any meaningful change that hasn't been captured in the knowledge file, you should output a knowledge file with <file> blocks.
+    Finally, for any meaningful change that hasn't been captured in the knowledge file, you should output a knowledge file with <file> blocks. Make sure the file path ends in '.knowledge.md'.
     `
 
   const messages = [
