@@ -60,15 +60,18 @@ export async function mainPrompt(
   } else {
     // Already have context from existing chat
 
-    // Check if last message was a tool call
-    const isToolCall = match(lastMessage)
+    // If client used tool, we don't want to generate knowledge files because the user isn't really in control
+    const clientUsedTool = match(lastMessage)
       .with(
-        { role: 'assistant', content: P.array({ type: 'tool_use' }) },
+        {
+          role: 'user',
+          content: P.array({ type: 'tool_result' }),
+        },
         () => true
       )
       .otherwise(() => false)
 
-    if (!isToolCall) {
+    if (!clientUsedTool) {
       genKnowledgeFilesPromise = generateKnowledgeFiles(
         userId,
         ws,
