@@ -105,7 +105,7 @@ describe('generatePatch', () => {
     async () => {
       await runPatchTest(
         `${mockDataDir}/duplicate-imports`,
-        'common/src/util/tools.ts'
+        'common/util/tools.ts'
       )
     },
     CLAUDE_CALL_TIMEOUT

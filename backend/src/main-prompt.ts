@@ -6,7 +6,7 @@ import { match, P } from 'ts-pattern'
 
 import { promptClaudeStream } from './claude'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
-import { didClientUseTool, DEFAULT_TOOLS } from 'common/src/util/tools'
+import { didClientUseTool, DEFAULT_TOOLS } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
 import { FileChange, Message } from 'common/actions'
