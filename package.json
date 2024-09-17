@@ -16,7 +16,6 @@
     "start-jpcsp": "bun --cwd npm-app start-jpcsp",
     "start-vscode": "bun --cwd npm-app start-vscode",
     "start-nushell": "bun --cwd npm-app start-nushell",
-    "deploy-server": "./backend/deploy.sh",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "bump": "bun run scripts/bump-version.ts",
     "test:patch": "bun test test/__src__/patch.test.ts"
