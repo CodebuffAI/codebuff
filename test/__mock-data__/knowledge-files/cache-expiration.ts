@@ -1171,7 +1171,7 @@ export const mockFileContext: ProjectFileContext = {
     'common/src/util/promise.ts': {
       mapAsync: 1.1183569906194901,
     },
-    'common/src/util/tools.ts': {
+    'common/util/tools.ts': {
       didClientUseTool: 1.278283318562035,
       getTools: 1.8015919171240695,
       DEFAULT_TOOLS: 0.7549747200000004,

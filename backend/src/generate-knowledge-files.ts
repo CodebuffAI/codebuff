@@ -4,7 +4,7 @@ import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { processFileBlock } from './main-prompt'
 import { promptClaude } from './claude'
 import { getRelevantFilesPrompt, knowledgeFilesPrompt } from './system-prompt'
-import { DEFAULT_TOOLS } from 'common/src/util/tools'
+import { DEFAULT_TOOLS } from 'common/util/tools'
 import { debugLog } from './util/debug'
 
 export async function generateKnowledgeFiles(
