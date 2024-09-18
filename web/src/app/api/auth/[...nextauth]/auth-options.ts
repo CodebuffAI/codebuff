@@ -6,6 +6,7 @@ import { env } from '@/env.mjs';
 import { stripeServer } from '@/lib/stripe';
 import { db } from '@@/db';
 import * as models from '@@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {
@@ -36,19 +37,19 @@ export const authOptions: NextAuthOptions = {
       console.log('createUser', user);
       if (!user.email || !user.name) return;
 
-      // await stripeServer.customers
-      //   .create({
-      //     email: user.email,
-      //     name: user.name,
-      //   })
-      //   .then(async (customer) => {
-      //     return db.user.update({
-      //       where: { id: user.id },
-      //       data: {
-      //         stripeCustomerId: 'customer.id',
-      //       },
-      //     });
-      //   });
+      await stripeServer.customers
+        .create({
+          email: user.email,
+          name: user.name,
+        })
+        .then(async (customer) => {
+          return db
+            .update(models.users)
+            .set({
+              stripeCustomerId: customer.id,
+            })
+            .where(eq(models.users.id, user.id));
+        });
     },
   },
 };
