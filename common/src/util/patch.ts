@@ -12,9 +12,9 @@ export const applyPatch = (oldContent: string, patch: string): string => {
   let oldIndex = 0
 
   for (let i = 0; i < patchLines.length; i++) {
-    const line = patchLines[i]
+    const patchLine = patchLines[i]
 
-    if (line.startsWith('@@')) {
+    if (patchLine.startsWith('@@')) {
       const { contextLines, startIndex, headline } = parseHunk(patchLines, i)
       const headlineIndex = headline ? lines.indexOf(headline) : undefined
 
@@ -81,8 +81,8 @@ export const applyPatch = (oldContent: string, patch: string): string => {
       } else {
         // console.log('No match found for context lines:', contextLines)
       }
-    } else if (line.startsWith('-')) {
-      const lineContent = line.slice(1)
+    } else if (patchLine.startsWith('-')) {
+      const lineContent = patchLine.slice(1)
       if (oldIndex >= lines.length) {
         // Do nothing, just skip the line.
       }
@@ -101,9 +101,9 @@ export const applyPatch = (oldContent: string, patch: string): string => {
           }
         }
       }
-    } else if (line.startsWith('+')) {
+    } else if (patchLine.startsWith('+')) {
       // Add new line
-      newLines.push(line.slice(1))
+      newLines.push(patchLine.slice(1))
     } else {
       if (
         patchLines.slice(i + 1, i + 4).some((line) => line.startsWith('@@ '))
@@ -113,7 +113,7 @@ export const applyPatch = (oldContent: string, patch: string): string => {
         continue
       }
       // Context line
-      newLines.push(line.slice(1))
+      newLines.push(patchLine.slice(1))
       oldIndex++
     }
   }

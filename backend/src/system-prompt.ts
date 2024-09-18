@@ -417,6 +417,12 @@ const truncateFileTreeBasedOnTokenBudget = (
         return { printedTree, tokenCount }
       }
     }
+  } else {
+    // Only include the root directory in the tree.
+    const truncatedTree = fileTree.map(file => file.type === 'directory' ? {...file, children: []} : file)
+    const printedTree = printFileTree(truncatedTree)
+    const tokenCount = countTokens(printedTree)
+    return { printedTree, tokenCount }
   }
 
   return { printedTree: tree, tokenCount: treeTokenCount }
