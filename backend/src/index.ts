@@ -1,13 +1,11 @@
 import express from 'express'
-import dotenv from 'dotenv'
 import http from 'http'
 import { listen as webSocketListen } from './websockets/server'
 import { debugLog } from './util/debug'
-
-dotenv.config()
+import { env } from './env.mjs'
 
 const app = express()
-const port = process.env.PORT || 4242
+const port = env.PORT
 
 app.use(express.json())
 

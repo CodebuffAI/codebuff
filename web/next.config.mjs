@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+import { env } from './src/env.mjs';
 
 const nextConfig = {
   images: {

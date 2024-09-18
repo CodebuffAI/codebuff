@@ -1,5 +1,14 @@
 import { createEnv } from '@t3-oss/env-nextjs';
+import dotenv from 'dotenv';
 import { z } from 'zod';
+
+dotenv.config({ path: '../stack.env' });
+if (!process.env.NEXT_PUBLIC_ENVIRONMENT) {
+  throw new Error(
+    'NEXT_PUBLIC_ENVIRONMENT is not set, please check `stack.env`'
+  );
+}
+dotenv.config({ path: `../.env.${process.env.NEXT_PUBLIC_ENVIRONMENT}` });
 
 export const env = createEnv({
   server: {
@@ -16,8 +25,10 @@ export const env = createEnv({
   },
   client: {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
+    NEXT_PUBLIC_ENVIRONMENT: z.string().min(1),
   },
   runtimeEnv: {
+    NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT,
     DATABASE_URL: process.env.DATABASE_URL,
     APP_URL: process.env.APP_URL,
     GOOGLE_SITE_VERIFICATION_ID: process.env.GOOGLE_SITE_VERIFICATION_ID,

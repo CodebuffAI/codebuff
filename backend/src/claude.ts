@@ -5,6 +5,7 @@ import { Message, ToolCall } from 'common/actions'
 import { STOP_MARKER } from 'common/constants'
 import { debugLog } from './util/debug'
 import { RATE_LIMIT_POLICY } from './constants'
+import { env } from './env.mjs'
 
 export const models = {
   sonnet: 'claude-3-5-sonnet-20240620' as const,
@@ -35,7 +36,7 @@ export const promptClaudeStream = async function* (
     ignoreHelicone = false,
   } = options
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = env.ANTHROPIC_API_KEY
 
   if (!apiKey) {
     throw new Error('Missing ANTHROPIC_API_KEY')
@@ -53,7 +54,7 @@ export const promptClaudeStream = async function* (
       ...(ignoreHelicone
         ? {}
         : {
-            'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
+            'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
             'Helicone-User-Id': userId,
             'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
             'Helicone-LLM-Security-Enabled': 'true',

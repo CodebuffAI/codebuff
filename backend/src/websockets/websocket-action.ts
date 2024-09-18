@@ -9,6 +9,7 @@ import path from 'path'
 import { getTools } from 'common/util/tools'
 import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude, models } from '../claude'
+import { env } from '../env.mjs'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -92,7 +93,7 @@ const onCheckNpmVersion = async (
 ) => {
   let latestVersion = version
 
-  if (process.env.NODE_ENV === 'production') {
+  if (env.ENVIRONMENT === 'production') {
     const backendPackageJsonPath = path.join(__dirname, '..', 'package.json')
     const backendPackageJson = JSON.parse(
       fs.readFileSync(backendPackageJsonPath, 'utf-8')

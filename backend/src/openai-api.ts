@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import { RATE_LIMIT_POLICY } from './constants'
 import { STOP_MARKER } from 'common/constants'
 import { Stream } from 'openai/streaming'
+import { env } from './env.mjs'
 
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -10,10 +11,10 @@ let openai: OpenAI | null = null
 const getOpenAI = (userId: string) => {
   if (!openai) {
     openai = new OpenAI({
-      apiKey: process.env.OPEN_AI_KEY,
+      apiKey: env.OPEN_AI_KEY,
       baseURL: 'https://oai.helicone.ai/v1',
       defaultHeaders: {
-        'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
+        'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
         'Helicone-User-Id': userId,
         'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
         // 'Helicone-LLM-Security-Enabled': 'true',
