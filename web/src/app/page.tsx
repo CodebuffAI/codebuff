@@ -1,38 +1,174 @@
-import { HeroForm } from '@/components/form';
-import { Icons } from '@/components/icons';
-import { Button } from '@/components/ui/button';
+'use client'
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { CodeIcon, BrainCircuitIcon, TerminalIcon } from 'lucide-react'
+import { BackgroundBeams } from '@/components/ui/background-beams'
+import Globe from '@/components/magicui/globe'
 
 const Home = () => {
-  return (
-    <section className="container mt-10 flex flex-col items-center gap-3 text-center md:absolute md:left-1/2 md:top-1/2 md:mt-0 md:-translate-x-1/2 md:-translate-y-1/2">
-      <h1 className="mb-1 font-mono text-3xl font-extrabold leading-tight tracking-tighter md:text-4xl">
-        Next.js starter template
-      </h1>
-      <p className="text-muted-foreground max-w-2xl">
-        `A Next.js starter template, packed with features like TypeScript,
-        Tailwind CSS, Next-auth, Eslint, Stripe, testing tools and more.
-        Jumpstart your project with efficiency and style.`
-      </p>
-      <div className="mt-1">
-        <HeroForm />
-      </div>
-      <div className="mt-2 flex gap-4">
-        <Button asChild>
-          <a
-            href="https://github.com/Skolaczk/next-starter/blob/main/README.md#getting-started"
-            target="_blank"
-          >
-            Get Started
-          </a>
-        </Button>
-        <Button variant="outline" asChild>
-          <a href="https://github.com/Skolaczk/next-starter" target="_blank">
-            <Icons.github className="mr-2 size-4" /> Github
-          </a>
-        </Button>
-      </div>
-    </section>
-  );
-};
+  const [mounted, setMounted] = useState(false)
 
-export default Home;
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  return (
+    <div className="min-h-screen bg-black text-white overflow-hidden">
+      <BackgroundBeams />
+
+      <header className="container mx-auto px-4 py-6 flex justify-between items-center relative z-10">
+        <div className="flex items-center space-x-2">
+          <BrainCircuitIcon className="h-8 w-8 text-blue-500" />
+          <span className="text-2xl font-bold">Manicode</span>
+        </div>
+        <nav className="hidden md:flex space-x-4">
+          <a href="#features" className="hover:text-blue-400 transition-colors">
+            Features
+          </a>
+          <a href="#pricing" className="hover:text-blue-400 transition-colors">
+            Pricing
+          </a>
+          <a href="#docs" className="hover:text-blue-400 transition-colors">
+            Docs
+          </a>
+        </nav>
+        <Button
+          variant="outline"
+          className="hidden md:inline-flex border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-colors"
+        >
+          Get Started
+        </Button>
+      </header>
+
+      <main className="container mx-auto px-4 py-20 text-center relative z-10">
+        <h1 className="text-5xl md:text-7xl font-bold mb-6">
+          Code at the Speed of Thought
+        </h1>
+        <p className="text-xl md:text-2xl mb-12 text-gray-300 max-w-3xl mx-auto">
+          Manicode: The AI-powered tool that transforms natural language into
+          expert code. Edit your codebase with simple instructions to Manny,
+          your personal AI programming assistant.
+        </p>
+        <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
+          <Input
+            type="email"
+            placeholder="Enter your email"
+            className="max-w-xs bg-gray-800 border-gray-700 text-white placeholder-gray-500"
+          />
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+            Start Coding with AI
+          </Button>
+        </div>
+      </main>
+
+      <section
+        id="features"
+        className="container mx-auto px-4 py-20 relative z-10"
+      >
+        <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
+          Revolutionize Your Coding Workflow
+        </h2>
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <CodeIcon className="h-12 w-12 text-blue-500 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">
+              Global Code Understanding
+            </h3>
+            <p className="text-gray-400">
+              Manny understands your entire codebase, providing context-aware
+              suggestions and edits.
+            </p>
+          </div>
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <TerminalIcon className="h-12 w-12 text-blue-500 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">
+              Natural Language Coding
+            </h3>
+            <p className="text-gray-400">
+              Write code using plain English. Manny translates your instructions
+              into efficient, clean code.
+            </p>
+          </div>
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <BrainCircuitIcon className="h-12 w-12 text-blue-500 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">
+              AI-Powered Refactoring
+            </h3>
+            <p className="text-gray-400">
+              Automatically improve code quality, fix bugs, and optimize
+              performance with AI-driven refactoring.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20 relative">
+        <div className="container mx-auto px-4 text-center relative z-10">
+          <h2 className="text-3xl md:text-4xl font-bold mb-6">
+            Experience the Future of Coding
+          </h2>
+          <p className="text-xl mb-8 text-gray-300 max-w-2xl mx-auto">
+            Join thousands of developers who are already coding at the speed of
+            thought with Manicode.
+          </p>
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+            Try Manicode Free
+          </Button>
+        </div>
+        {mounted && (
+          <div className="absolute inset-0 flex items-center justify-center opacity-50">
+            <Globe />
+          </div>
+        )}
+      </section>
+
+      <section className="bg-gray-900 py-12 relative z-10">
+        <div className="container mx-auto px-4 text-center">
+          <h3 className="text-2xl font-semibold mb-4">
+            Get Started with Manicode
+          </h3>
+          <div className="bg-black rounded-lg p-4 inline-block">
+            <code className="text-blue-400">npm install -g manicode</code>
+          </div>
+        </div>
+      </section>
+
+      <footer className="bg-gray-900 py-12 relative z-10">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <div className="flex items-center space-x-2 mb-4 md:mb-0">
+              <BrainCircuitIcon className="h-6 w-6 text-blue-500" />
+              <span className="text-xl font-bold">Manicode</span>
+            </div>
+            <nav className="flex space-x-4">
+              <a
+                href="#"
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                Privacy
+              </a>
+              <a
+                href="#"
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                Terms
+              </a>
+              <a
+                href="#"
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                Contact
+              </a>
+            </nav>
+          </div>
+          <div className="mt-8 text-center text-gray-500">
+            © {new Date().getFullYear()} Manicode. All rights reserved.
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
+}
+
+export default Home
