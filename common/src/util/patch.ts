@@ -12,81 +12,31 @@ export const applyPatch = (oldContent: string, patch: string): string => {
   let oldIndex = 0
 
   for (let i = 0; i < patchLines.length; i++) {
+    while (lines[oldIndex] === REMOVED_LINE) {
+      oldIndex++
+    }
+
     const patchLine = patchLines[i]
 
     if (patchLine.startsWith('@@')) {
       const { contextLines, startIndex, headline } = parseHunk(patchLines, i)
       const headlineIndex = headline ? lines.indexOf(headline) : undefined
+      const matchIndex = getMatchIndex(
+        lines,
+        contextLines,
+        oldIndex,
+        startIndex,
+        headlineIndex
+      )
 
-      let matchIndex = -1
-
-      if (
-        startIndex !== undefined &&
-        (headlineIndex === undefined || startIndex > headlineIndex)
-      ) {
-        matchIndex = findContextMatch(lines, contextLines, startIndex)
-      }
-      if (
-        matchIndex === -1 &&
-        headlineIndex !== undefined &&
-        headlineIndex > oldIndex
-      ) {
-        matchIndex = findContextMatch(lines, contextLines, headlineIndex)
-      }
-      if (matchIndex === -1) {
-        matchIndex = findContextMatch(lines, contextLines, oldIndex)
-      }
-      if (
-        startIndex !== undefined &&
-        (headlineIndex === undefined || startIndex > headlineIndex)
-      ) {
-        matchIndex = findContextMatchTrimmed(lines, contextLines, startIndex)
-      }
-      if (
-        matchIndex === -1 &&
-        headlineIndex !== undefined &&
-        headlineIndex > oldIndex
-      ) {
-        matchIndex = findContextMatchTrimmed(lines, contextLines, headlineIndex)
-      }
-      if (
-        matchIndex === -1 &&
-        headlineIndex !== undefined &&
-        headlineIndex > oldIndex
-      ) {
-        matchIndex = findContextMatchTrimmed(lines, contextLines, oldIndex)
-      }
-      if (
-        matchIndex === -1 &&
-        headlineIndex !== undefined &&
-        headlineIndex > oldIndex
-      ) {
-        matchIndex = findPartialContextMatch(lines, contextLines, headlineIndex)
-      }
-      if (matchIndex === -1) {
-        matchIndex = findPartialContextMatch(lines, contextLines, oldIndex)
-      }
-      if (
-        matchIndex === -1 &&
-        startIndex !== undefined &&
-        startIndex > oldIndex
-      ) {
-        // We didn't find a match, just try anyway with the parsed line number.
-        oldIndex = startIndex
-      }
-      if (matchIndex !== -1) {
-        // Add lines from old content up to the match
-        newLines.push(...lines.slice(oldIndex, matchIndex))
-        oldIndex = matchIndex
-      } else {
-        // console.log('No match found for context lines:', contextLines)
-      }
+      // Add lines from old content up to the match
+      newLines.push(...lines.slice(oldIndex, matchIndex))
+      oldIndex = matchIndex
     } else if (patchLine.startsWith('-')) {
       const lineContent = patchLine.slice(1)
       if (oldIndex >= lines.length) {
         // Do nothing, just skip the line.
-      }
-      else if (lineContent.trim() === lines[oldIndex].trim()) {
+      } else if (lineContent.trim() === lines[oldIndex].trim()) {
         // Remove line (skip it in the output)
         oldIndex++
       } else {
@@ -96,7 +46,7 @@ export const applyPatch = (oldContent: string, patch: string): string => {
           }
           if (lineContent.trim() === lines[oldIndex + j].trim()) {
             // Remove matching line if it's later in the file.
-            lines.splice(oldIndex + j, 1)
+            lines[oldIndex + j] = REMOVED_LINE
             break
           }
         }
@@ -105,24 +55,49 @@ export const applyPatch = (oldContent: string, patch: string): string => {
       // Add new line
       newLines.push(patchLine.slice(1))
     } else {
+      const nextHunkIndex = patchLines
+        .slice(i + 1)
+        .findIndex((line) => line.startsWith('@@'))
       if (
-        patchLines.slice(i + 1, i + 4).some((line) => line.startsWith('@@ '))
+        patchLines
+          .slice(
+            i + 1,
+            nextHunkIndex === -1 ? patchLines.length : nextHunkIndex
+          )
+          .every((line) => !line.startsWith('+') && !line.startsWith('-'))
       ) {
-        // console.log('Skipping ending context lines')
         // Skip ending context lines
         continue
       }
+      const lineContent = patchLine.slice(1)
       // Context line
-      newLines.push(patchLine.slice(1))
-      oldIndex++
+      for (let j = 0; j < 10; j++) {
+        if (oldIndex + j >= lines.length) {
+          if (oldIndex < lines.length) {
+            // No match, just use the corresponding old line.
+            newLines.push(lines[oldIndex])
+            oldIndex++
+          }
+          break
+        }
+        const oldLine = lines[oldIndex + j]
+        if (lineContent.trim() === oldLine.trim()) {
+          // Remove matching line if it's later in the file.
+          lines[oldIndex + j] = REMOVED_LINE
+          newLines.push(oldLine)
+          break
+        }
+      }
     }
   }
 
   // Add any remaining lines from the old content
   newLines.push(...lines.slice(oldIndex))
 
-  return newLines.join('\n')
+  return newLines.filter((line) => line !== REMOVED_LINE).join('\n')
 }
+
+const REMOVED_LINE = '[REMOVED_LINE]'
 
 const parseHunkHeader = (line: string) => {
   let startIndex: number | undefined = undefined
@@ -181,19 +156,19 @@ const findContextMatch = (
   lines: string[],
   contextLines: string[],
   startIndex: number
-): number => {
+) => {
   for (let i = startIndex; i < lines.length - contextLines.length; i++) {
     if (contextLines.every((line, j) => lines[i + j] === line)) {
       return i
     }
   }
-  return -1
+  return undefined
 }
 const findContextMatchTrimmed = (
   lines: string[],
   contextLines: string[],
   startIndex: number
-): number => {
+) => {
   for (let i = startIndex; i < lines.length - contextLines.length; i++) {
     if (
       // Match without whitespace, or if the context line is blank.
@@ -204,19 +179,19 @@ const findContextMatchTrimmed = (
       return i
     }
   }
-  return -1
+  return undefined
 }
 
 const findPartialContextMatch = (
   lines: string[],
   contextLines: string[],
   startIndex: number
-): number => {
+) => {
   const window = contextLines.length
   const contextSet = new Set(contextLines.map((line) => line.trim()))
 
   let maxMatchCount = 0
-  let maxMatchIndex = -1
+  let maxMatchIndex: number | undefined = undefined
   for (let i = startIndex; i < lines.length - window; i++) {
     let matchCount = 0
     for (let j = 0; j < window; j++) {
@@ -224,10 +199,77 @@ const findPartialContextMatch = (
         matchCount++
       }
     }
-    if (matchCount > maxMatchCount) {
+    if (maxMatchCount === undefined || matchCount > maxMatchCount) {
       maxMatchCount = matchCount
       maxMatchIndex = i
     }
   }
   return maxMatchIndex
+}
+
+const getMatchIndex = (
+  lines: string[],
+  contextLines: string[],
+  oldIndex: number,
+  startIndex: number | undefined,
+  headlineIndex: number | undefined
+): number => {
+  let matchIndex: number | undefined
+
+  if (
+    startIndex !== undefined &&
+    (headlineIndex === undefined || startIndex > headlineIndex)
+  ) {
+    matchIndex = findContextMatch(lines, contextLines, startIndex)
+  }
+  if (
+    matchIndex === undefined &&
+    headlineIndex !== undefined &&
+    headlineIndex > oldIndex
+  ) {
+    matchIndex = findContextMatch(lines, contextLines, headlineIndex)
+  }
+  if (matchIndex === undefined) {
+    matchIndex = findContextMatch(lines, contextLines, oldIndex)
+  }
+  if (
+    startIndex !== undefined &&
+    (headlineIndex === undefined || startIndex > headlineIndex)
+  ) {
+    matchIndex = findContextMatchTrimmed(lines, contextLines, startIndex)
+  }
+  if (
+    matchIndex === undefined &&
+    headlineIndex !== undefined &&
+    headlineIndex > oldIndex
+  ) {
+    matchIndex = findContextMatchTrimmed(lines, contextLines, headlineIndex)
+  }
+  if (
+    matchIndex === undefined &&
+    headlineIndex !== undefined &&
+    headlineIndex > oldIndex
+  ) {
+    matchIndex = findContextMatchTrimmed(lines, contextLines, oldIndex)
+  }
+  if (
+    matchIndex === undefined &&
+    headlineIndex !== undefined &&
+    headlineIndex > oldIndex
+  ) {
+    matchIndex = findPartialContextMatch(lines, contextLines, headlineIndex)
+  }
+  if (matchIndex === undefined) {
+    matchIndex = findPartialContextMatch(lines, contextLines, oldIndex)
+  }
+  if (
+    matchIndex === undefined &&
+    startIndex !== undefined &&
+    startIndex > oldIndex
+  ) {
+    // We didn't find a match, just try anyway with the parsed line number.
+    matchIndex = startIndex
+  }
+
+  return matchIndex ?? oldIndex
 }
