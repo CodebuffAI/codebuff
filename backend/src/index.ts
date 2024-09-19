@@ -13,6 +13,10 @@ app.get('/', (req, res) => {
   res.send('Manicode Backend Server')
 })
 
+app.get('/healthz', (req, res) => {
+  res.send('ok')
+})
+
 app.use(
   (
     err: Error,
