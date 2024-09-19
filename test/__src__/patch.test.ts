@@ -1,5 +1,6 @@
 import { expect, describe, it } from 'bun:test'
 import { applyPatch } from 'common/util/patch'
+import fs from 'fs'
 
 describe('applyPatch', () => {
   it('should apply a simple patch correctly', () => {
@@ -51,6 +52,21 @@ describe('applyPatch', () => {
       'Line 4',
       'Line 5',
     ].join('\n')
+
+    const result = applyPatch(oldContent, patch)
+    expect(result).toBe(expectedResult)
+  })
+
+  it('should rearrange functions in patch', () => {
+    const oldContent = fs.readFileSync(
+      'test/__mock-data__/patch/old.ts',
+      'utf8'
+    )
+    const patch = fs.readFileSync('test/__mock-data__/patch/patch.ts', 'utf8')
+    const expectedResult = fs.readFileSync(
+      'test/__mock-data__/patch/expected.ts',
+      'utf8'
+    )
 
     const result = applyPatch(oldContent, patch)
     expect(result).toBe(expectedResult)
