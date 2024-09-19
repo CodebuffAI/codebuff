@@ -62,13 +62,14 @@ export const getAgentSystemPrompt = (
         toolsPrompt,
         // For large projects, don't include file tree in agent context.
         projectFileTreePrompt.length < 40_000 ? projectFileTreePrompt : null,
-        getRelevantFilesPromptPart1(fileContext),
-        getRelevantFilesPromptPart2(fileContext, truncatedFiles)
+        getRelevantFilesPromptPart1(fileContext)
       ).join('\n\n'),
     },
     {
       type: 'text' as const,
+      cache_control: { type: 'ephemeral' as const },
       text: buildArray(
+        getRelevantFilesPromptPart2(fileContext, truncatedFiles),
         getGitChangesPrompt(fileContext),
         getResponseFormatPrompt(checkFiles, files)
       ).join('\n\n'),

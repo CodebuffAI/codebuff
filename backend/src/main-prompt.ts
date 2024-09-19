@@ -55,7 +55,13 @@ export async function mainPrompt(
     onResponseChunk,
     userId
   )
-  fullResponse += responseChunk
+  if (responseChunk !== null) {
+    fullResponse += responseChunk
+
+    // Prompt cache the new files.
+    const system = getSearchSystemPrompt(fileContext)
+    warmCacheForRequestRelevantFiles(system, DEFAULT_TOOLS, userId)
+  }
 
   if (messages.length > 1 && !didClientUseTool(lastMessage)) {
     // Already have context from existing chat
@@ -218,9 +224,6 @@ ${STOP_MARKER}
 
   const responseWithChanges = `${fullResponse}${changeAppendix}`.trim()
 
-  const searchSystem = getSearchSystemPrompt(fileContext)
-  warmCacheForRequestRelevantFiles(searchSystem, DEFAULT_TOOLS, userId)
-
   return {
     response: responseWithChanges,
     changes,
@@ -259,7 +262,7 @@ async function updateFileContext(
   )
 
   if (relevantFiles.length === 0) {
-    return ''
+    return null
   }
 
   const responseChunk = getRelevantFileInfoMessage(relevantFiles)
@@ -299,7 +302,14 @@ export async function processFileBlock(
   )
   console.log(`Generated patch for file: ${filePath}`)
   debugLog(`Generated patch for file: ${filePath}`)
-  debugLog('oldContent\n', oldContent, '\npatch\n', patch)
+  debugLog(
+    'oldContent\n',
+    oldContent,
+    '\nsketch\n',
+    newContent,
+    '\npatch\n',
+    patch
+  )
   return { filePath, content: patch, type: 'patch' }
 }
 

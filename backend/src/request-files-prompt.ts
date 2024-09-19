@@ -155,7 +155,7 @@ Given the user's request and the current context, determine if new files are nec
 Current files: ${previousFiles.join(', ')}
 User request: ${userPrompt}
 
-Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient.
+Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient. Do not call any tools.
 `
   const response = await promptClaude(
     [...messages, { role: 'user', content: prompt }],

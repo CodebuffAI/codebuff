@@ -42,7 +42,6 @@ export async function generatePatch(
       fullResponse
     )
   }
-  debugLog('got patch', newContent, '\n\n', patch)
   const updatedPatch = patch.replaceAll('\n', lineEnding)
   return updatedPatch
 }
