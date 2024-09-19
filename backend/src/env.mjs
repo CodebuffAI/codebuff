@@ -8,7 +8,8 @@ if (!process.env.ENVIRONMENT) {
   process.exit(1)
 }
 console.log(`Using environment: ${process.env.ENVIRONMENT}`)
-dotenv.config({ path: `../.env.${process.env.ENVIRONMENT}` })
+const DOTENV_PATH = process.env.ENVIRONMENT === 'local' ? '..' : '/etc/secrets'
+dotenv.config({ path: `${DOTENV_PATH}/.env.${process.env.ENVIRONMENT}` })
 
 export const env = createEnv({
   server: {
