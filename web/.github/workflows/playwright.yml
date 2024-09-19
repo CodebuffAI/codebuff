@@ -1,0 +1,39 @@
+name: Playwright Tests
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request: null
+  workflow_dispatch: null
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    env:
+      APP_URL: ${{ secrets.APP_URL }}
+      GITHUB_ID: ${{ secrets.AUTH_GITHUB_ID }}
+      GITHUB_SECRET: ${{ secrets.AUTH_GITHUB_SECRET }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_SUBSCRIPTION_PRICE_ID: ${{ secrets.STRIPE_SUBSCRIPTION_PRICE_ID}}
+      STRIPE_WEBHOOK_SECRET_KEY: ${{ secrets.STRIPE_WEBHOOK_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+      - name: Install dependencies
+        run: npm i
+      - name: Install playwright browsers
+        run: npx playwright install --with-deps
+      - name: Run tests
+        run: npm run e2e
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30

@@ -1,7 +1,10 @@
 import { beforeAll } from 'bun:test'
 import dotenv from 'dotenv'
 import path from 'path'
+import { env } from './env.mjs'
 
 beforeAll(() => {
-  dotenv.config({ path: path.resolve(__dirname, '../../backend/.env') })
+  dotenv.config({
+    processEnv: env,
+  })
 })

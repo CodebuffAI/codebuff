@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "allowJs": true,
     "rootDir": "./src",
     "composite": true,
     "module": "CommonJS",
@@ -14,7 +15,8 @@
     "types": ["node", "bun-types"],
     "baseUrl": ".",
     "paths": {
-      "common/*": ["./src/common/*", "../common/src/*"]
+      "common/*": ["./src/common/*", "../common/src/*"],
+      "@/*": ["./src/*"]
     },
     "typeRoots": ["./node_modules/@types"],
     "outDir": "./dist"

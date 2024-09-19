@@ -1,7 +1,11 @@
 .DS_Store
 .idea/
 .vercel
+
 .env
+.env.*
+!.env.example
+
 node_modules
 yarn-error.log
 dev

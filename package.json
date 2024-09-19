@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "start-client": "bun --cwd npm-app start",
+    "start-web": "bun --cwd web dev",
     "start-server": "bun --cwd backend start",
     "start-manifold": "bun --cwd npm-app start-manifold",
     "start-litestar": "bun --cwd npm-app start-litestar",

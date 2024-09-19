@@ -1,6 +1,6 @@
 {
   "name": "manicode",
-  "version": "1.0.61",
+  "version": "1.0.62",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -23,7 +23,7 @@
     "start-jpcsp": "ts-node src/index.ts ../test/__mock-projects__/jpcsp",
     "start-vscode": "ts-node src/index.ts ../test/__mock-projects__/vscode",
     "start-nushell": "ts-node src/index.ts ../test/__mock-projects__/nushell",
-    "start-prod": "NODE_ENV=production ts-node src/index.ts",
+    "start-prod": "ENVIRONMENT=production ts-node src/index.ts",
     "ssh": "gcloud compute ssh manicode-backend --zone=us-east4-a"
   },
   "files": [

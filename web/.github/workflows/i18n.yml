@@ -1,0 +1,22 @@
+# Checks if all Translations are present & valid
+name: Ninja i18n action
+
+on: pull_request_target
+
+permissions:
+  pull-requests: write # Necessary to comment on PRs
+  issues: read         # Necessary to read issue comments
+  contents: read       # Necessary to access the repo content
+
+jobs:
+  ninja-i18n:
+    name: Ninja - i18n Lint Action
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run Ninja i18n
+        # @main ensures that the latest version of the action is used
+        uses: opral/ninja-i18n-action@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    

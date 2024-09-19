@@ -1,8 +1,8 @@
 import { calculateFingerprint } from './fingerprint'
 
-const isProduction = process.env.NODE_ENV === 'production'
+const isProduction = process.env.ENVIRONMENT === 'production'
 export const websocketUrl = isProduction
-  ? 'ws://api.manicode.ai:4242/ws'
+  ? 'wss://manicode-backend.onrender.com/ws'
   : 'ws://localhost:4242/ws'
 
 export let fingerprintId: string
