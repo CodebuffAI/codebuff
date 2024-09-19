@@ -55,15 +55,18 @@ export async function generateKnowledgeFiles(
     [assistant]: [message summary]
     [change made]: [note about the change]
     
-    Think through this next step carefully by answering the following questions:
-    1. What was the last change asked?
-    2. Is this a minor implementation detail?
-    3. If another senior developer read the code, would they quickly grasp at what this change does? Assume they have strong foundational knowledge.
-    4. If the answer to question 3 is "no", why not?
+    First, explain the last change asked in your own words.
 
-    Evaluate your answer to question 4 objectively. Is it a good answer? Why or why not?
+    Next, carefully answer the following questions. The more you answer "yes" to these questions, the more likely it is that we should create a knowledge file.
+
+    Questions:
+    1. Was the user correcting the assistant's previous response based on missing context the assistant should know?
+    2. If another senior developer read the code, would they think the change is not obvious after reading the code? Assume they have strong foundational knowledge. If the code is clear enough on its own, then the answer to this question is "no".
     
-    If the answer was bad, skip the rest of the response and don't output anything.
+    Consider how strong of a "yes" you gave to each of these questions. Only with at least one very strong "yes" should you output anything.
+    
+    Should we create or update a knowledge file?  If not, please skip the rest of the response and don't output anything. This is the most common case; there should be a high bar to creating or updating a knowledge file.
+
     Otherwise, check the existing knowledge files to see if there isn't something written about it yet. If there is, don't output anything because we don't want to repeat ourselves.
     Finally, for any meaningful change that hasn't been captured in the knowledge file, you should output a knowledge file with <file> blocks. Make sure the file path ends in '.knowledge.md'.
     `

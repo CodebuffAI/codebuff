@@ -148,9 +148,9 @@ export const knowledgeFilesPrompt = `
 
 Knowledge files are your guide to the project. There are two types of knowledge files you can create and update:
 
-1. Directory-level knowledge files: Create or update a \`knowledge.md\` file in the most relevant directory to capture knowledge about that portion of the codebase.
+1. Directory-level knowledge files: Create or update a \`knowledge.md\` file in the most relevant directory to capture knowledge about that portion of the codebase. Prefer this type of knowledge file.
 
-2. File-specific knowledge files: For knowledge specific to a particular file, create a knowledge file using the original filename followed by \`.knowledge.md\`. For example, for a file named \`generate-diffs-haiku.ts\`, create \`generate-diffs-haiku.knowledge.md\` in the same directory.
+2. File-specific knowledge files: For knowledge specific to a particular file, create a knowledge file using the original filename followed by \`.knowledge.md\`. For example, for a file named \`generate-diffs-haiku.ts\`, create \`generate-diffs-haiku.knowledge.md\` in the same directory. This type of file is more rare. You should hesitate to create a knowledge file for one file.
 
 Knowledge files contain key concepts or helpful tips that is not obvious from the code. For example, if the user wants to use a package manager aside from the default, because that is hard to find in the codebase, that is an appropriate piece of information to add to a knowledge file.
 
