@@ -12,6 +12,11 @@ import {
   messages as crawleeMessages,
   expectedFiles as crawleeExpectedFiles,
 } from '../__mock-data__/knowledge-files/crawlee'
+import {
+  mockFileContext as deleteCommentFileContext,
+  messages as deleteCommentMessages,
+  expectedFiles as deleteCommentExpectedFiles,
+} from '../__mock-data__/knowledge-files/delete-comment'
 import { ProjectFileContext } from 'common/util/file'
 import { FileChange, Message } from 'common/actions'
 
@@ -59,6 +64,18 @@ describe('generateKnowledgeFiles', () => {
         crawleeFileContext,
         crawleeMessages,
         crawleeExpectedFiles
+      )
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
+
+  it(
+    'should not generate a knowledge file for endpoint to delete a comment',
+    async () => {
+      await runGenKnowledgeFilesTest(
+        deleteCommentFileContext,
+        deleteCommentMessages,
+        deleteCommentExpectedFiles
       )
     },
     CLAUDE_CALL_TIMEOUT
