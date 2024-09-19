@@ -17,19 +17,7 @@
     "test": "jest",
     "test:watch": "jest --watchAll",
     "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui",
-    "prepare": "husky"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
-  },
-  "lint-staged": {
-    "*.{jsx,js,ts,tsx}": [
-      "eslint --cache --fix",
-      "prettier --write"
-    ]
+    "e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.5.0",
