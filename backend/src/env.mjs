@@ -7,8 +7,10 @@ if (!process.env.ENVIRONMENT) {
   console.error('ENVIRONMENT is not set, please check `stack.env`')
   process.exit(1)
 }
-console.log(`Using environment: ${process.env.ENVIRONMENT}`)
 const DOTENV_PATH = process.env.ENVIRONMENT === 'local' ? '..' : '/etc/secrets'
+console.log(
+  `Using environment: ${process.env.ENVIRONMENT} (path: ${DOTENV_PATH}/.env.${process.env.ENVIRONMENT})`
+)
 dotenv.config({ path: `${DOTENV_PATH}/.env.${process.env.ENVIRONMENT}` })
 
 export const env = createEnv({
