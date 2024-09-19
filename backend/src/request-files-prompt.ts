@@ -165,7 +165,10 @@ Answer with just 'YES' if new files are necessary, or 'NO' if the current files 
       tools,
       userId,
     }
-  )
+  ).catch((error) => {
+    console.error('Error checking new files necessary:', error)
+    return 'YES'
+  })
   debugLog('checkNewFilesNecessary response:', response)
   return response.trim().toUpperCase().includes('YES')
 }
