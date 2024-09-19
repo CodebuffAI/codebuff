@@ -7,6 +7,7 @@ import { stripeServer } from '@/lib/stripe';
 import { db } from '@@/db';
 import * as models from '@@/db/schema';
 import { eq } from 'drizzle-orm';
+import { Adapter } from 'next-auth/adapters';
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {
@@ -14,7 +15,7 @@ export const authOptions: NextAuthOptions = {
     accountsTable: models.accounts,
     sessionsTable: models.sessions,
     verificationTokensTable: models.verificationTokens,
-  }) as any,
+  }) as Adapter,
   providers: [
     GitHubProvider({
       clientId: env.GITHUB_ID,
