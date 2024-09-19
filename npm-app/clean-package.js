@@ -19,19 +19,19 @@ delete packageJson.peerDependencies
 // Write the cleaned package.json
 fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2))
 
-// Add NODE_ENV setting to index.js
+// Add ENVIRONMENT setting to index.js
 if (fs.existsSync(indexJsPath)) {
   let indexJsContent = fs.readFileSync(indexJsPath, 'utf8')
-  const envLine = "process.env.NODE_ENV = 'production';"
+  const envLine = "process.env.ENVIRONMENT = 'production';"
 
   if (!indexJsContent.includes(envLine)) {
     const lines = indexJsContent.split('\n')
     lines.splice(1, 0, envLine) // Insert after the shebang line
     indexJsContent = lines.join('\n')
     fs.writeFileSync(indexJsPath, indexJsContent)
-    console.log('NODE_ENV setting added to index.js')
+    console.log('ENVIRONMENT setting added to index.js')
   } else {
-    console.log('NODE_ENV setting already exists in index.js')
+    console.log('ENVIRONMENT setting already exists in index.js')
   }
 } else {
   console.error('index.js not found in the dist directory')
