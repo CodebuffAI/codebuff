@@ -3,7 +3,7 @@ import { dirname } from 'path'
 
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
-import { model_types, models, promptClaude } from './claude'
+import { model_types, models, promptClaude, System } from './claude'
 import { debugLog } from './util/debug'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { getAllFilePaths } from 'common/project-file-tree'
@@ -279,4 +279,28 @@ ${topLevelDirectories(fileContext).join('\n')}
 Example response:
 ${getExampleFileList(fileContext, count).join('\n')}
 `.trim()
+}
+
+export const warmCacheForRequestRelevantFiles = async (
+  system: System,
+  tools: Tool[],
+  userId: string
+) => {
+  await promptClaude(
+    [
+      {
+        role: 'user' as const,
+        content: 'hi',
+      },
+    ],
+    {
+      model: models.sonnet,
+      system,
+      tools,
+      userId,
+      maxTokens: 1,
+    }
+  ).catch((error) => {
+    console.error('Error warming cache for requestRelevantFiles', error)
+  })
 }

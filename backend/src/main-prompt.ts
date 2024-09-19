@@ -2,7 +2,6 @@ import { WebSocket } from 'ws'
 import fs from 'fs'
 import path from 'path'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
-import { match, P } from 'ts-pattern'
 
 import { promptClaudeStream } from './claude'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
@@ -14,9 +13,11 @@ import { ToolCall } from 'common/actions'
 import { debugLog } from './util/debug'
 import { requestFiles, requestFile } from './websockets/websocket-action'
 import { generatePatch } from './generate-patch'
-import { requestRelevantFiles } from './request-files-prompt'
+import {
+  requestRelevantFiles,
+  warmCacheForRequestRelevantFiles,
+} from './request-files-prompt'
 import { processStreamWithFiles } from './process-stream'
-import { countTokens } from './util/token-counter'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
 
 /**
@@ -41,36 +42,32 @@ export async function mainPrompt(
   const fileProcessingPromises: Promise<FileChange | null>[] = []
   const tools = DEFAULT_TOOLS
   const lastMessage = messages[messages.length - 1]
+  const messagesWithoutLastMessage = messages.slice(0, -1)
 
-  let shouldCheckFiles = true
-  if (Object.keys(fileContext.files).length === 0) {
-    // Getting here typically means it's the first message from the user.
-    const system = getSearchSystemPrompt(fileContext)
-    // If the fileContext.files is empty, use prompts to select files and add them to context.
-    const responseChunk = await updateFileContext(
-      ws,
-      fileContext,
-      { messages, system, tools },
-      null,
-      onResponseChunk,
-      userId
-    )
-    fullResponse += responseChunk
-    shouldCheckFiles = false
-  } else {
+  // Step 1: Read more files.
+  const system = getSearchSystemPrompt(fileContext)
+  // If the fileContext.files is empty, use prompts to select files and add them to context.
+  const responseChunk = await updateFileContext(
+    ws,
+    fileContext,
+    { messages, system, tools },
+    null,
+    onResponseChunk,
+    userId
+  )
+  fullResponse += responseChunk
+
+  if (messages.length > 1 && !didClientUseTool(lastMessage)) {
     // Already have context from existing chat
-
     // If client used tool, we don't want to generate knowledge files because the user isn't really in control
 
-    if (!didClientUseTool(lastMessage)) {
-      genKnowledgeFilesPromise = generateKnowledgeFiles(
-        userId,
-        ws,
-        fullResponse,
-        fileContext,
-        messages
-      )
-    }
+    genKnowledgeFilesPromise = generateKnowledgeFiles(
+      userId,
+      ws,
+      fullResponse,
+      fileContext,
+      messages
+    )
   }
 
   const lastUserMessageIndex = messages.findLastIndex(
@@ -96,8 +93,11 @@ export async function mainPrompt(
   let iterationCount = 0
   const MAX_ITERATIONS = 10
 
+  let newLastMessage: Message = lastMessage
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
-    lastMessage.content = `${lastMessage.content}
+    newLastMessage = {
+      ...lastMessage,
+      content: `${lastMessage.content}
 
 <additional_instruction>
 Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.
@@ -105,15 +105,16 @@ Please preserve as much of the existing code, its comments, and its behavior as 
 <additional_instruction>
 Always end your response with the following marker:
 ${STOP_MARKER}
-</additional_instruction>`
+</additional_instruction>`,
+    }
   }
 
   while (!isComplete && iterationCount < MAX_ITERATIONS) {
     const system = getAgentSystemPrompt(fileContext, {
-      checkFiles: shouldCheckFiles,
+      checkFiles: false,
     })
     const messagesWithContinuedMessage = continuedMessages
-      ? [...messages, ...continuedMessages]
+      ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
       : messages
 
     savePromptLengthInfo(messagesWithContinuedMessage, system, tools)
@@ -215,8 +216,13 @@ ${STOP_MARKER}
           .join('\n')}\n</edits_made_by_assistant>`
       : ''
 
+  const responseWithChanges = `${fullResponse}${changeAppendix}`.trim()
+
+  const searchSystem = getSearchSystemPrompt(fileContext)
+  warmCacheForRequestRelevantFiles(searchSystem, DEFAULT_TOOLS, userId)
+
   return {
-    response: `${fullResponse}${changeAppendix}`,
+    response: responseWithChanges,
     changes,
     toolCall,
   }

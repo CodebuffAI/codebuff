@@ -16,11 +16,21 @@ const MessageContentObjectSchema = z.union([
     id: z.string(),
     name: z.string(),
     input: z.record(z.string(), z.any()),
+    cache_control: z
+      .object({
+        type: z.literal('ephemeral'),
+      })
+      .optional(),
   }),
   z.object({
     type: z.literal('tool_result'),
     tool_use_id: z.string(),
     content: z.string(),
+    cache_control: z
+      .object({
+        type: z.literal('ephemeral'),
+      })
+      .optional(),
   }),
 ])
 

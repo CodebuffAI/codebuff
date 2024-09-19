@@ -12,15 +12,28 @@ import { sortBy, sum } from 'lodash'
 import { filterObject } from 'common/util/object'
 
 export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
-  const systemPrompt = buildArray({
-    type: 'text' as const,
-    cache_control: { type: 'ephemeral' as const },
-    text: [
-      getProjectFileTreePrompt(fileContext),
-      getRelevantFilesPromptPart1(fileContext),
-      gitChangesPrompt(fileContext),
-    ].join('\n\n'),
-  })
+  const truncatedFiles = getTruncatedFilesBasedOnTokenBudget(
+    fileContext,
+    80_000
+  )
+  const systemPrompt = buildArray(
+    {
+      type: 'text' as const,
+      cache_control: { type: 'ephemeral' as const },
+      text: [
+        getProjectFileTreePrompt(fileContext),
+        getRelevantFilesPromptPart1(fileContext),
+      ].join('\n\n'),
+    },
+    {
+      type: 'text' as const,
+      cache_control: { type: 'ephemeral' as const },
+      text: [
+        getRelevantFilesPromptPart2(fileContext, truncatedFiles),
+        getGitChangesPrompt(fileContext),
+      ].join('\n\n'),
+    }
+  )
 
   return systemPrompt
 }
@@ -56,7 +69,7 @@ export const getAgentSystemPrompt = (
     {
       type: 'text' as const,
       text: buildArray(
-        gitChangesPrompt(fileContext),
+        getGitChangesPrompt(fileContext),
         getResponseFormatPrompt(checkFiles, files)
       ).join('\n\n'),
     }
@@ -284,7 +297,7 @@ const getRelevantFilesPromptPart2 = (
 
   return `
 <relevant_files>
-Here are some files that were selected to aid in the user request, ordered by most important first:
+Here are some files that were selected to aid in the user request, ordered by most important first. These files represent the current file state after the user's last request:
 ${fileBlocks}
 
 Use the tool update_file_context to change the set of files listed here. You should not use this tool to read a file that is already included.
@@ -294,7 +307,7 @@ As you can see, some files that you might find useful are already provided. If t
 `.trim()
 }
 
-const gitChangesPrompt = (fileContext: ProjectFileContext) => {
+const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
   const { gitChanges } = fileContext
   if (!gitChanges) {
     return ''
@@ -320,30 +333,25 @@ ${gitChanges.lastCommitMessages}
 }
 
 export const getRelevantFilesPrompt = (fileContext: ProjectFileContext) => {
+  const truncatedFiles = getTruncatedFilesBasedOnTokenBudget(
+    fileContext,
+    80_000
+  )
   const part1 = getRelevantFilesPromptPart1(fileContext)
-  const part2 = getRelevantFilesPromptPart2(fileContext, fileContext.files)
+  const part2 = getRelevantFilesPromptPart2(fileContext, truncatedFiles)
 
   return [part1, part2].join('\n\n')
 }
 
 const getResponseFormatPrompt = (checkFiles: boolean, files: string[]) => {
-  let bulletNumber = 1
   return `
 # Response format
 
-The goal is to make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more.
+The goal is to make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more. When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.
 
-When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.
+You may edit files to address the user's request and run commands in the terminal. However, you will only be able to run up to a maximum of 3 terminal commands in a row before awaiting further user input.
 
-Steps:
-
-${
-  checkFiles
-    ? `${bulletNumber++}. Request files. You are reading the following files: <files>${files.join(', ')}</files>. Carefully consider if there are any files not listed here that you need to read or intend to modify before continuing in order to address the last user request. If you think you have all the files you need, please double check. Use the update_file_context tool to request any files you need. Remember, any files that are not listed in the <project_file_tree> block should not be requested since they don't exist.\n`
-    : ''
-}
-
-${bulletNumber++}. You may edit files to address the user's request and run commands in the terminal. However, if previous two previous commands have failed, you should not run anymore terminal commands.
+You are reading the following files: <files>${files.join(', ')}</files>. Do not request more files with update_file_context unless you are sure you need them and don't have them already.
 
 Do not write code except when editing files with <file> blocks.
 
@@ -419,7 +427,9 @@ const truncateFileTreeBasedOnTokenBudget = (
     }
   } else {
     // Only include the root directory in the tree.
-    const truncatedTree = fileTree.map(file => file.type === 'directory' ? {...file, children: []} : file)
+    const truncatedTree = fileTree.map((file) =>
+      file.type === 'directory' ? { ...file, children: [] } : file
+    )
     const printedTree = printFileTree(truncatedTree)
     const tokenCount = countTokens(printedTree)
     return { printedTree, tokenCount }
