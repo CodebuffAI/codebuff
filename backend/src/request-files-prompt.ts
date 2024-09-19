@@ -1,11 +1,11 @@
 import { range, shuffle, uniq } from 'lodash'
 import { dirname } from 'path'
+import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
 import { model_types, models, promptClaude, System } from './claude'
 import { debugLog } from './util/debug'
-import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { getAllFilePaths } from 'common/project-file-tree'
 
 export async function requestRelevantFiles(
@@ -33,8 +33,51 @@ export async function requestRelevantFiles(
       ? typeof lastMessage.content === 'string'
         ? lastMessage.content
         : JSON.stringify(lastMessage.content)
-      : null
+      : ''
 
+  const newFilesNecessaryPromise = checkNewFilesNecessary(
+    messagesExcludingLastIfByUser,
+    system,
+    tools,
+    userId,
+    previousFiles,
+    userPrompt
+  )
+
+  const fileRequestsPromise = generateFileRequests(
+    userPrompt,
+    assistantPrompt,
+    fileContext,
+    countPerRequest,
+    messagesExcludingLastIfByUser,
+    system,
+    tools,
+    userId
+  )
+
+  const newFilesNecessary = await newFilesNecessaryPromise
+
+  if (!newFilesNecessary) {
+    debugLog('No new files necessary, keeping current files')
+    return previousFiles
+  }
+
+  const newFiles = await fileRequestsPromise
+  debugLog('New files:', newFiles)
+
+  return uniq([...newFiles, ...previousFiles])
+}
+
+async function generateFileRequests(
+  userPrompt: string | null,
+  assistantPrompt: string | null,
+  fileContext: ProjectFileContext,
+  countPerRequest: number,
+  messagesExcludingLastIfByUser: Message[],
+  system: string | Array<TextBlockParam>,
+  tools: Tool[],
+  userId: string
+) {
   const numNonObviousPrompts = assistantPrompt ? 1 : 3
   const nonObviousPrompts = range(1, numNonObviousPrompts + 1).map((index) =>
     generateNonObviousRequestFilesPrompt(
@@ -89,7 +132,6 @@ export async function requestRelevantFiles(
       return { files: [], duration: 0 }
     })
   )
-
   const keyResults = await Promise.all(keyPromises)
   const keyFiles = keyResults.flatMap((result) => result.files)
   const nonObviousResults = await Promise.all(nonObviousPromises)
@@ -97,8 +139,35 @@ export async function requestRelevantFiles(
 
   debugLog('Key files:', keyFiles)
   debugLog('Non-obvious files:', nonObviousFiles)
+  return uniq([...keyFiles, ...nonObviousFiles])
+}
 
-  return uniq([...keyFiles, ...nonObviousFiles, ...previousFiles])
+const checkNewFilesNecessary = async (
+  messages: Message[],
+  system: System,
+  tools: Tool[],
+  userId: string,
+  previousFiles: string[],
+  userPrompt: string
+) => {
+  const prompt = `
+Given the user's request and the current context, determine if new files are necessary to fulfill the request.
+Current files: ${previousFiles.join(', ')}
+User request: ${userPrompt}
+
+Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient.
+`
+  const response = await promptClaude(
+    [...messages, { role: 'user', content: prompt }],
+    {
+      model: models.sonnet,
+      system,
+      tools,
+      userId,
+    }
+  )
+  debugLog('checkNewFilesNecessary response:', response)
+  return response.trim().toUpperCase().includes('YES')
 }
 
 async function getRelevantFiles(
