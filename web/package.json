@@ -5,8 +5,6 @@
   "scripts": {
     "dev": "next dev --turbo",
     "build": "next build",
-    "db:generate": "drizzle-kit generate --config=./db/drizzle.config.ts",
-    "db:migrate": "bun run drizzle-kit push --config=./db/drizzle.config.ts",
     "start": "next start",
     "preview": "next build && next start",
     "lint": "next lint",

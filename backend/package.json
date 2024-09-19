@@ -14,9 +14,7 @@
     "dev": "nodemon --exec bun run -r tsconfig-paths/register src/index.ts",
     "test": "bun test",
     "test:manifold": "bun test src/__tests__/manifold-project.test.ts",
-    "test:watch": "bun test --watch",
-    "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate"
+    "test:watch": "bun test --watch"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.27.1",

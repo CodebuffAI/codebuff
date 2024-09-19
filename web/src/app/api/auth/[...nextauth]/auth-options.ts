@@ -4,8 +4,8 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter';
 
 import { env } from '@/env.mjs';
 import { stripeServer } from '@/lib/stripe';
-import { db } from '@@/db';
-import * as models from '@@/db/schema';
+import { db } from 'common/src/db';
+import * as models from '../../../../../../db/schema';
 import { eq } from 'drizzle-orm';
 import { Adapter } from 'next-auth/adapters';
 

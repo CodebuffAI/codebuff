@@ -17,7 +17,7 @@
     "outDir": "./dist",
     "rootDir": "./src"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../db"],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }

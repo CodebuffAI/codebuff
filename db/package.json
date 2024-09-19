@@ -1,0 +1,26 @@
+{
+  "name": "manicode-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "generate": "drizzle-kit generate --config=./drizzle.config.ts",
+    "migrate": "bun run drizzle-kit push --config=./drizzle.config.ts",
+    "start": "docker compose -f docker-compose.yml up -d --wait && bun run generate && bun run migrate"
+  },
+  "dependencies": {
+    "@auth/drizzle-adapter": "^1.5.0",
+    "@types/pg": "^8.11.10",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.33.0",
+    "next": "14.2.11",
+    "next-auth": "^4.24.7",
+    "pg": "^8.13.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.13",
+    "@types/node": "^22.5.4",
+    "drizzle-kit": "^0.24.2",
+    "typescript": "^5"
+  }
+}
