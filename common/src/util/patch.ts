@@ -55,15 +55,14 @@ export const applyPatch = (oldContent: string, patch: string): string => {
       // Add new line
       newLines.push(patchLine.slice(1))
     } else {
-      const nextHunkIndex = patchLines
+      const nextHunkDist = patchLines
         .slice(i + 1)
         .findIndex((line) => line.startsWith('@@'))
+      const nextHunkIndex =
+        nextHunkDist === -1 ? patchLines.length : i + nextHunkDist + 1
       if (
         patchLines
-          .slice(
-            i + 1,
-            nextHunkIndex === -1 ? patchLines.length : nextHunkIndex
-          )
+          .slice(i + 1, nextHunkIndex)
           .every((line) => !line.startsWith('+') && !line.startsWith('-'))
       ) {
         // Skip ending context lines

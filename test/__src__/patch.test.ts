@@ -72,6 +72,21 @@ describe('applyPatch', () => {
     expect(result).toBe(expectedResult)
   })
 
+  it('should handle complex update to graph.js', () => {
+    const oldContent = fs.readFileSync(
+      'test/__mock-data__/graph/old.ts',
+      'utf8'
+    )
+    const patch = fs.readFileSync('test/__mock-data__/graph/patch.ts', 'utf8')
+    const expectedResult = fs.readFileSync(
+      'test/__mock-data__/graph/expected.ts',
+      'utf8'
+    )
+
+    const result = applyPatch(oldContent, patch)
+    expect(result).toBe(expectedResult)
+  })
+
   describe('slightly wrong patches', () => {
     it('should handle incorrect line numbers', async () => {
       const oldContent = ['line1', 'line2', 'line3', 'line4', ''].join('\n')
