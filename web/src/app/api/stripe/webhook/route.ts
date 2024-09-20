@@ -4,8 +4,8 @@ import { eq } from 'drizzle-orm';
 
 import { env } from '@/env.mjs';
 import { stripeServer } from '@/lib/stripe';
-import { db } from 'common/src/db';
-import * as models from '../../../../../../db/schema';
+import db from 'common/db';
+import * as models from 'common/db/schema';
 
 const webhookHandler = async (req: NextRequest) => {
   try {

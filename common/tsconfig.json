@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "composite": true,
+    "allowJs": true,
     "module": "CommonJS",
     "moduleResolution": "node",
     "esModuleInterop": true,
@@ -17,7 +18,7 @@
     "outDir": "./dist",
     "rootDir": "./src"
   },
-  "include": ["src/**/*", "../db"],
+  "include": ["src/**/*"],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }

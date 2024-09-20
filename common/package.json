@@ -6,7 +6,10 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "tsc && cp -R src/codemap/tree-sitter-queries dist/codemap/",
-    "clean": "rm -rf dist && rm tsconfig.tsbuildinfo"
+    "clean": "rm -rf dist && rm tsconfig.tsbuildinfo",
+    "db:generate": "drizzle-kit generate --config=./src/db/drizzle.config.ts",
+    "db:migrate": "drizzle-kit push --config=./src/db/drizzle.config.ts",
+    "db:start": "docker compose -f ./src/db/docker-compose.yml up -d --wait && bun run db:generate && bun run db:migrate"
   },
   "dependencies": {
     "ignore": "5.3.2",
@@ -23,9 +26,17 @@
     "tree-sitter-ruby": "0.23.0",
     "tree-sitter-rust": "0.23.0",
     "tree-sitter-typescript": "0.23.0",
-    "zod": "3.23.8"
+    "zod": "3.23.8",
+    "@auth/drizzle-adapter": "^1.5.0",
+    "@types/pg": "^8.11.10",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.33.0",
+    "next": "14.2.11",
+    "next-auth": "^4.24.7",
+    "pg": "^8.13.0"
   },
   "peerDependencies": {
+    "drizzle-kit": "^0.24.2",
     "@types/node": "*",
     "@types/lodash": "*",
     "typescript": "*"
