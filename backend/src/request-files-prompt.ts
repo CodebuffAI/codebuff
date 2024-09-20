@@ -23,7 +23,7 @@ export async function requestRelevantFiles(
   userId: string
 ) {
   const previousFiles = Object.keys(fileContext.files)
-  const countPerRequest = assistantPrompt ? 8 : 4
+  const countPerRequest = assistantPrompt ? 8 : 5
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -78,7 +78,7 @@ async function generateFileRequests(
   tools: Tool[],
   userId: string
 ) {
-  const numNonObviousPrompts = assistantPrompt ? 1 : 3
+  const numNonObviousPrompts = assistantPrompt ? 1 : 1
   const nonObviousPrompts = range(1, numNonObviousPrompts + 1).map((index) =>
     generateNonObviousRequestFilesPrompt(
       userPrompt,
@@ -105,7 +105,7 @@ async function generateFileRequests(
     })
   )
 
-  const numKeyPrompts = assistantPrompt ? 1 : 3
+  const numKeyPrompts = assistantPrompt ? 1 : 2
   const keyPrompts = range(1, numKeyPrompts + 1).map((index) =>
     generateKeyRequestFilesPrompt(
       userPrompt,
