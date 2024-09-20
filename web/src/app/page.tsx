@@ -1,45 +1,21 @@
-'use client'
-import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { CodeIcon, BrainCircuitIcon, TerminalIcon } from 'lucide-react'
-import { BackgroundBeams } from '@/components/ui/background-beams'
-import Globe from '@/components/magicui/globe'
+'use client';
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { CodeIcon, BrainCircuitIcon, TerminalIcon } from 'lucide-react';
+import { BackgroundBeams } from '@/components/ui/background-beams';
+import Globe from '@/components/magicui/globe';
 
 const Home = () => {
-  const [mounted, setMounted] = useState(false)
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden">
       <BackgroundBeams />
-
-      <header className="container mx-auto px-4 py-6 flex justify-between items-center relative z-10">
-        <div className="flex items-center space-x-2">
-          <BrainCircuitIcon className="h-8 w-8 text-blue-500" />
-          <span className="text-2xl font-bold">Manicode</span>
-        </div>
-        <nav className="hidden md:flex space-x-4">
-          <a href="#features" className="hover:text-blue-400 transition-colors">
-            Features
-          </a>
-          <a href="#pricing" className="hover:text-blue-400 transition-colors">
-            Pricing
-          </a>
-          <a href="#docs" className="hover:text-blue-400 transition-colors">
-            Docs
-          </a>
-        </nav>
-        <Button
-          variant="outline"
-          className="hidden md:inline-flex border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-colors"
-        >
-          Get Started
-        </Button>
-      </header>
 
       <main className="container mx-auto px-4 py-20 text-center relative z-10">
         <h1 className="text-5xl md:text-7xl font-bold mb-6">
@@ -168,7 +144,7 @@ const Home = () => {
         </div>
       </footer>
     </div>
-  )
-}
+  );
+};
 
-export default Home
+export default Home;

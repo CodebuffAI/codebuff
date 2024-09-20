@@ -11,7 +11,7 @@ module.exports = {
   plugins: ['prettier', '@typescript-eslint'],
   rules: {
     'prettier/prettier': [
-      'ignore',
+      'off',
       {
         endOfLine: 'auto',
       },
