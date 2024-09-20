@@ -6,7 +6,8 @@
   "workspaces": [
     "common",
     "backend",
-    "npm-app"
+    "npm-app",
+    "web"
   ],
   "scripts": {
     "start-client": "bun --cwd npm-app start",
