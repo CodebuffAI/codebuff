@@ -1,0 +1,16 @@
+name: manicode
+services:
+  db:
+    image: postgres:16
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: manicode_user_local
+      POSTGRES_PASSWORD: secretpassword_local
+      POSTGRES_DB: manicode_db_local
+    volumes:
+      - db_data:/var/lib/postgresql/data
+volumes:
+  # Store data from Postgres so they persist between Docker ups and downs
+  db_data:

@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "composite": true,
+    "allowJs": true,
     "module": "CommonJS",
     "moduleResolution": "node",
     "esModuleInterop": true,
