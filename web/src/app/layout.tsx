@@ -49,11 +49,15 @@ export const generateMetadata = (): Metadata => ({
 const RootLayout = ({ children }: PropsWithChildren) => {
   return (
     <html lang={'en'} suppressHydrationWarning>
-      <body className={cn('min-h-screen font-sans bg-black text-white', fonts)}>
+      <body
+        className={cn(
+          'min-h-screen font-sans bg-white text-black dark:bg-black dark:text-white',
+          fonts
+        )}
+      >
         <ThemeProvider attribute="class">
           <Navbar />
           {children}
-          <ThemeSwitcher className="absolute bottom-5 right-5 z-10" />
           <Footer />
           <Toaster />
         </ThemeProvider>

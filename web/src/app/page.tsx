@@ -14,14 +14,14 @@ const Home = () => {
   }, [])
 
   return (
-    <div className="min-h-screen overflow-hidden">
+    <div className="overflow-hidden">
       <BackgroundBeams />
 
       <main className="container mx-auto px-4 py-20 text-center relative z-10">
         <h1 className="text-5xl md:text-7xl font-bold mb-6">
           Code at the Speed of Thought
         </h1>
-        <p className="text-xl md:text-2xl mb-12 text-gray-300 max-w-3xl mx-auto">
+        <p className="text-xl md:text-2xl mb-12 text-gray-500 max-w-3xl mx-auto">
           Manicode: The AI-powered tool that transforms natural language into
           expert code. Edit your codebase with simple instructions to Manny,
           your personal AI programming assistant.
@@ -30,7 +30,7 @@ const Home = () => {
           <Input
             type="email"
             placeholder="Enter your email"
-            className="max-w-xs bg-gray-800 border-gray-700 text-white placeholder-gray-500"
+            className="max-w-xs bg-gray-800 border-gray-700 text-white placeholder:italic placeholder:text-slate-200 "
           />
           <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
             Start Coding with AI
@@ -48,30 +48,30 @@ const Home = () => {
         <div className="grid md:grid-cols-3 gap-8">
           <div className="bg-gray-900 p-6 rounded-lg">
             <CodeIcon className="h-12 w-12 text-blue-500 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">
+            <h3 className="text-xl text-white font-semibold mb-2">
               Global Code Understanding
             </h3>
-            <p className="text-gray-400">
+            <p className="text-gray-500">
               Manny understands your entire codebase, providing context-aware
               suggestions and edits.
             </p>
           </div>
           <div className="bg-gray-900 p-6 rounded-lg">
             <TerminalIcon className="h-12 w-12 text-blue-500 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">
+            <h3 className="text-xl text-white font-semibold mb-2">
               Natural Language Coding
             </h3>
-            <p className="text-gray-400">
+            <p className="text-gray-500">
               Write code using plain English. Manny translates your instructions
               into efficient, clean code.
             </p>
           </div>
           <div className="bg-gray-900 p-6 rounded-lg">
             <BrainCircuitIcon className="h-12 w-12 text-blue-500 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">
+            <h3 className="text-xl text-white font-semibold mb-2">
               AI-Powered Refactoring
             </h3>
-            <p className="text-gray-400">
+            <p className="text-gray-500">
               Automatically improve code quality, fix bugs, and optimize
               performance with AI-driven refactoring.
             </p>
@@ -84,7 +84,7 @@ const Home = () => {
           <h2 className="text-3xl md:text-4xl font-bold mb-6">
             Experience the Future of Coding
           </h2>
-          <p className="text-xl mb-8 text-gray-300 max-w-2xl mx-auto">
+          <p className="text-xl mb-8 text-gray-500 dark:text-gray-300 max-w-2xl mx-auto">
             Join thousands of developers who are already coding at the speed of
             thought with Manicode.
           </p>
@@ -109,40 +109,6 @@ const Home = () => {
           </div>
         </div>
       </section>
-
-      <footer className="bg-gray-900 py-12 relative z-10">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center space-x-2 mb-4 md:mb-0">
-              <BrainCircuitIcon className="h-6 w-6 text-blue-500" />
-              <span className="text-xl font-bold">Manicode</span>
-            </div>
-            <nav className="flex space-x-4">
-              <a
-                href="#"
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                Privacy
-              </a>
-              <a
-                href="#"
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                Terms
-              </a>
-              <a
-                href="#"
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                Contact
-              </a>
-            </nav>
-          </div>
-          <div className="mt-8 text-center text-gray-500">
-            © {new Date().getFullYear()} Manicode. All rights reserved.
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

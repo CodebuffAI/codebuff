@@ -5,6 +5,7 @@ import { SignInButton } from '@/components/navbar/sign-in-button'
 import { UserDropdown } from '@/components/navbar/user-dropdown'
 import Link from 'next/link'
 import { BrainCircuitIcon } from 'lucide-react'
+import { ThemeSwitcher } from '../theme-switcher'
 
 export const Navbar = async () => {
   const session = await getServerSession(authOptions)
@@ -26,7 +27,10 @@ export const Navbar = async () => {
           Docs
         </a>
       </nav>
-      {session ? <UserDropdown session={session} /> : <SignInButton />}
+      <div className="flex items-center space-x-4">
+        {session ? <UserDropdown session={session} /> : <SignInButton />}
+        <ThemeSwitcher />
+      </div>
     </header>
   )
 }
