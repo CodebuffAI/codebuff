@@ -127,27 +127,17 @@ const parseHunk = (patchLines: string[], startIndex: number) => {
   const header = parseHunkHeader(patchLines[startIndex])
 
   const contextLines: string[] = []
-  let initialContextCount = -1
   let j = startIndex + 1
   while (j < patchLines.length && !patchLines[j].startsWith('@@')) {
-    if (
-      initialContextCount === -1 &&
-      (patchLines[j].startsWith('+') || patchLines[j].startsWith('-'))
-    ) {
-      initialContextCount = j
-    } else if (initialContextCount > 0 && !patchLines[j].startsWith('+')) {
+    if (!patchLines[j].startsWith('+')) {
       contextLines.push(patchLines[j].slice(1))
+      j++
     } else break
-    j++
-  }
-  if (initialContextCount === -1) {
-    initialContextCount = j
   }
 
   return {
     ...header,
     contextLines,
-    initialContextCount,
   }
 }
 
