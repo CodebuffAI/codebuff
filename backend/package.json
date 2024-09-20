@@ -5,8 +5,7 @@
   "main": "dist/index.js",
   "license": "UNLICENSED",
   "scripts": {
-    "start": "bun run start-cloud-sql-proxy & bun run -r tsconfig-paths/register src/index.ts",
-    "start-cloud-sql-proxy": "./src/db/mac-cloud-sql-proxy --credentials-file $MANICODE_GOOGLE_APPLICATION_CREDENTIALS manicode-430317:us-east4:pg-manicode",
+    "start": "bun run -r tsconfig-paths/register src/index.ts",
     "prebuild": "bun clean && cd ../common && bun run ../scripts/build-version-info.js",
     "build": "tsc --build && tsc-alias",
     "postbuild": "mkdir -p dist/common && cp -R ../common/dist/* dist/common && tsc-alias",
