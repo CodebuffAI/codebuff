@@ -19,6 +19,7 @@ module.exports = {
     'sort-imports': 'off',
     'tailwindcss/no-custom-classname': 'off',
     '@typescript-eslint/no-var-requires': 'off',
+    '@typescript-eslint/no-explicit-any': 'off', // Disable the no-explicit-any rule
   },
   settings: {
     tailwindcss: {

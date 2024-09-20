@@ -5,7 +5,6 @@ import { SignInButton } from '@/components/navbar/sign-in-button';
 import { UserDropdown } from '@/components/navbar/user-dropdown';
 import Link from 'next/link';
 import { BrainCircuitIcon } from 'lucide-react';
-import { Button } from '../ui/button';
 
 export const Navbar = async () => {
   const session = await getServerSession(authOptions);
