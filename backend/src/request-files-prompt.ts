@@ -21,7 +21,7 @@ export async function requestRelevantFiles(
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
   userId: string
-): Promise<string[]> {
+) {
   const previousFiles = Object.keys(fileContext.files)
   const countPerRequest = assistantPrompt ? 8 : 4
 
@@ -59,7 +59,7 @@ export async function requestRelevantFiles(
 
   if (!newFilesNecessary) {
     debugLog('No new files necessary, keeping current files')
-    return previousFiles
+    return null
   }
 
   const newFiles = await fileRequestsPromise

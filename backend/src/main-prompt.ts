@@ -181,9 +181,11 @@ ${STOP_MARKER}
           toolCall.input['prompt'],
           userId
         )
-        const responseChunk = '\n' + getRelevantFileInfoMessage(relevantFiles)
-        onResponseChunk(responseChunk)
-        fullResponse += responseChunk
+        if (relevantFiles !== null && relevantFiles.length > 0) {
+          const responseChunk = '\n' + getRelevantFileInfoMessage(relevantFiles)
+          onResponseChunk(responseChunk)
+          fullResponse += responseChunk
+        }
       }
       isComplete = true
     } else {
@@ -261,7 +263,7 @@ async function updateFileContext(
     userId
   )
 
-  if (relevantFiles.length === 0) {
+  if (relevantFiles === null || relevantFiles.length === 0) {
     return null
   }
 
