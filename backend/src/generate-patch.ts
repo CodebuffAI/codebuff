@@ -32,6 +32,7 @@ export async function generatePatch(
     if (hunkStartIndex !== -1) {
       patch = lines.slice(hunkStartIndex).join('\n')
     }
+    else patch = ''
   } else {
     patch = await generatePatchPrompt(
       userId,

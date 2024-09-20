@@ -6,6 +6,7 @@ import { promptClaude } from './claude'
 import { getRelevantFilesPrompt, knowledgeFilesPrompt } from './system-prompt'
 import { DEFAULT_TOOLS } from 'common/util/tools'
 import { debugLog } from './util/debug'
+import { env } from './env.mjs'
 
 export async function generateKnowledgeFiles(
   userId: string,
@@ -13,11 +14,17 @@ export async function generateKnowledgeFiles(
   fullResponse: string,
   fileContext: ProjectFileContext,
   initialMessages: Message[]
-): Promise<Promise<FileChange>[]> {
+): Promise<Promise<FileChange | null>[]> {
   // debugLog('generateKnowledgeFiles', {
   //   fileContext,
   //   initialMessages,
   // })
+  if (env.ENVIRONMENT === 'production') {
+    console.log('generateKnowledgeFiles', {
+      fileContext,
+      initialMessages,
+    })
+  }
   const systemPrompt = `
     You are an assistant that helps developers create knowledge files for their codebase. You are helpful and concise, knowing exactly when enough information has been gathered to create a knowledge file. Here's some more information on knowledge files:
     ${knowledgeFilesPrompt}

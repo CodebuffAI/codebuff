@@ -37,7 +37,7 @@ export async function mainPrompt(
   )
 
   let fullResponse = ''
-  let genKnowledgeFilesPromise: Promise<Promise<FileChange>[]> =
+  let genKnowledgeFilesPromise: Promise<Promise<FileChange | null>[]> =
     Promise.resolve([])
   const fileProcessingPromises: Promise<FileChange | null>[] = []
   const tools = DEFAULT_TOOLS
@@ -283,7 +283,7 @@ export async function processFileBlock(
   fullResponse: string,
   filePath: string,
   newContent: string
-): Promise<FileChange> {
+): Promise<FileChange | null> {
   debugLog('Processing file block', filePath)
 
   const oldContent = await requestFile(ws, filePath)
@@ -292,6 +292,10 @@ export async function processFileBlock(
     console.log(`Created new file: ${filePath}`)
     debugLog(`Created new file: ${filePath}`)
     return { filePath, content: newContent, type: 'file' }
+  }
+
+  if (newContent === oldContent) {
+    return null
   }
 
   const patch = await generatePatch(
