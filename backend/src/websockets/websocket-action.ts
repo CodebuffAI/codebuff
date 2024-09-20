@@ -93,13 +93,11 @@ const onCheckNpmVersion = async (
 ) => {
   let latestVersion = version
 
-  if (env.ENVIRONMENT === 'production') {
-    const backendPackageJsonPath = path.join(__dirname, '..', 'package.json')
-    const backendPackageJson = JSON.parse(
-      fs.readFileSync(backendPackageJsonPath, 'utf-8')
-    )
-    latestVersion = backendPackageJson.version
-  }
+  const backendPackageJsonPath = path.join(__dirname, '../../', 'package.json')
+  const backendPackageJson = JSON.parse(
+    fs.readFileSync(backendPackageJsonPath, 'utf-8')
+  )
+  latestVersion = backendPackageJson.version
 
   const isUpToDate = version === latestVersion
 

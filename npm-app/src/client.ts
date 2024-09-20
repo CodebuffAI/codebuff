@@ -1,4 +1,4 @@
-import { green } from 'picocolors'
+import { yellow } from 'picocolors'
 
 import packageJson from '../package.json'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
@@ -114,7 +114,7 @@ export class Client {
       const { isUpToDate, latestVersion } = action
       if (!isUpToDate) {
         console.warn(
-          green(
+          yellow(
             `\nThere's a new version of Manicode! Please update to ensure proper functionality.\nUpdate now by running: npm install -g manicode`
           )
         )
