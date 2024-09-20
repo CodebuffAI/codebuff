@@ -1,20 +1,20 @@
-'use client';
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { CodeIcon, BrainCircuitIcon, TerminalIcon } from 'lucide-react';
-import { BackgroundBeams } from '@/components/ui/background-beams';
-import Globe from '@/components/magicui/globe';
+'use client'
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { CodeIcon, BrainCircuitIcon, TerminalIcon } from 'lucide-react'
+import { BackgroundBeams } from '@/components/ui/background-beams'
+import Globe from '@/components/magicui/globe'
 
 const Home = () => {
-  const [mounted, setMounted] = useState(false);
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    setMounted(true)
+  }, [])
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <div className="min-h-screen overflow-hidden">
       <BackgroundBeams />
 
       <main className="container mx-auto px-4 py-20 text-center relative z-10">
@@ -144,7 +144,7 @@ const Home = () => {
         </div>
       </footer>
     </div>
-  );
-};
+  )
+}
 
-export default Home;
+export default Home

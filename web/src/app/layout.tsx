@@ -1,16 +1,16 @@
-import '@/styles/globals.css';
+import '@/styles/globals.css'
 
-import { PropsWithChildren } from 'react';
-import type { Metadata } from 'next';
+import { PropsWithChildren } from 'react'
+import type { Metadata } from 'next'
 
-import { Footer } from '@/components/footer';
-import { Navbar } from '@/components/navbar/navbar';
-import { ThemeProvider } from '@/components/theme-provider';
-import { ThemeSwitcher } from '@/components/theme-switcher';
-import { Toaster } from '@/components/ui/toaster';
-import { siteConfig } from '@/lib/constant';
-import { fonts } from '@/lib/fonts';
-import { cn } from '@/lib/utils';
+import { Footer } from '@/components/footer'
+import { Navbar } from '@/components/navbar/navbar'
+import { ThemeProvider } from '@/components/theme-provider'
+import { ThemeSwitcher } from '@/components/theme-switcher'
+import { Toaster } from '@/components/ui/toaster'
+import { siteConfig } from '@/lib/constant'
+import { fonts } from '@/lib/fonts'
+import { cn } from '@/lib/utils'
 
 export const generateMetadata = (): Metadata => ({
   metadataBase: new URL(siteConfig.url()),
@@ -44,12 +44,12 @@ export const generateMetadata = (): Metadata => ({
     description: siteConfig.description,
     images: '/opengraph-image.png',
   },
-});
+})
 
 const RootLayout = ({ children }: PropsWithChildren) => {
   return (
     <html lang={'en'} suppressHydrationWarning>
-      <body className={cn('min-h-screen font-sans', fonts)}>
+      <body className={cn('min-h-screen font-sans bg-black text-white', fonts)}>
         <ThemeProvider attribute="class">
           <Navbar />
           {children}
@@ -59,7 +59,7 @@ const RootLayout = ({ children }: PropsWithChildren) => {
         </ThemeProvider>
       </body>
     </html>
-  );
-};
+  )
+}
 
-export default RootLayout;
+export default RootLayout

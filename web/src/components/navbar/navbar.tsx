@@ -1,22 +1,20 @@
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth'
 
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
-import { SignInButton } from '@/components/navbar/sign-in-button';
-import { UserDropdown } from '@/components/navbar/user-dropdown';
-import Link from 'next/link';
-import { BrainCircuitIcon } from 'lucide-react';
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { SignInButton } from '@/components/navbar/sign-in-button'
+import { UserDropdown } from '@/components/navbar/user-dropdown'
+import Link from 'next/link'
+import { BrainCircuitIcon } from 'lucide-react'
 
 export const Navbar = async () => {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions)
 
   return (
     <header className="container mx-auto px-4 py-6 flex justify-between items-center relative z-10">
-      <div className="flex items-center space-x-2">
-        <Link href="/">
-          <BrainCircuitIcon className="h-8 w-8 text-blue-500" />
-          <span className="font-mono text-2xl font-bold">Manicode</span>
-        </Link>
-      </div>
+      <Link href="/" className="flex items-center space-x-2">
+        <BrainCircuitIcon className="h-8 w-8 text-blue-500" />
+        <span className="font-mono text-2xl font-bold">Manicode</span>
+      </Link>
       <nav className="hidden md:flex space-x-4">
         <a href="#features" className="hover:text-blue-400 transition-colors">
           Features
@@ -30,5 +28,5 @@ export const Navbar = async () => {
       </nav>
       {session ? <UserDropdown session={session} /> : <SignInButton />}
     </header>
-  );
-};
+  )
+}
