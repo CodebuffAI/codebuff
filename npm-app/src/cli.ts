@@ -216,7 +216,10 @@ export class CLI {
       this.rl.prompt()
       return
     }
-    if (userInput === 'undo' || userInput === 'u') {
+    if (userInput === 'login' || userInput === 'signin') {
+      await this.client.login()
+      return
+    } else if (userInput === 'undo' || userInput === 'u') {
       this.handleUndo()
       return
     } else if (userInput === 'redo' || userInput === 'r') {

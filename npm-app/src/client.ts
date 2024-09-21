@@ -8,18 +8,25 @@ import {
   getProjectRoot,
 } from './project-files'
 import { applyChanges } from 'common/util/changes'
+import { User, userFromJson } from 'common/util/credentials'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
 import { STOP_MARKER } from 'common/constants'
-import { fingerprintId } from './config'
+import { fingerprintId, isProduction } from './config'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 import { uniq } from 'lodash'
+// import { calculateFingerprint } from './fingerprint'
+import { spawn } from 'child_process'
+import path from 'path'
+import * as fs from 'fs'
+import os from 'os'
 
 export class Client {
   private webSocket: APIRealtimeClient
   private chatStorage: ChatStorage
   private currentUserInputId: string | undefined
+  private user: User | undefined
 
   constructor(
     websocketUrl: string,
@@ -30,10 +37,52 @@ export class Client {
     this.chatStorage = chatStorage
   }
 
+  private async setUser(): Promise<void> {
+    // pull from root level of the user's filesystem – ~/.config/manicode/credentials.json
+    const homeDir = os.homedir()
+    const credentialsPath = path.join(
+      homeDir,
+      '.config',
+      'manicode',
+      'credentials.json'
+    )
+    if (!fs.existsSync(credentialsPath)) {
+      return
+    }
+
+    const credentialsFile = fs.readFileSync(credentialsPath, 'utf8')
+    this.user = userFromJson(credentialsFile)
+  }
+
   async connect() {
+    await this.setUser()
     await this.webSocket.connect()
     this.setupSubscriptions()
     this.checkNpmVersion()
+  }
+
+  async login() {
+    const url = new URL(
+      isProduction ? 'https://app.manicode.ai' : 'http://localhost:3000'
+    )
+    url.pathname = '/login'
+    // url.searchParams.set('redirect', this.webSocket.baseUrl)
+    console.log(
+      "Opening login page in browser... If it doesn't work, please copy the URL and paste it in your browser.\n\n"
+    )
+    console.log(url.toString(), '\n\n')
+    const childProcess = spawn(`open ${url.toString()}`, {
+      shell: true,
+    })
+    childProcess.on('close', (code) => {
+      if (code === 0) {
+        console.log('Please login and come back here!')
+      } else {
+        console.log(
+          "We couldn't open the login page in your browser. Reach out to support pls? 🥺 support@manicode.ai"
+        )
+      }
+    })
   }
 
   private setupSubscriptions() {

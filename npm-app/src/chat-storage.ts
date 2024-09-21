@@ -30,12 +30,6 @@ export class ChatStorage {
     this.currentVersionIndex = -1
   }
 
-  private ensureDirectoryExists(): void {
-    if (!fs.existsSync(this.baseDir)) {
-      fs.mkdirSync(this.baseDir, { recursive: true })
-    }
-  }
-
   private getFilePath(chatId: string): string {
     return path.join(this.baseDir, `${chatId}.json`)
   }
