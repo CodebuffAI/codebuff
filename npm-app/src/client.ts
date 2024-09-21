@@ -62,16 +62,13 @@ export class Client {
   }
 
   async login() {
-    const url = new URL(
-      isProduction ? 'https://app.manicode.ai' : 'http://localhost:3000'
-    )
-    url.pathname = '/login'
+    const url = `${process.env.APP_URL}/login`
     // url.searchParams.set('redirect', this.webSocket.baseUrl)
     console.log(
       "Opening login page in browser... If it doesn't work, please copy the URL and paste it in your browser.\n\n"
     )
-    console.log(url.toString(), '\n\n')
-    const childProcess = spawn(`open ${url.toString()}`, {
+    console.log(url, '\n\n')
+    const childProcess = spawn(`open ${url}`, {
       shell: true,
     })
     childProcess.on('close', (code) => {
