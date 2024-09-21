@@ -106,40 +106,35 @@ If the file already exists, this will overwrite the file with the new contents.
 
 Otherwise, be mindful that you are providing instructions on how to modify an existing file. Another assistant will be taking your instructions and then making the actual edit to the file, so it needs to be clear what you are changing. Shorter instructions are also preferred.
 
-When modifying an existing file, try to excerpt only the section you are actually changing. Use comments like "// ... existing code ..." to indicate where existing code should be preserved:
+When modifying an existing file, try to excerpt only the section you are actually changing. Use comments like "// ... existing code ..." to indicate where existing code should be preserved.
 
+For example, the following adds a deleteComment handler to the API:
 ${createFileBlock(
-  'path/to/existing/file.tsx',
-  `// ... existing code ...
+  'backend/src/api.ts',
+  `// ... existing imports ...
 
-function getDesktopNav() {
-  console.log('I\'ve just edited in this console.log statement')
+import { deleteComment } from './delete-comment'
 
+// ... existing code ...
+
+const handlers: { [k in APIPath]: APIHandler<k> } = {
   // ... existing code ...
+  'delete-comment': deleteComment,
 }
 
 // ... existing code ...
 `
 )}
 
-Be sure to give enough lines of context around the code you are editing so that the other assistant can make the edit in the correct place. But adding more than 2-3 lines of context is probably unnecessary.
-
-<important_instruction>
-Don't forget to add the placeholder comment "// ... existing code ..." between any sections of code you are editing. If you don't, then all the code in between will be deleted!
-</important_instruction>
-
-Do not reproduce long continuous sections of the file which are unchanged. Use the placeholder comment "// ... existing code ..." to abbreviate these sections.
-
-Do not include comments you wouldn't want in the final code. For example, do not add comments like "// Add this check" or "// Add this line".
-
-You should not set a file's contents to the current contents of the file, since that is unnecessary work.
-
-Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
+It's good to:
+- Give enough lines of context around the code you are editing so that the other assistant can make the edit in the correct place
+- Be concise. Don't add more than 2-3 lines of context around the code you are editing
+- Start with a placeholder comment for "existing imports" so you don't miss any
+- Use the placeholder comment "// ... existing code ..." between any sections of code you are editing. If you don't, then all the code in between will be deleted!
+- Skip reproducing long continuous sections of the file which are unchanged. Use the placeholder comment "// ... existing code ..." to abbreviate these sections.
+- Avoid excessive comments. No need to say: "// Add this line" or "# Update this check".
 
 If you want to delete or rename a file, run a terminal command. More details below.
-
-Do not write code to the user except when editing files with <file> blocks.
-
 </editing_instructions>
 `.trim()
 
@@ -352,9 +347,13 @@ The goal is to make as few changes as possible to the codebase to address the us
 
 You may edit files to address the user's request and run commands in the terminal. However, you will only be able to run up to a maximum of 3 terminal commands in a row before awaiting further user input.
 
-You are reading the following files: <files>${files.join(', ')}</files>. Do not request more files with update_file_context unless you are sure you need them and don't have them already.
+You are reading the following files: <files>${files.join(', ')}</files>. These were fetched for you after the last user's message and are up to date. Do not request more files with update_file_context unless you are sure you need them and don't have them already.
+
+If the user is requesting a change that you think has already been made based on the current version of files, simply tell the user that "the change has already been made". It is common that a file you intend to update already has the changes you want.
 
 Do not write code except when editing files with <file> blocks.
+
+Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 
 <important_instruction>
 Confine your edits to only what is directly necessary. Preserve the behavior of all existing code. Change only what you must to accomplish the user's request or add to a knowledge file.
