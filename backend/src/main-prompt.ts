@@ -44,23 +44,25 @@ export async function mainPrompt(
   const lastMessage = messages[messages.length - 1]
   const messagesWithoutLastMessage = messages.slice(0, -1)
 
-  // Step 1: Read more files.
-  const system = getSearchSystemPrompt(fileContext)
-  // If the fileContext.files is empty, use prompts to select files and add them to context.
-  const responseChunk = await updateFileContext(
-    ws,
-    fileContext,
-    { messages, system, tools },
-    null,
-    onResponseChunk,
-    userId
-  )
-  if (responseChunk !== null) {
-    fullResponse += responseChunk
-
-    // Prompt cache the new files.
+  if (!didClientUseTool(lastMessage)) {
+    // Step 1: Read more files.
     const system = getSearchSystemPrompt(fileContext)
-    warmCacheForRequestRelevantFiles(system, DEFAULT_TOOLS, userId)
+    // If the fileContext.files is empty, use prompts to select files and add them to context.
+    const responseChunk = await updateFileContext(
+      ws,
+      fileContext,
+      { messages, system, tools },
+      null,
+      onResponseChunk,
+      userId
+    )
+    if (responseChunk !== null) {
+      fullResponse += responseChunk
+
+      // Prompt cache the new files.
+      const system = getSearchSystemPrompt(fileContext)
+      warmCacheForRequestRelevantFiles(system, DEFAULT_TOOLS, userId)
+    }
   }
 
   if (messages.length > 1 && !didClientUseTool(lastMessage)) {
