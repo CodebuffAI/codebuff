@@ -5,7 +5,7 @@ import {
   printFileTreeWithTokens,
 } from 'common/util/file'
 import { buildArray } from 'common/util/array'
-import { STOP_MARKER } from 'common/constants'
+import { FIND_FILES_MARKER, STOP_MARKER } from 'common/constants'
 import { countTokens, countTokensForFiles } from './util/token-counter'
 import { debugLog } from './util/debug'
 import { sortBy, sum } from 'lodash'
@@ -186,21 +186,8 @@ const toolsPrompt = `
 # Tools
 
 You have access to the following tools:
-- update_file_context(prompt): Update the set of files and their contents included in your system promptbased on the user's request. Use this to read more files.
 - run_terminal_command(command): Execute a command in the terminal and return the result.
 - web_scrape(url): Scrape the web page at the given url and return the content.
-
-## Updating file context
-
-The system prompt already includes some files and their content that you might find useful. If the included set of files is not sufficient to address the user's request, you should use the update_file_context tool to update the set of files and their contents.
-
-Use this tool only when you need to read different files than what were included.
-
-If you are intending to modify a file that is not included in the set of files, you should first use the update_file_context tool with a prompt to read that file. If the file is already included, you do not need to read it again.
-
-Any files that are not listed in the <project_file_tree> block should not be requested, because that means they don't exist or are gitignored.
-
-If you are requesting a file path, be sure to include the full path from the project root directory. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root.
 
 ## Running terminal commands
 
@@ -291,11 +278,9 @@ const getRelevantFilesPromptPart2 = (
 <relevant_files>
 Here are some files that were selected to aid in the user request, ordered by most important first. These files represent the current file state after the user's last request:
 ${fileBlocks}
-
-Use the tool update_file_context to change the set of files listed here. You should not use this tool to read a file that is already included.
 </relevant_files>
 
-As you can see, some files that you might find useful are already provided. If the included set of files is not sufficient to address the user's request, you should use the update_file_context tool to update the set of files and their contents.
+As you can see, some files that you might find useful are already provided. If the included set of files is not sufficient to address the user's request, you write the special token ${FIND_FILES_MARKER} to update the set of files and their contents.
 `.trim()
 }
 
@@ -343,7 +328,9 @@ The goal is to make as few changes as possible to the codebase to address the us
 
 You may edit files to address the user's request and run commands in the terminal. However, you will only be able to run up to a maximum of 3 terminal commands in a row before awaiting further user input.
 
-You are reading the following files: <files>${files.join(', ')}</files>. These were fetched for you after the last user's message and are up to date. Do not request more files with update_file_context unless you are sure you need them and don't have them already.
+You are reading the following files: <files>${files.join(', ')}</files>. These were fetched for you after the last user's message and are up to date. If you need to read more files, please write what files you are looking for and then the special marker: ${FIND_FILES_MARKER}. E.g. "I am looking for agent.ts ${FIND_FILES_MARKER}" or "I need the file with the api routes in it ${FIND_FILES_MARKER}" or "Find me the file with class Foo in it ${FIND_FILES_MARKER}".
+
+If there is a file that is not visible to you, or you are tempted to say you don't have direct access to it, then you should use the special marker ${FIND_FILES_MARKER} to request the file.
 
 If the user is requesting a change that you think has already been made based on the current version of files, simply tell the user that "the change has already been made". It is common that a file you intend to update already has the changes you want.
 

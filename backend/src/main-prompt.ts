@@ -7,7 +7,7 @@ import { promptClaudeStream } from './claude'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool, DEFAULT_TOOLS } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
-import { STOP_MARKER } from 'common/constants'
+import { FIND_FILES_MARKER, STOP_MARKER } from 'common/constants'
 import { FileChange, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './util/debug'
@@ -171,24 +171,20 @@ ${STOP_MARKER}
       isComplete = true
       fullResponse = fullResponse.replace(STOP_MARKER, '')
       debugLog('Reached STOP_MARKER')
-    } else if (toolCall) {
-      if (toolCall.name === 'update_file_context') {
-        const relevantFiles = await requestRelevantFiles(
-          {
-            messages,
-            system: getSearchSystemPrompt(fileContext),
-            tools,
-          },
-          fileContext,
-          toolCall.input['prompt'],
-          userId
-        )
-        if (relevantFiles !== null && relevantFiles.length > 0) {
-          const responseChunk = '\n' + getRelevantFileInfoMessage(relevantFiles)
-          onResponseChunk(responseChunk)
-          fullResponse += responseChunk
-        }
+    } else if (fullResponse.includes(FIND_FILES_MARKER)) {
+      const responseChunk = await updateFileContext(
+        ws,
+        fileContext,
+        { messages, system: getSearchSystemPrompt(fileContext), tools },
+        fullResponse,
+        onResponseChunk,
+        userId
+      )
+      if (responseChunk !== null) {
+        onResponseChunk(responseChunk)
+        fullResponse += responseChunk
       }
+    } else if (toolCall) {
       isComplete = true
     } else {
       console.log('continuing to generate')

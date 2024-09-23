@@ -16,21 +16,6 @@ export const didClientUseTool = (message: Message) =>
 export const getTools = (): Tool[] => {
   return [
     {
-      name: 'update_file_context',
-      description: `Updates the context with a the set of existing files you want to read. Another assistant will try to choose files that will be helpful based on the message history. You should also provide a prompt that describes in natural language what files to add or remove from the context. Do not use this tool to create a new file, only to read existing files.`,
-      input_schema: {
-        type: 'object',
-        properties: {
-          prompt: {
-            type: 'string',
-            description:
-              'A prompt that describes in natural language what files to add or remove from the context. You can list specific files, or give general instructions about what files to include.',
-          },
-        },
-        required: ['prompt'],
-      },
-    } as Tool,
-    {
       name: 'scrape_web_page',
       description: `Retrieves the content of a web page given a URL. This tool is helpful when you need to gather information from external sources, such as documentation, APIs, or other web-based resources. Use this tool when the user asks for information that might be available on a specific website or when you need to reference external documentation to answer a question or solve a problem.`,
       input_schema: {

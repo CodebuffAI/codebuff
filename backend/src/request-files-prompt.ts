@@ -35,14 +35,16 @@ export async function requestRelevantFiles(
         : JSON.stringify(lastMessage.content)
       : ''
 
-  const newFilesNecessaryPromise = checkNewFilesNecessary(
-    messagesExcludingLastIfByUser,
-    system,
-    tools,
-    userId,
-    previousFiles,
-    userPrompt
-  )
+  const newFilesNecessaryPromise = assistantPrompt
+    ? Promise.resolve(true)
+    : checkNewFilesNecessary(
+        messagesExcludingLastIfByUser,
+        system,
+        tools,
+        userId,
+        previousFiles,
+        userPrompt
+      )
 
   const fileRequestsPromise = generateFileRequests(
     userPrompt,
@@ -253,7 +255,11 @@ function generateNonObviousRequestFilesPrompt(
   count: number,
   index: number
 ): string {
+  const exampleFiles = getExampleFileList(fileContext, 100)
   return `
+Random project files:
+${exampleFiles.join('\n')}
+
 ${
   userPrompt
     ? `<user_prompt>${userPrompt}</user_prompt>`
@@ -293,9 +299,6 @@ Be sure to include the full path from the project root directory for each file. 
 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
-
-Example response:
-${getExampleFileList(fileContext, count).join('\n')}
 `.trim()
 }
 
@@ -308,7 +311,11 @@ function generateKeyRequestFilesPrompt(
 ): string {
   const start = (index - 1) * count + 1
   const end = start + count - 1
+  const exampleFiles = getExampleFileList(fileContext, 100)
   return `
+Random project files:
+${exampleFiles.join('\n')}
+
 ${
   userPrompt
     ? `<user_prompt>${userPrompt}</user_prompt>`
@@ -348,8 +355,6 @@ Be sure to include the full path from the project root directory for each file. 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
 
-Example response:
-${getExampleFileList(fileContext, count).join('\n')}
 `.trim()
 }
 
