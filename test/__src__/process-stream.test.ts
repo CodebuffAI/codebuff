@@ -1,5 +1,5 @@
 import { test, expect, mock } from 'bun:test'
-import { processStreamWithFiles } from 'backend/process-stream'
+import { processStreamWithTags } from 'backend/process-stream'
 
 test('processStreamWithFiles basic functionality', async () => {
   const mockStream = async function* () {
@@ -7,13 +7,18 @@ test('processStreamWithFiles basic functionality', async () => {
     yield '<file path="test.txt">file content</file>'
     yield 'after'
   }
-  const onFileStart = mock((filePath: string) => {})
-  const onFile = mock((filePath: string, content: string) => {})
+  const onFileStart = mock((attributes: Record<string, string>) => {})
+  const onFile = mock((content: string, attributes: Record<string, string>) => {})
   const result = []
-  for await (const chunk of processStreamWithFiles(
+  for await (const chunk of processStreamWithTags(
     mockStream(),
-    onFileStart,
-    onFile
+    {
+      file: {
+        attributeNames: ['path'],
+        onTagStart: onFileStart,
+        onTagEnd: onFile,
+      },
+    }
   )) {
     result.push(chunk)
   }
@@ -23,6 +28,6 @@ test('processStreamWithFiles basic functionality', async () => {
     '</file>',
     'after',
   ])
-  expect(onFileStart).toHaveBeenCalledWith('test.txt')
-  expect(onFile).toHaveBeenCalledWith('test.txt', 'file content')
+  expect(onFileStart).toHaveBeenCalledWith({ path: 'test.txt' })
+  expect(onFile).toHaveBeenCalledWith('file content', { path: 'test.txt' })
 })

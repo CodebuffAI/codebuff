@@ -17,7 +17,7 @@ import {
   requestRelevantFiles,
   warmCacheForRequestRelevantFiles,
 } from './request-files-prompt'
-import { processStreamWithFiles } from './process-stream'
+import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
 
 /**
@@ -132,29 +132,31 @@ ${STOP_MARKER}
       tools,
       userId,
     })
-    const fileStream = processStreamWithFiles(
-      stream,
-      (_filePath) => {
-        onResponseChunk('Modifying...')
+    const fileStream = processStreamWithTags(stream, {
+      file: {
+        attributeNames: ['path'],
+        onTagStart: () => {
+          onResponseChunk('Modifying...')
+        },
+        onTagEnd: (fileContent, { path}) => {
+          console.log('on file!', path)
+          fileProcessingPromises.push(
+            processFileBlock(
+              userId,
+              ws,
+              messages,
+              fullResponse,
+              path,
+              fileContent
+            ).catch((error) => {
+              console.error('Error processing file block', error)
+              return null
+            })
+          )
+          fullResponse += fileContent
+        },
       },
-      (filePath, fileContent) => {
-        console.log('on file!', filePath)
-        fileProcessingPromises.push(
-          processFileBlock(
-            userId,
-            ws,
-            messages,
-            fullResponse,
-            filePath,
-            fileContent
-          ).catch((error) => {
-            console.error('Error processing file block', error)
-            return null
-          })
-        )
-        fullResponse += fileContent
-      }
-    )
+    })
 
     for await (const chunk of fileStream) {
       if (typeof chunk === 'object') {
