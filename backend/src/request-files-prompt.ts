@@ -21,9 +21,9 @@ export async function requestRelevantFiles(
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
   userId: string
-): Promise<string[]> {
+) {
   const previousFiles = Object.keys(fileContext.files)
-  const countPerRequest = assistantPrompt ? 8 : 4
+  const countPerRequest = assistantPrompt ? 8 : 5
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -59,7 +59,7 @@ export async function requestRelevantFiles(
 
   if (!newFilesNecessary) {
     debugLog('No new files necessary, keeping current files')
-    return previousFiles
+    return null
   }
 
   const newFiles = await fileRequestsPromise
@@ -78,7 +78,7 @@ async function generateFileRequests(
   tools: Tool[],
   userId: string
 ) {
-  const numNonObviousPrompts = assistantPrompt ? 1 : 3
+  const numNonObviousPrompts = assistantPrompt ? 1 : 1
   const nonObviousPrompts = range(1, numNonObviousPrompts + 1).map((index) =>
     generateNonObviousRequestFilesPrompt(
       userPrompt,
@@ -105,7 +105,7 @@ async function generateFileRequests(
     })
   )
 
-  const numKeyPrompts = assistantPrompt ? 1 : 3
+  const numKeyPrompts = assistantPrompt ? 1 : 2
   const keyPrompts = range(1, numKeyPrompts + 1).map((index) =>
     generateKeyRequestFilesPrompt(
       userPrompt,
@@ -152,8 +152,10 @@ const checkNewFilesNecessary = async (
 ) => {
   const prompt = `
 Given the user's request and the current context, determine if new files are necessary to fulfill the request.
-Current files: ${previousFiles.join(', ')}
+Current files: ${previousFiles.length > 0 ? previousFiles.join(', ') : 'None'}
 User request: ${userPrompt}
+
+We'll need any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request.
 
 Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient. Do not call any tools.
 `

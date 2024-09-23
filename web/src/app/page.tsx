@@ -23,8 +23,8 @@ const Home = () => {
         </h1>
         <p className="text-xl md:text-2xl mb-12 text-gray-500 max-w-3xl mx-auto">
           Manicode: The AI-powered tool that transforms natural language into
-          expert code. Edit your codebase with simple instructions to Manny,
-          your personal AI programming assistant.
+          expert code. Edit your codebase with simple instructions to Mani, your
+          personal AI programming assistant.
         </p>
         <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
           <Input
@@ -52,7 +52,7 @@ const Home = () => {
               Global Code Understanding
             </h3>
             <p className="text-gray-500">
-              Manny understands your entire codebase, providing context-aware
+              Mani understands your entire codebase, providing context-aware
               suggestions and edits.
             </p>
           </div>
@@ -62,7 +62,7 @@ const Home = () => {
               Natural Language Coding
             </h3>
             <p className="text-gray-500">
-              Write code using plain English. Manny translates your instructions
+              Write code using plain English. Mani translates your instructions
               into efficient, clean code.
             </p>
           </div>

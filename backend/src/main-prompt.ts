@@ -37,30 +37,32 @@ export async function mainPrompt(
   )
 
   let fullResponse = ''
-  let genKnowledgeFilesPromise: Promise<Promise<FileChange>[]> =
+  let genKnowledgeFilesPromise: Promise<Promise<FileChange | null>[]> =
     Promise.resolve([])
   const fileProcessingPromises: Promise<FileChange | null>[] = []
   const tools = DEFAULT_TOOLS
   const lastMessage = messages[messages.length - 1]
   const messagesWithoutLastMessage = messages.slice(0, -1)
 
-  // Step 1: Read more files.
-  const system = getSearchSystemPrompt(fileContext)
-  // If the fileContext.files is empty, use prompts to select files and add them to context.
-  const responseChunk = await updateFileContext(
-    ws,
-    fileContext,
-    { messages, system, tools },
-    null,
-    onResponseChunk,
-    userId
-  )
-  if (responseChunk !== null) {
-    fullResponse += responseChunk
-
-    // Prompt cache the new files.
+  if (!didClientUseTool(lastMessage)) {
+    // Step 1: Read more files.
     const system = getSearchSystemPrompt(fileContext)
-    warmCacheForRequestRelevantFiles(system, DEFAULT_TOOLS, userId)
+    // If the fileContext.files is empty, use prompts to select files and add them to context.
+    const responseChunk = await updateFileContext(
+      ws,
+      fileContext,
+      { messages, system, tools },
+      null,
+      onResponseChunk,
+      userId
+    )
+    if (responseChunk !== null) {
+      fullResponse += responseChunk
+
+      // Prompt cache the new files.
+      const system = getSearchSystemPrompt(fileContext)
+      warmCacheForRequestRelevantFiles(system, DEFAULT_TOOLS, userId)
+    }
   }
 
   if (messages.length > 1 && !didClientUseTool(lastMessage)) {
@@ -181,9 +183,11 @@ ${STOP_MARKER}
           toolCall.input['prompt'],
           userId
         )
-        const responseChunk = '\n' + getRelevantFileInfoMessage(relevantFiles)
-        onResponseChunk(responseChunk)
-        fullResponse += responseChunk
+        if (relevantFiles !== null && relevantFiles.length > 0) {
+          const responseChunk = '\n' + getRelevantFileInfoMessage(relevantFiles)
+          onResponseChunk(responseChunk)
+          fullResponse += responseChunk
+        }
       }
       isComplete = true
     } else {
@@ -261,7 +265,7 @@ async function updateFileContext(
     userId
   )
 
-  if (relevantFiles.length === 0) {
+  if (relevantFiles === null || relevantFiles.length === 0) {
     return null
   }
 
@@ -281,7 +285,7 @@ export async function processFileBlock(
   fullResponse: string,
   filePath: string,
   newContent: string
-): Promise<FileChange> {
+): Promise<FileChange | null> {
   debugLog('Processing file block', filePath)
 
   const oldContent = await requestFile(ws, filePath)
@@ -290,6 +294,10 @@ export async function processFileBlock(
     console.log(`Created new file: ${filePath}`)
     debugLog(`Created new file: ${filePath}`)
     return { filePath, content: newContent, type: 'file' }
+  }
+
+  if (newContent === oldContent) {
+    return null
   }
 
   const patch = await generatePatch(

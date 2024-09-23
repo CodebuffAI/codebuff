@@ -3,9 +3,10 @@ import { FileChange, Message } from 'common/actions'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { processFileBlock } from './main-prompt'
 import { promptClaude } from './claude'
-import { getRelevantFilesPrompt, knowledgeFilesPrompt } from './system-prompt'
+import { getProjectFileTreePrompt, getRelevantFilesPrompt, knowledgeFilesPrompt } from './system-prompt'
 import { DEFAULT_TOOLS } from 'common/util/tools'
 import { debugLog } from './util/debug'
+import { env } from './env.mjs'
 
 export async function generateKnowledgeFiles(
   userId: string,
@@ -13,11 +14,17 @@ export async function generateKnowledgeFiles(
   fullResponse: string,
   fileContext: ProjectFileContext,
   initialMessages: Message[]
-): Promise<Promise<FileChange>[]> {
+): Promise<Promise<FileChange | null>[]> {
   // debugLog('generateKnowledgeFiles', {
   //   fileContext,
   //   initialMessages,
   // })
+  if (env.ENVIRONMENT === 'production') {
+    console.log('generateKnowledgeFiles', {
+      fileContext,
+      initialMessages,
+    })
+  }
   const systemPrompt = `
     You are an assistant that helps developers create knowledge files for their codebase. You are helpful and concise, knowing exactly when enough information has been gathered to create a knowledge file. Here's some more information on knowledge files:
     ${knowledgeFilesPrompt}
@@ -31,10 +38,6 @@ export async function generateKnowledgeFiles(
     Here are some examples of meaningless changes:
     - user has asked you to keep adding new features to the project -> this means the user is likely not interested in the project's current functionality and is looking for something else.
     - code is sufficient to explain the change -> this means developers can easily figure out the context of the change without needing a knowledge file.
-
-    Here are some relevant files and code diffs that you should consider: 
-    ${getRelevantFilesPrompt(fileContext)}
-    
     <important>
     Reminder: a meaningful change is one that is not self-evident in the code. 
     If the change isn't important enough to warrant a new knowledge file, please do not output anything. We don't want to waste the user's time on irrelevant changes.
@@ -42,6 +45,14 @@ export async function generateKnowledgeFiles(
     
     Do not include any code or other files in the knowledge file. Don't use any tools. Make the most minimal changes necessary to the files to ensure the information is captured.
     </important>
+
+
+    Here's the project file tree:
+    ${getProjectFileTreePrompt(fileContext)}
+
+    Here are some relevant files and code diffs that you should consider: 
+    ${getRelevantFilesPrompt(fileContext)}
+    
     `
   const userPrompt = `    
     Think before you write the knowledge file in <thinking> tags. Use that space to think about why the change is important and what it means for the project, and verify that we don't already have something similar in the existing knowledge files. Make sure to show your work!
@@ -68,7 +79,7 @@ export async function generateKnowledgeFiles(
     Should we create or update a knowledge file?  If not, please skip the rest of the response and don't output anything. This is the most common case; there should be a high bar to creating or updating a knowledge file.
 
     Otherwise, check the existing knowledge files to see if there isn't something written about it yet. If there is, don't output anything because we don't want to repeat ourselves.
-    Finally, for any meaningful change that hasn't been captured in the knowledge file, you should output a knowledge file with <file> blocks. Make sure the file path ends in '.knowledge.md'.
+    Finally, for any meaningful change that hasn't been captured in the knowledge file, you should update a knowledge file with <file> blocks. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
     `
 
   const messages = [

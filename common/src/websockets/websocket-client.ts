@@ -45,7 +45,7 @@ export function formatState(state: ReadyState) {
 type OutstandingTxn = {
   resolve: () => void
   reject: (err: Error) => void
-  timeout?: NodeJS.Timeout
+  timeout?: any
 }
 
 /** Client for the API websocket realtime server. Automatically manages reconnection
@@ -59,8 +59,8 @@ export class APIRealtimeClient {
   txid: number
   // all txns that are in flight, with no ack/error/timeout
   txns: Map<number, OutstandingTxn>
-  connectTimeout?: NodeJS.Timeout
-  heartbeat?: NodeJS.Timeout
+  connectTimeout?: any
+  heartbeat?: any
   hadError = false
   onError: () => void
 
