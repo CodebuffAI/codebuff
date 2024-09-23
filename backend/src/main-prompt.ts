@@ -132,14 +132,17 @@ ${STOP_MARKER}
       tools,
       userId,
     })
-    const fileStream = processStreamWithTags(stream, {
+    const streamWithTags = processStreamWithTags(stream, {
       file: {
         attributeNames: ['path'],
         onTagStart: () => {
           onResponseChunk('Modifying...')
         },
-        onTagEnd: (fileContent, { path}) => {
+        onTagEnd: (fileContent, { path }) => {
           console.log('on file!', path)
+          const filePathWithoutStartNewline = fileContent.startsWith('\n')
+            ? fileContent.slice(1)
+            : fileContent
           fileProcessingPromises.push(
             processFileBlock(
               userId,
@@ -147,18 +150,43 @@ ${STOP_MARKER}
               messages,
               fullResponse,
               path,
-              fileContent
+              filePathWithoutStartNewline
             ).catch((error) => {
               console.error('Error processing file block', error)
               return null
             })
           )
           fullResponse += fileContent
+          return false
+        },
+      },
+      tool_call: {
+        attributeNames: ['name'],
+        onTagStart: (attributes) => {
+          console.log('tool call start', attributes)
+        },
+        onTagEnd: (content, attributes) => {
+          console.log('tool call end', content, attributes)
+          const name = attributes.name
+          const contentAttributes: Record<string, string> = {}
+          if (name === 'run_terminal_command') {
+            contentAttributes.command = content
+          }
+          const responseChunk = `${content}`
+          onResponseChunk(responseChunk)
+          fullResponse += responseChunk
+          toolCall = {
+            id: Math.random().toString(36).slice(2),
+            name: attributes.name,
+            input: contentAttributes,
+          }
+          isComplete = true
+          return true
         },
       },
     })
 
-    for await (const chunk of fileStream) {
+    for await (const chunk of streamWithTags) {
       if (typeof chunk === 'object') {
         toolCall = chunk
         debugLog('Received tool call:', toolCall)

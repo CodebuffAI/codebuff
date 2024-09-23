@@ -70,6 +70,7 @@ export const promptClaudeStream = async function* (
       messages,
       system,
       tools,
+      stop_sequences: [STOP_MARKER],
     })
   )
 

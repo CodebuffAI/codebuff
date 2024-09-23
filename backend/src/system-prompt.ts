@@ -186,12 +186,12 @@ const toolsPrompt = `
 # Tools
 
 You have access to the following tools:
-- <run_terminal_command>[YOUR COMMAND HERE]</run_terminal_command>: Execute a command in the terminal and return the result.
-- <scrape_web_page>[URL HERE]</scrape_web_page>: Scrape the web page at the given url and return the content.
+- <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
+- <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
 
 ## Running terminal commands
 
-You can write out the <run_terminal_command> tags to execute shell commands in the user's terminal. This can be useful for tasks such as:
+You can write out the <tool_call> for run_terminal_command to execute shell commands in the user's terminal. This can be useful for tasks such as:
 
 1. Running build or test scripts (e.g., "npm run build" or "npm test").
 2. Moving, renaming, or deleting files and directories.

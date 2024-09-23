@@ -1,13 +1,13 @@
-const fileOpenRegex = /<file path="([^"]+)">/g
-const fileCloseRegex = /<\/file>/g
-
 export async function* processStreamWithTags<T extends string | object>(
   stream: AsyncGenerator<T>,
   tags: {
     [tagName: string]: {
       attributeNames: string[]
       onTagStart: (attributes: Record<string, string>) => void
-      onTagEnd: (content: string, attributes: Record<string, string>) => void
+      onTagEnd: (
+        content: string,
+        attributes: Record<string, string>
+      ) => boolean
     }
   }
 ) {
@@ -18,8 +18,12 @@ export async function* processStreamWithTags<T extends string | object>(
   const escapeRegExp = (string: string) =>
     string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const tagNames = Object.keys(tags)
-  const tagRegex = new RegExp(
-    `<(${tagNames.map(escapeRegExp).join('|')})\\s*([^>]*)>|</(${tagNames.map(escapeRegExp).join('|')})>`,
+  const openTagRegex = new RegExp(
+    `<(${tagNames.map(escapeRegExp).join('|')})\\s*([^>]*)>`,
+    'g'
+  )
+  const closeTagRegex = new RegExp(
+    `</(${tagNames.map(escapeRegExp).join('|')})>`,
     'g'
   )
 
@@ -28,49 +32,51 @@ export async function* processStreamWithTags<T extends string | object>(
       yield chunk
       continue
     }
+    let currentChunk: string = chunk
 
     buffer += chunk
 
     while (true) {
       if (insideTag === null) {
-        const match = tagRegex.exec(buffer)
+        const match = openTagRegex.exec(buffer)
         if (match) {
-          const [fullMatch, openTag, attributesString, closeTag] = match
-          const matchIndex = match.index
-          const afterMatchIndex = matchIndex + fullMatch.length
+          const [fullMatch, openTag, attributesString] = match
 
-          yield buffer.slice(0, afterMatchIndex)
+          const afterMatchIndex = match.index + fullMatch.length
+          const chunkStartIndex = buffer.length - currentChunk.length
+          yield buffer.slice(chunkStartIndex, afterMatchIndex)
+
           buffer = buffer.slice(afterMatchIndex)
 
-          if (openTag) {
-            insideTag = openTag
-            currentAttributes = parseAttributes(
-              attributesString,
-              tags[openTag].attributeNames
-            )
-            tags[openTag].onTagStart(currentAttributes)
-          } else if (closeTag) {
-            // Ignore closing tags when not inside a tag
-          }
+          insideTag = openTag
+          currentAttributes = parseAttributes(
+            attributesString,
+            tags[openTag].attributeNames
+          )
+          tags[openTag].onTagStart(currentAttributes)
         } else {
-          if (buffer.length > 0) {
-            yield buffer
+          if (currentChunk !== '') {
+            yield currentChunk
           }
-          buffer = ''
           break
         }
       } else {
-        const closeMatch = new RegExp(`</${insideTag}>`).exec(buffer)
+        const closeMatch = closeTagRegex.exec(buffer)
         if (closeMatch) {
+          const [fullMatch, closeTag] = closeMatch
           const closeIndex = closeMatch.index
           const content = buffer.slice(0, closeIndex)
-          tags[insideTag].onTagEnd(content, currentAttributes)
+          const complete = tags[insideTag].onTagEnd(content, currentAttributes)
 
-          const afterCloseIndex = closeIndex + closeMatch[0].length
+          const afterCloseIndex = closeIndex + fullMatch.length
           yield buffer.slice(closeIndex, afterCloseIndex)
           buffer = buffer.slice(afterCloseIndex)
+          currentChunk = buffer
           insideTag = null
           currentAttributes = {}
+          if (complete) {
+            return
+          }
         } else {
           break
         }
