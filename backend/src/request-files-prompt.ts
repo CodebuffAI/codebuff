@@ -154,8 +154,10 @@ const checkNewFilesNecessary = async (
 ) => {
   const prompt = `
 Given the user's request and the current context, determine if new files are necessary to fulfill the request.
-Current files: ${previousFiles.join(', ')}
+Current files: ${previousFiles.length > 0 ? previousFiles.join(', ') : 'None'}
 User request: ${userPrompt}
+
+We'll need any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request.
 
 Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient. Do not call any tools.
 `
