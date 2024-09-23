@@ -5,7 +5,7 @@ import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 
 import { promptClaudeStream } from './claude'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
-import { didClientUseTool, DEFAULT_TOOLS } from 'common/util/tools'
+import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { FIND_FILES_MARKER, STOP_MARKER } from 'common/constants'
 import { FileChange, Message } from 'common/actions'
@@ -40,7 +40,6 @@ export async function mainPrompt(
   let genKnowledgeFilesPromise: Promise<Promise<FileChange | null>[]> =
     Promise.resolve([])
   const fileProcessingPromises: Promise<FileChange | null>[] = []
-  const tools = DEFAULT_TOOLS
   const lastMessage = messages[messages.length - 1]
   const messagesWithoutLastMessage = messages.slice(0, -1)
 
@@ -51,7 +50,7 @@ export async function mainPrompt(
     const responseChunk = await updateFileContext(
       ws,
       fileContext,
-      { messages, system, tools },
+      { messages, system },
       null,
       onResponseChunk,
       userId
@@ -61,7 +60,7 @@ export async function mainPrompt(
 
       // Prompt cache the new files.
       const system = getSearchSystemPrompt(fileContext)
-      warmCacheForRequestRelevantFiles(system, DEFAULT_TOOLS, userId)
+      warmCacheForRequestRelevantFiles(system, userId)
     }
   }
 
@@ -125,11 +124,10 @@ ${STOP_MARKER}
       ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
       : messages
 
-    savePromptLengthInfo(messagesWithContinuedMessage, system, tools)
+    savePromptLengthInfo(messagesWithContinuedMessage, system)
 
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
-      tools,
       userId,
     })
     const streamWithTags = processStreamWithTags(stream, {
@@ -162,15 +160,15 @@ ${STOP_MARKER}
       },
       tool_call: {
         attributeNames: ['name'],
-        onTagStart: (attributes) => {
-          console.log('tool call start', attributes)
-        },
+        onTagStart: (attributes) => {},
         onTagEnd: (content, attributes) => {
           console.log('tool call end', content, attributes)
           const name = attributes.name
           const contentAttributes: Record<string, string> = {}
           if (name === 'run_terminal_command') {
             contentAttributes.command = content
+          } else if (name === 'scrape_web_page') {
+            contentAttributes.url = content
           }
           const responseChunk = `${content}`
           onResponseChunk(responseChunk)
@@ -187,12 +185,6 @@ ${STOP_MARKER}
     })
 
     for await (const chunk of streamWithTags) {
-      if (typeof chunk === 'object') {
-        toolCall = chunk
-        debugLog('Received tool call:', toolCall)
-        continue
-      }
-
       fullResponse += chunk
       onResponseChunk(chunk)
     }
@@ -205,7 +197,7 @@ ${STOP_MARKER}
       const responseChunk = await updateFileContext(
         ws,
         fileContext,
-        { messages, system: getSearchSystemPrompt(fileContext), tools },
+        { messages, system: getSearchSystemPrompt(fileContext) },
         fullResponse,
         onResponseChunk,
         userId
@@ -214,8 +206,6 @@ ${STOP_MARKER}
         onResponseChunk(responseChunk)
         fullResponse += responseChunk
       }
-    } else if (toolCall) {
-      isComplete = true
     } else {
       console.log('continuing to generate')
       debugLog('continuing to generate')
@@ -257,7 +247,7 @@ ${STOP_MARKER}
   return {
     response: responseWithChanges,
     changes,
-    toolCall,
+    toolCall: toolCall as ToolCall | null,
   }
 }
 
@@ -274,18 +264,16 @@ async function updateFileContext(
   {
     messages,
     system,
-    tools,
   }: {
     messages: Message[]
     system: string | Array<TextBlockParam>
-    tools: Tool[]
   },
   prompt: string | null,
   onResponseChunk: (chunk: string) => void,
   userId: string
 ) {
   const relevantFiles = await requestRelevantFiles(
-    { messages, system, tools },
+    { messages, system },
     fileContext,
     prompt,
     userId
@@ -350,7 +338,6 @@ export async function processFileBlock(
 const savePromptLengthInfo = (
   messages: Message[],
   system: string | Array<TextBlockParam>,
-  tools: Tool[]
 ) => {
   console.log('Prompting claude num messages:', messages.length)
   debugLog('Prompting claude num messages:', messages.length)
@@ -363,7 +350,6 @@ const savePromptLengthInfo = (
       typeof lastMessageContent === 'string' ? lastMessageContent : '[object]',
     messages: JSON.stringify(messages).length,
     system: system.length,
-    tools: JSON.stringify(tools).length,
     timestamp: new Date().toISOString(), // Add a timestamp for each entry
   }
 

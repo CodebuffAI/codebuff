@@ -1,13 +1,10 @@
-export async function* processStreamWithTags<T extends string | object>(
+export async function* processStreamWithTags<T extends string>(
   stream: AsyncGenerator<T>,
   tags: {
     [tagName: string]: {
       attributeNames: string[]
       onTagStart: (attributes: Record<string, string>) => void
-      onTagEnd: (
-        content: string,
-        attributes: Record<string, string>
-      ) => boolean
+      onTagEnd: (content: string, attributes: Record<string, string>) => boolean
     }
   }
 ) {
@@ -28,10 +25,6 @@ export async function* processStreamWithTags<T extends string | object>(
   )
 
   for await (const chunk of stream) {
-    if (typeof chunk === 'object') {
-      yield chunk
-      continue
-    }
     let currentChunk: string = chunk
 
     buffer += chunk

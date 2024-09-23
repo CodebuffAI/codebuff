@@ -12,11 +12,9 @@ export async function requestRelevantFiles(
   {
     messages,
     system,
-    tools,
   }: {
     messages: Message[]
     system: string | Array<TextBlockParam>
-    tools: Tool[]
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
@@ -40,7 +38,6 @@ export async function requestRelevantFiles(
     : checkNewFilesNecessary(
         messagesExcludingLastIfByUser,
         system,
-        tools,
         userId,
         previousFiles,
         userPrompt
@@ -53,7 +50,6 @@ export async function requestRelevantFiles(
     countPerRequest,
     messagesExcludingLastIfByUser,
     system,
-    tools,
     userId
   )
 
@@ -77,7 +73,6 @@ async function generateFileRequests(
   countPerRequest: number,
   messagesExcludingLastIfByUser: Message[],
   system: string | Array<TextBlockParam>,
-  tools: Tool[],
   userId: string
 ) {
   const numNonObviousPrompts = assistantPrompt ? 1 : 1
@@ -95,7 +90,6 @@ async function generateFileRequests(
       {
         messages: messagesExcludingLastIfByUser,
         system,
-        tools,
       },
       nonObviousPrompt,
       models.sonnet,
@@ -123,7 +117,6 @@ async function generateFileRequests(
       {
         messages: messagesExcludingLastIfByUser,
         system,
-        tools,
       },
       keyPrompt,
       models.sonnet,
@@ -147,7 +140,6 @@ async function generateFileRequests(
 const checkNewFilesNecessary = async (
   messages: Message[],
   system: System,
-  tools: Tool[],
   userId: string,
   previousFiles: string[],
   userPrompt: string
@@ -159,14 +151,13 @@ User request: ${userPrompt}
 
 We'll need any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request.
 
-Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient. Do not call any tools.
+Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient.
 `
   const response = await promptClaude(
     [...messages, { role: 'user', content: prompt }],
     {
       model: models.sonnet,
       system,
-      tools,
       userId,
     }
   ).catch((error) => {
@@ -181,11 +172,9 @@ async function getRelevantFiles(
   {
     messages,
     system,
-    tools,
   }: {
     messages: Message[]
     system: string | Array<TextBlockParam>
-    tools: Tool[]
   },
   userPrompt: string,
   model: model_types,
@@ -203,7 +192,6 @@ async function getRelevantFiles(
   const response = await promptClaude(messagesWithPrompt, {
     model,
     system,
-    tools,
     userId,
   })
   const end = performance.now()
@@ -362,7 +350,6 @@ ${topLevelDirectories(fileContext).join('\n')}
 
 export const warmCacheForRequestRelevantFiles = async (
   system: System,
-  tools: Tool[],
   userId: string
 ) => {
   await promptClaude(
@@ -375,7 +362,6 @@ export const warmCacheForRequestRelevantFiles = async (
     {
       model: models.sonnet,
       system,
-      tools,
       userId,
       maxTokens: 1,
     }
