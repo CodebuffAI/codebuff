@@ -98,6 +98,7 @@ const onCheckNpmVersion = async (
   latestVersion = backendPackageJson.version
 
   const isUpToDate = version === latestVersion
+  console.log('npm version status', { clientVersion: version, latestVersion })
 
   sendAction(ws, {
     type: 'npm-version-status',
