@@ -100,13 +100,14 @@ export function listen(server: HttpServer, path: string) {
       const now = Date.now()
       try {
         for (const ws of wss.clients) {
-          const lastSeen = SWITCHBOARD.getClient(ws).lastSeen
+          const client = SWITCHBOARD.getClient(ws)
+          const lastSeen = client.lastSeen
           if (lastSeen < now - CONNECTION_TIMEOUT_MS) {
             ws.terminate()
           }
         }
       } catch (error) {
-        console.error('Error in deadConnectionCleaner', error)
+        // console.error('Error in deadConnectionCleaner', error)
       }
     }, CONNECTION_TIMEOUT_MS)
   })
