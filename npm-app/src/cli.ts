@@ -322,7 +322,7 @@ export class CLI {
       userInputId,
       () => {
         this.stopLoadingAnimation()
-        process.stdout.write(underline(green('\nManicode')) + ' ')
+        process.stdout.write(underline(green('\nManicode:')) + ' ')
       }
     )
 
