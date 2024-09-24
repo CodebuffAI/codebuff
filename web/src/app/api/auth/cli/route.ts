@@ -27,14 +27,15 @@ export async function POST(req: NextRequest) {
 
   const authCode: string = body.authCode
   // check if auth code is valid
-  const [fingerprintId, expiresAt, authCodeHash] = authCode.split('.')
-  const calculatedAuthCode = genAuthCode(
+  const [fingerprintId, expiresAt, receivedVerificationHash] =
+    authCode.split('.')
+  const verificationHash = genAuthCode(
     fingerprintId,
     expiresAt,
     env.NEXTAUTH_SECRET
   )
 
-  if (authCodeHash !== calculatedAuthCode) {
+  if (receivedVerificationHash !== verificationHash) {
     return NextResponse.json(
       {
         error: {

@@ -96,12 +96,12 @@ const onLoginCodeRequest = (
   ws: WebSocket
 ): void => {
   const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes in the future
-  const authCode = genAuthCode(
+  const verificationHash = genAuthCode(
     fingerprintId,
     expiresAt.toString(),
     env.NEXTAUTH_SECRET
   )
-  const loginUrl = `${env.APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${authCode}`
+  const loginUrl = `${env.APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${verificationHash}`
 
   sendAction(ws, {
     type: 'login-code-response',

@@ -24,7 +24,6 @@ const Home = () => {
         }),
         headers: {
           'Content-Type': 'application/json',
-          // authorization: `Bearer ${session.accessToken}`,
         },
       })
       console.log('signed in and added fingerprint')
