@@ -1,11 +1,11 @@
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import { SignInButton } from '@/components/navbar/sign-in-button'
-import { UserDropdown } from '@/components/navbar/user-dropdown'
 import Link from 'next/link'
 import { BrainCircuitIcon } from 'lucide-react'
 import { ThemeSwitcher } from '../theme-switcher'
+import { Button } from '../ui/button'
+import { UserDropdown } from './user-dropdown'
 
 export const Navbar = async () => {
   const session = await getServerSession(authOptions)
@@ -28,7 +28,15 @@ export const Navbar = async () => {
         </a>
       </nav>
       <div className="flex items-center space-x-4">
-        {session ? <UserDropdown session={session} /> : <SignInButton />}
+        {session ? (
+          <UserDropdown session={session} />
+        ) : (
+          <Link href="/login">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+              Log in
+            </Button>
+          </Link>
+        )}
         <ThemeSwitcher />
       </div>
     </header>

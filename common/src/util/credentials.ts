@@ -1,8 +1,12 @@
 import { z } from 'zod'
+import crypto from 'node:crypto'
+import os from 'os'
+import path from 'node:path'
 
-const userSchema = z.object({
+export const userSchema = z.object({
+  id: z.string(),
   email: z.string(),
-  name: z.string(),
+  name: z.string().nullable(),
   authToken: z.string(),
   fingerprintId: z.string(),
 })
@@ -28,3 +32,22 @@ export const userFromJson = (
     return
   }
 }
+
+export const genAuthCode = (
+  fingerprintId: string,
+  expiresAt: string,
+  secret: string
+) =>
+  crypto
+    .createHash('sha256')
+    .update(secret)
+    .update(fingerprintId)
+    .update(expiresAt)
+    .digest('hex')
+
+export const CREDENTIALS_PATH = path.join(
+  os.homedir(),
+  '.config',
+  'manicode',
+  'credentials.json'
+)

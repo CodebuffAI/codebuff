@@ -6,6 +6,7 @@ import {
   integer,
   uuid,
   boolean,
+  index,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
 
@@ -46,13 +47,22 @@ export const accounts = pgTable(
   })
 )
 
-export const sessions = pgTable('session', {
-  sessionToken: text('sessionToken').notNull().primaryKey(),
-  userId: text('userId')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  expires: timestamp('expires', { mode: 'date' }).notNull(),
-})
+export const sessions = pgTable(
+  'session',
+  {
+    sessionToken: text('sessionToken').notNull().primaryKey(),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expires: timestamp('expires', { mode: 'date' }).notNull(),
+    fingerprintId: text('fingerprintId'),
+  },
+  (table) => {
+    return {
+      nameIdx: index('fingerprintId_idx').on(table.fingerprintId),
+    }
+  }
+)
 
 export const verificationTokens = pgTable(
   'verificationToken',

@@ -22,9 +22,14 @@ lines.forEach((line) => {
 
   const [key, value] = trimmedLine.split('=')
 
-  match(key).with('ENVIRONMENT', 'APP_URL', () => {
-    env[key] = value
-  })
+  match(key).with(
+    'ENVIRONMENT',
+    'APP_URL',
+    'NEXT_PUBLIC_BACKEND_URL',
+    (key) => {
+      env[key] = value
+    }
+  )
 })
 
 module.exports = Promise.resolve(env)

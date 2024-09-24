@@ -23,6 +23,8 @@ export const env = createEnv({
     STRIPE_SUBSCRIPTION_PRICE_ID: z.string().min(1),
     PORT: z.coerce.number().min(1000),
     ENVIRONMENT: z.string().min(1),
+    APP_URL: z.string().min(1),
+    NEXTAUTH_SECRET: z.string().min(1),
   },
   runtimeEnv: process.env,
 })

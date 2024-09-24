@@ -8,7 +8,7 @@ import {
   getProjectRoot,
 } from './project-files'
 import { applyChanges } from 'common/util/changes'
-import { User, userFromJson } from 'common/util/credentials'
+import { CREDENTIALS_PATH, User, userFromJson } from 'common/util/credentials'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
@@ -16,11 +16,9 @@ import { STOP_MARKER } from 'common/constants'
 import { fingerprintId, isProduction } from './config'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 import { uniq } from 'lodash'
-// import { calculateFingerprint } from './fingerprint'
 import { spawn } from 'child_process'
 import path from 'path'
 import * as fs from 'fs'
-import os from 'os'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -39,18 +37,12 @@ export class Client {
 
   private async setUser(): Promise<void> {
     // pull from root level of the user's filesystem – ~/.config/manicode/credentials.json
-    const homeDir = os.homedir()
-    const credentialsPath = path.join(
-      homeDir,
-      '.config',
-      'manicode',
-      'credentials.json'
-    )
-    if (!fs.existsSync(credentialsPath)) {
+
+    if (!fs.existsSync(CREDENTIALS_PATH)) {
       return
     }
 
-    const credentialsFile = fs.readFileSync(credentialsPath, 'utf8')
+    const credentialsFile = fs.readFileSync(CREDENTIALS_PATH, 'utf8')
     this.user = userFromJson(credentialsFile)
   }
 
@@ -62,23 +54,9 @@ export class Client {
   }
 
   async login() {
-    const url = `${process.env.APP_URL}/login`
-    // url.searchParams.set('redirect', this.webSocket.baseUrl)
-    console.log(
-      "Opening login page in browser... If it doesn't work, please copy the URL and paste it in your browser.\n\n"
-    )
-    console.log(url, '\n\n')
-    const childProcess = spawn(`open ${url}`, {
-      shell: true,
-    })
-    childProcess.on('close', (code) => {
-      if (code === 0) {
-        console.log('Please login and come back here!')
-      } else {
-        console.log(
-          "We couldn't open the login page in your browser. Reach out to support pls? 🥺 support@manicode.ai"
-        )
-      }
+    this.webSocket.sendAction({
+      type: 'login-code-request',
+      fingerprintId,
     })
   }
 
@@ -163,6 +141,64 @@ export class Client {
           yellow(
             `\nThere's a new version of Manicode! Please update to ensure proper functionality.\nUpdate now by running: npm install -g manicode`
           )
+        )
+      }
+    })
+
+    let shouldRequestLogin = false
+    this.webSocket.subscribe('login-code-response', async (action) => {
+      const url = action.loginUrl
+      console.log('Please visit the following URL to log in:')
+      console.log(url, '\n\n')
+
+      const childProcess = spawn(`open ${url}`, {
+        shell: true,
+      })
+      childProcess.on('close', (code) => {
+        if (code === 0) {
+          console.log('See you back here after you finish logging in 👋')
+
+          // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
+          const initialTime = Date.now()
+          shouldRequestLogin = true
+          const handler = setInterval(() => {
+            if (Date.now() - initialTime > 300000 || !shouldRequestLogin) {
+              shouldRequestLogin = false
+              clearInterval(handler)
+              return
+            }
+
+            this.webSocket.sendAction({
+              type: 'login-status-request',
+              fingerprintId,
+            })
+          }, 5000)
+        }
+      })
+    })
+
+    this.webSocket.subscribe('auth-result', (action) => {
+      shouldRequestLogin = false
+
+      if (action.user) {
+        console.log(
+          '----------------',
+          '\n',
+          'Authentication successful!',
+          'Welcome, ' + action.user.name
+        )
+        this.user = action.user
+
+        // Store in config file
+        const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
+        fs.mkdirSync(credentialsPathDir, { recursive: true })
+        fs.writeFileSync(
+          CREDENTIALS_PATH,
+          JSON.stringify({ default: action.user })
+        )
+      } else {
+        console.warn(
+          `Authentication failed: ${action.message}. Please try again in a few minutes or contact support.`
         )
       }
     })

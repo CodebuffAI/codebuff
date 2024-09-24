@@ -10,6 +10,11 @@ import { getTools } from 'common/util/tools'
 import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude, models } from '../claude'
 import { env } from '../env.mjs'
+import db from 'common/src/db'
+import * as schema from 'common/db/schema'
+import { eq } from 'drizzle-orm'
+import { genAuthCode } from 'common/util/credentials'
+import { match, P } from 'ts-pattern'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -84,6 +89,68 @@ const onUserInput = async (
         changes: [],
       })
     }, 100)
+  }
+}
+
+const onLoginCodeRequest = (
+  { fingerprintId }: Extract<ClientAction, { type: 'login-code-request' }>,
+  ws: WebSocket
+): void => {
+  const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes in the future
+  const authCode = genAuthCode(
+    fingerprintId,
+    expiresAt.toString(),
+    env.NEXTAUTH_SECRET
+  )
+  const loginUrl = `${env.APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${authCode}`
+
+  sendAction(ws, {
+    type: 'login-code-response',
+    fingerprintId,
+    loginUrl,
+  })
+}
+
+const onLoginStatusRequest = async (
+  { fingerprintId }: Extract<ClientAction, { type: 'login-status-request' }>,
+  ws: WebSocket
+) => {
+  try {
+    const users = await db
+      .select({
+        id: schema.users.id,
+        email: schema.users.email,
+        name: schema.users.name,
+        authToken: schema.sessions.sessionToken,
+        fingerprintId: schema.sessions.fingerprintId,
+      })
+      .from(schema.users)
+      .leftJoin(schema.sessions, eq(schema.users.id, schema.sessions.userId))
+      .where(eq(schema.sessions.fingerprintId, fingerprintId))
+
+    match(users).with(
+      P.array({
+        authToken: P.string,
+        fingerprintId: P.string,
+      }),
+      (users) => {
+        const user = users[0]
+        if (!user) return
+        sendAction(ws, {
+          type: 'auth-result',
+          user,
+          message: 'Authentication successful!',
+        })
+      }
+    )
+  } catch (e) {
+    const error = e as Error
+    console.error('Error in login status request', e)
+    sendAction(ws, {
+      type: 'auth-result',
+      user: undefined,
+      message: error.message,
+    })
   }
 }
 
@@ -176,6 +243,8 @@ export const onWebsocketAction = async (
 subscribeToAction('user-input', onUserInput)
 subscribeToAction('check-npm-version', onCheckNpmVersion)
 subscribeToAction('warm-context-cache', onWarmContextCache)
+subscribeToAction('login-code-request', onLoginCodeRequest)
+subscribeToAction('login-status-request', onLoginStatusRequest)
 
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {

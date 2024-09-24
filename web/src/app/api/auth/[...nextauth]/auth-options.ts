@@ -1,13 +1,13 @@
-import type { NextAuthOptions } from 'next-auth';
-import GitHubProvider from 'next-auth/providers/github';
-import { DrizzleAdapter } from '@auth/drizzle-adapter';
+import type { NextAuthOptions } from 'next-auth'
+import GitHubProvider from 'next-auth/providers/github'
+import { DrizzleAdapter } from '@auth/drizzle-adapter'
 
-import { env } from '@/env.mjs';
-import { stripeServer } from '@/lib/stripe';
-import db from 'common/src/db';
-import * as models from 'common/db/schema';
-import { eq } from 'drizzle-orm';
-import { Adapter } from 'next-auth/adapters';
+import { env } from '@/env.mjs'
+import { stripeServer } from '@/lib/stripe'
+import db from 'common/src/db'
+import * as models from 'common/db/schema'
+import { eq } from 'drizzle-orm'
+import { Adapter } from 'next-auth/adapters'
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {
@@ -22,22 +22,14 @@ export const authOptions: NextAuthOptions = {
       clientSecret: env.GITHUB_SECRET,
     }),
   ],
-  callbacks: {
-    async session({ session, user }) {
-      if (!session.user) return session;
-
-      session.user.id = user.id;
-      session.user.stripeCustomerId = user.stripeCustomerId;
-      session.user.isActive = user.isActive;
-
-      return session;
-    },
+  session: {
+    strategy: 'database',
+    maxAge: 90 * 24 * 60 * 60, // 90 days
   },
   events: {
     createUser: async ({ user }) => {
-      console.log('createUser', user);
-      if (!user.email || !user.name) return;
-
+      console.log('createUser', user)
+      if (!user.email || !user.name) return
       await stripeServer.customers
         .create({
           email: user.email,
@@ -49,8 +41,8 @@ export const authOptions: NextAuthOptions = {
             .set({
               stripeCustomerId: customer.id,
             })
-            .where(eq(models.users.id, user.id));
-        });
+            .where(eq(models.users.id, user.id))
+        })
     },
   },
-};
+}
