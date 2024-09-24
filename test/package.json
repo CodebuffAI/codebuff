@@ -6,7 +6,8 @@
     "test": "bun test __src__",
     "test-manifold": "bun test manifold-project.test.ts",
     "test-patch": "bun test generate-patch.test.ts",
-    "test-generate-knowledge": "bun test generate-knowledge-files.test.ts"
+    "test-generate-knowledge": "bun test generate-knowledge-files.test.ts",
+    "test-stream": "bun test process-stream.test.ts"
   },
   "dependencies": {
     "backend": "file:../backend",

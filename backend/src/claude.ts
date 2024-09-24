@@ -26,7 +26,7 @@ export const promptClaudeStream = async function* (
     userId: string
     ignoreHelicone?: boolean
   }
-): AsyncGenerator<string | ToolCall, void, unknown> {
+): AsyncGenerator<string, void, unknown> {
   const {
     model = models.sonnet,
     system,
@@ -70,6 +70,7 @@ export const promptClaudeStream = async function* (
       messages,
       system,
       tools,
+      stop_sequences: [],
     })
   )
 
@@ -106,7 +107,8 @@ export const promptClaudeStream = async function* (
     if (type === 'message_delta' && chunk.delta.stop_reason === 'tool_use') {
       const { name, id, json } = toolInfo
       const input = JSON.parse(json)
-      yield { name, id, input }
+      console.error('tried to yield tool call', name, id, input)
+      // yield { name, id, input }
     }
     // if (type === 'message_start') {
     //   console.log('message start', chunk)

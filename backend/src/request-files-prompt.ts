@@ -12,11 +12,9 @@ export async function requestRelevantFiles(
   {
     messages,
     system,
-    tools,
   }: {
     messages: Message[]
     system: string | Array<TextBlockParam>
-    tools: Tool[]
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
@@ -35,14 +33,15 @@ export async function requestRelevantFiles(
         : JSON.stringify(lastMessage.content)
       : ''
 
-  const newFilesNecessaryPromise = checkNewFilesNecessary(
-    messagesExcludingLastIfByUser,
-    system,
-    tools,
-    userId,
-    previousFiles,
-    userPrompt
-  )
+  const newFilesNecessaryPromise = assistantPrompt
+    ? Promise.resolve(true)
+    : checkNewFilesNecessary(
+        messagesExcludingLastIfByUser,
+        system,
+        userId,
+        previousFiles,
+        userPrompt
+      )
 
   const fileRequestsPromise = generateFileRequests(
     userPrompt,
@@ -51,7 +50,6 @@ export async function requestRelevantFiles(
     countPerRequest,
     messagesExcludingLastIfByUser,
     system,
-    tools,
     userId
   )
 
@@ -75,7 +73,6 @@ async function generateFileRequests(
   countPerRequest: number,
   messagesExcludingLastIfByUser: Message[],
   system: string | Array<TextBlockParam>,
-  tools: Tool[],
   userId: string
 ) {
   const numNonObviousPrompts = assistantPrompt ? 1 : 1
@@ -93,7 +90,6 @@ async function generateFileRequests(
       {
         messages: messagesExcludingLastIfByUser,
         system,
-        tools,
       },
       nonObviousPrompt,
       models.sonnet,
@@ -121,7 +117,6 @@ async function generateFileRequests(
       {
         messages: messagesExcludingLastIfByUser,
         system,
-        tools,
       },
       keyPrompt,
       models.sonnet,
@@ -145,7 +140,6 @@ async function generateFileRequests(
 const checkNewFilesNecessary = async (
   messages: Message[],
   system: System,
-  tools: Tool[],
   userId: string,
   previousFiles: string[],
   userPrompt: string
@@ -157,14 +151,13 @@ User request: ${userPrompt}
 
 We'll need any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request.
 
-Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient. Do not call any tools.
+Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient.
 `
   const response = await promptClaude(
     [...messages, { role: 'user', content: prompt }],
     {
       model: models.sonnet,
       system,
-      tools,
       userId,
     }
   ).catch((error) => {
@@ -179,11 +172,9 @@ async function getRelevantFiles(
   {
     messages,
     system,
-    tools,
   }: {
     messages: Message[]
     system: string | Array<TextBlockParam>
-    tools: Tool[]
   },
   userPrompt: string,
   model: model_types,
@@ -201,7 +192,6 @@ async function getRelevantFiles(
   const response = await promptClaude(messagesWithPrompt, {
     model,
     system,
-    tools,
     userId,
   })
   const end = performance.now()
@@ -255,7 +245,11 @@ function generateNonObviousRequestFilesPrompt(
   count: number,
   index: number
 ): string {
+  const exampleFiles = getExampleFileList(fileContext, 100)
   return `
+Random project files:
+${exampleFiles.join('\n')}
+
 ${
   userPrompt
     ? `<user_prompt>${userPrompt}</user_prompt>`
@@ -295,9 +289,6 @@ Be sure to include the full path from the project root directory for each file. 
 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
-
-Example response:
-${getExampleFileList(fileContext, count).join('\n')}
 `.trim()
 }
 
@@ -310,7 +301,11 @@ function generateKeyRequestFilesPrompt(
 ): string {
   const start = (index - 1) * count + 1
   const end = start + count - 1
+  const exampleFiles = getExampleFileList(fileContext, 100)
   return `
+Random project files:
+${exampleFiles.join('\n')}
+
 ${
   userPrompt
     ? `<user_prompt>${userPrompt}</user_prompt>`
@@ -350,14 +345,11 @@ Be sure to include the full path from the project root directory for each file. 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
 
-Example response:
-${getExampleFileList(fileContext, count).join('\n')}
 `.trim()
 }
 
 export const warmCacheForRequestRelevantFiles = async (
   system: System,
-  tools: Tool[],
   userId: string
 ) => {
   await promptClaude(
@@ -370,7 +362,6 @@ export const warmCacheForRequestRelevantFiles = async (
     {
       model: models.sonnet,
       system,
-      tools,
       userId,
       maxTokens: 1,
     }

@@ -6,10 +6,8 @@ import { sendMessage } from './server'
 import { isEqual } from 'lodash'
 import fs from 'fs'
 import path from 'path'
-import { getTools } from 'common/util/tools'
 import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude, models } from '../claude'
-import { env } from '../env.mjs'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -116,7 +114,6 @@ const onWarmContextCache = async (
   ws: WebSocket
 ) => {
   const startTime = Date.now()
-  const tools = getTools()
   const system = getSearchSystemPrompt(fileContext)
   await promptClaude(
     [
@@ -128,7 +125,6 @@ const onWarmContextCache = async (
     {
       model: models.sonnet,
       system,
-      tools,
       userId: fingerprintId,
     }
   )

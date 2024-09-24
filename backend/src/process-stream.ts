@@ -1,58 +1,92 @@
-const fileOpenRegex = /<file path="([^"]+)">/g
-const fileCloseRegex = /<\/file>/g
-
-export async function* processStreamWithFiles<T extends string | object>(
+export async function* processStreamWithTags<T extends string>(
   stream: AsyncGenerator<T>,
-  onFileStart: (filePath: string) => void,
-  onFile: (filePath: string, fileContent: string) => void
+  tags: {
+    [tagName: string]: {
+      attributeNames: string[]
+      onTagStart: (attributes: Record<string, string>) => void
+      onTagEnd: (content: string, attributes: Record<string, string>) => boolean
+    }
+  }
 ) {
   let buffer = ''
-  let insideTag = 'none'
-  let currentFilePath = ''
+  let insideTag: string | null = null
+  let currentAttributes: Record<string, string> = {}
+
+  const escapeRegExp = (string: string) =>
+    string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const tagNames = Object.keys(tags)
+  const openTagRegex = new RegExp(
+    `<(${tagNames.map(escapeRegExp).join('|')})\\s*([^>]*)>`,
+    'g'
+  )
+  const closeTagRegex = new RegExp(
+    `</(${tagNames.map(escapeRegExp).join('|')})>`,
+    'g'
+  )
 
   for await (const chunk of stream) {
-    if (typeof chunk === 'object') {
-      yield chunk
-      continue
-    }
+    let currentChunk: string = chunk
 
     buffer += chunk
 
     while (true) {
-      if (insideTag === 'none') {
-        const openMatch = fileOpenRegex.exec(buffer)
-        if (openMatch) {
-          const afterOpenIndex = openMatch.index + openMatch[0].length
-          const chunkStartIndex = buffer.length - chunk.length
-          yield buffer.slice(chunkStartIndex, afterOpenIndex)
-          buffer = buffer.slice(afterOpenIndex)
-          currentFilePath = openMatch[1]
-          onFileStart(currentFilePath)
-          insideTag = 'file'
+      if (insideTag === null) {
+        const match = openTagRegex.exec(buffer)
+        if (match) {
+          const [fullMatch, openTag, attributesString] = match
+
+          const afterMatchIndex = match.index + fullMatch.length
+          const chunkStartIndex = buffer.length - currentChunk.length
+          yield buffer.slice(chunkStartIndex, afterMatchIndex)
+
+          buffer = buffer.slice(afterMatchIndex)
+
+          insideTag = openTag
+          currentAttributes = parseAttributes(
+            attributesString,
+            tags[openTag].attributeNames
+          )
+          tags[openTag].onTagStart(currentAttributes)
         } else {
-          yield chunk
+          if (currentChunk !== '') {
+            yield currentChunk
+          }
           break
         }
-      } else if (insideTag === 'file') {
-        const closeMatch = fileCloseRegex.exec(buffer)
+      } else {
+        const closeMatch = closeTagRegex.exec(buffer)
         if (closeMatch) {
+          const [fullMatch, closeTag] = closeMatch
           const closeIndex = closeMatch.index
+          const content = buffer.slice(0, closeIndex)
+          const complete = tags[insideTag].onTagEnd(content, currentAttributes)
 
-          const fileContent = buffer.startsWith('\n')
-            ? buffer.slice(1, closeIndex)
-            : buffer.slice(0, closeIndex)
-          onFile(currentFilePath, fileContent)
-          currentFilePath = ''
-
-          const afterCloseIndex = closeIndex + closeMatch[0].length
-          yield buffer.slice(closeIndex)
+          const afterCloseIndex = closeIndex + fullMatch.length
+          yield buffer.slice(closeIndex, afterCloseIndex)
           buffer = buffer.slice(afterCloseIndex)
-          insideTag = 'none'
-          break
+          currentChunk = buffer
+          insideTag = null
+          currentAttributes = {}
+          if (complete) {
+            return
+          }
         } else {
           break
         }
       }
     }
   }
+}
+
+function parseAttributes(
+  attributesString: string,
+  attributeNames: string[]
+): Record<string, string> {
+  const attributes: Record<string, string> = {}
+  const regex = new RegExp(`(${attributeNames.join('|')})="([^"]*)"`, 'g')
+  let match
+  while ((match = regex.exec(attributesString)) !== null) {
+    attributes[match[1]] = match[2]
+  }
+  return attributes
 }

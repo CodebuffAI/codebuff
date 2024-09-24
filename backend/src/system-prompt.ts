@@ -186,25 +186,17 @@ const toolsPrompt = `
 # Tools
 
 You have access to the following tools:
-- update_file_context(prompt): Update the set of files and their contents included in your system promptbased on the user's request. Use this to read more files.
-- run_terminal_command(command): Execute a command in the terminal and return the result.
-- web_scrape(url): Scrape the web page at the given url and return the content.
+- <tool_call name="find_files">[DESCRIPTION_OF_FILES]</tool_call>: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
+- <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
+- <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
 
-## Updating file context
+## Finding files
 
-The system prompt already includes some files and their content that you might find useful. If the included set of files is not sufficient to address the user's request, you should use the update_file_context tool to update the set of files and their contents.
-
-Use this tool only when you need to read different files than what were included.
-
-If you are intending to modify a file that is not included in the set of files, you should first use the update_file_context tool with a prompt to read that file. If the file is already included, you do not need to read it again.
-
-Any files that are not listed in the <project_file_tree> block should not be requested, because that means they don't exist or are gitignored.
-
-If you are requesting a file path, be sure to include the full path from the project root directory. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root.
+Use the find_files tool to read more files beyond what is provided in the initial set of files.
 
 ## Running terminal commands
 
-You can use the run_terminal_command tool to execute shell commands in the user's terminal. This can be useful for tasks such as:
+You can write out the <tool_call> for run_terminal_command to execute shell commands in the user's terminal. This can be useful for tasks such as:
 
 1. Running build or test scripts (e.g., "npm run build" or "npm test").
 2. Moving, renaming, or deleting files and directories.
@@ -291,11 +283,9 @@ const getRelevantFilesPromptPart2 = (
 <relevant_files>
 Here are some files that were selected to aid in the user request, ordered by most important first. These files represent the current file state after the user's last request:
 ${fileBlocks}
-
-Use the tool update_file_context to change the set of files listed here. You should not use this tool to read a file that is already included.
 </relevant_files>
 
-As you can see, some files that you might find useful are already provided. If the included set of files is not sufficient to address the user's request, you should use the update_file_context tool to update the set of files and their contents.
+As you can see, some files that you might find useful are already provided. If the included set of files is not sufficient to address the user's request, you can call the find_files tool to update the set of files and their contents.
 `.trim()
 }
 
@@ -343,7 +333,9 @@ The goal is to make as few changes as possible to the codebase to address the us
 
 You may edit files to address the user's request and run commands in the terminal. However, you will only be able to run up to a maximum of 3 terminal commands in a row before awaiting further user input.
 
-You are reading the following files: <files>${files.join(', ')}</files>. These were fetched for you after the last user's message and are up to date. Do not request more files with update_file_context unless you are sure you need them and don't have them already.
+You are reading the following files: <files>${files.join(', ')}</files>. These were fetched for you after the last user's message and are up to date. If you need to read more files, please use <tool_call name="find_files">...</tool_call> to write what files you are looking for. E.g. "<tool_call name="find_files">I am looking for agent.ts</tool_call>" or "<tool_call name="find_files">I need the file with the api routes in it</tool_call>" or "<tool_call name="find_files">Find me the file with class Foo in it</tool_call>".
+
+If there is a file that is not visible to you, or you are tempted to say you don't have direct access to it, then you should use <tool_call name="find_files">...</tool_call> to request the file.
 
 If the user is requesting a change that you think has already been made based on the current version of files, simply tell the user that "the change has already been made". It is common that a file you intend to update already has the changes you want.
 
