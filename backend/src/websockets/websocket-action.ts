@@ -4,8 +4,6 @@ import { mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction } from 'common/actions'
 import { sendMessage } from './server'
 import { isEqual } from 'lodash'
-import fs from 'fs'
-import path from 'path'
 import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude, models } from '../claude'
 
@@ -85,28 +83,6 @@ const onUserInput = async (
   }
 }
 
-const onCheckNpmVersion = async (
-  { version }: Extract<ClientAction, { type: 'check-npm-version' }>,
-  ws: WebSocket
-) => {
-  let latestVersion = version
-
-  const backendPackageJsonPath = path.join(__dirname, '../../', 'package.json')
-  const backendPackageJson = JSON.parse(
-    fs.readFileSync(backendPackageJsonPath, 'utf-8')
-  )
-  latestVersion = backendPackageJson.version
-
-  const isUpToDate = version === latestVersion
-  console.log('npm version status', { clientVersion: version, latestVersion })
-
-  sendAction(ws, {
-    type: 'npm-version-status',
-    isUpToDate,
-    latestVersion,
-  })
-}
-
 const onWarmContextCache = async (
   {
     fileContext,
@@ -171,7 +147,6 @@ export const onWebsocketAction = async (
 }
 
 subscribeToAction('user-input', onUserInput)
-subscribeToAction('check-npm-version', onCheckNpmVersion)
 subscribeToAction('warm-context-cache', onWarmContextCache)
 
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {

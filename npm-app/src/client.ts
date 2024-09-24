@@ -1,6 +1,3 @@
-import { yellow } from 'picocolors'
-
-import packageJson from '../package.json'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
   getFiles,
@@ -33,7 +30,6 @@ export class Client {
   async connect() {
     await this.webSocket.connect()
     this.setupSubscriptions()
-    this.checkNpmVersion()
   }
 
   private setupSubscriptions() {
@@ -91,24 +87,6 @@ export class Client {
         type: 'read-files-response',
         files,
       })
-    })
-
-    this.webSocket.subscribe('npm-version-status', (action) => {
-      const { isUpToDate, latestVersion } = action
-      if (!isUpToDate) {
-        console.warn(
-          yellow(
-            `\nThere's a new version of Manicode! Please update to ensure proper functionality.\nUpdate now by running: npm install -g manicode`
-          )
-        )
-      }
-    })
-  }
-
-  private checkNpmVersion() {
-    this.webSocket.sendAction({
-      type: 'check-npm-version',
-      version: packageJson.version,
     })
   }
 

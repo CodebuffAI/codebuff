@@ -2,23 +2,23 @@
 
 import fs from 'fs'
 import path from 'path'
-import { yellow } from 'picocolors'
+import { green, yellow } from 'picocolors'
 
 import { initFingerprint } from './config'
 import { CLI } from './cli'
 import { getProjectFileContext, initProjectRoot } from './project-files'
+import { updateManicode } from './update-manicode'
 
 async function manicode(projectDir: string | undefined) {
   const dir = initProjectRoot(projectDir)
 
-  // Preload stuff.
-  const fingerprintPromise = initFingerprint()
-  const initProjectFileContextPromise = await getProjectFileContext([], {})
+  const updatePromise = updateManicode()
 
-  const readyPromise = Promise.all([
-    fingerprintPromise,
-    initProjectFileContextPromise,
-  ])
+  const fingerprintPromise = initFingerprint()
+
+  await getProjectFileContext([], {})
+
+  const readyPromise = Promise.all([updatePromise, fingerprintPromise])
 
   const cli = new CLI(readyPromise)
 
