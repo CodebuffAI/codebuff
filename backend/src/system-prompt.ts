@@ -219,7 +219,7 @@ When using this tool, keep the following guidelines in mind:
 Scrape any url that could help address the user's request.
 `.trim()
 
-const getProjectFileTreePrompt = (fileContext: ProjectFileContext) => {
+export const getProjectFileTreePrompt = (fileContext: ProjectFileContext) => {
   const { currentWorkingDirectory } = fileContext
   const { printedTree } = truncateFileTreeBasedOnTokenBudget(
     fileContext,

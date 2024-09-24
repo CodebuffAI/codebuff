@@ -3,7 +3,7 @@ import { FileChange, Message } from 'common/actions'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { processFileBlock } from './main-prompt'
 import { promptClaude } from './claude'
-import { getRelevantFilesPrompt, knowledgeFilesPrompt } from './system-prompt'
+import { getProjectFileTreePrompt, getRelevantFilesPrompt, knowledgeFilesPrompt } from './system-prompt'
 import { debugLog } from './util/debug'
 import { env } from './env.mjs'
 
@@ -37,10 +37,6 @@ export async function generateKnowledgeFiles(
     Here are some examples of meaningless changes:
     - user has asked you to keep adding new features to the project -> this means the user is likely not interested in the project's current functionality and is looking for something else.
     - code is sufficient to explain the change -> this means developers can easily figure out the context of the change without needing a knowledge file.
-
-    Here are some relevant files and code diffs that you should consider: 
-    ${getRelevantFilesPrompt(fileContext)}
-    
     <important>
     Reminder: a meaningful change is one that is not self-evident in the code. 
     If the change isn't important enough to warrant a new knowledge file, please do not output anything. We don't want to waste the user's time on irrelevant changes.
@@ -48,6 +44,14 @@ export async function generateKnowledgeFiles(
     
     Do not include any code or other files in the knowledge file. Make the most minimal changes necessary to the files to ensure the information is captured.
     </important>
+
+
+    Here's the project file tree:
+    ${getProjectFileTreePrompt(fileContext)}
+
+    Here are some relevant files and code diffs that you should consider: 
+    ${getRelevantFilesPrompt(fileContext)}
+    
     `
   const userPrompt = `    
     Think before you write the knowledge file in <thinking> tags. Use that space to think about why the change is important and what it means for the project, and verify that we don't already have something similar in the existing knowledge files. Make sure to show your work!
