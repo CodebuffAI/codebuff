@@ -14,7 +14,7 @@ export async function updateManicode() {
       console.log(green('Manicode updated successfully!'))
       console.log(green('Please restart Manicode to use the new version.'))
     } catch (error) {
-      console.error('Failed to update Manicode:', error)
+      console.error('Failed to update Manicode.')
     }
   }
 }
