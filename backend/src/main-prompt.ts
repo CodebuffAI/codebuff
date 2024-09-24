@@ -1,13 +1,13 @@
 import { WebSocket } from 'ws'
 import fs from 'fs'
 import path from 'path'
-import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
+import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { promptClaudeStream } from './claude'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
-import { FIND_FILES_MARKER, STOP_MARKER } from 'common/constants'
+import { STOP_MARKER } from 'common/constants'
 import { FileChange, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './util/debug'
@@ -52,11 +52,11 @@ export async function mainPrompt(
       fileContext,
       { messages, system },
       null,
-      onResponseChunk,
       userId
     )
     if (responseChunk !== null) {
-      fullResponse += responseChunk
+      onResponseChunk(responseChunk.readFilesMessage)
+      fullResponse += `\n\n${responseChunk.toolCallMessage}\n\n${responseChunk.readFilesMessage}`
 
       // Prompt cache the new files.
       const system = getSearchSystemPrompt(fileContext)
@@ -67,7 +67,6 @@ export async function mainPrompt(
   if (messages.length > 1 && !didClientUseTool(lastMessage)) {
     // Already have context from existing chat
     // If client used tool, we don't want to generate knowledge files because the user isn't really in control
-
     genKnowledgeFilesPromise = generateKnowledgeFiles(
       userId,
       ws,
@@ -95,7 +94,9 @@ export async function mainPrompt(
   }
 
   let toolCall: ToolCall | null = null
-  let continuedMessages: Message[] = []
+  let continuedMessages: Message[] = fullResponse
+    ? [{ role: 'assistant', content: fullResponse }]
+    : []
   let isComplete = false
   let iterationCount = 0
   const MAX_ITERATIONS = 10
@@ -162,7 +163,7 @@ ${STOP_MARKER}
         attributeNames: ['name'],
         onTagStart: (attributes) => {},
         onTagEnd: (content, attributes) => {
-          console.log('tool call end', content, attributes)
+          console.log('tool call', { ...attributes, content })
           const name = attributes.name
           const contentAttributes: Record<string, string> = {}
           if (name === 'run_terminal_command') {
@@ -189,23 +190,33 @@ ${STOP_MARKER}
       onResponseChunk(chunk)
     }
 
-    if (fullResponse.includes(STOP_MARKER)) {
-      isComplete = true
-      fullResponse = fullResponse.replace(STOP_MARKER, '')
-      debugLog('Reached STOP_MARKER')
-    } else if (fullResponse.includes(FIND_FILES_MARKER)) {
-      const responseChunk = await updateFileContext(
+    const maybeToolCall = toolCall as ToolCall | null
+
+    if (maybeToolCall?.name === 'find_files') {
+      const response = await updateFileContext(
         ws,
         fileContext,
         { messages, system: getSearchSystemPrompt(fileContext) },
         fullResponse,
-        onResponseChunk,
         userId
       )
-      if (responseChunk !== null) {
-        onResponseChunk(responseChunk)
-        fullResponse += responseChunk
+      if (response !== null) {
+        const { readFilesMessage } = response
+        onResponseChunk(`\n\n${readFilesMessage}`)
+        fullResponse += `\n\n${readFilesMessage}`
       }
+      toolCall = null
+      isComplete = false
+      continuedMessages = [
+        {
+          role: 'assistant',
+          content: fullResponse.trim(),
+        },
+      ]
+    } else if (fullResponse.includes(STOP_MARKER)) {
+      isComplete = true
+      fullResponse = fullResponse.replace(STOP_MARKER, '')
+      debugLog('Reached STOP_MARKER')
     } else {
       console.log('continuing to generate')
       debugLog('continuing to generate')
@@ -230,6 +241,7 @@ ${STOP_MARKER}
     console.log('Reached maximum number of iterations in mainPrompt')
     debugLog('Reached maximum number of iterations in mainPrompt')
   }
+
   const knowledgeChanges = await genKnowledgeFilesPromise
   fileProcessingPromises.push(...knowledgeChanges)
   const changes = (await Promise.all(fileProcessingPromises)).filter(
@@ -252,10 +264,9 @@ ${STOP_MARKER}
 }
 
 function getRelevantFileInfoMessage(filePaths: string[]) {
-  if (filePaths.length === 0) {
-    return ''
-  }
-  return `Reading the following files...<files>${filePaths.join(', ')}</files>\n\n`
+  const readFilesMessage = `Reading the following files...<files>${filePaths.join(', ')}</files>`
+  const toolCallMessage = `<tool_call name="find_files">Please find the files relevant to the user request</tool_call>`
+  return { readFilesMessage, toolCallMessage }
 }
 
 async function updateFileContext(
@@ -269,7 +280,6 @@ async function updateFileContext(
     system: string | Array<TextBlockParam>
   },
   prompt: string | null,
-  onResponseChunk: (chunk: string) => void,
   userId: string
 ) {
   const relevantFiles = await requestRelevantFiles(
@@ -283,13 +293,21 @@ async function updateFileContext(
     return null
   }
 
-  const responseChunk = getRelevantFileInfoMessage(relevantFiles)
-  onResponseChunk(responseChunk)
-
   // Load relevant files into fileContext
   fileContext.files = await requestFiles(ws, relevantFiles)
 
-  return responseChunk
+  const existingFiles = Object.keys(fileContext.files).filter(
+    (filePath) => fileContext.files[filePath] !== null
+  )
+
+  if (existingFiles.length === 0) {
+    return null
+  }
+
+  const { readFilesMessage, toolCallMessage } =
+    getRelevantFileInfoMessage(existingFiles)
+
+  return { readFilesMessage, toolCallMessage }
 }
 
 export async function processFileBlock(
@@ -337,7 +355,7 @@ export async function processFileBlock(
 
 const savePromptLengthInfo = (
   messages: Message[],
-  system: string | Array<TextBlockParam>,
+  system: string | Array<TextBlockParam>
 ) => {
   console.log('Prompting claude num messages:', messages.length)
   debugLog('Prompting claude num messages:', messages.length)

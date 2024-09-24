@@ -5,7 +5,7 @@ import {
   printFileTreeWithTokens,
 } from 'common/util/file'
 import { buildArray } from 'common/util/array'
-import { FIND_FILES_MARKER, STOP_MARKER } from 'common/constants'
+import { STOP_MARKER } from 'common/constants'
 import { countTokens, countTokensForFiles } from './util/token-counter'
 import { debugLog } from './util/debug'
 import { sortBy, sum } from 'lodash'
@@ -186,8 +186,13 @@ const toolsPrompt = `
 # Tools
 
 You have access to the following tools:
+- <tool_call name="find_files">[DESCRIPTION_OF_FILES]</tool_call>: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
 - <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
 - <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
+
+## Finding files
+
+Use the find_files tool to read more files beyond what is provided in the initial set of files.
 
 ## Running terminal commands
 
@@ -280,7 +285,7 @@ Here are some files that were selected to aid in the user request, ordered by mo
 ${fileBlocks}
 </relevant_files>
 
-As you can see, some files that you might find useful are already provided. If the included set of files is not sufficient to address the user's request, you write the special token ${FIND_FILES_MARKER} to update the set of files and their contents.
+As you can see, some files that you might find useful are already provided. If the included set of files is not sufficient to address the user's request, you can call the find_files tool to update the set of files and their contents.
 `.trim()
 }
 
@@ -328,9 +333,9 @@ The goal is to make as few changes as possible to the codebase to address the us
 
 You may edit files to address the user's request and run commands in the terminal. However, you will only be able to run up to a maximum of 3 terminal commands in a row before awaiting further user input.
 
-You are reading the following files: <files>${files.join(', ')}</files>. These were fetched for you after the last user's message and are up to date. If you need to read more files, please write what files you are looking for and then the special marker: ${FIND_FILES_MARKER}. E.g. "I am looking for agent.ts ${FIND_FILES_MARKER}" or "I need the file with the api routes in it ${FIND_FILES_MARKER}" or "Find me the file with class Foo in it ${FIND_FILES_MARKER}".
+You are reading the following files: <files>${files.join(', ')}</files>. These were fetched for you after the last user's message and are up to date. If you need to read more files, please use <tool_call name="find_files">...</tool_call> to write what files you are looking for. E.g. "<tool_call name="find_files">I am looking for agent.ts</tool_call>" or "<tool_call name="find_files">I need the file with the api routes in it</tool_call>" or "<tool_call name="find_files">Find me the file with class Foo in it</tool_call>".
 
-If there is a file that is not visible to you, or you are tempted to say you don't have direct access to it, then you should use the special marker ${FIND_FILES_MARKER} to request the file.
+If there is a file that is not visible to you, or you are tempted to say you don't have direct access to it, then you should use <tool_call name="find_files">...</tool_call> to request the file.
 
 If the user is requesting a change that you think has already been made based on the current version of files, simply tell the user that "the change has already been made". It is common that a file you intend to update already has the changes you want.
 

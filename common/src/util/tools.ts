@@ -1,6 +1,5 @@
 import { Message } from 'src/actions'
 import { match, P } from 'ts-pattern'
-import { Tool } from '@anthropic-ai/sdk/resources'
 import { TOOL_RESULT_MARKER } from 'src/constants'
 
 export const didClientUseTool = (message: Message) =>
