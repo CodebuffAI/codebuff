@@ -1,11 +1,11 @@
 import { WebSocket } from 'ws'
 import fs from 'fs'
 import path from 'path'
-import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
+import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { promptClaudeStream } from './claude'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
-import { didClientUseTool, DEFAULT_TOOLS } from 'common/util/tools'
+import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER } from 'common/constants'
 import { FileChange, Message } from 'common/actions'
@@ -17,7 +17,7 @@ import {
   requestRelevantFiles,
   warmCacheForRequestRelevantFiles,
 } from './request-files-prompt'
-import { processStreamWithFiles } from './process-stream'
+import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
 
 /**
@@ -40,7 +40,6 @@ export async function mainPrompt(
   let genKnowledgeFilesPromise: Promise<Promise<FileChange | null>[]> =
     Promise.resolve([])
   const fileProcessingPromises: Promise<FileChange | null>[] = []
-  const tools = DEFAULT_TOOLS
   const lastMessage = messages[messages.length - 1]
   const messagesWithoutLastMessage = messages.slice(0, -1)
 
@@ -51,24 +50,23 @@ export async function mainPrompt(
     const responseChunk = await updateFileContext(
       ws,
       fileContext,
-      { messages, system, tools },
+      { messages, system },
       null,
-      onResponseChunk,
       userId
     )
     if (responseChunk !== null) {
-      fullResponse += responseChunk
+      onResponseChunk(responseChunk.readFilesMessage)
+      fullResponse += `\n\n${responseChunk.toolCallMessage}\n\n${responseChunk.readFilesMessage}`
 
       // Prompt cache the new files.
       const system = getSearchSystemPrompt(fileContext)
-      warmCacheForRequestRelevantFiles(system, DEFAULT_TOOLS, userId)
+      warmCacheForRequestRelevantFiles(system, userId)
     }
   }
 
   if (messages.length > 1 && !didClientUseTool(lastMessage)) {
     // Already have context from existing chat
     // If client used tool, we don't want to generate knowledge files because the user isn't really in control
-
     genKnowledgeFilesPromise = generateKnowledgeFiles(
       userId,
       ws,
@@ -96,7 +94,9 @@ export async function mainPrompt(
   }
 
   let toolCall: ToolCall | null = null
-  let continuedMessages: Message[] = []
+  let continuedMessages: Message[] = fullResponse
+    ? [{ role: 'assistant', content: fullResponse }]
+    : []
   let isComplete = false
   let iterationCount = 0
   const MAX_ITERATIONS = 10
@@ -125,71 +125,98 @@ ${STOP_MARKER}
       ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
       : messages
 
-    savePromptLengthInfo(messagesWithContinuedMessage, system, tools)
+    savePromptLengthInfo(messagesWithContinuedMessage, system)
 
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
-      tools,
       userId,
     })
-    const fileStream = processStreamWithFiles(
-      stream,
-      (_filePath) => {
-        onResponseChunk('Modifying...')
+    const streamWithTags = processStreamWithTags(stream, {
+      file: {
+        attributeNames: ['path'],
+        onTagStart: () => {
+          onResponseChunk('Modifying...')
+        },
+        onTagEnd: (fileContent, { path }) => {
+          console.log('on file!', path)
+          const filePathWithoutStartNewline = fileContent.startsWith('\n')
+            ? fileContent.slice(1)
+            : fileContent
+          fileProcessingPromises.push(
+            processFileBlock(
+              userId,
+              ws,
+              messages,
+              fullResponse,
+              path,
+              filePathWithoutStartNewline
+            ).catch((error) => {
+              console.error('Error processing file block', error)
+              return null
+            })
+          )
+          fullResponse += fileContent
+          return false
+        },
       },
-      (filePath, fileContent) => {
-        console.log('on file!', filePath)
-        fileProcessingPromises.push(
-          processFileBlock(
-            userId,
-            ws,
-            messages,
-            fullResponse,
-            filePath,
-            fileContent
-          ).catch((error) => {
-            console.error('Error processing file block', error)
-            return null
-          })
-        )
-        fullResponse += fileContent
-      }
-    )
+      tool_call: {
+        attributeNames: ['name'],
+        onTagStart: (attributes) => {},
+        onTagEnd: (content, attributes) => {
+          console.log('tool call', { ...attributes, content })
+          const name = attributes.name
+          const contentAttributes: Record<string, string> = {}
+          if (name === 'run_terminal_command') {
+            contentAttributes.command = content
+          } else if (name === 'scrape_web_page') {
+            contentAttributes.url = content
+          }
+          const responseChunk = `${content}`
+          onResponseChunk(responseChunk)
+          fullResponse += responseChunk
+          toolCall = {
+            id: Math.random().toString(36).slice(2),
+            name: attributes.name,
+            input: contentAttributes,
+          }
+          isComplete = true
+          return true
+        },
+      },
+    })
 
-    for await (const chunk of fileStream) {
-      if (typeof chunk === 'object') {
-        toolCall = chunk
-        debugLog('Received tool call:', toolCall)
-        continue
-      }
-
+    for await (const chunk of streamWithTags) {
       fullResponse += chunk
       onResponseChunk(chunk)
     }
 
-    if (fullResponse.includes(STOP_MARKER)) {
+    const maybeToolCall = toolCall as ToolCall | null
+
+    if (maybeToolCall?.name === 'find_files') {
+      const response = await updateFileContext(
+        ws,
+        fileContext,
+        { messages, system: getSearchSystemPrompt(fileContext) },
+        fullResponse,
+        userId
+      )
+      if (response !== null) {
+        const { readFilesMessage } = response
+        onResponseChunk(`\n\n${readFilesMessage}`)
+        fullResponse += `\n\n${readFilesMessage}`
+      }
+      toolCall = null
+      isComplete = false
+      continuedMessages = [
+        {
+          role: 'assistant',
+          content: fullResponse.trim(),
+        },
+      ]
+    } else if (fullResponse.includes(STOP_MARKER)) {
       isComplete = true
       fullResponse = fullResponse.replace(STOP_MARKER, '')
       debugLog('Reached STOP_MARKER')
-    } else if (toolCall) {
-      if (toolCall.name === 'update_file_context') {
-        const relevantFiles = await requestRelevantFiles(
-          {
-            messages,
-            system: getSearchSystemPrompt(fileContext),
-            tools,
-          },
-          fileContext,
-          toolCall.input['prompt'],
-          userId
-        )
-        if (relevantFiles !== null && relevantFiles.length > 0) {
-          const responseChunk = '\n' + getRelevantFileInfoMessage(relevantFiles)
-          onResponseChunk(responseChunk)
-          fullResponse += responseChunk
-        }
-      }
-      isComplete = true
     } else {
       console.log('continuing to generate')
       debugLog('continuing to generate')
@@ -214,6 +241,7 @@ ${STOP_MARKER}
     console.log('Reached maximum number of iterations in mainPrompt')
     debugLog('Reached maximum number of iterations in mainPrompt')
   }
+
   const knowledgeChanges = await genKnowledgeFilesPromise
   fileProcessingPromises.push(...knowledgeChanges)
   const changes = (await Promise.all(fileProcessingPromises)).filter(
@@ -231,15 +259,14 @@ ${STOP_MARKER}
   return {
     response: responseWithChanges,
     changes,
-    toolCall,
+    toolCall: toolCall as ToolCall | null,
   }
 }
 
 function getRelevantFileInfoMessage(filePaths: string[]) {
-  if (filePaths.length === 0) {
-    return ''
-  }
-  return `Reading the following files...<files>${filePaths.join(', ')}</files>\n\n`
+  const readFilesMessage = `Reading the following files...<files>${filePaths.join(', ')}</files>`
+  const toolCallMessage = `<tool_call name="find_files">Please find the files relevant to the user request</tool_call>`
+  return { readFilesMessage, toolCallMessage }
 }
 
 async function updateFileContext(
@@ -248,18 +275,15 @@ async function updateFileContext(
   {
     messages,
     system,
-    tools,
   }: {
     messages: Message[]
     system: string | Array<TextBlockParam>
-    tools: Tool[]
   },
   prompt: string | null,
-  onResponseChunk: (chunk: string) => void,
   userId: string
 ) {
   const relevantFiles = await requestRelevantFiles(
-    { messages, system, tools },
+    { messages, system },
     fileContext,
     prompt,
     userId
@@ -269,13 +293,21 @@ async function updateFileContext(
     return null
   }
 
-  const responseChunk = getRelevantFileInfoMessage(relevantFiles)
-  onResponseChunk(responseChunk)
-
   // Load relevant files into fileContext
   fileContext.files = await requestFiles(ws, relevantFiles)
 
-  return responseChunk
+  const existingFiles = Object.keys(fileContext.files).filter(
+    (filePath) => fileContext.files[filePath] !== null
+  )
+
+  if (existingFiles.length === 0) {
+    return null
+  }
+
+  const { readFilesMessage, toolCallMessage } =
+    getRelevantFileInfoMessage(existingFiles)
+
+  return { readFilesMessage, toolCallMessage }
 }
 
 export async function processFileBlock(
@@ -323,8 +355,7 @@ export async function processFileBlock(
 
 const savePromptLengthInfo = (
   messages: Message[],
-  system: string | Array<TextBlockParam>,
-  tools: Tool[]
+  system: string | Array<TextBlockParam>
 ) => {
   console.log('Prompting claude num messages:', messages.length)
   debugLog('Prompting claude num messages:', messages.length)
@@ -337,7 +368,6 @@ const savePromptLengthInfo = (
       typeof lastMessageContent === 'string' ? lastMessageContent : '[object]',
     messages: JSON.stringify(messages).length,
     system: system.length,
-    tools: JSON.stringify(tools).length,
     timestamp: new Date().toISOString(), // Add a timestamp for each entry
   }
 

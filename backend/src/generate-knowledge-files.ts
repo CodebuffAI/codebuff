@@ -4,7 +4,6 @@ import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { processFileBlock } from './main-prompt'
 import { promptClaude } from './claude'
 import { getProjectFileTreePrompt, getRelevantFilesPrompt, knowledgeFilesPrompt } from './system-prompt'
-import { DEFAULT_TOOLS } from 'common/util/tools'
 import { debugLog } from './util/debug'
 import { env } from './env.mjs'
 
@@ -43,7 +42,7 @@ export async function generateKnowledgeFiles(
     If the change isn't important enough to warrant a new knowledge file, please do not output anything. We don't want to waste the user's time on irrelevant changes.
     This is also meant to be helpful for future LLMs like yourself. Thus, please be concise and avoid unnecessary details. If the change is important, please provide a detailed description of what we're doing and why.
     
-    Do not include any code or other files in the knowledge file. Don't use any tools. Make the most minimal changes necessary to the files to ensure the information is captured.
+    Do not include any code or other files in the knowledge file. Make the most minimal changes necessary to the files to ensure the information is captured.
     </important>
 
 
@@ -98,7 +97,6 @@ export async function generateKnowledgeFiles(
   const response = await promptClaude(messages, {
     userId,
     system: systemPrompt,
-    tools: DEFAULT_TOOLS,
   })
 
   const files = parseFileBlocks(response)

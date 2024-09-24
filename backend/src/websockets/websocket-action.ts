@@ -6,7 +6,6 @@ import { sendMessage } from './server'
 import { isEqual } from 'lodash'
 import fs from 'fs'
 import path from 'path'
-import { getTools } from 'common/util/tools'
 import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude, models } from '../claude'
 import { env } from '../env.mjs'
@@ -167,6 +166,7 @@ const onCheckNpmVersion = async (
   latestVersion = backendPackageJson.version
 
   const isUpToDate = version === latestVersion
+  console.log('npm version status', { clientVersion: version, latestVersion })
 
   sendAction(ws, {
     type: 'npm-version-status',
@@ -183,7 +183,6 @@ const onWarmContextCache = async (
   ws: WebSocket
 ) => {
   const startTime = Date.now()
-  const tools = getTools()
   const system = getSearchSystemPrompt(fileContext)
   await promptClaude(
     [
@@ -195,7 +194,6 @@ const onWarmContextCache = async (
     {
       model: models.sonnet,
       system,
-      tools,
       userId: fingerprintId,
     }
   )

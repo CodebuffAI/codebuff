@@ -1,4 +1,6 @@
 export const STOP_MARKER = '[' + 'END]'
+export const FIND_FILES_MARKER = '[' + 'FIND_FILES_PLEASE]'
+export const TOOL_RESULT_MARKER = '[' + 'TOOL_RESULT]'
 
 export const SKIPPED_TERMINAL_COMMANDS = [
   'continue',

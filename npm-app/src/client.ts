@@ -12,8 +12,8 @@ import { CREDENTIALS_PATH, User, userFromJson } from 'common/util/credentials'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
-import { STOP_MARKER } from 'common/constants'
-import { fingerprintId, isProduction } from './config'
+import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
+import { fingerprintId } from './config'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 import { uniq } from 'lodash'
 import { spawn } from 'child_process'
@@ -83,18 +83,7 @@ export class Client {
 
       const assistantMessage: Message = {
         role: 'assistant',
-        content: [
-          {
-            type: 'text',
-            text: response,
-          },
-          {
-            type: 'tool_use',
-            id,
-            name,
-            input,
-          },
-        ],
+        content: response,
       }
       this.chatStorage.addMessage(
         this.chatStorage.getCurrentChat(),
@@ -106,13 +95,7 @@ export class Client {
         const content = await handler(input, id)
         const toolResultMessage: Message = {
           role: 'user',
-          content: [
-            {
-              type: 'tool_result',
-              tool_use_id: id,
-              content,
-            },
-          ],
+          content: `${TOOL_RESULT_MARKER}\n${content}`,
         }
         this.chatStorage.addMessage(
           this.chatStorage.getCurrentChat(),

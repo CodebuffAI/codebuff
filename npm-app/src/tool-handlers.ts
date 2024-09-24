@@ -11,13 +11,6 @@ import {
 
 export type ToolHandler = (input: any, id: string) => Promise<string>
 
-export const handleUpdateFileContext: ToolHandler = async (
-  input: { prompt: string },
-  id: string
-) => {
-  return ''
-}
-
 export const handleScrapeWebPage: ToolHandler = async (
   input: { url: string },
   id: string
@@ -143,7 +136,6 @@ function formatResult(
 }
 
 export const toolHandlers: Record<string, ToolHandler> = {
-  update_file_context: handleUpdateFileContext,
   scrape_web_page: handleScrapeWebPage,
   search_manifold_markets: handleSearchManifoldMarkets,
   run_terminal_command: ((input, id) =>
