@@ -26,15 +26,18 @@ export class Client {
   private chatStorage: ChatStorage
   private currentUserInputId: string | undefined
   public user: User | undefined
+  private returnControlToUser: () => void
 
   constructor(
     websocketUrl: string,
     chatStorage: ChatStorage,
-    onWebSocketError: () => void
+    onWebSocketError: () => void,
+    returnControlToUser: () => void
   ) {
     this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
     this.setUser()
+    this.returnControlToUser = returnControlToUser
   }
 
   private async setUser(): Promise<void> {
@@ -131,13 +134,13 @@ export class Client {
     this.webSocket.subscribe(
       'login-code-response',
       async ({ loginUrl, fingerprintHash }) => {
-        console.log(
+        const responseToUser = [
           'See you back here after you finish logging in 👋',
-          '\n',
           "If you're not redirected in a few seconds, please visit the following URL to log in:",
           loginUrl,
-          '\n\n'
-        )
+          '\n',
+        ]
+        console.log(responseToUser.join('\n'))
 
         // Attempt to open the login URL in the user's browser for them
         await sleep(5000).then(() => {
@@ -178,12 +181,14 @@ export class Client {
           CREDENTIALS_PATH,
           JSON.stringify({ default: action.user })
         )
-        console.log(
+        const responseToUser = [
           'Authentication successful!',
           'Welcome, ' + action.user.name,
-          '\n',
-          'Your credits have been increased by 5x. Happy coding!'
-        )
+          'Your credits have been increased by 5x. Happy coding!',
+        ]
+        console.log(responseToUser.join('\n'))
+
+        this.returnControlToUser()
       } else {
         console.warn(
           `Authentication failed: ${action.message}. Please try again in a few minutes or contact support.`

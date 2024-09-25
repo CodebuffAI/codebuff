@@ -36,21 +36,22 @@ export class CLI {
 
   constructor(readyPromise: Promise<any>) {
     this.chatStorage = new ChatStorage()
+    this.rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      historySize: 1000,
+    })
     this.client = new Client(
       websocketUrl,
       this.chatStorage,
-      this.onWebSocketError.bind(this)
+      this.onWebSocketError.bind(this),
+      () => this.rl.prompt()
     )
 
     this.readyPromise = Promise.all([
       readyPromise.then(() => this.client.warmContextCache()),
       this.client.connect(),
     ])
-    this.rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      historySize: 1000,
-    })
 
     this.setPrompt()
 
