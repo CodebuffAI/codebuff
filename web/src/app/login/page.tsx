@@ -1,9 +1,8 @@
 'use client'
-import { useEffect } from 'react'
+
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import { SignInButton } from '@/components/navbar/sign-in-button'
-import { useSearchParams, useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
+import { useSearchParams } from 'next/navigation'
 import {
   Card,
   CardHeader,
@@ -11,42 +10,30 @@ import {
   CardDescription,
   CardFooter,
 } from '@/components/ui/card'
-import { toast } from '@/components/ui/use-toast'
+import CardWithBeams from '@/components/card-with-beams'
 
 const Home = () => {
   const searchParams = useSearchParams()
   const authCode = searchParams.get('auth_code')
-  const { data: session } = useSession()
-  const router = useRouter()
 
-  useEffect(() => {
-    if (authCode && session) {
-      fetch(`api/auth/cli`, {
-        method: 'POST',
-        body: JSON.stringify({
-          authCode,
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }).then(async (response) => {
-        if (!response.ok && response.status !== 409) {
-          const json = await response.json()
-          toast({
-            title: 'Uh-oh, spaghettio!',
-            description: json.message,
-          })
-          return
-        }
-        router.push('/onboard')
+  if (authCode) {
+    const [_fingerprintId, expiresAt, _receivedfingerprintHash] =
+      authCode.split('.')
+
+    // Check for token expiration
+    if (expiresAt < Date.now().toString()) {
+      return CardWithBeams({
+        title: 'Uh-oh, spaghettio!',
+        description: 'Auth code expired.',
+        content: (
+          <p>
+            Please generate a new code and reach out to support@manicode.ai if
+            the problem persists.
+          </p>
+        ),
       })
     }
-
-    if (!authCode && session) {
-      // TODO: handle case where user was already logged in
-      router.push('/onboard')
-    }
-  }, [router, authCode, session])
+  }
 
   // TODO: handle case where token has expired
   return (
@@ -72,12 +59,10 @@ const Home = () => {
                 <SignInButton
                   providerDomain="github.com"
                   providerName="github"
-                  onSignedIn={() => {}}
                 />
                 <SignInButton
                   providerDomain="google.com"
                   providerName="google"
-                  onSignedIn={() => {}}
                 />
               </CardFooter>
             </Card>
@@ -93,12 +78,10 @@ const Home = () => {
                 <SignInButton
                   providerDomain="github.com"
                   providerName="github"
-                  onSignedIn={() => {}}
                 />
                 <SignInButton
                   providerDomain="google.com"
                   providerName="google"
-                  onSignedIn={() => {}}
                 />
               </CardFooter>
             </Card>

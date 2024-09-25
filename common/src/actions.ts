@@ -93,6 +93,13 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     fingerprintId: z.string(),
     fingerprintHash: z.string(),
   }),
+  z.object({
+    type: z.literal('clear-auth-token'),
+    authToken: z.string(),
+    userId: z.string(),
+    fingerprintId: z.string(),
+    fingerprintHash: z.string(),
+  }),
 ])
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 

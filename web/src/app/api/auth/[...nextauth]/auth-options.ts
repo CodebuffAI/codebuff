@@ -8,6 +8,7 @@ import db from 'common/src/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { Adapter } from 'next-auth/adapters'
+import { parse, format } from 'url'
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {
@@ -34,7 +35,17 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async redirect({ url, baseUrl }) {
-      return `${baseUrl}/onboard`
+      const parsedUrl = parse(url, true)
+      // const pathname = parsedUrl.pathname
+      const query = parsedUrl.query
+
+      // Construct the new URL with the `onboard` page and the original query params
+      const newUrl = format({
+        pathname: `${baseUrl}/onboard`,
+        query,
+      })
+
+      return newUrl
     },
   },
   events: {

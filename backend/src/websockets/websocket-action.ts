@@ -11,7 +11,7 @@ import { promptClaude, models } from '../claude'
 import { env } from '../env.mjs'
 import db from 'common/src/db'
 import * as schema from 'common/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, gt } from 'drizzle-orm'
 import { genAuthCode } from 'common/util/credentials'
 import { match, P } from 'ts-pattern'
 
@@ -91,6 +91,42 @@ const onUserInput = async (
   }
 }
 
+const onClearAuthTokenRequest = async (
+  {
+    authToken,
+    userId,
+    fingerprintId,
+    fingerprintHash,
+  }: Extract<ClientAction, { type: 'clear-auth-token' }>,
+  ws: WebSocket
+) => {
+  const validDeletion = await db
+    .delete(schema.session)
+    .where(
+      and(
+        eq(schema.session.sessionToken, authToken), // token exists
+        eq(schema.session.userId, userId), // belongs to user
+        gt(schema.session.expires, new Date()), // active session
+
+        // probably not necessary, but just in case. paranoia > death
+        eq(schema.session.fingerprintId, fingerprintId),
+        eq(schema.session.fingerprintHash, fingerprintHash)
+      )
+    )
+    .returning({
+      id: schema.session.sessionToken,
+    })
+
+  if (validDeletion.length > 0) {
+    console.log('Cleared auth token', authToken)
+  } else {
+    console.log('No auth token to clear, possible attack?', {
+      userId,
+      authToken,
+    })
+  }
+}
+
 const onLoginCodeRequest = (
   { fingerprintId }: Extract<ClientAction, { type: 'login-code-request' }>,
   ws: WebSocket
@@ -125,7 +161,6 @@ const onLoginStatusRequest = async (
         email: schema.user.email,
         name: schema.user.name,
         authToken: schema.session.sessionToken,
-        fingerprintId: schema.session.fingerprintId,
       })
       .from(schema.user)
       .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
@@ -138,15 +173,24 @@ const onLoginStatusRequest = async (
 
     match(users).with(
       P.array({
+        id: P.string,
+        name: P.string,
+        email: P.string,
         authToken: P.string,
-        fingerprintId: P.string,
       }),
       (users) => {
         const user = users[0]
         if (!user) return
         sendAction(ws, {
           type: 'auth-result',
-          user,
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            authToken: user.authToken,
+            fingerprintId,
+            fingerprintHash,
+          },
           message: 'Authentication successful!',
         })
       }
@@ -250,6 +294,7 @@ export const onWebsocketAction = async (
 subscribeToAction('user-input', onUserInput)
 subscribeToAction('check-npm-version', onCheckNpmVersion)
 subscribeToAction('warm-context-cache', onWarmContextCache)
+subscribeToAction('clear-auth-token', onClearAuthTokenRequest)
 subscribeToAction('login-code-request', onLoginCodeRequest)
 subscribeToAction('login-status-request', onLoginStatusRequest)
 

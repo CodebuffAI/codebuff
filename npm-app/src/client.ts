@@ -56,6 +56,21 @@ export class Client {
   }
 
   async login() {
+    if (this.user) {
+      // If there was an existing user, clear their existing state
+      this.webSocket.sendAction({
+        type: 'clear-auth-token',
+        authToken: this.user.authToken,
+        userId: this.user.id,
+        fingerprintId: this.user.fingerprintId,
+        fingerprintHash: this.user.fingerprintHash,
+      })
+
+      // delete credentials file
+      fs.unlinkSync(CREDENTIALS_PATH)
+      this.user = undefined
+    }
+
     this.webSocket.sendAction({
       type: 'login-code-request',
       fingerprintId,

@@ -1,27 +1,32 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { signIn } from 'next-auth/react'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { OAuthProviderType } from 'next-auth/providers/oauth-types'
+import { sleep } from 'common/util/helpers'
+import { toast } from '../ui/use-toast'
 
 export const SignInButton = ({
   providerName,
   providerDomain,
-  onSignedIn,
 }: {
   providerName: OAuthProviderType
   providerDomain: string
-  onSignedIn: () => void
 }) => {
   const [isPending, startTransition] = useTransition()
 
   const handleSignIn = () => {
     startTransition(async () => {
       await signIn(providerName)
-      onSignedIn()
+      await sleep(10000).then(() => {
+        toast({
+          title: 'Uh-oh this is taking a while...',
+          description: 'Would you mind you trying again?',
+        })
+      })
     })
   }
 
