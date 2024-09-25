@@ -9,7 +9,9 @@ const Home = () => {
   const [mounted, setMounted] = useState(false)
   const searchParams = useSearchParams()
   const authCode = searchParams.get('auth_code')
-  const session = useSession()
+  const { data: session } = useSession()
+
+  useEffect(() => console.log({ session }), [session])
 
   useEffect(() => {
     setMounted(true)
@@ -21,6 +23,7 @@ const Home = () => {
         method: 'POST',
         body: JSON.stringify({
           authCode,
+          sessionExpiresAt: session.expires,
         }),
         headers: {
           'Content-Type': 'application/json',

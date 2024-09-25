@@ -56,6 +56,7 @@ export const sessions = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     expires: timestamp('expires', { mode: 'date' }).notNull(),
     fingerprintId: text('fingerprintId'),
+    fingerprintHash: text('fingerprintHash'),
   },
   (table) => {
     return {

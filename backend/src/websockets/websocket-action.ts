@@ -11,7 +11,7 @@ import { promptClaude, models } from '../claude'
 import { env } from '../env.mjs'
 import db from 'common/src/db'
 import * as schema from 'common/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { genAuthCode } from 'common/util/credentials'
 import { match, P } from 'ts-pattern'
 
@@ -96,22 +96,26 @@ const onLoginCodeRequest = (
   ws: WebSocket
 ): void => {
   const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes in the future
-  const verificationHash = genAuthCode(
+  const fingerprintHash = genAuthCode(
     fingerprintId,
     expiresAt.toString(),
     env.NEXTAUTH_SECRET
   )
-  const loginUrl = `${env.APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${verificationHash}`
+  const loginUrl = `${env.APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}`
 
   sendAction(ws, {
     type: 'login-code-response',
     fingerprintId,
+    fingerprintHash,
     loginUrl,
   })
 }
 
 const onLoginStatusRequest = async (
-  { fingerprintId }: Extract<ClientAction, { type: 'login-status-request' }>,
+  {
+    fingerprintId,
+    fingerprintHash,
+  }: Extract<ClientAction, { type: 'login-status-request' }>,
   ws: WebSocket
 ) => {
   try {
@@ -125,7 +129,12 @@ const onLoginStatusRequest = async (
       })
       .from(schema.users)
       .leftJoin(schema.sessions, eq(schema.users.id, schema.sessions.userId))
-      .where(eq(schema.sessions.fingerprintId, fingerprintId))
+      .where(
+        and(
+          eq(schema.sessions.fingerprintId, fingerprintId),
+          eq(schema.sessions.fingerprintHash, fingerprintHash)
+        )
+      )
 
     match(users).with(
       P.array({

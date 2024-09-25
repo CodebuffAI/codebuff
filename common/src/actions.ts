@@ -91,6 +91,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('login-status-request'),
     fingerprintId: z.string(),
+    fingerprintHash: z.string(),
   }),
 ])
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
@@ -139,6 +140,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('login-code-response'),
     fingerprintId: z.string(),
+    fingerprintHash: z.string(),
     loginUrl: z.string().url(),
   }),
 ])

@@ -19,12 +19,13 @@ import { uniq } from 'lodash'
 import { spawn } from 'child_process'
 import path from 'path'
 import * as fs from 'fs'
+import { sleep } from 'common/util/helpers'
 
 export class Client {
   private webSocket: APIRealtimeClient
   private chatStorage: ChatStorage
   private currentUserInputId: string | undefined
-  private user: User | undefined
+  public user: User | undefined
 
   constructor(
     websocketUrl: string,
@@ -33,11 +34,10 @@ export class Client {
   ) {
     this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
+    this.setUser()
   }
 
   private async setUser(): Promise<void> {
-    // pull from root level of the user's filesystem – ~/.config/manicode/credentials.json
-
     if (!fs.existsSync(CREDENTIALS_PATH)) {
       return
     }
@@ -47,7 +47,6 @@ export class Client {
   }
 
   async connect() {
-    await this.setUser()
     await this.webSocket.connect()
     this.setupSubscriptions()
     this.checkNpmVersion()
@@ -129,47 +128,47 @@ export class Client {
     })
 
     let shouldRequestLogin = false
-    this.webSocket.subscribe('login-code-response', async (action) => {
-      const url = action.loginUrl
-      console.log('Please visit the following URL to log in:')
-      console.log(url, '\n\n')
+    this.webSocket.subscribe(
+      'login-code-response',
+      async ({ loginUrl, fingerprintHash }) => {
+        console.log(
+          'See you back here after you finish logging in 👋',
+          '\n',
+          "If you're not redirected in a few seconds, please visit the following URL to log in:",
+          loginUrl,
+          '\n\n'
+        )
 
-      const childProcess = spawn(`open ${url}`, {
-        shell: true,
-      })
-      childProcess.on('close', (code) => {
-        if (code === 0) {
-          console.log('See you back here after you finish logging in 👋')
+        // Attempt to open the login URL in the user's browser for them
+        await sleep(5000).then(() => {
+          const childProcess = spawn(`open ${loginUrl}`, {
+            shell: true,
+          })
+        })
 
-          // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
-          const initialTime = Date.now()
-          shouldRequestLogin = true
-          const handler = setInterval(() => {
-            if (Date.now() - initialTime > 300000 || !shouldRequestLogin) {
-              shouldRequestLogin = false
-              clearInterval(handler)
-              return
-            }
+        // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
+        const initialTime = Date.now()
+        shouldRequestLogin = true
+        const handler = setInterval(() => {
+          if (Date.now() - initialTime > 300000 || !shouldRequestLogin) {
+            shouldRequestLogin = false
+            clearInterval(handler)
+            return
+          }
 
-            this.webSocket.sendAction({
-              type: 'login-status-request',
-              fingerprintId,
-            })
-          }, 5000)
-        }
-      })
-    })
+          this.webSocket.sendAction({
+            type: 'login-status-request',
+            fingerprintId,
+            fingerprintHash,
+          })
+        }, 5000)
+      }
+    )
 
     this.webSocket.subscribe('auth-result', (action) => {
       shouldRequestLogin = false
 
       if (action.user) {
-        console.log(
-          '----------------',
-          '\n',
-          'Authentication successful!',
-          'Welcome, ' + action.user.name
-        )
         this.user = action.user
 
         // Store in config file
@@ -178,6 +177,12 @@ export class Client {
         fs.writeFileSync(
           CREDENTIALS_PATH,
           JSON.stringify({ default: action.user })
+        )
+        console.log(
+          'Authentication successful!',
+          'Welcome, ' + action.user.name,
+          '\n',
+          'Your credits have been increased by 5x. Happy coding!'
         )
       } else {
         console.warn(

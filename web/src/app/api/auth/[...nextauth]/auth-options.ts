@@ -5,16 +5,16 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter'
 import { env } from '@/env.mjs'
 import { stripeServer } from '@/lib/stripe'
 import db from 'common/src/db'
-import * as models from 'common/db/schema'
+import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { Adapter } from 'next-auth/adapters'
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {
-    usersTable: models.users,
-    accountsTable: models.accounts,
-    sessionsTable: models.sessions,
-    verificationTokensTable: models.verificationTokens,
+    usersTable: schema.users,
+    accountsTable: schema.accounts,
+    sessionsTable: schema.sessions,
+    verificationTokensTable: schema.verificationTokens,
   }) as Adapter,
   providers: [
     GitHubProvider({
@@ -24,7 +24,15 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: 'database',
-    maxAge: 90 * 24 * 60 * 60, // 90 days
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  callbacks: {
+    async session({ session, user }) {
+      if (session.user) {
+        session.user.id = user.id
+      }
+      return session
+    },
   },
   events: {
     createUser: async ({ user }) => {
@@ -37,11 +45,11 @@ export const authOptions: NextAuthOptions = {
         })
         .then(async (customer) => {
           return db
-            .update(models.users)
+            .update(schema.users)
             .set({
               stripeCustomerId: customer.id,
             })
-            .where(eq(models.users.id, user.id))
+            .where(eq(schema.users.id, user.id))
         })
     },
   },
