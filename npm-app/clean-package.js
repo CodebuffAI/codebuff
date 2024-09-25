@@ -1,5 +1,7 @@
 const fs = require('fs')
 const path = require('path')
+process.env.ENVIRONMENT = 'production'
+const loadedEnv = await require('./loadEnv.js')
 
 const packageJsonPath = path.join(__dirname, 'package.json')
 const tempPackageJsonPath = path.join(__dirname, 'temp.package.json')
@@ -22,17 +24,19 @@ fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2))
 // Add ENVIRONMENT setting to index.js
 if (fs.existsSync(indexJsPath)) {
   let indexJsContent = fs.readFileSync(indexJsPath, 'utf8')
-  const envLine = "process.env.ENVIRONMENT = 'production';"
 
-  if (!indexJsContent.includes(envLine)) {
-    const lines = indexJsContent.split('\n')
-    lines.splice(1, 0, envLine) // Insert after the shebang line
-    indexJsContent = lines.join('\n')
-    fs.writeFileSync(indexJsPath, indexJsContent)
-    console.log('ENVIRONMENT setting added to index.js')
-  } else {
-    console.log('ENVIRONMENT setting already exists in index.js')
-  }
+  // const envLine = "process.env.ENVIRONMENT = 'production';"
+  const lines = indexJsContent.split('\n')
+  lines.splice(
+    1,
+    0,
+    ...Object.entries(loadedEnv).map(
+      ([key, value]) => `process.env.${key} = '${value}';`
+    )
+  ) // Insert after the shebang line
+  indexJsContent = lines.join('\n')
+  fs.writeFileSync(indexJsPath, indexJsContent)
+  console.log('ENVIRONMENT setting added to index.js')
 } else {
   console.error('index.js not found in the dist directory')
 }
