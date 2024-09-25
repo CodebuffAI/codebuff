@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { CodeIcon, BrainCircuitIcon, TerminalIcon } from 'lucide-react'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import Globe from '@/components/magicui/globe'
+import Link from 'next/link'
 
 const Home = () => {
   const [mounted, setMounted] = useState(false)
@@ -89,7 +90,9 @@ const Home = () => {
             thought with Manicode.
           </p>
           <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
-            Try Manicode Free
+            <Link href="https://www.npmjs.com/package/manicode" target="_blank">
+              Try Manicode for free
+            </Link>
           </Button>
         </div>
         {mounted && (

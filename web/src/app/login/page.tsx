@@ -1,21 +1,23 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import { SignInButton } from '@/components/navbar/sign-in-button'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from '@/components/ui/card'
+import { toast } from '@/components/ui/use-toast'
 
 const Home = () => {
-  const [mounted, setMounted] = useState(false)
   const searchParams = useSearchParams()
   const authCode = searchParams.get('auth_code')
   const { data: session } = useSession()
-
-  useEffect(() => console.log({ session }), [session])
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const router = useRouter()
 
   useEffect(() => {
     if (authCode && session) {
@@ -23,27 +25,84 @@ const Home = () => {
         method: 'POST',
         body: JSON.stringify({
           authCode,
-          sessionExpiresAt: session.expires,
         }),
         headers: {
           'Content-Type': 'application/json',
         },
+      }).then(async (response) => {
+        if (!response.ok && response.status !== 409) {
+          const json = await response.json()
+          toast({
+            title: 'Uh-oh, spaghettio!',
+            description: json.message,
+          })
+          return
+        }
+        router.push('/onboard')
       })
-      console.log('signed in and added fingerprint')
-      return
     }
-  }, [authCode, session])
 
+    if (!authCode && session) {
+      // TODO: handle case where user was already logged in
+      router.push('/onboard')
+    }
+  }, [router, authCode, session])
+
+  // TODO: handle case where token has expired
   return (
     <div className="overflow-hidden">
       <BackgroundBeams />
 
-      <main className="container mx-auto px-4 py-20 text-center relative z-10">
-        <h1 className="text-5xl md:text-7xl font-bold mb-6">
-          Login with OAuth
-        </h1>
-        <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
-          <SignInButton providerDomain="github.com" providerName="github" />
+      <main className="container mx-auto flex flex-col items-center relative z-10">
+        <div className="w-full sm:w-1/2 md:w-1/3">
+          {authCode ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Confirm cli login</CardTitle>
+                <CardDescription>
+                  If you just logged into Manicode from the command line, please
+                  select an OAuth provider below to continue.
+                </CardDescription>
+                <CardDescription>
+                  (Otherwise, you can just close this window. Phishing attack
+                  averted, phew!)
+                </CardDescription>
+              </CardHeader>
+              <CardFooter className="flex flex-col space-y-2">
+                <SignInButton
+                  providerDomain="github.com"
+                  providerName="github"
+                  onSignedIn={() => {}}
+                />
+                <SignInButton
+                  providerDomain="google.com"
+                  providerName="google"
+                  onSignedIn={() => {}}
+                />
+              </CardFooter>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Login</CardTitle>
+                <CardDescription>
+                  Increased rate limits, priority support, and more!
+                </CardDescription>
+              </CardHeader>
+              <CardFooter className="flex flex-col space-y-2">
+                <SignInButton
+                  providerDomain="github.com"
+                  providerName="github"
+                  onSignedIn={() => {}}
+                />
+                <SignInButton
+                  providerDomain="google.com"
+                  providerName="google"
+                  onSignedIn={() => {}}
+                />
+              </CardFooter>
+            </Card>
+          )}
         </div>
       </main>
     </div>

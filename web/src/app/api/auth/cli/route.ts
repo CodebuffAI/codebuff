@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  if (!body || !body.authCode || !body.sessionExpiresAt) {
+  if (!body || !body.authCode) {
     return NextResponse.json(
       {
         error: {

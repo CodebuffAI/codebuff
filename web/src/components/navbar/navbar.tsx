@@ -32,7 +32,7 @@ export const Navbar = async () => {
           <UserDropdown session={session} />
         ) : (
           <Link href="/login">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+            <Button className="bg-blue-600 hover:bg-blue-400 text-white transition-colors">
               Log in
             </Button>
           </Link>
