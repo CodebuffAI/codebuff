@@ -3,7 +3,7 @@ export async function* processStreamWithTags<T extends string>(
   tags: {
     [tagName: string]: {
       attributeNames: string[]
-      onTagStart: (attributes: Record<string, string>) => void
+      onTagStart: (attributes: Record<string, string>) => string
       onTagEnd: (content: string, attributes: Record<string, string>) => boolean
     }
   }
@@ -11,6 +11,7 @@ export async function* processStreamWithTags<T extends string>(
   let buffer = ''
   let insideTag: string | null = null
   let currentAttributes: Record<string, string> = {}
+  const bufferSize = 250
 
   const escapeRegExp = (string: string) =>
     string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -24,21 +25,17 @@ export async function* processStreamWithTags<T extends string>(
     'g'
   )
 
-  for await (const chunk of stream) {
-    let currentChunk: string = chunk
+  function parseBuffer(bufferSize: number) {
+    let toYield = ''
 
-    buffer += chunk
-
-    while (true) {
+    while (buffer.length > bufferSize) {
       if (insideTag === null) {
         const match = openTagRegex.exec(buffer)
         if (match) {
           const [fullMatch, openTag, attributesString] = match
 
           const afterMatchIndex = match.index + fullMatch.length
-          const chunkStartIndex = buffer.length - currentChunk.length
-          yield buffer.slice(chunkStartIndex, afterMatchIndex)
-
+          toYield += buffer.slice(0, match.index)
           buffer = buffer.slice(afterMatchIndex)
 
           insideTag = openTag
@@ -46,12 +43,13 @@ export async function* processStreamWithTags<T extends string>(
             attributesString,
             tags[openTag].attributeNames
           )
-          tags[openTag].onTagStart(currentAttributes)
-        } else {
-          if (currentChunk !== '') {
-            yield currentChunk
+          const startTagYield = tags[openTag].onTagStart(currentAttributes)
+          if (startTagYield) {
+            toYield += startTagYield
           }
-          break
+        } else {
+          toYield += buffer.slice(0, buffer.length - bufferSize)
+          buffer = buffer.slice(buffer.length - bufferSize)
         }
       } else {
         const closeMatch = closeTagRegex.exec(buffer)
@@ -61,20 +59,32 @@ export async function* processStreamWithTags<T extends string>(
           const content = buffer.slice(0, closeIndex)
           const complete = tags[insideTag].onTagEnd(content, currentAttributes)
 
-          const afterCloseIndex = closeIndex + fullMatch.length
-          yield buffer.slice(closeIndex, afterCloseIndex)
-          buffer = buffer.slice(afterCloseIndex)
-          currentChunk = buffer
+          buffer = buffer.slice(closeIndex + fullMatch.length)
           insideTag = null
           currentAttributes = {}
           if (complete) {
-            return
+            return toYield
           }
         } else {
           break
         }
       }
     }
+    return toYield
+  }
+
+  for await (const chunk of stream) {
+    buffer += chunk
+
+    const toYield = parseBuffer(bufferSize)
+    if (toYield) {
+      yield toYield
+    }
+  }
+
+  const toYield = parseBuffer(0)
+  if (toYield) {
+    yield toYield
   }
 }
 
