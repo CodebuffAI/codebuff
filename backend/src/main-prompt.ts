@@ -134,8 +134,8 @@ ${STOP_MARKER}
     const streamWithTags = processStreamWithTags(stream, {
       file: {
         attributeNames: ['path'],
-        onTagStart: () => {
-          onResponseChunk('Modifying...')
+        onTagStart: ({ path }) => {
+          return `Editing file: ${path}`
         },
         onTagEnd: (fileContent, { path }) => {
           console.log('on file!', path)
@@ -161,7 +161,7 @@ ${STOP_MARKER}
       },
       tool_call: {
         attributeNames: ['name'],
-        onTagStart: (attributes) => {},
+        onTagStart: (attributes) => '',
         onTagEnd: (content, attributes) => {
           console.log('tool call', { ...attributes, content })
           const name = attributes.name
@@ -171,9 +171,7 @@ ${STOP_MARKER}
           } else if (name === 'scrape_web_page') {
             contentAttributes.url = content
           }
-          const responseChunk = `${content}`
-          onResponseChunk(responseChunk)
-          fullResponse += responseChunk
+          fullResponse += content
           toolCall = {
             id: Math.random().toString(36).slice(2),
             name: attributes.name,
