@@ -1,18 +1,31 @@
 {
   "compilerOptions": {
+    "composite": true,
     "allowJs": true,
-    "target": "esnext",
-    "module": "esnext",
-    "strict": true,
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "esModuleInterop": true,
+    "noImplicitReturns": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "esnext",
+    "incremental": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
       "backend/*": ["../backend/src/*"],
-      "common/*": ["../common/src/*"]
+      "common/*": ["../common/src/*"],
+      "code-map/*": ["../packages/code-map/*"]
     },
     "types": ["bun-types"]
   },
   "include": ["__src__/**/*"],
-  "exclude": ["node_modules", "__mock-projects__/**/*"]
+  "exclude": ["node_modules", "__mock-projects__/**/*"],
+  "references": [
+    { "path": "../common" },
+    { "path": "../backend" },
+    { "path": "../packages/code-map" }
+  ]
 }

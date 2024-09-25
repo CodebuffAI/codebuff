@@ -1,0 +1,25 @@
+{
+  "name": "code-map",
+  "version": "1.0.0",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc && cp -R tree-sitter-queries ./dist/"
+  },
+  "dependencies": {
+    "tree-sitter": "0.21.1",
+    "tree-sitter-c": "0.23.0",
+    "tree-sitter-c-sharp": "0.23.0",
+    "tree-sitter-cpp": "0.23.0",
+    "tree-sitter-go": "0.23.1",
+    "tree-sitter-java": "0.23.2",
+    "tree-sitter-javascript": "0.23.0",
+    "tree-sitter-php": "0.23.2",
+    "tree-sitter-python": "0.23.2",
+    "tree-sitter-ruby": "0.23.0",
+    "tree-sitter-rust": "0.23.0",
+    "tree-sitter-typescript": "0.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "22"
+  }
+}

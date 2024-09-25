@@ -8,7 +8,7 @@ import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { filterObject } from 'common/util/object'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 import { getProjectFileTree, getAllFilePaths } from 'common/project-file-tree'
-import { getFileTokenScores } from 'common/codemap/parse'
+import { getFileTokenScores } from 'code-map/parse'
 
 const execAsync = promisify(exec)
 
