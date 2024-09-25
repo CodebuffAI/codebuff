@@ -1,5 +1,5 @@
-import { execSync } from 'child_process'
-import { green } from 'picocolors'
+import { spawn, execSync } from 'child_process'
+import { green, yellow } from 'picocolors'
 import { scrapeWebPage } from './web-scraper'
 import packageJson from '../package.json'
 
@@ -8,11 +8,20 @@ export async function updateManicode() {
   const isUpToDate = isNpmUpToDate(packageJson.version, latestVersion)
   if (!isUpToDate) {
     const installer = detectInstaller()
+    if (!installer) {
+      console.log(
+        yellow(
+          "There's a new version available! Please update manicode to prevent errors"
+        )
+      )
+      return
+    }
     console.log(green(`Updating Manicode using ${installer}...`))
     try {
       runUpdateManicode(installer)
-      console.log(green('Manicode updated successfully!'))
-      console.log(green('Please restart Manicode to use the new version.'))
+      console.log(green('Manicode updated successfully.'))
+      console.log(green('Goodbyeeeee! Please restart Manicode to use the new version.'))
+      process.exit(0)
     } catch (error) {
       console.error('Failed to update Manicode.')
     }
@@ -40,20 +49,38 @@ function isNpmUpToDate(currentVersion: string, latestVersion: string) {
   return true
 }
 
-function detectInstaller(): 'npm' | 'yarn' | 'pnpm' | 'bun' {
+function detectInstaller(): 'npm' | 'yarn' | 'pnpm' | 'bun' | undefined {
   const result = execSync('which manicode')
   const path = result.toString().trim()
 
-  if (path.includes('yarn')) {
+  const pathIncludesNodeModules = path.includes('node_modules')
+
+  // Mac: /Users/jahooma/.yarn/bin/manicode
+  if (path.includes('.yarn') && !pathIncludesNodeModules) {
     return 'yarn'
   }
-  if (path.includes('pnpm')) {
+
+  // Windows: ~/AppData/Local/pnpm/store
+  // macOS: ~/Library/pnpm/store
+  // Linux: ~/.local/share/pnpm/store
+  if (path.includes('pnpm') && !pathIncludesNodeModules) {
     return 'pnpm'
   }
-  if (path.includes('bun')) {
+
+  // Mac: /Users/jahooma/.bun/install/cache
+  if (path.includes('.bun') && !pathIncludesNodeModules) {
     return 'bun'
   }
-  return 'npm'
+
+  // /usr/local/lib/node_modules on macOS/Linux or %AppData%\npm/node_modules on Windows
+  if (
+    pathIncludesNodeModules &&
+    (path.includes('npm') || path.startsWith('/usr/'))
+  ) {
+    return 'npm'
+  }
+
+  return undefined
 }
 
 function runUpdateManicode(installer: 'npm' | 'yarn' | 'pnpm' | 'bun') {
@@ -76,4 +103,14 @@ function runUpdateManicode(installer: 'npm' | 'yarn' | 'pnpm' | 'bun') {
   }
 
   execSync(command, { stdio: 'inherit' })
+}
+
+function restartManicode() {
+  const child = spawn('manicode', [...process.argv.slice(2), '--post-update'], {
+    detached: false,
+    stdio: 'inherit',
+  })
+  child.on('exit', (code) => {
+    process.exit(code ?? 0)
+  })
 }

@@ -2,7 +2,7 @@
 
 import fs from 'fs'
 import path from 'path'
-import { green, yellow } from 'picocolors'
+import { yellow } from 'picocolors'
 
 import { initFingerprint } from './config'
 import { CLI } from './cli'
@@ -13,14 +13,18 @@ async function manicode(projectDir: string | undefined) {
   const dir = initProjectRoot(projectDir)
 
   const updatePromise = updateManicode()
-
   const fingerprintPromise = initFingerprint()
+  const initFileContextPromise = getProjectFileContext([], {})
 
-  await getProjectFileContext([], {})
-
-  const readyPromise = Promise.all([updatePromise, fingerprintPromise])
+  const readyPromise = Promise.all([
+    updatePromise,
+    fingerprintPromise,
+    initFileContextPromise,
+  ])
 
   const cli = new CLI(readyPromise)
+
+  await readyPromise
 
   console.log(
     `Manicode will read and write files in "${dir}". Type "help" for a list of commands`
