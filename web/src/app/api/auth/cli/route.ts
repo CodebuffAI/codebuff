@@ -61,15 +61,15 @@ export async function POST(req: NextRequest) {
   // If fingerprint already exists, return 409
   const fingerprintExists = await db
     .select({
-      id: schema.users.id,
+      id: schema.user.id,
     })
-    .from(schema.users)
-    .leftJoin(schema.sessions, eq(schema.users.id, schema.sessions.userId))
+    .from(schema.user)
+    .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
     .where(
       and(
-        eq(schema.sessions.fingerprintId, fingerprintId),
-        eq(schema.sessions.fingerprintHash, fingerprintHash),
-        eq(schema.users.email, session.user.email)
+        eq(schema.session.fingerprintId, fingerprintId),
+        eq(schema.session.fingerprintHash, fingerprintHash),
+        eq(schema.user.email, session.user.email)
       )
     )
     .limit(1)
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  await db.insert(schema.sessions).values({
+  await db.insert(schema.session).values({
     sessionToken: crypto.randomUUID(),
     userId: session.user.id,
     expires: MAX_DATE,

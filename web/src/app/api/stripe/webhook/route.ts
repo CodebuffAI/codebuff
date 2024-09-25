@@ -36,10 +36,10 @@ const webhookHandler = async (req: NextRequest) => {
     switch (event.type) {
       case 'customer.subscription.created':
         await db
-          .update(schema.users)
+          .update(schema.user)
           .set({ isActive: true })
           .where(
-            eq(schema.users.stripeCustomerId, subscription.customer as string)
+            eq(schema.user.stripeCustomerId, subscription.customer as string)
           )
         break
       default:

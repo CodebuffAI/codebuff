@@ -11,10 +11,10 @@ import { Adapter } from 'next-auth/adapters'
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {
-    usersTable: schema.users,
-    accountsTable: schema.accounts,
-    sessionsTable: schema.sessions,
-    verificationTokensTable: schema.verificationTokens,
+    usersTable: schema.user,
+    accountsTable: schema.account,
+    sessionsTable: schema.session,
+    verificationTokensTable: schema.verificationToken,
   }) as Adapter,
   providers: [
     GitHubProvider({
@@ -45,11 +45,11 @@ export const authOptions: NextAuthOptions = {
         })
         .then(async (customer) => {
           return db
-            .update(schema.users)
+            .update(schema.user)
             .set({
               stripeCustomerId: customer.id,
             })
-            .where(eq(schema.users.id, user.id))
+            .where(eq(schema.user.id, user.id))
         })
     },
   },

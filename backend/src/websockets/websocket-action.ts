@@ -121,18 +121,18 @@ const onLoginStatusRequest = async (
   try {
     const users = await db
       .select({
-        id: schema.users.id,
-        email: schema.users.email,
-        name: schema.users.name,
-        authToken: schema.sessions.sessionToken,
-        fingerprintId: schema.sessions.fingerprintId,
+        id: schema.user.id,
+        email: schema.user.email,
+        name: schema.user.name,
+        authToken: schema.session.sessionToken,
+        fingerprintId: schema.session.fingerprintId,
       })
-      .from(schema.users)
-      .leftJoin(schema.sessions, eq(schema.users.id, schema.sessions.userId))
+      .from(schema.user)
+      .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
       .where(
         and(
-          eq(schema.sessions.fingerprintId, fingerprintId),
-          eq(schema.sessions.fingerprintHash, fingerprintHash)
+          eq(schema.session.fingerprintId, fingerprintId),
+          eq(schema.session.fingerprintHash, fingerprintHash)
         )
       )
 
