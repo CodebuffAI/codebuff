@@ -10,6 +10,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { siteConfig } from '@/lib/constant'
 import { fonts } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
+import SessionProvider from '@/lib/SessionProvider'
 
 export const generateMetadata = (): Metadata => ({
   metadataBase: new URL(siteConfig.url()),
@@ -50,15 +51,17 @@ const RootLayout = ({ children }: PropsWithChildren) => {
     <html lang={'en'} suppressHydrationWarning>
       <body
         className={cn(
-          'min-h-screen font-sans bg-white text-black dark:bg-black dark:text-white',
+          'flex flex-col min-h-screen font-sans bg-white text-black dark:bg-black dark:text-white',
           fonts
         )}
       >
         <ThemeProvider attribute="class">
-          <Navbar />
-          {children}
-          <Footer />
-          <Toaster />
+          <SessionProvider>
+            <Navbar />
+            <div className="flex-grow">{children}</div>
+            <Footer />
+            <Toaster />
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

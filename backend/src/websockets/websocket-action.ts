@@ -6,6 +6,12 @@ import { sendMessage } from './server'
 import { isEqual } from 'lodash'
 import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude, models } from '../claude'
+import { env } from '../env.mjs'
+import db from 'common/src/db'
+import * as schema from 'common/db/schema'
+import { eq, and, gt } from 'drizzle-orm'
+import { genAuthCode } from 'common/util/credentials'
+import { match, P } from 'ts-pattern'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -83,6 +89,121 @@ const onUserInput = async (
   }
 }
 
+const onClearAuthTokenRequest = async (
+  {
+    authToken,
+    userId,
+    fingerprintId,
+    fingerprintHash,
+  }: Extract<ClientAction, { type: 'clear-auth-token' }>,
+  ws: WebSocket
+) => {
+  const validDeletion = await db
+    .delete(schema.session)
+    .where(
+      and(
+        eq(schema.session.sessionToken, authToken), // token exists
+        eq(schema.session.userId, userId), // belongs to user
+        gt(schema.session.expires, new Date()), // active session
+
+        // probably not necessary, but just in case. paranoia > death
+        eq(schema.session.fingerprintId, fingerprintId),
+        eq(schema.session.fingerprintHash, fingerprintHash)
+      )
+    )
+    .returning({
+      id: schema.session.sessionToken,
+    })
+
+  if (validDeletion.length > 0) {
+    console.log('Cleared auth token', authToken)
+  } else {
+    console.log('No auth token to clear, possible attack?', {
+      userId,
+      authToken,
+    })
+  }
+}
+
+const onLoginCodeRequest = (
+  { fingerprintId }: Extract<ClientAction, { type: 'login-code-request' }>,
+  ws: WebSocket
+): void => {
+  const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes in the future
+  const fingerprintHash = genAuthCode(
+    fingerprintId,
+    expiresAt.toString(),
+    env.NEXTAUTH_SECRET
+  )
+  const loginUrl = `${env.APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}`
+
+  sendAction(ws, {
+    type: 'login-code-response',
+    fingerprintId,
+    fingerprintHash,
+    loginUrl,
+  })
+}
+
+const onLoginStatusRequest = async (
+  {
+    fingerprintId,
+    fingerprintHash,
+  }: Extract<ClientAction, { type: 'login-status-request' }>,
+  ws: WebSocket
+) => {
+  try {
+    const users = await db
+      .select({
+        id: schema.user.id,
+        email: schema.user.email,
+        name: schema.user.name,
+        authToken: schema.session.sessionToken,
+      })
+      .from(schema.user)
+      .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
+      .where(
+        and(
+          eq(schema.session.fingerprintId, fingerprintId),
+          eq(schema.session.fingerprintHash, fingerprintHash)
+        )
+      )
+
+    match(users).with(
+      P.array({
+        id: P.string,
+        name: P.string,
+        email: P.string,
+        authToken: P.string,
+      }),
+      (users) => {
+        const user = users[0]
+        if (!user) return
+        sendAction(ws, {
+          type: 'auth-result',
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            authToken: user.authToken,
+            fingerprintId,
+            fingerprintHash,
+          },
+          message: 'Authentication successful!',
+        })
+      }
+    )
+  } catch (e) {
+    const error = e as Error
+    console.error('Error in login status request', e)
+    sendAction(ws, {
+      type: 'auth-result',
+      user: undefined,
+      message: error.message,
+    })
+  }
+}
+
 const onWarmContextCache = async (
   {
     fileContext,
@@ -148,6 +269,9 @@ export const onWebsocketAction = async (
 
 subscribeToAction('user-input', onUserInput)
 subscribeToAction('warm-context-cache', onWarmContextCache)
+subscribeToAction('clear-auth-token', onClearAuthTokenRequest)
+subscribeToAction('login-code-request', onLoginCodeRequest)
+subscribeToAction('login-status-request', onLoginStatusRequest)
 
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {
