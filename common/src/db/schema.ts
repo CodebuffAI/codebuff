@@ -6,10 +6,11 @@ import {
   integer,
   uuid,
   boolean,
+  index,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
 
-export const users = pgTable('user', {
+export const user = pgTable('user', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
@@ -22,12 +23,12 @@ export const users = pgTable('user', {
   stripeCustomerId: text('stripeCustomerId').unique(),
 })
 
-export const accounts = pgTable(
+export const account = pgTable(
   'account',
   {
     userId: text('userId')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => user.id, { onDelete: 'cascade' }),
     type: text('type').$type<AdapterAccount['type']>().notNull(),
     provider: text('provider').notNull(),
     providerAccountId: text('providerAccountId').notNull(),
@@ -46,15 +47,25 @@ export const accounts = pgTable(
   })
 )
 
-export const sessions = pgTable('session', {
-  sessionToken: text('sessionToken').notNull().primaryKey(),
-  userId: text('userId')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  expires: timestamp('expires', { mode: 'date' }).notNull(),
-})
+export const session = pgTable(
+  'session',
+  {
+    sessionToken: text('sessionToken').notNull().primaryKey(),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    expires: timestamp('expires', { mode: 'date' }).notNull(),
+    fingerprintId: text('fingerprintId'),
+    fingerprintHash: text('fingerprintHash'),
+  },
+  (table) => {
+    return {
+      nameIdx: index('fingerprintId_idx').on(table.fingerprintId),
+    }
+  }
+)
 
-export const verificationTokens = pgTable(
+export const verificationToken = pgTable(
   'verificationToken',
   {
     identifier: text('identifier').notNull(),

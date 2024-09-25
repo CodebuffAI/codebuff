@@ -1,3 +1,4 @@
+import { yellow } from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
   getFiles,
@@ -5,6 +6,7 @@ import {
   getProjectRoot,
 } from './project-files'
 import { applyChanges } from 'common/util/changes'
+import { CREDENTIALS_PATH, User, userFromJson } from 'common/util/credentials'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
@@ -12,24 +14,64 @@ import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
 import { fingerprintId } from './config'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 import { uniq } from 'lodash'
+import { spawn } from 'child_process'
+import path from 'path'
+import * as fs from 'fs'
+import { sleep } from 'common/util/helpers'
 
 export class Client {
   private webSocket: APIRealtimeClient
   private chatStorage: ChatStorage
   private currentUserInputId: string | undefined
+  public user: User | undefined
+  private returnControlToUser: () => void
 
   constructor(
     websocketUrl: string,
     chatStorage: ChatStorage,
-    onWebSocketError: () => void
+    onWebSocketError: () => void,
+    returnControlToUser: () => void
   ) {
     this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
+    this.setUser()
+    this.returnControlToUser = returnControlToUser
+  }
+
+  private async setUser(): Promise<void> {
+    if (!fs.existsSync(CREDENTIALS_PATH)) {
+      return
+    }
+
+    const credentialsFile = fs.readFileSync(CREDENTIALS_PATH, 'utf8')
+    this.user = userFromJson(credentialsFile)
   }
 
   async connect() {
     await this.webSocket.connect()
     this.setupSubscriptions()
+  }
+
+  async login() {
+    if (this.user) {
+      // If there was an existing user, clear their existing state
+      this.webSocket.sendAction({
+        type: 'clear-auth-token',
+        authToken: this.user.authToken,
+        userId: this.user.id,
+        fingerprintId: this.user.fingerprintId,
+        fingerprintHash: this.user.fingerprintHash,
+      })
+
+      // delete credentials file
+      fs.unlinkSync(CREDENTIALS_PATH)
+      this.user = undefined
+    }
+
+    this.webSocket.sendAction({
+      type: 'login-code-request',
+      fingerprintId,
+    })
   }
 
   private setupSubscriptions() {
@@ -87,6 +129,83 @@ export class Client {
         type: 'read-files-response',
         files,
       })
+    })
+
+    this.webSocket.subscribe('npm-version-status', (action) => {
+      const { isUpToDate, latestVersion } = action
+      if (!isUpToDate) {
+        console.warn(
+          yellow(
+            `\nThere's a new version of Manicode! Please update to ensure proper functionality.\nUpdate now by running: npm install -g manicode`
+          )
+        )
+      }
+    })
+
+    let shouldRequestLogin = false
+    this.webSocket.subscribe(
+      'login-code-response',
+      async ({ loginUrl, fingerprintHash }) => {
+        const responseToUser = [
+          'See you back here after you finish logging in 👋',
+          "If you're not redirected in a few seconds, please visit the following URL to log in:",
+          loginUrl,
+          '\n',
+        ]
+        console.log(responseToUser.join('\n'))
+
+        // Attempt to open the login URL in the user's browser for them
+        await sleep(5000).then(() => {
+          const childProcess = spawn(`open ${loginUrl}`, {
+            shell: true,
+          })
+        })
+
+        // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
+        const initialTime = Date.now()
+        shouldRequestLogin = true
+        const handler = setInterval(() => {
+          if (Date.now() - initialTime > 300000 || !shouldRequestLogin) {
+            shouldRequestLogin = false
+            clearInterval(handler)
+            return
+          }
+
+          this.webSocket.sendAction({
+            type: 'login-status-request',
+            fingerprintId,
+            fingerprintHash,
+          })
+        }, 5000)
+      }
+    )
+
+    this.webSocket.subscribe('auth-result', (action) => {
+      shouldRequestLogin = false
+
+      if (action.user) {
+        this.user = action.user
+
+        // Store in config file
+        const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
+        fs.mkdirSync(credentialsPathDir, { recursive: true })
+        fs.writeFileSync(
+          CREDENTIALS_PATH,
+          JSON.stringify({ default: action.user })
+        )
+        const responseToUser = [
+          'Authentication successful!',
+          'Welcome, ' + action.user.name,
+          'Your credits have been increased by 5x. Happy coding!',
+        ]
+        console.log(responseToUser.join('\n'))
+
+        this.returnControlToUser()
+      } else {
+        console.warn(
+          `Authentication failed: ${action.message}. Please try again in a few minutes or contact support.`
+        )
+      }
     })
   }
 

@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import { z } from 'zod'
 
 export const FileTreeNodeSchema: z.ZodType<FileTreeNode> = z.object({
@@ -124,3 +125,10 @@ export function printFileTreeWithTokens(
   }
   return result
 }
+
+export const ensureDirectoryExists = (baseDir: string) => {
+  if (!fs.existsSync(baseDir)) {
+    fs.mkdirSync(baseDir, { recursive: true })
+  }
+}
+

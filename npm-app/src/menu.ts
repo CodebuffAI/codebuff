@@ -61,6 +61,7 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
   console.log('- Type "undo" or "u" to undo the last change')
   console.log('- Type "redo" or "r" to redo the last change')
   console.log('- Type "help" or "h" to print this menu\n')
+  console.log('- Type "login" to log into Manicode\n')
 
   console.log('TIPS')
   console.log(

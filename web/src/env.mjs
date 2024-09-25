@@ -1,16 +1,16 @@
-import { createEnv } from '@t3-oss/env-nextjs';
-import dotenv from 'dotenv';
-import { z } from 'zod';
+import { createEnv } from '@t3-oss/env-nextjs'
+import dotenv from 'dotenv'
+import { z } from 'zod'
 
-dotenv.config({ path: '../stack.env' });
+dotenv.config({ path: '../stack.env' })
 if (!process.env.NEXT_PUBLIC_ENVIRONMENT) {
   throw new Error(
     'NEXT_PUBLIC_ENVIRONMENT is not set, please check `stack.env`'
-  );
+  )
 }
-const DOTENV_PATH = process.env.ENVIRONMENT === 'local' ? '..' : '/etc/secrets';
-const path = `${DOTENV_PATH}/.env.${process.env.ENVIRONMENT}`;
-dotenv.config({ path });
+const DOTENV_PATH = process.env.ENVIRONMENT === 'local' ? '..' : '/etc/secrets'
+const path = `${DOTENV_PATH}/.env.${process.env.ENVIRONMENT}`
+dotenv.config({ path })
 
 export const env = createEnv({
   server: {
@@ -24,6 +24,7 @@ export const env = createEnv({
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
     STRIPE_SUBSCRIPTION_PRICE_ID: z.string().min(1),
+    NEXT_PUBLIC_BACKEND_URL: z.string().url().min(1),
   },
   client: {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
@@ -43,5 +44,6 @@ export const env = createEnv({
     STRIPE_SUBSCRIPTION_PRICE_ID: process.env.STRIPE_SUBSCRIPTION_PRICE_ID,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
   },
-});
+})
