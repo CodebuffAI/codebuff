@@ -122,7 +122,7 @@ export class CLI {
   }
 
   public printInitialPrompt() {
-    console.log('What would you like to do?')
+    console.log('What would you like to do?\n')
     this.rl.prompt()
   }
 
@@ -167,8 +167,7 @@ export class CLI {
   }
 
   private handleExit() {
-    process.stdout.clearLine(0)
-    console.log(green('Exiting. Manicode out!'))
+    console.log(green('\n\nExiting. Manicode out!'))
     process.exit(0)
   }
 
@@ -287,15 +286,16 @@ export class CLI {
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
 
     const { created, modified } = applyChanges(getProjectRoot(), changes)
+    if (created.length > 0 || modified.length > 0) {
+      console.log()
+    }
     for (const file of created) {
       console.log(green(`- Created ${file}`))
     }
     for (const file of modified) {
       console.log(green(`- Updated ${file}`))
     }
-    if (created.length > 0 || modified.length > 0) {
-      console.log('Complete!\n')
-    } else console.log()
+    console.log()
 
     const assistantMessage: Message = {
       role: 'assistant',
@@ -322,7 +322,7 @@ export class CLI {
       userInputId,
       () => {
         this.stopLoadingAnimation()
-        process.stdout.write(underline(green('\nManicode:')) + ' ')
+        process.stdout.write(green(underline('\nManicode') + ':') + ' ')
       }
     )
 
