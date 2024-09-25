@@ -41,15 +41,16 @@ function isNpmUpToDate(currentVersion: string, latestVersion: string) {
 }
 
 function detectInstaller(): 'npm' | 'yarn' | 'pnpm' | 'bun' {
-  const { execPath } = process
+  const result = execSync('which manicode')
+  const path = result.toString().trim()
 
-  if (execPath.includes('yarn')) {
+  if (path.includes('yarn')) {
     return 'yarn'
   }
-  if (execPath.includes('pnpm')) {
+  if (path.includes('pnpm')) {
     return 'pnpm'
   }
-  if (execPath.includes('bun')) {
+  if (path.includes('bun')) {
     return 'bun'
   }
   return 'npm'
