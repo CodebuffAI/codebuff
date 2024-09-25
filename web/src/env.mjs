@@ -8,7 +8,7 @@ if (!process.env.NEXT_PUBLIC_ENVIRONMENT) {
     'NEXT_PUBLIC_ENVIRONMENT is not set, please check `stack.env`'
   )
 }
-const DOTENV_PATH = process.env.ENVIRONMENT === 'local' ? '..' : '/etc/secrets'
+const DOTENV_PATH = process.env.RENDER === 'true' ? '..' : '/etc/secrets'
 const path = `${DOTENV_PATH}/.env.${process.env.ENVIRONMENT}`
 dotenv.config({ path })
 
