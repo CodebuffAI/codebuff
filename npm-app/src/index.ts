@@ -27,7 +27,7 @@ async function manicode(projectDir: string | undefined) {
   await readyPromise
 
   console.log(
-    `Manicode will read and write files in "${dir}". Type "help" for a list of commands.`
+    `Manicode will read and write files in "${dir}". Type "help" for a list of commands`
   )
 
   const gitDir = path.join(dir, '.git')

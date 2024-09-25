@@ -36,22 +36,21 @@ export class CLI {
 
   constructor(readyPromise: Promise<any>) {
     this.chatStorage = new ChatStorage()
-    this.rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      historySize: 1000,
-    })
     this.client = new Client(
       websocketUrl,
       this.chatStorage,
-      this.onWebSocketError.bind(this),
-      () => this.rl.prompt()
+      this.onWebSocketError.bind(this)
     )
 
     this.readyPromise = Promise.all([
       readyPromise.then(() => this.client.warmContextCache()),
       this.client.connect(),
     ])
+    this.rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      historySize: 1000,
+    })
 
     this.setPrompt()
 
@@ -123,10 +122,7 @@ export class CLI {
   }
 
   public printInitialPrompt() {
-    if (this.client.user) {
-      console.log(`Welcome back ${this.client.user.name}!`)
-    }
-    console.log(`What would you like to do?\n`)
+    console.log('What would you like to do?\n')
     this.rl.prompt()
   }
 
@@ -219,10 +215,7 @@ export class CLI {
       this.rl.prompt()
       return
     }
-    if (userInput === 'login' || userInput === 'signin') {
-      await this.client.login()
-      return
-    } else if (userInput === 'undo' || userInput === 'u') {
+    if (userInput === 'undo' || userInput === 'u') {
       this.handleUndo()
       return
     } else if (userInput === 'redo' || userInput === 'r') {

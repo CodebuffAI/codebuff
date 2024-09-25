@@ -33,5 +33,3 @@ export const SKIPPED_TERMINAL_COMMANDS = [
   'find',
   'kill',
 ]
-
-export const MAX_DATE = new Date(86399999999999)

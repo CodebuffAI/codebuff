@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { ProjectFileContextSchema } from './util/file'
-import { userSchema } from './util/credentials'
 
 const MessageContentObjectSchema = z.union([
   z.object({
@@ -58,8 +57,8 @@ export const ToolCallSchema = z.object({
 })
 export type ToolCall = z.infer<typeof ToolCallSchema>
 
-export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
-  z.object({
+export const CLIENT_ACTIONS = {
+  userInput: z.object({
     type: z.literal('user-input'),
     fingerprintId: z.string(),
     userInputId: z.string(),
@@ -67,88 +66,67 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     fileContext: ProjectFileContextSchema,
     previousChanges: CHANGES,
   }),
-  z.object({
+  readFilesResponse: z.object({
     type: z.literal('read-files-response'),
     files: z.record(z.string(), z.union([z.string(), z.null()])),
   }),
-  z.object({
+  runTerminalCommand: z.object({
     type: z.literal('run-terminal-command'),
     command: z.string(),
   }),
-  z.object({
-    type: z.literal('check-npm-version'),
-    version: z.string(),
-  }),
-  z.object({
+  warmContextCache: z.object({
     type: z.literal('warm-context-cache'),
     fingerprintId: z.string(),
     fileContext: ProjectFileContextSchema,
   }),
-  z.object({
-    type: z.literal('login-code-request'),
-    fingerprintId: z.string(),
-  }),
-  z.object({
-    type: z.literal('login-status-request'),
-    fingerprintId: z.string(),
-    fingerprintHash: z.string(),
-  }),
-  z.object({
-    type: z.literal('clear-auth-token'),
-    authToken: z.string(),
-    userId: z.string(),
-    fingerprintId: z.string(),
-    fingerprintHash: z.string(),
-  }),
+} as const
+
+export const CLIENT_ACTION_SCHEMA = z.union([
+  CLIENT_ACTIONS.userInput,
+  CLIENT_ACTIONS.readFilesResponse,
+  CLIENT_ACTIONS.runTerminalCommand,
+  CLIENT_ACTIONS.warmContextCache,
 ])
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
-export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
-  z.object({
+export const SERVER_ACTIONS = {
+  responseChunk: z.object({
     type: z.literal('response-chunk'),
     userInputId: z.string(),
     chunk: z.string(),
   }),
-  z.object({
+  responseComplete: z.object({
     type: z.literal('response-complete'),
     userInputId: z.string(),
     response: z.string(),
     changes: CHANGES,
   }),
-  z.object({
+  readFiles: z.object({
     type: z.literal('read-files'),
     filePaths: z.array(z.string()),
   }),
-  z.object({
+  toolCall: z.object({
     type: z.literal('tool-call'),
     userInputId: z.string(),
     response: z.string(),
     data: ToolCallSchema,
     changes: CHANGES,
   }),
-  z.object({
+  terminalCommandResult: z.object({
     type: z.literal('terminal-command-result'),
     userInputId: z.string(),
     result: z.string(),
   }),
-  z.object({
-    type: z.literal('npm-version-status'),
-    isUpToDate: z.boolean(),
-    latestVersion: z.string(),
-  }),
-  z.object({
+  warmContextCacheResponse: z.object({
     type: z.literal('warm-context-cache-response'),
   }),
-  z.object({
-    type: z.literal('auth-result'),
-    user: userSchema.optional(),
-    message: z.string(),
-  }),
-  z.object({
-    type: z.literal('login-code-response'),
-    fingerprintId: z.string(),
-    fingerprintHash: z.string(),
-    loginUrl: z.string().url(),
-  }),
+}
+export const SERVER_ACTION_SCHEMA = z.union([
+  SERVER_ACTIONS.responseChunk,
+  SERVER_ACTIONS.responseComplete,
+  SERVER_ACTIONS.readFiles,
+  SERVER_ACTIONS.toolCall,
+  SERVER_ACTIONS.terminalCommandResult,
+  SERVER_ACTIONS.warmContextCacheResponse,
 ])
 export type ServerAction = z.infer<typeof SERVER_ACTION_SCHEMA>
