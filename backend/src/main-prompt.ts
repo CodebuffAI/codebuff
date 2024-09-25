@@ -185,9 +185,32 @@ ${STOP_MARKER}
       },
     })
 
+    let savedForNextChunk = ''
+    let foundEndOfResponse = false
     for await (const chunk of streamWithTags) {
-      fullResponse += chunk
-      onResponseChunk(chunk)
+      // Don't print [END] to user.
+      let currentChunk = savedForNextChunk + chunk
+      savedForNextChunk = ''
+
+      if (currentChunk.includes('\n[END]')) {
+        foundEndOfResponse = true
+        currentChunk = currentChunk.replace('\n[END]', '')
+      } else if (
+        chunk.endsWith('\n') ||
+        chunk.endsWith('\n[') ||
+        chunk.endsWith('\n[E') ||
+        chunk.endsWith('\n[EN') ||
+        chunk.endsWith('\n[END')
+      ) {
+        savedForNextChunk = chunk.slice(chunk.lastIndexOf('\n['))
+        currentChunk = currentChunk.slice(0, -savedForNextChunk.length)
+      }
+
+      fullResponse += currentChunk
+      onResponseChunk(currentChunk)
+    }
+    if (foundEndOfResponse) {
+      fullResponse += '\n[END]'
     }
 
     const maybeToolCall = toolCall as ToolCall | null

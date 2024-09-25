@@ -14,14 +14,18 @@
     "typeRoots": ["./node_modules/@types", "../node_modules/@types"],
     "baseUrl": ".",
     "paths": {
-      "common/*": ["../common/src/*"]
+      "common/*": ["../common/src/*"],
+      "code-map/*": ["../code-map/*"]
     },
     "outDir": "./dist",
     "rootDir": "./src",
     "resolveJsonModule": true
   },
   "include": ["src/**/*", "package.json"],
-  "references": [{ "path": "../common" }],
+  "references": [
+    { "path": "../common" },
+    { "path": "../packages/code-map" }
+  ],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }

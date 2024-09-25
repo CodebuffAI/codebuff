@@ -7,7 +7,9 @@
     "common",
     "backend",
     "npm-app",
-    "web"
+    "web",
+    "test",
+    "packages/*"
   ],
   "scripts": {
     "start-client": "bun --cwd npm-app start",

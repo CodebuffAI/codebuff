@@ -7,20 +7,24 @@ import { yellow } from 'picocolors'
 import { initFingerprint } from './config'
 import { CLI } from './cli'
 import { getProjectFileContext, initProjectRoot } from './project-files'
+import { updateManicode } from './update-manicode'
 
 async function manicode(projectDir: string | undefined) {
   const dir = initProjectRoot(projectDir)
 
-  // Preload stuff.
+  const updatePromise = updateManicode()
   const fingerprintPromise = initFingerprint()
-  const initProjectFileContextPromise = await getProjectFileContext([], {})
+  const initFileContextPromise = getProjectFileContext([], {})
 
   const readyPromise = Promise.all([
+    updatePromise,
     fingerprintPromise,
-    initProjectFileContextPromise,
+    initFileContextPromise,
   ])
 
   const cli = new CLI(readyPromise)
+
+  await readyPromise
 
   console.log(
     `Manicode will read and write files in "${dir}". Type "help" for a list of commands.`

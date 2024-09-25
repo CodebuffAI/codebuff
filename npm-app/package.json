@@ -1,6 +1,6 @@
 {
   "name": "manicode",
-  "version": "1.0.65",
+  "version": "1.0.68",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -9,9 +9,9 @@
     "manicode": "dist/index.js"
   },
   "scripts": {
-    "prebuild": "bun clean && cd ../common && bun run build",
-    "build": "bun run with-env -- tsc && tsc-alias",
-    "postbuild": "mkdir -p dist/common && cp -r ../common/dist/* dist/common && tsc-alias",
+    "prebuild": "bun clean && cd ../common && bun run build && cd ../packages/code-map && bun run build",
+    "build": "tsc && tsc-alias",
+    "postbuild": "mkdir -p dist/common && cp -r ../common/dist/* dist/common && mkdir -p dist/code-map && cp -r ../packages/code-map/dist/* dist/code-map && tsc-alias",
     "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
     "prepublishOnly": "bun run build && bun run clean-package.js",
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",

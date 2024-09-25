@@ -13,7 +13,7 @@ import {
   getProjectFileTree,
   getAllFilePaths,
 } from 'common/src/project-file-tree'
-import { getFileTokenScores } from 'common/src/codemap/parse'
+import { getFileTokenScores } from 'code-map/parse'
 import { EventEmitter } from 'events'
 import { FileChanges } from 'common/actions'
 import { projectTest } from './score-tests'
@@ -236,6 +236,7 @@ async function getProjectFileContext(): Promise<ProjectFileContext> {
       diffCached: '',
       lastCommitMessages: '',
     },
+    changesSinceLastChat: {},
     files: {},
     knowledgeFiles,
     fileTokenScores,

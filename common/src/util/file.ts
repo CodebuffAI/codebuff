@@ -13,6 +13,11 @@ export interface FileTreeNode {
   children?: FileTreeNode[]
 }
 
+export interface DirectoryNode extends FileTreeNode {
+  type: 'directory'
+  children: FileTreeNode[]
+}
+
 export const ProjectFileContextSchema = z.object({
   currentWorkingDirectory: z.string(),
   fileTree: z.array(z.custom<FileTreeNode>()),

@@ -1,6 +1,4 @@
 import { yellow } from 'picocolors'
-
-import packageJson from '../package.json'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
   getFiles,
@@ -52,7 +50,6 @@ export class Client {
   async connect() {
     await this.webSocket.connect()
     this.setupSubscriptions()
-    this.checkNpmVersion()
   }
 
   async login() {
@@ -209,13 +206,6 @@ export class Client {
           `Authentication failed: ${action.message}. Please try again in a few minutes or contact support.`
         )
       }
-    })
-  }
-
-  private checkNpmVersion() {
-    this.webSocket.sendAction({
-      type: 'check-npm-version',
-      version: packageJson.version,
     })
   }
 

@@ -1,55 +1,83 @@
 import fs from 'fs'
 import path from 'path'
+import os from 'os'
 import * as ignore from 'ignore'
-import { FileTreeNode } from './util/file'
+import { DirectoryNode, FileTreeNode } from './util/file'
 
-export function getProjectFileTree(projectRoot: string): FileTreeNode[] {
+export function getProjectFileTree(
+  projectRoot: string,
+  { maxFiles = 10_000 }: { maxFiles?: number } = {}
+): FileTreeNode[] {
   const defaultIgnore = ignore.default()
   defaultIgnore.add('.git')
 
-  function buildTree(dir: string, parentIgnore: ignore.Ignore): FileTreeNode[] {
-    const currentIgnore = parseGitignore(dir)
-    const mergedIgnore = ignore.default().add(parentIgnore).add(currentIgnore)
-    const children: FileTreeNode[] = []
+  if (projectRoot === os.homedir()) {
+    defaultIgnore.add('.*')
+    maxFiles = 1000
+  }
+
+  const root: DirectoryNode = {
+    name: path.basename(projectRoot),
+    type: 'directory',
+    children: [],
+  }
+  const queue: {
+    node: DirectoryNode
+    fullPath: string
+    ignore: ignore.Ignore
+  }[] = [
+    {
+      node: root,
+      fullPath: projectRoot,
+      ignore: defaultIgnore,
+    },
+  ]
+  let totalFiles = 0
+
+  while (queue.length > 0 && totalFiles < maxFiles) {
+    const { node, fullPath, ignore: currentIgnore } = queue.shift()!
+    const mergedIgnore = ignore
+      .default()
+      .add(currentIgnore)
+      .add(parseGitignore(fullPath))
 
     try {
-      const files = fs.readdirSync(dir)
+      const files = fs.readdirSync(fullPath)
       for (const file of files) {
-        const filePath = path.join(dir, file)
+        if (totalFiles >= maxFiles) break
+
+        const filePath = path.join(fullPath, file)
         const relativeFilePath = path.relative(projectRoot, filePath)
 
-        if (mergedIgnore.ignores(relativeFilePath)) {
-          continue
-        }
+        if (mergedIgnore.ignores(relativeFilePath)) continue
 
         try {
           const stats = fs.statSync(filePath)
           if (stats.isDirectory()) {
-            children.push({
+            const childNode: DirectoryNode = {
               name: file,
               type: 'directory',
-              children: buildTree(filePath, mergedIgnore),
+              children: [],
+            }
+            node.children.push(childNode)
+            queue.push({
+              node: childNode,
+              fullPath: filePath,
+              ignore: mergedIgnore,
             })
           } else {
-            children.push({
-              name: file,
-              type: 'file',
-            })
+            node.children.push({ name: file, type: 'file' })
+            totalFiles++
           }
         } catch (error: any) {
           // Don't print errors, you probably just don't have access to the file.
-          // console.error(`Error processing file ${filePath}:`, error)
         }
       }
     } catch (error: any) {
       // Don't print errors, you probably just don't have access to the directory.
-      // console.error(`Error reading directory ${dir}:`, error)
     }
-
-    return children
   }
-
-  return buildTree(projectRoot, defaultIgnore)
+  return root.children
 }
 
 function parseGitignore(dirPath: string): ignore.Ignore {

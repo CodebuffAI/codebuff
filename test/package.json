@@ -10,8 +10,7 @@
     "test-stream": "bun test process-stream.test.ts"
   },
   "dependencies": {
-    "backend": "file:../backend",
-    "common": "file:../common",
+    "tree-sitter": "0.21.1",
     "dotenv": "^16.4.5"
   },
   "devDependencies": {
