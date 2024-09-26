@@ -2,6 +2,8 @@ const fs = require('fs')
 const { match } = require('ts-pattern')
 const dotenv = require('dotenv')
 
+const ENV_VARS_TO_PULL = ['APP_URL', 'NEXT_PUBLIC_BACKEND_URL']
+
 dotenv.config({ path: '../stack.env' })
 if (!process.env.ENVIRONMENT) {
   console.error('ENVIRONMENT is not set, please check `stack.env`')
@@ -28,9 +30,13 @@ lines.forEach((line) => {
     .join('')
     .trim()
 
-  match(key).with('APP_URL', 'NEXT_PUBLIC_BACKEND_URL', (key) => {
+  match(key).with(...ENV_VARS_TO_PULL, (key) => {
     env[key] = value
   })
 })
+
+if (Object.values(env).length === ENV_VARS_TO_PULL.length) {
+  throw new Error('Missing expected environment variable(s)!')
+}
 
 module.exports = Promise.resolve(env)
