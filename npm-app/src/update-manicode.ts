@@ -2,7 +2,11 @@ import { spawn, execSync } from 'child_process'
 import { green, yellow } from 'picocolors'
 import { scrapeWebPage } from './web-scraper'
 import packageJson from '../package.json'
+import { isProduction } from './config'
+
 export async function updateManicode() {
+  if (!isProduction) return
+
   const latestVersion = await getManicodeNpmVersion()
   const isUpToDate = isNpmUpToDate(packageJson.version, latestVersion)
   if (!isUpToDate) {
