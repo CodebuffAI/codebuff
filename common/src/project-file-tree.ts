@@ -11,6 +11,7 @@ export function getProjectFileTree(
 ): FileTreeNode[] {
   const defaultIgnore = ignore.default()
   defaultIgnore.add('.git')
+  defaultIgnore.add('*.min.*')
 
   if (projectRoot === os.homedir()) {
     defaultIgnore.add('.*')
@@ -134,7 +135,10 @@ export function flattenTree(nodes: FileTreeNode[]): FileTreeNode[] {
   })
 }
 
-export function getLastReadFilePaths(flattenedNodes: FileTreeNode[], count: number) {
+export function getLastReadFilePaths(
+  flattenedNodes: FileTreeNode[],
+  count: number
+) {
   return sortBy(
     flattenedNodes.filter((node) => node.lastReadTime),
     'lastReadTime'
