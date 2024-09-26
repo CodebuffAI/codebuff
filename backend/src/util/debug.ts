@@ -6,10 +6,17 @@ const DEBUG_LOG_FILE = path.join(__dirname, '..', 'debug.log')
 
 export function debugLog(...args: any[]) {
   if (DEBUG_MODE) {
-    const logMessage = args.map(arg =>
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
-    ).join(' ') + '\n'
-    fs.appendFileSync(DEBUG_LOG_FILE, `[${new Date().toISOString()}] ${logMessage}`)
+    console.log('[DEBUG]', ...args)
+    const logMessage =
+      args
+        .map((arg) =>
+          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+        )
+        .join(' ') + '\n'
+    fs.appendFileSync(
+      DEBUG_LOG_FILE,
+      `[${new Date().toISOString()}] ${logMessage}`
+    )
   }
 }
 
