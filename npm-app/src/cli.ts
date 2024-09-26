@@ -124,9 +124,12 @@ export class CLI {
 
   public printInitialPrompt() {
     if (this.client.user) {
-      console.log(`Welcome back ${this.client.user.name}!`)
+      console.log(
+        `👋 Welcome back ${this.client.user.name}! What would you like to do?\n`
+      )
+    } else {
+      console.log(`What would you like to do?\n`)
     }
-    console.log(`What would you like to do?\n`)
     this.rl.prompt()
   }
 

@@ -18,6 +18,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "start-js": "bun run with-env -- bun run dist/index.js ..",
     "start": "bun run with-env -- ts-node src/index.ts ..",
+    "start-dir": "bun run with-env -- ts-node src/index.ts",
     "with-env": "env-cmd -f ./loadEnv.js",
     "start-manifold": "bun run with-env -- ts-node src/index.ts ../../manifold",
     "start-litestar": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/litestar",
