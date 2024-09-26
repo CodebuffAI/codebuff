@@ -5,17 +5,25 @@ export const FileTreeNodeSchema: z.ZodType<FileTreeNode> = z.object({
   name: z.string(),
   type: z.enum(['file', 'directory']),
   children: z.lazy(() => z.array(FileTreeNodeSchema).optional()),
+  filePath: z.string(),
 })
 
 export interface FileTreeNode {
   name: string
   type: 'file' | 'directory'
+  filePath: string
+  lastReadTime?: number
   children?: FileTreeNode[]
 }
 
 export interface DirectoryNode extends FileTreeNode {
   type: 'directory'
   children: FileTreeNode[]
+}
+
+export interface FileNode extends FileTreeNode {
+  type: 'file'
+  lastReadTime: number
 }
 
 export const ProjectFileContextSchema = z.object({
@@ -131,4 +139,3 @@ export const ensureDirectoryExists = (baseDir: string) => {
     fs.mkdirSync(baseDir, { recursive: true })
   }
 }
-

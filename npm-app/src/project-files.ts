@@ -7,7 +7,7 @@ import { createPatch } from 'diff'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { filterObject } from 'common/util/object'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
-import { getProjectFileTree, getAllFilePaths } from 'common/project-file-tree'
+import { getProjectFileTree, flattenTree } from 'common/project-file-tree'
 import { getFileTokenScores } from 'code-map/parse'
 
 const execAsync = promisify(exec)
@@ -69,13 +69,16 @@ export const getProjectFileContext = async (
     cachedProjectFileContext.currentWorkingDirectory !== contextRoot
   ) {
     const fileTree = getProjectFileTree(contextRoot)
-    const knowledgeFilePaths = getAllFilePaths(fileTree).filter((filePath) =>
+    const flattenedNodes = flattenTree(fileTree)
+    const allFilePaths = flattenedNodes
+      .filter((node) => node.type === 'file')
+      .map((node) => node.filePath)
+    const knowledgeFilePaths = allFilePaths.filter((filePath) =>
       filePath.endsWith('knowledge.md')
     )
     const knowledgeFiles =
       await getExistingFilesWithScrapedContent(knowledgeFilePaths)
 
-    const allFilePaths = getAllFilePaths(fileTree)
     const fileTokenScores = await getFileTokenScores(contextRoot, allFilePaths)
 
     cachedProjectFileContext = {

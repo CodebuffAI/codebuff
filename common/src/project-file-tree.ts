@@ -3,6 +3,7 @@ import path from 'path'
 import os from 'os'
 import * as ignore from 'ignore'
 import { DirectoryNode, FileTreeNode } from './util/file'
+import { sortBy } from 'lodash'
 
 export function getProjectFileTree(
   projectRoot: string,
@@ -20,6 +21,7 @@ export function getProjectFileTree(
     name: path.basename(projectRoot),
     type: 'directory',
     children: [],
+    filePath: '',
   }
   const queue: {
     node: DirectoryNode
@@ -58,6 +60,7 @@ export function getProjectFileTree(
               name: file,
               type: 'directory',
               children: [],
+              filePath: relativeFilePath,
             }
             node.children.push(childNode)
             queue.push({
@@ -66,7 +69,13 @@ export function getProjectFileTree(
               ignore: mergedIgnore,
             })
           } else {
-            node.children.push({ name: file, type: 'file' })
+            const lastReadTime = stats.atimeMs
+            node.children.push({
+              name: file,
+              type: 'file',
+              lastReadTime,
+              filePath: relativeFilePath,
+            })
             totalFiles++
           }
         } catch (error: any) {
@@ -114,4 +123,23 @@ export function getAllFilePaths(
     }
     return getAllFilePaths(node.children || [], path.join(basePath, node.name))
   })
+}
+
+export function flattenTree(nodes: FileTreeNode[]): FileTreeNode[] {
+  return nodes.flatMap((node) => {
+    if (node.type === 'file') {
+      return [node]
+    }
+    return flattenTree(node.children ?? [])
+  })
+}
+
+export function getLastReadFilePaths(flattenedNodes: FileTreeNode[], count: number) {
+  return sortBy(
+    flattenedNodes.filter((node) => node.lastReadTime),
+    'lastReadTime'
+  )
+    .reverse()
+    .slice(0, count)
+    .map((node) => node.filePath)
 }

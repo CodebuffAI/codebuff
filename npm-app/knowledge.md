@@ -147,10 +147,26 @@ The `Client` class in `client.ts` manages WebSocket communication with the serve
 
 The `project-files.ts` module handles all file-related operations:
 
+- Mani can only view files that are not gitignored. This is partially to save tokens when we list out all the files.
 - Reads and writes files within the project directory.
 - Traverses the project structure, respecting `.gitignore` files.
 - Applies changes to files based on AI suggestions.
 - Manages file versioning for undo/redo functionality.
+
+### Recently Accessed Files
+
+The project now includes functionality to track recently accessed files. This feature has been added to the project file context, which maintains a list of the file paths for the last 10 read files. This can be useful for:
+
+1. Implementing a "recently opened files" feature in the user interface.
+2. Optimizing file loading by prioritizing recently accessed files.
+3. Providing context to the AI assistant about which files the user has been working with recently.
+
+Implementation details:
+- The project file context should be updated to include an array of the last 10 accessed file paths.
+- When reading files, the list should be updated to reflect the most recently accessed files.
+- This list should be maintained in memory and does not need to persist between sessions.
+
+Note: This feature focuses on tracking recently accessed files, rather than storing the last access time of each file. It provides a more holistic view of user activity within the project.
 
 ## Tool Handlers
 

@@ -10,6 +10,7 @@ import { countTokens, countTokensForFiles } from './util/token-counter'
 import { debugLog } from './util/debug'
 import { sortBy, sum } from 'lodash'
 import { filterObject } from 'common/util/object'
+import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 
 export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
   const truncatedFiles = getTruncatedFilesBasedOnTokenBudget(
@@ -246,10 +247,17 @@ Note: the project file tree is cached from the start of this conversation.
 }
 
 const getRelevantFilesPromptPart1 = (fileContext: ProjectFileContext) => {
-  const { knowledgeFiles } = fileContext
+  const { knowledgeFiles, fileTree } = fileContext
+  const flattenedNodes = flattenTree(fileTree)
+  const lastReadFilePaths = getLastReadFilePaths(flattenedNodes, 20)
 
   return `
 # Relevant files
+
+The following are the most recently read files according to the OS atime. This is cached from the start of this conversation:
+<recently_read_file_paths_most_recent_first>
+${lastReadFilePaths.join('\n')}
+</recently_read_file_paths_most_recent_first>
 
 <knowledge_files>
 ${Object.entries(knowledgeFiles)
