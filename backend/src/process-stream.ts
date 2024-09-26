@@ -17,12 +17,10 @@ export async function* processStreamWithTags<T extends string>(
     string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const tagNames = Object.keys(tags)
   const openTagRegex = new RegExp(
-    `<(${tagNames.map(escapeRegExp).join('|')})\\s*([^>]*)>`,
-    'g'
+    `<(${tagNames.map(escapeRegExp).join('|')})\\s*([^>]*)>`
   )
   const closeTagRegex = new RegExp(
-    `</(${tagNames.map(escapeRegExp).join('|')})>`,
-    'g'
+    `</(${tagNames.map(escapeRegExp).join('|')})>`
   )
 
   function parseBuffer(bufferSize: number) {
@@ -30,8 +28,8 @@ export async function* processStreamWithTags<T extends string>(
 
     while (buffer.length > bufferSize) {
       if (insideTag === null) {
-        const match = openTagRegex.exec(buffer)
-        if (match) {
+        const match = buffer.match(openTagRegex)
+        if (match && match.index !== undefined) {
           const [fullMatch, openTag, attributesString] = match
 
           const afterMatchIndex = match.index + fullMatch.length
@@ -52,8 +50,8 @@ export async function* processStreamWithTags<T extends string>(
           buffer = buffer.slice(buffer.length - bufferSize)
         }
       } else {
-        const closeMatch = closeTagRegex.exec(buffer)
-        if (closeMatch) {
+        const closeMatch = buffer.match(closeTagRegex)
+        if (closeMatch && closeMatch.index !== undefined) {
           const [fullMatch, closeTag] = closeMatch
           const closeIndex = closeMatch.index
           const content = buffer.slice(0, closeIndex)

@@ -48,7 +48,7 @@ test('processStreamWithTags handles tool_call for terminal command', async () =>
   })) {
     result.push(chunk)
   }
-  expect(result.join()).toEqual('I will run bun install for you. ')
+  expect(result.join('')).toEqual('I will run bun install for you. ')
   expect(onToolCallStart).toHaveBeenCalledWith({ name: 'run_terminal_command' })
   expect(onToolCall).toHaveBeenCalledWith('bun install', {
     name: 'run_terminal_command',
@@ -80,7 +80,7 @@ test('processStreamWithTags handles tool_call for terminal command split into ma
   })) {
     result.push(chunk)
   }
-  expect(result.join()).toEqual('I will run bun install for you.  thankscool')
+  expect(result.join('')).toEqual('I will run bun install for you.  thankscool')
   expect(onToolCallStart).toHaveBeenCalledWith({ name: 'run_terminal_command' })
   expect(onToolCall).toHaveBeenCalledWith('bun install', {
     name: 'run_terminal_command',
@@ -117,11 +117,51 @@ test('processStreamWithTags handles tool_call with preamble and postamble', asyn
   })) {
     result.push(chunk)
   }
-  expect(result.join()).toEqual(
-    `I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will, run bun in,stall for you. I wi,ll run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. , thankscoolit is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done, yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done `
+  expect(result.join('')).toEqual(
+    `I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you.  thankscoolit is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done `
   )
   expect(onToolCallStart).toHaveBeenCalledWith({ name: 'run_terminal_command' })
   expect(onToolCall).toHaveBeenCalledWith('bun install', {
     name: 'run_terminal_command',
+  })
+})
+
+test('processStreamWithTags handles <file> tags with multiple calls', async () => {
+  const mockStream = async function* () {
+    yield range(10)
+      .map(() => 'I will run bun install for you. ')
+      .join('')
+    yield '<file '
+    yield 'path="test.txt">'
+    yield 'file content'
+    yield '</file> thanks'
+    yield 'cool<file '
+    yield 'path="test.txt">'
+    yield 'file content'
+    yield '</file> thanks'
+    yield range(10)
+      .map(() => 'it is done yes it is done ')
+      .join('')
+  }
+  const onFileStart = mock((attributes: Record<string, string>) => '')
+  const onFile = mock((content: string, attributes: Record<string, string>) => {
+    return false
+  })
+  const result = []
+  for await (const chunk of processStreamWithTags(mockStream(), {
+    file: {
+      attributeNames: ['path'],
+      onTagStart: onFileStart,
+      onTagEnd: onFile,
+    },
+  })) {
+    result.push(chunk)
+  }
+  expect(result.join('')).toEqual(
+    `I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you. I will run bun install for you.  thankscool thanksit is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done it is done yes it is done `
+  )
+  expect(onFileStart).toHaveBeenCalledWith({ path: 'test.txt' })
+  expect(onFile).toHaveBeenCalledWith('file content', {
+    path: 'test.txt',
   })
 })
