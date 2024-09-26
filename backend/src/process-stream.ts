@@ -61,26 +61,29 @@ export async function* processStreamWithTags<T extends string>(
           insideTag = null
           currentAttributes = {}
           if (complete) {
-            return toYield
+            return { toYield, isComplete: true }
           }
         } else {
           break
         }
       }
     }
-    return toYield
+    return { toYield, isComplete: false }
   }
 
   for await (const chunk of stream) {
     buffer += chunk
 
-    const toYield = parseBuffer(bufferSize)
+    const { toYield, isComplete } = parseBuffer(bufferSize)
     if (toYield) {
       yield toYield
     }
+    if (isComplete) {
+      return
+    }
   }
 
-  const toYield = parseBuffer(0)
+  const { toYield } = parseBuffer(0)
   if (toYield) {
     yield toYield
   }

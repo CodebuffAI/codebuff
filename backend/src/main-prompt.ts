@@ -135,7 +135,7 @@ ${STOP_MARKER}
       file: {
         attributeNames: ['path'],
         onTagStart: ({ path }) => {
-          return `Editing file: ${path}`
+          return `- Editing file: ${path} ...`
         },
         onTagEnd: (fileContent, { path }) => {
           console.log('on file!', path)
@@ -171,13 +171,12 @@ ${STOP_MARKER}
           } else if (name === 'scrape_web_page') {
             contentAttributes.url = content
           }
-          fullResponse += content
+          fullResponse += `<tool_call name="${attributes.name}">${content}</tool_call>`
           toolCall = {
             id: Math.random().toString(36).slice(2),
             name: attributes.name,
             input: contentAttributes,
           }
-          isComplete = true
           return true
         },
       },
@@ -234,6 +233,8 @@ ${STOP_MARKER}
           content: fullResponse.trim(),
         },
       ]
+    } else if (maybeToolCall !== null) {
+      isComplete = true
     } else if (fullResponse.includes(STOP_MARKER)) {
       isComplete = true
       fullResponse = fullResponse.replace(STOP_MARKER, '')
@@ -276,6 +277,7 @@ ${STOP_MARKER}
       : ''
 
   const responseWithChanges = `${fullResponse}${changeAppendix}`.trim()
+  console.log('responseWithChanges', responseWithChanges)
 
   return {
     response: responseWithChanges,

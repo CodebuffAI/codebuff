@@ -103,7 +103,7 @@ export const handleRunTerminalCommand = async (
       clearTimeout(timer)
       resolve(formatResult(stdout, stderr, 'Command completed', code))
       if (mode === 'assistant') {
-        console.log(green(`Command finished with exit code: ${code}`))
+        console.log(green(`Command finished with exit code: ${code}\n`))
       }
     })
 
