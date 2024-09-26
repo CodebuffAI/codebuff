@@ -60,20 +60,29 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
   console.log('- Press ESC to cancel generation')
   console.log('- Type "undo" or "u" to undo the last change')
   console.log('- Type "redo" or "r" to redo the last change')
+  console.log('- Type "login" to log into Manicode')
   console.log('- Type "help" or "h" to print this menu\n')
-  console.log('- Type "login" to log into Manicode\n')
 
   console.log('TIPS')
   console.log(
-    '() Say: "Create knowledge files for my codebase" to generate and store information that will help Manicode understand your project.'
+    '- Ask Manicode to fix the errors from running your tests or compiling your project.'
   )
   console.log(
-    '() Add to knowledge files when Manicode makes mistakes. Usually there is context that Manicode is missing that led to the mistake, and adding this information will help Manicode improve its responses.'
+    '- Ask Manicode to refactor a large file into smaller files.'
   )
   console.log(
-    '() Add "Don\'t change any files" to your prompt if you want it to think before making changes.'
+    '- Ask Manicode any questions you have about the codebase.'
   )
   console.log(
-    '() Email your feedback to james@manifold.markets. Thanks for using Manicode!'
+    '- Tell Manicode what it did wrong, and it will learn by saving a note in a "knowledge" file.'
+  )
+  console.log(
+    '- Say: "Create knowledge files for my codebase" to generate and store information that will help Manicode understand your project.'
+  )
+  console.log(
+    '- When implementing a new feature, create a new file with a description of what you want to build and ask Manicode to read that file and implement it.'
+  )
+  console.log(
+    '- Email your feedback to james@manicode.ai. Thanks for using Manicode!'
   )
 }
