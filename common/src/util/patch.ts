@@ -1,7 +1,7 @@
 export const applyPatch = (oldContent: string, patch: string): string => {
   const lines = oldContent.split('\n')
 
-  const patchLines = patch.split('\n')
+  const patchLines = patch.split('\n').filter((line) => !line.startsWith('\\'))
   const indexOfFirstHunk = patchLines.findIndex((line) => line.startsWith('@@'))
   patchLines.splice(0, indexOfFirstHunk)
   if (patch.endsWith('\n')) {
@@ -146,7 +146,7 @@ const findContextMatch = (
   contextLines: string[],
   startIndex: number
 ) => {
-  for (let i = startIndex; i < lines.length - contextLines.length; i++) {
+  for (let i = startIndex; i <= lines.length - contextLines.length; i++) {
     if (contextLines.every((line, j) => lines[i + j] === line)) {
       return i
     }
@@ -158,7 +158,7 @@ const findContextMatchTrimmed = (
   contextLines: string[],
   startIndex: number
 ) => {
-  for (let i = startIndex; i < lines.length - contextLines.length; i++) {
+  for (let i = startIndex; i <= lines.length - contextLines.length; i++) {
     if (
       // Match without whitespace, or if the context line is blank.
       contextLines.every(

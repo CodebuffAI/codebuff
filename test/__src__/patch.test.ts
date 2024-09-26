@@ -92,7 +92,10 @@ describe('applyPatch', () => {
       'test/__mock-data__/delete-comment2/old.ts',
       'utf8'
     )
-    const patch = fs.readFileSync('test/__mock-data__/delete-comment2/patch.ts', 'utf8')
+    const patch = fs.readFileSync(
+      'test/__mock-data__/delete-comment2/patch.ts',
+      'utf8'
+    )
     const expectedResult = fs.readFileSync(
       'test/__mock-data__/delete-comment2/expected.ts',
       'utf8'
@@ -102,6 +105,23 @@ describe('applyPatch', () => {
     expect(result).toBe(expectedResult)
   })
 
+  it('should handle no ending new line in inbox-screen', () => {
+    const oldContent = fs.readFileSync(
+      'test/__mock-data__/inbox-screen/old.tsx',
+      'utf8'
+    )
+    const patch = fs.readFileSync(
+      'test/__mock-data__/inbox-screen/patch',
+      'utf8'
+    )
+    const expectedResult = fs.readFileSync(
+      'test/__mock-data__/inbox-screen/expected.tsx',
+      'utf8'
+    )
+
+    const result = applyPatch(oldContent, patch)
+    expect(result).toBe(expectedResult)
+  })
 
   describe('slightly wrong patches', () => {
     it('should handle incorrect line numbers', async () => {
