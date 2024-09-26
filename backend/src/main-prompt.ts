@@ -135,7 +135,7 @@ ${STOP_MARKER}
       file: {
         attributeNames: ['path'],
         onTagStart: ({ path }) => {
-          return `- Editing file: ${path} ...`
+          return `<file path="${path}">`
         },
         onTagEnd: (fileContent, { path }) => {
           console.log('on file!', path)
@@ -155,7 +155,7 @@ ${STOP_MARKER}
               return null
             })
           )
-          fullResponse += fileContent
+          fullResponse += fileContent + '</file>'
           return false
         },
       },
@@ -185,13 +185,14 @@ ${STOP_MARKER}
     let savedForNextChunk = ''
     let foundEndOfResponse = false
     for await (const chunk of streamWithTags) {
+      fullResponse += chunk
       // Don't print [END] to user.
-      let currentChunk = savedForNextChunk + chunk
+      let printedChunk = savedForNextChunk + chunk
       savedForNextChunk = ''
 
-      if (currentChunk.includes('\n[END]')) {
+      if (printedChunk.includes('\n[END]')) {
         foundEndOfResponse = true
-        currentChunk = currentChunk.replace('\n[END]', '')
+        printedChunk = printedChunk.replace('\n[END]', '')
       } else if (
         chunk.endsWith('\n') ||
         chunk.endsWith('\n[') ||
@@ -200,11 +201,20 @@ ${STOP_MARKER}
         chunk.endsWith('\n[END')
       ) {
         savedForNextChunk = chunk.slice(chunk.lastIndexOf('\n['))
-        currentChunk = currentChunk.slice(0, -savedForNextChunk.length)
+        printedChunk = printedChunk.slice(0, -savedForNextChunk.length)
       }
 
-      fullResponse += currentChunk
-      onResponseChunk(currentChunk)
+      const openFileRegex = /<file\s+path="([^"]+)">/
+      const fileMatches = printedChunk.match(openFileRegex)
+      if (fileMatches) {
+        const filePath = fileMatches[1]
+        printedChunk = printedChunk.replace(
+          openFileRegex,
+          `- Editing file: ${filePath} ...`
+        )
+      }
+
+      onResponseChunk(printedChunk)
     }
     if (foundEndOfResponse) {
       fullResponse += '\n[END]'
