@@ -58,7 +58,7 @@ describe('generateKnowledgeFiles', () => {
   )
 
   it(
-    'should generate a knowledge file for web scraping library change',
+    'should not generate a knowledge file for web scraping library change',
     async () => {
       await runGenKnowledgeFilesTest(
         crawleeFileContext,

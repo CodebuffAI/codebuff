@@ -16731,4 +16731,10 @@ export const messages: Message[] = [
   },
 ]
 
-export const expectedFiles: FileChange[] = []
+export const expectedFiles: FileChange[] = [
+  {
+    type: 'patch',
+    filePath: 'backend/api/knowledge.md',
+    content: '',
+  },
+]

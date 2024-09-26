@@ -1619,25 +1619,15 @@ export const messages: Message[] = [
         text: "Reading the following files...<files>npm-app/src/web-scraper.ts, npm-app/package.json, npm-app/src/tool-handlers.ts, npm-app/src/index.ts, npm-app/src/project-files.ts, npm-app/src/client.ts, npm-app/src/chat-storage.ts, npm-app/src/config.ts, backend/src/claude.ts, test/__mock-data__/app/expected.ts, scripts/generate-fine-tuning-dataset.ts, test/__src__/generate-knowledge-files.test.ts, common/src/project-file-tree.ts, common/src/util/file.ts, common/util/tools.ts, test/__src__/process-stream.test.ts</files>\n\nCertainly! I'll help you replace the axios call with a crawlee invocation in the `npm-app/web-scraper.ts` file. First, let's update the file to use crawlee instead of axios. We'll need to install the crawlee package and make some changes to the code.\n\nLet's start by installing the crawlee package:",
       },
       {
-        type: 'tool_use',
-        id: 'toolu_01H37Zd89hgQW88vyr7Myg4C',
-        name: 'run_terminal_command',
-        input: {
-          command: 'cd npm-app && bun add crawlee',
-        },
+        type: 'text',
+        text: '<tool_call name="run_terminal_command">cd npm-app && bun add crawlee</tool_call>',
       },
     ],
   },
   {
     role: 'user',
-    content: [
-      {
-        type: 'tool_result',
-        tool_use_id: 'toolu_01H37Zd89hgQW88vyr7Myg4C',
-        content:
-          '<terminal_command_result>\n<stdout>\ninstalled crawlee@3.11.3 with binaries:\n - crawlee\n\n2 packages installed [1078.00ms]\n</stdout>\n<stderr>bun add v1.1.26 (0a37423b)\nResolving dependencies\nResolved, downloaded and extracted [230]\nSaved lockfile\n</stderr>\n<status>Command completed</status>\n<exit_code>0</exit_code>\n</terminal_command_result>',
-      },
-    ],
+    content:
+      '<terminal_command_result>\n<stdout>\ninstalled crawlee@3.11.3 with binaries:\n - crawlee\n\n2 packages installed [1078.00ms]\n</stdout>\n<stderr>bun add v1.1.26 (0a37423b)\nResolving dependencies\nResolved, downloaded and extracted [230]\nSaved lockfile\n</stderr>\n<status>Command completed</status>\n<exit_code>0</exit_code>\n</terminal_command_result>',
   },
   {
     role: 'assistant',
@@ -1652,30 +1642,30 @@ export const messages: Message[] = [
 ]
 
 export const expectedFiles: FileChange[] = [
-  {
-    type: 'patch',
-    filePath: 'npm-app/knowledge.md',
-    content: `
-    # Web Scraping and Caching in Manicode
+  // {
+  //   type: 'patch',
+  //   filePath: 'npm-app/knowledge.md',
+  //   content: `
+  //   # Web Scraping and Caching in Manicode
     
-    ## Crawlee Integration
+  //   ## Crawlee Integration
     
-    Manicode uses the \`crawlee\` library for web scraping instead of axios. This provides more robust and feature-rich web scraping capabilities.
+  //   Manicode uses the \`crawlee\` library for web scraping instead of axios. This provides more robust and feature-rich web scraping capabilities.
     
-    ## Caching Mechanism
+  //   ## Caching Mechanism
     
-    The web scraper implements a caching system with timed refreshes. This approach offers several benefits:
+  //   The web scraper implements a caching system with timed refreshes. This approach offers several benefits:
     
-    1. Reduced load on external servers: By caching results, we minimize repeated requests to the same URLs.
-    2. Improved performance: Cached results can be returned quickly without making a new web request.
-    3. Balance between data freshness and efficiency: Regular cache refreshes ensure data doesn't become stale while still maintaining performance benefits.
+  //   1. Reduced load on external servers: By caching results, we minimize repeated requests to the same URLs.
+  //   2. Improved performance: Cached results can be returned quickly without making a new web request.
+  //   3. Balance between data freshness and efficiency: Regular cache refreshes ensure data doesn't become stale while still maintaining performance benefits.
     
-    The cache refresh interval should be set based on the specific needs of the project, considering factors such as:
-    - How frequently the scraped data typically changes
-    - The acceptable level of data staleness
-    - The volume of web scraping requests made by the application
+  //   The cache refresh interval should be set based on the specific needs of the project, considering factors such as:
+  //   - How frequently the scraped data typically changes
+  //   - The acceptable level of data staleness
+  //   - The volume of web scraping requests made by the application
     
-    Developers should be aware of this caching mechanism when working with or debugging the web scraper, as it may affect the immediacy of data updates.
-    `,
-  },
+  //   Developers should be aware of this caching mechanism when working with or debugging the web scraper, as it may affect the immediacy of data updates.
+  //   `,
+  // },
 ]

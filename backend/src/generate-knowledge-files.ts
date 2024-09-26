@@ -71,14 +71,16 @@ export async function generateKnowledgeFiles(
 
     Questions:
     1. Was the user correcting the assistant's previous response based on missing context the assistant should know?
-    2. If another senior developer read the code, would they think the change is not obvious after reading the code? Assume they have strong foundational knowledge. If the code is clear enough on its own, then the answer to this question is "no".
+    2. Was the user expecting an outcome from the assistant's response that was not delivered? If so, is there a bit of instruction that would help you better meet their expectations in the future?
     
     Consider how strong of a "yes" you gave to each of these questions. Only with at least one very strong "yes" should you output anything.
     
-    Should we create or update a knowledge file?  If not, please skip the rest of the response and don't output anything. This is the most common case; there should be a high bar to creating or updating a knowledge file.
+    Should we create or update a knowledge file? If not, please skip the rest of the response and don't output anything. This is the most common case; there should be a high bar to creating or updating a knowledge file.
 
     Otherwise, check the existing knowledge files to see if there isn't something written about it yet. If there is, don't output anything because we don't want to repeat ourselves.
     Finally, for any meaningful change that hasn't been captured in the knowledge file, you should update a knowledge file with <file> blocks. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
+
+    When you are updating an existing knowledge file, please either reproduce the entire file or write comments like "<!-- ... existing knowledge file ... -->" in sections that should stay the same.
     `
 
   const messages = [
@@ -86,7 +88,7 @@ export async function generateKnowledgeFiles(
     {
       role: 'assistant' as const,
       content:
-        "Got it, I'll determine if I need to create/update the knowledge file and generate if necessary. Can you share any relevant information about the project?",
+        "Got it, I'll determine if I need to create or update any knowledge files. Can you share any relevant information about the project?",
     },
     {
       role: 'user' as const,
