@@ -2,7 +2,6 @@ import { spawn, execSync } from 'child_process'
 import { green, yellow } from 'picocolors'
 import { scrapeWebPage } from './web-scraper'
 import packageJson from '../package.json'
-
 export async function updateManicode() {
   const latestVersion = await getManicodeNpmVersion()
   const isUpToDate = isNpmUpToDate(packageJson.version, latestVersion)
@@ -20,7 +19,9 @@ export async function updateManicode() {
     try {
       runUpdateManicode(installer)
       console.log(green('Manicode updated successfully.'))
-      console.log(green('Goodbyeeeee! Please restart Manicode to use the new version.'))
+      console.log(
+        green('Goodbyeeeee! Please restart Manicode to use the new version.')
+      )
       process.exit(0)
     } catch (error) {
       console.error('Failed to update Manicode.')
@@ -29,6 +30,17 @@ export async function updateManicode() {
 }
 
 async function getManicodeNpmVersion() {
+  try {
+    const result = execSync('npm view manicode version', {
+      encoding: 'utf-8',
+      stdio: 'pipe', // Suppress all output
+    })
+    const versionMatch = result.match(/(\d+\.\d+\.\d+)/)
+    if (versionMatch) {
+      return versionMatch[1]
+    }
+  } catch (error) {}
+  // Fallback to web scraping if npm command fails
   const url = 'https://www.npmjs.com/package/manicode'
   const content = await scrapeWebPage(url)
 
