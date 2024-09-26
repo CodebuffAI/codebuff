@@ -8,7 +8,7 @@ if (!process.env.ENVIRONMENT) {
   process.exit(1)
 }
 
-const DOTENV_PATH = process.env.RENDER === 'true' ? '..' : '/etc/secrets'
+const DOTENV_PATH = process.env.RENDER === 'true' ? '/etc/secrets' : '..'
 const path = `${DOTENV_PATH}/.env.${process.env.ENVIRONMENT}`
 console.log(`Using environment: ${process.env.ENVIRONMENT} (path: ${path})`)
 dotenv.config({ path })
