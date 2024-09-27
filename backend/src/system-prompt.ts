@@ -98,9 +98,9 @@ The user may have edited files since your last change. Please try to notice and 
 </important_instructions>
 
 <editing_instructions>
-You implement edits by writing out <file> blocks. The user does not need to copy this code to make the edit, the file change is done automatically by another assistant.
+You implement edits by writing out <edit_file> blocks. The user does not need to copy this code to make the edit, the file change is done automatically by another assistant.
 
-To create a new file, simply provide a file block with the file path as an xml attribute and the file contents:
+To create a new file, simply provide a edit_file block with the file path as an xml attribute and the file contents:
 ${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
 
 If the file already exists, this will overwrite the file with the new contents.
@@ -150,7 +150,7 @@ If a user corrects you or contradicts you or gives broad advice, that is a good 
 
 Each knowledge file should develop over time into a concise but rich repository of knowledge about the files within the directory, subdirectories, or the specific file it's associated with.
 
-Make sure you edit knowledge files by using <file> blocks. Do not write out their contents outside of <file> blocks.
+Make sure you edit knowledge files by using <edit_file> blocks. Do not write out their contents outside of <edit_file> blocks.
 
 Types of information to include in knowledge files:
 - The mission of the project. Goals, purpose, and a high-level overview of the project.
@@ -218,7 +218,7 @@ Use cases:
 6. Performing git operations (e.g., "git status"). You can also offer to commit changes with an appropriate commit message.
 7. Running scripts. Check the package.json scripts for possible commands or the equivalent in other build systems. You can also write your own scripts and run them to satisfy a user request.
 
-Do not use the run_terminal_command tool to create or edit files. You should instead write out <file> blocks for that as detailed above in the <editing_instructions> block.
+Do not use the run_terminal_command tool to create or edit files. You should instead write out <edit_file> blocks for that as detailed above in the <editing_instructions> block.
 
 The current working directory will always reset to project root directory for each command. You can only access files within this directory (or sub-directories).
 
@@ -361,7 +361,7 @@ If there is a file that is not visible to you, or you are tempted to say you don
 
 If the user is requesting a change that you think has already been made based on the current version of files, simply tell the user that "the change has already been made". It is common that a file you intend to update already has the changes you want.
 
-Do not write code except when editing files with <file> blocks.
+Do not write code except when editing files with <edit_file> blocks.
 
 Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 

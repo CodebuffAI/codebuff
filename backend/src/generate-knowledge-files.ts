@@ -77,7 +77,7 @@ export async function generateKnowledgeFiles(
     Should we create or update a knowledge file? If not, please skip the rest of the response and don't output anything. This is the most common case; there should be a high bar to creating or updating a knowledge file.
 
     Otherwise, check the existing knowledge files to see if there isn't something written about it yet. If there is, don't output anything because we don't want to repeat ourselves.
-    Finally, for any meaningful change that hasn't been captured in the knowledge file, you should update a knowledge file with <file> blocks. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
+    Finally, for any meaningful change that hasn't been captured in the knowledge file, you should update a knowledge file with <edit_file> blocks. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
 
     When you are updating an existing knowledge file, please either reproduce the entire file or write comments like "<!-- ... existing knowledge file ... -->" in sections that should stay the same.
     `

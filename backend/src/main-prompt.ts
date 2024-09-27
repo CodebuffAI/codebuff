@@ -135,10 +135,10 @@ ${STOP_MARKER}
       userId,
     })
     const streamWithTags = processStreamWithTags(stream, {
-      file: {
+      edit_file: {
         attributeNames: ['path'],
         onTagStart: ({ path }) => {
-          return `<file path="${path}">`
+          return `<edit_file path="${path}">`
         },
         onTagEnd: (fileContent, { path }) => {
           console.log('on file!', path)
@@ -158,7 +158,7 @@ ${STOP_MARKER}
               return null
             })
           )
-          fullResponse += fileContent + '</file>'
+          fullResponse += fileContent + '</edit_file>'
           return false
         },
       },
@@ -207,7 +207,7 @@ ${STOP_MARKER}
         printedChunk = printedChunk.slice(0, -savedForNextChunk.length)
       }
 
-      const openFileRegex = /<file\s+path="([^"]+)">/
+      const openFileRegex = /<edit_file\s+path="([^"]+)">/
       const fileMatches = printedChunk.match(openFileRegex)
       if (fileMatches) {
         const filePath = fileMatches[1]
