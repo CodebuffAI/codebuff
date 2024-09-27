@@ -1,8 +1,9 @@
 import db from 'common/src/db'
 import * as schema from 'common/src/db/schema'
 import type { UsageType } from 'common/src/db/schema'
-import { eq, sql, and, gte, lte } from 'drizzle-orm'
+import { eq, sql, and, gte, lte, or } from 'drizzle-orm'
 import { TOKEN_USAGE_LIMITS } from 'common/src/constants'
+import { match, P } from 'ts-pattern'
 
 export interface Usage {
   type: UsageType
@@ -19,11 +20,13 @@ export class UsageTracker {
     // TODO: pass this in from caller, since the user should have passed it in anyway
     const userSession = await db
       .select({
-        userId: schema.session.userId,
+        userId: schema.user.id,
+        fingerprintId: schema.fingerprint.id,
       })
-      .from(schema.session)
-      .leftJoin(schema.usage, eq(schema.session.usageId, schema.usage.id))
-      .where(eq(schema.usage.fingerprintId, fingerprintId))
+      .from(schema.fingerprint)
+      .leftJoin(schema.usage, eq(schema.usage.id, schema.fingerprint.usageId))
+      .leftJoin(schema.user, eq(schema.usage.id, schema.user.usageId))
+      .where(eq(schema.fingerprint.id, fingerprintId))
       .limit(1)
       .then((sessions) => {
         if (sessions.length === 1) {
@@ -32,74 +35,101 @@ export class UsageTracker {
         return null
       })
 
-    if (userSession) {
-      // Assume no record exists so create a new one and set limits to the free tier.
-      await db
-        .insert(schema.usage)
-        .values({
-          userId: userSession.userId,
-          used: tokens,
-          limit: TOKEN_USAGE_LIMITS.FREE,
-          startDate: now,
-          endDate: oneMonthLater,
-          type: 'token',
+    // Create or update the usage record for the user
+    await db.transaction(async (tx) => {
+      const usageRecord = await tx
+        .select({
+          id: schema.usage.id,
         })
-        // Record exists, so  update the 'used' tokens instead
-        .onConflictDoUpdate({
-          target: [schema.usage.userId, schema.usage.fingerprintId],
-          set: {
+        .from(schema.usage)
+        .where(
+          and(lte(schema.usage.startDate, now), gte(schema.usage.endDate, now))
+        )
+        .then((usages) => {
+          if (usages.length >= 1) {
+            return usages[0]
+          }
+          return null
+        })
+
+      if (usageRecord) {
+        // Update the usage record
+        await tx
+          .update(schema.usage)
+          .set({
             used: sql`${schema.usage.used} + ${tokens}`,
-          },
-          where: and(
-            lte(schema.usage.startDate, now),
-            gte(schema.usage.endDate, now)
-          ),
-        })
-    } else {
-      // Assume no record exists so create a new one and set limits to the anonymous tier.
-      await db
-        .insert(schema.usage)
-        .values({
-          fingerprintId,
-          used: tokens,
-          limit: TOKEN_USAGE_LIMITS.ANON,
-          startDate: now,
-          endDate: oneMonthLater,
-          type: 'token',
-        })
-        // Record exists, so  update the 'used' tokens instead
-        .onConflictDoUpdate({
-          target: [schema.usage.fingerprintId],
-          set: {
-            used: sql`${schema.usage.used} + ${tokens}`,
-          },
-          where: and(
-            lte(schema.usage.startDate, now),
-            gte(schema.usage.endDate, now)
-          ),
-        })
-    }
+          })
+          .where(eq(schema.usage.id, usageRecord.id))
+      } else {
+        // Create a new usage record
+        const usageId = await db
+          .insert(schema.usage)
+          .values({
+            used: tokens,
+            limit: TOKEN_USAGE_LIMITS.FREE,
+            startDate: now,
+            endDate: oneMonthLater,
+            type: 'token',
+          })
+          .returning({ id: schema.usage.id })
+          .then((usages) => {
+            if (usages.length === 1) {
+              return usages[0].id
+            }
+            throw new Error('Failed to create usage record')
+          })
+
+        match(userSession)
+          .with(
+            {
+              userId: P.string,
+            },
+            ({ userId }) => {
+              return db
+                .update(schema.user)
+                .set({
+                  usageId,
+                })
+                .where(eq(schema.user.id, userId))
+            }
+          )
+          .with(
+            {
+              fingerprintId: P.string,
+            },
+            ({ fingerprintId }) => {
+              return db
+                .update(schema.fingerprint)
+                .set({
+                  usageId,
+                })
+                .where(eq(schema.fingerprint.id, fingerprintId))
+            }
+          )
+          .otherwise(() => {
+            throw new Error('No user or fingerprint session found')
+          })
+      }
+    })
   }
 
   async getUserUsageAndLimit(fingerprintId: string): Promise<Usage> {
     const now = new Date()
     const result = await db
       .select({
-        used: sql<number>`SUM(COALESCE(${schema.usage.used}, 0))`,
-        limit: sql<number>`GREATEST(COALESCE(${schema.usage.limit}, 0))`,
-        userId: schema.usage.userId,
+        userId: schema.user.id,
+        fingerprintId: schema.fingerprint.id,
         type: schema.usage.type,
+        used: sql<number>`SUM(COALESCE(${schema.usage.used}, 0))`,
+        limit: sql<number>`MAX(COALESCE(${schema.usage.limit}, 0))`,
       })
       .from(schema.usage)
-      .leftJoin(schema.session, eq(schema.usage.userId, schema.session.userId))
+      .leftJoin(schema.user, eq(schema.usage.id, schema.user.usageId))
+      .leftJoin(schema.fingerprint, eq(schema.usage.id, schema.fingerprint.id))
       .where(
-        and(
-          eq(schema.usage.fingerprintId, fingerprintId),
-          lte(schema.usage.startDate, now),
-          gte(schema.usage.endDate, now)
-        )
+        and(lte(schema.usage.startDate, now), gte(schema.usage.endDate, now))
       )
-      .groupBy(schema.usage.type)
+      .groupBy(schema.user.id, schema.fingerprint.id, schema.usage.type)
       .then((usages) => {
         if (usages.length === 0) {
           return {

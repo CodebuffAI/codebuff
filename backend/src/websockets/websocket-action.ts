@@ -108,7 +108,7 @@ const onClearAuthTokenRequest = async (
 
         // probably not necessary, but just in case. paranoia > death
         eq(schema.session.fingerprintId, fingerprintId),
-        eq(schema.session.fingerprintHash, fingerprintHash)
+        eq(schema.fingerprint.hash, fingerprintHash)
       )
     )
     .returning({
@@ -162,10 +162,14 @@ const onLoginStatusRequest = async (
       })
       .from(schema.user)
       .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
+      .leftJoin(
+        schema.fingerprint,
+        eq(schema.session.fingerprintId, schema.fingerprint.id)
+      )
       .where(
         and(
           eq(schema.session.fingerprintId, fingerprintId),
-          eq(schema.session.fingerprintHash, fingerprintHash)
+          eq(schema.fingerprint.hash, fingerprintHash)
         )
       )
 
@@ -204,13 +208,20 @@ const onLoginStatusRequest = async (
   }
 }
 
-const onWarmContextCache = async (
-  {
-    fileContext,
-    fingerprintId,
-  }: Extract<ClientAction, { type: 'warm-context-cache' }>,
+const onInit = async (
+  { fileContext, fingerprintId }: Extract<ClientAction, { type: 'init' }>,
   ws: WebSocket
 ) => {
+  // Create a new session for fingerprint if it doesn't exist
+  // For now, don't error out if we failed to create it
+  await db
+    .insert(schema.fingerprint)
+    .values({
+      id: fingerprintId,
+    })
+    .onConflictDoNothing()
+
+  // warm context cache
   const startTime = Date.now()
   const system = getSearchSystemPrompt(fileContext)
   await promptClaude(
@@ -227,7 +238,7 @@ const onWarmContextCache = async (
     }
   )
   sendAction(ws, {
-    type: 'warm-context-cache-response',
+    type: 'init-response',
   })
   console.log('Warming context cache done', Date.now() - startTime)
 }
@@ -268,7 +279,7 @@ export const onWebsocketAction = async (
 }
 
 subscribeToAction('user-input', onUserInput)
-subscribeToAction('warm-context-cache', onWarmContextCache)
+subscribeToAction('init', onInit)
 subscribeToAction('clear-auth-token', onClearAuthTokenRequest)
 subscribeToAction('login-code-request', onLoginCodeRequest)
 subscribeToAction('login-status-request', onLoginStatusRequest)

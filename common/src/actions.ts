@@ -71,16 +71,12 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     type: z.literal('read-files-response'),
     files: z.record(z.string(), z.union([z.string(), z.null()])),
   }),
+  // z.object({
+  //   type: z.literal('run-terminal-command'),
+  //   command: z.string(),
+  // }),
   z.object({
-    type: z.literal('run-terminal-command'),
-    command: z.string(),
-  }),
-  z.object({
-    type: z.literal('check-npm-version'),
-    version: z.string(),
-  }),
-  z.object({
-    type: z.literal('warm-context-cache'),
+    type: z.literal('init'),
     fingerprintId: z.string(),
     fileContext: ProjectFileContextSchema,
   }),
@@ -137,7 +133,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     latestVersion: z.string(),
   }),
   z.object({
-    type: z.literal('warm-context-cache-response'),
+    type: z.literal('init-response'),
   }),
   z.object({
     type: z.literal('auth-result'),

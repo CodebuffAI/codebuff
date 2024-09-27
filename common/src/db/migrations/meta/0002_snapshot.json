@@ -1,5 +1,5 @@
 {
-  "id": "7ddb72ce-4381-4379-b564-1659632da7cc",
+  "id": "e30c82ff-b247-4182-98bf-2ec3e4625307",
   "prevId": "2f8e2b18-d00c-4966-8d63-70d9b5eff19f",
   "version": "7",
   "dialect": "postgresql",
@@ -102,6 +102,48 @@
       },
       "uniqueConstraints": {}
     },
+    "public.fingerprint": {
+      "name": "fingerprint",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "usageId": {
+          "name": "usageId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hash": {
+          "name": "hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fingerprint_usageId_usage_id_fk": {
+          "name": "fingerprint_usageId_usage_id_fk",
+          "tableFrom": "fingerprint",
+          "tableTo": "usage",
+          "columnsFrom": [
+            "usageId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
     "public.session": {
       "name": "session",
       "schema": "",
@@ -124,14 +166,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "usageId": {
-          "name": "usageId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "fingerprintHash": {
-          "name": "fingerprintHash",
+        "fingerprintId": {
+          "name": "fingerprintId",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -152,12 +188,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "session_usageId_usage_id_fk": {
-          "name": "session_usageId_usage_id_fk",
+        "session_fingerprintId_fingerprint_id_fk": {
+          "name": "session_fingerprintId_fingerprint_id_fk",
           "tableFrom": "session",
-          "tableTo": "usage",
+          "tableTo": "fingerprint",
           "columnsFrom": [
-            "usageId"
+            "fingerprintId"
           ],
           "columnsTo": [
             "id"
@@ -178,18 +214,6 @@
           "type": "text",
           "primaryKey": true,
           "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "fingerprintId": {
-          "name": "fingerprintId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "used": {
           "name": "used",
@@ -227,21 +251,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "usage_userId_user_id_fk": {
-          "name": "usage_userId_user_id_fk",
-          "tableFrom": "usage",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
@@ -303,10 +313,30 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "usageId": {
+          "name": "usageId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "user_usageId_usage_id_fk": {
+          "name": "user_usageId_usage_id_fk",
+          "tableFrom": "user",
+          "tableTo": "usage",
+          "columnsFrom": [
+            "usageId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "user_email_unique": {

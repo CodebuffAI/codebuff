@@ -10,7 +10,7 @@ import {
   pgEnum,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
-import { TOKEN_USAGE_LIMITS } from 'src/constants'
+import { TOKEN_USAGE_LIMITS } from 'common/src/constants'
 
 export const user = pgTable('user', {
   id: text('id')
@@ -24,6 +24,7 @@ export const user = pgTable('user', {
   subscriptionActive: boolean('subscriptionActive').notNull().default(false),
   stripeCustomerId: text('stripeCustomerId').unique(),
   stripePlanId: text('stripePlanId'),
+  usageId: text('usageId').references(() => usage.id),
 })
 
 export const account = pgTable(
@@ -50,14 +51,18 @@ export const account = pgTable(
   })
 )
 
+export const fingerprint = pgTable('fingerprint', {
+  id: text('id').primaryKey(),
+  usageId: text('usageId').references(() => usage.id),
+  hash: text('hash'),
+})
+
 export const usageTypeEnum = pgEnum('usageType', ['token', 'credit'])
 export type UsageType = (typeof usageTypeEnum.enumValues)[number]
 export const usage = pgTable('usage', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  userId: text('userId').references(() => user.id),
-  fingerprintId: text('fingerprintId'),
   used: integer('used').notNull().default(0),
   limit: integer('limit').notNull().default(TOKEN_USAGE_LIMITS.ANON),
   type: usageTypeEnum('usageType').notNull().default('token'),
@@ -71,8 +76,7 @@ export const session = pgTable('session', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   expires: timestamp('expires', { mode: 'date' }).notNull(),
-  usageId: text('usageId').references(() => usage.id),
-  fingerprintHash: text('fingerprintHash'),
+  fingerprintId: text('fingerprintId').references(() => fingerprint.id),
 })
 
 export const verificationToken = pgTable(

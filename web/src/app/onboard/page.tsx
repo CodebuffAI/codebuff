@@ -77,9 +77,13 @@ const Onboard = async ({ searchParams }: PageProps) => {
     })
     .from(schema.user)
     .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
+    .leftJoin(
+      schema.fingerprint,
+      eq(schema.session.fingerprintId, schema.fingerprint.id)
+    )
     .where(
       and(
-        eq(schema.session.fingerprintHash, fingerprintHash),
+        eq(schema.fingerprint.hash, fingerprintHash),
         eq(schema.user.id, user.id)
       )
     )
@@ -98,7 +102,6 @@ const Onboard = async ({ searchParams }: PageProps) => {
     const usageId = await tx
       .insert(schema.usage)
       .values({
-        userId: user.id,
         limit: TOKEN_USAGE_LIMITS.FREE,
         startDate: new Date(),
         endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
@@ -112,14 +115,28 @@ const Onboard = async ({ searchParams }: PageProps) => {
         throw new Error('Failed to create usage record')
       })
 
+    await tx
+      .insert(schema.fingerprint)
+      .values({
+        hash: fingerprintHash,
+        usageId,
+        id: fingerprintId,
+      })
+      .returning({ id: schema.fingerprint.id })
+      .then((fingerprints) => {
+        if (fingerprints.length === 1) {
+          return fingerprints[0].id
+        }
+        throw new Error('Failed to create fingerprint record')
+      })
+
     const session = await tx
       .insert(schema.session)
       .values({
         sessionToken: crypto.randomUUID(),
         userId: user.id,
         expires: MAX_DATE,
-        fingerprintHash,
-        usageId,
+        fingerprintId,
       })
       .returning({ userId: schema.session.userId })
 

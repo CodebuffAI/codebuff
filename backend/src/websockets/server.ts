@@ -10,6 +10,7 @@ import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
 import { usageTracker } from '../billing/usage-tracker'
 import { debugLog } from '../util/debug'
+import { match, P } from 'ts-pattern'
 
 const SWITCHBOARD = new Switchboard()
 
@@ -78,16 +79,23 @@ async function processMessage(
           break
         }
         case 'action': {
-          const userId = SWITCHBOARD.getClient(ws).uid
-          if (!userId) {
+          const fingerprintId = match(msg.data)
+            .with(
+              {
+                fingerprintId: P.string,
+              },
+              (data) => data.fingerprintId
+            )
+            .otherwise(() => null)
+          if (!fingerprintId) {
             throw new Error('No userId found!')
           }
 
-          const withinLimit = await usageTracker.withinUsageLimit(userId)
+          const withinLimit = await usageTracker.withinUsageLimit(fingerprintId)
           if (withinLimit) {
             onWebsocketAction(ws, msg)
           } else {
-            debugLog(`Usage limit exceeded for user ${userId}`)
+            debugLog(`Usage limit exceeded for user ${fingerprintId}`)
             return {
               type: 'ack',
               txid,
@@ -95,6 +103,8 @@ async function processMessage(
               error: 'Usage limit exceeded. Please upgrade your plan.',
             }
           }
+
+          onWebsocketAction(ws, msg)
           break
         }
         default:

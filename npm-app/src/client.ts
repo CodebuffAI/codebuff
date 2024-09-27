@@ -366,13 +366,13 @@ export class Client {
     const fileContext = await getProjectFileContext([], {})
 
     return new Promise<void>((resolve) => {
-      this.webSocket.subscribe('warm-context-cache-response', () => {
+      this.webSocket.subscribe('init-response', () => {
         resolve()
       })
 
       this.webSocket
         .sendAction({
-          type: 'warm-context-cache',
+          type: 'init',
           fileContext,
           fingerprintId,
         })

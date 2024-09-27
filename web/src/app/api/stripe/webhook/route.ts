@@ -84,54 +84,49 @@ async function handleSubscriptionChange(
   try {
     await db.transaction(async (tx) => {
       // 1. Find the user based on the Stripe customer ID, and update their subscription info.
-      const userId = await tx
+      const userRes = await tx
         .update(schema.user)
         .set({
           subscriptionActive: usageTier === 'PAID',
           stripePlanId: subscription.id,
         })
         .where(eq(schema.user.stripeCustomerId, customerId))
-        .returning({ userId: schema.user.id })
+        .returning({ userId: schema.user.id, usageId: schema.user.usageId })
         .then((users) => {
           if (users.length === 1) {
-            return users[0].userId
+            return users[0]
           }
           throw new Error(`No user found for Stripe customer ID: ${customerId}`)
         })
 
-      // 2. Create or update the usage record for the user
-      const usageId = await tx
-        .insert(schema.usage)
-        .values({
-          userId,
-          limit: newLimit,
-          startDate: new Date(subscription.current_period_start * 1000),
-          endDate: new Date(subscription.current_period_end * 1000),
-          type: 'token',
-        })
-        .onConflictDoUpdate({
-          target: [schema.usage.userId, schema.usage.startDate],
-          set: {
-            limit: newLimit,
-          },
-        })
-        .returning({
-          id: schema.usage.id,
-        })
-        .then((usages) => {
-          if (usages.length === 1) {
-            return usages[0].id
-          }
-          throw new Error(`Error creating usage record userId: ${userId}`)
-        })
+      if (userRes.usageId) {
+        // Already exists, just set new limit
+        await db
+          .update(schema.usage)
+          .set({ limit: newLimit })
+          .where(eq(schema.usage.id, userRes.usageId))
+      } else {
+        // Create a new usage record from scratch
+        await db.transaction(async (tx) => {
+          const usageId = await tx
+            .insert(schema.usage)
+            .values({
+              limit: newLimit,
+              startDate: new Date(subscription.current_period_start * 1000),
+              endDate: new Date(subscription.current_period_end * 1000),
+              type: 'token',
+            })
+            .returning({ id: schema.usage.id })
+            .then((usages) => {
+              if (usages.length >= 1) {
+                return usages[0].id
+              }
+              throw new Error('Failed to create usage record')
+            })
 
-      // 3. Update the session table to link to the new usage record on all sessions containing the userId
-      await tx
-        .update(schema.session)
-        .set({
-          usageId,
+          tx.update(schema.user).set({ usageId })
         })
-        .where(eq(schema.session.userId, userId))
+      }
     })
   } catch (error) {
     console.error('Error updating subscription:', error)
