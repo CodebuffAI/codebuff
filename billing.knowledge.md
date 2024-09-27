@@ -4,6 +4,15 @@
 
 This file contains information about the billing system and usage tracking for the Manicode project.
 
+## User Status
+
+- The system tracks both authenticated and non-authenticated users.
+- In the database schema, the `subscriptionActive` field (formerly `isActive`) indicates whether a user has an active paid subscription.
+- It's important to note that a user can be actively using the system without being a paying customer.
+- The `subscriptionActive` status affects the user's usage limits and access to premium features.
+
+## User Tracking
+
 ## User Tracking
 
 - The system tracks both authenticated and non-authenticated users.

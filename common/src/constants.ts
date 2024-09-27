@@ -35,3 +35,9 @@ export const SKIPPED_TERMINAL_COMMANDS = [
 ]
 
 export const MAX_DATE = new Date(86399999999999)
+
+export const TOKEN_USAGE_LIMITS = {
+  ANON: 100,
+  FREE: 500,
+  PAID: 10000,
+}

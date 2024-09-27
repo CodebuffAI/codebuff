@@ -1,13 +1,13 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
-import Image from 'next/image';
-import { Session } from 'next-auth';
-import { signOut } from 'next-auth/react';
+import { useState } from 'react'
+import { loadStripe } from '@stripe/stripe-js'
+import Image from 'next/image'
+import { Session } from 'next-auth'
+import { signOut } from 'next-auth/react'
 
-import { Icons } from '@/components/icons';
-import { Button } from '@/components/ui/button';
+import { Icons } from '@/components/icons'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,22 +15,31 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { env } from '@/env.mjs';
+} from '@/components/ui/dropdown-menu'
+import { env } from '@/env.mjs'
+import Stripe from 'stripe'
 
 export const UserDropdown = ({ session: { user } }: { session: Session }) => {
-  const [isPending, setIsPending] = useState(false);
+  const [isPending, setIsPending] = useState(false)
 
   const handleCreateCheckoutSession = async () => {
-    setIsPending(true);
+    setIsPending(true)
 
-    const res = await fetch('/api/stripe/checkout-session');
-    const checkoutSession = await res.json().then(({ session }) => session);
-    const stripe = await loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-    await stripe!.redirectToCheckout({
+    const res = await fetch('/api/stripe/checkout-session')
+    const checkoutSession: Stripe.Response<Stripe.Checkout.Session> = await res
+      .json()
+      .then(
+        ({ session }) => session as Stripe.Response<Stripe.Checkout.Session>
+      )
+    const stripe = await loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+    if (!stripe) {
+      throw new Error('Stripe not loaded')
+    }
+
+    await stripe.redirectToCheckout({
       sessionId: checkoutSession.id,
-    });
-  };
+    })
+  }
 
   return (
     <DropdownMenu>
@@ -57,11 +66,11 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
           <h2 className="py-2 text-lg font-bold">{user?.name}</h2>
           <Button
             onClick={handleCreateCheckoutSession}
-            disabled={user?.isActive || isPending}
+            disabled={user?.subscriptionActive || isPending}
             className="w-64"
           >
-            {user?.isActive ? (
-              'You are pro!'
+            {user?.subscriptionActive ? (
+              'You are on the pro tier! much creds so wow'
             ) : (
               <>
                 {isPending && (
@@ -78,5 +87,5 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-};
+  )
+}

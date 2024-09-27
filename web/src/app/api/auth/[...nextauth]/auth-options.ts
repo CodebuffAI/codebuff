@@ -31,6 +31,11 @@ export const authOptions: NextAuthOptions = {
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id
+        session.user.subscriptionActive = user.subscriptionActive
+        session.user.image = user.image
+        session.user.name = user.name
+        session.user.email = user.email
+        session.user.stripeCustomerId = user.stripeCustomerId
       }
       return session
     },

@@ -19,7 +19,7 @@ export const user = pgTable('user', {
   password: text('password'),
   emailVerified: timestamp('emailVerified', { mode: 'date' }),
   image: text('image'),
-  isActive: boolean('isActive').notNull().default(false),
+  subscriptionActive: boolean('subscriptionActive').notNull().default(false),
   stripeCustomerId: text('stripeCustomerId').unique(),
   usage: integer('usage').notNull().default(0),
   limit: integer('limit').notNull().default(500),
