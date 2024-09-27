@@ -35,6 +35,14 @@ const runPatchTest = async (dir: string, mockFilePath: string) => {
 
 describe('generatePatch', () => {
   it(
+    'should handle function-edit-only',
+    async () => {
+      await runPatchTest(`${mockDataDir}/function-edit-only`, 'src/index.ts')
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
+
+  it(
     'should work for process-stream',
     async () => {
       await runPatchTest(
