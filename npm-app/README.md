@@ -67,4 +67,4 @@ Make sure to uninstall your existing node program. Then get this executable:
 
 ## Feedback
 
-We value your input! Please email your feedback to james@manifold.markets. Thank you for using Manicode!
+We value your input! Please email your feedback to `james@manicode.ai`. Thank you for using Manicode!
