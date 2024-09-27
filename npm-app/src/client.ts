@@ -299,12 +299,6 @@ export class Client {
 
       responseBuffer += chunk
       onChunk(chunk)
-
-      // Print a message when the response is complete, before the file changes are generated.
-      if (responseBuffer.includes(STOP_MARKER)) {
-        if (responseBuffer.includes('- Editing file: '))
-          console.log('\n\nApplying file changes. Please wait...')
-      }
     })
 
     unsubscribeComplete = this.webSocket.subscribe('response-complete', (a) => {

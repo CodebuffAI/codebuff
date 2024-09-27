@@ -39,6 +39,10 @@ async function manicode(projectDir: string | undefined) {
     )
   }
 
+  console.log('Manicode initialized successfully.')
+  console.log('Ready to assist you with your coding tasks!')
+  console.log('Type your first command to get started.') // Added this new console.log statement
+
   cli.printInitialPrompt()
 }
 

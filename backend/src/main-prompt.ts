@@ -277,6 +277,10 @@ ${STOP_MARKER}
     debugLog('Reached maximum number of iterations in mainPrompt')
   }
 
+  if (fileProcessingPromises.length > 0) {
+    onResponseChunk('\nApplying file changes. Please wait...\n')
+  }
+
   const knowledgeChanges = await genKnowledgeFilesPromise
   fileProcessingPromises.push(...knowledgeChanges)
   const changes = (await Promise.all(fileProcessingPromises)).filter(

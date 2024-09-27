@@ -305,6 +305,9 @@ export class CLI {
     for (const file of modified) {
       console.log(green(`- Updated ${file}`))
     }
+    if (created.length > 0 || modified.length > 0) {
+      console.log('\nComplete!')
+    }
     console.log()
 
     const assistantMessage: Message = {
