@@ -116,7 +116,7 @@ export function listen(server: HttpServer, path: string) {
   })
   wss.on('connection', (ws) => {
     // todo: should likely kill connections that haven't sent any ping for a long time
-    console.log('WS client connected.')
+    // console.log('WS client connected.')
     SWITCHBOARD.connect(ws)
     ws.on('message', (data) => {
       const result = processMessage(ws, data)
@@ -124,10 +124,10 @@ export function listen(server: HttpServer, path: string) {
       ws.send(JSON.stringify(result))
     })
     ws.on('close', (code, reason) => {
-      console.log(`WS client disconnected.`, {
-        code,
-        reason: reason.toString(),
-      })
+      // console.log(`WS client disconnected.`, {
+      //   code,
+      //   reason: reason.toString(),
+      // })
       SWITCHBOARD.disconnect(ws)
     })
     ws.on('error', (err) => {
