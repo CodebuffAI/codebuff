@@ -7,8 +7,10 @@ import {
   uuid,
   boolean,
   index,
+  pgEnum,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
+import { TOKEN_USAGE_LIMITS } from 'src/constants'
 
 export const user = pgTable('user', {
   id: text('id')
@@ -21,8 +23,7 @@ export const user = pgTable('user', {
   image: text('image'),
   subscriptionActive: boolean('subscriptionActive').notNull().default(false),
   stripeCustomerId: text('stripeCustomerId').unique(),
-  usage: integer('usage').notNull().default(0),
-  limit: integer('limit').notNull().default(500),
+  stripePlanId: text('stripePlanId'),
 })
 
 export const account = pgTable(
@@ -49,23 +50,30 @@ export const account = pgTable(
   })
 )
 
-export const session = pgTable(
-  'session',
-  {
-    sessionToken: text('sessionToken').notNull().primaryKey(),
-    userId: text('userId')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    expires: timestamp('expires', { mode: 'date' }).notNull(),
-    fingerprintId: text('fingerprintId'),
-    fingerprintHash: text('fingerprintHash'),
-  },
-  (table) => {
-    return {
-      nameIdx: index('fingerprintId_idx').on(table.fingerprintId),
-    }
-  }
-)
+export const usageTypeEnum = pgEnum('usageType', ['token', 'credit'])
+export type UsageType = (typeof usageTypeEnum.enumValues)[number]
+export const usage = pgTable('usage', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text('userId').references(() => user.id),
+  fingerprintId: text('fingerprintId'),
+  used: integer('used').notNull().default(0),
+  limit: integer('limit').notNull().default(TOKEN_USAGE_LIMITS.ANON),
+  type: usageTypeEnum('usageType').notNull().default('token'),
+  startDate: timestamp('startDate', { mode: 'date' }).notNull(),
+  endDate: timestamp('endDate', { mode: 'date' }).notNull(),
+})
+
+export const session = pgTable('session', {
+  sessionToken: text('sessionToken').notNull().primaryKey(),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  expires: timestamp('expires', { mode: 'date' }).notNull(),
+  usageId: text('usageId').references(() => usage.id),
+  fingerprintHash: text('fingerprintHash'),
+})
 
 export const verificationToken = pgTable(
   'verificationToken',
@@ -78,15 +86,3 @@ export const verificationToken = pgTable(
     compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
   })
 )
-
-export const fingerprint = pgTable('fingerprint', {
-  id: text('id').primaryKey(),
-  userId: text('userId').references(() => user.id),
-  sessionToken: text('sessionToken')
-    .references(() => session.sessionToken)
-    .unique(),
-  usage: integer('usage').notNull().default(0),
-  limit: integer('limit').notNull().default(100),
-  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
-  updatedAt: timestamp('updatedAt', { mode: 'date' }).notNull().defaultNow(),
-})

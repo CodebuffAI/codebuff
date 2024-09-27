@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { MAX_DATE } from 'common/src/constants'
+import { MAX_DATE, TOKEN_USAGE_LIMITS } from 'common/src/constants'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { genAuthCode } from 'common/util/credentials'
 import { env } from '@/env.mjs'
@@ -24,6 +24,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
   const session = await getServerSession(authOptions)
   const user = session?.user
 
+  // Check if values are present
   if (!authCode || !user) {
     toast({
       title: 'Uh-oh, spaghettio!',
@@ -78,7 +79,6 @@ const Onboard = async ({ searchParams }: PageProps) => {
     .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
     .where(
       and(
-        eq(schema.session.fingerprintId, fingerprintId),
         eq(schema.session.fingerprintHash, fingerprintHash),
         eq(schema.user.id, user.id)
       )
@@ -94,19 +94,40 @@ const Onboard = async ({ searchParams }: PageProps) => {
   }
 
   // Add it to the db
-  const insertResult = await db
-    .insert(schema.session)
-    .values({
-      sessionToken: crypto.randomUUID(),
-      userId: user.id,
-      expires: MAX_DATE,
-      fingerprintId,
-      fingerprintHash,
-    })
-    .returning({
-      userId: schema.session.userId,
-    })
-  if (insertResult.length > 0) {
+  const didInsert = await db.transaction(async (tx) => {
+    const usageId = await tx
+      .insert(schema.usage)
+      .values({
+        userId: user.id,
+        limit: TOKEN_USAGE_LIMITS.FREE,
+        startDate: new Date(),
+        endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+        type: 'token',
+      })
+      .returning({ id: schema.usage.id })
+      .then((usages) => {
+        if (usages.length === 1) {
+          return usages[0].id
+        }
+        throw new Error('Failed to create usage record')
+      })
+
+    const session = await tx
+      .insert(schema.session)
+      .values({
+        sessionToken: crypto.randomUUID(),
+        userId: user.id,
+        expires: MAX_DATE,
+        fingerprintHash,
+        usageId,
+      })
+      .returning({ userId: schema.session.userId })
+
+    return !!session.length
+  })
+
+  // Render the result
+  if (didInsert) {
     return CardWithBeams({
       title: 'Nicely done!',
       description:
@@ -121,7 +142,6 @@ const Onboard = async ({ searchParams }: PageProps) => {
       ),
     })
   }
-
   return CardWithBeams({
     title: 'Uh-oh, spaghettio!',
     description: 'Something went wrong.',

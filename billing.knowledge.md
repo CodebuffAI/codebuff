@@ -4,20 +4,33 @@
 
 This file contains information about the billing system and usage tracking for the Manicode project.
 
-## User Status
-
-- The system tracks both authenticated and non-authenticated users.
-- In the database schema, the `subscriptionActive` field (formerly `isActive`) indicates whether a user has an active paid subscription.
-- It's important to note that a user can be actively using the system without being a paying customer.
 - The `subscriptionActive` status affects the user's usage limits and access to premium features.
 
 ## User Tracking
 
-## User Tracking
-
 - The system tracks both authenticated and non-authenticated users.
-- Non-authenticated users are initially tracked using a `fingerprints` table.
-- Authenticated users are tracked using the `user` table.
+
+- Usage tracking is now focused on authenticated users only.
+- The `usage` table in the database is the single source of truth for usage data.
+- Only authenticated users have entries in the `usage` table.
+- Anonymous users have their usage capped at a set amount without being tracked in the database.
+- This approach simplifies the system and is considered a good trade-off because:
+  1. Logging in is easy for users.
+  2. The system only needs to manage usage for users who have actually logged in.
+  3. It reduces database complexity and potential issues with merging anonymous and authenticated usage.
+- After each backend response to a user, usage is re-calculated and stored in the `usage` table for authenticated users.
+- For anonymous users, usage is tracked in-memory and capped at a predefined limit.
+- Both authenticated and anonymous users have usage limits.
+- Authenticated users' limits are stored in the `usage` table.
+- Anonymous users' limits are defined by a constant (e.g., `TOKEN_USAGE_LIMITS.ANON`).
+
+## User Status
+
+- In the database schema, the `subscriptionActive` field (formerly `isActive`) indicates whether a user has an active paid subscription.
+- It's important to note that a user can be actively using the system without being a paying customer.
+- The system tracks both authenticated and non-authenticated users.
+- Non-authenticated users are considered anonymous and their usage is capped to a set amount.
+- Authenticated users are tracked using the `user` table and have their usage recorded in the `usage` table.
 
 ## Usage Tracking
 
@@ -25,105 +38,40 @@ This file contains information about the billing system and usage tracking for t
 - Both Anthropic and OpenAI provide the total tokens used when generating a response, which we use for accurate tracking.
   - Anthropic outputs input tokens at the beginning of each response, and output tokens at the end.
   - OpenAI outputs the total tokens used at the end of the response.
-- Usage is tracked using a combined approach:
-  - The system queries both the `fingerprints` and `user` tables.
-  - Token usage is combined from both tables to get the total usage.
-  - The higher limit between the two tables is used as the effective limit.
+- Usage is tracked only for authenticated users in the `usage` table.
+- Anonymous users have their usage capped to a predefined limit without being recorded in the database.
+
+## Database Schema for Usage Tracking
+
+- The `usage` table is the single source of truth for usage data of authenticated users.
+- The `usage` table uses `userId` as the primary key.
+- This design allows for efficient tracking of usage for registered users.
+- Anonymous users' usage is not persisted in the database but is capped to a set amount.
 
 ## Usage Calculation
 
-- After each backend response to a user, usage is re-calculated and stored in the appropriate table(s).
-- For users transitioning from non-authenticated to authenticated status, both fingerprint and user data are considered.
-- A new `usage` action is sent to the client after each usage calculation.
+- After each backend response to an authenticated user, usage is re-calculated and stored in the `usage` table.
+- For anonymous users, usage is calculated in-memory and capped to a predefined limit.
 
 ## Usage Limits
 
-- Both fingerprint and user records have a `limit` field that sets the token usage limit.
-- When checking limits, the system uses the higher limit between the fingerprint and user records.
-- The default limit should be set appropriately in both tables.
-- The `checkUsageLimit` method in the `UsageTracker` class enforces these limits, considering both fingerprint and user data.
+- Both anonymous and authenticated users have usage limits.
+- Anonymous users have a fixed, lower usage limit.
+- Authenticated users' limits are stored in the `usage` table and can vary based on their subscription status.
 
-## User Alerts (npm-app)
+## User Alerts
 
 - Alerts are triggered at 25%, 50%, and 75% of total usage on the current tier. When 100% usage is exceeded, users are notified they can no longer use the service without payment. A link to the pricing page is provided when these thresholds are reached.
-- These alerts apply to both authenticated and non-authenticated users.
+- These alerts apply to both anonymous and authenticated users.
 
 ## Initial Usage Check
 
-- When the app loads, a database check is performed to determine approximate credit usage, using both the `user` and `fingerprints` tables as appropriate.
-- This feature can be easily enabled/disabled using an environment variable or feature flag.
+- When the app loads for an authenticated user, a database check is performed to determine approximate credit usage.
+- For anonymous users, no initial database check is needed as their usage is not persisted.
 
 ## Subscription Handling
 
-- Upon user subscription, the backend is notified to update the user's `pricingPlanId` field and number of credits granted in the database.
-- When a non-authenticated user authenticates, their usage data should be considered alongside their new user account data.
+- Upon user subscription, the backend is notified to update the user's `pricingPlanId` field and number of credits granted in the `usage` table.
+- When a non-authenticated user authenticates, a new usage record is created in the `usage` table.
 
-## Implementation Notes
-
-- Use the token count provided by Anthropic and OpenAI APIs for accurate usage tracking.
-- Implement a join query that combines data from both `fingerprints` and `user` tables.
-- Update the appropriate row(s) in the database after each API request to reflect the latest usage.
-- Implement usage checking before processing requests, considering both fingerprint and user data.
-- Ensure proper error handling and user notification in the npm-app for usage limits.
-- Consider caching strategies for user/fingerprint tier information to optimize performance.
-- Implement a robust system for tracking and updating usage across multiple requests, considering both authenticated and non-authenticated states.
-- Ensure the pricing page link is easily accessible when usage limits are reached.
-- Add a `usage` action type to the WebSocket message schema.
-- Implement a mechanism to prevent showing the same usage alert multiple times, only updating when a new threshold is crossed.
-- Implement atomic updates for token usage to prevent race conditions and ensure accurate tracking.
-- Use efficient querying methods when retrieving records to optimize database operations.
-- Track input tokens from Claude at the beginning of each message (message type `message_start`) using the `usageTracker.trackTokens` function.
-
-## Usage Tracking Logic
-
-The `UsageTracker` class implements the following logic:
-
-1. Query both `user` and `fingerprints` tables:
-
-   - Join the tables based on the fingerprintId and userId.
-   - Combine the usage from both tables.
-   - Use the higher limit between the two tables.
-
-2. When tracking tokens:
-
-   - Update the `usage` in both tables as appropriate.
-
-3. When checking usage limits:
-
-   - Compare the combined `usage` against the higher `limit` from both tables.
-
-4. When a user authenticates:
-   - Maintain the fingerprint record but associate it with the user.
-   - Consider both records for future usage tracking and limit checking.
-
-This updated structure ensures that usage is tracked and limited correctly for both authenticated and non-authenticated users, addressing the issue of users potentially exceeding limits when using multiple devices or transitioning between authenticated states.
-
-## Atomic Updates
-
-When updating the `usage` field, it's crucial to use atomic operations to prevent race conditions and ensure accurate tracking. This is particularly important in a system where multiple requests might be updating the usage simultaneously.
-
-Example of an atomic update in SQL:
-
-```sql
-UPDATE table_name
-SET tokenUsage = tokenUsage + :new_tokens
-WHERE id = :id
-```
-
-## Efficient Querying
-
-When retrieving records, use efficient querying methods to optimize database operations. For example, use joins and subqueries effectively to minimize the number of database calls:
-
-```typescript
-const result = await db
-  .select({
-    combinedUsage: sql`COALESCE(f.tokenUsage, 0) + COALESCE(u.tokenUsage, 0)`,
-    effectiveLimit: sql`GREATEST(COALESCE(f.limit, 0), COALESCE(u.limit, 0))`,
-  })
-  .from(schema.fingerprint.as('f'))
-  .leftJoin(schema.user.as('u'), eq(schema.fingerprint.userId, schema.user.id))
-  .where(eq(schema.fingerprint.id, fingerprintId))
-  .limit(1)
-```
-
-This approach reduces the amount of data transferred and processed, potentially improving performance, especially as the database grows.
+This updated structure ensures that usage is tracked and limited correctly for both authenticated and anonymous users, addressing the simplified approach of capping anonymous usage and only persisting data for authenticated users.

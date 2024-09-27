@@ -81,10 +81,62 @@ async function handleSubscriptionChange(
     )
     .exhaustive()
 
-  await db
-    .update(schema.user)
-    .set({ subscriptionActive: usageTier === 'ANON', limit: newLimit })
-    .where(eq(schema.user.stripeCustomerId, customerId))
+  try {
+    await db.transaction(async (tx) => {
+      // 1. Find the user based on the Stripe customer ID, and update their subscription info.
+      const userId = await tx
+        .update(schema.user)
+        .set({
+          subscriptionActive: usageTier === 'PAID',
+          stripePlanId: subscription.id,
+        })
+        .where(eq(schema.user.stripeCustomerId, customerId))
+        .returning({ userId: schema.user.id })
+        .then((users) => {
+          if (users.length === 1) {
+            return users[0].userId
+          }
+          throw new Error(`No user found for Stripe customer ID: ${customerId}`)
+        })
+
+      // 2. Create or update the usage record for the user
+      const usageId = await tx
+        .insert(schema.usage)
+        .values({
+          userId,
+          limit: newLimit,
+          startDate: new Date(subscription.current_period_start * 1000),
+          endDate: new Date(subscription.current_period_end * 1000),
+          type: 'token',
+        })
+        .onConflictDoUpdate({
+          target: [schema.usage.userId, schema.usage.startDate],
+          set: {
+            limit: newLimit,
+          },
+        })
+        .returning({
+          id: schema.usage.id,
+        })
+        .then((usages) => {
+          if (usages.length === 1) {
+            return usages[0].id
+          }
+          throw new Error(`Error creating usage record userId: ${userId}`)
+        })
+
+      // 3. Update the session table to link to the new usage record on all sessions containing the userId
+      await tx
+        .update(schema.session)
+        .set({
+          usageId,
+        })
+        .where(eq(schema.session.userId, userId))
+    })
+  } catch (error) {
+    console.error('Error updating subscription:', error)
+    throw error
+  }
 }
 
 export { webhookHandler as POST }

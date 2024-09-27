@@ -15,6 +15,13 @@
       "when": 1727224698676,
       "tag": "0001_fuzzy_typhoid_mary",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1727431451771,
+      "tag": "0002_milky_titanium_man",
+      "breakpoints": true
     }
   ]
 }
