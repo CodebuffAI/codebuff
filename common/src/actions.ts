@@ -150,5 +150,10 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     fingerprintHash: z.string(),
     loginUrl: z.string().url(),
   }),
+  z.object({
+    type: z.literal('usage'),
+    usage: z.number(),
+    limit: z.number(),
+  }),
 ])
 export type ServerAction = z.infer<typeof SERVER_ACTION_SCHEMA>

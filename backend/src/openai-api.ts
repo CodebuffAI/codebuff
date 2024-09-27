@@ -3,6 +3,7 @@ import { RATE_LIMIT_POLICY } from './constants'
 import { STOP_MARKER } from 'common/constants'
 import { Stream } from 'openai/streaming'
 import { env } from './env.mjs'
+import { usageTracker } from './billing/usage-tracker'
 
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -51,7 +52,9 @@ export async function promptOpenAI(
       response.choices.length > 0 &&
       response.choices[0].message
     ) {
-      return response.choices[0].message.content || ''
+      const content = response.choices[0].message.content || ''
+      usageTracker.addTokens(userId, response.usage?.total_tokens || 0)
+      return content
     } else {
       throw new Error('No response from OpenAI')
     }
@@ -103,6 +106,9 @@ export async function promptOpenAIWithContinuation(
           messages: messagesWithContinuedMessage,
           stream: true,
           temperature: 0,
+          stream_options: {
+            include_usage: true,
+          },
         }),
         timeoutPromise(120000) as Promise<
           Stream<OpenAI.Chat.Completions.ChatCompletionChunk>
@@ -112,6 +118,10 @@ export async function promptOpenAIWithContinuation(
       for await (const chunk of stream) {
         if (chunk.choices[0]?.delta?.content) {
           fullResponse += chunk.choices[0].delta.content
+        }
+
+        if (chunk.usage) {
+          usageTracker.addTokens(userId, chunk.usage.total_tokens)
         }
       }
 

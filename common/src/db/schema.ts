@@ -21,6 +21,8 @@ export const user = pgTable('user', {
   image: text('image'),
   isActive: boolean('isActive').notNull().default(false),
   stripeCustomerId: text('stripeCustomerId').unique(),
+  usage: integer('usage').notNull().default(0),
+  limit: integer('limit').notNull().default(500),
 })
 
 export const account = pgTable(
@@ -76,3 +78,15 @@ export const verificationToken = pgTable(
     compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
   })
 )
+
+export const fingerprint = pgTable('fingerprint', {
+  id: text('id').primaryKey(),
+  userId: text('userId').references(() => user.id),
+  sessionToken: text('sessionToken')
+    .references(() => session.sessionToken)
+    .unique(),
+  usage: integer('usage').notNull().default(0),
+  limit: integer('limit').notNull().default(100),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).notNull().defaultNow(),
+})

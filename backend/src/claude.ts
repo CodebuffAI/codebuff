@@ -6,6 +6,7 @@ import { STOP_MARKER } from 'common/constants'
 import { debugLog } from './util/debug'
 import { RATE_LIMIT_POLICY } from './constants'
 import { env } from './env.mjs'
+import { usageTracker } from './billing/usage-tracker'
 
 export const models = {
   sonnet: 'claude-3-5-sonnet-20240620' as const,
@@ -110,9 +111,14 @@ export const promptClaudeStream = async function* (
       console.error('tried to yield tool call', name, id, input)
       // yield { name, id, input }
     }
-    // if (type === 'message_start') {
-    //   console.log('message start', chunk)
-    // }
+    if (type === 'message_delta' && chunk.delta.stop_reason === 'end_turn') {
+      const totalTokens = chunk.usage.output_tokens
+      usageTracker.addTokens(options.userId, totalTokens)
+    }
+    if (type === 'message_start') {
+      const inputTokens = chunk.message.usage.input_tokens
+      usageTracker.addTokens(options.userId, inputTokens)
+    }
   }
 }
 

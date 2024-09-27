@@ -27,13 +27,13 @@ Manicode implements a secure authentication flow that involves the npm-app (CLI)
 
 4. Credential Verification:
 
-   - After OAuth, the browser calls the backend with the auth code and user credentials.
-   - Backend verifies the hash using received values.
-   - Backend stores the `fingerprintId` with the user row in the database.
+   - After OAuth, the browser calls the `app/onboard` server component with the auth code and user credentials.
+   - The server component verifies the hash using received values and stores the `fingerprintId` + hash in a new session row in the database.
 
 5. Session Establishment:
-   - Backend sends a WebSocket message to the CLI connected on the same `fingerprintId`, containing user data.
-   - Alternatively, backend sends user credentials to the user's CLI via WebSockets.
+   - npm-app sends a WebSocket message every few seconds to the backend to check for a session with the same `fingerprintId` and hash.
+   - If a matching session is found, the backend sends the user's credentials to the CLI via WebSockets.
+   - npm-app saves the credentials locally.
 
 ## Security Considerations
 

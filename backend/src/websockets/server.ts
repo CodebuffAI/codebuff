@@ -8,6 +8,8 @@ import {
 } from 'common/websockets/websocket-schema'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
+import { usageTracker } from '../billing/usage-tracker'
+import { debugLog } from '../util/debug'
 
 const SWITCHBOARD = new Switchboard()
 
@@ -50,7 +52,10 @@ function parseMessage(data: RawData): ClientMessage {
   }
 }
 
-function processMessage(ws: WebSocket, data: RawData): ServerMessage<'ack'> {
+async function processMessage(
+  ws: WebSocket,
+  data: RawData
+): Promise<ServerMessage<'ack'>> {
   try {
     const msg = parseMessage(data)
     const { type, txid } = msg
@@ -73,7 +78,23 @@ function processMessage(ws: WebSocket, data: RawData): ServerMessage<'ack'> {
           break
         }
         case 'action': {
-          onWebsocketAction(ws, msg)
+          const userId = SWITCHBOARD.getClient(ws).uid
+          if (!userId) {
+            throw new Error('No userId found!')
+          }
+
+          const withinLimit = await usageTracker.withinUsageLimit(userId)
+          if (withinLimit) {
+            onWebsocketAction(ws, msg)
+          } else {
+            debugLog(`Usage limit exceeded for user ${userId}`)
+            return {
+              type: 'ack',
+              txid,
+              success: false,
+              error: 'Usage limit exceeded. Please upgrade your plan.',
+            }
+          }
           break
         }
         default:
@@ -118,8 +139,8 @@ export function listen(server: HttpServer, path: string) {
     // todo: should likely kill connections that haven't sent any ping for a long time
     // console.log('WS client connected.')
     SWITCHBOARD.connect(ws)
-    ws.on('message', (data) => {
-      const result = processMessage(ws, data)
+    ws.on('message', async (data) => {
+      const result = await processMessage(ws, data)
       // mqp: check ws.readyState before sending?
       ws.send(JSON.stringify(result))
     })

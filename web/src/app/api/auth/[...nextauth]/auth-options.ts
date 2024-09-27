@@ -50,7 +50,6 @@ export const authOptions: NextAuthOptions = {
   },
   events: {
     createUser: async ({ user }) => {
-      console.log('createUser', user)
       if (!user.email || !user.name) return
       await stripeServer.customers
         .create({

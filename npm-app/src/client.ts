@@ -1,4 +1,4 @@
-import { yellow } from 'picocolors'
+import { yellow, red } from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
   getFiles,
@@ -18,6 +18,7 @@ import { spawn } from 'child_process'
 import path from 'path'
 import * as fs from 'fs'
 import { sleep } from 'common/util/helpers'
+import { match, P } from 'ts-pattern'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -25,6 +26,7 @@ export class Client {
   private currentUserInputId: string | undefined
   public user: User | undefined
   private returnControlToUser: () => void
+  private lastAlertedPercentage: number = 0
 
   constructor(
     websocketUrl: string,
@@ -141,7 +143,6 @@ export class Client {
         )
       }
     })
-
     let shouldRequestLogin = false
     this.webSocket.subscribe(
       'login-code-response',
@@ -205,6 +206,46 @@ export class Client {
         console.warn(
           `Authentication failed: ${action.message}. Please try again in a few minutes or contact support.`
         )
+      }
+    })
+
+    this.webSocket.subscribe('usage', (action) => {
+      const { usage, limit } = action
+      const percentage = Math.floor((usage / limit) * 100)
+
+      if (percentage > this.lastAlertedPercentage) {
+        match(percentage)
+          .with(P.number.gte(100), () => {
+            console.error(
+              red(
+                'You have reached your monthly usage limit. You must upgrade your plan to continue using the service.'
+              )
+            )
+          })
+          .with(P.number.gte(75), () => {
+            console.warn(
+              yellow('You have used 75% of your monthly usage limit.')
+            )
+          })
+          .with(P.number.gte(50), () => {
+            console.warn(
+              yellow('You have used 50% of your monthly usage limit.')
+            )
+          })
+          .with(P.number.gte(25), () => {
+            console.warn(
+              yellow('You have used 25% of your monthly usage limit.')
+            )
+          })
+          .otherwise(() => {
+            return
+          })
+        console.warn(
+          yellow(
+            'Visit our pricing page to upgrade: https://manicode.ai/pricing'
+          )
+        )
+        this.lastAlertedPercentage = percentage
       }
     })
   }
