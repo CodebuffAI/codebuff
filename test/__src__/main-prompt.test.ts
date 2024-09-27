@@ -49,3 +49,6 @@ describe('processFileBlock', () => {
     expect(mockRequestFile).toHaveBeenCalledWith(mockWs, filePath)
   })
 })
+
+
+// TODO: Add a test to run a terminal command 10 separate times and see that it only runs 3 times.

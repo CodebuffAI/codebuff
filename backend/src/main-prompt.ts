@@ -7,7 +7,7 @@ import { promptClaudeStream } from './claude'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
-import { STOP_MARKER } from 'common/constants'
+import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
 import { FileChange, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './util/debug'
@@ -77,7 +77,10 @@ export async function mainPrompt(
   }
 
   const lastUserMessageIndex = messages.findLastIndex(
-    (message) => message.role === 'user' && typeof message.content === 'string'
+    (message) =>
+      message.role === 'user' &&
+      typeof message.content === 'string' &&
+      !message.content.includes(TOOL_RESULT_MARKER)
   )
   const numAssistantMessages = messages
     .slice(lastUserMessageIndex)
