@@ -3,7 +3,7 @@ import { FileChange, Message } from 'common/actions'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { processFileBlock } from './main-prompt'
 import { promptClaude } from './claude'
-import { getProjectFileTreePrompt, getRelevantFilesPrompt, knowledgeFilesPrompt } from './system-prompt'
+import { getSearchSystemPrompt, knowledgeFilesPrompt } from './system-prompt'
 import { debugLog } from './util/debug'
 import { env } from './env.mjs'
 
@@ -24,8 +24,12 @@ export async function generateKnowledgeFiles(
       initialMessages,
     })
   }
-  const systemPrompt = `
-    You are an assistant that helps developers create knowledge files for their codebase. You are helpful and concise, knowing exactly when enough information has been gathered to create a knowledge file. Here's some more information on knowledge files:
+  const searchSystemPrompt = getSearchSystemPrompt(fileContext)
+  const systemPrompt = [
+    ...searchSystemPrompt,
+    {
+      type: 'text' as const,
+      text: `You are an assistant that helps developers create knowledge files for their codebase. You are helpful and concise, knowing exactly when enough information has been gathered to create a knowledge file. Here's some more information on knowledge files:
     ${knowledgeFilesPrompt}
 
     In this conversation, the assistant and user are making changes to a codebase. You should use this chat history to create a knowledge file if their changes are meaningful. If their changes are not meaningful, you should not create/update a knowledge file.
@@ -44,15 +48,10 @@ export async function generateKnowledgeFiles(
     
     Do not include any code or other files in the knowledge file. Make the most minimal changes necessary to the files to ensure the information is captured.
     </important>
+    `.trim(),
+    },
+  ]
 
-
-    Here's the project file tree:
-    ${getProjectFileTreePrompt(fileContext)}
-
-    Here are some relevant files and code diffs that you should consider: 
-    ${getRelevantFilesPrompt(fileContext)}
-    
-    `
   const userPrompt = `    
     Think before you write the knowledge file in <thinking> tags. Use that space to think about why the change is important and what it means for the project, and verify that we don't already have something similar in the existing knowledge files. Make sure to show your work!
 
