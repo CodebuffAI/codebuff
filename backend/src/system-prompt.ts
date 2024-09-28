@@ -5,8 +5,9 @@ import {
   printFileTreeWithTokens,
 } from 'common/util/file'
 import { buildArray } from 'common/util/array'
+import { truncateString } from 'common/util/string'
 import { STOP_MARKER } from 'common/constants'
-import { countTokens, countTokensForFiles } from './util/token-counter'
+import { countTokensForFiles, countTokensJson } from './util/token-counter'
 import { debugLog } from './util/debug'
 import { sortBy, sum } from 'lodash'
 import { filterObject } from 'common/util/object'
@@ -35,6 +36,8 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
       ].join('\n\n'),
     }
   )
+
+  debugLog('search system prompt tokens', countTokensJson(systemPrompt))
 
   return systemPrompt
 }
@@ -76,6 +79,8 @@ export const getAgentSystemPrompt = (
       ).join('\n\n'),
     }
   )
+
+  debugLog('agent system prompt tokens', countTokensJson(systemPrompt))
 
   return systemPrompt
 }
@@ -238,7 +243,7 @@ export const getProjectFileTreePrompt = (fileContext: ProjectFileContext) => {
   const { currentWorkingDirectory } = fileContext
   const { printedTree } = truncateFileTreeBasedOnTokenBudget(
     fileContext,
-    60_000
+    80_000
   )
   return `
 # Project file tree
@@ -316,22 +321,23 @@ const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
   if (!gitChanges) {
     return ''
   }
+  const maxLength = 30_000
   return `
 Current Git Changes:
 <git_status>
-${gitChanges.status}
+${truncateString(gitChanges.status, maxLength / 10)}
 </git_status>
 
 <git_diff>
-${gitChanges.diff}
+${truncateString(gitChanges.diff, maxLength)}
 </git_diff>
 
 <git_diff_cached>
-${gitChanges.diffCached}
+${truncateString(gitChanges.diffCached, maxLength)}
 </git_diff_cached>
 
 <git_commit_messages_most_recent_first>
-${gitChanges.lastCommitMessages}
+${truncateString(gitChanges.lastCommitMessages, maxLength / 10)}
 </git_commit_messages_most_recent_first>
 `.trim()
 }
@@ -408,14 +414,14 @@ const truncateFileTreeBasedOnTokenBudget = (
 ) => {
   const { fileTree, fileTokenScores } = fileContext
   const treeWithTokens = printFileTreeWithTokens(fileTree, fileTokenScores)
-  const treeWithTokensCount = countTokens(treeWithTokens)
+  const treeWithTokensCount = countTokensJson(treeWithTokens)
 
   if (treeWithTokensCount <= tokenBudget) {
     return { printedTree: treeWithTokens, tokenCount: treeWithTokensCount }
   }
 
   const tree = printFileTree(fileTree)
-  const treeTokenCount = countTokens(tree)
+  const treeTokenCount = countTokensJson(tree)
 
   if (treeTokenCount <= tokenBudget) {
     let frac = 1
@@ -429,7 +435,7 @@ const truncateFileTreeBasedOnTokenBudget = (
         fileTree,
         fileTokenScoresSubset
       )
-      const tokenCount = countTokens(printedTree)
+      const tokenCount = countTokensJson(printedTree)
 
       if (tokenCount <= tokenBudget) {
         return { printedTree, tokenCount }
@@ -441,7 +447,7 @@ const truncateFileTreeBasedOnTokenBudget = (
       file.type === 'directory' ? { ...file, children: [] } : file
     )
     const printedTree = printFileTree(truncatedTree)
-    const tokenCount = countTokens(printedTree)
+    const tokenCount = countTokensJson(printedTree)
     return { printedTree, tokenCount }
   }
 
