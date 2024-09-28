@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { env } from '@/env.mjs'
-import { stripeServer } from '@/lib/stripe'
+import { stripeServer } from 'common/src/util/stripe'
 
 export const GET = async () => {
   const session = await getServerSession(authOptions)
@@ -22,7 +22,7 @@ export const GET = async () => {
 
   const checkoutSession = await stripeServer.checkout.sessions.create({
     mode: 'subscription',
-    customer: session.user.stripeCustomerId,
+    customer: session.user.stripe_customer_id,
     line_items: [
       {
         price: env.STRIPE_SUBSCRIPTION_PRICE_ID,

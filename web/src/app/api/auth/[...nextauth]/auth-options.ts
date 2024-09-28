@@ -3,12 +3,13 @@ import GitHubProvider from 'next-auth/providers/github'
 import { DrizzleAdapter } from '@auth/drizzle-adapter'
 
 import { env } from '@/env.mjs'
-import { stripeServer } from '@/lib/stripe'
+import { stripeServer } from 'common/src/util/stripe'
 import db from 'common/src/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { Adapter } from 'next-auth/adapters'
 import { parse, format } from 'url'
+import { CREDITS_USAGE_LIMITS } from 'common/constants'
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {
@@ -31,11 +32,11 @@ export const authOptions: NextAuthOptions = {
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id
-        session.user.subscriptionActive = user.subscriptionActive
+        session.user.subscription_active = user.subscription_active
         session.user.image = user.image
         session.user.name = user.name
         session.user.email = user.email
-        session.user.stripeCustomerId = user.stripeCustomerId
+        session.user.stripe_customer_id = user.stripe_customer_id
       }
       return session
     },
@@ -60,12 +61,17 @@ export const authOptions: NextAuthOptions = {
         .create({
           email: user.email,
           name: user.name,
+          metadata: {
+            user_id: user.id,
+            quota: CREDITS_USAGE_LIMITS.FREE,
+          },
         })
         .then(async (customer) => {
           return db
             .update(schema.user)
             .set({
-              stripeCustomerId: customer.id,
+              stripe_customer_id: customer.id,
+              quota_exceeded: false,
             })
             .where(eq(schema.user.id, user.id))
         })

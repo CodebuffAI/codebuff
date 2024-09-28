@@ -3,11 +3,28 @@ import Stripe from 'stripe'
 import { eq } from 'drizzle-orm'
 
 import { env } from '@/env.mjs'
-import { stripeServer } from '@/lib/stripe'
+import { stripeServer } from 'common/src/util/stripe'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { TOKEN_USAGE_LIMITS } from 'common/constants'
+import { CREDITS_USAGE_LIMITS } from 'common/constants'
 import { match, P } from 'ts-pattern'
+
+const getCustomerId = (
+  customer: string | Stripe.Customer | Stripe.DeletedCustomer
+) => {
+  return match(customer)
+    .with(
+      // string ID case
+      P.string,
+      (id) => id
+    )
+    .with(
+      // Customer or DeletedCustomer case
+      { object: 'customer' },
+      (customer) => customer.id
+    )
+    .exhaustive()
+}
 
 const webhookHandler = async (req: NextRequest) => {
   try {
@@ -33,8 +50,6 @@ const webhookHandler = async (req: NextRequest) => {
       )
     }
 
-    const subscription = event.data.object as Stripe.Subscription
-
     switch (event.type) {
       case 'customer.created':
         // Misnomer; we always create a customer when a user signs up.
@@ -42,10 +57,13 @@ const webhookHandler = async (req: NextRequest) => {
         break
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
-        await handleSubscriptionChange(subscription, 'PAID')
+        await handleSubscriptionChange(event.data.object, 'PAID')
         break
       case 'customer.subscription.deleted':
-        await handleSubscriptionChange(subscription, 'FREE')
+        await handleSubscriptionChange(event.data.object, 'FREE')
+        break
+      case 'invoice.paid':
+        await handleInvoicePaid(event)
         break
       default:
         console.log(`Unhandled event type ${event.type}`)
@@ -65,73 +83,55 @@ const webhookHandler = async (req: NextRequest) => {
 
 async function handleSubscriptionChange(
   subscription: Stripe.Subscription,
-  usageTier: keyof typeof TOKEN_USAGE_LIMITS
+  usageTier: keyof typeof CREDITS_USAGE_LIMITS
 ) {
-  const newLimit = TOKEN_USAGE_LIMITS[usageTier]
-  const customerId = match(subscription.customer)
-    .with(
-      // string ID case
-      P.string,
-      (id) => id
-    )
-    .with(
-      // Customer or DeletedCustomer case
-      { object: 'customer' },
-      (customer) => customer.id
-    )
-    .exhaustive()
-
-  try {
-    await db.transaction(async (tx) => {
-      // 1. Find the user based on the Stripe customer ID, and update their subscription info.
-      const userRes = await tx
-        .update(schema.user)
-        .set({
-          subscriptionActive: usageTier === 'PAID',
-          stripePlanId: subscription.id,
-        })
-        .where(eq(schema.user.stripeCustomerId, customerId))
-        .returning({ userId: schema.user.id, usageId: schema.user.usageId })
-        .then((users) => {
-          if (users.length === 1) {
-            return users[0]
-          }
-          throw new Error(`No user found for Stripe customer ID: ${customerId}`)
-        })
-
-      if (userRes.usageId) {
-        // Already exists, just set new limit
-        await db
-          .update(schema.usage)
-          .set({ limit: newLimit })
-          .where(eq(schema.usage.id, userRes.usageId))
-      } else {
-        // Create a new usage record from scratch
-        await db.transaction(async (tx) => {
-          const usageId = await tx
-            .insert(schema.usage)
-            .values({
-              limit: newLimit,
-              startDate: new Date(subscription.current_period_start * 1000),
-              endDate: new Date(subscription.current_period_end * 1000),
-              type: 'token',
-            })
-            .returning({ id: schema.usage.id })
-            .then((usages) => {
-              if (usages.length >= 1) {
-                return usages[0].id
-              }
-              throw new Error('Failed to create usage record')
-            })
-
-          tx.update(schema.user).set({ usageId })
-        })
-      }
+  const customerId = getCustomerId(subscription.customer)
+  await db
+    .update(schema.user)
+    .set({
+      // TODO: check Stripe to see if they actually exceeded quota, but for now it's fine to just trust them
+      // A good indicator that we've created compelling value is if people are subscribing and unsubscribing just to get some more free usage
+      quota_exceeded: false,
+      subscription_active: usageTier === 'PAID',
+      stripe_price_id: subscription.id,
     })
-  } catch (error) {
-    console.error('Error updating subscription:', error)
-    throw error
+    .where(eq(schema.user.stripe_customer_id, customerId))
+
+  // update stripe customer metadata
+  await stripeServer.customers.update(customerId, {
+    metadata: {
+      quota: CREDITS_USAGE_LIMITS[usageTier],
+    },
+  })
+}
+
+async function handleInvoicePaid(invoicePaid: Stripe.InvoicePaidEvent) {
+  const customer = invoicePaid.data.object.customer
+
+  if (!customer) {
+    throw new Error('No customer found in invoice paid event')
   }
+
+  const customerId = getCustomerId(customer)
+  const subscriptionId = match(invoicePaid.data.object.subscription)
+    .with(P.string, (id) => id)
+    .with({ object: 'subscription' }, (subscription) => subscription.id)
+    .otherwise(() => null)
+
+  // thirty days from now
+  // const default_next_quota_reset = new Date().getTime() + 30 * 24 * 60 * 60 * 1000
+
+  await db
+    .update(schema.user)
+    .set({
+      quota_exceeded: false,
+      // next_quota_reset: new Date(
+      //   invoicePaid.data.object.next_payment_attempt ?? default_next_quota_reset
+      // ),
+      subscription_active: true,
+      stripe_price_id: subscriptionId,
+    })
+    .where(eq(schema.user.stripe_customer_id, customerId))
 }
 
 export { webhookHandler as POST }

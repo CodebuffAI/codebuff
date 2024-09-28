@@ -8,7 +8,7 @@ import { debugLog } from './util/debug'
 import { env } from './env.mjs'
 
 export async function generateKnowledgeFiles(
-  userId: string,
+  fingerprintId: string,
   ws: WebSocket,
   fullResponse: string,
   fileContext: ProjectFileContext,
@@ -96,7 +96,7 @@ export async function generateKnowledgeFiles(
   ]
 
   const response = await promptClaude(messages, {
-    userId,
+    fingerprintId,
     system: systemPrompt,
   })
 
@@ -108,7 +108,7 @@ export async function generateKnowledgeFiles(
   const fileChangePromises = Object.entries(files).map(
     ([filePath, fileContent]) =>
       processFileBlock(
-        userId,
+        fingerprintId,
         ws,
         messages,
         fullResponse,

@@ -3,20 +3,20 @@ import { RATE_LIMIT_POLICY } from './constants'
 import { STOP_MARKER } from 'common/constants'
 import { Stream } from 'openai/streaming'
 import { env } from './env.mjs'
-import { usageTracker } from './billing/usage-tracker'
+import { saveMessage } from './billing/message'
 
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
 let openai: OpenAI | null = null
 
-const getOpenAI = (userId: string) => {
+const getOpenAI = (fingerprintId: string) => {
   if (!openai) {
     openai = new OpenAI({
       apiKey: env.OPEN_AI_KEY,
       baseURL: 'https://oai.helicone.ai/v1',
       defaultHeaders: {
         'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
-        'Helicone-User-Id': userId,
+        'Helicone-User-Id': fingerprintId,
         'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
         // 'Helicone-LLM-Security-Enabled': 'true',
       },
@@ -32,11 +32,12 @@ const timeoutPromise = (ms: number) =>
   )
 
 export async function promptOpenAI(
-  userId: string,
+  fingerprintId: string,
   messages: OpenAIMessage[],
-  model: string
+  model: string,
+  userId?: string
 ) {
-  const openai = getOpenAI(userId)
+  const openai = getOpenAI(fingerprintId)
   try {
     const response = await Promise.race([
       openai.chat.completions.create({
@@ -53,7 +54,18 @@ export async function promptOpenAI(
       response.choices[0].message
     ) {
       const content = response.choices[0].message.content || ''
-      usageTracker.addTokens(userId, response.usage?.total_tokens || 0)
+      const messageId = response.id
+      saveMessage({
+        messageId,
+        userId,
+        fingerprintId,
+        model,
+        request: messages,
+        response: content,
+        inputTokens: response.usage?.prompt_tokens || 0,
+        outputTokens: response.usage?.completion_tokens || 0,
+        finishedAt: new Date(),
+      })
       return content
     } else {
       throw new Error('No response from OpenAI')
@@ -71,9 +83,9 @@ export async function promptOpenAI(
 
 export async function promptOpenAIWithContinuation(
   messages: OpenAIMessage[],
-  options: { model: string; userId: string }
+  options: { model: string; fingerprintId: string; userId?: string }
 ) {
-  const { model, userId } = options
+  const { model, fingerprintId, userId } = options
   let fullResponse = ''
   let continuedMessage: OpenAIMessage | null = null
   let isComplete = false
@@ -92,7 +104,7 @@ export async function promptOpenAIWithContinuation(
     })
   }
 
-  const openai = getOpenAI(userId)
+  const openai = getOpenAI(fingerprintId)
 
   while (!isComplete) {
     const messagesWithContinuedMessage = continuedMessage
@@ -121,7 +133,18 @@ export async function promptOpenAIWithContinuation(
         }
 
         if (chunk.usage) {
-          usageTracker.addTokens(userId, chunk.usage.total_tokens)
+          const messageId = chunk.id
+          saveMessage({
+            messageId,
+            userId,
+            fingerprintId,
+            model,
+            request: messages,
+            response: fullResponse,
+            inputTokens: chunk.usage.prompt_tokens || 0,
+            outputTokens: chunk.usage.completion_tokens || 0,
+            finishedAt: new Date(),
+          })
         }
       }
 

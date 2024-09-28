@@ -27,7 +27,7 @@ export async function mainPrompt(
   ws: WebSocket,
   messages: Message[],
   fileContext: ProjectFileContext,
-  userId: string,
+  fingerprintId: string,
   onResponseChunk: (chunk: string) => void
 ) {
   debugLog(
@@ -52,7 +52,7 @@ export async function mainPrompt(
       fileContext,
       { messages, system },
       null,
-      userId
+      fingerprintId
     )
     if (responseChunk !== null) {
       onResponseChunk(responseChunk.readFilesMessage)
@@ -60,7 +60,7 @@ export async function mainPrompt(
 
       // Prompt cache the new files.
       const system = getSearchSystemPrompt(fileContext)
-      warmCacheForRequestRelevantFiles(system, userId)
+      warmCacheForRequestRelevantFiles(system, fingerprintId)
     }
   }
 
@@ -68,7 +68,7 @@ export async function mainPrompt(
     // Already have context from existing chat
     // If client used tool, we don't want to generate knowledge files because the user isn't really in control
     genKnowledgeFilesPromise = generateKnowledgeFiles(
-      userId,
+      fingerprintId,
       ws,
       fullResponse,
       fileContext,
@@ -129,7 +129,7 @@ ${STOP_MARKER}
 
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
-      userId,
+      fingerprintId,
     })
     const streamWithTags = processStreamWithTags(stream, {
       file: {
@@ -144,7 +144,7 @@ ${STOP_MARKER}
             : fileContent
           fileProcessingPromises.push(
             processFileBlock(
-              userId,
+              fingerprintId,
               ws,
               messages,
               fullResponse,
@@ -228,7 +228,7 @@ ${STOP_MARKER}
         fileContext,
         { messages, system: getSearchSystemPrompt(fileContext) },
         fullResponse,
-        userId
+        fingerprintId
       )
       if (response !== null) {
         const { readFilesMessage } = response
@@ -344,7 +344,7 @@ async function updateFileContext(
 }
 
 export async function processFileBlock(
-  userId: string,
+  fingerprintId: string,
   ws: WebSocket,
   messageHistory: Message[],
   fullResponse: string,
@@ -366,7 +366,7 @@ export async function processFileBlock(
   }
 
   const patch = await generatePatch(
-    userId,
+    fingerprintId,
     oldContent,
     newContent,
     filePath,

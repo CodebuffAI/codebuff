@@ -4,13 +4,10 @@ import {
   text,
   primaryKey,
   integer,
-  uuid,
   boolean,
-  index,
-  pgEnum,
+  jsonb,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
-import { TOKEN_USAGE_LIMITS } from 'common/src/constants'
 
 export const user = pgTable('user', {
   id: text('id')
@@ -21,10 +18,11 @@ export const user = pgTable('user', {
   password: text('password'),
   emailVerified: timestamp('emailVerified', { mode: 'date' }),
   image: text('image'),
-  subscriptionActive: boolean('subscriptionActive').notNull().default(false),
-  stripeCustomerId: text('stripeCustomerId').unique(),
-  stripePlanId: text('stripePlanId'),
-  usageId: text('usageId').references(() => usage.id),
+  subscription_active: boolean('subscription_active').notNull().default(false),
+  stripe_customer_id: text('stripe_customer_id').unique(),
+  stripe_price_id: text('stripe_price_id'),
+  quota_exceeded: boolean('quota_exceeded').notNull().default(false),
+  next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }),
 })
 
 export const account = pgTable(
@@ -53,21 +51,29 @@ export const account = pgTable(
 
 export const fingerprint = pgTable('fingerprint', {
   id: text('id').primaryKey(),
-  usageId: text('usageId').references(() => usage.id),
-  hash: text('hash'),
+  sig_hash: text('sig_hash'),
+  quota_exceeded: boolean('quota_exceeded').notNull().default(false),
+  next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }),
 })
 
-export const usageTypeEnum = pgEnum('usageType', ['token', 'credit'])
-export type UsageType = (typeof usageTypeEnum.enumValues)[number]
-export const usage = pgTable('usage', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  used: integer('used').notNull().default(0),
-  limit: integer('limit').notNull().default(TOKEN_USAGE_LIMITS.ANON),
-  type: usageTypeEnum('usageType').notNull().default('token'),
-  startDate: timestamp('startDate', { mode: 'date' }).notNull(),
-  endDate: timestamp('endDate', { mode: 'date' }).notNull(),
+export const message = pgTable('message', {
+  id: text('id').primaryKey(),
+  user_id: text('user_id').references(() => user.id),
+  fingerprint_id: text('fingerprint_id')
+    .references(() => fingerprint.id)
+    .notNull(),
+  model: text('model').notNull(), // TODO: type?
+  request: jsonb('request'),
+  response: jsonb('response'),
+  input_tokens: integer('input_tokens').notNull().default(0),
+  cache_creation_input_tokens: integer('cache_creation_input_tokens')
+    .notNull()
+    .default(0),
+  cache_read_input_tokens: integer('cache_read_input_tokens')
+    .notNull()
+    .default(0),
+  output_tokens: integer('output_tokens').notNull().default(0),
+  finished_at: timestamp('finished_at', { mode: 'date' }).notNull(),
 })
 
 export const session = pgTable('session', {
@@ -76,7 +82,7 @@ export const session = pgTable('session', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   expires: timestamp('expires', { mode: 'date' }).notNull(),
-  fingerprintId: text('fingerprintId').references(() => fingerprint.id),
+  fingerprint_id: text('fingerprint_id').references(() => fingerprint.id),
 })
 
 export const verificationToken = pgTable(

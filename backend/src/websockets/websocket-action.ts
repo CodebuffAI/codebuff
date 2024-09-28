@@ -107,8 +107,8 @@ const onClearAuthTokenRequest = async (
         gt(schema.session.expires, new Date()), // active session
 
         // probably not necessary, but just in case. paranoia > death
-        eq(schema.session.fingerprintId, fingerprintId),
-        eq(schema.fingerprint.hash, fingerprintHash)
+        eq(schema.session.fingerprint_id, fingerprintId),
+        eq(schema.fingerprint.sig_hash, fingerprintHash)
       )
     )
     .returning({
@@ -164,12 +164,12 @@ const onLoginStatusRequest = async (
       .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
       .leftJoin(
         schema.fingerprint,
-        eq(schema.session.fingerprintId, schema.fingerprint.id)
+        eq(schema.session.fingerprint_id, schema.fingerprint.id)
       )
       .where(
         and(
-          eq(schema.session.fingerprintId, fingerprintId),
-          eq(schema.fingerprint.hash, fingerprintHash)
+          eq(schema.session.fingerprint_id, fingerprintId),
+          eq(schema.fingerprint.sig_hash, fingerprintHash)
         )
       )
 
@@ -213,7 +213,6 @@ const onInit = async (
   ws: WebSocket
 ) => {
   // Create a new session for fingerprint if it doesn't exist
-  // For now, don't error out if we failed to create it
   await db
     .insert(schema.fingerprint)
     .values({
@@ -234,7 +233,8 @@ const onInit = async (
     {
       model: models.sonnet,
       system,
-      userId: fingerprintId,
+      fingerprintId: fingerprintId,
+      maxTokens: 1,
     }
   )
   sendAction(ws, {

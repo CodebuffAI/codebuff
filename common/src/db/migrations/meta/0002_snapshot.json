@@ -1,5 +1,5 @@
 {
-  "id": "e30c82ff-b247-4182-98bf-2ec3e4625307",
+  "id": "3af9d329-21b2-4902-a21d-9f279a8db99b",
   "prevId": "2f8e2b18-d00c-4966-8d63-70d9b5eff19f",
   "version": "7",
   "dialect": "postgresql",
@@ -112,27 +112,127 @@
           "primaryKey": true,
           "notNull": true
         },
-        "usageId": {
-          "name": "usageId",
+        "sig_hash": {
+          "name": "sig_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "hash": {
-          "name": "hash",
-          "type": "text",
+        "quota_exceeded": {
+          "name": "quota_exceeded",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "next_quota_reset": {
+          "name": "next_quota_reset",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         }
       },
       "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.message": {
+      "name": "message",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fingerprint_id": {
+          "name": "fingerprint_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request": {
+          "name": "request",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response": {
+          "name": "response",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "input_tokens": {
+          "name": "input_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "cache_creation_input_tokens": {
+          "name": "cache_creation_input_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "cache_read_input_tokens": {
+          "name": "cache_read_input_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "output_tokens": {
+          "name": "output_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
       "foreignKeys": {
-        "fingerprint_usageId_usage_id_fk": {
-          "name": "fingerprint_usageId_usage_id_fk",
-          "tableFrom": "fingerprint",
-          "tableTo": "usage",
+        "message_user_id_user_id_fk": {
+          "name": "message_user_id_user_id_fk",
+          "tableFrom": "message",
+          "tableTo": "user",
           "columnsFrom": [
-            "usageId"
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "message_fingerprint_id_fingerprint_id_fk": {
+          "name": "message_fingerprint_id_fingerprint_id_fk",
+          "tableFrom": "message",
+          "tableTo": "fingerprint",
+          "columnsFrom": [
+            "fingerprint_id"
           ],
           "columnsTo": [
             "id"
@@ -166,8 +266,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "fingerprintId": {
-          "name": "fingerprintId",
+        "fingerprint_id": {
+          "name": "fingerprint_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -188,12 +288,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "session_fingerprintId_fingerprint_id_fk": {
-          "name": "session_fingerprintId_fingerprint_id_fk",
+        "session_fingerprint_id_fingerprint_id_fk": {
+          "name": "session_fingerprint_id_fingerprint_id_fk",
           "tableFrom": "session",
           "tableTo": "fingerprint",
           "columnsFrom": [
-            "fingerprintId"
+            "fingerprint_id"
           ],
           "columnsTo": [
             "id"
@@ -202,56 +302,6 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "public.usage": {
-      "name": "usage",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "used": {
-          "name": "used",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "limit": {
-          "name": "limit",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1000000
-        },
-        "usageType": {
-          "name": "usageType",
-          "type": "usageType",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'token'"
-        },
-        "startDate": {
-          "name": "startDate",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "endDate": {
-          "name": "endDate",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
@@ -295,48 +345,41 @@
           "primaryKey": false,
           "notNull": false
         },
-        "subscriptionActive": {
-          "name": "subscriptionActive",
+        "subscription_active": {
+          "name": "subscription_active",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
           "default": false
         },
-        "stripeCustomerId": {
-          "name": "stripeCustomerId",
+        "stripe_customer_id": {
+          "name": "stripe_customer_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "stripePlanId": {
-          "name": "stripePlanId",
+        "stripe_price_id": {
+          "name": "stripe_price_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "usageId": {
-          "name": "usageId",
-          "type": "text",
+        "quota_exceeded": {
+          "name": "quota_exceeded",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "next_quota_reset": {
+          "name": "next_quota_reset",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "user_usageId_usage_id_fk": {
-          "name": "user_usageId_usage_id_fk",
-          "tableFrom": "user",
-          "tableTo": "usage",
-          "columnsFrom": [
-            "usageId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "user_email_unique": {
@@ -346,11 +389,11 @@
             "email"
           ]
         },
-        "user_stripeCustomerId_unique": {
-          "name": "user_stripeCustomerId_unique",
+        "user_stripe_customer_id_unique": {
+          "name": "user_stripe_customer_id_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "stripeCustomerId"
+            "stripe_customer_id"
           ]
         }
       }
@@ -392,16 +435,7 @@
       "uniqueConstraints": {}
     }
   },
-  "enums": {
-    "public.usageType": {
-      "name": "usageType",
-      "schema": "public",
-      "values": [
-        "token",
-        "credit"
-      ]
-    }
-  },
+  "enums": {},
   "schemas": {},
   "sequences": {},
   "_meta": {

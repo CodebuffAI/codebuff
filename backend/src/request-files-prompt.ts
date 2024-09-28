@@ -158,7 +158,7 @@ Answer with just 'YES' if new files are necessary, or 'NO' if the current files 
     {
       model: models.sonnet,
       system,
-      userId,
+      fingerprintId: userId,
     }
   ).catch((error) => {
     console.error('Error checking new files necessary:', error)
@@ -192,7 +192,7 @@ async function getRelevantFiles(
   const response = await promptClaude(messagesWithPrompt, {
     model,
     system,
-    userId,
+    fingerprintId: userId,
   })
   const end = performance.now()
   const duration = end - start
@@ -362,7 +362,7 @@ export const warmCacheForRequestRelevantFiles = async (
     {
       model: models.sonnet,
       system,
-      userId,
+      fingerprintId: userId,
       maxTokens: 1,
     }
   ).catch((error) => {

@@ -66,10 +66,10 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
           <h2 className="py-2 text-lg font-bold">{user?.name}</h2>
           <Button
             onClick={handleCreateCheckoutSession}
-            disabled={user?.subscriptionActive || isPending}
+            disabled={user?.subscription_active || isPending}
             className="w-64"
           >
-            {user?.subscriptionActive ? (
+            {user?.subscription_active ? (
               'You are on the pro tier! much creds so wow'
             ) : (
               <>

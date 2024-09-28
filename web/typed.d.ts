@@ -4,12 +4,12 @@ declare module 'next-auth' {
   interface Session {
     user?: DefaultUser & {
       id: string
-      stripeCustomerId: string
-      subscriptionActive: boolean
+      stripe_customer_id: string
+      subscription_active: boolean
     }
   }
   interface User extends DefaultUser {
-    stripeCustomerId: string
-    subscriptionActive: boolean
+    stripe_customer_id: string
+    subscription_active: boolean
   }
 }

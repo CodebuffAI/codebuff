@@ -6,7 +6,7 @@ import { STOP_MARKER } from 'common/constants'
 import { debugLog } from './util/debug'
 import { RATE_LIMIT_POLICY } from './constants'
 import { env } from './env.mjs'
-import { usageTracker } from './billing/usage-tracker'
+import { saveMessage } from './billing/message'
 
 export const models = {
   sonnet: 'claude-3-5-sonnet-20240620' as const,
@@ -24,15 +24,16 @@ export const promptClaudeStream = async function* (
     tools?: Tool[]
     model?: model_types
     maxTokens?: number
-    userId: string
+    fingerprintId: string
     ignoreHelicone?: boolean
-  }
+  },
+  userId?: string
 ): AsyncGenerator<string, void, unknown> {
   const {
     model = models.sonnet,
     system,
     tools,
-    userId,
+    fingerprintId,
     maxTokens,
     ignoreHelicone = false,
   } = options
@@ -56,7 +57,7 @@ export const promptClaudeStream = async function* (
         ? {}
         : {
             'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
-            'Helicone-User-Id': userId,
+            'Helicone-User-Id': fingerprintId,
             'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
             'Helicone-LLM-Security-Enabled': 'true',
           }),
@@ -80,14 +81,27 @@ export const promptClaudeStream = async function* (
     id: '',
     json: '',
   }
+  let messageId: string | undefined
+  let inputTokens = 0
+  let outputTokens = 0
+  let fullResponse = ''
   for await (const chunk of stream) {
     const { type } = chunk
 
+    // Start of turn
+    if (type === 'message_start') {
+      messageId = chunk.message.id
+      inputTokens = chunk.message.usage.input_tokens
+      outputTokens = chunk.message.usage.output_tokens
+    }
+
+    // Text (most common case)
     if (type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+      fullResponse += chunk.delta.text
       yield chunk.delta.text
     }
 
-    // For Tool use!
+    // Tool use!
     if (
       type === 'content_block_start' &&
       chunk.content_block.type === 'tool_use'
@@ -111,13 +125,26 @@ export const promptClaudeStream = async function* (
       console.error('tried to yield tool call', name, id, input)
       // yield { name, id, input }
     }
+
+    // End of turn
     if (type === 'message_delta' && chunk.delta.stop_reason === 'end_turn') {
-      const totalTokens = chunk.usage.output_tokens
-      usageTracker.addTokens(options.userId, totalTokens)
-    }
-    if (type === 'message_start') {
-      const inputTokens = chunk.message.usage.input_tokens
-      usageTracker.addTokens(options.userId, inputTokens)
+      if (!messageId) {
+        console.error('No messageId found')
+        break
+      }
+
+      outputTokens += chunk.usage.output_tokens
+      saveMessage({
+        messageId,
+        userId,
+        fingerprintId,
+        request: messages,
+        model,
+        response: fullResponse,
+        inputTokens,
+        outputTokens,
+        finishedAt: new Date(),
+      })
     }
   }
 }
@@ -125,7 +152,7 @@ export const promptClaudeStream = async function* (
 export const promptClaude = async (
   messages: Message[],
   options: {
-    userId: string
+    fingerprintId: string
     system?: string | Array<TextBlockParam>
     tools?: Tool[]
     model?: model_types
@@ -143,7 +170,7 @@ export const promptClaude = async (
 export async function promptClaudeWithContinuation(
   messages: Message[],
   options: {
-    userId: string
+    fingerprintId: string
     system?: string
     model?: model_types
     ignoreHelicone?: boolean

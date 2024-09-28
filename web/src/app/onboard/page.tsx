@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { MAX_DATE, TOKEN_USAGE_LIMITS } from 'common/src/constants'
+import { MAX_DATE } from 'common/src/constants'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { genAuthCode } from 'common/util/credentials'
 import { env } from '@/env.mjs'
@@ -79,18 +79,18 @@ const Onboard = async ({ searchParams }: PageProps) => {
     .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
     .leftJoin(
       schema.fingerprint,
-      eq(schema.session.fingerprintId, schema.fingerprint.id)
+      eq(schema.session.fingerprint_id, schema.fingerprint.id)
     )
     .where(
       and(
-        eq(schema.fingerprint.hash, fingerprintHash),
+        eq(schema.fingerprint.sig_hash, fingerprintHash),
         eq(schema.user.id, user.id)
       )
     )
     .limit(1)
   if (fingerprintExists.length > 0) {
     return CardWithBeams({
-      title: 'You already added it!',
+      title: 'Your account is already connected to your cli!',
       description:
         'Feel free to close this window and head back to your terminal. Enjoy the extra api credits!',
       content: <p>No replay attack for you 👊</p>,
@@ -99,27 +99,10 @@ const Onboard = async ({ searchParams }: PageProps) => {
 
   // Add it to the db
   const didInsert = await db.transaction(async (tx) => {
-    const usageId = await tx
-      .insert(schema.usage)
-      .values({
-        limit: TOKEN_USAGE_LIMITS.FREE,
-        startDate: new Date(),
-        endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
-        type: 'token',
-      })
-      .returning({ id: schema.usage.id })
-      .then((usages) => {
-        if (usages.length === 1) {
-          return usages[0].id
-        }
-        throw new Error('Failed to create usage record')
-      })
-
     await tx
       .insert(schema.fingerprint)
       .values({
-        hash: fingerprintHash,
-        usageId,
+        sig_hash: fingerprintHash,
         id: fingerprintId,
       })
       .returning({ id: schema.fingerprint.id })
@@ -136,7 +119,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
         sessionToken: crypto.randomUUID(),
         userId: user.id,
         expires: MAX_DATE,
-        fingerprintId,
+        fingerprint_id: fingerprintId,
       })
       .returning({ userId: schema.session.userId })
 

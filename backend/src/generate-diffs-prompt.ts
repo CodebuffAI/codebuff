@@ -439,7 +439,7 @@ Your Response:`
   // )
   const response = await promptOpenAIWithContinuation(
     [{ role: 'user', content: prompt }],
-    { model: 'gpt-4o-2024-08-06', userId }
+    { model: 'gpt-4o-2024-08-06', fingerprintId: userId }
   )
 
   debugLog('OpenAI response for diff blocks:', response)
@@ -485,7 +485,7 @@ ${STOP_MARKER}
     debugLog('Trying a second prompt for getDiffBlocks', filePath)
     const response = await promptOpenAIWithContinuation(
       [{ role: 'user', content: newPrompt }],
-      { userId, model: 'gpt-4o-2024-08-06' }
+      { fingerprintId: userId, model: 'gpt-4o-2024-08-06' }
     )
     debugLog('Second Claude response for diff blocks:', response)
 

@@ -8,7 +8,10 @@ import {
 } from 'common/websockets/websocket-schema'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
-import { usageTracker } from '../billing/usage-tracker'
+import {
+  hasExceededQuota as checkQuota,
+  limitFingerprint,
+} from '../billing/message'
 import { debugLog } from '../util/debug'
 import { match, P } from 'ts-pattern'
 
@@ -91,17 +94,20 @@ async function processMessage(
             throw new Error('No userId found!')
           }
 
-          const withinLimit = await usageTracker.withinUsageLimit(fingerprintId)
-          if (withinLimit) {
-            onWebsocketAction(ws, msg)
-          } else {
-            debugLog(`Usage limit exceeded for user ${fingerprintId}`)
+          const { creditsUsed, quota, userId } = await checkQuota(fingerprintId)
+          if (creditsUsed >= quota) {
+            limitFingerprint(fingerprintId, userId)
+            debugLog(
+              `Usage limit exceeded for user ${fingerprintId}: ${creditsUsed} >= ${quota}`
+            )
             return {
               type: 'ack',
               txid,
               success: false,
               error: 'Usage limit exceeded. Please upgrade your plan.',
             }
+          } else {
+            onWebsocketAction(ws, msg)
           }
 
           onWebsocketAction(ws, msg)
