@@ -11,7 +11,6 @@ import { Message } from 'common/actions'
 import { displayMenu } from './menu'
 import {
   getChangesSinceLastFileVersion,
-  getCurrentWorkingDirectory,
   getExistingFiles,
   getProjectRoot,
   setFiles,
@@ -119,7 +118,7 @@ export class CLI {
   }
 
   private setPrompt() {
-    this.rl.setPrompt(green(`${parse(getCurrentWorkingDirectory()).base} > `))
+    this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
   }
 
   public printInitialPrompt() {

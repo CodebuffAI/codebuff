@@ -4,10 +4,7 @@ import { green } from 'picocolors'
 
 import { scrapeWebPage } from './web-scraper'
 import { searchManifoldMarkets } from './manifold-api'
-import {
-  getCurrentWorkingDirectory,
-  setCurrentWorkingDirectory,
-} from './project-files'
+import { getProjectRoot, setProjectRoot } from './project-files'
 
 export type ToolHandler = (input: any, id: string) => Promise<string>
 
@@ -54,7 +51,7 @@ export const handleRunTerminalCommand = async (
     }
     const childProcess = spawn(command, {
       shell: true,
-      cwd: getCurrentWorkingDirectory(),
+      cwd: getProjectRoot(),
     })
 
     const timer = setTimeout(() => {
@@ -95,9 +92,7 @@ export const handleRunTerminalCommand = async (
     childProcess.on('close', (code) => {
       if (command.startsWith('cd ') && code === 0) {
         const newWorkingDirectory = command.split(' ')[1]
-        setCurrentWorkingDirectory(
-          path.join(getCurrentWorkingDirectory(), newWorkingDirectory)
-        )
+        setProjectRoot(path.join(getProjectRoot(), newWorkingDirectory))
       }
 
       clearTimeout(timer)

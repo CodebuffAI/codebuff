@@ -3,6 +3,7 @@ import path from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { createPatch } from 'diff'
+import { green } from 'picocolors'
 
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { filterObject } from 'common/util/object'
@@ -14,19 +15,23 @@ const execAsync = promisify(exec)
 
 let projectRoot: string
 
-export function initProjectRoot(dir: string | undefined) {
-  projectRoot = path.resolve(dir || getCurrentDirectory())
+export function setProjectRoot(dir: string | undefined) {
+  const newDir = path.resolve(dir || getCurrentDirectory())
+  if (fs.existsSync(newDir)) {
+    if (projectRoot) {
+      console.log(
+        green('\nDirectory change:'),
+        `Manicode will read and write files in "${newDir}".\n`
+      )
+    }
+    projectRoot = newDir
+    return newDir
+  }
   return projectRoot
 }
 
-let currentWorkingDirectory: string = ''
-
-export function getCurrentWorkingDirectory(): string {
-  return currentWorkingDirectory || getProjectRoot()
-}
-
-export function setCurrentWorkingDirectory(directory: string) {
-  currentWorkingDirectory = directory
+export function getProjectRoot() {
+  return projectRoot
 }
 
 function getCurrentDirectory() {
@@ -40,20 +45,13 @@ function getCurrentDirectory() {
   }
 }
 
-export function getProjectRoot() {
-  return projectRoot
-}
-
 let cachedProjectFileContext: ProjectFileContext | undefined
 
 export const getProjectFileContext = async (
   fileList: string[],
   lastFileVersion: Record<string, string>
 ) => {
-  const root = getProjectRoot()
-  const cwd = getCurrentWorkingDirectory()
-
-  const contextRoot = path.relative(root, cwd).startsWith('..') ? cwd : root
+  const projectRoot = getProjectRoot()
 
   const files = getFiles(fileList)
   const gitChanges = await getGitChanges()
@@ -66,9 +64,9 @@ export const getProjectFileContext = async (
 
   if (
     !cachedProjectFileContext ||
-    cachedProjectFileContext.currentWorkingDirectory !== contextRoot
+    cachedProjectFileContext.currentWorkingDirectory !== projectRoot
   ) {
-    const fileTree = getProjectFileTree(contextRoot)
+    const fileTree = getProjectFileTree(projectRoot)
     const flattenedNodes = flattenTree(fileTree)
     const allFilePaths = flattenedNodes
       .filter((node) => node.type === 'file')
@@ -79,10 +77,10 @@ export const getProjectFileContext = async (
     const knowledgeFiles =
       await getExistingFilesWithScrapedContent(knowledgeFilePaths)
 
-    const fileTokenScores = await getFileTokenScores(contextRoot, allFilePaths)
+    const fileTokenScores = await getFileTokenScores(projectRoot, allFilePaths)
 
     cachedProjectFileContext = {
-      currentWorkingDirectory: contextRoot,
+      currentWorkingDirectory: projectRoot,
       fileTree,
       fileTokenScores,
       knowledgeFiles,
