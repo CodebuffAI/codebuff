@@ -60,6 +60,7 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
   console.log('- Press ESC to cancel generation')
   console.log('- Type "undo" or "u" to undo the last change')
   console.log('- Type "redo" or "r" to redo the last change')
+  console.log('- Type "/run <command>" to run a terminal command. Short commands will work without the "/run" prefix')
   console.log('- Type "login" to log into Manicode')
   console.log('- Type "help" or "h" to print this menu\n')
 

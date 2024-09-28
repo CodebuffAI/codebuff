@@ -239,14 +239,17 @@ export class CLI {
       return
     }
 
+    const runPrefix = '/run '
     if (
-      !SKIPPED_TERMINAL_COMMANDS.some((command) =>
+      userInput.startsWith(runPrefix) ||
+      (!SKIPPED_TERMINAL_COMMANDS.some((command) =>
         userInput.toLowerCase().startsWith(command)
       ) &&
-      userInput.split(' ').length < 4
+        userInput.split(' ').length <= 5)
     ) {
+      const withoutRunPrefix = userInput.replace(runPrefix, '')
       const result = await handleRunTerminalCommand(
-        { command: userInput },
+        { command: withoutRunPrefix },
         'user',
         'user'
       )
