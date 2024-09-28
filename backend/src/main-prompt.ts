@@ -19,6 +19,7 @@ import {
 } from './request-files-prompt'
 import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
+import { countTokens } from './util/token-counter'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -333,8 +334,24 @@ async function updateFileContext(
     return null
   }
 
+  const loadedFiles = await requestFiles(ws, relevantFiles)
+  const filePaths = Object.keys(loadedFiles)
+
+  const filteredFilePaths = [
+    ...filePaths.slice(0, 5),
+    // Filter out lower priority files that are too long.
+    ...filePaths.slice(5).filter((filePath) => {
+      const content = loadedFiles[filePath]
+      if (content === null) return true
+      const tokenCount = countTokens(content)
+      return tokenCount < 5_000
+    }),
+  ]
+
   // Load relevant files into fileContext
-  fileContext.files = await requestFiles(ws, relevantFiles)
+  fileContext.files = Object.fromEntries(
+    filteredFilePaths.map((filePath) => [filePath, loadedFiles[filePath]])
+  )
 
   const existingFiles = Object.keys(fileContext.files).filter(
     (filePath) => fileContext.files[filePath] !== null
