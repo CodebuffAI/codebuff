@@ -165,7 +165,7 @@ const calcCreditsUsed = async (
   return totalCreditsUsed * (1 + PROFIT_MARGIN)
 }
 
-export const hasExceededQuota = async (
+export const checkQuota = async (
   fingerprintId: string
 ): Promise<{
   creditsUsed: number

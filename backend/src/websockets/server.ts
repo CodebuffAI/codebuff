@@ -8,10 +8,7 @@ import {
 } from 'common/websockets/websocket-schema'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
-import {
-  hasExceededQuota as checkQuota,
-  limitFingerprint,
-} from '../billing/message'
+import { checkQuota, limitFingerprint } from '../billing/message'
 import { debugLog } from '../util/debug'
 import { match, P } from 'ts-pattern'
 
