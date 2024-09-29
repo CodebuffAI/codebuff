@@ -17,15 +17,15 @@ export const Navbar = async () => {
         <span className="font-mono text-2xl font-bold">Manicode</span>
       </Link>
       <nav className="hidden md:flex space-x-4">
-        <a href="#features" className="hover:text-blue-400 transition-colors">
+        {/* <a href="#features" className="hover:text-blue-400 transition-colors">
           Features
-        </a>
-        <a href="#pricing" className="hover:text-blue-400 transition-colors">
+        </a> */}
+        {/* <a href="#pricing" className="hover:text-blue-400 transition-colors">
           Pricing
         </a>
         <a href="#docs" className="hover:text-blue-400 transition-colors">
           Docs
-        </a>
+        </a> */}
       </nav>
       <div className="flex items-center space-x-4">
         {session ? (
