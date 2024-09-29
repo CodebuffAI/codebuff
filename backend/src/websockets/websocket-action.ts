@@ -13,6 +13,9 @@ import { eq, and, gt } from 'drizzle-orm'
 import { genAuthCode } from 'common/util/credentials'
 import { match, P } from 'ts-pattern'
 import { claudeModels } from 'common/constants'
+import { WebSocketMiddleware } from './middleware'
+import { checkQuota, limitFingerprint, resetQuota } from '@/billing/message'
+import { debugLog } from '@/util/debug'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -279,8 +282,48 @@ export const onWebsocketAction = async (
   }
 }
 
-subscribeToAction('user-input', onUserInput)
-subscribeToAction('init', onInit)
+const protec = new WebSocketMiddleware()
+protec.use(async (action, _) => {
+  console.log(`Protecting action of type: '${action.type}'`)
+})
+protec.use(async (action, ws) => {
+  const fingerprintId = match(action)
+    .with(
+      {
+        fingerprintId: P.string,
+      },
+      ({ fingerprintId }) => fingerprintId
+    )
+    .otherwise(() => null)
+
+  if (!fingerprintId) {
+    console.error('No fingerprintId found, cannot check quota')
+    throw new Error('No fingerprintId found')
+  }
+
+  const { creditsUsed, quota, userId, endDate } =
+    await checkQuota(fingerprintId)
+  if (creditsUsed >= quota) {
+    limitFingerprint(fingerprintId, userId)
+    sendAction(ws, {
+      type: 'usage',
+      usage: creditsUsed,
+      limit: quota,
+    })
+    throw new Error(
+      `Usage limit exceeded for user ${fingerprintId}: ${creditsUsed} >= ${quota}`
+    )
+  }
+
+  if (endDate < new Date()) {
+    // End date is in the past, so we should reset the quota
+    resetQuota(fingerprintId, userId)
+  }
+})
+
+subscribeToAction('user-input', protec.run(onUserInput))
+subscribeToAction('init', protec.run(onInit))
+
 subscribeToAction('clear-auth-token', onClearAuthTokenRequest)
 subscribeToAction('login-code-request', onLoginCodeRequest)
 subscribeToAction('login-status-request', onLoginStatusRequest)

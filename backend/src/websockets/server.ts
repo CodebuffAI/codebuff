@@ -79,42 +79,6 @@ async function processMessage(
           break
         }
         case 'action': {
-          const fingerprintId = match(msg.data)
-            .with(
-              {
-                fingerprintId: P.string,
-              },
-              ({ fingerprintId }) => fingerprintId
-            )
-            .otherwise(() => null)
-
-          if (!fingerprintId) {
-            console.error(
-              'No fingerprintId found, cannot check quota',
-              msg.type
-            )
-          } else {
-            const { creditsUsed, quota, userId, endDate } =
-              await checkQuota(fingerprintId)
-            if (creditsUsed >= quota) {
-              debugLog(
-                `Usage limit exceeded for user ${fingerprintId}: ${creditsUsed} >= ${quota}`
-              )
-              limitFingerprint(fingerprintId, userId)
-              return {
-                type: 'ack',
-                txid,
-                success: true,
-                error: `Usage limit exceeded. Please ${userId ? 'upgrade your plan to' : "type 'login' to sign up and"} keep using Manicode.`,
-              }
-            } else {
-              if (endDate < new Date()) {
-                // End date is in the past, so we should reset the quota
-                resetQuota(fingerprintId, userId)
-              }
-            }
-          }
-
           onWebsocketAction(ws, msg)
           break
         }

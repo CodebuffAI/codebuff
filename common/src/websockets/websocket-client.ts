@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws'
-import { green, red } from 'picocolors'
+import { green } from 'picocolors'
 
 import { ServerAction, ClientAction } from '../actions'
 import {
@@ -167,17 +167,8 @@ export class APIRealtimeClient {
             console.warn(`Websocket message with old txid=${msg.txid}.`)
           } else {
             clearTimeout(txn.timeout)
-            if (msg.error) {
-              if (msg.success) {
-                // We hae a non-fatal error, so show user and continue
-                console.error(
-                  red(['', msg.error].join('\n')),
-                  'If you think this is a bug, please report it to support@manicode.ai'
-                )
-                txn.resolve()
-              } else {
-                txn.reject(new Error(msg.error))
-              }
+            if (msg.error != null) {
+              txn.reject(new Error(msg.error))
             } else {
               txn.resolve()
             }

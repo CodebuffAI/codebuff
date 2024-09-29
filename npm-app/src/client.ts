@@ -26,7 +26,7 @@ export class Client {
   private currentUserInputId: string | undefined
   public user: User | undefined
   private returnControlToUser: () => void
-  private lastAlertedPercentage: number = 0
+  public lastWarnedPercentage: number = 0
 
   constructor(
     websocketUrl: string,
@@ -213,39 +213,24 @@ export class Client {
       const { usage, limit } = action
       const percentage = Math.floor((usage / limit) * 100)
 
-      if (percentage > this.lastAlertedPercentage) {
-        match(percentage)
-          .with(P.number.gte(100), () => {
-            console.error(
-              red(
-                'You have reached your monthly usage limit. You must upgrade your plan to continue using the service.'
-              )
-            )
-          })
-          .with(P.number.gte(75), () => {
-            console.warn(
-              yellow('You have used 75% of your monthly usage limit.')
-            )
-          })
-          .with(P.number.gte(50), () => {
-            console.warn(
-              yellow('You have used 50% of your monthly usage limit.')
-            )
-          })
-          .with(P.number.gte(25), () => {
-            console.warn(
-              yellow('You have used 25% of your monthly usage limit.')
-            )
-          })
-          .otherwise(() => {
-            return
-          })
+      if (percentage > this.lastWarnedPercentage) {
+        const pct: number = match(percentage)
+          .with(P.number.gte(100), () => 100)
+          .with(P.number.gte(75), () => 75)
+          .with(P.number.gte(50), () => 50)
+          .with(P.number.gte(25), () => 25)
+          .otherwise(() => 0)
         console.warn(
-          yellow(
-            'Visit our pricing page to upgrade: https://manicode.ai/pricing'
-          )
+          [
+            '',
+            yellow(`You have used ${pct}% of your monthly usage limit.`),
+            this.user
+              ? yellow('Visit https://manicode.ai/pricing to upgrade.')
+              : yellow('Type "login" to sign up and get more credits!'),
+          ].join('\n')
         )
-        this.lastAlertedPercentage = percentage
+        this.lastWarnedPercentage = percentage
+        this.returnControlToUser()
       }
     })
   }

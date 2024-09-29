@@ -105,6 +105,12 @@ const Onboard = async ({ searchParams }: PageProps) => {
         sig_hash: fingerprintHash,
         id: fingerprintId,
       })
+      .onConflictDoUpdate({
+        target: schema.fingerprint.id,
+        set: {
+          sig_hash: fingerprintHash,
+        },
+      })
       .returning({ id: schema.fingerprint.id })
       .then((fingerprints) => {
         if (fingerprints.length === 1) {
