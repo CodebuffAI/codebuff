@@ -15,7 +15,6 @@ import { match, P } from 'ts-pattern'
 import { claudeModels } from 'common/constants'
 import { WebSocketMiddleware } from './middleware'
 import { checkQuota, limitFingerprint, resetQuota } from '@/billing/message'
-import { debugLog } from '@/util/debug'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -100,7 +99,7 @@ const onClearAuthTokenRequest = async (
     fingerprintId,
     fingerprintHash,
   }: Extract<ClientAction, { type: 'clear-auth-token' }>,
-  ws: WebSocket
+  _ws: WebSocket
 ) => {
   const validDeletion = await db
     .delete(schema.session)
@@ -111,8 +110,7 @@ const onClearAuthTokenRequest = async (
         gt(schema.session.expires, new Date()), // active session
 
         // probably not necessary, but just in case. paranoia > death
-        eq(schema.session.fingerprint_id, fingerprintId),
-        eq(schema.fingerprint.sig_hash, fingerprintHash)
+        eq(schema.session.fingerprint_id, fingerprintId)
       )
     )
     .returning({

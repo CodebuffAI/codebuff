@@ -200,6 +200,7 @@ export class Client {
           'Your credits have been increased by 5x. Happy coding!',
         ]
         console.log(responseToUser.join('\n'))
+        this.lastWarnedPercentage = 0
 
         this.returnControlToUser()
       } else {

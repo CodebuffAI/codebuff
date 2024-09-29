@@ -176,7 +176,7 @@ export const checkQuota = async (
   let endDate: Date | SQL<Date> =
     sql<Date>`COALESCE(${schema.user.next_quota_reset}, ${schema.fingerprint.next_quota_reset}, now())`
 
-  // Check if Stripe customer; they have different quotas
+  // Check if they're a user in the db
   const user = await db
     .select({
       id: schema.user.id,
@@ -197,30 +197,35 @@ export const checkQuota = async (
       }
       return null
     })
-  if (user && user.stripe_customer_id) {
-    const customer = await stripeServer.customers.retrieve(
-      user.stripe_customer_id
-    )
-    if (!customer.deleted) {
-      quota = parseInt(customer.metadata.quota, CREDITS_USAGE_LIMITS.FREE)
+  if (user) {
+    if (!user.stripe_customer_id) {
+      quota = CREDITS_USAGE_LIMITS.FREE
+    } else {
+      // We know they're a user and a Stripe customer
+      const customer = await stripeServer.customers.retrieve(
+        user.stripe_customer_id
+      )
+      if (!customer.deleted) {
+        quota = parseInt(customer.metadata.quota, CREDITS_USAGE_LIMITS.FREE)
 
-      if (user.stripe_price_id) {
-        // TODO: refactor this to use max/min fns
-        customer.subscriptions?.data?.forEach((subscription) => {
-          const newStartDate = new Date(
-            subscription.current_period_start * 1000
-          )
-          if (startDate < newStartDate) {
-            // Be generous if there are multiple subscriptions – take the most recent start period
-            startDate = newStartDate
-          }
+        if (user.stripe_price_id) {
+          // TODO: refactor this to use max/min fns
+          customer.subscriptions?.data?.forEach((subscription) => {
+            const newStartDate = new Date(
+              subscription.current_period_start * 1000
+            )
+            if (startDate < newStartDate) {
+              // Be generous if there are multiple subscriptions – take the most recent start period
+              startDate = newStartDate
+            }
 
-          const newEndDate = new Date(subscription.current_period_end * 1000)
-          if (newEndDate > startDate) {
-            // Be generous if there are multiple subscriptions – take the most recent end period
-            endDate = newEndDate
-          }
-        })
+            const newEndDate = new Date(subscription.current_period_end * 1000)
+            if (newEndDate > startDate) {
+              // Be generous if there are multiple subscriptions – take the most recent end period
+              endDate = newEndDate
+            }
+          })
+        }
       }
     }
   }
