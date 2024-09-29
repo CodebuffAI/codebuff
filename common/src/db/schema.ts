@@ -24,7 +24,9 @@ export const user = pgTable('user', {
   stripe_customer_id: text('stripe_customer_id').unique(),
   stripe_price_id: text('stripe_price_id'),
   quota_exceeded: boolean('quota_exceeded').notNull().default(false),
-  next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }),
+  next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).$defaultFn(
+    () => sql<Date>`now() + INTERVAL '1 month'`
+  ),
 })
 
 export const account = pgTable(
@@ -55,16 +57,19 @@ export const fingerprint = pgTable('fingerprint', {
   id: text('id').primaryKey(),
   sig_hash: text('sig_hash'),
   quota_exceeded: boolean('quota_exceeded').notNull().default(false),
-  next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }),
+  next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).$defaultFn(
+    () => sql<Date>`now() + INTERVAL '1 month'`
+  ),
 })
 
 export const message = pgTable('message', {
   id: text('id').primaryKey(),
+  finished_at: timestamp('finished_at', { mode: 'date' }).notNull(),
   user_id: text('user_id').references(() => user.id),
   fingerprint_id: text('fingerprint_id')
     .references(() => fingerprint.id)
     .notNull(),
-  model: text('model').notNull(), // TODO: type?
+  model: text('model').notNull(),
   context: jsonb('context'),
   request: jsonb('request'),
   response: jsonb('response'),
@@ -78,10 +83,6 @@ export const message = pgTable('message', {
   output_tokens: integer('output_tokens').notNull(),
   cost: numeric('cost', { precision: 100, scale: 20 }).notNull(),
   credits: integer('credits').notNull().default(0),
-  finished_at: timestamp('finished_at', { mode: 'date' }).notNull(),
-  created_at: timestamp('created_at', { mode: 'date' })
-    .notNull()
-    .$defaultFn(() => sql<Date>`now()`),
 })
 
 export const session = pgTable('session', {

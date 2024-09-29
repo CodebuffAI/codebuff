@@ -97,15 +97,15 @@ async function processMessage(
             const { creditsUsed, quota, userId, endDate } =
               await checkQuota(fingerprintId)
             if (creditsUsed >= quota) {
-              limitFingerprint(fingerprintId, userId)
               debugLog(
                 `Usage limit exceeded for user ${fingerprintId}: ${creditsUsed} >= ${quota}`
               )
+              limitFingerprint(fingerprintId, userId)
               return {
                 type: 'ack',
                 txid,
-                success: false,
-                error: 'Usage limit exceeded. Please upgrade your plan.',
+                success: true,
+                error: `Usage limit exceeded. Please ${userId ? 'upgrade your plan to' : "type 'login' to sign up and"} keep using Manicode.`,
               }
             } else {
               if (endDate < new Date()) {

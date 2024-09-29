@@ -172,8 +172,9 @@ export const checkQuota = async (
   // Default case: anonymous user
   let quota = CREDITS_USAGE_LIMITS.ANON
   let startDate: Date | SQL<Date> =
-    sql<Date>`${schema.user.next_quota_reset} - INTERVAL '1 month'`
-  let endDate: Date | SQL<Date> = sql<Date>`${schema.user.next_quota_reset}`
+    sql<Date>`COALESCE(${schema.user.next_quota_reset}, ${schema.fingerprint.next_quota_reset}, now()) - INTERVAL '1 month'`
+  let endDate: Date | SQL<Date> =
+    sql<Date>`COALESCE(${schema.user.next_quota_reset}, ${schema.fingerprint.next_quota_reset}, now())`
 
   // Check if Stripe customer; they have different quotas
   const user = await db
@@ -185,6 +186,10 @@ export const checkQuota = async (
     })
     .from(schema.user)
     .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
+    .leftJoin(
+      schema.fingerprint,
+      eq(schema.session.fingerprint_id, schema.fingerprint.id)
+    )
     .where(eq(schema.session.fingerprint_id, fingerprintId))
     .then((users) => {
       if (users.length === 1) {
@@ -226,6 +231,10 @@ export const checkQuota = async (
     })
     .from(schema.message)
     .leftJoin(schema.user, eq(schema.message.user_id, schema.user.id))
+    .leftJoin(
+      schema.fingerprint,
+      eq(schema.message.fingerprint_id, schema.fingerprint.id)
+    )
     .where(
       and(
         or(

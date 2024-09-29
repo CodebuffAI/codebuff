@@ -1,5 +1,5 @@
 {
-  "id": "6494c77f-adbc-4203-b06f-9ffbaee70688",
+  "id": "f983fa61-fc4f-4155-8ed0-64225a026891",
   "prevId": "2f8e2b18-d00c-4966-8d63-70d9b5eff19f",
   "version": "7",
   "dialect": "postgresql",
@@ -147,6 +147,12 @@
           "primaryKey": true,
           "notNull": true
         },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
         "user_id": {
           "name": "user_id",
           "type": "text",
@@ -222,18 +228,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
-        },
-        "finished_at": {
-          "name": "finished_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
         }
       },
       "indexes": {},
