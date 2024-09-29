@@ -27,7 +27,7 @@ const Home = () => {
           expert code. Edit your codebase with simple instructions to Mani, your
           personal AI programming assistant.
         </p>
-        <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
+        {/* <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
           <Input
             type="email"
             placeholder="Enter your email"
@@ -36,7 +36,12 @@ const Home = () => {
           <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
             Start Coding with AI
           </Button>
-        </div>
+        </div> */}
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+          <Link href="https://www.npmjs.com/package/manicode" target="_blank">
+            Try Manicode for free
+          </Link>
+        </Button>
       </main>
 
       <section
