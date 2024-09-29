@@ -84,33 +84,35 @@ async function processMessage(
               {
                 fingerprintId: P.string,
               },
-              (data) => data.fingerprintId
+              ({ fingerprintId }) => fingerprintId
             )
             .otherwise(() => null)
+
           if (!fingerprintId) {
-            throw new Error('No userId found!')
-          }
-
-          const { creditsUsed, quota, userId, endDate } =
-            await checkQuota(fingerprintId)
-          if (creditsUsed >= quota) {
-            limitFingerprint(fingerprintId, userId)
-            debugLog(
-              `Usage limit exceeded for user ${fingerprintId}: ${creditsUsed} >= ${quota}`
+            console.error(
+              'No fingerprintId found, cannot check quota',
+              msg.type
             )
-            return {
-              type: 'ack',
-              txid,
-              success: false,
-              error: 'Usage limit exceeded. Please upgrade your plan.',
-            }
           } else {
-            if (endDate < new Date()) {
-              // End date is in the past, so we should reset the quota
-              resetQuota(fingerprintId, userId)
+            const { creditsUsed, quota, userId, endDate } =
+              await checkQuota(fingerprintId)
+            if (creditsUsed >= quota) {
+              limitFingerprint(fingerprintId, userId)
+              debugLog(
+                `Usage limit exceeded for user ${fingerprintId}: ${creditsUsed} >= ${quota}`
+              )
+              return {
+                type: 'ack',
+                txid,
+                success: false,
+                error: 'Usage limit exceeded. Please upgrade your plan.',
+              }
+            } else {
+              if (endDate < new Date()) {
+                // End date is in the past, so we should reset the quota
+                resetQuota(fingerprintId, userId)
+              }
             }
-
-            onWebsocketAction(ws, msg)
           }
 
           onWebsocketAction(ws, msg)
