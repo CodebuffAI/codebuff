@@ -53,14 +53,16 @@ export async function promptOpenAI(
       response.choices.length > 0 &&
       response.choices[0].message
     ) {
-      const content = response.choices[0].message.content || ''
       const messageId = response.id
+      const content = response.choices[0].message.content || ''
+      const [last, ...context] = messages.slice().reverse()
       saveMessage({
         messageId,
         userId,
         fingerprintId,
         model,
-        request: messages,
+        context,
+        request: last,
         response: content,
         inputTokens: response.usage?.prompt_tokens || 0,
         outputTokens: response.usage?.completion_tokens || 0,
@@ -132,6 +134,7 @@ export async function promptOpenAIWithContinuation(
           fullResponse += chunk.choices[0].delta.content
         }
 
+        const [last, ...context] = messages.slice().reverse()
         if (chunk.usage) {
           const messageId = chunk.id
           saveMessage({
@@ -139,10 +142,11 @@ export async function promptOpenAIWithContinuation(
             userId,
             fingerprintId,
             model,
-            request: messages,
+            context,
+            request: last,
             response: fullResponse,
-            inputTokens: chunk.usage.prompt_tokens || 0,
-            outputTokens: chunk.usage.completion_tokens || 0,
+            inputTokens: chunk.usage.prompt_tokens,
+            outputTokens: chunk.usage.completion_tokens,
             finishedAt: new Date(),
           })
         }

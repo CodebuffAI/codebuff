@@ -41,3 +41,18 @@ export const CREDITS_USAGE_LIMITS = {
   FREE: 1_000,
   PAID: 10_000,
 }
+
+export const claudeModels = {
+  sonnet: 'claude-3-5-sonnet-20240620',
+  haiku: 'claude-3-haiku-20240307',
+} as const
+
+export const openaiModels = {
+  gpt4o: 'gpt-4o-2024-08-06',
+  gpt4omini: 'gpt-4o-mini-2024-07-18',
+} as const
+
+export const models = {
+  ...claudeModels,
+  ...openaiModels,
+}

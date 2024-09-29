@@ -2,6 +2,7 @@ import { Message } from 'common/actions'
 import { promptOpenAI } from './openai-api'
 import { debugLog } from './util/debug'
 import { createPatch } from 'diff'
+import { openaiModels } from 'common/constants'
 
 export async function generatePatch(
   userId: string,
@@ -31,8 +32,7 @@ export async function generatePatch(
     const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
     if (hunkStartIndex !== -1) {
       patch = lines.slice(hunkStartIndex).join('\n')
-    }
-    else patch = ''
+    } else patch = ''
   } else {
     patch = await generatePatchPrompt(
       userId,
@@ -77,7 +77,7 @@ Are there any comments in the sketch that indicate surrounding code should remai
       content: prompt,
     },
   ]
-  const response = await promptOpenAI(userId, messages, 'gpt-4o-2024-08-06')
+  const response = await promptOpenAI(userId, messages, openaiModels.gpt4o)
   const isSketchComplete = response.includes('NO')
   debugLog(response)
   debugLog('isSketchComplete', isSketchComplete)
@@ -122,7 +122,7 @@ Please produce a patch file based on this change.
   return await promptOpenAI(
     userId,
     messages,
-    'ft:gpt-4o-2024-08-06:manifold-markets::A7wELpag'
-    // 'ft:gpt-4o-2024-08-06:manifold-markets:run-1:A4VfZwvz'
+    `ft:${openaiModels.gpt4o}:manifold-markets::A7wELpag`
+    // ft:${models.gpt4o}:manifold-markets:run-1:A4VfZwvz`
   )
 }

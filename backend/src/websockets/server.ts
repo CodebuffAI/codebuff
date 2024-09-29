@@ -1,6 +1,6 @@
 import { Server as HttpServer } from 'node:http'
 import { Server as WebSocketServer, RawData, WebSocket } from 'ws'
-import { isError } from 'lodash'
+import { isError, set } from 'lodash'
 import {
   ClientMessage,
   ServerMessage,
@@ -8,7 +8,7 @@ import {
 } from 'common/websockets/websocket-schema'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
-import { checkQuota, limitFingerprint } from '../billing/message'
+import { checkQuota, limitFingerprint, resetQuota } from '../billing/message'
 import { debugLog } from '../util/debug'
 import { match, P } from 'ts-pattern'
 
@@ -91,7 +91,8 @@ async function processMessage(
             throw new Error('No userId found!')
           }
 
-          const { creditsUsed, quota, userId } = await checkQuota(fingerprintId)
+          const { creditsUsed, quota, userId, endDate } =
+            await checkQuota(fingerprintId)
           if (creditsUsed >= quota) {
             limitFingerprint(fingerprintId, userId)
             debugLog(
@@ -104,6 +105,11 @@ async function processMessage(
               error: 'Usage limit exceeded. Please upgrade your plan.',
             }
           } else {
+            if (endDate < new Date()) {
+              // End date is in the past, so we should reset the quota
+              resetQuota(fingerprintId, userId)
+            }
+
             onWebsocketAction(ws, msg)
           }
 

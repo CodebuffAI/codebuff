@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import {
   timestamp,
   pgTable,
@@ -6,6 +7,7 @@ import {
   integer,
   boolean,
   jsonb,
+  numeric,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
 
@@ -63,6 +65,7 @@ export const message = pgTable('message', {
     .references(() => fingerprint.id)
     .notNull(),
   model: text('model').notNull(), // TODO: type?
+  context: jsonb('context'),
   request: jsonb('request'),
   response: jsonb('response'),
   input_tokens: integer('input_tokens').notNull().default(0),
@@ -72,8 +75,13 @@ export const message = pgTable('message', {
   cache_read_input_tokens: integer('cache_read_input_tokens')
     .notNull()
     .default(0),
-  output_tokens: integer('output_tokens').notNull().default(0),
+  output_tokens: integer('output_tokens').notNull(),
+  cost: numeric('cost', { precision: 100, scale: 20 }).notNull(),
+  credits: integer('credits').notNull().default(0),
   finished_at: timestamp('finished_at', { mode: 'date' }).notNull(),
+  created_at: timestamp('created_at', { mode: 'date' })
+    .notNull()
+    .$defaultFn(() => sql<Date>`now()`),
 })
 
 export const session = pgTable('session', {

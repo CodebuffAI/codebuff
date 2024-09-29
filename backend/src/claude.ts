@@ -2,18 +2,13 @@ import Anthropic from '@anthropic-ai/sdk'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from 'common/util/object'
 import { Message, ToolCall } from 'common/actions'
-import { STOP_MARKER } from 'common/constants'
+import { claudeModels, STOP_MARKER } from 'common/constants'
 import { debugLog } from './util/debug'
 import { RATE_LIMIT_POLICY } from './constants'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message'
 
-export const models = {
-  sonnet: 'claude-3-5-sonnet-20240620' as const,
-  haiku: 'claude-3-haiku-20240307' as const,
-}
-
-export type model_types = (typeof models)[keyof typeof models]
+export type model_types = (typeof claudeModels)[keyof typeof claudeModels]
 
 export type System = string | Array<TextBlockParam>
 
@@ -30,7 +25,7 @@ export const promptClaudeStream = async function* (
   userId?: string
 ): AsyncGenerator<string, void, unknown> {
   const {
-    model = models.sonnet,
+    model = claudeModels.sonnet,
     system,
     tools,
     fingerprintId,
@@ -84,6 +79,8 @@ export const promptClaudeStream = async function* (
   let messageId: string | undefined
   let inputTokens = 0
   let outputTokens = 0
+  let cacheCreationInputTokens = 0
+  let cacheReadInputTokens = 0
   let fullResponse = ''
   for await (const chunk of stream) {
     const { type } = chunk
@@ -93,6 +90,11 @@ export const promptClaudeStream = async function* (
       messageId = chunk.message.id
       inputTokens = chunk.message.usage.input_tokens
       outputTokens = chunk.message.usage.output_tokens
+      // @ts-ignore
+      cacheReadInputTokens = chunk.message.usage.cache_read_input_tokens ?? 0
+      cacheCreationInputTokens =
+        // @ts-ignore
+        chunk.message.usage.cache_creation_input_tokens ?? 0
     }
 
     // Text (most common case)
@@ -134,15 +136,19 @@ export const promptClaudeStream = async function* (
       }
 
       outputTokens += chunk.usage.output_tokens
+      const [last, ...context] = messages.slice().reverse()
       saveMessage({
         messageId,
         userId,
         fingerprintId,
-        request: messages,
+        context,
+        request: last,
         model,
         response: fullResponse,
         inputTokens,
         outputTokens,
+        cacheCreationInputTokens,
+        cacheReadInputTokens,
         finishedAt: new Date(),
       })
     }

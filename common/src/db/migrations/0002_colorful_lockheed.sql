@@ -10,13 +10,17 @@ CREATE TABLE IF NOT EXISTS "message" (
 	"user_id" text,
 	"fingerprint_id" text NOT NULL,
 	"model" text NOT NULL,
+	"context" jsonb,
 	"request" jsonb,
 	"response" jsonb,
 	"input_tokens" integer DEFAULT 0 NOT NULL,
 	"cache_creation_input_tokens" integer DEFAULT 0 NOT NULL,
 	"cache_read_input_tokens" integer DEFAULT 0 NOT NULL,
-	"output_tokens" integer DEFAULT 0 NOT NULL,
-	"finished_at" timestamp NOT NULL
+	"output_tokens" integer NOT NULL,
+	"cost" numeric(100, 20) NOT NULL,
+	"credits" integer DEFAULT 0 NOT NULL,
+	"finished_at" timestamp NOT NULL,
+	"created_at" timestamp NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "session" RENAME COLUMN "fingerprintId" TO "fingerprint_id";--> statement-breakpoint

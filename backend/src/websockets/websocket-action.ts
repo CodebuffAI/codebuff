@@ -5,13 +5,14 @@ import { ClientAction, ServerAction } from 'common/actions'
 import { sendMessage } from './server'
 import { isEqual } from 'lodash'
 import { getSearchSystemPrompt } from '../system-prompt'
-import { promptClaude, models } from '../claude'
+import { promptClaude } from '../claude'
 import { env } from '../env.mjs'
 import db from 'common/src/db'
 import * as schema from 'common/db/schema'
 import { eq, and, gt } from 'drizzle-orm'
 import { genAuthCode } from 'common/util/credentials'
 import { match, P } from 'ts-pattern'
+import { claudeModels } from 'common/constants'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -231,7 +232,7 @@ const onInit = async (
       },
     ],
     {
-      model: models.sonnet,
+      model: claudeModels.sonnet,
       system,
       fingerprintId: fingerprintId,
       maxTokens: 1,

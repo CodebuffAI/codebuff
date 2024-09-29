@@ -4,7 +4,8 @@ import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
-import { model_types, models, promptClaude, System } from './claude'
+import { model_types, promptClaude, System } from './claude'
+import { claudeModels } from 'common/constants'
 import { debugLog } from './util/debug'
 import { getAllFilePaths } from 'common/project-file-tree'
 
@@ -92,7 +93,7 @@ async function generateFileRequests(
         system,
       },
       nonObviousPrompt,
-      models.sonnet,
+      claudeModels.sonnet,
       `Non-obvious ${index + 1}`,
       userId
     ).catch((error) => {
@@ -119,7 +120,7 @@ async function generateFileRequests(
         system,
       },
       keyPrompt,
-      models.sonnet,
+      claudeModels.sonnet,
       `Key ${index + 1}`,
       userId
     ).catch((error) => {
@@ -156,7 +157,7 @@ Answer with just 'YES' if new files are necessary, or 'NO' if the current files 
   const response = await promptClaude(
     [...messages, { role: 'user', content: prompt }],
     {
-      model: models.sonnet,
+      model: claudeModels.sonnet,
       system,
       fingerprintId: userId,
     }
@@ -360,7 +361,7 @@ export const warmCacheForRequestRelevantFiles = async (
       },
     ],
     {
-      model: models.sonnet,
+      model: claudeModels.sonnet,
       system,
       fingerprintId: userId,
       maxTokens: 1,

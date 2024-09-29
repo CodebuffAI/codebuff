@@ -2,6 +2,7 @@ import { debugLog } from './util/debug'
 import { Message } from 'common/actions'
 import { createFileBlock } from 'common/util/file'
 import { promptOpenAI } from './openai-api'
+import { openaiModels } from 'common/constants'
 
 export async function expandNewContent(
   userId: string,
@@ -679,7 +680,7 @@ ${createFileBlock(filePath, newContent)}
         content: prompt,
       },
     ],
-    'gpt-4o-2024-08-06'
+    openaiModels.gpt4o
   )
 
   debugLog('New file (unexpanded) for filePath', filePath, newContent)

@@ -1,5 +1,5 @@
 {
-  "id": "3af9d329-21b2-4902-a21d-9f279a8db99b",
+  "id": "6494c77f-adbc-4203-b06f-9ffbaee70688",
   "prevId": "2f8e2b18-d00c-4966-8d63-70d9b5eff19f",
   "version": "7",
   "dialect": "postgresql",
@@ -165,6 +165,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "context": {
+          "name": "context",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "request": {
           "name": "request",
           "type": "jsonb",
@@ -202,11 +208,29 @@
           "name": "output_tokens",
           "type": "integer",
           "primaryKey": false,
+          "notNull": true
+        },
+        "cost": {
+          "name": "cost",
+          "type": "numeric(100, 20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "credits": {
+          "name": "credits",
+          "type": "integer",
+          "primaryKey": false,
           "notNull": true,
           "default": 0
         },
         "finished_at": {
           "name": "finished_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true
