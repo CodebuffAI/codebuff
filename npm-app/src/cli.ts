@@ -245,6 +245,7 @@ export class CLI {
       (!SKIPPED_TERMINAL_COMMANDS.some((command) =>
         userInput.toLowerCase().startsWith(command)
       ) &&
+        !userInput.includes('error ') &&
         userInput.split(' ').length <= 3)
     ) {
       const withoutRunPrefix = userInput.replace(runPrefix, '')
