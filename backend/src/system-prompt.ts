@@ -266,7 +266,7 @@ Note: the project file tree is cached from the start of this conversation.
 }
 
 const getRelevantFilesPromptPart1 = (fileContext: ProjectFileContext) => {
-  const { knowledgeFiles, fileTree } = fileContext
+  const { knowledgeFiles, fileTree, shellConfigFiles } = fileContext
   const flattenedNodes = flattenTree(fileTree)
   const lastReadFilePaths = getLastReadFilePaths(flattenedNodes, 20)
 
@@ -285,6 +285,12 @@ ${Object.entries(knowledgeFiles)
 </knowledge_files>
 
 Note: the knowledge files are cached from the start of this conversation.
+
+<user_shell_config_files>
+${Object.entries(shellConfigFiles)
+  .map(([path, content]) => createFileBlock(path, content))
+  .join('\n')}
+</user_shell_config_files>
 `.trim()
 }
 

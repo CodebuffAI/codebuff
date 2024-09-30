@@ -39,6 +39,7 @@ export const ProjectFileContextSchema = z.object({
     lastCommitMessages: z.string(),
   }),
   changesSinceLastChat: z.record(z.string(), z.string()),
+  shellConfigFiles: z.record(z.string(), z.string()),
 })
 
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>

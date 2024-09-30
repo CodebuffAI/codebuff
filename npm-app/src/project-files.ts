@@ -1,4 +1,5 @@
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
@@ -76,6 +77,7 @@ export const getProjectFileContext = async (
     )
     const knowledgeFiles =
       await getExistingFilesWithScrapedContent(knowledgeFilePaths)
+    const shellConfigFiles = loadShellConfigFiles()
 
     const fileTokenScores = await getFileTokenScores(projectRoot, allFilePaths)
 
@@ -84,6 +86,7 @@ export const getProjectFileContext = async (
       fileTree,
       fileTokenScores,
       knowledgeFiles,
+      shellConfigFiles,
       ...updatedProps,
     }
   } else {
@@ -165,6 +168,18 @@ export function getExistingFiles(filePaths: string[]) {
     string
   >
 }
+export function getFilesAbsolutePath(filePaths: string[]) {
+  const result: Record<string, string | null> = {}
+  for (const filePath of filePaths) {
+    try {
+      const content = fs.readFileSync(filePath, 'utf8')
+      result[filePath] = content
+    } catch (error) {
+      result[filePath] = null
+    }
+  }
+  return result
+}
 
 export async function getExistingFilesWithScrapedContent(
   filePaths: string[]
@@ -226,6 +241,23 @@ export function getFileBlocks(filePaths: string[]) {
   )
 
   return fileBlocks.join('\n')
+}
+
+const loadShellConfigFiles = () => {
+  const homeDir = os.homedir()
+  const configFiles = [
+    path.join(homeDir, '.bashrc'),
+    path.join(homeDir, '.bash_profile'),
+    path.join(homeDir, '.bash_login'),
+    path.join(homeDir, '.profile'),
+    path.join(homeDir, '.zshrc'),
+    path.join(homeDir, '.kshrc'),
+  ]
+  const files = getFilesAbsolutePath(configFiles)
+  return filterObject(files, (value) => value !== null) as Record<
+    string,
+    string
+  >
 }
 
 /*
