@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws'
 
 export type ClientState = {
-  uid?: string
+  sessionId?: string
   lastSeen: number
   subscriptions: Set<string>
 }
@@ -31,22 +31,18 @@ export class Switchboard {
     if (existing != null) {
       throw new Error("Client already connected! Shouldn't happen.")
     }
-    this.clients.set(ws, { lastSeen: Date.now(), subscriptions: new Set() })
+    this.clients.set(ws, {
+      lastSeen: Date.now(),
+      sessionId: `mc-client-` + Math.random().toString(36).slice(2, 15),
+      subscriptions: new Set(),
+    })
   }
   disconnect(ws: WebSocket) {
-    this.getClient(ws)
+    this.getClient(ws).sessionId = undefined
     this.clients.delete(ws)
   }
   markSeen(ws: WebSocket) {
     this.getClient(ws).lastSeen = Date.now()
-  }
-  identify(ws: WebSocket, uid: string) {
-    this.getClient(ws).uid = uid
-    this.markSeen(ws)
-  }
-  deidentify(ws: WebSocket) {
-    this.getClient(ws).uid = undefined
-    this.markSeen(ws)
   }
   subscribe(ws: WebSocket, ...topics: string[]) {
     const client = this.getClient(ws)

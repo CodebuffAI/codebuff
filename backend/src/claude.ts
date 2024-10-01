@@ -158,6 +158,7 @@ export const promptClaudeStream = async function* (
 export const promptClaude = async (
   messages: Message[],
   options: {
+    clientSessionId: string
     fingerprintId: string
     userInputId: string
     system?: string | Array<TextBlockParam>

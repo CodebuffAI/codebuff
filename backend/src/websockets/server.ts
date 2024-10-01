@@ -8,11 +8,8 @@ import {
 } from 'common/websockets/websocket-schema'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
-import { checkQuota, limitFingerprint, resetQuota } from '../billing/message'
-import { debugLog } from '../util/debug'
-import { match, P } from 'ts-pattern'
 
-const SWITCHBOARD = new Switchboard()
+export const SWITCHBOARD = new Switchboard()
 
 // if a connection doesn't ping for this long, we assume the other side is toast
 const CONNECTION_TIMEOUT_MS = 60 * 1000
@@ -55,6 +52,7 @@ function parseMessage(data: RawData): ClientMessage {
 
 async function processMessage(
   ws: WebSocket,
+  clientSessionId: string,
   data: RawData
 ): Promise<ServerMessage<'ack'>> {
   try {
@@ -62,10 +60,6 @@ async function processMessage(
     const { type, txid } = msg
     try {
       switch (type) {
-        case 'identify': {
-          SWITCHBOARD.identify(ws, msg.uid)
-          break
-        }
         case 'subscribe': {
           SWITCHBOARD.subscribe(ws, ...msg.topics)
           break
@@ -79,7 +73,7 @@ async function processMessage(
           break
         }
         case 'action': {
-          onWebsocketAction(ws, msg)
+          onWebsocketAction(ws, clientSessionId, msg)
           break
         }
         default:
@@ -124,8 +118,10 @@ export function listen(server: HttpServer, path: string) {
     // todo: should likely kill connections that haven't sent any ping for a long time
     // console.log('WS client connected.')
     SWITCHBOARD.connect(ws)
+    const clientSessionId =
+      SWITCHBOARD.clients.get(ws)?.sessionId ?? 'mc-client-unknown'
     ws.on('message', async (data) => {
-      const result = await processMessage(ws, data)
+      const result = await processMessage(ws, clientSessionId, data)
       // mqp: check ws.readyState before sending?
       ws.send(JSON.stringify(result))
     })

@@ -2,7 +2,7 @@ import { WebSocket } from 'ws'
 import { ClientMessage } from 'common/websockets/websocket-schema'
 import { mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction } from 'common/actions'
-import { sendMessage } from './server'
+import { sendMessage, SWITCHBOARD } from './server'
 import { isEqual } from 'lodash'
 import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude } from '../claude'
@@ -31,6 +31,7 @@ const onUserInput = async (
     fileContext,
     previousChanges,
   }: Extract<ClientAction, { type: 'user-input' }>,
+  clientSessionId: string,
   ws: WebSocket
 ) => {
   const lastMessage = messages[messages.length - 1]
@@ -42,6 +43,7 @@ const onUserInput = async (
       ws,
       messages,
       fileContext,
+      clientSessionId,
       fingerprintId,
       userInputId,
       (chunk) =>
@@ -100,6 +102,7 @@ const onClearAuthTokenRequest = async (
     fingerprintId,
     fingerprintHash,
   }: Extract<ClientAction, { type: 'clear-auth-token' }>,
+  _clientSessionId: string,
   _ws: WebSocket
 ) => {
   const validDeletion = await db
@@ -130,6 +133,7 @@ const onClearAuthTokenRequest = async (
 
 const onLoginCodeRequest = (
   { fingerprintId }: Extract<ClientAction, { type: 'login-code-request' }>,
+  _clientSessionId: string,
   ws: WebSocket
 ): void => {
   const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes in the future
@@ -153,6 +157,7 @@ const onLoginStatusRequest = async (
     fingerprintId,
     fingerprintHash,
   }: Extract<ClientAction, { type: 'login-status-request' }>,
+  _clientSessionId: string,
   ws: WebSocket
 ) => {
   try {
@@ -213,6 +218,7 @@ const onLoginStatusRequest = async (
 
 const onInit = async (
   { fileContext, fingerprintId }: Extract<ClientAction, { type: 'init' }>,
+  clientSessionId: string,
   ws: WebSocket
 ) => {
   // Create a new session for fingerprint if it doesn't exist
@@ -236,6 +242,7 @@ const onInit = async (
     {
       model: claudeModels.sonnet,
       system,
+      clientSessionId,
       fingerprintId,
       userInputId: 'init-cache',
       maxTokens: 1,
@@ -249,15 +256,23 @@ const onInit = async (
 
 const callbacksByAction = {} as Record<
   ClientAction['type'],
-  ((action: ClientAction, ws: WebSocket) => void)[]
+  ((action: ClientAction, clientSessionId: string, ws: WebSocket) => void)[]
 >
 
 export const subscribeToAction = <T extends ClientAction['type']>(
   type: T,
-  callback: (action: Extract<ClientAction, { type: T }>, ws: WebSocket) => void
+  callback: (
+    action: Extract<ClientAction, { type: T }>,
+    clientSessionId: string,
+    ws: WebSocket
+  ) => void
 ) => {
   callbacksByAction[type] = (callbacksByAction[type] ?? []).concat(
-    callback as (action: ClientAction, ws: WebSocket) => void
+    callback as (
+      action: ClientAction,
+      clientSessionId: string,
+      ws: WebSocket
+    ) => void
   )
   return () => {
     callbacksByAction[type] = (callbacksByAction[type] ?? []).filter(
@@ -268,11 +283,12 @@ export const subscribeToAction = <T extends ClientAction['type']>(
 
 export const onWebsocketAction = async (
   ws: WebSocket,
+  clientSessionId: string,
   msg: ClientMessage & { type: 'action' }
 ) => {
   const callbacks = callbacksByAction[msg.data.type] ?? []
   try {
-    await Promise.all(callbacks.map((cb) => cb(msg.data, ws)))
+    await Promise.all(callbacks.map((cb) => cb(msg.data, clientSessionId, ws)))
   } catch (e) {
     console.error(
       'Got error running subscribeToAction callback',
@@ -323,8 +339,10 @@ protec.use(async (action, _) => {
 //   }
 // })
 
-subscribeToAction('user-input', protec.run(onUserInput))
-subscribeToAction('init', protec.run(onInit))
+// subscribeToAction('user-input', protec.run(onUserInput))
+// subscribeToAction('init', protec.run(onInit))
+subscribeToAction('user-input', onUserInput)
+subscribeToAction('init', onInit)
 
 subscribeToAction('clear-auth-token', onClearAuthTokenRequest)
 subscribeToAction('login-code-request', onLoginCodeRequest)

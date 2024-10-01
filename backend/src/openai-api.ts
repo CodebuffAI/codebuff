@@ -32,6 +32,7 @@ const timeoutPromise = (ms: number) =>
   )
 
 export async function promptOpenAI(
+  clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   messages: OpenAIMessage[],

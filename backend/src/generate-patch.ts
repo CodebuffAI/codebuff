@@ -5,6 +5,7 @@ import { createPatch } from 'diff'
 import { openaiModels } from 'common/constants'
 
 export async function generatePatch(
+  clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   oldContent: string,
@@ -21,6 +22,7 @@ export async function generatePatch(
   let patch = ''
   const { isSketchComplete, shouldAddPlaceholderComments } =
     await isSketchCompletePrompt(
+      clientSessionId,
       fingerprintId,
       userInputId,
       normalizedOldContent,
@@ -41,6 +43,7 @@ export async function generatePatch(
       ? `... existing code ...\n\n${normalizedNewContent}\n\n... existing code ...`
       : normalizedNewContent
     patch = await generatePatchPrompt(
+      clientSessionId,
       fingerprintId,
       userInputId,
       normalizedOldContent,
@@ -55,6 +58,7 @@ export async function generatePatch(
 }
 
 const isSketchCompletePrompt = async (
+  clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   oldContent: string,
@@ -97,6 +101,7 @@ If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". 
     },
   ]
   const response = await promptOpenAI(
+    clientSessionId,
     fingerprintId,
     userInputId,
     messages as OpenAIMessage[],
@@ -117,6 +122,7 @@ If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". 
 }
 
 const generatePatchPrompt = async (
+  clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   oldContent: string,
@@ -152,6 +158,7 @@ Please produce a patch file based on this change.
     },
   ]
   return await promptOpenAI(
+    clientSessionId,
     fingerprintId,
     userInputId,
     messages,

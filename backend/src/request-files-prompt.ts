@@ -19,6 +19,7 @@ export async function requestRelevantFiles(
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
+  clientSessionId: string,
   fingerprintId: string,
   userInputId: string
 ) {
@@ -40,8 +41,9 @@ export async function requestRelevantFiles(
     : checkNewFilesNecessary(
         messagesExcludingLastIfByUser,
         system,
-        userInputId,
+        clientSessionId,
         fingerprintId,
+        userInputId,
         previousFiles,
         userPrompt
       )
@@ -53,6 +55,7 @@ export async function requestRelevantFiles(
     countPerRequest,
     messagesExcludingLastIfByUser,
     system,
+    clientSessionId,
     fingerprintId,
     userInputId
   )
@@ -77,6 +80,7 @@ async function generateFileRequests(
   countPerRequest: number,
   messagesExcludingLastIfByUser: Message[],
   system: string | Array<TextBlockParam>,
+  clientSessionId: string,
   fingerprintId: string,
   userInputId: string
 ) {
@@ -99,6 +103,7 @@ async function generateFileRequests(
       nonObviousPrompt,
       claudeModels.sonnet,
       `Non-obvious ${index + 1}`,
+      clientSessionId,
       fingerprintId,
       userInputId
     ).catch((error) => {
@@ -127,6 +132,7 @@ async function generateFileRequests(
       keyPrompt,
       claudeModels.sonnet,
       `Key ${index + 1}`,
+      clientSessionId,
       fingerprintId,
       userInputId
     ).catch((error) => {
@@ -147,8 +153,9 @@ async function generateFileRequests(
 const checkNewFilesNecessary = async (
   messages: Message[],
   system: System,
-  userInputId: string,
+  clientSessionId: string,
   fingerprintId: string,
+  userInputId: string,
   previousFiles: string[],
   userPrompt: string
 ) => {
@@ -166,6 +173,7 @@ Answer with just 'YES' if new files are necessary, or 'NO' if the current files 
     {
       model: claudeModels.sonnet,
       system,
+      clientSessionId,
       fingerprintId,
       userInputId,
     }
@@ -188,6 +196,7 @@ async function getRelevantFiles(
   userPrompt: string,
   model: model_types,
   requestType: string,
+  clientSessionId: string,
   fingerprintId: string,
   userInputId: string
 ): Promise<{ files: string[]; duration: number }> {
@@ -202,6 +211,7 @@ async function getRelevantFiles(
   const response = await promptClaude(messagesWithPrompt, {
     model,
     system,
+    clientSessionId,
     fingerprintId,
     userInputId,
   })
@@ -361,6 +371,7 @@ ${topLevelDirectories(fileContext).join('\n')}
 
 export const warmCacheForRequestRelevantFiles = async (
   system: System,
+  clientSessionId: string,
   fingerprintId: string,
   userInputId: string
 ) => {
@@ -374,6 +385,7 @@ export const warmCacheForRequestRelevantFiles = async (
     {
       model: claudeModels.sonnet,
       system,
+      clientSessionId,
       fingerprintId,
       userInputId,
       maxTokens: 1,

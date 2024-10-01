@@ -343,7 +343,8 @@ export class CLI {
   }
 
   private async sendUserInputAndAwaitResponse() {
-    const userInputId = Math.random().toString(36).substring(2, 15)
+    const userInputId =
+      `mc-input-` + Math.random().toString(36).substring(2, 15)
 
     const { responsePromise, stopResponse } = this.client.subscribeToResponse(
       (chunk) => {

@@ -28,6 +28,7 @@ export async function mainPrompt(
   ws: WebSocket,
   messages: Message[],
   fileContext: ProjectFileContext,
+  clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   onResponseChunk: (chunk: string) => void
@@ -37,7 +38,6 @@ export async function mainPrompt(
     'messages:',
     messages.length
   )
-
   let fullResponse = ''
   let genKnowledgeFilesPromise: Promise<Promise<FileChange | null>[]> =
     Promise.resolve([])
@@ -54,6 +54,7 @@ export async function mainPrompt(
       fileContext,
       { messages, system },
       null,
+      clientSessionId,
       fingerprintId,
       userInputId
     )
@@ -63,7 +64,12 @@ export async function mainPrompt(
 
       // Prompt cache the new files.
       const system = getSearchSystemPrompt(fileContext)
-      warmCacheForRequestRelevantFiles(system, fingerprintId, userInputId)
+      warmCacheForRequestRelevantFiles(
+        system,
+        clientSessionId,
+        fingerprintId,
+        userInputId
+      )
     }
   }
 
@@ -71,6 +77,7 @@ export async function mainPrompt(
     // Already have context from existing chat
     // If client used tool, we don't want to generate knowledge files because the user isn't really in control
     genKnowledgeFilesPromise = generateKnowledgeFiles(
+      clientSessionId,
       fingerprintId,
       userInputId,
       ws,
@@ -151,6 +158,7 @@ ${STOP_MARKER}
             : fileContent
           fileProcessingPromises.push(
             processFileBlock(
+              clientSessionId,
               fingerprintId,
               userInputId,
               ws,
@@ -236,6 +244,7 @@ ${STOP_MARKER}
         fileContext,
         { messages, system: getSearchSystemPrompt(fileContext) },
         fullResponse,
+        clientSessionId,
         fingerprintId,
         userInputId
       )
@@ -316,6 +325,7 @@ async function updateFileContext(
     system: string | Array<TextBlockParam>
   },
   prompt: string | null,
+  clientSessionId: string,
   fingerprntId: string,
   userInputId: string
 ) {
@@ -323,6 +333,7 @@ async function updateFileContext(
     { messages, system },
     fileContext,
     prompt,
+    clientSessionId,
     fingerprntId,
     userInputId
   )
@@ -365,6 +376,7 @@ async function updateFileContext(
 }
 
 export async function processFileBlock(
+  clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   ws: WebSocket,
@@ -388,6 +400,7 @@ export async function processFileBlock(
   }
 
   const patch = await generatePatch(
+    clientSessionId,
     fingerprintId,
     userInputId,
     oldContent,
