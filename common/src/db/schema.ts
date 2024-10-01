@@ -65,10 +65,8 @@ export const fingerprint = pgTable('fingerprint', {
 export const message = pgTable('message', {
   id: text('id').primaryKey(),
   finished_at: timestamp('finished_at', { mode: 'date' }).notNull(),
-  user_id: text('user_id').references(() => user.id),
-  fingerprint_id: text('fingerprint_id')
-    .references(() => fingerprint.id)
-    .notNull(),
+  client_id: text('client_id').notNull(), // TODO: `CHECK` that this starts w/ prefix `mc-client-`
+  client_request_id: text('client_request_id').notNull(), // TODO: `CHECK` that this starts w/ prefix `mc-input-`
   model: text('model').notNull(),
   context: jsonb('context'),
   request: jsonb('request'),
@@ -83,6 +81,10 @@ export const message = pgTable('message', {
   output_tokens: integer('output_tokens').notNull(),
   cost: numeric('cost', { precision: 100, scale: 20 }).notNull(),
   credits: integer('credits').notNull().default(0),
+  user_id: text('user_id').references(() => user.id),
+  fingerprint_id: text('fingerprint_id')
+    .references(() => fingerprint.id)
+    .notNull(),
 })
 
 export const session = pgTable('session', {

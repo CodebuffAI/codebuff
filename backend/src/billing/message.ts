@@ -38,7 +38,9 @@ const TOKENS_COST_PER_M = {
 export const saveMessage = async (value: {
   messageId: string
   userId?: string
+  clientSessionId: string
   fingerprintId: string
+  userInputId: string
   model: string
   context: Message[] | OpenAIMessage[]
   request: Message | OpenAIMessage
@@ -63,6 +65,8 @@ export const saveMessage = async (value: {
     id: value.messageId,
     user_id: value.userId,
     fingerprint_id: value.fingerprintId,
+    client_id: value.clientSessionId,
+    client_request_id: value.userInputId,
     model: value.model,
     context: value.context,
     request: value.request,

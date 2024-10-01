@@ -6,6 +6,7 @@ import { promptOpenAIWithContinuation } from './openai-api'
 import { openaiModels } from 'common/constants'
 
 export async function generateExpandedFileWithDiffBlocks(
+  clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   messageHistory: Message[],
@@ -15,6 +16,7 @@ export async function generateExpandedFileWithDiffBlocks(
   newContent: string
 ) {
   const diffBlocks = await generateDiffBlocks(
+    clientSessionId,
     fingerprintId,
     userInputId,
     messageHistory,
@@ -54,6 +56,7 @@ export async function generateExpandedFileWithDiffBlocks(
 }
 
 export async function generateDiffBlocks(
+  clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   messageHistory: Message[],
@@ -443,7 +446,7 @@ Your Response:`
   // )
   const response = await promptOpenAIWithContinuation(
     [{ role: 'user', content: prompt }],
-    { model: openaiModels.gpt4o, fingerprintId, userInputId }
+    { clientSessionId, model: openaiModels.gpt4o, fingerprintId, userInputId }
   )
 
   debugLog('OpenAI response for diff blocks:', response)
@@ -489,7 +492,7 @@ ${STOP_MARKER}
     debugLog('Trying a second prompt for getDiffBlocks', filePath)
     const response = await promptOpenAIWithContinuation(
       [{ role: 'user', content: newPrompt }],
-      { fingerprintId, userInputId, model: openaiModels.gpt4o }
+      { clientSessionId, fingerprintId, userInputId, model: openaiModels.gpt4o }
     )
     debugLog('Second Claude response for diff blocks:', response)
 

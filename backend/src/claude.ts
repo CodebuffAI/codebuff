@@ -19,7 +19,9 @@ export const promptClaudeStream = async function* (
     tools?: Tool[]
     model?: model_types
     maxTokens?: number
+    clientSessionId: string
     fingerprintId: string
+    userInputId: string
     ignoreHelicone?: boolean
   },
   userId?: string
@@ -28,7 +30,9 @@ export const promptClaudeStream = async function* (
     model = claudeModels.sonnet,
     system,
     tools,
+    clientSessionId,
     fingerprintId,
+    userInputId,
     maxTokens,
     ignoreHelicone = false,
   } = options
@@ -140,7 +144,9 @@ export const promptClaudeStream = async function* (
       saveMessage({
         messageId,
         userId,
+        clientSessionId,
         fingerprintId,
+        userInputId,
         context,
         request: last,
         model,
@@ -178,7 +184,9 @@ export const promptClaude = async (
 export async function promptClaudeWithContinuation(
   messages: Message[],
   options: {
+    clientSessionId: string
     fingerprintId: string
+    userInputId: string
     system?: string
     model?: model_types
     ignoreHelicone?: boolean

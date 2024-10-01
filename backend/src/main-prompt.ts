@@ -143,7 +143,9 @@ ${STOP_MARKER}
 
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
+      clientSessionId,
       fingerprintId,
+      userInputId,
     })
     const streamWithTags = processStreamWithTags(stream, {
       edit_file: {

@@ -61,7 +61,9 @@ export async function promptOpenAI(
       saveMessage({
         messageId,
         userId,
+        clientSessionId,
         fingerprintId,
+        userInputId,
         model,
         context,
         request: last,
@@ -89,12 +91,13 @@ export async function promptOpenAIWithContinuation(
   messages: OpenAIMessage[],
   options: {
     model: string
+    clientSessionId: string
     fingerprintId: string
     userInputId: string
     userId?: string
   }
 ) {
-  const { model, fingerprintId, userId } = options
+  const { model, clientSessionId, fingerprintId, userInputId, userId } = options
   let fullResponse = ''
   let continuedMessage: OpenAIMessage | null = null
   let isComplete = false
@@ -147,7 +150,9 @@ export async function promptOpenAIWithContinuation(
           saveMessage({
             messageId,
             userId,
+            clientSessionId,
             fingerprintId,
+            userInputId,
             model,
             context,
             request: last,

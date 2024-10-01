@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS "fingerprint" (
 CREATE TABLE IF NOT EXISTS "message" (
 	"id" text PRIMARY KEY NOT NULL,
 	"finished_at" timestamp NOT NULL,
-	"user_id" text,
-	"fingerprint_id" text NOT NULL,
+	"client_id" text NOT NULL,
+	"client_request_id" text NOT NULL,
 	"model" text NOT NULL,
 	"context" jsonb,
 	"request" jsonb,
@@ -19,7 +19,9 @@ CREATE TABLE IF NOT EXISTS "message" (
 	"cache_read_input_tokens" integer DEFAULT 0 NOT NULL,
 	"output_tokens" integer NOT NULL,
 	"cost" numeric(100, 20) NOT NULL,
-	"credits" integer DEFAULT 0 NOT NULL
+	"credits" integer DEFAULT 0 NOT NULL,
+	"user_id" text,
+	"fingerprint_id" text NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "session" RENAME COLUMN "fingerprintId" TO "fingerprint_id";--> statement-breakpoint
