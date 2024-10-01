@@ -34,6 +34,22 @@ const runPatchTest = async (dir: string, mockFilePath: string) => {
 }
 
 describe('generatePatch', () => {
+  it.only(
+    'should handle index file with placeholder at end',
+    async () => {
+      await runPatchTest(`${mockDataDir}/index`, 'src/index.ts')
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
+
+  it(
+    'should handle function-edit-only',
+    async () => {
+      await runPatchTest(`${mockDataDir}/function-edit-only`, 'src/index.ts')
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
+
   it(
     'should work for process-stream',
     async () => {

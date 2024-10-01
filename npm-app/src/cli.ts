@@ -11,7 +11,6 @@ import { Message } from 'common/actions'
 import { displayMenu } from './menu'
 import {
   getChangesSinceLastFileVersion,
-  getCurrentWorkingDirectory,
   getExistingFiles,
   getProjectRoot,
   setFiles,
@@ -119,7 +118,7 @@ export class CLI {
   }
 
   private setPrompt() {
-    this.rl.setPrompt(green(`${parse(getCurrentWorkingDirectory()).base} > `))
+    this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
   }
 
   public printInitialPrompt() {
@@ -240,14 +239,18 @@ export class CLI {
       return
     }
 
+    const runPrefix = '/run '
     if (
-      !SKIPPED_TERMINAL_COMMANDS.some((command) =>
+      userInput.startsWith(runPrefix) ||
+      (!SKIPPED_TERMINAL_COMMANDS.some((command) =>
         userInput.toLowerCase().startsWith(command)
       ) &&
-      userInput.split(' ').length < 4
+        !userInput.includes('error ') &&
+        userInput.split(' ').length <= 3)
     ) {
+      const withoutRunPrefix = userInput.replace(runPrefix, '')
       const result = await handleRunTerminalCommand(
-        { command: userInput },
+        { command: withoutRunPrefix },
         'user',
         'user'
       )
@@ -318,6 +321,9 @@ export class CLI {
     }
     for (const file of modified) {
       console.log(green(`- Updated ${file}`))
+    }
+    if (created.length > 0 || modified.length > 0) {
+      console.log('\nComplete!')
     }
     console.log()
 

@@ -4,10 +4,10 @@ import path from 'path'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { promptClaudeStream } from './claude'
-import { createFileBlock, ProjectFileContext } from 'common/util/file'
+import { ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
-import { STOP_MARKER } from 'common/constants'
+import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
 import { FileChange, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { debugLog } from './util/debug'
@@ -19,6 +19,7 @@ import {
 } from './request-files-prompt'
 import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
+import { countTokens } from './util/token-counter'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -77,7 +78,10 @@ export async function mainPrompt(
   }
 
   const lastUserMessageIndex = messages.findLastIndex(
-    (message) => message.role === 'user' && typeof message.content === 'string'
+    (message) =>
+      message.role === 'user' &&
+      typeof message.content === 'string' &&
+      !message.content.includes(TOOL_RESULT_MARKER)
   )
   const numAssistantMessages = messages
     .slice(lastUserMessageIndex)
@@ -132,10 +136,10 @@ ${STOP_MARKER}
       fingerprintId,
     })
     const streamWithTags = processStreamWithTags(stream, {
-      file: {
+      edit_file: {
         attributeNames: ['path'],
         onTagStart: ({ path }) => {
-          return `<file path="${path}">`
+          return `<edit_file path="${path}">`
         },
         onTagEnd: (fileContent, { path }) => {
           console.log('on file!', path)
@@ -155,7 +159,7 @@ ${STOP_MARKER}
               return null
             })
           )
-          fullResponse += fileContent + '</file>'
+          fullResponse += fileContent + '</edit_file>'
           return false
         },
       },
@@ -204,7 +208,7 @@ ${STOP_MARKER}
         printedChunk = printedChunk.slice(0, -savedForNextChunk.length)
       }
 
-      const openFileRegex = /<file\s+path="([^"]+)">/
+      const openFileRegex = /<edit_file\s+path="([^"]+)">/
       const fileMatches = printedChunk.match(openFileRegex)
       if (fileMatches) {
         const filePath = fileMatches[1]
@@ -274,23 +278,17 @@ ${STOP_MARKER}
     debugLog('Reached maximum number of iterations in mainPrompt')
   }
 
+  if (fileProcessingPromises.length > 0) {
+    onResponseChunk('\nApplying file changes. Please wait...\n')
+  }
+
   const knowledgeChanges = await genKnowledgeFilesPromise
   fileProcessingPromises.push(...knowledgeChanges)
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
   )
-  const changeAppendix =
-    changes.length > 0
-      ? `\n\n<edits_made_by_assistant>\n${changes
-          .map(({ filePath, content }) => createFileBlock(filePath, content))
-          .join('\n')}\n</edits_made_by_assistant>`
-      : ''
-
-  const responseWithChanges = `${fullResponse}${changeAppendix}`.trim()
-  console.log('responseWithChanges', responseWithChanges)
-
   return {
-    response: responseWithChanges,
+    response: fullResponse.trim(),
     changes,
     toolCall: toolCall as ToolCall | null,
   }
@@ -326,8 +324,24 @@ async function updateFileContext(
     return null
   }
 
+  const loadedFiles = await requestFiles(ws, relevantFiles)
+  const filePaths = Object.keys(loadedFiles)
+
+  const filteredFilePaths = [
+    ...filePaths.slice(0, 5),
+    // Filter out lower priority files that are too long.
+    ...filePaths.slice(5).filter((filePath) => {
+      const content = loadedFiles[filePath]
+      if (content === null) return true
+      const tokenCount = countTokens(content)
+      return tokenCount < 5_000
+    }),
+  ]
+
   // Load relevant files into fileContext
-  fileContext.files = await requestFiles(ws, relevantFiles)
+  fileContext.files = Object.fromEntries(
+    filteredFilePaths.map((filePath) => [filePath, loadedFiles[filePath]])
+  )
 
   const existingFiles = Object.keys(fileContext.files).filter(
     (filePath) => fileContext.files[filePath] !== null

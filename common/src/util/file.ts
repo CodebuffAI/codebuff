@@ -39,6 +39,7 @@ export const ProjectFileContextSchema = z.object({
     lastCommitMessages: z.string(),
   }),
   changesSinceLastChat: z.record(z.string(), z.string()),
+  shellConfigFiles: z.record(z.string(), z.string()),
 })
 
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
@@ -46,24 +47,24 @@ export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
 export const createFileBlock = (filePath: string, content: string) => {
   return (
     '<' +
-    `file path="${filePath}">
+    `edit_file path="${filePath}">
 ${content}
-</file` +
+</edit_file>` +
     '>'
   )
 }
 export const createFileBlockWithoutPath = (content: string) => {
   return (
     '<' +
-    `file>
+    `edit_file>
 ${content}
-</file` +
+</edit_file>` +
     '>'
   )
 }
 
-export const fileRegex = /<file path="([^"]+)">([\s\S]*?)<\/file>/g
-export const fileWithNoPathRegex = /<file>([\s\S]*?)<\/file>/g
+export const fileRegex = /<edit_file path="([^"]+)">([\s\S]*?)<\/edit_file>/g
+export const fileWithNoPathRegex = /<edit_file>([\s\S]*?)<\/edit_file>/g
 
 export const parseFileBlocks = (fileBlocks: string) => {
   let fileMatch

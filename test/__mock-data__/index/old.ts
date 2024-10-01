@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+ #!/usr/bin/env node
 
 import fs from 'fs'
 import path from 'path'
@@ -6,11 +6,11 @@ import { yellow } from 'picocolors'
 
 import { initFingerprint } from './config'
 import { CLI } from './cli'
-import { getProjectFileContext, setProjectRoot } from './project-files'
+import { getProjectFileContext, initProjectRoot } from './project-files'
 import { updateManicode } from './update-manicode'
 
 async function manicode(projectDir: string | undefined) {
-  const dir = setProjectRoot(projectDir)
+  const dir = initProjectRoot(projectDir)
 
   const updatePromise = updateManicode()
   const fingerprintPromise = initFingerprint()

@@ -12,6 +12,10 @@ export function countTokens(text: string): number {
   }
 }
 
+export function countTokensJson(text: string | object): number {
+  return countTokens(JSON.stringify(text))
+}
+
 export function countTokensForFiles(
   files: Record<string, string | null>
 ): Record<string, number> {

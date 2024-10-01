@@ -6,11 +6,12 @@ import { yellow } from 'picocolors'
 
 import { initFingerprint } from './config'
 import { CLI } from './cli'
-import { getProjectFileContext, setProjectRoot } from './project-files'
+import { getProjectFileContext, initProjectRoot } from './project-files'
 import { updateManicode } from './update-manicode'
 
 async function manicode(projectDir: string | undefined) {
-  const dir = setProjectRoot(projectDir)
+  console.log('Starting Manicode...')
+  const dir = initProjectRoot(projectDir)
 
   const updatePromise = updateManicode()
   const fingerprintPromise = initFingerprint()

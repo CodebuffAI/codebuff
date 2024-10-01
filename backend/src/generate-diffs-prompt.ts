@@ -105,7 +105,7 @@ Then write out one line of code from the old file that would start each of these
 For each edit assigned a letter, please list how many indentation levels are used in the first line being modified in the old file. It's important to match be able to match the indention in the old file. For example:
 A. 0 levels of indentation for the function in the old file
 B. 1 level of indentation for the variable in the old file
-5. Finally, please provide a ${'<' + 'file>'} block containing the <search> and <replace> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes uniquely.
+5. Finally, please provide a ${'<' + 'edit_file>'} block containing the <search> and <replace> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes uniquely.
 
 IMPORTANT INSTRUCTIONS:
 1. The <search> blocks MUST match a portion of the old file content EXACTLY, character for character, including indentation and empty lines. Do not include any comments or placeholders like "// ... existing code ..." in the <search> blocks. Instead, provide the exact lines of code that are being changed.
@@ -477,7 +477,7 @@ ${diffBlocks.map((change) => `<search>${change.searchContent}</search>\n<replace
 You should:
 1. Use <thinking> blocks to explain what might have gone wrong in the result of the last prompt.
 2. Within a <strategy> block, provide a new strategy to cover all the changes from the old file to the new file. List each intended edit that will become a <search> and <replace> block. Note that comments such as "// ... existing code ..." or "// ... rest of the file" should not be included in the <search> or <replace> blocks.
-3. Provide the complete set of <search> and <replace> changes within a <file path="${filePath}"></file> block to make the intended edit from the old file to the new file.
+3. Provide the complete set of <search> and <replace> changes within a <edit_file path="${filePath}"></edit_file> block to make the intended edit from the old file to the new file.
 
 Please make sure to end your response with the following string:
 ${STOP_MARKER}

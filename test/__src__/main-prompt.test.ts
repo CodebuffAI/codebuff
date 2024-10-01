@@ -34,7 +34,7 @@ describe('processFileBlock', () => {
 
     const filePath = 'test.ts'
 
-    const { type, content } = await processFileBlock(
+    const result = await processFileBlock(
       'userId',
       mockWs,
       [],
@@ -42,6 +42,11 @@ describe('processFileBlock', () => {
       filePath,
       newContent
     )
+    expect(result).not.toBeNull()
+    if (!result) {
+      throw new Error('Result is null')
+    }
+    const { type, content } = result
     const updatedFile =
       type === 'patch' ? applyPatch(oldContent, content) : content
     expect(updatedFile).toEqual(newContent)
@@ -49,3 +54,5 @@ describe('processFileBlock', () => {
     expect(mockRequestFile).toHaveBeenCalledWith(mockWs, filePath)
   })
 })
+
+// TODO: Add a test to run a terminal command 10 separate times and see that it only runs 3 times.

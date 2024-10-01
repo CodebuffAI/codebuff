@@ -104,7 +104,7 @@ Here's the patch showing the differences:
 ${patch}
 \`\`\`
 
-Please provide a sketch of how to turn the old file into the new file. First, explain the changes in a <discussion> block. Then, write out the new file in a <file> block, but use comments like "// ... existing code ..." (or "# ... existing code ..." or similar for different languages) for sections that were unchanged. Don't leave excessive comments.
+Please provide a sketch of how to turn the old file into the new file. First, explain the changes in a <discussion> block. Then, write out the new file in a <edit_file> block, but use comments like "// ... existing code ..." (or "# ... existing code ..." or similar for different languages) for sections that were unchanged. Don't leave excessive comments.
 `
 
   const response = await promptClaude([{ role: 'user', content: prompt }], {
@@ -112,8 +112,8 @@ Please provide a sketch of how to turn the old file into the new file. First, ex
     ignoreHelicone: true,
   })
 
-  // Extract the content from the <file> block
-  const fileContentMatch = response.match(/<file>([\s\S]*?)<\/file>/)
+  // Extract the content from the <edit_file> block
+  const fileContentMatch = response.match(/<edit_file>([\s\S]*?)<\/edit_file>/)
   return fileContentMatch ? fileContentMatch[1].trim() : ''
 }
 

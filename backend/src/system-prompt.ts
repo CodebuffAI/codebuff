@@ -5,8 +5,9 @@ import {
   printFileTreeWithTokens,
 } from 'common/util/file'
 import { buildArray } from 'common/util/array'
+import { truncateString } from 'common/util/string'
 import { STOP_MARKER } from 'common/constants'
-import { countTokens, countTokensForFiles } from './util/token-counter'
+import { countTokensForFiles, countTokensJson } from './util/token-counter'
 import { debugLog } from './util/debug'
 import { sortBy, sum } from 'lodash'
 import { filterObject } from 'common/util/object'
@@ -35,6 +36,8 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
       ].join('\n\n'),
     }
   )
+
+  debugLog('search system prompt tokens', countTokensJson(systemPrompt))
 
   return systemPrompt
 }
@@ -77,6 +80,8 @@ export const getAgentSystemPrompt = (
     }
   )
 
+  debugLog('agent system prompt tokens', countTokensJson(systemPrompt))
+
   return systemPrompt
 }
 
@@ -98,9 +103,9 @@ The user may have edited files since your last change. Please try to notice and 
 </important_instructions>
 
 <editing_instructions>
-You implement edits by writing out <file> blocks. The user does not need to copy this code to make the edit, the file change is done automatically by another assistant.
+You implement edits by writing out <edit_file> blocks. The user does not need to copy this code to make the edit, the file change is done automatically by another assistant.
 
-To create a new file, simply provide a file block with the file path as an xml attribute and the file contents:
+To create a new file, simply provide a edit_file block with the file path as an xml attribute and the file contents:
 ${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
 
 If the file already exists, this will overwrite the file with the new contents.
@@ -150,7 +155,7 @@ If a user corrects you or contradicts you or gives broad advice, that is a good 
 
 Each knowledge file should develop over time into a concise but rich repository of knowledge about the files within the directory, subdirectories, or the specific file it's associated with.
 
-Make sure you edit knowledge files by using <file> blocks. Do not write out their contents outside of <file> blocks.
+Make sure you edit knowledge files by using <edit_file> blocks. Do not write out their contents outside of <edit_file> blocks.
 
 Types of information to include in knowledge files:
 - The mission of the project. Goals, purpose, and a high-level overview of the project.
@@ -193,27 +198,41 @@ You have access to the following tools:
 
 ## Finding files
 
-Use the find_files tool to read more files beyond what is provided in the initial set of files.
+Use the <tool_call name="find_files">...</tool_call> tool to read more files beyond what is provided in the initial set of files.
+
+Purpose: Better fulfill the user request by reading files which could contain information relevant to the user's request.
+
+Use cases:
+- If you are calling a function or creating a class and want to know how it works, go get the implementation with a tool call to find_files. E.g. "<tool_call name="find_files">The implementation of function foo</tool_call>".
+- If you want to modify a file, but don't currently have it in context.
+- If you need to understand a section of the codebase, read more files in that directory or subdirectories.
+- Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
 
 ## Running terminal commands
 
-You can write out the <tool_call> for run_terminal_command to execute shell commands in the user's terminal. This can be useful for tasks such as:
+You can write out <tool_call name="run_terminal_command">...</tool_call> to execute shell commands in the user's terminal. This can be useful for tasks such as:
 
-1. Running build or test scripts (e.g., "npm run build" or "npm test").
-2. Moving, renaming, or deleting files and directories.
-3. Installing dependencies (e.g., "npm install <package-name>").
-4. Running grep to search code to find references or token definitions.
-5. Performing git operations (e.g., "git status").
+Purpose: Better fulfill the user request by running terminal commands in the user's terminal and reading the standard output.
 
-Do not use the run_terminal_command tool to create or edit files. You should instead write out <file> blocks for that as detailed above in the <editing_instructions> block.
+Use cases:
+1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors.
+2. Running test scripts (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
+3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests.
+4. Installing dependencies (e.g., "npm install <package-name>"). Be sure to use the right package manager for the project.
+5. Running grep or find to search code to find references or token definitions. This will help you locate the right file.
+6. Running scripts. Check the package.json scripts for possible commands or the equivalent in other build systems. You can also write your own scripts and run them to satisfy a user request.
 
-The current working directory will always reset to project root directory for each command. You can only access files within this directory (or sub-directories).
+Do not use the run_terminal_command tool to create or edit files. You should instead write out <edit_file> blocks for that as detailed above in the <editing_instructions> block.
+
+The current working directory will always reset to project root directory for each command you run. You can only access files within this directory (or sub-directories).
 
 When using this tool, keep the following guidelines in mind:
 
 1. Be cautious with commands that can modify the file system or have significant side effects. In that case, explain to the user what the command will do before executing it.
+2. Don't run git commit or git rebase or related commands unless you get explicit permission from the user.
 2. If a command might be dangerous or have unintended consequences, ask for the user's permission first.
 3. Try not to run too many commands in a row without pausing to check in with what the user wants to do next.
+4. Do not modify files outside of the project directory.
 
 ## Web scraping
 
@@ -224,7 +243,7 @@ export const getProjectFileTreePrompt = (fileContext: ProjectFileContext) => {
   const { currentWorkingDirectory } = fileContext
   const { printedTree } = truncateFileTreeBasedOnTokenBudget(
     fileContext,
-    60_000
+    80_000
   )
   return `
 # Project file tree
@@ -247,7 +266,7 @@ Note: the project file tree is cached from the start of this conversation.
 }
 
 const getRelevantFilesPromptPart1 = (fileContext: ProjectFileContext) => {
-  const { knowledgeFiles, fileTree } = fileContext
+  const { knowledgeFiles, fileTree, shellConfigFiles } = fileContext
   const flattenedNodes = flattenTree(fileTree)
   const lastReadFilePaths = getLastReadFilePaths(flattenedNodes, 20)
 
@@ -266,6 +285,12 @@ ${Object.entries(knowledgeFiles)
 </knowledge_files>
 
 Note: the knowledge files are cached from the start of this conversation.
+
+<user_shell_config_files>
+${Object.entries(shellConfigFiles)
+  .map(([path, content]) => createFileBlock(path, content))
+  .join('\n')}
+</user_shell_config_files>
 `.trim()
 }
 
@@ -302,22 +327,23 @@ const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
   if (!gitChanges) {
     return ''
   }
+  const maxLength = 30_000
   return `
 Current Git Changes:
 <git_status>
-${gitChanges.status}
+${truncateString(gitChanges.status, maxLength / 10)}
 </git_status>
 
 <git_diff>
-${gitChanges.diff}
+${truncateString(gitChanges.diff, maxLength)}
 </git_diff>
 
 <git_diff_cached>
-${gitChanges.diffCached}
+${truncateString(gitChanges.diffCached, maxLength)}
 </git_diff_cached>
 
 <git_commit_messages_most_recent_first>
-${gitChanges.lastCommitMessages}
+${truncateString(gitChanges.lastCommitMessages, maxLength / 10)}
 </git_commit_messages_most_recent_first>
 `.trim()
 }
@@ -347,7 +373,7 @@ If there is a file that is not visible to you, or you are tempted to say you don
 
 If the user is requesting a change that you think has already been made based on the current version of files, simply tell the user that "the change has already been made". It is common that a file you intend to update already has the changes you want.
 
-Do not write code except when editing files with <file> blocks.
+Do not write code except when editing files with <edit_file> blocks.
 
 Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 
@@ -394,14 +420,14 @@ const truncateFileTreeBasedOnTokenBudget = (
 ) => {
   const { fileTree, fileTokenScores } = fileContext
   const treeWithTokens = printFileTreeWithTokens(fileTree, fileTokenScores)
-  const treeWithTokensCount = countTokens(treeWithTokens)
+  const treeWithTokensCount = countTokensJson(treeWithTokens)
 
   if (treeWithTokensCount <= tokenBudget) {
     return { printedTree: treeWithTokens, tokenCount: treeWithTokensCount }
   }
 
   const tree = printFileTree(fileTree)
-  const treeTokenCount = countTokens(tree)
+  const treeTokenCount = countTokensJson(tree)
 
   if (treeTokenCount <= tokenBudget) {
     let frac = 1
@@ -415,7 +441,7 @@ const truncateFileTreeBasedOnTokenBudget = (
         fileTree,
         fileTokenScoresSubset
       )
-      const tokenCount = countTokens(printedTree)
+      const tokenCount = countTokensJson(printedTree)
 
       if (tokenCount <= tokenBudget) {
         return { printedTree, tokenCount }
@@ -427,7 +453,7 @@ const truncateFileTreeBasedOnTokenBudget = (
       file.type === 'directory' ? { ...file, children: [] } : file
     )
     const printedTree = printFileTree(truncatedTree)
-    const tokenCount = countTokens(printedTree)
+    const tokenCount = countTokensJson(printedTree)
     return { printedTree, tokenCount }
   }
 

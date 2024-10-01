@@ -6,11 +6,12 @@ import { yellow } from 'picocolors'
 
 import { initFingerprint } from './config'
 import { CLI } from './cli'
-import { getProjectFileContext, setProjectRoot } from './project-files'
+import { getProjectFileContext, initProjectRoot } from './project-files'
 import { updateManicode } from './update-manicode'
 
 async function manicode(projectDir: string | undefined) {
-  const dir = setProjectRoot(projectDir)
+  console.log('Starting Manicode...')
+  const dir = initProjectRoot(projectDir)
 
   const updatePromise = updateManicode()
   const fingerprintPromise = initFingerprint()
@@ -42,19 +43,4 @@ async function manicode(projectDir: string | undefined) {
   cli.printInitialPrompt()
 }
 
-if (require.main === module) {
-  const arg = process.argv[2]
-  if (arg === '--help' || arg === '-h') {
-    console.log('Usage: manicode [project-directory]')
-    console.log(
-      'If no project directory is specified, Manicode will use the current directory.'
-    )
-    console.log()
-    console.log(
-      'Manicode allows you to interact with your codebase using natural language.'
-    )
-    process.exit(0)
-  }
-
-  manicode(arg)
-}
+// ... rest of the file remains unchanged ...
