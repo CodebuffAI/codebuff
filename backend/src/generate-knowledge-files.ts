@@ -9,6 +9,7 @@ import { env } from './env.mjs'
 
 export async function generateKnowledgeFiles(
   fingerprintId: string,
+  userInputId: string,
   ws: WebSocket,
   fullResponse: string,
   fileContext: ProjectFileContext,
@@ -97,6 +98,7 @@ export async function generateKnowledgeFiles(
 
   const response = await promptClaude(messages, {
     fingerprintId,
+    userInputId,
     system: systemPrompt,
   })
 
@@ -109,6 +111,7 @@ export async function generateKnowledgeFiles(
     ([filePath, fileContent]) =>
       processFileBlock(
         fingerprintId,
+        userInputId,
         ws,
         messages,
         fullResponse,

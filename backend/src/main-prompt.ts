@@ -29,6 +29,7 @@ export async function mainPrompt(
   messages: Message[],
   fileContext: ProjectFileContext,
   fingerprintId: string,
+  userInputId: string,
   onResponseChunk: (chunk: string) => void
 ) {
   debugLog(
@@ -53,7 +54,8 @@ export async function mainPrompt(
       fileContext,
       { messages, system },
       null,
-      fingerprintId
+      fingerprintId,
+      userInputId
     )
     if (responseChunk !== null) {
       onResponseChunk(responseChunk.readFilesMessage)
@@ -61,7 +63,7 @@ export async function mainPrompt(
 
       // Prompt cache the new files.
       const system = getSearchSystemPrompt(fileContext)
-      warmCacheForRequestRelevantFiles(system, fingerprintId)
+      warmCacheForRequestRelevantFiles(system, fingerprintId, userInputId)
     }
   }
 
@@ -70,6 +72,7 @@ export async function mainPrompt(
     // If client used tool, we don't want to generate knowledge files because the user isn't really in control
     genKnowledgeFilesPromise = generateKnowledgeFiles(
       fingerprintId,
+      userInputId,
       ws,
       fullResponse,
       fileContext,
@@ -149,6 +152,7 @@ ${STOP_MARKER}
           fileProcessingPromises.push(
             processFileBlock(
               fingerprintId,
+              userInputId,
               ws,
               messages,
               fullResponse,
@@ -232,7 +236,8 @@ ${STOP_MARKER}
         fileContext,
         { messages, system: getSearchSystemPrompt(fileContext) },
         fullResponse,
-        fingerprintId
+        fingerprintId,
+        userInputId
       )
       if (response !== null) {
         const { readFilesMessage } = response
@@ -311,13 +316,15 @@ async function updateFileContext(
     system: string | Array<TextBlockParam>
   },
   prompt: string | null,
-  userId: string
+  fingerprntId: string,
+  userInputId: string
 ) {
   const relevantFiles = await requestRelevantFiles(
     { messages, system },
     fileContext,
     prompt,
-    userId
+    fingerprntId,
+    userInputId
   )
 
   if (relevantFiles === null || relevantFiles.length === 0) {
@@ -359,6 +366,7 @@ async function updateFileContext(
 
 export async function processFileBlock(
   fingerprintId: string,
+  userInputId: string,
   ws: WebSocket,
   messageHistory: Message[],
   fullResponse: string,
@@ -381,6 +389,7 @@ export async function processFileBlock(
 
   const patch = await generatePatch(
     fingerprintId,
+    userInputId,
     oldContent,
     newContent,
     filePath,

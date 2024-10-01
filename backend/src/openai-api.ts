@@ -33,6 +33,7 @@ const timeoutPromise = (ms: number) =>
 
 export async function promptOpenAI(
   fingerprintId: string,
+  userInputId: string,
   messages: OpenAIMessage[],
   model: string,
   userId?: string
@@ -85,7 +86,12 @@ export async function promptOpenAI(
 
 export async function promptOpenAIWithContinuation(
   messages: OpenAIMessage[],
-  options: { model: string; fingerprintId: string; userId?: string }
+  options: {
+    model: string
+    fingerprintId: string
+    userInputId: string
+    userId?: string
+  }
 ) {
   const { model, fingerprintId, userId } = options
   let fullResponse = ''

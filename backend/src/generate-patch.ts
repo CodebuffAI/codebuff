@@ -5,7 +5,8 @@ import { createPatch } from 'diff'
 import { openaiModels } from 'common/constants'
 
 export async function generatePatch(
-  userId: string,
+  fingerprintId: string,
+  userInputId: string,
   oldContent: string,
   newContent: string,
   filePath: string,
@@ -20,7 +21,8 @@ export async function generatePatch(
   let patch = ''
   const { isSketchComplete, shouldAddPlaceholderComments } =
     await isSketchCompletePrompt(
-      userId,
+      fingerprintId,
+      userInputId,
       normalizedOldContent,
       normalizedNewContent,
       filePath,
@@ -39,7 +41,8 @@ export async function generatePatch(
       ? `... existing code ...\n\n${normalizedNewContent}\n\n... existing code ...`
       : normalizedNewContent
     patch = await generatePatchPrompt(
-      userId,
+      fingerprintId,
+      userInputId,
       normalizedOldContent,
       newContentWithPlaceholders,
       filePath,
@@ -52,7 +55,8 @@ export async function generatePatch(
 }
 
 const isSketchCompletePrompt = async (
-  userId: string,
+  fingerprintId: string,
+  userInputId: string,
   oldContent: string,
   newContent: string,
   filePath: string,
@@ -93,7 +97,8 @@ If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". 
     },
   ]
   const response = await promptOpenAI(
-    userId,
+    fingerprintId,
+    userInputId,
     messages as OpenAIMessage[],
     openaiModels.gpt4o
   )
@@ -112,7 +117,8 @@ If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". 
 }
 
 const generatePatchPrompt = async (
-  userId: string,
+  fingerprintId: string,
+  userInputId: string,
   oldContent: string,
   newContent: string,
   filePath: string,
@@ -146,7 +152,8 @@ Please produce a patch file based on this change.
     },
   ]
   return await promptOpenAI(
-    userId,
+    fingerprintId,
+    userInputId,
     messages,
     `ft:${openaiModels.gpt4o}:manifold-markets::A7wELpag`
     // ft:${models.gpt4o}:manifold-markets:run-1:A4VfZwvz`

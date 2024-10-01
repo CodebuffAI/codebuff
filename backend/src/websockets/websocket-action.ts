@@ -43,6 +43,7 @@ const onUserInput = async (
       messages,
       fileContext,
       fingerprintId,
+      userInputId,
       (chunk) =>
         sendAction(ws, {
           type: 'response-chunk',
@@ -235,7 +236,8 @@ const onInit = async (
     {
       model: claudeModels.sonnet,
       system,
-      fingerprintId: fingerprintId,
+      fingerprintId,
+      userInputId: 'init-cache',
       maxTokens: 1,
     }
   )
@@ -282,42 +284,44 @@ export const onWebsocketAction = async (
 
 const protec = new WebSocketMiddleware()
 protec.use(async (action, _) => {
-  console.log(`Protecting action of type: '${action.type}'`)
+  console.log(
+    `Protecting action of type: '${action.type}' (currently disabled)`
+  )
 })
-protec.use(async (action, ws) => {
-  const fingerprintId = match(action)
-    .with(
-      {
-        fingerprintId: P.string,
-      },
-      ({ fingerprintId }) => fingerprintId
-    )
-    .otherwise(() => null)
+// protec.use(async (action, ws) => {
+//   const fingerprintId = match(action)
+//     .with(
+//       {
+//         fingerprintId: P.string,
+//       },
+//       ({ fingerprintId }) => fingerprintId
+//     )
+//     .otherwise(() => null)
 
-  if (!fingerprintId) {
-    console.error('No fingerprintId found, cannot check quota')
-    throw new Error('No fingerprintId found')
-  }
+//   if (!fingerprintId) {
+//     console.error('No fingerprintId found, cannot check quota')
+//     throw new Error('No fingerprintId found')
+//   }
 
-  const { creditsUsed, quota, userId, endDate } =
-    await checkQuota(fingerprintId)
-  if (creditsUsed >= quota) {
-    limitFingerprint(fingerprintId, userId)
-    sendAction(ws, {
-      type: 'usage',
-      usage: creditsUsed,
-      limit: quota,
-    })
-    throw new Error(
-      `Usage limit exceeded for user ${fingerprintId}: ${creditsUsed} >= ${quota}`
-    )
-  }
+//   const { creditsUsed, quota, userId, endDate } =
+//     await checkQuota(fingerprintId)
+//   if (creditsUsed >= quota) {
+//     limitFingerprint(fingerprintId, userId)
+//     sendAction(ws, {
+//       type: 'usage',
+//       usage: creditsUsed,
+//       limit: quota,
+//     })
+//     throw new Error(
+//       `Usage limit exceeded for user ${fingerprintId}: ${creditsUsed} >= ${quota}`
+//     )
+//   }
 
-  if (endDate < new Date()) {
-    // End date is in the past, so we should reset the quota
-    resetQuota(fingerprintId, userId)
-  }
-})
+//   if (endDate < new Date()) {
+//     // End date is in the past, so we should reset the quota
+//     resetQuota(fingerprintId, userId)
+//   }
+// })
 
 subscribeToAction('user-input', protec.run(onUserInput))
 subscribeToAction('init', protec.run(onInit))

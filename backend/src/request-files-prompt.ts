@@ -19,7 +19,8 @@ export async function requestRelevantFiles(
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
-  userId: string
+  fingerprintId: string,
+  userInputId: string
 ) {
   const previousFiles = Object.keys(fileContext.files)
   const countPerRequest = assistantPrompt ? 8 : 5
@@ -39,7 +40,8 @@ export async function requestRelevantFiles(
     : checkNewFilesNecessary(
         messagesExcludingLastIfByUser,
         system,
-        userId,
+        userInputId,
+        fingerprintId,
         previousFiles,
         userPrompt
       )
@@ -51,7 +53,8 @@ export async function requestRelevantFiles(
     countPerRequest,
     messagesExcludingLastIfByUser,
     system,
-    userId
+    fingerprintId,
+    userInputId
   )
 
   const newFilesNecessary = await newFilesNecessaryPromise
@@ -74,7 +77,8 @@ async function generateFileRequests(
   countPerRequest: number,
   messagesExcludingLastIfByUser: Message[],
   system: string | Array<TextBlockParam>,
-  userId: string
+  fingerprintId: string,
+  userInputId: string
 ) {
   const numNonObviousPrompts = assistantPrompt ? 1 : 1
   const nonObviousPrompts = range(1, numNonObviousPrompts + 1).map((index) =>
@@ -95,7 +99,8 @@ async function generateFileRequests(
       nonObviousPrompt,
       claudeModels.sonnet,
       `Non-obvious ${index + 1}`,
-      userId
+      fingerprintId,
+      userInputId
     ).catch((error) => {
       console.error('Error requesting files:', error)
       return { files: [], duration: 0 }
@@ -122,7 +127,8 @@ async function generateFileRequests(
       keyPrompt,
       claudeModels.sonnet,
       `Key ${index + 1}`,
-      userId
+      fingerprintId,
+      userInputId
     ).catch((error) => {
       console.error('Error requesting key files:', error)
       return { files: [], duration: 0 }
@@ -141,7 +147,8 @@ async function generateFileRequests(
 const checkNewFilesNecessary = async (
   messages: Message[],
   system: System,
-  userId: string,
+  userInputId: string,
+  fingerprintId: string,
   previousFiles: string[],
   userPrompt: string
 ) => {
@@ -159,7 +166,8 @@ Answer with just 'YES' if new files are necessary, or 'NO' if the current files 
     {
       model: claudeModels.sonnet,
       system,
-      fingerprintId: userId,
+      fingerprintId,
+      userInputId,
     }
   ).catch((error) => {
     console.error('Error checking new files necessary:', error)
@@ -180,7 +188,8 @@ async function getRelevantFiles(
   userPrompt: string,
   model: model_types,
   requestType: string,
-  userId: string
+  fingerprintId: string,
+  userInputId: string
 ): Promise<{ files: string[]; duration: number }> {
   const messagesWithPrompt = [
     ...messages,
@@ -193,7 +202,8 @@ async function getRelevantFiles(
   const response = await promptClaude(messagesWithPrompt, {
     model,
     system,
-    fingerprintId: userId,
+    fingerprintId,
+    userInputId,
   })
   const end = performance.now()
   const duration = end - start
@@ -351,7 +361,8 @@ ${topLevelDirectories(fileContext).join('\n')}
 
 export const warmCacheForRequestRelevantFiles = async (
   system: System,
-  userId: string
+  fingerprintId: string,
+  userInputId: string
 ) => {
   await promptClaude(
     [
@@ -363,7 +374,8 @@ export const warmCacheForRequestRelevantFiles = async (
     {
       model: claudeModels.sonnet,
       system,
-      fingerprintId: userId,
+      fingerprintId,
+      userInputId,
       maxTokens: 1,
     }
   ).catch((error) => {

@@ -159,6 +159,7 @@ export const promptClaude = async (
   messages: Message[],
   options: {
     fingerprintId: string
+    userInputId: string
     system?: string | Array<TextBlockParam>
     tools?: Tool[]
     model?: model_types
