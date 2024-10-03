@@ -4,8 +4,8 @@ import { Message } from 'common/actions'
 import { CREDITS_USAGE_LIMITS } from 'common/constants'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { stripeServer } from 'common/util/stripe'
 import { and, between, eq, or, SQL, sql } from 'drizzle-orm'
+import { getNextQuotaReset } from 'common/util/dates'
 
 const PROFIT_MARGIN = 0.2
 
@@ -42,8 +42,7 @@ export const saveMessage = async (value: {
   fingerprintId: string
   userInputId: string
   model: string
-  context: Message[] | OpenAIMessage[]
-  request: Message | OpenAIMessage
+  request: Message[] | OpenAIMessage[]
   response: string
   inputTokens: number
   outputTokens: number
@@ -68,7 +67,6 @@ export const saveMessage = async (value: {
     client_id: value.clientSessionId,
     client_request_id: value.userInputId,
     model: value.model,
-    context: value.context,
     request: value.request,
     response: value.response,
     input_tokens: value.inputTokens,
@@ -81,15 +79,7 @@ export const saveMessage = async (value: {
   })
 }
 
-const getNextQuotaReset = (currentQuotaReset: Date | null): Date => {
-  let nextMonth = currentQuotaReset ?? new Date()
-  while (nextMonth < new Date()) {
-    nextMonth.setMonth(nextMonth.getMonth() + 1)
-  }
-  return nextMonth
-}
-
-export const limitFingerprint = async (
+export const setQuotaExceeded = async (
   fingerprintId: string,
   userId?: string
 ) => {
@@ -180,91 +170,52 @@ export const checkQuota = async (
   let endDate: Date | SQL<Date> =
     sql<Date>`COALESCE(${schema.user.next_quota_reset}, ${schema.fingerprint.next_quota_reset}, now())`
 
-  // Check if they're a user in the db
-  const user = await db
+  const result = await db
     .select({
       id: schema.user.id,
+      quota: schema.user.quota,
       stripe_customer_id: schema.user.stripe_customer_id,
       stripe_price_id: schema.user.stripe_price_id,
-      fingerprintId: schema.session.fingerprint_id,
+      credits: sql<number>`SUM(COALESCE(${schema.message.credits}, 0))`,
     })
     .from(schema.user)
     .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
     .leftJoin(
       schema.fingerprint,
-      eq(schema.session.fingerprint_id, schema.fingerprint.id)
+      eq(schema.session.fingerprint_id, fingerprintId)
     )
-    .where(eq(schema.session.fingerprint_id, fingerprintId))
-    .then((users) => {
-      if (users.length === 1) {
-        return users[0]
-      }
-      return null
-    })
-  if (user) {
-    if (!user.stripe_customer_id) {
-      quota = CREDITS_USAGE_LIMITS.FREE
-    } else {
-      // We know they're a user and a Stripe customer
-      const customer = await stripeServer.customers.retrieve(
-        user.stripe_customer_id
-      )
-      if (!customer.deleted) {
-        quota = parseInt(customer.metadata.quota, CREDITS_USAGE_LIMITS.FREE)
-
-        if (user.stripe_price_id) {
-          // TODO: refactor this to use max/min fns
-          customer.subscriptions?.data?.forEach((subscription) => {
-            const newStartDate = new Date(
-              subscription.current_period_start * 1000
-            )
-            if (startDate < newStartDate) {
-              // Be generous if there are multiple subscriptions – take the most recent start period
-              startDate = newStartDate
-            }
-
-            const newEndDate = new Date(subscription.current_period_end * 1000)
-            if (newEndDate > startDate) {
-              // Be generous if there are multiple subscriptions – take the most recent end period
-              endDate = newEndDate
-            }
-          })
-        }
-      }
-    }
-  }
-
-  const creditsUsed = await db
-    .select({
-      credits: sql<number>`SUM(COALESCE(${schema.message.credits}, 0))`,
-    })
-    .from(schema.message)
-    .leftJoin(schema.user, eq(schema.message.user_id, schema.user.id))
     .leftJoin(
-      schema.fingerprint,
-      eq(schema.message.fingerprint_id, schema.fingerprint.id)
-    )
-    .where(
+      schema.message,
       and(
         or(
           eq(schema.message.fingerprint_id, fingerprintId),
-          ...[user ? eq(schema.message.user_id, user.id) : sql<boolean>`FALSE`]
+          eq(schema.message.user_id, schema.user.id)
         ),
         between(schema.message.finished_at, startDate, endDate)
       )
     )
+    .where(eq(schema.session.fingerprint_id, fingerprintId))
+    .groupBy(
+      schema.user.id,
+      schema.user.quota,
+      schema.user.stripe_customer_id,
+      schema.user.stripe_price_id
+    )
     .limit(1)
-    .then((messages) => {
-      if (messages.length === 1) {
-        return messages[0].credits
-      }
-      return 0
-    })
+    .then((rows) => rows[0])
+
+  if (result) {
+    quota =
+      // TODO: check the type of plan they're on instead of assuming they're the free tier
+      !result.stripe_customer_id && !result.stripe_price_id
+        ? CREDITS_USAGE_LIMITS.FREE
+        : result.quota
+  }
 
   return {
-    creditsUsed,
+    creditsUsed: result?.credits ?? 0,
     quota,
-    userId: user?.id,
+    userId: result?.id,
     endDate,
   }
 }

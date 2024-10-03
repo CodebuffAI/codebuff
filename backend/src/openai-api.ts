@@ -57,21 +57,21 @@ export async function promptOpenAI(
     ) {
       const messageId = response.id
       const content = response.choices[0].message.content || ''
-      const [last, ...context] = messages.slice().reverse()
-      saveMessage({
-        messageId,
-        userId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        model,
-        context,
-        request: last,
-        response: content,
-        inputTokens: response.usage?.prompt_tokens || 0,
-        outputTokens: response.usage?.completion_tokens || 0,
-        finishedAt: new Date(),
-      })
+      if (messages.length > 0) {
+        saveMessage({
+          messageId,
+          userId,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          model,
+          request: messages,
+          response: content,
+          inputTokens: response.usage?.prompt_tokens || 0,
+          outputTokens: response.usage?.completion_tokens || 0,
+          finishedAt: new Date(),
+        })
+      }
       return content
     } else {
       throw new Error('No response from OpenAI')
@@ -102,7 +102,6 @@ export async function promptOpenAIWithContinuation(
   let continuedMessage: OpenAIMessage | null = null
   let isComplete = false
 
-  // Add the instruction to end with the stop marker to the last user message
   const lastUserMessageIndex = messages.findLastIndex(
     (msg) => msg.role === 'user'
   )
@@ -144,7 +143,6 @@ export async function promptOpenAIWithContinuation(
           fullResponse += chunk.choices[0].delta.content
         }
 
-        const [last, ...context] = messages.slice().reverse()
         if (chunk.usage) {
           const messageId = chunk.id
           saveMessage({
@@ -154,8 +152,7 @@ export async function promptOpenAIWithContinuation(
             fingerprintId,
             userInputId,
             model,
-            context,
-            request: last,
+            request: messages,
             response: fullResponse,
             inputTokens: chunk.usage.prompt_tokens,
             outputTokens: chunk.usage.completion_tokens,

@@ -196,8 +196,7 @@ export class Client {
         )
         const responseToUser = [
           'Authentication successful!',
-          'Welcome, ' + action.user.name,
-          'Your credits have been increased by 5x. Happy coding!',
+          `Welcome,  ${action.user.name}. Your credits have been increased by 5x. Happy coding!`,
         ]
         console.log(responseToUser.join('\n'))
         this.lastWarnedPercentage = 0

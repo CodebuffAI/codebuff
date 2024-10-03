@@ -89,20 +89,14 @@ async function handleSubscriptionChange(
   await db
     .update(schema.user)
     .set({
-      // TODO: check Stripe to see if they actually exceeded quota, but for now it's fine to just trust them
+      // TODO: If downgrading, check Stripe to see if they have exceeded quota, don't just blindly reset. But for now it's fine to just trust them.
       // A good indicator that we've created compelling value is if people are subscribing and unsubscribing just to get some more free usage
       quota_exceeded: false,
+      quota: CREDITS_USAGE_LIMITS[usageTier],
       subscription_active: usageTier === 'PAID',
       stripe_price_id: subscription.id,
     })
     .where(eq(schema.user.stripe_customer_id, customerId))
-
-  // update stripe customer metadata
-  await stripeServer.customers.update(customerId, {
-    metadata: {
-      quota: CREDITS_USAGE_LIMITS[usageTier],
-    },
-  })
 }
 
 async function handleInvoicePaid(invoicePaid: Stripe.InvoicePaidEvent) {

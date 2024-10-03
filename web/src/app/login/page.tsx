@@ -60,10 +60,10 @@ const Home = () => {
                   providerDomain="github.com"
                   providerName="github"
                 />
-                <SignInButton
+                {/* <SignInButton
                   providerDomain="google.com"
                   providerName="google"
-                />
+                /> */}
               </CardFooter>
             </Card>
           ) : (

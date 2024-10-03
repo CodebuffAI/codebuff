@@ -39,9 +39,9 @@ export const SKIPPED_TERMINAL_COMMANDS = [
 export const MAX_DATE = new Date(86399999999999)
 
 export const CREDITS_USAGE_LIMITS = {
-  ANON: 100,
-  FREE: 1_000,
-  PAID: 10_000,
+  ANON: 1_000,
+  FREE: 5_000,
+  PAID: 50_000,
 }
 
 export const claudeModels = {

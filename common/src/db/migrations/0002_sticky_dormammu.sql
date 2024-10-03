@@ -11,15 +11,15 @@ CREATE TABLE IF NOT EXISTS "message" (
 	"client_id" text NOT NULL,
 	"client_request_id" text NOT NULL,
 	"model" text NOT NULL,
-	"context" jsonb,
-	"request" jsonb,
-	"response" jsonb,
+	"request" jsonb NOT NULL,
+	"last_message" jsonb GENERATED ALWAYS AS ("message"."request" -> -1) STORED,
+	"response" jsonb NOT NULL,
 	"input_tokens" integer DEFAULT 0 NOT NULL,
 	"cache_creation_input_tokens" integer DEFAULT 0 NOT NULL,
 	"cache_read_input_tokens" integer DEFAULT 0 NOT NULL,
 	"output_tokens" integer NOT NULL,
 	"cost" numeric(100, 20) NOT NULL,
-	"credits" integer DEFAULT 0 NOT NULL,
+	"credits" integer NOT NULL,
 	"user_id" text,
 	"fingerprint_id" text NOT NULL
 );
@@ -30,6 +30,7 @@ ALTER TABLE "user" RENAME COLUMN "stripeCustomerId" TO "stripe_customer_id";--> 
 ALTER TABLE "user" DROP CONSTRAINT "user_stripeCustomerId_unique";--> statement-breakpoint
 DROP INDEX IF EXISTS "fingerprintId_idx";--> statement-breakpoint
 ALTER TABLE "user" ADD COLUMN "stripe_price_id" text;--> statement-breakpoint
+ALTER TABLE "user" ADD COLUMN "quota" integer DEFAULT 5000 NOT NULL;--> statement-breakpoint
 ALTER TABLE "user" ADD COLUMN "quota_exceeded" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "user" ADD COLUMN "next_quota_reset" timestamp;--> statement-breakpoint
 DO $$ BEGIN

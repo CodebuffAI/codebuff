@@ -140,23 +140,23 @@ export const promptClaudeStream = async function* (
       }
 
       outputTokens += chunk.usage.output_tokens
-      const [last, ...context] = messages.slice().reverse()
-      saveMessage({
-        messageId,
-        userId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        context,
-        request: last,
-        model,
-        response: fullResponse,
-        inputTokens,
-        outputTokens,
-        cacheCreationInputTokens,
-        cacheReadInputTokens,
-        finishedAt: new Date(),
-      })
+      if (messages.length > 0) {
+        saveMessage({
+          messageId,
+          userId,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          request: messages,
+          model,
+          response: fullResponse,
+          inputTokens,
+          outputTokens,
+          cacheCreationInputTokens,
+          cacheReadInputTokens,
+          finishedAt: new Date(),
+        })
+      }
     }
   }
 }

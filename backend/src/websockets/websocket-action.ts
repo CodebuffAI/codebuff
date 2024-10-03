@@ -14,7 +14,7 @@ import { genAuthCode } from 'common/util/credentials'
 import { match, P } from 'ts-pattern'
 import { claudeModels } from 'common/constants'
 import { WebSocketMiddleware } from './middleware'
-import { checkQuota, limitFingerprint, resetQuota } from '@/billing/message'
+import { checkQuota, setQuotaExceeded, resetQuota } from '@/billing/message'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -72,6 +72,12 @@ const onUserInput = async (
         response,
         changes: allChanges,
       })
+      // TODO: pull `creditsUsed` and `quota` from main prompt and send them back after response was completed
+      //     sendAction(ws, {
+      //       type: 'usage',
+      //       usage: creditsUsed,
+      //       limit: quota,
+      //     })
     }
   } catch (e) {
     console.error('Error in mainPrompt', e)

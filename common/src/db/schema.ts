@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm'
+import { SQL, sql } from 'drizzle-orm'
 import {
   timestamp,
   pgTable,
@@ -10,6 +10,7 @@ import {
   numeric,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
+import { CREDITS_USAGE_LIMITS } from 'common/src/constants'
 
 export const user = pgTable('user', {
   id: text('id')
@@ -23,6 +24,7 @@ export const user = pgTable('user', {
   subscription_active: boolean('subscription_active').notNull().default(false),
   stripe_customer_id: text('stripe_customer_id').unique(),
   stripe_price_id: text('stripe_price_id'),
+  quota: integer('quota').notNull().default(CREDITS_USAGE_LIMITS.FREE),
   quota_exceeded: boolean('quota_exceeded').notNull().default(false),
   next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).$defaultFn(
     () => sql<Date>`now() + INTERVAL '1 month'`
@@ -68,9 +70,11 @@ export const message = pgTable('message', {
   client_id: text('client_id').notNull(), // TODO: `CHECK` that this starts w/ prefix `mc-client-`
   client_request_id: text('client_request_id').notNull(), // TODO: `CHECK` that this starts w/ prefix `mc-input-`
   model: text('model').notNull(),
-  context: jsonb('context'),
-  request: jsonb('request'),
-  response: jsonb('response'),
+  request: jsonb('request').notNull(),
+  lastMessage: jsonb('last_message').generatedAlwaysAs(
+    (): SQL => sql`${message.request} -> -1`
+  ),
+  response: jsonb('response').notNull(),
   input_tokens: integer('input_tokens').notNull().default(0),
   cache_creation_input_tokens: integer('cache_creation_input_tokens')
     .notNull()
@@ -80,7 +84,7 @@ export const message = pgTable('message', {
     .default(0),
   output_tokens: integer('output_tokens').notNull(),
   cost: numeric('cost', { precision: 100, scale: 20 }).notNull(),
-  credits: integer('credits').notNull().default(0),
+  credits: integer('credits').notNull(),
   user_id: text('user_id').references(() => user.id),
   fingerprint_id: text('fingerprint_id')
     .references(() => fingerprint.id)
