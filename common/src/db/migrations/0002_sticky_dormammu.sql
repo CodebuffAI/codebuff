@@ -30,7 +30,7 @@ ALTER TABLE "user" RENAME COLUMN "stripeCustomerId" TO "stripe_customer_id";--> 
 ALTER TABLE "user" DROP CONSTRAINT "user_stripeCustomerId_unique";--> statement-breakpoint
 DROP INDEX IF EXISTS "fingerprintId_idx";--> statement-breakpoint
 ALTER TABLE "user" ADD COLUMN "stripe_price_id" text;--> statement-breakpoint
-ALTER TABLE "user" ADD COLUMN "quota" integer DEFAULT 5000 NOT NULL;--> statement-breakpoint
+ALTER TABLE "user" ADD COLUMN "quota" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE "user" ADD COLUMN "quota_exceeded" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "user" ADD COLUMN "next_quota_reset" timestamp;--> statement-breakpoint
 DO $$ BEGIN

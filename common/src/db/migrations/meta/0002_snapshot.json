@@ -402,7 +402,7 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": 1000
+          "default": 0
         },
         "quota_exceeded": {
           "name": "quota_exceeded",

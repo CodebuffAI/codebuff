@@ -10,7 +10,6 @@ import {
   numeric,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
-import { CREDITS_USAGE_LIMITS } from 'common/src/constants'
 
 export const user = pgTable('user', {
   id: text('id')
@@ -24,7 +23,7 @@ export const user = pgTable('user', {
   subscription_active: boolean('subscription_active').notNull().default(false),
   stripe_customer_id: text('stripe_customer_id').unique(),
   stripe_price_id: text('stripe_price_id'),
-  quota: integer('quota').notNull().default(CREDITS_USAGE_LIMITS.FREE),
+  quota: integer('quota').notNull().default(0),
   quota_exceeded: boolean('quota_exceeded').notNull().default(false),
   next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).$defaultFn(
     () => sql<Date>`now() + INTERVAL '1 month'`
