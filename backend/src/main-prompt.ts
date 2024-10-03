@@ -73,7 +73,12 @@ export async function mainPrompt(
     }
   }
 
-  if (messages.length > 1 && !didClientUseTool(lastMessage)) {
+  const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
+  if (
+    hasKnowledgeFiles &&
+    messages.length > 1 &&
+    !didClientUseTool(lastMessage)
+  ) {
     // Already have context from existing chat
     // If client used tool, we don't want to generate knowledge files because the user isn't really in control
     genKnowledgeFilesPromise = generateKnowledgeFiles(
@@ -226,9 +231,11 @@ ${STOP_MARKER}
       const fileMatches = printedChunk.match(openFileRegex)
       if (fileMatches) {
         const filePath = fileMatches[1]
+        const fileContent = await requestFile(ws, filePath)
+        const isNewFile = fileContent === null
         printedChunk = printedChunk.replace(
           openFileRegex,
-          `- Editing file: ${filePath} ...`
+          `- ${isNewFile ? 'Creating' : 'Editing'} file: ${filePath} ...`
         )
       }
 

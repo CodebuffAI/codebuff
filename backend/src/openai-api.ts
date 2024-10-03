@@ -46,6 +46,7 @@ export async function promptOpenAI(
         model,
         messages,
         temperature: 0,
+        store: true
       }),
       timeoutPromise(200000) as Promise<OpenAI.Chat.ChatCompletion>,
     ])
