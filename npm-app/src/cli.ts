@@ -1,7 +1,7 @@
 import { uniq } from 'lodash'
 import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
-import { green, yellow, underline } from 'picocolors'
+import { green, yellow, underline, red } from 'picocolors'
 import { parse } from 'path'
 
 import { websocketUrl } from './config'
@@ -261,6 +261,20 @@ export class CLI {
       }
     }
 
+    if (this.client.lastWarnedPercentage >= 100) {
+      console.error(
+        [
+          red(
+            'You have reached your monthly usage limit. You must upgrade your plan to continue using the service.'
+          ),
+          this.client.user
+            ? yellow('Visit https://manicode.ai/pricing to upgrade.')
+            : yellow('Type "login" to sign up and get more credits!'),
+        ].join('\n')
+      )
+      this.rl.prompt()
+      return
+    }
     this.startLoadingAnimation()
     await this.readyPromise
 
@@ -329,7 +343,8 @@ export class CLI {
   }
 
   private async sendUserInputAndAwaitResponse() {
-    const userInputId = Math.random().toString(36).substring(2, 15)
+    const userInputId =
+      `mc-input-` + Math.random().toString(36).substring(2, 15)
 
     const { responsePromise, stopResponse } = this.client.subscribeToResponse(
       (chunk) => {

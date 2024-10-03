@@ -1,6 +1,6 @@
 import { Server as HttpServer } from 'node:http'
 import { Server as WebSocketServer, RawData, WebSocket } from 'ws'
-import { isError } from 'lodash'
+import { isError, set } from 'lodash'
 import {
   ClientMessage,
   ServerMessage,
@@ -9,7 +9,7 @@ import {
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
 
-const SWITCHBOARD = new Switchboard()
+export const SWITCHBOARD = new Switchboard()
 
 // if a connection doesn't ping for this long, we assume the other side is toast
 const CONNECTION_TIMEOUT_MS = 60 * 1000
@@ -50,16 +50,16 @@ function parseMessage(data: RawData): ClientMessage {
   }
 }
 
-function processMessage(ws: WebSocket, data: RawData): ServerMessage<'ack'> {
+async function processMessage(
+  ws: WebSocket,
+  clientSessionId: string,
+  data: RawData
+): Promise<ServerMessage<'ack'>> {
   try {
     const msg = parseMessage(data)
     const { type, txid } = msg
     try {
       switch (type) {
-        case 'identify': {
-          SWITCHBOARD.identify(ws, msg.uid)
-          break
-        }
         case 'subscribe': {
           SWITCHBOARD.subscribe(ws, ...msg.topics)
           break
@@ -73,7 +73,7 @@ function processMessage(ws: WebSocket, data: RawData): ServerMessage<'ack'> {
           break
         }
         case 'action': {
-          onWebsocketAction(ws, msg)
+          onWebsocketAction(ws, clientSessionId, msg)
           break
         }
         default:
@@ -118,8 +118,10 @@ export function listen(server: HttpServer, path: string) {
     // todo: should likely kill connections that haven't sent any ping for a long time
     // console.log('WS client connected.')
     SWITCHBOARD.connect(ws)
-    ws.on('message', (data) => {
-      const result = processMessage(ws, data)
+    const clientSessionId =
+      SWITCHBOARD.clients.get(ws)?.sessionId ?? 'mc-client-unknown'
+    ws.on('message', async (data) => {
+      const result = await processMessage(ws, clientSessionId, data)
       // mqp: check ws.readyState before sending?
       ws.send(JSON.stringify(result))
     })

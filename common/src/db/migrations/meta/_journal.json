@@ -15,6 +15,20 @@
       "when": 1727224698676,
       "tag": "0001_fuzzy_typhoid_mary",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1727927905142,
+      "tag": "0002_sticky_dormammu",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1727986902407,
+      "tag": "0003_military_owl",
+      "breakpoints": true
     }
   ]
 }

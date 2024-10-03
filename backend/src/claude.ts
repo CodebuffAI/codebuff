@@ -2,17 +2,13 @@ import Anthropic from '@anthropic-ai/sdk'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from 'common/util/object'
 import { Message, ToolCall } from 'common/actions'
-import { STOP_MARKER } from 'common/constants'
+import { claudeModels, STOP_MARKER } from 'common/constants'
 import { debugLog } from './util/debug'
 import { RATE_LIMIT_POLICY } from './constants'
 import { env } from './env.mjs'
+import { saveMessage } from './billing/message'
 
-export const models = {
-  sonnet: 'claude-3-5-sonnet-20240620' as const,
-  haiku: 'claude-3-haiku-20240307' as const,
-}
-
-export type model_types = (typeof models)[keyof typeof models]
+export type model_types = (typeof claudeModels)[keyof typeof claudeModels]
 
 export type System = string | Array<TextBlockParam>
 
@@ -23,15 +19,20 @@ export const promptClaudeStream = async function* (
     tools?: Tool[]
     model?: model_types
     maxTokens?: number
-    userId: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
     ignoreHelicone?: boolean
-  }
+  },
+  userId?: string
 ): AsyncGenerator<string, void, unknown> {
   const {
-    model = models.sonnet,
+    model = claudeModels.sonnet,
     system,
     tools,
-    userId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
     maxTokens,
     ignoreHelicone = false,
   } = options
@@ -55,7 +56,7 @@ export const promptClaudeStream = async function* (
         ? {}
         : {
             'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
-            'Helicone-User-Id': userId,
+            'Helicone-User-Id': fingerprintId,
             'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
             'Helicone-LLM-Security-Enabled': 'true',
           }),
@@ -79,14 +80,34 @@ export const promptClaudeStream = async function* (
     id: '',
     json: '',
   }
+  let messageId: string | undefined
+  let inputTokens = 0
+  let outputTokens = 0
+  let cacheCreationInputTokens = 0
+  let cacheReadInputTokens = 0
+  let fullResponse = ''
   for await (const chunk of stream) {
     const { type } = chunk
 
+    // Start of turn
+    if (type === 'message_start') {
+      messageId = chunk.message.id
+      inputTokens = chunk.message.usage.input_tokens
+      outputTokens = chunk.message.usage.output_tokens
+      // @ts-ignore
+      cacheReadInputTokens = chunk.message.usage.cache_read_input_tokens ?? 0
+      cacheCreationInputTokens =
+        // @ts-ignore
+        chunk.message.usage.cache_creation_input_tokens ?? 0
+    }
+
+    // Text (most common case)
     if (type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+      fullResponse += chunk.delta.text
       yield chunk.delta.text
     }
 
-    // For Tool use!
+    // Tool use!
     if (
       type === 'content_block_start' &&
       chunk.content_block.type === 'tool_use'
@@ -110,16 +131,42 @@ export const promptClaudeStream = async function* (
       console.error('tried to yield tool call', name, id, input)
       // yield { name, id, input }
     }
-    // if (type === 'message_start') {
-    //   console.log('message start', chunk)
-    // }
+
+    // End of turn
+    if (type === 'message_delta' && chunk.delta.stop_reason === 'end_turn') {
+      if (!messageId) {
+        console.error('No messageId found')
+        break
+      }
+
+      outputTokens += chunk.usage.output_tokens
+      if (messages.length > 0) {
+        saveMessage({
+          messageId,
+          userId,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          request: messages,
+          model,
+          response: fullResponse,
+          inputTokens,
+          outputTokens,
+          cacheCreationInputTokens,
+          cacheReadInputTokens,
+          finishedAt: new Date(),
+        })
+      }
+    }
   }
 }
 
 export const promptClaude = async (
   messages: Message[],
   options: {
-    userId: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
     system?: string | Array<TextBlockParam>
     tools?: Tool[]
     model?: model_types
@@ -137,7 +184,9 @@ export const promptClaude = async (
 export async function promptClaudeWithContinuation(
   messages: Message[],
   options: {
-    userId: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
     system?: string
     model?: model_types
     ignoreHelicone?: boolean

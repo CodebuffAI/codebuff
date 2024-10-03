@@ -212,10 +212,6 @@ export class APIRealtimeClient {
     })
   }
 
-  async identify(uid: string) {
-    return await this.sendMessage('identify', { uid })
-  }
-
   subscribe<T extends ServerAction['type']>(
     action: T,
     callback: (action: Extract<ServerAction, { type: T }>) => void

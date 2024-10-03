@@ -1,4 +1,4 @@
-import { yellow } from 'picocolors'
+import { yellow, red } from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
   getFiles,
@@ -18,6 +18,7 @@ import { spawn } from 'child_process'
 import path from 'path'
 import * as fs from 'fs'
 import { sleep } from 'common/util/helpers'
+import { match, P } from 'ts-pattern'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -25,6 +26,7 @@ export class Client {
   private currentUserInputId: string | undefined
   public user: User | undefined
   private returnControlToUser: () => void
+  public lastWarnedPercentage: number = 0
 
   constructor(
     websocketUrl: string,
@@ -141,7 +143,6 @@ export class Client {
         )
       }
     })
-
     let shouldRequestLogin = false
     this.webSocket.subscribe(
       'login-code-response',
@@ -195,16 +196,41 @@ export class Client {
         )
         const responseToUser = [
           'Authentication successful!',
-          'Welcome, ' + action.user.name,
-          'Your credits have been increased by 5x. Happy coding!',
+          `Welcome,  ${action.user.name}. Your credits have been increased by 5x. Happy coding!`,
         ]
         console.log(responseToUser.join('\n'))
+        this.lastWarnedPercentage = 0
 
         this.returnControlToUser()
       } else {
         console.warn(
           `Authentication failed: ${action.message}. Please try again in a few minutes or contact support.`
         )
+      }
+    })
+
+    this.webSocket.subscribe('usage', (action) => {
+      const { usage, limit } = action
+      const percentage = Math.floor((usage / limit) * 100)
+
+      if (percentage > this.lastWarnedPercentage) {
+        const pct: number = match(percentage)
+          .with(P.number.gte(100), () => 100)
+          .with(P.number.gte(75), () => 75)
+          .with(P.number.gte(50), () => 50)
+          .with(P.number.gte(25), () => 25)
+          .otherwise(() => 0)
+        console.warn(
+          [
+            '',
+            yellow(`You have used ${pct}% of your monthly usage limit.`),
+            this.user
+              ? yellow('Visit https://manicode.ai/pricing to upgrade.')
+              : yellow('Type "login" to sign up and get more credits!'),
+          ].join('\n')
+        )
+        this.lastWarnedPercentage = percentage
+        this.returnControlToUser()
       }
     })
   }
@@ -319,13 +345,13 @@ export class Client {
     const fileContext = await getProjectFileContext([], {})
 
     return new Promise<void>((resolve) => {
-      this.webSocket.subscribe('warm-context-cache-response', () => {
+      this.webSocket.subscribe('init-response', () => {
         resolve()
       })
 
       this.webSocket
         .sendAction({
-          type: 'warm-context-cache',
+          type: 'init',
           fileContext,
           fingerprintId,
         })

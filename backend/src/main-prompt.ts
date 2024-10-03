@@ -28,7 +28,9 @@ export async function mainPrompt(
   ws: WebSocket,
   messages: Message[],
   fileContext: ProjectFileContext,
-  userId: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
   onResponseChunk: (chunk: string) => void
 ) {
   debugLog(
@@ -36,7 +38,6 @@ export async function mainPrompt(
     'messages:',
     messages.length
   )
-
   let fullResponse = ''
   let genKnowledgeFilesPromise: Promise<Promise<FileChange | null>[]> =
     Promise.resolve([])
@@ -53,7 +54,9 @@ export async function mainPrompt(
       fileContext,
       { messages, system },
       null,
-      userId
+      clientSessionId,
+      fingerprintId,
+      userInputId
     )
     if (responseChunk !== null) {
       onResponseChunk(responseChunk.readFilesMessage)
@@ -61,7 +64,12 @@ export async function mainPrompt(
 
       // Prompt cache the new files.
       const system = getSearchSystemPrompt(fileContext)
-      warmCacheForRequestRelevantFiles(system, userId)
+      warmCacheForRequestRelevantFiles(
+        system,
+        clientSessionId,
+        fingerprintId,
+        userInputId
+      )
     }
   }
 
@@ -74,7 +82,9 @@ export async function mainPrompt(
     // Already have context from existing chat
     // If client used tool, we don't want to generate knowledge files because the user isn't really in control
     genKnowledgeFilesPromise = generateKnowledgeFiles(
-      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
       ws,
       fullResponse,
       fileContext,
@@ -138,7 +148,9 @@ ${STOP_MARKER}
 
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
-      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
     })
     const streamWithTags = processStreamWithTags(stream, {
       edit_file: {
@@ -153,7 +165,9 @@ ${STOP_MARKER}
             : fileContent
           fileProcessingPromises.push(
             processFileBlock(
-              userId,
+              clientSessionId,
+              fingerprintId,
+              userInputId,
               ws,
               messages,
               fullResponse,
@@ -239,7 +253,9 @@ ${STOP_MARKER}
         fileContext,
         { messages, system: getSearchSystemPrompt(fileContext) },
         fullResponse,
-        userId
+        clientSessionId,
+        fingerprintId,
+        userInputId
       )
       if (response !== null) {
         const { readFilesMessage } = response
@@ -318,13 +334,17 @@ async function updateFileContext(
     system: string | Array<TextBlockParam>
   },
   prompt: string | null,
-  userId: string
+  clientSessionId: string,
+  fingerprntId: string,
+  userInputId: string
 ) {
   const relevantFiles = await requestRelevantFiles(
     { messages, system },
     fileContext,
     prompt,
-    userId
+    clientSessionId,
+    fingerprntId,
+    userInputId
   )
 
   if (relevantFiles === null || relevantFiles.length === 0) {
@@ -365,7 +385,9 @@ async function updateFileContext(
 }
 
 export async function processFileBlock(
-  userId: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
   ws: WebSocket,
   messageHistory: Message[],
   fullResponse: string,
@@ -387,7 +409,9 @@ export async function processFileBlock(
   }
 
   const patch = await generatePatch(
-    userId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
     oldContent,
     newContent,
     filePath,

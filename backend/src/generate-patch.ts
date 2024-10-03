@@ -2,9 +2,12 @@ import { Message } from 'common/actions'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { debugLog } from './util/debug'
 import { createPatch } from 'diff'
+import { openaiModels } from 'common/constants'
 
 export async function generatePatch(
-  userId: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
   oldContent: string,
   newContent: string,
   filePath: string,
@@ -19,7 +22,9 @@ export async function generatePatch(
   let patch = ''
   const { isSketchComplete, shouldAddPlaceholderComments } =
     await isSketchCompletePrompt(
-      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
       normalizedOldContent,
       normalizedNewContent,
       filePath,
@@ -38,7 +43,9 @@ export async function generatePatch(
       ? `... existing code ...\n\n${normalizedNewContent}\n\n... existing code ...`
       : normalizedNewContent
     patch = await generatePatchPrompt(
-      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
       normalizedOldContent,
       newContentWithPlaceholders,
       filePath,
@@ -51,7 +58,9 @@ export async function generatePatch(
 }
 
 const isSketchCompletePrompt = async (
-  userId: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
   oldContent: string,
   newContent: string,
   filePath: string,
@@ -92,9 +101,11 @@ If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". 
     },
   ]
   const response = await promptOpenAI(
-    userId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
     messages as OpenAIMessage[],
-    'gpt-4o-2024-08-06'
+    openaiModels.gpt4o
   )
   const shouldAddPlaceholderComments = response.includes('INCOMPLETE_SKETCH')
   const isSketchComplete =
@@ -111,7 +122,9 @@ If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". 
 }
 
 const generatePatchPrompt = async (
-  userId: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
   oldContent: string,
   newContent: string,
   filePath: string,
@@ -145,9 +158,11 @@ Please produce a patch file based on this change.
     },
   ]
   return await promptOpenAI(
-    userId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
     messages,
-    'ft:gpt-4o-2024-08-06:manifold-markets::A7wELpag'
-    // 'ft:gpt-4o-2024-08-06:manifold-markets:run-1:A4VfZwvz'
+    `ft:${openaiModels.gpt4o}:manifold-markets::A7wELpag`
+    // ft:${models.gpt4o}:manifold-markets:run-1:A4VfZwvz`
   )
 }

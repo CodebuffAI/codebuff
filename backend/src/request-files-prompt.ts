@@ -4,7 +4,8 @@ import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
-import { model_types, models, promptClaude, System } from './claude'
+import { model_types, promptClaude, System } from './claude'
+import { claudeModels } from 'common/constants'
 import { debugLog } from './util/debug'
 import { getAllFilePaths } from 'common/project-file-tree'
 
@@ -18,7 +19,9 @@ export async function requestRelevantFiles(
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
-  userId: string
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string
 ) {
   const previousFiles = Object.keys(fileContext.files)
   const countPerRequest = assistantPrompt ? 8 : 5
@@ -38,7 +41,9 @@ export async function requestRelevantFiles(
     : checkNewFilesNecessary(
         messagesExcludingLastIfByUser,
         system,
-        userId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
         previousFiles,
         userPrompt
       )
@@ -50,7 +55,9 @@ export async function requestRelevantFiles(
     countPerRequest,
     messagesExcludingLastIfByUser,
     system,
-    userId
+    clientSessionId,
+    fingerprintId,
+    userInputId
   )
 
   const newFilesNecessary = await newFilesNecessaryPromise
@@ -73,7 +80,9 @@ async function generateFileRequests(
   countPerRequest: number,
   messagesExcludingLastIfByUser: Message[],
   system: string | Array<TextBlockParam>,
-  userId: string
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string
 ) {
   const numNonObviousPrompts = assistantPrompt ? 1 : 1
   const nonObviousPrompts = range(1, numNonObviousPrompts + 1).map((index) =>
@@ -92,9 +101,11 @@ async function generateFileRequests(
         system,
       },
       nonObviousPrompt,
-      models.sonnet,
+      claudeModels.sonnet,
       `Non-obvious ${index + 1}`,
-      userId
+      clientSessionId,
+      fingerprintId,
+      userInputId
     ).catch((error) => {
       console.error('Error requesting files:', error)
       return { files: [], duration: 0 }
@@ -119,9 +130,11 @@ async function generateFileRequests(
         system,
       },
       keyPrompt,
-      models.sonnet,
+      claudeModels.sonnet,
       `Key ${index + 1}`,
-      userId
+      clientSessionId,
+      fingerprintId,
+      userInputId
     ).catch((error) => {
       console.error('Error requesting key files:', error)
       return { files: [], duration: 0 }
@@ -140,7 +153,9 @@ async function generateFileRequests(
 const checkNewFilesNecessary = async (
   messages: Message[],
   system: System,
-  userId: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
   previousFiles: string[],
   userPrompt: string
 ) => {
@@ -156,9 +171,11 @@ Answer with just 'YES' if new files are necessary, or 'NO' if the current files 
   const response = await promptClaude(
     [...messages, { role: 'user', content: prompt }],
     {
-      model: models.sonnet,
+      model: claudeModels.sonnet,
       system,
-      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
     }
   ).catch((error) => {
     console.error('Error checking new files necessary:', error)
@@ -179,7 +196,9 @@ async function getRelevantFiles(
   userPrompt: string,
   model: model_types,
   requestType: string,
-  userId: string
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string
 ): Promise<{ files: string[]; duration: number }> {
   const messagesWithPrompt = [
     ...messages,
@@ -192,7 +211,9 @@ async function getRelevantFiles(
   const response = await promptClaude(messagesWithPrompt, {
     model,
     system,
-    userId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
   })
   const end = performance.now()
   const duration = end - start
@@ -350,7 +371,9 @@ ${topLevelDirectories(fileContext).join('\n')}
 
 export const warmCacheForRequestRelevantFiles = async (
   system: System,
-  userId: string
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string
 ) => {
   await promptClaude(
     [
@@ -360,9 +383,11 @@ export const warmCacheForRequestRelevantFiles = async (
       },
     ],
     {
-      model: models.sonnet,
+      model: claudeModels.sonnet,
       system,
-      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
       maxTokens: 1,
     }
   ).catch((error) => {

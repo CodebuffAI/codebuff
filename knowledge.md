@@ -159,15 +159,4 @@ A Python package for Manicode has been created as a skeleton in python-app. Key 
 
 ## Version Checking
 
-The Manicode backend implements a version checking mechanism to ensure clients are using the latest version:
-
-1. The client sends its version using the 'check-npm-version' action.
-2. The server compares this version with the one in backend/package.json.
-3. The server responds with a 'npm-version-status' action, indicating if the client is up-to-date.
-4. The backend/package.json version is updated during the build process by the build-version-info.js script, which copies the version from npm-app/package.json.
-
-To maintain correct versioning:
-
-- Always update the version in npm-app/package.json when making releases.
-- Run `bun run build` to ensure backend/package.json is updated before deployment.
-- Implement proper error handling for version mismatches in both client and server code.
+Upon start-up, the client checks the npmjs.org registry for the latest version of the npm package. If the version is newer, Manicode will automatically try to download and install the latest version. Once it does, it'll prompt the user to restart the application.

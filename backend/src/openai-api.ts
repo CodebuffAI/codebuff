@@ -3,19 +3,20 @@ import { RATE_LIMIT_POLICY } from './constants'
 import { STOP_MARKER } from 'common/constants'
 import { Stream } from 'openai/streaming'
 import { env } from './env.mjs'
+import { saveMessage } from './billing/message'
 
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
 let openai: OpenAI | null = null
 
-const getOpenAI = (userId: string) => {
+const getOpenAI = (fingerprintId: string) => {
   if (!openai) {
     openai = new OpenAI({
       apiKey: env.OPEN_AI_KEY,
       baseURL: 'https://oai.helicone.ai/v1',
       defaultHeaders: {
         'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
-        'Helicone-User-Id': userId,
+        'Helicone-User-Id': fingerprintId,
         'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
         // 'Helicone-LLM-Security-Enabled': 'true',
       },
@@ -31,11 +32,14 @@ const timeoutPromise = (ms: number) =>
   )
 
 export async function promptOpenAI(
-  userId: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
   messages: OpenAIMessage[],
-  model: string
+  model: string,
+  userId?: string
 ) {
-  const openai = getOpenAI(userId)
+  const openai = getOpenAI(fingerprintId)
   try {
     const response = await Promise.race([
       openai.chat.completions.create({
@@ -52,7 +56,24 @@ export async function promptOpenAI(
       response.choices.length > 0 &&
       response.choices[0].message
     ) {
-      return response.choices[0].message.content || ''
+      const messageId = response.id
+      const content = response.choices[0].message.content || ''
+      if (messages.length > 0) {
+        saveMessage({
+          messageId,
+          userId,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          model,
+          request: messages,
+          response: content,
+          inputTokens: response.usage?.prompt_tokens || 0,
+          outputTokens: response.usage?.completion_tokens || 0,
+          finishedAt: new Date(),
+        })
+      }
+      return content
     } else {
       throw new Error('No response from OpenAI')
     }
@@ -69,14 +90,19 @@ export async function promptOpenAI(
 
 export async function promptOpenAIWithContinuation(
   messages: OpenAIMessage[],
-  options: { model: string; userId: string }
+  options: {
+    model: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId?: string
+  }
 ) {
-  const { model, userId } = options
+  const { model, clientSessionId, fingerprintId, userInputId, userId } = options
   let fullResponse = ''
   let continuedMessage: OpenAIMessage | null = null
   let isComplete = false
 
-  // Add the instruction to end with the stop marker to the last user message
   const lastUserMessageIndex = messages.findLastIndex(
     (msg) => msg.role === 'user'
   )
@@ -90,7 +116,7 @@ export async function promptOpenAIWithContinuation(
     })
   }
 
-  const openai = getOpenAI(userId)
+  const openai = getOpenAI(fingerprintId)
 
   while (!isComplete) {
     const messagesWithContinuedMessage = continuedMessage
@@ -104,6 +130,9 @@ export async function promptOpenAIWithContinuation(
           messages: messagesWithContinuedMessage,
           stream: true,
           temperature: 0,
+          stream_options: {
+            include_usage: true,
+          },
         }),
         timeoutPromise(120000) as Promise<
           Stream<OpenAI.Chat.Completions.ChatCompletionChunk>
@@ -113,6 +142,23 @@ export async function promptOpenAIWithContinuation(
       for await (const chunk of stream) {
         if (chunk.choices[0]?.delta?.content) {
           fullResponse += chunk.choices[0].delta.content
+        }
+
+        if (chunk.usage) {
+          const messageId = chunk.id
+          saveMessage({
+            messageId,
+            userId,
+            clientSessionId,
+            fingerprintId,
+            userInputId,
+            model,
+            request: messages,
+            response: fullResponse,
+            inputTokens: chunk.usage.prompt_tokens,
+            outputTokens: chunk.usage.completion_tokens,
+            finishedAt: new Date(),
+          })
         }
       }
 

@@ -5,7 +5,7 @@ export const CLIENT_MESSAGE_SCHEMAS = {
   identify: z.object({
     type: z.literal('identify'),
     txid: z.number(),
-    uid: z.string(),
+    clientSessionId: z.string(),
   }),
   subscribe: z.object({
     type: z.literal('subscribe'),

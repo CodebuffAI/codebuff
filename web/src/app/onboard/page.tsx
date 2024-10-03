@@ -24,6 +24,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
   const session = await getServerSession(authOptions)
   const user = session?.user
 
+  // Check if values are present
   if (!authCode || !user) {
     toast({
       title: 'Uh-oh, spaghettio!',
@@ -76,17 +77,20 @@ const Onboard = async ({ searchParams }: PageProps) => {
     })
     .from(schema.user)
     .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
+    .leftJoin(
+      schema.fingerprint,
+      eq(schema.session.fingerprint_id, schema.fingerprint.id)
+    )
     .where(
       and(
-        eq(schema.session.fingerprintId, fingerprintId),
-        eq(schema.session.fingerprintHash, fingerprintHash),
+        eq(schema.fingerprint.sig_hash, fingerprintHash),
         eq(schema.user.id, user.id)
       )
     )
     .limit(1)
   if (fingerprintExists.length > 0) {
     return CardWithBeams({
-      title: 'You already added it!',
+      title: 'Your account is already connected to your cli!',
       description:
         'Feel free to close this window and head back to your terminal. Enjoy the extra api credits!',
       content: <p>No replay attack for you 👊</p>,
@@ -94,19 +98,42 @@ const Onboard = async ({ searchParams }: PageProps) => {
   }
 
   // Add it to the db
-  const insertResult = await db
-    .insert(schema.session)
-    .values({
-      sessionToken: crypto.randomUUID(),
-      userId: user.id,
-      expires: MAX_DATE,
-      fingerprintId,
-      fingerprintHash,
-    })
-    .returning({
-      userId: schema.session.userId,
-    })
-  if (insertResult.length > 0) {
+  const didInsert = await db.transaction(async (tx) => {
+    await tx
+      .insert(schema.fingerprint)
+      .values({
+        sig_hash: fingerprintHash,
+        id: fingerprintId,
+      })
+      .onConflictDoUpdate({
+        target: schema.fingerprint.id,
+        set: {
+          sig_hash: fingerprintHash,
+        },
+      })
+      .returning({ id: schema.fingerprint.id })
+      .then((fingerprints) => {
+        if (fingerprints.length === 1) {
+          return fingerprints[0].id
+        }
+        throw new Error('Failed to create fingerprint record')
+      })
+
+    const session = await tx
+      .insert(schema.session)
+      .values({
+        sessionToken: crypto.randomUUID(),
+        userId: user.id,
+        expires: MAX_DATE,
+        fingerprint_id: fingerprintId,
+      })
+      .returning({ userId: schema.session.userId })
+
+    return !!session.length
+  })
+
+  // Render the result
+  if (didInsert) {
     return CardWithBeams({
       title: 'Nicely done!',
       description:
@@ -121,7 +148,6 @@ const Onboard = async ({ searchParams }: PageProps) => {
       ),
     })
   }
-
   return CardWithBeams({
     title: 'Uh-oh, spaghettio!',
     description: 'Something went wrong.',
