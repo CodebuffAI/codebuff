@@ -130,7 +130,7 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false,
-          "default": "SELECT now() + INTERVAL '1 month'"
+          "default": "now() + INTERVAL '1 month'"
         }
       },
       "indexes": {},
@@ -417,7 +417,7 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false,
-          "default": "SELECT now() + INTERVAL '1 month'"
+          "default": "now() + INTERVAL '1 month'"
         }
       },
       "indexes": {},
