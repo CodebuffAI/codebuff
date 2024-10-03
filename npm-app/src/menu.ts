@@ -45,45 +45,39 @@ ${colorizeRandom('██║╚██╔╝██║')}${colorizeRandom('██�
 ${colorizeRandom('██║ ╚═╝ ██║')}${colorizeRandom('██║  ██║')}${colorizeRandom('██║ ╚████║')}${colorizeRandom('██║')}${colorizeRandom(' ╚██████╗')}${colorizeRandom(' █████╔╝')}${colorizeRandom('██████╔╝')}${colorizeRandom('███████╗')}
 ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═╝')}${colorizeRandom('╚═╝  ╚═══╝')}${colorizeRandom('╚═╝')}${colorizeRandom('  ╚═════╝')}${colorizeRandom(' ╚════╝ ')}${colorizeRandom('╚═════╝ ')}${colorizeRandom('╚══════╝')}
 `)
+  console.log(bold(green("Welcome! I'm your AI coding assistant.")))
   console.log(
-    bold(green('Welcome to Manicode - Your AI-powered coding assistant!\n'))
-  )
-  console.log(
-    `Manicode will read and write files within your current directory (${getProjectRoot()}), run commands in your terminal, and scrape the web to accomplish tasks you give it.\n`
-  )
-  console.log(
-    'Ask Manicode to implement small features, refactor code, write unit tests, write scripts, or give advice.\n'
+    `\nManicode will read and write files within your current directory (${getProjectRoot()}) and run commands in your terminal.`
   )
 
-  console.log('COMMANDS')
-  console.log('- Press CTRL-C to exit app')
+  console.log('\nASK MANICODE TO...')
+  console.log('- Refactor a large file into smaller files')
+  console.log('- Write unit tests')
+  console.log('- Fix errors from running tests or compiling your project')
+  console.log('- Write a script')
+  console.log(
+    '- Plan a feature before implementing it. Or, write your own plan in a file and ask Manicode to implement it step-by-step'
+  )
+  console.log(
+    '- Do something after pasting in the URL to relevant documentation'
+  )
+  console.log(
+    '- "Create knowledge files for your codebase" to help Manicode understand your project'
+  )
+
+  console.log('\nCOMMANDS')
+  console.log('- Enter terminal commands directly: "cd backend", "npm test"')
+  console.log('- Use "/run <command>" for long terminal commands')
   console.log('- Press ESC to cancel generation')
-  console.log('- Type "undo" or "u" to undo the last change')
-  console.log('- Type "redo" or "r" to redo the last change')
-  console.log('- Type "/run <command>" to run a terminal command. Short commands will work without the "/run" prefix')
+  console.log(
+    '- Type "undo" or "redo" (abbreviated "u" or "r") to undo or redo the last change'
+  )
   console.log('- Type "login" to log into Manicode')
-  console.log('- Type "help" or "h" to print this menu\n')
 
-  console.log('TIPS')
   console.log(
-    '- Ask Manicode to fix the errors from running your tests or compiling your project.'
+    '\nAny files in .gitignore are not read by Manicode. You can ignore further files with .manicodeignore'
   )
   console.log(
-    '- Ask Manicode to refactor a large file into smaller files.'
-  )
-  console.log(
-    '- Ask Manicode any questions you have about the codebase.'
-  )
-  console.log(
-    '- Tell Manicode what it did wrong, and it will learn by saving a note in a "knowledge" file.'
-  )
-  console.log(
-    '- Say: "Create knowledge files for my codebase" to generate and store information that will help Manicode understand your project.'
-  )
-  console.log(
-    '- When implementing a new feature, create a new file with a description of what you want to build and ask Manicode to read that file and implement it.'
-  )
-  console.log(
-    '- Email your feedback to james@manicode.ai. Thanks for using Manicode!'
+    '\nEmail your feedback to james@manicode.ai. Thanks for using Manicode!'
   )
 }
