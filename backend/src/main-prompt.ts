@@ -217,9 +217,11 @@ ${STOP_MARKER}
       const fileMatches = printedChunk.match(openFileRegex)
       if (fileMatches) {
         const filePath = fileMatches[1]
+        const fileContent = await requestFile(ws, filePath)
+        const isNewFile = fileContent === null
         printedChunk = printedChunk.replace(
           openFileRegex,
-          `- Editing file: ${filePath} ...`
+          `- ${isNewFile ? 'Creating' : 'Editing'} file: ${filePath} ...`
         )
       }
 
