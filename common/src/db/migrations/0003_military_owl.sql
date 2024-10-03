@@ -1,0 +1,2 @@
+ALTER TABLE "fingerprint" ALTER COLUMN "next_quota_reset" SET DEFAULT now() + INTERVAL '1 month';--> statement-breakpoint
+ALTER TABLE "user" ALTER COLUMN "next_quota_reset" SET DEFAULT now() + INTERVAL '1 month';

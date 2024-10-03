@@ -25,8 +25,8 @@ export const user = pgTable('user', {
   stripe_price_id: text('stripe_price_id'),
   quota: integer('quota').notNull().default(0),
   quota_exceeded: boolean('quota_exceeded').notNull().default(false),
-  next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).$defaultFn(
-    () => sql<Date>`now() + INTERVAL '1 month'`
+  next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
+    sql<Date>`now() + INTERVAL '1 month'`
   ),
 })
 
@@ -58,8 +58,8 @@ export const fingerprint = pgTable('fingerprint', {
   id: text('id').primaryKey(),
   sig_hash: text('sig_hash'),
   quota_exceeded: boolean('quota_exceeded').notNull().default(false),
-  next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).$defaultFn(
-    () => sql<Date>`now() + INTERVAL '1 month'`
+  next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
+    sql<Date>`now() + INTERVAL '1 month'`
   ),
 })
 
