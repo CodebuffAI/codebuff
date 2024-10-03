@@ -17,6 +17,7 @@ export const env = createEnv({
   server: {
     ENVIRONMENT: z.string().min(1),
     DATABASE_URL: z.string().min(1),
+    STRIPE_SECRET_KEY: z.string().min(1),
   },
   runtimeEnv: process.env,
 })
