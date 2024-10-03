@@ -9,12 +9,13 @@ import { promptClaude } from '../claude'
 import { env } from '../env.mjs'
 import db from 'common/src/db'
 import * as schema from 'common/db/schema'
-import { eq, and, gt } from 'drizzle-orm'
+import { eq, and, gt, sql } from 'drizzle-orm'
 import { genAuthCode } from 'common/util/credentials'
 import { match, P } from 'ts-pattern'
 import { claudeModels } from 'common/constants'
 import { WebSocketMiddleware } from './middleware'
-import { checkQuota, setQuotaExceeded, resetQuota } from '@/billing/message'
+import { resetQuota, updateQuota } from '@/billing/message'
+import { getNextQuotaReset } from 'common/util/dates'
 
 const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -72,12 +73,12 @@ const onUserInput = async (
         response,
         changes: allChanges,
       })
-      // TODO: pull `creditsUsed` and `quota` from main prompt and send them back after response was completed
-      //     sendAction(ws, {
-      //       type: 'usage',
-      //       usage: creditsUsed,
-      //       limit: quota,
-      //     })
+      const { creditsUsed, quota } = await updateQuota(fingerprintId)
+      // sendAction(ws, {
+      //   type: 'usage',
+      //   usage: creditsUsed,
+      //   limit: quota,
+      // })
     }
   } catch (e) {
     console.error('Error in mainPrompt', e)
@@ -90,7 +91,7 @@ const onUserInput = async (
       userInputId,
       chunk: response,
     })
-    setTimeout(() => {
+    setTimeout(async () => {
       sendAction(ws, {
         type: 'response-complete',
         userInputId,
@@ -325,23 +326,31 @@ protec.use(async (action, _) => {
 //     throw new Error('No fingerprintId found')
 //   }
 
-//   const { creditsUsed, quota, userId, endDate } =
-//     await checkQuota(fingerprintId)
-//   if (creditsUsed >= quota) {
-//     limitFingerprint(fingerprintId, userId)
-//     sendAction(ws, {
-//       type: 'usage',
-//       usage: creditsUsed,
-//       limit: quota,
+//   const quotas = await db
+//     .select({
+//       userId: schema.user.id,
+//       quotaExceeded: sql<boolean>`COALESCE(${schema.user.quota_exceeded}, ${schema.fingerprint.quota_exceeded}, true)`,
+//       nextQuotaReset: sql<Date>`COALESCE(${schema.user.next_quota_reset}, ${schema.fingerprint.next_quota_reset}, now())`,
 //     })
-//     throw new Error(
-//       `Usage limit exceeded for user ${fingerprintId}: ${creditsUsed} >= ${quota}`
-//     )
+//     .from(schema.user)
+//     .leftJoin(schema.fingerprint, eq(schema.user.id, schema.fingerprint.id))
+
+//   const quota = quotas[0]
+//   if (!quota) {
+//     throw new Error('User is not in the system!')
 //   }
 
-//   if (endDate < new Date()) {
-//     // End date is in the past, so we should reset the quota
-//     resetQuota(fingerprintId, userId)
+//   if (quota.quotaExceeded) {
+//     if (quota.nextQuotaReset < new Date()) {
+//       // End date is in the past, so we should reset the quota
+//       resetQuota(fingerprintId, quota.userId)
+//     } else {
+//       sendAction(ws, {
+//         type: 'quota-exceeded',
+//         nextQuotaReset: getNextQuotaReset(quota.nextQuotaReset),
+//       })
+//       throw new Error(`Quota exceeded for user ${fingerprintId}`)
+//     }
 //   }
 // })
 

@@ -155,6 +155,31 @@ const calcCost = (
   )
 }
 
+export const updateQuota = async (
+  fingerprintId: string,
+  userId?: string
+): Promise<{
+  creditsUsed: number
+  quota: number
+  // userId?: string
+  // endDate: Date | SQL<Date>
+  // quotaExceeded: boolean
+}> => {
+  const { creditsUsed, quota, endDate } = await checkQuota(fingerprintId)
+
+  if (creditsUsed >= quota) {
+    setQuotaExceeded(fingerprintId, userId)
+    return {
+      creditsUsed,
+      quota,
+    }
+  }
+  return {
+    creditsUsed,
+    quota,
+  }
+}
+
 export const checkQuota = async (
   fingerprintId: string
 ): Promise<{
