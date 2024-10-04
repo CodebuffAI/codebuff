@@ -13,7 +13,8 @@ export async function generateExpandedFileWithDiffBlocks(
   fullResponse: string,
   filePath: string,
   oldContent: string,
-  newContent: string
+  newContent: string,
+  userId?: string
 ) {
   const diffBlocks = await generateDiffBlocks(
     clientSessionId,
@@ -23,7 +24,8 @@ export async function generateExpandedFileWithDiffBlocks(
     fullResponse,
     filePath,
     oldContent,
-    newContent
+    newContent,
+    userId
   )
 
   let updatedContent = oldContent
@@ -63,7 +65,8 @@ export async function generateDiffBlocks(
   fullResponse: string,
   filePath: string,
   oldContent: string,
-  newContent: string
+  newContent: string,
+  userId?: string
 ) {
   const logMessage = `Generating diff blocks for ${filePath}`
   console.log(logMessage)
@@ -446,7 +449,13 @@ Your Response:`
   // )
   const response = await promptOpenAIWithContinuation(
     [{ role: 'user', content: prompt }],
-    { clientSessionId, model: openaiModels.gpt4o, fingerprintId, userInputId }
+    {
+      clientSessionId,
+      model: openaiModels.gpt4o,
+      fingerprintId,
+      userInputId,
+      userId,
+    }
   )
 
   debugLog('OpenAI response for diff blocks:', response)
@@ -492,7 +501,13 @@ ${STOP_MARKER}
     debugLog('Trying a second prompt for getDiffBlocks', filePath)
     const response = await promptOpenAIWithContinuation(
       [{ role: 'user', content: newPrompt }],
-      { clientSessionId, fingerprintId, userInputId, model: openaiModels.gpt4o }
+      {
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        model: openaiModels.gpt4o,
+        userId,
+      }
     )
     debugLog('Second Claude response for diff blocks:', response)
 

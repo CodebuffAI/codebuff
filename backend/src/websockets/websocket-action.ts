@@ -23,14 +23,34 @@ export const sendAction = (ws: WebSocket, action: ServerAction) => {
   })
 }
 
+export const getUserIdFromAuthToken = async (
+  authToken?: string
+): Promise<string | undefined> => {
+  if (!authToken) return undefined
+
+  const userId = await db
+    .select({ userId: schema.user.id })
+    .from(schema.user)
+    .innerJoin(schema.session, eq(schema.user.id, schema.session.userId))
+    .where(eq(schema.session.sessionToken, authToken))
+    .then((users) => {
+      if (users.length === 1) {
+        return users[0].userId
+      }
+      return undefined
+    })
+
+  return userId
+}
+
 const sendUsageUpdate = async (
   ws: WebSocket,
-  authToken: string | undefined,
-  fingerprintId: string
+  fingerprintId: string,
+  userId?: string
 ) => {
   const quotaManager = getQuotaManager(
-    authToken ? 'authenticated' : 'anonymous',
-    authToken ?? fingerprintId
+    userId ? 'authenticated' : 'anonymous',
+    userId ?? fingerprintId
   )
   const { creditsUsed, quota } = await quotaManager.checkQuota()
   sendAction(ws, {
@@ -55,6 +75,7 @@ const onUserInput = async (
   if (typeof lastMessage.content === 'string')
     console.log('Input:', lastMessage)
 
+  const userId = await getUserIdFromAuthToken(authToken)
   try {
     const { toolCall, response, changes } = await mainPrompt(
       ws,
@@ -68,7 +89,8 @@ const onUserInput = async (
           type: 'response-chunk',
           userInputId,
           chunk,
-        })
+        }),
+      userId
     )
     const allChanges = [...previousChanges, ...changes]
 
@@ -89,7 +111,7 @@ const onUserInput = async (
         response,
         changes: allChanges,
       })
-      await sendUsageUpdate(ws, authToken, fingerprintId)
+      await sendUsageUpdate(ws, fingerprintId, userId)
     }
   } catch (e) {
     console.error('Error in mainPrompt', e)
@@ -254,6 +276,7 @@ const onInit = async (
   // warm context cache
   const startTime = Date.now()
   const system = getSearchSystemPrompt(fileContext)
+  const userId = await getUserIdFromAuthToken(authToken)
   await promptClaude(
     [
       {
@@ -266,6 +289,7 @@ const onInit = async (
       system,
       clientSessionId,
       fingerprintId,
+      userId,
       userInputId: 'init-cache',
       maxTokens: 1,
     }
@@ -276,7 +300,7 @@ const onInit = async (
   })
 
   // Add usage information
-  await sendUsageUpdate(ws, authToken, fingerprintId)
+  await sendUsageUpdate(ws, fingerprintId, userId)
 }
 
 const callbacksByAction = {} as Record<

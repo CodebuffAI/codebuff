@@ -143,13 +143,14 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
       )
       .where(eq(schema.user.id, userId))
       .groupBy(
-        schema.user.id,
         schema.user.quota,
         schema.user.stripe_customer_id,
         schema.user.stripe_price_id
       )
-      .limit(1)
-      .then((rows) => rows[0])
+      .then((rows) => {
+        if (rows.length > 0) return rows[0]
+        return
+      })
 
     const quota =
       !result?.stripe_customer_id && !result?.stripe_price_id

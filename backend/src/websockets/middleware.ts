@@ -73,9 +73,7 @@ export class WebSocketMiddleware {
 
 export const protec = new WebSocketMiddleware()
 protec.use(async (action, _clientSessionId, _) => {
-  console.log(
-    `Protecting action of type: '${action.type}' (currently disabled)`
-  )
+  console.log(`Protecting action of type: '${action.type}'`)
 })
 protec.use(async (action, _clientSessionId, ws) => {
   return match(action)

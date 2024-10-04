@@ -22,9 +22,9 @@ export const promptClaudeStream = async function* (
     clientSessionId: string
     fingerprintId: string
     userInputId: string
+    userId?: string
     ignoreHelicone?: boolean
-  },
-  userId?: string
+  }
 ): AsyncGenerator<string, void, unknown> {
   const {
     model = claudeModels.sonnet,
@@ -33,6 +33,7 @@ export const promptClaudeStream = async function* (
     clientSessionId,
     fingerprintId,
     userInputId,
+    userId,
     maxTokens,
     ignoreHelicone = false,
   } = options
@@ -167,6 +168,7 @@ export const promptClaude = async (
     clientSessionId: string
     fingerprintId: string
     userInputId: string
+    userId?: string
     system?: string | Array<TextBlockParam>
     tools?: Tool[]
     model?: model_types
@@ -187,6 +189,7 @@ export async function promptClaudeWithContinuation(
     clientSessionId: string
     fingerprintId: string
     userInputId: string
+    userId?: string
     system?: string
     model?: model_types
     ignoreHelicone?: boolean

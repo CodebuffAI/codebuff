@@ -12,7 +12,8 @@ export async function generatePatch(
   newContent: string,
   filePath: string,
   messageHistory: Message[],
-  fullResponse: string
+  fullResponse: string,
+  userId?: string
 ) {
   const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
   const lineEnding = oldContent.includes('\r\n') ? '\r\n' : '\n'
@@ -29,7 +30,8 @@ export async function generatePatch(
       normalizedNewContent,
       filePath,
       messageHistory,
-      fullResponse
+      fullResponse,
+      userId
     )
   if (isSketchComplete) {
     patch = createPatch(filePath, normalizedOldContent, normalizedNewContent)
@@ -50,7 +52,8 @@ export async function generatePatch(
       newContentWithPlaceholders,
       filePath,
       messageHistory,
-      fullResponse
+      fullResponse,
+      userId
     )
   }
   const updatedPatch = patch.replaceAll('\n', lineEnding)
@@ -65,7 +68,8 @@ const isSketchCompletePrompt = async (
   newContent: string,
   filePath: string,
   messageHistory: Message[],
-  fullResponse: string
+  fullResponse: string,
+  userId?: string
 ) => {
   const prompt = `
 Based on the above conversation, determine if the following sketch of the changes is complete.
@@ -105,7 +109,8 @@ If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". 
     fingerprintId,
     userInputId,
     messages as OpenAIMessage[],
-    openaiModels.gpt4o
+    openaiModels.gpt4o,
+    userId
   )
   const shouldAddPlaceholderComments = response.includes('INCOMPLETE_SKETCH')
   const isSketchComplete =
@@ -129,7 +134,8 @@ const generatePatchPrompt = async (
   newContent: string,
   filePath: string,
   messageHistory: Message[],
-  fullResponse: string
+  fullResponse: string,
+  userId?: string
 ) => {
   const oldFileWithLineNumbers = oldContent
     .split('\n')
@@ -162,7 +168,8 @@ Please produce a patch file based on this change.
     fingerprintId,
     userInputId,
     messages,
-    `ft:${openaiModels.gpt4o}:manifold-markets::A7wELpag`
+    `ft:${openaiModels.gpt4o}:manifold-markets::A7wELpag`,
+    userId
     // ft:${models.gpt4o}:manifold-markets:run-1:A4VfZwvz`
   )
 }
