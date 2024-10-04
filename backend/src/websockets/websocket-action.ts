@@ -23,6 +23,22 @@ export const sendAction = (ws: WebSocket, action: ServerAction) => {
   })
 }
 
+const sendUsageUpdate = async (
+  ws: WebSocket,
+  authToken: string | undefined,
+  fingerprintId: string
+) => {
+  const quotaManager = getQuotaManager(
+    authToken ? 'authenticated' : 'anonymous',
+    authToken ?? fingerprintId
+  )
+  const { creditsUsed, quota } = await quotaManager.checkQuota()
+  sendAction(ws, {
+    type: 'usage',
+    usage: creditsUsed,
+    limit: quota,
+  })
+}
 const onUserInput = async (
   {
     fingerprintId,
@@ -73,16 +89,7 @@ const onUserInput = async (
         response,
         changes: allChanges,
       })
-      const quotaManager = getQuotaManager(
-        authToken ? 'authenticated' : 'anonymous',
-        authToken ?? fingerprintId
-      )
-      const { creditsUsed, quota } = await quotaManager.updateQuota()
-      sendAction(ws, {
-        type: 'usage',
-        usage: creditsUsed,
-        limit: quota,
-      })
+      await sendUsageUpdate(ws, authToken, fingerprintId)
     }
   } catch (e) {
     console.error('Error in mainPrompt', e)
@@ -228,7 +235,11 @@ const onLoginStatusRequest = async (
 }
 
 const onInit = async (
-  { fileContext, fingerprintId }: Extract<ClientAction, { type: 'init' }>,
+  {
+    fileContext,
+    fingerprintId,
+    authToken,
+  }: Extract<ClientAction, { type: 'init' }>,
   clientSessionId: string,
   ws: WebSocket
 ) => {
@@ -259,10 +270,13 @@ const onInit = async (
       maxTokens: 1,
     }
   )
+  console.log('Warming context cache done', Date.now() - startTime)
   sendAction(ws, {
     type: 'init-response',
   })
-  console.log('Warming context cache done', Date.now() - startTime)
+
+  // Add usage information
+  await sendUsageUpdate(ws, authToken, fingerprintId)
 }
 
 const callbacksByAction = {} as Record<
