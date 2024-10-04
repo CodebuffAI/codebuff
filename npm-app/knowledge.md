@@ -219,4 +219,15 @@ This system allows for better tracking and correlation of user inputs with their
 - Users are instructed to update using the command: `npm install -g manicode`
 - The version check is performed as part of the WebSocket subscription setup.
 
+## User Notifications
+
+### Usage Warnings
+
+- Warn users about their usage at specific thresholds: 25%, 50%, 75%, and 100% of their monthly limit.
+- Avoid frequent notifications to prevent spamming users with upgrade requests.
+- Implementation should be in the `Client` class in `src/client.ts`.
+- Only display a warning when a new threshold is reached, not for every percentage increase.
+
+
+
 ## End of Document

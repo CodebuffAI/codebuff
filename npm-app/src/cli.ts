@@ -261,7 +261,7 @@ export class CLI {
       }
     }
 
-    if (this.client.lastWarnedPercentage >= 100) {
+    if (this.client.lastWarnedPct >= 100) {
       console.error(
         [
           red(

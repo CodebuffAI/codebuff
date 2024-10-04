@@ -3,45 +3,59 @@ import { ClientAction } from 'common/actions'
 
 export class WebSocketMiddleware {
   private middlewares: Array<
-    (action: ClientAction, ws: WebSocket) => void | Promise<void>
+    (
+      action: ClientAction,
+      clientSessionId: string,
+      ws: WebSocket
+    ) => Promise<void | Error>
   > = []
 
   use<T extends ClientAction['type']>(
     callback: (
       action: Extract<ClientAction, { type: T }>,
+      clientSessionId: string,
       ws: WebSocket
-    ) => void | Promise<void>
+    ) => Promise<void | Error>
   ) {
     this.middlewares.push(
-      callback as (action: ClientAction, ws: WebSocket) => void | Promise<void>
+      callback as (
+        action: ClientAction,
+        clientSessionId: string,
+        ws: WebSocket
+      ) => Promise<void | Error>
     )
   }
 
-  async execute(action: ClientAction, ws: WebSocket): Promise<boolean> {
-    try {
-      for (const middleware of this.middlewares) {
-        await middleware(action, ws)
+  async execute(
+    action: ClientAction,
+    clientSessionId: string,
+    ws: WebSocket
+  ): Promise<boolean> {
+    for (const middleware of this.middlewares) {
+      const res = await middleware(action, clientSessionId, ws)
+      if (res) {
+        console.error('Middleware execution halted:', res)
+        return false
       }
-      return true
-    } catch (error) {
-      console.error('Middleware execution halted:', error)
-      return false
     }
+    return true
   }
 
   run<T extends ClientAction['type']>(
     baseAction: (
       action: Extract<ClientAction, { type: T }>,
+      clientSessionId: string,
       ws: WebSocket
     ) => void
   ) {
     return async (
       action: Extract<ClientAction, { type: T }>,
+      clientSessionId: string,
       ws: WebSocket
     ) => {
-      const shouldContinue = await this.execute(action, ws)
+      const shouldContinue = await this.execute(action, clientSessionId, ws)
       if (shouldContinue) {
-        baseAction(action, ws)
+        baseAction(action, clientSessionId, ws)
       }
     }
   }

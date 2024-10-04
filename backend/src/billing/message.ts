@@ -245,21 +245,20 @@ export const checkQuota = async (
   }
 }
 
-export const resetQuota = async (fingerprintId: string, userId?: string) => {
-  if (userId) {
-    // Signed-in user
-    await db
-      .update(schema.user)
-      .set({ quota_exceeded: false, next_quota_reset: null })
-      .where(eq(schema.user.id, userId))
-  } else {
-    // Anonymous user
-    await db
-      .update(schema.fingerprint)
-      .set({
-        quota_exceeded: false,
-        next_quota_reset: null,
-      })
-      .where(eq(schema.fingerprint.id, fingerprintId))
-  }
+export const resetQuota = async (fingerprintId: string) => {
+  // Anonymous user
+  await db
+    .update(schema.fingerprint)
+    .set({
+      quota_exceeded: false,
+      next_quota_reset: null,
+    })
+    .where(eq(schema.fingerprint.id, fingerprintId))
+}
+
+export const resetQuotaForUser = async (userId: string) => {
+  await db
+    .update(schema.user)
+    .set({ quota_exceeded: false, next_quota_reset: null })
+    .where(eq(schema.user.id, userId))
 }
