@@ -3,7 +3,7 @@ import { RATE_LIMIT_POLICY } from './constants'
 import { STOP_MARKER } from 'common/constants'
 import { Stream } from 'openai/streaming'
 import { env } from './env.mjs'
-import { saveMessage } from './billing/message'
+import { saveMessage } from './billing/message-cost-tracker'
 
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -46,7 +46,7 @@ export async function promptOpenAI(
         model,
         messages,
         temperature: 0,
-        store: true
+        store: true,
       }),
       timeoutPromise(200000) as Promise<OpenAI.Chat.ChatCompletion>,
     ])

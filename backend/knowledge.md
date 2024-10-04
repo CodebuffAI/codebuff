@@ -162,3 +162,12 @@ The backend uses two main strategies for generating file diffs:
 
 1. **Diff Blocks Generation**: Implemented in `generate-diffs-prompt.ts`.
 2. **Diff via Expansion**: Implemented in `generate-diffs-via-expansion.ts`.
+
+### Using Bun for Testing
+
+This project uses Bun for testing instead of Jest. When writing tests, keep the following in mind:
+
+- Use `import { mock } from 'bun:test'` instead of Jest's mocking functions.
+- Bun's test API is similar to Jest's, but there are some differences in implementation.
+- When mocking methods, use `mock(object.method)` instead of Jest's `jest.spyOn(object, 'method')`.
+- Bun's `mock` function expects 0-1 arguments, not 2 like Jest's `spyOn`.

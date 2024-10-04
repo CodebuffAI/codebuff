@@ -2,7 +2,7 @@ import { WebSocket } from 'ws'
 import { ClientMessage } from 'common/websockets/websocket-schema'
 import { mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction } from 'common/actions'
-import { sendMessage, SWITCHBOARD } from './server'
+import { sendMessage } from './server'
 import { isEqual } from 'lodash'
 import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude } from '../claude'
@@ -13,11 +13,10 @@ import { eq, and, gt, sql } from 'drizzle-orm'
 import { genAuthCode } from 'common/util/credentials'
 import { match, P } from 'ts-pattern'
 import { claudeModels } from 'common/constants'
-import { WebSocketMiddleware } from './middleware'
-import { resetQuota, resetQuotaForUser, updateQuota } from '@/billing/message'
-import { getNextQuotaReset } from 'common/util/dates'
+import { protec } from './middleware'
+import { getQuotaManager } from '@/billing/quota-manager'
 
-const sendAction = (ws: WebSocket, action: ServerAction) => {
+export const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
     type: 'action',
     data: action,
@@ -27,6 +26,7 @@ const sendAction = (ws: WebSocket, action: ServerAction) => {
 const onUserInput = async (
   {
     fingerprintId,
+    authToken,
     userInputId,
     messages,
     fileContext,
@@ -73,7 +73,11 @@ const onUserInput = async (
         response,
         changes: allChanges,
       })
-      const { creditsUsed, quota } = await updateQuota(fingerprintId)
+      const quotaManager = getQuotaManager(
+        authToken ? 'authenticated' : 'anonymous',
+        authToken ?? fingerprintId
+      )
+      const { creditsUsed, quota } = await quotaManager.updateQuota()
       sendAction(ws, {
         type: 'usage',
         usage: creditsUsed,
@@ -304,94 +308,6 @@ export const onWebsocketAction = async (
     )
   }
 }
-
-const protec = new WebSocketMiddleware()
-protec.use(async (action, _clientSessionId, _) => {
-  console.log(
-    `Protecting action of type: '${action.type}' (currently disabled)`
-  )
-})
-protec.use(async (action, _clientSessionId, ws) => {
-  return match(action)
-    .with(
-      {
-        authToken: P.string,
-      },
-      async ({ authToken }) => {
-        const quotas = await db
-          .select({
-            userId: schema.user.id,
-            quotaExceeded: sql<boolean>`COALESCE(${schema.user.quota_exceeded}, false)`,
-            nextQuotaReset: sql<Date>`COALESCE(${schema.user.next_quota_reset}, now())`,
-          })
-          .from(schema.user)
-          .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
-          .where(eq(schema.session.sessionToken, authToken))
-
-        const quota = quotas[0]
-        if (!quota) {
-          return new Error(`Unable to find user for given token ${authToken}!`)
-        }
-
-        if (quota.quotaExceeded) {
-          if (quota.nextQuotaReset < new Date()) {
-            // End date is in the past, so we should reset the quota
-            resetQuotaForUser(quota.userId)
-          } else {
-            sendAction(ws, {
-              type: 'quota-exceeded',
-              nextQuotaReset: getNextQuotaReset(quota.nextQuotaReset),
-            })
-            return new Error(`Quota exceeded for user ${quota.userId}`)
-          }
-        }
-        return
-      }
-    )
-    .with(
-      {
-        fingerprintId: P.string,
-      },
-      async ({ fingerprintId }) => {
-        const quotas = await db
-          .select({
-            fingerprintId: schema.fingerprint.id,
-            quotaExceeded: sql<boolean>`COALESCE(${schema.fingerprint.quota_exceeded}, false)`,
-            nextQuotaReset: sql<Date>`COALESCE(${schema.fingerprint.next_quota_reset}, now())`,
-          })
-          .from(schema.fingerprint)
-          .where(eq(schema.fingerprint.id, fingerprintId))
-
-        const quota = quotas[0]
-        if (!quota) {
-          return new Error(
-            `Unable to find fingerprint for given id ${fingerprintId}!`
-          )
-        }
-
-        if (quota.quotaExceeded) {
-          if (quota.nextQuotaReset < new Date()) {
-            // End date is in the past, so we should reset the quota
-            resetQuota(quota.fingerprintId)
-          } else {
-            sendAction(ws, {
-              type: 'quota-exceeded',
-              nextQuotaReset: getNextQuotaReset(quota.nextQuotaReset),
-            })
-            return new Error(
-              `Quota exceeded for fingerprint ${quota.fingerprintId}`
-            )
-          }
-        }
-        return
-      }
-    )
-    .otherwise(() => {
-      return new Error(
-        'No authToken or fingerprintId found, cannot check quota'
-      )
-    })
-})
 
 subscribeToAction('user-input', protec.run(onUserInput))
 subscribeToAction('init', protec.run(onInit))

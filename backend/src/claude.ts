@@ -6,7 +6,7 @@ import { claudeModels, STOP_MARKER } from 'common/constants'
 import { debugLog } from './util/debug'
 import { RATE_LIMIT_POLICY } from './constants'
 import { env } from './env.mjs'
-import { saveMessage } from './billing/message'
+import { saveMessage } from './billing/message-cost-tracker'
 
 export type model_types = (typeof claudeModels)[keyof typeof claudeModels]
 
