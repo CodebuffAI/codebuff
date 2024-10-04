@@ -41,3 +41,24 @@ Manicode implements a secure authentication flow that involves the npm-app (CLI)
 - The auth code has a short expiration time (5 minutes) to limit the window of potential misuse.
 - The `fingerprintId` is used to link the CLI session with the web login, preventing session hijacking.
 - User credentials are never stored or transmitted in plain text.
+
+## Integration with Billing
+
+- Upon successful authentication, the user's billing status and quota are retrieved from the database.
+- The authenticated user's quota and usage limits are applied to their session.
+- Subscription status affects the user's access to premium features and higher usage limits.
+
+## Best Practices
+
+1. Always use secure WebSocket connections (WSS) in production environments.
+2. Regularly rotate secret keys used for hash generation.
+3. Implement rate limiting on authentication attempts to prevent brute-force attacks.
+4. Use HTTPS for all web communications, especially during the OAuth flow.
+5. Regularly audit and update the authentication flow to address new security concerns.
+
+## Future Considerations
+
+1. Implement multi-factor authentication for enhanced security.
+2. Consider using JSON Web Tokens (JWT) for stateless authentication.
+3. Develop a system for handling password resets and account recovery.
+4. Implement a more robust session management system with the ability to revoke sessions.

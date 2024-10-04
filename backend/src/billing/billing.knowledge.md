@@ -19,6 +19,7 @@ The database schema includes tables for users, messages, and fingerprints:
 - `fingerprint`: Manages anonymous user tracking.
 
 Key fields in the `user` table:
+
 - `quota`: User's credit limit.
 - `quota_exceeded`: Boolean flag for quota status.
 - `next_quota_reset`: Timestamp for the next quota reset.
@@ -31,10 +32,12 @@ Key fields in the `user` table:
 ### QuotaManager
 
 Two implementations:
+
 1. `AnonymousQuotaManager`: For unauthenticated users.
 2. `AuthenticatedQuotaManager`: For authenticated users.
 
 Key methods:
+
 - `updateQuota`: Updates user's quota after usage.
 - `checkQuota`: Verifies if a user has exceeded their quota.
 - `resetQuota`: Resets quota at the end of a billing cycle.
@@ -42,6 +45,7 @@ Key methods:
 ### Usage Limits
 
 Defined in `common/src/constants.ts`:
+
 - ANON: 1,000 credits
 - FREE: 2,500 credits
 - PAID: 50,000 credits
@@ -49,6 +53,7 @@ Defined in `common/src/constants.ts`:
 ## Cost Calculation
 
 `MessageCostTracker` in `message-cost-tracker.ts` handles cost calculations:
+
 - Uses different rates for input and output tokens.
 - Applies a profit margin to the calculated cost.
 - Saves message details including tokens used and credits consumed.
@@ -56,16 +61,19 @@ Defined in `common/src/constants.ts`:
 ## Stripe Integration
 
 Stripe webhooks (`web/src/app/api/stripe/webhook/route.ts`) handle:
+
 - Subscription creation, updates, and deletions.
 - Invoice payments.
 
 Key functions:
+
 - `handleSubscriptionChange`: Updates user quota and subscription status.
 - `handleInvoicePaid`: Resets quota and updates subscription status on payment.
 
 ## Client-Side Integration
 
 The client (`npm-app/src/client.ts`) handles:
+
 - User authentication and login.
 - Displaying usage warnings to users.
 - Subscription to usage updates from the server.
@@ -73,6 +81,7 @@ The client (`npm-app/src/client.ts`) handles:
 ## WebSocket Communication
 
 WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
+
 - Sending usage updates to clients.
 - Handling user input and checking quotas before processing.
 

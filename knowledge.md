@@ -71,6 +71,8 @@ There are three top-level code directories:
 - Knowledge is stored in `knowledge.md` files, which can be created in relevant directories throughout the project.
 - Mani automatically updates knowledge files when learning new information or correcting mistakes.
 - Developers are encouraged to review and commit knowledge file changes to share insights across the team.
+- When a knowledge file becomes too large or covers multiple distinct topics, it should be split into separate files for better organization and easier maintenance.
+- Always prefer specific, focused knowledge files (e.g., authentication.knowledge.md, billing.knowledge.md) over combined files (e.g., authentication_and_billing.knowledge.md).
 
 ## Terminal Command Execution
 
@@ -160,3 +162,15 @@ A Python package for Manicode has been created as a skeleton in python-app. Key 
 ## Version Checking
 
 Upon start-up, the client checks the npmjs.org registry for the latest version of the npm package. If the version is newer, Manicode will automatically try to download and install the latest version. Once it does, it'll prompt the user to restart the application.
+
+## Future Considerations
+
+1. Implement effort modes: 1 minute, 15 minutes, 2 hours for different levels of response detail.
+2. Implement a learning system that improves after usage and asks for feedback.
+3. Implement viral features like sharing Manicode rank and wins (prompts and results).
+4. Add a referral system with credit rewards.
+5. Implement full terminal command capabilities for operations like `yarn add` or `git commit`.
+6. Enhance CLI with arrow key navigation for previous messages and improved menu system.
+7. Develop a rigorous testing suite for prompt effectiveness across various cases.
+8. Implement local conversation saving in a .manicode file.
+9. Add a setting for specifying the root directory to ensure Manicode can always see the whole project.
