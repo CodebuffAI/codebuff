@@ -10,7 +10,7 @@ import { CREDENTIALS_PATH, User, userFromJson } from 'common/util/credentials'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
-import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
+import { CREDITS_USAGE_LIMITS, TOOL_RESULT_MARKER } from 'common/constants'
 import { fingerprintId } from './config'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 import { uniq } from 'lodash'
@@ -196,7 +196,7 @@ export class Client {
         )
         const responseToUser = [
           'Authentication successful!',
-          `Welcome,  ${action.user.name}. Your credits have been increased by 5x. Happy coding!`,
+          `Welcome, ${action.user.name}. Your credits have been increased by ${CREDITS_USAGE_LIMITS.FREE / CREDITS_USAGE_LIMITS.ANON}x. Happy coding!`,
         ]
         console.log(responseToUser.join('\n'))
         this.lastWarnedPct = 0

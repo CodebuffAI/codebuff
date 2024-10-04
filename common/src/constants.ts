@@ -40,7 +40,7 @@ export const MAX_DATE = new Date(86399999999999)
 
 export const CREDITS_USAGE_LIMITS = {
   ANON: 1_000,
-  FREE: 5_000,
+  FREE: 2_500,
   PAID: 50_000,
 }
 
