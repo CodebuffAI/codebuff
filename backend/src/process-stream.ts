@@ -11,7 +11,7 @@ export async function* processStreamWithTags<T extends string>(
   let buffer = ''
   let insideTag: string | null = null
   let currentAttributes: Record<string, string> = {}
-  const bufferSize = 250
+  const bufferSize = 50
 
   const escapeRegExp = (string: string) =>
     string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
