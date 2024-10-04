@@ -54,7 +54,7 @@ const onUserInput = async (
           chunk,
         })
     )
-    const allChanges = [...previousChanges, ...changes]
+    // const allChanges = [...previousChanges, ...changes]
 
     if (toolCall) {
       console.log('toolCall', toolCall.name, toolCall.input)
@@ -63,7 +63,7 @@ const onUserInput = async (
         userInputId,
         response,
         data: toolCall,
-        changes: allChanges,
+        changes,
       })
     } else {
       console.log('response-complete')
@@ -71,7 +71,7 @@ const onUserInput = async (
         type: 'response-complete',
         userInputId,
         response,
-        changes: allChanges,
+        changes,
       })
       const { creditsUsed, quota } = await updateQuota(fingerprintId)
       // sendAction(ws, {
