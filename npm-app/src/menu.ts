@@ -51,9 +51,9 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
   )
 
   console.log('\nASK MANICODE TO...')
-  console.log('- Refactor a large file into smaller files')
   console.log('- Write unit tests')
   console.log('- Fix errors from running tests or compiling your project')
+  console.log('- Refactor a component into multiple components')
   console.log('- Write a script')
   console.log(
     '- Plan a feature before implementing it. Or, write your own plan in a file and ask Manicode to implement it step-by-step'
