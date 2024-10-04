@@ -21,7 +21,8 @@ export async function requestRelevantFiles(
   assistantPrompt: string | null,
   clientSessionId: string,
   fingerprintId: string,
-  userInputId: string
+  userInputId: string,
+  userId?: string
 ) {
   const previousFiles = Object.keys(fileContext.files)
   const countPerRequest = assistantPrompt ? 8 : 5
@@ -45,7 +46,8 @@ export async function requestRelevantFiles(
         fingerprintId,
         userInputId,
         previousFiles,
-        userPrompt
+        userPrompt,
+        userId
       )
 
   const fileRequestsPromise = generateFileRequests(
@@ -57,7 +59,8 @@ export async function requestRelevantFiles(
     system,
     clientSessionId,
     fingerprintId,
-    userInputId
+    userInputId,
+    userId
   )
 
   const newFilesNecessary = await newFilesNecessaryPromise
@@ -82,7 +85,8 @@ async function generateFileRequests(
   system: string | Array<TextBlockParam>,
   clientSessionId: string,
   fingerprintId: string,
-  userInputId: string
+  userInputId: string,
+  userId?: string
 ) {
   const numNonObviousPrompts = assistantPrompt ? 1 : 1
   const nonObviousPrompts = range(1, numNonObviousPrompts + 1).map((index) =>
@@ -105,7 +109,8 @@ async function generateFileRequests(
       `Non-obvious ${index + 1}`,
       clientSessionId,
       fingerprintId,
-      userInputId
+      userInputId,
+      userId
     ).catch((error) => {
       console.error('Error requesting files:', error)
       return { files: [], duration: 0 }
@@ -134,7 +139,8 @@ async function generateFileRequests(
       `Key ${index + 1}`,
       clientSessionId,
       fingerprintId,
-      userInputId
+      userInputId,
+      userId
     ).catch((error) => {
       console.error('Error requesting key files:', error)
       return { files: [], duration: 0 }
@@ -157,7 +163,8 @@ const checkNewFilesNecessary = async (
   fingerprintId: string,
   userInputId: string,
   previousFiles: string[],
-  userPrompt: string
+  userPrompt: string,
+  userId?: string
 ) => {
   const prompt = `
 Given the user's request and the current context, determine if new files are necessary to fulfill the request.
@@ -176,6 +183,7 @@ Answer with just 'YES' if new files are necessary, or 'NO' if the current files 
       clientSessionId,
       fingerprintId,
       userInputId,
+      userId,
     }
   ).catch((error) => {
     console.error('Error checking new files necessary:', error)
@@ -198,7 +206,8 @@ async function getRelevantFiles(
   requestType: string,
   clientSessionId: string,
   fingerprintId: string,
-  userInputId: string
+  userInputId: string,
+  userId?: string
 ): Promise<{ files: string[]; duration: number }> {
   const messagesWithPrompt = [
     ...messages,
@@ -214,6 +223,7 @@ async function getRelevantFiles(
     clientSessionId,
     fingerprintId,
     userInputId,
+    userId,
   })
   const end = performance.now()
   const duration = end - start
@@ -373,7 +383,8 @@ export const warmCacheForRequestRelevantFiles = async (
   system: System,
   clientSessionId: string,
   fingerprintId: string,
-  userInputId: string
+  userInputId: string,
+  userId?: string
 ) => {
   await promptClaude(
     [
@@ -387,6 +398,7 @@ export const warmCacheForRequestRelevantFiles = async (
       system,
       clientSessionId,
       fingerprintId,
+      userId,
       userInputId,
       maxTokens: 1,
     }

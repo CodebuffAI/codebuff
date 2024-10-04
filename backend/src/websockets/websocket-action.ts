@@ -2,7 +2,7 @@ import { WebSocket } from 'ws'
 import { ClientMessage } from 'common/websockets/websocket-schema'
 import { mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction } from 'common/actions'
-import { sendMessage, SWITCHBOARD } from './server'
+import { sendMessage } from './server'
 import { isEqual } from 'lodash'
 import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude } from '../claude'
@@ -13,20 +13,56 @@ import { eq, and, gt, sql } from 'drizzle-orm'
 import { genAuthCode } from 'common/util/credentials'
 import { match, P } from 'ts-pattern'
 import { claudeModels } from 'common/constants'
-import { WebSocketMiddleware } from './middleware'
-import { resetQuota, updateQuota } from '@/billing/message'
-import { getNextQuotaReset } from 'common/util/dates'
+import { protec } from './middleware'
+import { getQuotaManager } from '@/billing/quota-manager'
 
-const sendAction = (ws: WebSocket, action: ServerAction) => {
+export const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
     type: 'action',
     data: action,
   })
 }
 
+export const getUserIdFromAuthToken = async (
+  authToken?: string
+): Promise<string | undefined> => {
+  if (!authToken) return undefined
+
+  const userId = await db
+    .select({ userId: schema.user.id })
+    .from(schema.user)
+    .innerJoin(schema.session, eq(schema.user.id, schema.session.userId))
+    .where(eq(schema.session.sessionToken, authToken))
+    .then((users) => {
+      if (users.length === 1) {
+        return users[0].userId
+      }
+      return undefined
+    })
+
+  return userId
+}
+
+const sendUsageUpdate = async (
+  ws: WebSocket,
+  fingerprintId: string,
+  userId?: string
+) => {
+  const quotaManager = getQuotaManager(
+    userId ? 'authenticated' : 'anonymous',
+    userId ?? fingerprintId
+  )
+  const { creditsUsed, quota } = await quotaManager.checkQuota()
+  sendAction(ws, {
+    type: 'usage',
+    usage: creditsUsed,
+    limit: quota,
+  })
+}
 const onUserInput = async (
   {
     fingerprintId,
+    authToken,
     userInputId,
     messages,
     fileContext,
@@ -39,6 +75,7 @@ const onUserInput = async (
   if (typeof lastMessage.content === 'string')
     console.log('Input:', lastMessage)
 
+  const userId = await getUserIdFromAuthToken(authToken)
   try {
     const { toolCall, response, changes } = await mainPrompt(
       ws,
@@ -52,7 +89,8 @@ const onUserInput = async (
           type: 'response-chunk',
           userInputId,
           chunk,
-        })
+        }),
+      userId
     )
     // const allChanges = [...previousChanges, ...changes]
 
@@ -73,12 +111,7 @@ const onUserInput = async (
         response,
         changes,
       })
-      const { creditsUsed, quota } = await updateQuota(fingerprintId)
-      // sendAction(ws, {
-      //   type: 'usage',
-      //   usage: creditsUsed,
-      //   limit: quota,
-      // })
+      await sendUsageUpdate(ws, fingerprintId, userId)
     }
   } catch (e) {
     console.error('Error in mainPrompt', e)
@@ -224,7 +257,11 @@ const onLoginStatusRequest = async (
 }
 
 const onInit = async (
-  { fileContext, fingerprintId }: Extract<ClientAction, { type: 'init' }>,
+  {
+    fileContext,
+    fingerprintId,
+    authToken,
+  }: Extract<ClientAction, { type: 'init' }>,
   clientSessionId: string,
   ws: WebSocket
 ) => {
@@ -239,6 +276,7 @@ const onInit = async (
   // warm context cache
   const startTime = Date.now()
   const system = getSearchSystemPrompt(fileContext)
+  const userId = await getUserIdFromAuthToken(authToken)
   await promptClaude(
     [
       {
@@ -251,14 +289,18 @@ const onInit = async (
       system,
       clientSessionId,
       fingerprintId,
+      userId,
       userInputId: 'init-cache',
       maxTokens: 1,
     }
   )
+  console.log('Warming context cache done', Date.now() - startTime)
   sendAction(ws, {
     type: 'init-response',
   })
-  console.log('Warming context cache done', Date.now() - startTime)
+
+  // Add usage information
+  await sendUsageUpdate(ws, fingerprintId, userId)
 }
 
 const callbacksByAction = {} as Record<
@@ -305,59 +347,8 @@ export const onWebsocketAction = async (
   }
 }
 
-const protec = new WebSocketMiddleware()
-protec.use(async (action, _) => {
-  console.log(
-    `Protecting action of type: '${action.type}' (currently disabled)`
-  )
-})
-// protec.use(async (action, ws) => {
-//   const fingerprintId = match(action)
-//     .with(
-//       {
-//         fingerprintId: P.string,
-//       },
-//       ({ fingerprintId }) => fingerprintId
-//     )
-//     .otherwise(() => null)
-
-//   if (!fingerprintId) {
-//     console.error('No fingerprintId found, cannot check quota')
-//     throw new Error('No fingerprintId found')
-//   }
-
-//   const quotas = await db
-//     .select({
-//       userId: schema.user.id,
-//       quotaExceeded: sql<boolean>`COALESCE(${schema.user.quota_exceeded}, ${schema.fingerprint.quota_exceeded}, true)`,
-//       nextQuotaReset: sql<Date>`COALESCE(${schema.user.next_quota_reset}, ${schema.fingerprint.next_quota_reset}, now())`,
-//     })
-//     .from(schema.user)
-//     .leftJoin(schema.fingerprint, eq(schema.user.id, schema.fingerprint.id))
-
-//   const quota = quotas[0]
-//   if (!quota) {
-//     throw new Error('User is not in the system!')
-//   }
-
-//   if (quota.quotaExceeded) {
-//     if (quota.nextQuotaReset < new Date()) {
-//       // End date is in the past, so we should reset the quota
-//       resetQuota(fingerprintId, quota.userId)
-//     } else {
-//       sendAction(ws, {
-//         type: 'quota-exceeded',
-//         nextQuotaReset: getNextQuotaReset(quota.nextQuotaReset),
-//       })
-//       throw new Error(`Quota exceeded for user ${fingerprintId}`)
-//     }
-//   }
-// })
-
-// subscribeToAction('user-input', protec.run(onUserInput))
-// subscribeToAction('init', protec.run(onInit))
-subscribeToAction('user-input', onUserInput)
-subscribeToAction('init', onInit)
+subscribeToAction('user-input', protec.run(onUserInput))
+subscribeToAction('init', protec.run(onInit))
 
 subscribeToAction('clear-auth-token', onClearAuthTokenRequest)
 subscribeToAction('login-code-request', onLoginCodeRequest)

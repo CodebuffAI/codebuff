@@ -62,6 +62,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('user-input'),
     fingerprintId: z.string(),
+    authToken: z.string().optional(),
     userInputId: z.string(),
     messages: z.array(MessageSchema),
     fileContext: ProjectFileContextSchema,
@@ -78,6 +79,8 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('init'),
     fingerprintId: z.string(),
+    authToken: z.string().optional(),
+    // userId: z.string().optional(),
     fileContext: ProjectFileContextSchema,
   }),
   z.object({
@@ -92,8 +95,9 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('clear-auth-token'),
     authToken: z.string(),
-    userId: z.string(),
     fingerprintId: z.string(),
+    userId: z.string(),
+    // authToken: z.string().optional(),
     fingerprintHash: z.string(),
   }),
 ])

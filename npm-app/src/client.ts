@@ -10,7 +10,7 @@ import { CREDENTIALS_PATH, User, userFromJson } from 'common/util/credentials'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
-import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
+import { CREDITS_USAGE_LIMITS, TOOL_RESULT_MARKER } from 'common/constants'
 import { fingerprintId } from './config'
 import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 import { uniq } from 'lodash'
@@ -26,7 +26,7 @@ export class Client {
   private currentUserInputId: string | undefined
   public user: User | undefined
   private returnControlToUser: () => void
-  public lastWarnedPercentage: number = 0
+  public lastWarnedPct: number = 0
 
   constructor(
     websocketUrl: string,
@@ -196,10 +196,10 @@ export class Client {
         )
         const responseToUser = [
           'Authentication successful!',
-          `Welcome,  ${action.user.name}. Your credits have been increased by 5x. Happy coding!`,
+          `Welcome, ${action.user.name}. Your credits have been increased by ${CREDITS_USAGE_LIMITS.FREE / CREDITS_USAGE_LIMITS.ANON}x. Happy coding!`,
         ]
         console.log(responseToUser.join('\n'))
-        this.lastWarnedPercentage = 0
+        this.lastWarnedPct = 0
 
         this.returnControlToUser()
       } else {
@@ -211,15 +211,15 @@ export class Client {
 
     this.webSocket.subscribe('usage', (action) => {
       const { usage, limit } = action
-      const percentage = Math.floor((usage / limit) * 100)
 
-      if (percentage > this.lastWarnedPercentage) {
-        const pct: number = match(percentage)
-          .with(P.number.gte(100), () => 100)
-          .with(P.number.gte(75), () => 75)
-          .with(P.number.gte(50), () => 50)
-          .with(P.number.gte(25), () => 25)
-          .otherwise(() => 0)
+      const pct: number = match(Math.floor((usage / limit) * 100))
+        .with(P.number.gte(100), () => 100)
+        .with(P.number.gte(75), () => 75)
+        .with(P.number.gte(50), () => 50)
+        .with(P.number.gte(25), () => 25)
+        .otherwise(() => 0)
+
+      if (pct > 0 && pct > this.lastWarnedPct) {
         console.warn(
           [
             '',
@@ -229,7 +229,7 @@ export class Client {
               : yellow('Type "login" to sign up and get more credits!'),
           ].join('\n')
         )
-        this.lastWarnedPercentage = percentage
+        this.lastWarnedPct = pct
         this.returnControlToUser()
       }
     })
@@ -275,6 +275,7 @@ export class Client {
       fileContext,
       previousChanges,
       fingerprintId,
+      authToken: this.user?.authToken,
     })
   }
 
@@ -352,8 +353,9 @@ export class Client {
       this.webSocket
         .sendAction({
           type: 'init',
-          fileContext,
           fingerprintId,
+          authToken: this.user?.authToken,
+          fileContext,
         })
         .catch((e) => {
           // console.error('Error warming context cache', e)

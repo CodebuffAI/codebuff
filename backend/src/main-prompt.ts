@@ -31,7 +31,8 @@ export async function mainPrompt(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  onResponseChunk: (chunk: string) => void
+  onResponseChunk: (chunk: string) => void,
+  userId?: string
 ) {
   debugLog(
     'Starting promptClaudeAndGetFileChanges',
@@ -56,7 +57,8 @@ export async function mainPrompt(
       null,
       clientSessionId,
       fingerprintId,
-      userInputId
+      userInputId,
+      userId
     )
     if (responseChunk !== null) {
       onResponseChunk(responseChunk.readFilesMessage)
@@ -68,7 +70,8 @@ export async function mainPrompt(
         system,
         clientSessionId,
         fingerprintId,
-        userInputId
+        userInputId,
+        userId
       )
     }
   }
@@ -88,7 +91,8 @@ export async function mainPrompt(
       ws,
       fullResponse,
       fileContext,
-      messages
+      messages,
+      userId
     )
   }
 
@@ -151,6 +155,7 @@ ${STOP_MARKER}
       clientSessionId,
       fingerprintId,
       userInputId,
+      userId,
     })
     const streamWithTags = processStreamWithTags(stream, {
       edit_file: {
@@ -172,7 +177,8 @@ ${STOP_MARKER}
               messages,
               fullResponse,
               path,
-              filePathWithoutStartNewline
+              filePathWithoutStartNewline,
+              userId
             ).catch((error) => {
               console.error('Error processing file block', error)
               return null
@@ -255,7 +261,8 @@ ${STOP_MARKER}
         fullResponse,
         clientSessionId,
         fingerprintId,
-        userInputId
+        userInputId,
+        userId
       )
       if (response !== null) {
         const { readFilesMessage } = response
@@ -336,7 +343,8 @@ async function updateFileContext(
   prompt: string | null,
   clientSessionId: string,
   fingerprntId: string,
-  userInputId: string
+  userInputId: string,
+  userId?: string
 ) {
   const relevantFiles = await requestRelevantFiles(
     { messages, system },
@@ -344,7 +352,8 @@ async function updateFileContext(
     prompt,
     clientSessionId,
     fingerprntId,
-    userInputId
+    userInputId,
+    userId
   )
 
   if (relevantFiles === null || relevantFiles.length === 0) {
@@ -392,7 +401,8 @@ export async function processFileBlock(
   messageHistory: Message[],
   fullResponse: string,
   filePath: string,
-  newContent: string
+  newContent: string,
+  userId?: string
 ): Promise<FileChange | null> {
   debugLog('Processing file block', filePath)
 
@@ -416,7 +426,8 @@ export async function processFileBlock(
     newContent,
     filePath,
     messageHistory,
-    fullResponse
+    fullResponse,
+    userId
   )
   console.log(`Generated patch for file: ${filePath}`)
   debugLog(`Generated patch for file: ${filePath}`)

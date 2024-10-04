@@ -14,7 +14,8 @@ export async function generateKnowledgeFiles(
   ws: WebSocket,
   fullResponse: string,
   fileContext: ProjectFileContext,
-  initialMessages: Message[]
+  initialMessages: Message[],
+  userId?: string
 ): Promise<Promise<FileChange | null>[]> {
   // debugLog('generateKnowledgeFiles', {
   //   fileContext,
@@ -102,6 +103,7 @@ export async function generateKnowledgeFiles(
     fingerprintId,
     userInputId,
     system: systemPrompt,
+    userId,
   })
 
   const files = parseFileBlocks(response)
@@ -119,7 +121,8 @@ export async function generateKnowledgeFiles(
         messages,
         fullResponse,
         filePath,
-        fileContent
+        fileContent,
+        userId
       )
   )
   return fileChangePromises
