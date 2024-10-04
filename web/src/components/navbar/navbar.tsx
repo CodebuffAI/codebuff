@@ -20,9 +20,10 @@ export const Navbar = async () => {
         {/* <a href="#features" className="hover:text-blue-400 transition-colors">
           Features
         </a> */}
-        {/* <a href="#pricing" className="hover:text-blue-400 transition-colors">
+        <Link href="/pricing" className="hover:text-blue-400 transition-colors">
           Pricing
-        </a>
+        </Link>
+        {/* 
         <a href="#docs" className="hover:text-blue-400 transition-colors">
           Docs
         </a> */}

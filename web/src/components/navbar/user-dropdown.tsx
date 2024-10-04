@@ -70,7 +70,7 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
             className="w-64"
           >
             {user?.subscription_active ? (
-              'You are on the pro tier! much creds so wow'
+              <p>You are on the pro tier!</p>
             ) : (
               <>
                 {isPending && (
