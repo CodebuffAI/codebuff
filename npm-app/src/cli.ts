@@ -122,7 +122,7 @@ export class CLI {
     this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
   }
 
-  public printInitialPrompt() {
+  public printInitialPrompt(initialInput?: string) {
     if (this.client.user) {
       console.log(
         `Welcome back ${this.client.user.name}! What would you like to do?\n`
@@ -131,6 +131,10 @@ export class CLI {
       console.log(`What would you like to do?\n`)
     }
     this.rl.prompt()
+    if (initialInput) {
+      process.stdout.write(initialInput + '\n')
+      this.handleUserInput(initialInput)
+    }
   }
 
   private handleUndo() {

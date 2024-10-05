@@ -9,7 +9,7 @@ import { CLI } from './cli'
 import { getProjectFileContext, setProjectRoot } from './project-files'
 import { updateManicode } from './update-manicode'
 
-async function manicode(projectDir: string | undefined) {
+async function manicode(projectDir: string | undefined, initialInput?: string) {
   const dir = setProjectRoot(projectDir)
 
   const updatePromise = updateManicode()
@@ -39,15 +39,25 @@ async function manicode(projectDir: string | undefined) {
     )
   }
 
-  cli.printInitialPrompt()
+  cli.printInitialPrompt(initialInput)
 }
 
 if (require.main === module) {
   const arg = process.argv[2]
-  if (arg === '--help' || arg === '-h') {
-    console.log('Usage: manicode [project-directory]')
+  const initialInput = process.argv.slice(3).join(' ')
+  if (
+    arg === '--help' ||
+    arg === '-h' ||
+    initialInput === '--help' ||
+    initialInput === '-h'
+  ) {
+    console.log('Usage: manicode [project-directory] [initial-prompt]')
+    console.log('Both arguments are optional.')
     console.log(
       'If no project directory is specified, Manicode will use the current directory.'
+    )
+    console.log(
+      'If an initial prompt is provided, it will be sent as the first user input.'
     )
     console.log()
     console.log(
@@ -56,5 +66,5 @@ if (require.main === module) {
     process.exit(0)
   }
 
-  manicode(arg)
+  manicode(arg, initialInput)
 }
