@@ -45,6 +45,10 @@ export class WebSocketMiddleware {
       const res = await middleware(action, clientSessionId, ws)
       if (res) {
         console.error('Middleware execution halted:', res)
+        sendAction(ws, {
+          type: 'error',
+          message: res.message,
+        })
         return false
       }
     }
@@ -118,6 +122,14 @@ protec.use(async (action, _clientSessionId, ws) => {
         fingerprintId: P.string,
       },
       async ({ fingerprintId }) => {
+        // Create a new fingerprint if it doesn't exist
+        await db
+          .insert(schema.fingerprint)
+          .values({
+            id: fingerprintId,
+          })
+          .onConflictDoNothing()
+
         const quotas = await db
           .select({
             fingerprintId: schema.fingerprint.id,

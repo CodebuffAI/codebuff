@@ -159,5 +159,9 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     type: z.literal('quota-exceeded'),
     nextQuotaReset: z.date(),
   }),
+  z.object({
+    type: z.literal('error'),
+    message: z.string(),
+  }),
 ])
 export type ServerAction = z.infer<typeof SERVER_ACTION_SCHEMA>
