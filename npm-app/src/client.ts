@@ -252,16 +252,6 @@ export class Client {
       .split(', ')
       .filter((str) => str)
 
-    const lastMessage = messages[messages.length - 1]
-    if (
-      lastMessage.role === 'user' &&
-      typeof lastMessage.content === 'string'
-    ) {
-      const urls = parseUrlsFromContent(lastMessage.content)
-      const blocks = await getScrapedContentBlocks(urls)
-      lastMessage.content += '\n\n' + blocks.join('\n\n')
-    }
-
     const currentFileVersion =
       fileVersions[fileVersions.length - 1]?.files ?? {}
     const fileContext = await getProjectFileContext(

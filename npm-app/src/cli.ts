@@ -18,6 +18,7 @@ import {
 import { handleRunTerminalCommand } from './tool-handlers'
 import { SKIPPED_TERMINAL_COMMANDS } from 'common/constants'
 import { createFileBlock } from 'common/util/file'
+import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 export class CLI {
   private client: Client
@@ -297,9 +298,14 @@ export class CLI {
         ? `<user_edits_since_last_chat>\n${changesFileBlocks.join('\n')}\n</user_edits_since_last_chat>\n\n`
         : ''
 
+    const urls = parseUrlsFromContent(userInput)
+    const scrapedBlocks = await getScrapedContentBlocks(urls)
+    const scrapedContent =
+      scrapedBlocks.length > 0 ? scrapedBlocks.join('\n\n') + '\n\n' : ''
+
     const newMessage: Message = {
       role: 'user',
-      content: `${changesMessage}${userInput}`,
+      content: `${changesMessage}${scrapedContent}${userInput}`,
     }
     this.chatStorage.addMessage(currentChat, newMessage)
 
