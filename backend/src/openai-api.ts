@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { RATE_LIMIT_POLICY } from './constants'
-import { STOP_MARKER } from 'common/constants'
+import { STOP_MARKER, TEST_USER_ID } from 'common/constants'
 import { Stream } from 'openai/streaming'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
@@ -58,7 +58,7 @@ export async function promptOpenAI(
     ) {
       const messageId = response.id
       const content = response.choices[0].message.content || ''
-      if (messages.length > 0) {
+      if (messages.length > 0 && userId !== TEST_USER_ID) {
         saveMessage({
           messageId,
           userId,

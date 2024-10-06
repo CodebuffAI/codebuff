@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import path from 'path'
 import { generatePatch } from 'backend/generate-patch'
 import { applyPatch } from 'common/util/patch'
+import { TEST_USER_ID } from 'common/constants'
 
 const mockDataDir = path.join(__dirname, '../__mock-data__')
 const CLAUDE_CALL_TIMEOUT = 1000 * 150
@@ -13,13 +14,17 @@ const runPatchTest = async (dir: string, mockFilePath: string) => {
   const expectedFile = fs.readFileSync(`${dir}/expected.ts`, 'utf8')
 
   const patch = await generatePatch(
-    'userId',
+    'clientSessionId',
+    'fingerprintId',
+    'userInputId',
     oldFile,
     newFile,
     mockFilePath,
     [],
-    ''
+    '',
+    TEST_USER_ID
   )
+
   const updatedFile = applyPatch(oldFile, patch)
 
   // Save the updated file to a temporary location

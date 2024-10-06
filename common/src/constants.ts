@@ -58,3 +58,5 @@ export const models = {
   ...claudeModels,
   ...openaiModels,
 }
+
+export const TEST_USER_ID = 'test-user-id'

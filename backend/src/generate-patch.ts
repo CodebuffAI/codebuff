@@ -3,6 +3,7 @@ import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { debugLog } from './util/debug'
 import { createPatch } from 'diff'
 import { openaiModels } from 'common/constants'
+import { replaceNonStandardPlaceholderComments } from 'common/util/string'
 
 export async function generatePatch(
   clientSessionId: string,
@@ -18,7 +19,9 @@ export async function generatePatch(
   const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
   const lineEnding = oldContent.includes('\r\n') ? '\r\n' : '\n'
   const normalizedOldContent = normalizeLineEndings(oldContent)
-  const normalizedNewContent = normalizeLineEndings(newContent)
+  const normalizedNewContent = replaceNonStandardPlaceholderComments(
+    normalizeLineEndings(newContent)
+  )
 
   let patch = ''
   const { isSketchComplete, shouldAddPlaceholderComments } =
