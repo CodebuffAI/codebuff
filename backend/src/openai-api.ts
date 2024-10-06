@@ -4,6 +4,7 @@ import { STOP_MARKER, TEST_USER_ID } from 'common/constants'
 import { Stream } from 'openai/streaming'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
+import { logger } from './util/logger'
 
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -78,12 +79,16 @@ export async function promptOpenAI(
       throw new Error('No response from OpenAI')
     }
   } catch (error) {
-    console.error(
-      'Error calling OpenAI API:',
-      error && typeof error === 'object' && 'message' in error
-        ? error.message
-        : 'Unknown error'
+    logger.error(
+      {
+        error:
+          error && typeof error === 'object' && 'message' in error
+            ? error.message
+            : 'Unknown error',
+      },
+      'Error calling OpenAI API'
     )
+
     throw error
   }
 }
@@ -163,7 +168,7 @@ export async function promptOpenAIWithContinuation(
       }
 
       if (continuedMessage) {
-        console.log('got continuation response')
+        logger.debug('Got continuation response')
       }
 
       if (fullResponse.includes(STOP_MARKER)) {
@@ -180,12 +185,16 @@ export async function promptOpenAIWithContinuation(
         })
       }
     } catch (error) {
-      console.error(
-        'Error calling OpenAI API:',
-        error && typeof error === 'object' && 'message' in error
-          ? error.message
-          : 'Unknown error'
+      logger.error(
+        {
+          error:
+            error && typeof error === 'object' && 'message' in error
+              ? error.message
+              : 'Unknown error',
+        },
+        'Error calling OpenAI API'
       )
+
       throw error
     }
   }

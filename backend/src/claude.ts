@@ -1,12 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from 'common/util/object'
-import { Message, ToolCall } from 'common/actions'
+import { Message } from 'common/actions'
 import { claudeModels, STOP_MARKER } from 'common/constants'
-import { debugLog } from './util/debug'
 import { RATE_LIMIT_POLICY } from './constants'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
+import { logger } from './util/logger'
 
 export type model_types = (typeof claudeModels)[keyof typeof claudeModels]
 
@@ -129,8 +129,7 @@ export const promptClaudeStream = async function* (
     if (type === 'message_delta' && chunk.delta.stop_reason === 'tool_use') {
       const { name, id, json } = toolInfo
       const input = JSON.parse(json)
-      console.error('tried to yield tool call', name, id, input)
-      // yield { name, id, input }
+      logger.error({ name, id, input }, 'Tried to yield tool call')
     }
 
     // End of turn
@@ -210,9 +209,9 @@ export async function promptClaudeWithContinuation(
     const messagesWithContinuedMessage = continuedMessage
       ? [...messages, continuedMessage]
       : messages
-    debugLog(
-      'prompt claude with continuation',
-      messagesWithContinuedMessage.length
+    logger.debug(
+      { messagesLength: messagesWithContinuedMessage.length },
+      'Prompt claude with continuation'
     )
     const stream = promptClaudeStream(messagesWithContinuedMessage, options)
 
@@ -221,8 +220,7 @@ export async function promptClaudeWithContinuation(
     }
 
     if (continuedMessage) {
-      debugLog('Continuation response:', fullResponse)
-      console.log('got continuation response')
+      logger.debug({ fullResponse }, 'Got continuation response')
     }
 
     if (fullResponse.includes(STOP_MARKER)) {

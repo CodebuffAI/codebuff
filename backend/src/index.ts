@@ -1,8 +1,8 @@
 import express from 'express'
 import http from 'http'
 import { listen as webSocketListen } from './websockets/server'
-import { debugLog } from './util/debug'
 import { env } from './env.mjs'
+import { logger } from './util/logger'
 
 const app = express()
 const port = env.PORT
@@ -24,17 +24,16 @@ app.use(
     res: express.Response,
     next: express.NextFunction
   ) => {
-    console.error(err.stack)
+    logger.error({ err }, 'Something broke!')
     res.status(500).send('Something broke!')
   }
 )
 
-console.log('init server')
+logger.info('Initializing server')
 const server = http.createServer(app)
 
 server.listen(port, () => {
-  console.log(`Server is running on port ${port}`)
-  debugLog(`Server started on port ${port}`)
+  logger.info(`Server is running on port ${port}`)
 })
 
 webSocketListen(server, '/ws')

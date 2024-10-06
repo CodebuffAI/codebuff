@@ -4,8 +4,7 @@ import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { processFileBlock } from './main-prompt'
 import { promptClaude } from './claude'
 import { getSearchSystemPrompt, knowledgeFilesPrompt } from './system-prompt'
-import { debugLog } from './util/debug'
-import { env } from './env.mjs'
+import { logger } from './util/logger'
 
 export async function generateKnowledgeFiles(
   clientSessionId: string,
@@ -17,16 +16,10 @@ export async function generateKnowledgeFiles(
   initialMessages: Message[],
   userId?: string
 ): Promise<Promise<FileChange | null>[]> {
-  // debugLog('generateKnowledgeFiles', {
-  //   fileContext,
-  //   initialMessages,
-  // })
-  if (env.ENVIRONMENT === 'production') {
-    console.log('generateKnowledgeFiles', {
-      fileContext,
-      initialMessages,
-    })
-  }
+  logger.debug('generateKnowledgeFiles', {
+    fileContext,
+    initialMessages,
+  })
   const searchSystemPrompt = getSearchSystemPrompt(fileContext)
   const systemPrompt = [
     ...searchSystemPrompt,
@@ -108,8 +101,10 @@ export async function generateKnowledgeFiles(
 
   const files = parseFileBlocks(response)
 
-  console.log('knowledge files to upsert:', Object.keys(files))
-  debugLog('deciding on upserting knowledge files', response)
+  logger.debug('knowledge files to upsert:', {
+    files: Object.keys(files),
+    response,
+  })
 
   const fileChangePromises = Object.entries(files).map(
     ([filePath, fileContent]) =>

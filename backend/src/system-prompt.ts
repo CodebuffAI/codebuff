@@ -8,7 +8,7 @@ import { buildArray } from 'common/util/array'
 import { truncateString } from 'common/util/string'
 import { STOP_MARKER } from 'common/constants'
 import { countTokensForFiles, countTokensJson } from './util/token-counter'
-import { debugLog } from './util/debug'
+import { logger } from './util/logger'
 import { sortBy, sum } from 'lodash'
 import { filterObject } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
@@ -37,7 +37,7 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
     }
   )
 
-  debugLog('search system prompt tokens', countTokensJson(systemPrompt))
+  logger.debug('search system prompt tokens', countTokensJson(systemPrompt))
 
   return systemPrompt
 }
@@ -80,7 +80,7 @@ export const getAgentSystemPrompt = (
     }
   )
 
-  debugLog('agent system prompt tokens', countTokensJson(systemPrompt))
+  logger.debug('agent system prompt tokens', countTokensJson(systemPrompt))
 
   return systemPrompt
 }
@@ -375,6 +375,8 @@ If the user is requesting a change that you think has already been made based on
 
 Do not write code except when editing files with <edit_file> blocks.
 
+When adding new packages, use the <tool_call name="run_terminal_command">...</tool_call> tool to install the package rather than editing the package.json file. This way, you will be sure to have the latest version of the package.
+
 Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 
 <important_instruction>
@@ -397,7 +399,7 @@ const getTruncatedFilesBasedOnTokenBudget = (
   const truncatedFiles: Record<string, string | null> = {}
   let totalTokens = 0
 
-  debugLog('Token counts for files:', tokenCounts)
+  logger.info('Token counts for files:', tokenCounts)
 
   for (const [filePath, content] of Object.entries(fileContext.files)) {
     const fileTokens = tokenCounts[filePath] || 0
@@ -409,7 +411,7 @@ const getTruncatedFilesBasedOnTokenBudget = (
     }
   }
 
-  debugLog('After truncation totalTokens', totalTokens)
+  logger.info('After truncation totalTokens', totalTokens)
 
   return truncatedFiles
 }

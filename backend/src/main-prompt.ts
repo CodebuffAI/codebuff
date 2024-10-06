@@ -10,7 +10,6 @@ import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
 import { FileChange, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
-import { debugLog } from './util/debug'
 import { requestFiles, requestFile } from './websockets/websocket-action'
 import { generatePatch } from './generate-patch'
 import {
@@ -20,6 +19,7 @@ import {
 import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens } from './util/token-counter'
+import { logger } from './util/logger'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -34,11 +34,9 @@ export async function mainPrompt(
   onResponseChunk: (chunk: string) => void,
   userId?: string
 ) {
-  debugLog(
-    'Starting promptClaudeAndGetFileChanges',
-    'messages:',
-    messages.length
-  )
+  logger.info('Starting promptClaudeAndGetFileChanges', {
+    messagesLength: messages.length,
+  })
   let fullResponse = ''
   let genKnowledgeFilesPromise: Promise<Promise<FileChange | null>[]> =
     Promise.resolve([])
@@ -164,7 +162,7 @@ ${STOP_MARKER}
           return `<edit_file path="${path}">`
         },
         onTagEnd: (fileContent, { path }) => {
-          console.log('on file!', path)
+          logger.info('on file!', { path })
           const filePathWithoutStartNewline = fileContent.startsWith('\n')
             ? fileContent.slice(1)
             : fileContent
@@ -184,7 +182,7 @@ ${STOP_MARKER}
               return null
             })
           )
-          fullResponse += fileContent + '</edit_file>'
+          fullResponse += fileContent + '<' + '/edit_file>'
           return false
         },
       },
@@ -192,7 +190,7 @@ ${STOP_MARKER}
         attributeNames: ['name'],
         onTagStart: (attributes) => '',
         onTagEnd: (content, attributes) => {
-          console.log('tool call', { ...attributes, content })
+          logger.debug('tool call', { ...attributes, content })
           const name = attributes.name
           const contentAttributes: Record<string, string> = {}
           if (name === 'run_terminal_command') {
@@ -282,10 +280,9 @@ ${STOP_MARKER}
     } else if (fullResponse.includes(STOP_MARKER)) {
       isComplete = true
       fullResponse = fullResponse.replace(STOP_MARKER, '')
-      debugLog('Reached STOP_MARKER')
+      logger.debug('Reached STOP_MARKER')
     } else {
-      console.log('continuing to generate')
-      debugLog('continuing to generate')
+      logger.debug('Continuing to generate')
       const fullResponseMinusLastLine =
         fullResponse.split('\n').slice(0, -1).join('\n') + '\n'
       continuedMessages = [
@@ -304,8 +301,7 @@ ${STOP_MARKER}
   }
 
   if (iterationCount >= MAX_ITERATIONS) {
-    console.log('Reached maximum number of iterations in mainPrompt')
-    debugLog('Reached maximum number of iterations in mainPrompt')
+    logger.warn('Reached maximum number of iterations in mainPrompt')
   }
 
   if (fileProcessingPromises.length > 0) {
@@ -404,17 +400,17 @@ export async function processFileBlock(
   newContent: string,
   userId?: string
 ): Promise<FileChange | null> {
-  debugLog('Processing file block', filePath)
+  logger.debug('Processing file block', { filePath })
 
   const oldContent = await requestFile(ws, filePath)
 
   if (oldContent === null) {
-    console.log(`Created new file: ${filePath}`)
-    debugLog(`Created new file: ${filePath}`)
+    logger.info(`Created new file: ${filePath}`)
     return { filePath, content: newContent, type: 'file' }
   }
 
   if (newContent === oldContent) {
+    logger.info('Sketch was the same as old content, skipping')
     return null
   }
 
@@ -429,15 +425,9 @@ export async function processFileBlock(
     fullResponse,
     userId
   )
-  console.log(`Generated patch for file: ${filePath}`)
-  debugLog(`Generated patch for file: ${filePath}`)
-  debugLog(
-    'oldContent\n',
-    oldContent,
-    '\nsketch\n',
-    newContent,
-    '\npatch\n',
-    patch
+  logger.debug(
+    { filePath, oldContent, sketch: newContent, patch },
+    `Generated patch for file: ${filePath}`
   )
   return { filePath, content: patch, type: 'patch' }
 }
@@ -446,8 +436,9 @@ const savePromptLengthInfo = (
   messages: Message[],
   system: string | Array<TextBlockParam>
 ) => {
-  console.log('Prompting claude num messages:', messages.length)
-  debugLog('Prompting claude num messages:', messages.length)
+  logger.debug('Prompting claude num messages:', {
+    messagesLength: messages.length,
+  })
 
   const lastMessageContent = messages[messages.length - 1].content
 
@@ -460,7 +451,7 @@ const savePromptLengthInfo = (
     timestamp: new Date().toISOString(), // Add a timestamp for each entry
   }
 
-  debugLog(JSON.stringify(promptDebugInfo))
+  logger.debug(promptDebugInfo)
 
   const debugFilePath = path.join(__dirname, 'prompt.debug.json')
 

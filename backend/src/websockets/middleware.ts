@@ -10,6 +10,7 @@ import {
 } from '../billing/quota-manager'
 import { sql, eq } from 'drizzle-orm'
 import { sendAction } from './websocket-action'
+import { logger } from '@/util/logger'
 
 export class WebSocketMiddleware {
   private middlewares: Array<
@@ -77,7 +78,7 @@ export class WebSocketMiddleware {
 
 export const protec = new WebSocketMiddleware()
 protec.use(async (action, _clientSessionId, _) => {
-  console.log(`Protecting action of type: '${action.type}'`)
+  logger.debug(`Protecting action of type: '${action.type}'`)
 })
 protec.use(async (action, _clientSessionId, ws) => {
   return match(action)

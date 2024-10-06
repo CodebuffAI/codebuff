@@ -8,6 +8,7 @@ import {
 } from 'common/websockets/websocket-schema'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
+import { logger } from '../util/logger'
 
 export const SWITCHBOARD = new Switchboard()
 
@@ -32,7 +33,7 @@ function parseMessage(data: RawData): ClientMessage {
   try {
     messageObj = JSON.parse(data.toString())
   } catch (err) {
-    console.error(err)
+    logger.error({ err }, 'Error parsing message')
     throw new MessageParseError('Message was not valid UTF-8 encoded JSON.')
   }
   const result = CLIENT_MESSAGE_SCHEMA.safeParse(messageObj)
@@ -43,7 +44,10 @@ function parseMessage(data: RawData): ClientMessage {
         error: i.message,
       }
     })
-    console.error(issues, result.error.errors)
+    logger.error(
+      { issues, errors: result.error.errors },
+      'Error parsing message'
+    )
     throw new MessageParseError('Error parsing message.', issues)
   } else {
     return result.data
@@ -80,22 +84,22 @@ async function processMessage(
           throw new Error("Unknown message type; shouldn't be possible here.")
       }
     } catch (err) {
-      console.error(err)
+      logger.error({ err }, 'Error processing message')
       return { type: 'ack', txid, success: false, error: serializeError(err) }
     }
     return { type: 'ack', txid, success: true }
   } catch (err) {
-    console.error(err)
+    logger.error({ err }, 'Error processing message')
     return { type: 'ack', success: false, error: serializeError(err) }
   }
 }
 
 export function listen(server: HttpServer, path: string) {
-  console.log('listen on websocket')
+  logger.info(`Listening on websocket path: ${path}`)
   const wss = new WebSocketServer({ server, path })
   let deadConnectionCleaner: NodeJS.Timeout | undefined
   wss.on('listening', () => {
-    console.log(`Web socket server listening on ${path}.`)
+    logger.info(`Web socket server listening on ${path}.`)
     deadConnectionCleaner = setInterval(function ping() {
       const now = Date.now()
       try {
@@ -107,16 +111,16 @@ export function listen(server: HttpServer, path: string) {
           }
         }
       } catch (error) {
-        // console.error('Error in deadConnectionCleaner', error)
+        // logger.error({ error }, 'Error in deadConnectionCleaner')
       }
     }, CONNECTION_TIMEOUT_MS)
   })
   wss.on('error', (err) => {
-    console.error('Error on websocket server.', { error: err })
+    logger.error({ error: err }, 'Error on websocket server.')
   })
   wss.on('connection', (ws) => {
     // todo: should likely kill connections that haven't sent any ping for a long time
-    // console.log('WS client connected.')
+    // logger.info('WS client connected.')
     SWITCHBOARD.connect(ws)
     const clientSessionId =
       SWITCHBOARD.clients.get(ws)?.sessionId ?? 'mc-client-unknown'
@@ -126,14 +130,14 @@ export function listen(server: HttpServer, path: string) {
       ws.send(JSON.stringify(result))
     })
     ws.on('close', (code, reason) => {
-      // console.log(`WS client disconnected.`, {
-      //   code,
-      //   reason: reason.toString(),
-      // })
+      // logger.debug(
+      //   { code, reason: reason.toString() },
+      //   'WS client disconnected.'
+      // )
       SWITCHBOARD.disconnect(ws)
     })
     ws.on('error', (err) => {
-      console.error('Error on websocket connection.', { error: err })
+      logger.error({ error: err }, 'Error on websocket connection.')
     })
   })
   wss.on('close', function close() {

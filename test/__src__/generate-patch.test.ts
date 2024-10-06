@@ -39,7 +39,7 @@ const runPatchTest = async (dir: string, mockFilePath: string) => {
 }
 
 describe('generatePatch', () => {
-  it.only(
+  it(
     'should handle index file with placeholder at end',
     async () => {
       await runPatchTest(`${mockDataDir}/index`, 'src/index.ts')

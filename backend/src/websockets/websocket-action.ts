@@ -15,6 +15,7 @@ import { match, P } from 'ts-pattern'
 import { claudeModels } from 'common/constants'
 import { protec } from './middleware'
 import { getQuotaManager } from '@/billing/quota-manager'
+import { logger } from '@/util/logger'
 
 export const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -73,7 +74,7 @@ const onUserInput = async (
 ) => {
   const lastMessage = messages[messages.length - 1]
   if (typeof lastMessage.content === 'string')
-    console.log('Input:', lastMessage)
+    logger.info('Input:', lastMessage)
 
   const userId = await getUserIdFromAuthToken(authToken)
   try {
@@ -95,7 +96,7 @@ const onUserInput = async (
     // const allChanges = [...previousChanges, ...changes]
 
     if (toolCall) {
-      console.log('toolCall', toolCall.name, toolCall.input)
+      logger.debug('toolCall', toolCall)
       sendAction(ws, {
         type: 'tool-call',
         userInputId,
@@ -104,7 +105,7 @@ const onUserInput = async (
         changes,
       })
     } else {
-      console.log('response-complete')
+      logger.debug('response-complete')
       sendAction(ws, {
         type: 'response-complete',
         userInputId,
@@ -114,7 +115,7 @@ const onUserInput = async (
       await sendUsageUpdate(ws, fingerprintId, userId)
     }
   } catch (e) {
-    console.error('Error in mainPrompt', e)
+    logger.error('Error in mainPrompt', e)
     const response =
       e && typeof e === 'object' && 'message' in e
         ? `\n\nError: ${e.message}`
@@ -162,9 +163,9 @@ const onClearAuthTokenRequest = async (
     })
 
   if (validDeletion.length > 0) {
-    console.log('Cleared auth token', authToken)
+    logger.info('Cleared auth token', { authToken })
   } else {
-    console.log('No auth token to clear, possible attack?', {
+    logger.info('No auth token to clear, possible attack?', {
       userId,
       authToken,
     })
@@ -247,7 +248,7 @@ const onLoginStatusRequest = async (
     )
   } catch (e) {
     const error = e as Error
-    console.error('Error in login status request', e)
+    logger.error('Error in login status request', e)
     sendAction(ws, {
       type: 'auth-result',
       user: undefined,
@@ -294,7 +295,9 @@ const onInit = async (
       maxTokens: 1,
     }
   )
-  console.log('Warming context cache done', Date.now() - startTime)
+  logger.info('Warming context cache done', {
+    duration: Date.now() - startTime,
+  })
   sendAction(ws, {
     type: 'init-response',
   })
@@ -339,7 +342,7 @@ export const onWebsocketAction = async (
   try {
     await Promise.all(callbacks.map((cb) => cb(msg.data, clientSessionId, ws)))
   } catch (e) {
-    console.error(
+    logger.error(
       'Got error running subscribeToAction callback',
       msg,
       e && typeof e === 'object' && 'message' in e ? e.message : e

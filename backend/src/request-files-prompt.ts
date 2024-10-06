@@ -6,8 +6,8 @@ import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
 import { model_types, promptClaude, System } from './claude'
 import { claudeModels } from 'common/constants'
-import { debugLog } from './util/debug'
 import { getAllFilePaths } from 'common/project-file-tree'
+import { logger } from './util/logger'
 
 export async function requestRelevantFiles(
   {
@@ -66,12 +66,12 @@ export async function requestRelevantFiles(
   const newFilesNecessary = await newFilesNecessaryPromise
 
   if (!newFilesNecessary) {
-    debugLog('No new files necessary, keeping current files')
+    logger.info('No new files necessary, keeping current files')
     return null
   }
 
   const newFiles = await fileRequestsPromise
-  debugLog('New files:', newFiles)
+  logger.info('New files:', newFiles)
 
   return uniq([...newFiles, ...previousFiles])
 }
@@ -151,8 +151,8 @@ async function generateFileRequests(
   const nonObviousResults = await Promise.all(nonObviousPromises)
   const nonObviousFiles = nonObviousResults.flatMap((result) => result.files)
 
-  debugLog('Key files:', keyFiles)
-  debugLog('Non-obvious files:', nonObviousFiles)
+  logger.info('Key files:', keyFiles)
+  logger.info('Non-obvious files:', nonObviousFiles)
   return uniq([...keyFiles, ...nonObviousFiles])
 }
 
@@ -189,7 +189,7 @@ Answer with just 'YES' if new files are necessary, or 'NO' if the current files 
     console.error('Error checking new files necessary:', error)
     return 'YES'
   })
-  debugLog('checkNewFilesNecessary response:', response)
+  logger.info('checkNewFilesNecessary response:', response)
   return response.trim().toUpperCase().includes('YES')
 }
 
@@ -228,8 +228,8 @@ async function getRelevantFiles(
   const end = performance.now()
   const duration = end - start
 
-  debugLog(`${requestType} response time:`, duration.toFixed(0), 'ms')
-  debugLog(`${requestType} response:`, response)
+  logger.info(`${requestType} response time:`, duration.toFixed(0), 'ms')
+  logger.info(`${requestType} response:`, response)
 
   const files = response
     .split('\n')

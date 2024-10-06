@@ -102,6 +102,29 @@ The backend implements a tool handling system that allows the AI assistant to pe
 2. **Error Catching**: WebSocket errors are caught and logged in both server and client code.
 3. **Graceful Degradation**: The system attempts to handle errors gracefully, providing meaningful error messages when possible.
 
+## Logging
+
+- The project uses the pino logging library for structured logging.
+- In production, use structured JSON logs for better parsing and analysis.
+- In development, use pretty-printed logs for improved readability.
+- Configure logging levels using the `LOG_LEVEL` environment variable.
+- Example configuration:
+
+```typescript
+import pino from 'pino'
+import { env } from '../env.mjs'
+
+export const logger = pino({
+  level: env.LOG_LEVEL || 'info',
+  transport: env.NODE_ENV === 'production'
+    ? undefined // Use default JSON logger in production
+    : {
+        target: 'pino-pretty',
+        options: {
+          colorize: true
+        }
+      }
+})
 ## Build and Deployment
 
 1. **Build Process**: The backend uses TypeScript compilation to build the project.

@@ -1,9 +1,9 @@
 import { Message } from 'common/actions'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
-import { debugLog } from './util/debug'
 import { createPatch } from 'diff'
 import { openaiModels } from 'common/constants'
 import { replaceNonStandardPlaceholderComments } from 'common/util/string'
+import { logger } from './util/logger'
 
 export async function generatePatch(
   clientSessionId: string,
@@ -118,13 +118,7 @@ If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". 
   const shouldAddPlaceholderComments = response.includes('INCOMPLETE_SKETCH')
   const isSketchComplete =
     response.includes('NO') && !shouldAddPlaceholderComments
-  debugLog(response)
-  debugLog(
-    'isSketchComplete',
-    isSketchComplete,
-    'shouldAddPlaceholderComments',
-    shouldAddPlaceholderComments
-  )
+  logger.debug({ response, isSketchComplete, shouldAddPlaceholderComments }, 'isSketchComplete response')
 
   return { isSketchComplete, shouldAddPlaceholderComments }
 }
