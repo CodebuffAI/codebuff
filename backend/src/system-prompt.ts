@@ -14,10 +14,12 @@ import { filterObject } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 
 export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
-  const truncatedFiles = getTruncatedFilesBasedOnTokenBudget(
-    fileContext,
-    80_000
-  )
+  const {
+    truncatedFiles,
+    tokenCounts: fileTokenCounts,
+    postTruncationTotalTokens: totalFileTokens,
+  } = getTruncatedFilesBasedOnTokenBudget(fileContext, 80_000)
+
   const systemPrompt = buildArray(
     {
       type: 'text' as const,
@@ -37,7 +39,14 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
     }
   )
 
-  logger.debug('search system prompt tokens', countTokensJson(systemPrompt))
+  logger.debug(
+    {
+      fileTokenCounts,
+      totalFileTokens,
+      systemPromptTokens: countTokensJson(systemPrompt),
+    },
+    'search system prompt tokens'
+  )
 
   return systemPrompt
 }
@@ -47,10 +56,11 @@ export const getAgentSystemPrompt = (
   options: { checkFiles: boolean }
 ) => {
   const { checkFiles } = options
-  const truncatedFiles = getTruncatedFilesBasedOnTokenBudget(
-    fileContext,
-    80_000
-  )
+  const {
+    truncatedFiles,
+    tokenCounts: fileTokenCounts,
+    postTruncationTotalTokens: totalFileTokens,
+  } = getTruncatedFilesBasedOnTokenBudget(fileContext, 80_000)
   const files = Object.keys(truncatedFiles)
 
   const projectFileTreePrompt = getProjectFileTreePrompt(fileContext)
@@ -80,7 +90,14 @@ export const getAgentSystemPrompt = (
     }
   )
 
-  logger.debug('agent system prompt tokens', countTokensJson(systemPrompt))
+  logger.debug(
+    {
+      fileTokenCounts,
+      totalFileTokens,
+      systemPromptTokens: countTokensJson(systemPrompt),
+    },
+    'agent system prompt tokens'
+  )
 
   return systemPrompt
 }
@@ -348,17 +365,6 @@ ${truncateString(gitChanges.lastCommitMessages, maxLength / 10)}
 `.trim()
 }
 
-export const getRelevantFilesPrompt = (fileContext: ProjectFileContext) => {
-  const truncatedFiles = getTruncatedFilesBasedOnTokenBudget(
-    fileContext,
-    80_000
-  )
-  const part1 = getRelevantFilesPromptPart1(fileContext)
-  const part2 = getRelevantFilesPromptPart2(fileContext, truncatedFiles)
-
-  return [part1, part2].join('\n\n')
-}
-
 const getResponseFormatPrompt = (checkFiles: boolean, files: string[]) => {
   return `
 # Response format
@@ -399,8 +405,6 @@ const getTruncatedFilesBasedOnTokenBudget = (
   const truncatedFiles: Record<string, string | null> = {}
   let totalTokens = 0
 
-  logger.info('Token counts for files:', tokenCounts)
-
   for (const [filePath, content] of Object.entries(fileContext.files)) {
     const fileTokens = tokenCounts[filePath] || 0
     if (totalTokens + fileTokens <= tokenBudget) {
@@ -411,9 +415,11 @@ const getTruncatedFilesBasedOnTokenBudget = (
     }
   }
 
-  logger.info('After truncation totalTokens', totalTokens)
-
-  return truncatedFiles
+  return {
+    truncatedFiles,
+    tokenCounts,
+    postTruncationTotalTokens: totalTokens,
+  }
 }
 
 const truncateFileTreeBasedOnTokenBudget = (

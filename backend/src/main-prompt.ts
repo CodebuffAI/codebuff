@@ -1,6 +1,4 @@
 import { WebSocket } from 'ws'
-import fs from 'fs'
-import path from 'path'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { promptClaudeStream } from './claude'
@@ -34,9 +32,6 @@ export async function mainPrompt(
   onResponseChunk: (chunk: string) => void,
   userId?: string
 ) {
-  logger.info('Starting promptClaudeAndGetFileChanges', {
-    messagesLength: messages.length,
-  })
   let fullResponse = ''
   let genKnowledgeFilesPromise: Promise<Promise<FileChange | null>[]> =
     Promise.resolve([])
@@ -146,7 +141,13 @@ ${STOP_MARKER}
       ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
       : messages
 
-    savePromptLengthInfo(messagesWithContinuedMessage, system)
+    logger.debug(
+      {
+        lastMessage: messages[messages.length - 1].content,
+        messageCount: messages.length,
+      },
+      'Prompting Claude Main'
+    )
 
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
@@ -162,7 +163,6 @@ ${STOP_MARKER}
           return `<edit_file path="${path}">`
         },
         onTagEnd: (fileContent, { path }) => {
-          logger.info('on file!', { path })
           const filePathWithoutStartNewline = fileContent.startsWith('\n')
             ? fileContent.slice(1)
             : fileContent
@@ -178,7 +178,7 @@ ${STOP_MARKER}
               filePathWithoutStartNewline,
               userId
             ).catch((error) => {
-              console.error('Error processing file block', error)
+              logger.error(error, 'Error processing file block')
               return null
             })
           )
@@ -190,7 +190,6 @@ ${STOP_MARKER}
         attributeNames: ['name'],
         onTagStart: (attributes) => '',
         onTagEnd: (content, attributes) => {
-          logger.debug('tool call', { ...attributes, content })
           const name = attributes.name
           const contentAttributes: Record<string, string> = {}
           if (name === 'run_terminal_command') {
@@ -252,6 +251,7 @@ ${STOP_MARKER}
     const maybeToolCall = toolCall as ToolCall | null
 
     if (maybeToolCall?.name === 'find_files') {
+      logger.debug(maybeToolCall, 'tool call')
       const response = await updateFileContext(
         ws,
         fileContext,
@@ -277,6 +277,7 @@ ${STOP_MARKER}
       ]
     } else if (maybeToolCall !== null) {
       isComplete = true
+      logger.debug(maybeToolCall, 'tool call')
     } else if (fullResponse.includes(STOP_MARKER)) {
       isComplete = true
       fullResponse = fullResponse.replace(STOP_MARKER, '')
@@ -400,19 +401,25 @@ export async function processFileBlock(
   newContent: string,
   userId?: string
 ): Promise<FileChange | null> {
-  logger.debug('Processing file block', { filePath })
-
   const oldContent = await requestFile(ws, filePath)
 
   if (oldContent === null) {
-    logger.info(`Created new file: ${filePath}`)
+    logger.debug(
+      { filePath, sketch: newContent },
+      'processFileBlock: Created new file'
+    )
     return { filePath, content: newContent, type: 'file' }
   }
 
   if (newContent === oldContent) {
-    logger.info('Sketch was the same as old content, skipping')
+    logger.info(
+      { sketch: newContent },
+      'processFileBlock: Sketch was the same as old content, skipping'
+    )
     return null
   }
+
+  logger.info({ filePath }, 'processFileBlock: Generating patch')
 
   const patch = await generatePatch(
     clientSessionId,
@@ -427,43 +434,7 @@ export async function processFileBlock(
   )
   logger.debug(
     { filePath, oldContent, sketch: newContent, patch },
-    `Generated patch for file: ${filePath}`
+    'processFileBlock: Generated patch'
   )
   return { filePath, content: patch, type: 'patch' }
-}
-
-const savePromptLengthInfo = (
-  messages: Message[],
-  system: string | Array<TextBlockParam>
-) => {
-  logger.debug('Prompting claude num messages:', {
-    messagesLength: messages.length,
-  })
-
-  const lastMessageContent = messages[messages.length - 1].content
-
-  // Save prompt debug information to a JSON array
-  const promptDebugInfo = {
-    input:
-      typeof lastMessageContent === 'string' ? lastMessageContent : '[object]',
-    messages: JSON.stringify(messages).length,
-    system: system.length,
-    timestamp: new Date().toISOString(), // Add a timestamp for each entry
-  }
-
-  logger.debug(promptDebugInfo)
-
-  const debugFilePath = path.join(__dirname, 'prompt.debug.json')
-
-  let debugArray = []
-  try {
-    const existingData = fs.readFileSync(debugFilePath, 'utf8')
-    debugArray = JSON.parse(existingData)
-  } catch (error) {
-    // If file doesn't exist or is empty, start with an empty array
-  }
-
-  debugArray.push(promptDebugInfo)
-
-  fs.writeFileSync(debugFilePath, JSON.stringify(debugArray, null, 2))
 }

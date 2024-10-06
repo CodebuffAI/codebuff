@@ -16,10 +16,6 @@ export async function generateKnowledgeFiles(
   initialMessages: Message[],
   userId?: string
 ): Promise<Promise<FileChange | null>[]> {
-  logger.debug('generateKnowledgeFiles', {
-    fileContext,
-    initialMessages,
-  })
   const searchSystemPrompt = getSearchSystemPrompt(fileContext)
   const systemPrompt = [
     ...searchSystemPrompt,
@@ -101,10 +97,15 @@ export async function generateKnowledgeFiles(
 
   const files = parseFileBlocks(response)
 
-  logger.debug('knowledge files to upsert:', {
-    files: Object.keys(files),
-    response,
-  })
+  logger.debug(
+    {
+      fileContext,
+      initialMessages,
+      files: Object.keys(files),
+      response,
+    },
+    'generateKnowledgeFiles: context and response'
+  )
 
   const fileChangePromises = Object.entries(files).map(
     ([filePath, fileContent]) =>

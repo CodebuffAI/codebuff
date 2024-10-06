@@ -77,8 +77,9 @@ const onUserInput = async (
     { fingerprintId, authToken, clientRequestId: userInputId },
     async () => {
       const lastMessage = messages[messages.length - 1]
-      if (typeof lastMessage.content === 'string')
-        logger.info('Input:', lastMessage)
+      if (typeof lastMessage.content === 'string') {
+        logger.info(lastMessage.content)
+      }
 
       const userId = await getUserIdFromAuthToken(authToken)
       try {
@@ -97,10 +98,10 @@ const onUserInput = async (
             }),
           userId
         )
-        // const allChanges = [...previousChanges, ...changes]
+
+        logger.debug({ response, changes, toolCall }, 'response-complete')
 
         if (toolCall) {
-          logger.debug('toolCall', toolCall)
           sendAction(ws, {
             type: 'tool-call',
             userInputId,
@@ -109,7 +110,6 @@ const onUserInput = async (
             changes,
           })
         } else {
-          logger.debug('response-complete')
           sendAction(ws, {
             type: 'response-complete',
             userInputId,
@@ -119,7 +119,7 @@ const onUserInput = async (
           await sendUsageUpdate(ws, fingerprintId, userId)
         }
       } catch (e) {
-        logger.error('Error in mainPrompt', e)
+        logger.error(e, 'Error in mainPrompt')
         const response =
           e && typeof e === 'object' && 'message' in e
             ? `\n\nError: ${e.message}`
@@ -172,12 +172,9 @@ const onClearAuthTokenRequest = async (
         })
 
       if (validDeletion.length > 0) {
-        logger.info('Cleared auth token', { authToken })
+        logger.info('Cleared auth token')
       } else {
-        logger.info('No auth token to clear, possible attack?', {
-          userId,
-          authToken,
-        })
+        logger.info('No auth token to clear, possible attack?')
       }
     }
   )
@@ -262,7 +259,7 @@ const onLoginStatusRequest = async (
       )
     } catch (e) {
       const error = e as Error
-      logger.error('Error in login status request', e)
+      logger.error(e, 'Error in login status request')
       sendAction(ws, {
         type: 'auth-result',
         user: undefined,
@@ -281,49 +278,44 @@ const onInit = async (
   clientSessionId: string,
   ws: WebSocket
 ) => {
-  await withLoggerContext(
-    { fingerprintId, authToken },
-    async () => {
-      // Create a new session for fingerprint if it doesn't exist
-      await db
-        .insert(schema.fingerprint)
-        .values({
-          id: fingerprintId,
-        })
-        .onConflictDoNothing()
+  await withLoggerContext({ fingerprintId, authToken }, async () => {
+    // Create a new session for fingerprint if it doesn't exist
+    await db
+      .insert(schema.fingerprint)
+      .values({
+        id: fingerprintId,
+      })
+      .onConflictDoNothing()
 
-      // warm context cache
-      const startTime = Date.now()
-      const system = getSearchSystemPrompt(fileContext)
-      const userId = await getUserIdFromAuthToken(authToken)
-      await promptClaude(
-        [
-          {
-            role: 'user',
-            content: 'please respond with just a single word "manicode"',
-          },
-        ],
+    // warm context cache
+    const startTime = Date.now()
+    const system = getSearchSystemPrompt(fileContext)
+    const userId = await getUserIdFromAuthToken(authToken)
+    await promptClaude(
+      [
         {
-          model: claudeModels.sonnet,
-          system,
-          clientSessionId,
-          fingerprintId,
-          userId,
-          userInputId: 'init-cache',
-          maxTokens: 1,
-        }
-      )
-      logger.info('Warming context cache done', {
-        duration: Date.now() - startTime,
-      })
-      sendAction(ws, {
-        type: 'init-response',
-      })
+          role: 'user',
+          content: 'please respond with just a single word "manicode"',
+        },
+      ],
+      {
+        model: claudeModels.sonnet,
+        system,
+        clientSessionId,
+        fingerprintId,
+        userId,
+        userInputId: 'init-cache',
+        maxTokens: 1,
+      }
+    )
+    logger.info(`Warming context cache done in ${Date.now() - startTime}ms`)
+    sendAction(ws, {
+      type: 'init-response',
+    })
 
-      // Add usage information
-      await sendUsageUpdate(ws, fingerprintId, userId)
-    }
-  )
+    // Add usage information
+    await sendUsageUpdate(ws, fingerprintId, userId)
+  })
 }
 
 const callbacksByAction = {} as Record<
@@ -366,9 +358,11 @@ export const onWebsocketAction = async (
       )
     } catch (e) {
       logger.error(
-        'Got error running subscribeToAction callback',
-        msg,
-        e && typeof e === 'object' && 'message' in e ? e.message : e
+        {
+          message: msg,
+          error: e && typeof e === 'object' && 'message' in e ? e.message : e,
+        },
+        'Got error running subscribeToAction callback'
       )
     }
   })
