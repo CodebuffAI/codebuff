@@ -25,4 +25,10 @@ export const logger = pino({
   mixin() {
     return loggerAsyncStorage.getStore() ?? {}
   },
+  formatters: {
+    level: (label) => {
+      return { level: label.toUpperCase() }
+    },
+  },
+  timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
 })
