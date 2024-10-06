@@ -1,6 +1,6 @@
 import { range, shuffle, uniq } from 'lodash'
 import { dirname } from 'path'
-import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
+import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
@@ -38,7 +38,7 @@ export async function requestRelevantFiles(
       : ''
 
   const newFilesNecessaryPromise = assistantPrompt
-    ? Promise.resolve(true)
+    ? Promise.resolve({ newFilesNecessary: true, response: 'N/A' })
     : checkNewFilesNecessary(
         messagesExcludingLastIfByUser,
         system,
@@ -63,17 +63,39 @@ export async function requestRelevantFiles(
     userId
   )
 
-  const newFilesNecessary = await newFilesNecessaryPromise
-
+  const newFilesNecessaryResult = await newFilesNecessaryPromise
+  const { newFilesNecessary, response: newFilesNecessaryResponse } =
+    newFilesNecessaryResult
   if (!newFilesNecessary) {
-    logger.info('No new files necessary, keeping current files')
+    logger.info(
+      {
+        newFilesNecessary,
+        newFilesNecessaryResponse,
+        previousFiles,
+      },
+      'requestRelevantFiles: No new files necessary, keeping current files'
+    )
     return null
   }
 
-  const newFiles = await fileRequestsPromise
-  logger.info('New files:', newFiles)
+  const { keyResults, nonObviousResults } = await fileRequestsPromise
+  const keyFiles = keyResults.flatMap((result) => result.files)
+  const nonObviousFiles = nonObviousResults.flatMap((result) => result.files)
 
-  return uniq([...newFiles, ...previousFiles])
+  logger.info(
+    {
+      keyFiles,
+      nonObviousFiles,
+      previousFiles,
+      keyResults,
+      nonObviousResults,
+      newFilesNecessary,
+      newFilesNecessaryResponse,
+    },
+    'requestRelevantFiles: Results'
+  )
+
+  return uniq([...keyFiles, ...nonObviousFiles, ...previousFiles])
 }
 
 async function generateFileRequests(
@@ -146,14 +168,11 @@ async function generateFileRequests(
       return { files: [], duration: 0 }
     })
   )
-  const keyResults = await Promise.all(keyPromises)
-  const keyFiles = keyResults.flatMap((result) => result.files)
-  const nonObviousResults = await Promise.all(nonObviousPromises)
-  const nonObviousFiles = nonObviousResults.flatMap((result) => result.files)
 
-  logger.info('Key files:', keyFiles)
-  logger.info('Non-obvious files:', nonObviousFiles)
-  return uniq([...keyFiles, ...nonObviousFiles])
+  const keyResults = await Promise.all(keyPromises)
+  const nonObviousResults = await Promise.all(nonObviousPromises)
+
+  return { keyResults, nonObviousResults }
 }
 
 const checkNewFilesNecessary = async (
@@ -189,8 +208,8 @@ Answer with just 'YES' if new files are necessary, or 'NO' if the current files 
     console.error('Error checking new files necessary:', error)
     return 'YES'
   })
-  logger.info('checkNewFilesNecessary response:', response)
-  return response.trim().toUpperCase().includes('YES')
+  const newFilesNecessary = response.trim().toUpperCase().includes('YES')
+  return { newFilesNecessary, response }
 }
 
 async function getRelevantFiles(
@@ -208,7 +227,7 @@ async function getRelevantFiles(
   fingerprintId: string,
   userInputId: string,
   userId?: string
-): Promise<{ files: string[]; duration: number }> {
+) {
   const messagesWithPrompt = [
     ...messages,
     {
@@ -228,16 +247,13 @@ async function getRelevantFiles(
   const end = performance.now()
   const duration = end - start
 
-  logger.info(`${requestType} response time:`, duration.toFixed(0), 'ms')
-  logger.info(`${requestType} response:`, response)
-
   const files = response
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .filter((line) => !line.includes(' '))
 
-  return { files, duration }
+  return { files, duration, requestType, response }
 }
 
 function topLevelDirectories(fileContext: ProjectFileContext) {
@@ -403,6 +419,6 @@ export const warmCacheForRequestRelevantFiles = async (
       maxTokens: 1,
     }
   ).catch((error) => {
-    console.error('Error warming cache for requestRelevantFiles', error)
+    logger.error(error, 'Error warming cache for requestRelevantFiles')
   })
 }
