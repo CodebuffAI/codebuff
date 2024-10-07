@@ -9,7 +9,10 @@ import { CLI } from './cli'
 import { getProjectFileContext, setProjectRoot } from './project-files'
 import { updateManicode } from './update-manicode'
 
-async function manicode(projectDir: string | undefined, initialInput?: string) {
+async function manicode(
+  projectDir: string | undefined,
+  { initialInput, autoGit }: { initialInput?: string; autoGit: boolean }
+) {
   const dir = setProjectRoot(projectDir)
 
   const updatePromise = updateManicode()
@@ -22,7 +25,7 @@ async function manicode(projectDir: string | undefined, initialInput?: string) {
     initFileContextPromise,
   ])
 
-  const cli = new CLI(readyPromise)
+  const cli = new CLI(readyPromise, { autoGit })
 
   await readyPromise
 
@@ -43,14 +46,17 @@ async function manicode(projectDir: string | undefined, initialInput?: string) {
 }
 
 if (require.main === module) {
-  const arg = process.argv[2]
-  const initialInput = process.argv.slice(3).join(' ')
-  if (
-    arg === '--help' ||
-    arg === '-h' ||
-    initialInput === '--help' ||
-    initialInput === '-h'
-  ) {
+  const args = process.argv.slice(2)
+  const help = args.includes('--help') || args.includes('-h')
+  const autoGit = args.includes('--auto-git')
+  if (autoGit) {
+    args.splice(args.indexOf('--auto-git'), 1)
+  }
+
+  const projectPath = args[0]
+  const initialInput = args.slice(1).join(' ')
+
+  if (help) {
     console.log('Usage: manicode [project-directory] [initial-prompt]')
     console.log('Both arguments are optional.')
     console.log(
@@ -66,5 +72,5 @@ if (require.main === module) {
     process.exit(0)
   }
 
-  manicode(arg, initialInput)
+  manicode(projectPath, { initialInput, autoGit })
 }

@@ -128,6 +128,24 @@ The CLI (Command Line Interface) has been updated to provide a more standard ter
    - `Esc`: Toggle menu or stop the current AI response
 5. **Input Submission**: Press Enter to submit the current input.
 
+### Auto-Git Feature
+
+- Use the `--auto-git` flag when running Manicode to automatically stage all changes before applying new changes from user input.
+- Implement git operations using `execSync` from the `child_process` module for synchronous execution.
+- Provide visual feedback (green text) when changes are staged.
+
+Example implementation:
+
+```typescript
+import { execSync } from 'child_process'
+import { green } from 'picocolors'
+
+// In the CLI class
+private stageAllChanges() {
+  execSync('git add .')
+  console.log(green('All changes staged'))
+}
+```
 These changes aim to provide a more intuitive and familiar experience for users while maintaining the unique features of Manicode.
 
 ## Note on Project Evolution

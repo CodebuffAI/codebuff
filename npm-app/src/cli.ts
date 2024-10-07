@@ -3,6 +3,7 @@ import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
 import { green, yellow, underline, red } from 'picocolors'
 import { parse } from 'path'
+import { execSync } from 'child_process'
 
 import { websocketUrl } from './config'
 import { ChatStorage } from './chat-storage'
@@ -24,6 +25,7 @@ export class CLI {
   private client: Client
   private chatStorage: ChatStorage
   private readyPromise: Promise<any>
+  private autoGit: boolean
   private rl: readline.Interface
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
@@ -34,7 +36,8 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
 
-  constructor(readyPromise: Promise<any>) {
+  constructor(readyPromise: Promise<any>, { autoGit }: { autoGit: boolean }) {
+    this.autoGit = autoGit
     this.chatStorage = new ChatStorage()
     this.rl = readline.createInterface({
       input: process.stdin,
@@ -217,6 +220,11 @@ export class CLI {
     }
   }
 
+  private stageAllChanges() {
+    execSync('git add .', { stdio: 'ignore' })
+    console.log(green('All previous changes have been staged'))
+  }
+
   private async handleUserInput(userInput: string) {
     if (!userInput) return
 
@@ -318,6 +326,8 @@ export class CLI {
     this.isReceivingResponse = false
 
     this.stopLoadingAnimation()
+
+    if (this.autoGit) this.stageAllChanges()
 
     const filesChanged = uniq(changes.map((change) => change.filePath))
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
