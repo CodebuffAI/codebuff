@@ -68,8 +68,9 @@ function isNpmUpToDate(currentVersion: string, latestVersion: string) {
 function detectInstaller(): 'npm' | 'yarn' | 'pnpm' | 'bun' | undefined {
   const result = execSync('which manicode')
   const path = result.toString().trim()
-
   const pathIncludesNodeModules = path.includes('node_modules')
+
+  const npmUserAgent = process.env.npm_config_user_agent ?? ''
 
   // Mac: /Users/jahooma/.yarn/bin/manicode
   if (path.includes('.yarn') && !pathIncludesNodeModules) {
@@ -90,8 +91,10 @@ function detectInstaller(): 'npm' | 'yarn' | 'pnpm' | 'bun' | undefined {
 
   // /usr/local/lib/node_modules on macOS/Linux or %AppData%\npm/node_modules on Windows
   if (
-    pathIncludesNodeModules &&
-    (path.includes('npm') || path.startsWith('/usr/'))
+    pathIncludesNodeModules ||
+    path.includes('npm') ||
+    path.startsWith('/usr/') ||
+    npmUserAgent.includes('npm')
   ) {
     return 'npm'
   }
