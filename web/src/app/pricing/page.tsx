@@ -10,13 +10,20 @@ import { env } from '@/env.mjs'
 import Stripe from 'stripe'
 import { useSession } from 'next-auth/react'
 import { Icons } from '@/components/icons'
+import { useRouter } from 'next/navigation'
 
 const PricingPage = () => {
   const [isPending, setIsPending] = useState(false)
   const session = useSession()
+  const router = useRouter()
 
   const handleCreateCheckoutSession = async () => {
     setIsPending(true)
+
+    if (session.status !== 'authenticated') {
+      router.push('/login')
+      return
+    }
 
     const res = await fetch('/api/stripe/checkout-session')
     const checkoutSession: Stripe.Response<Stripe.Checkout.Session> = await res
