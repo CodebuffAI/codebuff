@@ -10,7 +10,7 @@ import { sendMessage } from './server'
 import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude } from '../claude'
 import { env } from '../env.mjs'
-import db from 'common/src/db'
+import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { genAuthCode } from 'common/util/credentials'
 import { claudeModels } from 'common/constants'
@@ -45,22 +45,15 @@ export const getUserIdFromAuthToken = async (
   return userId
 }
 
-const sendUsageUpdate = async (
-  ws: WebSocket,
-  fingerprintId: string,
-  userId?: string
-) => {
+async function calculateUsage(fingerprintId: string, userId?: string) {
   const quotaManager = getQuotaManager(
     userId ? 'authenticated' : 'anonymous',
     userId ?? fingerprintId
   )
   const { creditsUsed, quota } = await quotaManager.checkQuota()
-  sendAction(ws, {
-    type: 'usage',
-    usage: creditsUsed,
-    limit: quota,
-  })
+  return { usage: creditsUsed, limit: quota }
 }
+
 const onUserInput = async (
   {
     fingerprintId,
@@ -110,13 +103,15 @@ const onUserInput = async (
             changes,
           })
         } else {
+          const { usage, limit } = await calculateUsage(fingerprintId, userId)
           sendAction(ws, {
             type: 'response-complete',
             userInputId,
             response,
             changes,
+            usage,
+            limit,
           })
-          await sendUsageUpdate(ws, fingerprintId, userId)
         }
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')
@@ -312,9 +307,23 @@ const onInit = async (
     sendAction(ws, {
       type: 'init-response',
     })
+  })
+}
 
-    // Add usage information
-    await sendUsageUpdate(ws, fingerprintId, userId)
+const onUsageRequest = async (
+  { fingerprintId, authToken }: Extract<ClientAction, { type: 'usage' }>,
+  _clientSessionId: string,
+  ws: WebSocket
+) => {
+  const userId = await getUserIdFromAuthToken(authToken)
+  const { usage, limit } = await calculateUsage(fingerprintId, userId)
+  await withLoggerContext({ fingerprintId, userId, usage, limit }, async () => {
+    logger.info('Sending usage info')
+    sendAction(ws, {
+      type: 'usage-response',
+      usage,
+      limit,
+    })
   })
 }
 
@@ -373,6 +382,8 @@ subscribeToAction('init', () => protec.run(onInit))
 
 subscribeToAction('clear-auth-token', onClearAuthTokenRequest)
 subscribeToAction('login-code-request', onLoginCodeRequest)
+
+subscribeToAction('usage', onUsageRequest)
 subscribeToAction('login-status-request', onLoginStatusRequest)
 
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {

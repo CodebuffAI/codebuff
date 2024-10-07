@@ -27,6 +27,8 @@ export class Client {
   public user: User | undefined
   private returnControlToUser: () => void
   public lastWarnedPct: number = 0
+  public usage: number = 0
+  public limit: number = 0
 
   constructor(
     websocketUrl: string,
@@ -209,30 +211,34 @@ export class Client {
       }
     })
 
-    this.webSocket.subscribe('usage', (action) => {
+    this.webSocket.subscribe('usage-response', (action) => {
       const { usage, limit } = action
-
-      const pct: number = match(Math.floor((usage / limit) * 100))
-        .with(P.number.gte(100), () => 100)
-        .with(P.number.gte(75), () => 75)
-        .with(P.number.gte(50), () => 50)
-        .with(P.number.gte(25), () => 25)
-        .otherwise(() => 0)
-
-      if (pct > 0 && pct > this.lastWarnedPct) {
-        console.warn(
-          [
-            '',
-            yellow(`You have used ${pct}% of your monthly usage limit.`),
-            this.user
-              ? yellow('Visit https://manicode.ai/pricing to upgrade.')
-              : yellow('Type "login" to sign up and get more credits!'),
-          ].join('\n')
-        )
-        this.lastWarnedPct = pct
-        this.returnControlToUser()
-      }
+      console.log(`Usage: ${usage} / ${limit} credits`)
+      this.showUsageWarning(usage, limit)
+      this.returnControlToUser()
     })
+  }
+
+  async showUsageWarning(usage: number, limit: number) {
+    const pct: number = match(Math.floor((usage / limit) * 100))
+      .with(P.number.gte(100), () => 100)
+      .with(P.number.gte(75), () => 75)
+      .with(P.number.gte(50), () => 50)
+      .with(P.number.gte(25), () => 25)
+      .otherwise(() => 0)
+
+    if (pct > 0 && pct > this.lastWarnedPct) {
+      console.warn(
+        [
+          '',
+          yellow(`You have used ${pct}+% of your monthly usage limit.`),
+          this.user
+            ? yellow('Visit https://manicode.ai/pricing to upgrade.')
+            : yellow('Type "login" to sign up and get more credits!'),
+        ].join('\n')
+      )
+      this.lastWarnedPct = pct
+    }
   }
 
   async sendUserInput(previousChanges: FileChanges, userInputId: string) {
@@ -324,12 +330,23 @@ export class Client {
       unsubscribeComplete()
       resolveResponse({ ...a, wasStoppedByUser: false })
       this.currentUserInputId = undefined
+
+      this.usage = a.usage ?? 0
+      this.limit = a.limit ?? 0
     })
 
     return {
       responsePromise,
       stopResponse,
     }
+  }
+
+  public async getUsage() {
+    this.webSocket.sendAction({
+      type: 'usage',
+      fingerprintId,
+      authToken: this.user?.authToken,
+    })
   }
 
   public async warmContextCache() {

@@ -237,6 +237,9 @@ export class CLI {
     if (userInput === 'login' || userInput === 'signin') {
       await this.client.login()
       return
+    } else if (userInput === 'usage' || userInput === 'credits') {
+      this.client.getUsage()
+      return
     } else if (userInput === 'undo' || userInput === 'u') {
       this.handleUndo()
       return
@@ -344,6 +347,7 @@ export class CLI {
     }
     if (created.length > 0 || modified.length > 0) {
       console.log('\nComplete!')
+      this.client.showUsageWarning(this.client.usage, this.client.limit)
     }
     console.log()
 

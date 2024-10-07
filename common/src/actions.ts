@@ -84,6 +84,11 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     fileContext: ProjectFileContextSchema,
   }),
   z.object({
+    type: z.literal('usage'),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+  }),
+  z.object({
     type: z.literal('login-code-request'),
     fingerprintId: z.string(),
   }),
@@ -114,6 +119,8 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     userInputId: z.string(),
     response: z.string(),
     changes: CHANGES,
+    usage: z.number().optional(),
+    limit: z.number().optional(),
   }),
   z.object({
     type: z.literal('read-files'),
@@ -151,7 +158,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     loginUrl: z.string().url(),
   }),
   z.object({
-    type: z.literal('usage'),
+    type: z.literal('usage-response'),
     usage: z.number(),
     limit: z.number(),
   }),
