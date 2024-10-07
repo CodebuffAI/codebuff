@@ -54,8 +54,12 @@ const PricingPage = () => {
     {
       name: 'Pro',
       price: '$99/month',
-      credits: CREDITS_USAGE_LIMITS.PAID,
-      features: ['Priority support', 'Custom integrations'],
+      credits: 10_000,
+      features: [
+        'Credits overage allowance ($0.50 per 100 credits)',
+        'Priority support',
+        'Custom integrations',
+      ],
       buttonAction: () => handleCreateCheckoutSession(),
       buttonText: session?.data?.user?.subscription_active ? (
         <p>You are on the pro tier!</p>
