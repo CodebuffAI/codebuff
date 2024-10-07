@@ -11,31 +11,31 @@ export const replaceNonStandardPlaceholderComments = (
   const commentPatterns = [
     // C-style comments (C, C++, Java, JavaScript, TypeScript, etc.)
     {
-      regex: /\/\/\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*\s*\.{3}/gi,
+      regex: /\/\/\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*(?:\s*\.{3})?/gi,
       placeholder: '// ... existing code ...',
     },
     {
-      regex: /\/\*\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*\s*\.{3}\s*\*\//gi,
+      regex: /\/\*\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*(?:\s*\.{3})?\s*\*\//gi,
       placeholder: '/* ... existing code ... */',
     },
     // Python, Ruby, R comments
     {
-      regex: /#\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*\s*\.{3}/gi,
+      regex: /#\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*(?:\s*\.{3})?/gi,
       placeholder: '# ... existing code ...',
     },
     // HTML-style comments
     {
-      regex: /<!--\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*\s*\.{3}\s*-->/gi,
+      regex: /<!--\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*(?:\s*\.{3})?\s*-->/gi,
       placeholder: '<!-- ... existing code ... -->',
     },
     // SQL, Haskell, Lua comments
     {
-      regex: /--\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*\s*\.{3}/gi,
+      regex: /--\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*(?:\s*\.{3})?/gi,
       placeholder: '-- ... existing code ...',
     },
     // MATLAB comments
     {
-      regex: /%\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*\s*\.{3}/gi,
+      regex: /%\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*(?:\s*\.{3})?/gi,
       placeholder: '% ... existing code ...',
     },
   ]
