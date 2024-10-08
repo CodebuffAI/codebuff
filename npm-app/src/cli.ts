@@ -1,7 +1,7 @@
 import { uniq } from 'lodash'
 import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
-import { green, yellow, underline, red } from 'picocolors'
+import { green, red, yellow, underline } from 'picocolors'
 import { parse } from 'path'
 import { execSync } from 'child_process'
 
@@ -20,6 +20,7 @@ import { handleRunTerminalCommand } from './tool-handlers'
 import { SKIPPED_TERMINAL_COMMANDS } from 'common/constants'
 import { createFileBlock } from 'common/util/file'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+import { FileChanges } from 'common/actions'
 
 export class CLI {
   private client: Client
@@ -30,6 +31,7 @@ export class CLI {
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
   private loadingInterval: NodeJS.Timeout | null = null
+  private lastChanges: FileChanges = []
 
   private lastInputTime: number = 0
   private consecutiveFastInputs: number = 0
@@ -225,6 +227,27 @@ export class CLI {
     console.log(green('All previous changes have been staged'))
   }
 
+  private handleDiff() {
+    if (this.lastChanges.length === 0) {
+      console.log(yellow('No changes found in the last assistant response.'))
+      return
+    }
+
+    this.lastChanges.forEach((change) => {
+      console.log(green(`${change.filePath}`))
+      const lines = change.content.split('\n')
+      lines.forEach((line) => {
+        if (line.startsWith('+')) {
+          console.log(green(line))
+        } else if (line.startsWith('-')) {
+          console.log(red(line))
+        } else {
+          console.log(line)
+        }
+      })
+    })
+  }
+
   private async handleUserInput(userInput: string) {
     if (!userInput) return
 
@@ -252,6 +275,10 @@ export class CLI {
       userInput === 'q'
     ) {
       this.handleExit()
+      return
+    } else if (userInput === 'diff' || userInput === 'd') {
+      this.handleDiff()
+      this.rl.prompt()
       return
     }
 
@@ -346,10 +373,12 @@ export class CLI {
       console.log(green(`- Updated ${file}`))
     }
     if (created.length > 0 || modified.length > 0) {
-      console.log('\nComplete!')
+      console.log('\nComplete! Type "diff" to see the changes made.')
       this.client.showUsageWarning(this.client.usage, this.client.limit)
     }
     console.log()
+
+    this.lastChanges = changes
 
     const assistantMessage: Message = {
       role: 'assistant',

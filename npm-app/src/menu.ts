@@ -69,10 +69,9 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
   console.log('- Enter terminal commands directly: "cd backend", "npm test"')
   console.log('- Use "/run <command>" for long terminal commands')
   console.log('- Press ESC to cancel generation')
-  console.log(
-    '- Type "undo" or "redo" (abbreviated "u" or "r") to undo or redo the last change'
-  )
+  console.log('- Type "undo" or "redo" (abbreviated "u" or "r") to undo or redo the last change')
   console.log('- Type "login" to log into Manicode')
+  console.log('- Type "diff" or "d" to show changes from the last assistant response')
 
   console.log(
     '\nAny files in .gitignore are not read by Manicode. You can ignore further files with .manicodeignore'

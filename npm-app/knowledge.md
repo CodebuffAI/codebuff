@@ -127,6 +127,7 @@ The CLI (Command Line Interface) has been updated to provide a more standard ter
    - `Ctrl+C`: Exit the application
    - `Esc`: Toggle menu or stop the current AI response
 5. **Input Submission**: Press Enter to submit the current input.
+6. **Diff Command**: A new "diff" command is planned to show changes from the last assistant response.
 
 ### Auto-Git Feature
 
@@ -246,6 +247,5 @@ This system allows for better tracking and correlation of user inputs with their
 - Implementation should be in the `Client` class in `src/client.ts`.
 - Only display a warning when a new threshold is reached, not for every percentage increase.
 
-
-
 ## End of Document
+

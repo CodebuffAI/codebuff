@@ -375,6 +375,8 @@ You may edit files to address the user's request and run commands in the termina
 
 You are reading the following files: <files>${files.join(', ')}</files>. These were fetched for you after the last user's message and are up to date. If you need to read more files, please use <tool_call name="find_files">...</tool_call> to write what files you are looking for. E.g. "<tool_call name="find_files">I am looking for agent.ts</tool_call>" or "<tool_call name="find_files">I need the file with the api routes in it</tool_call>" or "<tool_call name="find_files">Find me the file with class Foo in it</tool_call>".
 
+If you are about to edit a file, make sure it is one that has been provided to you and is listed in the above paragraph. If not, use <tool_call name="find_files">...</tool_call> to request the file.
+
 If there is a file that is not visible to you, or you are tempted to say you don't have direct access to it, then you should use <tool_call name="find_files">...</tool_call> to request the file.
 
 If the user is requesting a change that you think has already been made based on the current version of files, simply tell the user that "the change has already been made". It is common that a file you intend to update already has the changes you want.
