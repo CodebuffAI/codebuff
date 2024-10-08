@@ -234,7 +234,7 @@ export class CLI {
     }
 
     this.lastChanges.forEach((change) => {
-      console.log(green(`${change.filePath}`))
+      console.log('-', change.filePath)
       const lines = change.content.split('\n')
       lines.forEach((line) => {
         if (line.startsWith('+')) {
