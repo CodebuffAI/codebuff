@@ -247,5 +247,25 @@ This system allows for better tracking and correlation of user inputs with their
 - Implementation should be in the `Client` class in `src/client.ts`.
 - Only display a warning when a new threshold is reached, not for every percentage increase.
 
+## Performance Optimizations
+
+### Asynchronous Operations
+
+When dealing with potentially time-consuming operations (like generating commit messages) that are part of a larger process, consider starting these operations early and awaiting their results later in the process. This approach can help reduce overall processing time and improve responsiveness.
+
+Example: In the auto-commit feature, start generating the commit message before sending the user input request, then await its completion before applying further changes:
+
+```typescript
+// Start commit message generation early
+const commitMessagePromise = this.client.generateCommitMessage(stagedChanges);
+
+// Perform other operations...
+
+// Await the commit message when needed
+const commitMessage = await commitMessagePromise;
+```
+
+This technique can be applied to various scenarios where asynchronous operations can be started early in the process flow.
+
 ## End of Document
 

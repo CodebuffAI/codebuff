@@ -17,6 +17,7 @@ import { claudeModels } from 'common/constants'
 import { protec } from './middleware'
 import { getQuotaManager } from '@/billing/quota-manager'
 import { logger, withLoggerContext } from '@/util/logger'
+import { generateCommitMessage } from '@/generate-commit-message'
 
 export const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -327,6 +328,38 @@ const onUsageRequest = async (
   })
 }
 
+const onGenerateCommitMessage = async (
+  {
+    fingerprintId,
+    authToken,
+    stagedChanges,
+  }: Extract<ClientAction, { type: 'generate-commit-message' }>,
+  clientSessionId: string,
+  ws: WebSocket
+) => {
+  await withLoggerContext({ fingerprintId, authToken }, async () => {
+    const userId = await getUserIdFromAuthToken(authToken)
+    try {
+      const commitMessage = await generateCommitMessage(
+        stagedChanges,
+        clientSessionId,
+        fingerprintId,
+        userId
+      )
+      logger.info(`Generated commit message: ${commitMessage}`)
+      sendAction(ws, {
+        type: 'commit-message-response',
+        commitMessage,
+      })
+    } catch (e) {
+      logger.error(e, 'Error generating commit message')
+      sendAction(ws, {
+        type: 'commit-message-response',
+        commitMessage: 'Error generating commit message',
+      })
+    }
+  })
+}
 const callbacksByAction = {} as Record<
   ClientAction['type'],
   ((action: ClientAction, clientSessionId: string, ws: WebSocket) => void)[]
@@ -385,6 +418,8 @@ subscribeToAction('login-code-request', onLoginCodeRequest)
 
 subscribeToAction('usage', onUsageRequest)
 subscribeToAction('login-status-request', onLoginStatusRequest)
+
+subscribeToAction('generate-commit-message', protec.run(onGenerateCommitMessage))
 
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {

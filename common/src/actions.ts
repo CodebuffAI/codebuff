@@ -105,6 +105,12 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     // authToken: z.string().optional(),
     fingerprintHash: z.string(),
   }),
+  z.object({
+    type: z.literal('generate-commit-message'),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+    stagedChanges: z.string(),
+  }),
 ])
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
@@ -169,6 +175,10 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('error'),
     message: z.string(),
+  }),
+  z.object({
+    type: z.literal('commit-message-response'),
+    commitMessage: z.string(),
   }),
 ])
 export type ServerAction = z.infer<typeof SERVER_ACTION_SCHEMA>

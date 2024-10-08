@@ -21,6 +21,12 @@ import { SKIPPED_TERMINAL_COMMANDS } from 'common/constants'
 import { createFileBlock } from 'common/util/file'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import { FileChanges } from 'common/actions'
+import {
+  stageAllChanges,
+  hasUncommittedChanges,
+  commitChanges,
+  getStagedChanges,
+} from 'common/util/git'
 
 export class CLI {
   private client: Client
@@ -222,21 +228,17 @@ export class CLI {
     }
   }
 
-  private stageAllChanges() {
-    this.autoCommitChanges()
+  private async autoCommitChanges() {
+    if (hasUncommittedChanges()) {
+      const stagedChanges = getStagedChanges()
+      if (!stagedChanges) return
 
-    execSync('git add .', { stdio: 'ignore' })
-    console.log(green('All previous changes have been staged'))
-  }
-
-  private autoCommitChanges() {
-    try {
-      execSync('git diff --staged --quiet', { stdio: 'ignore' })
-    } catch {
-      // There are staged changes, so we proceed with the commit
-      execSync('git commit -m "Manicode: auto commit"', { stdio: 'ignore' })
-      console.log(green('Automatically committed changes'))
+      const commitMessage =
+        await this.client.generateCommitMessage(stagedChanges)
+      commitChanges(commitMessage)
+      return commitMessage
     }
+    return undefined
   }
 
   private handleDiff() {
@@ -333,6 +335,11 @@ export class CLI {
     this.startLoadingAnimation()
     await this.readyPromise
 
+    let autoCommitPromise: Promise<string | undefined> | null = null
+    if (this.autoGit) {
+      autoCommitPromise = this.autoCommitChanges()
+    }
+
     const currentChat = this.chatStorage.getCurrentChat()
     const { fileVersions } = currentChat
     const currentFileVersion =
@@ -369,7 +376,17 @@ export class CLI {
 
     this.stopLoadingAnimation()
 
-    if (this.autoGit) this.stageAllChanges()
+    if (this.autoGit) {
+      const commitMessage = await autoCommitPromise
+      if (commitMessage) {
+        console.log(green('Automatically committed changes:'))
+        console.log(green(`${commitMessage}\n`))
+      }
+      const changesStaged = stageAllChanges()
+      if (changesStaged) {
+        console.log(green('All previous changes have been staged\n'))
+      }
+    }
 
     const filesChanged = uniq(changes.map((change) => change.filePath))
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)

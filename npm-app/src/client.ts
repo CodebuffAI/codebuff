@@ -12,7 +12,6 @@ import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
 import { CREDITS_USAGE_LIMITS, TOOL_RESULT_MARKER } from 'common/constants'
 import { fingerprintId } from './config'
-import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 import { uniq } from 'lodash'
 import { spawn } from 'child_process'
 import path from 'path'
@@ -239,6 +238,25 @@ export class Client {
       )
       this.lastWarnedPct = pct
     }
+  }
+
+  async generateCommitMessage(stagedChanges: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const unsubscribe = this.webSocket.subscribe(
+        'commit-message-response',
+        (action) => {
+          unsubscribe()
+          resolve(action.commitMessage)
+        }
+      )
+
+      this.webSocket.sendAction({
+        type: 'generate-commit-message',
+        fingerprintId,
+        authToken: this.user?.authToken,
+        stagedChanges,
+      })
+    })
   }
 
   async sendUserInput(previousChanges: FileChanges, userInputId: string) {
