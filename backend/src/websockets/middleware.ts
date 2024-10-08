@@ -11,6 +11,7 @@ import {
 import { sql, eq } from 'drizzle-orm'
 import { sendAction } from './websocket-action'
 import { logger } from '@/util/logger'
+import { env } from '@/env.mjs'
 
 export class WebSocketMiddleware {
   private middlewares: Array<
@@ -81,6 +82,9 @@ protec.use(async (action, _clientSessionId, _) => {
   logger.debug(`Protecting action of type: '${action.type}'`)
 })
 protec.use(async (action, _clientSessionId, ws) => {
+  if (env.ENVIRONMENT !== 'production') {
+    return
+  }
   return match(action)
     .with(
       {
