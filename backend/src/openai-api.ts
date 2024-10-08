@@ -47,7 +47,7 @@ export async function promptOpenAI(
         model,
         messages,
         temperature: 0,
-        store: true,
+        // store: true,
       }),
       timeoutPromise(200000) as Promise<OpenAI.Chat.ChatCompletion>,
     ])
@@ -187,10 +187,7 @@ export async function promptOpenAIWithContinuation(
     } catch (error) {
       logger.error(
         {
-          error:
-            error && typeof error === 'object' && 'message' in error
-              ? error.message
-              : 'Unknown error',
+          error,
         },
         'Error calling OpenAI API'
       )
