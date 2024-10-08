@@ -223,8 +223,20 @@ export class CLI {
   }
 
   private stageAllChanges() {
+    this.autoCommitChanges()
+
     execSync('git add .', { stdio: 'ignore' })
     console.log(green('All previous changes have been staged'))
+  }
+
+  private autoCommitChanges() {
+    try {
+      execSync('git diff --staged --quiet', { stdio: 'ignore' })
+    } catch {
+      // There are staged changes, so we proceed with the commit
+      execSync('git commit -m "Manicode: auto commit"', { stdio: 'ignore' })
+      console.log(green('Automatically committed changes'))
+    }
   }
 
   private handleDiff() {
