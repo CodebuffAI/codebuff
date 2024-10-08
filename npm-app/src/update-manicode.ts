@@ -66,10 +66,20 @@ function isNpmUpToDate(currentVersion: string, latestVersion: string) {
 }
 
 function detectInstaller(): 'npm' | 'yarn' | 'pnpm' | 'bun' | undefined {
-  const result = execSync('which manicode')
-  const path = result.toString().trim()
-  const pathIncludesNodeModules = path.includes('node_modules')
+  let result: string
+  try {
+    if (process.platform === 'win32') {
+      result = execSync('where manicode').toString().trim()
+    } else {
+      result = execSync('which manicode').toString().trim()
+    }
+  } catch (error) {
+    console.error('Error detecting manicode location.')
+    return undefined
+  }
 
+  const path = result.split('\n')[0] ?? ''
+  const pathIncludesNodeModules = path.includes('node_modules')
   const npmUserAgent = process.env.npm_config_user_agent ?? ''
 
   // Mac: /Users/jahooma/.yarn/bin/manicode
