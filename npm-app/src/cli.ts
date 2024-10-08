@@ -23,7 +23,7 @@ import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import { FileChanges } from 'common/actions'
 import {
   stageAllChanges,
-  hasUncommittedChanges,
+  hasStagedChanges,
   commitChanges,
   getStagedChanges,
 } from 'common/util/git'
@@ -229,7 +229,7 @@ export class CLI {
   }
 
   private async autoCommitChanges() {
-    if (hasUncommittedChanges()) {
+    if (hasStagedChanges()) {
       const stagedChanges = getStagedChanges()
       if (!stagedChanges) return
 
@@ -379,12 +379,12 @@ export class CLI {
     if (this.autoGit) {
       const commitMessage = await autoCommitPromise
       if (commitMessage) {
-        console.log(green('Automatically committed changes:'))
-        console.log(green(`${commitMessage}\n`))
+        console.log(green('\nAutomatically committed changes:'))
+        console.log(green(`${commitMessage}`))
       }
       const changesStaged = stageAllChanges()
       if (changesStaged) {
-        console.log(green('All previous changes have been staged\n'))
+        console.log(green('\nAll previous changes have been staged'))
       }
     }
 
