@@ -249,7 +249,10 @@ export class CLI {
 
     this.lastChanges.forEach((change) => {
       console.log('-', change.filePath)
-      const lines = change.content.split('\n')
+      const lines = change.content
+        .split('\n')
+        .map((line) => (change.type === 'file' ? '+' + line : line))
+
       lines.forEach((line) => {
         if (line.startsWith('+')) {
           console.log(green(line))
@@ -380,7 +383,7 @@ export class CLI {
       const commitMessage = await autoCommitPromise
       if (commitMessage) {
         console.log(green('\nAutomatically committed changes:'))
-        console.log(green(`${commitMessage}`))
+        console.log(`${commitMessage}`)
       }
       const changesStaged = stageAllChanges()
       if (changesStaged) {
