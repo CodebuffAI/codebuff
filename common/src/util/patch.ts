@@ -20,12 +20,16 @@ export const applyPatch = (oldContent: string, patch: string): string => {
 
     if (patchLine.startsWith('@@')) {
       const { contextLines, startIndex, headline } = parseHunk(patchLines, i)
+      const maybeStartIndex =
+        startIndex === undefined || startIndex < oldIndex
+          ? undefined
+          : startIndex
       const headlineIndex = headline ? lines.indexOf(headline) : undefined
       const matchIndex = getMatchIndex(
         lines,
         contextLines,
         oldIndex,
-        startIndex,
+        maybeStartIndex,
         headlineIndex
       )
 
