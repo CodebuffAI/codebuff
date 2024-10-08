@@ -1,6 +1,6 @@
 {
   "name": "manicode",
-  "version": "1.0.82",
+  "version": "1.0.83",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
