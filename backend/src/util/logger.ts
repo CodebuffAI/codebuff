@@ -23,7 +23,7 @@ export const logger = pino({
           },
         },
   mixin() {
-    return loggerAsyncStorage.getStore() ?? {}
+    return { ...loggerAsyncStorage.getStore() }
   },
   formatters: {
     level: (label) => {
