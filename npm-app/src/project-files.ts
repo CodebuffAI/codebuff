@@ -150,11 +150,18 @@ export function getChangesSinceLastFileVersion(
 
 export function getFiles(filePaths: string[]) {
   const result: Record<string, string | null> = {}
+  const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB in bytes
+
   for (const filePath of filePaths) {
     const fullPath = path.join(projectRoot, filePath)
     try {
-      const content = fs.readFileSync(fullPath, 'utf8')
-      result[filePath] = content
+      const stats = fs.statSync(fullPath)
+      if (stats.size > MAX_FILE_SIZE) {
+        result[filePath] = `[FILE_TOO_LARGE: ${(stats.size / (1024 * 1024)).toFixed(2)}MB]`
+      } else {
+        const content = fs.readFileSync(fullPath, 'utf8')
+        result[filePath] = content
+      }
     } catch (error) {
       result[filePath] = null
     }
