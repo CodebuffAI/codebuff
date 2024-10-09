@@ -15,29 +15,40 @@ export type ReferralData = {
 export async function GET() {
   const session = await getServerSession(authOptions)
 
-  if (!session || !session.user) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
-    const user = await db.query.user.findFirst({
-      where: eq(schema.user.id, session.user.id),
+    // const user = await db.query.user.findMany({
+    //   where: eq(schema.user.id, session.user.id),
+    //   with: {
+    //     referrals: {
+    //       where: (referrals, { eq }) =>
+    //         eq(referrals.referrer_id, session?.user?.id),
+    //       with: {
+    //         users: true,
+    //       },
+    //     },
+    //   },
+    // })
+    const referrals = await db.query.referral.findMany({
+      where: and(
+        eq(schema.referral.referrer_id, session.user.id),
+        eq(schema.referral.status, 'completed')
+      ),
       with: {
-        referrals: {
-          with: {
-            referred: true,
-          },
-        },
+        user: true,
       },
     })
 
-    if (!user) {
+    if (!referrals) {
       throw new Error(`No user found with id ${session.user.id}`)
     }
 
     const referralData: ReferralData = {
-      referralCode: user.referral_code || '',
-      referrals: user.referrals,
+      referralCode: referrals.referral_code || '',
+      referrals: referrals.referrals,
     }
 
     return NextResponse.json(referralData)
