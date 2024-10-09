@@ -149,10 +149,10 @@ const ReferralsPage = () => {
                     <ul className="space-y-2">
                       {data.referrals.map((referral) => (
                         <li
-                          key={referral.id}
+                          key={referral.referred_id}
                           className="flex justify-between items-center"
                         >
-                          <span>{referral.name || referral.email}</span>
+                          <span>{referral.referred.name || referral.referred.email}</span>
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${
                               referral.status === 'completed'
