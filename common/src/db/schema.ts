@@ -9,8 +9,16 @@ import {
   jsonb,
   numeric,
   uuid,
+  pgEnum,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
+import { ReferralStatusValues } from '../types/referral'
+
+// Define the ReferralStatus enum
+export const ReferralStatus = pgEnum('referral_status', [
+  ReferralStatusValues[0],
+  ...ReferralStatusValues.slice(1),
+])
 
 export const user = pgTable('user', {
   id: text('id')
@@ -67,7 +75,7 @@ export const referral = pgTable(
     referred_id: text('referred_id')
       .notNull()
       .references(() => user.id),
-    status: text('status').notNull().default('pending'),
+    status: ReferralStatus('status').notNull().default('pending'),
     created_at: timestamp('created_at', { mode: 'date' })
       .notNull()
       .defaultNow(),
