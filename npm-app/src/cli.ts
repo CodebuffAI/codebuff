@@ -277,6 +277,9 @@ export class CLI {
     if (userInput === 'login' || userInput === 'signin') {
       await this.client.login()
       return
+    } else if (userInput.startsWith('ref-')) {
+      await this.client.login(userInput)
+      return
     } else if (userInput === 'usage' || userInput === 'credits') {
       this.client.getUsage()
       return

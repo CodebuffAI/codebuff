@@ -55,7 +55,7 @@ export class Client {
     this.setupSubscriptions()
   }
 
-  async login() {
+  async login(referralCode?: string) {
     if (this.user) {
       // If there was an existing user, clear their existing state
       this.webSocket.sendAction({
@@ -74,6 +74,7 @@ export class Client {
     this.webSocket.sendAction({
       type: 'login-code-request',
       fingerprintId,
+      referralCode,
     })
   }
 
@@ -149,19 +150,13 @@ export class Client {
       'login-code-response',
       async ({ loginUrl, fingerprintHash }) => {
         const responseToUser = [
-          'See you back here after you finish logging in 👋',
-          "If you're not redirected in a few seconds, please visit the following URL to log in:",
+          'Please visit the following URL to log in:',
+          '\n',
           loginUrl,
           '\n',
+          'See you back here after you finish logging in 👋',
         ]
         console.log(responseToUser.join('\n'))
-
-        // Attempt to open the login URL in the user's browser for them
-        await sleep(5000).then(() => {
-          const childProcess = spawn(`open ${loginUrl}`, {
-            shell: true,
-          })
-        })
 
         // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
         const initialTime = Date.now()
