@@ -30,34 +30,35 @@ Create a new `referral` table with the following structure:
    - Create `web/src/app/referrals/page.tsx` for users to view and manage referrals
    - Update `web/src/app/onboard/page.tsx` to handle referral codes during sign-up
 
-3. API Routes
+3. UI Components
+
+   - displaying referral information
+   - sharing referral code
+   - regenerating referral code
+   - inputting referral link/code manually
+
+4. API Routes
 
    - Create `web/src/app/api/referrals/route.ts` for referral-related operations
    - Implement security measures to prevent system abuse:
      a. Add validation to prevent self-referrals:
-        - Check if the referred user ID is different from the referrer's ID
-        - Reason: Prevents users from gaining benefits by referring themselves
-     b. Limit each referral code to be used 5 times:
-        - Keep a count of successful referrals for each code
-        - Reject referrals once the limit is reached
-        - Reason: Prevents a single code from being overused, encouraging wider distribution
-     c. Implement rate limiting for referral code generation:
-        - Use a local cache that clears daily
-        - Limit the number of codes a user can generate per day
-        - Reason: Prevents spam and abuse of the referral system
+     - Check if the referred user ID is different from the referrer's ID
+     - Reason: Prevents users from gaining benefits by referring themselves
+       b. Limit each referral code to be used 5 times:
+     - Keep a count of successful referrals for each code
+     - Reject referrals once the limit is reached
+     - Reason: Prevents a single code from being overused, encouraging wider distribution
+       c. Implement rate limiting for referral code generation:
+     - Use a local cache that clears daily
+     - Limit the number of codes a user can generate per day
+     - Reason: Prevents spam and abuse of the referral system
    - Implementation tips:
      - Use a middleware or decorator for rate limiting
-     - Store referral counts in the database
      - Implement atomic operations for updating referral counts to handle concurrent requests
+   - Update user quota when a referral is successful
    - Important: Implement these security measures in the GET method of the referrals API route
      - Reason: Ensures ongoing validation of referrals, not just at the point of creation
      - Helps maintain system integrity by constantly checking for potential abuse
-
-
-
-4. Backend Logic
-
-   - Implement logic to update user quota when a referral is successful
 
 5. Constants
 
@@ -68,19 +69,12 @@ Create a new `referral` table with the following structure:
    - Modify `web/src/app/api/auth/[...nextauth]/auth-options.ts` to add referral code to `redirect` URL, if it was provided.
    - Ensure proper error handling for all new operations
 
-7. UI Components
-
-   - displaying referral information
-   - sharing referral code
-   - regenerating referral code
-   - inputting referral link/code manually
-
-8. Testing
+7. Testing
 
    - Add unit tests for new database operations and API routes
    - Create integration tests for the referral flow
 
-9. Documentation
+8. Documentation
 
    - Update relevant documentation to include information about the referral system
 
