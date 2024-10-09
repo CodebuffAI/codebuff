@@ -230,7 +230,7 @@ export class Client {
       console.warn(
         [
           '',
-          yellow(`You have used ${pct}+% of your monthly usage limit.`),
+          yellow(`You have used over ${pct}% of your monthly usage limit.`),
           this.user
             ? yellow('Visit https://manicode.ai/pricing to upgrade.')
             : yellow('Type "login" to sign up and get more credits!'),
