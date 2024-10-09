@@ -150,7 +150,7 @@ export function getChangesSinceLastFileVersion(
 
 export function getFiles(filePaths: string[]) {
   const result: Record<string, string | null> = {}
-  const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB in bytes
+  const MAX_FILE_SIZE = 1024 * 1024 // 1MB in bytes
 
   for (const filePath of filePaths) {
     const fullPath = path.join(projectRoot, filePath)

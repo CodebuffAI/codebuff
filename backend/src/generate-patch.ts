@@ -138,7 +138,7 @@ If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". 
   return { isSketchComplete, shouldAddPlaceholderComments }
 }
 
-const generatePatchPrompt = async (
+export const generatePatchPrompt = async (
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
