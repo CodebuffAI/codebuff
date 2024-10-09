@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession } from 'next-auth/react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,8 +10,7 @@ import { ReferralData } from '../api/referrals/route'
 import { Skeleton } from '@/components/ui/skeleton'
 import { match, P } from 'ts-pattern'
 import { env } from '@/env.mjs'
-import { useState } from 'react'
-import { GiftIcon, CopyIcon, Forward, Link as LinkIcon } from 'lucide-react'
+import { GiftIcon, CopyIcon, Forward } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import Link from 'next/link'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
@@ -38,9 +37,7 @@ const CreditsBadge = (credits: number) => {
 
 const ReferralsPage = () => {
   const { data: session, status } = useSession()
-  const [inputCode, setInputCode] = useState('')
-
-  const { data, error, isLoading, refetch } = useQuery<ReferralData>({
+  const { data, error, isLoading } = useQuery<ReferralData>({
     queryKey: ['referrals'],
     queryFn: async () => {
       const response = await fetch('/api/referrals')
@@ -51,38 +48,6 @@ const ReferralsPage = () => {
     },
     enabled: !!session?.user,
   })
-
-  const mutation = useMutation({
-    mutationFn: async (code: string) => {
-      const response = await fetch('/api/referrals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ referralCode: code }),
-      })
-      if (!response.ok) {
-        const responseJson = await response.json()
-
-        throw new Error(responseJson.error ?? `Failed to apply referral code`)
-      }
-      return response.json()
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Referral code applied',
-        description: 'Your referral code has been successfully applied!',
-      })
-      setInputCode('')
-      refetch()
-    },
-    onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      })
-    },
-  })
-
   const loading = isLoading || status === 'loading'
 
   if (error) {
@@ -106,59 +71,29 @@ const ReferralsPage = () => {
 
   return (
     <div className="flex flex-col space-y-6">
-      <Card className="bg-green-50 dark:bg-green-900">
-        {data?.referredBy ? (
-          <>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Forward className="mr-2" /> You both rock! 🤘
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col">
-              <div className="flex place-content-between">
-                <div className="text-sm flex items-center">
-                  <Button variant="link" className="p-0 mr-1 h-auto" asChild>
-                    <Link href={`mailto:${data.referredBy.email}`}>
-                      <span className="text-sm">{data.referredBy.name}</span>
-                    </Link>
-                  </Button>
-                  <p>referred you. </p>
-                </div>
-                {CreditsBadge(CREDITS_REFERRAL_BONUS)}
+      {data?.referredBy && (
+        <Card className="bg-green-50 dark:bg-green-900">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Forward className="mr-2" /> You claimed a referral bonus. You
+              both rock! 🤘
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col">
+            <div className="flex place-content-between">
+              <div className="text-sm flex items-center">
+                <Button variant="link" className="p-0 mr-1 h-auto" asChild>
+                  <Link href={`mailto:${data.referredBy.email}`}>
+                    <span className="text-sm">{data.referredBy.name}</span>
+                  </Link>
+                </Button>
+                <p>referred you. </p>
               </div>
-            </CardContent>
-          </>
-        ) : (
-          <>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Forward className="mr-2" /> Enter A Referral Code
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-2">
-                {loading ? (
-                  <Skeleton className="h-4 w-full" />
-                ) : (
-                  <>
-                    <Input
-                      value={inputCode}
-                      onChange={(e) => setInputCode(e.target.value)}
-                      placeholder="Enter referral code"
-                    />
-                    <Button
-                      onClick={() => mutation.mutate(inputCode)}
-                      disabled={mutation.isPending || !inputCode}
-                    >
-                      Apply
-                    </Button>
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </>
-        )}
-      </Card>
+              {CreditsBadge(CREDITS_REFERRAL_BONUS)}
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <Card className="bg-blue-50 dark:bg-blue-900">
         <CardHeader>
           <CardTitle>Your Referrals</CardTitle>
@@ -232,9 +167,30 @@ const ReferralsPage = () => {
                         <CopyIcon className="h-4 w-4" />
                       </Button>
                     </div>
+
+                    <CardContent>
+                      <p className="mt-4">
+                        To refer, ask your friend to follow these steps:
+                      </p>
+                      <ol className="list-decimal list-inside mt-2">
+                        <li>
+                          Install Manicode globally:
+                          <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg m-4">
+                            <code>npm i -g manicode</code>
+                          </pre>
+                        </li>
+                        <li>
+                          Run Manicode
+                          <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg m-4">
+                            <code>manicode</code>
+                          </pre>
+                        </li>
+                        <li>Paste your referral code in the CLI and log in.</li>
+                      </ol>
+                    </CardContent>
                   </div>
 
-                  <div className="flex flex-col space-y-2">
+                  {/* <div className="flex flex-col space-y-2">
                     <Separator className="my-4" />
                     <div className="flex items-center space-x-2 font-bold">
                       <LinkIcon className="mr-2" /> Your Referral Link
@@ -261,7 +217,7 @@ const ReferralsPage = () => {
                         <CopyIcon className="h-4 w-4" />
                       </Button>
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               )
             )

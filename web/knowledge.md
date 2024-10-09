@@ -88,6 +88,20 @@ The referral system is a key feature of the Manicode web application. It allows 
 - Referral links redirect unauthenticated users to the login page before processing.
 - The system prevents users from referring themselves.
 - There's a limit on the number of times a referral code can be used.
+- As of the latest update, referral codes can only be submitted through the Manicode CLI app, not through the website.
+
+### CLI-based Referral Code Submission
+
+To streamline the referral process and integrate it with the CLI tool:
+
+1. The web interface no longer accepts referral code inputs.
+2. Users are directed to use the Manicode CLI app for submitting referral codes.
+3. The referrals page should include instructions for installing the CLI tool and using referral codes:
+   - Install command: `npm i -g manicode`
+   - Usage: Users should paste their referral code in the CLI after installation.
+4. Format CLI commands in a code-like pattern on the web interface for clarity.
+
+This change ensures a consistent user experience across the Manicode ecosystem and encourages CLI adoption.
 
 ## Environment Configuration
 
