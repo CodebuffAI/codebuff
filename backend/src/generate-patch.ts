@@ -1,9 +1,10 @@
 import { Message } from 'common/actions'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
-import { createPatch } from 'diff'
+import { createPatch, diffLines } from 'diff'
 import { openaiModels } from 'common/constants'
 import { replaceNonStandardPlaceholderComments } from 'common/util/string'
 import { logger } from './util/logger'
+import { applyPatch } from 'common/util/patch'
 
 export async function generatePatch(
   clientSessionId: string,
@@ -58,7 +59,18 @@ export async function generatePatch(
       fullResponse,
       userId
     )
+    patch = await refinePatch(
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      normalizedOldContent,
+      normalizedNewContent,
+      filePath,
+      patch,
+      userId
+    )
   }
+
   const updatedPatch = patch.replaceAll('\n', lineEnding)
   return updatedPatch
 }
@@ -118,7 +130,10 @@ If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". 
   const shouldAddPlaceholderComments = response.includes('INCOMPLETE_SKETCH')
   const isSketchComplete =
     response.includes('NO') && !shouldAddPlaceholderComments
-  logger.debug({ response, isSketchComplete, shouldAddPlaceholderComments }, 'isSketchComplete response')
+  logger.debug(
+    { response, isSketchComplete, shouldAddPlaceholderComments },
+    'isSketchComplete response'
+  )
 
   return { isSketchComplete, shouldAddPlaceholderComments }
 }
@@ -169,4 +184,81 @@ Please produce a patch file based on this change.
     userId
     // ft:${models.gpt4o}:manifold-markets:run-1:A4VfZwvz`
   )
+}
+
+async function refinePatch(
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  oldContent: string,
+  newContent: string,
+  filePath: string,
+  tentativePatch: string,
+  userId?: string
+): Promise<string> {
+  const oldFileWithLineNumbers = oldContent
+    .split('\n')
+    .map((line, index) => `${index + 1}|${line}`)
+    .join('\n')
+  const resultAfterApplyingPatch = applyPatch(oldContent, tentativePatch)
+  const prompt = `
+Please review and refine the following patch. The patch is for the file ${filePath}.
+
+Old file with line numbers:
+\`\`\`
+${oldFileWithLineNumbers}
+\`\`\`
+
+And here's the new file with a sketch of the changes to be made. It may have placeholder comments that should be expanded into code:
+\`\`\`
+${newContent}
+\`\`\`
+
+Tentative patch to transform the old file into the new file:
+\`\`\`
+${tentativePatch}
+\`\`\`
+
+Result after applying the tentative patch:
+\`\`\`
+${resultAfterApplyingPatch}
+\`\`\`
+
+Your task is to review this tentative patch and either:
+A. Confirm it is accurate by responding with just "[CONFIRMED]", or
+B. Rewrite the patch in full to be more accurate, ensuring it correctly transforms the old file into the intended new file.
+
+Please do not include any other text in your response beyond "[CONFIRMED]" or the refined patch content.
+`
+
+  const response = await promptOpenAI(
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    [{ role: 'user', content: prompt }],
+    openaiModels.gpt4o,
+    userId
+  )
+
+  if (response.includes('[CONFIRMED]')) {
+    logger.info({ response }, 'Patch confirmed')
+    return tentativePatch
+  } else {
+    const resultAfterApplyingRefinedPatch = applyPatch(oldContent, response)
+    const resultDiff = diffLines(
+      resultAfterApplyingPatch,
+      resultAfterApplyingRefinedPatch
+    )
+    logger.info(
+      {
+        tentativePatch,
+        response,
+        resultAfterApplyingPatch,
+        resultAfterApplyingRefinedPatch,
+        resultDiff,
+      },
+      'Patch refined'
+    )
+    return response
+  }
 }

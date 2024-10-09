@@ -186,6 +186,20 @@ The backend uses two main strategies for generating file diffs:
 1. **Diff Blocks Generation**: Implemented in `generate-diffs-prompt.ts`.
 2. **Diff via Expansion**: Implemented in `generate-diffs-via-expansion.ts`.
 
+## Patch Generation and Refinement
+
+The backend includes a sophisticated patch generation and refinement process, implemented in `generate-patch.ts`. Key aspects of this process include:
+
+1. Initial patch generation based on old and new content.
+2. A refinement step using a language model (GPT-4) to improve patch accuracy.
+3. When refining patches or reviewing changes, provide as much context as possible to the assistant. This includes:
+   - The original content
+   - The new content
+   - The generated patch
+   - The result of applying the patch
+
+Providing comprehensive context during refinement processes helps ensure more accurate and reliable results.
+
 ### Using Bun for Testing
 
 This project uses Bun for testing instead of Jest. When writing tests, keep the following in mind:
