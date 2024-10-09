@@ -56,6 +56,9 @@ Create a new `referral` table with the following structure:
      - Use a middleware or decorator for rate limiting
      - Implement atomic operations for updating referral counts to handle concurrent requests
    - Update user quota when a referral is successful
+     - Use a database transaction to ensure atomicity of referral creation and quota update
+     - Reason: Maintains data consistency by ensuring both operations succeed or fail together
+   - Important: Implement these security measures in the GET method of the referrals API route
    - Important: Implement these security measures in the GET method of the referrals API route
      - Reason: Ensures ongoing validation of referrals, not just at the point of creation
      - Helps maintain system integrity by constantly checking for potential abuse

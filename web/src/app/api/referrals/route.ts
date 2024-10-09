@@ -3,10 +3,16 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { eq, and, count } from 'drizzle-orm'
+import { eq, count, sql, or } from 'drizzle-orm'
+import { CREDITS_REFERRAL_BONUS } from 'common/constants'
+import { z } from 'zod'
 
-type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
-  Pick<typeof schema.referral.$inferSelect, 'status'>
+type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'>
+const ReferralSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().email(),
+})
 
 export type ReferralData = {
   referralCode: string
@@ -33,42 +39,54 @@ export async function GET() {
       )
     }
 
-    // who did this user refer?
+    // Who did this user refer?
+    const referralsQuery = db
+      .select({
+        id: schema.referral.referred_id,
+      })
+      .from(schema.referral)
+      .where(eq(schema.referral.referrer_id, session.user.id))
+      .as('referralsQuery')
     const referrals = await db
       .select({
         id: schema.user.id,
         name: schema.user.name,
         email: schema.user.email,
-        status: schema.referral.status,
+      })
+      .from(referralsQuery)
+      .leftJoin(schema.user, eq(schema.user.id, referralsQuery.id))
+
+    // Who referred this user?
+    const referredByIdQuery = db
+      .select({
+        id: schema.referral.referrer_id,
       })
       .from(schema.referral)
-      .leftJoin(schema.user, eq(schema.referral.referrer_id, schema.user.id))
-      .where(eq(schema.referral.referrer_id, session.user.id))
-
-    // who referrred this user?
+      .where(eq(schema.referral.referred_id, session.user.id))
+      .limit(1)
+      .as('referredByIdQuery')
     const referredBy = await db
       .select({
         id: schema.user.id,
         name: schema.user.name,
         email: schema.user.email,
-        status: schema.referral.status,
       })
-      .from(schema.referral)
-      .leftJoin(schema.user, eq(schema.referral.referred_id, schema.user.id))
-      .where(eq(schema.referral.referred_id, session.user.id))
+      .from(referredByIdQuery)
+      .leftJoin(schema.user, eq(schema.user.id, referredByIdQuery.id))
       .limit(1)
-      .then((referreds) => {
-        if (referreds.length !== 1) {
+      .then((users) => {
+        if (users.length !== 1) {
           return
         }
-        return referreds[0]
+        return ReferralSchema.parse(users[0])
       })
 
     const referralData: ReferralData = {
       referralCode,
-      referrals: referrals.reduce((acc, referrals) => {
-        if (referrals) {
-          acc.push(...referrals)
+      referrals: referrals.reduce((acc, referral) => {
+        const result = ReferralSchema.safeParse(referral)
+        if (result.success) {
+          acc.push(result.data)
         }
         return acc
       }, [] as Referral[]),
@@ -87,8 +105,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
-
-  if (!session || !session.user) {
+  const userId = session?.user?.id
+  if (!session || !userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -99,7 +117,7 @@ export async function POST(request: Request) {
     const existingReferral = await db
       .select()
       .from(schema.referral)
-      .where(eq(schema.referral.referred_id, session.user.id))
+      .where(eq(schema.referral.referred_id, userId))
       .limit(1)
 
     if (existingReferral.length > 0) {
@@ -113,7 +131,7 @@ export async function POST(request: Request) {
     const currentUser = await db
       .select({ referral_code: schema.user.referral_code })
       .from(schema.user)
-      .where(eq(schema.user.id, session.user.id))
+      .where(eq(schema.user.id, userId))
       .limit(1)
 
     if (currentUser[0]?.referral_code === referralCode) {
@@ -128,24 +146,25 @@ export async function POST(request: Request) {
     }
 
     // Find the referrer user
-    const referrer = await db
+    const referrers = await db
       .select()
       .from(schema.user)
       .where(eq(schema.user.referral_code, referralCode))
       .limit(1)
 
-    if (referrer.length === 0) {
+    if (referrers.length !== 1) {
       return NextResponse.json(
         { error: 'Invalid referral code' },
         { status: 400 }
       )
     }
+    const referrer = referrers[0]
 
     // Check if the referral code has been used 5 times already
     const referralCount = await db
       .select({ value: count() })
       .from(schema.referral)
-      .where(eq(schema.referral.referrer_id, session.user.id))
+      .where(eq(schema.referral.referrer_id, userId))
 
     if (referralCount[0].value >= 5) {
       return NextResponse.json(
@@ -154,13 +173,23 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create the referral
-    await db.insert(schema.referral).values({
-      referrer_id: referrer[0].id,
-      referred_id: session.user.id,
-      status: 'completed',
-      created_at: new Date(),
-      completed_at: new Date(),
+    await db.transaction(async (tx) => {
+      // Create the referral
+      await tx.insert(schema.referral).values({
+        referrer_id: referrer.id,
+        referred_id: userId,
+        status: 'completed',
+        created_at: new Date(),
+        completed_at: new Date(),
+      })
+
+      // Update both users' quota
+      await tx
+        .update(schema.user)
+        .set({
+          quota: sql<number>`${schema.user.quota} + ${CREDITS_REFERRAL_BONUS}`,
+        })
+        .where(or(eq(schema.user.id, referrer.id), eq(schema.user.id, userId)))
     })
 
     return NextResponse.json({ success: true })

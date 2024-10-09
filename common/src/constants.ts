@@ -44,6 +44,7 @@ export const CREDITS_USAGE_LIMITS = {
   FREE: 2_500,
   PAID: 50_000,
 }
+export const CREDITS_REFERRAL_BONUS = 500
 
 export const claudeModels = {
   sonnet: 'claude-3-5-sonnet-20240620',

@@ -14,6 +14,7 @@ import { useState } from 'react'
 import { GiftIcon, CopyIcon, Forward } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import Link from 'next/link'
+import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 
 const copyReferralCode = (code: string) => {
   navigator.clipboard.writeText(code)
@@ -94,37 +95,39 @@ const ReferralsPage = () => {
   return (
     <div className="flex flex-col space-y-6">
       <Card className="bg-green-50 dark:bg-green-900">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Forward className="mr-2" /> Enter A Referral Code
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {data?.referredBy ? (
-            <div className="text-sm">
-              <Button variant="link" className="p-0" asChild>
-                <Link href={`mailto:${data.referredBy.email}`}>
-                  {data.referredBy.name}
-                </Link>
-              </Button>{' '}
-              referred you. You both rock! 🤘
-            </div>
-          ) : (
-            <div className="flex items-center space-x-2">
-              <Input
-                value={inputCode}
-                onChange={(e) => setInputCode(e.target.value)}
-                placeholder="Enter referral code"
-              />
-              <Button
-                onClick={() => mutation.mutate(inputCode)}
-                disabled={mutation.isPending || !inputCode}
-              >
-                Apply
-              </Button>
-            </div>
-          )}
-        </CardContent>
+        {data?.referredBy ? (
+          <div className="text-sm px-4">
+            <Button variant="link" className="p-0" asChild>
+              <Link href={`mailto:${data.referredBy.email}`}>
+                {data.referredBy.name}
+              </Link>
+            </Button>{' '}
+            referred you. You both rock! 🤘
+          </div>
+        ) : (
+          <>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Forward className="mr-2" /> Enter A Referral Code
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center space-x-2">
+                <Input
+                  value={inputCode}
+                  onChange={(e) => setInputCode(e.target.value)}
+                  placeholder="Enter referral code"
+                />
+                <Button
+                  onClick={() => mutation.mutate(inputCode)}
+                  disabled={mutation.isPending || !inputCode}
+                >
+                  Apply
+                </Button>
+              </div>
+            </CardContent>
+          </>
+        )}
       </Card>
       <Card className="bg-blue-50 dark:bg-blue-900">
         <CardHeader>
@@ -167,6 +170,11 @@ const ReferralsPage = () => {
                             {r.name} ({r.email})
                           </span>
                           <span
+                            className={`px-2 py-1 rounded-full text-xs bg-green-200 text-green-800`}
+                          >
+                            +{CREDITS_REFERRAL_BONUS} credits
+                          </span>
+                          {/* <span
                             className={`px-2 py-1 rounded-full text-xs ${
                               r.status === 'completed'
                                 ? 'bg-green-200 text-green-800'
@@ -174,7 +182,7 @@ const ReferralsPage = () => {
                             }`}
                           >
                             {r.status}
-                          </span>
+                          </span> */}
                         </li>
                       ))}
                     </ul>
