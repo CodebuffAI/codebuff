@@ -5,6 +5,11 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 
+export type ReferralData = {
+  referralCode: string
+  referrals: (typeof schema.referral.$inferSelect)[]
+}
+
 export async function GET() {
   const session = await getServerSession(authOptions)
 
@@ -16,7 +21,7 @@ export async function GET() {
     const referralData = await db
       .select({
         referral_code: schema.user.referral_code,
-        referrals: schema.referral,
+        referral: schema.referral,
       })
       .from(schema.user)
       .leftJoin(
@@ -32,12 +37,24 @@ export async function GET() {
         return result
       })
 
-    const referrals = referralData.map((data) => data.referrals)
+    let referralCode = ''
+    const referrals = referralData.reduce(
+      (acc, data) => {
+        if (data.referral_code) {
+          referralCode = data.referral_code
+        }
+        if (data.referral) {
+          acc.push(data.referral)
+        }
+        return acc
+      },
+      [] as ReferralData['referrals']
+    )
 
     return NextResponse.json({
-      referralCode: referralData[0].referral_code,
+      referralCode,
       referrals,
-    })
+    } satisfies ReferralData)
   } catch (error) {
     console.error('Error fetching referral data:', error)
     return NextResponse.json(
