@@ -221,12 +221,13 @@ The referral system is integrated directly into the CLI application:
 - Users enter referral codes as regular input in the CLI.
 - The system detects input with the prefix "ref-" as a referral code.
 - When a referral code is detected, the system automatically initiates a login-code-request with the entered referral code.
+ - The referral code is appended as a query parameter to the login link.
 - This process seamlessly combines referral code entry with the user authentication flow.
 
 Implementation notes:
 - Modify the handleUserInput function in cli.ts to detect "ref-" prefixed input.
 - Update the login flow in client.ts to include the referral code when present.
-- Ensure the backend (websocket-action.ts) can handle login requests with attached referral codes.
+- Ensure the backend (websocket-action.ts) appends the referral code to the login link as a query parameter.
 - Web scraping and external API calls (e.g., Manifold Markets) should be used responsibly and in compliance with the respective services' terms of use.
 
 ## Future Improvements

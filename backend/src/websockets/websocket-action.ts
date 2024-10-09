@@ -177,7 +177,10 @@ const onClearAuthTokenRequest = async (
 }
 
 const onLoginCodeRequest = (
-  { fingerprintId }: Extract<ClientAction, { type: 'login-code-request' }>,
+  {
+    fingerprintId,
+    referralCode,
+  }: Extract<ClientAction, { type: 'login-code-request' }>,
   _clientSessionId: string,
   ws: WebSocket
 ): void => {
@@ -188,7 +191,7 @@ const onLoginCodeRequest = (
       expiresAt.toString(),
       env.NEXTAUTH_SECRET
     )
-    const loginUrl = `${env.NEXT_PUBLIC_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}`
+    const loginUrl = `${env.NEXT_PUBLIC_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}${referralCode ? `&referral_code=${referralCode}` : ''}`
 
     sendAction(ws, {
       type: 'login-code-response',

@@ -91,6 +91,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('login-code-request'),
     fingerprintId: z.string(),
+    referralCode: z.string().optional(),
   }),
   z.object({
     type: z.literal('login-status-request'),
