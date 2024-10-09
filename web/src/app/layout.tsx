@@ -11,7 +11,7 @@ import { siteConfig } from '@/lib/constant'
 import { fonts } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
 import SessionProvider from '@/lib/SessionProvider'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import QueryProvider from '@/components/providers/query-client-provider'
 
 export const generateMetadata = (): Metadata => ({
   metadataBase: new URL(siteConfig.url()),
@@ -47,7 +47,6 @@ export const generateMetadata = (): Metadata => ({
   },
 })
 
-const queryClient = new QueryClient()
 
 const RootLayout = ({ children }: PropsWithChildren) => {
   return (
@@ -60,12 +59,12 @@ const RootLayout = ({ children }: PropsWithChildren) => {
       >
         <ThemeProvider attribute="class">
           <SessionProvider>
-            <QueryClientProvider client={queryClient}>
+            <QueryProvider>
               <Navbar />
               <div className="flex-grow">{children}</div>
               <Footer />
               <Toaster />
-            </QueryClientProvider>
+            </QueryProvider>
           </SessionProvider>
         </ThemeProvider>
       </body>
