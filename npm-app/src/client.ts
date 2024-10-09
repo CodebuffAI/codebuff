@@ -232,7 +232,7 @@ export class Client {
           '',
           yellow(`You have used ${pct}+% of your monthly usage limit.`),
           this.user
-            ? yellow('Visit https://manicode.ai/pricing to upgrade.')
+            ? yellow(`Visit ${process.env.APP_URL}/pricing to upgrade.`)
             : yellow('Type "login" to sign up and get more credits!'),
         ].join('\n')
       )
@@ -349,8 +349,14 @@ export class Client {
       resolveResponse({ ...a, wasStoppedByUser: false })
       this.currentUserInputId = undefined
 
-      this.usage = a.usage ?? 0
-      this.limit = a.limit ?? 0
+      if (!a.usage || !a.limit) return
+
+      this.usage = a.usage
+      if (this.limit !== a.limit) {
+        // Indicates a change in the user's plan
+        this.lastWarnedPct = 0
+        this.limit = a.limit
+      }
     })
 
     return {
