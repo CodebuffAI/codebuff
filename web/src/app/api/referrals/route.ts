@@ -5,11 +5,12 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and } from 'drizzle-orm'
 
+type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
+  Pick<typeof schema.referral.$inferSelect, 'status'>
+
 export type ReferralData = {
   referralCode: string
-  referrals: (typeof schema.referral.$inferSelect & {
-    referred: typeof schema.user.$inferSelect
-  })[]
+  referred: Referral[]
 }
 
 export async function GET() {
@@ -20,35 +21,33 @@ export async function GET() {
   }
 
   try {
-    // const user = await db.query.user.findMany({
-    //   where: eq(schema.user.id, session.user.id),
-    //   with: {
-    //     referrals: {
-    //       where: (referrals, { eq }) =>
-    //         eq(referrals.referrer_id, session?.user?.id),
-    //       with: {
-    //         users: true,
-    //       },
-    //     },
-    //   },
-    // })
-    const referrals = await db.query.referral.findMany({
-      where: and(
-        eq(schema.referral.referrer_id, session.user.id),
-        eq(schema.referral.status, 'completed')
-      ),
-      with: {
-        user: true,
-      },
-    })
+    const referrals = await db
+      .select({
+        referralCode: schema.user.referral_code,
+        referred: {
+          id: schema.user.id,
+          name: schema.user.name,
+          email: schema.user.email,
+          status: schema.referral.status,
+        },
+      })
+      .from(schema.referral)
+      .leftJoin(schema.user, eq(schema.referral.referred_id, schema.user.id))
+      .where(and(eq(schema.referral.referrer_id, session.user.id)))
 
-    if (!referrals) {
+    const referralCode = referrals[0].referralCode
+    if (!referralCode) {
       throw new Error(`No user found with id ${session.user.id}`)
     }
 
     const referralData: ReferralData = {
-      referralCode: referrals.referral_code || '',
-      referrals: referrals.referrals,
+      referralCode,
+      referred: referrals.reduce((acc, { referred }) => {
+        if (referred) {
+          acc.push(referred)
+        }
+        return acc
+      }, [] as Referral[]),
     }
 
     return NextResponse.json(referralData)

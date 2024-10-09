@@ -143,24 +143,26 @@ const ReferralsPage = () => {
               },
               ({ data }) => (
                 <div className="flex flex-col space-y-4">
-                  {data.referrals.length === 0 ? (
+                  {data.referred.length === 0 ? (
                     <p>You haven't referred anyone yet.</p>
                   ) : (
                     <ul className="space-y-2">
-                      {data.referrals.map((referral) => (
+                      {data.referred.map((r) => (
                         <li
-                          key={referral.referred_id}
+                          key={r.id}
                           className="flex justify-between items-center"
                         >
-                          <span>{referral.referred.name || referral.referred.email}</span>
+                          <span>
+                            {r.name} ({r.email})
+                          </span>
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${
-                              referral.status === 'completed'
+                              r.status === 'completed'
                                 ? 'bg-green-200 text-green-800'
                                 : 'bg-yellow-200 text-yellow-800'
                             }`}
                           >
-                            {referral.status}
+                            {r.status}
                           </span>
                         </li>
                       ))}
