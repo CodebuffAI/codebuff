@@ -17,15 +17,28 @@ const ReferralsPage = () => {
 
   useEffect(() => {
     if (session?.user) {
-      // Fetch user's referral code and referrals
-      // This is a placeholder and should be replaced with actual API call
-      setReferralCode('EXAMPLE123')
-      setReferrals([
-        { id: 1, email: 'friend@example.com', status: 'pending' },
-        { id: 2, email: 'colleague@example.com', status: 'completed' },
-      ])
+      fetchReferralData()
     }
   }, [session])
+
+  const fetchReferralData = async () => {
+    try {
+      const response = await fetch('/api/referrals')
+      if (!response.ok) {
+        throw new Error('Failed to fetch referral data')
+      }
+      const data = await response.json()
+      setReferralCode(data.referralCode)
+      setReferrals(data.referrals)
+    } catch (error) {
+      console.error('Error fetching referral data:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load referral data. Please try again later.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   const copyReferralCode = () => {
     navigator.clipboard.writeText(referralCode)
@@ -62,10 +75,10 @@ const ReferralsPage = () => {
             <ul className="space-y-2">
               {referrals.map((referral) => (
                 <li
-                  key={referral.id}
+                  key={`${referral.referrer_id}-${referral.referred_id}`}
                   className="flex justify-between items-center"
                 >
-                  <span>{referral.email}</span>
+                  <span>{referral.referred_id}</span>
                   <span
                     className={`px-2 py-1 rounded-full text-xs ${
                       referral.status === 'completed'

@@ -13,20 +13,30 @@ export async function GET() {
   }
 
   try {
-    const user = await db.query.user.findFirst({
-      where: eq(schema.user.id, session.user.id),
-      columns: {
-        referral_code: true,
-      },
-    })
+    const referralData = await db
+      .select({
+        referral_code: schema.user.referral_code,
+        referrals: schema.referral,
+      })
+      .from(schema.user)
+      .leftJoin(
+        schema.referral,
+        eq(schema.user.id, schema.referral.referrer_id)
+      )
+      .where(eq(schema.user.id, session.user.id))
+      .then((result) => {
+        if (result.length === 0) {
+          throw new Error(`No referral code found for user ${session.user?.id}`)
+        }
 
-    const referrals = await db.query.referral.findMany({
-      where: eq(schema.referral.referrer_id, session.user.id),
-    })
+        return result
+      })
+
+    const referrals = referralData.map((data) => data.referrals)
 
     return NextResponse.json({
-      referralCode: user?.referral_code,
-      referrals: referrals,
+      referralCode: referralData[0].referral_code,
+      referrals,
     })
   } catch (error) {
     console.error('Error fetching referral data:', error)
