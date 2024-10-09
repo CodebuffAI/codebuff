@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS "referral" (
 	"referrer_id" text NOT NULL,
 	"referred_id" text NOT NULL,
 	"status" "referral_status" DEFAULT 'pending' NOT NULL,
+	"credits" integer NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"completed_at" timestamp,
 	CONSTRAINT "referral_referrer_id_referred_id_pk" PRIMARY KEY("referrer_id","referred_id")

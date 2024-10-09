@@ -63,8 +63,17 @@ Create a new `referral` table with the following structure:
      - Reason: Ensures ongoing validation of referrals, not just at the point of creation
      - Helps maintain system integrity by constantly checking for potential abuse
 
-5. Constants
+5. Authentication Flow
 
+   - Modify `web/src/app/api/auth/[...nextauth]/auth-options.ts` to add referral code to `redirect` URL, if it was provided.
+   - Ensure proper error handling for all new operations
+   - Update `web/src/app/onboard/page.tsx` to automatically create a referral and update quotas when a user visits with a `referral_code` query parameter:
+     - Extract the `referral_code` from the query parameters
+     - If a valid `referral_code` is present, call the referral API to create the referral and update quotas
+     - Handle any errors that may occur during this process
+     - Provide feedback to the user about the successful referral or any issues
+
+6. Constants
    - Add referral-related constants (e.g., quota reward amounts) to `common/src/constants.ts`
 
 6. Authentication Flow

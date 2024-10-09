@@ -76,6 +76,7 @@ export const referral = pgTable(
       .notNull()
       .references(() => user.id),
     status: ReferralStatus('status').notNull().default('pending'),
+    credits: integer('credits').notNull(),
     created_at: timestamp('created_at', { mode: 'date' })
       .notNull()
       .defaultNow(),

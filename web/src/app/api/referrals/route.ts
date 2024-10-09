@@ -179,6 +179,7 @@ export async function POST(request: Request) {
         referrer_id: referrer.id,
         referred_id: userId,
         status: 'completed',
+        credits: CREDITS_REFERRAL_BONUS,
         created_at: new Date(),
         completed_at: new Date(),
       })

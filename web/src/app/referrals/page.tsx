@@ -174,15 +174,6 @@ const ReferralsPage = () => {
                           >
                             +{CREDITS_REFERRAL_BONUS} credits
                           </span>
-                          {/* <span
-                            className={`px-2 py-1 rounded-full text-xs ${
-                              r.status === 'completed'
-                                ? 'bg-green-200 text-green-800'
-                                : 'bg-yellow-200 text-yellow-800'
-                            }`}
-                          >
-                            {r.status}
-                          </span> */}
                         </li>
                       ))}
                     </ul>
