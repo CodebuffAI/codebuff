@@ -11,6 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { match, P } from 'ts-pattern'
 import { env } from '@/env.mjs'
 import { useState } from 'react'
+import { GiftIcon, CopyIcon, Forward } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
 
 const copyReferralCode = (code: string) => {
   navigator.clipboard.writeText(code)
@@ -91,34 +93,11 @@ const ReferralsPage = () => {
 
   return (
     <div className="flex flex-col space-y-6">
-      <Card>
+      <Card className="bg-green-50 dark:bg-green-900">
         <CardHeader>
-          <CardTitle>Your Referral Code</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-2">
-            {loading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Input
-                value={data?.referralCode}
-                placeholder={'Your referral code'}
-                readOnly
-                className="bg-gray-100 dark:bg-gray-800"
-              />
-            )}
-            <Button
-              onClick={() => data && copyReferralCode(data.referralCode)}
-              disabled={loading || !session?.user}
-            >
-              Copy
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Enter A Referral Code</CardTitle>
+          <CardTitle className="flex items-center">
+            <Forward className="mr-2" /> Enter A Referral Code
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-2">
@@ -136,7 +115,7 @@ const ReferralsPage = () => {
           </div>
         </CardContent>
       </Card>
-      <Card>
+      <Card className="bg-blue-50 dark:bg-blue-900">
         <CardHeader>
           <CardTitle>Your Referrals</CardTitle>
         </CardHeader>
@@ -160,36 +139,64 @@ const ReferralsPage = () => {
             .with(
               {
                 loading: false,
-                data: {
-                  referrals: P.array(),
-                },
+                data: P.not(undefined),
               },
-              ({ data: { referrals } }) => {
-                if (referrals.length === 0) {
-                  return <p>You haven't referred anyone yet.</p>
-                }
-                return (
-                  <ul className="space-y-2">
-                    {referrals.map((referral) => (
-                      <li
-                        key={`${referral.referrer_id}-${referral.referred_id}`}
-                        className="flex justify-between items-center"
-                      >
-                        <span>{referral.referred_id}</span>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs ${
-                            referral.status === 'completed'
-                              ? 'bg-green-200 text-green-800'
-                              : 'bg-yellow-200 text-yellow-800'
-                          }`}
+              ({ data }) => (
+                <div className="flex flex-col space-y-4">
+                  {data.referrals.length === 0 ? (
+                    <p>You haven't referred anyone yet.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {data.referrals.map((referral) => (
+                        <li
+                          key={`${referral.referrer_id}-${referral.referred_id}`}
+                          className="flex justify-between items-center"
                         >
-                          {referral.status}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )
-              }
+                          <span>{referral.referred_id}</span>
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${
+                              referral.status === 'completed'
+                                ? 'bg-green-200 text-green-800'
+                                : 'bg-yellow-200 text-yellow-800'
+                            }`}
+                          >
+                            {referral.status}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <div className="flex flex-col space-y-2">
+                    <Separator className="my-4" />
+                    <div className="flex items-center space-x-2 font-bold">
+                      <GiftIcon className="mr-2" /> Your Referral Code
+                    </div>
+                    <div className="relative">
+                      {loading ? (
+                        <Skeleton className="h-10 w-full" />
+                      ) : (
+                        <Input
+                          value={data?.referralCode}
+                          placeholder={'Your referral code'}
+                          readOnly
+                          className="bg-gray-100 dark:bg-gray-800 pr-10"
+                        />
+                      )}
+                      <Button
+                        onClick={() =>
+                          data && copyReferralCode(data.referralCode)
+                        }
+                        disabled={loading || !session?.user}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
+                        variant="ghost"
+                      >
+                        <CopyIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )
             )
             .otherwise(() => (
               <p>
