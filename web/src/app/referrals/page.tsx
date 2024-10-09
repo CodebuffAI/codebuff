@@ -46,10 +46,9 @@ const ReferralsPage = () => {
         body: JSON.stringify({ referralCode: code }),
       })
       if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error('You have already used this referral code')
-        }
-        throw new Error('Failed to apply referral code')
+        const responseJson = await response.json()
+
+        throw new Error(responseJson.error ?? `Failed to apply referral code`)
       }
       return response.json()
     },
@@ -143,11 +142,11 @@ const ReferralsPage = () => {
               },
               ({ data }) => (
                 <div className="flex flex-col space-y-4">
-                  {data.referred.length === 0 ? (
+                  {data.referrals.length === 0 ? (
                     <p>You haven't referred anyone yet.</p>
                   ) : (
                     <ul className="space-y-2">
-                      {data.referred.map((r) => (
+                      {data.referrals.map((r) => (
                         <li
                           key={r.id}
                           className="flex justify-between items-center"

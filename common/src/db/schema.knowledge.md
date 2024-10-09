@@ -49,6 +49,10 @@ Create a new `referral` table with the following structure:
      - Use a middleware or decorator for rate limiting
      - Store referral counts in the database
      - Implement atomic operations for updating referral counts to handle concurrent requests
+   - Important: Implement these security measures in the GET method of the referrals API route
+     - Reason: Ensures ongoing validation of referrals, not just at the point of creation
+     - Helps maintain system integrity by constantly checking for potential abuse
+
 
 
 4. Backend Logic
