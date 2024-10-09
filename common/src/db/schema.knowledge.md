@@ -33,9 +33,23 @@ Create a new `referral` table with the following structure:
 3. API Routes
 
    - Create `web/src/app/api/referrals/route.ts` for referral-related operations
-   - Add validation to prevent self-referrals.
-   - Limit each referral code to be used 5 times.
-   - Implement rate limiting for referral code generation in a local cache automatically clears every day. Nothing fancy needed.
+   - Implement security measures to prevent system abuse:
+     a. Add validation to prevent self-referrals:
+        - Check if the referred user ID is different from the referrer's ID
+        - Reason: Prevents users from gaining benefits by referring themselves
+     b. Limit each referral code to be used 5 times:
+        - Keep a count of successful referrals for each code
+        - Reject referrals once the limit is reached
+        - Reason: Prevents a single code from being overused, encouraging wider distribution
+     c. Implement rate limiting for referral code generation:
+        - Use a local cache that clears daily
+        - Limit the number of codes a user can generate per day
+        - Reason: Prevents spam and abuse of the referral system
+   - Implementation tips:
+     - Use a middleware or decorator for rate limiting
+     - Store referral counts in the database
+     - Implement atomic operations for updating referral counts to handle concurrent requests
+
 
 4. Backend Logic
 
