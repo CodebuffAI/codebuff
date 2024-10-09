@@ -3,7 +3,7 @@
 import { toast } from '@/components/ui/use-toast'
 import { getServerSession } from 'next-auth'
 import Image from 'next/image'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
@@ -33,7 +33,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
       description:
         'No valid session or auth code. Please try again and reach out to support@manicode.ai if the problem persists.',
     })
-    return notFound()
+    return redirect(env.NEXT_PUBLIC_APP_URL)
   }
 
   const [fingerprintId, expiresAt, receivedfingerprintHash] =
@@ -204,8 +204,8 @@ const Onboard = async ({ searchParams }: PageProps) => {
             ) : (
               <p>
                 Slight hiccup: we couldn\'t automatically apply your referral
-                code. Can you go to ${env.APP_URL}/referrals and manually apply
-                it?
+                code. Can you go to ${env.NEXT_PUBLIC_APP_URL}/referrals and
+                manually apply it?
               </p>
             )}
           </>
@@ -224,8 +224,8 @@ const Onboard = async ({ searchParams }: PageProps) => {
             ) : (
               <p>
                 Slight hiccup: we couldn\'t automatically apply your referral
-                code. Can you go to ${env.APP_URL}/referrals and manually apply
-                it?
+                code. Can you go to ${env.NEXT_PUBLIC_APP_URL}/referrals and
+                manually apply it?
               </p>
             )}
           </>

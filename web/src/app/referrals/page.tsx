@@ -11,17 +11,29 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { match, P } from 'ts-pattern'
 import { env } from '@/env.mjs'
 import { useState } from 'react'
-import { GiftIcon, CopyIcon, Forward } from 'lucide-react'
+import { GiftIcon, CopyIcon, Forward, Link as LinkIcon } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import Link from 'next/link'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 
-const copyReferralCode = (code: string) => {
-  navigator.clipboard.writeText(code)
+const copyReferral = (code: string, toLink: boolean) => {
+  navigator.clipboard.writeText(
+    toLink ? `${env.NEXT_PUBLIC_APP_URL}/redeem?referral_code=${code}` : code
+  )
   toast({
-    title: 'Copied referral code',
+    title: `Copied referral ${toLink ? 'link' : 'code'}`,
     description: 'Refer away! 🌟',
   })
+}
+
+const CreditsBadge = (credits: number) => {
+  return (
+    <span
+      className={`flex-none p-2 rounded-full text-xs bg-green-200 text-green-800 item-center text-center`}
+    >
+      +{credits} credits
+    </span>
+  )
 }
 
 const ReferralsPage = () => {
@@ -96,14 +108,26 @@ const ReferralsPage = () => {
     <div className="flex flex-col space-y-6">
       <Card className="bg-green-50 dark:bg-green-900">
         {data?.referredBy ? (
-          <div className="text-sm px-4">
-            <Button variant="link" className="p-0" asChild>
-              <Link href={`mailto:${data.referredBy.email}`}>
-                {data.referredBy.name}
-              </Link>
-            </Button>{' '}
-            referred you. You both rock! 🤘
-          </div>
+          <>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Forward className="mr-2" /> You both rock! 🤘
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col">
+              <div className="flex place-content-between">
+                <div className="text-sm flex items-center">
+                  <Button variant="link" className="p-0 mr-1 h-auto" asChild>
+                    <Link href={`mailto:${data.referredBy.email}`}>
+                      <span className="text-sm">{data.referredBy.name}</span>
+                    </Link>
+                  </Button>
+                  <p>referred you. </p>
+                </div>
+                {CreditsBadge(CREDITS_REFERRAL_BONUS)}
+              </div>
+            </CardContent>
+          </>
         ) : (
           <>
             <CardHeader>
@@ -113,17 +137,23 @@ const ReferralsPage = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center space-x-2">
-                <Input
-                  value={inputCode}
-                  onChange={(e) => setInputCode(e.target.value)}
-                  placeholder="Enter referral code"
-                />
-                <Button
-                  onClick={() => mutation.mutate(inputCode)}
-                  disabled={mutation.isPending || !inputCode}
-                >
-                  Apply
-                </Button>
+                {loading ? (
+                  <Skeleton className="h-4 w-full" />
+                ) : (
+                  <>
+                    <Input
+                      value={inputCode}
+                      onChange={(e) => setInputCode(e.target.value)}
+                      placeholder="Enter referral code"
+                    />
+                    <Button
+                      onClick={() => mutation.mutate(inputCode)}
+                      disabled={mutation.isPending || !inputCode}
+                    >
+                      Apply
+                    </Button>
+                  </>
+                )}
               </div>
             </CardContent>
           </>
@@ -143,7 +173,7 @@ const ReferralsPage = () => {
                 loading: true,
               },
               () => (
-                <div className="space-y-2">
+                <div className="space-y-4">
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-4 w-5/6" />
                   <Skeleton className="h-4 w-4/6" />
@@ -169,11 +199,7 @@ const ReferralsPage = () => {
                           <span>
                             {r.name} ({r.email})
                           </span>
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs bg-green-200 text-green-800`}
-                          >
-                            +{CREDITS_REFERRAL_BONUS} credits
-                          </span>
+                          {CreditsBadge(CREDITS_REFERRAL_BONUS)}
                         </li>
                       ))}
                     </ul>
@@ -197,7 +223,36 @@ const ReferralsPage = () => {
                       )}
                       <Button
                         onClick={() =>
-                          data && copyReferralCode(data.referralCode)
+                          data && copyReferral(data.referralCode, false)
+                        }
+                        disabled={loading || !session?.user}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
+                        variant="ghost"
+                      >
+                        <CopyIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col space-y-2">
+                    <Separator className="my-4" />
+                    <div className="flex items-center space-x-2 font-bold">
+                      <LinkIcon className="mr-2" /> Your Referral Link
+                    </div>
+                    <div className="relative">
+                      {loading ? (
+                        <Skeleton className="h-10 w-full" />
+                      ) : (
+                        <Input
+                          value={`${env.NEXT_PUBLIC_APP_URL}/redeem?referral_code=${data?.referralCode}`}
+                          placeholder={'Your referral link'}
+                          readOnly
+                          className="bg-gray-100 dark:bg-gray-800 pr-10"
+                        />
+                      )}
+                      <Button
+                        onClick={() =>
+                          data && copyReferral(data.referralCode, true)
                         }
                         disabled={loading || !session?.user}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"

@@ -1,4 +1,4 @@
-import { env } from './env.mjs'
+// import { env } from './env.mjs'
 
 export const STOP_MARKER = '[' + 'END]'
 export const FIND_FILES_MARKER = '[' + 'FIND_FILES_PLEASE]'
@@ -42,9 +42,9 @@ export const SKIPPED_TERMINAL_COMMANDS = [
 export const MAX_DATE = new Date(86399999999999)
 
 export const CREDITS_USAGE_LIMITS = {
-  ANON: env.ENVIRONMENT === 'local' ? 1_000_000 : 1_000,
-  FREE: env.ENVIRONMENT === 'local' ? 2_500_000 : 2_500,
-  PAID: env.ENVIRONMENT === 'local' ? 50_000_000 : 50_000,
+  ANON: process.env.NEXT_PUBLIC_ENVIRONMENT === 'local' ? 1_000_000 : 1_000,
+  FREE: process.env.NEXT_PUBLIC_ENVIRONMENT === 'local' ? 2_500_000 : 2_500,
+  PAID: process.env.NEXT_PUBLIC_ENVIRONMENT === 'local' ? 50_000_000 : 50_000,
 }
 export const CREDITS_REFERRAL_BONUS = 500
 

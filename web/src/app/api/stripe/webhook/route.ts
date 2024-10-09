@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { eq } from 'drizzle-orm'
+import { eq, or, sum } from 'drizzle-orm'
 
 import { env } from '@/env.mjs'
 import { stripeServer } from 'common/src/util/stripe'
@@ -26,7 +26,7 @@ const getCustomerId = (
     .exhaustive()
 }
 
-const webhookHandler = async (req: NextRequest) => {
+const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const buf = await req.text()
     const sig = req.headers.get('stripe-signature')!
@@ -77,7 +77,7 @@ const webhookHandler = async (req: NextRequest) => {
         },
       },
       { status: 405 }
-    ).headers.set('Allow', 'POST')
+    )
   }
 }
 
@@ -86,13 +86,39 @@ async function handleSubscriptionChange(
   usageTier: keyof typeof CREDITS_USAGE_LIMITS
 ) {
   const customerId = getCustomerId(subscription.customer)
+
+  // Fetch the user's current quota and referral credits
+  const userCredits = await db
+    .select({
+      referralCredits: sum(schema.referral.credits),
+    })
+    .from(schema.user)
+    .leftJoin(
+      schema.referral,
+      or(
+        eq(schema.referral.referrer_id, schema.user.id),
+        eq(schema.referral.referred_id, schema.user.id)
+      )
+    )
+    .where(eq(schema.user.stripe_customer_id, customerId))
+    .limit(1)
+    .then((rows) => {
+      if (rows.length < 1) {
+        return
+      }
+      return rows[0]
+    })
+
+  const baseQuota = CREDITS_USAGE_LIMITS[usageTier]
+  const newQuota = baseQuota + parseInt(userCredits?.referralCredits ?? '0')
+
+  // TODO: If downgrading, check Stripe to see if they have exceeded quota, don't just blindly reset. But for now it's fine to just trust them.
+  // A good indicator that we've created compelling value is if people are subscribing and unsubscribing just to get some more free usage
   await db
     .update(schema.user)
     .set({
-      // TODO: If downgrading, check Stripe to see if they have exceeded quota, don't just blindly reset. But for now it's fine to just trust them.
-      // A good indicator that we've created compelling value is if people are subscribing and unsubscribing just to get some more free usage
       quota_exceeded: false,
-      quota: CREDITS_USAGE_LIMITS[usageTier],
+      quota: newQuota,
       subscription_active: usageTier === 'PAID',
       stripe_price_id: subscription.id,
     })

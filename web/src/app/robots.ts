@@ -1,6 +1,6 @@
-import { MetadataRoute } from 'next';
+import { MetadataRoute } from 'next'
 
-import { env } from '@/env.mjs';
+import { env } from '@/env.mjs'
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -8,6 +8,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
     },
-    sitemap: `${env.APP_URL}/sitemap.xml`,
-  };
+    sitemap: `${env.NEXT_PUBLIC_APP_URL}/sitemap.xml`,
+  }
 }

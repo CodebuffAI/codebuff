@@ -15,7 +15,7 @@ dotenv.config({ path })
 export const env = createEnv({
   server: {
     DATABASE_URL: z.string().min(1),
-    APP_URL: z.string().url().min(1),
+    NEXT_PUBLIC_APP_URL: z.string().url().min(1),
     GOOGLE_SITE_VERIFICATION_ID: z.string().optional(),
     GITHUB_ID: z.string().min(1),
     GITHUB_SECRET: z.string().min(1),
@@ -29,11 +29,12 @@ export const env = createEnv({
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
     NEXT_PUBLIC_ENVIRONMENT: z.string().min(1),
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email().min(1),
+    NEXT_PUBLIC_APP_URL: z.string().min(1),
   },
   runtimeEnv: {
     NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT,
     DATABASE_URL: process.env.DATABASE_URL,
-    APP_URL: process.env.APP_URL,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     GOOGLE_SITE_VERIFICATION_ID: process.env.GOOGLE_SITE_VERIFICATION_ID,
     GITHUB_ID: process.env.GITHUB_ID,
     GITHUB_SECRET: process.env.GITHUB_SECRET,
@@ -45,5 +46,6 @@ export const env = createEnv({
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   },
 })

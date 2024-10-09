@@ -29,8 +29,8 @@ export const GET = async () => {
         quantity: 1,
       },
     ],
-    success_url: `${env.APP_URL}?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: env.APP_URL,
+    success_url: `${env.NEXT_PUBLIC_APP_URL}?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: env.NEXT_PUBLIC_APP_URL,
   })
 
   return NextResponse.json({ session: checkoutSession }, { status: 200 })

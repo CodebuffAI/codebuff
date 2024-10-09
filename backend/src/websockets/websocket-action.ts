@@ -188,7 +188,7 @@ const onLoginCodeRequest = (
       expiresAt.toString(),
       env.NEXTAUTH_SECRET
     )
-    const loginUrl = `${env.APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}`
+    const loginUrl = `${env.NEXT_PUBLIC_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}`
 
     sendAction(ws, {
       type: 'login-code-response',
@@ -419,7 +419,10 @@ subscribeToAction('login-code-request', onLoginCodeRequest)
 subscribeToAction('usage', onUsageRequest)
 subscribeToAction('login-status-request', onLoginStatusRequest)
 
-subscribeToAction('generate-commit-message', protec.run(onGenerateCommitMessage))
+subscribeToAction(
+  'generate-commit-message',
+  protec.run(onGenerateCommitMessage)
+)
 
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {

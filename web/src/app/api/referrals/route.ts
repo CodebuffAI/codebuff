@@ -7,11 +7,13 @@ import { eq, count, sql, or } from 'drizzle-orm'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 import { z } from 'zod'
 
-type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'>
+type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
+  Pick<typeof schema.referral.$inferSelect, 'credits'>
 const ReferralSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string().email(),
+  credits: z.coerce.number(),
 })
 
 export type ReferralData = {
@@ -43,15 +45,19 @@ export async function GET() {
     const referralsQuery = db
       .select({
         id: schema.referral.referred_id,
+        credits: schema.referral.credits,
+        // credits: sql`SUM(${schema.referral.credits})`.as('credits'),
       })
       .from(schema.referral)
       .where(eq(schema.referral.referrer_id, session.user.id))
+      // .groupBy(schema.referral.referred_id)
       .as('referralsQuery')
     const referrals = await db
       .select({
         id: schema.user.id,
         name: schema.user.name,
         email: schema.user.email,
+        credits: referralsQuery.credits,
       })
       .from(referralsQuery)
       .leftJoin(schema.user, eq(schema.user.id, referralsQuery.id))
@@ -60,9 +66,12 @@ export async function GET() {
     const referredByIdQuery = db
       .select({
         id: schema.referral.referrer_id,
+        credits: schema.referral.credits,
+        // credits: sql`SUM(${schema.referral.credits})`.as('credits'),
       })
       .from(schema.referral)
       .where(eq(schema.referral.referred_id, session.user.id))
+      // .groupBy(schema.referral.referrer_id)
       .limit(1)
       .as('referredByIdQuery')
     const referredBy = await db
@@ -70,6 +79,7 @@ export async function GET() {
         id: schema.user.id,
         name: schema.user.name,
         email: schema.user.email,
+        credits: referredByIdQuery.credits,
       })
       .from(referredByIdQuery)
       .leftJoin(schema.user, eq(schema.user.id, referredByIdQuery.id))

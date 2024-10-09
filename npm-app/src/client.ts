@@ -232,7 +232,9 @@ export class Client {
           '',
           yellow(`You have used ${pct}+% of your monthly usage limit.`),
           this.user
-            ? yellow(`Visit ${process.env.APP_URL}/pricing to upgrade.`)
+            ? yellow(
+                `Visit ${process.env.NEXT_PUBLIC_APP_URL}/pricing to upgrade.`
+              )
             : yellow('Type "login" to sign up and get more credits!'),
         ].join('\n')
       )
