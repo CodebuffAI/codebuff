@@ -143,6 +143,7 @@ const ReferralsPage = () => {
             ))}
         </CardContent>
       </Card>
+      {/* ... existing code ... */}
     </>
   )
 }

@@ -153,8 +153,8 @@ const Onboard = async ({ searchParams }: PageProps) => {
     description: 'Something went wrong.',
     content: (
       <p>
-        Please try again and reach out to support@manicode.ai if the problem
-        persists.
+        Please try again and reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if the
+        problem persists.
       </p>
     ),
   })
