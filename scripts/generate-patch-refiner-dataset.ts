@@ -6,6 +6,7 @@ import * as path from 'path'
 import { generatePatchPrompt } from '../backend/src/generate-patch'
 import { TEST_USER_ID } from 'common/constants'
 import { applyPatch } from 'common/util/patch'
+import { shuffle } from 'lodash'
 
 interface ParsedData {
   oldFile: string
@@ -98,14 +99,19 @@ async function generateAttemptedPatches(
   return results
 }
 
-function createPatchRefinerDataset(
-  data: (ParsedData & { attemptedPatch: string })[],
-  outputPath: string
-) {
+function createPatchRefinerDataset(data: ParsedData[], outputPath: string) {
   const dataset = data.map((entry) => {
+    const resultAfterApplyingPatch = applyPatch(
+      entry.oldFile,
+      entry.attemptedPatch || entry.patch
+    )
     const patchesEquavalent =
-      applyPatch(entry.oldFile, entry.attemptedPatch) ===
-      applyPatch(entry.oldFile, entry.patch)
+      resultAfterApplyingPatch === applyPatch(entry.oldFile, entry.patch)
+
+    const oldFileWithLineNumbers = entry.oldFile
+      .split('\n')
+      .map((line, index) => `${index + 1}|${line}`)
+      .join('\n')
 
     const conversation = {
       messages: [
@@ -113,12 +119,12 @@ function createPatchRefinerDataset(
           role: 'user',
           content: `Please confirm or refine the following patch.
 
-Old file:
+Old file with line numbers:
 \`\`\`
-${entry.oldFile}
+${oldFileWithLineNumbers}
 \`\`\`
 
-New file (sketch of changes):
+New file (with sketch of changes):
 \`\`\`
 ${entry.sketch}
 \`\`\`
@@ -128,7 +134,11 @@ Tentative patch to transform the old file into the new file:
 ${entry.attemptedPatch}
 \`\`\`
 
-Your task is to review this tentative patch and either:
+Result after applying the tentative patch:
+\`\`\`
+${resultAfterApplyingPatch}
+\`\`\`
+
 A. Confirm it is accurate by responding with just "[CONFIRMED]", or
 B. Rewrite the patch in full to be more accurate, ensuring it correctly transforms the old file into the intended new file.`,
         },
@@ -145,47 +155,6 @@ B. Rewrite the patch in full to be more accurate, ensuring it correctly transfor
   console.log(`Patch refiner dataset saved to: ${outputPath}`)
 }
 
-function appendLastFiftyEntries(data: ParsedData[], outputPath: string) {
-  const lastFifty = data.slice(-50)
-  const dataset = lastFifty.map((entry) => {
-    const conversation = {
-      messages: [
-        {
-          role: 'user',
-          content: `Please confirm or refine the following patch.
-
-Old file:
-\`\`\`
-${entry.oldFile}
-\`\`\`
-
-New file (sketch of changes):
-\`\`\`
-${entry.sketch}
-\`\`\`
-
-Tentative patch to transform the old file into the new file:
-\`\`\`
-${entry.patch}
-\`\`\`
-
-Your task is to review this tentative patch and either:
-A. Confirm it is accurate by responding with just "[CONFIRMED]", or
-B. Rewrite the patch in full to be more accurate, ensuring it correctly transforms the old file into the intended new file.`,
-        },
-        {
-          role: 'assistant',
-          content: '[CONFIRMED]',
-        },
-      ],
-    }
-    return JSON.stringify(conversation)
-  })
-
-  fs.appendFileSync(outputPath, dataset.join('\n') + '\n')
-  console.log(`Appended last 50 entries to: ${outputPath}`)
-}
-
 async function main() {
   // Log some environment variables to verify they're loaded
   console.log('Environment:', env.ENVIRONMENT)
@@ -195,19 +164,21 @@ async function main() {
     __dirname,
     'fine-tuning-validation-data-2024-09-15.jsonl'
   )
+  const jsonDataPath = path.join(__dirname, 'data-with-attempted-patches.json')
   const parsedData = parseFineTuningData(validationDataPath)
 
   console.log(
     `Parsed ${parsedData.length} valid entries from the validation data.`
   )
+  const lastFiftyEntries = parsedData.slice(-50)
+  const dataExists = fs.existsSync(jsonDataPath)
+  const dataWithAttemptedPatches = dataExists
+    ? (JSON.parse(fs.readFileSync(jsonDataPath, 'utf-8')) as ParsedData[])
+    : await generateAttemptedPatches(parsedData)
 
-  // await generateAttemptedPatches(parsedData)
+  const allData = shuffle([...dataWithAttemptedPatches, ...lastFiftyEntries])
 
-  // Add this line to call the new function
-  appendLastFiftyEntries(
-    parsedData,
-    path.join(__dirname, 'patch-refiner-dataset.jsonl')
-  )
+  createPatchRefinerDataset(allData, 'patch-refiner-dataset.jsonl')
 }
 
 main().catch(console.error)

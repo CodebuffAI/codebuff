@@ -202,14 +202,14 @@ async function refinePatch(
     .join('\n')
   const resultAfterApplyingPatch = applyPatch(oldContent, tentativePatch)
   const prompt = `
-Please review and refine the following patch. The patch is for the file ${filePath}.
+Please review and refine the following patch.
 
 Old file with line numbers:
 \`\`\`
 ${oldFileWithLineNumbers}
 \`\`\`
 
-And here's the new file with a sketch of the changes to be made. It may have placeholder comments that should be expanded into code:
+New file (sketch of changes):
 \`\`\`
 ${newContent}
 \`\`\`
@@ -236,7 +236,7 @@ Please do not include any other text in your response beyond "[CONFIRMED]" or th
     fingerprintId,
     userInputId,
     [{ role: 'user', content: prompt }],
-    openaiModels.gpt4o,
+    'ft:gpt-4o-2024-08-06:manifold-markets:patch-refiner2:AGVdpS0n',
     userId
   )
 
