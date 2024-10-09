@@ -52,6 +52,9 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
     userId ?? fingerprintId
   )
   const { creditsUsed, quota } = await quotaManager.checkQuota()
+  if (env.ENVIRONMENT === 'local') {
+    return { usage: creditsUsed, limit: Infinity }
+  }
   return { usage: creditsUsed, limit: quota }
 }
 
@@ -72,7 +75,7 @@ const onUserInput = async (
     async () => {
       const lastMessage = messages[messages.length - 1]
       if (typeof lastMessage.content === 'string') {
-        logger.info(lastMessage.content)
+        logger.info(`USER INPUT: ${lastMessage.content}`)
       }
 
       const userId = await getUserIdFromAuthToken(authToken)
@@ -419,7 +422,10 @@ subscribeToAction('login-code-request', onLoginCodeRequest)
 subscribeToAction('usage', onUsageRequest)
 subscribeToAction('login-status-request', onLoginStatusRequest)
 
-subscribeToAction('generate-commit-message', protec.run(onGenerateCommitMessage))
+subscribeToAction(
+  'generate-commit-message',
+  protec.run(onGenerateCommitMessage)
+)
 
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {
