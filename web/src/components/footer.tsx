@@ -10,10 +10,10 @@ export const Footer = () => {
           the Manicode team
         </Link>
       </Button>
-      <p></p>
+      .{' '}
       <Button variant="link" className="p-0" asChild>
         <Link href="https://airtable.com/appMpdsKhbmHdpbZC/pagoZUQHaeHguK59p/form">
-          Keep in touch!
+          (Keep in touch!)
         </Link>
       </Button>
     </footer>

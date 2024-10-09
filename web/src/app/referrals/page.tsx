@@ -13,6 +13,7 @@ import { env } from '@/env.mjs'
 import { useState } from 'react'
 import { GiftIcon, CopyIcon, Forward } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
+import Link from 'next/link'
 
 const copyReferralCode = (code: string) => {
   navigator.clipboard.writeText(code)
@@ -99,19 +100,30 @@ const ReferralsPage = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-2">
-            <Input
-              value={inputCode}
-              onChange={(e) => setInputCode(e.target.value)}
-              placeholder="Enter referral code"
-            />
-            <Button
-              onClick={() => mutation.mutate(inputCode)}
-              disabled={mutation.isPending || !inputCode}
-            >
-              Apply
-            </Button>
-          </div>
+          {data?.referredBy ? (
+            <div className="text-sm">
+              <Button variant="link" className="p-0" asChild>
+                <Link href={`mailto:${data.referredBy.email}`}>
+                  {data.referredBy.name}
+                </Link>
+              </Button>{' '}
+              referred you. You both rock! 🤘
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2">
+              <Input
+                value={inputCode}
+                onChange={(e) => setInputCode(e.target.value)}
+                placeholder="Enter referral code"
+              />
+              <Button
+                onClick={() => mutation.mutate(inputCode)}
+                disabled={mutation.isPending || !inputCode}
+              >
+                Apply
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
       <Card className="bg-blue-50 dark:bg-blue-900">

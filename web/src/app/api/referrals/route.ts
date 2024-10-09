@@ -43,7 +43,7 @@ export async function GET() {
       })
       .from(schema.referral)
       .leftJoin(schema.user, eq(schema.referral.referrer_id, schema.user.id))
-      .where(and(eq(schema.referral.referrer_id, session.user.id)))
+      .where(eq(schema.referral.referrer_id, session.user.id))
 
     // who referrred this user?
     const referredBy = await db
@@ -55,7 +55,7 @@ export async function GET() {
       })
       .from(schema.referral)
       .leftJoin(schema.user, eq(schema.referral.referred_id, schema.user.id))
-      .where(and(eq(schema.referral.referrer_id, session.user.id)))
+      .where(eq(schema.referral.referred_id, session.user.id))
       .limit(1)
       .then((referreds) => {
         if (referreds.length !== 1) {
