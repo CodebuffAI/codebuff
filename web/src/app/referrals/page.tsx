@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession } from 'next-auth/react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { ReferralData } from '../api/referrals/route'
 import { Skeleton } from '@/components/ui/skeleton'
 import { match, P } from 'ts-pattern'
 import { env } from '@/env.mjs'
+import { useState } from 'react'
 
 const copyReferralCode = (code: string) => {
   navigator.clipboard.writeText(code)
@@ -21,7 +22,9 @@ const copyReferralCode = (code: string) => {
 
 const ReferralsPage = () => {
   const { data: session, status } = useSession()
-  const { data, error, isLoading } = useQuery<ReferralData>({
+  const [inputCode, setInputCode] = useState('')
+
+  const { data, error, isLoading, refetch } = useQuery<ReferralData>({
     queryKey: ['referrals'],
     queryFn: async () => {
       const response = await fetch('/api/referrals')
@@ -32,6 +35,39 @@ const ReferralsPage = () => {
     },
     enabled: !!session?.user,
   })
+
+  const mutation = useMutation({
+    mutationFn: async (code: string) => {
+      const response = await fetch('/api/referrals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referralCode: code }),
+      })
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('You have already used this referral code')
+        }
+        throw new Error('Failed to apply referral code')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Referral code applied',
+        description: 'Your referral code has been successfully applied!',
+      })
+      setInputCode('')
+      refetch()
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      })
+    },
+  })
+
   const loading = isLoading || status === 'loading'
 
   if (error) {
@@ -54,8 +90,8 @@ const ReferralsPage = () => {
   }
 
   return (
-    <>
-      <Card className="mb-6">
+    <div className="flex flex-col space-y-6">
+      <Card>
         <CardHeader>
           <CardTitle>Your Referral Code</CardTitle>
         </CardHeader>
@@ -76,6 +112,26 @@ const ReferralsPage = () => {
               disabled={loading || !session?.user}
             >
               Copy
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Enter A Referral Code</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-2">
+            <Input
+              value={inputCode}
+              onChange={(e) => setInputCode(e.target.value)}
+              placeholder="Enter referral code"
+            />
+            <Button
+              onClick={() => mutation.mutate(inputCode)}
+              disabled={mutation.isPending || !inputCode}
+            >
+              Apply
             </Button>
           </div>
         </CardContent>
@@ -143,8 +199,7 @@ const ReferralsPage = () => {
             ))}
         </CardContent>
       </Card>
-      {/* ... existing code ... */}
-    </>
+    </div>
   )
 }
 
