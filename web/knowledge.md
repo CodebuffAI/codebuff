@@ -12,8 +12,26 @@ Key points:
 - Implement query invalidation and refetching strategies for real-time updates
 - Utilize the built-in caching mechanism to improve performance
 
-Example usage:
+Important: Before using useQuery in components, you must set up the QueryClientProvider in your app's root layout. Here's how to do it:
 
+1. Create a QueryClient instance in your root layout file (e.g., `web/src/app/layout.tsx`):
+
+```typescript
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+const queryClient = new QueryClient()
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      {/* Your existing layout structure */}
+      {children}
+    </QueryClientProvider>
+  )
+}
+```
+
+2. Wrap your entire application with the QueryClientProvider to make the QueryClient available to all components.
 ```typescript
 import { useQuery } from '@tanstack/react-query'
 
