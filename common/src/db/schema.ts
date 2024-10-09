@@ -8,6 +8,7 @@ import {
   boolean,
   jsonb,
   numeric,
+  uuid,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
 
@@ -28,6 +29,9 @@ export const user = pgTable('user', {
   next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
     sql<Date>`now() + INTERVAL '1 month'`
   ),
+  referral_code: text('referral_code')
+    .unique()
+    .default(sql`'ref-' || gen_random_uuid()`),
 })
 
 export const account = pgTable(
@@ -54,6 +58,25 @@ export const account = pgTable(
   })
 )
 
+export const referral = pgTable(
+  'referral',
+  {
+    referrer_id: text('referrer_id')
+      .notNull()
+      .references(() => user.id),
+    referred_id: text('referred_id')
+      .notNull()
+      .references(() => user.id),
+    status: text('status').notNull().default('pending'),
+    created_at: timestamp('created_at', { mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    completed_at: timestamp('completed_at', { mode: 'date' }),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.referrer_id, table.referred_id] }),
+  })
+)
 export const fingerprint = pgTable('fingerprint', {
   id: text('id').primaryKey(),
   sig_hash: text('sig_hash'),
