@@ -34,6 +34,8 @@ Please provide the plan in the following format:
 ...
 
 Ensure that the plan is thorough and covers all necessary aspects of the user's request.
+
+Please start by telling the user you will create a plan to address their request.
 `
 
   let fullPlan = ''

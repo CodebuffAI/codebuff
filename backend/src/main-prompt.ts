@@ -68,36 +68,33 @@ export async function mainPrompt(
     if (responseChunk !== null) {
       onResponseChunk(responseChunk.readFilesMessage)
       fullResponse += `\n\n${responseChunk.toolCallMessage}\n\n${responseChunk.readFilesMessage}`
-
-      // Prompt cache the new files.
-      const system = getSearchSystemPrompt(fileContext)
-      warmCacheForRequestRelevantFiles(
-        system,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId
-      )
     }
 
+    const updatedSystem = getSearchSystemPrompt(fileContext)
+
     planRequired = await planRequiredPromise
+
     if (planRequired) {
-      // If a plan is required, you can add logic here to generate and execute a plan
-      // For now, we'll just log that a plan is required
-      logger.info('A plan is required for this request')
-      onResponseChunk("\n\nI've created a plan to address your request:\n\n")
       const plan = await generatePlan(
         messages,
-        system,
+        updatedSystem,
         clientSessionId,
         fingerprintId,
         userInputId,
         onResponseChunk,
         userId
       )
+      fullResponse += plan
       logger.info({ plan }, 'Generated plan')
-      fullResponse += `\n\nI've created a plan to address your request:\n\n${plan}\n\nI'll now proceed with executing this plan step by step.`
-      onResponseChunk("\n\nI'll now proceed with executing this plan step by step.")
+    } else {
+      // Prompt cache the new files.
+      warmCacheForRequestRelevantFiles(
+        updatedSystem,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId
+      )
     }
   }
 
@@ -130,7 +127,7 @@ export async function mainPrompt(
   const numAssistantMessages = messages
     .slice(lastUserMessageIndex)
     .filter((message) => message.role === 'assistant').length
-  const shouldPause = numAssistantMessages >= 3
+  const shouldPause = numAssistantMessages >= 10
   if (shouldPause) {
     const response = `\nI'll pause to get more instructions from the user.\n`
     onResponseChunk(response)

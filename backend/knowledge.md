@@ -210,4 +210,9 @@ The plan generation process:
 3. The generated plan is streamed to the client using the `onResponseChunk` function, providing real-time updates.
 4. The plan includes numbered steps, sub-steps, and appropriate verification steps (e.g., running type checkers, creating and running unit tests).
 
+Important implementation details:
+- The system prompt for plan generation is recreated to ensure it has the most up-to-date context.
+- The warm cache call is only fired if no plan was required, optimizing performance by avoiding unnecessary caching when a plan is generated.
+
 This feature enhances the system's ability to handle complex requests systematically and with proper verification. When working on request handling or AI prompts, consider whether the request might benefit from this plan generation feature.
+
