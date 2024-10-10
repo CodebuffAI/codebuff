@@ -18,6 +18,7 @@ import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens } from './util/token-counter'
 import { logger } from './util/logger'
+import { checkIfPlanRequired } from './check-plan-required'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -38,10 +39,20 @@ export async function mainPrompt(
   const fileProcessingPromises: Promise<FileChange | null>[] = []
   const lastMessage = messages[messages.length - 1]
   const messagesWithoutLastMessage = messages.slice(0, -1)
+  let planRequired = false
 
   if (!didClientUseTool(lastMessage)) {
     // Step 1: Read more files.
     const system = getSearchSystemPrompt(fileContext)
+
+    const planRequiredPromise = checkIfPlanRequired(
+      messages,
+      system,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId
+    )
     // If the fileContext.files is empty, use prompts to select files and add them to context.
     const responseChunk = await updateFileContext(
       ws,
@@ -66,6 +77,14 @@ export async function mainPrompt(
         userInputId,
         userId
       )
+    }
+
+    planRequired = await planRequiredPromise
+    if (planRequired) {
+      // If a plan is required, you can add logic here to generate and execute a plan
+      // For now, we'll just log that a plan is required
+      logger.info('A plan is required for this request')
+      // You can add more logic here to handle plan generation and execution
     }
   }
 
