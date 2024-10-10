@@ -16,6 +16,7 @@ This document provides an overview of the Manicode backend architecture, key com
 10. [Security Considerations](#security-considerations)
 11. [TODO List](#todo-list)
 12. [Automatic URL Detection and Scraping](#automatic-url-detection-and-scraping)
+13. [Planning System](#planning-system)
 
 ## Architecture Overview
 
@@ -215,4 +216,19 @@ Important implementation details:
 - The warm cache call is only fired if no plan was required, optimizing performance by avoiding unnecessary caching when a plan is generated.
 
 This feature enhances the system's ability to handle complex requests systematically and with proper verification. When working on request handling or AI prompts, consider whether the request might benefit from this plan generation feature.
+
+## Planning System
+
+The agent system prompt now includes a section explaining the planning process. Key points:
+
+- The assistant is given a plan to implement for complex tasks.
+- The assistant should implement one or more steps from the plan.
+- After completing steps, the assistant reports progress using a specific format:
+  - Example: [STEP 1 COMPLETE] or [STEPS 2-4 COMPLETE]
+- The progress report should not include the end token "[END]".
+
+This planning system allows for more structured and trackable task implementation, especially for complex requests. It provides clear checkpoints for both the assistant and the user to understand the progress of a given task.
+
+When implementing features or fixing bugs, consider whether the task would benefit from this structured planning approach, particularly for multi-step or complex changes to the codebase.
+
 

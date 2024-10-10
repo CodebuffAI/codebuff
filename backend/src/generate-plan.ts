@@ -1,7 +1,7 @@
 import { Message } from 'common/actions'
 import { System } from './claude'
 import { promptClaudeStream } from './claude'
-import { claudeModels } from 'common/constants'
+import { claudeModels, STOP_MARKER } from 'common/constants'
 
 export async function generatePlan(
   messages: Message[],
@@ -35,7 +35,7 @@ Please provide the plan in the following format:
 
 Ensure that the plan is thorough and covers all necessary aspects of the user's request.
 
-Please start by telling the user you will create a plan to address their request.
+Please start by telling the user you will create a plan to address their request. Finish your message with "${STOP_MARKER}".
 `
 
   let fullPlan = ''

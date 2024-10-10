@@ -84,7 +84,7 @@ export async function mainPrompt(
         onResponseChunk,
         userId
       )
-      fullResponse += plan
+      fullResponse += plan.replaceAll(STOP_MARKER, '')
       logger.info({ plan }, 'Generated plan')
     } else {
       // Prompt cache the new files.
