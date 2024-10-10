@@ -49,10 +49,9 @@ export async function mainPrompt(
   const fileProcessingPromises: Promise<FileChange | null>[] = []
   const lastMessage = messages[messages.length - 1]
   const messagesWithoutLastMessage = messages.slice(0, -1)
-  let planRequired = false
-  const isPlanInProgress = false
+  let isPlanInProgress = checkIfPlanInProgress(messages)
 
-  if (!didClientUseTool(lastMessage)) {
+  if (!didClientUseTool(lastMessage) && !isPlanInProgress) {
     // Step 1: Read more files.
     const system = getSearchSystemPrompt(fileContext)
 
@@ -82,7 +81,7 @@ export async function mainPrompt(
 
     const updatedSystem = getSearchSystemPrompt(fileContext)
 
-    planRequired = await planRequiredPromise
+    const planRequired = await planRequiredPromise
 
     if (planRequired) {
       onResponseChunk('\n\n')
@@ -108,6 +107,7 @@ export async function mainPrompt(
         },
       ]
       logger.info({ plan }, 'Generated plan')
+      isPlanInProgress = true
     } else {
       // Prompt cache the new files.
       warmCacheForRequestRelevantFiles(
@@ -172,11 +172,11 @@ export async function mainPrompt(
       content: buildArray(
         lastMessage.content,
         `<additional_instruction>
-Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested.${planRequired ? '' : 'Then pause to get more instructions from the user.'}
+Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested.${isPlanInProgress ? '' : ' Then pause to get more instructions from the user.'}
 </additional_instruction>`,
-        planRequired
+        isPlanInProgress
           ? `<additional_instruction>
-          When the plan is complete, end your response with the following marker: ${PLAN_STOP_MARKER}
+          You should attempt to execute the entire plan.When the plan is complete or it is hard to make progress, end your response with the following marker: ${PLAN_STOP_MARKER}
 </additional_instruction>`
           : `<additional_instruction>
 Always end your response with the following marker:
@@ -300,6 +300,10 @@ ${STOP_MARKER}
     if (foundEndOfResponse) {
       fullResponse += '\n[END]'
     }
+    isPlanInProgress = checkIfPlanInProgress([
+      ...messages,
+      { role: 'assistant', content: fullResponse },
+    ])
 
     const maybeToolCall = toolCall as ToolCall | null
 
@@ -331,9 +335,18 @@ ${STOP_MARKER}
     } else if (maybeToolCall !== null) {
       isComplete = true
       logger.debug(maybeToolCall, 'tool call')
-    } else if (fullResponse.includes(STOP_MARKER)) {
+    } else if (isPlanInProgress) {
+      toolCall = {
+        id: Math.random().toString(36).slice(2),
+        name: 'continue_plan',
+        input: {},
+      }
       isComplete = true
-      fullResponse = fullResponse.replace(STOP_MARKER, '')
+    } else if (
+      fullResponse.includes(STOP_MARKER) ||
+      fullResponse.endsWith(PLAN_STOP_MARKER)
+    ) {
+      isComplete = true
       logger.debug('Reached STOP_MARKER')
     } else {
       logger.debug('Continuing to generate')
@@ -346,7 +359,7 @@ ${STOP_MARKER}
         },
         {
           role: 'user',
-          content: planRequired
+          content: isPlanInProgress
             ? 'Please continue to execute the plan'
             : `You got cut off, but please continue from the very next line of your response. Do not repeat anything you have just said. Just continue as if there were no interruption from the very last character of your last response. (Alternatively, just end your response with the following marker if you were done generating and want to allow the user to give further guidance: ${STOP_MARKER})`,
         },
@@ -374,6 +387,18 @@ ${STOP_MARKER}
     changes,
     toolCall: toolCall as ToolCall | null,
   }
+}
+
+function checkIfPlanInProgress(messages: Message[]): boolean {
+  const messagesString = JSON.stringify(messages)
+  const lastStartMarkerIndex = messagesString.lastIndexOf(PLAN_START_MARKER)
+  const lastStopMarkerIndex = messagesString.lastIndexOf(PLAN_STOP_MARKER)
+
+  if (lastStartMarkerIndex === -1 && lastStopMarkerIndex === -1) {
+    return false
+  }
+
+  return lastStartMarkerIndex > lastStopMarkerIndex
 }
 
 function getRelevantFileInfoMessage(filePaths: string[]) {

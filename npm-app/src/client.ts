@@ -112,7 +112,10 @@ export class Client {
         const content = await handler(input, id)
         const toolResultMessage: Message = {
           role: 'user',
-          content: `${TOOL_RESULT_MARKER}\n${content}`,
+          content: `${TOOL_RESULT_MARKER}\n${content}`.replace(
+            'continue_plan',
+            ''
+          ),
         }
         this.chatStorage.addMessage(
           this.chatStorage.getCurrentChat(),

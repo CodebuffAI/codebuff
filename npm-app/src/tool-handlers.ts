@@ -135,4 +135,5 @@ export const toolHandlers: Record<string, ToolHandler> = {
   search_manifold_markets: handleSearchManifoldMarkets,
   run_terminal_command: ((input, id) =>
     handleRunTerminalCommand(input, id, 'assistant')) as ToolHandler,
+  continue_plan: () => Promise.resolve('Please continue executing the plan.'),
 }

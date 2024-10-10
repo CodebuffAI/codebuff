@@ -1,7 +1,7 @@
 import { Message } from 'common/actions'
 import { System } from './claude'
 import { promptClaudeStream } from './claude'
-import { claudeModels, STOP_MARKER } from 'common/constants'
+import { claudeModels } from 'common/constants'
 
 export async function generatePlan(
   messages: Message[],
@@ -16,11 +16,12 @@ export async function generatePlan(
 Based on the user's request, create a detailed plan with numbered steps to accomplish the task. Include appropriate verification steps where necessary, such as running type checkers, creating and running unit tests, or any other relevant checks.
 
 Please follow these guidelines:
-1. Break down the task into clear, actionable steps.
-2. Include verification steps where appropriate.
-3. Consider potential edge cases or complications.
-4. If any step requires significant changes, break it down further.
-5. Aim for a comprehensive plan that covers all aspects of the request.
+1. Reduce the scope of the plan to the minimum necessary to accomplish the task. Try to avoid unnecessary steps and do not modify more files or run more terminal commands than absolutely necessary.
+2. Break down the task into clear, actionable steps.
+3. Include verification steps where appropriate.
+4. Consider potential edge cases or complications.
+5. If any step requires significant changes, break it down further.
+6. Aim for a comprehensive plan that covers all aspects of the request.
 
 User request: ${messages[messages.length - 1].content}
 
