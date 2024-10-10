@@ -1,3 +1,5 @@
+import { sumBy } from 'lodash'
+
 export const truncateString = (str: string, maxLength: number) => {
   if (str.length <= maxLength) {
     return str
@@ -15,7 +17,8 @@ export const replaceNonStandardPlaceholderComments = (
       placeholder: '// ... existing code ...',
     },
     {
-      regex: /\/\*\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*(?:\s*\.{3})?\s*\*\//gi,
+      regex:
+        /\/\*\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*(?:\s*\.{3})?\s*\*\//gi,
       placeholder: '/* ... existing code ... */',
     },
     // Python, Ruby, R comments
@@ -25,7 +28,8 @@ export const replaceNonStandardPlaceholderComments = (
     },
     // HTML-style comments
     {
-      regex: /<!--\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*(?:\s*\.{3})?\s*-->/gi,
+      regex:
+        /<!--\s*\.{3}\s*.*(?:rest|unchanged|keep|file).*(?:\s*\.{3})?\s*-->/gi,
       placeholder: '<!-- ... existing code ... -->',
     },
     // SQL, Haskell, Lua comments
@@ -47,4 +51,8 @@ export const replaceNonStandardPlaceholderComments = (
   }
 
   return updatedContent
+}
+
+export const randBoolFromStr = (str: string) => {
+  return sumBy(str.split(''), (char) => char.charCodeAt(0)) % 2 === 0
 }
