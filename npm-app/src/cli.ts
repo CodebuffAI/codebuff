@@ -277,8 +277,12 @@ export class CLI {
     if (userInput === 'login' || userInput === 'signin') {
       await this.client.login()
       return
+    } else if (userInput === 'logout' || userInput === 'signout') {
+      await this.client.logout()
+      this.rl.prompt()
+      return
     } else if (userInput.startsWith('ref-')) {
-      await this.client.login(userInput)
+      await this.client.handleReferralCode(userInput.trim())
       return
     } else if (userInput === 'usage' || userInput === 'credits') {
       this.client.getUsage()

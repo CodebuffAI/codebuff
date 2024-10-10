@@ -113,16 +113,11 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions)
-  const userId = session?.user?.id
-  if (!session || !userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export async function redeemReferralCode(
+  referralCode: string,
+  userId: string
+): Promise<NextResponse> {
   try {
-    const { referralCode } = await request.json()
-
     // Check if the user has already used a referral code
     const existingReferral = await db
       .select()
@@ -203,7 +198,14 @@ export async function POST(request: Request) {
         .where(or(eq(schema.user.id, referrer.id), eq(schema.user.id, userId)))
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json(
+      {
+        credits_redeemed: CREDITS_REFERRAL_BONUS,
+      },
+      {
+        status: 200,
+      }
+    )
   } catch (error) {
     console.error('Error applying referral code:', error)
     return NextResponse.json(
@@ -211,4 +213,15 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
+}
+
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions)
+  const userId = session?.user?.id
+  if (!session || !userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { referralCode } = await request.json()
+  return redeemReferralCode(referralCode, userId)
 }

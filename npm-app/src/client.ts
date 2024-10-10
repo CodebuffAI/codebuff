@@ -1,4 +1,4 @@
-import { yellow, red } from 'picocolors'
+import { yellow, red, green } from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
   getFiles,
@@ -10,13 +10,15 @@ import { CREDENTIALS_PATH, User, userFromJson } from 'common/util/credentials'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
-import { CREDITS_USAGE_LIMITS, TOOL_RESULT_MARKER } from 'common/constants'
+import {
+  CREDITS_REFERRAL_BONUS,
+  CREDITS_USAGE_LIMITS,
+  TOOL_RESULT_MARKER,
+} from 'common/constants'
 import { fingerprintId } from './config'
 import { uniq } from 'lodash'
-import { spawn } from 'child_process'
 import path from 'path'
 import * as fs from 'fs'
-import { sleep } from 'common/util/helpers'
 import { match, P } from 'ts-pattern'
 
 export class Client {
@@ -55,7 +57,44 @@ export class Client {
     this.setupSubscriptions()
   }
 
-  async login(referralCode?: string) {
+  async handleReferralCode(referralCode: string) {
+    if (this.user) {
+      // User is logged in, so attempt to redeem referral code directly
+      try {
+        const redeemReferralResp = await fetch(
+          `${process.env.NEXT_PUBLIC_APP_URL}/api/referrals`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${this.user.authToken}`,
+            },
+            body: JSON.stringify({ referralCode }),
+          }
+        )
+        const respJson = await redeemReferralResp.json()
+        if (redeemReferralResp.ok) {
+          green(
+            `Easy peasy, you've earned an extra ${respJson.creditsRedeemed} credits!`
+          )
+          console.log(
+            `pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} for each referral! Go to ${process.env.NEXT_PUBLIC_APP_URL}/referrals to see your referral history and referral code!`
+          )
+          this.getUsage()
+        } else {
+          throw new Error(respJson.error)
+        }
+      } catch (e) {
+        const error = e as Error
+        console.error(red('Error: ' + error.message))
+        this.returnControlToUser()
+      }
+    } else {
+      await this.login(referralCode)
+    }
+  }
+
+  async logout() {
     if (this.user) {
       // If there was an existing user, clear their existing state
       this.webSocket.sendAction({
@@ -68,9 +107,13 @@ export class Client {
 
       // delete credentials file
       fs.unlinkSync(CREDENTIALS_PATH)
+      console.log(`Logged you out of your account (${this.user.name})`)
       this.user = undefined
     }
+  }
 
+  async login(referralCode?: string) {
+    this.logout()
     this.webSocket.sendAction({
       type: 'login-code-request',
       fingerprintId,

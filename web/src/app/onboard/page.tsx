@@ -3,15 +3,16 @@
 import { toast } from '@/components/ui/use-toast'
 import { getServerSession } from 'next-auth'
 import Image from 'next/image'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { and, eq, sql } from 'drizzle-orm'
-import { CREDITS_REFERRAL_BONUS, MAX_DATE } from 'common/src/constants'
+import { and, eq } from 'drizzle-orm'
+import { MAX_DATE } from 'common/src/constants'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { genAuthCode } from 'common/util/credentials'
 import { env } from '@/env.mjs'
 import CardWithBeams from '@/components/card-with-beams'
+import { redeemReferralCode } from '../api/referrals/route'
 
 interface PageProps {
   searchParams: {
@@ -131,106 +132,67 @@ const Onboard = async ({ searchParams }: PageProps) => {
       })
       .returning({ userId: schema.session.userId })
 
-    // If referral code is present, attempt to create a referral
-    let didInsertReferralCode: boolean | undefined = undefined
-    if (referralCode) {
-      const referrer = await tx
-        .select()
-        .from(schema.user)
-        .where(eq(schema.user.referral_code, referralCode))
-        .limit(1)
-        .then((referrers) => {
-          if (referrers.length !== 1) {
-            return
-          }
-          return referrers[0]
-        })
-
-      if (!referrer) {
-        didInsertReferralCode = false
-      } else {
-        await tx.insert(schema.referral).values({
-          referrer_id: referrer.id,
-          referred_id: user.id,
-          status: 'completed',
-          credits: CREDITS_REFERRAL_BONUS,
-          created_at: new Date(),
-          completed_at: new Date(),
-        })
-
-        await tx
-          .update(schema.user)
-          .set({
-            quota: sql<number>`${schema.user.quota} + ${CREDITS_REFERRAL_BONUS}`,
-          })
-          .where(eq(schema.user.id, referrer.id))
-
-        await tx
-          .update(schema.user)
-          .set({
-            quota: sql<number>`${schema.user.quota} + ${CREDITS_REFERRAL_BONUS}`,
-          })
-          .where(eq(schema.user.id, user.id))
-
-        didInsertReferralCode = true
-      }
-    }
-
-    return {
-      didInsertFingerprint: !!session.length,
-      didInsertReferralCode,
-    }
+    return !!session.length
   })
 
+  let redeemReferralMessage = <></>
+  if (referralCode) {
+    try {
+      const redeemReferralResp = await redeemReferralCode(referralCode, user.id)
+      const respJson = await redeemReferralResp.json()
+      if (!redeemReferralResp.ok) {
+        throw new Error(respJson.error)
+      }
+      redeemReferralMessage = (
+        <p>
+          `You've earned an extra ${respJson.credits_redeemed} credits from your
+          referral code!`
+        </p>
+      )
+    } catch (e) {
+      console.error(e)
+      const error = e as Error
+      redeemReferralMessage = (
+        <div className="flex flex-col space-y-2">
+          <p>Uh-oh, we couldn't apply your referral code. {error.message}.</p>
+          <p>
+            Please try again and reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if
+            the problem persists.
+          </p>
+        </div>
+      )
+    }
+  }
+
   // Render the result
-  return didInsert.didInsertFingerprint
-    ? CardWithBeams({
-        title: 'Nicely done!',
-        description:
-          'Feel free to close this window and head back to your terminal. Enjoy the extra api credits!',
-        content: (
-          <>
-            <Image
-              src="/auth-success.jpg"
-              alt="Successful authentication"
-              width={600}
-              height={600}
-            />
-            {didInsert.didInsertReferralCode ? (
-              <p>
-                You've earned an extra {CREDITS_REFERRAL_BONUS} credits from
-                your referral code!
-              </p>
-            ) : (
-              <p>
-                Slight hiccup: we couldn\'t automatically apply your referral
-                code. Can you go to ${env.NEXT_PUBLIC_APP_URL}/referrals and
-                manually apply it?
-              </p>
-            )}
-          </>
-        ),
-      })
-    : CardWithBeams({
-        title: 'Uh-oh, spaghettio!',
-        description: 'Something went wrong.',
-        content: (
-          <>
-            {didInsert.didInsertReferralCode ? (
-              <p>
-                Please try again and reach out to{' '}
-                {env.NEXT_PUBLIC_SUPPORT_EMAIL} if the problem persists.
-              </p>
-            ) : (
-              <p>
-                Slight hiccup: we couldn\'t automatically apply your referral
-                code. Can you go to ${env.NEXT_PUBLIC_APP_URL}/referrals and
-                manually apply it?
-              </p>
-            )}
-          </>
-        ),
-      })
+  if (didInsert) {
+    return CardWithBeams({
+      title: 'Nicely done!',
+      description:
+        'Feel free to close this window and head back to your terminal.',
+      content: (
+        <div className="flex flex-col space-y-2">
+          <Image
+            src="/auth-success.jpg"
+            alt="Successful authentication"
+            width={600}
+            height={600}
+          />
+          {redeemReferralMessage}
+        </div>
+      ),
+    })
+  }
+  return CardWithBeams({
+    title: 'Uh-oh, spaghettio!',
+    description: 'Something went wrong.',
+    content: (
+      <p>
+        Not sure what happened with creating your user. Please try again and
+        reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if the problem persists.
+      </p>
+    ),
+  })
 }
 
 export default Onboard
