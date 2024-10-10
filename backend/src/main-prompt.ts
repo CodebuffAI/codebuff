@@ -20,6 +20,7 @@ import { countTokens } from './util/token-counter'
 import { logger } from './util/logger'
 import { checkIfPlanRequired } from './check-plan-required'
 import { generatePlan } from './generate-plan'
+import { buildArray } from 'common/util/array'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -75,6 +76,7 @@ export async function mainPrompt(
     planRequired = await planRequiredPromise
 
     if (planRequired) {
+      onResponseChunk('\n\n')
       const plan = await generatePlan(
         messages,
         updatedSystem,
@@ -84,7 +86,7 @@ export async function mainPrompt(
         onResponseChunk,
         userId
       )
-      fullResponse += plan.replaceAll(STOP_MARKER, '')
+      fullResponse += plan.replaceAll(STOP_MARKER, '').trim()
       logger.info({ plan }, 'Generated plan')
     } else {
       // Prompt cache the new files.
@@ -150,15 +152,17 @@ export async function mainPrompt(
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
     newLastMessage = {
       ...lastMessage,
-      content: `${lastMessage.content}
-
-<additional_instruction>
+      content: buildArray(
+        lastMessage.content,
+        `<additional_instruction>
 Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.
-</additional_instruction>
-<additional_instruction>
+</additional_instruction>`,
+        !planRequired &&
+          `<additional_instruction>
 Always end your response with the following marker:
 ${STOP_MARKER}
-</additional_instruction>`,
+</additional_instruction>`
+      ).join('\n\n'),
     }
   }
 

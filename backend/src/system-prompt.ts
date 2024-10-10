@@ -415,7 +415,7 @@ Whenever you modify an exported token like a function or class or variable, you 
 Confine your edits to only what is directly necessary. Preserve the behavior of all existing code. Change only what you must to accomplish the user's request or add to a knowledge file.
 </important_instruction>
 <important_instruction>
-Always end your response with the following marker:
+Always end your response with the following marker, unless you are on an intermediate step of a plan:
 ${STOP_MARKER}
 
 This marker helps ensure that your entire response has been received and processed correctly.
