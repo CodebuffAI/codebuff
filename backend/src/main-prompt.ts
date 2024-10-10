@@ -5,7 +5,12 @@ import { promptClaudeStream } from './claude'
 import { ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
-import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
+import {
+  PLAN_START_MARKER,
+  PLAN_STOP_MARKER,
+  STOP_MARKER,
+  TOOL_RESULT_MARKER,
+} from 'common/constants'
 import { FileChange, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { requestFiles, requestFile } from './websockets/websocket-action'
@@ -36,12 +41,16 @@ export async function mainPrompt(
   userId?: string
 ) {
   let fullResponse = ''
+  let continuedMessages: Message[] = fullResponse
+    ? [{ role: 'assistant', content: fullResponse }]
+    : []
   let genKnowledgeFilesPromise: Promise<Promise<FileChange | null>[]> =
     Promise.resolve([])
   const fileProcessingPromises: Promise<FileChange | null>[] = []
   const lastMessage = messages[messages.length - 1]
   const messagesWithoutLastMessage = messages.slice(0, -1)
   let planRequired = false
+  const isPlanInProgress = false
 
   if (!didClientUseTool(lastMessage)) {
     // Step 1: Read more files.
@@ -87,6 +96,17 @@ export async function mainPrompt(
         userId
       )
       fullResponse += plan.replaceAll(STOP_MARKER, '').trim()
+      fullResponse += `\n\n${PLAN_START_MARKER}`
+      continuedMessages = [
+        {
+          role: 'assistant',
+          content: fullResponse,
+        },
+        {
+          role: 'user',
+          content: 'Please execute the plan.',
+        },
+      ]
       logger.info({ plan }, 'Generated plan')
     } else {
       // Prompt cache the new files.
@@ -141,9 +161,6 @@ export async function mainPrompt(
   }
 
   let toolCall: ToolCall | null = null
-  let continuedMessages: Message[] = fullResponse
-    ? [{ role: 'assistant', content: fullResponse }]
-    : []
   let isComplete = false
   let iterationCount = 0
   const MAX_ITERATIONS = 10
@@ -155,10 +172,13 @@ export async function mainPrompt(
       content: buildArray(
         lastMessage.content,
         `<additional_instruction>
-Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.
+Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested.${planRequired ? '' : 'Then pause to get more instructions from the user.'}
 </additional_instruction>`,
-        !planRequired &&
-          `<additional_instruction>
+        planRequired
+          ? `<additional_instruction>
+          When the plan is complete, end your response with the following marker: ${PLAN_STOP_MARKER}
+</additional_instruction>`
+          : `<additional_instruction>
 Always end your response with the following marker:
 ${STOP_MARKER}
 </additional_instruction>`
@@ -326,7 +346,9 @@ ${STOP_MARKER}
         },
         {
           role: 'user',
-          content: `You got cut off, but please continue from the very next line of your response. Do not repeat anything you have just said. Just continue as if there were no interruption from the very last character of your last response. (Alternatively, just end your response with the following marker if you were done generating and want to allow the user to give further guidance: ${STOP_MARKER})`,
+          content: planRequired
+            ? 'Please continue to execute the plan'
+            : `You got cut off, but please continue from the very next line of your response. Do not repeat anything you have just said. Just continue as if there were no interruption from the very last character of your last response. (Alternatively, just end your response with the following marker if you were done generating and want to allow the user to give further guidance: ${STOP_MARKER})`,
         },
       ]
     }

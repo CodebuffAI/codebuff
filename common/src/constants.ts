@@ -1,4 +1,6 @@
 export const STOP_MARKER = '[' + 'END]'
+export const PLAN_STOP_MARKER = '[' + 'PLAN_END]'
+export const PLAN_START_MARKER = '[' + 'PLAN_START]'
 export const FIND_FILES_MARKER = '[' + 'FIND_FILES_PLEASE]'
 export const TOOL_RESULT_MARKER = '[' + 'TOOL_RESULT]'
 

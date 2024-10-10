@@ -32,7 +32,6 @@ Please provide the plan in the following format:
 3. [Verification step (if applicable)]
 4. [Next step]
 ...
-End the plan with "${STOP_MARKER}".
 
 Ensure that the plan is thorough and covers all necessary aspects of the user's request.
 
