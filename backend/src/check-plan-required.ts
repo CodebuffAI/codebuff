@@ -2,6 +2,7 @@ import { Message } from 'common/actions'
 import { System } from './claude'
 import { promptClaude } from './claude'
 import { claudeModels } from 'common/constants'
+import { logger } from './util/logger'
 
 export async function checkIfPlanRequired(
   messages: Message[],
@@ -38,5 +39,8 @@ User request: ${messages[messages.length - 1].content}
     }
   )
 
-  return response.trim() === '[REQUIRES_PLAN]'
+  const requiresPlan = response.trim().includes('[REQUIRES_PLAN]')
+  logger.info({ response, requiresPlan }, 'Plan check response')
+
+  return requiresPlan
 }
