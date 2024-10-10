@@ -13,15 +13,12 @@ export async function generatePlan(
   userId?: string
 ): Promise<string> {
   const planGenerationPrompt = `
-Based on the user's request, create a detailed plan with numbered steps to accomplish the task. Include appropriate verification steps where necessary, such as running type checkers, creating and running unit tests, or any other relevant checks.
+Based on the user's request, create a detailed plan for the assistant to follow with numbered steps to accomplish the task.
 
 Please follow these guidelines:
 1. Reduce the scope of the plan to the minimum necessary to accomplish the task. Try to avoid unnecessary steps and do not modify more files or run more terminal commands than absolutely necessary.
-2. Break down the task into clear, actionable steps.
-3. Include verification steps where appropriate.
-4. Consider potential edge cases or complications.
-5. If any step requires significant changes, break it down further.
-6. Aim for a comprehensive plan that covers all aspects of the request.
+2. Break down the task into clear, actionable steps for the assistant to follow. The assistant can only edit files and run terminal commands as part of the plan. Do not include steps for the user to do.
+3. Include appropriate verification steps along the way and at the end, such as running a command to do type checking and fixing errors, creating and running unit tests, or any other relevant checks.
 
 User request: ${messages[messages.length - 1].content}
 
@@ -31,10 +28,7 @@ Please provide the plan in the following format:
    a. [Sub-step if necessary]
    b. [Another sub-step if necessary]
 3. [Verification step (if applicable)]
-4. [Next step]
 ...
-
-Ensure that the plan is thorough and covers all necessary aspects of the user's request.
 
 Please start by telling the user you will create a plan to address their request.
 `

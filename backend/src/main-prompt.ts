@@ -96,6 +96,7 @@ export async function mainPrompt(
       )
       fullResponse += plan.replaceAll(STOP_MARKER, '').trim()
       fullResponse += `\n\n${PLAN_START_MARKER}`
+      onResponseChunk('\n\n')
       continuedMessages = [
         {
           role: 'assistant',
@@ -174,13 +175,13 @@ export async function mainPrompt(
         `<additional_instruction>
 Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested.${isPlanInProgress ? '' : ' Then pause to get more instructions from the user.'}
 </additional_instruction>`,
-        isPlanInProgress
-          ? `<additional_instruction>
-          You should attempt to execute the entire plan.When the plan is complete or it is hard to make progress, end your response with the following marker: ${PLAN_STOP_MARKER}
-</additional_instruction>`
-          : `<additional_instruction>
+        `<additional_instruction>
 Always end your response with the following marker:
 ${STOP_MARKER}
+</additional_instruction>`,
+        isPlanInProgress &&
+          `<additional_instruction>
+          You should attempt to execute the entire plan. When the plan is complete or it is hard to make progress, end your response with the following marker: ${PLAN_STOP_MARKER}
 </additional_instruction>`
       ).join('\n\n'),
     }
@@ -335,7 +336,7 @@ ${STOP_MARKER}
     } else if (maybeToolCall !== null) {
       isComplete = true
       logger.debug(maybeToolCall, 'tool call')
-    } else if (isPlanInProgress) {
+    } else if (isPlanInProgress && fullResponse.includes(STOP_MARKER)) {
       toolCall = {
         id: Math.random().toString(36).slice(2),
         name: 'continue_plan',
@@ -344,7 +345,7 @@ ${STOP_MARKER}
       isComplete = true
     } else if (
       fullResponse.includes(STOP_MARKER) ||
-      fullResponse.endsWith(PLAN_STOP_MARKER)
+      fullResponse.includes(PLAN_STOP_MARKER)
     ) {
       isComplete = true
       logger.debug('Reached STOP_MARKER')
@@ -359,9 +360,7 @@ ${STOP_MARKER}
         },
         {
           role: 'user',
-          content: isPlanInProgress
-            ? 'Please continue to execute the plan'
-            : `You got cut off, but please continue from the very next line of your response. Do not repeat anything you have just said. Just continue as if there were no interruption from the very last character of your last response. (Alternatively, just end your response with the following marker if you were done generating and want to allow the user to give further guidance: ${STOP_MARKER})`,
+          content: `You got cut off, but please continue from the very next line of your response. Do not repeat anything you have just said. Just continue as if there were no interruption from the very last character of your last response. (Alternatively, just end your response with the following marker if you were done generating and want to allow the user to give further guidance: ${STOP_MARKER})`,
         },
       ]
     }
