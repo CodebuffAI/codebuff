@@ -19,6 +19,7 @@ import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens } from './util/token-counter'
 import { logger } from './util/logger'
 import { checkIfPlanRequired } from './check-plan-required'
+import { generatePlan } from './generate-plan'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -84,7 +85,19 @@ export async function mainPrompt(
       // If a plan is required, you can add logic here to generate and execute a plan
       // For now, we'll just log that a plan is required
       logger.info('A plan is required for this request')
-      // You can add more logic here to handle plan generation and execution
+      onResponseChunk("\n\nI've created a plan to address your request:\n\n")
+      const plan = await generatePlan(
+        messages,
+        system,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        onResponseChunk,
+        userId
+      )
+      logger.info({ plan }, 'Generated plan')
+      fullResponse += `\n\nI've created a plan to address your request:\n\n${plan}\n\nI'll now proceed with executing this plan step by step.`
+      onResponseChunk("\n\nI'll now proceed with executing this plan step by step.")
     }
   }
 

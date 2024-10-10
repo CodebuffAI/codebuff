@@ -194,3 +194,20 @@ This project uses Bun for testing instead of Jest. When writing tests, keep the 
 - Bun's test API is similar to Jest's, but there are some differences in implementation.
 - When mocking methods, use `mock(object.method)` instead of Jest's `jest.spyOn(object, 'method')`.
 - Bun's `mock` function expects 0-1 arguments, not 2 like Jest's `spyOn`.
+
+## Plan Generation for Complex Requests
+
+The backend now includes a feature to generate plans for complex user requests. This feature is designed to break down complex tasks into manageable steps and include appropriate verification processes.
+
+Key components:
+1. `check-plan-required.ts`: Determines if a plan is needed based on the complexity of the user's request.
+2. `generate-plan.ts`: Creates a detailed plan with numbered steps and verification processes.
+3. `main-prompt.ts`: Integrates plan generation into the main request handling flow.
+
+The plan generation process:
+1. `main-prompt.ts` calls `checkIfPlanRequired()` to determine if a plan is needed.
+2. If a plan is required, `generatePlan()` is called to create a detailed plan.
+3. The generated plan is streamed to the client using the `onResponseChunk` function, providing real-time updates.
+4. The plan includes numbered steps, sub-steps, and appropriate verification steps (e.g., running type checkers, creating and running unit tests).
+
+This feature enhances the system's ability to handle complex requests systematically and with proper verification. When working on request handling or AI prompts, consider whether the request might benefit from this plan generation feature.
