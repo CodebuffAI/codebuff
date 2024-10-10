@@ -38,7 +38,8 @@ export const promptClaudeStream = async function* (
     ignoreHelicone = false,
   } = options
 
-  const apiKey = env.ANTHROPIC_API_KEY
+  const apiKey =
+    Math.random() > 0.5 ? env.ANTHROPIC_API_KEY : env.ANTHROPIC_API_KEY2
 
   if (!apiKey) {
     throw new Error('Missing ANTHROPIC_API_KEY')
