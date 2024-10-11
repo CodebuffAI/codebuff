@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { eq, sql, or } from 'drizzle-orm'
+import { z } from 'zod'
 import { authOptions } from '../auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { eq, sql, or } from 'drizzle-orm'
-import { CREDITS_REFERRAL_BONUS } from 'common/constants'
-import { z } from 'zod'
-import { hasMaxedReferrals, MAX_REFERRALS } from 'common/util/server/referral'
+import { CREDITS_REFERRAL_BONUS, MAX_REFERRALS } from 'common/constants'
+import { hasMaxedReferrals } from 'common/util/server/referral'
 
 type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
   Pick<typeof schema.referral.$inferSelect, 'credits'>

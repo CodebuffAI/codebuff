@@ -72,3 +72,5 @@ export const models = {
 }
 
 export const TEST_USER_ID = 'test-user-id'
+
+export const MAX_REFERRALS = 5
