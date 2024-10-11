@@ -67,18 +67,23 @@ export class Client {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${this.user.authToken}`,
+              Cookie: `next-auth.session-token=${this.user.authToken};`,
             },
-            body: JSON.stringify({ referralCode }),
+            body: JSON.stringify({
+              referralCode,
+              authToken: this.user.authToken,
+            }),
           }
         )
         const respJson = await redeemReferralResp.json()
         if (redeemReferralResp.ok) {
-          green(
-            `Easy peasy, you've earned an extra ${respJson.creditsRedeemed} credits!`
-          )
           console.log(
-            `pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} for each referral! Go to ${process.env.NEXT_PUBLIC_APP_URL}/referrals to see your referral history and referral code!`
+            [
+              green(
+                `Noice, you've earned an extra ${respJson.creditsRedeemed} credits!`
+              ),
+              `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} for each referral at: ${process.env.NEXT_PUBLIC_APP_URL}/referrals)`,
+            ].join('\n')
           )
           this.getUsage()
         } else {
