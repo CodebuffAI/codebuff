@@ -124,7 +124,9 @@ const ReferralsPage = () => {
                 <CardContent className="flex flex-col space-y-6">
                   <div className="flex flex-col space-y-4">
                     <p>
-                      Send this link to your friend. We'll take it from there!
+                      {data.limitReached
+                        ? `Dang, you've got a lot of friends! You have reached your referral limit.`
+                        : `Send this link to your friend. We'll take it from there!`}
                     </p>
                     <div className="relative">
                       {loading ? (

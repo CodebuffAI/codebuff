@@ -86,6 +86,15 @@ The backend handles file operations for the Manicode project:
 
 7. **Version Control**: When making changes to shared functions, consider the impact on all parts of the application that use them, and test thoroughly.
 
+8. **Dependency Injection**: Prefer pulling common dependencies (like database connections or environment variables) from centralized locations rather than passing them as parameters. This reduces function complexity and improves maintainability.
+
+9. **Single Responsibility Principle**: Design functions to have a single, well-defined purpose. For example, separate the logic of determining eligibility for a referral code from the generation of the full referral link.
+
+10. **Abstraction Refinement**: Be prepared to refine initial implementations as the system's needs become clearer. This might involve changing function signatures, splitting functions, or adjusting their purposes to better fit the overall architecture.
+
+
+
+
 ## Development Guidelines
 
 1. **Type Safety**: Utilize TypeScript's type system to ensure code reliability and catch errors early.

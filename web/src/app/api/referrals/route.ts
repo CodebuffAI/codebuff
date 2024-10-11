@@ -6,8 +6,7 @@ import * as schema from 'common/db/schema'
 import { eq, count, sql, or } from 'drizzle-orm'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 import { z } from 'zod'
-import { generateReferralLink } from 'common/util/referral'
-import { env } from '@/env.mjs'
+import { hasMaxedReferrals, MAX_REFERRALS } from 'common/util/referral'
 
 type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
   Pick<typeof schema.referral.$inferSelect, 'credits'>
@@ -22,6 +21,7 @@ export type ReferralData = {
   referralCode: string
   referrals: Referral[]
   referredBy?: Referral
+  limitReached: boolean
 }
 
 export async function GET() {
@@ -42,8 +42,6 @@ export async function GET() {
         `No referral code found for user with id ${session.user.id}`
       )
     }
-
-    const referralLink = await generateReferralLink(db, session.user.id, env.NEXT_PUBLIC_APP_URL)
 
     // Who did this user refer?
     const referralsQuery = db
@@ -105,7 +103,7 @@ export async function GET() {
         return acc
       }, [] as Referral[]),
       referredBy,
-      referralLink,
+      limitReached: referrals.length >= MAX_REFERRALS,
     }
 
     return NextResponse.json(referralData)
