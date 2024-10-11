@@ -72,7 +72,7 @@ const ReferralsPage = () => {
   return (
     <div className="flex flex-col space-y-6">
       {data?.referredBy && (
-        <Card className="bg-green-50 dark:bg-green-700">
+        <Card className="bg-green-100 dark:bg-green-900">
           <CardHeader>
             <CardTitle className="flex items-center">
               <Forward className="mr-2" /> You claimed a referral bonus. You
@@ -94,7 +94,7 @@ const ReferralsPage = () => {
           </CardContent>
         </Card>
       )}
-      <Card className="bg-sky-50 dark:bg-sky-700 ">
+      <Card className="bg-sky-100 dark:bg-sky-900 ">
         <CardHeader>
           <CardTitle>Your Referrals</CardTitle>
         </CardHeader>
