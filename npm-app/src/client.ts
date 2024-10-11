@@ -80,9 +80,9 @@ export class Client {
           console.log(
             [
               green(
-                `Noice, you've earned an extra ${respJson.creditsRedeemed} credits!`
+                `Noice, you've earned an extra ${respJson.credits_redeemed} credits!`
               ),
-              `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} for each referral at: ${process.env.NEXT_PUBLIC_APP_URL}/referrals)`,
+              `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${process.env.NEXT_PUBLIC_APP_URL}/referrals)`,
             ].join('\n')
           )
           this.getUsage()
