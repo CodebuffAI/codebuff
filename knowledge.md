@@ -57,6 +57,24 @@ There are three top-level code directories:
 - `src/index.ts`: Contains main application logic and user input handling.
 - `knowledge.md`: Stores project-wide knowledge and best practices.
 
+## Constants
+
+Important constants are defined in `common/src/constants.ts`. This includes:
+
+- `MAX_REFERRALS`: The maximum number of referrals a user can make (currently set to 5).
+- `CREDITS_REFERRAL_BONUS`: The number of credits awarded for a successful referral.
+- `CREDITS_USAGE_LIMITS`: Defines credit limits for different user types (ANON, FREE, PAID).
+
+## Referral System
+
+The referral system is implemented across several files:
+
+- `common/src/util/server/referral.ts`: Contains the `hasMaxedReferrals` function to check if a user has reached their referral limit.
+- `web/src/app/api/referrals/route.ts`: Handles API routes for referral-related operations.
+- `common/src/util/referral.ts`: Contains utility functions like `getReferralLink`.
+
+The `MAX_REFERRALS` constant is used to limit the number of referrals a user can make.
+
 ## Development Guidelines
 
 1. Use TypeScript for all new code to maintain type safety.
@@ -149,6 +167,30 @@ Mani can now execute terminal commands using the `run_terminal_command` tool. Th
 - We don't specify return types for functions, since Typescript will infer them.
 - Always include 'src' in file paths when it's part of the actual directory structure, even though imports automatically remove it.
 
+## Constants and Configuration
+
+Important constants and configuration values are centralized in `common/src/constants.ts`. This includes:
+
+- `MAX_REFERRALS`: The maximum number of referrals a user can make (currently set to 5).
+- `CREDITS_REFERRAL_BONUS`: The number of credits awarded for a successful referral.
+- `CREDITS_USAGE_LIMITS`: Defines credit limits for different user types (ANON, FREE, PAID).
+
+Centralizing these constants makes it easier to manage and update project-wide settings.
+
+## Referral System
+
+The referral system is implemented across several files:
+
+- Implement authentication and authorization for WebSocket connections.
+- Add more comprehensive error handling and logging.
+- Implement rate limiting for AI requests to manage resource usage.
+- Create a robust testing suite for all components.
+
+# Code guide
+
+- We don't specify return types for functions, since Typescript will infer them.
+- Always include 'src' in file paths when it's part of the actual directory structure, even though imports automatically remove it.
+
 ## Python Package
 
 A Python package for Manicode has been created as a skeleton in python-app. Key points:
@@ -160,3 +202,4 @@ A Python package for Manicode has been created as a skeleton in python-app. Key 
 ## Version Checking
 
 Upon start-up, the client checks the npmjs.org registry for the latest version of the npm package. If the version is newer, Manicode will automatically try to download and install the latest version. Once it does, it'll prompt the user to restart the application.
+
