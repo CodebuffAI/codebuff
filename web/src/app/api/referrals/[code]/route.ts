@@ -21,6 +21,7 @@ export async function GET(
       where: eq(schema.user.referral_code, code),
       columns: {
         name: true,
+        id: true,
       },
     })
 
@@ -31,7 +32,9 @@ export async function GET(
       )
     }
 
-    return NextResponse.json({ referrerName: user.name })
+    const isSameUser = user.id === session.user.id
+
+    return NextResponse.json({ referrerName: user.name, isSameUser })
   } catch (error) {
     console.error(error)
     return NextResponse.json(

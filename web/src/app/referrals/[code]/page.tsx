@@ -49,7 +49,10 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
 
   const { data } = useQuery({
     queryKey: ['referrals'],
-    queryFn: async (): Promise<{ referrerName: string }> => {
+    queryFn: async (): Promise<{
+      referrerName: string
+      isSameUser: boolean
+    }> => {
       const res = await fetch(`/api/referrals/${params.code}`)
       return res.json()
     },
@@ -85,6 +88,12 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
           Your friend {data?.referrerName} just scored you some sweet sweet
           credits.
         </p>
+        {data?.isSameUser && (
+          <p className="font-bold text-red-600 mt-2">
+            Just FYI, this is your own referral code. It won't be valid for you
+            to use.
+          </p>
+        )}
       </CardContent>
 
       <div className="flex flex-col space-y-2">
