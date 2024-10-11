@@ -17,16 +17,17 @@ const Home = () => {
     <div className="overflow-hidden">
       <BackgroundBeams />
 
-      <main className="px-4 py-20 text-center relative z-10">
-        <h1 className="text-5xl md:text-7xl font-bold mb-6">
-          Code at the Speed of Thought
-        </h1>
-        <p className="text-xl md:text-2xl mb-12 text-gray-500 max-w-3xl mx-auto">
-          Manicode: The AI-powered tool that transforms natural language into
-          expert code. Edit your codebase with simple instructions to Mani, your
-          personal AI programming assistant.
-        </p>
-        {/* <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
+      <div className="max-w-6xl mx-auto">
+        <main className="px-4 py-20 text-center relative z-10">
+          <h1 className="text-5xl md:text-7xl font-bold mb-6">
+            Code at the Speed of Thought
+          </h1>
+          <p className="text-xl md:text-2xl mb-12 text-gray-500 max-w-3xl mx-auto">
+            Manicode: The AI-powered tool that transforms natural language into
+            expert code. Edit your codebase with simple instructions to Mani,
+            your personal AI programming assistant.
+          </p>
+          {/* <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
           <Input
             type="email"
             placeholder="Enter your email"
@@ -36,74 +37,76 @@ const Home = () => {
             Start Coding with AI
           </Button>
         </div> */}
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
-          <Link href="https://www.npmjs.com/package/manicode" target="_blank">
-            Try Manicode for free
-          </Link>
-        </Button>
-      </main>
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+            <Link href="https://www.npmjs.com/package/manicode" target="_blank">
+              Try Manicode for free
+            </Link>
+          </Button>
+        </main>
 
-      <section id="features" className="px-4 py-20 relative z-10">
-        <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
-          Revolutionize Your Coding Workflow
-        </h2>
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="bg-gray-900 p-6 rounded-lg">
-            <CodeIcon className="h-12 w-12 text-blue-500 mb-4" />
-            <h3 className="text-xl text-white font-semibold mb-2">
-              Global Code Understanding
-            </h3>
-            <p className="text-gray-500">
-              Mani understands your entire codebase, providing context-aware
-              suggestions and edits.
-            </p>
-          </div>
-          <div className="bg-gray-900 p-6 rounded-lg">
-            <TerminalIcon className="h-12 w-12 text-blue-500 mb-4" />
-            <h3 className="text-xl text-white font-semibold mb-2">
-              Natural Language Coding
-            </h3>
-            <p className="text-gray-500">
-              Write code using plain English. Mani translates your instructions
-              into efficient, clean code.
-            </p>
-          </div>
-          <div className="bg-gray-900 p-6 rounded-lg">
-            <BrainCircuitIcon className="h-12 w-12 text-blue-500 mb-4" />
-            <h3 className="text-xl text-white font-semibold mb-2">
-              AI-Powered Refactoring
-            </h3>
-            <p className="text-gray-500">
-              Automatically improve code quality, fix bugs, and optimize
-              performance with AI-driven refactoring.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-20 relative">
-        <div className="px-4 text-center relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">
-            Experience the Future of Coding
+        <section id="features" className="px-4 py-20 relative z-10">
+          <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
+            Revolutionize Your Coding Workflow
           </h2>
-          <p className="text-xl mb-8 text-gray-500 dark:text-gray-300 max-w-2xl mx-auto">
-            Join thousands of developers who are already building with Manicode.
-          </p>
-        </div>
-        {mounted && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-50 bg-transparent">
-            <Globe />
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-gray-900 p-6 rounded-lg">
+              <CodeIcon className="h-12 w-12 text-blue-500 mb-4" />
+              <h3 className="text-xl text-white font-semibold mb-2">
+                Global Code Understanding
+              </h3>
+              <p className="text-gray-500">
+                Mani understands your entire codebase, providing context-aware
+                suggestions and edits.
+              </p>
+            </div>
+            <div className="bg-gray-900 p-6 rounded-lg">
+              <TerminalIcon className="h-12 w-12 text-blue-500 mb-4" />
+              <h3 className="text-xl text-white font-semibold mb-2">
+                Natural Language Coding
+              </h3>
+              <p className="text-gray-500">
+                Write code using plain English. Mani translates your
+                instructions into efficient, clean code.
+              </p>
+            </div>
+            <div className="bg-gray-900 p-6 rounded-lg">
+              <BrainCircuitIcon className="h-12 w-12 text-blue-500 mb-4" />
+              <h3 className="text-xl text-white font-semibold mb-2">
+                AI-Powered Refactoring
+              </h3>
+              <p className="text-gray-500">
+                Automatically improve code quality, fix bugs, and optimize
+                performance with AI-driven refactoring.
+              </p>
+            </div>
           </div>
-        )}
-      </section>
+        </section>
 
-      <section className="py-12 relative z-10">
-        <div className="px-4 text-center">
-          <div className="bg-black rounded-lg p-4 inline-block">
-            <code className="text-blue-400">npm install -g manicode</code>
+        <section className="py-20 relative">
+          <div className="px-4 text-center relative z-10">
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">
+              Experience the Future of Coding
+            </h2>
+            <p className="text-xl mb-8 text-gray-500 dark:text-gray-300 max-w-2xl mx-auto">
+              Join thousands of developers who are already building with
+              Manicode.
+            </p>
           </div>
-        </div>
-      </section>
+          {mounted && (
+            <div className="absolute inset-0 flex items-center justify-center opacity-50 bg-transparent">
+              <Globe />
+            </div>
+          )}
+        </section>
+
+        <section className="py-12 relative z-10">
+          <div className="px-4 text-center">
+            <div className="bg-black rounded-lg p-4 inline-block">
+              <code className="text-blue-400">npm install -g manicode</code>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   )
 }

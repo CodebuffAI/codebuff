@@ -60,11 +60,7 @@ const RootLayout = ({ children }: PropsWithChildren) => {
           <SessionProvider>
             <QueryProvider>
               <Navbar />
-              <div className="flex-grow">
-                <div className="container mx-auto px-4 py-8">
-                  <div className="max-w-4xl mx-auto">{children}</div>
-                </div>
-              </div>
+              <div className="flex-grow">{children}</div>
               <Footer />
               <Toaster />
             </QueryProvider>
