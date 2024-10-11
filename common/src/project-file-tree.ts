@@ -12,6 +12,7 @@ export function getProjectFileTree(
   const defaultIgnore = ignore.default()
   defaultIgnore.add('.git')
   defaultIgnore.add('*.min.*')
+  defaultIgnore.add('node_modules')
 
   if (projectRoot === os.homedir()) {
     defaultIgnore.add('.*')
