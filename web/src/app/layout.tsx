@@ -47,7 +47,6 @@ export const generateMetadata = (): Metadata => ({
   },
 })
 
-
 const RootLayout = ({ children }: PropsWithChildren) => {
   return (
     <html lang={'en'} suppressHydrationWarning>
@@ -61,7 +60,11 @@ const RootLayout = ({ children }: PropsWithChildren) => {
           <SessionProvider>
             <QueryProvider>
               <Navbar />
-              <div className="flex-grow">{children}</div>
+              <div className="flex-grow">
+                <div className="container mx-auto px-4 py-8">
+                  <div className="max-w-4xl mx-auto">{children}</div>
+                </div>
+              </div>
               <Footer />
               <Toaster />
             </QueryProvider>

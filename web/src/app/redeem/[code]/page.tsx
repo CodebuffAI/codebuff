@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { sleep } from 'common/util/helpers'
 import { CopyIcon, CheckIcon, GiftIcon } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 
 const InputWithCopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
@@ -46,15 +47,24 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
 export default function RedeemPage({ params }: { params: { code: string } }) {
   const { data: session, status } = useSession()
 
+  const { data } = useQuery({
+    queryKey: ['referrals'],
+    queryFn: async (): Promise<{ referrerName: string }> => {
+      const res = await fetch(`/api/referrals/${params.code}`)
+      return res.json()
+    },
+  })
+
   if (status === 'loading') {
     return (
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Redeeming Referral Code</CardTitle>
+          <CardTitle>Good news, just one sec...</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col space-y-4">
           <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-5/6 mt-2" />
+          <Skeleton className="h-4 w-2/6" />
+          <Skeleton className="h-4 w-5/6" />
         </CardContent>
       </Card>
     )
@@ -71,7 +81,10 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
 
       <CardContent>
         <b>Hey {session?.user?.name} 👋</b>
-        <p>Your friend just scored you some sweet sweet credits.</p>
+        <p>
+          Your friend {data?.referrerName} just scored you some sweet sweet
+          credits.
+        </p>
       </CardContent>
 
       <div className="flex flex-col space-y-2">

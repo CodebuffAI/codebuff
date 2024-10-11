@@ -75,8 +75,8 @@ const ReferralsPage = () => {
         <Card className="bg-green-50 dark:bg-green-900">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Forward className="mr-2" /> You claimed a referral bonus. You
-              both rock! 🤘
+              <Forward className="mr-2" /> You claimed a referral bonus. You and
+              your friend rock! 🤘
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col">
@@ -94,7 +94,7 @@ const ReferralsPage = () => {
           </CardContent>
         </Card>
       )}
-      <Card className="bg-blue-50 dark:bg-blue-900">
+      <Card className="bg-blue-50 dark:bg-blue-900 ">
         <CardHeader>
           <CardTitle>Your Referrals</CardTitle>
         </CardHeader>
@@ -124,7 +124,7 @@ const ReferralsPage = () => {
                 <CardContent className="flex flex-col space-y-6">
                   <div className="flex flex-col space-y-4">
                     <p>
-                      Send this link to your friend, we'll take it from there!
+                      Send this link to your friend. We'll take it from there!
                     </p>
                     <div className="relative">
                       {loading ? (
