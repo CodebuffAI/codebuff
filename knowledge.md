@@ -57,14 +57,6 @@ There are three top-level code directories:
 - `src/index.ts`: Contains main application logic and user input handling.
 - `knowledge.md`: Stores project-wide knowledge and best practices.
 
-## Constants
-
-Important constants are defined in `common/src/constants.ts`. This includes:
-
-- `MAX_REFERRALS`: The maximum number of referrals a user can make (currently set to 5).
-- `CREDITS_REFERRAL_BONUS`: The number of credits awarded for a successful referral.
-- `CREDITS_USAGE_LIMITS`: Defines credit limits for different user types (ANON, FREE, PAID).
-
 ## Referral System
 
 The referral system is implemented across several files:
@@ -202,4 +194,3 @@ A Python package for Manicode has been created as a skeleton in python-app. Key 
 ## Version Checking
 
 Upon start-up, the client checks the npmjs.org registry for the latest version of the npm package. If the version is newer, Manicode will automatically try to download and install the latest version. Once it does, it'll prompt the user to restart the application.
-
