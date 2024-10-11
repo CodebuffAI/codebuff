@@ -10,17 +10,15 @@ import { ReferralData } from '@/app/api/referrals/route'
 import { Skeleton } from '@/components/ui/skeleton'
 import { match, P } from 'ts-pattern'
 import { env } from '@/env.mjs'
-import { GiftIcon, CopyIcon, Forward } from 'lucide-react'
+import { CopyIcon, Forward } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import Link from 'next/link'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 
-const copyReferral = (code: string, toLink: boolean) => {
-  navigator.clipboard.writeText(
-    toLink ? `${env.NEXT_PUBLIC_APP_URL}/redeem?referral_code=${code}` : code
-  )
+const copyReferral = (link: string) => {
+  navigator.clipboard.writeText(link)
   toast({
-    title: `Copied referral ${toLink ? 'link' : 'code'}`,
+    title: `Copied referral link`,
     description: 'Refer away! 🌟',
   })
 }
@@ -50,6 +48,7 @@ const ReferralsPage = () => {
     refetchInterval: 15000,
   })
   const loading = isLoading || status === 'loading'
+  const link = `${env.NEXT_PUBLIC_APP_URL}/redeem/${data?.referralCode}`
 
   if (error) {
     return (
@@ -122,7 +121,35 @@ const ReferralsPage = () => {
                 data: P.not(undefined),
               },
               ({ data }) => (
-                <div className="flex flex-col space-y-4">
+                <CardContent className="flex flex-col space-y-6">
+                  <div className="flex flex-col space-y-4">
+                    <p>
+                      Send this link to your friend, we'll take it from there!
+                    </p>
+                    <div className="relative">
+                      {loading ? (
+                        <Skeleton className="h-10 w-full" />
+                      ) : (
+                        <Input
+                          value={link}
+                          placeholder={'Your referral link'}
+                          readOnly
+                          className="bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                        />
+                      )}
+                      <Button
+                        onClick={() => copyReferral(link)}
+                        disabled={loading || !session?.user}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
+                        variant="ghost"
+                      >
+                        <CopyIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Separator />
+
                   {data.referrals.length === 0 ? (
                     <p>You haven't referred anyone yet.</p>
                   ) : (
@@ -140,86 +167,7 @@ const ReferralsPage = () => {
                       ))}
                     </ul>
                   )}
-
-                  <div className="flex flex-col space-y-2">
-                    <Separator className="my-4" />
-                    <div className="flex items-center space-x-2 font-bold">
-                      <GiftIcon className="mr-2" /> Your Referral Code
-                    </div>
-                    <div className="relative">
-                      {loading ? (
-                        <Skeleton className="h-10 w-full" />
-                      ) : (
-                        <Input
-                          value={data?.referralCode}
-                          placeholder={'Your referral code'}
-                          readOnly
-                          className="bg-gray-100 dark:bg-gray-800 pr-10"
-                        />
-                      )}
-                      <Button
-                        onClick={() =>
-                          data && copyReferral(data.referralCode, false)
-                        }
-                        disabled={loading || !session?.user}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
-                        variant="ghost"
-                      >
-                        <CopyIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <CardContent>
-                      <p className="mt-4">
-                        To refer, ask your friend to follow these steps:
-                      </p>
-                      <ol className="list-decimal list-inside mt-2">
-                        <li>
-                          Install Manicode globally:
-                          <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg m-4">
-                            <code>npm i -g manicode</code>
-                          </pre>
-                        </li>
-                        <li>
-                          Run Manicode
-                          <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg m-4">
-                            <code>manicode</code>
-                          </pre>
-                        </li>
-                        <li>Paste your referral code in the CLI and log in.</li>
-                      </ol>
-                    </CardContent>
-                  </div>
-
-                  {/* <div className="flex flex-col space-y-2">
-                    <Separator className="my-4" />
-                    <div className="flex items-center space-x-2 font-bold">
-                      <LinkIcon className="mr-2" /> Your Referral Link
-                    </div>
-                    <div className="relative">
-                      {loading ? (
-                        <Skeleton className="h-10 w-full" />
-                      ) : (
-                        <Input
-                          value={`${env.NEXT_PUBLIC_APP_URL}/redeem?referral_code=${data?.referralCode}`}
-                          placeholder={'Your referral link'}
-                          readOnly
-                          className="bg-gray-100 dark:bg-gray-800 pr-10"
-                        />
-                      )}
-                      <Button
-                        onClick={() =>
-                          data && copyReferral(data.referralCode, true)
-                        }
-                        disabled={loading || !session?.user}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
-                        variant="ghost"
-                      >
-                        <CopyIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div> */}
-                </div>
+                </CardContent>
               )
             )
             .otherwise(() => (
