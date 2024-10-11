@@ -21,8 +21,8 @@ export async function hasMaxedReferrals(userId: string): Promise<
       limitReached: sql<boolean>`count(*) >= ${MAX_REFERRALS}`,
     })
     .from(schema.referral)
-    .leftJoin(schema.user, eq(schema.referral.referrer_id, userId))
-    // .where(eq(schema.referral.referrer_id, userId))
+    .leftJoin(schema.user, eq(schema.referral.referrer_id, schema.user.id))
+    .where(eq(schema.referral.referrer_id, userId))
     .groupBy(schema.user.referral_code)
     .then((result) => (result.length > 0 ? result[0] : undefined))
 
