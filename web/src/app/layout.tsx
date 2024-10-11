@@ -11,6 +11,7 @@ import { siteConfig } from '@/lib/constant'
 import { fonts } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
 import SessionProvider from '@/lib/SessionProvider'
+import QueryProvider from '@/components/providers/query-client-provider'
 
 export const generateMetadata = (): Metadata => ({
   metadataBase: new URL(siteConfig.url()),
@@ -57,10 +58,12 @@ const RootLayout = ({ children }: PropsWithChildren) => {
       >
         <ThemeProvider attribute="class">
           <SessionProvider>
-            <Navbar />
-            <div className="flex-grow">{children}</div>
-            <Footer />
-            <Toaster />
+            <QueryProvider>
+              <Navbar />
+              <div className="flex-grow">{children}</div>
+              <Footer />
+              <Toaster />
+            </QueryProvider>
           </SessionProvider>
         </ThemeProvider>
       </body>

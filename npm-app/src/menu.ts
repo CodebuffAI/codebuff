@@ -1,5 +1,5 @@
 import { getProjectRoot } from './project-files'
-import picocolors from 'picocolors'
+import picocolors, { blue } from 'picocolors'
 import { bold, green } from 'picocolors'
 
 const getRandomColors = () => {
@@ -69,14 +69,24 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
   console.log('- Enter terminal commands directly: "cd backend", "npm test"')
   console.log('- Use "/run <command>" for long terminal commands')
   console.log('- Press ESC to cancel generation')
-  console.log('- Type "undo" or "redo" (abbreviated "u" or "r") to undo or redo the last change')
+  console.log(
+    '- Type "undo" or "redo" (abbreviated "u" or "r") to undo or redo the last change'
+  )
   console.log('- Type "login" to log into Manicode')
-  console.log('- Type "diff" or "d" to show changes from the last assistant response')
+  console.log(
+    '- Type "diff" or "d" to show changes from the last assistant response'
+  )
+  console.log(
+    `- Redeem a referral code by simply pasting it here. You can also earn credits if you`,
+    bold(green(`refer new users: ${process.env.NEXT_PUBLIC_APP_URL}/referrals`))
+  )
 
   console.log(
     '\nAny files in .gitignore are not read by Manicode. You can ignore further files with .manicodeignore'
   )
   console.log(
-    '\nEmail your feedback to james@manicode.ai. Thanks for using Manicode!'
+    '\nEmail your feedback to',
+    bold(blue('founders@manicode.ai.')),
+    'Thanks for using Manicode!'
   )
 }

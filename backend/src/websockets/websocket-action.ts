@@ -11,13 +11,14 @@ import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude } from '../claude'
 import { env } from '../env.mjs'
 import db from 'common/db'
-import * as schema from 'common/db/schema'
 import { genAuthCode } from 'common/util/credentials'
+import * as schema from 'common/db/schema'
 import { claudeModels } from 'common/constants'
 import { protec } from './middleware'
 import { getQuotaManager } from '@/billing/quota-manager'
 import { logger, withLoggerContext } from '@/util/logger'
 import { generateCommitMessage } from '@/generate-commit-message'
+import { hasMaxedReferrals } from 'common/util/server/referral'
 
 export const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -51,10 +52,7 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
     userId ? 'authenticated' : 'anonymous',
     userId ?? fingerprintId
   )
-  const { creditsUsed, quota } = await quotaManager.checkQuota()
-  if (env.ENVIRONMENT === 'local') {
-    return { usage: creditsUsed, limit: Infinity }
-  }
+  const { creditsUsed, quota } = await quotaManager.updateQuota()
   return { usage: creditsUsed, limit: quota }
 }
 
@@ -180,7 +178,10 @@ const onClearAuthTokenRequest = async (
 }
 
 const onLoginCodeRequest = (
-  { fingerprintId }: Extract<ClientAction, { type: 'login-code-request' }>,
+  {
+    fingerprintId,
+    referralCode,
+  }: Extract<ClientAction, { type: 'login-code-request' }>,
   _clientSessionId: string,
   ws: WebSocket
 ): void => {
@@ -191,7 +192,7 @@ const onLoginCodeRequest = (
       expiresAt.toString(),
       env.NEXTAUTH_SECRET
     )
-    const loginUrl = `${env.APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}`
+    const loginUrl = `${env.NEXT_PUBLIC_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}${referralCode ? `&referral_code=${referralCode}` : ''}`
 
     sendAction(ws, {
       type: 'login-code-response',
@@ -323,10 +324,20 @@ const onUsageRequest = async (
   const { usage, limit } = await calculateUsage(fingerprintId, userId)
   await withLoggerContext({ fingerprintId, userId, usage, limit }, async () => {
     logger.info('Sending usage info')
+
+    let referralLink: string | undefined = undefined
+    if (userId) {
+      const shouldGenerateReferralLink = await hasMaxedReferrals(userId)
+      if (shouldGenerateReferralLink.reason === undefined) {
+        referralLink = shouldGenerateReferralLink.referralLink
+      }
+    }
+
     sendAction(ws, {
       type: 'usage-response',
       usage,
       limit,
+      referralLink,
     })
   })
 }
@@ -414,7 +425,7 @@ export const onWebsocketAction = async (
 }
 
 subscribeToAction('user-input', protec.run(onUserInput))
-subscribeToAction('init', () => protec.run(onInit))
+subscribeToAction('init', protec.run(onInit))
 
 subscribeToAction('clear-auth-token', onClearAuthTokenRequest)
 subscribeToAction('login-code-request', onLoginCodeRequest)

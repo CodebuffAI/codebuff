@@ -27,6 +27,7 @@
     "test:patch": "bun test test/__src__/patch.test.ts"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.59.0",
     "lodash": "4.17.21",
     "ts-node": "^10.9.2"
   },

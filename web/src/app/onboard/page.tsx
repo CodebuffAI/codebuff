@@ -3,7 +3,7 @@
 import { toast } from '@/components/ui/use-toast'
 import { getServerSession } from 'next-auth'
 import Image from 'next/image'
-import { notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { and, eq } from 'drizzle-orm'
@@ -12,15 +12,18 @@ import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { genAuthCode } from 'common/util/credentials'
 import { env } from '@/env.mjs'
 import CardWithBeams from '@/components/card-with-beams'
+import { redeemReferralCode } from '../api/referrals/route'
 
 interface PageProps {
   searchParams: {
     auth_code?: string
+    referral_code?: string
   }
 }
 
 const Onboard = async ({ searchParams }: PageProps) => {
   const authCode = searchParams.auth_code
+  const referralCode = searchParams.referral_code
   const session = await getServerSession(authOptions)
   const user = session?.user
 
@@ -31,7 +34,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
       description:
         'No valid session or auth code. Please try again and reach out to support@manicode.ai if the problem persists.',
     })
-    return notFound()
+    return redirect(env.NEXT_PUBLIC_APP_URL)
   }
 
   const [fingerprintId, expiresAt, receivedfingerprintHash] =
@@ -132,19 +135,51 @@ const Onboard = async ({ searchParams }: PageProps) => {
     return !!session.length
   })
 
+  let redeemReferralMessage = <></>
+  if (referralCode) {
+    try {
+      const redeemReferralResp = await redeemReferralCode(referralCode, user.id)
+      const respJson = await redeemReferralResp.json()
+      if (!redeemReferralResp.ok) {
+        throw new Error(respJson.error)
+      }
+      redeemReferralMessage = (
+        <p>
+          `You've earned an extra ${respJson.credits_redeemed} credits from your
+          referral code!`
+        </p>
+      )
+    } catch (e) {
+      console.error(e)
+      const error = e as Error
+      redeemReferralMessage = (
+        <div className="flex flex-col space-y-2">
+          <p>Uh-oh, we couldn't apply your referral code. {error.message}.</p>
+          <p>
+            Please try again and reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if
+            the problem persists.
+          </p>
+        </div>
+      )
+    }
+  }
+
   // Render the result
   if (didInsert) {
     return CardWithBeams({
       title: 'Nicely done!',
       description:
-        'Feel free to close this window and head back to your terminal. Enjoy the extra api credits!',
+        'Feel free to close this window and head back to your terminal.',
       content: (
-        <Image
-          src="/auth-success.jpg"
-          alt="Successful authentication"
-          width={600}
-          height={600}
-        />
+        <div className="flex flex-col space-y-2">
+          <Image
+            src="/auth-success.jpg"
+            alt="Successful authentication"
+            width={600}
+            height={600}
+          />
+          {redeemReferralMessage}
+        </div>
       ),
     })
   }
@@ -153,8 +188,8 @@ const Onboard = async ({ searchParams }: PageProps) => {
     description: 'Something went wrong.',
     content: (
       <p>
-        Please try again and reach out to support@manicode.ai if the problem
-        persists.
+        Not sure what happened with creating your user. Please try again and
+        reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if the problem persists.
       </p>
     ),
   })

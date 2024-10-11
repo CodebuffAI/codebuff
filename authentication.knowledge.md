@@ -16,7 +16,7 @@ Manicode implements a secure authentication flow that involves the npm-app (CLI)
      a. `fingerprintId` (to link the current session with user credentials)
      b. Timestamp (5 minutes in the future, for link expiration)
      c. Hash of the above + a secret value (for request verification)
-   - Backend appends this auth code to the login URL: `${APP_URL}/login?auth_code=<token-goes-here>`
+   - Backend appends this auth code to the login URL: `${NEXT_PUBLIC_APP_URL}/login?auth_code=<token-goes-here>`
 
 3. User Login:
 

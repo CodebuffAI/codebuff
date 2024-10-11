@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     env:
-      APP_URL: ${{ secrets.APP_URL }}
+      NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
       GITHUB_ID: ${{ secrets.AUTH_GITHUB_ID }}
       GITHUB_SECRET: ${{ secrets.AUTH_GITHUB_SECRET }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}

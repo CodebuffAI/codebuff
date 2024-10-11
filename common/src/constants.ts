@@ -1,3 +1,5 @@
+// import { env } from './env.mjs'
+
 export const STOP_MARKER = '[' + 'END]'
 export const FIND_FILES_MARKER = '[' + 'FIND_FILES_PLEASE]'
 export const TOOL_RESULT_MARKER = '[' + 'TOOL_RESULT]'
@@ -39,11 +41,20 @@ export const SKIPPED_TERMINAL_COMMANDS = [
 
 export const MAX_DATE = new Date(86399999999999)
 
-export const CREDITS_USAGE_LIMITS = {
-  ANON: 1_000,
-  FREE: 2_500,
-  PAID: 50_000,
-}
+export type UsageLimits = 'ANON' | 'FREE' | 'PAID'
+export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
+  process.env.NEXT_PUBLIC_ENVIRONMENT === 'local'
+    ? {
+        ANON: 1_000_000,
+        FREE: 2_500_000,
+        PAID: 50_000_000,
+      }
+    : {
+        ANON: 1_000,
+        FREE: 2_500,
+        PAID: 50_000,
+      }
+export const CREDITS_REFERRAL_BONUS = 500
 
 export const claudeModels = {
   sonnet: 'claude-3-5-sonnet-20240620',
@@ -61,3 +72,5 @@ export const models = {
 }
 
 export const TEST_USER_ID = 'test-user-id'
+
+export const MAX_REFERRALS = 5

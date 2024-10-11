@@ -134,6 +134,8 @@ export class CLI {
   }
 
   public printInitialPrompt(initialInput?: string) {
+    this.client.getUsage()
+
     if (this.client.user) {
       console.log(
         `Welcome back ${this.client.user.name}! What would you like to do?\n`
@@ -277,6 +279,13 @@ export class CLI {
     if (userInput === 'login' || userInput === 'signin') {
       await this.client.login()
       return
+    } else if (userInput === 'logout' || userInput === 'signout') {
+      await this.client.logout()
+      this.rl.prompt()
+      return
+    } else if (userInput.startsWith('ref-')) {
+      await this.client.handleReferralCode(userInput.trim())
+      return
     } else if (userInput === 'usage' || userInput === 'credits') {
       this.client.getUsage()
       return
@@ -322,17 +331,7 @@ export class CLI {
     }
 
     if (this.client.lastWarnedPct >= 100) {
-      console.error(
-        [
-          red(
-            'You have reached your monthly usage limit. You must upgrade your plan to continue using the service.'
-          ),
-          this.client.user
-            ? yellow('Visit https://manicode.ai/pricing to upgrade.')
-            : yellow('Type "login" to sign up and get more credits!'),
-        ].join('\n')
-      )
-      this.rl.prompt()
+      this.client.getUsage() // refresh, in case user upgraded
       return
     }
     this.startLoadingAnimation()

@@ -70,6 +70,31 @@ The backend handles file operations for the Manicode project:
 - **Reading Files**: The `read_files` tool allows the AI to access project file contents.
 - **Applying Changes**: The `applyChanges` function in `prompts.ts` processes and applies file modifications suggested by the AI.
 
+## Code Organization and Best Practices
+
+1. **Centralize Shared Logic**: When implementing functionality that's used in multiple places (e.g., web API and backend), create shared functions to promote code reuse and consistency. This is particularly important for business logic like referral handling and usage calculations.
+
+2. **Shared Function Location**: Place shared functions in a common directory accessible to both the web API and backend. Consider creating a `common/src/utils` directory for such shared functionality.
+
+3. **DRY Principle**: Always look for opportunities to refactor repeated code into shared, reusable functions. This not only reduces code duplication but also makes maintenance and updates easier.
+
+4. **Consistent API**: When creating shared functions, ensure they have a consistent API that can be easily used by different parts of the application.
+
+5. **Testing Shared Functions**: Implement unit tests for shared functions to ensure they work correctly in all contexts where they are used.
+
+6. **Documentation**: Document shared functions clearly, including their purpose, inputs, outputs, and any side effects, so that other developers can use them effectively.
+
+7. **Version Control**: When making changes to shared functions, consider the impact on all parts of the application that use them, and test thoroughly.
+
+8. **Dependency Injection**: Prefer pulling common dependencies (like database connections or environment variables) from centralized locations rather than passing them as parameters. This reduces function complexity and improves maintainability.
+
+9. **Single Responsibility Principle**: Design functions to have a single, well-defined purpose. For example, separate the logic of determining eligibility for a referral code from the generation of the full referral link.
+
+10. **Abstraction Refinement**: Be prepared to refine initial implementations as the system's needs become clearer. This might involve changing function signatures, splitting functions, or adjusting their purposes to better fit the overall architecture.
+
+
+
+
 ## Development Guidelines
 
 1. **Type Safety**: Utilize TypeScript's type system to ensure code reliability and catch errors early.
@@ -145,6 +170,29 @@ export const logger = pino({
 4. Create a robust testing suite for backend components.
 5. Optimize the file diff generation process for better reliability and performance.
 
+## Referral System
+
+The referral system is an important feature of our application. Here are key points to remember:
+
+1. **Referral Limit**: Users are limited to a maximum number of successful referrals (currently set to 5).
+
+2. **Limit Enforcement**: The referral limit must be enforced during the redemption process (POST request), not just when displaying referral information (GET request).
+
+3. **Centralized Logic**: The `hasMaxedReferrals` function in `common/src/util/referral.ts` is used to check if a user has reached their referral limit. This function should be used consistently across the application to ensure uniform enforcement of the referral limit.
+
+4. **Redemption Process**: When redeeming a referral code (in the POST request handler), always check if the referrer has maxed out their referrals before processing the redemption. This ensures that users cannot exceed their referral limit even if they distribute their referral code widely.
+
+5. **Error Handling**: Provide clear error messages when a referral code cannot be redeemed due to the referrer reaching their limit. This helps maintain a good user experience.
+
+Remember to keep the referral system logic consistent between the backend API and the websocket server to ensure uniform behavior across different parts of the application.
+
+
+
+
+
+
+
+
 ## Debugging Docker Issues
 
 - When encountering "Cannot find module" errors in a Docker container, it's important to verify the contents of the container itself, not just the local build.
@@ -194,3 +242,5 @@ This project uses Bun for testing instead of Jest. When writing tests, keep the 
 - Bun's test API is similar to Jest's, but there are some differences in implementation.
 - When mocking methods, use `mock(object.method)` instead of Jest's `jest.spyOn(object, 'method')`.
 - Bun's `mock` function expects 0-1 arguments, not 2 like Jest's `spyOn`.
+
+Remember to keep this knowledge file updated as the application evolves or new features are added.

@@ -1,4 +1,4 @@
-import { yellow, red } from 'picocolors'
+import { yellow, red, green } from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
   getFiles,
@@ -10,13 +10,15 @@ import { CREDENTIALS_PATH, User, userFromJson } from 'common/util/credentials'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
-import { CREDITS_USAGE_LIMITS, TOOL_RESULT_MARKER } from 'common/constants'
+import {
+  CREDITS_REFERRAL_BONUS,
+  CREDITS_USAGE_LIMITS,
+  TOOL_RESULT_MARKER,
+} from 'common/constants'
 import { fingerprintId } from './config'
 import { uniq } from 'lodash'
-import { spawn } from 'child_process'
 import path from 'path'
 import * as fs from 'fs'
-import { sleep } from 'common/util/helpers'
 import { match, P } from 'ts-pattern'
 
 export class Client {
@@ -55,7 +57,49 @@ export class Client {
     this.setupSubscriptions()
   }
 
-  async login() {
+  async handleReferralCode(referralCode: string) {
+    if (this.user) {
+      // User is logged in, so attempt to redeem referral code directly
+      try {
+        const redeemReferralResp = await fetch(
+          `${process.env.NEXT_PUBLIC_APP_URL}/api/referrals`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Cookie: `next-auth.session-token=${this.user.authToken};`,
+            },
+            body: JSON.stringify({
+              referralCode,
+              authToken: this.user.authToken,
+            }),
+          }
+        )
+        const respJson = await redeemReferralResp.json()
+        if (redeemReferralResp.ok) {
+          console.log(
+            [
+              green(
+                `Noice, you've earned an extra ${respJson.credits_redeemed} credits!`
+              ),
+              `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${process.env.NEXT_PUBLIC_APP_URL}/referrals)`,
+            ].join('\n')
+          )
+          this.getUsage()
+        } else {
+          throw new Error(respJson.error)
+        }
+      } catch (e) {
+        const error = e as Error
+        console.error(red('Error: ' + error.message))
+        this.returnControlToUser()
+      }
+    } else {
+      await this.login(referralCode)
+    }
+  }
+
+  async logout() {
     if (this.user) {
       // If there was an existing user, clear their existing state
       this.webSocket.sendAction({
@@ -68,12 +112,17 @@ export class Client {
 
       // delete credentials file
       fs.unlinkSync(CREDENTIALS_PATH)
+      console.log(`Logged you out of your account (${this.user.name})`)
       this.user = undefined
     }
+  }
 
+  async login(referralCode?: string) {
+    this.logout()
     this.webSocket.sendAction({
       type: 'login-code-request',
       fingerprintId,
+      referralCode,
     })
   }
 
@@ -149,19 +198,13 @@ export class Client {
       'login-code-response',
       async ({ loginUrl, fingerprintHash }) => {
         const responseToUser = [
-          'See you back here after you finish logging in 👋',
-          "If you're not redirected in a few seconds, please visit the following URL to log in:",
+          'Please visit the following URL to log in:',
+          '\n',
           loginUrl,
           '\n',
+          'See you back here after you finish logging in 👋',
         ]
         console.log(responseToUser.join('\n'))
-
-        // Attempt to open the login URL in the user's browser for them
-        await sleep(5000).then(() => {
-          const childProcess = spawn(`open ${loginUrl}`, {
-            shell: true,
-          })
-        })
 
         // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
         const initialTime = Date.now()
@@ -211,14 +254,18 @@ export class Client {
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
-      const { usage, limit } = action
-      console.log(`Usage: ${usage} / ${limit} credits`)
-      this.showUsageWarning(usage, limit)
+      const { usage, limit, referralLink } = action
+      console.log(`\nUsage: ${usage} / ${limit} credits`)
+      this.showUsageWarning(usage, limit, referralLink)
       this.returnControlToUser()
     })
   }
 
-  async showUsageWarning(usage: number, limit: number) {
+  public async showUsageWarning(
+    usage: number,
+    limit: number,
+    referralLink?: string
+  ) {
     const pct: number = match(Math.floor((usage / limit) * 100))
       .with(P.number.gte(100), () => 100)
       .with(P.number.gte(75), () => 75)
@@ -226,14 +273,33 @@ export class Client {
       .with(P.number.gte(25), () => 25)
       .otherwise(() => 0)
 
+    if (pct >= 100) {
+      console.error(
+        [
+          red(
+            'You have reached your monthly usage limit. You must upgrade your plan to continue using the service.'
+          ),
+        ].join('\n')
+      )
+      this.returnControlToUser()
+      return
+    }
+
     if (pct > 0 && pct > this.lastWarnedPct) {
       console.warn(
         [
           '',
           yellow(`You have used over ${pct}% of your monthly usage limit.`),
           this.user
-            ? yellow('Visit https://manicode.ai/pricing to upgrade.')
+            ? yellow(
+                `Visit ${process.env.NEXT_PUBLIC_APP_URL}/pricing to upgrade.`
+              )
             : yellow('Type "login" to sign up and get more credits!'),
+          referralLink
+            ? yellow(
+                `You can also refer friends using this link and get more credits: ${referralLink}`
+              )
+            : '',
         ].join('\n')
       )
       this.lastWarnedPct = pct
@@ -349,8 +415,14 @@ export class Client {
       resolveResponse({ ...a, wasStoppedByUser: false })
       this.currentUserInputId = undefined
 
-      this.usage = a.usage ?? 0
-      this.limit = a.limit ?? 0
+      if (!a.usage || !a.limit) return
+
+      this.usage = a.usage
+      if (this.limit !== a.limit) {
+        // Indicates a change in the user's plan
+        this.lastWarnedPct = 0
+        this.limit = a.limit
+      }
     })
 
     return {
