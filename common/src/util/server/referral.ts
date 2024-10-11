@@ -2,7 +2,7 @@ import { eq, sql } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import db from '../../db'
 import { getReferralLink } from '../referral'
-import { MAX_REFERRALS } from 'src/constants'
+import { MAX_REFERRALS } from '../../constants'
 
 export async function hasMaxedReferrals(userId: string): Promise<
   | {
