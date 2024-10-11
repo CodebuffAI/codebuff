@@ -16,6 +16,7 @@ dotenv.config({ path })
 export const env = createEnv({
   server: {
     ANTHROPIC_API_KEY: z.string().min(1).startsWith('sk-ant-'),
+    ANTHROPIC_API_KEY2: z.string().min(1).startsWith('sk-ant-'),
     HELICONE_API_KEY: z.string().min(1).startsWith('pk-helicone-'),
     OPEN_AI_KEY: z.string().min(1).startsWith('sk-proj-'),
     STRIPE_SECRET_KEY: z.string().min(1),

@@ -273,7 +273,7 @@ export class Client {
       console.warn(
         [
           '',
-          yellow(`You have used ${pct}+% of your monthly usage limit.`),
+          yellow(`You have used over ${pct}% of your monthly usage limit.`),
           this.user
             ? yellow(
                 `Visit ${process.env.NEXT_PUBLIC_APP_URL}/pricing to upgrade.`

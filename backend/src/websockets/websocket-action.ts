@@ -72,7 +72,7 @@ const onUserInput = async (
     async () => {
       const lastMessage = messages[messages.length - 1]
       if (typeof lastMessage.content === 'string') {
-        logger.info(lastMessage.content)
+        logger.info(`USER INPUT: ${lastMessage.content}`)
       }
 
       const userId = await getUserIdFromAuthToken(authToken)

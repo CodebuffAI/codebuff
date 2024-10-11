@@ -1,6 +1,7 @@
 import { Message } from 'common/actions'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { createPatch } from 'diff'
+import { applyPatch } from 'common/util/patch'
 import { openaiModels } from 'common/constants'
 import { replaceNonStandardPlaceholderComments } from 'common/util/string'
 import { logger } from './util/logger'
@@ -31,7 +32,6 @@ export async function generatePatch(
       userInputId,
       normalizedOldContent,
       normalizedNewContent,
-      filePath,
       messageHistory,
       fullResponse,
       userId
@@ -47,15 +47,12 @@ export async function generatePatch(
     let newContentWithPlaceholders = shouldAddPlaceholderComments
       ? `... existing code ...\n\n${normalizedNewContent}\n\n... existing code ...`
       : normalizedNewContent
-    patch = await generatePatchPrompt(
+    patch = await generateBestOfNPatch(
       clientSessionId,
       fingerprintId,
       userInputId,
       normalizedOldContent,
       newContentWithPlaceholders,
-      filePath,
-      messageHistory,
-      fullResponse,
       userId
     )
   }
@@ -69,7 +66,6 @@ const isSketchCompletePrompt = async (
   userInputId: string,
   oldContent: string,
   newContent: string,
-  filePath: string,
   messageHistory: Message[],
   fullResponse: string,
   userId?: string
@@ -118,7 +114,10 @@ If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". 
   const shouldAddPlaceholderComments = response.includes('INCOMPLETE_SKETCH')
   const isSketchComplete =
     response.includes('NO') && !shouldAddPlaceholderComments
-  logger.debug({ response, isSketchComplete, shouldAddPlaceholderComments }, 'isSketchComplete response')
+  logger.debug(
+    { response, isSketchComplete, shouldAddPlaceholderComments },
+    'isSketchComplete response'
+  )
 
   return { isSketchComplete, shouldAddPlaceholderComments }
 }
@@ -129,9 +128,6 @@ const generatePatchPrompt = async (
   userInputId: string,
   oldContent: string,
   newContent: string,
-  filePath: string,
-  messageHistory: Message[],
-  fullResponse: string,
   userId?: string
 ) => {
   const oldFileWithLineNumbers = oldContent
@@ -169,4 +165,92 @@ Please produce a patch file based on this change.
     userId
     // ft:${models.gpt4o}:manifold-markets:run-1:A4VfZwvz`
   )
+}
+
+const generateBestOfNPatch = async (
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  oldContent: string,
+  newContent: string,
+  userId?: string
+) => {
+  const generateSinglePatch = () =>
+    generatePatchPrompt(
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      oldContent,
+      newContent,
+      userId
+    )
+
+  // Generate three patches in parallel
+  const patches = await Promise.all([
+    generateSinglePatch(),
+    generateSinglePatch(),
+    generateSinglePatch(),
+  ])
+
+  const results = patches.map((p) => applyPatch(oldContent, p))
+
+  const comparePrompt = `
+I have an original file and a sketch of how to change it. Help me choose from among three different variations of the updated file based on the following criteria:
+1. Correctness: The updated content should accurately reflect the intended changes in the sketch.
+2. Minimal changes: The updated content should make only the necessary modifications. Be careful with patches that delete too much code.
+3. Readability: The updated content should be easy to understand.
+
+Try not to choose the updated content if it contains comments like "// ... existing code ..." or "# .... rest of the function ...". Those placeholders should have been replaced with content from the original file.
+
+Here are the original file, sketch of the changes, and three updated content variations:
+
+Original file:
+\`\`\`
+${oldContent}
+\`\`\`
+
+Sketch of the changes:
+\`\`\`
+${newContent}
+\`\`\`
+
+${results
+  .map((result, index) =>
+    `
+Updated content ${index + 1}:
+\`\`\`
+${result}
+\`\`\`
+`.trim()
+  )
+  .join('\n\n')}
+
+Please respond with just the number of the best updated content only ("1", "2", or "3") and nothing else.
+`.trim()
+
+  const compareMessages = [
+    {
+      role: 'user' as const,
+      content: comparePrompt,
+    },
+  ]
+
+  const comparison = await promptOpenAI(
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    compareMessages,
+    openaiModels.gpt4o,
+    userId
+  )
+
+  logger.debug({ response: comparison, patches }, 'Best of n patch')
+
+  const bestPatchNumber = parseInt(comparison.match(/^(\d+)/)?.[1] || '1')
+  if ([1, 2, 3].includes(bestPatchNumber)) {
+    return patches[bestPatchNumber - 1]
+  } else {
+    logger.error({ comparison, bestPatchNumber }, 'Invalid best patch number')
+    return patches[0]
+  }
 }

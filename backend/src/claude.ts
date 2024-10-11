@@ -7,6 +7,7 @@ import { RATE_LIMIT_POLICY } from './constants'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
+import { randBoolFromStr } from 'common/util/string'
 
 export type model_types = (typeof claudeModels)[keyof typeof claudeModels]
 
@@ -38,7 +39,10 @@ export const promptClaudeStream = async function* (
     ignoreHelicone = false,
   } = options
 
-  const apiKey = env.ANTHROPIC_API_KEY
+  // Randomly choose between the two API keys to improve rate limits.
+  const apiKey = randBoolFromStr(fingerprintId)
+    ? env.ANTHROPIC_API_KEY
+    : env.ANTHROPIC_API_KEY2
 
   if (!apiKey) {
     throw new Error('Missing ANTHROPIC_API_KEY')
