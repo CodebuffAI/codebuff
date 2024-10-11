@@ -424,7 +424,7 @@ export const onWebsocketAction = async (
   })
 }
 
-subscribeToAction('user-input', protec.run(onUserInput))
+subscribeToAction('user-input', () => protec.run(onUserInput))
 subscribeToAction('init', () => protec.run(onInit))
 
 subscribeToAction('clear-auth-token', onClearAuthTokenRequest)

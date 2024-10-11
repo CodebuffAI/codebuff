@@ -255,7 +255,7 @@ export class Client {
 
     this.webSocket.subscribe('usage-response', (action) => {
       const { usage, limit, referralLink } = action
-      console.log(`Usage: ${usage} / ${limit} credits`)
+      console.log(`\nUsage: ${usage} / ${limit} credits`)
       this.showUsageWarning(usage, limit, referralLink)
       this.returnControlToUser()
     })
