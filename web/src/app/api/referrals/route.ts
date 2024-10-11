@@ -3,10 +3,10 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { eq, count, sql, or } from 'drizzle-orm'
+import { eq, sql, or } from 'drizzle-orm'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 import { z } from 'zod'
-import { hasMaxedReferrals } from 'common/util/referral'
+import { hasMaxedReferrals, MAX_REFERRALS } from 'common/util/server/referral'
 
 type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
   Pick<typeof schema.referral.$inferSelect, 'credits'>
@@ -103,7 +103,7 @@ export async function GET() {
         return acc
       }, [] as Referral[]),
       referredBy,
-      limitReached: (await hasMaxedReferrals(session.user.id)).maxedOut,
+      limitReached: referrals.length >= MAX_REFERRALS,
     }
 
     return NextResponse.json(referralData)
@@ -174,9 +174,9 @@ export async function POST(request: Request) {
 
     // Check if the referrer has maxed out their referrals
     const referralStatus = await hasMaxedReferrals(referrer.id)
-    if (referralStatus.reason === 'limitReached') {
+    if (referralStatus.reason) {
       return NextResponse.json(
-        { error: 'This referral code has reached its usage limit' },
+        { error: referralStatus.reason },
         { status: 400 }
       )
     }

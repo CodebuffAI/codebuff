@@ -254,9 +254,9 @@ export class Client {
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
-      const { usage, limit } = action
+      const { usage, limit, referralLink } = action
       console.log(`Usage: ${usage} / ${limit} credits`)
-      this.showUsageWarning(usage, limit)
+      this.showUsageWarning(usage, limit, referralLink)
       this.returnControlToUser()
     })
   }
@@ -285,7 +285,7 @@ export class Client {
             : yellow('Type "login" to sign up and get more credits!'),
           referralLink
             ? yellow(
-                `Refer friends using this link and get more credits: ${referralLink}`
+                `You can also refer friends using this link and get more credits: ${referralLink}`
               )
             : '',
         ].join('\n')

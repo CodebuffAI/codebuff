@@ -14,6 +14,7 @@ import { CopyIcon, Forward } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import Link from 'next/link'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
+import { getReferralLink } from 'common/util/referral'
 
 const copyReferral = (link: string) => {
   navigator.clipboard.writeText(link)
@@ -48,7 +49,7 @@ const ReferralsPage = () => {
     refetchInterval: 15000,
   })
   const loading = isLoading || status === 'loading'
-  const link = `${env.NEXT_PUBLIC_APP_URL}/referrals/${data?.referralCode}`
+  const link = data?.referralCode ? getReferralLink(data.referralCode) : ''
 
   if (error) {
     return (
