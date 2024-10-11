@@ -17,14 +17,16 @@ export async function hasMaxedReferrals(userId: string): Promise<
 > {
   const referral = await db
     .select({
-      limitReached: sql<boolean>`count(*) >= ${MAX_REFERRALS}`,
       referralCode: schema.user.referral_code,
+      limitReached: sql<boolean>`count(*) >= ${MAX_REFERRALS}`,
     })
     .from(schema.referral)
-    .where(eq(schema.referral.referrer_id, userId))
+    .leftJoin(schema.user, eq(schema.referral.referrer_id, userId))
+    // .where(eq(schema.referral.referrer_id, userId))
+    .groupBy(schema.user.referral_code)
     .then((result) => (result.length > 0 ? result[0] : undefined))
 
-  if (!referral) {
+  if (!referral || !referral.referralCode) {
     return { reason: "Your user isn't in our system" }
   }
 

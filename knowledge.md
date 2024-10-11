@@ -59,8 +59,15 @@ There are three top-level code directories:
 
 ## Referral System
 
-The referral system is implemented across several files:
+The Manicode project includes a referral system designed to encourage user growth and reward existing users for bringing in new members. Here's a high-level overview:
 
+- Purpose: Increase user base and engagement by incentivizing current users to invite others.
+- Functionality: Users can share a unique referral code or link with potential new users.
+- Reward: Both the referrer and the new user receive bonus credits upon successful referral.
+- Implementation: Spread across multiple files in the project, handling various aspects such as code generation, validation, and reward distribution.
+- Limits: There's a cap on the number of referrals a user can make to prevent system abuse.
+
+The referral system integrates with the user authentication flow and credit management system, providing a seamless experience for both new and existing users.
 - `common/src/util/server/referral.ts`: Contains the `hasMaxedReferrals` function to check if a user has reached their referral limit.
 - `web/src/app/api/referrals/route.ts`: Handles API routes for referral-related operations.
 - `common/src/util/referral.ts`: Contains utility functions like `getReferralLink`.
@@ -171,6 +178,18 @@ Centralizing these constants makes it easier to manage and update project-wide s
 
 ## Referral System
 
+Manicode implements a referral system to encourage user growth and reward existing users for bringing in new members. The referral system works as follows:
+
+1. Each user receives a unique referral code.
+2. Users can share their referral code with others.
+3. When a new user signs up using a referral code, both the referrer and the new user receive bonus credits.
+4. There's a limit to how many successful referrals a user can make.
+
+The referral system is integrated across the web application and the CLI tool, providing a seamless experience for users to share and redeem referral codes.
+
+## Development Guidelines
+
+1. Use TypeScript for all new code to maintain type safety.
 The referral system is implemented across several files:
 
 - Implement authentication and authorization for WebSocket connections.

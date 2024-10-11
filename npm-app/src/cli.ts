@@ -330,14 +330,6 @@ export class CLI {
 
     if (this.client.lastWarnedPct >= 100) {
       this.client.getUsage() // refresh, in case user upgraded
-      console.error(
-        [
-          red(
-            'You have reached your monthly usage limit. You must upgrade your plan to continue using the service.'
-          ),
-        ].join('\n')
-      )
-      this.rl.prompt()
       return
     }
     this.startLoadingAnimation()
