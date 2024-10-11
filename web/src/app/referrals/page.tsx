@@ -47,6 +47,7 @@ const ReferralsPage = () => {
       return response.json()
     },
     enabled: !!session?.user,
+    refetchInterval: 15000,
   })
   const loading = isLoading || status === 'loading'
 
