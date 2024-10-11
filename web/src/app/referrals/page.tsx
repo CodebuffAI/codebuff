@@ -48,7 +48,7 @@ const ReferralsPage = () => {
     refetchInterval: 15000,
   })
   const loading = isLoading || status === 'loading'
-  const link = `${env.NEXT_PUBLIC_APP_URL}/redeem/${data?.referralCode}`
+  const link = `${env.NEXT_PUBLIC_APP_URL}/referrals/${data?.referralCode}`
 
   if (error) {
     return (
@@ -72,11 +72,11 @@ const ReferralsPage = () => {
   return (
     <div className="flex flex-col space-y-6">
       {data?.referredBy && (
-        <Card className="bg-green-50 dark:bg-green-900">
+        <Card className="bg-green-50 dark:bg-green-700">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Forward className="mr-2" /> You claimed a referral bonus. You and
-              your friend rock! 🤘
+              <Forward className="mr-2" /> You claimed a referral bonus. You
+              rock! 🤘
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col">
@@ -94,7 +94,7 @@ const ReferralsPage = () => {
           </CardContent>
         </Card>
       )}
-      <Card className="bg-blue-50 dark:bg-blue-900 ">
+      <Card className="bg-sky-50 dark:bg-sky-700 ">
         <CardHeader>
           <CardTitle>Your Referrals</CardTitle>
         </CardHeader>

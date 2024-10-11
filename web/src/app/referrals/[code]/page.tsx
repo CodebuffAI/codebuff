@@ -71,7 +71,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
   }
 
   return (
-    <Card className="bg-blue-50 dark:bg-blue-900">
+    <Card className="bg-violet-50 dark:bg-violet-600">
       <CardHeader>
         <CardTitle className="flex">
           <GiftIcon className="mr-2" />
