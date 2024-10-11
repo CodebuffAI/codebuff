@@ -170,6 +170,29 @@ export const logger = pino({
 4. Create a robust testing suite for backend components.
 5. Optimize the file diff generation process for better reliability and performance.
 
+## Referral System
+
+The referral system is an important feature of our application. Here are key points to remember:
+
+1. **Referral Limit**: Users are limited to a maximum number of successful referrals (currently set to 5).
+
+2. **Limit Enforcement**: The referral limit must be enforced during the redemption process (POST request), not just when displaying referral information (GET request).
+
+3. **Centralized Logic**: The `hasMaxedReferrals` function in `common/src/util/referral.ts` is used to check if a user has reached their referral limit. This function should be used consistently across the application to ensure uniform enforcement of the referral limit.
+
+4. **Redemption Process**: When redeeming a referral code (in the POST request handler), always check if the referrer has maxed out their referrals before processing the redemption. This ensures that users cannot exceed their referral limit even if they distribute their referral code widely.
+
+5. **Error Handling**: Provide clear error messages when a referral code cannot be redeemed due to the referrer reaching their limit. This helps maintain a good user experience.
+
+Remember to keep the referral system logic consistent between the backend API and the websocket server to ensure uniform behavior across different parts of the application.
+
+
+
+
+
+
+
+
 ## Debugging Docker Issues
 
 - When encountering "Cannot find module" errors in a Docker container, it's important to verify the contents of the container itself, not just the local build.

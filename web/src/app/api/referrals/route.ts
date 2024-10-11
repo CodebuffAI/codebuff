@@ -6,7 +6,7 @@ import * as schema from 'common/db/schema'
 import { eq, count, sql, or } from 'drizzle-orm'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 import { z } from 'zod'
-import { hasMaxedReferrals, MAX_REFERRALS } from 'common/util/referral'
+import { hasMaxedReferrals } from 'common/util/referral'
 
 type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
   Pick<typeof schema.referral.$inferSelect, 'credits'>
@@ -103,7 +103,7 @@ export async function GET() {
         return acc
       }, [] as Referral[]),
       referredBy,
-      limitReached: referrals.length >= MAX_REFERRALS,
+      limitReached: (await hasMaxedReferrals(session.user.id)).maxedOut,
     }
 
     return NextResponse.json(referralData)
@@ -116,10 +116,14 @@ export async function GET() {
   }
 }
 
-export async function redeemReferralCode(
-  referralCode: string,
-  userId: string
-): Promise<NextResponse> {
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions)
+  const userId = session?.user?.id
+  if (!session || !userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { referralCode } = await request.json()
   try {
     // Check if the user has already used a referral code
     const existingReferral = await db
@@ -168,15 +172,11 @@ export async function redeemReferralCode(
     }
     const referrer = referrers[0]
 
-    // Check if the referral code has been used 5 times already
-    const referralCount = await db
-      .select({ value: count() })
-      .from(schema.referral)
-      .where(eq(schema.referral.referrer_id, userId))
-
-    if (referralCount[0].value >= 5) {
+    // Check if the referrer has maxed out their referrals
+    const referralStatus = await hasMaxedReferrals(referrer.id)
+    if (referralStatus.reason === 'limitReached') {
       return NextResponse.json(
-        { error: 'Your referral code has reached its usage limit' },
+        { error: 'This referral code has reached its usage limit' },
         { status: 400 }
       )
     }
@@ -216,15 +216,4 @@ export async function redeemReferralCode(
       { status: 500 }
     )
   }
-}
-
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions)
-  const userId = session?.user?.id
-  if (!session || !userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const { referralCode } = await request.json()
-  return redeemReferralCode(referralCode, userId)
 }
