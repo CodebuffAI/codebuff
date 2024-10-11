@@ -18,6 +18,7 @@ import { protec } from './middleware'
 import { getQuotaManager } from '@/billing/quota-manager'
 import { logger, withLoggerContext } from '@/util/logger'
 import { generateCommitMessage } from '@/generate-commit-message'
+import { generateReferralLink } from 'common/util/referral'
 
 export const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -326,23 +327,11 @@ const onUsageRequest = async (
 
     let referralLink
     if (userId) {
-      const referralCount = await db
-        .select({ count: count() })
-        .from(schema.referral)
-        .where(eq(schema.referral.referrer_id, userId))
-        .then((result) => result[0]?.count ?? 0)
-
-      if (referralCount < 5) {
-        const user = await db
-          .select({ referralCode: schema.user.referral_code })
-          .from(schema.user)
-          .where(eq(schema.user.id, userId))
-          .then((users) => users[0])
-
-        if (user?.referralCode) {
-          referralLink = `${env.NEXT_PUBLIC_APP_URL}/referrals/${user.referralCode}`
-        }
-      }
+      referralLink = await generateReferralLink(
+        db,
+        userId,
+        env.NEXT_PUBLIC_APP_URL
+      )
     }
 
     sendAction(ws, {

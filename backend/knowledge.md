@@ -70,6 +70,22 @@ The backend handles file operations for the Manicode project:
 - **Reading Files**: The `read_files` tool allows the AI to access project file contents.
 - **Applying Changes**: The `applyChanges` function in `prompts.ts` processes and applies file modifications suggested by the AI.
 
+## Code Organization and Best Practices
+
+1. **Centralize Shared Logic**: When implementing functionality that's used in multiple places (e.g., web API and backend), create shared functions to promote code reuse and consistency. This is particularly important for business logic like referral handling and usage calculations.
+
+2. **Shared Function Location**: Place shared functions in a common directory accessible to both the web API and backend. Consider creating a `common/src/utils` directory for such shared functionality.
+
+3. **DRY Principle**: Always look for opportunities to refactor repeated code into shared, reusable functions. This not only reduces code duplication but also makes maintenance and updates easier.
+
+4. **Consistent API**: When creating shared functions, ensure they have a consistent API that can be easily used by different parts of the application.
+
+5. **Testing Shared Functions**: Implement unit tests for shared functions to ensure they work correctly in all contexts where they are used.
+
+6. **Documentation**: Document shared functions clearly, including their purpose, inputs, outputs, and any side effects, so that other developers can use them effectively.
+
+7. **Version Control**: When making changes to shared functions, consider the impact on all parts of the application that use them, and test thoroughly.
+
 ## Development Guidelines
 
 1. **Type Safety**: Utilize TypeScript's type system to ensure code reliability and catch errors early.
@@ -194,3 +210,5 @@ This project uses Bun for testing instead of Jest. When writing tests, keep the 
 - Bun's test API is similar to Jest's, but there are some differences in implementation.
 - When mocking methods, use `mock(object.method)` instead of Jest's `jest.spyOn(object, 'method')`.
 - Bun's `mock` function expects 0-1 arguments, not 2 like Jest's `spyOn`.
+
+Remember to keep this knowledge file updated as the application evolves or new features are added.
