@@ -88,7 +88,7 @@ ${newContent}
 Are there any comments in the sketch that indicate surrounding code should remain as it is in the original file? For example, comments like "// ... existing code ..." or "# .... rest of the function ...". If so, please write "YES". Otherwise, write "NO".
 
 If "YES", don't write anything else.
-If "NO", please also consider the following question. In rare cases, the new content focuses on the change of a single function or section of code with the intention to edit just this section, but the assistant forgot to add placeholder comments above and below the section to indicate the rest of the file is preserved. Without these placeholder comments the sketch of the updated file is incomplete. One clue this is the case is if the new content is much shorter than the original file. If they are about the same length, the sketch is probably complete and does not require modification.
+If "NO", please also consider the following question. In rare cases, the new content focuses on the change of a single function or section of code with the intention to edit just this section, but the assistant forgot to add placeholder comments above and below the section to indicate the rest of the file is preserved. Without these placeholder comments the sketch of the updated file is incomplete. One clue this is the case is if the new content is just a single function whereas the original file has multiple functions.
 If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". Otherwise (most likely), write "COMPLETE_SKETCH".
 `.trim()
 
