@@ -78,7 +78,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
       <CardHeader>
         <CardTitle className="flex">
           <GiftIcon className="mr-2" />
-          You've got credits!
+          You&apos;ve got credits!
         </CardTitle>
       </CardHeader>
 
@@ -109,8 +109,8 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
           </ol>
           {data?.isSameUser && (
             <p className="font-bold text-red-600 mt-4">
-              Just FYI, this is your own referral code. It won't be valid for
-              you to use.
+              Just FYI, this is your own referral code. It won&apos;t be valid
+              for you to use.
             </p>
           )}
         </CardContent>

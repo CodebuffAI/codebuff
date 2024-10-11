@@ -63,7 +63,7 @@ const ReferralsPage = () => {
     return (
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>You're not logged in.</CardTitle>
+          <CardTitle>You&apos;re not logged in.</CardTitle>
         </CardHeader>
         <CardContent>No referral code for you!</CardContent>
       </Card>
@@ -154,7 +154,7 @@ const ReferralsPage = () => {
                   <Separator />
 
                   {data.referrals.length === 0 ? (
-                    <p>You haven't referred anyone yet.</p>
+                    <p>You haven&apos;t referred anyone yet.</p>
                   ) : (
                     <ul className="space-y-2">
                       {data.referrals.map((r) => (

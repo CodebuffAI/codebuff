@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { OAuthProviderType } from 'next-auth/providers/oauth-types'
 import { sleep } from 'common/util/helpers'
 import { toast } from '../ui/use-toast'
+import Image from 'next/image'
 
 export const SignInButton = ({
   providerName,
@@ -37,9 +38,10 @@ export const SignInButton = ({
       className="flex items-center gap-2"
     >
       {isPending && <Icons.loader className="mr-2 size-4 animate-spin" />}
-      <img
+      <Image
         src={`https://s2.googleusercontent.com/s2/favicons?domain=${providerDomain}`}
         className="rounded-full"
+        alt={providerName + ' logo'}
       />
       Continue with{' '}
       {providerName.charAt(0).toUpperCase() + providerName.slice(1)}

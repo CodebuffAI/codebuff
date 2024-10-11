@@ -12,7 +12,7 @@ import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { genAuthCode } from 'common/util/credentials'
 import { env } from '@/env.mjs'
 import CardWithBeams from '@/components/card-with-beams'
-import { redeemReferralCode } from '../api/referrals/route'
+import { redeemReferralCode } from '../api/referrals/helpers'
 
 interface PageProps {
   searchParams: {
@@ -145,8 +145,8 @@ const Onboard = async ({ searchParams }: PageProps) => {
       }
       redeemReferralMessage = (
         <p>
-          `You've earned an extra ${respJson.credits_redeemed} credits from your
-          referral code!`
+          `You&apos;ve earned an extra ${respJson.credits_redeemed} credits from
+          your referral code!`
         </p>
       )
     } catch (e) {
@@ -154,7 +154,9 @@ const Onboard = async ({ searchParams }: PageProps) => {
       const error = e as Error
       redeemReferralMessage = (
         <div className="flex flex-col space-y-2">
-          <p>Uh-oh, we couldn't apply your referral code. {error.message}.</p>
+          <p>
+            Uh-oh, we couldn&apos;t apply your referral code. {error.message}.
+          </p>
           <p>
             Please try again and reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if
             the problem persists.
