@@ -335,9 +335,6 @@ export class CLI {
           red(
             'You have reached your monthly usage limit. You must upgrade your plan to continue using the service.'
           ),
-          this.client.user
-            ? yellow('Visit https://manicode.ai/pricing to upgrade.')
-            : yellow('Type "login" to sign up and get more credits!'),
         ].join('\n')
       )
       this.rl.prompt()
