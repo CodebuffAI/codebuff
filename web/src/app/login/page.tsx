@@ -1,16 +1,15 @@
 'use client'
 
 import { BackgroundBeams } from '@/components/ui/background-beams'
-import { SignInButton } from '@/components/navbar/sign-in-button'
 import { useSearchParams } from 'next/navigation'
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from '@/components/ui/card'
 import CardWithBeams from '@/components/card-with-beams'
+import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 
 const Home = () => {
   const searchParams = useSearchParams()
@@ -55,16 +54,7 @@ const Home = () => {
                   averted, phew!)
                 </CardDescription>
               </CardHeader>
-              <CardFooter className="flex flex-col space-y-2">
-                <SignInButton
-                  providerDomain="github.com"
-                  providerName="github"
-                />
-                {/* <SignInButton
-                  providerDomain="google.com"
-                  providerName="google"
-                /> */}
-              </CardFooter>
+              <SignInCardFooter />
             </Card>
           ) : (
             <Card>
@@ -74,16 +64,7 @@ const Home = () => {
                   Increased rate limits, priority support, and more!
                 </CardDescription>
               </CardHeader>
-              <CardFooter className="flex flex-col space-y-2">
-                <SignInButton
-                  providerDomain="github.com"
-                  providerName="github"
-                />
-                {/* <SignInButton
-                  providerDomain="google.com"
-                  providerName="google"
-                /> */}
-              </CardFooter>
+              <SignInCardFooter />
             </Card>
           )}
         </div>

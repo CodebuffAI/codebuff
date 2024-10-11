@@ -4,7 +4,13 @@ import { useSession } from 'next-auth/react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
 import { ReferralData } from '@/app/api/referrals/route'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -15,6 +21,7 @@ import { Separator } from '@/components/ui/separator'
 import Link from 'next/link'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 import { getReferralLink } from 'common/util/referral'
+import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 
 const copyReferral = (link: string) => {
   navigator.clipboard.writeText(link)
@@ -64,8 +71,10 @@ const ReferralsPage = () => {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>You&apos;re not logged in.</CardTitle>
+          <CardDescription>No code for you!</CardDescription>
         </CardHeader>
-        <CardContent>No referral code for you!</CardContent>
+        <CardContent>Log in here to get a referral code</CardContent>
+        <SignInCardFooter />
       </Card>
     )
   }

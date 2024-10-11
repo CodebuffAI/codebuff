@@ -20,11 +20,12 @@ export const Navbar = async () => {
         <Link href="/pricing" className="hover:text-blue-400 transition-colors">
           Pricing
         </Link>
-        {session && (
-          <Link href="/referrals" className="hover:text-blue-400 transition-colors">
-            Referrals
-          </Link>
-        )}
+        <Link
+          href="/referrals"
+          className="hover:text-blue-400 transition-colors"
+        >
+          Referrals
+        </Link>
       </nav>
       <div className="flex items-center space-x-4">
         {session ? (
