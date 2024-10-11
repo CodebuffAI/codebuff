@@ -88,12 +88,6 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
           Your friend {data?.referrerName} just scored you some sweet sweet
           credits.
         </p>
-        {data?.isSameUser && (
-          <p className="font-bold text-red-600 mt-2">
-            Just FYI, this is your own referral code. It won't be valid for you
-            to use.
-          </p>
-        )}
       </CardContent>
 
       <div className="flex flex-col space-y-2">
@@ -113,6 +107,12 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
               <InputWithCopyButton text={params.code} />
             </li>
           </ol>
+          {data?.isSameUser && (
+            <p className="font-bold text-red-600 mt-4">
+              Just FYI, this is your own referral code. It won't be valid for
+              you to use.
+            </p>
+          )}
         </CardContent>
       </div>
     </Card>
