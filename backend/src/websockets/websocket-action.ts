@@ -52,7 +52,7 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
     userId ? 'authenticated' : 'anonymous',
     userId ?? fingerprintId
   )
-  const { creditsUsed, quota } = await quotaManager.checkQuota()
+  const { creditsUsed, quota } = await quotaManager.updateQuota()
   return { usage: creditsUsed, limit: quota }
 }
 
@@ -424,8 +424,8 @@ export const onWebsocketAction = async (
   })
 }
 
-subscribeToAction('user-input', () => protec.run(onUserInput))
-subscribeToAction('init', () => protec.run(onInit))
+subscribeToAction('user-input', protec.run(onUserInput))
+subscribeToAction('init', protec.run(onInit))
 
 subscribeToAction('clear-auth-token', onClearAuthTokenRequest)
 subscribeToAction('login-code-request', onLoginCodeRequest)
