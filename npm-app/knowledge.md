@@ -254,6 +254,19 @@ This system allows for better tracking and correlation of user inputs with their
 - Users are instructed to update using the command: `npm install -g manicode`
 - The version check is performed as part of the WebSocket subscription setup.
 
+### Usage Warnings and Referral System
+
+The client now integrates usage warnings with the referral system to encourage user growth:
+
+- The 'usage-response' action from the backend includes a 'referralLink' field.
+- This referral link is displayed to logged-in users who haven't made more than 5 referrals yet.
+- The `showUsageWarning` function in the client displays this referral link alongside the usage warning.
+
+This feature combines user authentication, referral tracking, and usage monitoring to promote user acquisition through the CLI interface.
+
+## User Notifications
+
+### Usage Warnings
 ## User Notifications
 
 ### Usage Warnings

@@ -261,7 +261,11 @@ export class Client {
     })
   }
 
-  async showUsageWarning(usage: number, limit: number) {
+  public async showUsageWarning(
+    usage: number,
+    limit: number,
+    referralLink?: string
+  ) {
     const pct: number = match(Math.floor((usage / limit) * 100))
       .with(P.number.gte(100), () => 100)
       .with(P.number.gte(75), () => 75)
@@ -279,6 +283,11 @@ export class Client {
                 `Visit ${process.env.NEXT_PUBLIC_APP_URL}/pricing to upgrade.`
               )
             : yellow('Type "login" to sign up and get more credits!'),
+          referralLink
+            ? yellow(
+                `Refer friends using this link and get more credits: ${referralLink}`
+              )
+            : '',
         ].join('\n')
       )
       this.lastWarnedPct = pct

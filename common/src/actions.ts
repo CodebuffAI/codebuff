@@ -168,6 +168,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     type: z.literal('usage-response'),
     usage: z.number(),
     limit: z.number(),
+    referralLink: z.string().optional(),
   }),
   z.object({
     type: z.literal('quota-exceeded'),
