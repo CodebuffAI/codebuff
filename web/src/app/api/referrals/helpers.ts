@@ -1,4 +1,4 @@
-import { eq, sql, or } from 'drizzle-orm'
+import { eq, sql, or, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 import db from 'common/db'
@@ -7,28 +7,45 @@ import { hasMaxedReferrals } from 'common/util/server/referral'
 
 export async function redeemReferralCode(referralCode: string, userId: string) {
   try {
-    // Check if the user has already used a referral code
-    const existingReferral = await db
+    // Check if the user has already used this referral code
+    const alreadyUsed = await db
       .select()
       .from(schema.referral)
       .where(eq(schema.referral.referred_id, userId))
       .limit(1)
 
-    if (existingReferral.length > 0) {
+    if (alreadyUsed.length > 0) {
       return NextResponse.json(
-        { error: 'You have already used a referral code' },
+        { error: 'You have already used this referral code' },
         { status: 429 }
       )
     }
 
     // Check if the user is trying to use their own referral code
-    const currentUser = await db
-      .select({ referral_code: schema.user.referral_code })
+    const referringUser = await db
+      .select({ userId: schema.user.id })
       .from(schema.user)
-      .where(eq(schema.user.id, userId))
+      .where(eq(schema.user.referral_code, referralCode))
       .limit(1)
+      .then((users) => {
+        if (users.length === 1) {
+          return users[0]
+        }
+        return
+      })
 
-    if (currentUser[0]?.referral_code === referralCode) {
+    if (!referringUser) {
+      return NextResponse.json(
+        {
+          error:
+            "Uh-oh, this referral code doesn't exist! Try again or reach out to support@manicode.ai if the problem persists.",
+        },
+        {
+          status: 404,
+        }
+      )
+    }
+    if (referringUser.userId === userId) {
       return NextResponse.json(
         {
           error: "Nice try bud, you can't use your own referral code",
@@ -36,6 +53,27 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
         {
           status: 400,
         }
+      )
+    }
+
+    // Check if the user has been referred by someone they were referred by
+    const doubleDipping = await db
+      .select()
+      .from(schema.referral)
+      .where(
+        and(
+          eq(schema.referral.referrer_id, userId),
+          eq(schema.referral.referred_id, referringUser.userId)
+        )
+      )
+      .limit(1)
+    if (doubleDipping.length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            'You were referred by this user already.o double dipping, refer someone new!',
+        },
+        { status: 429 }
       )
     }
 
