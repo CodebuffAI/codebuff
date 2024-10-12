@@ -82,6 +82,9 @@ protec.use(async (action, _clientSessionId, _) => {
   logger.debug(`Protecting action of type: '${action.type}'`)
 })
 protec.use(async (action, _clientSessionId, ws) => {
+  if (env.ENVIRONMENT === 'local') {
+    return
+  }
   return match(action)
     .with(
       {
