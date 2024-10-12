@@ -15,27 +15,30 @@ export async function hasMaxedReferrals(userId: string): Promise<
       referralLink: string
     }
 > {
-  const referral = await db
+  const limitReached = await db
     .select({
-      referralCode: schema.user.referral_code,
       limitReached: sql<boolean>`count(*) >= ${MAX_REFERRALS}`,
     })
     .from(schema.referral)
-    .leftJoin(schema.user, eq(schema.referral.referrer_id, schema.user.id))
     .where(eq(schema.referral.referrer_id, userId))
-    .groupBy(schema.user.referral_code)
-    .then((result) => (result.length > 0 ? result[0] : undefined))
-
-  if (!referral || !referral.referralCode) {
-    return { reason: "Your user isn't in our system" }
+    .then((result) => (result.length > 0 ? result[0].limitReached : false))
+  if (limitReached) {
+    return { reason: 'You have reached your usage limit' }
   }
 
-  if (referral.limitReached) {
-    return { reason: 'You have reached your usage limit' }
+  const user = await db.query.user.findFirst({
+    where: eq(schema.user.id, userId),
+    columns: {
+      referral_code: true,
+    },
+  })
+
+  if (!user || !user.referral_code) {
+    return { reason: "Your user isn't in our system" }
   }
 
   return {
     reason: undefined,
-    referralLink: getReferralLink(referral.referralCode),
+    referralLink: getReferralLink(user.referral_code),
   }
 }
