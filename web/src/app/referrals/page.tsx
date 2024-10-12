@@ -73,7 +73,7 @@ const ReferralsPage = () => {
           <CardTitle>You&apos;re not logged in.</CardTitle>
           <CardDescription>No code for you!</CardDescription>
         </CardHeader>
-        <CardContent>Log in here to get a referral code</CardContent>
+        <CardContent>Log in to get your unique referral code</CardContent>
         <SignInCardFooter />
       </Card>
     )

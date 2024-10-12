@@ -145,8 +145,8 @@ const Onboard = async ({ searchParams }: PageProps) => {
       }
       redeemReferralMessage = (
         <p>
-          `You&apos;ve earned an extra ${respJson.credits_redeemed} credits from
-          your referral code!`
+          You just earned an extra {respJson.credits_redeemed} credits from your
+          referral code!
         </p>
       )
     } catch (e) {
