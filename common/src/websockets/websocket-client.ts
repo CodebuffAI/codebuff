@@ -12,7 +12,7 @@ import {
 const VERBOSE_LOGGING = false
 
 // mqp: no way should our server ever take 5 seconds to reply
-const TIMEOUT_MS = 5000
+const TIMEOUT_MS = 10000
 
 const RECONNECT_WAIT_MS = 5000
 
