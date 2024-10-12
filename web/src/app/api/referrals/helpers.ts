@@ -16,7 +16,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
 
     if (alreadyUsed.length > 0) {
       return NextResponse.json(
-        { error: 'You have already used this referral code' },
+        { error: 'You have already used this referral code.' },
         { status: 429 }
       )
     }
@@ -48,7 +48,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
     if (referringUser.userId === userId) {
       return NextResponse.json(
         {
-          error: "Nice try bud, you can't use your own referral code",
+          error: "Nice try bud, you can't use your own referral code.",
         },
         {
           status: 400,
@@ -71,7 +71,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       return NextResponse.json(
         {
           error:
-            'You were referred by this user already.o double dipping, refer someone new!',
+            'You were referred by this user already. No double dipping, refer someone new!',
         },
         { status: 429 }
       )
