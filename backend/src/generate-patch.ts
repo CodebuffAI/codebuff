@@ -5,6 +5,7 @@ import { applyPatch } from 'common/util/patch'
 import { EXISTING_CODE_MARKER, openaiModels } from 'common/constants'
 import { replaceNonStandardPlaceholderComments } from 'common/util/string'
 import { logger } from './util/logger'
+import { parseFileBlocks } from 'common/util/file'
 
 export async function generatePatch(
   clientSessionId: string,
@@ -31,6 +32,7 @@ export async function generatePatch(
       clientSessionId,
       fingerprintId,
       userInputId,
+      filePath,
       normalizedOldContent,
       normalizedNewContent,
       messageHistory,
@@ -61,36 +63,56 @@ export async function generatePatch(
   return updatedPatch
 }
 
+/**
+ * This whole function is about checking for a specific case where claude
+ * sketches an update to a single function, but forgets to add ${EXISTING_CODE_MARKER}
+ * above and below the function.
+ */
 const isSketchCompletePrompt = async (
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
+  filePath: string,
   oldContent: string,
   newContent: string,
   messageHistory: Message[],
   fullResponse: string,
   userId?: string
 ) => {
-  const prompt = `
-Based on the above conversation, determine if the following sketch of the changes is complete.
+  const containsExistingCodeMarker = newContent.includes(EXISTING_CODE_MARKER)
+  if (containsExistingCodeMarker) {
+    return { isSketchComplete: false, shouldAddPlaceholderComments: false }
+  }
 
+  const fileBlocks = parseFileBlocks(
+    JSON.stringify(messageHistory) + fullResponse
+  )
+  const fileWasPreviouslyEdited = Object.keys(fileBlocks).includes(filePath)
+  if (!fileWasPreviouslyEdited) {
+    // If Claude hasn't edited this file before, it's almost certainly not a local-only change.
+    // Usually, it's only when Claude is editing a function for a second or third time that
+    // it forgets to add ${EXISTING_CODE_MARKER}s above and below the function.
+    return { isSketchComplete: true, shouldAddPlaceholderComments: false }
+  }
+
+  const prompt = `
 Here's the original file:
 
 \`\`\`
 ${oldContent}
 \`\`\`
 
-And here's the new content with a sketch of the changes to be made. It may the marker ${EXISTING_CODE_MARKER} to indicate unchanged sections from the old file:
+And here's the proposed new content for the file:
 
 \`\`\`
 ${newContent}
 \`\`\`
 
-Does the sketch contain the marker ${EXISTING_CODE_MARKER}? If so, please write "YES". Otherwise, write "NO".
-
-If "YES", don't write anything else.
-If "NO", please also consider the following question. In rare cases, the new content focuses on the change of a single function or section of code with the intention to edit just this section, but the assistant forgot to add ${EXISTING_CODE_MARKER} above and below the section to indicate the rest of the file is unchanged. Without the ${EXISTING_CODE_MARKER} marker the sketch of the updated file is incomplete. One clue this is the case is if the new content is much shorter than the original file. If they are about the same length, the sketch is probably complete and does not require modification.
-If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". Otherwise (most likely), write "COMPLETE_SKETCH".
+Consider the above information and conversation and answer the following question.
+Most likely, the assistant intended to replace the entire original file with the new content. If so, write "REPLACE_ENTIRE_FILE".
+In rare cases, the assistant forgot to include the rest of the file and just wrote in one section of the file to be edited. Typically this happens if the new content focuses on the change of a single function or section of code with the intention to edit just this section, but keep the rest of the file unchanged. For example, if the new content is just a single function whereas the original file has multiple functions, and the conversation does not imply that the other functions should be deleted.
+If you strongly believe this is the scenario, please write "LOCAL_CHANGE_ONLY". Otherwise (most likely), write "REPLACE_ENTIRE_FILE".
+Do not write anything else.
 `.trim()
 
   const messages = [
@@ -112,9 +134,8 @@ If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". 
     openaiModels.gpt4o,
     userId
   )
-  const shouldAddPlaceholderComments = response.includes('INCOMPLETE_SKETCH')
-  const isSketchComplete =
-    response.includes('NO') && !shouldAddPlaceholderComments
+  const shouldAddPlaceholderComments = response.includes('LOCAL_CHANGE_ONLY')
+  const isSketchComplete = !shouldAddPlaceholderComments
   logger.debug(
     { response, isSketchComplete, shouldAddPlaceholderComments },
     'isSketchComplete response'
