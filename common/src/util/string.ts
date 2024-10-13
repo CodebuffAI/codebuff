@@ -12,6 +12,12 @@ export const replaceNonStandardPlaceholderComments = (
   replacement: string
 ): string => {
   const commentPatterns = [
+    // JSX comments (match this first)
+    {
+      regex:
+        /{\s*\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?\s*\*\/\s*}/gi,
+      placeholder: replacement,
+    },
     // C-style comments (C, C++, Java, JavaScript, TypeScript, etc.)
     {
       regex:

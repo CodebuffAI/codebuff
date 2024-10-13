@@ -1,3 +1,4 @@
+import { EXISTING_CODE_MARKER } from 'src/constants'
 import { replaceNonStandardPlaceholderComments } from '../string'
 
 describe('replaceNonStandardPlaceholderComments', () => {
@@ -11,12 +12,14 @@ function example() {
 `
     const expected = `
 function example() {
-  // ... existing code ...
+  ${EXISTING_CODE_MARKER}
   console.log('Hello');
-  // ... existing code ...
+  ${EXISTING_CODE_MARKER}
 }
 `
-    expect(replaceNonStandardPlaceholderComments(input)).toBe(expected)
+    expect(
+      replaceNonStandardPlaceholderComments(input, EXISTING_CODE_MARKER)
+    ).toBe(expected)
   })
 
   it('should replace multi-line C-style comments', () => {
@@ -29,12 +32,14 @@ function example() {
 `
     const expected = `
 function example() {
-  // ... existing code ...
+  ${EXISTING_CODE_MARKER}
   console.log('Hello');
-  // ... existing code ...
+  ${EXISTING_CODE_MARKER}
 }
 `
-    expect(replaceNonStandardPlaceholderComments(input)).toBe(expected)
+    expect(
+      replaceNonStandardPlaceholderComments(input, EXISTING_CODE_MARKER)
+    ).toBe(expected)
   })
 
   it('should replace Python-style comments', () => {
@@ -46,10 +51,40 @@ def example():
 `
     const expected = `
 def example():
-    // ... existing code ...
+    ${EXISTING_CODE_MARKER}
     print('Hello')
-    // ... existing code ...
+    ${EXISTING_CODE_MARKER}
 `
-    expect(replaceNonStandardPlaceholderComments(input)).toBe(expected)
+    expect(
+      replaceNonStandardPlaceholderComments(input, EXISTING_CODE_MARKER)
+    ).toBe(expected)
+  })
+
+  it('should replace JSX comments', () => {
+    const input = `
+function Example() {
+  return (
+    <div>
+      {/* ... existing code ... */}
+      <p>Hello, World!</p>
+      {/* ...rest of component... */}
+    </div>
+  );
+}
+`
+    const expected = `
+function Example() {
+  return (
+    <div>
+      ${EXISTING_CODE_MARKER}
+      <p>Hello, World!</p>
+      ${EXISTING_CODE_MARKER}
+    </div>
+  );
+}
+`
+    expect(
+      replaceNonStandardPlaceholderComments(input, EXISTING_CODE_MARKER)
+    ).toBe(expected)
   })
 })
