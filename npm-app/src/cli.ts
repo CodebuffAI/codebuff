@@ -58,6 +58,10 @@ export class CLI {
       this.onWebSocketError.bind(this),
       () => {
         this.rl.prompt()
+        this.isReceivingResponse = false
+        if (this.stopResponse) {
+          this.stopResponse()
+        }
         this.stopLoadingAnimation()
       }
     )

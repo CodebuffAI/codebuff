@@ -108,7 +108,7 @@ protec.use(async (action, _clientSessionId, ws) => {
             await quotaManager.resetQuota(quota.userId)
           } else {
             console.error(`Quota exceeded for user ${quota.userId}`)
-            return new Error(`Quota exceeded!`)
+            return new Error(`Quota exceeded! Enter 'usage' to learn more.`)
           }
         }
         return
@@ -152,7 +152,7 @@ protec.use(async (action, _clientSessionId, ws) => {
             console.error(
               `Quota exceeded for fingerprint ${quota.fingerprintId}`
             )
-            return new Error(`Quota exceeded!`)
+            return new Error(`Quota exceeded! Enter 'usage' to learn more.`)
           }
         }
         return
