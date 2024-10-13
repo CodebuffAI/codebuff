@@ -1,10 +1,21 @@
+import { countTokens } from 'backend/util/token-counter'
 import * as fs from 'fs'
 import * as path from 'path'
 
 const inputFile = path.join(__dirname, '..', 'data', 'raw_dataset.json')
 const outputFile = path.join(__dirname, '..', 'data', 'dataset.jsonl')
-const trainingOutputFile = path.join(__dirname, '..', 'data', 'training-dataset.jsonl')
-const validationOutputFile = path.join(__dirname, '..', 'data', 'validation-dataset.jsonl')
+const trainingOutputFile = path.join(
+  __dirname,
+  '..',
+  'data',
+  'training-dataset.jsonl'
+)
+const validationOutputFile = path.join(
+  __dirname,
+  '..',
+  'data',
+  'validation-dataset.jsonl'
+)
 
 interface DataEntry {
   project: string
@@ -53,11 +64,12 @@ Please produce a patch file based on this change.
       }
       return JSON.stringify(conversation)
     })
+    .filter((str) => countTokens(str) < 50_000)
 
   // Shuffle the dataset
   for (let i = jsonlContent.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [jsonlContent[i], jsonlContent[j]] = [jsonlContent[j], jsonlContent[i]];
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[jsonlContent[i], jsonlContent[j]] = [jsonlContent[j], jsonlContent[i]]
   }
 
   // Split into training and validation sets
