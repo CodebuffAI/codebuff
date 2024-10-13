@@ -48,7 +48,7 @@ export class WebSocketMiddleware {
       if (res) {
         console.error('Middleware execution halted:', res)
         sendAction(ws, {
-          type: 'error',
+          type: 'action-error',
           message: res.message,
         })
         return false
