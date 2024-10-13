@@ -56,7 +56,14 @@ export class CLI {
       websocketUrl,
       this.chatStorage,
       this.onWebSocketError.bind(this),
-      () => this.rl.prompt()
+      () => {
+        this.rl.prompt()
+        this.isReceivingResponse = false
+        if (this.stopResponse) {
+          this.stopResponse()
+        }
+        this.stopLoadingAnimation()
+      }
     )
 
     this.readyPromise = Promise.all([
@@ -134,8 +141,6 @@ export class CLI {
   }
 
   public printInitialPrompt(initialInput?: string) {
-    this.client.getUsage()
-
     if (this.client.user) {
       console.log(
         `Welcome back ${this.client.user.name}! What would you like to do?\n`

@@ -128,6 +128,12 @@ export class Client {
   }
 
   private setupSubscriptions() {
+    this.webSocket.subscribe('action-error', (action) => {
+      console.error(['', red(`Error: ${action.message}`)].join('\n'))
+      this.returnControlToUser()
+      return
+    })
+
     this.webSocket.subscribe('tool-call', async (a) => {
       const { response, changes, data, userInputId } = a
       if (userInputId !== this.currentUserInputId) {
