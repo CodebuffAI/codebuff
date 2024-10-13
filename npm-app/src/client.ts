@@ -6,7 +6,8 @@ import {
   getProjectRoot,
 } from './project-files'
 import { applyChanges } from 'common/util/changes'
-import { CREDENTIALS_PATH, User, userFromJson } from 'common/util/credentials'
+import { User } from 'common/util/credentials'
+import { userFromJson, CREDENTIALS_PATH } from './credentials'
 import { ChatStorage } from './chat-storage'
 import { FileChanges, Message } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
