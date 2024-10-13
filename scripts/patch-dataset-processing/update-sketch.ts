@@ -1,9 +1,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { replaceNonStandardPlaceholderComments2 } from '../../common/src/util/string'
+import { replaceNonStandardPlaceholderComments } from '../../common/src/util/string'
 
 function updateSketch(sketchContent: string): string {
-  return replaceNonStandardPlaceholderComments2(
+  return replaceNonStandardPlaceholderComments(
     sketchContent,
     '[[**REPLACE_WITH_EXISTING_CODE**]]'
   )

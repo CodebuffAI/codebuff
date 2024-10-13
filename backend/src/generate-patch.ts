@@ -2,7 +2,7 @@ import { Message } from 'common/actions'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { createPatch } from 'diff'
 import { applyPatch } from 'common/util/patch'
-import { openaiModels } from 'common/constants'
+import { EXISTING_CODE_MARKER, openaiModels } from 'common/constants'
 import { replaceNonStandardPlaceholderComments } from 'common/util/string'
 import { logger } from './util/logger'
 
@@ -21,7 +21,8 @@ export async function generatePatch(
   const lineEnding = oldContent.includes('\r\n') ? '\r\n' : '\n'
   const normalizedOldContent = normalizeLineEndings(oldContent)
   const normalizedNewContent = replaceNonStandardPlaceholderComments(
-    normalizeLineEndings(newContent)
+    normalizeLineEndings(newContent),
+    EXISTING_CODE_MARKER
   )
 
   let patch = ''
@@ -45,7 +46,7 @@ export async function generatePatch(
     } else patch = ''
   } else {
     let newContentWithPlaceholders = shouldAddPlaceholderComments
-      ? `... existing code ...\n\n${normalizedNewContent}\n\n... existing code ...`
+      ? `${EXISTING_CODE_MARKER}\n\n${normalizedNewContent}\n\n${EXISTING_CODE_MARKER}`
       : normalizedNewContent
     patch = await generateBestOfNPatch(
       clientSessionId,
@@ -79,16 +80,16 @@ Here's the original file:
 ${oldContent}
 \`\`\`
 
-And here's the new content with a sketch of the changes to be made. It may have placeholder comments that should be expanded into code:
+And here's the new content with a sketch of the changes to be made. It may the marker ${EXISTING_CODE_MARKER} to indicate unchanged sections from the old file:
 
 \`\`\`
 ${newContent}
 \`\`\`
 
-Are there any comments in the sketch that indicate surrounding code should remain as it is in the original file? For example, comments like "// ... existing code ..." or "# .... rest of the function ...". If so, please write "YES". Otherwise, write "NO".
+Does the sketch contain the marker ${EXISTING_CODE_MARKER}? If so, please write "YES". Otherwise, write "NO".
 
 If "YES", don't write anything else.
-If "NO", please also consider the following question. In rare cases, the new content focuses on the change of a single function or section of code with the intention to edit just this section, but the assistant forgot to add placeholder comments above and below the section to indicate the rest of the file is preserved. Without these placeholder comments the sketch of the updated file is incomplete. One clue this is the case is if the new content is much shorter than the original file. If they are about the same length, the sketch is probably complete and does not require modification.
+If "NO", please also consider the following question. In rare cases, the new content focuses on the change of a single function or section of code with the intention to edit just this section, but the assistant forgot to add ${EXISTING_CODE_MARKER} above and below the section to indicate the rest of the file is unchanged. Without the ${EXISTING_CODE_MARKER} marker the sketch of the updated file is incomplete. One clue this is the case is if the new content is much shorter than the original file. If they are about the same length, the sketch is probably complete and does not require modification.
 If you strongly believe this is the scenario, please write "INCOMPLETE_SKETCH". Otherwise (most likely), write "COMPLETE_SKETCH".
 `.trim()
 
@@ -161,9 +162,8 @@ Please produce a patch file based on this change.
     fingerprintId,
     userInputId,
     messages,
-    `ft:${openaiModels.gpt4o}:manifold-markets::A7wELpag`,
+    `ft:${openaiModels.gpt4o}:manifold-markets:generate-patch:AHitLpO4`,
     userId
-    // ft:${models.gpt4o}:manifold-markets:run-1:A4VfZwvz`
   )
 }
 
@@ -198,9 +198,8 @@ const generateBestOfNPatch = async (
 I have an original file and a sketch of how to change it. Help me choose from among three different variations of the updated file based on the following criteria:
 1. Correctness: The updated content should accurately reflect the intended changes in the sketch.
 2. Minimal changes: The updated content should make only the necessary modifications. Be careful with patches that delete too much code.
-3. Readability: The updated content should be easy to understand.
-
-Try not to choose the updated content if it contains comments like "// ... existing code ..." or "# .... rest of the function ...". Those placeholders should have been replaced with content from the original file.
+3. No minor imperfections: There are sometimes minor errors in the patch like leaving out a few lines of code or duplicated content. Try to pick a file without these errors.
+4. No ${EXISTING_CODE_MARKER}: Try not to choose the updated content if it contains the marker ${EXISTING_CODE_MARKER}. That marker should have been replaced with content from the original file.
 
 Here are the original file, sketch of the changes, and three updated content variations:
 
