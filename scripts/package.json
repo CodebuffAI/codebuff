@@ -1,10 +1,8 @@
-
 {
   "name": "manicode-tests",
   "version": "1.0.0",
   "description": "Scripts package for Manicode",
-  "scripts": {
-  },
+  "scripts": {},
   "dependencies": {
     "backend": "file:../backend",
     "lodash": "^4.17.21"

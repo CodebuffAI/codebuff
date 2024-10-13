@@ -53,6 +53,57 @@ export const replaceNonStandardPlaceholderComments = (
   return updatedContent
 }
 
+export const replaceNonStandardPlaceholderComments2 = (
+  content: string,
+  replacement: string = '// ... existing code ...'
+): string => {
+  const commentPatterns = [
+    // C-style comments (C, C++, Java, JavaScript, TypeScript, etc.)
+    {
+      regex:
+        /\/\/\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?/gi,
+      placeholder: replacement,
+    },
+    {
+      regex:
+        /\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?\s*\*\//gi,
+      placeholder: replacement,
+    },
+    // Python, Ruby, R comments
+    {
+      regex:
+        /#\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?/gi,
+      placeholder: replacement,
+    },
+    // HTML-style comments
+    {
+      regex:
+        /<!--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?\s*-->/gi,
+      placeholder: replacement,
+    },
+    // SQL, Haskell, Lua comments
+    {
+      regex:
+        /--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?/gi,
+      placeholder: replacement,
+    },
+    // MATLAB comments
+    {
+      regex:
+        /%\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?/gi,
+      placeholder: replacement,
+    },
+  ]
+
+  let updatedContent = content
+
+  for (const { regex, placeholder } of commentPatterns) {
+    updatedContent = updatedContent.replaceAll(regex, placeholder)
+  }
+
+  return updatedContent
+}
+
 export const randBoolFromStr = (str: string) => {
   return sumBy(str.split(''), (char) => char.charCodeAt(0)) % 2 === 0
 }
