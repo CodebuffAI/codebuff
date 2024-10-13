@@ -171,10 +171,6 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     referralLink: z.string().optional(),
   }),
   z.object({
-    type: z.literal('quota-exceeded'),
-    nextQuotaReset: z.date(),
-  }),
-  z.object({
     type: z.literal('action-error'),
     message: z.string(),
   }),

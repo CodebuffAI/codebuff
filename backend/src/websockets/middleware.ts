@@ -3,7 +3,6 @@ import { ClientAction } from 'common/actions'
 import { match, P } from 'ts-pattern'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { getNextQuotaReset } from 'common/util/dates'
 import {
   AnonymousQuotaManager,
   AuthenticatedQuotaManager,
@@ -11,7 +10,6 @@ import {
 import { sql, eq } from 'drizzle-orm'
 import { sendAction } from './websocket-action'
 import { logger } from '@/util/logger'
-import { env } from '@/env.mjs'
 
 export class WebSocketMiddleware {
   private middlewares: Array<
@@ -82,9 +80,6 @@ protec.use(async (action, _clientSessionId, _) => {
   logger.debug(`Protecting action of type: '${action.type}'`)
 })
 protec.use(async (action, _clientSessionId, ws) => {
-  if (env.ENVIRONMENT === 'local') {
-    return
-  }
   return match(action)
     .with(
       {
@@ -112,11 +107,8 @@ protec.use(async (action, _clientSessionId, ws) => {
             const quotaManager = new AuthenticatedQuotaManager()
             await quotaManager.resetQuota(quota.userId)
           } else {
-            sendAction(ws, {
-              type: 'quota-exceeded',
-              nextQuotaReset: getNextQuotaReset(quota.nextQuotaReset),
-            })
-            return new Error(`Quota exceeded for user ${quota.userId}`)
+            console.error(`Quota exceeded for user ${quota.userId}`)
+            return new Error(`Quota exceeded!`)
           }
         }
         return
@@ -157,13 +149,10 @@ protec.use(async (action, _clientSessionId, ws) => {
             const quotaManager = new AnonymousQuotaManager()
             quotaManager.resetQuota(quota.fingerprintId)
           } else {
-            sendAction(ws, {
-              type: 'quota-exceeded',
-              nextQuotaReset: getNextQuotaReset(quota.nextQuotaReset),
-            })
-            return new Error(
+            console.error(
               `Quota exceeded for fingerprint ${quota.fingerprintId}`
             )
+            return new Error(`Quota exceeded!`)
           }
         }
         return

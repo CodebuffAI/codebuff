@@ -129,7 +129,8 @@ export class Client {
 
   private setupSubscriptions() {
     this.webSocket.subscribe('action-error', (action) => {
-      console.error(red(`Action error: ${action.message}`))
+      console.error(['', red(`Error: ${action.message}`)].join('\n'))
+      this.returnControlToUser()
       return
     })
 

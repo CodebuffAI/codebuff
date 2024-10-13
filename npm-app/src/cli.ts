@@ -56,7 +56,10 @@ export class CLI {
       websocketUrl,
       this.chatStorage,
       this.onWebSocketError.bind(this),
-      () => this.rl.prompt()
+      () => {
+        this.rl.prompt()
+        this.stopLoadingAnimation()
+      }
     )
 
     this.readyPromise = Promise.all([
