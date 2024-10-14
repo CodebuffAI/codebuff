@@ -114,4 +114,13 @@ Key points:
 - Defines separate server-side and client-side environment variables.
 - Includes critical configuration like database URL, authentication secrets, and Stripe API keys.
 
+## Pricing Structure
+
+- Free tier: Limited credits per month
+- Pro tier: $99/month with 10,000 credits
+- Overage allowance: $0.90 per 100 credits
+- Enterprise tier: Custom pricing and features
+
+Pricing information is displayed on the pricing page (`web/src/app/pricing/page.tsx`).
+
 Remember to keep this knowledge file updated as the application evolves or new features are added.

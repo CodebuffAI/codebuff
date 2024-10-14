@@ -47,9 +47,13 @@ const PricingPage = () => {
       price: '$0',
       credits: CREDITS_USAGE_LIMITS.FREE,
       features: [
-        <Link key="community-support" href="https://discord.gg/mcWTGjgTj3" className="hover:underline">
+        <Link
+          key="community-support"
+          href="https://discord.gg/mcWTGjgTj3"
+          className="hover:underline"
+        >
           Community support
-        </Link>
+        </Link>,
       ],
       buttonText: (
         <Link href={'https://www.npmjs.com/package/manicode'}>Get Started</Link>
@@ -60,8 +64,8 @@ const PricingPage = () => {
       price: '$99/month',
       credits: 10_000,
       features: [
-        'Credits overage allowance ($0.50 per 100 credits)',
-        'Priority support',
+        'Credits overage allowance ($0.90 per 100 credits)',
+        'Priority support over email',
         'Custom integrations',
       ],
       buttonAction: () => handleCreateCheckoutSession(),
