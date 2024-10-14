@@ -40,6 +40,13 @@ const runPatchTest = async (dir: string, mockFilePath: string) => {
 
 describe('generatePatch', () => {
   it(
+    'should handle css file',
+    async () => {
+      await runPatchTest(`${mockDataDir}/css`, 'src/style.css')
+    },
+    CLAUDE_CALL_TIMEOUT
+  )
+  it(
     'should handle index file with placeholder at end',
     async () => {
       await runPatchTest(`${mockDataDir}/index`, 'src/index.ts')
