@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { BackgroundBeams } from '@/components/ui/background-beams'
@@ -51,6 +51,7 @@ const PricingPage = () => {
           key="community-support"
           href="https://discord.gg/mcWTGjgTj3"
           className="hover:underline"
+          target="_blank"
         >
           Community support
         </Link>,
@@ -64,7 +65,7 @@ const PricingPage = () => {
       price: '$99/month',
       credits: 10_000,
       features: [
-        'Credits overage allowance ($0.90 per 100 credits)',
+        '$0.90 per 100 credits afterwards',
         'Priority support over email',
         'Custom integrations',
       ],
@@ -107,16 +108,22 @@ const PricingPage = () => {
             Unlock the full potential of AI-powered coding with our flexible,
             credits-based pricing options.
           </p>
+          <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
+            <i>500 credits is equivalent to a multi-hour work session.</i>
+          </p>
 
           <div className="grid md:grid-cols-3 gap-8 mt-12">
             {pricingPlans.map((plan, index) => (
-              <Card key={index} className="bg-gray-900 text-white">
+              <Card
+                key={index}
+                className="bg-gray-900 text-white flex flex-col"
+              >
                 <CardHeader>
                   <h3 className="text-2xl font-bold">{plan.name}</h3>
                   <p className="text-4xl font-bold mt-2">{plan.price}</p>
                   <p className="text-lg mt-2">{plan.credits} credits/month</p>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex-grow">
                   <ul className="mt-4 space-y-2">
                     {plan.features.map((feature, idx) => (
                       <li key={idx}>{feature}</li>
