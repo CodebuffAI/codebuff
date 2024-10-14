@@ -46,7 +46,11 @@ const PricingPage = () => {
       name: 'Free',
       price: '$0',
       credits: CREDITS_USAGE_LIMITS.FREE,
-      features: ['Community support'],
+      features: [
+        <Link key="community-support" href="https://discord.gg/mcWTGjgTj3" className="hover:underline">
+          Community support
+        </Link>
+      ],
       buttonText: (
         <Link href={'https://www.npmjs.com/package/manicode'}>Get Started</Link>
       ),
