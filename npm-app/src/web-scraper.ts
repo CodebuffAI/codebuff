@@ -37,13 +37,19 @@ export function parseUrlsFromContent(content: string): string[] {
   return content.match(urlRegex) || []
 }
 
+const MAX_SCRAPED_CONTENT_LENGTH = 75_000
 export async function getScrapedContentBlocks(urls: string[]) {
   const blocks: string[] = []
   for (const url of urls) {
     const scrapedContent = await scrapeWebPage(url)
-    if (scrapedContent) {
+    const truncatedScrapedContent =
+      scrapedContent.length > MAX_SCRAPED_CONTENT_LENGTH
+        ? scrapedContent.slice(0, MAX_SCRAPED_CONTENT_LENGTH) +
+          '[...TRUNCATED: WEB PAGE CONTENT TOO LONG...]'
+        : scrapedContent
+    if (truncatedScrapedContent) {
       blocks.push(
-        `<web_scraped_content url="${url}">\n${scrapedContent}\n</web_scraped_content>`
+        `<web_scraped_content url="${url}">\n${truncatedScrapedContent}\n</web_scraped_content>`
       )
     }
   }
