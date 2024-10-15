@@ -101,14 +101,14 @@ protec.use(async (action, _clientSessionId, ws) => {
           return new Error(`Unable to find user for given token ${authToken}!`)
         }
 
+        const quotaManager = new AuthenticatedQuotaManager()
         if (quota.quotaExceeded) {
           if (quota.nextQuotaReset < new Date()) {
             // End date is in the past, so we should reset the quota
-            const quotaManager = new AuthenticatedQuotaManager()
             await quotaManager.resetQuota(quota.userId)
           } else {
             logger.error(`Quota exceeded for user ${quota.userId}`)
-            await sendUsageInfo(fingerprintId, quota.userId, ws)
+            const { usage, limit } = await quotaManager.checkQuota(quota.userId)
             return new Error(`Quota exceeded!`)
           }
         }
@@ -144,14 +144,16 @@ protec.use(async (action, _clientSessionId, ws) => {
           )
         }
 
+        const quotaManager = new AnonymousQuotaManager()
         if (quota.quotaExceeded) {
           if (quota.nextQuotaReset < new Date()) {
             // End date is in the past, so we should reset the quota
-            const quotaManager = new AnonymousQuotaManager()
             quotaManager.resetQuota(quota.fingerprintId)
           } else {
             logger.error(`Quota exceeded for fingerprint ${fingerprintId}`)
-            await sendUsageInfo(fingerprintId, undefined, ws)
+            const { usage, limit } = await quotaManager.checkQuota(
+              quota.fingerprintId
+            )
             return new Error(`Quota exceeded!`)
           }
         }
@@ -164,4 +166,3 @@ protec.use(async (action, _clientSessionId, ws) => {
       )
     })
 })
-
