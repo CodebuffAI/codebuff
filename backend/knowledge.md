@@ -70,41 +70,6 @@ The backend handles file operations for the Manicode project:
 - **Reading Files**: The `read_files` tool allows the AI to access project file contents.
 - **Applying Changes**: The `applyChanges` function in `prompts.ts` processes and applies file modifications suggested by the AI.
 
-## Code Organization and Best Practices
-
-1. **Centralize Shared Logic**: When implementing functionality that's used in multiple places (e.g., web API and backend), create shared functions to promote code reuse and consistency. This is particularly important for business logic like referral handling and usage calculations.
-
-2. **Shared Function Location**: Place shared functions in a common directory accessible to both the web API and backend. Consider creating a `common/src/utils` directory for such shared functionality.
-
-3. **DRY Principle**: Always look for opportunities to refactor repeated code into shared, reusable functions. This not only reduces code duplication but also makes maintenance and updates easier.
-
-4. **Consistent API**: When creating shared functions, ensure they have a consistent API that can be easily used by different parts of the application.
-
-5. **Testing Shared Functions**: Implement unit tests for shared functions to ensure they work correctly in all contexts where they are used.
-
-6. **Documentation**: Document shared functions clearly, including their purpose, inputs, outputs, and any side effects, so that other developers can use them effectively.
-
-7. **Version Control**: When making changes to shared functions, consider the impact on all parts of the application that use them, and test thoroughly.
-
-8. **Dependency Injection**: Prefer pulling common dependencies (like database connections or environment variables) from centralized locations rather than passing them as parameters. This reduces function complexity and improves maintainability.
-
-9. **Single Responsibility Principle**: Design functions to have a single, well-defined purpose. For example, separate the logic of determining eligibility for a referral code from the generation of the full referral link.
-
-10. **Abstraction Refinement**: Be prepared to refine initial implementations as the system's needs become clearer. This might involve changing function signatures, splitting functions, or adjusting their purposes to better fit the overall architecture.
-
-
-
-
-## Development Guidelines
-
-1. **Type Safety**: Utilize TypeScript's type system to ensure code reliability and catch errors early.
-2. **Error Handling**: Implement proper error handling and logging throughout the application.
-3. **Code Organization**: Keep related functionality grouped in appropriate modules and files.
-4. **Documentation**: Maintain clear and up-to-date documentation, including this knowledge file.
-5. **Testing**: Implement unit tests for critical components and functions.
-6. **Environment Variables**: Use environment variables for configuration and sensitive information.
-7. **Code Style**: Follow consistent coding style and use tools like Prettier for formatting.
-
 ## Web Scraping
 
 The backend now includes a web scraping tool that allows the AI assistant to retrieve content from external web pages. This functionality is useful for gathering information from documentation, APIs, or other web-based resources.
@@ -117,16 +82,15 @@ The backend now includes a web scraping tool that allows the AI assistant to ret
 
 ### Quota Exceeded Errors
 
-When a user exceeds their quota, the error message returned should include the current usage information. This helps users understand their current status without requiring an additional API call.
+When a user exceeds their quota, the error message returned now includes the current usage information. This helps users understand their current status without requiring an additional API call.
 
 Implementation details:
 - The `protec` middleware in `websockets/middleware.ts` handles quota checks.
 - For both authenticated and anonymous users, when quota is exceeded:
   1. Retrieve current usage: `const { usage, limit } = await quotaManager.checkQuota(id)`
-  2. Include usage in error message: `return new Error(`Quota exceeded! Usage: ${usage}/${limit}`)`
+  2. Include usage in error message: `return getUsageInfo(true, fingerprintId, userId)`
 
 This approach ensures that clients receive immediate feedback about their quota status, improving user experience and reducing unnecessary API calls.
-
 
 ## Tool Handling
 
@@ -142,29 +106,6 @@ The backend implements a tool handling system that allows the AI assistant to pe
 2. **Error Catching**: WebSocket errors are caught and logged in both server and client code.
 3. **Graceful Degradation**: The system attempts to handle errors gracefully, providing meaningful error messages when possible.
 
-## Logging
-
-- The project uses the pino logging library for structured logging.
-- In production, use structured JSON logs for better parsing and analysis.
-- In development, use pretty-printed logs for improved readability.
-- Configure logging levels using the `LOG_LEVEL` environment variable.
-- Example configuration:
-
-```typescript
-import pino from 'pino'
-import { env } from '../env.mjs'
-
-export const logger = pino({
-  level: env.LOG_LEVEL || 'info',
-  transport: env.NODE_ENV === 'production'
-    ? undefined // Use default JSON logger in production
-    : {
-        target: 'pino-pretty',
-        options: {
-          colorize: true
-        }
-      }
-})
 ## Build and Deployment
 
 1. **Build Process**: The backend uses TypeScript compilation to build the project.
@@ -201,61 +142,24 @@ The referral system is an important feature of our application. Here are key poi
 
 Remember to keep the referral system logic consistent between the backend API and the websocket server to ensure uniform behavior across different parts of the application.
 
+## Recent Updates
 
+1. **Error Handling Improvements**: 
+   - Updated error messages in the `protec` middleware to include more helpful information and the support email address.
+   - Changed the return type of some middleware functions from `Error` to `ServerAction` for more consistent error handling.
 
+2. **Usage Information Refactoring**:
+   - Renamed `sendUsageInfo` to `getUsageInfo` in `websocket-action.ts`.
+   - Modified `getUsageInfo` to return a usage response object instead of directly sending an action.
+   - Updated the `usage-response` action schema to include a `showUser` boolean field.
 
+3. **Environment Configuration**:
+   - Added `NEXT_PUBLIC_SUPPORT_EMAIL` to the environment variables in `env.mjs`.
 
+4. **CLI Enhancements**:
+   - Improved the formatting of the welcome message in the CLI.
 
-
-
-## Debugging Docker Issues
-
-- When encountering "Cannot find module" errors in a Docker container, it's important to verify the contents of the container itself, not just the local build.
-- SSH access to the machine running the Docker container provides valuable debugging capabilities.
-- The `dist` directory being correct locally doesn't guarantee it's correct inside the container.
-- If a container is continuously restarting, it often indicates that the application is crashing immediately after starting. This prevents executing commands inside the container directly.
-- The absence of the `dist` directory in the Docker container can cause "Cannot find module" errors, even if the directory exists locally.
-
-## Git and Docker Best Practices
-
-- The `dist` directory should be ignored by Git to avoid checking in build files.
-- However, the `dist` directory needs to be included in the Docker image for the application to run correctly.
-- The build process should occur before creating the Docker image to ensure the latest compiled files are included.
-
-## Prompts
-
-The backend uses several prompts to guide the AI assistant's behavior:
-
-1. **System Prompt**: Initializes the AI assistant with project-specific context and instructions.
-2. **Request Files Prompt**: Determines which files are relevant to a user's request.
-3. **Main Prompt**: Processes the user's input and generates responses, including code changes.
-
-### Request Files Prompt
-
-- Located in `src/request-files-prompt.ts`
-- Purpose: Identify all potentially relevant files for a user's request
-- Key features:
-  - Uses chain-of-thought reasoning to consider all possible relevant files
-  - Aims to be comprehensive, requesting up to 100 files or more if necessary
-  - Considers indirect dependencies and files that provide context
-  - Outputs a thought process and a list of file paths
-
-The Request Files Prompt is executed before the Main Prompt to ensure that all necessary files are loaded into the system context before processing the user's request.
-
-## File Diff Generation
-
-The backend uses two main strategies for generating file diffs:
-
-1. **Diff Blocks Generation**: Implemented in `generate-diffs-prompt.ts`.
-2. **Diff via Expansion**: Implemented in `generate-diffs-via-expansion.ts`.
-
-### Using Bun for Testing
-
-This project uses Bun for testing instead of Jest. When writing tests, keep the following in mind:
-
-- Use `import { mock } from 'bun:test'` instead of Jest's mocking functions.
-- Bun's test API is similar to Jest's, but there are some differences in implementation.
-- When mocking methods, use `mock(object.method)` instead of Jest's `jest.spyOn(object, 'method')`.
-- Bun's `mock` function expects 0-1 arguments, not 2 like Jest's `spyOn`.
+These changes aim to provide a better user experience by offering more informative error messages, streamlining usage information handling, and improving the overall system consistency.
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
+
