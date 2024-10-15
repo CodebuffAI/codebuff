@@ -10,10 +10,17 @@ export async function hasMaxedReferrals(userId: string): Promise<
         | 'You have maxxed out the number of referrals you can make. Thanks for your support!'
         | "Your user isn't in our system"
         | 'An error occurred while checking referrals'
+      details?: {
+        referralCount?: number
+        error?: string
+      }
     }
   | {
       reason: undefined
       referralLink: string
+      details: {
+        referralCount: number
+      }
     }
 > {
   try {
@@ -29,6 +36,7 @@ export async function hasMaxedReferrals(userId: string): Promise<
       return {
         reason:
           'You have maxxed out the number of referrals you can make. Thanks for your support!',
+        details: { referralCount },
       }
     }
 
@@ -40,14 +48,21 @@ export async function hasMaxedReferrals(userId: string): Promise<
     })
 
     if (!user || !user.referral_code) {
-      return { reason: "Your user isn't in our system" }
+      return { 
+        reason: "Your user isn't in our system",
+        details: { referralCount },
+      }
     }
 
     return {
       reason: undefined,
       referralLink: getReferralLink(user.referral_code),
+      details: { referralCount },
     }
   } catch (error) {
-    return { reason: 'An error occurred while checking referrals' }
+    return { 
+      reason: 'An error occurred while checking referrals',
+      details: { error: error instanceof Error ? error.message : String(error) },
+    }
   }
 }

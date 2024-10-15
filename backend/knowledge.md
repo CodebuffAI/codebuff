@@ -79,6 +79,13 @@ The backend now includes a web scraping tool that allows the AI assistant to ret
 - **Input**: A URL of the web page to scrape
 - **Output**: The content of the scraped web page
 
+## Debugging and Logging
+
+- Avoid adding logging statements directly to utility functions in the `common/` directory.
+- Prefer to add logging in the calling functions within the `backend/` directory.
+- When investigating issues, focus on adding temporary logging to the relevant backend functions rather than modifying shared utility functions.
+
+
 ## Error Handling and Quota Management
 
 ### Quota Exceeded Errors
