@@ -71,6 +71,10 @@ export async function getUsageInfo(
         const shouldGenerateReferralLink = await hasMaxedReferrals(userId)
         if (shouldGenerateReferralLink.reason === undefined) {
           referralLink = shouldGenerateReferralLink.referralLink
+        } else {
+          logger.info(
+            `Not generating referral link: ${shouldGenerateReferralLink.reason}`
+          )
         }
       }
       return {
