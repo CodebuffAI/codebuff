@@ -150,9 +150,7 @@ protec.use(async (action, _clientSessionId, ws) => {
             const quotaManager = new AnonymousQuotaManager()
             quotaManager.resetQuota(quota.fingerprintId)
           } else {
-            console.error(
-              `Quota exceeded for fingerprint ${quota.fingerprintId}`
-            )
+            console.error(`Quota exceeded for fingerprint ${fingerprintId}`)
             await sendUsageInfo(fingerprintId, undefined, ws)
             return new Error(`Quota exceeded!`)
           }
