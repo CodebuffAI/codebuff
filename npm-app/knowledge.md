@@ -298,3 +298,11 @@ This technique can be applied to various scenarios where asynchronous operations
 
 ## End of Document
 
+## Logging and Debugging
+
+- Use minimal logging in production code.
+- Avoid adding excessive console.log statements for debugging purposes in committed code.
+- For debugging, use temporary logging statements or debugging tools, but remove them before committing changes.
+- When adding logs, focus on capturing essential information that provides meaningful insights into the application's behavior or performance.
+
+- In non-production environments, all logs are appended to a 'debug.log' file for easier debugging and troubleshooting.

@@ -1,6 +1,7 @@
 import pino from 'pino'
-import { env } from '../env.mjs'
+import path from 'path'
 import { AsyncLocalStorage } from 'async_hooks'
+import { env } from '../env.mjs'
 
 const loggerAsyncStorage = new AsyncLocalStorage<Record<string, any>>()
 export const withLoggerContext = <T>(
@@ -11,24 +12,24 @@ export const withLoggerContext = <T>(
   return loggerAsyncStorage.run({ ...store, ...additionalContext }, fn)
 }
 
-export const logger = pino({
+const fileTransport = pino.transport({
+  target: 'pino/file',
+  options: { destination: path.join(__dirname, '..', 'debug.log') },
   level: 'debug',
-  transport:
-    env.ENVIRONMENT === 'production'
-      ? undefined
-      : {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-          },
-        },
-  mixin() {
-    return { ...loggerAsyncStorage.getStore() }
-  },
-  formatters: {
-    level: (label) => {
-      return { level: label.toUpperCase() }
-    },
-  },
-  timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
 })
+
+export const logger = pino(
+  {
+    level: 'debug',
+    mixin() {
+      return { ...loggerAsyncStorage.getStore() }
+    },
+    formatters: {
+      level: (label) => {
+        return { level: label.toUpperCase() }
+      },
+    },
+    timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
+  },
+  env.ENVIRONMENT === 'production' ? undefined : fileTransport
+)
