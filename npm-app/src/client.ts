@@ -298,6 +298,7 @@ export class Client {
         )
       )
       this.returnControlToUser()
+      this.lastWarnedPct = 100
       return
     }
 

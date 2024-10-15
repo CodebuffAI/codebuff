@@ -15,6 +15,7 @@ This document provides an overview of the Manicode backend architecture, key com
 9. [Build and Deployment](#build-and-deployment)
 10. [Security Considerations](#security-considerations)
 11. [TODO List](#todo-list)
+12. [User Quota and Billing](#user-quota-and-billing)
 12. [Automatic URL Detection and Scraping](#automatic-url-detection-and-scraping)
 
 ## Architecture Overview
@@ -126,6 +127,20 @@ The backend implements a tool handling system that allows the AI assistant to pe
 3. Implement rate limiting for AI requests to manage resource usage.
 4. Create a robust testing suite for backend components.
 5. Optimize the file diff generation process for better reliability and performance.
+
+## User Quota and Billing
+
+### Usage Limit Handling
+
+- The system tracks user usage and compares it against their quota limit.
+- Warning messages are shown at 25%, 50%, and 75% of the usage limit.
+- When a user reaches or exceeds 100% of their usage limit:
+  - An error message MUST ALWAYS be displayed to the user.
+  - This error message should inform the user that they've reached their monthly limit.
+  - For logged-in users, provide a link to the pricing page for upgrades.
+  - For anonymous users, prompt them to log in for more credits.
+  - If available, include a referral link for additional credits.
+
 
 ## Referral System
 
