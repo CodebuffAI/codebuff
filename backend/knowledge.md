@@ -18,6 +18,23 @@ This document provides an overview of the Manicode backend architecture, key com
 12. [User Quota and Billing](#user-quota-and-billing)
 12. [Automatic URL Detection and Scraping](#automatic-url-detection-and-scraping)
 
+## Development Workflow
+
+### Hot Reloading
+
+The project uses hot reloading to improve development efficiency. This is implemented for both the backend and npm-app:
+
+1. Backend:
+   - Uses `nodemon` to watch both `backend/src` and `common/src` directories.
+   - Run with `bun run dev` in the backend directory.
+
+2. npm-app:
+   - Similar setup to the backend, watching both `npm-app/src` and `common/src`.
+   - Run with `bun run dev` in the npm-app directory.
+
+This setup ensures consistent development practices across different parts of the project, allowing for immediate feedback on code changes.
+
+
 ## Architecture Overview
 
 The Manicode backend is built on Node.js using TypeScript. It uses an Express server for HTTP requests and a WebSocket server for real-time communication with clients. The backend integrates with the Claude AI model to process user inputs and generate code changes.

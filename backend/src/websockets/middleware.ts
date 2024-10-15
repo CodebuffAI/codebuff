@@ -8,7 +8,7 @@ import {
   AuthenticatedQuotaManager,
 } from '../billing/quota-manager'
 import { sql, eq } from 'drizzle-orm'
-import { getUsageInfo, sendAction } from './websocket-action'
+import { genUsageResponse, sendAction } from './websocket-action'
 import { logger } from '@/util/logger'
 import { env } from '@/env.mjs'
 
@@ -109,7 +109,7 @@ protec.use(async (action, _clientSessionId, ws) => {
             await quotaManager.resetQuota(quota.userId)
           } else {
             logger.error(`Quota exceeded for user ${quota.userId}`)
-            return getUsageInfo(fingerprintId, quota.userId)
+            return genUsageResponse(fingerprintId, quota.userId)
           }
         }
         return
@@ -152,7 +152,7 @@ protec.use(async (action, _clientSessionId, ws) => {
             quotaManager.resetQuota(quota.fingerprintId)
           } else {
             logger.error(`Quota exceeded for fingerprint ${fingerprintId}`)
-            return getUsageInfo(fingerprintId)
+            return genUsageResponse(fingerprintId)
           }
         }
         return

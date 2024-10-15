@@ -431,6 +431,8 @@ export class Client {
         this.lastWarnedPct = 0
         this.limit = a.limit
       }
+
+      this.showUsageWarning(a.usage, a.limit, a.referralLink)
     })
 
     return {

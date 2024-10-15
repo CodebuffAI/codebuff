@@ -56,7 +56,7 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
   return { usage: creditsUsed, limit: quota }
 }
 
-export async function getUsageInfo(
+export async function genUsageResponse(
   fingerprintId: string,
   userId?: string
 ): Promise<Extract<ServerAction, { type: 'usage-response' }>> {
@@ -146,14 +146,15 @@ const onUserInput = async (
             changes,
           })
         } else {
-          const { usage, limit } = await calculateUsage(fingerprintId, userId)
+          const ur = await genUsageResponse(fingerprintId, userId)
           sendAction(ws, {
             type: 'response-complete',
             userInputId,
             response,
             changes,
-            usage,
-            limit,
+            usage: ur.usage,
+            limit: ur.limit,
+            referralLink: ur.referralLink,
           })
         }
       } catch (e) {
@@ -362,7 +363,7 @@ export const onUsageRequest = async (
   ws: WebSocket
 ) => {
   const userId = await getUserIdFromAuthToken(authToken)
-  const action = await getUsageInfo(fingerprintId, userId)
+  const action = await genUsageResponse(fingerprintId, userId)
   sendAction(ws, action)
 }
 
