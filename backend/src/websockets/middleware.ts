@@ -11,7 +11,6 @@ import { sql, eq } from 'drizzle-orm'
 import { getUsageInfo, sendAction } from './websocket-action'
 import { logger } from '@/util/logger'
 import { env } from '@/env.mjs'
-import { getReferralLink } from 'common/util/referral'
 
 export class WebSocketMiddleware {
   private middlewares: Array<
@@ -110,7 +109,7 @@ protec.use(async (action, _clientSessionId, ws) => {
             await quotaManager.resetQuota(quota.userId)
           } else {
             logger.error(`Quota exceeded for user ${quota.userId}`)
-            return getUsageInfo(true, fingerprintId, quota.userId)
+            return getUsageInfo(fingerprintId, quota.userId)
           }
         }
         return
@@ -153,7 +152,7 @@ protec.use(async (action, _clientSessionId, ws) => {
             quotaManager.resetQuota(quota.fingerprintId)
           } else {
             logger.error(`Quota exceeded for fingerprint ${fingerprintId}`)
-            return getUsageInfo(true, fingerprintId)
+            return getUsageInfo(fingerprintId)
           }
         }
         return

@@ -57,7 +57,6 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
 }
 
 export async function getUsageInfo(
-  showUser: boolean,
   fingerprintId: string,
   userId?: string
 ): Promise<Extract<ServerAction, { type: 'usage-response' }>> {
@@ -84,7 +83,6 @@ export async function getUsageInfo(
 
   return {
     type: 'usage-response',
-    showUser,
     ...params,
   }
 }
@@ -354,7 +352,7 @@ export const onUsageRequest = async (
   ws: WebSocket
 ) => {
   const userId = await getUserIdFromAuthToken(authToken)
-  const action = await getUsageInfo(false, fingerprintId, userId)
+  const action = await getUsageInfo(fingerprintId, userId)
   sendAction(ws, action)
 }
 

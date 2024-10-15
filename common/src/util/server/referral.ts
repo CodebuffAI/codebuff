@@ -7,7 +7,7 @@ import { MAX_REFERRALS } from '../../constants'
 export async function hasMaxedReferrals(userId: string): Promise<
   | {
       reason:
-        | 'You have reached your usage limit'
+        | 'You have maxxed out the number of referrals you can make. Thanks for your support!'
         | "Your user isn't in our system"
     }
   | {
@@ -23,7 +23,10 @@ export async function hasMaxedReferrals(userId: string): Promise<
     .where(eq(schema.referral.referrer_id, userId))
     .then((result) => (result.length > 0 ? result[0].limitReached : false))
   if (limitReached) {
-    return { reason: 'You have reached your usage limit' }
+    return {
+      reason:
+        'You have maxxed out the number of referrals you can make. Thanks for your support!',
+    }
   }
 
   const user = await db.query.user.findFirst({

@@ -335,10 +335,6 @@ export class CLI {
       }
     }
 
-    if (this.client.lastWarnedPct >= 100) {
-      this.client.getUsage() // refresh, in case user upgraded
-      return
-    }
     this.startLoadingAnimation()
     await this.readyPromise
 

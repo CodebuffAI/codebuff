@@ -85,6 +85,7 @@ The backend now includes a web scraping tool that allows the AI assistant to ret
 When a user exceeds their quota, the error message returned now includes the current usage information. This helps users understand their current status without requiring an additional API call.
 
 Implementation details:
+
 - The `protec` middleware in `websockets/middleware.ts` handles quota checks.
 - For both authenticated and anonymous users, when quota is exceeded:
   1. Retrieve current usage: `const { usage, limit } = await quotaManager.checkQuota(id)`
@@ -144,16 +145,19 @@ Remember to keep the referral system logic consistent between the backend API an
 
 ## Recent Updates
 
-1. **Error Handling Improvements**: 
+1. **Error Handling Improvements**:
+
    - Updated error messages in the `protec` middleware to include more helpful information and the support email address.
    - Changed the return type of some middleware functions from `Error` to `ServerAction` for more consistent error handling.
 
 2. **Usage Information Refactoring**:
+
    - Renamed `sendUsageInfo` to `getUsageInfo` in `websocket-action.ts`.
    - Modified `getUsageInfo` to return a usage response object instead of directly sending an action.
    - Updated the `usage-response` action schema to include a `showUser` boolean field.
 
 3. **Environment Configuration**:
+
    - Added `NEXT_PUBLIC_SUPPORT_EMAIL` to the environment variables in `env.mjs`.
 
 4. **CLI Enhancements**:
@@ -162,4 +166,3 @@ Remember to keep the referral system logic consistent between the backend API an
 These changes aim to provide a better user experience by offering more informative error messages, streamlining usage information handling, and improving the overall system consistency.
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
-
