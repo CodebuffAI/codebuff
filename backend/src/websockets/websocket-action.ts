@@ -146,15 +146,18 @@ const onUserInput = async (
             changes,
           })
         } else {
-          const ur = await genUsageResponse(fingerprintId, userId)
+          const { usage, limit, referralLink } = await genUsageResponse(
+            fingerprintId,
+            userId
+          )
           sendAction(ws, {
             type: 'response-complete',
             userInputId,
             response,
             changes,
-            usage: ur.usage,
-            limit: ur.limit,
-            referralLink: ur.referralLink,
+            usage,
+            limit,
+            referralLink,
           })
         }
       } catch (e) {

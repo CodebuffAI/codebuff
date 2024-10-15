@@ -25,7 +25,7 @@ This document provides an overview of the Manicode backend architecture, key com
 The project uses hot reloading to improve development efficiency. This is implemented for both the backend and npm-app:
 
 1. Backend:
-   - Uses `nodemon` to watch both `backend/src` and `common/src` directories.
+   - Uses Bun's built-in watch functionality to monitor both `backend/src` and `common/src` directories.
    - Run with `bun run dev` in the backend directory.
 
 2. npm-app:

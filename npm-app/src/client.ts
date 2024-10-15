@@ -255,7 +255,7 @@ export class Client {
         this.returnControlToUser()
       } else {
         console.warn(
-          `Authentication failed: ${action.message}. Please try again in a few minutes or contact support.`
+          `Authentication failed: ${action.message}. Please try again in a few minutes or contact support at ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL}.`
         )
       }
     })
