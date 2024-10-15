@@ -85,7 +85,13 @@ const isSketchCompletePrompt = async (
   }
 
   const fileBlocks = parseFileBlocks(
-    JSON.stringify(messageHistory) + fullResponse
+    messageHistory
+      .map((message) =>
+        typeof message.content === 'string'
+          ? message.content
+          : message.content.map((c) => ('text' in c ? c.text : '')).join('\n')
+      )
+      .join('\n') + fullResponse
   )
   const fileWasPreviouslyEdited = Object.keys(fileBlocks).includes(filePath)
   if (!fileWasPreviouslyEdited) {
