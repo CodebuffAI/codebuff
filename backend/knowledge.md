@@ -113,6 +113,21 @@ The backend now includes a web scraping tool that allows the AI assistant to ret
 - **Input**: A URL of the web page to scrape
 - **Output**: The content of the scraped web page
 
+## Error Handling and Quota Management
+
+### Quota Exceeded Errors
+
+When a user exceeds their quota, the error message returned should include the current usage information. This helps users understand their current status without requiring an additional API call.
+
+Implementation details:
+- The `protec` middleware in `websockets/middleware.ts` handles quota checks.
+- For both authenticated and anonymous users, when quota is exceeded:
+  1. Retrieve current usage: `const { usage, limit } = await quotaManager.checkQuota(id)`
+  2. Include usage in error message: `return new Error(`Quota exceeded! Usage: ${usage}/${limit}`)`
+
+This approach ensures that clients receive immediate feedback about their quota status, improving user experience and reducing unnecessary API calls.
+
+
 ## Tool Handling
 
 The backend implements a tool handling system that allows the AI assistant to perform various actions:

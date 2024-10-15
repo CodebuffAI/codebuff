@@ -166,6 +166,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('usage-response'),
+    showUser: z.boolean(),
     usage: z.number(),
     limit: z.number(),
     referralLink: z.string().optional(),

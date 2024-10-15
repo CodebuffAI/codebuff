@@ -56,26 +56,37 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
   return { usage: creditsUsed, limit: quota }
 }
 
-export async function sendUsageInfo(fingerprintId: string, userId: string | undefined, ws: WebSocket) {
-  await withLoggerContext({ fingerprintId, userId }, async () => {
-    const { usage, limit } = await calculateUsage(fingerprintId, userId)
-    logger.info('Sending usage info')
+export async function getUsageInfo(
+  showUser: boolean,
+  fingerprintId: string,
+  userId?: string
+): Promise<Extract<ServerAction, { type: 'usage-response' }>> {
+  const params = await withLoggerContext(
+    { fingerprintId, userId },
+    async () => {
+      const { usage, limit } = await calculateUsage(fingerprintId, userId)
+      logger.info('Sending usage info')
 
-    let referralLink: string | undefined = undefined
-    if (userId) {
-      const shouldGenerateReferralLink = await hasMaxedReferrals(userId)
-      if (shouldGenerateReferralLink.reason === undefined) {
-        referralLink = shouldGenerateReferralLink.referralLink
+      let referralLink: string | undefined = undefined
+      if (userId) {
+        const shouldGenerateReferralLink = await hasMaxedReferrals(userId)
+        if (shouldGenerateReferralLink.reason === undefined) {
+          referralLink = shouldGenerateReferralLink.referralLink
+        }
+      }
+      return {
+        usage,
+        limit,
+        referralLink,
       }
     }
+  )
 
-    sendAction(ws, {
-      type: 'usage-response',
-      usage,
-      limit,
-      referralLink,
-    })
-  })
+  return {
+    type: 'usage-response',
+    showUser,
+    ...params,
+  }
 }
 
 const onUserInput = async (
@@ -343,7 +354,8 @@ export const onUsageRequest = async (
   ws: WebSocket
 ) => {
   const userId = await getUserIdFromAuthToken(authToken)
-  await sendUsageInfo(fingerprintId, userId, ws)
+  const action = await getUsageInfo(false, fingerprintId, userId)
+  sendAction(ws, action)
 }
 
 const onGenerateCommitMessage = async (
