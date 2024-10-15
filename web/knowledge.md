@@ -124,3 +124,18 @@ Key points:
 Pricing information is displayed on the pricing page (`web/src/app/pricing/page.tsx`).
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
+
+## Responsive Design
+
+### Navigation
+
+- Desktop: Display "Pricing" and "Referrals" links in the main navigation bar.
+- Mobile: Due to limited space, consider alternative ways to display these links:
+  - Use a hamburger icon to reveal the dropdown menu.
+  - Include icons with menu items for better visual cues.
+  - Incorporate all navigation items, including "Pricing", "Referrals", and other relevant buttons (e.g., login/logout).
+  - Follow the current menu format for consistency across desktop and mobile views.
+- Ensure the mobile menu design is consistent with the overall application style.
+- Ensure all navigation options are easily accessible regardless of device size.
+- Test responsive design across various screen sizes and devices.
+ - Consider using Tailwind CSS classes for responsive design implementation.
