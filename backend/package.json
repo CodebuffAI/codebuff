@@ -10,7 +10,7 @@
     "build": "tsc --build && tsc-alias",
     "postbuild": "mkdir -p dist/common && cp -R ../common/dist/* dist/common && tsc-alias",
     "clean": "rm -rf dist && rm -f tsconfig.tsbuildinfo",
-    "dev": "nodemon --exec bun run -r tsconfig-paths/register src/index.ts",
+    "dev": "nodemon --watch src --watch ../common/src --exec 'bun run -r tsconfig-paths/register src/index.ts'",
     "test": "bun test",
     "test:manifold": "bun test src/__tests__/manifold-project.test.ts",
     "test:watch": "bun test --watch"
