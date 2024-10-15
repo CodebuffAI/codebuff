@@ -44,7 +44,7 @@ export class WebSocketMiddleware {
     for (const middleware of this.middlewares) {
       const res = await middleware(action, clientSessionId, ws)
       if (res) {
-        console.error('Middleware execution halted:', res)
+        logger.error('Middleware execution halted:', res)
         sendAction(ws, {
           type: 'action-error',
           message: res.message,
@@ -107,7 +107,7 @@ protec.use(async (action, _clientSessionId, ws) => {
             const quotaManager = new AuthenticatedQuotaManager()
             await quotaManager.resetQuota(quota.userId)
           } else {
-            console.error(`Quota exceeded for user ${quota.userId}`)
+            logger.error(`Quota exceeded for user ${quota.userId}`)
             await sendUsageInfo(fingerprintId, quota.userId, ws)
             return new Error(`Quota exceeded!`)
           }
@@ -150,7 +150,7 @@ protec.use(async (action, _clientSessionId, ws) => {
             const quotaManager = new AnonymousQuotaManager()
             quotaManager.resetQuota(quota.fingerprintId)
           } else {
-            console.error(`Quota exceeded for fingerprint ${fingerprintId}`)
+            logger.error(`Quota exceeded for fingerprint ${fingerprintId}`)
             await sendUsageInfo(fingerprintId, undefined, ws)
             return new Error(`Quota exceeded!`)
           }
@@ -164,3 +164,4 @@ protec.use(async (action, _clientSessionId, ws) => {
       )
     })
 })
+
