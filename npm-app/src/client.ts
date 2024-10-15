@@ -255,14 +255,14 @@ export class Client {
         this.returnControlToUser()
       } else {
         console.warn(
-          `Authentication failed: ${action.message}. Please try again in a few minutes or contact support.`
+          `Authentication failed: ${action.message}. Please try again in a few minutes or contact support at ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL}.`
         )
       }
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
       const { usage, limit, referralLink } = action
-      console.log(`\nUsage: ${usage} / ${limit} credits`)
+      console.log(`Usage: ${usage} / ${limit} credits`)
       this.showUsageWarning(usage, limit, referralLink)
       this.returnControlToUser()
     })
@@ -273,6 +273,17 @@ export class Client {
     limit: number,
     referralLink?: string
   ) {
+    const errorCopy = [
+      this.user
+        ? yellow(`Visit ${process.env.NEXT_PUBLIC_APP_URL}/pricing to upgrade.`)
+        : yellow('Type "login" to sign up and get more credits!'),
+      referralLink
+        ? yellow(
+            `You can also refer friends using this link and get more credits: ${referralLink}`
+          )
+        : '',
+    ].join('\n')
+
     const pct: number = match(Math.floor((usage / limit) * 100))
       .with(P.number.gte(100), () => 100)
       .with(P.number.gte(75), () => 75)
@@ -282,13 +293,12 @@ export class Client {
 
     if (pct >= 100) {
       console.error(
-        [
-          red(
-            'You have reached your monthly usage limit. You must upgrade your plan to continue using the service.'
-          ),
-        ].join('\n')
+        [red('You have reached your monthly usage limit.'), errorCopy].join(
+          '\n'
+        )
       )
       this.returnControlToUser()
+      this.lastWarnedPct = 100
       return
     }
 
@@ -297,16 +307,7 @@ export class Client {
         [
           '',
           yellow(`You have used over ${pct}% of your monthly usage limit.`),
-          this.user
-            ? yellow(
-                `Visit ${process.env.NEXT_PUBLIC_APP_URL}/pricing to upgrade.`
-              )
-            : yellow('Type "login" to sign up and get more credits!'),
-          referralLink
-            ? yellow(
-                `You can also refer friends using this link and get more credits: ${referralLink}`
-              )
-            : '',
+          errorCopy,
         ].join('\n')
       )
       this.lastWarnedPct = pct
@@ -430,6 +431,8 @@ export class Client {
         this.lastWarnedPct = 0
         this.limit = a.limit
       }
+
+      this.showUsageWarning(a.usage, a.limit, a.referralLink)
     })
 
     return {

@@ -143,7 +143,7 @@ export class CLI {
   public printInitialPrompt(initialInput?: string) {
     if (this.client.user) {
       console.log(
-        `Welcome back ${this.client.user.name}! What would you like to do?\n`
+        `\nWelcome back ${this.client.user.name}! What would you like to do?`
       )
     } else {
       console.log(`What would you like to do?\n`)
@@ -335,10 +335,6 @@ export class CLI {
       }
     }
 
-    if (this.client.lastWarnedPct >= 100) {
-      this.client.getUsage() // refresh, in case user upgraded
-      return
-    }
     this.startLoadingAnimation()
     await this.readyPromise
 

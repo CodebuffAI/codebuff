@@ -2,10 +2,16 @@ import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import Link from 'next/link'
-import { BrainCircuitIcon } from 'lucide-react'
+import { BrainCircuitIcon, Menu, DollarSign, Users, LogIn } from 'lucide-react'
 import { ThemeSwitcher } from '../theme-switcher'
 import { Button } from '../ui/button'
 import { UserDropdown } from './user-dropdown'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
 
 export const Navbar = async () => {
   const session = await getServerSession(authOptions)
@@ -28,10 +34,40 @@ export const Navbar = async () => {
         </Link>
       </nav>
       <div className="flex items-center space-x-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild className="md:hidden">
+            <Button variant="ghost" size="icon">
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href="/pricing" className="flex items-center">
+                <DollarSign className="mr-2 h-4 w-4" />
+                Pricing
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/referrals" className="flex items-center">
+                <Users className="mr-2 h-4 w-4" />
+                Referrals
+              </Link>
+            </DropdownMenuItem>
+            {!session && (
+              <DropdownMenuItem asChild>
+                <Link href="/login" className="flex items-center">
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Log in
+                </Link>
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
         {session ? (
           <UserDropdown session={session} />
         ) : (
-          <Link href="/login">
+          <Link href="/login" className="hidden md:inline-block">
             <Button className="bg-blue-600 hover:bg-blue-400 text-white transition-colors">
               Log in
             </Button>

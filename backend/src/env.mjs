@@ -26,6 +26,7 @@ export const env = createEnv({
     ENVIRONMENT: z.string().min(1),
     NEXT_PUBLIC_APP_URL: z.string().min(1),
     NEXTAUTH_SECRET: z.string().min(1),
+    NEXT_PUBLIC_SUPPORT_EMAIL: z.string().min(1),
   },
   runtimeEnv: process.env,
 })

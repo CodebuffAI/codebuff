@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws'
-import { ClientAction } from 'common/actions'
+import { ClientAction, ServerAction } from 'common/actions'
 import { match, P } from 'ts-pattern'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
@@ -8,8 +8,9 @@ import {
   AuthenticatedQuotaManager,
 } from '../billing/quota-manager'
 import { sql, eq } from 'drizzle-orm'
-import { sendAction } from './websocket-action'
+import { genUsageResponse, sendAction } from './websocket-action'
 import { logger } from '@/util/logger'
+import { env } from '@/env.mjs'
 
 export class WebSocketMiddleware {
   private middlewares: Array<
@@ -17,7 +18,7 @@ export class WebSocketMiddleware {
       action: ClientAction,
       clientSessionId: string,
       ws: WebSocket
-    ) => Promise<void | Error>
+    ) => Promise<void | ServerAction>
   > = []
 
   use<T extends ClientAction['type']>(
@@ -25,14 +26,14 @@ export class WebSocketMiddleware {
       action: Extract<ClientAction, { type: T }>,
       clientSessionId: string,
       ws: WebSocket
-    ) => Promise<void | Error>
+    ) => Promise<void | ServerAction>
   ) {
     this.middlewares.push(
       callback as (
         action: ClientAction,
         clientSessionId: string,
         ws: WebSocket
-      ) => Promise<void | Error>
+      ) => Promise<void | ServerAction>
     )
   }
 
@@ -42,13 +43,10 @@ export class WebSocketMiddleware {
     ws: WebSocket
   ): Promise<boolean> {
     for (const middleware of this.middlewares) {
-      const res = await middleware(action, clientSessionId, ws)
-      if (res) {
-        console.error('Middleware execution halted:', res)
-        sendAction(ws, {
-          type: 'action-error',
-          message: res.message,
-        })
+      const actionOrContinue = await middleware(action, clientSessionId, ws)
+      if (actionOrContinue) {
+        logger.error('Middleware execution halted:', actionOrContinue)
+        sendAction(ws, actionOrContinue)
         return false
       }
     }
@@ -85,7 +83,7 @@ protec.use(async (action, _clientSessionId, ws) => {
       {
         authToken: P.string,
       },
-      async ({ authToken }) => {
+      async ({ authToken, fingerprintId }) => {
         const quotas = await db
           .select({
             userId: schema.user.id,
@@ -98,17 +96,20 @@ protec.use(async (action, _clientSessionId, ws) => {
 
         const quota = quotas[0]
         if (!quota) {
-          return new Error(`Unable to find user for given token ${authToken}!`)
+          return {
+            type: 'action-error' as const,
+            message: `Unable to find user for given token ${authToken}! Please reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`,
+          }
         }
 
+        const quotaManager = new AuthenticatedQuotaManager()
         if (quota.quotaExceeded) {
           if (quota.nextQuotaReset < new Date()) {
             // End date is in the past, so we should reset the quota
-            const quotaManager = new AuthenticatedQuotaManager()
             await quotaManager.resetQuota(quota.userId)
           } else {
-            console.error(`Quota exceeded for user ${quota.userId}`)
-            return new Error(`Quota exceeded! Enter 'usage' to learn more.`)
+            logger.error(`Quota exceeded for user ${quota.userId}`)
+            return genUsageResponse(fingerprintId, quota.userId)
           }
         }
         return
@@ -138,29 +139,29 @@ protec.use(async (action, _clientSessionId, ws) => {
 
         const quota = quotas[0]
         if (!quota) {
-          return new Error(
-            `Unable to find fingerprint for given id ${fingerprintId}!`
-          )
+          return {
+            type: 'action-error' as const,
+            message: `Unable to find fingerprint for given id ${fingerprintId}! Please reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`,
+          }
         }
 
+        const quotaManager = new AnonymousQuotaManager()
         if (quota.quotaExceeded) {
           if (quota.nextQuotaReset < new Date()) {
             // End date is in the past, so we should reset the quota
-            const quotaManager = new AnonymousQuotaManager()
             quotaManager.resetQuota(quota.fingerprintId)
           } else {
-            console.error(
-              `Quota exceeded for fingerprint ${quota.fingerprintId}`
-            )
-            return new Error(`Quota exceeded! Enter 'usage' to learn more.`)
+            logger.error(`Quota exceeded for fingerprint ${fingerprintId}`)
+            return genUsageResponse(fingerprintId)
           }
         }
         return
       }
     )
     .otherwise(() => {
-      return new Error(
-        'No authToken or fingerprintId found, cannot check quota'
-      )
+      return {
+        type: 'action-error' as const,
+        message: `No authToken or fingerprintId found, cannot check quota. Please reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`,
+      }
     })
 })

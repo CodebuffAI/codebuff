@@ -2,7 +2,11 @@ const fs = require('fs')
 const { match } = require('ts-pattern')
 const dotenv = require('dotenv')
 
-const ENV_VARS_TO_PULL = ['NEXT_PUBLIC_APP_URL', 'NEXT_PUBLIC_BACKEND_URL']
+const ENV_VARS_TO_PULL = [
+  'NEXT_PUBLIC_APP_URL',
+  'NEXT_PUBLIC_BACKEND_URL',
+  'NEXT_PUBLIC_SUPPORT_EMAIL',
+]
 
 dotenv.config({ path: '../stack.env' })
 if (!process.env.ENVIRONMENT) {

@@ -12,10 +12,10 @@
     "packages/*"
   ],
   "scripts": {
-    "start-client": "bun --cwd npm-app start",
     "start-db": "bun --cwd common db:start",
+    "start-client": "bun --cwd npm-app start",
     "start-web": "bun run start-db && bun --cwd web dev",
-    "start-server": "bun run start-db && bun --cwd backend start",
+    "start-server": "bun run start-db && bun --cwd backend dev",
     "start-manifold": "bun --cwd npm-app start-manifold",
     "start-litestar": "bun --cwd npm-app start-litestar",
     "start-jpcsp": "bun --cwd npm-app start-jpcsp",

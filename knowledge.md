@@ -84,10 +84,21 @@ The `MAX_REFERRALS` constant is used to limit the number of referrals a user can
 6. Remember that imports automatically remove 'src' from the path. When editing files, always include 'src' in the file path if it's part of the actual directory structure.
 
 ## Knowledge Management
+## Knowledge File Management
 
-- Knowledge is stored in `knowledge.md` files, which can be created in relevant directories throughout the project.
-- Mani automatically updates knowledge files when learning new information or correcting mistakes.
-- Developers are encouraged to review and commit knowledge file changes to share insights across the team.
+- Knowledge is stored in `knowledge.md` files, which can be created in relevant directories throughout the project. 
+- Mani automatically updates knowledge files when learning new information or correcting mistakes. 
+- Developers are encouraged to review and commit knowledge file changes to share insights across the team. 
+
+When updating knowledge files:
+
+1. Focus on high-level impacts and overall project direction, rather than specific implementation details.
+2. Summarize changes in terms of their effect on the project's goals and user experience.
+3. Avoid duplicating information that's already evident from the code itself.
+4. Keep entries concise and relevant to the long-term understanding of the project.
+5. When in doubt, prefer broader, more abstract descriptions over detailed, low-level explanations.
+
+These guidelines help maintain useful and accessible knowledge files that provide valuable context without becoming overly verbose or quickly outdated.
 
 ## Terminal Command Execution
 
