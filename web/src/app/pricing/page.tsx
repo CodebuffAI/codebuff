@@ -44,7 +44,7 @@ const PricingPage = () => {
   const pricingPlans = [
     {
       name: 'Free',
-      price: '$0',
+      price: '$0/month',
       credits: CREDITS_USAGE_LIMITS.FREE,
       features: [
         <Link

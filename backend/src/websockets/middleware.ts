@@ -8,7 +8,7 @@ import {
   AuthenticatedQuotaManager,
 } from '../billing/quota-manager'
 import { sql, eq } from 'drizzle-orm'
-import { sendAction } from './websocket-action'
+import { sendUsageInfo, sendAction } from './websocket-action'
 import { logger } from '@/util/logger'
 
 export class WebSocketMiddleware {
@@ -85,7 +85,7 @@ protec.use(async (action, _clientSessionId, ws) => {
       {
         authToken: P.string,
       },
-      async ({ authToken }) => {
+      async ({ authToken, fingerprintId }) => {
         const quotas = await db
           .select({
             userId: schema.user.id,
@@ -108,7 +108,8 @@ protec.use(async (action, _clientSessionId, ws) => {
             await quotaManager.resetQuota(quota.userId)
           } else {
             console.error(`Quota exceeded for user ${quota.userId}`)
-            return new Error(`Quota exceeded! Enter 'usage' to learn more.`)
+            await sendUsageInfo(fingerprintId, quota.userId, ws)
+            return new Error(`Quota exceeded!`)
           }
         }
         return
@@ -152,7 +153,8 @@ protec.use(async (action, _clientSessionId, ws) => {
             console.error(
               `Quota exceeded for fingerprint ${quota.fingerprintId}`
             )
-            return new Error(`Quota exceeded! Enter 'usage' to learn more.`)
+            await sendUsageInfo(fingerprintId, undefined, ws)
+            return new Error(`Quota exceeded!`)
           }
         }
         return
