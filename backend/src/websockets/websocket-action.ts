@@ -72,7 +72,9 @@ export async function getUsageInfo(
         const referralStatus = await hasMaxedReferrals(userId)
         if (referralStatus.reason === undefined) {
           referralLink = referralStatus.referralLink
-          logger.info(`Generated referral link for user ${userId}. Referral count: ${referralStatus.details.referralCount}`)
+          logger.info(
+            `Generated referral link for user ${userId}. Referral count: ${referralStatus.details.referralCount}`
+          )
         } else {
           logger.info(
             `Not generating referral link for user ${userId}: ${referralStatus.reason}. Details: ${JSON.stringify(referralStatus.details)}`
