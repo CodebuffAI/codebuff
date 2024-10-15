@@ -284,7 +284,7 @@ export class Client {
       console.error(
         [
           red(
-            'You have reached your monthly usage limit. You must upgrade your plan to continue using the service.'
+            'You have reached your monthly usage limit. Please upgrade your account.'
           ),
         ].join('\n')
       )
