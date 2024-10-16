@@ -13,7 +13,7 @@ import { env } from '../env.mjs'
 import db from 'common/db'
 import { genAuthCode } from 'common/util/credentials'
 import * as schema from 'common/db/schema'
-import { claudeModels } from 'common/constants'
+import { claudeModels, TOOL_RESULT_MARKER } from 'common/constants'
 import { protec } from './middleware'
 import { getQuotaManager } from '@/billing/quota-manager'
 import { logger, withLoggerContext } from '@/util/logger'
@@ -113,7 +113,10 @@ const onUserInput = async (
     { fingerprintId, authToken, clientRequestId: userInputId },
     async () => {
       const lastMessage = messages[messages.length - 1]
-      if (typeof lastMessage.content === 'string') {
+      if (
+        typeof lastMessage.content === 'string' &&
+        !lastMessage.content.includes(TOOL_RESULT_MARKER)
+      ) {
         logger.info(`USER INPUT: ${lastMessage.content}`)
       }
 
