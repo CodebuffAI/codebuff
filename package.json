@@ -31,7 +31,6 @@
     "lodash": "4.17.21",
     "ts-node": "^10.9.2"
   },
-  "packageManager": "bun@1.1.27",
   "devDependencies": {
     "@types/lodash": "4.17.7",
     "@types/node": "20.11.18",
