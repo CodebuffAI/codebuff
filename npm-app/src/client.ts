@@ -279,7 +279,7 @@ export class Client {
         : yellow('Type "login" to sign up and get more credits!'),
       referralLink
         ? yellow(
-            `You can also refer friends using this link and get more credits: ${referralLink}`
+            `Get ${CREDITS_REFERRAL_BONUS} credits per month for each friend that uses your referral link: ${referralLink}`
           )
         : '',
     ].join('\n')
