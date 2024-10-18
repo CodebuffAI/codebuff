@@ -117,7 +117,7 @@ ${newContent}
 Consider the above information and conversation and answer the following question.
 Most likely, the assistant intended to replace the entire original file with the new content. If so, write "REPLACE_ENTIRE_FILE".
 In rare cases, the assistant forgot to include the rest of the file and just wrote in one section of the file to be edited. Typically this happens if the new content focuses on the change of a single function or section of code with the intention to edit just this section, but keep the rest of the file unchanged. For example, if the new content is just a single function whereas the original file has multiple functions, and the conversation does not imply that the other functions should be deleted.
-If you strongly believe this is the scenario, please write "LOCAL_CHANGE_ONLY". Otherwise (most likely), write "REPLACE_ENTIRE_FILE".
+If you believe this is the scenario, please write "LOCAL_CHANGE_ONLY". Otherwise, write "REPLACE_ENTIRE_FILE".
 Do not write anything else.
 `.trim()
 
