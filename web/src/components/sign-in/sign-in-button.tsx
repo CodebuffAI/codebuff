@@ -42,7 +42,9 @@ export const SignInButton = ({
         className="rounded-full"
       />
       Continue with{' '}
-      {providerName.charAt(0).toUpperCase() + providerName.slice(1)}
+      {providerName === 'github'
+        ? 'GitHub'
+        : providerName.charAt(0).toUpperCase() + providerName.slice(1)}
     </Button>
   )
 }

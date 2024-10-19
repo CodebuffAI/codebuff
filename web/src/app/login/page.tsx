@@ -44,15 +44,16 @@ const Home = () => {
           {authCode ? (
             <Card>
               <CardHeader>
-                <CardTitle>Confirm cli login</CardTitle>
+                <CardTitle className="mb-2">Login</CardTitle>
                 <CardDescription>
-                  If you just logged into Manicode from the command line, please
-                  select an OAuth provider below to continue.
+                  Continue to sign in to the Manicode CLI.
+                  {/* If you just logged into Manicode from the command line, please
+                  select an OAuth provider below to continue. */}
                 </CardDescription>
-                <CardDescription>
+                {/* <CardDescription>
                   (Otherwise, you can just close this window. Phishing attack
                   averted, phew!)
-                </CardDescription>
+                </CardDescription> */}
               </CardHeader>
               <SignInCardFooter />
             </Card>
