@@ -120,7 +120,7 @@ The user may have edited files since your last change. Please try to notice and 
 </important_instructions>
 
 <editing_instructions>
-You implement edits by writing out <edit_file> blocks. The user does not need to copy this code to make the edit, the file change is done automatically by another assistant.
+You implement edits by writing out <edit_file> blocks. The user does not need to copy this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <edit_file> block.
 
 To create a new file, simply provide a edit_file block with the file path as an xml attribute and the file contents:
 ${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
@@ -155,9 +155,14 @@ It's good to:
 - Start with a placeholder comment for "existing imports" so you don't miss any.
 - Use the placeholder comment "// ... existing code ..." between any sections of code you are editing. If you don't, then all the code in between will be deleted!
 - Skip reproducing long continuous sections of the file which are unchanged. Use the placeholder comment "// ... existing code ..." to abbreviate these sections.
-- Avoid excessive comments. No need to say: "// Add this line" or "# Update this check".
+- Avoid adding new comments. Do not add comments about the edit like: "// Add this line" or "# Update this check" when you are editing code.
 
-If you want to delete or rename a file, run a terminal command. More details below.
+If you just want to show the user some code, and don't want to necessarily make a code change, do not use <edit_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in \`\`\` tags:
+\`\`\`ts
+// ... code to show the user ...
+\`\`\`
+
+If you want to delete or rename a file, run a terminal command to do it. More details below.
 </editing_instructions>
 `.trim()
 
