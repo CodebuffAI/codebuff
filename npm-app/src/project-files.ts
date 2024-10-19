@@ -5,6 +5,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import { createPatch } from 'diff'
 import { green } from 'picocolors'
+import { Worker } from 'worker_threads'
 
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { filterObject } from 'common/util/object'
@@ -48,12 +49,30 @@ function getCurrentDirectory() {
 
 let cachedProjectFileContext: ProjectFileContext | undefined
 
+export function initProjectFileContextWithWorker(dir: string) {
+  // NOTE: Uses the built worker-script-project-context.js within dist.
+  // So you need to run `bun run build` before running locally.
+  const workerPath = __filename.endsWith('.ts')
+    ? path.join(__dirname, '..', 'dist', 'worker-script-project-context.js')
+    : path.join(__dirname, 'worker-script-project-context.js')
+  const worker = new Worker(workerPath as any)
+
+  worker.postMessage({ dir })
+
+  return new Promise((resolve, reject) => {
+    worker.on('message', (initFileContext) => {
+      worker.terminate()
+      cachedProjectFileContext = initFileContext
+      resolve(initFileContext)
+    })
+  })
+}
+
 export const getProjectFileContext = async (
+  projectRoot: string,
   fileList: string[],
   lastFileVersion: Record<string, string>
 ) => {
-  const projectRoot = getProjectRoot()
-
   const files = getFiles(fileList)
   const gitChanges = await getGitChanges()
   const changesSinceLastChat = getChangesSinceLastFileVersion(lastFileVersion)

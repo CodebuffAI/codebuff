@@ -6,7 +6,10 @@ import { yellow } from 'picocolors'
 
 import { initFingerprint } from './config'
 import { CLI } from './cli'
-import { getProjectFileContext, setProjectRoot } from './project-files'
+import {
+  initProjectFileContextWithWorker,
+  setProjectRoot,
+} from './project-files'
 import { updateManicode } from './update-manicode'
 
 async function manicode(
@@ -17,7 +20,7 @@ async function manicode(
 
   const updatePromise = updateManicode()
   const fingerprintPromise = initFingerprint()
-  const initFileContextPromise = getProjectFileContext([], {})
+  const initFileContextPromise = initProjectFileContextWithWorker(dir)
 
   const readyPromise = Promise.all([
     updatePromise,
@@ -26,8 +29,6 @@ async function manicode(
   ])
 
   const cli = new CLI(readyPromise, { autoGit })
-
-  await readyPromise
 
   console.log(
     `Manicode will read and write files in "${dir}". Type "help" for a list of commands.`

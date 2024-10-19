@@ -353,6 +353,7 @@ export class Client {
     const currentFileVersion =
       fileVersions[fileVersions.length - 1]?.files ?? {}
     const fileContext = await getProjectFileContext(
+      getProjectRoot(),
       fileList,
       currentFileVersion
     )
@@ -450,7 +451,7 @@ export class Client {
   }
 
   public async warmContextCache() {
-    const fileContext = await getProjectFileContext([], {})
+    const fileContext = await getProjectFileContext(getProjectRoot(), [], {})
 
     return new Promise<void>((resolve) => {
       this.webSocket.subscribe('init-response', () => {
