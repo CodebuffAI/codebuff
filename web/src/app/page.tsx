@@ -36,7 +36,7 @@ const Home = () => {
             Start Coding with AI
           </Button>
         </div> */}
-          <section className="pt-6 pb-12 relative z-10">
+          <section className="pt-6 relative z-10">
             <div className="text-center mb-4">Try Manicode for free:</div>
             <div className="px-4 text-center">
               <div className="bg-gray-800 rounded-lg p-4 inline-block">
@@ -90,8 +90,8 @@ const Home = () => {
               Experience the Future of Coding
             </h2>
             <p className="text-xl mb-8 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              We&apos;re a YC-backed startup building a simpler way to code
-              with AI.
+              We&apos;re a YC-backed startup building a simpler way to code with
+              AI.
             </p>
           </div>
           {mounted && (
