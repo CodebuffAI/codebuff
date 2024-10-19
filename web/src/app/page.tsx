@@ -18,14 +18,13 @@ const Home = () => {
       <BackgroundBeams />
 
       <div className="max-w-6xl mx-auto">
-        <main className="px-4 py-20 text-center relative z-10">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6">
+        <main className="px-6 py-20 relative z-10">
+          <h1 className="text-5xl md:text-7xl font-bold mb-6 mx-auto text-center">
             Code at the Speed of Thought
           </h1>
-          <p className="text-xl md:text-2xl mb-12 text-gray-500 max-w-3xl mx-auto">
-            Manicode: The AI-powered tool that transforms natural language into
-            expert code. Edit your codebase with simple instructions to Mani,
-            your personal AI programming assistant.
+          <p className="text-2xl md:text-3xl mb-6 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+            Use natural language to edit your codebase and run commands from
+            your terminal faster.
           </p>
           {/* <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
           <Input
@@ -37,11 +36,14 @@ const Home = () => {
             Start Coding with AI
           </Button>
         </div> */}
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
-            <Link href="https://www.npmjs.com/package/manicode" target="_blank">
-              Try Manicode for free
-            </Link>
-          </Button>
+          <section className="pt-6 pb-12 relative z-10">
+            <div className="text-center mb-4">Try Manicode for free:</div>
+            <div className="px-4 text-center">
+              <div className="bg-gray-800 rounded-lg p-4 inline-block">
+                <code className="text-white">npm install -g manicode</code>
+              </div>
+            </div>
+          </section>
         </main>
 
         <section id="features" className="px-4 py-20 relative z-10">
@@ -87,9 +89,9 @@ const Home = () => {
             <h2 className="text-3xl md:text-4xl font-bold mb-6">
               Experience the Future of Coding
             </h2>
-            <p className="text-xl mb-8 text-gray-500 dark:text-gray-300 max-w-2xl mx-auto">
-              Join thousands of developers who are already building with
-              Manicode.
+            <p className="text-xl mb-8 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              We&apos;re a YC-backed startup building a simpler way to code
+              with AI.
             </p>
           </div>
           {mounted && (
@@ -101,9 +103,14 @@ const Home = () => {
 
         <section className="py-12 relative z-10">
           <div className="px-4 text-center">
-            <div className="bg-black rounded-lg p-4 inline-block">
-              <code className="text-blue-400">npm install -g manicode</code>
-            </div>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+              <Link
+                href="https://www.npmjs.com/package/manicode"
+                target="_blank"
+              >
+                Get Started Coding with AI
+              </Link>
+            </Button>
           </div>
         </section>
       </div>
