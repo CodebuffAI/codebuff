@@ -248,6 +248,7 @@ export class Client {
         const responseToUser = [
           'Authentication successful!',
           `Welcome, ${action.user.name}. Your credits have been increased by ${CREDITS_USAGE_LIMITS.FREE / CREDITS_USAGE_LIMITS.ANON}x. Happy coding!`,
+          `Earn ${CREDITS_REFERRAL_BONUS} credits per month for each referral: ${process.env.NEXT_PUBLIC_APP_URL}/referrals`,
         ]
         console.log(responseToUser.join('\n'))
         this.lastWarnedPct = 0

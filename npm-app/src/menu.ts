@@ -1,3 +1,4 @@
+import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 import { getProjectRoot } from './project-files'
 import picocolors, { blue } from 'picocolors'
 import { bold, green } from 'picocolors'
@@ -52,14 +53,15 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
 
   console.log('\nASK MANICODE TO...')
   console.log('- Write unit tests')
-  console.log('- Fix errors from running tests or compiling your project')
+  console.log('- Build a feature. Brain dump what you want first.')
   console.log('- Refactor a component into multiple components')
-  console.log('- Write a script')
+  console.log('- Fix errors from compiling your project or running tests')
+  console.log('- Write a script.')
   console.log(
     '- Plan a feature before implementing it. Or, write your own plan in a file and ask Manicode to implement it step-by-step'
   )
   console.log(
-    '- Do something after pasting in the URL to relevant documentation'
+    '- Build an integration after pasting in the URL to relevant documentation'
   )
   console.log(
     '- "Create knowledge files for your codebase" to help Manicode understand your project'
@@ -76,9 +78,14 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
   console.log(
     '- Type "diff" or "d" to show changes from the last assistant response'
   )
+  console.log(`- Redeem a referral code by simply pasting it here.`)
   console.log(
-    `- Redeem a referral code by simply pasting it here. You can also earn credits if you`,
-    bold(green(`refer new users: ${process.env.NEXT_PUBLIC_APP_URL}/referrals`))
+    '-',
+    bold(
+      green(
+        `Earn ${CREDITS_REFERRAL_BONUS} credits per month by referring new users: ${process.env.NEXT_PUBLIC_APP_URL}/referrals`
+      )
+    )
   )
 
   console.log(
