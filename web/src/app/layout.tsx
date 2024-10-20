@@ -24,7 +24,7 @@ export const generateMetadata = (): Metadata => ({
   robots: { index: true, follow: true },
   icons: {
     icon: '/favicon/favicon.ico',
-    shortcut: '/favicon/favicon-16x16.png',
+    shortcut: '/favicon/favicon-16x16.ico',
     apple: '/favicon/apple-touch-icon.png',
   },
   verification: {

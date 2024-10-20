@@ -46,6 +46,23 @@ const Home = () => {
           </section>
         </main>
 
+        <section className="py-10 px-4 relative z-10">
+          <h2 className="text-3xl md:text-4xl font-bold mb-8 text-center">
+            Watch the Demo
+          </h2>
+          <div className="max-w-3xl mx-auto">
+            <div className="aspect-w-16 aspect-h-full h-96">
+              <iframe
+                src="https://www.youtube.com/embed/eezrK8JPgxU"
+                title="Manicode Demo"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="h-full w-full rounded-lg shadow-lg"
+              ></iframe>
+            </div>
+          </div>
+        </section>
+
         <section id="features" className="px-4 py-20 relative z-10">
           <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
             Revolutionize Your Coding Workflow

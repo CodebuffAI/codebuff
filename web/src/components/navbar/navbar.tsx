@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import Link from 'next/link'
-import { BrainCircuitIcon, Menu, DollarSign, Users, LogIn, BarChart2 } from 'lucide-react'
+import { Menu, DollarSign, Users, LogIn, BarChart2 } from 'lucide-react'
 import { ThemeSwitcher } from '../theme-switcher'
 import { Button } from '../ui/button'
 import { UserDropdown } from './user-dropdown'
@@ -19,7 +19,7 @@ export const Navbar = async () => {
   return (
     <header className="container mx-auto px-4 py-6 flex justify-between items-center relative z-10">
       <Link href="/" className="flex items-center space-x-2">
-        <BrainCircuitIcon className="h-8 w-8 text-blue-500" />
+        <img src="/favicon/favicon.ico" alt="logo" className="h-8 w-8" />
         <span className="font-mono text-2xl font-bold">Manicode</span>
       </Link>
       <nav className="hidden md:flex space-x-4">
@@ -33,10 +33,7 @@ export const Navbar = async () => {
           Referrals
         </Link>
         {session && (
-          <Link
-            href="/usage"
-            className="hover:text-blue-400 transition-colors"
-          >
+          <Link href="/usage" className="hover:text-blue-400 transition-colors">
             Usage
           </Link>
         )}
