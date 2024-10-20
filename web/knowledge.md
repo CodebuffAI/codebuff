@@ -125,17 +125,37 @@ Pricing information is displayed on the pricing page (`web/src/app/pricing/page.
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
 
-## Responsive Design
+## Usage Tracking
 
-### Navigation
+The application includes a usage tracking feature to allow users to monitor their credit consumption:
 
-- Desktop: Display "Pricing" and "Referrals" links in the main navigation bar.
-- Mobile: Due to limited space, consider alternative ways to display these links:
-  - Use a hamburger icon to reveal the dropdown menu.
-  - Include icons with menu items for better visual cues.
-  - Incorporate all navigation items, including "Pricing", "Referrals", and other relevant buttons (e.g., login/logout).
-  - Follow the current menu format for consistency across desktop and mobile views.
-- Ensure the mobile menu design is consistent with the overall application style.
-- Ensure all navigation options are easily accessible regardless of device size.
-- Test responsive design across various screen sizes and devices.
- - Consider using Tailwind CSS classes for responsive design implementation.
+- A separate page and API endpoint are dedicated to displaying usage data.
+- The system tracks and displays the number of credits used in the current month.
+- Implementation involves:
+  1. Creating a new page for displaying usage data.
+  2. Developing a new API endpoint to fetch usage information.
+  3. Utilizing existing helper functions (if available) to calculate current month usage.
+  4. Ensuring the backend only returns data for the authenticated user's current month usage.
+
+This feature enhances user experience by providing transparency about resource consumption and helps users manage their account effectively.
+
+## Project Structure and Code Organization
+
+When implementing new features or modifying existing ones, consider the following:
+
+- The project is divided into three main directories: 'backend', 'common', and 'web'.
+- 'common' directory is used for shared code that needs to be accessible by both 'backend' and 'web'.
+- When implementing features that require functionality from 'backend' to be used in 'web', consider moving the relevant components to 'common'.
+- Always evaluate the need to refactor or move components to ensure proper accessibility and maintain a clean architecture.
+
+### Type Safety and API Responses
+
+To maintain consistency between frontend and backend:
+
+- Define TypeScript interfaces or types for API responses in a shared location (e.g., 'common/src/types').
+- Use these shared types in both API route implementations and frontend components.
+- When creating new API routes, always consider defining a type for the response and using it in the corresponding frontend code.
+
+This approach enhances type safety, improves code maintainability, and reduces the likelihood of errors due to mismatched data structures between frontend and backend.
+
+This structure helps in maintaining a clear separation of concerns while allowing necessary sharing of code between different parts of the application.

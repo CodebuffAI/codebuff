@@ -1,8 +1,8 @@
-import { CREDITS_USAGE_LIMITS } from 'common/constants'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import { CREDITS_USAGE_LIMITS } from '../constants'
+import db from '../db'
+import * as schema from '../db/schema'
 import { and, between, eq, or, SQL, sql } from 'drizzle-orm'
-import { getNextQuotaReset } from 'common/util/dates'
+import { getNextQuotaReset } from '../util/dates'
 import { match } from 'ts-pattern'
 
 export interface IQuotaManager {
@@ -37,7 +37,7 @@ export class AnonymousQuotaManager implements IQuotaManager {
   async checkQuota(fingerprintId: string): Promise<{
     creditsUsed: number
     quota: number
-    endDate: Date | SQL<Date>
+    endDate: Date
   }> {
     const quota = CREDITS_USAGE_LIMITS.ANON
     const startDate: SQL<Date> = sql<Date>`COALESCE(${schema.fingerprint.next_quota_reset}, now()) - INTERVAL '1 month'`
@@ -45,7 +45,8 @@ export class AnonymousQuotaManager implements IQuotaManager {
 
     const result = await db
       .select({
-        credits: sql<number>`SUM(COALESCE(${schema.message.credits}, 0))`,
+        creditsUsed: sql<number>`SUM(COALESCE(${schema.message.credits}, 0))`,
+        endDate,
       })
       .from(schema.fingerprint)
       .leftJoin(
@@ -56,15 +57,20 @@ export class AnonymousQuotaManager implements IQuotaManager {
         )
       )
       .where(eq(schema.fingerprint.id, fingerprintId))
+      .groupBy(schema.fingerprint.next_quota_reset)
       .then((rows) => {
         if (rows.length > 0) return rows[0]
-        return
+        return {
+          creditsUsed: 0,
+          quota,
+          endDate: new Date(),
+        }
       })
 
     return {
-      creditsUsed: result?.credits ?? 0,
+      creditsUsed: result.creditsUsed,
       quota,
-      endDate,
+      endDate: result.endDate,
     }
   }
 
@@ -121,7 +127,7 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
   async checkQuota(userId: string): Promise<{
     creditsUsed: number
     quota: number
-    endDate: Date | SQL<Date>
+    endDate: Date
   }> {
     const startDate: SQL<Date> = sql<Date>`COALESCE(${schema.user.next_quota_reset}, now()) - INTERVAL '1 month'`
     const endDate: SQL<Date> = sql<Date>`COALESCE(${schema.user.next_quota_reset}, now())`
@@ -131,7 +137,8 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
         quota: schema.user.quota,
         stripe_customer_id: schema.user.stripe_customer_id,
         stripe_price_id: schema.user.stripe_price_id,
-        credits: sql<number>`SUM(COALESCE(${schema.message.credits}, 0))`,
+        endDate,
+        creditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
       })
       .from(schema.user)
       .leftJoin(
@@ -145,11 +152,18 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
       .groupBy(
         schema.user.quota,
         schema.user.stripe_customer_id,
-        schema.user.stripe_price_id
+        schema.user.stripe_price_id,
+        schema.user.next_quota_reset
       )
       .then((rows) => {
         if (rows.length > 0) return rows[0]
-        return
+        return {
+          quota: 0,
+          stripe_customer_id: null,
+          stripe_price_id: null,
+          creditsUsed: '0',
+          endDate: new Date(),
+        }
       })
 
     const quota =
@@ -158,9 +172,9 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
         : result?.quota ?? CREDITS_USAGE_LIMITS.FREE
 
     return {
-      creditsUsed: result?.credits ?? 0,
+      creditsUsed: parseInt(result.creditsUsed),
       quota,
-      endDate,
+      endDate: result.endDate,
     }
   }
 

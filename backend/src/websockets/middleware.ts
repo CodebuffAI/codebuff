@@ -6,7 +6,7 @@ import * as schema from 'common/db/schema'
 import {
   AnonymousQuotaManager,
   AuthenticatedQuotaManager,
-} from '../billing/quota-manager'
+} from 'common/billing/quota-manager'
 import { sql, eq } from 'drizzle-orm'
 import { genUsageResponse, sendAction } from './websocket-action'
 import { logger } from '@/util/logger'
