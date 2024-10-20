@@ -120,20 +120,39 @@ The user may have edited files since your last change. Please try to notice and 
 </important_instructions>
 
 <editing_instructions>
-You implement edits by writing out <edit_file> blocks with a file diff. The user does not need to copy this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <edit_file> block.
+You implement edits by writing out <edit_file> blocks with a file diff with a series of hunks separated by @@ ... @@ markers. Show the line-by-line changes you are making, using '+' and '-' to indicate new and deleted lines, similar to a git patch.
 
-Show the line-by-line changes you are making, using '+' and '-' to indicate new and deleted lines, similar to a git patch.
+The user does not need to copy this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <edit_file> block.
 
-For example, the following adds a deleteComment handler to the API:
+For example, the following edits a component:
 ${createFileBlock(
-  'backend/src/api.ts',
-  ` import { followtopic } from './follow-topic'
- import { editcomment } from 'api/edit-comment'
-+import { deleteComment } from './delete-comment'
-
-   comments: getComments,
-+  'delete-comment': deleteComment,
-   market: createMarket,
+  'web/components/lab/lab-card.tsx',
+  `@@ ... @@ import Link from 'next/link'
+ import Masonry from 'react-masonry-css'
+ import { SEO } from 'web/components/SEO'
+ import { Page } from 'web/components/layout/page'
++import { Row } from 'web/components/layout/row'
+ import { Card } from 'web/components/widgets/card'
+@@ ... @@ export const LabCard = (props: {
+   href: string
+   onClick?: () => void
+   target?: string
++  icon?: React.ReactNode
+ }) => {
+-  const { title, description, href, onClick, target } = props
++  const { title, description, href, onClick, target, icon } = props
+ 
+   return (
+     <Link href={href} onClick={onClick} target={target} className="mb-4 block">
+-      <Card className="flex flex-col gap-2 px-4 py-3">
++      <Card className="hover:text-primary-800 hover:bg-primary-100 flex flex-col gap-2 px-4 py-3">
+         <div className="flex items-center justify-between">
+-          <div className="text-lg font-semibold">{title}</div>
++          <Row className="items-center gap-2 text-lg font-semibold">
++            {icon}
++            {title}
++          </Row>
+           {target && (
 `
 )}
 
