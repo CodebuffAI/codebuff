@@ -189,7 +189,7 @@ Please produce a patch file based on this change.
     fingerprintId,
     userInputId,
     messages,
-    `ft:${openaiModels.gpt4o}:manifold-markets:generate-patch:AHitLpO4`,
+    `ft:gpt-4o-2024-08-06:manifold-markets:generate-patch-batch2:AKYtDIhk`,
     userId
   )
 }
