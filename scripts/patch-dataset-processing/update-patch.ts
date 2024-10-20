@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 
-function updatePatch(patchContent: string): string {
+export function updatePatch(patchContent: string): string {
   // Remove the trailing newline if it exists
   let hadTrailingNewline = false
   if (patchContent.endsWith('\n')) {
@@ -56,4 +56,4 @@ function processDatasetPatches() {
   }
 }
 
-processDatasetPatches()
+// processDatasetPatches()

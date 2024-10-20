@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { replaceNonStandardPlaceholderComments } from '../../common/src/util/string'
 
-function updateSketch(sketchContent: string): string {
+export function updateSketch(sketchContent: string): string {
   return replaceNonStandardPlaceholderComments(
     sketchContent,
     '[[**REPLACE_WITH_EXISTING_CODE**]]'
@@ -25,4 +25,4 @@ function processDatasetSketches() {
   }
 }
 
-processDatasetSketches()
+// processDatasetSketches()

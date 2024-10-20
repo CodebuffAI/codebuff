@@ -1,13 +1,13 @@
 import { execSync } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
-import { promptClaude } from '../backend/src/claude'
-import { countTokens } from '../backend/src/util/token-counter'
-import dotenv from 'dotenv'
 import { shuffle } from 'lodash'
-import { mapAsync } from '../common/src/util/promise'
 
-dotenv.config({ path: path.resolve(__dirname, '../backend/.env') })
+import { promptClaude } from '../../backend/src/claude'
+import { countTokens } from '../../backend/src/util/token-counter'
+import { mapAsync } from '../../common/src/util/promise'
+import { updatePatch } from 'patch-dataset-processing/update-patch'
+import { updateSketch } from 'patch-dataset-processing/update-sketch'
 
 const MANICODE_PROJECT_PATH = '/Users/jahooma/manicode'
 
@@ -42,9 +42,36 @@ const PROJECTS_LIST = [
   },
 ]
 
+const PROJECTS_LIST2 = [
+  {
+    name: 'ArcWTF',
+    path: `${MANICODE_PROJECT_PATH}/test/__mock-projects__/ArcWTF`,
+  },
+  {
+    name: 'beszel',
+    path: `${MANICODE_PROJECT_PATH}/test/__mock-projects__/beszel`,
+  },
+  {
+    name: 'DweebUI',
+    path: `${MANICODE_PROJECT_PATH}/test/__mock-projects__/DweebUI`,
+  },
+  {
+    name: 'sglang',
+    path: `${MANICODE_PROJECT_PATH}/test/__mock-projects__/sglang`,
+  },
+  {
+    name: 'melty',
+    path: `${MANICODE_PROJECT_PATH}/test/__mock-projects__/melty`,
+  },
+  {
+    name: 'pipecat',
+    path: `${MANICODE_PROJECT_PATH}/test/__mock-projects__/pipecat`,
+  },
+]
+
 const NUMBER_OF_COMMITS = 5000
 const FILES_TO_PROCESS = 1000
-const PARALLEL_PROCESSES = 5
+const PARALLEL_PROCESSES = 10
 
 const BLACK_LIST_STRINGS = [
   'This file was automatically generated',
@@ -56,14 +83,16 @@ interface DatasetEntry {
   oldFile: string
   newFile: string
   patch: string
+  updatedPatch: string
   claudeSketch: string
+  updatedSketch: string
 }
 
 interface Progress {
   [projectName: string]: DatasetEntry[]
 }
 
-const PROGRESS_FILE = `${MANICODE_PROJECT_PATH}/dataset_progress.json`
+const PROGRESS_FILE = `${MANICODE_PROJECT_PATH}/scripts/patch-dataset-processing/dataset_progress.json`
 
 function saveProgress(projectName: string, dataset: DatasetEntry[]) {
   const progress = loadProgress()
@@ -109,7 +138,10 @@ Please provide a sketch of how to turn the old file into the new file. First, ex
 
   const response = await promptClaude([{ role: 'user', content: prompt }], {
     userId: 'fine-tuning-dataset-generator',
-    ignoreHelicone: true,
+    clientSessionId: 'fine-tuning-dataset-generator',
+    fingerprintId: 'fine-tuning-dataset-generator',
+    userInputId: 'fine-tuning-dataset-generator',
+    ignoreDatabaseAndHelicone: true,
   })
 
   // Extract the content from the <edit_file> block
@@ -166,16 +198,23 @@ async function createDataset(
           file.endsWith('.rs') ||
           file.endsWith('.rb') ||
           file.endsWith('.php') ||
+          file.endsWith('.html') ||
+          file.endsWith('.css') ||
+          file.endsWith('.scss') ||
+          file.endsWith('.yaml') ||
           file.endsWith('.md')
       )
   )
 
   const alreadyProcessedFiles = new Set(dataset.map((entry) => entry.filePath))
-  const shuffledFiles = [...new Set(allChangedFiles)]
-    .sort(() => 0.5 - Math.random())
-    .filter((file) => !alreadyProcessedFiles.has(file))
+  const shuffledFiles = shuffle([...new Set(allChangedFiles)]).filter(
+    (file) => !alreadyProcessedFiles.has(file)
+  )
 
-  console.log(`Randomly selected ${shuffledFiles.length} files to process.`)
+  console.log(
+    `Randomly selected ${shuffledFiles.length} files to process.`,
+    shuffledFiles
+  )
 
   await mapAsync(
     shuffledFiles,
@@ -184,8 +223,13 @@ async function createDataset(
       try {
         console.log(`Processing file: ${file}`)
         const commitHash = execSync(
-          `git log -n 1 --pretty=format:"%H" -- ${file}`
+          `git log --diff-filter=M -n 1 --pretty=format:"%H" -- "${file}"`
         ).toString()
+
+        if (!commitHash) {
+          console.log(`Skipping ${file}: No modification commits found`)
+          return
+        }
 
         // Check the number of lines changed
         const diffStats = execSync(
@@ -195,7 +239,12 @@ async function createDataset(
           .trim()
         const linesChanged = parseInt(diffStats, 10)
 
-        if (linesChanged < 10) {
+        const MIN_LINES_CHANGED = 8
+        const MAX_LINES_CHANGED = 500
+        if (
+          linesChanged < MIN_LINES_CHANGED ||
+          linesChanged > MAX_LINES_CHANGED
+        ) {
           console.log(`Skipping ${file}: Only ${linesChanged} lines changed`)
           return
         }
@@ -219,8 +268,8 @@ async function createDataset(
         }
 
         if (
-          countTokens(oldContent) > 50_000 ||
-          countTokens(newContent) > 50_000
+          countTokens(oldContent) > 20_000 ||
+          countTokens(newContent) > 20_000
         ) {
           console.log(`Skipping ${file}: File too large`)
           return
@@ -258,7 +307,9 @@ async function createDataset(
           oldFile: oldContent,
           newFile: newContent,
           patch: patch,
+          updatedPatch: updatePatch(patch),
           claudeSketch: claudeSketch,
+          updatedSketch: updateSketch(claudeSketch),
         })
         console.log(`Added entry ${dataset.length} for ${file} to dataset.`)
         if (dataset.length % PARALLEL_PROCESSES === 0) {
@@ -283,92 +334,6 @@ async function createDataset(
 
   console.log(`Dataset created with ${dataset.length} entries.`)
   console.log(`Dataset saved to: ${outputPath}`)
-
-  // Create fine-tuning-data-[project-name].jsonl
-  const jsonlOutputPath = path.join(
-    process.cwd(),
-    `fine-tuning-data-${project.name}.jsonl`
-  )
-  const jsonlContent = dataset
-    .map((entry) => {
-      const oldFileWithLineNumbers = entry.oldFile
-        .split('\n')
-        .map((line, index) => `${index + 1}|${line}`)
-        .join('\n')
-      const conversation = {
-        messages: [
-          {
-            role: 'user',
-            content: `
-Here's an old file:
-
-\`\`\`
-${oldFileWithLineNumbers}
-\`\`\`
-
-And here's a sketch of the changes:
-
-\`\`\`
-${entry.claudeSketch}
-\`\`\`
-
-Please produce a patch file based on this change.
-`.trim(),
-          },
-          {
-            role: 'assistant',
-            content: entry.patch,
-          },
-        ],
-      }
-      return JSON.stringify(conversation)
-    })
-    .join('\n')
-
-  fs.writeFileSync(jsonlOutputPath, jsonlContent)
-  console.log(`JSONL file for fine-tuning created at: ${jsonlOutputPath}`)
-}
-
-function createTrainingAndValidationDatasets() {
-  const currentDate = new Date().toISOString().split('T')[0]
-  const allData: string[] = []
-
-  // Read all JSONL files
-  PROJECTS_LIST.forEach((project) => {
-    const jsonlPath = path.join(
-      process.cwd(),
-      `fine-tuning-data-${project.name}.jsonl`
-    )
-    const jsonlContent = fs.readFileSync(jsonlPath, 'utf-8')
-    const jsonlData = jsonlContent
-      .split('\n')
-      .filter((line) => line.trim() !== '')
-    allData.push(...jsonlData)
-  })
-
-  // Shuffle the data
-  const shuffledData = shuffle(allData)
-
-  // Split into training and validation sets
-  const splitIndex = Math.floor(shuffledData.length * 0.9)
-  const trainingData = shuffledData.slice(0, splitIndex)
-  const validationData = shuffledData.slice(splitIndex)
-
-  // Write training data
-  const trainingOutputPath = path.join(
-    process.cwd(),
-    `fine-tuning-training-data-${currentDate}.jsonl`
-  )
-  fs.writeFileSync(trainingOutputPath, trainingData.join('\n'))
-  console.log(`Training data saved to: ${trainingOutputPath}`)
-
-  // Write validation data
-  const validationOutputPath = path.join(
-    process.cwd(),
-    `fine-tuning-validation-data-${currentDate}.jsonl`
-  )
-  fs.writeFileSync(validationOutputPath, validationData.join('\n'))
-  console.log(`Validation data saved to: ${validationOutputPath}`)
 }
 
 async function main() {
@@ -380,10 +345,9 @@ async function main() {
   }
 
   const progress = loadProgress()
-  for (const project of PROJECTS_LIST) {
+  for (const project of PROJECTS_LIST2) {
     await createDataset(project, progress[project.name] || [])
   }
-  createTrainingAndValidationDatasets()
 }
 
 main().catch(console.error)

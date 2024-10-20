@@ -23,7 +23,7 @@ export const promptClaudeStream = async function* (
     fingerprintId: string
     userInputId: string
     userId?: string
-    ignoreHelicone?: boolean
+    ignoreDatabaseAndHelicone?: boolean
   }
 ): AsyncGenerator<string, void, unknown> {
   const {
@@ -35,7 +35,7 @@ export const promptClaudeStream = async function* (
     userInputId,
     userId,
     maxTokens,
-    ignoreHelicone = false,
+    ignoreDatabaseAndHelicone = false,
   } = options
 
   const apiKey = env.ANTHROPIC_API_KEY2
@@ -46,14 +46,14 @@ export const promptClaudeStream = async function* (
 
   const anthropic = new Anthropic({
     apiKey,
-    ...(ignoreHelicone
+    ...(ignoreDatabaseAndHelicone
       ? {}
       : {
           baseURL: 'https://anthropic.helicone.ai/',
         }),
     defaultHeaders: {
       'anthropic-beta': 'prompt-caching-2024-07-31',
-      ...(ignoreHelicone
+      ...(ignoreDatabaseAndHelicone
         ? {}
         : {
             'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
@@ -140,7 +140,7 @@ export const promptClaudeStream = async function* (
       }
 
       outputTokens += chunk.usage.output_tokens
-      if (messages.length > 0) {
+      if (messages.length > 0 && !ignoreDatabaseAndHelicone) {
         saveMessage({
           messageId,
           userId,
@@ -172,7 +172,7 @@ export const promptClaude = async (
     tools?: Tool[]
     model?: model_types
     maxTokens?: number
-    ignoreHelicone?: boolean
+    ignoreDatabaseAndHelicone?: boolean
   }
 ) => {
   let fullResponse = ''
