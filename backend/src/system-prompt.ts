@@ -120,7 +120,7 @@ The user may have edited files since your last change. Please try to notice and 
 </important_instructions>
 
 <editing_instructions>
-You implement edits by writing out <edit_file> blocks with a file diff with a series of hunks separated by @@ ... @@ markers. Show the line-by-line changes you are making, using '+' and '-' to indicate new and deleted lines, similar to a git patch.
+You implement edits by writing out <edit_file> blocks with a file diff with a series of hunks separated by "@@ ... @@" markers (no need to put line numbers for the hunks). Show the line-by-line changes you are making, using '+' and '-' to indicate new and deleted lines, similar to a git patch.
 
 The user does not need to copy this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <edit_file> block.
 
@@ -160,6 +160,98 @@ To create a new file, simply provide a edit_file block where each line starts wi
 ${createFileBlock('path/to/new/file.tsx', '+// Line 1\n+// Line 2\n+// Line 3\n')}
 
 When modifying an existing file, try to excerpt only the section you are actually changing. Shorter instructions are preferred.
+
+If you are moving around sections of code, you can also use "// ... existing code ..." (or "# ... existing code ..." depending on the language) to indicate that section is being added or removed. Example:
+
+${createFileBlock(
+  'web/components/lab/lab-card.tsx',
+  `@@ ... @@ export class CLI {
+     })
+   }
+ 
++  public printInitialPrompt(initialInput?: string) {
++    // ... existing code ...
++  }
++
++  private handleInput(line: string) {
++    //  ... existing code ...
++  }
++
++  private async handleUserInput(userInput: string) {
++    // ... existing code ...
++  }
++
+   private onWebSocketError() {
+     this.stopLoadingAnimation()
+     this.isReceivingResponse = false
+@@ -82,6 +110,10 @@ export class CLI {
+     console.error(yellow('\nCould not connect. Retrying...'))
+   }
+ 
++  private setPrompt() {
++    this.rl.setPrompt(green(\`\${parse(getProjectRoot()).base} > \`))
++  }
++
+   private detectPasting() {
+     const currentTime = Date.now()
+     const timeDiff = currentTime - this.lastInputTime
+@@ ... @@ export class CLI {
+     this.lastInputTime = currentTime
+   }
+ 
+-  private handleInput(line: string) {
+-    this.detectPasting()
+-    if (this.isPasting) {
+-      this.pastedContent += line + '\n'
+-    } else if (!this.isReceivingResponse) {
+-      if (this.pastedContent) {
+-        this.handleUserInput((this.pastedContent + line).trim())
+-        this.pastedContent = ''
+-      } else {
+-        this.handleUserInput(line.trim())
+-      }
+-    }
+-  }
+-
+-  private setPrompt() {
+-    this.rl.setPrompt(green(\`\${parse(getProjectRoot()).base} > \`))
+-  }
+-
+-  public printInitialPrompt(initialInput?: string) {
+-    // ... existing code ...
+-  }
+-
+-  private handleUndo() {
+-    ... existing code ...
+-  }
+ 
+   private handleRedo() {
+     this.navigateFileVersion('redo')
+@@ ... @@ export class CLI {
+     }
+   }
+ 
++  private handleUndo() {
++    this.navigateFileVersion('undo')
++    this.rl.prompt()
++  }
++
+   private handleStopResponse() {
+     console.log(yellow('\n[Response stopped by user]'))
+     this.isReceivingResponse = false
+@@ ... @@ export class CLI {
+     })
+   }
+ 
+-  private async handleUserInput(userInput: string) {
+-    // ... existing code ...
+-  }
+-
+   private async sendUserInputAndAwaitResponse() {
+     const userInputId =
+       \`mc-input-\` + Math.random().toString(36).substring(2, 15)
+`
+)}
 
 It's good to:
 - Give enough lines of context around the code you are editing so that the other assistant can make the edit in the correct place.
