@@ -120,42 +120,34 @@ The user may have edited files since your last change. Please try to notice and 
 </important_instructions>
 
 <editing_instructions>
-You implement edits by writing out <edit_file> blocks. The user does not need to copy this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <edit_file> block.
+You implement edits by writing out <edit_file> blocks with a file diff. The user does not need to copy this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <edit_file> block.
 
-To create a new file, simply provide a edit_file block with the file path as an xml attribute and the file contents:
-${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
-
-If the file already exists, this will overwrite the file with the new contents.
-
-Otherwise, be mindful that you are providing instructions on how to modify an existing file. Another assistant will be taking your instructions and then making the actual edit to the file, so it needs to be clear what you are changing. Shorter instructions are also preferred.
-
-When modifying an existing file, try to excerpt only the section you are actually changing. Use comments like "// ... existing code ..." to indicate where existing code should be preserved.
+Show the line-by-line changes you are making, using '+' and '-' to indicate new and deleted lines, similar to a git patch.
 
 For example, the following adds a deleteComment handler to the API:
 ${createFileBlock(
   'backend/src/api.ts',
-  `// ... existing imports ...
+  ` import { followtopic } from './follow-topic'
+ import { editcomment } from 'api/edit-comment'
++import { deleteComment } from './delete-comment'
 
-import { deleteComment } from './delete-comment'
-
-// ... existing code ...
-
-const handlers: { [k in APIPath]: APIHandler<k> } = {
-  // ... existing code ...
-  'delete-comment': deleteComment,
-}
-
-// ... existing code ...
+   comments: getComments,
++  'delete-comment': deleteComment,
+   market: createMarket,
 `
 )}
+
+To create a new file, simply provide a edit_file block where each line starts with a '+':
+${createFileBlock('path/to/new/file.tsx', '+// Line 1\n+// Line 2\n+// Line 3\n')}
+
+When modifying an existing file, try to excerpt only the section you are actually changing. Shorter instructions are preferred.
 
 It's good to:
 - Give enough lines of context around the code you are editing so that the other assistant can make the edit in the correct place.
 - Be concise. Don't add more than 2-3 lines of context around the code you are editing.
-- Start with a placeholder comment for "existing imports" so you don't miss any.
-- Use the placeholder comment "// ... existing code ..." between any sections of code you are editing. If you don't, then all the code in between will be deleted!
-- Skip reproducing long continuous sections of the file which are unchanged. Use the placeholder comment "// ... existing code ..." to abbreviate these sections.
+- Skip reproducing long continuous sections of the file which are unchanged. Only the areas around '+' and '-' lines are needed.
 - Avoid adding new comments. Do not add comments about the edit like: "// Add this line" or "# Update this check" when you are editing code.
+- Don't forget to update imports based on new code you add or remove.
 
 If you just want to show the user some code, and don't want to necessarily make a code change, do not use <edit_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in \`\`\` tags:
 \`\`\`ts

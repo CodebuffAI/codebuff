@@ -5,7 +5,7 @@ import { promptClaudeStream } from './claude'
 import { ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
-import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
+import { openaiModels, STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
 import { FileChange, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { requestFiles, requestFile } from './websockets/websocket-action'
@@ -18,6 +18,8 @@ import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens } from './util/token-counter'
 import { logger } from './util/logger'
+import { promptOpenAI } from './openai-api'
+import { createPatch } from 'diff'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -401,17 +403,22 @@ export async function processFileBlock(
   newContent: string,
   userId?: string
 ): Promise<FileChange | null> {
+  console.log('new content', newContent)
   const oldContent = await requestFile(ws, filePath)
 
   if (oldContent === null) {
+    const newContentWithoutPlus = newContent
+      .split('\n')
+      .map((line) => (line.startsWith('+') ? line.slice(1) : line))
+      .join('\n')
     logger.debug(
-      { filePath, sketch: newContent },
+      { filePath, sketch: newContentWithoutPlus },
       'processFileBlock: Created new file'
     )
-    return { filePath, content: newContent, type: 'file' }
+    return { filePath, content: newContentWithoutPlus, type: 'file' }
   }
 
-  if (newContent === oldContent) {
+  if (!newContent.includes('+') && !newContent.includes('-')) {
     logger.info(
       { sketch: newContent },
       'processFileBlock: Sketch was the same as old content, skipping'
@@ -419,22 +426,82 @@ export async function processFileBlock(
     return null
   }
 
-  logger.info({ filePath }, 'processFileBlock: Generating patch')
-
-  const patch = await generatePatch(
+  logger.info({ filePath, newContent }, 'processFileBlock: Generating patch')
+  const rewrittenContent = await rewriteFileWithOpenAI(
     clientSessionId,
     fingerprintId,
     userInputId,
     oldContent,
     newContent,
-    filePath,
-    messageHistory,
-    fullResponse,
     userId
   )
+
+  const patch = createPatch(filePath, oldContent, rewrittenContent)
+
+  // const patch = await generatePatch(
+  //   clientSessionId,
+  //   fingerprintId,
+  //   userInputId,
+  //   oldContent,
+  //   newContent,
+  //   filePath,
+  //   messageHistory,
+  //   fullResponse,
+  //   userId
+  // )
   logger.debug(
     { filePath, oldContent, sketch: newContent, patch },
     'processFileBlock: Generated patch'
   )
   return { filePath, content: patch, type: 'patch' }
+}
+
+export async function rewriteFileWithOpenAI(
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  oldContent: string,
+  newContentWithDiffs: string,
+  userId?: string
+): Promise<string> {
+  const prompt = `
+You are an expert programmer tasked with rewriting a file based on suggested edits.
+Here's the original file content:
+
+\`\`\`
+${oldContent}
+\`\`\`
+
+And here are the suggested edits, where '+' indicates added lines and '-' indicates removed lines:
+
+\`\`\`
+${newContentWithDiffs}
+\`\`\`
+
+Please rewrite the entire file, incorporating these changes. Preserve any existing code, comments, and behavior that isn't explicitly changed by the edits.
+Only output the rewritten file content, without any additional explanations.
+`.trim()
+
+  const messages = [
+    {
+      role: 'user' as const,
+      content: prompt,
+    },
+    {
+      role: 'assistant' as const,
+      content: '```\n',
+    },
+  ]
+
+  const response = await promptOpenAI(
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    messages,
+    openaiModels.gpt4o,
+    userId
+  )
+
+  const content = response.split('```')[1]
+  return content
 }
