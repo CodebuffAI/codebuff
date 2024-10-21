@@ -25,8 +25,8 @@ const Home = () => {
             Code at the Speed of Thought
           </h1>
           <p className="text-2xl md:text-3xl mb-6 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Use natural language to edit your codebase and run commands from
-            your terminal faster.
+            Use natural language to edit your codebase and <br />
+            run commands from your terminal faster.
           </p>
           {/* <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
           <Input
@@ -93,8 +93,8 @@ const Home = () => {
                 Global Code Understanding
               </h3>
               <p className="text-gray-500">
-                Mani understands your entire codebase, providing context-aware
-                suggestions and edits.
+                Manicode understands your entire codebase, providing
+                context-aware suggestions and edits.
               </p>
             </div>
             <div className="bg-gray-900 p-6 rounded-lg">
@@ -103,7 +103,7 @@ const Home = () => {
                 Natural Language Coding
               </h3>
               <p className="text-gray-500">
-                Write code using plain English. Mani translates your
+                Write code using plain English. Manicode translates your
                 instructions into efficient, clean code.
               </p>
             </div>
@@ -125,10 +125,16 @@ const Home = () => {
             <h2 className="text-3xl md:text-4xl font-bold mb-6">
               Experience the Future of Coding
             </h2>
-            <p className="text-xl mb-8 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            {/* <p className="text-xl mb-8 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
               We&apos;re a YC-backed startup building a simpler way to code with
               AI.
-            </p>
+            </p> */}
+            <p>Backed by</p>
+            <img
+              src="/y-combinator.svg"
+              alt="y combinator logo"
+              className="h-8 w-full"
+            />
           </div>
           {mounted && (
             <div className="absolute inset-0 flex items-center justify-center opacity-50 bg-transparent">
