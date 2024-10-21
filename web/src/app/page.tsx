@@ -5,9 +5,11 @@ import { CodeIcon, BrainCircuitIcon, TerminalIcon } from 'lucide-react'
 import Globe from '@/components/magicui/globe'
 import Link from 'next/link'
 import { BackgroundBeams } from '@/components/ui/background-beams'
+import { useTheme } from 'next-themes'
 
 const Home = () => {
   const [mounted, setMounted] = useState(false)
+  const { theme } = useTheme()
 
   useEffect(() => {
     setMounted(true)
@@ -43,6 +45,23 @@ const Home = () => {
                 <code className="text-white">npm install -g manicode</code>
               </div>
             </div>
+          </section>
+          <section className="pt-6 flex justify-center">
+            <a
+              href="https://www.producthunt.com/posts/manicode?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-manicode"
+              target="_blank"
+            >
+              <img
+                src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=${theme}`}
+                alt="Manicode - Better&#0032;code&#0032;generation&#0032;than&#0032;Cursor&#0044;&#0032;from&#0032;your&#0032;CLI | Product Hunt"
+                style={{
+                  width: '250px',
+                  height: '54px',
+                }}
+                width="250"
+                height="54"
+              />
+            </a>
           </section>
         </main>
 
