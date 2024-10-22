@@ -339,24 +339,28 @@ const onInit = async (
     const startTime = Date.now()
     const system = getSearchSystemPrompt(fileContext)
     const userId = await getUserIdFromAuthToken(authToken)
-    await promptClaude(
-      [
+    try {
+      await promptClaude(
+        [
+          {
+            role: 'user',
+            content: 'please respond with just a single word "manicode"',
+          },
+        ],
         {
-          role: 'user',
-          content: 'please respond with just a single word "manicode"',
-        },
-      ],
-      {
-        model: claudeModels.sonnet,
-        system,
-        clientSessionId,
-        fingerprintId,
-        userId,
-        userInputId: 'init-cache',
-        maxTokens: 1,
-      }
-    )
-    logger.info(`Warming context cache done in ${Date.now() - startTime}ms`)
+          model: claudeModels.sonnet,
+          system,
+          clientSessionId,
+          fingerprintId,
+          userId,
+          userInputId: 'init-cache',
+          maxTokens: 1,
+        }
+      )
+      logger.info(`Warming context cache done in ${Date.now() - startTime}ms`)
+    } catch (e) {
+      logger.error(e, 'Error in init')
+    }
     sendAction(ws, {
       type: 'init-response',
     })
