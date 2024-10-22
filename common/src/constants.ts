@@ -59,7 +59,7 @@ export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
 export const CREDITS_REFERRAL_BONUS = 500
 
 export const claudeModels = {
-  sonnet: 'claude-3-5-sonnet-20240620',
+  sonnet: 'claude-3-5-sonnet-20241022',
   haiku: 'claude-3-haiku-20240307',
 } as const
 
