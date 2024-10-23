@@ -83,7 +83,7 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
     '-',
     bold(
       green(
-        `Earn ${CREDITS_REFERRAL_BONUS} credits per month by referring new users: ${process.env.NEXT_PUBLIC_APP_URL}/referrals`
+        `Refer new users and each of you will earn ${CREDITS_REFERRAL_BONUS} credits per month: ${process.env.NEXT_PUBLIC_APP_URL}/referrals`
       )
     )
   )

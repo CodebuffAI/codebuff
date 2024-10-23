@@ -136,7 +136,7 @@ const ReferralsPage = () => {
                     <p>
                       {data.limitReached
                         ? `Dang, you've got a lot of friends! You have reached your referral limit.`
-                        : `Refer a friend and earn ${CREDITS_REFERRAL_BONUS} credits per month! Share this link with them:`}
+                        : `Refer a friend and both of you will earn ${CREDITS_REFERRAL_BONUS} credits per month! Share this link with them:`}
                     </p>
                     <div className="relative">
                       {loading ? (

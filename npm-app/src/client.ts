@@ -247,8 +247,8 @@ export class Client {
         )
         const responseToUser = [
           'Authentication successful!',
-          `Welcome, ${action.user.name}. Your credits have been increased by ${CREDITS_USAGE_LIMITS.FREE / CREDITS_USAGE_LIMITS.ANON}x. Happy coding!`,
-          `Earn ${CREDITS_REFERRAL_BONUS} credits per month for each referral: ${process.env.NEXT_PUBLIC_APP_URL}/referrals`,
+          `Welcome, ${action.user.name}. Your credits have been increased by ${CREDITS_USAGE_LIMITS.FREE / CREDITS_USAGE_LIMITS.ANON}x to ${CREDITS_USAGE_LIMITS.FREE} per month. Happy coding!`,
+          `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month each: ${process.env.NEXT_PUBLIC_APP_URL}/referrals`,
         ]
         console.log(responseToUser.join('\n'))
         this.lastWarnedPct = 0
@@ -269,18 +269,14 @@ export class Client {
     })
   }
 
-  public async showUsageWarning(
-    usage: number,
-    limit: number,
-    referralLink?: string
-  ) {
+  public showUsageWarning(usage: number, limit: number, referralLink?: string) {
     const errorCopy = [
       this.user
-        ? yellow(`Visit ${process.env.NEXT_PUBLIC_APP_URL}/pricing to upgrade.`)
-        : yellow('Type "login" to sign up and get more credits!'),
+        ? green(`Visit ${process.env.NEXT_PUBLIC_APP_URL}/pricing to upgrade.`)
+        : green('Type "login" below to sign up and get more credits!'),
       referralLink
-        ? yellow(
-            `Get ${CREDITS_REFERRAL_BONUS} credits per month for each friend that uses your referral link: ${referralLink}`
+        ? green(
+            `Refer friends by sharing this link and you'll each get ${CREDITS_REFERRAL_BONUS} credits per month: ${referralLink}`
           )
         : '',
     ].join('\n')
@@ -307,7 +303,7 @@ export class Client {
       console.warn(
         [
           '',
-          yellow(`You have used over ${pct}% of your monthly usage limit.`),
+          yellow(`You have used over ${pct}% of your monthly usage limit (${usage}/${limit} credits).`),
           errorCopy,
         ].join('\n')
       )
