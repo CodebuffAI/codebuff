@@ -133,11 +133,19 @@ const ReferralsPage = () => {
               ({ data }) => (
                 <CardContent className="flex flex-col space-y-6">
                   <div className="flex flex-col space-y-4">
-                    <p>
-                      {data.limitReached
-                        ? `Dang, you've got a lot of friends! You have reached your referral limit.`
-                        : `Refer a friend and both of you will earn ${CREDITS_REFERRAL_BONUS} credits per month! Share this link with them:`}
-                    </p>
+                    {data.limitReached ? (
+                      <p>
+                        Dang, you've got a lot of friends! You have reached your
+                        referral limit.
+                      </p>
+                    ) : (
+                      <p>
+                        Refer a friend and <b>you&apos;ll both</b> earn{' '}
+                        {CREDITS_REFERRAL_BONUS} credits per month! Share this
+                        link with them:
+                      </p>
+                    )}
+
                     <div className="relative">
                       {loading ? (
                         <Skeleton className="h-10 w-full" />
