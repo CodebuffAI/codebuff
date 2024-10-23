@@ -1,5 +1,4 @@
 'use client'
-// import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { CodeIcon, BrainCircuitIcon, TerminalIcon } from 'lucide-react'
 // import Globe from '@/components/magicui/globe'
@@ -8,12 +7,7 @@ import { BackgroundBeams } from '@/components/ui/background-beams'
 import { useTheme } from 'next-themes'
 
 const Home = () => {
-  // const [mounted, setMounted] = useState(false)
   const { theme } = useTheme()
-
-  // useEffect(() => {
-  //   setMounted(true)
-  // }, [])
 
   return (
     <div className="overflow-hidden">
@@ -130,17 +124,17 @@ const Home = () => {
               AI.
             </p> */}
             <p>Backed by</p>
-            <img
-              src="/y-combinator.svg"
-              alt="y combinator logo"
-              className="h-8 w-full"
-            />
+            <Link
+              target="_blank"
+              href="https://www.ycombinator.com/companies/manicode"
+            >
+              <img
+                src="/y-combinator.svg"
+                alt="y combinator logo"
+                className="h-8 w-full"
+              />
+            </Link>
           </div>
-          {/* {mounted && (
-            <div className="absolute inset-0 flex items-center justify-center opacity-50 bg-transparent">
-              <Globe />
-            </div>
-          )} */}
         </section>
 
         <section className="py-12 relative z-10">
