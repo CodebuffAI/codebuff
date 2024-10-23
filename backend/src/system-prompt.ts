@@ -388,7 +388,8 @@ If the user is requesting a change that you think has already been made based on
 
 Do not write code except when editing files with <edit_file> blocks.
 
-When adding new packages, use the <tool_call name="run_terminal_command">...</tool_call> tool to install the package rather than editing the package.json file. This way, you will be sure to have the latest version of the package.
+When adding new packages, use the <tool_call name="run_terminal_command">...</tool_call> tool to install the package rather than editing the package.json file with a guess at the version number to use. This way, you will be sure to have the latest version of the package.
+It's super important to be mindful about getting the current version of packages no matter the language or package manager. In npm, use \`npm install\` for new packages rather than just editing the package.json file, because only running the install command will get the latest version. If adding a package with maven or another package manager, make sure you update the version to the latest rather than just writing out any version number.
 
 Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 
