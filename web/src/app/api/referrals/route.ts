@@ -117,12 +117,29 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions)
-  const userId = session?.user?.id
-  if (!session || !userId) {
+  const reqJson = await request.json()
+  const parsedJson = z
+    .object({
+      referralCode: z.string(),
+      authToken: z.string(),
+    })
+    .safeParse(reqJson)
+
+  if (!parsedJson.success) {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
+
+  const { referralCode, authToken } = parsedJson.data
+  const user = await db.query.session.findFirst({
+    where: eq(schema.session.sessionToken, authToken),
+    columns: {
+      userId: true,
+    },
+  })
+
+  if (!user?.userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { referralCode } = await request.json()
-  return redeemReferralCode(referralCode, userId)
+  return redeemReferralCode(referralCode, user.userId)
 }
