@@ -4,17 +4,20 @@ import { NextResponse } from 'next/server'
 import * as schema from 'common/db/schema'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../auth/[...nextauth]/auth-options'
+import { hasMaxedReferrals, ReferralStatus } from 'common/util/server/referral'
+
+export type ReferralCodeResponse = {
+  referrerName: string | null
+  isSameUser: boolean
+  status: ReferralStatus
+}
 
 export async function GET(
   _req: Request,
   { params }: { params: { code: string } }
-) {
+): Promise<NextResponse<ReferralCodeResponse | { error: string }>> {
   const { code } = params
   const session = await getServerSession(authOptions)
-
-  if (!session || !session.user || !session.user.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   try {
     const user = await db.query.user.findFirst({
@@ -32,9 +35,14 @@ export async function GET(
       )
     }
 
-    const isSameUser = user.id === session.user.id
+    const isSameUser = user.id === session?.user?.id
+    const referralStatus = await hasMaxedReferrals(user.id)
 
-    return NextResponse.json({ referrerName: user.name, isSameUser })
+    return NextResponse.json({
+      referrerName: user.name,
+      isSameUser,
+      status: referralStatus,
+    })
   } catch (error) {
     console.error(error)
     return NextResponse.json(

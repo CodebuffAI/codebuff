@@ -3,16 +3,14 @@ import * as schema from '../../db/schema'
 import db from '../../db'
 import { getReferralLink } from '../referral'
 import { MAX_REFERRALS } from '../../constants'
+import { env } from '../../env.mjs'
 
-export async function hasMaxedReferrals(userId: string): Promise<
+export type ReferralStatus =
   | {
-      reason:
-        | 'You have maxxed out the number of referrals you can make. Thanks for your support!'
-        | "Your user isn't in our system"
-        | 'An error occurred while checking referrals'
+      reason: 'Referral Limit Reached' | 'Referrer Not Found' | 'Unknown Error'
       details?: {
         referralCount?: number
-        error?: string
+        msg: string
       }
     }
   | {
@@ -22,7 +20,10 @@ export async function hasMaxedReferrals(userId: string): Promise<
         referralCount: number
       }
     }
-> {
+
+export async function hasMaxedReferrals(
+  userId: string
+): Promise<ReferralStatus> {
   try {
     const referralCount = await db
       .select({
@@ -34,9 +35,11 @@ export async function hasMaxedReferrals(userId: string): Promise<
 
     if (referralCount >= MAX_REFERRALS) {
       return {
-        reason:
-          'You have maxxed out the number of referrals you can make. Thanks for your support!',
-        details: { referralCount },
+        reason: 'Referral Limit Reached',
+        details: {
+          referralCount,
+          msg: 'This referrer has maxxed out the number of referrals they can make',
+        },
       }
     }
 
@@ -48,9 +51,13 @@ export async function hasMaxedReferrals(userId: string): Promise<
     })
 
     if (!user || !user.referral_code) {
-      return { 
-        reason: "Your user isn't in our system",
-        details: { referralCount },
+      return {
+        reason: 'Referrer Not Found',
+        details: {
+          referralCount,
+          msg: `This referrer isn't registered with us. Please try again and reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} if the problem
+          persists.`,
+        },
       }
     }
 
@@ -60,9 +67,11 @@ export async function hasMaxedReferrals(userId: string): Promise<
       details: { referralCount },
     }
   } catch (error) {
-    return { 
-      reason: 'An error occurred while checking referrals',
-      details: { error: error instanceof Error ? error.message : String(error) },
+    return {
+      reason: 'Unknown Error',
+      details: {
+        msg: error instanceof Error ? error.message : String(error),
+      },
     }
   }
 }
