@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Menu, DollarSign, Users, LogIn, BarChart2 } from 'lucide-react'
 import { ThemeSwitcher } from '../theme-switcher'
 import { Button } from '../ui/button'
@@ -19,7 +20,13 @@ export const Navbar = async () => {
   return (
     <header className="container mx-auto px-4 py-6 flex justify-between items-center relative z-10">
       <Link href="/" className="flex items-center space-x-2">
-        <img src="/favicon/favicon.ico" alt="logo" className="h-8 w-8" />
+        <Image
+          src="/favicon/favicon-16x16.ico"
+          alt="Manicode Logo"
+          width={32}
+          height={32}
+          className="rounded-sm"
+        />
         <span className="font-mono text-2xl font-bold">Manicode</span>
       </Link>
       <nav className="hidden md:flex space-x-4">

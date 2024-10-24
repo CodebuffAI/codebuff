@@ -40,7 +40,106 @@ The authentication system in Manicode's web application plays a crucial role in 
 - Use secure, HTTP-only cookies for session management.
 - Implement proper CSRF protection for all authenticated routes.
 
+## UI Patterns
+
+### Logo Usage
+- Include the Manicode logo alongside the company name in key UI components
+- Logo placement:
+  - Navbar: Primary placement
+  - Footer: Left side of sitemap
+- Use Image component from Next.js for optimized loading
+- Logo files:
+  - `/public/favicon/apple-touch-icon.png`: Main logo
+  - `/public/favicon/favicon.ico`: Favicon
+  - `/public/favicon/favicon-16x16.ico`: Small variant
+
+### Code Snippets
+When displaying inline code snippets with copy buttons:
+- Use `inline-block` on the container, not `inline-flex` or `flex`
+- Keep the flex layout for internal alignment between code and copy button
+- Example structure:
+```jsx
+<div className="inline-block">
+  <div className="px-4 bg-gray-800 rounded-lg p-4 flex items-center gap-2">
+    <code>npm install ...</code>
+    <CopyIcon />
+  </div>
+</div>
+```
+
+
+### Toast Notifications
+
+- Close buttons (X) should always be visible, not just on hover/focus
+- This helps with discoverability and matches the project's emphasis on clear user interactions
+- Implementation: Remove the `opacity-0` class from the close button's base styles
+
+### Text Selection
+
+- When users click to copy command snippets or code blocks, select the entire text
+- This improves UX by making it clear what will be copied
+- Implementation: Add `user-select: all` to clickable code elements
+- Use this pattern for npm install commands, terminal commands, and other copyable snippets
+
+
+## Component Architecture
+
+### Client Components and Providers
+
+- Important considerations for client-side interactivity:
+
+1. Client Component Placement:
+   - Place client components that need interactivity INSIDE provider components
+   - Put client components after ThemeProvider, SessionProvider, and QueryProvider
+   - Exception: Components that don't need provider context can go before providers
+
+2. Common Issues:
+   - Buttons/interactions may not work if component is placed before providers
+   - State updates may fail silently when providers are missing
+   - Always check component placement in layout hierarchy when debugging client-side issues
+
+Example of correct ordering:
+```jsx
+<ThemeProvider>
+  <SessionProvider>
+    <QueryProvider>
+      {/* Interactive components go here */}
+    </QueryProvider>
+  </SessionProvider>
+</ThemeProvider>
+```
+### Component Layering
+
+Important considerations for interactive components:
+
+1. Z-index Requirements:
+   - Interactive components must have proper z-index positioning AND be inside providers
+   - Components with dropdowns or overlays should use z-20 or higher
+   - The navbar uses z-10 by default
+   - Banner and other top-level interactive components use z-20
+   - Ensure parent elements have `position: relative` when using z-index
+
+2. Common Issues:
+   - Components may appear but not be clickable if z-index is too low
+   - Moving components inside providers alone may not fix interactivity
+   - Always check both provider context and z-index when debugging click events
+
+Example of correct layering:
+```jsx
+<div className="relative z-20">...</div> // Interactive component
 ## Referral System
+
+### API Response Errors
+
+- Always display API error messages to users when present in the response
+- Error messages from the API are pre-formatted for user display
+- Check for `error` field in API responses before rendering success states
+- Error messages should be shown in a prominent location, typically near the top of the component
+
+This helps with:
+- Consistent error handling across the application
+- Better user experience through clear error communication
+- Easier debugging by surfacing backend errors
 
 The referral system is a key feature of the Manicode web application. It allows users to refer others and earn credits for successful referrals.
 
@@ -61,6 +160,7 @@ The referral system is a key feature of the Manicode web application. It allows 
    - New users can enter a referral code during signup or on the referrals page.
    - The system validates the referral code and creates a referral record.
 
+   - Each referral code has a maximum claim limit - show appropriate messaging when this limit is reached.
 4. **Credit Distribution**:
 
    - Both the referrer and the referred user receive bonus credits.
@@ -139,23 +239,26 @@ The application includes a usage tracking feature to allow users to monitor thei
 
 This feature enhances user experience by providing transparency about resource consumption and helps users manage their account effectively.
 
-## Project Structure and Code Organization
+## Type Management
 
-When implementing new features or modifying existing ones, consider the following:
+### API Routes and Types
 
-- The project is divided into three main directories: 'backend', 'common', and 'web'.
-- 'common' directory is used for shared code that needs to be accessible by both 'backend' and 'web'.
-- When implementing features that require functionality from 'backend' to be used in 'web', consider moving the relevant components to 'common'.
-- Always evaluate the need to refactor or move components to ensure proper accessibility and maintain a clean architecture.
-
-### Type Safety and API Responses
-
-To maintain consistency between frontend and backend:
-
-- Define TypeScript interfaces or types for API responses in a shared location (e.g., 'common/src/types').
-- Use these shared types in both API route implementations and frontend components.
-- When creating new API routes, always consider defining a type for the response and using it in the corresponding frontend code.
-
-This approach enhances type safety, improves code maintainability, and reduces the likelihood of errors due to mismatched data structures between frontend and backend.
+- When typing API responses in frontend components, use types from the corresponding API route file
+- Don't create new types for API responses - reference the source of truth in the route files
+- This ensures type consistency between frontend and backend
 
 This structure helps in maintaining a clear separation of concerns while allowing necessary sharing of code between different parts of the application.
+
+### NextResponse Typing
+
+- Use `NextResponse<T>` to type API route responses
+- Example:
+```typescript
+type ResponseData = { message: string }
+NextResponse<ResponseData>
+```
+- For error responses, include error field in the type:
+```typescript
+type ApiResponse = SuccessResponse | { error: string }
+NextResponse<ApiResponse>
+```

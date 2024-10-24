@@ -314,8 +314,9 @@ export class CLI {
     }
 
     const runPrefix = '/run '
+    const hasRunPrefix = userInput.startsWith(runPrefix)
     if (
-      userInput.startsWith(runPrefix) ||
+      hasRunPrefix ||
       (!SKIPPED_TERMINAL_COMMANDS.some((command) =>
         userInput.toLowerCase().startsWith(command)
       ) &&
@@ -323,12 +324,18 @@ export class CLI {
         userInput.split(' ').length <= 4)
     ) {
       const withoutRunPrefix = userInput.replace(runPrefix, '')
-      const result = await handleRunTerminalCommand(
+      const { result, stdout, stderr } = await handleRunTerminalCommand(
         { command: withoutRunPrefix },
         'user',
         'user'
       )
       if (result !== 'command not found') {
+        this.setPrompt()
+        this.rl.prompt()
+        return
+      } else if (hasRunPrefix) {
+        process.stdout.write(stdout)
+        process.stderr.write(stderr)
         this.setPrompt()
         this.rl.prompt()
         return

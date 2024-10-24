@@ -38,7 +38,7 @@ export const handleRunTerminalCommand = async (
   input: { command: string },
   id: string,
   mode: 'user' | 'assistant'
-): Promise<string> => {
+): Promise<{ result: string; stdout: string; stderr: string }> => {
   const { command } = input
   return new Promise((resolve) => {
     let stdout = ''
@@ -57,13 +57,15 @@ export const handleRunTerminalCommand = async (
     const timer = setTimeout(() => {
       if (mode === 'assistant') {
         childProcess.kill()
-        resolve(
-          formatResult(
+        resolve({
+          result: formatResult(
             stdout,
             stderr,
             `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds. Partial results shown.`
-          )
-        )
+          ),
+          stdout,
+          stderr,
+        })
       }
     }, MAX_EXECUTION_TIME)
 
@@ -74,6 +76,7 @@ export const handleRunTerminalCommand = async (
 
     childProcess.stderr.on('data', (data) => {
       const dataStr = data.toString()
+      stderr += data.toString()
       if (
         mode === 'user' &&
         (dataStr.includes('command not found') ||
@@ -82,21 +85,28 @@ export const handleRunTerminalCommand = async (
             'is not recognized as an internal or external command'
           ))
       ) {
-        resolve('command not found')
+        resolve({
+          result: 'command not found',
+          stdout,
+          stderr,
+        })
       } else {
         process.stderr.write(data.toString())
-        stderr += data.toString()
       }
     })
 
     childProcess.on('close', (code) => {
-      if (command.startsWith('cd ') && code === 0) {
+      if (command.startsWith('cd ') && code === 0 && mode === 'user') {
         const newWorkingDirectory = command.split(' ')[1]
         setProjectRoot(path.join(getProjectRoot(), newWorkingDirectory))
       }
 
       clearTimeout(timer)
-      resolve(formatResult(stdout, stderr, 'Command completed', code))
+      resolve({
+        result: formatResult(stdout, stderr, 'Command completed', code),
+        stdout,
+        stderr,
+      })
       if (mode === 'assistant') {
         console.log(green(`Command finished with exit code: ${code}\n`))
       }
@@ -104,9 +114,11 @@ export const handleRunTerminalCommand = async (
 
     childProcess.on('error', (error) => {
       clearTimeout(timer)
-      resolve(
-        `<terminal_command_error>Failed to execute command: ${error.message}</terminal_command_error>`
-      )
+      resolve({
+        result: `<terminal_command_error>Failed to execute command: ${error.message}</terminal_command_error>`,
+        stdout,
+        stderr,
+      })
     })
   })
 }
@@ -134,5 +146,7 @@ export const toolHandlers: Record<string, ToolHandler> = {
   scrape_web_page: handleScrapeWebPage,
   search_manifold_markets: handleSearchManifoldMarkets,
   run_terminal_command: ((input, id) =>
-    handleRunTerminalCommand(input, id, 'assistant')) as ToolHandler,
+    handleRunTerminalCommand(input, id, 'assistant').then(
+      (result) => result.result
+    )) as ToolHandler,
 }

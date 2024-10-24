@@ -7,6 +7,7 @@ import { Footer } from '@/components/footer'
 import { Navbar } from '@/components/navbar/navbar'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
+import { Banner } from '@/components/ui/banner'
 import { siteConfig } from '@/lib/constant'
 import { fonts } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
@@ -59,6 +60,7 @@ const RootLayout = ({ children }: PropsWithChildren) => {
         <ThemeProvider attribute="class">
           <SessionProvider>
             <QueryProvider>
+              <Banner />
               <Navbar />
               <div className="flex-grow">{children}</div>
               <Footer />

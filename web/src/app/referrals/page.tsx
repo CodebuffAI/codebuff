@@ -133,31 +133,41 @@ const ReferralsPage = () => {
               ({ data }) => (
                 <CardContent className="flex flex-col space-y-6">
                   <div className="flex flex-col space-y-4">
-                    <p>
-                      {data.limitReached
-                        ? `Dang, you've got a lot of friends! You have reached your referral limit.`
-                        : `Refer a friend and both of you will earn ${CREDITS_REFERRAL_BONUS} credits per month! Share this link with them:`}
-                    </p>
-                    <div className="relative">
-                      {loading ? (
-                        <Skeleton className="h-10 w-full" />
-                      ) : (
-                        <Input
-                          value={link}
-                          placeholder={'Your referral link'}
-                          readOnly
-                          className="bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-                        />
-                      )}
-                      <Button
-                        onClick={() => copyReferral(link)}
-                        disabled={loading || !session?.user}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
-                        variant="ghost"
-                      >
-                        <CopyIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {data.limitReached ? (
+                      <p>
+                        You have reached your referral limit. Dang, you&apos;ve
+                        got a lot of friends! Maybe introduce them to one
+                        another? 🌝
+                      </p>
+                    ) : (
+                      <>
+                        <p>
+                          Refer a friend and <b>you&apos;ll both</b> earn{' '}
+                          {CREDITS_REFERRAL_BONUS} credits per month! Share this
+                          link with them:
+                        </p>
+                        <div className="relative">
+                          {loading ? (
+                            <Skeleton className="h-10 w-full" />
+                          ) : (
+                            <Input
+                              value={link}
+                              placeholder={'Your referral link'}
+                              readOnly
+                              className="bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                            />
+                          )}
+                          <Button
+                            onClick={() => copyReferral(link)}
+                            disabled={loading || !session?.user}
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
+                            variant="ghost"
+                          >
+                            <CopyIcon className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <Separator />

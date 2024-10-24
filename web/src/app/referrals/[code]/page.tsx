@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { sleep } from 'common/util/helpers'
 import { CopyIcon, CheckIcon, GiftIcon } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
+import type { ReferralCodeResponse } from '@/app/api/referrals/[code]/route'
+import { Button } from '@/components/ui/button'
 
 const InputWithCopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
@@ -20,7 +21,7 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
         setCopied(false)
       })
     }
-  }, [copied])
+  }, [copied, text])
 
   return (
     <div className="relative my-2">
@@ -47,18 +48,15 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
 export default function RedeemPage({ params }: { params: { code: string } }) {
   const { data: session, status } = useSession()
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['referrals'],
-    queryFn: async (): Promise<{
-      referrerName: string
-      isSameUser: boolean
-    }> => {
+    queryFn: async (): Promise<ReferralCodeResponse> => {
       const res = await fetch(`/api/referrals/${params.code}`)
       return res.json()
     },
   })
 
-  if (status === 'loading') {
+  if (status === 'loading' || isLoading) {
     return (
       <Card className="mb-6">
         <CardHeader>
@@ -78,21 +76,29 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
       <CardHeader>
         <CardTitle className="flex">
           <GiftIcon className="mr-2" />
-          You&apos;ve got credits!
+          {data?.status.reason ? data.status.reason : "You've got credits!"}
         </CardTitle>
       </CardHeader>
 
       <CardContent>
         <b>Hey {session?.user?.name} 👋</b>
-        <p>
-          Your friend {data?.referrerName} just scored you some sweet sweet
-          credits.
-        </p>
+        {data?.status.reason && data.status.details?.msg ? (
+          <p className="text-red-600 mt-2">{data.status.details.msg}</p>
+        ) : (
+          <p>
+            Your friend {data?.referrerName} just scored you some sweet sweet
+            credits.
+          </p>
+        )}
       </CardContent>
 
       <div className="flex flex-col space-y-2">
         <CardContent>
-          <p className="my-4">To redeem them, follow these steps:</p>
+          <p className="my-4">
+            {data?.status.reason
+              ? `Fear not, you can still get started with Manicode! Here's how:`
+              : 'To redeem them, follow these steps:'}
+          </p>
           <ol className="list-decimal list-inside space-y-6">
             <li>
               Install Manicode globally:
@@ -102,19 +108,24 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
               Run Manicode in Terminal
               <InputWithCopyButton text={'manicode'} />
             </li>
-            <li>
-              Paste this referral code in the CLI.
-              <InputWithCopyButton text={params.code} />
-            </li>
+            {!data?.status.reason && (
+              <li>
+                Paste this referral code in the CLI.
+                <InputWithCopyButton text={params.code} />
+              </li>
+            )}
           </ol>
-          {data?.isSameUser && (
-            <p className="font-bold text-red-600 mt-4">
-              Just FYI, this is your own referral code. It won&apos;t be valid
-              for you to use.
-            </p>
-          )}
         </CardContent>
       </div>
+
+      {data?.isSameUser && (
+        <CardContent>
+          <p className="font-bold text-red-600 mt-4">
+            Just FYI, this is your own referral code. (Others won&apos;t see
+            this message).
+          </p>
+        </CardContent>
+      )}
     </Card>
   )
 }

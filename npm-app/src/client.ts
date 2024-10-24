@@ -1,4 +1,4 @@
-import { yellow, red, green } from 'picocolors'
+import { yellow, red, green, bold } from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
   getFiles,
@@ -276,7 +276,7 @@ export class Client {
         : green('Type "login" below to sign up and get more credits!'),
       referralLink
         ? green(
-            `Refer friends by sharing this link and you'll each get ${CREDITS_REFERRAL_BONUS} credits per month: ${referralLink}`
+            `Refer friends by sharing this link and you'll ${bold(`each earn ${CREDITS_REFERRAL_BONUS} credits per month`)}: ${referralLink}`
           )
         : '',
     ].join('\n')
@@ -303,7 +303,9 @@ export class Client {
       console.warn(
         [
           '',
-          yellow(`You have used over ${pct}% of your monthly usage limit (${usage}/${limit} credits).`),
+          yellow(
+            `You have used over ${pct}% of your monthly usage limit (${usage}/${limit} credits).`
+          ),
           errorCopy,
         ].join('\n')
       )
