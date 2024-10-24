@@ -18,7 +18,10 @@ import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens } from './util/token-counter'
 import { logger } from './util/logger'
-import { parseAndGetDiffBlocksSingleFile } from './generate-diffs-prompt'
+import {
+  parseAndGetDiffBlocksSingleFile,
+  retryDiffBlocksPrompt,
+} from './generate-diffs-prompt'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -164,6 +167,7 @@ ${STOP_MARKER}
           return `<edit_file path="${path}">`
         },
         onTagEnd: (fileContent, { path }) => {
+          console.log('onTagEnd', { path, fileContent })
           const filePathWithoutStartNewline = fileContent.startsWith('\n')
             ? fileContent.slice(1)
             : fileContent
@@ -402,24 +406,22 @@ export async function processFileBlock(
   newContent: string,
   userId: string | undefined
 ): Promise<FileChange | null> {
-  console.log('processFileBlock', { filePath, newContent })
   const oldContent = await requestFile(ws, filePath)
 
   if (oldContent === null) {
-    logger.debug(
-      { filePath, sketch: newContent },
-      'processFileBlock: Created new file'
-    )
+    logger.debug({ filePath, newContent }, 'processFileBlock: Created new file')
     return { filePath, content: newContent, type: 'file' }
   }
 
   if (newContent === oldContent) {
     logger.info(
-      { sketch: newContent },
-      'processFileBlock: Sketch was the same as old content, skipping'
+      { newContent },
+      'processFileBlock: New file was the same as old content, skipping'
     )
     return null
   }
+
+  logger.debug('processFileBlock', { filePath, newContent })
 
   const lineEnding = oldContent.includes('\r\n') ? '\r\n' : '\n'
   const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
@@ -428,6 +430,20 @@ export async function processFileBlock(
 
   const { diffBlocks, diffBlocksThatDidntMatch } =
     parseAndGetDiffBlocksSingleFile(normalizedNewContent, normalizedOldContent)
+
+  let fixedDiffBlocks: { searchContent: string; replaceContent: string }[] = []
+  if (diffBlocksThatDidntMatch.length > 0) {
+    fixedDiffBlocks = await retryDiffBlocksPrompt(
+      filePath,
+      normalizedOldContent,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      diffBlocksThatDidntMatch
+    )
+    diffBlocks.push(...fixedDiffBlocks)
+  }
 
   const noDiffBlocks =
     diffBlocks.length === 0 && diffBlocksThatDidntMatch.length === 0
@@ -448,7 +464,7 @@ export async function processFileBlock(
   patch = patch.replaceAll('\n', lineEnding)
 
   logger.debug(
-    { filePath, oldContent, sketch: newContent, patch },
+    { filePath, oldContent, changes: newContent, patch },
     'processFileBlock: Generated patch'
   )
   return { filePath, content: patch, type: 'patch' }

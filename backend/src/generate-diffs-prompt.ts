@@ -3,6 +3,7 @@ import { Message } from 'common/actions'
 import { debugLog } from './util/debug'
 import { EXISTING_CODE_MARKER, models, STOP_MARKER } from 'common/constants'
 import { promptClaudeWithContinuation } from './claude'
+import { logger } from './util/logger'
 
 export async function generateExpandedFileWithDiffBlocks(
   clientSessionId: string,
@@ -556,7 +557,6 @@ export const parseAndGetDiffBlocks = (
         )
         if (newChange) {
           console.log('Matched with indentation modification')
-          debugLog('Matched with indentation modification')
           diffBlocks.push(newChange)
         } else {
           diffBlocksThatDidntMatch.push(change)
@@ -580,29 +580,28 @@ export const parseAndGetDiffBlocksSingleFile = (
   }[] = []
   const diffBlocks: { searchContent: string; replaceContent: string }[] = []
   const blockRegex =
-      /<search>([\s\S]*?)<\/search>\s*<replace>([\s\S]*?)<\/replace>/g
-    let blockMatch
+    /<search>([\s\S]*?)<\/search>\s*<replace>([\s\S]*?)<\/replace>/g
+  let blockMatch
 
   while ((blockMatch = blockRegex.exec(newContent)) !== null) {
     const change = {
       searchContent: removeNewlinesFromStartAndEnd(blockMatch[1]),
-        replaceContent: removeNewlinesFromStartAndEnd(blockMatch[2]),
-      }
+      replaceContent: removeNewlinesFromStartAndEnd(blockMatch[2]),
+    }
 
-      if (oldFileContent.includes(change.searchContent)) {
-        diffBlocks.push(change)
+    if (oldFileContent.includes(change.searchContent)) {
+      diffBlocks.push(change)
+    } else {
+      const newChange = tryToDoStringReplacementWithExtraIndentation(
+        oldFileContent,
+        change.searchContent,
+        change.replaceContent
+      )
+      if (newChange) {
+        logger.debug('Matched with indentation modification')
+        diffBlocks.push(newChange)
       } else {
-        const newChange = tryToDoStringReplacementWithExtraIndentation(
-          oldFileContent,
-          change.searchContent,
-          change.replaceContent
-        )
-        if (newChange) {
-          console.log('Matched with indentation modification')
-          debugLog('Matched with indentation modification')
-          diffBlocks.push(newChange)
-        } else {
-          diffBlocksThatDidntMatch.push(change)
+        diffBlocksThatDidntMatch.push(change)
       }
     }
   }
@@ -611,7 +610,6 @@ export const parseAndGetDiffBlocksSingleFile = (
     diffBlocksThatDidntMatch,
   }
 }
-
 
 const tryToDoStringReplacementWithExtraIndentation = (
   oldFileContent: string,
@@ -653,4 +651,56 @@ const tryToDoStringReplacementWithExtraIndentation = (
 
 const removeNewlinesFromStartAndEnd = (content: string): string => {
   return content.replace(/^\n+|\n+$/g, '')
+}
+
+export const retryDiffBlocksPrompt = async (
+  filePath: string,
+  oldContent: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined,
+  diffBlocksThatDidntMatch: { searchContent: string; replaceContent: string }[]
+) => {
+  const newPrompt =
+    `The assistant failed to find a match for the following changes in the file ${filePath}. Please help the assistant understand what the changes should be.
+
+Here is the old file content:
+${createFileBlock(filePath, oldContent)}
+
+The assistant generated the following <search> and <replace> blocks where the <search> content did not match the old file contents:
+
+${diffBlocksThatDidntMatch.map((change) => `<search>${change.searchContent}</search>\n<replace>${change.replaceContent}</replace>`).join('\n\n')}
+
+You should:
+1. Use <thinking> blocks to explain what might have gone wrong in these <search> blocks that didn't match. They need to match an exact substring of the old file content.
+2. Provide a new set of <search> and <replace> changes within a <edit_file path="${filePath}"></edit_file> block to make the intended edit from the old file.
+
+Please make sure to end your response with the following string:
+${STOP_MARKER}
+`.trim()
+  const { response } = await promptClaudeWithContinuation(
+    [{ role: 'user', content: newPrompt }],
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: models.sonnet,
+      userId,
+    }
+  )
+  const {
+    diffBlocks: newDiffBlocks,
+    diffBlocksThatDidntMatch: newDiffBlocksThatDidntMatch,
+  } = parseAndGetDiffBlocksSingleFile(response, oldContent)
+
+  logger.debug('retryDiffBlocksPrompt result', {
+    response,
+    diffBlocksThatDidntMatch,
+    newDiffBlocks,
+    newDiffBlocksThatDidntMatch,
+    filePath,
+  })
+
+  return newDiffBlocks
 }
