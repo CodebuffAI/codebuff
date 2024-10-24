@@ -11,6 +11,14 @@ const Home = () => {
   const { toast } = useToast()
 
   const copyToClipboard = () => {
+    const codeElement = document.querySelector('code')
+    if (codeElement) {
+      const range = document.createRange()
+      range.selectNodeContents(codeElement)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
     navigator.clipboard.writeText('npm install -g manicode')
     toast({
       description: 'Copied to clipboard!',

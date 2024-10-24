@@ -49,6 +49,14 @@ The authentication system in Manicode's web application plays a crucial role in 
 - This helps with discoverability and matches the project's emphasis on clear user interactions
 - Implementation: Remove the `opacity-0` class from the close button's base styles
 
+### Text Selection
+
+- When users click to copy command snippets or code blocks, select the entire text
+- This improves UX by making it clear what will be copied
+- Implementation: Add `user-select: all` to clickable code elements
+- Use this pattern for npm install commands, terminal commands, and other copyable snippets
+
+
 ## Component Architecture
 
 ### Client Components and Providers
