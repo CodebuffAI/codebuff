@@ -10,6 +10,13 @@ import { sleep } from 'common/util/helpers'
 import { CopyIcon, CheckIcon, GiftIcon } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
+type ReferralCodeResponse = {
+  referrerName: string
+  isSameUser: boolean
+  hasReachedLimit: boolean
+  error?: string
+}
+
 const InputWithCopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
 
@@ -49,11 +56,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
 
   const { data } = useQuery({
     queryKey: ['referrals'],
-    queryFn: async (): Promise<{
-      referrerName: string
-      isSameUser: boolean
-      hasReachedLimit: boolean
-    }> => {
+    queryFn: async (): Promise<ReferralCodeResponse> => {
       const res = await fetch(`/api/referrals/${params.code}`)
       return res.json()
     },
