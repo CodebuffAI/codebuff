@@ -135,8 +135,9 @@ const ReferralsPage = () => {
                   <div className="flex flex-col space-y-4">
                     {data.limitReached ? (
                       <p>
-                        You have reached your referral limit. Dang, you've got a
-                        lot of friends! Maybe introduce them to one another? 🌝
+                        You have reached your referral limit. Dang, you&apos;ve
+                        got a lot of friends! Maybe introduce them to one
+                        another? 🌝
                       </p>
                     ) : (
                       <>
