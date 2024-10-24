@@ -18,6 +18,14 @@ const fileTransport = pino.transport({
   level: 'debug',
 })
 
+const consoleTransport = pino.transport({
+  target: 'pino-pretty',
+  options: {
+    colorize: true,
+    levelFirst: true,
+  },
+})
+
 export const logger = pino(
   {
     level: 'debug',
@@ -31,5 +39,5 @@ export const logger = pino(
     },
     timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
   },
-  env.ENVIRONMENT === 'production' ? undefined : fileTransport
+  env.ENVIRONMENT === 'production' ? undefined : consoleTransport // fileTransport
 )
