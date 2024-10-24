@@ -5,7 +5,7 @@ import { siteConfig } from '@/lib/constant'
 
 export const Footer = () => {
   return (
-    <footer className="w-full border-t">
+    <footer className="w-full border-t z-10">
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Logo and company name */}
@@ -16,7 +16,7 @@ export const Footer = () => {
                 alt="Manicode Logo"
                 width={32}
                 height={32}
-                className="rounded-md"
+                className="rounded-sm"
               />
               <span className="font-bold text-xl">{siteConfig.title}</span>
             </Link>

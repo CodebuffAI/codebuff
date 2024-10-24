@@ -68,7 +68,7 @@ const Home = () => {
             </div>
           </div>
 
-          <div className="flex justify-center space-x-8">
+          <div className="flex justify-center space-x-8 pt-4">
             <div className="flex flex-col items-center">
               <p>Backed by</p>
               <Link
@@ -96,7 +96,7 @@ const Home = () => {
           </div>
         </section>
 
-        <section id="features" className="px-4 py-20 relative z-10">
+        <section id="features" className="px-4 py-20 relative z-10 space-y-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
             Revolutionize Your Coding Workflow
           </h2>
@@ -132,11 +132,8 @@ const Home = () => {
               </p>
             </div>
           </div>
-        </section>
-
-        <section className="py-12 relative z-10">
-          <div className="px-4 text-center">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+          <div className="text-center">
+            <Button className="bg-blue-900 hover:bg-blue-700 text-white transition-colors">
               <Link
                 href="https://www.npmjs.com/package/manicode"
                 target="_blank"
