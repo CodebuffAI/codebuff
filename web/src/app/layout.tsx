@@ -57,10 +57,10 @@ const RootLayout = ({ children }: PropsWithChildren) => {
           fonts
         )}
       >
+        <Banner />
         <ThemeProvider attribute="class">
           <SessionProvider>
             <QueryProvider>
-              <Banner />
               <Navbar />
               <div className="flex-grow">{children}</div>
               <Footer />

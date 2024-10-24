@@ -1,7 +1,6 @@
 'use client'
 import { Button } from '@/components/ui/button'
 import { CodeIcon, BrainCircuitIcon, TerminalIcon } from 'lucide-react'
-// import Globe from '@/components/magicui/globe'
 import Link from 'next/link'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import { useTheme } from 'next-themes'
@@ -18,20 +17,10 @@ const Home = () => {
           <h1 className="text-5xl md:text-7xl font-bold mb-6 mx-auto text-center">
             Code at the Speed of Thought
           </h1>
-          <p className="text-2xl mb-6 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto text-center">
-            Use natural language to edit your codebase and run commands from
-            your terminal faster.
-          </p>
-          {/* <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
-          <Input
-            type="email"
-            placeholder="Enter your email"
-            className="max-w-xs bg-gray-800 border-gray-700 text-white placeholder:italic placeholder:text-slate-200 "
-          />
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
-            Start Coding with AI
-          </Button>
-        </div> */}
+          <div className="text-2xl mb-6 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto text-center">
+            <p>Use natural language to edit your codebase and</p>
+            <p>run commands from your terminal faster.</p>
+          </div>
           <section className="pt-6 relative z-10">
             <div className="text-center mb-4">Try Manicode for free:</div>
             <div className="px-4 text-center">

@@ -8,12 +8,12 @@ import Link from 'next/link'
 export function Banner() {
   const [isVisible, setIsVisible] = useState(true)
 
-  if (!isVisible) return null
+  if (!isVisible) return <></>
 
   return (
     <div className="w-full bg-blue-500 text-white px-4 py-2">
-      <div className="container mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="md:container mx-auto flex items-center">
+        <div className="flex items-center gap-2 text-center">
           <Gift className="h-4 w-4" />
           <p className="text-sm">
             Invite frens to Manicode and earn free credits!{' '}
