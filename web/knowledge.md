@@ -41,7 +41,22 @@ The authentication system in Manicode's web application plays a crucial role in 
 - Use secure, HTTP-only cookies for session management.
 - Implement proper CSRF protection for all authenticated routes.
 
-## UI Components
+## UI Patterns
+
+### Code Snippets
+When displaying inline code snippets with copy buttons:
+- Use `inline-block` on the container, not `inline-flex` or `flex`
+- Keep the flex layout for internal alignment between code and copy button
+- Example structure:
+```jsx
+<div className="inline-block">
+  <div className="px-4 bg-gray-800 rounded-lg p-4 flex items-center gap-2">
+    <code>npm install ...</code>
+    <CopyIcon />
+  </div>
+</div>
+```
+
 
 ### Toast Notifications
 
