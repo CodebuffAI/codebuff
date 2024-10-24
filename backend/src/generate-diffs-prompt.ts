@@ -694,13 +694,16 @@ ${STOP_MARKER}
     diffBlocksThatDidntMatch: newDiffBlocksThatDidntMatch,
   } = parseAndGetDiffBlocksSingleFile(response, oldContent)
 
-  logger.debug('retryDiffBlocksPrompt result', {
-    response,
-    diffBlocksThatDidntMatch,
-    newDiffBlocks,
-    newDiffBlocksThatDidntMatch,
-    filePath,
-  })
+  logger.debug(
+    {
+      response,
+      diffBlocksThatDidntMatch,
+      newDiffBlocks,
+      newDiffBlocksThatDidntMatch,
+      filePath,
+    },
+    'retryDiffBlocksPrompt result'
+  )
 
   return newDiffBlocks
 }

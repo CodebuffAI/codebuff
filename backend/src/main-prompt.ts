@@ -310,12 +310,13 @@ ${STOP_MARKER}
     logger.warn('Reached maximum number of iterations in mainPrompt')
   }
 
+  const knowledgeChanges = await genKnowledgeFilesPromise
+  fileProcessingPromises.push(...knowledgeChanges)
+
   if (fileProcessingPromises.length > 0) {
     onResponseChunk('\nApplying file changes. Please wait...\n')
   }
 
-  const knowledgeChanges = await genKnowledgeFilesPromise
-  fileProcessingPromises.push(...knowledgeChanges)
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
   )
@@ -421,7 +422,7 @@ export async function processFileBlock(
     return null
   }
 
-  logger.debug('processFileBlock', { filePath, newContent })
+  logger.debug({ filePath, newContent }, 'processFileBlock')
 
   const lineEnding = oldContent.includes('\r\n') ? '\r\n' : '\n'
   const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
@@ -464,7 +465,13 @@ export async function processFileBlock(
   patch = patch.replaceAll('\n', lineEnding)
 
   logger.debug(
-    { filePath, oldContent, changes: newContent, patch },
+    {
+      filePath,
+      oldContent,
+      changes: newContent,
+      patch,
+      diffBlocks,
+    },
     'processFileBlock: Generated patch'
   )
   return { filePath, content: patch, type: 'patch' }
