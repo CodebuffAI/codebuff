@@ -1,6 +1,7 @@
 import { createEnv } from '@t3-oss/env-core'
 import { z } from 'zod'
 import dotenv from 'dotenv'
+import path from 'path'
 
 dotenv.config({ path: '../stack.env' })
 if (!process.env.ENVIRONMENT) {
@@ -8,10 +9,15 @@ if (!process.env.ENVIRONMENT) {
   process.exit(1)
 }
 
-const DOTENV_PATH = process.env.RENDER === 'true' ? '/etc/secrets' : '..'
-const path = `${DOTENV_PATH}/.env.${process.env.ENVIRONMENT}`
-console.log(`Using environment: ${process.env.ENVIRONMENT} (path: ${path})`)
-dotenv.config({ path })
+const DOTENV_PATH_PREFIX =
+  process.env.RENDER === 'true' ? '/etc/secrets' : path.join(__dirname, '../..')
+const DOTENV_PATH = path.join(
+  `${DOTENV_PATH_PREFIX}/.env.${process.env.ENVIRONMENT}`
+)
+console.log(
+  `Using environment: ${process.env.ENVIRONMENT} (path: ${DOTENV_PATH})`
+)
+dotenv.config({ path: DOTENV_PATH })
 
 export const env = createEnv({
   server: {

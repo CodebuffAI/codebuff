@@ -400,7 +400,7 @@ export async function processFileBlock(
   fullResponse: string,
   filePath: string,
   newContent: string,
-  userId?: string
+  userId: string | undefined
 ): Promise<FileChange | null> {
   console.log('processFileBlock', { filePath, newContent })
   const oldContent = await requestFile(ws, filePath)
@@ -421,27 +421,31 @@ export async function processFileBlock(
     return null
   }
 
+  const lineEnding = oldContent.includes('\r\n') ? '\r\n' : '\n'
+  const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
+  const normalizedOldContent = normalizeLineEndings(oldContent)
+  const normalizedNewContent = normalizeLineEndings(newContent)
+
   const { diffBlocks, diffBlocksThatDidntMatch } =
-    parseAndGetDiffBlocksSingleFile(newContent, oldContent)
-  console.log(
-    'diffBlocks',
-    diffBlocks,
-    'diffBlocksThatDidntMatch',
-    diffBlocksThatDidntMatch
-  )
-  let updatedContent = oldContent
+    parseAndGetDiffBlocksSingleFile(normalizedNewContent, normalizedOldContent)
+
+  const noDiffBlocks =
+    diffBlocks.length === 0 && diffBlocksThatDidntMatch.length === 0
+  let updatedContent = noDiffBlocks
+    ? normalizedNewContent
+    : normalizedOldContent
   for (const diffBlock of diffBlocks) {
     const { searchContent, replaceContent } = diffBlock
     updatedContent = updatedContent.replace(searchContent, replaceContent)
   }
 
-  let patch = createPatch(filePath, oldContent, updatedContent)
+  let patch = createPatch(filePath, normalizedOldContent, updatedContent)
   const lines = patch.split('\n')
   const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
   if (hunkStartIndex !== -1) {
     patch = lines.slice(hunkStartIndex).join('\n')
   } else patch = ''
-  // const updatedPatch = patch.replaceAll('\n', lineEnding)
+  patch = patch.replaceAll('\n', lineEnding)
 
   logger.debug(
     { filePath, oldContent, sketch: newContent, patch },
