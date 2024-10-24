@@ -257,6 +257,10 @@ You have access to the following tools:
 - <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
 - <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
 
+Important notes:
+- Immediately after you write out a tool call, you should write ${STOP_MARKER}, and then do not write out any other text. You will automatically be prompted to continue with the result of the tool call.
+- Do not write out a tool call within an <edit_file> block. If you want to read a file before editing it, write the <tool_call> first.
+
 ## Finding files
 
 Use the <tool_call name="find_files">...</tool_call> tool to read more files beyond what is provided in the initial set of files.
