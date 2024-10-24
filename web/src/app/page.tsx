@@ -1,6 +1,6 @@
 'use client'
 import { Button } from '@/components/ui/button'
-import { CodeIcon, BrainCircuitIcon, TerminalIcon } from 'lucide-react'
+import { CodeIcon, BrainCircuitIcon, TerminalIcon, Copy } from 'lucide-react'
 import Link from 'next/link'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import { useTheme } from 'next-themes'
@@ -11,17 +11,10 @@ const Home = () => {
   const { toast } = useToast()
 
   const copyToClipboard = () => {
-    const codeElement = document.querySelector('code')
-    if (codeElement) {
-      const range = document.createRange()
-      range.selectNodeContents(codeElement)
-      const selection = window.getSelection()
-      selection?.removeAllRanges()
-      selection?.addRange(range)
-    }
     navigator.clipboard.writeText('npm install -g manicode')
     toast({
-      description: 'Copied to clipboard!',
+      title: `Copied to clipboard`,
+      description: "Let's code! 🤖",
     })
   }
 
@@ -46,15 +39,13 @@ const Home = () => {
           </div>
           <section className="relative z-10">
             <div className="mb-4">Try Manicode for free:</div>
-            <div className="px-4 ">
-              <div className="bg-gray-800 rounded-lg p-4 inline-block">
-                <code
-                  className="text-white cursor-pointer"
-                  onClick={copyToClipboard}
-                >
-                  npm install -g manicode
-                </code>
-              </div>
+
+            <div className="px-4 bg-gray-800 rounded-lg p-4 inline-block flex items-center gap-2">
+              <code className="text-white">npm install -g manicode</code>
+              <Copy
+                className="h-4 w-4 text-gray-400 hover:text-white cursor-pointer"
+                onClick={copyToClipboard}
+              />
             </div>
           </section>
         </main>

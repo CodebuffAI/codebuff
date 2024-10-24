@@ -104,7 +104,6 @@ Example of correct layering:
 <div className="relative z-20">...</div> // Interactive component
 ## Referral System
 
-## Error Handling
 
 ### API Response Errors
 
