@@ -4,9 +4,25 @@ import { CodeIcon, BrainCircuitIcon, TerminalIcon } from 'lucide-react'
 import Link from 'next/link'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import { useTheme } from 'next-themes'
+import { useToast } from '@/components/ui/use-toast'
 
 const Home = () => {
   const { theme } = useTheme()
+  const { toast } = useToast()
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText('npm install -g manicode')
+      toast({
+        description: 'Copied to clipboard!',
+      })
+    } catch (err) {
+      toast({
+        description: 'Failed to copy to clipboard',
+        variant: 'destructive',
+      })
+    }
+  }
 
   return (
     <div className="overflow-hidden">
@@ -31,7 +47,12 @@ const Home = () => {
             <div className="mb-4">Try Manicode for free:</div>
             <div className="px-4 ">
               <div className="bg-gray-800 rounded-lg p-4 inline-block">
-                <code className="text-white">npm install -g manicode</code>
+                <code
+                  className="text-white cursor-pointer"
+                  onClick={copyToClipboard}
+                >
+                  npm install -g manicode
+                </code>
               </div>
             </div>
           </section>
