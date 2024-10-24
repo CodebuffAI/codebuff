@@ -195,6 +195,7 @@ It's good to:
 - Give enough lines of context in the search block so that the search string uniquely matches one location in the file.
 - Be concise. Don't include more lines in the search block than necessary to uniquely identify the section you want to modify. This is likely on the order of 1-3 extra lines of context.
 - Avoid adding new comments that you wouldn't expect in production code. In particular, do not add comments about the edit like: "// Add this line" or "# Update this check" when you are editing code.
+- The block names used within <edit_file> blocks are <search> and <replace>. Do not use any other block names like <insert>.
 
 If you just want to show the user some code, and don't want to necessarily make a code change, do not use <edit_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in \`\`\` tags:
 \`\`\`ts
