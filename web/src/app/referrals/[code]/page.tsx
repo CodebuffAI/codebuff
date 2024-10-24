@@ -48,7 +48,7 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
 export default function RedeemPage({ params }: { params: { code: string } }) {
   const { data: session, status } = useSession()
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['referrals'],
     queryFn: async (): Promise<ReferralCodeResponse> => {
       const res = await fetch(`/api/referrals/${params.code}`)
@@ -56,7 +56,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
     },
   })
 
-  if (status === 'loading') {
+  if (status === 'loading' || isLoading) {
     return (
       <Card className="mb-6">
         <CardHeader>
@@ -76,20 +76,14 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
       <CardHeader>
         <CardTitle className="flex">
           <GiftIcon className="mr-2" />
-          {data?.limitReached
-            ? 'Referral Limit Reached'
-            : "You've got credits!"}
+          {data?.status.reason ? data.status.reason : "You've got credits!"}
         </CardTitle>
       </CardHeader>
 
       <CardContent>
         <b>Hey {session?.user?.name} 👋</b>
-        {data && data?.limitReached ? (
-          <p>
-            Thanks for your interest, but {data.referrerName}&apos;s referral
-            code has reached its maximum number of uses. Please ask another
-            friend for their referral code or consider signing up directly.
-          </p>
+        {data?.status.reason && data.status.details?.msg ? (
+          <p className="text-red-600 mt-2">{data.status.details.msg}</p>
         ) : (
           <p>
             Your friend {data?.referrerName} just scored you some sweet sweet
@@ -101,7 +95,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
       <div className="flex flex-col space-y-2">
         <CardContent>
           <p className="my-4">
-            {data?.limitReached
+            {data?.status.reason
               ? `Fear not, you can still get started with Manicode! Here's how:`
               : 'To redeem them, follow these steps:'}
           </p>
@@ -114,7 +108,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
               Run Manicode in Terminal
               <InputWithCopyButton text={'manicode'} />
             </li>
-            {!data?.limitReached && (
+            {!data?.status.reason && (
               <li>
                 Paste this referral code in the CLI.
                 <InputWithCopyButton text={params.code} />

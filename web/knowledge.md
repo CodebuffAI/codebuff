@@ -1,4 +1,5 @@
 # Manicode Web Application Knowledge
+# Manicode Web Application Knowledge
 
 ## Authentication and Login System
 
@@ -41,6 +42,20 @@ The authentication system in Manicode's web application plays a crucial role in 
 - Implement proper CSRF protection for all authenticated routes.
 
 ## Referral System
+
+## Error Handling
+
+### API Response Errors
+
+- Always display API error messages to users when present in the response
+- Error messages from the API are pre-formatted for user display
+- Check for `error` field in API responses before rendering success states
+- Error messages should be shown in a prominent location, typically near the top of the component
+
+This helps with:
+- Consistent error handling across the application
+- Better user experience through clear error communication
+- Easier debugging by surfacing backend errors
 
 The referral system is a key feature of the Manicode web application. It allows users to refer others and earn credits for successful referrals.
 
@@ -149,3 +164,17 @@ This feature enhances user experience by providing transparency about resource c
 - This ensures type consistency between frontend and backend
 
 This structure helps in maintaining a clear separation of concerns while allowing necessary sharing of code between different parts of the application.
+
+### NextResponse Typing
+
+- Use `NextResponse<T>` to type API route responses
+- Example:
+```typescript
+type ResponseData = { message: string }
+NextResponse<ResponseData>
+```
+- For error responses, include error field in the type:
+```typescript
+type ApiResponse = SuccessResponse | { error: string }
+NextResponse<ApiResponse>
+```
