@@ -136,7 +136,7 @@ const ReferralsPage = () => {
                     {data.limitReached ? (
                       <p>
                         Dang, you've got a lot of friends! You have reached your
-                        referral limit.
+                        referral limit. Maybe introduce your friends? 🌝
                       </p>
                     ) : (
                       <p>

@@ -61,6 +61,7 @@ The referral system is a key feature of the Manicode web application. It allows 
    - New users can enter a referral code during signup or on the referrals page.
    - The system validates the referral code and creates a referral record.
 
+   - Each referral code has a maximum claim limit - show appropriate messaging when this limit is reached.
 4. **Credit Distribution**:
 
    - Both the referrer and the referred user receive bonus credits.

@@ -52,6 +52,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
     queryFn: async (): Promise<{
       referrerName: string
       isSameUser: boolean
+      hasReachedLimit: boolean
     }> => {
       const res = await fetch(`/api/referrals/${params.code}`)
       return res.json()
@@ -78,43 +79,55 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
       <CardHeader>
         <CardTitle className="flex">
           <GiftIcon className="mr-2" />
-          You&apos;ve got credits!
+          {data?.hasReachedLimit
+            ? 'Referral Limit Reached'
+            : "You've got credits!"}
         </CardTitle>
       </CardHeader>
 
       <CardContent>
         <b>Hey {session?.user?.name} 👋</b>
-        <p>
-          Your friend {data?.referrerName} just scored you some sweet sweet
-          credits.
-        </p>
+        {data?.hasReachedLimit ? (
+          <p>
+            Thanks for your interest, but {data?.referrerName}&apos;s referral
+            code has reached its maximum number of uses. Please ask another
+            friend for their referral code or consider signing up directly.
+          </p>
+        ) : (
+          <p>
+            Your friend {data?.referrerName} just scored you some sweet sweet
+            credits.
+          </p>
+        )}
       </CardContent>
 
-      <div className="flex flex-col space-y-2">
-        <CardContent>
-          <p className="my-4">To redeem them, follow these steps:</p>
-          <ol className="list-decimal list-inside space-y-6">
-            <li>
-              Install Manicode globally:
-              <InputWithCopyButton text={'npm i -g manicode'} />
-            </li>
-            <li>
-              Run Manicode in Terminal
-              <InputWithCopyButton text={'manicode'} />
-            </li>
-            <li>
-              Paste this referral code in the CLI.
-              <InputWithCopyButton text={params.code} />
-            </li>
-          </ol>
-          {data?.isSameUser && (
-            <p className="font-bold text-red-600 mt-4">
-              Just FYI, this is your own referral code. It won&apos;t be valid
-              for you to use.
-            </p>
-          )}
-        </CardContent>
-      </div>
+      {!data?.hasReachedLimit && (
+        <div className="flex flex-col space-y-2">
+          <CardContent>
+            <p className="my-4">To redeem them, follow these steps:</p>
+            <ol className="list-decimal list-inside space-y-6">
+              <li>
+                Install Manicode globally:
+                <InputWithCopyButton text={'npm i -g manicode'} />
+              </li>
+              <li>
+                Run Manicode in Terminal
+                <InputWithCopyButton text={'manicode'} />
+              </li>
+              <li>
+                Paste this referral code in the CLI.
+                <InputWithCopyButton text={params.code} />
+              </li>
+            </ol>
+            {data?.isSameUser && (
+              <p className="font-bold text-red-600 mt-4">
+                Just FYI, this is your own referral code. It won&apos;t be valid
+                for you to use.
+              </p>
+            )}
+          </CardContent>
+        </div>
+      )}
     </Card>
   )
 }
