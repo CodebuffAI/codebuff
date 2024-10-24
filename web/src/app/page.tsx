@@ -1,12 +1,22 @@
 'use client'
 import { Button } from '@/components/ui/button'
-import { CodeIcon, BrainCircuitIcon, TerminalIcon } from 'lucide-react'
+import { CodeIcon, BrainCircuitIcon, TerminalIcon, Copy } from 'lucide-react'
 import Link from 'next/link'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import { useTheme } from 'next-themes'
+import { useToast } from '@/components/ui/use-toast'
 
 const Home = () => {
   const { theme } = useTheme()
+  const { toast } = useToast()
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText('npm install -g manicode')
+    toast({
+      title: `Copied to clipboard`,
+      description: "Let's code! 🤖",
+    })
+  }
 
   return (
     <div className="overflow-hidden">
@@ -18,14 +28,25 @@ const Home = () => {
             Code at the Speed of Thought
           </h1>
           <div className="text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            <p>Use natural language to edit your codebase and</p>
-            <p>run commands from your terminal faster.</p>
+            <p className="md:hidden">
+              Use natural language to edit your codebase and run commands from
+              your terminal faster.
+            </p>
+            <div className="hidden md:block">
+              <p>Use natural language to edit your codebase and</p>
+              <p>run commands from your terminal faster.</p>
+            </div>
           </div>
           <section className="relative z-10">
             <div className="mb-4">Try Manicode for free:</div>
-            <div className="px-4 ">
-              <div className="bg-gray-800 rounded-lg p-4 inline-block">
+
+            <div className="inline-block">
+              <div className="px-4 bg-gray-800 rounded-lg p-4 flex items-center gap-2">
                 <code className="text-white">npm install -g manicode</code>
+                <Copy
+                  className="h-4 w-4 text-gray-400 hover:text-white cursor-pointer"
+                  onClick={copyToClipboard}
+                />
               </div>
             </div>
           </section>
@@ -47,7 +68,7 @@ const Home = () => {
             </div>
           </div>
 
-          <div className="flex justify-center space-x-8">
+          <div className="flex justify-center space-x-8 pt-4">
             <div className="flex flex-col items-center">
               <p>Backed by</p>
               <Link
@@ -68,10 +89,6 @@ const Home = () => {
               <img
                 src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=${theme}`}
                 alt="Manicode - Better&#0032;code&#0032;generation&#0032;than&#0032;Cursor&#0044;&#0032;from&#0032;your&#0032;CLI | Product Hunt"
-                style={{
-                  width: '250px',
-                  height: '54px',
-                }}
                 width="250"
                 height="54"
               />
@@ -79,7 +96,7 @@ const Home = () => {
           </div>
         </section>
 
-        <section id="features" className="px-4 py-20 relative z-10">
+        <section id="features" className="px-4 py-20 relative z-10 space-y-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
             Revolutionize Your Coding Workflow
           </h2>
@@ -115,11 +132,8 @@ const Home = () => {
               </p>
             </div>
           </div>
-        </section>
-
-        <section className="py-12 relative z-10">
-          <div className="px-4 text-center">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+          <div className="text-center">
+            <Button className="bg-blue-900 hover:bg-blue-700 text-white transition-colors">
               <Link
                 href="https://www.npmjs.com/package/manicode"
                 target="_blank"

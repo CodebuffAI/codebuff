@@ -1,5 +1,4 @@
 # Manicode Web Application Knowledge
-# Manicode Web Application Knowledge
 
 ## Authentication and Login System
 
@@ -40,6 +39,48 @@ The authentication system in Manicode's web application plays a crucial role in 
 - Validate auth codes thoroughly to prevent unauthorized access.
 - Use secure, HTTP-only cookies for session management.
 - Implement proper CSRF protection for all authenticated routes.
+
+## UI Patterns
+
+### Logo Usage
+- Include the Manicode logo alongside the company name in key UI components
+- Logo placement:
+  - Navbar: Primary placement
+  - Footer: Left side of sitemap
+- Use Image component from Next.js for optimized loading
+- Logo files:
+  - `/public/favicon/apple-touch-icon.png`: Main logo
+  - `/public/favicon/favicon.ico`: Favicon
+  - `/public/favicon/favicon-16x16.ico`: Small variant
+
+### Code Snippets
+When displaying inline code snippets with copy buttons:
+- Use `inline-block` on the container, not `inline-flex` or `flex`
+- Keep the flex layout for internal alignment between code and copy button
+- Example structure:
+```jsx
+<div className="inline-block">
+  <div className="px-4 bg-gray-800 rounded-lg p-4 flex items-center gap-2">
+    <code>npm install ...</code>
+    <CopyIcon />
+  </div>
+</div>
+```
+
+
+### Toast Notifications
+
+- Close buttons (X) should always be visible, not just on hover/focus
+- This helps with discoverability and matches the project's emphasis on clear user interactions
+- Implementation: Remove the `opacity-0` class from the close button's base styles
+
+### Text Selection
+
+- When users click to copy command snippets or code blocks, select the entire text
+- This improves UX by making it clear what will be copied
+- Implementation: Add `user-select: all` to clickable code elements
+- Use this pattern for npm install commands, terminal commands, and other copyable snippets
+
 
 ## Component Architecture
 
@@ -87,8 +128,6 @@ Example of correct layering:
 ```jsx
 <div className="relative z-20">...</div> // Interactive component
 ## Referral System
-
-## Error Handling
 
 ### API Response Errors
 

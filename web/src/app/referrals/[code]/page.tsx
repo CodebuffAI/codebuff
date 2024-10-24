@@ -21,7 +21,7 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
         setCopied(false)
       })
     }
-  }, [copied])
+  }, [copied, text])
 
   return (
     <div className="relative my-2">
