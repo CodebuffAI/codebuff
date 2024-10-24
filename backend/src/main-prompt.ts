@@ -18,6 +18,7 @@ import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens } from './util/token-counter'
 import { logger } from './util/logger'
+import { generatePatchWithSearchReplace } from './generate-patch-search-replace'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -421,7 +422,7 @@ export async function processFileBlock(
 
   logger.info({ filePath }, 'processFileBlock: Generating patch')
 
-  const patch = await generatePatch(
+  const patch = await generatePatchWithSearchReplace(
     clientSessionId,
     fingerprintId,
     userInputId,

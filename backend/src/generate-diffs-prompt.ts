@@ -1,30 +1,29 @@
 import { createFileBlock, parseFileBlocks } from 'common/util/file'
 import { Message } from 'common/actions'
 import { debugLog } from './util/debug'
-import { STOP_MARKER } from 'common/constants'
-import { promptOpenAIWithContinuation } from './openai-api'
-import { openaiModels } from 'common/constants'
+import { EXISTING_CODE_MARKER, models, STOP_MARKER } from 'common/constants'
+import { promptClaudeWithContinuation } from './claude'
 
 export async function generateExpandedFileWithDiffBlocks(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  messageHistory: Message[],
-  fullResponse: string,
-  filePath: string,
   oldContent: string,
   newContent: string,
-  userId?: string
+  filePath: string,
+  messageHistory: Message[],
+  fullResponse: string,
+  userId: string | undefined
 ) {
   const diffBlocks = await generateDiffBlocks(
     clientSessionId,
     fingerprintId,
     userInputId,
-    messageHistory,
-    fullResponse,
-    filePath,
     oldContent,
     newContent,
+    filePath,
+    messageHistory,
+    fullResponse,
     userId
   )
 
@@ -61,12 +60,12 @@ export async function generateDiffBlocks(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  messageHistory: Message[],
-  fullResponse: string,
-  filePath: string,
   oldContent: string,
   newContent: string,
-  userId?: string
+  filePath: string,
+  messageHistory: Message[],
+  fullResponse: string,
+  userId: string | undefined
 ) {
   const logMessage = `Generating diff blocks for ${filePath}`
   console.log(logMessage)
@@ -81,9 +80,8 @@ The following is a conversation with a user leading up to your task:
 
 <assistant_message_partial_response>${fullResponse}</assistant_message_partial_response>
   
-Your task: I have a new version of a file with placeholder comments like "// ... existing code ..." or "# ... existing code ...", and I want to change the old file into the expanded new file without the placeholder comments.
-
-Consider the intent of the user: if only one function or code block is shown, don't delete everything else that was not shown.
+Your task:
+I have an old file and a sketch of how to change it. This sketch of the new file has placeholder markers ${EXISTING_CODE_MARKER} that represent unchanged sections from the old file. Please help me modify the old file to include the changes in the sketch of the new file.
   
 I need to generate <search> and <replace> blocks to represent the exact line-by-line differences so I can string replace the old content to the new content.
 
@@ -100,7 +98,7 @@ import { FancyButton } from './FancyButton'
 
 If there are multiple changes, provide multiple pairs of search and replace blocks within the file block.
 
-The provided new file may use shorthand such as "// ... existing code ..." to indicate unchanged code. However, we do not want to include these in your <search> or <replace> blocks, because we want to replace the exact lines of code that are being changed.
+The provided new file may use placeholder markers ${EXISTING_CODE_MARKER} to indicate unchanged code. However, we do not want to include these in your <search> or <replace> blocks, because we want to replace the exact lines of code that are being changed.
 
 Please structure your response in a few steps:
 
@@ -117,13 +115,13 @@ B. 1 level of indentation for the variable in the old file
 5. Finally, please provide a ${'<' + 'edit_file>'} block containing the <search> and <replace> blocks for each chunk of line changes. Find the smallest possible blocks that match the changes uniquely.
 
 IMPORTANT INSTRUCTIONS:
-1. The <search> blocks MUST match a portion of the old file content EXACTLY, character for character, including indentation and empty lines. Do not include any comments or placeholders like "// ... existing code ..." in the <search> blocks. Instead, provide the exact lines of code that are being changed.
+1. The <search> blocks MUST match a portion of the old file content EXACTLY, character for character, including indentation and empty lines. Do not include any placeholder markers ${EXISTING_CODE_MARKER} in the <search>. Instead, provide the exact lines of code that are being changed.
 2. Ensure that you're providing enough context in the <search> blocks to match exactly one location in the file.
 3. The <search> blocks should have as few lines as possible while still providing enough context for a single match. Try to match only a few lines around the change.
-4. The <replace> blocks should contain the updated code that replaces the content in the corresponding <search> block, maintaining the same indentation style and level as the original file. <replace> blocks should also not include comments like "// ... existing code ...".
+4. The <replace> blocks should contain the updated code that replaces the content in the corresponding <search> block, maintaining the same indentation style and level as the original file. Do not include any placeholder markers ${EXISTING_CODE_MARKER} in the <replace> blocks.
 5. Create separate <search> and <replace> blocks for each distinct change in the file.
 6. Pay close attention to the indentation of both the <search> and <replace> blocks. They should match the indentation style and level of the original file exactly.
-7. If the new content contains comments about edits that should be made, you should remove those. E.g. Remove comments like "// Add these new functions at the top of the file"
+7. If the new content adds comments about how the edits are being made, you should remove those. E.g. Remove comments like "// Add this line" or "# Add this check on every item"
 
 <example_prompt>
 Old file content:
@@ -447,18 +445,19 @@ Your Response:`
   //   [{ role: 'user', content: prompt }],
   //   { fingerprintId }
   // )
-  const response = await promptOpenAIWithContinuation(
+  const { response } = await promptClaudeWithContinuation(
     [{ role: 'user', content: prompt }],
     {
       clientSessionId,
-      model: openaiModels.gpt4o,
+      model: models.sonnet,
       fingerprintId,
       userInputId,
       userId,
     }
   )
 
-  debugLog('OpenAI response for diff blocks:', response)
+  debugLog('Claude response for diff blocks:', response)
+  console.log('Claude response for diff blocks:', response)
 
   const { diffBlocks, diffBlocksThatDidntMatch } = parseAndGetDiffBlocks(
     response,
@@ -499,22 +498,22 @@ ${STOP_MARKER}
 `.trim()
     console.log('Trying a second prompt for getDiffBlocks', filePath)
     debugLog('Trying a second prompt for getDiffBlocks', filePath)
-    const response = await promptOpenAIWithContinuation(
+    const { response: newResponse } = await promptClaudeWithContinuation(
       [{ role: 'user', content: newPrompt }],
       {
         clientSessionId,
         fingerprintId,
         userInputId,
-        model: openaiModels.gpt4o,
+        model: models.sonnet,
         userId,
       }
     )
-    debugLog('Second Claude response for diff blocks:', response)
+    debugLog('Second Claude response for diff blocks:', newResponse)
 
     const {
       diffBlocks: newDiffBlocks,
       diffBlocksThatDidntMatch: newDiffBlocksThatDidntMatch,
-    } = parseAndGetDiffBlocks(response, filePath, oldContent)
+    } = parseAndGetDiffBlocks(newResponse, filePath, oldContent)
     for (const change of newDiffBlocksThatDidntMatch) {
       console.log('Still found new diff block didnt match', filePath)
       debugLog('Warning: Still found new diff block didnt match', filePath)
