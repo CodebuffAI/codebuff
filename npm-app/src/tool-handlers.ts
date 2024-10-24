@@ -96,7 +96,7 @@ export const handleRunTerminalCommand = async (
     })
 
     childProcess.on('close', (code) => {
-      if (command.startsWith('cd ') && code === 0) {
+      if (command.startsWith('cd ') && code === 0 && mode === 'user') {
         const newWorkingDirectory = command.split(' ')[1]
         setProjectRoot(path.join(getProjectRoot(), newWorkingDirectory))
       }
