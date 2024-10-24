@@ -1,5 +1,4 @@
 # Manicode Web Application Knowledge
-# Manicode Web Application Knowledge
 
 ## Authentication and Login System
 
@@ -42,6 +41,17 @@ The authentication system in Manicode's web application plays a crucial role in 
 - Implement proper CSRF protection for all authenticated routes.
 
 ## UI Patterns
+
+### Logo Usage
+- Include the Manicode logo alongside the company name in key UI components
+- Logo placement:
+  - Navbar: Primary placement
+  - Footer: Left side of sitemap
+- Use Image component from Next.js for optimized loading
+- Logo files:
+  - `/public/favicon/apple-touch-icon.png`: Main logo
+  - `/public/favicon/favicon.ico`: Favicon
+  - `/public/favicon/favicon-16x16.ico`: Small variant
 
 ### Code Snippets
 When displaying inline code snippets with copy buttons:
@@ -118,7 +128,6 @@ Example of correct layering:
 ```jsx
 <div className="relative z-20">...</div> // Interactive component
 ## Referral System
-
 
 ### API Response Errors
 
