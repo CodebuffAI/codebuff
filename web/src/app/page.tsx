@@ -13,39 +13,26 @@ const Home = () => {
       <BackgroundBeams />
 
       <div className="max-w-6xl mx-auto">
-        <main className="px-6 py-20 relative z-10">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 mx-auto text-center">
+        <main className="px-6 py-20 relative z-10 text-center space-y-8">
+          <h1 className="text-5xl md:text-7xl font-bold -mt-6 mx-auto">
             Code at the Speed of Thought
           </h1>
-          <div className="text-2xl mb-6 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto text-center">
+          <div className="text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             <p>Use natural language to edit your codebase and</p>
             <p>run commands from your terminal faster.</p>
           </div>
-          <section className="pt-6 relative z-10">
-            <div className="text-center mb-4">Try Manicode for free:</div>
-            <div className="px-4 text-center">
+          <section className="relative z-10">
+            <div className="mb-4">Try Manicode for free:</div>
+            <div className="px-4 ">
               <div className="bg-gray-800 rounded-lg p-4 inline-block">
                 <code className="text-white">npm install -g manicode</code>
               </div>
             </div>
           </section>
-          <section className="pt-6 flex justify-center">
-            <p>Backed by</p>
-            <Link
-              target="_blank"
-              href="https://www.ycombinator.com/companies/manicode"
-            >
-              <img
-                src="/y-combinator.svg"
-                alt="y combinator logo"
-                className="h-8 w-full"
-              />
-            </Link>
-          </section>
         </main>
 
-        <section className="py-10 px-4 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold mb-8 text-center">
+        <section className="py-10 px-4 relative z-10 space-y-8">
+          <h2 className="text-3xl md:text-4xl font-bold text-center">
             Watch the Demo
           </h2>
           <div className="max-w-3xl mx-auto">
@@ -58,6 +45,37 @@ const Home = () => {
                 className="h-full w-full rounded-lg shadow-lg"
               ></iframe>
             </div>
+          </div>
+
+          <div className="flex justify-center space-x-8">
+            <div className="flex flex-col items-center">
+              <p>Backed by</p>
+              <Link
+                target="_blank"
+                href="https://www.ycombinator.com/companies/manicode"
+              >
+                <img
+                  src="/y-combinator.svg"
+                  alt="y combinator logo"
+                  className="h-8 w-full"
+                />
+              </Link>
+            </div>
+            <a
+              href="https://www.producthunt.com/posts/manicode?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-manicode"
+              target="_blank"
+            >
+              <img
+                src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=${theme}`}
+                alt="Manicode - Better&#0032;code&#0032;generation&#0032;than&#0032;Cursor&#0044;&#0032;from&#0032;your&#0032;CLI | Product Hunt"
+                style={{
+                  width: '250px',
+                  height: '54px',
+                }}
+                width="250"
+                height="54"
+              />
+            </a>
           </div>
         </section>
 
@@ -96,29 +114,6 @@ const Home = () => {
                 performance with AI-driven refactoring.
               </p>
             </div>
-          </div>
-        </section>
-
-        <section className="py-20 relative">
-          <div className="px-4 text-center relative z-10">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">
-              Experience the Future of Coding
-            </h2>
-            {/* <p className="text-xl mb-8 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              We&apos;re a YC-backed startup building a simpler way to code with
-              AI.
-            </p> */}
-            <p>Backed by</p>
-            <Link
-              target="_blank"
-              href="https://www.ycombinator.com/companies/manicode"
-            >
-              <img
-                src="/y-combinator.svg"
-                alt="y combinator logo"
-                className="h-8 w-full"
-              />
-            </Link>
           </div>
         </section>
 

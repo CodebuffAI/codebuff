@@ -11,9 +11,9 @@ export function Banner() {
   if (!isVisible) return <></>
 
   return (
-    <div className="w-full bg-blue-500 text-white px-4 py-2">
+    <div className="w-full bg-blue-500 text-white px-4 py-2 relative z-20">
       <div className="md:container mx-auto flex items-center justify-between">
-        <div className="w-8" /> {/* Spacer */}
+        <div className="w-8" />
         <div className="flex items-center gap-2 text-center">
           <Gift className="h-4 w-4" />
           <p className="text-sm">
@@ -26,7 +26,7 @@ export function Banner() {
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:text-blue-200"
+          className="text-white hover:bg-transparent"
           onClick={() => setIsVisible(false)}
         >
           <X className="h-4 w-4" />

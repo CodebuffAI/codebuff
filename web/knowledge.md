@@ -67,7 +67,25 @@ Example of correct ordering:
   </SessionProvider>
 </ThemeProvider>
 ```
+### Component Layering
 
+Important considerations for interactive components:
+
+1. Z-index Requirements:
+   - Interactive components must have proper z-index positioning AND be inside providers
+   - Components with dropdowns or overlays should use z-20 or higher
+   - The navbar uses z-10 by default
+   - Banner and other top-level interactive components use z-20
+   - Ensure parent elements have `position: relative` when using z-index
+
+2. Common Issues:
+   - Components may appear but not be clickable if z-index is too low
+   - Moving components inside providers alone may not fix interactivity
+   - Always check both provider context and z-index when debugging click events
+
+Example of correct layering:
+```jsx
+<div className="relative z-20">...</div> // Interactive component
 ## Referral System
 
 ## Error Handling
