@@ -40,12 +40,14 @@ const Home = () => {
           <section className="relative z-10">
             <div className="mb-4">Try Manicode for free:</div>
 
-            <div className="px-4 bg-gray-800 rounded-lg p-4 inline-block flex items-center gap-2">
-              <code className="text-white">npm install -g manicode</code>
-              <Copy
-                className="h-4 w-4 text-gray-400 hover:text-white cursor-pointer"
-                onClick={copyToClipboard}
-              />
+            <div className="inline-block">
+              <div className="px-4 bg-gray-800 rounded-lg p-4 flex items-center gap-2">
+                <code className="text-white">npm install -g manicode</code>
+                <Copy
+                  className="h-4 w-4 text-gray-400 hover:text-white cursor-pointer"
+                  onClick={copyToClipboard}
+                />
+              </div>
             </div>
           </section>
         </main>
