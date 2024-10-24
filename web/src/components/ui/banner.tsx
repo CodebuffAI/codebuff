@@ -12,7 +12,8 @@ export function Banner() {
 
   return (
     <div className="w-full bg-blue-500 text-white px-4 py-2">
-      <div className="md:container mx-auto flex items-center">
+      <div className="md:container mx-auto flex items-center justify-between">
+        <div className="w-8" /> {/* Spacer */}
         <div className="flex items-center gap-2 text-center">
           <Gift className="h-4 w-4" />
           <p className="text-sm">
