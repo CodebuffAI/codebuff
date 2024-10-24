@@ -1,8 +1,9 @@
 'use client'
 
 import { Button } from './button'
-import { X } from 'lucide-react'
+import { X, Gift } from 'lucide-react'
 import { useState } from 'react'
+import Link from 'next/link'
 
 export function Banner() {
   const [isVisible, setIsVisible] = useState(true)
@@ -12,9 +13,17 @@ export function Banner() {
   return (
     <div className="w-full bg-blue-500 text-white px-4 py-2">
       <div className="container mx-auto flex items-center justify-between">
-        <p className="text-sm">Welcome to Manicode! Get started with AI-powered coding assistance.</p>
-        <Button 
-          variant="ghost" 
+        <div className="flex items-center gap-2">
+          <Gift className="h-4 w-4" />
+          <p className="text-sm">
+            Invite frens to Manicode and earn free credits!{' '}
+            <Link href="/referrals" className="underline hover:text-blue-200">
+              Learn more
+            </Link>
+          </p>
+        </div>
+        <Button
+          variant="ghost"
           size="icon"
           className="text-white hover:text-blue-200"
           onClick={() => setIsVisible(false)}

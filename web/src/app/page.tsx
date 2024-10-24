@@ -18,9 +18,9 @@ const Home = () => {
           <h1 className="text-5xl md:text-7xl font-bold mb-6 mx-auto text-center">
             Code at the Speed of Thought
           </h1>
-          <p className="text-2xl md:text-3xl mb-6 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Use natural language to edit your codebase and <br />
-            run commands from your terminal faster.
+          <p className="text-2xl mb-6 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto text-center">
+            Use natural language to edit your codebase and run commands from
+            your terminal faster.
           </p>
           {/* <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
           <Input

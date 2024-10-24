@@ -41,6 +41,22 @@ The authentication system in Manicode's web application plays a crucial role in 
 - Use secure, HTTP-only cookies for session management.
 - Implement proper CSRF protection for all authenticated routes.
 
+## Client-Side Interactivity
+
+### Component Guidelines
+
+- All components with user interactions (clicks, state, etc.) must use the 'use client' directive
+- Common cases requiring 'use client':
+  - Components with useState/useEffect
+  - Interactive elements like buttons
+  - Forms and input handlers
+  - Custom hooks with state
+- Place directive at the top of the file: `'use client'`
+
+### Server vs Client Components
+
+- Server components are the default in Next.js 13+
+- Only mark components as client when needed for interactivity
 ## Referral System
 
 ## Error Handling
