@@ -41,22 +41,33 @@ The authentication system in Manicode's web application plays a crucial role in 
 - Use secure, HTTP-only cookies for session management.
 - Implement proper CSRF protection for all authenticated routes.
 
-## Client-Side Interactivity
+## Component Architecture
 
-### Component Guidelines
+### Client Components and Providers
 
-- All components with user interactions (clicks, state, etc.) must use the 'use client' directive
-- Common cases requiring 'use client':
-  - Components with useState/useEffect
-  - Interactive elements like buttons
-  - Forms and input handlers
-  - Custom hooks with state
-- Place directive at the top of the file: `'use client'`
+- Important considerations for client-side interactivity:
 
-### Server vs Client Components
+1. Client Component Placement:
+   - Place client components that need interactivity INSIDE provider components
+   - Put client components after ThemeProvider, SessionProvider, and QueryProvider
+   - Exception: Components that don't need provider context can go before providers
 
-- Server components are the default in Next.js 13+
-- Only mark components as client when needed for interactivity
+2. Common Issues:
+   - Buttons/interactions may not work if component is placed before providers
+   - State updates may fail silently when providers are missing
+   - Always check component placement in layout hierarchy when debugging client-side issues
+
+Example of correct ordering:
+```jsx
+<ThemeProvider>
+  <SessionProvider>
+    <QueryProvider>
+      {/* Interactive components go here */}
+    </QueryProvider>
+  </SessionProvider>
+</ThemeProvider>
+```
+
 ## Referral System
 
 ## Error Handling

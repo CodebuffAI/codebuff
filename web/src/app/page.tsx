@@ -30,21 +30,17 @@ const Home = () => {
             </div>
           </section>
           <section className="pt-6 flex justify-center">
-            <a
-              href="https://www.producthunt.com/posts/manicode?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-manicode"
+            <p>Backed by</p>
+            <Link
               target="_blank"
+              href="https://www.ycombinator.com/companies/manicode"
             >
               <img
-                src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=${theme}`}
-                alt="Manicode - Better&#0032;code&#0032;generation&#0032;than&#0032;Cursor&#0044;&#0032;from&#0032;your&#0032;CLI | Product Hunt"
-                style={{
-                  width: '250px',
-                  height: '54px',
-                }}
-                width="250"
-                height="54"
+                src="/y-combinator.svg"
+                alt="y combinator logo"
+                className="h-8 w-full"
               />
-            </a>
+            </Link>
           </section>
         </main>
 
