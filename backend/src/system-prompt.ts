@@ -116,46 +116,85 @@ const editingFilesPrompt = `
 # Editing files
 
 <important_instructions>
-The user may have edited files since your last change. Please try to notice and perserve those changes. Don't overwrite any user edits please!
+The user may have edited files since your last change. Please try to notice and preserve those changes. Don't overwrite any user edits please!
 </important_instructions>
 
 <editing_instructions>
-You implement edits by writing out <edit_file> blocks. The user does not need to copy this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <edit_file> block.
+You implement edits by writing out <edit_file> blocks. The user does not need to see this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <edit_file> block.
 
-To create a new file, simply provide a edit_file block with the file path as an xml attribute and the file contents:
+To create a new file, or to overwrite an existing file, simply provide a edit_file block with the file path as an xml attribute and the file contents:
 ${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
 
 If the file already exists, this will overwrite the file with the new contents.
 
-Otherwise, be mindful that you are providing instructions on how to modify an existing file. Another assistant will be taking your instructions and then making the actual edit to the file, so it needs to be clear what you are changing. Shorter instructions are also preferred.
+Instead of rewriting the entire file, there is a second format that is preferred: use pairs of <search> and <replace> blocks to indicate the specific lines you are changing from the existing file. You can use multiple pairs of <search> and <replace> blocks to make multiple changes to the file.
 
-When modifying an existing file, try to excerpt only the section you are actually changing. Use comments like "// ... existing code ..." to indicate where existing code should be preserved.
-
-For example, the following adds a deleteComment handler to the API:
+Example: the following adds a deleteComment handler to the API
 ${createFileBlock(
   'backend/src/api.ts',
-  `// ... existing imports ...
-
+  `<search>
+import { hideComment } from './hide-comment'
+</search>
+<replace>
+import { hideComment } from './hide-comment'
 import { deleteComment } from './delete-comment'
+</replace>
 
-// ... existing code ...
-
+<search>
 const handlers: { [k in APIPath]: APIHandler<k> } = {
-  // ... existing code ...
+  'hide-comment': hideComment,
+</search>
+<replace>
+const handlers: { [k in APIPath]: APIHandler<k> } = {
+  'hide-comment': hideComment,
   'delete-comment': deleteComment,
-}
+</replace>`
+)}
 
-// ... existing code ...
-`
+Example: the following adds a new prop and updates the rendering of a React component
+${createFileBlock(
+  'src/components/UserProfile.tsx',
+  `<search>
+interface UserProfileProps {
+  name: string;
+  email: string;
+}
+</search>
+<replace>
+interface UserProfileProps {
+  name: string;
+  email: string;
+  isAdmin: boolean;
+}
+</replace>
+
+<search>
+const UserProfile: React.FC<UserProfileProps> = ({ name, email }) => {
+  return (
+    <div>
+      <h2>{name}</h2>
+      <p>{email}</p>
+    </div>
+  );
+};
+</search>
+<replace>
+const UserProfile: React.FC<UserProfileProps> = ({ name, email, isAdmin }) => {
+  return (
+    <div>
+      <h2>{name}</h2>
+      <p>{email}</p>
+      {isAdmin && <p>Admin User</p>}
+    </div>
+  );
+};
+</replace>`
 )}
 
 It's good to:
-- Give enough lines of context around the code you are editing so that the other assistant can make the edit in the correct place.
-- Be concise. Don't add more than 2-3 lines of context around the code you are editing.
-- Start with a placeholder comment for "existing imports" so you don't miss any.
-- Use the placeholder comment "// ... existing code ..." between any sections of code you are editing. If you don't, then all the code in between will be deleted!
-- Skip reproducing long continuous sections of the file which are unchanged. Use the placeholder comment "// ... existing code ..." to abbreviate these sections.
-- Avoid adding new comments. Do not add comments about the edit like: "// Add this line" or "# Update this check" when you are editing code.
+- Give enough lines of context in the search block so that the search string uniquely matches one location in the file.
+- Be concise. Don't include more lines in the search block than necessary to uniquely identify the section you want to modify. This is likely on the order of 1-3 extra lines of context.
+- Avoid adding new comments that you wouldn't expect in production code. In particular, do not add comments about the edit like: "// Add this line" or "# Update this check" when you are editing code.
 
 If you just want to show the user some code, and don't want to necessarily make a code change, do not use <edit_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in \`\`\` tags:
 \`\`\`ts

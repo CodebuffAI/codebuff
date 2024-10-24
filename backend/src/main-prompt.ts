@@ -1,5 +1,6 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
+import { createPatch } from 'diff'
 
 import { promptClaudeStream } from './claude'
 import { ProjectFileContext } from 'common/util/file'
@@ -9,7 +10,6 @@ import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
 import { FileChange, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { requestFiles, requestFile } from './websockets/websocket-action'
-import { generatePatch } from './generate-patch'
 import {
   requestRelevantFiles,
   warmCacheForRequestRelevantFiles,
@@ -18,7 +18,7 @@ import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens } from './util/token-counter'
 import { logger } from './util/logger'
-import { generatePatchWithSearchReplace } from './generate-patch-search-replace'
+import { parseAndGetDiffBlocksSingleFile } from './generate-diffs-prompt'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -402,6 +402,7 @@ export async function processFileBlock(
   newContent: string,
   userId?: string
 ): Promise<FileChange | null> {
+  console.log('processFileBlock', { filePath, newContent })
   const oldContent = await requestFile(ws, filePath)
 
   if (oldContent === null) {
@@ -420,19 +421,28 @@ export async function processFileBlock(
     return null
   }
 
-  logger.info({ filePath }, 'processFileBlock: Generating patch')
-
-  const patch = await generatePatchWithSearchReplace(
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    oldContent,
-    newContent,
-    filePath,
-    messageHistory,
-    fullResponse,
-    userId
+  const { diffBlocks, diffBlocksThatDidntMatch } =
+    parseAndGetDiffBlocksSingleFile(newContent, oldContent)
+  console.log(
+    'diffBlocks',
+    diffBlocks,
+    'diffBlocksThatDidntMatch',
+    diffBlocksThatDidntMatch
   )
+  let updatedContent = oldContent
+  for (const diffBlock of diffBlocks) {
+    const { searchContent, replaceContent } = diffBlock
+    updatedContent = updatedContent.replace(searchContent, replaceContent)
+  }
+
+  let patch = createPatch(filePath, oldContent, updatedContent)
+  const lines = patch.split('\n')
+  const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
+  if (hunkStartIndex !== -1) {
+    patch = lines.slice(hunkStartIndex).join('\n')
+  } else patch = ''
+  // const updatedPatch = patch.replaceAll('\n', lineEnding)
+
   logger.debug(
     { filePath, oldContent, sketch: newContent, patch },
     'processFileBlock: Generated patch'

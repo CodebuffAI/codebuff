@@ -524,7 +524,7 @@ ${STOP_MARKER}
   return diffBlocks
 }
 
-const parseAndGetDiffBlocks = (
+export const parseAndGetDiffBlocks = (
   response: string,
   filePath: string,
   oldFileContent: string
@@ -569,6 +569,49 @@ const parseAndGetDiffBlocks = (
     diffBlocksThatDidntMatch,
   }
 }
+
+export const parseAndGetDiffBlocksSingleFile = (
+  newContent: string,
+  oldFileContent: string
+) => {
+  const diffBlocksThatDidntMatch: {
+    searchContent: string
+    replaceContent: string
+  }[] = []
+  const diffBlocks: { searchContent: string; replaceContent: string }[] = []
+  const blockRegex =
+      /<search>([\s\S]*?)<\/search>\s*<replace>([\s\S]*?)<\/replace>/g
+    let blockMatch
+
+  while ((blockMatch = blockRegex.exec(newContent)) !== null) {
+    const change = {
+      searchContent: removeNewlinesFromStartAndEnd(blockMatch[1]),
+        replaceContent: removeNewlinesFromStartAndEnd(blockMatch[2]),
+      }
+
+      if (oldFileContent.includes(change.searchContent)) {
+        diffBlocks.push(change)
+      } else {
+        const newChange = tryToDoStringReplacementWithExtraIndentation(
+          oldFileContent,
+          change.searchContent,
+          change.replaceContent
+        )
+        if (newChange) {
+          console.log('Matched with indentation modification')
+          debugLog('Matched with indentation modification')
+          diffBlocks.push(newChange)
+        } else {
+          diffBlocksThatDidntMatch.push(change)
+      }
+    }
+  }
+  return {
+    diffBlocks,
+    diffBlocksThatDidntMatch,
+  }
+}
+
 
 const tryToDoStringReplacementWithExtraIndentation = (
   oldFileContent: string,
