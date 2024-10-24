@@ -5,17 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { sleep } from 'common/util/helpers'
 import { CopyIcon, CheckIcon, GiftIcon } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-
-type ReferralCodeResponse = {
-  referrerName: string
-  isSameUser: boolean
-  hasReachedLimit: boolean
-  error?: string
-}
+import type { ReferralCodeResponse } from '@/app/api/referrals/[code]/route'
+import { Button } from '@/components/ui/button'
 
 const InputWithCopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
@@ -82,7 +76,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
       <CardHeader>
         <CardTitle className="flex">
           <GiftIcon className="mr-2" />
-          {data?.hasReachedLimit
+          {data?.limitReached
             ? 'Referral Limit Reached'
             : "You've got credits!"}
         </CardTitle>
@@ -90,9 +84,9 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
 
       <CardContent>
         <b>Hey {session?.user?.name} 👋</b>
-        {data?.hasReachedLimit ? (
+        {data && data?.limitReached ? (
           <p>
-            Thanks for your interest, but {data?.referrerName}&apos;s referral
+            Thanks for your interest, but {data.referrerName}&apos;s referral
             code has reached its maximum number of uses. Please ask another
             friend for their referral code or consider signing up directly.
           </p>
@@ -104,32 +98,39 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
         )}
       </CardContent>
 
-      {!data?.hasReachedLimit && (
-        <div className="flex flex-col space-y-2">
-          <CardContent>
-            <p className="my-4">To redeem them, follow these steps:</p>
-            <ol className="list-decimal list-inside space-y-6">
-              <li>
-                Install Manicode globally:
-                <InputWithCopyButton text={'npm i -g manicode'} />
-              </li>
-              <li>
-                Run Manicode in Terminal
-                <InputWithCopyButton text={'manicode'} />
-              </li>
+      <div className="flex flex-col space-y-2">
+        <CardContent>
+          <p className="my-4">
+            {data?.limitReached
+              ? `Fear not, you can still get started with Manicode! Here's how:`
+              : 'To redeem them, follow these steps:'}
+          </p>
+          <ol className="list-decimal list-inside space-y-6">
+            <li>
+              Install Manicode globally:
+              <InputWithCopyButton text={'npm i -g manicode'} />
+            </li>
+            <li>
+              Run Manicode in Terminal
+              <InputWithCopyButton text={'manicode'} />
+            </li>
+            {!data?.limitReached && (
               <li>
                 Paste this referral code in the CLI.
                 <InputWithCopyButton text={params.code} />
               </li>
-            </ol>
-            {data?.isSameUser && (
-              <p className="font-bold text-red-600 mt-4">
-                Just FYI, this is your own referral code. It won&apos;t be valid
-                for you to use.
-              </p>
             )}
-          </CardContent>
-        </div>
+          </ol>
+        </CardContent>
+      </div>
+
+      {data?.isSameUser && (
+        <CardContent>
+          <p className="font-bold text-red-600 mt-4">
+            Just FYI, this is your own referral code. (Others won&apos;t see
+            this message).
+          </p>
+        </CardContent>
       )}
     </Card>
   )
