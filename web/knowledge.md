@@ -41,6 +41,14 @@ The authentication system in Manicode's web application plays a crucial role in 
 - Use secure, HTTP-only cookies for session management.
 - Implement proper CSRF protection for all authenticated routes.
 
+## UI Components
+
+### Toast Notifications
+
+- Close buttons (X) should always be visible, not just on hover/focus
+- This helps with discoverability and matches the project's emphasis on clear user interactions
+- Implementation: Remove the `opacity-0` class from the close button's base styles
+
 ## Component Architecture
 
 ### Client Components and Providers

@@ -10,18 +10,11 @@ const Home = () => {
   const { theme } = useTheme()
   const { toast } = useToast()
 
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText('npm install -g manicode')
-      toast({
-        description: 'Copied to clipboard!',
-      })
-    } catch (err) {
-      toast({
-        description: 'Failed to copy to clipboard',
-        variant: 'destructive',
-      })
-    }
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText('npm install -g manicode')
+    toast({
+      description: 'Copied to clipboard!',
+    })
   }
 
   return (
