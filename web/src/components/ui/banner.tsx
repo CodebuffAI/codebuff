@@ -17,7 +17,7 @@ export function Banner() {
         <div className="flex items-center gap-2 text-center">
           <Gift className="h-4 w-4" />
           <p className="text-sm">
-            Invite frens to Manicode and earn free credits!{' '}
+            Invite frens and earn free credits!{' '}
             <Link href="/referrals" className="underline hover:text-blue-200">
               Learn more
             </Link>
