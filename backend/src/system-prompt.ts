@@ -274,6 +274,11 @@ Use cases:
 - If you need to understand a section of the codebase, read more files in that directory or subdirectories.
 - Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
 
+However, use this tool sparingly. It's not necessary when:
+- You are creating a new file
+- You want to edit a file that you already have in context. Double check that the file is not listed in the <relevant_files> block already before calling find_files.
+- You already called it recently. Multiple calls in a row are not productive.
+
 ## Running terminal commands
 
 You can write out <tool_call name="run_terminal_command">...</tool_call> to execute shell commands in the user's terminal. This can be useful for tasks such as:
