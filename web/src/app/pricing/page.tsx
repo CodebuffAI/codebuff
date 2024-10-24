@@ -67,7 +67,6 @@ const PricingPage = () => {
       features: [
         '$0.90 per 100 credits afterwards',
         'Priority support over email',
-        'Custom integrations',
       ],
       buttonAction: () => handleCreateCheckoutSession(),
       buttonText: session?.data?.user?.subscription_active ? (
@@ -84,10 +83,10 @@ const PricingPage = () => {
       price: 'Custom',
       credits: 'Custom',
       features: [
-        'Dedicated AI model',
         'Team collaboration',
         '24/7 support',
         'Custom features',
+        'Custom integrations',
       ],
       buttonText: (
         <Link href={'mailto:founders@manicode.ai'}>Contact Sales</Link>
