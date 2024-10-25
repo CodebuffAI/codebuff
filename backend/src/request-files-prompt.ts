@@ -400,7 +400,7 @@ export const warmCacheForRequestRelevantFiles = async (
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string
+  userId: string | undefined
 ) => {
   await promptClaude(
     [

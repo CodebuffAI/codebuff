@@ -133,7 +133,7 @@ export const promptClaudeStream = async function* (
     }
 
     // End of turn
-    if (type === 'message_delta' && chunk.delta.stop_reason === 'end_turn') {
+    if (type === 'message_delta' && 'usage' in chunk) {
       if (!messageId) {
         console.error('No messageId found')
         break

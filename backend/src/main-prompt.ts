@@ -163,7 +163,6 @@ ${STOP_MARKER}
           return `<edit_file path="${path}">`
         },
         onTagEnd: (fileContent, { path }) => {
-          console.log('onTagEnd', { path, fileContent })
           const filePathWithoutStartNewline = fileContent.startsWith('\n')
             ? fileContent.slice(1)
             : fileContent
