@@ -3,7 +3,11 @@ import { FileChange, Message } from 'common/actions'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { processFileBlock } from './main-prompt'
 import { promptClaude } from './claude'
-import { getSearchSystemPrompt, knowledgeFilesPrompt } from './system-prompt'
+import {
+  getSearchSystemPrompt,
+  knowledgeFilesPrompt,
+  editingFilesPrompt,
+} from './system-prompt'
 import { logger } from './util/logger'
 
 export async function generateKnowledgeFiles(
@@ -23,6 +27,8 @@ export async function generateKnowledgeFiles(
       type: 'text' as const,
       text: `You are an assistant that helps developers create knowledge files for their codebase. You are helpful and concise, knowing exactly when enough information has been gathered to create a knowledge file. Here's some more information on knowledge files:
     ${knowledgeFilesPrompt}
+
+    ${editingFilesPrompt}
 
     In this conversation, the assistant and user are making changes to a codebase. You should use this chat history to create a knowledge file if their changes are meaningful. If their changes are not meaningful, you should not create/update a knowledge file.
     IMPORTANT: a meaningful change is one that is not easily self-evident in the code. An example of a meaningful change is if the user wants to use a package manager aside from the default, because that is hard to find in the codebase. A good rule of thumb is if a quick, hurried glance through the code is enough to understand the change, it is not meaningful to add to our knowledge files. If the change is too complex or requires a lot of context to understand, it's meaningful and thus a good idea to add it to the knowledge file.
@@ -71,7 +77,8 @@ export async function generateKnowledgeFiles(
     Otherwise, check the existing knowledge files to see if there isn't something written about it yet. If there is, don't output anything because we don't want to repeat ourselves.
     Finally, for any meaningful change that hasn't been captured in the knowledge file, you should update a knowledge file with <edit_file> blocks. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
 
-    When you are updating an existing knowledge file, please either reproduce the entire file or write comments like "<!-- ... existing knowledge file ... -->" in sections that should stay the same.
+    When you are updating an existing knowledge file, please either reproduce the entire file or use <search> and <replace> blocks to indicate the specific lines you are changing from the existing file.
+    Do not update any files other than knowledge files (files that end in '.knowledge.md').
     `
 
   const messages = [
@@ -107,8 +114,9 @@ export async function generateKnowledgeFiles(
     'generateKnowledgeFiles: context and response'
   )
 
-  const fileChangePromises = Object.entries(files).map(
-    ([filePath, fileContent]) =>
+  const fileChangePromises = Object.entries(files)
+    .filter(([filePath]) => filePath.endsWith('.knowledge.md'))
+    .map(([filePath, fileContent]) =>
       processFileBlock(
         clientSessionId,
         fingerprintId,
@@ -120,6 +128,6 @@ export async function generateKnowledgeFiles(
         fileContent,
         userId
       )
-  )
+    )
   return fileChangePromises
 }
