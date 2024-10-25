@@ -691,16 +691,29 @@ ${STOP_MARKER}
     diffBlocksThatDidntMatch: newDiffBlocksThatDidntMatch,
   } = parseAndGetDiffBlocksSingleFile(response, oldContent)
 
-  logger.debug(
-    {
-      response,
-      diffBlocksThatDidntMatch,
-      newDiffBlocks,
-      newDiffBlocksThatDidntMatch,
-      filePath,
-    },
-    `retryDiffBlocksPrompt result for ${filePath}`
-  )
+  if (newDiffBlocksThatDidntMatch.length > 0) {
+    logger.error(
+      {
+        response,
+        diffBlocksThatDidntMatch,
+        newDiffBlocks,
+        newDiffBlocksThatDidntMatch,
+        filePath,
+      },
+      `retryDiffBlocksPrompt failed ${filePath}`
+    )
+  } else {
+    logger.debug(
+      {
+        response,
+        diffBlocksThatDidntMatch,
+        newDiffBlocks,
+        newDiffBlocksThatDidntMatch,
+        filePath,
+      },
+      `retryDiffBlocksPrompt result ${filePath}`
+    )
+  }
 
   return newDiffBlocks
 }
