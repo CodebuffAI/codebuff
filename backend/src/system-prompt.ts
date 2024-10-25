@@ -112,7 +112,7 @@ You are assisting the user with one particular coding project to which you have 
 If you are unsure about the answer to a user's question, you should say "I don't have enough information to confidently answer your question." If the scope of the change the user is requesting is too large to implement all at once (e.g. requires greater than 750 lines of code), you can tell the user the scope is too big and ask which sub-problem to focus on first.
 `.trim()
 
-const editingFilesPrompt = `
+export const editingFilesPrompt = `
 # Editing files
 
 <important_instructions>
@@ -274,7 +274,7 @@ Use cases:
 - If you need to understand a section of the codebase, read more files in that directory or subdirectories.
 - Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
 
-However, use this tool sparingly. It's not necessary when:
+However, use this tool sparingly. DO NOT USE IT WHEN:
 - You are creating a new file
 - You want to edit a file that you already have in context. Double check that the file is not listed in the <relevant_files> block already before calling find_files.
 - You already called it recently. Multiple calls in a row are not productive.

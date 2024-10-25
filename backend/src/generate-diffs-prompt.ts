@@ -2,7 +2,7 @@ import { createFileBlock, parseFileBlocks } from 'common/util/file'
 import { Message } from 'common/actions'
 import { debugLog } from './util/debug'
 import { EXISTING_CODE_MARKER, models, STOP_MARKER } from 'common/constants'
-import { promptClaudeWithContinuation } from './claude'
+import { promptClaude, promptClaudeWithContinuation } from './claude'
 import { logger } from './util/logger'
 
 export async function generateExpandedFileWithDiffBlocks(
@@ -679,16 +679,13 @@ You should:
 Please make sure to end your response with the following string:
 ${STOP_MARKER}
 `.trim()
-  const { response } = await promptClaudeWithContinuation(
-    [{ role: 'user', content: newPrompt }],
-    {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: models.sonnet,
-      userId,
-    }
-  )
+  const response = await promptClaude([{ role: 'user', content: newPrompt }], {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model: models.sonnet,
+    userId,
+  })
   const {
     diffBlocks: newDiffBlocks,
     diffBlocksThatDidntMatch: newDiffBlocksThatDidntMatch,
@@ -702,7 +699,7 @@ ${STOP_MARKER}
       newDiffBlocksThatDidntMatch,
       filePath,
     },
-    'retryDiffBlocksPrompt result'
+    `retryDiffBlocksPrompt result for ${filePath}`
   )
 
   return newDiffBlocks

@@ -410,19 +410,22 @@ export async function processFileBlock(
   const oldContent = await requestFile(ws, filePath)
 
   if (oldContent === null) {
-    logger.debug({ filePath, newContent }, 'processFileBlock: Created new file')
+    logger.debug(
+      { filePath, newContent },
+      `processFileBlock: Created new file ${filePath}`
+    )
     return { filePath, content: newContent, type: 'file' }
   }
 
   if (newContent === oldContent) {
     logger.info(
       { newContent },
-      'processFileBlock: New file was the same as old content, skipping'
+      `processFileBlock: New was same as old, skipping ${filePath}`
     )
     return null
   }
 
-  logger.debug({ filePath, newContent }, 'processFileBlock')
+  logger.debug({ filePath, newContent }, `processFileBlock: ${filePath}`)
 
   const lineEnding = oldContent.includes('\r\n') ? '\r\n' : '\n'
   const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
@@ -472,7 +475,7 @@ export async function processFileBlock(
       patch,
       diffBlocks,
     },
-    'processFileBlock: Generated patch'
+    `processFileBlock: Generated patch for ${filePath}`
   )
   return { filePath, content: patch, type: 'patch' }
 }
