@@ -194,8 +194,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ name, email, isAdmin }) => {
 It's good to:
 - Give enough lines of context in the search block so that the search string uniquely matches one location in the file.
 - Be concise. Don't include more lines in the search block than necessary to uniquely identify the section you want to modify. This is likely on the order of 1-3 extra lines of context.
-- Avoid adding new comments that you wouldn't expect in production code. In particular, do not add comments about the edit like: "// Add this line" or "# Update this check" when you are editing code.
-- The block names used within <edit_file> blocks are <search> and <replace>. Do not use any other block names like <insert>.
+- Do not add new comments that you wouldn't expect in production code. In particular, do not add comments that explain the current edit, e.g. "// Add this line" or "# Update this check".
 
 If you just want to show the user some code, and don't want to necessarily make a code change, do not use <edit_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in \`\`\` tags:
 \`\`\`ts
@@ -274,7 +273,7 @@ Use cases:
 - If you need to understand a section of the codebase, read more files in that directory or subdirectories.
 - Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
 
-However, use this tool sparingly. DO NOT USE IT WHEN:
+However, use this tool sparingly. DO NOT USE "find_files" WHEN:
 - You are creating a new file
 - You want to edit a file that you already have in context. Double check that the file is not listed in the <relevant_files> block already before calling find_files.
 - You already called it recently. Multiple calls in a row are not productive.
