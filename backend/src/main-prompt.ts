@@ -8,8 +8,8 @@ import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
 import { FileChange, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
-import { requestFiles, requestFile } from './websockets/websocket-action'
-import { generatePatch } from './generate-patch'
+import { requestFile, requestFiles } from './websockets/websocket-action'
+import { processFileBlock } from './process-file-block'
 import {
   requestRelevantFiles,
   warmCacheForRequestRelevantFiles,
@@ -163,6 +163,7 @@ ${STOP_MARKER}
           return `<edit_file path="${path}">`
         },
         onTagEnd: (fileContent, { path }) => {
+          console.log('onTagEnd', { path, fileContent })
           const filePathWithoutStartNewline = fileContent.startsWith('\n')
             ? fileContent.slice(1)
             : fileContent
@@ -305,12 +306,13 @@ ${STOP_MARKER}
     logger.warn('Reached maximum number of iterations in mainPrompt')
   }
 
+  const knowledgeChanges = await genKnowledgeFilesPromise
+  fileProcessingPromises.push(...knowledgeChanges)
+
   if (fileProcessingPromises.length > 0) {
     onResponseChunk('\nApplying file changes. Please wait...\n')
   }
 
-  const knowledgeChanges = await genKnowledgeFilesPromise
-  fileProcessingPromises.push(...knowledgeChanges)
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
   )
@@ -388,53 +390,4 @@ async function updateFileContext(
     getRelevantFileInfoMessage(existingFiles)
 
   return { readFilesMessage, toolCallMessage }
-}
-
-export async function processFileBlock(
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  ws: WebSocket,
-  messageHistory: Message[],
-  fullResponse: string,
-  filePath: string,
-  newContent: string,
-  userId?: string
-): Promise<FileChange | null> {
-  const oldContent = await requestFile(ws, filePath)
-
-  if (oldContent === null) {
-    logger.debug(
-      { filePath, sketch: newContent },
-      'processFileBlock: Created new file'
-    )
-    return { filePath, content: newContent, type: 'file' }
-  }
-
-  if (newContent === oldContent) {
-    logger.info(
-      { sketch: newContent },
-      'processFileBlock: Sketch was the same as old content, skipping'
-    )
-    return null
-  }
-
-  logger.info({ filePath }, 'processFileBlock: Generating patch')
-
-  const patch = await generatePatch(
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    oldContent,
-    newContent,
-    filePath,
-    messageHistory,
-    fullResponse,
-    userId
-  )
-  logger.debug(
-    { filePath, oldContent, sketch: newContent, patch },
-    'processFileBlock: Generated patch'
-  )
-  return { filePath, content: patch, type: 'patch' }
 }

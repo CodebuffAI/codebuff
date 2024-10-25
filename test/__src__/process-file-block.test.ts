@@ -2,7 +2,7 @@ import { describe, it, expect, mock } from 'bun:test'
 
 import { WebSocket } from 'ws'
 import { applyPatch } from 'diff'
-import { processFileBlock } from 'backend/main-prompt'
+import { processFileBlock } from 'backend/process-file-block'
 
 describe('processFileBlock', () => {
   it('should handle Windows line endings with multi-line changes', async () => {
@@ -28,25 +28,25 @@ describe('processFileBlock', () => {
       requestFile: mockRequestFile,
     }))
 
-    mock.module('backend/generate-diffs-via-expansion', () => ({
-      expandNewContent: mock().mockResolvedValue(newContentNormalized),
-    }))
-
     const filePath = 'test.ts'
 
     const result = await processFileBlock(
-      'userId',
+      'clientSessionId',
+      'fingerprintId',
+      'userInputId',
       mockWs,
       [],
       '',
       filePath,
-      newContent
+      newContent,
+      'userId'
     )
     expect(result).not.toBeNull()
     if (!result) {
       throw new Error('Result is null')
     }
     const { type, content } = result
+    console.log('content', content, 'type', type)
     const updatedFile =
       type === 'patch' ? applyPatch(oldContent, content) : content
     expect(updatedFile).toEqual(newContent)
