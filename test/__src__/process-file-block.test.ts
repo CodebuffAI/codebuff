@@ -2,7 +2,7 @@ import { describe, it, expect, mock } from 'bun:test'
 
 import { WebSocket } from 'ws'
 import { applyPatch } from 'diff'
-import { processFileBlock } from 'backend/main-prompt'
+import { processFileBlock } from 'backend/process-file-block'
 
 describe('processFileBlock', () => {
   it('should handle Windows line endings with multi-line changes', async () => {

@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws'
 import { FileChange, Message } from 'common/actions'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
-import { processFileBlock } from './main-prompt'
+import { processFileBlock } from './process-file-block'
 import { promptClaude } from './claude'
 import {
   getSearchSystemPrompt,
