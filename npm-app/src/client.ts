@@ -38,16 +38,13 @@ export class Client {
     websocketUrl: string,
     chatStorage: ChatStorage,
     onWebSocketError: () => void,
-    returnControlToUser: () => void
+    returnControlToUser: () => void,
+    fingerprintId: string
   ) {
     this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
     this.user = this.getUser()
-    if (this.user?.fingerprintId) {
-      this.fingerprintId = this.user.fingerprintId
-    } else {
-      this.fingerprintId = await calculateFingerprint()
-    }
+    this.fingerprintId = this.user?.fingerprintId ?? fingerprintId
     this.returnControlToUser = returnControlToUser
   }
 

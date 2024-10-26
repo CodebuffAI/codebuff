@@ -66,9 +66,13 @@ Manicode implements a secure authentication flow that involves the npm-app (CLI)
 4. Use HTTPS for all web communications, especially during the OAuth flow.
 5. Regularly audit and update the authentication flow to address new security concerns.
 6. Initialize critical authentication properties (like fingerprintId) in class constructors:
-   - Ensures properties are available immediately after instantiation
-   - Prevents undefined states during authentication flow
-   - Makes TypeScript type checking more effective
+   - Ensure properties are available immediately after instantiation
+   - Prevent undefined states during authentication flow
+   - Make TypeScript type checking more effective
+   - For async initialization:
+     - Split into sync (constructor) and async (init method) steps
+     - Use temporary placeholder values in constructor
+     - Complete async initialization in separate connect/init method
 6. Initialize critical authentication properties (like fingerprintId) in class constructors:
    - Ensures properties are available immediately after instantiation
    - Prevents undefined states during authentication flow
