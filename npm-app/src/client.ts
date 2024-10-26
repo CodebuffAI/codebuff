@@ -43,11 +43,16 @@ export class Client {
     this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
     this.user = this.getUser()
+    this.getFingerprintId()
     this.returnControlToUser = returnControlToUser
   }
 
   // can make public
   private async getFingerprintId(): Promise<string> {
+    if (this.fingerprintId) {
+      return this.fingerprintId
+    }
+
     this.fingerprintId =
       this.user?.fingerprintId ?? (await calculateFingerprint())
     return this.fingerprintId
