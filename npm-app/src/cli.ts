@@ -3,7 +3,6 @@ import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
 import { green, red, yellow, underline } from 'picocolors'
 import { parse } from 'path'
-import { execSync } from 'child_process'
 
 import { websocketUrl } from './config'
 import { ChatStorage } from './chat-storage'

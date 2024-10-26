@@ -21,7 +21,6 @@ import { uniq } from 'lodash'
 import path from 'path'
 import * as fs from 'fs'
 import { match, P } from 'ts-pattern'
-import { calculateFingerprint } from './fingerprint'
 
 export class Client {
   private webSocket: APIRealtimeClient

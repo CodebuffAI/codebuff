@@ -4,7 +4,6 @@ import fs from 'fs'
 import path from 'path'
 import { yellow } from 'picocolors'
 
-
 import { CLI } from './cli'
 import {
   initProjectFileContextWithWorker,
@@ -19,8 +18,8 @@ async function manicode(
 ) {
   const dir = setProjectRoot(projectDir)
 
-  const updatePromise = updateManicode()
   const fingerprintPromise = calculateFingerprint()
+  const updatePromise = updateManicode()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
