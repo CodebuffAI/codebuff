@@ -69,22 +69,26 @@ Manicode implements a secure authentication flow that involves the npm-app (CLI)
    - Ensure properties are available immediately after instantiation
    - Prevent undefined states during authentication flow
    - Make TypeScript type checking more effective
-   - Use clear naming for default/fallback values (e.g., defaultFingerprintId)
    - For async initialization:
      - Option 1 - Split initialization:
        - Split into sync (constructor) and async (init method) steps
        - Use temporary placeholder values in constructor
        - Complete async initialization in separate connect/init method
-     - Option 2 - Pre-calculate async values:
+     - Option 2 - Pre-calculate async values (preferred):
        - Calculate required async values before class instantiation
-       - Pass pre-calculated values to constructor
-       - Ensures all required values are available immediately
-       - Preferred when values must be valid at construction time
+       - Pass pre-calculated values to constructor with 'default' prefix (e.g., defaultFingerprintId)
+       - Override defaults with existing user values if available
+       - Ensures values are valid at construction time
+       - Example: fingerprint handling
+         - Calculate default fingerprint before Client instantiation
+         - Pass as defaultFingerprintId to constructor
+         - Override with user.fingerprintId if credentials exist
 
 7. Handle user identity consistently:
    - Check for existing user credentials before using defaults
    - Maintain single source of truth for user identity
    - Keep related data (e.g., fingerprintId) together with user object
+   - Ensure Client class is the single source of truth for user state
 
 ## Future Considerations
 

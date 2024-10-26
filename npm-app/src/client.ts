@@ -16,7 +16,7 @@ import {
   CREDITS_USAGE_LIMITS,
   TOOL_RESULT_MARKER,
 } from 'common/constants'
-import { fingerprintId } from './config'
+
 import { uniq } from 'lodash'
 import path from 'path'
 import * as fs from 'fs'
@@ -126,7 +126,7 @@ export class Client {
     this.logout()
     this.webSocket.sendAction({
       type: 'login-code-request',
-      fingerprintId,
+      fingerprintId: this.fingerprintId,
       referralCode,
     })
   }
@@ -229,7 +229,7 @@ export class Client {
 
           this.webSocket.sendAction({
             type: 'login-status-request',
-            fingerprintId,
+            fingerprintId: this.fingerprintId,
             fingerprintHash,
           })
         }, 5000)
@@ -329,7 +329,7 @@ export class Client {
 
       this.webSocket.sendAction({
         type: 'generate-commit-message',
-        fingerprintId,
+        fingerprintId: this.fingerprintId,
         authToken: this.user?.authToken,
         stagedChanges,
       })
@@ -366,7 +366,7 @@ export class Client {
       messages,
       fileContext,
       previousChanges,
-      fingerprintId,
+      fingerprintId: this.fingerprintId,
       authToken: this.user?.authToken,
     })
   }
@@ -448,7 +448,7 @@ export class Client {
   public async getUsage() {
     this.webSocket.sendAction({
       type: 'usage',
-      fingerprintId,
+      fingerprintId: this.fingerprintId,
       authToken: this.user?.authToken,
     })
   }
@@ -464,7 +464,7 @@ export class Client {
       this.webSocket
         .sendAction({
           type: 'init',
-          fingerprintId,
+          fingerprintId: this.fingerprintId,
           authToken: this.user?.authToken,
           fileContext,
         })

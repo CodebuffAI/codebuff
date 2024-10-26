@@ -4,7 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import { yellow } from 'picocolors'
 
-import { initFingerprint } from './config'
+
 import { CLI } from './cli'
 import {
   initProjectFileContextWithWorker,
