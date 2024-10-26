@@ -73,6 +73,10 @@ Manicode implements a secure authentication flow that involves the npm-app (CLI)
      - Split into sync (constructor) and async (init method) steps
      - Use temporary placeholder values in constructor
      - Complete async initialization in separate connect/init method
+   - For async initialization:
+     - Split into sync (constructor) and async (init method) steps
+     - Use temporary placeholder values in constructor
+     - Complete async initialization in separate connect/init method
 6. Initialize critical authentication properties (like fingerprintId) in class constructors:
    - Ensures properties are available immediately after instantiation
    - Prevents undefined states during authentication flow
