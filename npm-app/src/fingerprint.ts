@@ -11,50 +11,91 @@ import {
   // @ts-ignore
 } from 'systeminformation'
 
-export const FINGERPRINTING_INFO = (async function () {
-  const { manufacturer, model, serial, uuid } = await system()
-  const { vendor, version: biosVersion, releaseDate } = await bios()
-  const {
-    manufacturer: boardManufacturer,
-    model: boardModel,
-    serial: boardSerial,
-  } = await baseboard()
-  const {
-    manufacturer: cpuManufacturer,
-    brand,
-    speedMax,
-    cores,
-    physicalCores,
-    socket,
-  } = await cpu()
-  const { platform, arch } = await osInfo()
+// export const FINGERPRINTING_INFO = (async function () {
+//   const { manufacturer, model, serial, uuid } = await system()
+//   const { vendor, version: biosVersion, releaseDate } = await bios()
+//   const {
+//     manufacturer: boardManufacturer,
+//     model: boardModel,
+//     serial: boardSerial,
+//   } = await baseboard()
+//   const {
+//     manufacturer: cpuManufacturer,
+//     brand,
+//     speedMax,
+//     cores,
+//     physicalCores,
+//     socket,
+//   } = await cpu()
+//   const { platform, arch } = await osInfo()
 
-  return {
-    EOL,
-    endianness: endianness(),
-    manufacturer,
-    model,
-    serial,
-    uuid,
-    vendor,
-    biosVersion,
-    releaseDate,
-    boardManufacturer,
-    boardModel,
-    boardSerial,
-    cpuManufacturer,
-    brand,
-    speedMax: speedMax.toFixed(2),
-    cores,
-    physicalCores,
-    socket,
-    platform,
-    arch,
-  } as Record<string, any>
-})()
+//   return {
+//     EOL,
+//     endianness: endianness(),
+//     manufacturer,
+//     model,
+//     serial,
+//     uuid,
+//     vendor,
+//     biosVersion,
+//     releaseDate,
+//     boardManufacturer,
+//     boardModel,
+//     boardSerial,
+//     cpuManufacturer,
+//     brand,
+//     speedMax: speedMax.toFixed(2),
+//     cores,
+//     physicalCores,
+//     socket,
+//     platform,
+//     arch,
+//   } as Record<string, any>
+// })()
 
 export async function calculateFingerprint() {
-  const fingerprintString = JSON.stringify(await FINGERPRINTING_INFO)
+  const getFingerprintInfo = async () => {
+    const { manufacturer, model, serial, uuid } = await system()
+    const { vendor, version: biosVersion, releaseDate } = await bios()
+    const {
+      manufacturer: boardManufacturer,
+      model: boardModel,
+      serial: boardSerial,
+    } = await baseboard()
+    const {
+      manufacturer: cpuManufacturer,
+      brand,
+      speedMax,
+      cores,
+      physicalCores,
+      socket,
+    } = await cpu()
+    const { platform, arch } = await osInfo()
+
+    return {
+      EOL,
+      endianness: endianness(),
+      manufacturer,
+      model,
+      serial,
+      uuid,
+      vendor,
+      biosVersion,
+      releaseDate,
+      boardManufacturer,
+      boardModel,
+      boardSerial,
+      cpuManufacturer,
+      brand,
+      speedMax: speedMax.toFixed(2),
+      cores,
+      physicalCores,
+      socket,
+      platform,
+      arch,
+    } as Record<string, any>
+  }
+  const fingerprintString = JSON.stringify(await getFingerprintInfo()) // FINGERPRINTING_INFO
   const fingerprintHash = createHash('sha256').update(fingerprintString)
   return fingerprintHash.digest().toString('base64url')
 }
