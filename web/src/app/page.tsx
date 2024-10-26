@@ -29,11 +29,11 @@ const Home = () => {
           </h1>
           <div className="text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             <p className="md:hidden">
-              Use natural language to edit your codebase and run commands from
+              Use natural language to edit your codebase faster and run commands from
               your terminal faster.
             </p>
             <div className="hidden md:block">
-              <p>Use natural language to edit your codebase and</p>
+              <p>Use natural language to edit your codebase faster and</p>
               <p>run commands from your terminal faster.</p>
             </div>
           </div>
