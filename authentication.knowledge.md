@@ -70,9 +70,15 @@ Manicode implements a secure authentication flow that involves the npm-app (CLI)
    - Prevent undefined states during authentication flow
    - Make TypeScript type checking more effective
    - For async initialization:
-     - Split into sync (constructor) and async (init method) steps
-     - Use temporary placeholder values in constructor
-     - Complete async initialization in separate connect/init method
+     - Option 1 - Split initialization:
+       - Split into sync (constructor) and async (init method) steps
+       - Use temporary placeholder values in constructor
+       - Complete async initialization in separate connect/init method
+     - Option 2 - Pre-calculate async values:
+       - Calculate required async values before class instantiation
+       - Pass pre-calculated values to constructor
+       - Ensures all required values are available immediately
+       - Preferred when values must be valid at construction time
    - For async initialization:
      - Split into sync (constructor) and async (init method) steps
      - Use temporary placeholder values in constructor
