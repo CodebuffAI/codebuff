@@ -10,7 +10,6 @@ import {
   setProjectRoot,
 } from './project-files'
 import { updateManicode } from './update-manicode'
-import { calculateFingerprint } from './fingerprint'
 
 async function manicode(
   projectDir: string | undefined,
@@ -18,14 +17,12 @@ async function manicode(
 ) {
   const dir = setProjectRoot(projectDir)
 
-  const fingerprintPromise = calculateFingerprint()
   const updatePromise = updateManicode()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
 
-  const defaultFingerprintId = await fingerprintPromise
-  const cli = new CLI(readyPromise, { autoGit, defaultFingerprintId })
+  const cli = new CLI(readyPromise, { autoGit })
 
   console.log(
     `Manicode will read and write files in "${dir}". Type "help" for a list of commands.`

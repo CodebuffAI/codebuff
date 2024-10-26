@@ -21,6 +21,7 @@ import { uniq } from 'lodash'
 import path from 'path'
 import * as fs from 'fs'
 import { match, P } from 'ts-pattern'
+import { calculateFingerprint } from './fingerprint'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -31,20 +32,28 @@ export class Client {
   public lastWarnedPct: number = 0
   public usage: number = 0
   public limit: number = 0
-  public fingerprintId: string
 
   constructor(
     websocketUrl: string,
     chatStorage: ChatStorage,
     onWebSocketError: () => void,
-    returnControlToUser: () => void,
-    defaultFingerprintId: string
+    returnControlToUser: () => void
   ) {
     this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
     this.user = this.getUser()
-    this.fingerprintId = this.user?.fingerprintId ?? defaultFingerprintId
     this.returnControlToUser = returnControlToUser
+  }
+
+  private async getFingerprintId(): Promise<string> {
+    let fingerprintId: string | undefined
+    if (this.user?.fingerprintId) {
+      return this.user.fingerprintId
+    }
+    if (!fingerprintId) {
+      fingerprintId = await calculateFingerprint()
+    }
+    return fingerprintId
   }
 
   private getUser(): User | undefined {
@@ -125,7 +134,7 @@ export class Client {
     this.logout()
     this.webSocket.sendAction({
       type: 'login-code-request',
-      fingerprintId: this.fingerprintId,
+      fingerprintId: await this.getFingerprintId(),
       referralCode,
     })
   }
@@ -219,7 +228,7 @@ export class Client {
         // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
         const initialTime = Date.now()
         shouldRequestLogin = true
-        const handler = setInterval(() => {
+        const handler = setInterval(async () => {
           if (Date.now() - initialTime > 300000 || !shouldRequestLogin) {
             shouldRequestLogin = false
             clearInterval(handler)
@@ -228,7 +237,7 @@ export class Client {
 
           this.webSocket.sendAction({
             type: 'login-status-request',
-            fingerprintId: this.fingerprintId,
+            fingerprintId: await this.getFingerprintId(),
             fingerprintHash,
           })
         }, 5000)
@@ -317,7 +326,7 @@ export class Client {
   }
 
   async generateCommitMessage(stagedChanges: string): Promise<string> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       const unsubscribe = this.webSocket.subscribe(
         'commit-message-response',
         (action) => {
@@ -328,7 +337,7 @@ export class Client {
 
       this.webSocket.sendAction({
         type: 'generate-commit-message',
-        fingerprintId: this.fingerprintId,
+        fingerprintId: await this.getFingerprintId(),
         authToken: this.user?.authToken,
         stagedChanges,
       })
@@ -365,7 +374,7 @@ export class Client {
       messages,
       fileContext,
       previousChanges,
-      fingerprintId: this.fingerprintId,
+      fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
     })
   }
@@ -447,7 +456,7 @@ export class Client {
   public async getUsage() {
     this.webSocket.sendAction({
       type: 'usage',
-      fingerprintId: this.fingerprintId,
+      fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
     })
   }
@@ -455,7 +464,7 @@ export class Client {
   public async warmContextCache() {
     const fileContext = await getProjectFileContext(getProjectRoot(), [], {})
 
-    return new Promise<void>((resolve) => {
+    return new Promise<void>(async (resolve) => {
       this.webSocket.subscribe('init-response', () => {
         resolve()
       })
@@ -463,7 +472,7 @@ export class Client {
       this.webSocket
         .sendAction({
           type: 'init',
-          fingerprintId: this.fingerprintId,
+          fingerprintId: await this.getFingerprintId(),
           authToken: this.user?.authToken,
           fileContext,
         })

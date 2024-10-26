@@ -54,7 +54,10 @@ export const FINGERPRINTING_INFO = (async function () {
 })()
 
 export async function calculateFingerprint() {
+  console.time('calculateFingerprint')
   const fingerprintString = JSON.stringify(await FINGERPRINTING_INFO)
   const fingerprintHash = createHash('sha256').update(fingerprintString)
-  return fingerprintHash.digest().toString('base64url')
+  const result = fingerprintHash.digest().toString('base64url')
+  console.timeEnd('calculateFingerprint')
+  return result
 }

@@ -43,13 +43,7 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
 
-  constructor(
-    readyPromise: Promise<any>,
-    {
-      autoGit,
-      defaultFingerprintId,
-    }: { autoGit: boolean; defaultFingerprintId: string }
-  ) {
+  constructor(readyPromise: Promise<any>, { autoGit }: { autoGit: boolean }) {
     this.autoGit = autoGit
     this.chatStorage = new ChatStorage()
     this.rl = readline.createInterface({
@@ -68,8 +62,7 @@ export class CLI {
           this.stopResponse()
         }
         this.stopLoadingAnimation()
-      },
-      defaultFingerprintId
+      }
     )
 
     this.readyPromise = Promise.all([
