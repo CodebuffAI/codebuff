@@ -31,6 +31,7 @@ export class Client {
   public lastWarnedPct: number = 0
   public usage: number = 0
   public limit: number = 0
+  public fingerprintId: string
 
   constructor(
     websocketUrl: string,
@@ -45,12 +46,16 @@ export class Client {
   }
 
   private async setUser(): Promise<void> {
-    if (!fs.existsSync(CREDENTIALS_PATH)) {
-      return
+    if (fs.existsSync(CREDENTIALS_PATH)) {
+      const credentialsFile = fs.readFileSync(CREDENTIALS_PATH, 'utf8')
+      this.user = userFromJson(credentialsFile)
+      if (this.user?.fingerprintId) {
+        this.fingerprintId = this.user.fingerprintId
+        return
+      }
     }
-
-    const credentialsFile = fs.readFileSync(CREDENTIALS_PATH, 'utf8')
-    this.user = userFromJson(credentialsFile)
+    
+    this.fingerprintId = await calculateFingerprint()
   }
 
   async connect() {
