@@ -22,6 +22,15 @@ export async function processFileBlock(
   const oldContent = await requestFile(ws, filePath)
 
   if (oldContent === null) {
+    const { diffBlocks } = parseAndGetDiffBlocksSingleFile(newContent, '')
+    if (diffBlocks.length > 0) {
+      const content = diffBlocks.map(block => block.replaceContent).join('\n')
+      logger.debug(
+        { filePath, content },
+        `processFileBlock: Created new file from replace blocks ${filePath}`
+      )
+      return { filePath, content, type: 'file' }
+    }
     logger.debug(
       { filePath, newContent },
       `processFileBlock: Created new file ${filePath}`
