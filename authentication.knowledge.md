@@ -47,6 +47,8 @@ Manicode implements a secure authentication flow that involves the npm-app (CLI)
 - Centralize authentication-related logic in one place to prevent synchronization issues.
 - Handle fingerprint generation and user credential loading together in `setUser()`.
 - Avoid duplicating credential checking or fingerprint generation logic across different parts of the codebase.
+- Always use existing fingerprintId from user credentials when available, only generate new ones when needed.
+- Reference fingerprintId from the Client instance rather than config exports to maintain single source of truth.
 
 ## Integration with Billing
 
