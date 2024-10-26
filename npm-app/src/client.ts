@@ -42,22 +42,22 @@ export class Client {
   ) {
     this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
-    this.setUser()
+    this.user = this.getUser()
+    if (this.user?.fingerprintId) {
+      this.fingerprintId = this.user.fingerprintId
+    } else {
+      this.fingerprintId = await calculateFingerprint()
+    }
     this.returnControlToUser = returnControlToUser
-    this.fingerprintId = fingerprintId // Set initial value from config, will be updated by setUser()
   }
 
-  private async setUser(): Promise<void> {
-    if (fs.existsSync(CREDENTIALS_PATH)) {
-      const credentialsFile = fs.readFileSync(CREDENTIALS_PATH, 'utf8')
-      this.user = userFromJson(credentialsFile)
-      if (this.user?.fingerprintId) {
-        this.fingerprintId = this.user.fingerprintId
-        return
-      }
+  private getUser(): User | undefined {
+    if (!fs.existsSync(CREDENTIALS_PATH)) {
+      return
     }
-
-    this.fingerprintId = await calculateFingerprint()
+    const credentialsFile = fs.readFileSync(CREDENTIALS_PATH, 'utf8')
+    const user = userFromJson(credentialsFile)
+    return user
   }
 
   async connect() {

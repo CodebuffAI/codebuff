@@ -69,6 +69,10 @@ Manicode implements a secure authentication flow that involves the npm-app (CLI)
    - Ensures properties are available immediately after instantiation
    - Prevents undefined states during authentication flow
    - Makes TypeScript type checking more effective
+6. Initialize critical authentication properties (like fingerprintId) in class constructors:
+   - Ensures properties are available immediately after instantiation
+   - Prevents undefined states during authentication flow
+   - Makes TypeScript type checking more effective
 
 ## Future Considerations
 
