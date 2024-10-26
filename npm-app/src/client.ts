@@ -48,7 +48,6 @@ export class Client {
     this.returnControlToUser = returnControlToUser
   }
 
-  // can make public
   private async getFingerprintId(): Promise<string> {
     if (this.fingerprintId) {
       return this.fingerprintId
