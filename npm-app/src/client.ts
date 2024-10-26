@@ -32,6 +32,7 @@ export class Client {
   public lastWarnedPct: number = 0
   public usage: number = 0
   public limit: number = 0
+  public fingerprintId: string | undefined
 
   constructor(
     websocketUrl: string,
@@ -45,15 +46,11 @@ export class Client {
     this.returnControlToUser = returnControlToUser
   }
 
+  // can make public
   private async getFingerprintId(): Promise<string> {
-    let fingerprintId: string | undefined
-    if (this.user?.fingerprintId) {
-      return this.user.fingerprintId
-    }
-    if (!fingerprintId) {
-      fingerprintId = await calculateFingerprint()
-    }
-    return fingerprintId
+    this.fingerprintId =
+      this.user?.fingerprintId ?? (await calculateFingerprint())
+    return this.fingerprintId
   }
 
   private getUser(): User | undefined {
