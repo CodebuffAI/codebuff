@@ -4,7 +4,6 @@ import fs from 'fs'
 import path from 'path'
 import { yellow } from 'picocolors'
 
-import { initFingerprint } from './config'
 import { CLI } from './cli'
 import {
   initProjectFileContextWithWorker,
@@ -19,14 +18,9 @@ async function manicode(
   const dir = setProjectRoot(projectDir)
 
   const updatePromise = updateManicode()
-  const fingerprintPromise = initFingerprint()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
 
-  const readyPromise = Promise.all([
-    updatePromise,
-    fingerprintPromise,
-    initFileContextPromise,
-  ])
+  const readyPromise = Promise.all([updatePromise, initFileContextPromise])
 
   const cli = new CLI(readyPromise, { autoGit })
 

@@ -11,7 +11,7 @@ import {
   // @ts-ignore
 } from 'systeminformation'
 
-export const FINGERPRINTING_INFO = (async function () {
+const getFingerprintInfo = async () => {
   const { manufacturer, model, serial, uuid } = await system()
   const { vendor, version: biosVersion, releaseDate } = await bios()
   const {
@@ -51,10 +51,11 @@ export const FINGERPRINTING_INFO = (async function () {
     platform,
     arch,
   } as Record<string, any>
-})()
+}
 
 export async function calculateFingerprint() {
-  const fingerprintString = JSON.stringify(await FINGERPRINTING_INFO)
+  const fingerprintInfo = await getFingerprintInfo()
+  const fingerprintString = JSON.stringify(fingerprintInfo)
   const fingerprintHash = createHash('sha256').update(fingerprintString)
   return fingerprintHash.digest().toString('base64url')
 }

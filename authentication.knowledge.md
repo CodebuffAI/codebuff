@@ -42,6 +42,16 @@ Manicode implements a secure authentication flow that involves the npm-app (CLI)
 - The `fingerprintId` is used to link the CLI session with the web login, preventing session hijacking.
 - User credentials are never stored or transmitted in plain text.
 
+## Implementation Guidelines
+
+- Centralize authentication-related logic in one place to prevent synchronization issues.
+- Handle fingerprint generation and user credential loading together in `setUser()`.
+- Avoid duplicating credential checking or fingerprint generation logic across different parts of the codebase.
+- Always use existing fingerprintId from user credentials when available, only generate new ones when needed.
+- Reference fingerprintId from the Client instance rather than config exports to maintain single source of truth.
+- Always use existing fingerprintId from user credentials when available, only generate new ones when needed.
+- Reference fingerprintId from the Client instance rather than config exports to maintain single source of truth.
+
 ## Integration with Billing
 
 - Upon successful authentication, the user's billing status and quota are retrieved from the database.
@@ -55,6 +65,30 @@ Manicode implements a secure authentication flow that involves the npm-app (CLI)
 3. Implement rate limiting on authentication attempts to prevent brute-force attacks.
 4. Use HTTPS for all web communications, especially during the OAuth flow.
 5. Regularly audit and update the authentication flow to address new security concerns.
+6. Initialize critical authentication properties (like fingerprintId) in class constructors:
+   - Ensure properties are available immediately after instantiation
+   - Prevent undefined states during authentication flow
+   - Make TypeScript type checking more effective
+   - For async initialization:
+     - Option 1 - Split initialization:
+       - Split into sync (constructor) and async (init method) steps
+       - Use temporary placeholder values in constructor
+       - Complete async initialization in separate connect/init method
+     - Option 2 - Pre-calculate async values (preferred):
+       - Calculate required async values before class instantiation
+       - Pass pre-calculated values to constructor with 'default' prefix (e.g., defaultFingerprintId)
+       - Override defaults with existing user values if available
+       - Ensures values are valid at construction time
+       - Example: fingerprint handling
+         - Calculate default fingerprint before Client instantiation
+         - Pass as defaultFingerprintId to constructor
+         - Override with user.fingerprintId if credentials exist
+
+7. Handle user identity consistently:
+   - Check for existing user credentials before using defaults
+   - Maintain single source of truth for user identity
+   - Keep related data (e.g., fingerprintId) together with user object
+   - Ensure Client class is the single source of truth for user state
 
 ## Future Considerations
 

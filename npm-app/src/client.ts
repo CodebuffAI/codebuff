@@ -16,18 +16,21 @@ import {
   CREDITS_USAGE_LIMITS,
   TOOL_RESULT_MARKER,
 } from 'common/constants'
-import { fingerprintId } from './config'
+
 import { uniq } from 'lodash'
 import path from 'path'
 import * as fs from 'fs'
 import { match, P } from 'ts-pattern'
+import { calculateFingerprint } from './fingerprint'
 
 export class Client {
   private webSocket: APIRealtimeClient
   private chatStorage: ChatStorage
   private currentUserInputId: string | undefined
-  public user: User | undefined
   private returnControlToUser: () => void
+  private fingerprintId: string | undefined
+
+  public user: User | undefined
   public lastWarnedPct: number = 0
   public usage: number = 0
   public limit: number = 0
@@ -40,17 +43,28 @@ export class Client {
   ) {
     this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
-    this.setUser()
+    this.user = this.getUser()
+    this.getFingerprintId()
     this.returnControlToUser = returnControlToUser
   }
 
-  private async setUser(): Promise<void> {
+  private async getFingerprintId(): Promise<string> {
+    if (this.fingerprintId) {
+      return this.fingerprintId
+    }
+
+    this.fingerprintId =
+      this.user?.fingerprintId ?? (await calculateFingerprint())
+    return this.fingerprintId
+  }
+
+  private getUser(): User | undefined {
     if (!fs.existsSync(CREDENTIALS_PATH)) {
       return
     }
-
     const credentialsFile = fs.readFileSync(CREDENTIALS_PATH, 'utf8')
-    this.user = userFromJson(credentialsFile)
+    const user = userFromJson(credentialsFile)
+    return user
   }
 
   async connect() {
@@ -122,7 +136,7 @@ export class Client {
     this.logout()
     this.webSocket.sendAction({
       type: 'login-code-request',
-      fingerprintId,
+      fingerprintId: await this.getFingerprintId(),
       referralCode,
     })
   }
@@ -216,7 +230,7 @@ export class Client {
         // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
         const initialTime = Date.now()
         shouldRequestLogin = true
-        const handler = setInterval(() => {
+        const handler = setInterval(async () => {
           if (Date.now() - initialTime > 300000 || !shouldRequestLogin) {
             shouldRequestLogin = false
             clearInterval(handler)
@@ -225,7 +239,7 @@ export class Client {
 
           this.webSocket.sendAction({
             type: 'login-status-request',
-            fingerprintId,
+            fingerprintId: await this.getFingerprintId(),
             fingerprintHash,
           })
         }, 5000)
@@ -314,7 +328,7 @@ export class Client {
   }
 
   async generateCommitMessage(stagedChanges: string): Promise<string> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       const unsubscribe = this.webSocket.subscribe(
         'commit-message-response',
         (action) => {
@@ -325,7 +339,7 @@ export class Client {
 
       this.webSocket.sendAction({
         type: 'generate-commit-message',
-        fingerprintId,
+        fingerprintId: await this.getFingerprintId(),
         authToken: this.user?.authToken,
         stagedChanges,
       })
@@ -362,7 +376,7 @@ export class Client {
       messages,
       fileContext,
       previousChanges,
-      fingerprintId,
+      fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
     })
   }
@@ -444,7 +458,7 @@ export class Client {
   public async getUsage() {
     this.webSocket.sendAction({
       type: 'usage',
-      fingerprintId,
+      fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
     })
   }
@@ -452,7 +466,7 @@ export class Client {
   public async warmContextCache() {
     const fileContext = await getProjectFileContext(getProjectRoot(), [], {})
 
-    return new Promise<void>((resolve) => {
+    return new Promise<void>(async (resolve) => {
       this.webSocket.subscribe('init-response', () => {
         resolve()
       })
@@ -460,7 +474,7 @@ export class Client {
       this.webSocket
         .sendAction({
           type: 'init',
-          fingerprintId,
+          fingerprintId: await this.getFingerprintId(),
           authToken: this.user?.authToken,
           fileContext,
         })
