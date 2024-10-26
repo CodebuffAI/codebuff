@@ -25,8 +25,8 @@ async function manicode(
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
 
-  const fingerprintId = await fingerprintPromise
-  const cli = new CLI(readyPromise, { autoGit, fingerprintId })
+  const defaultFingerprintId = await fingerprintPromise
+  const cli = new CLI(readyPromise, { autoGit, defaultFingerprintId })
 
   console.log(
     `Manicode will read and write files in "${dir}". Type "help" for a list of commands.`

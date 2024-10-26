@@ -39,12 +39,12 @@ export class Client {
     chatStorage: ChatStorage,
     onWebSocketError: () => void,
     returnControlToUser: () => void,
-    fingerprintId: string
+    defaultFingerprintId: string
   ) {
     this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
     this.user = this.getUser()
-    this.fingerprintId = this.user?.fingerprintId ?? fingerprintId
+    this.fingerprintId = this.user?.fingerprintId ?? defaultFingerprintId
     this.returnControlToUser = returnControlToUser
   }
 
