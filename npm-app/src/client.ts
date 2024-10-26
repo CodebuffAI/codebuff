@@ -27,12 +27,13 @@ export class Client {
   private webSocket: APIRealtimeClient
   private chatStorage: ChatStorage
   private currentUserInputId: string | undefined
-  public user: User | undefined
   private returnControlToUser: () => void
+  private fingerprintId: string | undefined
+
+  public user: User | undefined
   public lastWarnedPct: number = 0
   public usage: number = 0
   public limit: number = 0
-  private fingerprintId: string | undefined
 
   constructor(
     websocketUrl: string,
@@ -53,9 +54,8 @@ export class Client {
       return this.fingerprintId
     }
 
-    // this.fingerprintId =
-    //   this.user?.fingerprintId ?? (await calculateFingerprint())
-    this.fingerprintId = await calculateFingerprint()
+    this.fingerprintId =
+      this.user?.fingerprintId ?? (await calculateFingerprint())
     return this.fingerprintId
   }
 
