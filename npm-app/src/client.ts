@@ -21,6 +21,7 @@ import { uniq } from 'lodash'
 import path from 'path'
 import * as fs from 'fs'
 import { match, P } from 'ts-pattern'
+import { calculateFingerprint } from './fingerprint'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -43,6 +44,7 @@ export class Client {
     this.chatStorage = chatStorage
     this.setUser()
     this.returnControlToUser = returnControlToUser
+    this.fingerprintId = fingerprintId // Set initial value from config, will be updated by setUser()
   }
 
   private async setUser(): Promise<void> {
@@ -54,7 +56,7 @@ export class Client {
         return
       }
     }
-    
+
     this.fingerprintId = await calculateFingerprint()
   }
 
