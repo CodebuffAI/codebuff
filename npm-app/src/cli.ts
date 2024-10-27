@@ -273,6 +273,7 @@ export class CLI {
 
   private async handleUserInput(userInput: string) {
     if (!userInput) return
+    userInput = userInput.trim()
 
     // Handle commands
     if (userInput === 'help' || userInput === 'h') {
@@ -306,7 +307,13 @@ export class CLI {
     ) {
       this.handleExit()
       return
-    } else if (userInput === 'diff' || userInput === 'd') {
+    } else if (
+      userInput === 'diff' ||
+      userInput === 'doff' ||
+      userInput === 'dif' ||
+      userInput === 'iff' ||
+      userInput === 'd'
+    ) {
       this.handleDiff()
       this.rl.prompt()
       return
