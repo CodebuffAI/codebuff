@@ -210,7 +210,7 @@ The referral system is implemented across several files:
 
 # Code guide
 
-- We don't specify return types for functions, since Typescript will infer them.
+- We don't specify return types for functions, since Typescript will infer them. Don't write return types for functions!
 - Always include 'src' in file paths when it's part of the actual directory structure, even though imports automatically remove it.
 
 ## Python Package
@@ -224,3 +224,8 @@ A Python package for Manicode has been created as a skeleton in python-app. Key 
 ## Version Checking
 
 Upon start-up, the client checks the npmjs.org registry for the latest version of the npm package. If the version is newer, Manicode will automatically try to download and install the latest version. Once it does, it'll prompt the user to restart the application.
+
+# Development workflow
+
+When the user asks for something done, and the assistant makes changes, you should do the following on every code change:
+Run the type checker with `bun run tsc` and then fix any errors.
