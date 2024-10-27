@@ -5,6 +5,35 @@ import { applyPatch } from 'diff'
 import { processFileBlock } from 'backend/process-file-block'
 
 describe('processFileBlock', () => {
+  it('should handle markdown code blocks when creating new files', async () => {
+    const mockWs = {
+      send: mock(),
+    } as unknown as WebSocket
+
+    const mockRequestFile = mock().mockResolvedValue(null)
+    mock.module('backend/websockets/websocket-action', () => ({
+      requestFile: mockRequestFile,
+    }))
+
+    const newContent = '```typescript\nfunction test() {\n  return true;\n}\n```'
+    const expectedContent = 'function test() {\n  return true;\n}'
+
+    const result = await processFileBlock(
+      'clientSessionId',
+      'fingerprintId',
+      'userInputId',
+      mockWs,
+      [],
+      '',
+      'test.ts',
+      newContent,
+      'userId'
+    )
+
+    expect(result).not.toBeNull()
+    expect(result?.content).toBe(expectedContent)
+    expect(result?.type).toBe('file')
+  })
   it('should handle Windows line endings with multi-line changes', async () => {
     const mockWs = {
       send: mock(),

@@ -22,7 +22,10 @@ export async function processFileBlock(
   const oldContent = await requestFile(ws, filePath)
 
   if (oldContent === null) {
-    const { diffBlocks } = parseAndGetDiffBlocksSingleFile(newContent, '')
+    // Remove markdown code block syntax if present
+    let cleanContent = newContent.replace(/^```[^\n]*\n/, '').replace(/\n```$/, '')
+    
+    const { diffBlocks } = parseAndGetDiffBlocksSingleFile(cleanContent, '')
     if (diffBlocks.length > 0) {
       const content = diffBlocks.map(block => block.replaceContent).join('\n')
       logger.debug(
@@ -32,10 +35,10 @@ export async function processFileBlock(
       return { filePath, content, type: 'file' }
     }
     logger.debug(
-      { filePath, newContent },
+      { filePath, cleanContent },
       `processFileBlock: Created new file ${filePath}`
     )
-    return { filePath, content: newContent, type: 'file' }
+    return { filePath, content: cleanContent, type: 'file' }
   }
 
   if (newContent === oldContent) {
