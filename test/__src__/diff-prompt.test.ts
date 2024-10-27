@@ -12,12 +12,15 @@ const runDiffTest = async (dir: string, mockFilePath: string) => {
   const expectedFile = fs.readFileSync(`${dir}/expected.ts`, 'utf8')
 
   const updatedFile = await generateExpandedFileWithDiffBlocks(
-    'userId',
+    'clientSessionId',
+    'fingerprintId',
+    'userInputId',
+    oldFile,
+    newFile,
+    mockFilePath,
     [],
     '',
-    mockFilePath,
-    oldFile,
-    newFile
+    'userId'
   )
 
   expect(updatedFile).toEqual(expectedFile)

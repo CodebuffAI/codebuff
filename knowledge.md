@@ -228,4 +228,4 @@ Upon start-up, the client checks the npmjs.org registry for the latest version o
 # Development workflow
 
 When the user asks for something done, and the assistant makes changes, you should do the following on every code change:
-Run the type checker with `bun run tsc` and then fix any errors.
+Run the type checker with `bun run --cwd backend tsc` (or sub "backend" for the appropriate project) and then fix any errors.
