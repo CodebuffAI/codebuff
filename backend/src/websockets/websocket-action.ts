@@ -174,14 +174,13 @@ const onUserInput = async (
           userInputId,
           chunk: response,
         })
-        setTimeout(async () => {
-          sendAction(ws, {
-            type: 'response-complete',
-            userInputId,
-            response,
-            changes: [],
-          })
-        }, 100)
+        // await sleep(1000) // sleeping makes this sendAction not fire. unsure why but remove for now
+        sendAction(ws, {
+          type: 'response-complete',
+          userInputId,
+          response,
+          changes: [],
+        })
       }
     }
   )
