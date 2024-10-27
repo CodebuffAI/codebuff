@@ -65,70 +65,94 @@ function isNpmUpToDate(currentVersion: string, latestVersion: string) {
   return true
 }
 
-function detectInstaller(): 'npm' | 'yarn' | 'pnpm' | 'bun' | undefined {
-  let result: string
+type InstallerInfo = {
+  installer: 'npm' | 'yarn' | 'pnpm' | 'bun'
+  scope: 'global' | 'local'
+}
+
+function detectInstaller(): InstallerInfo | undefined {
+  let manicodeLocation = ''
   try {
     if (process.platform === 'win32') {
-      result = execSync('where manicode').toString().trim()
+      manicodeLocation = execSync('where manicode').toString().trim()
     } else {
-      result = execSync('which manicode').toString().trim()
+      manicodeLocation = execSync('which manicode').toString().trim()
     }
   } catch (error) {
-    console.error('Error detecting manicode location.')
-    return undefined
+    // Continue with empty location - could be a local installation
   }
 
-  const path = result.split('\n')[0] ?? ''
+  const path = manicodeLocation.split('\n')[0] ?? ''
   const pathIncludesNodeModules = path.includes('node_modules')
   const npmUserAgent = process.env.npm_config_user_agent ?? ''
 
+  // Check for package manager script environments
+  const isYarnScript = process.env.npm_lifecycle_script?.includes('yarn')
+  const isPnpmScript = process.env.npm_lifecycle_script?.includes('pnpm')
+  const isBunScript = process.env.npm_lifecycle_script?.includes('bun')
+  const isNpmScript =
+    process.env.npm_execpath?.endsWith('npm-cli.js') ||
+    npmUserAgent.includes('npm')
+
   // Mac: /Users/jahooma/.yarn/bin/manicode
-  if (path.includes('.yarn') && !pathIncludesNodeModules) {
-    return 'yarn'
+  if (isYarnScript || path.includes('.yarn')) {
+    return {
+      installer: 'yarn',
+      scope: path.includes('.yarn') ? 'global' : 'local',
+    }
   }
 
   // Windows: ~/AppData/Local/pnpm/store
   // macOS: ~/Library/pnpm/store
   // Linux: ~/.local/share/pnpm/store
-  if (path.includes('pnpm') && !pathIncludesNodeModules) {
-    return 'pnpm'
+  if (isPnpmScript || path.includes('pnpm')) {
+    return {
+      installer: 'pnpm',
+      scope: path.includes('pnpm') ? 'global' : 'local',
+    }
   }
 
   // Mac: /Users/jahooma/.bun/install/cache
-  if (path.includes('.bun') && !pathIncludesNodeModules) {
-    return 'bun'
+  if (isBunScript || path.includes('.bun')) {
+    return {
+      installer: 'bun',
+      scope: path.includes('.bun') ? 'global' : 'local',
+    }
   }
 
   // /usr/local/lib/node_modules on macOS/Linux or %AppData%\npm/node_modules on Windows
-  if (
-    pathIncludesNodeModules ||
-    path.includes('npm') ||
-    path.startsWith('/usr/') ||
-    npmUserAgent.includes('npm')
-  ) {
-    return 'npm'
+  if (isNpmScript || path.includes('npm') || path.startsWith('/usr/')) {
+    return {
+      installer: 'npm',
+      scope:
+        path.includes('npm') || path.startsWith('/usr/') ? 'global' : 'local',
+    }
   }
 
   return undefined
 }
 
-function runUpdateManicode(installer: 'npm' | 'yarn' | 'pnpm' | 'bun') {
+function runUpdateManicode(installerInfo: InstallerInfo) {
   let command: string
-  switch (installer) {
+  const isGlobal = installerInfo.scope === 'global'
+
+  switch (installerInfo.installer) {
     case 'npm':
-      command = 'npm install -g manicode@latest'
+      command = `npm ${isGlobal ? 'install -g' : 'install'} manicode@latest`
       break
     case 'yarn':
-      command = 'yarn global add manicode@latest'
+      command = `yarn ${isGlobal ? 'global add' : 'add'} manicode@latest`
       break
     case 'pnpm':
-      command = 'pnpm add -g manicode@latest'
+      command = `pnpm add ${isGlobal ? '-g' : ''} manicode@latest`
       break
     case 'bun':
-      command = 'bun add -g manicode@latest'
+      command = `bun add ${isGlobal ? '-g' : ''} manicode@latest`
       break
     default:
-      throw new Error(`Unsupported installer: ${installer}`)
+      throw new Error(
+        `Unsupported installer: ${installerInfo.installer} ${installerInfo.scope}`
+      )
   }
 
   execSync(command, { stdio: 'inherit' })
