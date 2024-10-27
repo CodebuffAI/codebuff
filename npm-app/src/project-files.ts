@@ -94,8 +94,7 @@ export const getProjectFileContext = async (
     const knowledgeFilePaths = allFilePaths.filter((filePath) =>
       filePath.endsWith('knowledge.md')
     )
-    const knowledgeFiles =
-      await getExistingFilesWithScrapedContent(knowledgeFilePaths)
+    const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
     const shellConfigFiles = loadShellConfigFiles()
 
     const fileTokenScores = await getFileTokenScores(projectRoot, allFilePaths)
@@ -208,27 +207,6 @@ export function getFilesAbsolutePath(filePaths: string[]) {
   return result
 }
 
-export async function getExistingFilesWithScrapedContent(
-  filePaths: string[]
-): Promise<Record<string, string>> {
-  const files = getExistingFiles(filePaths)
-  const result: Record<string, string> = {}
-
-  for (const [filePath, content] of Object.entries(files)) {
-    result[filePath] = content
-
-    if (filePath.endsWith('knowledge.md')) {
-      const scrapedBlocks = await getScrapedContentBlocks(
-        parseUrlsFromContent(content)
-      )
-      for (const block of scrapedBlocks) {
-        result[filePath] += `\n\n${block}`
-      }
-    }
-  }
-
-  return result
-}
 
 export function setFiles(files: Record<string, string>) {
   for (const [filePath, content] of Object.entries(files)) {
