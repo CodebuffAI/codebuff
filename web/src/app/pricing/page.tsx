@@ -76,7 +76,7 @@ const PricingPage = () => {
         'Priority support over email or Discord',
       ],
       cardFooterChildren: (
-        <div className="flex flex-col items-center text-center justify-center space-y-2">
+        <div className="w-full flex flex-col items-center text-center justify-center space-y-2">
           <Button
             className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
             onClick={() => handleCreateCheckoutSession()}
