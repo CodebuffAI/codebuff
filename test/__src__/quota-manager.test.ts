@@ -13,22 +13,26 @@ const mockDb = {
       leftJoin: () => ({
         where: () => ({
           groupBy: () => ({
-            then: (callback: any) => callback([{ 
-              creditsUsed: 500,
-              subscription_active: false,
-              quota: CREDITS_USAGE_LIMITS.FREE,
-              endDate: new Date()
-            }])
-          })
-        })
-      })
-    })
+            then: (callback: any) =>
+              callback([
+                {
+                  creditsUsed: 500,
+                  subscription_active: false,
+                  quota: CREDITS_USAGE_LIMITS.FREE,
+                  endDate: new Date(),
+                },
+              ]),
+          }),
+        }),
+      }),
+    }),
   }),
   update: () => ({
     set: () => ({
-      where: () => Promise.resolve()
-    })
-  })
+      where: () => Promise.resolve(),
+    }),
+  }),
+  insert: () => createChainableMock(undefined),
 }
 
 // Helper to create chainable mock
@@ -44,29 +48,17 @@ const createChainableMock = (returnValue: any) => {
     set: () => chainable,
     values: () => chainable,
     insert: () => chainable,
-    execute: () => Promise.resolve()
+    execute: () => Promise.resolve(),
   }
   return chainable
 }
 
-// Mock the database
-const mockDb = {
-  select: () => createChainableMock({ 
-    creditsUsed: 500,
-    subscription_active: false,
-    quota: CREDITS_USAGE_LIMITS.FREE,
-    endDate: new Date()
-  }),
-  update: () => createChainableMock(undefined),
-  insert: () => createChainableMock(undefined)
-}
-
 mock.module('../../common/src/db', () => ({
-  default: mockDb
+  default: mockDb,
 }))
 
 mock.module('../../common/src/db', () => ({
-  default: mockDb
+  default: mockDb,
 }))
 
 describe('QuotaManager', () => {
@@ -74,7 +66,7 @@ describe('QuotaManager', () => {
     it('should show correct message for subscribed users over quota', async () => {
       const quotaManager = new AuthenticatedQuotaManager()
       const result = await quotaManager.updateQuota('test-user-id')
-      
+
       // Verify the response has all fields needed for client display
       expect(result).toHaveProperty('subscription_active')
       expect(result).toHaveProperty('creditsUsed')
@@ -90,11 +82,13 @@ describe('QuotaManager', () => {
             from: mock(() => ({
               leftJoin: mock(() => ({
                 where: mock(() => ({
-                  then: mock((callback) => 
-                    callback([{ 
-                      credits: 500,
-                      subscription_active: true 
-                    }])
+                  then: mock((callback) =>
+                    callback([
+                      {
+                        credits: 500,
+                        subscription_active: true,
+                      },
+                    ])
                   ),
                 })),
               })),
@@ -105,7 +99,7 @@ describe('QuotaManager', () => {
 
       const quotaManager = new AuthenticatedQuotaManager()
       const result = await quotaManager.updateQuota('test-user-id')
-      
+
       expect(result.subscription_active).toBe(true)
       expect(result.creditsUsed).toBe(500)
       expect(result.quota).toBe(CREDITS_USAGE_LIMITS.FREE)

@@ -419,7 +419,7 @@ export class CLI {
     }
     if (created.length > 0 || modified.length > 0) {
       console.log('\nComplete! Type "diff" to see the changes made.')
-      this.client.showUsageWarning(this.client.usage, this.client.limit)
+      this.client.showUsageWarning()
     }
     console.log()
 
