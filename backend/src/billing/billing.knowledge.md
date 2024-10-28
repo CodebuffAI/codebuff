@@ -48,6 +48,12 @@ Key methods:
 - Non-subscribed users are blocked when exceeding their quota
 - Quota tracking continues even when checks are bypassed for billing purposes
 
+### Subscription Status
+
+- Active subscriptions completely bypass quota exceeded checks
+- Non-subscribed users are blocked when exceeding their quota
+- Quota tracking continues even when checks are bypassed for billing purposes
+
 ### Usage Limits
 
 Defined in `common/src/constants.ts`:
