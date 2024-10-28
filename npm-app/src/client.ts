@@ -303,6 +303,15 @@ export class Client {
       .otherwise(() => 0)
 
     if (pct >= 100) {
+      if (this.user?.subscription_active) {
+        console.warn(
+          yellow(
+            `You have exceeded your monthly quota (${usage}/${limit} credits), but can continue using Manicode with your active subscription.`
+          )
+        )
+        this.lastWarnedPct = 100
+        return
+      }
       console.error(
         [red('You have reached your monthly usage limit.'), errorCopy].join(
           '\n'
