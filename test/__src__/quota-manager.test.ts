@@ -41,21 +41,28 @@ const createChainableMock = (returnValue: any) => {
     then: (cb: any) => cb([returnValue]),
     select: () => chainable,
     update: () => chainable,
-    set: () => chainable
+    set: () => chainable,
+    values: () => chainable,
+    insert: () => chainable,
+    execute: () => Promise.resolve()
   }
   return chainable
 }
 
+// Mock the database
+const mockDb = {
+  select: () => createChainableMock({ 
+    creditsUsed: 500,
+    subscription_active: false,
+    quota: CREDITS_USAGE_LIMITS.FREE,
+    endDate: new Date()
+  }),
+  update: () => createChainableMock(undefined),
+  insert: () => createChainableMock(undefined)
+}
+
 mock.module('../../common/src/db', () => ({
-  default: {
-    select: () => createChainableMock({ 
-      creditsUsed: 500,
-      subscription_active: false,
-      quota: CREDITS_USAGE_LIMITS.FREE,
-      endDate: new Date()
-    }),
-    update: () => createChainableMock(undefined)
-  }
+  default: mockDb
 }))
 
 mock.module('../../common/src/db', () => ({
