@@ -56,8 +56,15 @@ const PricingPage = () => {
           Community support
         </Link>,
       ],
-      buttonText: (
-        <Link href={'https://www.npmjs.com/package/manicode'}>Get Started</Link>
+      cardFooterChildren: (
+        <Button
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+          asChild
+        >
+          <Link href={'https://www.npmjs.com/package/manicode'}>
+            Get Started
+          </Link>
+        </Button>
       ),
     },
     {
@@ -66,16 +73,39 @@ const PricingPage = () => {
       credits: 10_000,
       features: [
         '$0.90 per 100 credits afterwards',
-        'Priority support over email',
+        'Priority support over email or Discord',
       ],
-      buttonAction: () => handleCreateCheckoutSession(),
-      buttonText: session?.data?.user?.subscription_active ? (
-        <p>You are on the pro tier!</p>
-      ) : (
-        <>
-          {isPending && <Icons.loader className="mr-2 size-4 animate-spin" />}
-          Upgrade to pro
-        </>
+      cardFooterChildren: (
+        <div className="flex flex-col items-center text-center justify-center space-y-2">
+          <Button
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+            onClick={() => handleCreateCheckoutSession()}
+            disabled={isPending || session.data?.user?.subscription_active}
+          >
+            {session?.data?.user?.subscription_active ? (
+              <p>You are on the pro tier!</p>
+            ) : (
+              <>
+                {isPending && (
+                  <Icons.loader className="mr-2 size-4 animate-spin" />
+                )}
+                Upgrade to pro
+              </>
+            )}
+          </Button>
+          {session?.data?.user?.subscription_active && (
+            <p className="text-xs">
+              Need to cancel? Click{' '}
+              <Link
+                href={env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}
+                className="hover:text-blue-500 hover:underline"
+              >
+                here
+              </Link>{' '}
+              (to break our hearts)
+            </p>
+          )}
+        </div>
       ),
     },
     {
@@ -88,8 +118,13 @@ const PricingPage = () => {
         'Custom features',
         'Custom integrations',
       ],
-      buttonText: (
-        <Link href={'mailto:founders@manicode.ai'}>Contact Sales</Link>
+      cardFooterChildren: (
+        <Button
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+          asChild
+        >
+          <Link href={'mailto:founders@manicode.ai'}>Contact Sales</Link>
+        </Button>
       ),
     },
   ]
@@ -108,7 +143,7 @@ const PricingPage = () => {
             credits-based pricing options.
           </p>
           <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
-            <i>500 credits is equivalent to a multi-hour work session.</i>
+            <i>A multi-hour work session typically uses 500 credits.</i>
           </p>
 
           <div className="grid md:grid-cols-3 gap-8 mt-12">
@@ -129,21 +164,8 @@ const PricingPage = () => {
                     ))}
                   </ul>
                 </CardContent>
-                <CardFooter>
-                  {
-                    <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                      onClick={plan.buttonAction}
-                      disabled={
-                        isPending ||
-                        (plan.name === 'Pro' &&
-                          session.data?.user?.subscription_active)
-                      }
-                      asChild={!plan.buttonAction}
-                    >
-                      {plan.buttonText}
-                    </Button>
-                  }
+                <CardFooter className="w-full justify-center">
+                  {plan.cardFooterChildren}
                 </CardFooter>
               </Card>
             ))}
