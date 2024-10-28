@@ -143,9 +143,9 @@ const ReferralsPage = () => {
                       <>
                         <p>
                           Refer a friend and <b>you&apos;ll both</b> earn{' '}
-                          {CREDITS_REFERRAL_BONUS} credits per month! Share this
-                          link with them:
+                          {CREDITS_REFERRAL_BONUS} credits per month!
                         </p>
+                        <p>Send this link to them:</p>
                         <div className="relative">
                           {loading ? (
                             <Skeleton className="h-10 w-full" />

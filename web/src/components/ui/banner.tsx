@@ -4,6 +4,7 @@ import { Button } from './button'
 import { X, Gift } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
+import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 
 export function Banner() {
   const [isVisible, setIsVisible] = useState(true)
@@ -17,7 +18,8 @@ export function Banner() {
         <div className="flex items-center gap-2 text-center">
           <Gift className="h-4 w-4" />
           <p className="text-sm">
-            Invite frens and earn free credits!{' '}
+            Refer a friend, and earn {CREDITS_REFERRAL_BONUS} credits for both
+            of you!{' '}
             <Link href="/referrals" className="underline hover:text-blue-200">
               Learn more
             </Link>
