@@ -9,6 +9,7 @@ export interface IQuotaManager {
   updateQuota(id: string): Promise<{
     creditsUsed: number
     quota: number
+    subscription_active: boolean
   }>
   checkQuota(id: string): Promise<{
     creditsUsed: number
@@ -19,10 +20,7 @@ export interface IQuotaManager {
 }
 
 export class AnonymousQuotaManager implements IQuotaManager {
-  async updateQuota(fingerprintId: string): Promise<{
-    creditsUsed: number
-    quota: number
-  }> {
+  async updateQuota(fingerprintId: string) {
     const { creditsUsed, quota, endDate } = await this.checkQuota(fingerprintId)
 
     if (creditsUsed >= quota) {
@@ -31,6 +29,7 @@ export class AnonymousQuotaManager implements IQuotaManager {
     return {
       creditsUsed,
       quota,
+      subscription_active: false,
     }
   }
 
@@ -109,10 +108,7 @@ export class AnonymousQuotaManager implements IQuotaManager {
 }
 
 export class AuthenticatedQuotaManager implements IQuotaManager {
-  async updateQuota(userId: string): Promise<{
-    creditsUsed: number
-    quota: number
-  }> {
+  async updateQuota(userId: string) {
     const { creditsUsed, quota, endDate } = await this.checkQuota(userId)
 
     // Only set quota exceeded for non-subscribed users
@@ -122,7 +118,13 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
       })
       .from(schema.user)
       .where(eq(schema.user.id, userId))
-      .then(users => users[0])
+      .then((users) => {
+        const user = users[0]
+        if (user) {
+          return user
+        }
+        return undefined
+      })
 
     if (creditsUsed >= quota && !user?.subscription_active) {
       await this.setQuotaExceeded(userId)
@@ -130,6 +132,7 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
     return {
       creditsUsed,
       quota,
+      subscription_active: !!user?.subscription_active,
     }
   }
 

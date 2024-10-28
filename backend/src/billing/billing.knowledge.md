@@ -31,6 +31,13 @@ Key fields in the `user` table:
 
 ### QuotaManager
 
+#### Data Flow Principles
+
+- Propagate data through existing query chains instead of making new DB queries
+- When checking quota status, include all relevant user state (subscription status, etc.)
+- Pass complete state through websocket messages to avoid redundant DB calls
+- Example: subscription status flows from quota check → usage response → client display
+
 Two implementations:
 
 1. `AnonymousQuotaManager`: For unauthenticated users.
