@@ -47,6 +47,11 @@ Key methods:
 - Active subscriptions completely bypass quota exceeded checks
 - Non-subscribed users are blocked when exceeding their quota
 - Quota tracking continues even when checks are bypassed for billing purposes
+- Subscription and quota status must flow from backend to client via websocket messages:
+  - Backend determines subscription status and quota state
+  - Communicates via 'usage-response' message type
+  - Client displays appropriate messages based on backend response
+  - Never implement quota/subscription logic directly in client
 - Display different messages for subscribed vs non-subscribed users:
   - Subscribed: Show usage exceeded but allow continued use
   - Non-subscribed: Show usage exceeded and block further use

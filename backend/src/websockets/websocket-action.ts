@@ -67,6 +67,7 @@ export async function genUsageResponse(
       logger.info('Sending usage info')
 
       let referralLink: string | undefined = undefined
+      let subscription_active = false
       if (userId) {
         logger.info(`Checking referral status for user ${userId}`)
         const referralStatus = await hasMaxedReferrals(userId)
@@ -80,6 +81,16 @@ export async function genUsageResponse(
             `Not generating referral link for user ${userId}: ${referralStatus.reason}. Details: ${JSON.stringify(referralStatus.details)}`
           )
         }
+
+        // Get subscription status
+        const user = await db
+          .select({
+            subscription_active: schema.user.subscription_active,
+          })
+          .from(schema.user)
+          .where(eq(schema.user.id, userId))
+          .then(users => users[0])
+        subscription_active = !!user?.subscription_active
       } else {
         logger.info('No userId provided, skipping referral link generation')
       }
@@ -87,6 +98,7 @@ export async function genUsageResponse(
         usage,
         limit,
         referralLink,
+        subscription_active,
       }
     }
   )
