@@ -52,12 +52,12 @@ export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
     ? {
         ANON: 1_000_000,
         FREE: 2_500_000,
-        PAID: 50_000_000,
+        PAID: 10_000_000,
       }
     : {
         ANON: 1_000,
         FREE: 2_500,
-        PAID: 50_000,
+        PAID: 10_000,
       }
 export const CREDITS_REFERRAL_BONUS = 500
 

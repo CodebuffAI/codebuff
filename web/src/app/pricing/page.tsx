@@ -70,7 +70,7 @@ const PricingPage = () => {
     {
       name: 'Pro',
       price: '$99/month',
-      credits: 10_000,
+      credits: CREDITS_USAGE_LIMITS.PAID,
       features: [
         '$0.90 per 100 credits afterwards',
         'Priority support over email or Discord',
