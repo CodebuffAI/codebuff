@@ -115,7 +115,16 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
   }> {
     const { creditsUsed, quota, endDate } = await this.checkQuota(userId)
 
-    if (creditsUsed >= quota) {
+    // Only set quota exceeded for non-subscribed users
+    const user = await db
+      .select({
+        subscription_active: schema.user.subscription_active,
+      })
+      .from(schema.user)
+      .where(eq(schema.user.id, userId))
+      .then(users => users[0])
+
+    if (creditsUsed >= quota && !user?.subscription_active) {
       await this.setQuotaExceeded(userId)
     }
     return {

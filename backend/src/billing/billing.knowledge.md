@@ -39,8 +39,14 @@ Two implementations:
 Key methods:
 
 - `updateQuota`: Updates user's quota after usage.
-- `checkQuota`: Verifies if a user has exceeded their quota.
+- `checkQuota`: Verifies if a user has exceeded their quota. Important: Active subscriptions always bypass quota exceeded checks.
 - `resetQuota`: Resets quota at the end of a billing cycle.
+
+### Subscription Status
+
+- Active subscriptions completely bypass quota exceeded checks
+- Non-subscribed users are blocked when exceeding their quota
+- Quota tracking continues even when checks are bypassed for billing purposes
 
 ### Usage Limits
 
