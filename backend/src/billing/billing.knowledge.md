@@ -38,6 +38,11 @@ Key fields in the `user` table:
 - Pass complete state through websocket messages to avoid redundant DB calls
 - Example: subscription status flows from quota check → usage response → client display
 
+- Propagate data through existing query chains whenever possible and sensible, instead of making new DB queries
+- When checking quota status, include all relevant user state (subscription status, etc.)
+- Pass complete state through websocket messages to avoid redundant DB calls
+- Example: subscription status flows from quota check → usage response → client display
+
 Two implementations:
 
 1. `AnonymousQuotaManager`: For unauthenticated users.

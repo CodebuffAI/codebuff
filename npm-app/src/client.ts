@@ -278,12 +278,22 @@ export class Client {
     this.webSocket.subscribe('usage-response', (action) => {
       const { usage, limit, referralLink } = action
       console.log(`Usage: ${usage} / ${limit} credits`)
-      this.showUsageWarning(usage, limit, referralLink)
+      this.showUsageWarning(
+        usage,
+        limit,
+        action.subscription_active,
+        referralLink
+      )
       this.returnControlToUser()
     })
   }
 
-  public showUsageWarning(usage: number, limit: number, referralLink?: string) {
+  public showUsageWarning(
+    usage: number,
+    limit: number,
+    subscription_active: boolean,
+    referralLink?: string
+  ) {
     const errorCopy = [
       this.user
         ? green(`Visit ${process.env.NEXT_PUBLIC_APP_URL}/pricing to upgrade.`)
@@ -303,10 +313,10 @@ export class Client {
       .otherwise(() => 0)
 
     if (pct >= 100) {
-      if (this.user?.subscription_active) {
+      if (subscription_active) {
         console.warn(
           yellow(
-            `You have exceeded your monthly quota (${usage}/${limit} credits), but can continue using Manicode with your active subscription.`
+            `You have exceeded your monthly quota, but feel free to keep using Manicode! We'll charge you a discounted rate ($0.90/100) credits until your next billing cycle. Go go go!`
           )
         )
         this.lastWarnedPct = 100
