@@ -456,7 +456,7 @@ export class Client {
       resolveResponse({ ...a, wasStoppedByUser: false })
       this.currentUserInputId = undefined
 
-      if (!a.usage || !a.limit) return
+      if (!a.usage || !a.limit || a.subscription_active === undefined) return
 
       this.usage = a.usage
       if (this.limit !== a.limit) {
@@ -465,7 +465,12 @@ export class Client {
         this.limit = a.limit
       }
 
-      this.showUsageWarning(a.usage, a.limit, a.referralLink)
+      this.showUsageWarning(
+        a.usage,
+        a.limit,
+        a.subscription_active,
+        a.referralLink
+      )
     })
 
     return {

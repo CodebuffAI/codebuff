@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it, mock } from 'bun:test'
 import {
   AnonymousQuotaManager,
   AuthenticatedQuotaManager,
-} from '../../backend/src/billing/quota-manager'
+} from '../../common/src/billing/quota-manager'
 import { CREDITS_USAGE_LIMITS } from '../../common/src/constants'
 import { SQL } from 'drizzle-orm'
 
@@ -78,6 +78,42 @@ describe('QuotaManager', () => {
 
       expect(result.creditsUsed).toBe(500)
       expect(result.quota).toBe(CREDITS_USAGE_LIMITS.FREE)
+      expect(result.subscription_active).toBe(false)
+    })
+
+    it('should allow subscribed users to exceed quota', async () => {
+      // Mock the DB to return a subscribed user
+      mock.module('../../common/src/db', () => ({
+        default: {
+          select: mock(() => ({
+            from: mock(() => ({
+              leftJoin: mock(() => ({
+                where: mock(() => ({
+                  then: mock((callback) => callback([{ credits: 15000 }])),
+                  groupBy: mock(() => ({
+                    limit: mock(() => ({
+                      then: mock((callback) => callback([{ credits: 15000 }])),
+                    })),
+                  })),
+                })),
+              })),
+            })),
+          })),
+          update: mock(() => ({
+            set: mock(() => ({
+              where: mock(() => ({
+                execute: mock(),
+              })),
+            })),
+          })),
+        },
+      }))
+
+      const result = await authenticatedManager.updateQuota('test-user-id')
+
+      expect(result.creditsUsed).toBe(15000)
+      expect(result.quota).toBe(CREDITS_USAGE_LIMITS.FREE)
+      expect(result.subscription_active).toBe(true)
     })
 
     it('should reset quota for authenticated user', async () => {

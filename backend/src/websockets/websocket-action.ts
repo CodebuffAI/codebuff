@@ -163,6 +163,7 @@ const onUserInput = async (
             changes,
             usage,
             limit,
+            subscription_active,
             referralLink,
           })
         }

@@ -128,6 +128,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     changes: CHANGES,
     usage: z.number().optional(),
     limit: z.number().optional(),
+    subscription_active: z.boolean().optional(),
     referralLink: z.string().optional(),
   }),
   z.object({
