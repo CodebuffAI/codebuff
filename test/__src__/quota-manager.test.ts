@@ -25,6 +25,19 @@ const mockDb = {
           }),
         }),
       }),
+      where: () => ({
+        groupBy: () => ({
+          then: (callback: any) =>
+            callback([
+              {
+                creditsUsed: 500,
+                subscription_active: false,
+                quota: CREDITS_USAGE_LIMITS.FREE,
+                endDate: new Date(),
+              },
+            ]),
+        }),
+      }),
     }),
   }),
   update: () => ({

@@ -311,7 +311,7 @@ export class Client {
       if (this.subscription_active) {
         console.warn(
           yellow(
-            `You have exceeded your monthly quota, but feel free to keep using Manicode! We'll charge you a discounted rate ($0.90/100) credits until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/pricing for more details.`
+            `You have exceeded your monthly quota, but feel free to keep using Manicode! We'll charge you a discounted rate ($0.90/100) credits until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/usage for more details.`
           )
         )
         this.lastWarnedPct = 100

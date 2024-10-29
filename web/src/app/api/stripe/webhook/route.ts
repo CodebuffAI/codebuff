@@ -58,14 +58,8 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       case 'customer.subscription.created':
         await handleSubscriptionChange(event.data.object, 'PAID')
         break
-      case 'customer.subscription.updated':
-        await handleSubscriptionChange(
-          event.data.object,
-          // If user's subscription was cancelled, we should move them back to the free tier
-          !!event.data.object.cancellation_details?.reason ? 'FREE' : 'PAID'
-        )
-        break
       case 'customer.subscription.deleted':
+        // Only downgrade to FREE tier when subscription period has ended
         await handleSubscriptionChange(event.data.object, 'FREE')
         break
       case 'invoice.paid':
