@@ -52,8 +52,9 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
     userId ? 'authenticated' : 'anonymous',
     userId ?? fingerprintId
   )
-  const { creditsUsed, quota } = await quotaManager.updateQuota()
-  return { usage: creditsUsed, limit: quota }
+  const { creditsUsed, quota, subscription_active } =
+    await quotaManager.updateQuota()
+  return { usage: creditsUsed, limit: quota, subscription_active }
 }
 
 export async function genUsageResponse(
@@ -63,7 +64,10 @@ export async function genUsageResponse(
   const params = await withLoggerContext(
     { fingerprintId, userId },
     async () => {
-      const { usage, limit } = await calculateUsage(fingerprintId, userId)
+      const { usage, limit, subscription_active } = await calculateUsage(
+        fingerprintId,
+        userId
+      )
       logger.info('Sending usage info')
 
       let referralLink: string | undefined = undefined
@@ -87,6 +91,7 @@ export async function genUsageResponse(
         usage,
         limit,
         referralLink,
+        subscription_active,
       }
     }
   )
@@ -149,10 +154,8 @@ const onUserInput = async (
             changes,
           })
         } else {
-          const { usage, limit, referralLink } = await genUsageResponse(
-            fingerprintId,
-            userId
-          )
+          const { usage, limit, referralLink, subscription_active } =
+            await genUsageResponse(fingerprintId, userId)
           sendAction(ws, {
             type: 'response-complete',
             userInputId,
@@ -160,6 +163,7 @@ const onUserInput = async (
             changes,
             usage,
             limit,
+            subscription_active,
             referralLink,
           })
         }

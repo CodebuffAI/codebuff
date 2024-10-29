@@ -29,7 +29,7 @@ export const GET = async () => {
         quantity: 1,
       },
     ],
-    success_url: `${env.NEXT_PUBLIC_APP_URL}?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${env.NEXT_PUBLIC_APP_URL}/pricing?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: env.NEXT_PUBLIC_APP_URL,
   })
 

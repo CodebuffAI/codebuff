@@ -5,6 +5,7 @@ export const usageDataSchema = z.object({
   totalQuota: z.number(),
   remainingCredits: z.number(),
   billingCycleEnd: z.coerce.date(),
+  subscriptionActive: z.boolean(),
 })
 
 export type UsageData = z.infer<typeof usageDataSchema>

@@ -31,6 +31,13 @@ Key fields in the `user` table:
 
 ### QuotaManager
 
+#### Data Flow Principles
+
+- Propagate data through existing query chains instead of making new DB queries
+- When checking quota status, include all relevant user state (subscription status, etc.)
+- Pass complete state through websocket messages to avoid redundant DB calls
+- Example: subscription status flows from quota check → usage response → client display
+
 Two implementations:
 
 1. `AnonymousQuotaManager`: For unauthenticated users.
@@ -39,8 +46,28 @@ Two implementations:
 Key methods:
 
 - `updateQuota`: Updates user's quota after usage.
-- `checkQuota`: Verifies if a user has exceeded their quota.
+- `checkQuota`: Verifies if a user has exceeded their quota. Important: Active subscriptions always bypass quota exceeded checks.
 - `resetQuota`: Resets quota at the end of a billing cycle.
+
+### Subscription Status
+
+- Active subscriptions completely bypass quota exceeded checks
+- Non-subscribed users are blocked when exceeding their quota
+- Quota tracking continues even when checks are bypassed for billing purposes
+- Subscription and quota status must flow from backend to client via websocket messages:
+  - Backend determines subscription status and quota state
+  - Communicates via 'usage-response' message type
+  - Client displays appropriate messages based on backend response
+  - Never implement quota/subscription logic directly in client
+- Display different messages for subscribed vs non-subscribed users:
+  - Subscribed: Show usage exceeded but allow continued use
+  - Non-subscribed: Show usage exceeded and block further use
+
+### Subscription Status
+
+- Active subscriptions completely bypass quota exceeded checks
+- Non-subscribed users are blocked when exceeding their quota
+- Quota tracking continues even when checks are bypassed for billing purposes
 
 ### Usage Limits
 
@@ -92,6 +119,16 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 3. Update quotas after successful operations that consume credits.
 4. Ensure proper error handling for quota exceeded scenarios.
 5. Regularly review and adjust pricing and quota limits based on usage patterns.
+6. Combine related database queries into single operations:
+   - Methods should return all necessary data in one query
+   - Avoid separate queries for related data (e.g., subscription status with quota info)
+   - Example: checkQuota returns quota and subscription status together
+6. Test all billing code paths thoroughly:
+   - Test both anonymous and authenticated users
+   - Verify subscription status handling
+   - Test quota exceeded scenarios
+   - Test edge cases like subscription transitions
+   - Add integration tests for full quota check flow
 
 ## Future Considerations
 

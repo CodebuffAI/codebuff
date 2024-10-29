@@ -56,10 +56,10 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
         // We should use this webhook to send general onboarding material, welcome emails, etc.
         break
       case 'customer.subscription.created':
-      case 'customer.subscription.updated':
         await handleSubscriptionChange(event.data.object, 'PAID')
         break
       case 'customer.subscription.deleted':
+        // Only downgrade to FREE tier when subscription period has ended
         await handleSubscriptionChange(event.data.object, 'FREE')
         break
       case 'invoice.paid':
