@@ -10,8 +10,8 @@ export async function updateManicode() {
   const latestVersion = await getManicodeNpmVersion()
   const isUpToDate = isNpmUpToDate(packageJson.version, latestVersion)
   if (!isUpToDate) {
-    const installer = detectInstaller()
-    if (!installer) {
+    const installerInfo = detectInstaller()
+    if (!installerInfo) {
       console.log(
         yellow(
           "There's a new version available! Please update manicode to prevent errors"
@@ -19,12 +19,12 @@ export async function updateManicode() {
       )
       return
     }
-    console.log(green(`Updating Manicode using ${installer}...`))
+    console.log(green(`Updating Manicode using ${installerInfo.installer}...`))
     try {
-      runUpdateManicode(installer)
+      runUpdateManicode(installerInfo)
       console.log(green('Manicode updated successfully.'))
       console.log(
-        green('Goodbyeeeee! Please restart Manicode to use the new version.')
+        green('Manicode out! Please restart Manicode to use the new version.')
       )
       process.exit(0)
     } catch (error) {
