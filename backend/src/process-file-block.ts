@@ -7,6 +7,8 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
+import { promptOpenAI } from './openai-api'
+import { openaiModels } from 'common/constants'
 
 export async function processFileBlock(
   clientSessionId: string,
@@ -23,11 +25,13 @@ export async function processFileBlock(
 
   if (oldContent === null) {
     // Remove markdown code block syntax if present
-    let cleanContent = newContent.replace(/^```[^\n]*\n/, '').replace(/\n```$/, '')
-    
+    let cleanContent = newContent
+      .replace(/^```[^\n]*\n/, '')
+      .replace(/\n```$/, '')
+
     const { diffBlocks } = parseAndGetDiffBlocksSingleFile(cleanContent, '')
     if (diffBlocks.length > 0) {
-      const content = diffBlocks.map(block => block.replaceContent).join('\n')
+      const content = diffBlocks.map((block) => block.replaceContent).join('\n')
       logger.debug(
         { filePath, content },
         `processFileBlock: Created new file from replace blocks ${filePath}`
@@ -59,18 +63,24 @@ export async function processFileBlock(
   const { diffBlocks, diffBlocksThatDidntMatch } =
     parseAndGetDiffBlocksSingleFile(normalizedNewContent, normalizedOldContent)
 
-  let fixedDiffBlocks: { searchContent: string; replaceContent: string }[] = []
+  let updatedDiffBlocksThatDidntMatch: {
+    searchContent: string
+    replaceContent: string
+  }[] = []
   if (diffBlocksThatDidntMatch.length > 0) {
-    fixedDiffBlocks = await retryDiffBlocksPrompt(
-      filePath,
-      normalizedOldContent,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      diffBlocksThatDidntMatch
-    )
-    diffBlocks.push(...fixedDiffBlocks)
+    const { newDiffBlocks, newDiffBlocksThatDidntMatch } =
+      await retryDiffBlocksPrompt(
+        filePath,
+        normalizedOldContent,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+        diffBlocksThatDidntMatch
+      )
+    diffBlocks.push(...newDiffBlocks)
+
+    updatedDiffBlocksThatDidntMatch = newDiffBlocksThatDidntMatch
   }
 
   const noDiffBlocks =
@@ -81,6 +91,17 @@ export async function processFileBlock(
   for (const diffBlock of diffBlocks) {
     const { searchContent, replaceContent } = diffBlock
     updatedContent = updatedContent.replace(searchContent, replaceContent)
+  }
+
+  if (updatedDiffBlocksThatDidntMatch.length > 0) {
+    updatedContent = await applyRemainingChanges(
+      updatedContent,
+      updatedDiffBlocksThatDidntMatch,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId
+    )
   }
 
   let patch = createPatch(filePath, normalizedOldContent, updatedContent)
@@ -102,4 +123,57 @@ export async function processFileBlock(
     `processFileBlock: Generated patch for ${filePath}`
   )
   return { filePath, content: patch, type: 'patch' }
+}
+
+async function applyRemainingChanges(
+  updatedContent: string,
+  diffBlocksThatDidntMatch: { searchContent: string; replaceContent: string }[],
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined
+) {
+  const prompt = `
+Here's the current content of the file:
+
+\`\`\`
+${updatedContent}
+\`\`\`
+
+The following changes were intended but could not be applied using exact string matching:
+
+${diffBlocksThatDidntMatch
+  .map(
+    (block, i) => `
+Change ${i + 1}:
+Search content:
+\`\`\`${block.searchContent}\`\`\`
+
+Replace with:
+\`\`\`${block.replaceContent}\`\`\`
+`
+  )
+  .join('\n')}
+
+Please rewrite the file content to include these intended changes while preserving the rest of the file. Only make the minimal changes necessary to incorporate the intended edits. Do not edit any other code. Please preserve all other comments, etc.
+
+Return only the complete file content with no additional text or explanation within \`\`\` code blocks.`
+
+  const response = await promptOpenAI(
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    [{ role: 'user', content: prompt }],
+    openaiModels.gpt4o,
+    userId
+  )
+
+  logger.debug(
+    { response, diffBlocksThatDidntMatch },
+    `applyRemainingChanges for ${diffBlocksThatDidntMatch.length} blocks`
+  )
+
+  // Extract content from within code blocks
+  const match = response.match(/```(?:\w*\n)?([\s\S]*?)```/)
+  return match ? match[1] : response
 }

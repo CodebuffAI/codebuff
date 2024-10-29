@@ -605,7 +605,7 @@ export const parseAndGetDiffBlocksSingleFile = (
         const noWhitespaceSearch = change.searchContent.replace(/\s+/g, '')
         const noWhitespaceOld = oldFileContent.replace(/\s+/g, '')
         const noWhitespaceIndex = noWhitespaceOld.indexOf(noWhitespaceSearch)
-        
+
         if (noWhitespaceIndex >= 0) {
           // Count non-whitespace characters to find the real position
           let realIndex = 0
@@ -616,24 +616,30 @@ export const parseAndGetDiffBlocksSingleFile = (
             }
             realIndex++
           }
-          
+
           // Count non-whitespace characters in search content to find length
           let searchLength = 0
           let nonWhitespaceSearchCount = 0
-          while (nonWhitespaceSearchCount < noWhitespaceSearch.length && realIndex + searchLength < oldFileContent.length) {
+          while (
+            nonWhitespaceSearchCount < noWhitespaceSearch.length &&
+            realIndex + searchLength < oldFileContent.length
+          ) {
             if (oldFileContent[realIndex + searchLength].match(/\S/)) {
               nonWhitespaceSearchCount++
             }
             searchLength++
           }
-          
+
           // Find the actual content with original whitespace
-          const actualContent = oldFileContent.slice(realIndex, realIndex + searchLength)
+          const actualContent = oldFileContent.slice(
+            realIndex,
+            realIndex + searchLength
+          )
           if (oldFileContent.includes(actualContent)) {
             logger.debug('Matched with whitespace removed')
             diffBlocks.push({
               searchContent: actualContent,
-              replaceContent: change.replaceContent
+              replaceContent: change.replaceContent,
             })
           }
         } else {
@@ -752,5 +758,5 @@ ${STOP_MARKER}
     )
   }
 
-  return newDiffBlocks
+  return { newDiffBlocks, newDiffBlocksThatDidntMatch }
 }
