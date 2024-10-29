@@ -77,6 +77,30 @@ const PricingPage = () => {
       ],
       cardFooterChildren: (
         <div className="w-full flex flex-col items-center text-center justify-center space-y-2">
+          {session?.data?.user?.subscription_active &&
+            (session?.data?.user?.stripe_price_id ? (
+              <p className="text-xs">
+                Need to cancel? Click{' '}
+                <Link
+                  href={env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}
+                  className="hover:text-blue-500 hover:underline"
+                >
+                  here
+                </Link>{' '}
+                (to break our hearts)
+              </p>
+            ) : (
+              <p className="text-xs">
+                Your subscription won&apos;t renew. Manage it{' '}
+                <Link
+                  href={env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}
+                  className="hover:text-blue-500 hover:underline"
+                >
+                  here
+                </Link>
+                .
+              </p>
+            ))}
           <Button
             className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
             onClick={() => handleCreateCheckoutSession()}
@@ -93,18 +117,6 @@ const PricingPage = () => {
               </>
             )}
           </Button>
-          {session?.data?.user?.subscription_active && (
-            <p className="text-xs">
-              Need to cancel? Click{' '}
-              <Link
-                href={env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}
-                className="hover:text-blue-500 hover:underline"
-              >
-                here
-              </Link>{' '}
-              (to break our hearts)
-            </p>
-          )}
         </div>
       ),
     },

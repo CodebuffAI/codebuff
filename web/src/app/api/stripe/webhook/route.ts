@@ -58,6 +58,9 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       case 'customer.subscription.created':
         await handleSubscriptionChange(event.data.object, 'PAID')
         break
+      case 'customer.subscription.updated':
+        await handleSubscriptionChange(event.data.object, 'PAID')
+        break
       case 'customer.subscription.deleted':
         // Only downgrade to FREE tier when subscription period has ended
         await handleSubscriptionChange(event.data.object, 'FREE')
@@ -114,13 +117,21 @@ async function handleSubscriptionChange(
 
   // TODO: If downgrading, check Stripe to see if they have exceeded quota, don't just blindly reset. But for now it's fine to just trust them.
   // A good indicator that we've created compelling value is if people are subscribing and unsubscribing just to get some more free usage
+
+  let newSubscriptionId: string | null = subscription.id
+  if (subscription.cancellation_details?.reason) {
+    console.log(
+      `Subscription cancelled: ${subscription.cancellation_details.reason}`
+    )
+    newSubscriptionId = null
+  }
   await db
     .update(schema.user)
     .set({
       quota_exceeded: false,
       quota: newQuota,
       subscription_active: usageTier === 'PAID',
-      stripe_price_id: subscription.id,
+      stripe_price_id: newSubscriptionId,
     })
     .where(eq(schema.user.stripe_customer_id, customerId))
 }

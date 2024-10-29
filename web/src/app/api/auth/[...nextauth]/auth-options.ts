@@ -38,6 +38,7 @@ export const authOptions: NextAuthOptions = {
         session.user.name = user.name
         session.user.email = user.email
         session.user.stripe_customer_id = user.stripe_customer_id
+        session.user.stripe_price_id = user.stripe_price_id
       }
       return session
     },
