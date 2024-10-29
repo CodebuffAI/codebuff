@@ -15,6 +15,7 @@ export interface IQuotaManager {
     creditsUsed: number
     quota: number
     endDate: Date | SQL<Date>
+    subscription_active: boolean
   }>
   resetQuota(id: string): Promise<void>
 }
@@ -37,6 +38,7 @@ export class AnonymousQuotaManager implements IQuotaManager {
     creditsUsed: number
     quota: number
     endDate: Date
+    subscription_active: boolean
   }> {
     const quota = CREDITS_USAGE_LIMITS.ANON
     const startDate: SQL<Date> = sql<Date>`COALESCE(${schema.fingerprint.next_quota_reset}, now()) - INTERVAL '1 month'`
@@ -65,11 +67,11 @@ export class AnonymousQuotaManager implements IQuotaManager {
           endDate: new Date(),
         }
       })
-
     return {
       creditsUsed: result.creditsUsed,
       quota,
       endDate: result.endDate,
+      subscription_active: false,
     }
   }
 
@@ -109,38 +111,20 @@ export class AnonymousQuotaManager implements IQuotaManager {
 
 export class AuthenticatedQuotaManager implements IQuotaManager {
   async updateQuota(userId: string) {
-    const { creditsUsed, quota, endDate } = await this.checkQuota(userId)
+    const { creditsUsed, quota, subscription_active } =
+      await this.checkQuota(userId)
 
-    // Only set quota exceeded for non-subscribed users
-    const user = await db
-      .select({
-        subscription_active: schema.user.subscription_active,
-      })
-      .from(schema.user)
-      .where(eq(schema.user.id, userId))
-      .then((users) => {
-        const user = users[0]
-        if (user) {
-          return user
-        }
-        return undefined
-      })
-
-    if (creditsUsed >= quota && !user?.subscription_active) {
+    if (creditsUsed >= quota && !subscription_active) {
       await this.setQuotaExceeded(userId)
     }
     return {
       creditsUsed,
       quota,
-      subscription_active: !!user?.subscription_active,
+      subscription_active,
     }
   }
 
-  async checkQuota(userId: string): Promise<{
-    creditsUsed: number
-    quota: number
-    endDate: Date
-  }> {
+  async checkQuota(userId: string) {
     const startDate: SQL<Date> = sql<Date>`COALESCE(${schema.user.next_quota_reset}, now()) - INTERVAL '1 month'`
     const endDate: SQL<Date> = sql<Date>`COALESCE(${schema.user.next_quota_reset}, now())`
 
@@ -149,6 +133,7 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
         quota: schema.user.quota,
         stripe_customer_id: schema.user.stripe_customer_id,
         stripe_price_id: schema.user.stripe_price_id,
+        subscription_active: schema.user.subscription_active,
         endDate,
         creditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
       })
@@ -175,6 +160,7 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
           stripe_price_id: null,
           creditsUsed: '0',
           endDate: new Date(),
+          subscription_active: false,
         }
       })
 
@@ -187,6 +173,7 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
       creditsUsed: parseInt(result.creditsUsed),
       quota,
       endDate: result.endDate,
+      subscription_active: !!result.subscription_active,
     }
   }
 

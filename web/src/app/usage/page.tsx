@@ -1,24 +1,31 @@
-'use client'
-
-import { useQuery } from '@tanstack/react-query'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { UsageData, usageDataSchema } from 'common/src/types/usage'
 import { match, P } from 'ts-pattern'
 
-const UsagePage = () => {
-  const queryResult = useQuery<UsageData>({
-    queryKey: ['usage'],
-    queryFn: async () => {
-      const response = await fetch('/api/usage')
-      if (!response.ok) {
-        throw new Error('Failed to fetch usage data')
-      }
+const UsagePage = async () => {
+  const session = await getServerSession(authOptions)
 
-      const responseData = await response.json()
-      return usageDataSchema.parse(responseData)
-    },
-  })
+  if (!session?.user) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Sign in to view usage</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>Please sign in to view your usage statistics.</p>
+        </CardContent>
+        <SignInCardFooter />
+      </Card>
+    )
+  }
+
+  const quotaManager = getQuotaManager('authenticated', session.user.id)
+  const { creditsUsed, quota: totalQuota, endDate: billingCycleEnd, subscription_active: subscriptionActive } = await quotaManager.checkQuota()
+  const remainingCredits = Math.max(0, totalQuota - creditsUsed)
+  const data = { creditsUsed, totalQuota, remainingCredits, billingCycleEnd, subscriptionActive }
 
   return (
     <Card className="w-full max-w-2xl mx-auto mt-8">
@@ -26,42 +33,15 @@ const UsagePage = () => {
         <CardTitle>Usage</CardTitle>
       </CardHeader>
       <CardContent>
-        {match(queryResult)
-          .with(
-            {
-              error: P.nonNullable,
-            },
-            ({ error }) => {
-              return <div>An error occurred: {error.message}</div>
-            }
-          )
-          .with(
-            {
-              isLoading: true,
-              data: P.nullish,
-            },
-            () => (
-              <div className="space-y-4">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-4 w-4/6" />
-              </div>
-            )
-          )
-          .with(
-            {
-              data: P.nonNullable,
-              error: P.nullish,
-            },
-            ({
-              data: {
+        {(() => {
+        const {
                 creditsUsed,
                 totalQuota,
                 remainingCredits,
                 billingCycleEnd,
                 subscriptionActive,
               },
-            }) => {
+        }) => {
               return (
                 <div className="space-y-4">
                   {creditsUsed > totalQuota && subscriptionActive && (
@@ -100,10 +80,7 @@ const UsagePage = () => {
                 </div>
               )
             }
-          )
-          .otherwise(() => (
-            <></>
-          ))}
+      })()}
       </CardContent>
     </Card>
   )

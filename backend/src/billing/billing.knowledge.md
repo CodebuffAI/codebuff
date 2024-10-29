@@ -119,6 +119,10 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 3. Update quotas after successful operations that consume credits.
 4. Ensure proper error handling for quota exceeded scenarios.
 5. Regularly review and adjust pricing and quota limits based on usage patterns.
+6. Combine related database queries into single operations:
+   - Methods should return all necessary data in one query
+   - Avoid separate queries for related data (e.g., subscription status with quota info)
+   - Example: checkQuota returns quota and subscription status together
 6. Test all billing code paths thoroughly:
    - Test both anonymous and authenticated users
    - Verify subscription status handling
