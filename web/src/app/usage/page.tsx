@@ -59,10 +59,26 @@ const UsagePage = () => {
                 totalQuota,
                 remainingCredits,
                 billingCycleEnd,
+                subscriptionActive,
               },
             }) => {
               return (
                 <div className="space-y-4">
+                  {creditsUsed > totalQuota && subscriptionActive && (
+                    <div className="p-4 mb-4 bg-blue-100 dark:bg-blue-900 rounded-md">
+                      <p>
+                        You have exceeded your monthly quota, but you can
+                        continue using Manicode. You will be charged an overage
+                        fee of $0.90 per 100 additional credits.
+                      </p>
+                      <p className="mt-2">
+                        Current overage: $
+                        {(
+                          Math.ceil((creditsUsed - totalQuota) / 100) * 0.9
+                        ).toFixed(2)}
+                      </p>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="font-semibold">Remaining credits:</span>
                     <span>

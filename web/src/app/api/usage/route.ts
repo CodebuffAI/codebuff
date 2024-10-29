@@ -15,13 +15,15 @@ export async function GET() {
   const quotaManager = getQuotaManager('authenticated', userId)
 
   try {
-    const { creditsUsed, quota, endDate } = await quotaManager.checkQuota()
+    const { creditsUsed, quota, endDate, subscription_active } =
+      await quotaManager.checkQuota()
 
     const usageData: UsageData = {
       creditsUsed,
       totalQuota: quota,
       remainingCredits: Math.max(0, quota - creditsUsed),
       billingCycleEnd: endDate,
+      subscriptionActive: subscription_active,
     }
 
     return NextResponse.json(usageData)
