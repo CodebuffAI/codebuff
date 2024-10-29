@@ -14,7 +14,7 @@ export interface IQuotaManager {
   checkQuota(id: string): Promise<{
     creditsUsed: number
     quota: number
-    endDate: Date | SQL<Date>
+    endDate: Date
     subscription_active: boolean
   }>
   resetQuota(id: string): Promise<void>
@@ -41,8 +41,8 @@ export class AnonymousQuotaManager implements IQuotaManager {
     subscription_active: boolean
   }> {
     const quota = CREDITS_USAGE_LIMITS.ANON
-    const startDate: SQL<Date> = sql<Date>`COALESCE(${schema.fingerprint.next_quota_reset}, now()) - INTERVAL '1 month'`
-    const endDate: SQL<Date> = sql<Date>`COALESCE(${schema.fingerprint.next_quota_reset}, now())`
+    const startDate: SQL<string> = sql<string>`COALESCE(${schema.fingerprint.next_quota_reset}, now()) - INTERVAL '1 month'`
+    const endDate: SQL<string> = sql<string>`COALESCE(${schema.fingerprint.next_quota_reset}, now())`
 
     const result = await db
       .select({
@@ -64,13 +64,14 @@ export class AnonymousQuotaManager implements IQuotaManager {
         return {
           creditsUsed: 0,
           quota,
-          endDate: new Date(),
+          endDate: new Date().toDateString(),
         }
       })
+
     return {
       creditsUsed: result.creditsUsed,
       quota,
-      endDate: result.endDate,
+      endDate: new Date(result.endDate),
       subscription_active: false,
     }
   }
@@ -125,8 +126,8 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
   }
 
   async checkQuota(userId: string) {
-    const startDate: SQL<Date> = sql<Date>`COALESCE(${schema.user.next_quota_reset}, now()) - INTERVAL '1 month'`
-    const endDate: SQL<Date> = sql<Date>`COALESCE(${schema.user.next_quota_reset}, now())`
+    const startDate: SQL<string> = sql<string>`COALESCE(${schema.user.next_quota_reset}, now()) - INTERVAL '1 month'`
+    const endDate: SQL<string> = sql<string>`COALESCE(${schema.user.next_quota_reset}, now())`
 
     const result = await db
       .select({
@@ -150,7 +151,8 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
         schema.user.quota,
         schema.user.stripe_customer_id,
         schema.user.stripe_price_id,
-        schema.user.next_quota_reset
+        schema.user.next_quota_reset,
+        schema.user.subscription_active
       )
       .then((rows) => {
         if (rows.length > 0) return rows[0]
@@ -159,7 +161,7 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
           stripe_customer_id: null,
           stripe_price_id: null,
           creditsUsed: '0',
-          endDate: new Date(),
+          endDate: new Date().toDateString(),
           subscription_active: false,
         }
       })
@@ -172,7 +174,7 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
     return {
       creditsUsed: parseInt(result.creditsUsed),
       quota,
-      endDate: result.endDate,
+      endDate: new Date(result.endDate),
       subscription_active: !!result.subscription_active,
     }
   }
