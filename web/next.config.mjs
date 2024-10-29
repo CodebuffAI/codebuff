@@ -1,7 +1,20 @@
 /** @type {import('next').NextConfig} */
-import { env } from './src/env.mjs';
+import { env } from './src/env.mjs'
 
 const nextConfig = {
+  headers: () => {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+        ],
+      },
+    ]
+  },
   images: {
     remotePatterns: [
       {
@@ -11,6 +24,6 @@ const nextConfig = {
     ],
   },
   reactStrictMode: false,
-};
+}
 
-export default nextConfig;
+export default nextConfig
