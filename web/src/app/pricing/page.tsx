@@ -155,7 +155,7 @@ const PricingPage = () => {
             credits-based pricing options.
           </p>
           <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
-            <i>A multi-hour work session typically uses 500 credits.</i>
+            <i>An intense 1-hour work session typically uses 500-1000 credits.</i>
           </p>
 
           <div className="grid md:grid-cols-3 gap-8 mt-12">
