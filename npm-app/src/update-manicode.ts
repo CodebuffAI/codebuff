@@ -121,11 +121,13 @@ function detectInstaller(): InstallerInfo | undefined {
   }
 
   // /usr/local/lib/node_modules on macOS/Linux or %AppData%\npm/node_modules on Windows
-  if (isNpmScript || path.includes('npm') || path.startsWith('/usr/')) {
+  // OR: .nvm/versions/node/v18.17.0/bin/manicode on mac
+  const isGlobalNpmPath =
+    path.includes('npm') || path.startsWith('/usr/') || path.includes('.nvm')
+  if (isNpmScript || isGlobalNpmPath) {
     return {
       installer: 'npm',
-      scope:
-        path.includes('npm') || path.startsWith('/usr/') ? 'global' : 'local',
+      scope: isGlobalNpmPath ? 'global' : 'local',
     }
   }
 
