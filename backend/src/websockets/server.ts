@@ -33,7 +33,7 @@ function parseMessage(data: RawData): ClientMessage {
   try {
     messageObj = JSON.parse(data.toString())
   } catch (err) {
-    logger.error({ err }, 'Error parsing message')
+    logger.error({ err, data }, 'Error parsing message: not valid UTF-8 encoded JSON.')
     throw new MessageParseError('Message was not valid UTF-8 encoded JSON.')
   }
   const result = CLIENT_MESSAGE_SCHEMA.safeParse(messageObj)

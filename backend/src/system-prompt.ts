@@ -42,6 +42,7 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
       // fileTokenCounts,
       // totalFileTokens,
       systemPromptTokens: countTokensJson(systemPrompt),
+      systemPrompt
     },
     'search system prompt tokens'
   )
@@ -94,6 +95,7 @@ export const getAgentSystemPrompt = (
       // fileTokenCounts,
       // totalFileTokens,
       systemPromptTokens: countTokensJson(systemPrompt),
+      systemPrompt
     },
     'agent system prompt tokens'
   )

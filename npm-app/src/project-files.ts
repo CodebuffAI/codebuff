@@ -80,6 +80,7 @@ export const getProjectFileContext = async (
     files,
     gitChanges,
     changesSinceLastChat,
+    fileVersions,
   }
 
   if (
@@ -105,7 +106,6 @@ export const getProjectFileContext = async (
       fileTokenScores,
       knowledgeFiles,
       shellConfigFiles,
-      fileVersions,
       ...updatedProps,
     }
   } else {
