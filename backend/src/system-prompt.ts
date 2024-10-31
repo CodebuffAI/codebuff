@@ -42,7 +42,7 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
       // fileTokenCounts,
       // totalFileTokens,
       systemPromptTokens: countTokensJson(systemPrompt),
-      systemPrompt
+      systemPrompt,
     },
     'search system prompt tokens'
   )
@@ -95,7 +95,7 @@ export const getAgentSystemPrompt = (
       // fileTokenCounts,
       // totalFileTokens,
       systemPromptTokens: countTokensJson(systemPrompt),
-      systemPrompt
+      systemPrompt,
     },
     'agent system prompt tokens'
   )
@@ -360,13 +360,15 @@ ${Object.entries(shellConfigFiles)
 const getProjectFilesPromptContent = (fileContext: ProjectFileContext) => {
   const { fileVersions } = fileContext
 
-  const fileBlockSets = fileVersions.map((files) =>
-    files
-      .map(({ path, content }) =>
-        createFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
-      )
-      .join('\n')
-  )
+  const fileBlockSets = fileVersions
+    .filter((files) => files.length > 0)
+    .map((files) =>
+      files
+        .map(({ path, content }) =>
+          createFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
+        )
+        .join('\n')
+    )
 
   const intro = `
 # Project files

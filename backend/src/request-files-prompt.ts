@@ -51,7 +51,10 @@ export async function requestRelevantFiles(
         previousFiles,
         userPrompt,
         userId
-      )
+      ).catch((error) => {
+        logger.error({ error }, 'Error checking new files necessary')
+        return { newFilesNecessary: true, response: 'N/A' }
+      })
 
   const fileRequestsPromise = generateFileRequests(
     userPrompt,
@@ -137,7 +140,7 @@ async function generateFileRequests(
       userInputId,
       userId
     ).catch((error) => {
-      console.error('Error requesting files:', error)
+      logger.error({ error }, 'Error requesting non-obvious files')
       return { files: [], duration: 0 }
     })
   )
@@ -167,7 +170,7 @@ async function generateFileRequests(
       userInputId,
       userId
     ).catch((error) => {
-      console.error('Error requesting key files:', error)
+      logger.error({ error }, 'Error requesting key files')
       return { files: [], duration: 0 }
     })
   )
@@ -207,10 +210,7 @@ Answer with just 'YES' if new files are necessary, or 'NO' if the current files 
       userInputId,
       userId,
     }
-  ).catch((error) => {
-    console.error('Error checking new files necessary:', error)
-    return 'YES'
-  })
+  )
   const newFilesNecessary = response.trim().toUpperCase().includes('YES')
   return { newFilesNecessary, response }
 }
