@@ -365,7 +365,7 @@ export class CLI {
     const changesFileBlocks = Object.entries(changesSinceLastFileVersion)
       .map(([filePath, patch]) => [
         filePath,
-        patch.length < 4 * 10_000
+        patch.length < 8_000
           ? patch
           : '[LARGE_FILE_CHANGE_TOO_LONG_TO_REPRODUCE]',
       ])

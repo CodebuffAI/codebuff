@@ -91,7 +91,10 @@ export async function mainPrompt(
       fileContext,
       messages,
       userId
-    )
+    ).catch((error) => {
+      logger.error({ error }, 'Error generating knowledge files')
+      return []
+    })
   }
 
   const lastUserMessageIndex = messages.findLastIndex(

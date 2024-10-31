@@ -91,7 +91,7 @@ export function getProjectFileTree(
   return root.children
 }
 
-function parseGitignore(dirPath: string): ignore.Ignore {
+export function parseGitignore(dirPath: string): ignore.Ignore {
   const ig = ignore.default()
   const gitignorePath = path.join(dirPath, '.gitignore')
   const manicodeignorePath = path.join(dirPath, '.manicodeignore')

@@ -7,9 +7,17 @@ import { createPatch } from 'diff'
 import { green } from 'picocolors'
 import { Worker } from 'worker_threads'
 
-import { createFileBlock, FileVersion, ProjectFileContext } from 'common/util/file'
+import {
+  createFileBlock,
+  FileVersion,
+  ProjectFileContext,
+} from 'common/util/file'
 import { filterObject } from 'common/util/object'
-import { getProjectFileTree, flattenTree } from 'common/project-file-tree'
+import {
+  getProjectFileTree,
+  flattenTree,
+  parseGitignore,
+} from 'common/project-file-tree'
 import { getFileTokenScores } from 'code-map/parse'
 
 const execAsync = promisify(exec)
@@ -170,9 +178,18 @@ export function getChangesSinceLastFileVersion(
 export function getFiles(filePaths: string[]) {
   const result: Record<string, string | null> = {}
   const MAX_FILE_SIZE = 1024 * 1024 // 1MB in bytes
+  const ig = parseGitignore(projectRoot)
 
   for (const filePath of filePaths) {
     const fullPath = path.join(projectRoot, filePath)
+    if (!fullPath.startsWith(projectRoot)) {
+      result[filePath] = '[FILE_OUTSIDE_PROJECT]'
+      continue
+    }
+    if (ig.ignores(filePath)) {
+      result[filePath] = '[FILE_IGNORED]'
+      continue
+    }
     try {
       const stats = fs.statSync(fullPath)
       if (stats.size > MAX_FILE_SIZE) {
@@ -207,7 +224,6 @@ export function getFilesAbsolutePath(filePaths: string[]) {
   }
   return result
 }
-
 
 export function setFiles(files: Record<string, string>) {
   for (const [filePath, content] of Object.entries(files)) {
