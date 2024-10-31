@@ -49,7 +49,7 @@ export const createFileBlock = (filePath: string, content: string) => {
     '<' +
     `edit_file path="${filePath}">
 ${content}
-</edit_file>` +
+</edit_file` +
     '>'
   )
 }
@@ -58,7 +58,7 @@ export const createFileBlockWithoutPath = (content: string) => {
     '<' +
     `edit_file>
 ${content}
-</edit_file>` +
+</edit_file` +
     '>'
   )
 }
