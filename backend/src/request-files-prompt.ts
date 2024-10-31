@@ -24,7 +24,10 @@ export async function requestRelevantFiles(
   userInputId: string,
   userId?: string
 ) {
-  const previousFiles = Object.keys(fileContext.files)
+  const { fileVersions } = fileContext
+  const previousFiles = uniq(
+    fileVersions.flatMap((files) => files.map(({ path }) => path))
+  )
   const countPerRequest = assistantPrompt ? 8 : 5
 
   const lastMessage = messages[messages.length - 1]
@@ -95,7 +98,7 @@ export async function requestRelevantFiles(
     'requestRelevantFiles: Results'
   )
 
-  return uniq([...keyFiles, ...nonObviousFiles, ...previousFiles])
+  return uniq([...keyFiles, ...nonObviousFiles])
 }
 
 async function generateFileRequests(

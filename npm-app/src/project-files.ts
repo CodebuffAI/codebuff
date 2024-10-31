@@ -7,9 +7,8 @@ import { createPatch } from 'diff'
 import { green } from 'picocolors'
 import { Worker } from 'worker_threads'
 
-import { createFileBlock, ProjectFileContext } from 'common/util/file'
+import { createFileBlock, FileVersion, ProjectFileContext } from 'common/util/file'
 import { filterObject } from 'common/util/object'
-import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
 import { getProjectFileTree, flattenTree } from 'common/project-file-tree'
 import { getFileTokenScores } from 'code-map/parse'
 
@@ -71,7 +70,8 @@ export function initProjectFileContextWithWorker(dir: string) {
 export const getProjectFileContext = async (
   projectRoot: string,
   fileList: string[],
-  lastFileVersion: Record<string, string>
+  lastFileVersion: Record<string, string>,
+  fileVersions: FileVersion[][]
 ) => {
   const files = getFiles(fileList)
   const gitChanges = await getGitChanges()
@@ -105,6 +105,7 @@ export const getProjectFileContext = async (
       fileTokenScores,
       knowledgeFiles,
       shellConfigFiles,
+      fileVersions,
       ...updatedProps,
     }
   } else {

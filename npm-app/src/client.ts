@@ -22,6 +22,7 @@ import path from 'path'
 import * as fs from 'fs'
 import { match, P } from 'ts-pattern'
 import { calculateFingerprint } from './fingerprint'
+import { FileVersion } from 'common/util/file'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -29,6 +30,7 @@ export class Client {
   private currentUserInputId: string | undefined
   private returnControlToUser: () => void
   private fingerprintId: string | undefined
+  private fileVersions: FileVersion[][] = []
 
   public user: User | undefined
   public lastWarnedPct: number = 0
@@ -150,10 +152,11 @@ export class Client {
     })
 
     this.webSocket.subscribe('tool-call', async (a) => {
-      const { response, changes, data, userInputId } = a
+      const { response, changes, data, userInputId, addedFileVersions } = a
       if (userInputId !== this.currentUserInputId) {
         return
       }
+      this.fileVersions.push(addedFileVersions)
 
       const filesChanged = uniq(changes.map((change) => change.filePath))
       this.chatStorage.saveFilesChanged(filesChanged)
@@ -360,10 +363,13 @@ export class Client {
     })
   }
 
-  async sendUserInput(previousChanges: FileChanges, userInputId: string) {
+  async sendUserInput(
+    previousChanges: FileChanges,
+    userInputId: string
+  ) {
     this.currentUserInputId = userInputId
     const currentChat = this.chatStorage.getCurrentChat()
-    const { messages, fileVersions } = currentChat
+    const { messages, fileVersions: messageFileVersions } = currentChat
     const messageText = messages
       .map((m) => JSON.stringify(m.content))
       .join('\n')
@@ -378,11 +384,12 @@ export class Client {
       .filter((str) => str)
 
     const currentFileVersion =
-      fileVersions[fileVersions.length - 1]?.files ?? {}
+    messageFileVersions[messageFileVersions.length - 1]?.files ?? {}
     const fileContext = await getProjectFileContext(
       getProjectRoot(),
       fileList,
-      currentFileVersion
+      currentFileVersion,
+      this.fileVersions
     )
     this.webSocket.sendAction({
       type: 'user-input',
@@ -405,6 +412,7 @@ export class Client {
       response: string
       changes: FileChanges
       wasStoppedByUser: boolean
+      addedFileVersions: FileVersion[]
     }) => void
     let rejectResponse: (reason?: any) => void
     let unsubscribeChunks: () => void
@@ -415,6 +423,7 @@ export class Client {
       response: string
       changes: FileChanges
       wasStoppedByUser: boolean
+      addedFileVersions: FileVersion[]
     }>((resolve, reject) => {
       resolveResponse = resolve
       rejectResponse = reject
@@ -428,6 +437,7 @@ export class Client {
         response: responseBuffer + '\n[RESPONSE_STOPPED_BY_USER]',
         changes: [],
         wasStoppedByUser: true,
+        addedFileVersions: [],
       })
     }
 
@@ -448,6 +458,7 @@ export class Client {
       if (a.userInputId !== userInputId) return
       unsubscribeChunks()
       unsubscribeComplete()
+      this.fileVersions.push(a.addedFileVersions)
       resolveResponse({ ...a, wasStoppedByUser: false })
       this.currentUserInputId = undefined
 
@@ -479,7 +490,12 @@ export class Client {
   }
 
   public async warmContextCache() {
-    const fileContext = await getProjectFileContext(getProjectRoot(), [], {})
+    const fileContext = await getProjectFileContext(
+      getProjectRoot(),
+      [],
+      {},
+      []
+    )
 
     return new Promise<void>(async (resolve) => {
       this.webSocket.subscribe('init-response', () => {
