@@ -127,7 +127,13 @@ export async function generateKnowledgeFiles(
         filePath,
         fileContent,
         userId
-      )
+      ).catch((error) => {
+        logger.error(
+          { error },
+          'Error processing file block for knowledge file'
+        )
+        return null
+      })
     )
   return fileChangePromises
 }
