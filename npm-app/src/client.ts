@@ -504,9 +504,7 @@ export class Client {
 
     return new Promise<void>(async (resolve) => {
       this.webSocket.subscribe('init-response', () => {
-        setTimeout(() => {
-          resolve()
-        }, 100)
+        resolve()
       })
 
       this.webSocket

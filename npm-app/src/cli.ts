@@ -72,7 +72,7 @@ export class CLI {
       readyPromise.then((results) => {
         const [_, fileContext] = results
         this.client.initFileVersions(fileContext)
-        this.client.warmContextCache()
+        return this.client.warmContextCache()
       }),
       this.client.connect(),
     ])
