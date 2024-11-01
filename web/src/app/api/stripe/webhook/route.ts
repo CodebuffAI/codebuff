@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { eq, or, sum } from 'drizzle-orm'
+import { eq, or, sql, SQL, sum } from 'drizzle-orm'
 
 import { env } from '@/env.mjs'
 import { stripeServer } from 'common/src/util/stripe'
@@ -91,7 +91,7 @@ async function handleSubscriptionChange(
   const customerId = getCustomerId(subscription.customer)
 
   // Fetch the user's current quota and referral credits
-  const userCredits = await db
+  const referralCredits = await db
     .select({
       referralCredits: sum(schema.referral.credits),
     })
@@ -106,14 +106,11 @@ async function handleSubscriptionChange(
     .where(eq(schema.user.stripe_customer_id, customerId))
     .limit(1)
     .then((rows) => {
-      if (rows.length < 1) {
-        return
-      }
-      return rows[0]
+      return parseInt(rows[0].referralCredits ?? '0')
     })
 
   const baseQuota = CREDITS_USAGE_LIMITS[usageTier]
-  const newQuota = baseQuota + parseInt(userCredits?.referralCredits ?? '0')
+  const newQuota = baseQuota + referralCredits
 
   // TODO: If downgrading, check Stripe to see if they have exceeded quota, don't just blindly reset. But for now it's fine to just trust them.
   // A good indicator that we've created compelling value is if people are subscribing and unsubscribing just to get some more free usage
@@ -130,6 +127,7 @@ async function handleSubscriptionChange(
     .set({
       quota_exceeded: false,
       quota: newQuota,
+      next_quota_reset: new Date(subscription.current_period_end),
       subscription_active: usageTier === 'PAID',
       stripe_price_id: newSubscriptionId,
     })
@@ -149,16 +147,17 @@ async function handleInvoicePaid(invoicePaid: Stripe.InvoicePaidEvent) {
     .with({ object: 'subscription' }, (subscription) => subscription.id)
     .otherwise(() => null)
 
-  // thirty days from now
-  // const default_next_quota_reset = new Date().getTime() + 30 * 24 * 60 * 60 * 1000
+  // Next month
+  const nextQuotaReset: SQL<string> | Date = invoicePaid.data.object
+    .next_payment_attempt
+    ? new Date(invoicePaid.data.object.next_payment_attempt)
+    : sql<string>`now() - INTERVAL '1 month'`
 
   await db
     .update(schema.user)
     .set({
       quota_exceeded: false,
-      // next_quota_reset: new Date(
-      //   invoicePaid.data.object.next_payment_attempt ?? default_next_quota_reset
-      // ),
+      next_quota_reset: nextQuotaReset,
       subscription_active: true,
       stripe_price_id: subscriptionId,
     })
