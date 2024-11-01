@@ -37,12 +37,7 @@ export const user = pgTable('user', {
   next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
     sql<Date>`now() + INTERVAL '1 month'`
   ),
-  created_at: timestamp('created_at', { mode: 'date' })
-    .notNull()
-    .generated({
-      type: 'stored',
-      as: sql<Date>`next_quota_reset - INTERVAL '1 month'`,
-    }),
+  created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
   referral_code: text('referral_code')
     .unique()
     .default(sql`'ref-' || gen_random_uuid()`),

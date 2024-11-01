@@ -1,1 +1,0 @@
-ALTER TABLE "user" ADD COLUMN "created_at" timestamp DEFAULT next_quota_reset - INTERVAL '1 month' NOT NULL;

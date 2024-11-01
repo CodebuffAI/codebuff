@@ -1,5 +1,5 @@
 {
-  "id": "8ac89227-c86c-4638-8812-b985c69f6df5",
+  "id": "5864bbe5-119a-49c2-b761-9090f427b168",
   "prevId": "14fe47ea-d311-4f6a-b602-37794097cf07",
   "version": "7",
   "dialect": "postgresql",
@@ -508,7 +508,7 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
-          "default": "next_quota_reset - INTERVAL '1 month'"
+          "default": "now()"
         },
         "referral_code": {
           "name": "referral_code",
