@@ -7,19 +7,13 @@ import {
 import { buildArray } from 'common/util/array'
 import { truncateString } from 'common/util/string'
 import { STOP_MARKER } from 'common/constants'
-import { countTokensForFiles, countTokensJson } from './util/token-counter'
+import { countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
 import { sortBy, sum, uniq } from 'lodash'
 import { filterObject, removeUndefinedProps } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 
 export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
-  // const {
-  //   truncatedFiles,
-  //   tokenCounts: fileTokenCounts,
-  //   postTruncationTotalTokens: totalFileTokens,
-  // } = getTruncatedFilesBasedOnTokenBudget(fileContext, 80_000)
-
   const systemPrompt = buildArray(
     {
       type: 'text' as const,
@@ -39,8 +33,7 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
 
   logger.debug(
     {
-      // fileTokenCounts,
-      // totalFileTokens,
+      fileTokenCounts: countTokensJson(fileContext.fileVersions),
       systemPromptTokens: countTokensJson(systemPrompt),
       systemPrompt,
     },
@@ -56,11 +49,6 @@ export const getAgentSystemPrompt = (
 ) => {
   const { fileVersions } = fileContext
   const { checkFiles } = options
-  // const {
-  //   truncatedFiles,
-  //   tokenCounts: fileTokenCounts,
-  //   postTruncationTotalTokens: totalFileTokens,
-  // } = getTruncatedFilesBasedOnTokenBudget(fileContext, 80_000)
   const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
   const projectFileTreePrompt = getProjectFileTreePrompt(fileContext)
@@ -92,8 +80,7 @@ export const getAgentSystemPrompt = (
 
   logger.debug(
     {
-      // fileTokenCounts,
-      // totalFileTokens,
+      totalFileTokens: countTokensJson(fileContext.fileVersions),
       systemPromptTokens: countTokensJson(systemPrompt),
       systemPrompt,
     },

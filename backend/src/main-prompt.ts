@@ -19,7 +19,6 @@ import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
 import { difference, uniq, zip } from 'lodash'
-import { FILE_TOKEN_BUDGET } from './constants'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -364,6 +363,8 @@ function getRelevantFileInfoMessage(filePaths: string[]) {
   return { readFilesMessage, toolCallMessage }
 }
 
+const FILE_TOKEN_BUDGET = 90_000
+
 async function getFileVersionUpdates(
   ws: WebSocket,
   fileContext: ProjectFileContext,
@@ -421,16 +422,18 @@ async function getFileVersionUpdates(
   ])
   const loadedFiles = await requestFiles(ws, allFilePaths)
 
-  const filteredRequestedFiles = [
-    ...requestedFiles.slice(0, 5),
-    // Filter out lower priority files that are too long.
-    ...requestedFiles.slice(5).filter((filePath) => {
-      const content = loadedFiles[filePath]
-      if (content === null) return true
-      const tokenCount = countTokens(content)
-      return tokenCount < 5_000
-    }),
-  ]
+  const filteredRequestedFiles = requestedFiles.filter((filePath, i) => {
+    const content = loadedFiles[filePath]
+    if (content === null) return true
+    const tokenCount = countTokens(content)
+    if (i === 0) {
+      return tokenCount < 40_000
+    }
+    if (i < 5) {
+      return tokenCount < 25_000 - i * 5_000
+    }
+    return tokenCount < 5_000
+  })
   const newFiles = difference(filteredRequestedFiles, previousFilePaths)
 
   const updatedFiles = previousFilePaths.filter((path) => {
@@ -465,24 +468,31 @@ async function getFileVersionUpdates(
         content,
       })
     )
-    const newFileVersions = [knowledgeFiles, addedFiles]
+    const resetFileVersion = [...knowledgeFiles, ...addedFiles]
+    let i = 0
+    while (countTokensJson(resetFileVersion) > FILE_TOKEN_BUDGET) {
+      resetFileVersion[resetFileVersion.length - 1 - i].content =
+        '[TRUNCATED TO FIT TOKEN BUDGET]'
+      i++
+    }
+    const newFileVersions = [resetFileVersion]
 
     return {
-      readFilesMessage,
-      toolCallMessage,
+      newFileVersions,
       addedFiles,
       clearFileVersions: true,
-      newFileVersions,
+      readFilesMessage,
+      toolCallMessage,
     }
   }
 
   const newFileVersions = [...fileVersions, addedFiles]
   if (newFiles.length === 0) {
     return {
+      newFileVersions,
+      addedFiles,
       readFilesMessage: undefined,
       toolCallMessage: undefined,
-      addedFiles,
-      newFileVersions,
     }
   }
 
@@ -491,37 +501,10 @@ async function getFileVersionUpdates(
     ...previousFilePaths,
   ])
 
-  return { readFilesMessage, toolCallMessage, addedFiles, newFileVersions }
+  return {
+    newFileVersions,
+    addedFiles,
+    readFilesMessage,
+    toolCallMessage,
+  }
 }
-
-// const getUpdatedFileVersions = (
-//   fileVersions: FileVersion[][],
-//   addedFiles: FileVersion[],
-//   tokenBudget: number
-// ) => {
-//   const totalTokenCount = countTokensForFiles([...fileVersions, addedFiles])
-//   if (totalTokenCount < tokenBudget) {
-//     return addedFiles
-//   }
-
-//   const tokenCounts = countTokensForFiles(addedFiles)
-//   // Reset!
-//   const truncatedFiles: Record<string, string | null> = {}
-//   let totalTokens = 0
-
-//   for (const [filePath, content] of Object.entries(fileContext.files)) {
-//     const fileTokens = tokenCounts[filePath] || 0
-//     if (totalTokens + fileTokens <= tokenBudget) {
-//       truncatedFiles[filePath] = content
-//       totalTokens += fileTokens
-//     } else {
-//       truncatedFiles[filePath] = '[TRUNCATED TO FIT TOKEN BUDGET]'
-//     }
-//   }
-
-//   return {
-//     truncatedFiles,
-//     tokenCounts,
-//     postTruncationTotalTokens: totalTokens,
-//   }
-// }
