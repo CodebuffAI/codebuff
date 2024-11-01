@@ -106,7 +106,8 @@ async function handleSubscriptionChange(
     .where(eq(schema.user.stripe_customer_id, customerId))
     .limit(1)
     .then((rows) => {
-      return parseInt(rows[0].referralCredits ?? '0')
+      const firstRow = rows[0]
+      return parseInt(firstRow?.referralCredits ?? '0')
     })
 
   const baseQuota = CREDITS_USAGE_LIMITS[usageTier]
