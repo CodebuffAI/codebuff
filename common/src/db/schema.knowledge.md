@@ -50,7 +50,6 @@ The message table stores:
 ## Data Sources
 
 - Stripe is the source of truth for user account data including:
-  - Creation dates
   - Subscription status
   - Customer IDs
 - Keep Stripe and database in sync through webhooks and periodic reconciliation
