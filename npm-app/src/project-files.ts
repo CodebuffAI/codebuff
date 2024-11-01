@@ -66,7 +66,7 @@ export function initProjectFileContextWithWorker(dir: string) {
 
   worker.postMessage({ dir })
 
-  return new Promise((resolve, reject) => {
+  return new Promise<ProjectFileContext>((resolve, reject) => {
     worker.on('message', (initFileContext) => {
       worker.terminate()
       cachedProjectFileContext = initFileContext
@@ -77,15 +77,12 @@ export function initProjectFileContextWithWorker(dir: string) {
 
 export const getProjectFileContext = async (
   projectRoot: string,
-  fileList: string[],
   lastFileVersion: Record<string, string>,
   fileVersions: FileVersion[][]
 ) => {
-  const files = getFiles(fileList)
   const gitChanges = await getGitChanges()
   const changesSinceLastChat = getChangesSinceLastFileVersion(lastFileVersion)
   const updatedProps = {
-    files,
     gitChanges,
     changesSinceLastChat,
     fileVersions,

@@ -22,7 +22,7 @@ import path from 'path'
 import * as fs from 'fs'
 import { match, P } from 'ts-pattern'
 import { calculateFingerprint } from './fingerprint'
-import { FileVersion } from 'common/util/file'
+import { FileVersion, ProjectFileContext } from 'common/util/file'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -30,7 +30,7 @@ export class Client {
   private currentUserInputId: string | undefined
   private returnControlToUser: () => void
   private fingerprintId: string | undefined
-  private fileVersions: FileVersion[][] = []
+  public fileVersions: FileVersion[][] = []
 
   public user: User | undefined
   public lastWarnedPct: number = 0
@@ -49,6 +49,16 @@ export class Client {
     this.user = this.getUser()
     this.getFingerprintId()
     this.returnControlToUser = returnControlToUser
+  }
+
+  public initFileVersions(projectFileContext: ProjectFileContext) {
+    const { knowledgeFiles } = projectFileContext
+    this.fileVersions = [
+      Object.entries(knowledgeFiles).map(([path, content]) => ({
+        path,
+        content,
+      })),
+    ]
   }
 
   private async getFingerprintId(): Promise<string> {
@@ -363,10 +373,7 @@ export class Client {
     })
   }
 
-  async sendUserInput(
-    previousChanges: FileChanges,
-    userInputId: string
-  ) {
+  async sendUserInput(previousChanges: FileChanges, userInputId: string) {
     this.currentUserInputId = userInputId
     const currentChat = this.chatStorage.getCurrentChat()
     const { messages, fileVersions: messageFileVersions } = currentChat
@@ -384,10 +391,9 @@ export class Client {
       .filter((str) => str)
 
     const currentFileVersion =
-    messageFileVersions[messageFileVersions.length - 1]?.files ?? {}
+      messageFileVersions[messageFileVersions.length - 1]?.files ?? {}
     const fileContext = await getProjectFileContext(
       getProjectRoot(),
-      fileList,
       currentFileVersion,
       this.fileVersions
     )
@@ -492,14 +498,15 @@ export class Client {
   public async warmContextCache() {
     const fileContext = await getProjectFileContext(
       getProjectRoot(),
-      [],
       {},
-      []
+      this.fileVersions
     )
 
     return new Promise<void>(async (resolve) => {
       this.webSocket.subscribe('init-response', () => {
-        resolve()
+        setTimeout(() => {
+          resolve()
+        }, 100)
       })
 
       this.webSocket
@@ -517,7 +524,7 @@ export class Client {
       // If it takes too long, resolve the promise to avoid hanging the CLI.
       setTimeout(() => {
         resolve()
-      }, 15_000)
+      }, 30_000)
     })
   }
 }

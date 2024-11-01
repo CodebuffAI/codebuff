@@ -314,12 +314,12 @@ ${STOP_MARKER}
     logger.warn('Reached maximum number of iterations in mainPrompt')
   }
 
-  const knowledgeChanges = await genKnowledgeFilesPromise
-  fileProcessingPromises.push(...knowledgeChanges)
-
   if (fileProcessingPromises.length > 0) {
     onResponseChunk('\nApplying file changes. Please wait...\n')
   }
+
+  const knowledgeChanges = await genKnowledgeFilesPromise
+  fileProcessingPromises.push(...knowledgeChanges)
 
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
@@ -438,8 +438,8 @@ async function updateFileContext(
   }
 
   const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage([
-    ...previousFilePaths,
     ...newFiles,
+    ...previousFilePaths,
   ])
 
   return { readFilesMessage, toolCallMessage, addedFiles }

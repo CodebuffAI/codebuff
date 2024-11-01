@@ -17,7 +17,7 @@ import {
 } from './project-files'
 import { handleRunTerminalCommand } from './tool-handlers'
 import { SKIPPED_TERMINAL_COMMANDS } from 'common/constants'
-import { createFileBlock } from 'common/util/file'
+import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import { FileChanges } from 'common/actions'
 import {
@@ -43,7 +43,10 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
 
-  constructor(readyPromise: Promise<any>, { autoGit }: { autoGit: boolean }) {
+  constructor(
+    readyPromise: Promise<[void, ProjectFileContext]>,
+    { autoGit }: { autoGit: boolean }
+  ) {
     this.autoGit = autoGit
     this.chatStorage = new ChatStorage()
     this.rl = readline.createInterface({
@@ -66,7 +69,11 @@ export class CLI {
     )
 
     this.readyPromise = Promise.all([
-      readyPromise.then(() => this.client.warmContextCache()),
+      readyPromise.then((results) => {
+        const [_, fileContext] = results
+        this.client.initFileVersions(fileContext)
+        this.client.warmContextCache()
+      }),
       this.client.connect(),
     ])
 

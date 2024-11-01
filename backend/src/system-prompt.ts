@@ -278,6 +278,7 @@ However, use this tool sparingly. DO NOT USE "find_files" WHEN:
 - You are creating a new file
 - You want to edit a file that you already have in context. Double check that the file is not listed in the <relevant_files> block already before calling find_files.
 - You already called it recently. Multiple calls in a row are not productive.
+- You are inside an <edit_file> block.
 
 ## Running terminal commands
 
@@ -458,30 +459,30 @@ If you don't end with this marker, you will automatically be prompted to continu
 </important_instruction>`.trim()
 }
 
-const getTruncatedFilesBasedOnTokenBudget = (
-  fileContext: ProjectFileContext,
-  tokenBudget: number
-) => {
-  const tokenCounts = countTokensForFiles(fileContext.files)
-  const truncatedFiles: Record<string, string | null> = {}
-  let totalTokens = 0
+// const getTruncatedFilesBasedOnTokenBudget = (
+//   fileContext: ProjectFileContext,
+//   tokenBudget: number
+// ) => {
+//   const tokenCounts = countTokensForFiles(fileContext.files)
+//   const truncatedFiles: Record<string, string | null> = {}
+//   let totalTokens = 0
 
-  for (const [filePath, content] of Object.entries(fileContext.files)) {
-    const fileTokens = tokenCounts[filePath] || 0
-    if (totalTokens + fileTokens <= tokenBudget) {
-      truncatedFiles[filePath] = content
-      totalTokens += fileTokens
-    } else {
-      truncatedFiles[filePath] = '[TRUNCATED TO FIT TOKEN BUDGET]'
-    }
-  }
+//   for (const [filePath, content] of Object.entries(fileContext.files)) {
+//     const fileTokens = tokenCounts[filePath] || 0
+//     if (totalTokens + fileTokens <= tokenBudget) {
+//       truncatedFiles[filePath] = content
+//       totalTokens += fileTokens
+//     } else {
+//       truncatedFiles[filePath] = '[TRUNCATED TO FIT TOKEN BUDGET]'
+//     }
+//   }
 
-  return {
-    truncatedFiles,
-    tokenCounts,
-    postTruncationTotalTokens: totalTokens,
-  }
-}
+//   return {
+//     truncatedFiles,
+//     tokenCounts,
+//     postTruncationTotalTokens: totalTokens,
+//   }
+// }
 
 const truncateFileTreeBasedOnTokenBudget = (
   fileContext: ProjectFileContext,
