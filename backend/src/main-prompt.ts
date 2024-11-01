@@ -16,9 +16,10 @@ import {
 } from './request-files-prompt'
 import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
-import { countTokens } from './util/token-counter'
+import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
 import { difference, uniq, zip } from 'lodash'
+import { FILE_TOKEN_BUDGET } from './constants'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -41,23 +42,34 @@ export async function mainPrompt(
   const messagesWithoutLastMessage = messages.slice(0, -1)
 
   let addedFileVersions: FileVersion[] = []
+  let resetFileVersions = false
 
   if (!didClientUseTool(lastMessage)) {
     // Step 1: Read more files.
     const system = getSearchSystemPrompt(fileContext)
     // If the fileContext.files is empty, use prompts to select files and add them to context.
-    const { readFilesMessage, toolCallMessage, addedFiles } =
-      await updateFileContext(
-        ws,
-        fileContext,
-        { messages, system },
-        null,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId
-      )
-    addedFileVersions.push(...addedFiles)
+    const {
+      newFileVersions,
+      toolCallMessage,
+      addedFiles,
+      clearFileVersions,
+      readFilesMessage,
+    } = await getFileVersionUpdates(
+      ws,
+      fileContext,
+      { messages, system },
+      null,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId
+    )
+    fileContext.fileVersions = newFileVersions
+    if (clearFileVersions) {
+      resetFileVersions = true
+    } else {
+      addedFileVersions.push(...addedFiles)
+    }
     if (readFilesMessage !== undefined) {
       onResponseChunk(readFilesMessage)
       fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}`
@@ -115,6 +127,7 @@ export async function mainPrompt(
       changes: [],
       toolCall: null,
       addedFileVersions,
+      resetFileVersions,
     }
   }
 
@@ -261,7 +274,12 @@ ${STOP_MARKER}
 
     if (maybeToolCall?.name === 'find_files') {
       logger.debug(maybeToolCall, 'tool call')
-      const { readFilesMessage, addedFiles } = await updateFileContext(
+      const {
+        newFileVersions,
+        addedFiles,
+        clearFileVersions,
+        readFilesMessage,
+      } = await getFileVersionUpdates(
         ws,
         fileContext,
         { messages, system: getSearchSystemPrompt(fileContext) },
@@ -271,7 +289,12 @@ ${STOP_MARKER}
         userInputId,
         userId
       )
-      addedFileVersions.push(...addedFiles)
+      fileContext.fileVersions = newFileVersions
+      if (clearFileVersions) {
+        resetFileVersions = true
+      } else {
+        addedFileVersions.push(...addedFiles)
+      }
       if (readFilesMessage !== undefined) {
         onResponseChunk(`\n\n${readFilesMessage}`)
         fullResponse += `\n\n${readFilesMessage}`
@@ -328,7 +351,10 @@ ${STOP_MARKER}
     response: fullResponse.trim(),
     changes,
     toolCall: toolCall as ToolCall | null,
-    addedFileVersions,
+    addedFileVersions: resetFileVersions
+      ? fileContext.fileVersions.flat()
+      : addedFileVersions,
+    resetFileVersions,
   }
 }
 
@@ -338,7 +364,7 @@ function getRelevantFileInfoMessage(filePaths: string[]) {
   return { readFilesMessage, toolCallMessage }
 }
 
-async function updateFileContext(
+async function getFileVersionUpdates(
   ws: WebSocket,
   fileContext: ProjectFileContext,
   {
@@ -352,7 +378,7 @@ async function updateFileContext(
   clientSessionId: string,
   fingerprntId: string,
   userInputId: string,
-  userId?: string
+  userId: string | undefined
 ) {
   const { fileVersions } = fileContext
   const files = fileVersions.flatMap((files) => files)
@@ -425,15 +451,38 @@ async function updateFileContext(
     })
     .filter((file) => file.content !== null)
 
-  if (addedFiles.length > 0) {
-    fileContext.fileVersions = [...fileVersions, addedFiles]
+  const fileVersionTokens = countTokensJson(files)
+  const addedFileTokens = countTokensJson(addedFiles)
+
+  if (fileVersionTokens + addedFileTokens > FILE_TOKEN_BUDGET) {
+    const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage([
+      ...newFiles,
+    ])
+
+    const knowledgeFiles = Object.entries(fileContext.knowledgeFiles).map(
+      ([path, content]) => ({
+        path,
+        content,
+      })
+    )
+    const newFileVersions = [knowledgeFiles, addedFiles]
+
+    return {
+      readFilesMessage,
+      toolCallMessage,
+      addedFiles,
+      clearFileVersions: true,
+      newFileVersions,
+    }
   }
 
+  const newFileVersions = [...fileVersions, addedFiles]
   if (newFiles.length === 0) {
     return {
       readFilesMessage: undefined,
       toolCallMessage: undefined,
       addedFiles,
+      newFileVersions,
     }
   }
 
@@ -442,5 +491,37 @@ async function updateFileContext(
     ...previousFilePaths,
   ])
 
-  return { readFilesMessage, toolCallMessage, addedFiles }
+  return { readFilesMessage, toolCallMessage, addedFiles, newFileVersions }
 }
+
+// const getUpdatedFileVersions = (
+//   fileVersions: FileVersion[][],
+//   addedFiles: FileVersion[],
+//   tokenBudget: number
+// ) => {
+//   const totalTokenCount = countTokensForFiles([...fileVersions, addedFiles])
+//   if (totalTokenCount < tokenBudget) {
+//     return addedFiles
+//   }
+
+//   const tokenCounts = countTokensForFiles(addedFiles)
+//   // Reset!
+//   const truncatedFiles: Record<string, string | null> = {}
+//   let totalTokens = 0
+
+//   for (const [filePath, content] of Object.entries(fileContext.files)) {
+//     const fileTokens = tokenCounts[filePath] || 0
+//     if (totalTokens + fileTokens <= tokenBudget) {
+//       truncatedFiles[filePath] = content
+//       totalTokens += fileTokens
+//     } else {
+//       truncatedFiles[filePath] = '[TRUNCATED TO FIT TOKEN BUDGET]'
+//     }
+//   }
+
+//   return {
+//     truncatedFiles,
+//     tokenCounts,
+//     postTruncationTotalTokens: totalTokens,
+//   }
+// }

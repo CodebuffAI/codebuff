@@ -127,22 +127,27 @@ const onUserInput = async (
 
       const userId = await getUserIdFromAuthToken(authToken)
       try {
-        const { toolCall, response, changes, addedFileVersions } =
-          await mainPrompt(
-            ws,
-            messages,
-            fileContext,
-            clientSessionId,
-            fingerprintId,
-            userInputId,
-            (chunk) =>
-              sendAction(ws, {
-                type: 'response-chunk',
-                userInputId,
-                chunk,
-              }),
-            userId
-          )
+        const {
+          toolCall,
+          response,
+          changes,
+          addedFileVersions,
+          resetFileVersions,
+        } = await mainPrompt(
+          ws,
+          messages,
+          fileContext,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          (chunk) =>
+            sendAction(ws, {
+              type: 'response-chunk',
+              userInputId,
+              chunk,
+            }),
+          userId
+        )
 
         logger.debug({ response, changes, toolCall }, 'response-complete')
 
@@ -154,6 +159,7 @@ const onUserInput = async (
             data: toolCall,
             changes,
             addedFileVersions,
+            resetFileVersions,
           })
         } else {
           const { usage, limit, referralLink, subscription_active } =
@@ -168,6 +174,7 @@ const onUserInput = async (
             subscription_active,
             referralLink,
             addedFileVersions,
+            resetFileVersions,
           })
         }
       } catch (e) {
@@ -188,6 +195,7 @@ const onUserInput = async (
           response,
           changes: [],
           addedFileVersions: [],
+          resetFileVersions: false,
         })
       }
     }

@@ -9,7 +9,7 @@ import { applyChanges } from 'common/util/changes'
 import { User } from 'common/util/credentials'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
 import { ChatStorage } from './chat-storage'
-import { FileChanges, Message } from 'common/actions'
+import { FileChanges, Message, ServerAction } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
 import {
   CREDITS_REFERRAL_BONUS,
@@ -162,11 +162,22 @@ export class Client {
     })
 
     this.webSocket.subscribe('tool-call', async (a) => {
-      const { response, changes, data, userInputId, addedFileVersions } = a
+      const {
+        response,
+        changes,
+        data,
+        userInputId,
+        addedFileVersions,
+        resetFileVersions,
+      } = a
       if (userInputId !== this.currentUserInputId) {
         return
       }
-      this.fileVersions.push(addedFileVersions)
+      if (resetFileVersions) {
+        this.fileVersions = [addedFileVersions]
+      } else {
+        this.fileVersions.push(addedFileVersions)
+      }
 
       const filesChanged = uniq(changes.map((change) => change.filePath))
       this.chatStorage.saveFilesChanged(filesChanged)
@@ -414,12 +425,11 @@ export class Client {
     onStreamStart: () => void
   ) {
     let responseBuffer = ''
-    let resolveResponse: (value: {
-      response: string
-      changes: FileChanges
-      wasStoppedByUser: boolean
-      addedFileVersions: FileVersion[]
-    }) => void
+    let resolveResponse: (
+      value: ServerAction & { type: 'response-complete' } & {
+        wasStoppedByUser: boolean
+      }
+    ) => void
     let rejectResponse: (reason?: any) => void
     let unsubscribeChunks: () => void
     let unsubscribeComplete: () => void
@@ -430,6 +440,7 @@ export class Client {
       changes: FileChanges
       wasStoppedByUser: boolean
       addedFileVersions: FileVersion[]
+      resetFileVersions: boolean
     }>((resolve, reject) => {
       resolveResponse = resolve
       rejectResponse = reject
@@ -440,10 +451,13 @@ export class Client {
       unsubscribeChunks()
       unsubscribeComplete()
       resolveResponse({
+        userInputId,
         response: responseBuffer + '\n[RESPONSE_STOPPED_BY_USER]',
         changes: [],
-        wasStoppedByUser: true,
         addedFileVersions: [],
+        resetFileVersions: false,
+        type: 'response-complete',
+        wasStoppedByUser: true,
       })
     }
 
@@ -464,7 +478,11 @@ export class Client {
       if (a.userInputId !== userInputId) return
       unsubscribeChunks()
       unsubscribeComplete()
-      this.fileVersions.push(a.addedFileVersions)
+      if (a.resetFileVersions) {
+        this.fileVersions = [a.addedFileVersions]
+      } else {
+        this.fileVersions.push(a.addedFileVersions)
+      }
       resolveResponse({ ...a, wasStoppedByUser: false })
       this.currentUserInputId = undefined
 

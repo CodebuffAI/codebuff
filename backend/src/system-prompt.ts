@@ -459,31 +459,6 @@ If you don't end with this marker, you will automatically be prompted to continu
 </important_instruction>`.trim()
 }
 
-// const getTruncatedFilesBasedOnTokenBudget = (
-//   fileContext: ProjectFileContext,
-//   tokenBudget: number
-// ) => {
-//   const tokenCounts = countTokensForFiles(fileContext.files)
-//   const truncatedFiles: Record<string, string | null> = {}
-//   let totalTokens = 0
-
-//   for (const [filePath, content] of Object.entries(fileContext.files)) {
-//     const fileTokens = tokenCounts[filePath] || 0
-//     if (totalTokens + fileTokens <= tokenBudget) {
-//       truncatedFiles[filePath] = content
-//       totalTokens += fileTokens
-//     } else {
-//       truncatedFiles[filePath] = '[TRUNCATED TO FIT TOKEN BUDGET]'
-//     }
-//   }
-
-//   return {
-//     truncatedFiles,
-//     tokenCounts,
-//     postTruncationTotalTokens: totalTokens,
-//   }
-// }
-
 const truncateFileTreeBasedOnTokenBudget = (
   fileContext: ProjectFileContext,
   tokenBudget: number

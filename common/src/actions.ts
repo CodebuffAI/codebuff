@@ -127,6 +127,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     response: z.string(),
     changes: CHANGES,
     addedFileVersions: z.array(FileVersionSchema),
+    resetFileVersions: z.boolean(),
     usage: z.number().optional(),
     limit: z.number().optional(),
     subscription_active: z.boolean().optional(),
@@ -143,6 +144,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     data: ToolCallSchema,
     changes: CHANGES,
     addedFileVersions: z.array(FileVersionSchema),
+    resetFileVersions: z.boolean(),
   }),
   z.object({
     type: z.literal('terminal-command-result'),
