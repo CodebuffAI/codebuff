@@ -127,7 +127,7 @@ async function handleSubscriptionChange(
     .set({
       quota_exceeded: false,
       quota: newQuota,
-      next_quota_reset: new Date(subscription.current_period_end),
+      next_quota_reset: new Date(subscription.current_period_end * 1000),
       subscription_active: usageTier === 'PAID',
       stripe_price_id: newSubscriptionId,
     })
@@ -150,8 +150,8 @@ async function handleInvoicePaid(invoicePaid: Stripe.InvoicePaidEvent) {
   // Next month
   const nextQuotaReset: SQL<string> | Date = invoicePaid.data.object
     .next_payment_attempt
-    ? new Date(invoicePaid.data.object.next_payment_attempt)
-    : sql<string>`now() - INTERVAL '1 month'`
+    ? new Date(invoicePaid.data.object.next_payment_attempt * 1000)
+    : sql<string>`now() + INTERVAL '1 month'`
 
   await db
     .update(schema.user)
