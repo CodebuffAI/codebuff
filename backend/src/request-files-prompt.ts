@@ -330,15 +330,17 @@ Please provide no commentary and list the file paths you think are useful but no
 
 Your response contain only files separated by new lines in the following format:
 ${range(count)
-  .map((i) => `path/to/file${i + 1}.ts`)
+  .map((i) => `full/path/to/file${i + 1}.ts`)
   .join('\n')}
 
 List each file path on a new line without any additional characters or formatting.
 
-Be sure to include the full path from the project root directory for each file. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.
+IMPORTANT: You must include the full path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.
 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
+
+Please limit your response just the file paths on new lines. Do not write anything else.
 `.trim()
 }
 
@@ -385,16 +387,17 @@ Please provide no commentary and only list the file paths at index ${start} thro
 
 Your response contain only files separated by new lines in the following format:
 ${range(count)
-  .map((i) => `path/to/file${i + 1}.ts`)
+  .map((i) => `full/path/to/file${i + 1}.ts`)
   .join('\n')}
 
 Remember to focus on the most important files and limit your selection to exactly ${count} files. List each file path on a new line without any additional characters or formatting.
 
-Be sure to include the full path from the project root directory for each file. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.
+IMPORTANT: You must include the full path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full path from the project root.
 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
 
+Please limit your response just the file paths on new lines. Do not write anything else.
 `.trim()
 }
 
