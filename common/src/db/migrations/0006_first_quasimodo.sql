@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "referral_limit" integer DEFAULT 5 NOT NULL;
