@@ -48,11 +48,9 @@ export async function GET() {
       .select({
         id: schema.referral.referred_id,
         credits: schema.referral.credits,
-        // credits: sql`SUM(${schema.referral.credits})`.as('credits'),
       })
       .from(schema.referral)
       .where(eq(schema.referral.referrer_id, session.user.id))
-      // .groupBy(schema.referral.referred_id)
       .as('referralsQuery')
     const referrals = await db
       .select({
@@ -69,11 +67,9 @@ export async function GET() {
       .select({
         id: schema.referral.referrer_id,
         credits: schema.referral.credits,
-        // credits: sql`SUM(${schema.referral.credits})`.as('credits'),
       })
       .from(schema.referral)
       .where(eq(schema.referral.referred_id, session.user.id))
-      // .groupBy(schema.referral.referrer_id)
       .limit(1)
       .as('referredByIdQuery')
     const referredBy = await db

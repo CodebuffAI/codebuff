@@ -68,19 +68,12 @@ export const authOptions: NextAuthOptions = {
           },
         })
         .then(async (customer) => {
-          const currentPeriodEnd =
-            customer.subscriptions?.data?.[0].current_period_end
-          const next_quota_reset = getNextQuotaReset(
-            currentPeriodEnd ? new Date(currentPeriodEnd * 1000) : null
-          )
-
           return db
             .update(schema.user)
             .set({
               stripe_customer_id: customer.id,
               quota_exceeded: false,
               quota: CREDITS_USAGE_LIMITS.FREE,
-              next_quota_reset,
             })
             .where(eq(schema.user.id, user.id))
         })

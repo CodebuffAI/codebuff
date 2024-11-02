@@ -117,6 +117,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
         .update(schema.user)
         .set({
           quota: sql<number>`${schema.user.quota} + ${CREDITS_REFERRAL_BONUS}`,
+          quota_exceeded: false,
         })
         .where(or(eq(schema.user.id, referrer.id), eq(schema.user.id, userId)))
     })
