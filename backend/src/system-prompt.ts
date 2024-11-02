@@ -263,7 +263,7 @@ Purpose: Better fulfill the user request by reading files which could contain in
 
 Use cases:
 - If you are calling a function or creating a class and want to know how it works, go get the implementation with a tool call to find_files. E.g. "<tool_call name="find_files">The implementation of function foo</tool_call>".
-- If you want to modify a file, but don't currently have it in context.
+- If you want to modify a file, but don't currently have it in context. Be sure to call find_files before writing out an <edit_file> block, or I will be very upset.
 - If you need to understand a section of the codebase, read more files in that directory or subdirectories.
 - Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
 

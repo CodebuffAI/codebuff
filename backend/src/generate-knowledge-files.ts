@@ -51,6 +51,8 @@ export async function generateKnowledgeFiles(
   ]
 
   const userPrompt = `    
+    Do not act on the user's last request, but keep it in mind. Instead, your task will be to decide whether to create or update a knowledge file.
+
     Think before you write the knowledge file in <thinking> tags. Use that space to think about why the change is important and what it means for the project, and verify that we don't already have something similar in the existing knowledge files. Make sure to show your work!
 
     First, please summarize the penultimate and last set of messages between the user and the assistant. Use the following format:
@@ -103,20 +105,25 @@ export async function generateKnowledgeFiles(
   })
 
   const files = parseFileBlocks(response)
+  const knowledgeFiles = Object.fromEntries(
+    Object.entries(files).filter(([filePath]) =>
+      filePath.endsWith('knowledge.md')
+    )
+  )
 
   logger.debug(
     {
       fileContext,
       initialMessages,
       files: Object.keys(files),
+      knowledgeFiles: Object.keys(knowledgeFiles),
       response,
     },
     'generateKnowledgeFiles: context and response'
   )
 
-  const fileChangePromises = Object.entries(files)
-    .filter(([filePath]) => filePath.endsWith('.knowledge.md'))
-    .map(([filePath, fileContent]) =>
+  const fileChangePromises = Object.entries(knowledgeFiles).map(
+    ([filePath, fileContent]) =>
       processFileBlock(
         clientSessionId,
         fingerprintId,
@@ -134,6 +141,6 @@ export async function generateKnowledgeFiles(
         )
         return null
       })
-    )
+  )
   return fileChangePromises
 }
