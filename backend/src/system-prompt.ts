@@ -34,6 +34,9 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
   logger.debug(
     {
       fileTokenCounts: countTokensJson(fileContext.fileVersions),
+      fileVersions: fileContext.fileVersions.map((files) =>
+        files.map((f) => f.path)
+      ),
       systemPromptTokens: countTokensJson(systemPrompt),
       systemPrompt,
     },
@@ -81,6 +84,9 @@ export const getAgentSystemPrompt = (
   logger.debug(
     {
       totalFileTokens: countTokensJson(fileContext.fileVersions),
+      fileVersions: fileContext.fileVersions.map((files) =>
+        files.map((f) => f.path)
+      ),
       systemPromptTokens: countTokensJson(systemPrompt),
       systemPrompt,
     },

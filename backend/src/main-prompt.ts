@@ -458,24 +458,43 @@ async function getFileVersionUpdates(
   const addedFileTokens = countTokensJson(addedFiles)
 
   if (fileVersionTokens + addedFileTokens > FILE_TOKEN_BUDGET) {
-    const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage([
-      ...newFiles,
-    ])
-
     const knowledgeFiles = Object.entries(fileContext.knowledgeFiles).map(
       ([path, content]) => ({
         path,
         content,
       })
     )
-    const resetFileVersion = [...knowledgeFiles, ...addedFiles]
+    const requestedLoadedFiles = filteredRequestedFiles
+      .map((path) => ({
+        path,
+        content: loadedFiles[path]!,
+      }))
+      .filter((file) => file.content !== null)
+    const resetFileVersion = [...knowledgeFiles, ...requestedLoadedFiles]
     let i = 0
     while (countTokensJson(resetFileVersion) > FILE_TOKEN_BUDGET) {
-      resetFileVersion[resetFileVersion.length - 1 - i].content =
-        '[TRUNCATED TO FIT TOKEN BUDGET]'
+      const file = resetFileVersion[resetFileVersion.length - 1 - i]
+      if (file.content !== null) {
+        file.content = '[TRUNCATED TO FIT TOKEN BUDGET]'
+      }
       i++
     }
     const newFileVersions = [resetFileVersion]
+
+    const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage([
+      ...resetFileVersion.map((f) => f.path),
+    ])
+
+    logger.debug(
+      {
+        newFileVersions: resetFileVersion.map((f) => f.path),
+        fileVersionTokens,
+        addedFileTokens,
+        totalTokens: fileVersionTokens + addedFileTokens,
+        FILE_TOKEN_BUDGET,
+      },
+      'resetting file versions b/c of token budget'
+    )
 
     return {
       newFileVersions,
