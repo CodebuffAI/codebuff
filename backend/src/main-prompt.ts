@@ -433,6 +433,7 @@ async function getFileVersionUpdates(
 
   const filteredRequestedFiles = requestedFiles.filter((filePath, i) => {
     const content = loadedFiles[filePath]
+    if (content === undefined) return false
     if (content === null) return true
     const tokenCount = countTokens(content)
     if (i === 0) {
