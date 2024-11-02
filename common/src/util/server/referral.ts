@@ -2,7 +2,7 @@ import { eq, sql } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import db from '../../db'
 import { getReferralLink } from '../referral'
-import { MAX_REFERRALS } from '../../constants'
+
 import { env } from '../../env.mjs'
 
 export type ReferralStatus =
@@ -33,20 +33,11 @@ export async function hasMaxedReferrals(
       .where(eq(schema.referral.referrer_id, userId))
       .then((result) => (result.length > 0 ? result[0].count : 0))
 
-    if (referralCount >= MAX_REFERRALS) {
-      return {
-        reason: 'Referral Limit Reached',
-        details: {
-          referralCount,
-          msg: 'This referrer has maxxed out the number of referrals they can make',
-        },
-      }
-    }
-
     const user = await db.query.user.findFirst({
       where: eq(schema.user.id, userId),
       columns: {
         referral_code: true,
+        referral_limit: true,
       },
     })
 
@@ -60,6 +51,18 @@ export async function hasMaxedReferrals(
         },
       }
     }
+
+    if (referralCount >= user.referral_limit) {
+      return {
+        reason: 'Referral Limit Reached',
+        details: {
+          referralCount,
+          msg: 'This referrer has maxxed out the number of referrals they can make',
+        },
+      }
+    }
+
+
 
     return {
       reason: undefined,

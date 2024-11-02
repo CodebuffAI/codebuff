@@ -68,11 +68,10 @@ The Manicode project includes a referral system designed to encourage user growt
 - Limits: There's a cap on the number of referrals a user can make to prevent system abuse.
 
 The referral system integrates with the user authentication flow and credit management system, providing a seamless experience for both new and existing users.
+
 - `common/src/util/server/referral.ts`: Contains the `hasMaxedReferrals` function to check if a user has reached their referral limit.
 - `web/src/app/api/referrals/route.ts`: Handles API routes for referral-related operations.
 - `common/src/util/referral.ts`: Contains utility functions like `getReferralLink`.
-
-The `MAX_REFERRALS` constant is used to limit the number of referrals a user can make.
 
 ## Development Guidelines
 
@@ -84,11 +83,12 @@ The `MAX_REFERRALS` constant is used to limit the number of referrals a user can
 6. Remember that imports automatically remove 'src' from the path. When editing files, always include 'src' in the file path if it's part of the actual directory structure.
 
 ## Knowledge Management
+
 ## Knowledge File Management
 
-- Knowledge is stored in `knowledge.md` files, which can be created in relevant directories throughout the project. 
-- Mani automatically updates knowledge files when learning new information or correcting mistakes. 
-- Developers are encouraged to review and commit knowledge file changes to share insights across the team. 
+- Knowledge is stored in `knowledge.md` files, which can be created in relevant directories throughout the project.
+- Mani automatically updates knowledge files when learning new information or correcting mistakes.
+- Developers are encouraged to review and commit knowledge file changes to share insights across the team.
 
 When updating knowledge files:
 
@@ -181,7 +181,6 @@ Mani can now execute terminal commands using the `run_terminal_command` tool. Th
 
 Important constants and configuration values are centralized in `common/src/constants.ts`. This includes:
 
-- `MAX_REFERRALS`: The maximum number of referrals a user can make (currently set to 5).
 - `CREDITS_REFERRAL_BONUS`: The number of credits awarded for a successful referral.
 - `CREDITS_USAGE_LIMITS`: Defines credit limits for different user types (ANON, FREE, PAID).
 
@@ -201,7 +200,7 @@ The referral system is integrated across the web application and the CLI tool, p
 ## Development Guidelines
 
 1. Use TypeScript for all new code to maintain type safety.
-The referral system is implemented across several files:
+   The referral system is implemented across several files:
 
 - Implement authentication and authorization for WebSocket connections.
 - Add more comprehensive error handling and logging.

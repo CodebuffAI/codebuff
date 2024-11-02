@@ -41,6 +41,7 @@ export const user = pgTable('user', {
   referral_code: text('referral_code')
     .unique()
     .default(sql`'ref-' || gen_random_uuid()`),
+  referral_limit: integer('referral_limit').notNull().default(5),
 })
 
 export const account = pgTable(

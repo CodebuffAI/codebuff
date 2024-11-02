@@ -107,6 +107,23 @@ const ReferralsPage = () => {
       <Card className="bg-sky-100 dark:bg-sky-900 ">
         <CardHeader>
           <CardTitle>Your Referrals</CardTitle>
+          <CardDescription>
+            <div className="flex justify-between items-center">
+              <p>
+                Refer a friend and <b>you&apos;ll both</b> earn{' '}
+                {CREDITS_REFERRAL_BONUS} credits per month!{' '}
+                <Button variant="link" className="p-0 m-0 inline-flex" asChild>
+                  <a
+                    href="https://manicode.retool.com/form/e6c62a73-03b1-4ef3-8ab1-eba416ce7187"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    (Want to refer more people? 🚀)
+                  </a>
+                </Button>
+              </p>
+            </div>
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {match({
@@ -133,48 +150,41 @@ const ReferralsPage = () => {
               ({ data }) => (
                 <CardContent className="flex flex-col space-y-6">
                   <div className="flex flex-col space-y-4">
-                    {data.limitReached ? (
-                      <p>
-                        You have reached your referral limit. Dang, you&apos;ve
-                        got a lot of friends! Maybe introduce them to one
-                        another? 🌝
-                      </p>
-                    ) : (
-                      <>
-                        <p>
-                          Refer a friend and <b>you&apos;ll both</b> earn{' '}
-                          {CREDITS_REFERRAL_BONUS} credits per month!
-                        </p>
-                        <p>Send this link to them:</p>
-                        <div className="relative">
-                          {loading ? (
-                            <Skeleton className="h-10 w-full" />
-                          ) : (
-                            <Input
-                              value={link}
-                              placeholder={'Your referral link'}
-                              readOnly
-                              className="bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-                            />
-                          )}
-                          <Button
-                            onClick={() => copyReferral(link)}
-                            disabled={loading || !session?.user}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
-                            variant="ghost"
-                          >
-                            <CopyIcon className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </>
-                    )}
+                    <div className="flex flex-col space-y-4">
+                      <p>Send this link to them:</p>
+                      <div className="relative">
+                        {loading ? (
+                          <Skeleton className="h-10 w-full" />
+                        ) : (
+                          <Input
+                            value={link}
+                            placeholder={'Your referral link'}
+                            readOnly
+                            className="bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                          />
+                        )}
+                        <Button
+                          onClick={() => copyReferral(link)}
+                          disabled={loading || !session?.user}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
+                          variant="ghost"
+                        >
+                          <CopyIcon className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
 
                   <Separator />
 
-                  {data.referrals.length === 0 ? (
-                    <p>You haven&apos;t referred anyone yet.</p>
-                  ) : (
+                  <p className="mb-2">
+                    You&apos;ve referred{' '}
+                    <b>
+                      {data.referrals.length}/{data.referralLimit}
+                    </b>{' '}
+                    friends
+                  </p>
+                  {data.referrals.length !== 0 && (
                     <ul className="space-y-2">
                       {data.referrals.map((r) => (
                         <li

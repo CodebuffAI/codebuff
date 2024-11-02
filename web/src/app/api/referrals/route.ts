@@ -5,7 +5,6 @@ import { z } from 'zod'
 import { authOptions } from '../auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { MAX_REFERRALS } from 'common/constants'
 import { redeemReferralCode } from './helpers'
 
 type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
@@ -21,7 +20,7 @@ export type ReferralData = {
   referralCode: string
   referrals: Referral[]
   referredBy?: Referral
-  limitReached: boolean
+  referralLimit: number
 }
 
 export async function GET() {
@@ -99,7 +98,7 @@ export async function GET() {
         return acc
       }, [] as Referral[]),
       referredBy,
-      limitReached: referrals.length >= MAX_REFERRALS,
+      referralLimit: user.referral_limit,
     }
 
     return NextResponse.json(referralData)
