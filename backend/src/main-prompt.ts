@@ -1,5 +1,6 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
+import path from 'path'
 
 import { promptClaudeStream } from './claude'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
@@ -419,7 +420,15 @@ async function getFileVersionUpdates(
     ...requestedFiles,
     ...previousFilePaths,
     ...editedFilePaths,
-  ])
+  ]).filter(p => {
+    if (p.includes('..')) return false
+    try {
+      path.normalize(p)
+      return true
+    } catch {
+      return false
+    }
+  })
   const loadedFiles = await requestFiles(ws, allFilePaths)
 
   const filteredRequestedFiles = requestedFiles.filter((filePath, i) => {
