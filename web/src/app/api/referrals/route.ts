@@ -22,6 +22,7 @@ export type ReferralData = {
   referrals: Referral[]
   referredBy?: Referral
   limitReached: boolean
+  referralLimit: number
 }
 
 export async function GET() {
@@ -99,7 +100,8 @@ export async function GET() {
         return acc
       }, [] as Referral[]),
       referredBy,
-      limitReached: referrals.length >= MAX_REFERRALS,
+      limitReached: referrals.length >= user.referral_limit,
+      referralLimit: user.referral_limit,
     }
 
     return NextResponse.json(referralData)
