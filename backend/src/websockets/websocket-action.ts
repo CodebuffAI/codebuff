@@ -127,7 +127,13 @@ const onUserInput = async (
 
       const userId = await getUserIdFromAuthToken(authToken)
       try {
-        const { toolCall, response, changes } = await mainPrompt(
+        const {
+          toolCall,
+          response,
+          changes,
+          addedFileVersions,
+          resetFileVersions,
+        } = await mainPrompt(
           ws,
           messages,
           fileContext,
@@ -152,6 +158,8 @@ const onUserInput = async (
             response,
             data: toolCall,
             changes,
+            addedFileVersions,
+            resetFileVersions,
           })
         } else {
           const { usage, limit, referralLink, subscription_active } =
@@ -165,6 +173,8 @@ const onUserInput = async (
             limit,
             subscription_active,
             referralLink,
+            addedFileVersions,
+            resetFileVersions,
           })
         }
       } catch (e) {
@@ -184,6 +194,8 @@ const onUserInput = async (
           userInputId,
           response,
           changes: [],
+          addedFileVersions: [],
+          resetFileVersions: false,
         })
       }
     }

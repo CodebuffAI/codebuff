@@ -26,12 +26,18 @@ export interface FileNode extends FileTreeNode {
   lastReadTime: number
 }
 
+export const FileVersionSchema = z.object({
+  path: z.string(),
+  content: z.string(),
+})
+
+export type FileVersion = z.infer<typeof FileVersionSchema>
+
 export const ProjectFileContextSchema = z.object({
   currentWorkingDirectory: z.string(),
   fileTree: z.array(z.custom<FileTreeNode>()),
   fileTokenScores: z.record(z.string(), z.record(z.string(), z.number())),
   knowledgeFiles: z.record(z.string(), z.string()),
-  files: z.record(z.string(), z.string().nullable()),
   gitChanges: z.object({
     status: z.string(),
     diff: z.string(),
@@ -40,6 +46,7 @@ export const ProjectFileContextSchema = z.object({
   }),
   changesSinceLastChat: z.record(z.string(), z.string()),
   shellConfigFiles: z.record(z.string(), z.string()),
+  fileVersions: z.array(z.array(FileVersionSchema)),
 })
 
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>

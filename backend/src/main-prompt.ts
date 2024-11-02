@@ -2,7 +2,7 @@ import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { promptClaudeStream } from './claude'
-import { ProjectFileContext } from 'common/util/file'
+import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
@@ -16,8 +16,9 @@ import {
 } from './request-files-prompt'
 import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
-import { countTokens } from './util/token-counter'
+import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
+import { difference, uniq, zip } from 'lodash'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -39,11 +40,20 @@ export async function mainPrompt(
   const lastMessage = messages[messages.length - 1]
   const messagesWithoutLastMessage = messages.slice(0, -1)
 
+  let addedFileVersions: FileVersion[] = []
+  let resetFileVersions = false
+
   if (!didClientUseTool(lastMessage)) {
     // Step 1: Read more files.
     const system = getSearchSystemPrompt(fileContext)
     // If the fileContext.files is empty, use prompts to select files and add them to context.
-    const responseChunk = await updateFileContext(
+    const {
+      newFileVersions,
+      toolCallMessage,
+      addedFiles,
+      clearFileVersions,
+      readFilesMessage,
+    } = await getFileVersionUpdates(
       ws,
       fileContext,
       { messages, system },
@@ -53,9 +63,15 @@ export async function mainPrompt(
       userInputId,
       userId
     )
-    if (responseChunk !== null) {
-      onResponseChunk(responseChunk.readFilesMessage)
-      fullResponse += `\n\n${responseChunk.toolCallMessage}\n\n${responseChunk.readFilesMessage}`
+    fileContext.fileVersions = newFileVersions
+    if (clearFileVersions) {
+      resetFileVersions = true
+    } else {
+      addedFileVersions.push(...addedFiles)
+    }
+    if (readFilesMessage !== undefined) {
+      onResponseChunk(readFilesMessage)
+      fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}`
 
       // Prompt cache the new files.
       const system = getSearchSystemPrompt(fileContext)
@@ -109,6 +125,8 @@ export async function mainPrompt(
       response,
       changes: [],
       toolCall: null,
+      addedFileVersions,
+      resetFileVersions,
     }
   }
 
@@ -255,7 +273,12 @@ ${STOP_MARKER}
 
     if (maybeToolCall?.name === 'find_files') {
       logger.debug(maybeToolCall, 'tool call')
-      const response = await updateFileContext(
+      const {
+        newFileVersions,
+        addedFiles,
+        clearFileVersions,
+        readFilesMessage,
+      } = await getFileVersionUpdates(
         ws,
         fileContext,
         { messages, system: getSearchSystemPrompt(fileContext) },
@@ -265,8 +288,13 @@ ${STOP_MARKER}
         userInputId,
         userId
       )
-      if (response !== null) {
-        const { readFilesMessage } = response
+      fileContext.fileVersions = newFileVersions
+      if (clearFileVersions) {
+        resetFileVersions = true
+      } else {
+        addedFileVersions.push(...addedFiles)
+      }
+      if (readFilesMessage !== undefined) {
         onResponseChunk(`\n\n${readFilesMessage}`)
         fullResponse += `\n\n${readFilesMessage}`
       }
@@ -308,12 +336,12 @@ ${STOP_MARKER}
     logger.warn('Reached maximum number of iterations in mainPrompt')
   }
 
-  const knowledgeChanges = await genKnowledgeFilesPromise
-  fileProcessingPromises.push(...knowledgeChanges)
-
   if (fileProcessingPromises.length > 0) {
     onResponseChunk('\nApplying file changes. Please wait...\n')
   }
+
+  const knowledgeChanges = await genKnowledgeFilesPromise
+  fileProcessingPromises.push(...knowledgeChanges)
 
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
@@ -322,6 +350,10 @@ ${STOP_MARKER}
     response: fullResponse.trim(),
     changes,
     toolCall: toolCall as ToolCall | null,
+    addedFileVersions: resetFileVersions
+      ? fileContext.fileVersions.flat()
+      : addedFileVersions,
+    resetFileVersions,
   }
 }
 
@@ -331,7 +363,9 @@ function getRelevantFileInfoMessage(filePaths: string[]) {
   return { readFilesMessage, toolCallMessage }
 }
 
-async function updateFileContext(
+const FILE_TOKEN_BUDGET = 90_000
+
+async function getFileVersionUpdates(
   ws: WebSocket,
   fileContext: ProjectFileContext,
   {
@@ -345,51 +379,151 @@ async function updateFileContext(
   clientSessionId: string,
   fingerprntId: string,
   userInputId: string,
-  userId?: string
+  userId: string | undefined
 ) {
-  const relevantFiles = await requestRelevantFiles(
-    { messages, system },
-    fileContext,
-    prompt,
-    clientSessionId,
-    fingerprntId,
-    userInputId,
-    userId
+  const { fileVersions } = fileContext
+  const files = fileVersions.flatMap((files) => files)
+  const previousFilePaths = uniq(files.map(({ path }) => path))
+  const latestFileVersions = previousFilePaths.map((path) => {
+    return files.findLast((file) => file.path === path)!
+  })
+  const previousFiles: Record<string, string> = Object.fromEntries(
+    zip(
+      previousFilePaths,
+      latestFileVersions.map((file) => file.content)
+    )
   )
+  const editedFilePaths = messages
+    .map((m) => m.content)
+    .filter(
+      (content) => typeof content === 'string' && content.includes('<edit_file')
+    )
+    .map(
+      (content) =>
+        (content as string).match(/<edit_file\s+path="([^"]+)">/)?.[1]
+    )
+    .filter((path): path is string => path !== undefined)
 
-  if (relevantFiles === null || relevantFiles.length === 0) {
-    return null
+  const requestedFiles =
+    (await requestRelevantFiles(
+      { messages, system },
+      fileContext,
+      prompt,
+      clientSessionId,
+      fingerprntId,
+      userInputId,
+      userId
+    )) ?? []
+
+  const allFilePaths = uniq([
+    ...requestedFiles,
+    ...previousFilePaths,
+    ...editedFilePaths,
+  ])
+  const loadedFiles = await requestFiles(ws, allFilePaths)
+
+  const filteredRequestedFiles = requestedFiles.filter((filePath, i) => {
+    const content = loadedFiles[filePath]
+    if (content === null) return true
+    const tokenCount = countTokens(content)
+    if (i === 0) {
+      return tokenCount < 40_000
+    }
+    if (i < 5) {
+      return tokenCount < 25_000 - i * 5_000
+    }
+    return tokenCount < 5_000
+  })
+  const newFiles = difference(filteredRequestedFiles, previousFilePaths)
+
+  const updatedFiles = previousFilePaths.filter((path) => {
+    return loadedFiles[path] !== previousFiles[path]
+  })
+  const editedUnreadFilePaths = difference(editedFilePaths, previousFilePaths)
+
+  const addedFiles = uniq([
+    ...updatedFiles,
+    ...editedUnreadFilePaths,
+    ...newFiles,
+  ])
+    .map((path) => {
+      return {
+        path,
+        content: loadedFiles[path]!,
+      }
+    })
+    .filter((file) => file.content !== null)
+
+  const fileVersionTokens = countTokensJson(files)
+  const addedFileTokens = countTokensJson(addedFiles)
+
+  if (fileVersionTokens + addedFileTokens > FILE_TOKEN_BUDGET) {
+    const knowledgeFiles = Object.entries(fileContext.knowledgeFiles).map(
+      ([path, content]) => ({
+        path,
+        content,
+      })
+    )
+    const requestedLoadedFiles = filteredRequestedFiles
+      .map((path) => ({
+        path,
+        content: loadedFiles[path]!,
+      }))
+      .filter((file) => file.content !== null)
+    const resetFileVersion = [...knowledgeFiles, ...requestedLoadedFiles]
+    let i = 0
+    while (countTokensJson(resetFileVersion) > FILE_TOKEN_BUDGET) {
+      const file = resetFileVersion[resetFileVersion.length - 1 - i]
+      if (file.content !== null) {
+        file.content = '[TRUNCATED TO FIT TOKEN BUDGET]'
+      }
+      i++
+    }
+    const newFileVersions = [resetFileVersion]
+
+    const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage([
+      ...resetFileVersion.map((f) => f.path),
+    ])
+
+    logger.debug(
+      {
+        newFileVersions: resetFileVersion.map((f) => f.path),
+        fileVersionTokens,
+        addedFileTokens,
+        totalTokens: fileVersionTokens + addedFileTokens,
+        FILE_TOKEN_BUDGET,
+      },
+      'resetting file versions b/c of token budget'
+    )
+
+    return {
+      newFileVersions,
+      addedFiles,
+      clearFileVersions: true,
+      readFilesMessage,
+      toolCallMessage,
+    }
   }
 
-  const loadedFiles = await requestFiles(ws, relevantFiles)
-  const filePaths = Object.keys(loadedFiles)
-
-  const filteredFilePaths = [
-    ...filePaths.slice(0, 5),
-    // Filter out lower priority files that are too long.
-    ...filePaths.slice(5).filter((filePath) => {
-      const content = loadedFiles[filePath]
-      if (content === null) return true
-      const tokenCount = countTokens(content)
-      return tokenCount < 5_000
-    }),
-  ]
-
-  // Load relevant files into fileContext
-  fileContext.files = Object.fromEntries(
-    filteredFilePaths.map((filePath) => [filePath, loadedFiles[filePath]])
-  )
-
-  const existingFiles = Object.keys(fileContext.files).filter(
-    (filePath) => fileContext.files[filePath] !== null
-  )
-
-  if (existingFiles.length === 0) {
-    return null
+  const newFileVersions = [...fileVersions, addedFiles]
+  if (newFiles.length === 0) {
+    return {
+      newFileVersions,
+      addedFiles,
+      readFilesMessage: undefined,
+      toolCallMessage: undefined,
+    }
   }
 
-  const { readFilesMessage, toolCallMessage } =
-    getRelevantFileInfoMessage(existingFiles)
+  const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage([
+    ...newFiles,
+    ...previousFilePaths,
+  ])
 
-  return { readFilesMessage, toolCallMessage }
+  return {
+    newFileVersions,
+    addedFiles,
+    readFilesMessage,
+    toolCallMessage,
+  }
 }

@@ -7,10 +7,17 @@ import { createPatch } from 'diff'
 import { green } from 'picocolors'
 import { Worker } from 'worker_threads'
 
-import { createFileBlock, ProjectFileContext } from 'common/util/file'
+import {
+  createFileBlock,
+  FileVersion,
+  ProjectFileContext,
+} from 'common/util/file'
 import { filterObject } from 'common/util/object'
-import { parseUrlsFromContent, getScrapedContentBlocks } from './web-scraper'
-import { getProjectFileTree, flattenTree, parseGitignore } from 'common/project-file-tree'
+import {
+  getProjectFileTree,
+  flattenTree,
+  parseGitignore,
+} from 'common/project-file-tree'
 import { getFileTokenScores } from 'code-map/parse'
 
 const execAsync = promisify(exec)
@@ -59,7 +66,7 @@ export function initProjectFileContextWithWorker(dir: string) {
 
   worker.postMessage({ dir })
 
-  return new Promise((resolve, reject) => {
+  return new Promise<ProjectFileContext>((resolve, reject) => {
     worker.on('message', (initFileContext) => {
       worker.terminate()
       cachedProjectFileContext = initFileContext
@@ -70,16 +77,15 @@ export function initProjectFileContextWithWorker(dir: string) {
 
 export const getProjectFileContext = async (
   projectRoot: string,
-  fileList: string[],
-  lastFileVersion: Record<string, string>
+  lastFileVersion: Record<string, string>,
+  fileVersions: FileVersion[][]
 ) => {
-  const files = getFiles(fileList)
   const gitChanges = await getGitChanges()
   const changesSinceLastChat = getChangesSinceLastFileVersion(lastFileVersion)
   const updatedProps = {
-    files,
     gitChanges,
     changesSinceLastChat,
+    fileVersions,
   }
 
   if (
@@ -215,7 +221,6 @@ export function getFilesAbsolutePath(filePaths: string[]) {
   }
   return result
 }
-
 
 export function setFiles(files: Record<string, string>) {
   for (const [filePath, content] of Object.entries(files)) {

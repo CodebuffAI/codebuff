@@ -7,43 +7,38 @@ import {
 import { buildArray } from 'common/util/array'
 import { truncateString } from 'common/util/string'
 import { STOP_MARKER } from 'common/constants'
-import { countTokensForFiles, countTokensJson } from './util/token-counter'
+import { countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
-import { sortBy, sum } from 'lodash'
-import { filterObject } from 'common/util/object'
+import { sortBy, sum, uniq } from 'lodash'
+import { filterObject, removeUndefinedProps } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 
 export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
-  const {
-    truncatedFiles,
-    tokenCounts: fileTokenCounts,
-    postTruncationTotalTokens: totalFileTokens,
-  } = getTruncatedFilesBasedOnTokenBudget(fileContext, 80_000)
-
   const systemPrompt = buildArray(
     {
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
       text: [
         getProjectFileTreePrompt(fileContext),
-        getRelevantFilesPromptPart1(fileContext),
+        getMiscFilesPrompt(fileContext),
       ].join('\n\n'),
     },
+    ...getProjectFilesPromptContent(fileContext),
     {
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
-      text: [
-        getRelevantFilesPromptPart2(fileContext, truncatedFiles),
-        getGitChangesPrompt(fileContext),
-      ].join('\n\n'),
+      text: [getGitChangesPrompt(fileContext)].join('\n\n'),
     }
   )
 
   logger.debug(
     {
-      fileTokenCounts,
-      totalFileTokens,
+      fileTokenCounts: countTokensJson(fileContext.fileVersions),
+      fileVersions: fileContext.fileVersions.map((files) =>
+        files.map((f) => f.path)
+      ),
       systemPromptTokens: countTokensJson(systemPrompt),
+      systemPrompt,
     },
     'search system prompt tokens'
   )
@@ -55,13 +50,9 @@ export const getAgentSystemPrompt = (
   fileContext: ProjectFileContext,
   options: { checkFiles: boolean }
 ) => {
+  const { fileVersions } = fileContext
   const { checkFiles } = options
-  const {
-    truncatedFiles,
-    tokenCounts: fileTokenCounts,
-    postTruncationTotalTokens: totalFileTokens,
-  } = getTruncatedFilesBasedOnTokenBudget(fileContext, 80_000)
-  const files = Object.keys(truncatedFiles)
+  const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
   const projectFileTreePrompt = getProjectFileTreePrompt(fileContext)
 
@@ -76,14 +67,14 @@ export const getAgentSystemPrompt = (
         toolsPrompt,
         // For large projects, don't include file tree in agent context.
         projectFileTreePrompt.length < 40_000 ? projectFileTreePrompt : null,
-        getRelevantFilesPromptPart1(fileContext)
+        getMiscFilesPrompt(fileContext)
       ).join('\n\n'),
     },
+    ...getProjectFilesPromptContent(fileContext),
     {
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
       text: buildArray(
-        getRelevantFilesPromptPart2(fileContext, truncatedFiles),
         getGitChangesPrompt(fileContext),
         getResponseFormatPrompt(checkFiles, files)
       ).join('\n\n'),
@@ -92,9 +83,12 @@ export const getAgentSystemPrompt = (
 
   logger.debug(
     {
-      fileTokenCounts,
-      totalFileTokens,
+      totalFileTokens: countTokensJson(fileContext.fileVersions),
+      fileVersions: fileContext.fileVersions.map((files) =>
+        files.map((f) => f.path)
+      ),
       systemPromptTokens: countTokensJson(systemPrompt),
+      systemPrompt,
     },
     'agent system prompt tokens'
   )
@@ -269,7 +263,7 @@ Purpose: Better fulfill the user request by reading files which could contain in
 
 Use cases:
 - If you are calling a function or creating a class and want to know how it works, go get the implementation with a tool call to find_files. E.g. "<tool_call name="find_files">The implementation of function foo</tool_call>".
-- If you want to modify a file, but don't currently have it in context.
+- If you want to modify a file, but don't currently have it in context. Be sure to call find_files before writing out an <edit_file> block, or I will be very upset.
 - If you need to understand a section of the codebase, read more files in that directory or subdirectories.
 - Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
 
@@ -277,6 +271,7 @@ However, use this tool sparingly. DO NOT USE "find_files" WHEN:
 - You are creating a new file
 - You want to edit a file that you already have in context. Double check that the file is not listed in the <relevant_files> block already before calling find_files.
 - You already called it recently. Multiple calls in a row are not productive.
+- You are inside an <edit_file> block.
 
 ## Running terminal commands
 
@@ -335,26 +330,18 @@ Note: the project file tree is cached from the start of this conversation.
 `.trim()
 }
 
-const getRelevantFilesPromptPart1 = (fileContext: ProjectFileContext) => {
-  const { knowledgeFiles, fileTree, shellConfigFiles } = fileContext
+const getMiscFilesPrompt = (fileContext: ProjectFileContext) => {
+  const { fileTree, shellConfigFiles } = fileContext
   const flattenedNodes = flattenTree(fileTree)
   const lastReadFilePaths = getLastReadFilePaths(flattenedNodes, 20)
 
   return `
-# Relevant files
+# Recently read files & shell config
 
 The following are the most recently read files according to the OS atime. This is cached from the start of this conversation:
 <recently_read_file_paths_most_recent_first>
 ${lastReadFilePaths.join('\n')}
 </recently_read_file_paths_most_recent_first>
-
-<knowledge_files>
-${Object.entries(knowledgeFiles)
-  .map(([path, content]) => createFileBlock(path, content))
-  .join('\n')}
-</knowledge_files>
-
-Note: the knowledge files are cached from the start of this conversation.
 
 <user_shell_config_files>
 ${Object.entries(shellConfigFiles)
@@ -364,32 +351,44 @@ ${Object.entries(shellConfigFiles)
 `.trim()
 }
 
-const getRelevantFilesPromptPart2 = (
-  fileContext: ProjectFileContext,
-  truncatedFiles: Record<string, string | null>
-) => {
-  const { knowledgeFiles } = fileContext
+const getProjectFilesPromptContent = (fileContext: ProjectFileContext) => {
+  const { fileVersions } = fileContext
 
-  const truncatedFilesExceptKnowledgeFiles = Object.fromEntries(
-    Object.keys(truncatedFiles)
-      .filter((file) => !knowledgeFiles[file])
-      .map((file) => [file, truncatedFiles[file]])
-  )
-
-  const fileBlocks = Object.entries(truncatedFilesExceptKnowledgeFiles)
-    .map(([filePath, content]) =>
-      createFileBlock(filePath, content ?? '[FILE_DOES_NOT_EXIST]')
+  const fileBlockSets = fileVersions
+    .filter((files) => files.length > 0)
+    .map((files) =>
+      files
+        .map(({ path, content }) =>
+          createFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
+        )
+        .join('\n')
     )
-    .join('\n')
 
-  return `
-<relevant_files>
-Here are some files that were selected to aid in the user request, ordered by most important first. These files represent the current file state after the user's last request:
-${fileBlocks}
-</relevant_files>
+  const intro = `
+# Project files
 
-As you can see, some files that you might find useful are already provided. If the included set of files is not sufficient to address the user's request, you can call the find_files tool to update the set of files and their contents.
+Here are some files that were selected to aid in the user request or were modified in this conversation.
+
+Files can be repeated multiple times, where later copies of a file show how it was changed over time. The most recent version of a file is always the last one.
+If the included set of files is not sufficient to address the user's request, you can call the find_files tool to update the set of files and their contents.
 `.trim()
+
+  return buildArray([
+    {
+      type: 'text',
+      text: intro,
+    } as const,
+    ...fileBlockSets.map((fileBlockSet, i) =>
+      removeUndefinedProps({
+        type: 'text',
+        text: fileBlockSet,
+        cache_control:
+          i === fileBlockSets.length - 1 || i === fileBlockSets.length - 2
+            ? { type: 'ephemeral' as const }
+            : undefined,
+      } as const)
+    ),
+  ])
 }
 
 const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
@@ -451,31 +450,6 @@ ${STOP_MARKER}
 This marker helps ensure that your entire response has been received and processed correctly.
 If you don't end with this marker, you will automatically be prompted to continue. However, it is good to stop your response with this token so the user can give further guidence.
 </important_instruction>`.trim()
-}
-
-const getTruncatedFilesBasedOnTokenBudget = (
-  fileContext: ProjectFileContext,
-  tokenBudget: number
-) => {
-  const tokenCounts = countTokensForFiles(fileContext.files)
-  const truncatedFiles: Record<string, string | null> = {}
-  let totalTokens = 0
-
-  for (const [filePath, content] of Object.entries(fileContext.files)) {
-    const fileTokens = tokenCounts[filePath] || 0
-    if (totalTokens + fileTokens <= tokenBudget) {
-      truncatedFiles[filePath] = content
-      totalTokens += fileTokens
-    } else {
-      truncatedFiles[filePath] = '[TRUNCATED TO FIT TOKEN BUDGET]'
-    }
-  }
-
-  return {
-    truncatedFiles,
-    tokenCounts,
-    postTruncationTotalTokens: totalTokens,
-  }
 }
 
 const truncateFileTreeBasedOnTokenBudget = (
