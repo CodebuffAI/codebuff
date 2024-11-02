@@ -420,7 +420,8 @@ async function getFileVersionUpdates(
     ...requestedFiles,
     ...previousFilePaths,
     ...editedFilePaths,
-  ]).filter(p => {
+  ]).filter((p) => {
+    if (path.isAbsolute(p)) return false
     if (p.includes('..')) return false
     try {
       path.normalize(p)
