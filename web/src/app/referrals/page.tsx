@@ -112,15 +112,6 @@ const ReferralsPage = () => {
               <p>
                 Refer a friend and <b>you&apos;ll both</b> earn{' '}
                 {CREDITS_REFERRAL_BONUS} credits per month!{' '}
-                <Button variant="link" className="p-0 m-0 inline-flex" asChild>
-                  <a
-                    href="https://manicode.retool.com/form/e6c62a73-03b1-4ef3-8ab1-eba416ce7187"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    (Want to refer more people? 🚀)
-                  </a>
-                </Button>
               </p>
             </div>
           </CardDescription>
@@ -151,7 +142,7 @@ const ReferralsPage = () => {
                 <CardContent className="flex flex-col space-y-6">
                   <div className="flex flex-col space-y-4">
                     <div className="flex flex-col space-y-4">
-                      <p>Send this link to them:</p>
+                      <p>Share this link with them:</p>
                       <div className="relative">
                         {loading ? (
                           <Skeleton className="h-10 w-full" />
@@ -182,7 +173,20 @@ const ReferralsPage = () => {
                     <b>
                       {data.referrals.length}/{data.referralLimit}
                     </b>{' '}
-                    friends
+                    people.{' '}
+                    <Button
+                      variant="link"
+                      className="p-0 m-0 inline-flex"
+                      asChild
+                    >
+                      <a
+                        href="https://manicode.retool.com/form/e6c62a73-03b1-4ef3-8ab1-eba416ce7187"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        (Wanna refer more? 🚀)
+                      </a>
+                    </Button>
                   </p>
                   {data.referrals.length !== 0 && (
                     <ul className="space-y-2">
