@@ -133,12 +133,18 @@ const ReferralsPage = () => {
               ({ data }) => (
                 <CardContent className="flex flex-col space-y-6">
                   <div className="flex flex-col space-y-4">
-                    {data.limitReached ? (
-                      <p>
-                        You have reached your referral limit. Dang, you&apos;ve
-                        got a lot of friends! Maybe introduce them to one
-                        another? 🌝
-                      </p>
+                    {data.referrals.length >= data.referralLimit ? (
+                      <>
+                        <p>
+                          Wow, you&apos;ve referred {data.referrals.length} friends! 🎉 
+                          Want to spread even more Manicode magic?
+                        </p>
+                        <Button variant="link" className="p-0" asChild>
+                          <a href="https://manicode.retool.com/form/e6c62a73-03b1-4ef3-8ab1-eba416ce7187" target="_blank" rel="noopener noreferrer">
+                            Request a higher limit here! 🚀
+                          </a>
+                        </Button>
+                      </>
                     ) : (
                       <>
                         <p>
@@ -175,6 +181,8 @@ const ReferralsPage = () => {
                   {data.referrals.length === 0 ? (
                     <p>You haven&apos;t referred anyone yet.</p>
                   ) : (
+                    <>
+                      <p className="mb-2">You&apos;ve referred {data.referrals.length} out of {data.referralLimit} friends! 🌟</p>
                     <ul className="space-y-2">
                       {data.referrals.map((r) => (
                         <li
@@ -188,6 +196,7 @@ const ReferralsPage = () => {
                         </li>
                       ))}
                     </ul>
+                    </>
                   )}
                 </CardContent>
               )
