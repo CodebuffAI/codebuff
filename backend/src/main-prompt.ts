@@ -482,6 +482,9 @@ async function getFileVersionUpdates(
       }))
       .filter((file) => file.content !== null)
     const resetFileVersion = [...knowledgeFiles, ...requestedLoadedFiles]
+    const readFilesPaths = resetFileVersion
+      .filter((f) => f.content !== null)
+      .map((f) => f.path)
     let i = 0
     while (countTokensJson(resetFileVersion) > FILE_TOKEN_BUDGET) {
       const file = resetFileVersion[resetFileVersion.length - 1 - i]
@@ -492,9 +495,8 @@ async function getFileVersionUpdates(
     }
     const newFileVersions = [resetFileVersion]
 
-    const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage([
-      ...resetFileVersion.map((f) => f.path),
-    ])
+    const { readFilesMessage, toolCallMessage } =
+      getRelevantFileInfoMessage(readFilesPaths)
 
     logger.debug(
       {
@@ -526,10 +528,11 @@ async function getFileVersionUpdates(
     }
   }
 
-  const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage([
-    ...newFiles,
-    ...previousFilePaths,
-  ])
+  const readFilesPaths = [...newFiles, ...previousFilePaths].filter(
+    (f) => loadedFiles[f] !== null
+  )
+  const { readFilesMessage, toolCallMessage } =
+    getRelevantFileInfoMessage(readFilesPaths)
 
   return {
     newFileVersions,
