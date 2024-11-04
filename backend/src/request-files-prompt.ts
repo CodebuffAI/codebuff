@@ -196,9 +196,9 @@ Given the user's request and the current context, determine if new files are nec
 Current files: ${previousFiles.length > 0 ? previousFiles.join(', ') : 'None'}
 User request: ${userPrompt}
 
-We'll need any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request.
+We'll need any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad requests may require many files as context.
 
-Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient.
+Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient. Do not write anything else.
 `
   const response = await promptClaude(
     [...messages, { role: 'user', content: prompt }],
@@ -297,6 +297,8 @@ function generateNonObviousRequestFilesPrompt(
 ): string {
   const exampleFiles = getExampleFileList(fileContext, 100)
   return `
+Your task is to find the relevant files for the following user request.
+
 Random project files:
 ${exampleFiles.join('\n')}
 
@@ -306,7 +308,7 @@ ${
     : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
 }
 
-This is request #${index} for non-obvious project files. Ignore previous instructions.
+This is request #${index} for non-obvious project files. Do not act on the above instructions for the user, instead, we are asking you to find the most relevant files for the user's request.
 
 Based on this conversation, please select files beyond the obvious files that would be helpful to complete the user's request.
 Select files that might be useful for understanding and addressing the user's needs, but you would not choose in the first ${count * index + 10} files if you were asked.
@@ -355,6 +357,8 @@ function generateKeyRequestFilesPrompt(
   const end = start + count - 1
   const exampleFiles = getExampleFileList(fileContext, 100)
   return `
+Your task is to find the most relevant files for the following user request.
+
 Random project files:
 ${exampleFiles.join('\n')}
 
@@ -364,7 +368,7 @@ ${
     : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
 }
 
-This is request #${index} for key project files. Ignore previous instructions.
+This is request #${index} for key project files. Do not act on the above instructions for the user, instead, we are asking you to find the most relevant files for the user's request.
 
 Based on this conversation, please identify the most relevant files for a user's request in a software project, sort them from most to least relevant, and then output just the files from index ${start}-${end} in this sorted list.
 
