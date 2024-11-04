@@ -133,7 +133,7 @@ async function generateFileRequests(
         system,
       },
       nonObviousPrompt,
-      claudeModels.sonnet,
+      claudeModels.haiku,
       `Non-obvious ${index + 1}`,
       clientSessionId,
       fingerprintId,
@@ -163,7 +163,7 @@ async function generateFileRequests(
         system,
       },
       keyPrompt,
-      claudeModels.sonnet,
+      claudeModels.haiku,
       `Key ${index + 1}`,
       clientSessionId,
       fingerprintId,
@@ -203,7 +203,7 @@ Answer with just 'YES' if new files are necessary, or 'NO' if the current files 
   const response = await promptClaude(
     [...messages, { role: 'user', content: prompt }],
     {
-      model: claudeModels.sonnet,
+      model: claudeModels.haiku,
       system,
       clientSessionId,
       fingerprintId,
@@ -416,7 +416,7 @@ export const warmCacheForRequestRelevantFiles = async (
       },
     ],
     {
-      model: claudeModels.sonnet,
+      model: claudeModels.haiku,
       system,
       clientSessionId,
       fingerprintId,

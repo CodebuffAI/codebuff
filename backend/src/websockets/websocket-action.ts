@@ -363,7 +363,7 @@ const onInit = async (
           },
         ],
         {
-          model: claudeModels.sonnet,
+          model: claudeModels.haiku,
           system,
           clientSessionId,
           fingerprintId,

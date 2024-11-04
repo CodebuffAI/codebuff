@@ -12,23 +12,23 @@ const PROFIT_MARGIN = 0.2
 const TOKENS_COST_PER_M = {
   input: {
     [models.sonnet]: 3,
-    [models.haiku]: 0.25,
+    [models.haiku]: 1,
     [models.gpt4o]: 2.5,
     [models.gpt4omini]: 0.15,
   },
   output: {
     [models.sonnet]: 15,
-    [models.haiku]: 1.25,
+    [models.haiku]: 5,
     [models.gpt4o]: 10.0,
     [models.gpt4omini]: 0.6,
   },
   cache_creation: {
     [models.sonnet]: 3.75,
-    [models.haiku]: 0.3,
+    [models.haiku]: 1.25,
   },
   cache_read: {
     [models.sonnet]: 0.3,
-    [models.haiku]: 0.03,
+    [models.haiku]: 0.1,
   },
 }
 
