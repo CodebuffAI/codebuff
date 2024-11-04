@@ -7,8 +7,8 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { promptOpenAI } from './openai-api'
-import { openaiModels } from 'common/constants'
+import { claudeModels } from 'common/constants'
+import { promptClaude } from './claude'
 
 export async function processFileBlock(
   clientSessionId: string,
@@ -159,14 +159,13 @@ Please rewrite the file content to include these intended changes while preservi
 
 Return only the complete file content with no additional text or explanation within \`\`\` code blocks.`
 
-  const response = await promptOpenAI(
+  const response = await promptClaude([{ role: 'user', content: prompt }], {
     clientSessionId,
     fingerprintId,
     userInputId,
-    [{ role: 'user', content: prompt }],
-    openaiModels.gpt4o,
-    userId
-  )
+    userId,
+    model: claudeModels.haiku,
+  })
 
   logger.debug(
     { response, diffBlocksThatDidntMatch },
