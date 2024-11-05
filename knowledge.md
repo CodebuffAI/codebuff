@@ -1,10 +1,10 @@
-# Manicode
+# Codebuff
 
-Manicode is a tool for editing codebases via natural language instruction to Mani, an expert AI programming assistant.
+Codebuff is a tool for editing codebases via natural language instruction to Buff, an expert AI programming assistant.
 
 ## File Change Management
 
-Manicode uses the generate diffs by expansion strategy for managing file changes. This approach has Haiku expand a file with placeholders into the full file, and then generates string patches instead of search and replace blocks.
+Codebuff uses the generate diffs by expansion strategy for managing file changes. This approach has Haiku expand a file with placeholders into the full file, and then generates string patches instead of search and replace blocks.
 
 Key points:
 
@@ -59,7 +59,7 @@ There are three top-level code directories:
 
 ## Referral System
 
-The Manicode project includes a referral system designed to encourage user growth and reward existing users for bringing in new members. Here's a high-level overview:
+The Codebuff project includes a referral system designed to encourage user growth and reward existing users for bringing in new members. Here's a high-level overview:
 
 - Purpose: Increase user base and engagement by incentivizing current users to invite others.
 - Functionality: Users can share a unique referral code or link with potential new users.
@@ -188,7 +188,7 @@ Centralizing these constants makes it easier to manage and update project-wide s
 
 ## Referral System
 
-Manicode implements a referral system to encourage user growth and reward existing users for bringing in new members. The referral system works as follows:
+Codebuff implements a referral system to encourage user growth and reward existing users for bringing in new members. The referral system works as follows:
 
 1. Each user receives a unique referral code.
 2. Users can share their referral code with others.
@@ -214,7 +214,7 @@ The referral system is integrated across the web application and the CLI tool, p
 
 ## Python Package
 
-A Python package for Manicode has been created as a skeleton in python-app. Key points:
+A Python package for Codebuff has been created as a skeleton in python-app. Key points:
 
 - It's currently a placeholder that prints a message about the package coming soon and suggests installing the npm version.
 
@@ -222,7 +222,7 @@ A Python package for Manicode has been created as a skeleton in python-app. Key 
 
 ## Version Checking
 
-Upon start-up, the client checks the npmjs.org registry for the latest version of the npm package. If the version is newer, Manicode will automatically try to download and install the latest version. Once it does, it'll prompt the user to restart the application.
+Upon start-up, the client checks the npmjs.org registry for the latest version of the npm package. If the version is newer, Codebuff will automatically try to download and install the latest version. Once it does, it'll prompt the user to restart the application.
 
 # Development workflow
 

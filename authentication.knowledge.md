@@ -1,8 +1,8 @@
-# Authentication Flow for Manicode
+# Authentication Flow for Codebuff
 
 ## Overview
 
-Manicode implements a secure authentication flow that involves the npm-app (CLI), backend, and web application. This document outlines the key steps and security measures in place.
+Codebuff implements a secure authentication flow that involves the npm-app (CLI), backend, and web application. This document outlines the key steps and security measures in place.
 
 ## Authentication Process
 
