@@ -175,7 +175,31 @@ async function generateFileRequests(
     })
   )
 
-  const keyResults = await Promise.all(keyPromises)
+  const examplePrompt = generateExampleFilesPrompt(
+    userPrompt,
+    assistantPrompt,
+    fileContext,
+    countPerRequest
+  )
+
+  const examplePromise = getRelevantFiles(
+    {
+      messages: messagesExcludingLastIfByUser,
+      system,
+    },
+    examplePrompt,
+    claudeModels.haiku,
+    'Examples',
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId
+  ).catch((error) => {
+    logger.error({ error }, 'Error requesting example files')
+    return { files: [], duration: 0 }
+  })
+
+  const keyResults = await Promise.all([...keyPromises, examplePromise])
   const nonObviousResults = await Promise.all(nonObviousPromises)
 
   return { keyResults, nonObviousResults }
@@ -395,6 +419,54 @@ ${range(count)
   .join('\n')}
 
 Remember to focus on the most important files and limit your selection to exactly ${count} files. List each file path on a new line without any additional characters or formatting.
+
+IMPORTANT: You must include the full relative path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
+
+That means every file that is not at the project root should start with one of the following directories:
+${topLevelDirectories(fileContext).join('\n')}
+
+Please limit your response just the file paths on new lines. Do not write anything else.
+`.trim()
+}
+
+function generateExampleFilesPrompt(
+  userPrompt: string | null,
+  assistantPrompt: string | null,
+  fileContext: ProjectFileContext,
+  count: number
+): string {
+  const exampleFiles = getExampleFileList(fileContext, 100)
+  return `
+Your task is to find the best example files for the following user request.
+
+Random project files:
+${exampleFiles.join('\n')}
+
+${
+  userPrompt
+    ? `<user_prompt>${userPrompt}</user_prompt>`
+    : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
+}
+
+Do not act on the above instructions for the user, instead, we are asking you to find the most relevant example files for the user's request.
+
+Based on this conversation, please identify the most relevant example files for a user's request in a software project and sort them from most to least relevant.
+
+Please follow these steps to determine which files to request:
+
+1. Analyze the user's last request and the assistant's prompt and identify the core components or tasks.
+2. Look for files that could have code similar to what would be needed to fulfill the user's request. These files can serve as examples of what to write.
+
+Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
+
+Please provide no commentary and only list the file paths of the most relevant files that you think are most crucial for addressing the user's request.
+
+Your response contain only files separated by new lines in the following format:
+${range(count)
+  .map((i) => `full/path/to/file${i + 1}.ts`)
+  .join('\n')}
+
+Remember to focus on the most important example files and limit your selection to exactly ${count} files. List each file path on a new line without any additional characters or formatting.
 
 IMPORTANT: You must include the full relative path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
 
