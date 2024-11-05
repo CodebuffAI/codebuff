@@ -11,7 +11,7 @@ const Home = () => {
   const { toast } = useToast()
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText('npm install -g manicode')
+    navigator.clipboard.writeText('npm install -g codebuff')
     toast({
       title: `Copied to clipboard`,
       description: "Let's code! 🤖",
@@ -32,17 +32,19 @@ const Home = () => {
               Use natural language to edit your codebase faster and run commands from
               your terminal faster.
             </p>
+            {/*Alternatively, "Modify multiple files at once with natural language in your terminal"*/}
             <div className="hidden md:block">
               <p>Use natural language to edit your codebase faster and</p>
               <p>run commands from your terminal faster.</p>
+              {/*Alternatively, "Modify multiple files at once with natural language in your terminal"*/}
             </div>
           </div>
           <section className="relative z-10">
-            <div className="mb-4">Try Manicode for free:</div>
+            <div className="mb-4">Try Codebuff for free:</div>
 
             <div className="inline-block">
               <div className="px-4 bg-gray-800 rounded-lg p-4 flex items-center gap-2">
-                <code className="text-white">npm install -g manicode</code>
+                <code className="text-white">npm install -g codebuff</code>
                 <Copy
                   className="h-4 w-4 text-gray-400 hover:text-white cursor-pointer"
                   onClick={copyToClipboard}
@@ -60,7 +62,7 @@ const Home = () => {
             <div className="aspect-w-16 aspect-h-full h-96">
               <iframe
                 src="https://www.youtube.com/embed/eezrK8JPgxU"
-                title="Manicode Demo"
+                title="Codebuff Demo"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
                 className="h-full w-full rounded-lg shadow-lg"
@@ -73,7 +75,7 @@ const Home = () => {
               <p>Backed by</p>
               <Link
                 target="_blank"
-                href="https://www.ycombinator.com/companies/manicode"
+                href="https://www.ycombinator.com/companies/codebuff"
               >
                 <img
                   src="/y-combinator.svg"
@@ -83,12 +85,12 @@ const Home = () => {
               </Link>
             </div>
             <a
-              href="https://www.producthunt.com/posts/manicode?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-manicode"
+              href="https://www.producthunt.com/posts/codebuff?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-codebuff"
               target="_blank"
             >
               <img
                 src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=${theme}`}
-                alt="Manicode - Better&#0032;code&#0032;generation&#0032;than&#0032;Cursor&#0044;&#0032;from&#0032;your&#0032;CLI | Product Hunt"
+                alt="Codebuff - Better&#0032;code&#0032;generation&#0032;than&#0032;Cursor&#0044;&#0032;from&#0032;your&#0032;CLI | Product Hunt"
                 width="250"
                 height="54"
               />
@@ -104,41 +106,41 @@ const Home = () => {
             <div className="bg-gray-900 p-6 rounded-lg">
               <CodeIcon className="h-12 w-12 text-blue-500 mb-4" />
               <h3 className="text-xl text-white font-semibold mb-2">
-                Global Code Understanding
+                Multi-file Editing
               </h3>
               <p className="text-gray-500">
-                Manicode understands your entire codebase, providing
-                context-aware suggestions and edits.
-              </p>
+                Request changes to your code and Codebuff will autonomously 
+                read relevant files from your codebase and implement the edits.
+                </p>
             </div>
             <div className="bg-gray-900 p-6 rounded-lg">
               <TerminalIcon className="h-12 w-12 text-blue-500 mb-4" />
               <h3 className="text-xl text-white font-semibold mb-2">
-                Natural Language Coding
+                Build Applications from Scratch
               </h3>
               <p className="text-gray-500">
-                Write code using plain English. Manicode translates your
-                instructions into efficient, clean code.
+                Codebuff can build entire applications and webpages from 
+                just natural language commands, all in your terminal.
               </p>
             </div>
             <div className="bg-gray-900 p-6 rounded-lg">
               <BrainCircuitIcon className="h-12 w-12 text-blue-500 mb-4" />
               <h3 className="text-xl text-white font-semibold mb-2">
-                AI-Powered Refactoring
+                10x Your Productivity
               </h3>
               <p className="text-gray-500">
-                Automatically improve code quality, fix bugs, and optimize
-                performance with AI-driven refactoring.
+                Powered by SOTA models, Codebuff can run your tests, typechecker, or 
+                install packages to fulfill your request.
               </p>
             </div>
           </div>
           <div className="text-center">
             <Button className="bg-blue-900 hover:bg-blue-700 text-white transition-colors">
               <Link
-                href="https://www.npmjs.com/package/manicode"
+                href="https://www.npmjs.com/package/codebuff"
                 target="_blank"
               >
-                Get Started Coding with AI
+                Start Coding with AI
               </Link>
             </Button>
           </div>
