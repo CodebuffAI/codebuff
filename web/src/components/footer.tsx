@@ -18,7 +18,7 @@ export const Footer = () => {
                 height={32}
                 className="rounded-sm"
               />
-              <span className="font-bold text-xl">{siteConfig.title}</span>
+              <span className="font-bold text-xl">Codebuff</span>
             </Link>
           </div>
 

@@ -1,6 +1,6 @@
-# Manicode Web App
+# Codebuff Web App
 
-Mainly used for logging in and managing Manicode API quotas.
+Mainly used for logging in and managing Codebuff API quotas.
 
 ## 🎉 Features
 

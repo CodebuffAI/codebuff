@@ -101,11 +101,11 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
           </p>
           <ol className="list-decimal list-inside space-y-6">
             <li>
-              Install Manicode globally:
-              <InputWithCopyButton text={'npm i -g manicode'} />
+              Install Codebuff globally:
+              <InputWithCopyButton text={'npm i -g codebuff'} />
             </li>
             <li>
-              Run Manicode in Terminal
+              Run Codebuff in Terminal
               <InputWithCopyButton text={'manicode'} />
             </li>
             {!data?.status.reason && (
