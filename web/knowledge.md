@@ -1,8 +1,8 @@
-# Manicode Web Application Knowledge
+# Codebuff Web Application Knowledge
 
 ## Authentication and Login System
 
-The authentication system in Manicode's web application plays a crucial role in integrating with the npm app (CLI) to provide a seamless login experience. Here's what the web app needs to focus on:
+The authentication system in Codebuff's web application plays a crucial role in integrating with the npm app (CLI) to provide a seamless login experience. Here's what the web app needs to focus on:
 
 ### Web App's Role in Authentication
 
@@ -43,7 +43,7 @@ The authentication system in Manicode's web application plays a crucial role in 
 ## UI Patterns
 
 ### Logo Usage
-- Include the Manicode logo alongside the company name in key UI components
+- Include the Codebuff logo alongside the company name in key UI components
 - Logo placement:
   - Navbar: Primary placement
   - Footer: Left side of sitemap
@@ -195,13 +195,13 @@ The referral system is a key feature of the Manicode web application. It allows 
 To streamline the referral process and integrate it with the CLI tool:
 
 1. The web interface no longer accepts referral code inputs.
-2. Users are directed to use the Manicode CLI app for submitting referral codes.
+2. Users are directed to use the Codebuff CLI app for submitting referral codes.
 3. The referrals page should include instructions for installing the CLI tool and using referral codes:
-   - Install command: `npm i -g manicode`
+   - Install command: `npm i -g codebuff`
    - Usage: Users should paste their referral code in the CLI after installation.
 4. Format CLI commands in a code-like pattern on the web interface for clarity.
 
-This change ensures a consistent user experience across the Manicode ecosystem and encourages CLI adoption.
+This change ensures a consistent user experience across the Codebuff ecosystem and encourages CLI adoption.
 
 ## Environment Configuration
 
