@@ -157,7 +157,7 @@ Replace with:
 
 Please rewrite the file content to include these intended changes while preserving the rest of the file. Only make the minimal changes necessary to incorporate the intended edits. Do not edit any other code. Please preserve all other comments, etc.
 
-Return only the complete file content with no additional text or explanation within \`\`\` code blocks.`
+Return only the full, complete file content with no additional text or explanation within \`\`\` code blocks. Do not excerpt portions of the file, write out the entire updated file.`
 
   const response = await promptClaude([{ role: 'user', content: prompt }], {
     clientSessionId,
