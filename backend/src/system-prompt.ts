@@ -1,6 +1,7 @@
 import {
   ProjectFileContext,
   createFileBlock,
+  createMarkdownFileBlock,
   printFileTree,
   printFileTreeWithTokens,
 } from 'common/util/file'
@@ -359,7 +360,7 @@ const getProjectFilesPromptContent = (fileContext: ProjectFileContext) => {
     .map((files) =>
       files
         .map(({ path, content }) =>
-          createFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
+          createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
         )
         .join('\n')
     )
@@ -367,10 +368,13 @@ const getProjectFilesPromptContent = (fileContext: ProjectFileContext) => {
   const intro = `
 # Project files
 
-Here are some files that were selected to aid in the user request or were modified in this conversation.
+Below are some files that were selected to aid in the user request or were modified in this conversation.
 
-Files can be repeated multiple times, where later copies of a file show how it was changed over time. The most recent version of a file is always the last one.
-If the included set of files is not sufficient to address the user's request, you can call the find_files tool to update the set of files and their contents.
+There can be multiple versions of the same file listed below, showing how it changed over the course of the conversation between you and the user. For example, the user may have asked to make some changes, so both the before and after versions of the files are listed. If the user had follow up requests, there would be even more versions of the same file listed further down.
+
+IMPORTANT: Please be aware that only the last copy of the file is up to date, and that is the one you should pay the most attention to. If you are modifying a file, you should make changes based off just the last copy of the file.
+
+If the included set of files is not sufficient to address the user's request, you can call the find_files tool to add more files for you to read to this set.
 `.trim()
 
   return buildArray([

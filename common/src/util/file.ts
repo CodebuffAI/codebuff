@@ -97,6 +97,10 @@ export const parseFileBlocksWithoutPath = (fileBlocks: string) => {
   return files
 }
 
+export const createMarkdownFileBlock = (filePath: string, content: string) => {
+  return `\`\`\`${filePath}\n${content}\n\`\`\``
+}
+
 export function printFileTree(
   nodes: FileTreeNode[],
   depth: number = 0
