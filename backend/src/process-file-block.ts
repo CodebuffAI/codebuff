@@ -7,8 +7,8 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { claudeModels } from 'common/constants'
-import { promptClaude } from './claude'
+import { openaiModels } from 'common/constants'
+import { promptOpenAI } from './openai-api'
 
 export async function processFileBlock(
   clientSessionId: string,
@@ -157,14 +157,15 @@ Replace with:
 
 Please rewrite the file content to include these intended changes while preserving the rest of the file. Only make the minimal changes necessary to incorporate the intended edits. Do not edit any other code. Please preserve all other comments, etc.
 
-Return only the full, complete file content with no additional text or explanation within \`\`\` code blocks. Do not excerpt portions of the file, write out the entire updated file.`
+Return only the full, complete file content with no additional text or explanation without using \`\`\` markdown code blocks. Start with the first line of the file instead. Do not excerpt portions of the file, write out the entire updated file.`
 
-  const response = await promptClaude([{ role: 'user', content: prompt }], {
+  const response = await promptOpenAI([{ role: 'user', content: prompt }], {
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-    model: claudeModels.haiku,
+    model: openaiModels.gpt4o,
+    predictedContent: updatedContent,
   })
 
   logger.debug(

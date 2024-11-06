@@ -673,14 +673,20 @@ New file content (with placeholders):
 ${createFileBlock(filePath, newContent)}
 `.trim()
   const expandedContentResponse = await promptOpenAI(
-    userId,
     [
       {
         role: 'user',
         content: prompt,
       },
     ],
-    openaiModels.gpt4o
+    {
+      userId,
+      model: openaiModels.gpt4o,
+      // TODO: Add clientSessionId, fingerprintId, userInputId
+      clientSessionId: '',
+      fingerprintId: '',
+      userInputId: '',
+    }
   )
 
   debugLog('New file (unexpanded) for filePath', filePath, newContent)

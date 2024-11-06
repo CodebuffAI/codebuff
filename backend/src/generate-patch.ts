@@ -133,14 +133,13 @@ Do not write anything else.
       content: prompt,
     },
   ]
-  const response = await promptOpenAI(
+  const response = await promptOpenAI(messages as OpenAIMessage[], {
     clientSessionId,
     fingerprintId,
     userInputId,
-    messages as OpenAIMessage[],
-    openaiModels.gpt4o,
-    userId
-  )
+    model: openaiModels.gpt4o,
+    userId,
+  })
   const shouldAddPlaceholderComments = response.includes('LOCAL_CHANGE_ONLY')
   const isSketchComplete = !shouldAddPlaceholderComments
   logger.debug(
@@ -185,14 +184,13 @@ Please produce a patch file based on this change.
       content: prompt,
     },
   ]
-  return await promptOpenAI(
+  return await promptOpenAI(messages, {
     clientSessionId,
     fingerprintId,
     userInputId,
-    messages,
-    `ft:gpt-4o-2024-08-06:manifold-markets:generate-patch-batch2:AKYtDIhk`,
-    userId
-  )
+    model: `ft:gpt-4o-2024-08-06:manifold-markets:generate-patch-batch2:AKYtDIhk`,
+    userId,
+  })
 }
 
 const generateBestOfNPatch = async (
@@ -281,14 +279,13 @@ Please respond with just the number of the best updated content only ("1"${patch
     },
   ]
 
-  const comparison = await promptOpenAI(
+  const comparison = await promptOpenAI(compareMessages, {
     clientSessionId,
     fingerprintId,
     userInputId,
-    compareMessages,
-    openaiModels.gpt4o,
-    userId
-  )
+    model: openaiModels.gpt4o,
+    userId,
+  })
 
   logger.debug({ response: comparison, patches }, 'Best of n patch')
 
