@@ -159,21 +159,25 @@ Please rewrite the file content to include these intended changes while preservi
 
 Return only the full, complete file content with no additional text or explanation without using \`\`\` markdown code blocks. Start with the first line of the file instead. Do not excerpt portions of the file, write out the entire updated file.`
 
+  const startTime = Date.now()
   const response = await promptOpenAI([{ role: 'user', content: prompt }], {
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-    model: openaiModels.gpt4o,
+    model: openaiModels.gpt4omini,
     predictedContent: updatedContent,
   })
-
+  const endTime = Date.now()
   logger.debug(
-    { response, diffBlocksThatDidntMatch },
+    { response, diffBlocksThatDidntMatch, duration: endTime - startTime },
     `applyRemainingChanges for ${diffBlocksThatDidntMatch.length} blocks`
   )
 
   // Extract content from within code blocks
   const match = response.match(/```(?:\w*\n)?([\s\S]*?)```/)
-  return match ? match[1] : response
+  if (match) {
+    return match[1]
+  }
+  return response + '\n'
 }
