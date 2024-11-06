@@ -4,16 +4,12 @@ import dotenv from 'dotenv'
 import path from 'path'
 
 const stackEnvPath = path.join(__dirname, '../../../stack.env')
-console.log('Loading stack.env from:', stackEnvPath)
 const stackResult = dotenv.config({ path: stackEnvPath })
-console.log('Stack env loaded:', stackResult)
 
 // Force set the environment from stack.env
 if (stackResult.parsed?.ENVIRONMENT) {
   process.env.ENVIRONMENT = stackResult.parsed.ENVIRONMENT
 }
-
-console.log('ENVIRONMENT after loading stack.env:', process.env.ENVIRONMENT)
 
 if (!process.env.ENVIRONMENT) {
   console.error('ENVIRONMENT is not set, please check `stack.env`')
