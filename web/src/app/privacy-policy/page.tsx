@@ -16,10 +16,10 @@ const PrivacyPolicyPage = () => {
             <p>Effective date: 10/09/2024</p>
             <h2>Introduction</h2>
             <p>
-              Welcome to Manicode, Inc Manicode, Inc (“us”, “we”, or “our”)
-              operates https://manicode.ai/ (hereinafter referred to as
+              Welcome to Codebuff, Inc. Codebuff, Inc (“us”, “we”, or “our”)
+              operates https://codebuff.com/ (hereinafter referred to as
               “Service”). Our Privacy Policy governs your visit to
-              https://manicode.ai/, and explains how we collect, safeguard and
+              https://codebuff.com/, and explains how we collect, safeguard and
               disclose information that results from your use of our Service. We
               use your data to provide and improve Service. By using Service,
               you agree to the collection and use of information in accordance
@@ -31,8 +31,8 @@ const PrivacyPolicyPage = () => {
             </p>
             <h2>Definitions</h2>
             <p>
-              SERVICE means the https://manicode.ai/ website operated by
-              Manicode, Inc PERSONAL DATA means data about a living individual
+              SERVICE means the https://codebuff.com/ website operated by
+              Codebuff, Inc PERSONAL DATA means data about a living individual
               who can be identified from those data (or from those and other
               information either in our possession or likely to come into our
               possession). USAGE DATA is data collected automatically either
@@ -77,7 +77,7 @@ const PrivacyPolicyPage = () => {
               marketing or promotional materials and other information that may
               be of interest to you. You may opt out of receiving any, or all,
               of these communications from us by following the unsubscribe link
-              or by emailing at support@manicode.ai.
+              or by emailing at support@codebuff.com.
             </p>
             <h2>Usage Data</h2>
             <p>
@@ -127,7 +127,7 @@ const PrivacyPolicyPage = () => {
               </li>
             </ul>
             <h2>Use of Data</h2>
-            <p>Manicode, Inc uses the collected data for various purposes:</p>
+            <p>Codebuff, Inc uses the collected data for various purposes:</p>
             <ul>
               <li>to provide and maintain our Service;</li>
 
@@ -191,7 +191,7 @@ const PrivacyPolicyPage = () => {
               including Personal Data, to United States and process it there.
               Your consent to this Privacy Policy followed by your submission of
               such information represents your agreement to that transfer.
-              Manicode, Inc will take all the steps reasonably necessary to
+              Codebuff, Inc will take all the steps reasonably necessary to
               ensure that your data is treated securely and in accordance with
               this Privacy Policy and no transfer of your Personal Data will
               take place to an organisation or a country unless there are
@@ -252,7 +252,7 @@ const PrivacyPolicyPage = () => {
               delete, or limit the use of your Personal Data. If you wish to be
               informed what Personal Data we hold about you and if you want it
               to be removed from our systems, please email us at
-              support@manicode.ai.
+              support@codebuff.com.
             </p>
             <p>
               In certain circumstances, you have the following data protection
@@ -329,7 +329,7 @@ const PrivacyPolicyPage = () => {
 
               <li>
                 users are able to change their personal information by emailing
-                us at support@manicode.ai.
+                us at support@codebuff.com.
               </li>
             </ul>
             <h2>Our Policy on “Do Not Track” Signals:</h2>
@@ -433,7 +433,7 @@ const PrivacyPolicyPage = () => {
               To exercise your California data protection rights described
               above, please send your request(s) by one of the following means:
             </p>
-            <p>By email: support@manicode.ai</p>
+            <p>By email: support@codebuff.com</p>
             <p>
               Your data protection rights, described above, are covered by the
               CCPA, short for the California Consumer Privacy Act. To find out
@@ -487,7 +487,7 @@ const PrivacyPolicyPage = () => {
             </p>
             <h3>Behavioral Remarketing</h3>
             <p>
-              Manicode, Inc uses remarketing services to advertise on third
+              Codebuff, Inc uses remarketing services to advertise on third
               party websites to you after you visited our Service. We and our
               third-party vendors use cookies to inform, optimise and serve ads
               based on your past visits to our Service.
@@ -571,7 +571,7 @@ const PrivacyPolicyPage = () => {
             <h3>Contact Us</h3>
             <p>
               If you have any questions about this Privacy Policy, please
-              contact us: By email: support@manicode.ai.
+              contact us: By email: support@codebuff.com.
             </p>
           </div>
         </main>

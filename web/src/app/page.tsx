@@ -11,7 +11,7 @@ const Home = () => {
   const { toast } = useToast()
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText('npm install -g manicode')
+    navigator.clipboard.writeText('npm install -g Codebuff')
     toast({
       title: `Copied to clipboard`,
       description: "Let's code! 🤖",
@@ -29,8 +29,8 @@ const Home = () => {
           </h1>
           <div className="text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             <p className="md:hidden">
-              Use natural language to edit your codebase faster and run commands from
-              your terminal faster.
+              Use natural language to edit your codebase faster and run commands
+              from your terminal faster.
             </p>
             <div className="hidden md:block">
               <p>Use natural language to edit your codebase faster and</p>
@@ -38,7 +38,7 @@ const Home = () => {
             </div>
           </div>
           <section className="relative z-10">
-            <div className="mb-4">Try Manicode for free:</div>
+            <div className="mb-4">Try Codebuff for free:</div>
 
             <div className="inline-block">
               <div className="px-4 bg-gray-800 rounded-lg p-4 flex items-center gap-2">
@@ -60,7 +60,7 @@ const Home = () => {
             <div className="aspect-w-16 aspect-h-full h-96">
               <iframe
                 src="https://www.youtube.com/embed/eezrK8JPgxU"
-                title="Manicode Demo"
+                title="Codebuff Demo"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
                 className="h-full w-full rounded-lg shadow-lg"
@@ -107,7 +107,7 @@ const Home = () => {
                 Global Code Understanding
               </h3>
               <p className="text-gray-500">
-                Manicode understands your entire codebase, providing
+                Codebuff understands your entire codebase, providing
                 context-aware suggestions and edits.
               </p>
             </div>
@@ -117,7 +117,7 @@ const Home = () => {
                 Natural Language Coding
               </h3>
               <p className="text-gray-500">
-                Write code using plain English. Manicode translates your
+                Write code using plain English. Codebuff translates your
                 instructions into efficient, clean code.
               </p>
             </div>
