@@ -1,9 +1,9 @@
 import { env } from '@/env.mjs'
 
 export const siteConfig = {
-  title: 'Manicode',
+  title: 'Codebuff',
   description:
-    'Manicode is a tool for editing codebases via natural language instruction to Mani, an expert AI programming assistant.',
+    'Codebuff is a tool for editing codebases via natural language instruction to Mani, an expert AI programming assistant.',
   keywords: () => [
     'Manicode',
     'Coding Assistant',

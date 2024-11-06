@@ -180,7 +180,7 @@ const ReferralsPage = () => {
                       asChild
                     >
                       <a
-                        href={`https://manicode.retool.com/form/e6c62a73-03b1-4ef3-8ab1-eba416ce7187?email=${session?.user?.email}`}
+                        href={`https://codebuff.retool.com/form/e6c62a73-03b1-4ef3-8ab1-eba416ce7187?email=${session?.user?.email}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >

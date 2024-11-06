@@ -18,21 +18,21 @@ const TermsOfServicePage = () => {
             <h2>Introduction</h2>
 
             <p>
-              Welcome to Manicode, Inc (“Company”, “we”, “our”, “us”)! As you
+              Welcome to Codebuff, Inc (“Company”, “we”, “our”, “us”)! As you
               have just clicked our Terms of Service, please pause, grab a cup
               of coffee and carefully read the following pages. It will take you
               approximately 20 minutes. These Terms of Service (“Terms”, “Terms
               of Service”) govern your use of our web pages located at
-              https://manicode.ai/ operated by Manicode, Inc. Our Privacy Policy
-              also governs your use of our Service and explains how we collect,
-              safeguard and disclose information that results from your use of
-              our web pages. Please read it here
-              https://manicode.ai/privacy-policy. Your agreement with us
+              https://codebuff.com/ operated by Codebuff, Inc. Our Privacy
+              Policy also governs your use of our Service and explains how we
+              collect, safeguard and disclose information that results from your
+              use of our web pages. Please read it here
+              https://codebuff.com/privacy-policy. Your agreement with us
               includes these Terms and our Privacy Policy (“Agreements”). You
               acknowledge that you have read and understood Agreements, and
               agree to be bound of them. If you do not agree with (or cannot
               comply with) Agreements, then you may not use the Service, but
-              please let us know by emailing at support@manicode.ai so we can
+              please let us know by emailing at support@codebuff.com so we can
               try to find a solution. These Terms apply to all visitors, users
               and others who wish to access or use Service. Thank you for being
               responsible.
@@ -75,18 +75,18 @@ const TermsOfServicePage = () => {
               subscription plan you select when purchasing a Subscription. At
               the end of each Billing Cycle, your Subscription will
               automatically renew under the exact same conditions unless you
-              cancel it or Manicode, Inc cancels it. You may cancel your
+              cancel it or Codebuff, Inc cancels it. You may cancel your
               Subscription renewal either through your online account management
-              page or by contacting Manicode, Inc customer support team. A valid
+              page or by contacting Codebuff, Inc customer support team. A valid
               payment method, including credit card, is required to process the
-              payment for your subscription. You shall provide Manicode, Inc
+              payment for your subscription. You shall provide Codebuff, Inc
               with accurate and complete billing information including full
               name, address, state, zip code, telephone number, and a valid
               payment method information. By submitting such payment
-              information, you automatically authorize Manicode, Inc to charge
+              information, you automatically authorize Codebuff, Inc to charge
               all Subscription fees incurred through your account to any such
               payment instruments. Should automatic billing fail to occur for
-              any reason, Manicode, Inc will issue an electronic invoice
+              any reason, Codebuff, Inc will issue an electronic invoice
               indicating that you must proceed manually, within a certain
               deadline date, with the full payment corresponding to the billing
               period as indicated on the invoice.
@@ -94,25 +94,25 @@ const TermsOfServicePage = () => {
 
             <h2>Free Trial</h2>
             <p>
-              Manicode, Inc may, at its sole discretion, offer a Subscription
+              Codebuff, Inc may, at its sole discretion, offer a Subscription
               with a free trial for a limited period of time (“Free Trial”). You
               may be required to enter your billing information in order to sign
               up for Free Trial. If you do enter your billing information when
-              signing up for Free Trial, you will not be charged by Manicode,
+              signing up for Free Trial, you will not be charged by Codebuff,
               Inc until Free Trial has expired. On the last day of Free Trial
               period, unless you cancelled your Subscription, you will be
               automatically charged the applicable Subscription fees for the
               type of Subscription you have selected. At any time and without
-              notice, Manicode, Inc reserves the right to (i) modify Terms of
+              notice, Codebuff, Inc reserves the right to (i) modify Terms of
               Service of Free Trial offer, or (ii) cancel such Free Trial offer.
             </p>
 
             <h2>Fee Changes</h2>
             <p>
-              Manicode, Inc, in its sole discretion and at any time, may modify
+              Codebuff, Inc, in its sole discretion and at any time, may modify
               Subscription fees for the Subscriptions. Any Subscription fee
               change will become effective at the end of the then-current
-              Billing Cycle. Manicode, Inc will provide you with a reasonable
+              Billing Cycle. Codebuff, Inc will provide you with a reasonable
               prior notice of any change in Subscription fees to give you an
               opportunity to terminate your Subscription before such change
               becomes effective. Your continued use of Service after
@@ -150,9 +150,9 @@ const TermsOfServicePage = () => {
               on and through Service. You agree that this license includes the
               right for us to make your Content available to other users of
               Service, who may also use your Content subject to these Terms.
-              Manicode, Inc has the right but not the obligation to monitor and
+              Codebuff, Inc has the right but not the obligation to monitor and
               edit all Content provided by users. In addition, Content found on
-              or through this Service are the property of Manicode, Inc or used
+              or through this Service are the property of Codebuff, Inc or used
               with permission. You may not distribute, modify, transmit, reuse,
               download, repost, copy, or use said Content, whether in whole or
               in part, for commercial purposes or for personal gain, without
@@ -253,11 +253,11 @@ const TermsOfServicePage = () => {
             <p>
               Service and its original content (excluding Content provided by
               users), features and functionality are and will remain the
-              exclusive property of Manicode, Inc and its licensors. Service is
+              exclusive property of Codebuff, Inc and its licensors. Service is
               protected by copyright, trademark, and other laws of the United
               States. Our trademarks and trade dress may not be used in
               connection with any product or service without the prior written
-              consent of Manicode, Inc.
+              consent of Codebuff, Inc.
             </p>
 
             <h2>Copyright Policy</h2>
@@ -269,7 +269,7 @@ const TermsOfServicePage = () => {
               owner, or authorized on behalf of one, and you believe that the
               copyrighted work has been copied in a way that constitutes
               copyright infringement, please submit your claim via email to
-              support@manicode.ai, with the subject line: “Copyright
+              support@codebuff.com, with the subject line: “Copyright
               Infringement” and include in your claim a detailed description of
               the alleged Infringement as detailed below, under “DMCA Notice and
               Procedure for Copyright Infringement Claims” You may be held
@@ -297,12 +297,12 @@ const TermsOfServicePage = () => {
               perjury, that the above information in your notice is accurate and
               that you are the copyright owner or authorized to act on the
               copyright owner&apos;s behalf. You can contact our Copyright Agent
-              via email at support@manicode.ai
+              via email at support@codebuff.com
             </p>
 
             <h2>Error Reporting and Feedback</h2>
             <p>
-              You may provide us either directly at support@manicode.ai or via
+              You may provide us either directly at support@codebuff.com or via
               third party sites and tools with information and feedback
               concerning errors, suggestions for improvements, ideas, problems,
               complaints, and other matters related to our Service (“Feedback”).
@@ -334,12 +334,12 @@ const TermsOfServicePage = () => {
             <h2>Links To Other Web Sites</h2>
             <p>
               Our Service may contain links to third party web sites or services
-              that are not owned or controlled by Manicode, Inc Manicode, Inc
+              that are not owned or controlled by Codebuff, Inc Codebuff, Inc
               has no control over, and assumes no responsibility for the
               content, privacy policies, or practices of any third party web
               sites or services. We do not warrant the offerings of any of these
               entities/individuals or their websites. YOU ACKNOWLEDGE AND AGREE
-              THAT Manicode, Inc SHALL NOT BE RESPONSIBLE OR LIABLE, DIRECTLY OR
+              THAT Codebuff, Inc SHALL NOT BE RESPONSIBLE OR LIABLE, DIRECTLY OR
               INDIRECTLY, FOR ANY DAMAGE OR LOSS CAUSED OR ALLEGED TO BE CAUSED
               BY OR IN CONNECTION WITH USE OF OR RELIANCE ON ANY SUCH CONTENT,
               GOODS OR SERVICES AVAILABLE ON OR THROUGH ANY SUCH THIRD PARTY WEB
@@ -468,7 +468,7 @@ const TermsOfServicePage = () => {
             <h2>Contact Us</h2>
             <p>
               Please send your feedback, comments, requests for technical
-              support: By email: support@manicode.ai.
+              support: By email: support@codebuff.com.
             </p>
           </div>
         </main>
