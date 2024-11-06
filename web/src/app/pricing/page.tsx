@@ -61,7 +61,7 @@ const PricingPage = () => {
           className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
           asChild
         >
-          <Link href={'https://www.npmjs.com/package/manicode'}>
+          <Link href={'https://www.npmjs.com/package/codebuff'}>
             Get Started
           </Link>
         </Button>
@@ -135,7 +135,7 @@ const PricingPage = () => {
           className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
           asChild
         >
-          <Link href={'mailto:founders@manicode.ai'}>Contact Sales</Link>
+          <Link href={'mailto:founders@codebuff.com'}>Contact Sales</Link>
         </Button>
       ),
     },
@@ -151,7 +151,7 @@ const PricingPage = () => {
             Choose Your Plan
           </h1>
           <p className="text-xl md:text-2xl mb-12 text-gray-500 max-w-3xl mx-auto">
-            Unlock the full potential of AI-powered coding with our flexible,
+            Unlock the full potential of Codebuff with our flexible,
             credits-based pricing options.
           </p>
           <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
