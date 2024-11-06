@@ -33,13 +33,24 @@ const timeoutPromise = (ms: number) =>
   )
 
 export async function promptOpenAI(
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
   messages: OpenAIMessage[],
-  model: string,
-  userId?: string
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: string
+    userId: string | undefined
+    predictedContent?: string
+  }
 ) {
+  const {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model,
+    userId,
+    predictedContent,
+  } = options
   const openai = getOpenAI(fingerprintId)
   try {
     const response = await Promise.race([
@@ -48,6 +59,9 @@ export async function promptOpenAI(
         messages,
         temperature: 0,
         // store: true,
+        ...(predictedContent
+          ? { prediction: { type: 'content', content: predictedContent } }
+          : {}),
       }),
       timeoutPromise(200_000) as Promise<OpenAI.Chat.ChatCompletion>,
     ])

@@ -132,6 +132,16 @@ The backend implements a tool handling system that allows the AI assistant to pe
 2. **Error Catching**: WebSocket errors are caught and logged in both server and client code.
 3. **Graceful Degradation**: The system attempts to handle errors gracefully, providing meaningful error messages when possible.
 
+## Code Changes and Refactoring
+
+1. **Thoroughness**: When updating function calls or patterns:
+   - Search entire codebase for all instances
+   - Check both direct calls and indirect uses
+   - Verify each file that imports the changed code
+   - Double-check files that were already modified for missed instances
+   - When changing function signatures, be especially careful to find all call sites
+   - Consider using grep or your IDE's find-all-references feature to ensure complete coverage
+
 ## Build and Deployment
 
 1. **Build Process**: The backend uses TypeScript compilation to build the project.

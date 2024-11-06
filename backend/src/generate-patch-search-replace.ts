@@ -135,14 +135,13 @@ Do not write anything else.
       content: prompt,
     },
   ]
-  const response = await promptOpenAI(
+  const response = await promptOpenAI(messages as OpenAIMessage[], {
     clientSessionId,
     fingerprintId,
     userInputId,
-    messages as OpenAIMessage[],
-    openaiModels.gpt4o,
-    userId
-  )
+    model: openaiModels.gpt4o,
+    userId,
+  })
   const shouldAddPlaceholderComments = response.includes('LOCAL_CHANGE_ONLY')
   const isSketchComplete = !shouldAddPlaceholderComments
   logger.debug(
