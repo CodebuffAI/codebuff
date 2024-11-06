@@ -109,17 +109,17 @@ const Home = () => {
                 Multi-file Editing
               </h3>
               <p className="text-gray-500">
-                Request changes to your code and Codebuff will autonomously 
+                Request changes and Codebuff will autonomously 
                 read relevant files from your codebase and implement the edits.
                 </p>
             </div>
             <div className="bg-gray-900 p-6 rounded-lg">
               <TerminalIcon className="h-12 w-12 text-blue-500 mb-4" />
               <h3 className="text-xl text-white font-semibold mb-2">
-                Build Applications from Scratch
+                Build Apps from Scratch
               </h3>
               <p className="text-gray-500">
-                Codebuff can build entire applications and webpages from 
+                Codebuff can build entire apps and webpages from 
                 just natural language commands, all in your terminal.
               </p>
             </div>
