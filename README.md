@@ -1,6 +1,6 @@
-# Manicode
+# Codebuff
 
-Manicode is an AI-powered coding assistant that helps developers build apps faster and easier. It provides an interactive command-line interface for natural language interactions with your codebase.
+Codebuff is an AI-powered coding assistant that helps developers build apps faster and easier. It provides an interactive command-line interface for natural language interactions with your codebase.
 
 ## Features
 
@@ -14,39 +14,39 @@ Manicode is an AI-powered coding assistant that helps developers build apps fast
 
 ## How It Works
 
-Manicode uses advanced AI models to understand and generate code based on natural language instructions. Here's a brief overview of its operation:
+Codebuff uses advanced AI models to understand and generate code based on natural language instructions. Here's a brief overview of its operation:
 
-1. **Project Analysis**: Manicode analyzes your project structure and files to gain context.
+1. **Project Analysis**: Codebuff analyzes your project structure and files to gain context.
 
-2. **User Interaction**: You interact with Manicode through a command-line interface, providing instructions or queries in natural language.
+2. **User Interaction**: You interact with Codebuff through a command-line interface, providing instructions or queries in natural language.
 
-3. **AI Processing**: The AI model processes your input, considering the project context and your instructions.
+3. **AI Processing**: Codebuff processes your input, considering the project context and your instructions.
 
-4. **Code Generation/Modification**: Based on the AI's understanding, Manicode generates new code or suggests modifications to existing files.
+4. **Code Generation/Modification**: Based on its understanding, Codebuff generates new code or suggests modifications to existing files.
 
 5. **Real-time Feedback**: Changes are presented to you in real-time, allowing for immediate review and further refinement.
 
-6. **Knowledge Accumulation**: Manicode learns from interactions and stores project-specific knowledge for future use.
+6. **Knowledge Accumulation**: Codebuff learns from interactions and stores project-specific knowledge for future use.
 
-## How to Use Manicode
+## How to Use Codebuff
 
-To get started with Manicode, follow these steps:
+To get started with Codebuff, follow these steps:
 
-1. Install Manicode globally using npm:
+1. Install Codebuff globally using npm:
 
    ```
-   npm install -g manicode
+   npm install -g codebuff
    ```
 
 2. Navigate to your project directory in the terminal.
 
-3. Run Manicode:
+3. Run Codebuff:
 
    ```
-   manicode
+   codebuff
    ```
 
-4. Interact with Manicode using natural language commands. For example:
+4. Interact with Codebuff using natural language commands. For example:
 
    - "Add a new function to handle user authentication"
    - "Refactor the database connection code for better performance"
@@ -62,7 +62,7 @@ To get started with Manicode, follow these steps:
 
 ## Setting Up Locally
 
-If you want to set up Manicode for local development:
+If you want to set up Codebuff for local development:
 
 1. Clone the repository and navigate to the project directory.
 

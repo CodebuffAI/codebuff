@@ -11,7 +11,7 @@ const Home = () => {
   const { toast } = useToast()
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText('npm install -g Codebuff')
+    navigator.clipboard.writeText('npm install -g codebuff')
     toast({
       title: `Copied to clipboard`,
       description: "Let's code! 🤖",
@@ -32,9 +32,11 @@ const Home = () => {
               Use natural language to edit your codebase faster and run commands
               from your terminal faster.
             </p>
+            {/*Alternatively, "Modify multiple files at once with natural language in your terminal"*/}
             <div className="hidden md:block">
               <p>Use natural language to edit your codebase faster and</p>
               <p>run commands from your terminal faster.</p>
+              {/*Alternatively, "Modify multiple files at once with natural language in your terminal"*/}
             </div>
           </div>
           <section className="relative z-10">
@@ -104,31 +106,31 @@ const Home = () => {
             <div className="bg-gray-900 p-6 rounded-lg">
               <CodeIcon className="h-12 w-12 text-blue-500 mb-4" />
               <h3 className="text-xl text-white font-semibold mb-2">
-                Global Code Understanding
+                Multi-file Editing
               </h3>
               <p className="text-gray-500">
-                Codebuff understands your entire codebase, providing
-                context-aware suggestions and edits.
-              </p>
+                Request changes and Codebuff will autonomously 
+                read relevant files from your codebase and implement the edits.
+                </p>
             </div>
             <div className="bg-gray-900 p-6 rounded-lg">
               <TerminalIcon className="h-12 w-12 text-blue-500 mb-4" />
               <h3 className="text-xl text-white font-semibold mb-2">
-                Natural Language Coding
+                Build Apps from Scratch
               </h3>
               <p className="text-gray-500">
-                Write code using plain English. Codebuff translates your
-                instructions into efficient, clean code.
+                Codebuff can build entire apps and webpages from 
+                just natural language commands, all in your terminal.
               </p>
             </div>
             <div className="bg-gray-900 p-6 rounded-lg">
               <BrainCircuitIcon className="h-12 w-12 text-blue-500 mb-4" />
               <h3 className="text-xl text-white font-semibold mb-2">
-                AI-Powered Refactoring
+                10x Your Productivity
               </h3>
               <p className="text-gray-500">
-                Automatically improve code quality, fix bugs, and optimize
-                performance with AI-driven refactoring.
+                Powered by SOTA models, Codebuff can run your tests, typechecker, or 
+                install packages to fulfill your request.
               </p>
             </div>
           </div>
@@ -138,7 +140,7 @@ const Home = () => {
                 href="https://www.npmjs.com/package/codebuff"
                 target="_blank"
               >
-                Get Started Coding with AI
+                Start Coding with AI
               </Link>
             </Button>
           </div>
