@@ -4,8 +4,8 @@ import path from 'path'
 
 export default defineConfig({
   dialect: 'postgresql',
-  schema: path.join('src', 'db', 'schema.ts'),
-  out: path.join('src', 'db', 'migrations'),
+  schema: path.join(__dirname, 'schema.ts').replace(/\\/g, '/'),
+  out: './src/migrations',
   dbCredentials: {
     url: env.DATABASE_URL,
   },

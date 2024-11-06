@@ -1,5 +1,39 @@
 # Database Schema Guidelines
 
+## Local Development Setup
+
+Important: Local database must be initialized before running schema operations:
+1. Docker must be running
+2. Local database container needs to be created and healthy
+3. Then schema operations (generate, migrate) can be run
+
+## Environment Setup
+
+Important: The database setup requires:
+1. A running Docker instance
+2. Proper environment configuration:
+   - stack.env with ENVIRONMENT=local and NEXT_PUBLIC_ENVIRONMENT=local
+   - .env.local with DATABASE_URL matching docker-compose.yml settings
+3. Run commands in order:
+   - Start Docker
+   - Run database initialization (bun --cwd common db:start)
+   - Run schema operations
+
+Note: Setup has been primarily tested on Mac. Windows users may encounter platform-specific issues:
+- Use forward slashes in schema paths (convert using path.replace(/\\/g, '/'))
+- Avoid using Unix-specific commands like 'sleep' in npm scripts
+- When using __dirname or path.join() in config files, convert Windows backslashes to forward slashes
+- Module imports may need explicit /dist path on Windows (e.g., @t3-oss/env-nextjs/dist)
+- Always test path resolution in both development and production environments
+- When importing from @t3-oss/env-nextjs on Windows, use '/dist' in the import path
+- When using __dirname or path.join() in config files, convert Windows backslashes to forward slashes
+- Module imports may need explicit /dist path on Windows (e.g., @t3-oss/env-nextjs/dist)
+- Always test path resolution in both development and production environments
+- When importing from @t3-oss/env-nextjs on Windows, use '/dist' in the import path
+- When using __dirname or path.join() in config files, convert Windows backslashes to forward slashes
+- Module imports may need explicit /dist path on Windows (e.g., @t3-oss/env-nextjs/dist)
+- Always test path resolution in both development and production environments
+
 ## Column Defaults and Calculations
 
 - Use Postgres's built-in calculated columns (GENERATED ALWAYS AS) instead of default values when computing values from other columns

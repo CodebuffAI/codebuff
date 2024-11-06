@@ -207,6 +207,59 @@ This change ensures a consistent user experience across the Codebuff ecosystem a
 
 The application uses environment variables for configuration, which are managed through the `web/src/env.mjs` file. This setup ensures type-safe access to environment variables and proper validation.
 
+### Module Resolution Troubleshooting
+
+When encountering module resolution errors:
+
+Important: For dotenv in Next.js:
+- Use standard import: `import dotenv from 'dotenv'`
+- Do not use `/lib/main.js` path as it's not exported in the package
+
+When encountering other module resolution errors:
+1. Check if package is properly installed in package.json and node_modules
+2. Verify the package's module format (CommonJS vs ESM) matches how we're importing it
+3. Look at the package's dist directory structure to understand how it expects to be imported
+4. Consider build system configuration before assuming platform-specific (Windows/Mac) issues
+
+Important: For Node.js ESM imports (.mjs files):
+- Module resolution behaves differently between Windows and Unix systems
+- Check both package.json "exports" field and physical file structure
+- Reinstalling node_modules may not fix resolution issues if the underlying path resolution is incompatible
+- Consider using package.json "imports" field for consistent cross-platform module resolution
+- When encountering ERR_MODULE_NOT_FOUND on Windows:
+  - Check if package uses CommonJS or ESM format
+  - Consider switching to CommonJS alternatives (e.g., env-core instead of env-nextjs)
+  - Verify package.json "type": "module" field matches expected module system
+  - Look for platform-specific import paths in package dist structure
+
+Important: For Node.js ESM imports (.mjs files):
+- Module resolution behaves differently between Windows and Unix systems
+- Check both package.json "exports" field and physical file structure
+- Reinstalling node_modules may not fix resolution issues if the underlying path resolution is incompatible
+- Consider using package.json "imports" field for consistent cross-platform module resolution
+- When encountering ERR_MODULE_NOT_FOUND on Windows:
+  - Check if package uses CommonJS or ESM format
+  - Consider switching to CommonJS alternatives (e.g., env-core instead of env-nextjs)
+  - Verify package.json "type": "module" field matches expected module system
+  - Look for platform-specific import paths in package dist structure
+- When encountering ERR_MODULE_NOT_FOUND on Windows:
+  - Check if package uses CommonJS or ESM format
+  - Consider switching to CommonJS alternatives (e.g., env-core instead of env-nextjs)
+  - Verify package.json "type": "module" field matches expected module system
+  - Look for platform-specific import paths in package dist structure
+
+Important: For Node.js ESM imports (.mjs files):
+- Module resolution behaves differently between Windows and Unix systems
+- Check both package.json "exports" field and physical file structure
+- Reinstalling node_modules may not fix resolution issues if the underlying path resolution is incompatible
+- Consider using package.json "imports" field for consistent cross-platform module resolution
+
+Important: For Node.js ESM imports (.mjs files):
+- Module resolution behaves differently between Windows and Unix systems
+- Check both package.json "exports" field and physical file structure
+- Reinstalling node_modules may not fix resolution issues if the underlying path resolution is incompatible
+- Consider using package.json "imports" field for consistent cross-platform module resolution
+
 Key points:
 
 - Uses `@t3-oss/env-nextjs` for creating a type-safe environment configuration.
