@@ -106,7 +106,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
             </li>
             <li>
               Run Codebuff in Terminal
-              <InputWithCopyButton text={'manicode'} />
+              <InputWithCopyButton text={'codebuff'} />
             </li>
             {!data?.status.reason && (
               <li>
