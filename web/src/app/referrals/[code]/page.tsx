@@ -144,9 +144,9 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
           <CardDescription>
             <div className="flex justify-between items-center">
               <p>
-                Codebuff is a code-editing tool that uses natural language to
-                edit your codebase. It&apos;s a coding assistant that
-                understands your code structure and dependencies.
+                Codebuff is a CLI tool that uses natural language to edit your
+                codebase. Like a talented junior engineer who understands your
+                repo&apos;s code structure and dependencies.
               </p>
             </div>
           </CardDescription>
