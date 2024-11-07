@@ -81,7 +81,7 @@ export class AnonymousQuotaManager implements IQuotaManager {
       .update(schema.fingerprint)
       .set({
         quota_exceeded: false,
-        next_quota_reset: null,
+        next_quota_reset: sql`now() + INTERVAL '1 month'`,
       })
       .where(eq(schema.fingerprint.id, fingerprintId))
   }
@@ -182,7 +182,10 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
   async resetQuota(userId: string): Promise<void> {
     await db
       .update(schema.user)
-      .set({ quota_exceeded: false, next_quota_reset: null })
+      .set({ 
+        quota_exceeded: false, 
+        next_quota_reset: sql`now() + INTERVAL '1 month'`
+      })
       .where(eq(schema.user.id, userId))
   }
 
