@@ -7,6 +7,7 @@ import { useTheme } from 'next-themes'
 import { useToast } from '@/components/ui/use-toast'
 import { Card, CardContent } from '@/components/ui/card'
 import Marquee from '@/components/ui/marquee'
+import { testimonials } from '@/lib/testimonials'
 
 const Home = () => {
   const { theme } = useTheme()
@@ -111,9 +112,9 @@ const Home = () => {
                 Multi-file Editing
               </h3>
               <p className="text-gray-500">
-                Request changes and Codebuff will autonomously 
-                read relevant files from your codebase and implement the edits.
-                </p>
+                Request changes and Codebuff will autonomously read relevant
+                files from your codebase and implement the edits.
+              </p>
             </div>
             <div className="bg-gray-900 p-6 rounded-lg">
               <TerminalIcon className="h-12 w-12 text-blue-500 mb-4" />
@@ -121,8 +122,8 @@ const Home = () => {
                 Build Apps from Scratch
               </h3>
               <p className="text-gray-500">
-                Codebuff can build entire apps and webpages from 
-                just natural language commands, all in your terminal.
+                Codebuff can build entire apps and webpages from just natural
+                language commands, all in your terminal.
               </p>
             </div>
             <div className="bg-gray-900 p-6 rounded-lg">
@@ -131,8 +132,8 @@ const Home = () => {
                 10x Your Productivity
               </h3>
               <p className="text-gray-500">
-                Powered by SOTA models, Codebuff can run your tests, typechecker, or 
-                install packages to fulfill your request.
+                Powered by SOTA models, Codebuff can run your tests,
+                typechecker, or install packages to fulfill your request.
               </p>
             </div>
           </div>
@@ -154,37 +155,16 @@ const Home = () => {
           </h2>
           <Marquee className="py-4" pauseOnHover>
             <div className="flex gap-4">
-              <Card className="w-[350px] shrink-0">
-                <CardContent className="pt-6">
-                  <p className="mb-4">
-                    "Codebuff has transformed how I write code. The CLI
-                    integration is brilliant."
-                  </p>
-                  <p className="font-semibold">
-                    - Sarah Chen, Senior Developer
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="w-[350px] shrink-0">
-                <CardContent className="pt-6">
-                  <p className="mb-4">
-                    "The speed at which I can refactor code now is incredible.
-                    Game changer."
-                  </p>
-                  <p className="font-semibold">- Michael Park, Tech Lead</p>
-                </CardContent>
-              </Card>
-              <Card className="w-[350px] shrink-0">
-                <CardContent className="pt-6">
-                  <p className="mb-4">
-                    "Natural language coding with context awareness - exactly
-                    what I needed."
-                  </p>
-                  <p className="font-semibold">
-                    - Alex Rivera, Full Stack Engineer
-                  </p>
-                </CardContent>
-              </Card>
+              {testimonials.map((testimonial, i) => (
+                <Card key={i} className="w-[350px] shrink-0">
+                  <CardContent className="pt-6">
+                    <p className="mb-4">"{testimonial.quote}"</p>
+                    <p className="font-semibold">
+                      - {testimonial.author}, {testimonial.title}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </Marquee>
         </section>
