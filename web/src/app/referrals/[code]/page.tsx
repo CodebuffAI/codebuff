@@ -1,7 +1,13 @@
 'use client'
 
 import { useSession } from 'next-auth/react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
@@ -72,60 +78,92 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
   }
 
   return (
-    <Card className="bg-violet-100 dark:bg-violet-900">
-      <CardHeader>
-        <CardTitle className="flex">
-          <GiftIcon className="mr-2" />
-          {data?.status.reason ? data.status.reason : "You've got credits!"}
-        </CardTitle>
-      </CardHeader>
+    <div className="flex flex-col space-y-6">
+      <Card className="bg-violet-100 dark:bg-violet-900">
+        <CardHeader>
+          <CardTitle className="flex">
+            <GiftIcon className="mr-2" />
+            {data?.status.reason ? data.status.reason : "You've got credits!"}
+          </CardTitle>
+        </CardHeader>
 
-      <CardContent>
-        <b>Hey {session?.user?.name} 👋</b>
-        {data?.status.reason && data.status.details?.msg ? (
-          <p className="text-red-600 mt-2">{data.status.details.msg}</p>
-        ) : (
-          <p>
-            Your friend {data?.referrerName} just scored you some sweet sweet
-            credits.
-          </p>
-        )}
-      </CardContent>
-
-      <div className="flex flex-col space-y-2">
         <CardContent>
-          <p className="my-4">
-            {data?.status.reason
-              ? `Fear not, you can still get started with Manicode! Here's how:`
-              : 'To redeem them, follow these steps:'}
-          </p>
-          <ol className="list-decimal list-inside space-y-6">
-            <li>
-              Install Codebuff globally:
-              <InputWithCopyButton text={'npm i -g codebuff'} />
-            </li>
-            <li>
-              Run Codebuff in Terminal
-              <InputWithCopyButton text={'codebuff'} />
-            </li>
-            {!data?.status.reason && (
+          <b>Hey {session?.user?.name} 👋</b>
+          {data?.status.reason && data.status.details?.msg ? (
+            <p className="text-red-600 mt-2">{data.status.details.msg}</p>
+          ) : (
+            <p>
+              Your friend {data?.referrerName} just scored you some sweet sweet
+              credits.
+            </p>
+          )}
+        </CardContent>
+
+        <div className="flex flex-col space-y-2">
+          <CardContent>
+            <p className="my-4">
+              {data?.status.reason
+                ? `Fear not, you can still get started with Manicode! Here's how:`
+                : 'To redeem them, follow these steps:'}
+            </p>
+            <ol className="list-decimal list-inside space-y-6">
               <li>
-                Paste this referral code in the CLI.
-                <InputWithCopyButton text={params.code} />
+                Install Codebuff globally:
+                <InputWithCopyButton text={'npm i -g codebuff'} />
               </li>
-            )}
-          </ol>
-        </CardContent>
-      </div>
+              <li>
+                Run Codebuff in Terminal
+                <InputWithCopyButton text={'codebuff'} />
+              </li>
+              {!data?.status.reason && (
+                <li>
+                  Paste this referral code in the CLI.
+                  <InputWithCopyButton text={params.code} />
+                </li>
+              )}
+            </ol>
+          </CardContent>
+        </div>
 
-      {data?.isSameUser && (
+        {data?.isSameUser && (
+          <CardContent>
+            <p className="font-bold text-red-600 mt-4">
+              Just FYI, this is your own referral code. (Others won&apos;t see
+              this message).
+            </p>
+          </CardContent>
+        )}
+      </Card>
+      <Card className="bg-violet-100 dark:bg-blue-900">
+        <CardHeader>
+          <CardTitle className="flex">
+            <h2 className="text-2xl font-bold">What is Codebuff?</h2>
+          </CardTitle>
+        </CardHeader>
         <CardContent>
-          <p className="font-bold text-red-600 mt-4">
-            Just FYI, this is your own referral code. (Others won&apos;t see
-            this message).
-          </p>
+          <CardDescription>
+            <div className="flex justify-between items-center">
+              <p>
+                Codebuff is a code-editing tool that uses natural language to
+                edit your codebase. It&apos;s a coding assistant that
+                understands your code structure and dependencies.
+              </p>
+            </div>
+          </CardDescription>
+          <div className="max-w-3xl mx-auto mt-4">
+            <h3>Watch a demo</h3>
+            <div className="aspect-w-16 aspect-h-full h-96">
+              <iframe
+                src="https://www.youtube.com/embed/dQ0NOMsu0dA"
+                title="Codebuff Demo"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="h-full w-full rounded-lg shadow-lg"
+              ></iframe>
+            </div>
+          </div>
         </CardContent>
-      )}
-    </Card>
+      </Card>
+    </div>
   )
 }

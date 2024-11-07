@@ -36,11 +36,9 @@ const Home = () => {
               Use natural language to edit your codebase faster and run commands
               from your terminal faster.
             </p>
-            {/*Alternatively, "Modify multiple files at once with natural language in your terminal"*/}
             <div className="hidden md:block">
               <p>Use natural language to edit your codebase faster and</p>
               <p>run commands from your terminal faster.</p>
-              {/*Alternatively, "Modify multiple files at once with natural language in your terminal"*/}
             </div>
           </div>
           <section className="relative z-10">
@@ -60,12 +58,12 @@ const Home = () => {
 
         <section className="py-10 px-4 relative z-10 space-y-8">
           <h2 className="text-3xl md:text-4xl font-bold text-center">
-            Watch the Demo
+            Watch a Demo
           </h2>
           <div className="max-w-3xl mx-auto">
             <div className="aspect-w-16 aspect-h-full h-96">
               <iframe
-                src="https://www.youtube.com/embed/eezrK8JPgxU"
+                src="https://www.youtube.com/embed/dQ0NOMsu0dA"
                 title="Codebuff Demo"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
