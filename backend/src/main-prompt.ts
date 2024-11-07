@@ -418,8 +418,8 @@ async function getFileVersionUpdates(
 
   const allFilePaths = uniq([
     ...requestedFiles,
-    ...previousFilePaths,
     ...editedFilePaths,
+    ...previousFilePaths,
   ]).filter((p) => {
     if (path.isAbsolute(p)) return false
     if (p.includes('..')) return false
@@ -447,16 +447,13 @@ async function getFileVersionUpdates(
   })
   const newFiles = difference(filteredRequestedFiles, previousFilePaths)
 
-  const updatedFiles = previousFilePaths.filter((path) => {
-    return loadedFiles[path] !== previousFiles[path]
-  })
-  const editedUnreadFilePaths = difference(editedFilePaths, previousFilePaths)
+  const updatedFiles = [...previousFilePaths, ...editedFilePaths].filter(
+    (path) => {
+      return loadedFiles[path] !== previousFiles[path]
+    }
+  )
 
-  const addedFiles = uniq([
-    ...updatedFiles,
-    ...editedUnreadFilePaths,
-    ...newFiles,
-  ])
+  const addedFiles = uniq([...updatedFiles, ...newFiles])
     .map((path) => {
       return {
         path,
