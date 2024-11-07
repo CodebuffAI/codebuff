@@ -30,6 +30,7 @@
     "@react-three/fiber": "^8.17.7",
     "@stripe/stripe-js": "^4.4.0",
     "@t3-oss/env-core": "^0.7.1",
+    "@t3-oss/env-nextjs": "^0.11.1",
     "@types/pg": "^8.11.10",
     "aceternity-ui": "^0.2.2",
     "class-variance-authority": "^0.7.0",

@@ -1,4 +1,4 @@
-import { createEnv } from '@t3-oss/env-core'
+import { createEnv } from '@t3-oss/env-nextjs'
 import dotenv from 'dotenv'
 import { z } from 'zod'
 import path from 'path'
