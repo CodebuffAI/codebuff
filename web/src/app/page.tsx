@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import { useTheme } from 'next-themes'
 import { useToast } from '@/components/ui/use-toast'
+import { Card, CardContent } from '@/components/ui/card'
+import Marquee from '@/components/ui/marquee'
 
 const Home = () => {
   const { theme } = useTheme()
@@ -144,6 +146,47 @@ const Home = () => {
               </Link>
             </Button>
           </div>
+        </section>
+
+        <section className="py-20 relative z-10">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+            What Developers Are Saying
+          </h2>
+          <Marquee className="py-4" pauseOnHover>
+            <div className="flex gap-4">
+              <Card className="w-[350px] shrink-0">
+                <CardContent className="pt-6">
+                  <p className="mb-4">
+                    "Codebuff has transformed how I write code. The CLI
+                    integration is brilliant."
+                  </p>
+                  <p className="font-semibold">
+                    - Sarah Chen, Senior Developer
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="w-[350px] shrink-0">
+                <CardContent className="pt-6">
+                  <p className="mb-4">
+                    "The speed at which I can refactor code now is incredible.
+                    Game changer."
+                  </p>
+                  <p className="font-semibold">- Michael Park, Tech Lead</p>
+                </CardContent>
+              </Card>
+              <Card className="w-[350px] shrink-0">
+                <CardContent className="pt-6">
+                  <p className="mb-4">
+                    "Natural language coding with context awareness - exactly
+                    what I needed."
+                  </p>
+                  <p className="font-semibold">
+                    - Alex Rivera, Full Stack Engineer
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </Marquee>
         </section>
       </div>
     </div>
