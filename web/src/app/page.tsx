@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Card, CardContent } from '@/components/ui/card'
 import Marquee from '@/components/ui/marquee'
 import { testimonials } from '@/lib/testimonials'
+import { cn } from '@/lib/utils'
 
 const Home = () => {
   const { theme } = useTheme()
@@ -137,6 +138,62 @@ const Home = () => {
               </p>
             </div>
           </div>
+        </section>
+
+        <section className="py-20 relative z-10">
+          <h2 className="text-3xl md:text-4xl font-bold text-center">
+            What Developers Are Saying
+          </h2>
+          <h6 className="text-center text-gray-700 dark:text-gray-300 text-sm mt-2 mb-12">
+            (note: some testimonials reference "Manicode", our previous name.)
+          </h6>
+          {testimonials.map((row, rowIndex) => (
+            <Marquee
+              key={rowIndex}
+              className="py-4"
+              pauseOnHover
+              reverse={rowIndex % 2 === 1}
+            >
+              <div className="flex gap-4">
+                {row.map((testimonial, i) => (
+                  <Card
+                    key={i}
+                    className={cn(
+                      'w-[350px] shrink-0',
+                      testimonial.link &&
+                        'cursor-pointer hover:scale-105 transition-transform'
+                    )}
+                    onClick={() =>
+                      testimonial.link &&
+                      window.open(testimonial.link, '_blank')
+                    }
+                  >
+                    <CardContent className="pt-6">
+                      <p className="mb-4">"{testimonial.quote}"</p>
+                      <div className="flex items-center gap-2">
+                        {testimonial.avatar && (
+                          <img
+                            src={testimonial.avatar}
+                            alt={testimonial.author}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        )}
+                        <p className="font-semibold">
+                          - {testimonial.author}, {testimonial.title}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </Marquee>
+          ))}
+        </section>
+
+        <section className="py-20 relative z-10">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+            Ready to experience magic?
+          </h2>
           <div className="text-center">
             <Button className="bg-blue-900 hover:bg-blue-700 text-white transition-colors">
               <Link
@@ -147,35 +204,6 @@ const Home = () => {
               </Link>
             </Button>
           </div>
-        </section>
-
-        <section className="py-20 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
-            What Developers Are Saying
-          </h2>
-          <Marquee className="py-4" pauseOnHover>
-            <div className="flex gap-4">
-              {testimonials.map((testimonial, i) => (
-                <Card key={i} className="w-[350px] shrink-0">
-                  <CardContent className="pt-6">
-                    <p className="mb-4">"{testimonial.quote}"</p>
-                    <div className="flex items-center gap-2">
-                      {testimonial.avatar && (
-                        <img
-                          src={testimonial.avatar}
-                          alt={testimonial.author}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      )}
-                      <p className="font-semibold">
-                        - {testimonial.author}, {testimonial.title}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </Marquee>
         </section>
       </div>
     </div>
