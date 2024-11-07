@@ -1,21 +1,16 @@
 import { createEnv } from '@t3-oss/env-nextjs'
 import dotenv from 'dotenv'
 import { z } from 'zod'
-import path from 'path'
-import { fileURLToPath } from 'url'
 
-const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
-const __dirname = path.dirname(__filename); // get the name of the directory
-
-dotenv.config({ path: path.resolve(__dirname, '../../stack.env') })
+dotenv.config({ path: '../stack.env' })
 if (!process.env.NEXT_PUBLIC_ENVIRONMENT) {
   throw new Error(
     'NEXT_PUBLIC_ENVIRONMENT is not set, please check `stack.env`'
   )
 }
 const DOTENV_PATH = process.env.RENDER === 'true' ? '/etc/secrets' : '..'
-const fp = `${DOTENV_PATH}/.env.${process.env.ENVIRONMENT}`
-dotenv.config({ path: fp })
+const path = `${DOTENV_PATH}/.env.${process.env.ENVIRONMENT}`
+dotenv.config({ path: path })
 
 export const env = createEnv({
   server: {
