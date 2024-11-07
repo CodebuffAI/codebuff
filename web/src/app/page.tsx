@@ -159,9 +159,18 @@ const Home = () => {
                 <Card key={i} className="w-[350px] shrink-0">
                   <CardContent className="pt-6">
                     <p className="mb-4">"{testimonial.quote}"</p>
-                    <p className="font-semibold">
-                      - {testimonial.author}, {testimonial.title}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      {testimonial.avatar && (
+                        <img
+                          src={testimonial.avatar}
+                          alt={testimonial.author}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      )}
+                      <p className="font-semibold">
+                        - {testimonial.author}, {testimonial.title}
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
