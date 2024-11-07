@@ -145,7 +145,8 @@ const Home = () => {
             What Developers Are Saying
           </h2>
           <h6 className="text-center text-gray-700 dark:text-gray-300 text-sm mt-2 mb-12">
-            (note: some testimonials reference "Manicode", our previous name.)
+            (note: some testimonials reference our previous name,
+            &quot;Manicode&quot; – they refer to the same product)
           </h6>
           {testimonials.map((row, rowIndex) => (
             <Marquee
@@ -169,7 +170,7 @@ const Home = () => {
                     }
                   >
                     <CardContent className="pt-6">
-                      <p className="mb-4">"{testimonial.quote}"</p>
+                      <p className="mb-4">{testimonial.quote}</p>
                       <div className="flex items-center gap-2">
                         {testimonial.avatar && (
                           <img
