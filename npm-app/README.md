@@ -69,4 +69,4 @@ Make sure to uninstall your existing node program. Then get this executable:
 
 ## Feedback
 
-We value your input! Please email your feedback to `founders@codebase.com`. Thank you for using Codebuff!
+We value your input! Please email your feedback to `founders@codebuff.com`. Thank you for using Codebuff!
