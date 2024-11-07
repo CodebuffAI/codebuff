@@ -20,19 +20,7 @@ Important: The database setup requires:
    - Run schema operations
 
 Note: Setup has been primarily tested on Mac. Windows users may encounter platform-specific issues:
-- Use forward slashes in schema paths (convert using path.replace(/\\/g, '/'))
-- Avoid using Unix-specific commands like 'sleep' in npm scripts
 - When using __dirname or path.join() in config files, convert Windows backslashes to forward slashes
-- Module imports may need explicit /dist path on Windows (e.g., @t3-oss/env-nextjs/dist)
-- Always test path resolution in both development and production environments
-- When importing from @t3-oss/env-nextjs on Windows, use '/dist' in the import path
-- When using __dirname or path.join() in config files, convert Windows backslashes to forward slashes
-- Module imports may need explicit /dist path on Windows (e.g., @t3-oss/env-nextjs/dist)
-- Always test path resolution in both development and production environments
-- When importing from @t3-oss/env-nextjs on Windows, use '/dist' in the import path
-- When using __dirname or path.join() in config files, convert Windows backslashes to forward slashes
-- Module imports may need explicit /dist path on Windows (e.g., @t3-oss/env-nextjs/dist)
-- Always test path resolution in both development and production environments
 
 ## Column Defaults and Calculations
 
