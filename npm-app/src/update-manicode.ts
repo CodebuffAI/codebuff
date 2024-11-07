@@ -4,38 +4,38 @@ import { scrapeWebPage } from './web-scraper'
 import packageJson from '../package.json'
 import { isProduction } from './config'
 
-export async function updateManicode() {
+export async function updateCodebuff() {
   if (!isProduction) return
 
-  const latestVersion = await getManicodeNpmVersion()
+  const latestVersion = await getCodebuffNpmVersion()
   const isUpToDate = isNpmUpToDate(packageJson.version, latestVersion)
   if (!isUpToDate) {
     const installerInfo = detectInstaller()
     if (!installerInfo) {
       console.log(
         yellow(
-          "There's a new version available! Please update manicode to prevent errors"
+          "There's a new version available! Please update Codebuff to prevent errors"
         )
       )
       return
     }
-    console.log(green(`Updating Manicode using ${installerInfo.installer}...`))
+    console.log(green(`Updating Codebuff using ${installerInfo.installer}...`))
     try {
-      runUpdateManicode(installerInfo)
-      console.log(green('Manicode updated successfully.'))
+      runUpdateCodebuff(installerInfo)
+      console.log(green('Codebuff updated successfully.'))
       console.log(
-        green('Manicode out! Please restart Manicode to use the new version.')
+        green('Please restart by running `codebuff` to use the new version.')
       )
       process.exit(0)
     } catch (error) {
-      console.error('Failed to update Manicode.')
+      console.error('Failed to update Codebuff.')
     }
   }
 }
 
-async function getManicodeNpmVersion() {
+async function getCodebuffNpmVersion() {
   try {
-    const result = execSync('npm view manicode version', {
+    const result = execSync('npm view codebuff version', {
       encoding: 'utf-8',
       stdio: 'pipe', // Suppress all output
     })
@@ -45,7 +45,7 @@ async function getManicodeNpmVersion() {
     }
   } catch (error) {}
   // Fallback to web scraping if npm command fails
-  const url = 'https://www.npmjs.com/package/manicode'
+  const url = 'https://www.npmjs.com/package/codebuff'
   const content = await scrapeWebPage(url)
 
   const latestVersionRegex = /"latest":"(\d+\.\d+\.\d+)"/
@@ -71,18 +71,18 @@ type InstallerInfo = {
 }
 
 function detectInstaller(): InstallerInfo | undefined {
-  let manicodeLocation = ''
+  let codebuffLocation = ''
   try {
     if (process.platform === 'win32') {
-      manicodeLocation = execSync('where manicode').toString().trim()
+      codebuffLocation = execSync('where codebuff').toString().trim()
     } else {
-      manicodeLocation = execSync('which manicode').toString().trim()
+      codebuffLocation = execSync('which codebuff').toString().trim()
     }
   } catch (error) {
     // Continue with empty location - could be a local installation
   }
 
-  const path = manicodeLocation.split('\n')[0] ?? ''
+  const path = codebuffLocation.split('\n')[0] ?? ''
   const pathIncludesNodeModules = path.includes('node_modules')
   const npmUserAgent = process.env.npm_config_user_agent ?? ''
 
@@ -94,7 +94,7 @@ function detectInstaller(): InstallerInfo | undefined {
     process.env.npm_execpath?.endsWith('npm-cli.js') ||
     npmUserAgent.includes('npm')
 
-  // Mac: /Users/jahooma/.yarn/bin/manicode
+  // Mac: /Users/jahooma/.yarn/bin/codebuff
   if (isYarnScript || path.includes('.yarn')) {
     return {
       installer: 'yarn',
@@ -121,7 +121,7 @@ function detectInstaller(): InstallerInfo | undefined {
   }
 
   // /usr/local/lib/node_modules on macOS/Linux or %AppData%\npm/node_modules on Windows
-  // OR: .nvm/versions/node/v18.17.0/bin/manicode on mac
+  // OR: .nvm/versions/node/v18.17.0/bin/codebuff on mac
   const isGlobalNpmPath =
     path.includes('npm') || path.startsWith('/usr/') || path.includes('.nvm')
   if (isNpmScript || isGlobalNpmPath) {
@@ -134,22 +134,22 @@ function detectInstaller(): InstallerInfo | undefined {
   return undefined
 }
 
-function runUpdateManicode(installerInfo: InstallerInfo) {
+function runUpdateCodebuff(installerInfo: InstallerInfo) {
   let command: string
   const isGlobal = installerInfo.scope === 'global'
 
   switch (installerInfo.installer) {
     case 'npm':
-      command = `npm ${isGlobal ? 'install -g' : 'install'} manicode@latest`
+      command = `npm ${isGlobal ? 'install -g' : 'install'} codebuff@latest`
       break
     case 'yarn':
-      command = `yarn ${isGlobal ? 'global add' : 'add'} manicode@latest`
+      command = `yarn ${isGlobal ? 'global add' : 'add'} codebuff@latest`
       break
     case 'pnpm':
-      command = `pnpm add ${isGlobal ? '-g' : ''} manicode@latest`
+      command = `pnpm add ${isGlobal ? '-g' : ''} codebuff@latest`
       break
     case 'bun':
-      command = `bun add ${isGlobal ? '-g' : ''} manicode@latest`
+      command = `bun add ${isGlobal ? '-g' : ''} codebuff@latest`
       break
     default:
       throw new Error(
@@ -160,8 +160,8 @@ function runUpdateManicode(installerInfo: InstallerInfo) {
   execSync(command, { stdio: 'inherit' })
 }
 
-function restartManicode() {
-  const child = spawn('manicode', [...process.argv.slice(2), '--post-update'], {
+function restartCodebuff() {
+  const child = spawn('codebuff', [...process.argv.slice(2), '--post-update'], {
     detached: false,
     stdio: 'inherit',
   })

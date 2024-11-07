@@ -48,23 +48,23 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
 `)
   console.log(bold(green("Welcome! I'm your AI coding assistant.")))
   console.log(
-    `\nManicode will read and write files within your current directory (${getProjectRoot()}) and run commands in your terminal.`
+    `\nCodebuff will read and write files within your current directory (${getProjectRoot()}) and run commands in your terminal.`
   )
 
-  console.log('\nASK MANICODE TO...')
+  console.log('\nASK CODEBUFF TO...')
   console.log('- Write unit tests')
   console.log('- Build a feature. Brain dump what you want first.')
   console.log('- Refactor a component into multiple components')
   console.log('- Fix errors from compiling your project or running tests')
   console.log('- Write a script.')
   console.log(
-    '- Plan a feature before implementing it. Or, write your own plan in a file and ask Manicode to implement it step-by-step'
+    '- Plan a feature before implementing it. Or, write your own plan in a file and ask Codebuff to implement it step-by-step'
   )
   console.log(
     '- Build an integration after pasting in the URL to relevant documentation'
   )
   console.log(
-    '- "Create knowledge files for your codebase" to help Manicode understand your project'
+    '- "Create knowledge files for your codebase" to help Codebuff understand your project'
   )
 
   console.log('\nCOMMANDS')
@@ -74,7 +74,7 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
   console.log(
     '- Type "undo" or "redo" (abbreviated "u" or "r") to undo or redo the last change'
   )
-  console.log('- Type "login" to log into Manicode')
+  console.log('- Type "login" to log into Codebuff')
   console.log(
     '- Type "diff" or "d" to show changes from the last assistant response'
   )
@@ -89,11 +89,11 @@ ${colorizeRandom('╚═╝     ╚═╝')}${colorizeRandom('╚═╝  ╚═�
   )
 
   console.log(
-    '\nAny files in .gitignore are not read by Manicode. You can ignore further files with .manicodeignore'
+    '\nAny files in .gitignore are not read by Codebuff. You can ignore further files with .codebuffignore'
   )
   console.log(
     '\nEmail your feedback to',
-    bold(blue('founders@manicode.ai.')),
-    'Thanks for using Manicode!'
+    bold(blue('founders@codebuff.com.')),
+    'Thanks for using Codebuff!'
   )
 }

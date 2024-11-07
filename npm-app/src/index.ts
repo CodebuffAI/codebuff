@@ -9,15 +9,15 @@ import {
   initProjectFileContextWithWorker,
   setProjectRoot,
 } from './project-files'
-import { updateManicode } from './update-manicode'
+import { updateCodebuff } from './update-manicode'
 
-async function manicode(
+async function codebuff(
   projectDir: string | undefined,
   { initialInput, autoGit }: { initialInput?: string; autoGit: boolean }
 ) {
   const dir = setProjectRoot(projectDir)
 
-  const updatePromise = updateManicode()
+  const updatePromise = updateCodebuff()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
@@ -25,7 +25,7 @@ async function manicode(
   const cli = new CLI(readyPromise, { autoGit })
 
   console.log(
-    `Manicode will read and write files in "${dir}". Type "help" for a list of commands.`
+    `Codebuff will read and write files in "${dir}". Type "help" for a list of commands.`
   )
 
   const gitDir = path.join(dir, '.git')
@@ -52,20 +52,20 @@ if (require.main === module) {
   const initialInput = args.slice(1).join(' ')
 
   if (help) {
-    console.log('Usage: manicode [project-directory] [initial-prompt]')
+    console.log('Usage: codebuff [project-directory] [initial-prompt]')
     console.log('Both arguments are optional.')
     console.log(
-      'If no project directory is specified, Manicode will use the current directory.'
+      'If no project directory is specified, Codebuff will use the current directory.'
     )
     console.log(
       'If an initial prompt is provided, it will be sent as the first user input.'
     )
     console.log()
     console.log(
-      'Manicode allows you to interact with your codebase using natural language.'
+      'Codebuff allows you to interact with your codebase using natural language.'
     )
     process.exit(0)
   }
 
-  manicode(projectPath, { initialInput, autoGit })
+  codebuff(projectPath, { initialInput, autoGit })
 }

@@ -202,7 +202,7 @@ export class CLI {
   }
 
   private handleExit() {
-    console.log(green('\n\nExiting. Manicode out!'))
+    console.log(green('\n\nExiting. Codebuff out!'))
     process.exit(0)
   }
 
@@ -458,7 +458,7 @@ export class CLI {
       userInputId,
       () => {
         this.stopLoadingAnimation()
-        process.stdout.write(green(underline('\nManicode') + ':') + ' ')
+        process.stdout.write(green(underline('\nCodebuff') + ':') + ' ')
       }
     )
 

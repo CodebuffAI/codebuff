@@ -25,8 +25,7 @@
     "start-jpcsp": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/jpcsp",
     "start-vscode": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/vscode",
     "start-nushell": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/nushell",
-    "start-prod": "bun run with-env -- ts-node src/index.ts",
-    "ssh": "gcloud compute ssh manicode-backend --zone=us-east4-a"
+    "start-prod": "bun run with-env -- ts-node src/index.ts"
   },
   "files": [
     "dist",

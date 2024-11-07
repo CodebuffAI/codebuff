@@ -30,7 +30,7 @@ export function setProjectRoot(dir: string | undefined) {
     if (projectRoot) {
       console.log(
         green('\nDirectory change:'),
-        `Manicode will read and write files in "${newDir}".\n`
+        `Codebuff will read and write files in "${newDir}".\n`
       )
     }
     projectRoot = newDir
