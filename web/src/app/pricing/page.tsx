@@ -43,7 +43,7 @@ const PricingPage = () => {
 
   const pricingPlans = [
     {
-      name: 'Free',
+      name: 'Free (for logged in users)',
       price: '$0/month',
       credits: CREDITS_USAGE_LIMITS.FREE,
       features: [
@@ -155,7 +155,9 @@ const PricingPage = () => {
             credits-based pricing options.
           </p>
           <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
-            <i>An intense 1-hour work session typically uses 500-1000 credits.</i>
+            <i>
+              An intense 1-hour work session typically uses 500-1000 credits.
+            </i>
           </p>
 
           <div className="grid md:grid-cols-3 gap-8 mt-12">
