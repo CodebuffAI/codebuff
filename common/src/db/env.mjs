@@ -1,25 +1,17 @@
 import { createEnv } from '@t3-oss/env-core'
 import { z } from 'zod'
 import dotenv from 'dotenv'
-import path from 'path'
 
-const stackEnvPath = path.join(__dirname, '../../../stack.env')
-const stackResult = dotenv.config({ path: stackEnvPath })
-
-// Force set the environment from stack.env
-if (stackResult.parsed?.ENVIRONMENT) {
-  process.env.ENVIRONMENT = stackResult.parsed.ENVIRONMENT
-}
-
+dotenv.config({ path: '../stack.env' })
 if (!process.env.ENVIRONMENT) {
   console.error('ENVIRONMENT is not set, please check `stack.env`')
   process.exit(1)
 }
 
-const DOTENV_PATH = process.env.RENDER === 'true' ? '/etc/secrets' : path.join(__dirname, '../../..')
-const envPath = path.join(DOTENV_PATH, `.env.${process.env.ENVIRONMENT}`)
-console.log(`Using environment: ${process.env.ENVIRONMENT} (path: ${envPath})`)
-dotenv.config({ path: envPath })
+const DOTENV_PATH = process.env.RENDER === 'true' ? '/etc/secrets' : '..'
+const path = `${DOTENV_PATH}/.env.${process.env.ENVIRONMENT}`
+console.log(`Using environment: ${process.env.ENVIRONMENT} (path: ${path})`)
+dotenv.config({ path })
 
 export const env = createEnv({
   server: {

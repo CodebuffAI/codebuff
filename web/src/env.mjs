@@ -10,7 +10,7 @@ if (!process.env.NEXT_PUBLIC_ENVIRONMENT) {
 }
 const DOTENV_PATH = process.env.RENDER === 'true' ? '/etc/secrets' : '..'
 const path = `${DOTENV_PATH}/.env.${process.env.ENVIRONMENT}`
-dotenv.config({ path: path })
+dotenv.config({ path })
 
 export const env = createEnv({
   server: {
