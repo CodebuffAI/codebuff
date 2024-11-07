@@ -1,6 +1,6 @@
 'use client'
 import { Button } from '@/components/ui/button'
-import { CodeIcon, BrainCircuitIcon, TerminalIcon, Copy } from 'lucide-react'
+import { FolderCodeIcon, TerminalIcon, Copy, ZapIcon } from 'lucide-react'
 import Link from 'next/link'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import { useTheme } from 'next-themes'
@@ -106,33 +106,33 @@ const Home = () => {
           </h2>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="bg-gray-900 p-6 rounded-lg">
-              <CodeIcon className="h-12 w-12 text-blue-500 mb-4" />
+              <FolderCodeIcon className="h-12 w-12 text-blue-500 mb-4" />
               <h3 className="text-xl text-white font-semibold mb-2">
-                Multi-file Editing
+                Whole-codebase Understanding
               </h3>
-              <p className="text-gray-500">
-                Request changes and Codebuff will autonomously read relevant
-                files from your codebase and implement the edits.
+              <p className="text-gray-400">
+                Ask for any change and Codebuff will find the relevant sections
+                out of thousands of files.
+              </p>
+            </div>
+            <div className="bg-gray-900 p-6 rounded-lg">
+              <ZapIcon className="h-12 w-12 text-blue-500 mb-4" />
+              <h3 className="text-xl text-white font-semibold mb-2">
+                10x Your Dev Productivity
+              </h3>
+              <p className="text-gray-400">
+                Get more done when using Codebuff to write features, debug
+                tests, refactor files, and install packages.
               </p>
             </div>
             <div className="bg-gray-900 p-6 rounded-lg">
               <TerminalIcon className="h-12 w-12 text-blue-500 mb-4" />
               <h3 className="text-xl text-white font-semibold mb-2">
-                Build Apps from Scratch
+                Fully Capable Agent in Your Terminal
               </h3>
-              <p className="text-gray-500">
-                Codebuff can build entire apps and webpages from just natural
-                language commands, all in your terminal.
-              </p>
-            </div>
-            <div className="bg-gray-900 p-6 rounded-lg">
-              <BrainCircuitIcon className="h-12 w-12 text-blue-500 mb-4" />
-              <h3 className="text-xl text-white font-semibold mb-2">
-                10x Your Productivity
-              </h3>
-              <p className="text-gray-500">
-                Powered by SOTA models, Codebuff can run your tests,
-                typechecker, or install packages to fulfill your request.
+              <p className="text-gray-400">
+                Codebuff can run terminal commands, create and edit files, and
+                more.
               </p>
             </div>
           </div>
