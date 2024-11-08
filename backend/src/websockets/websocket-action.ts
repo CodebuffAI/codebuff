@@ -52,8 +52,28 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
     userId ? 'authenticated' : 'anonymous',
     userId ?? fingerprintId
   )
-  const { creditsUsed, quota, subscription_active } =
-    await quotaManager.updateQuota()
+  const { creditsUsed, quota, endDate, subscription_active } =
+    await quotaManager.checkQuota()
+
+  // Case 1: end date is in the past, so just reset the quota
+  if (endDate < new Date()) {
+    await quotaManager.setNextQuota(false)
+
+    // pull their newly updated info
+    const newQuota = await quotaManager.checkQuota()
+    return {
+      usage: newQuota.creditsUsed,
+      limit: newQuota.quota,
+      subscription_active: newQuota.subscription_active,
+    }
+  }
+
+  // Case 2: end date hasn't been reached yet
+  // if a non-subscribed user has exceeded their quota, set their quota exceeded flag
+  if (creditsUsed >= quota && !subscription_active) {
+    await quotaManager.setNextQuota(true)
+  }
+
   return { usage: creditsUsed, limit: quota, subscription_active }
 }
 

@@ -6,11 +6,6 @@ import { getNextQuotaReset } from '../util/dates'
 import { match } from 'ts-pattern'
 
 export interface IQuotaManager {
-  updateQuota(id: string): Promise<{
-    creditsUsed: number
-    quota: number
-    subscription_active: boolean
-  }>
   checkQuota(id: string): Promise<{
     creditsUsed: number
     quota: number
@@ -21,18 +16,6 @@ export interface IQuotaManager {
 }
 
 export class AnonymousQuotaManager implements IQuotaManager {
-  async updateQuota(fingerprintId: string) {
-    const { creditsUsed, quota, endDate } = await this.checkQuota(fingerprintId)
-
-    await this.setNextQuota(fingerprintId, endDate >= new Date())
-
-    return {
-      creditsUsed,
-      quota,
-      subscription_active: false,
-    }
-  }
-
   async checkQuota(fingerprintId: string): Promise<{
     creditsUsed: number
     quota: number
@@ -107,21 +90,6 @@ export class AnonymousQuotaManager implements IQuotaManager {
 }
 
 export class AuthenticatedQuotaManager implements IQuotaManager {
-  async updateQuota(userId: string) {
-    const { creditsUsed, quota, subscription_active, endDate } =
-      await this.checkQuota(userId)
-
-    await this.setNextQuota(
-      userId,
-      !subscription_active && endDate >= new Date()
-    )
-    return {
-      creditsUsed,
-      quota,
-      subscription_active,
-    }
-  }
-
   async checkQuota(userId: string) {
     const startDate: SQL<string> = sql<string>`COALESCE(${schema.user.next_quota_reset}, now()) - INTERVAL '1 month'`
     const endDate: SQL<string> = sql<string>`COALESCE(${schema.user.next_quota_reset}, now())`
@@ -212,7 +180,6 @@ export const getQuotaManager = (authType: AuthType, id: string) => {
     .exhaustive()
 
   return {
-    updateQuota: () => manager.updateQuota(id),
     checkQuota: () => manager.checkQuota(id),
     setNextQuota: (quota_exceeded: boolean) =>
       manager.setNextQuota(id, quota_exceeded),
