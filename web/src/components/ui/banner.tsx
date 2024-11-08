@@ -18,7 +18,7 @@ export function Banner() {
         <div className="flex items-center gap-2 text-center">
           <Gift className="h-4 w-4" />
           <p className="text-sm">
-            Refer a friend, and earn {CREDITS_REFERRAL_BONUS} credits for both
+            Refer a friend, and earn {CREDITS_REFERRAL_BONUS} credits per month for both
             of you!{' '}
             <Link href="/referrals" className="underline hover:text-blue-200">
               Learn more
