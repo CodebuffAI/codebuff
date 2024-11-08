@@ -80,7 +80,7 @@ export const testimonials: Testimonial[][] = [
       quote:
         "Im basically hiring an engineer for 100/month, that's how I see it",
       author: 'Shardool Patel',
-      title: 'Founder, CTO',
+      title: 'Founder & CTO',
       avatar: '/testimonials/shardool-patel.jpg',
       link: '/testimonials/proof/shardool-patel.png',
     },
