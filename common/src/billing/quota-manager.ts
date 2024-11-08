@@ -141,6 +141,7 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
       quota,
       endDate: new Date(result.endDate),
       subscription_active: !!result.subscription_active,
+      next_quota_reset: new Date(result.endDate),
     }
   }
 
