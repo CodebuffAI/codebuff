@@ -103,6 +103,7 @@ protec.use(async (action, _clientSessionId, ws) => {
         }
 
         const quotaManager = new AuthenticatedQuotaManager()
+        console.log(quota.nextQuotaReset)
         if (quota.nextQuotaReset < new Date()) {
           // End date is in the past, so we should reset the quota
           await quotaManager.setNextQuota(quota.userId, false)
