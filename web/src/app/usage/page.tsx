@@ -6,35 +6,27 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
 
-const UsagePage = async () => {
-  const session = await getServerSession(authOptions)
+type UsageData = {
+  creditsUsed: number
+  totalQuota: number
+  endDate: Date
+  subscriptionActive: boolean
+}
 
-  if (!session?.user) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Sign in to view usage</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>Please sign in to view your usage statistics.</p>
-        </CardContent>
-        <SignInCardFooter />
-      </Card>
-    )
-  }
+const SignInCard = () => (
+  <Card>
+    <CardHeader>
+      <CardTitle>Sign in to view usage</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <p>Please sign in to view your usage statistics.</p>
+    </CardContent>
+    <SignInCardFooter />
+  </Card>
+)
 
-  const quotaManager = getQuotaManager('authenticated', session.user.id)
-  const q = await quotaManager.checkQuota()
-  if (q.endDate < new Date()) {
-    q.endDate = await quotaManager.setNextQuota(false)
-  }
-
-  const {
-    creditsUsed,
-    quota: totalQuota,
-    endDate,
-    subscription_active: subscriptionActive,
-  } = q
+const UsageDisplay = ({ data }: { data: UsageData }) => {
+  const { creditsUsed, totalQuota, endDate, subscriptionActive } = data
   const remainingCredits = Math.max(0, totalQuota - creditsUsed)
 
   return (
@@ -87,6 +79,31 @@ const UsagePage = async () => {
       </CardContent>
     </Card>
   )
+}
+
+const UsagePage = async () => {
+  const session = await getServerSession(authOptions)
+
+  if (!session?.user) {
+    return <SignInCard />
+  }
+
+  const quotaManager = getQuotaManager('authenticated', session.user.id)
+  const quota = await quotaManager.checkQuota()
+  let endDate = quota.endDate
+  if (endDate < new Date()) {
+    // endDate is in the past, so we should reset the quota
+    endDate = await quotaManager.setNextQuota(false)
+  }
+
+  const usageData: UsageData = {
+    creditsUsed: quota.creditsUsed,
+    totalQuota: quota.quota,
+    endDate,
+    subscriptionActive: quota.subscription_active,
+  }
+
+  return <UsageDisplay data={usageData} />
 }
 
 export default UsagePage
