@@ -11,6 +11,7 @@ import { sql, eq } from 'drizzle-orm'
 import { genUsageResponse, sendAction } from './websocket-action'
 import { logger } from '@/util/logger'
 import { env } from '@/env.mjs'
+import { getNextQuotaReset } from 'common/util/dates'
 
 export class WebSocketMiddleware {
   private middlewares: Array<
@@ -103,14 +104,16 @@ protec.use(async (action, _clientSessionId, ws) => {
         }
 
         const quotaManager = new AuthenticatedQuotaManager()
+        if (quota.nextQuotaReset < new Date()) {
+          // End date is in the past, so we should reset the quota
+          const nextQuotaReset = getNextQuotaReset(quota.nextQuotaReset)
+          await quotaManager.setNextQuota(quota.userId, false, nextQuotaReset)
+          return
+        }
+
         if (quota.quotaExceeded) {
-          if (quota.nextQuotaReset < new Date()) {
-            // End date is in the past, so we should reset the quota
-            await quotaManager.resetQuota(quota.userId)
-          } else {
-            logger.error(`Quota exceeded for user ${quota.userId}`)
-            return genUsageResponse(fingerprintId, quota.userId)
-          }
+          logger.error(`Quota exceeded for user ${quota.userId}`)
+          return genUsageResponse(fingerprintId, quota.userId)
         }
         return
       }
@@ -146,15 +149,22 @@ protec.use(async (action, _clientSessionId, ws) => {
         }
 
         const quotaManager = new AnonymousQuotaManager()
-        if (quota.quotaExceeded) {
-          if (quota.nextQuotaReset < new Date()) {
-            // End date is in the past, so we should reset the quota
-            quotaManager.resetQuota(quota.fingerprintId)
-          } else {
-            logger.error(`Quota exceeded for fingerprint ${fingerprintId}`)
-            return genUsageResponse(fingerprintId)
-          }
+        if (quota.nextQuotaReset < new Date()) {
+          // End date is in the past, so we should reset the quota
+          const nextQuotaReset = getNextQuotaReset(quota.nextQuotaReset)
+          await quotaManager.setNextQuota(
+            quota.fingerprintId,
+            false,
+            nextQuotaReset
+          )
+          return
         }
+
+        if (quota.quotaExceeded) {
+          logger.error(`Quota exceeded for fingerprint ${fingerprintId}`)
+          return genUsageResponse(fingerprintId)
+        }
+
         return
       }
     )

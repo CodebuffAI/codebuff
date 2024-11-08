@@ -7,7 +7,8 @@
     "test-manifold": "bun test manifold-project.test.ts",
     "test-patch": "bun test generate-patch.test.ts",
     "test-knowledge": "bun test generate-knowledge-files.test.ts",
-    "test-stream": "bun test process-stream.test.ts"
+    "test-stream": "bun test process-stream.test.ts",
+    "test-quota-manager": "bun test quota-manager.test.ts"
   },
   "dependencies": {
     "tree-sitter": "0.21.1",

@@ -20,3 +20,43 @@ When testing diff block parsing:
    - Ensure indentation levels match source file exactly
 
 Remember: The parser should be flexible in accepting search/replace blocks with simplified indentation while preserving the original source formatting.
+
+## Database Mocking Guidelines
+
+When mocking database queries:
+
+1. Chain methods properly:
+   - Mock all methods in the query chain (select, from, where, groupBy, etc.)
+   - Return appropriate objects with next methods in chain
+   - Pay special attention to groupBy and then methods
+
+2. Return consistent test data:
+   - Match the shape of real database responses
+   - Include all fields referenced in tests
+   - Use realistic dates/values that won't cause test failures
+
+3. Important: Do not use XML-style tags (like <search>) in test code unless specifically editing files through the assistant. These tags are for file editing only, not for regular code.
+
+## Quota Management Testing
+
+When writing tests for the quota management system:
+
+1. Date Comparisons:
+   - Use a buffer when comparing dates to account for processing time
+   - Example: `expect(result.endDate.getTime()).toBeGreaterThan(pastDate.getTime() - 1000)`
+   - For exact date matches, convert both dates to ISO strings first
+   - When mocking dates from DB, always use toISOString() to match DB format
+
+2. Credit Values:
+   - Always reference CREDITS_USAGE_LIMITS constants instead of hardcoding values
+   - Remember values differ between local and production environments
+   - Test both environments if values affect test logic
+
+3. Mock Data Structure:
+   - Database mocks must return creditsUsed as a string for message table sums
+   - QuotaManager handles string-to-number conversion internally
+   - Tests should expect numbers in assertions, not strings
+   - Ensure subscription_active is explicitly set in mock data
+   - Include all required fields: creditsUsed, quota, endDate, subscription_active
+   - For subscription tests, include stripe_customer_id and stripe_price_id
+   - Remember: While DB returns strings, tests work with the converted number values
