@@ -3,7 +3,11 @@ import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import path from 'path'
 
 import { promptClaudeStream } from './claude'
-import { FileVersion, ProjectFileContext } from 'common/util/file'
+import {
+  createFileBlock,
+  FileVersion,
+  ProjectFileContext,
+} from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
@@ -20,6 +24,7 @@ import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
 import { difference, uniq, zip } from 'lodash'
+import { filterDefined } from 'common/util/array'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -341,12 +346,24 @@ ${STOP_MARKER}
     onResponseChunk('\nApplying file changes. Please wait...\n')
   }
 
-  const knowledgeChanges = await genKnowledgeFilesPromise
-  fileProcessingPromises.push(...knowledgeChanges)
+  const knowledgeChangePromises = await genKnowledgeFilesPromise
+  fileProcessingPromises.push(...knowledgeChangePromises)
 
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
   )
+  const knowledgeChanges = filterDefined(
+    await Promise.all(knowledgeChangePromises)
+  )
+  if (knowledgeChanges.length > 0) {
+    const knowledgeFileBlocks = knowledgeChanges.map((change) =>
+      createFileBlock(change.filePath, change.content)
+    )
+    fullResponse += `\n\n<extra_knowledge_updates>\n${knowledgeFileBlocks.join(
+      '\n\n'
+    )}\n</extra_knowledge_updates>`
+  }
+
   return {
     response: fullResponse.trim(),
     changes,
