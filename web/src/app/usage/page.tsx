@@ -90,18 +90,20 @@ const UsagePage = async () => {
   }
 
   const quotaManager = getQuotaManager('authenticated', session.user.id)
-  const q = await quotaManager.checkQuota()
-  let endDate = q.endDate
-  if (endDate < new Date()) {
-    // endDate is in the past, so we should reset the quota
-    const nextQuotaReset = getNextQuotaReset(endDate)
+  let q = await quotaManager.checkQuota()
+  if (q.endDate < new Date()) {
+    // endDate is in the past, so reset the quota
+    const nextQuotaReset = getNextQuotaReset(q.endDate)
     await quotaManager.setNextQuota(false, nextQuotaReset)
+
+    // get their newly updated info
+    q = await quotaManager.checkQuota()
   }
 
   const usageData: UsageData = {
     creditsUsed: q.creditsUsed,
     totalQuota: q.quota,
-    endDate,
+    endDate: q.endDate,
     subscriptionActive: q.subscription_active,
   }
 
