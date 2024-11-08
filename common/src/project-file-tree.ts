@@ -94,6 +94,7 @@ export function getProjectFileTree(
 export function parseGitignore(dirPath: string): ignore.Ignore {
   const ig = ignore.default()
   const gitignorePath = path.join(dirPath, '.gitignore')
+  const codebuffignorePath = path.join(dirPath, '.codebuffignore')
   const manicodeignorePath = path.join(dirPath, '.manicodeignore')
 
   if (fs.existsSync(gitignorePath)) {
@@ -107,6 +108,12 @@ export function parseGitignore(dirPath: string): ignore.Ignore {
   if (fs.existsSync(manicodeignorePath)) {
     const manicodeignoreContent = fs.readFileSync(manicodeignorePath, 'utf8')
     const lines = manicodeignoreContent.split('\n')
+    for (const line of lines) {
+      ig.add(line.startsWith('/') ? line.slice(1) : line)
+    }
+  } else if (fs.existsSync(codebuffignorePath)) {
+    const codebuffignoreContent = fs.readFileSync(codebuffignorePath, 'utf8')
+    const lines = codebuffignoreContent.split('\n')
     for (const line of lines) {
       ig.add(line.startsWith('/') ? line.slice(1) : line)
     }
