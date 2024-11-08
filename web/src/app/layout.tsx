@@ -51,13 +51,6 @@ export const generateMetadata = (): Metadata => ({
 })
 
 const RootLayout = ({ children }: PropsWithChildren) => {
-  if (
-    typeof window !== 'undefined' &&
-    window.location.origin === 'https://manicode.ai'
-  ) {
-    redirect(env.NEXT_PUBLIC_APP_URL + window.location.pathname)
-  }
-
   return (
     <html lang={'en'} suppressHydrationWarning>
       <body
