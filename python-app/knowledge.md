@@ -44,3 +44,33 @@ The codebuff project follows the modern Python packaging structure:
 - The project is in a pre-alpha state and not yet ready for public release.
 
 Remember to keep this knowledge file updated as the project evolves.
+
+# Python Package Development
+
+## Package Information
+- Name: codebuff
+- Description: An AI-powered coding assistant
+- Status: Placeholder package that redirects users to npm version
+
+## Development Environment
+
+Important: Use virtual environments for package development:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install build
+```
+
+## Publishing Process
+
+1. Create and activate virtual environment
+2. Install build tools: `pip install build`
+3. Build package: `python -m build`
+4. Upload to PyPI: `python -m twine upload dist/*`
+
+Note: The package currently serves as a placeholder, directing users to install the npm version instead.
+
+## Version Management
+
+- Update version in `pyproject.toml` before publishing
+- Follow semantic versioning (major.minor.patch)
