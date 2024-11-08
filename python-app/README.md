@@ -1,13 +1,13 @@
-# Manicode (Coming soon!)
+# Codebuff (Coming soon!)
 
-Manicode is an AI-powered coding assistant. This Python package is coming soon!
+Codebuff is an AI-powered coding assistant. This Python package is coming soon!
 
 ## Installation
 
-For now, please install Manicode via npm:
+For now, please install codebuff via npm:
 
 ```
-npm install -g manicode
+npm install -g codebuff
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install -g manicode
 Once the Python package is ready, you'll be able to use it like this:
 
 ```
-manicode
+codebuff
 ```
 
 This will print a message indicating that the Python package is coming soon and provide instructions for installing the npm version.
@@ -26,4 +26,4 @@ MIT
 
 ## Feedback
 
-We value your input! Please email your feedback to james@manifold.markets. Thank you for your interest in Manicode!
+We value your input! Please email your feedback to founders@codebuff.com. Thank you for your interest in Codebuff!

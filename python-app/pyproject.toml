@@ -3,10 +3,10 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "manicode"
+name = "codebuff"
 version = "0.1.1"
 authors = [
-  { name = "Manicode Team", email = "james@manifold.markets" },
+  { name = "Codebuff Team", email = "founders@codebuff.com" },
 ]
 description = "An AI-powered coding assistant (coming soon, use npm for now)"
 readme = "README.md"
