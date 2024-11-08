@@ -4,7 +4,7 @@ Codebuff is an AI-powered coding assistant. This Python package is coming soon!
 
 ## Installation
 
-For now, please install codebuff via npm:
+For now, please install Codebuff via npm:
 
 ```
 npm install -g codebuff
