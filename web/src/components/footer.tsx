@@ -13,7 +13,7 @@ export const Footer = () => {
             <Link href="/" className="flex items-center space-x-2">
               <Image
                 src="/favicon/apple-touch-icon.png"
-                alt="Manicode Logo"
+                alt="Codebuff Logo"
                 width={32}
                 height={32}
                 className="rounded-sm"

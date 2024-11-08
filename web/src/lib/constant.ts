@@ -6,6 +6,7 @@ export const siteConfig = {
     'Codebuff is a tool for editing codebases via natural language instruction to Mani, an expert AI programming assistant.',
   keywords: () => [
     'Manicode',
+    'Codebuff',
     'Coding Assistant',
     'Coding Assistant',
     'Agent',

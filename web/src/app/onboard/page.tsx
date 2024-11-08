@@ -32,7 +32,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
     toast({
       title: 'Uh-oh, spaghettio!',
       description:
-        'No valid session or auth code. Please try again and reach out to support@manicode.ai if the problem persists.',
+        'No valid session or auth code. Please try again and reach out to support@codebuff.com if the problem persists.',
     })
     return redirect(env.NEXT_PUBLIC_APP_URL)
   }
@@ -52,7 +52,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
       description: 'Invalid auth code.',
       content: (
         <p>
-          Please try again and reach out to support@manicode.ai if the problem
+          Please try again and reach out to support@codebuff.com if the problem
           persists.
         </p>
       ),
@@ -66,7 +66,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
       description: 'Auth code expired.',
       content: (
         <p>
-          Please generate a new code and reach out to support@manicode.ai if the
+          Please generate a new code and reach out to support@codebuff.com if the
           problem persists.
         </p>
       ),

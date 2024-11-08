@@ -1,6 +1,6 @@
 # Credits
 
-Manicode uses modified versions of the tags.scm files from these open source tree-sitter language implementations:
+Codebuff uses modified versions of the tags.scm files from these open source tree-sitter language implementations:
 
 * [https://github.com/tree-sitter/tree-sitter-c](https://github.com/tree-sitter/tree-sitter-c) — licensed under the MIT License.
 * [https://github.com/tree-sitter/tree-sitter-c-sharp](https://github.com/tree-sitter/tree-sitter-c-sharp) — licensed under the MIT License.

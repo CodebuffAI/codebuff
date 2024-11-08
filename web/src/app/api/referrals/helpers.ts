@@ -38,7 +38,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       return NextResponse.json(
         {
           error:
-            "This referral code doesn't exist! Try again or reach out to support@manicode.ai if the problem persists.",
+            "This referral code doesn't exist! Try again or reach out to support@codebuff.com if the problem persists.",
         },
         {
           status: 404,

@@ -1,6 +1,6 @@
-# Manicode Backend
+# Codebuff Backend
 
-This document provides an overview of the Manicode backend architecture, key components, and important concepts.
+This document provides an overview of the Codebuff backend architecture, key components, and important concepts.
 
 ## Table of Contents
 
@@ -49,7 +49,7 @@ This setup ensures consistent development practices across different parts of th
 
 ## Architecture Overview
 
-The Manicode backend is built on Node.js using TypeScript. It uses an Express server for HTTP requests and a WebSocket server for real-time communication with clients. The backend integrates with the Claude AI model to process user inputs and generate code changes.
+The Codebuff backend is built on Node.js using TypeScript. It uses an Express server for HTTP requests and a WebSocket server for real-time communication with clients. The backend integrates with the Claude AI model to process user inputs and generate code changes.
 
 ## Key Technologies
 
@@ -95,7 +95,7 @@ The backend integrates with the Claude AI model to process user inputs and gener
 
 ## File Management
 
-The backend handles file operations for the Manicode project:
+The backend handles file operations for the Codebuff project:
 
 - **Reading Files**: The `read_files` tool allows the AI to access project file contents.
 - **Applying Changes**: The `applyChanges` function in `prompts.ts` processes and applies file modifications suggested by the AI.

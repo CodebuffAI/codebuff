@@ -1,8 +1,8 @@
-# Billing and Usage Tracking in Manicode
+# Billing and Usage Tracking in Codebuff
 
 ## Overview
 
-This document outlines the billing system and usage tracking implementation for the Manicode project. It covers key components, database schema, quota management, and integration points.
+This document outlines the billing system and usage tracking implementation for the Codebuff project. It covers key components, database schema, quota management, and integration points.
 
 ## Key Components
 

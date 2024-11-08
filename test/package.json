@@ -1,7 +1,7 @@
 {
-  "name": "manicode-tests",
+  "name": "codebuff-tests",
   "version": "1.0.0",
-  "description": "Test package for Manicode",
+  "description": "Test package for Codebuff",
   "scripts": {
     "test": "bun test __src__",
     "test-manifold": "bun test manifold-project.test.ts",

@@ -26,7 +26,7 @@ const Home = () => {
         description: 'Auth code expired.',
         content: (
           <p>
-            Please generate a new code and reach out to support@manicode.ai if
+            Please generate a new code and reach out to support@codebuff.com if
             the problem persists.
           </p>
         ),
@@ -46,8 +46,8 @@ const Home = () => {
               <CardHeader>
                 <CardTitle className="mb-2">Login</CardTitle>
                 <CardDescription>
-                  Continue to sign in to the Manicode CLI.
-                  {/* If you just logged into Manicode from the command line, please
+                  Continue to sign in to the Codebuff CLI.
+                  {/* If you just logged into Codebuff from the command line, please
                   select an OAuth provider below to continue. */}
                 </CardDescription>
                 {/* <CardDescription>

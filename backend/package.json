@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.65",
-  "description": "Backend server for Manicode",
+  "description": "Backend server for Codebuff",
   "main": "dist/index.js",
   "license": "UNLICENSED",
   "scripts": {
