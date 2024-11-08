@@ -13,6 +13,8 @@ import { fonts } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
 import SessionProvider from '@/lib/SessionProvider'
 import QueryProvider from '@/components/providers/query-client-provider'
+import { redirect } from 'next/navigation'
+import { env } from '@/env.mjs'
 
 export const generateMetadata = (): Metadata => ({
   metadataBase: new URL(siteConfig.url()),
@@ -49,6 +51,13 @@ export const generateMetadata = (): Metadata => ({
 })
 
 const RootLayout = ({ children }: PropsWithChildren) => {
+  if (
+    typeof window !== 'undefined' &&
+    window.location.origin === 'https://manicode.ai'
+  ) {
+    redirect(env.NEXT_PUBLIC_APP_URL + window.location.pathname)
+  }
+
   return (
     <html lang={'en'} suppressHydrationWarning>
       <body
