@@ -54,7 +54,7 @@ export class AnonymousQuotaManager implements IQuotaManager {
       })
 
     return {
-      creditsUsed: result.creditsUsed,
+      creditsUsed: parseInt(result.creditsUsed),
       quota,
       endDate: new Date(result.endDate),
       subscription_active: false,
