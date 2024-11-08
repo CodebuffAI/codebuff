@@ -128,6 +128,8 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
    - Document the reason for state changes (e.g., "endDate is in the past, so we should reset the quota")
    - Prefer explicit if statements with comments over ternaries for complex state changes
    - Document the reason for state changes (e.g., "endDate is in the past, so we should reset the quota")
+   - Prefer explicit if statements with comments over ternaries for complex state changes
+   - Document the reason for state changes (e.g., "endDate is in the past, so we should reset the quota")
 6. Combine related database queries into single operations:
    - Methods should return all necessary data in one query
    - Avoid separate queries for related data (e.g., subscription status with quota info)
