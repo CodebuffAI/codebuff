@@ -119,6 +119,11 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 3. Update quotas after successful operations that consume credits.
 4. Ensure proper error handling for quota exceeded scenarios.
 5. Regularly review and adjust pricing and quota limits based on usage patterns.
+6. Code Style:
+   - Prefer explicit variable declarations over nested ternaries for quota logic
+   - Add descriptive comments explaining quota state changes
+   - Use clear variable names that reflect their purpose in quota management
+   - Example: Separate endDate handling with explanatory comments rather than combining in a ternary
 6. Combine related database queries into single operations:
    - Methods should return all necessary data in one query
    - Avoid separate queries for related data (e.g., subscription status with quota info)

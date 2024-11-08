@@ -24,9 +24,8 @@ export class AnonymousQuotaManager implements IQuotaManager {
   async updateQuota(fingerprintId: string) {
     const { creditsUsed, quota, endDate } = await this.checkQuota(fingerprintId)
 
-    if (creditsUsed >= quota) {
-      await this.setNextQuota(fingerprintId, endDate >= new Date())
-    }
+    await this.setNextQuota(fingerprintId, endDate >= new Date())
+
     return {
       creditsUsed,
       quota,
@@ -112,9 +111,10 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
     const { creditsUsed, quota, subscription_active, endDate } =
       await this.checkQuota(userId)
 
-    if (creditsUsed >= quota && !subscription_active) {
-      await this.setNextQuota(userId, endDate >= new Date())
-    }
+    await this.setNextQuota(
+      userId,
+      !subscription_active && endDate >= new Date()
+    )
     return {
       creditsUsed,
       quota,
