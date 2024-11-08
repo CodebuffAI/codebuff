@@ -18,16 +18,23 @@ export const testimonials: Testimonial[][] = [
     {
       quote: 'Dude you guys are building something good',
       author: 'Albert Lam',
-      title: 'Founder, CEO',
+      title: 'Founder & CEO',
       avatar: '/testimonials/albert-lam.jpg',
       link: '/testimonials/proof/albert-lam.png',
     },
     {
       quote: "I'm honestly surprised by how well the product works!",
       author: 'Chrisjan Wust',
-      title: 'Founder, CTO',
+      title: 'Founder & CTO',
       avatar: '/testimonials/chrisjan-wust.jpg',
       link: '/testimonials/proof/chrisjan-wust.png',
+    },
+    {
+      quote: 'Just had a magical manicode moment: ... And it just worked!',
+      author: 'Stephen Grugett',
+      title: 'Founder & CEO',
+      avatar: '/testimonials/stevo.png',
+      link: '/testimonials/proof/stevo.png',
     },
   ],
   [
@@ -49,7 +56,7 @@ export const testimonials: Testimonial[][] = [
       quote:
         'Finally, AI that actually understands my code structure and dependencies.',
       author: 'Gray Newfield',
-      title: 'Founder, CEO',
+      title: 'Founder & CEO',
       avatar: '/testimonials/gray-newfield.jpg',
       link: '/testimonials/proof/gray-newfield.png',
     },

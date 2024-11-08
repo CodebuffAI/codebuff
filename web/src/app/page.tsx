@@ -1,7 +1,8 @@
 'use client'
 import { Button } from '@/components/ui/button'
-import { FolderCodeIcon, TerminalIcon, Copy, ZapIcon } from 'lucide-react'
+import { FolderCodeIcon, TerminalIcon, Copy, ZapIcon, Play } from 'lucide-react'
 import Link from 'next/link'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import { useTheme } from 'next-themes'
 import { useToast } from '@/components/ui/use-toast'
@@ -9,10 +10,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import Marquee from '@/components/ui/marquee'
 import { testimonials } from '@/lib/testimonials'
 import { cn } from '@/lib/utils'
+import { useState } from 'react'
 
 const Home = () => {
   const { theme } = useTheme()
   const { toast } = useToast()
+  const [isVideoOpen, setIsVideoOpen] = useState(false)
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText('npm install -g codebuff')
@@ -33,12 +36,12 @@ const Home = () => {
           </h1>
           <div className="text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             <p className="md:hidden">
-              Use natural language to edit your codebase faster and run commands
-              from your terminal faster.
+              Edit your codebase and run commands quickly, with natural language
+              in your terminal.
             </p>
             <div className="hidden md:block">
-              <p>Use natural language to edit your codebase faster and</p>
-              <p>run commands from your terminal faster.</p>
+              <p>Edit your codebase and run commands quickly</p>
+              <p>with natural language in your terminal.</p>
             </div>
           </div>
           <section className="relative z-10">
@@ -62,15 +65,38 @@ const Home = () => {
           </h2>
           <div className="max-w-3xl mx-auto">
             <div className="aspect-w-16 aspect-h-full h-96">
-              <iframe
-                src="https://www.youtube.com/embed/dQ0NOMsu0dA"
-                title="Codebuff Demo"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full rounded-lg shadow-lg"
-              ></iframe>
+              <Button
+                onClick={() => setIsVideoOpen(true)}
+                className="bg-gray-800 hover:bg-gray-700 rounded-lg shadow-lg p-0 h-full w-full ring-1 ring-gray-400/20"
+              >
+                <div className="relative w-full h-full">
+                  <img
+                    src="/video-thumbnail.jpg"
+                    alt="Video thumbnail"
+                    className="w-full h-full object-cover object-center rounded-lg"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="bg-gray-500 rounded-full p-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500">
+                      <Play className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </div>
+              </Button>
             </div>
           </div>
+          <Dialog open={isVideoOpen} onOpenChange={setIsVideoOpen}>
+            <DialogContent className="max-w-3xl bg-transparent border-0 p-0">
+              <div className="aspect-w-16 aspect-h-full h-96">
+                <iframe
+                  src="https://www.youtube.com/embed/dQ0NOMsu0dA"
+                  title="Codebuff Demo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full rounded-lg shadow-lg"
+                ></iframe>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           <div className="flex justify-center space-x-8 pt-4">
             <div className="flex flex-col items-center">

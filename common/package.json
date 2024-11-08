@@ -25,7 +25,7 @@
     "pg": "^8.13.0"
   },
   "peerDependencies": {
-    "drizzle-kit": "^0.27.2",
+    "drizzle-kit": "0.27.1",
     "@types/node": "*",
     "@types/lodash": "*",
     "typescript": "*"
