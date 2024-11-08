@@ -20,6 +20,18 @@ This document provides an overview of the Manicode backend architecture, key com
 
 ## Development Workflow
 
+### Platform-Specific Considerations
+
+Windows developers may encounter different behavior with:
+- TypeScript configuration and type resolution:
+  - Use forward slashes in all paths
+  - Add both local and root node_modules to typeRoots: `["./node_modules/@types", "../node_modules/@types"]`
+  - Node.js types and Bun types may need different resolution strategies
+  - When using __dirname or path.join(), convert Windows backslashes to forward slashes
+  - Do not exclude .mjs files in tsconfig.json - TypeScript needs to process them for proper module resolution
+- Module resolution may require explicit paths in tsconfig.json
+- Some type packages must be installed at both root and package level
+
 ### Hot Reloading
 
 The project uses hot reloading to improve development efficiency. This is implemented for both the backend and npm-app:

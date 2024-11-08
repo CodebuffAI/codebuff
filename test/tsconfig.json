@@ -19,7 +19,8 @@
       "common/*": ["../common/src/*"],
       "code-map/*": ["../packages/code-map/*"]
     },
-    "types": ["bun-types"]
+    "types": ["bun-types"],
+    "outDir": "./dist"
   },
   "include": ["__src__/**/*"],
   "exclude": ["node_modules", "__mock-projects__/**/*"],
