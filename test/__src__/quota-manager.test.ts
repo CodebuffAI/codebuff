@@ -15,7 +15,7 @@ const mockDb = {
             then: (callback: any) =>
               callback([
                 {
-                  creditsUsed: 500,
+                  creditsUsed: '500',
                   subscription_active: false,
                   quota: CREDITS_USAGE_LIMITS.FREE,
                   endDate: new Date(),
@@ -312,7 +312,7 @@ describe('QuotaManager', () => {
                   then: (callback: any) =>
                     callback([
                       {
-                        creditsUsed: '500',
+                        creditsUsed: 500,
                         stripe_customer_id: 'cust_123',
                         stripe_price_id: 'price_123',
                         subscription_active: true,

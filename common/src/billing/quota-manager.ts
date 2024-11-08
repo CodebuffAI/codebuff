@@ -31,7 +31,7 @@ export class AnonymousQuotaManager implements IQuotaManager {
 
     const result = await db
       .select({
-        creditsUsed: sql<number>`SUM(COALESCE(${schema.message.credits}, 0))`,
+        creditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
         endDate,
       })
       .from(schema.fingerprint)
@@ -47,7 +47,7 @@ export class AnonymousQuotaManager implements IQuotaManager {
       .then((rows) => {
         if (rows.length > 0) return rows[0]
         return {
-          creditsUsed: 0,
+          creditsUsed: '0',
           quota,
           endDate: new Date().toDateString(),
         }
