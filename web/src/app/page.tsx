@@ -36,12 +36,12 @@ const Home = () => {
           </h1>
           <div className="text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             <p className="md:hidden">
-              Edit your codebase and run commands faster, from your terminal.
+              Edit your codebase and run commands quickly, with natural language
+              in your terminal.
             </p>
             <div className="hidden md:block">
-              <p>
-                Edit your codebase and run commands faster, from your terminal.
-              </p>
+              <p>Edit your codebase and run commands quickly</p>
+              <p>with natural language in your terminal.</p>
             </div>
           </div>
           <section className="relative z-10">
