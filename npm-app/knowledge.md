@@ -1,8 +1,8 @@
-# Manicode Project Structure
+# Codebuff Project Structure
 
 ## Overview
 
-Manicode is an AI-powered development assistant that runs from the command line. It has access to all files in your project and can carry out various tasks.
+Codebuff is an AI-powered development assistant that runs from the command line. It has access to all files in your project and can carry out various tasks.
 
 ## Project Structure
 
@@ -16,7 +16,7 @@ Manicode is an AI-powered development assistant that runs from the command line.
 
 The `src/` directory contains the main TypeScript source files:
 
-- `index.ts`: Entry point of the application. Sets up the main `manicode` function.
+- `index.ts`: Entry point of the application. Sets up the main `codebuff` function.
 - `chat-client.ts`: Implements the `ChatClient` class for handling WebSocket communication.
 - `config.ts`: Contains configuration-related functions and constants.
 - `chat-storage.ts`: Manages chat storage functionality.
@@ -29,7 +29,7 @@ The `dist/` directory contains the compiled JavaScript files and is created duri
 
 ## Project File Handling
 
-- Mani can only view files that are not gitignored. This is partially to save tokens when we list out all the files.
+- Buffy can only view files that are not gitignored. This is partially to save tokens when we list out all the files.
 - Multiple `.gitignore` files can exist throughout the project structure.
 - When traversing the project structure, we need to accumulate and apply ignore patterns from all encountered `.gitignore` files.
 
@@ -67,15 +67,15 @@ The build process is defined in `package.json`:
 
 ## Usage
 
-Manicode can be started by running the `manicode` command in the terminal after installation. It provides a menu interface (accessible by pressing `Esc`) and allows navigation through file versions using arrow keys.
+Codebuff can be started by running the `codebuff` command in the terminal after installation. It provides a menu interface (accessible by pressing `Esc`) and allows navigation through file versions using arrow keys.
 
 ## Knowledge Management
 
-Manicode encourages storing knowledge alongside code using `knowledge.md` files. These files provide context, guidance, and tips for the AI as it performs tasks.
+Codebuff encourages storing knowledge alongside code using `knowledge.md` files. These files provide context, guidance, and tips for the AI as it performs tasks.
 
 ## Build and Publish Process
 
-When publishing the Manicode package, we use a custom process to ensure that only necessary information is included in the published package and that the environment is set correctly:
+When publishing the Codebuff package, we use a custom process to ensure that only necessary information is included in the published package and that the environment is set correctly:
 
 1. The `prepublishOnly` script runs `clean-package.js` before publishing.
 2. `clean-package.js` does the following:
@@ -104,7 +104,7 @@ Remember to increment the version number in `package.json` before publishing a n
 
 ## Package Management
 
-Manicode uses Bun as its package manager. Always use Bun commands for managing dependencies instead of npm.
+Codebuff uses Bun as its package manager. Always use Bun commands for managing dependencies instead of npm.
 
 Key points:
 
@@ -131,7 +131,7 @@ The CLI (Command Line Interface) has been updated to provide a more standard ter
 
 ### Auto-Git Feature
 
-- Use the `--auto-git` flag when running Manicode to automatically stage all changes before applying new changes from user input.
+- Use the `--auto-git` flag when running Codebuff to automatically stage all changes before applying new changes from user input.
 - Implement git operations using `execSync` from the `child_process` module for synchronous execution.
 - Provide visual feedback (green text) when changes are staged.
 
@@ -147,11 +147,11 @@ private stageAllChanges() {
   console.log(green('All changes staged'))
 }
 ```
-These changes aim to provide a more intuitive and familiar experience for users while maintaining the unique features of Manicode.
+These changes aim to provide a more intuitive and familiar experience for users while maintaining the unique features of Codebuff.
 
 ## Note on Project Evolution
 
-As an AI-powered tool, Manicode is designed to learn and evolve. It can update knowledge files as it works, improving its understanding and capabilities over time.
+As an AI-powered tool, Codebuff is designed to learn and evolve. It can update knowledge files as it works, improving its understanding and capabilities over time.
 
 ## WebSocket Communication
 
@@ -166,7 +166,7 @@ The `Client` class in `client.ts` manages WebSocket communication with the serve
 
 The `project-files.ts` module handles all file-related operations:
 
-- Mani can only view files that are not gitignored. This is partially to save tokens when we list out all the files.
+- Buffy can only view files that are not gitignored. This is partially to save tokens when we list out all the files.
 - Reads and writes files within the project directory.
 - Traverses the project structure, respecting `.gitignore` files.
 - Applies changes to files based on AI suggestions.
@@ -193,10 +193,9 @@ The `tool-handlers.ts` file implements handlers for various tools:
 
 - `read_files`: Reads contents of specified files.
 - `scrape_web_page`: Retrieves content from a given URL.
-- `search_manifold_markets`: Searches for relevant prediction markets.
 - `run_terminal_command`: Executes shell commands in the user's terminal.
 
-These tools extend Manicode's capabilities, allowing it to gather information and perform actions beyond simple code manipulation.
+These tools extend Codebuff's capabilities, allowing it to gather information and perform actions beyond simple code manipulation.
 
 ## Error Handling
 
@@ -210,7 +209,7 @@ Developers should continue to improve error handling to ensure a smooth user exp
 
 ## Security Considerations
 
-- The application runs commands in the user's terminal, which could potentially be dangerous. Users should be cautious when using Manicode on sensitive projects.
+- The application runs commands in the user's terminal, which could potentially be dangerous. Users should be cautious when using Codebuff on sensitive projects.
 - File operations are restricted to the project directory to prevent unauthorized access to the user's system.
 - Web scraping and external API calls (e.g., Manifold Markets) should be used responsibly and in compliance with the respective services' terms of use.
 
@@ -251,7 +250,7 @@ This system allows for better tracking and correlation of user inputs with their
 
 - The `Client` class in `client.ts` includes a subscription to 'npm-version-status' that checks if the current version is up to date.
 - If a newer version is available, a warning is displayed in yellow text.
-- Users are instructed to update using the command: `npm install -g manicode`
+- Users are instructed to update using the command: `npm install -g codebuff`
 - The version check is performed as part of the WebSocket subscription setup.
 
 ### Usage Warnings and Referral System

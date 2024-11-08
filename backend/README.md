@@ -1,8 +1,8 @@
-# Manicode Backend
+# Codebuff Backend
 
 ## Deployment
 
-To deploy the Manicode backend to Google Cloud Platform, follow these steps:
+To deploy the Codebuff backend to Google Cloud Platform, follow these steps:
 
 1. Set up a Google Cloud Platform project and enable the necessary APIs. See: https://cloud.google.com/sdk/docs/install.
 2. Login to the Google Cloud Platform CLI with the command:

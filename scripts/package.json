@@ -1,7 +1,7 @@
 {
-  "name": "manicode-tests",
+  "name": "codebuff-tests",
   "version": "1.0.0",
-  "description": "Scripts package for Manicode",
+  "description": "Scripts package for Codebuff",
   "scripts": {},
   "dependencies": {
     "backend": "file:../backend",

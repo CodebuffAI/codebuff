@@ -46,7 +46,7 @@ There are three top-level code directories:
 5. **Message History**: Manages conversation history between the user and Mani.
 6. **Chat Storage**: Persists chat sessions and allows users to manage multiple conversations.
 7. **Knowledge Management**: Handles the creation, updating, and organization of knowledge files.
-8. **Terminal Command Execution**: Allows Mani to run shell commands in the user's terminal.
+8. **Terminal Command Execution**: Allows Buffy to run shell commands in the user's terminal.
 
 ## Important Files
 
@@ -77,7 +77,7 @@ The referral system integrates with the user authentication flow and credit mana
 
 1. Use TypeScript for all new code to maintain type safety.
 2. Follow existing code structure and naming conventions.
-3. Ensure alternating user and Mani messages in conversation history.
+3. Ensure alternating user and Buffy messages in conversation history.
 4. Update knowledge files for significant changes or new features.
 5. Write clear, concise comments and documentation for complex logic.
 6. Remember that imports automatically remove 'src' from the path. When editing files, always include 'src' in the file path if it's part of the actual directory structure.
@@ -87,7 +87,7 @@ The referral system integrates with the user authentication flow and credit mana
 ## Knowledge File Management
 
 - Knowledge is stored in `knowledge.md` files, which can be created in relevant directories throughout the project.
-- Mani automatically updates knowledge files when learning new information or correcting mistakes.
+- Buffy automatically updates knowledge files when learning new information or correcting mistakes.
 - Developers are encouraged to review and commit knowledge file changes to share insights across the team.
 
 When updating knowledge files:
@@ -102,7 +102,7 @@ These guidelines help maintain useful and accessible knowledge files that provid
 
 ## Terminal Command Execution
 
-Mani can now execute terminal commands using the `run_terminal_command` tool. This feature allows Mani to perform various tasks such as:
+Buffy can execute terminal commands using the `run_terminal_command` tool. This feature allows Buffy to perform various tasks such as:
 
 - Searching files with grep
 - Installing dependencies

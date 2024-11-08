@@ -382,7 +382,7 @@ const onInit = async (
         [
           {
             role: 'user',
-            content: 'please respond with just a single word "manicode"',
+            content: 'please respond with just a single word "codebuff"',
           },
         ],
         {

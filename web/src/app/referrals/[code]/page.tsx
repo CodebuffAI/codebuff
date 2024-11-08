@@ -103,7 +103,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
           <CardContent>
             <p className="my-4">
               {data?.status.reason
-                ? `Fear not, you can still get started with Manicode! Here's how:`
+                ? `Fear not, you can still get started with Codebuff! Here's how:`
                 : 'To redeem them, follow these steps:'}
             </p>
             <ol className="list-decimal list-inside space-y-6">

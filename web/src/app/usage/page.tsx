@@ -41,7 +41,7 @@ const UsageDisplay = ({ data }: { data: UsageData }) => {
             <div className="p-4 mb-4 bg-yellow-100 dark:bg-blue-900 rounded-md space-y-2">
               <p>
                 You have exceeded your monthly quota, but you can continue using
-                Manicode.
+                Codebuff.
               </p>
               <p>
                 You will be charged an overage fee of $0.90 per 100 additional

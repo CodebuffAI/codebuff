@@ -163,7 +163,7 @@ This helps with:
 - Better user experience through clear error communication
 - Easier debugging by surfacing backend errors
 
-The referral system is a key feature of the Manicode web application. It allows users to refer others and earn credits for successful referrals.
+The referral system is a key feature of the Codebuff web application. It allows users to refer others and earn credits for successful referrals.
 
 ### High-Level Workflow
 
@@ -210,7 +210,7 @@ The referral system is a key feature of the Manicode web application. It allows 
 - Referral links redirect unauthenticated users to the login page before processing.
 - The system prevents users from referring themselves.
 - There's a limit on the number of times a referral code can be used.
-- As of the latest update, referral codes can only be submitted through the Manicode CLI app, not through the website.
+- Referral codes can only be submitted through the Codebuff CLI app, not through the website.
 
 ### CLI-based Referral Code Submission
 
