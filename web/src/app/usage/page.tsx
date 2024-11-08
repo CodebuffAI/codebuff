@@ -89,18 +89,18 @@ const UsagePage = async () => {
   }
 
   const quotaManager = getQuotaManager('authenticated', session.user.id)
-  const quota = await quotaManager.checkQuota()
-  let endDate = quota.endDate
+  const q = await quotaManager.checkQuota()
+  let endDate = q.endDate
   if (endDate < new Date()) {
     // endDate is in the past, so we should reset the quota
     endDate = await quotaManager.setNextQuota(false)
   }
 
   const usageData: UsageData = {
-    creditsUsed: quota.creditsUsed,
-    totalQuota: quota.quota,
+    creditsUsed: q.creditsUsed,
+    totalQuota: q.quota,
     endDate,
-    subscriptionActive: quota.subscription_active,
+    subscriptionActive: q.subscription_active,
   }
 
   return <UsageDisplay data={usageData} />
