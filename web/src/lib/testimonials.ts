@@ -36,6 +36,14 @@ export const testimonials: Testimonial[][] = [
       avatar: '/testimonials/stevo.png',
       link: '/testimonials/proof/stevo.png',
     },
+    {
+      quote:
+        'Just did a complete structural refactoring that would have took 4-8 hours by a human in 30 minutes using Claude (Web) to drive Codebuff to finish line. I think research in AI+AI pair programming is a must. ',
+      author: 'Omar',
+      title: 'Design Engineer',
+      avatar: '/testimonials/omar.jpg',
+      link: '/testimonials/proof/omar.png',
+    },
   ],
   [
     {
@@ -67,6 +75,14 @@ export const testimonials: Testimonial[][] = [
       title: 'Economics PhD Candidate',
       avatar: '/testimonials/janna-lu.jpg',
       link: '/testimonials/proof/janna-lu.png',
+    },
+    {
+      quote:
+        "Im basically hiring an engineer for 100/month, that's how I see it",
+      author: 'Shardool Patel',
+      title: 'Founder & CTO',
+      avatar: '/testimonials/shardool-patel.jpg',
+      link: '/testimonials/proof/shardool-patel.png',
     },
   ],
 ]
