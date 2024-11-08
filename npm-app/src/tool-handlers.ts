@@ -3,7 +3,6 @@ import path from 'path'
 import { green } from 'picocolors'
 
 import { scrapeWebPage } from './web-scraper'
-import { searchManifoldMarkets } from './manifold-api'
 import { getProjectRoot, setProjectRoot } from './project-files'
 
 export type ToolHandler = (input: any, id: string) => Promise<string>
@@ -20,19 +19,6 @@ export const handleScrapeWebPage: ToolHandler = async (
   return `<web_scraped_content url="${url}">${content}</web_scraped_content>`
 }
 
-export const handleSearchManifoldMarkets: ToolHandler = async (
-  input: { query: string; limit?: number },
-  id: string
-) => {
-  const { query, limit = 5 } = input
-  try {
-    const markets = await searchManifoldMarkets(query, limit)
-    return JSON.stringify(markets)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : error
-    return `<manifold_search_error>Failed to search Manifold markets: ${message}</manifold_search_error>`
-  }
-}
 
 export const handleRunTerminalCommand = async (
   input: { command: string },
@@ -152,7 +138,6 @@ function formatResult(
 
 export const toolHandlers: Record<string, ToolHandler> = {
   scrape_web_page: handleScrapeWebPage,
-  search_manifold_markets: handleSearchManifoldMarkets,
   run_terminal_command: ((input, id) =>
     handleRunTerminalCommand(input, id, 'assistant').then(
       (result) => result.result
