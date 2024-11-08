@@ -24,6 +24,20 @@ const nextConfig = {
     ],
   },
   reactStrictMode: false,
+  async redirects() {
+    if (
+      typeof window !== 'undefined' &&
+      window.location.origin !== env.NEXT_PUBLIC_APP_URL
+    ) {
+      return [
+        {
+          source: ':path*',
+          destination: `${env.NEXT_PUBLIC_APP_URL}/:path*`,
+        },
+      ]
+    }
+    return []
+  },
 }
 
 export default nextConfig
