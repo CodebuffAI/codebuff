@@ -1,9 +1,0 @@
-LICENSE
-README.md
-pyproject.toml
-src/manicode/__init__.py
-src/manicode.egg-info/PKG-INFO
-src/manicode.egg-info/SOURCES.txt
-src/manicode.egg-info/dependency_links.txt
-src/manicode.egg-info/entry_points.txt
-src/manicode.egg-info/top_level.txt

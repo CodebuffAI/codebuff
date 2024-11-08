@@ -1,11 +1,11 @@
-# Manicode Project Knowledge
+# Codebuff Project Knowledge
 
 ## Project Structure
 
-The Manicode project follows the modern Python packaging structure:
+The codebuff project follows the modern Python packaging structure:
 
 - `pyproject.toml`: Contains project metadata and build system requirements.
-- `src/manicode/`: Source code directory.
+- `src/codebuff/`: Source code directory.
 - `tests/`: Directory for test files (currently empty).
 - `dist/`: Contains distribution files after building the package.
 - `LICENSE`: MIT License file.
@@ -18,7 +18,7 @@ The Manicode project follows the modern Python packaging structure:
 
 ## Package Information
 
-- Name: manicode
+- Name: codebuff
 - Description: An AI-powered coding assistant (coming soon)
 - Requires Python 3.6 or later
 
