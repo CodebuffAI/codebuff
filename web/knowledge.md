@@ -43,6 +43,7 @@ The authentication system in Codebuff's web application plays a crucial role in 
 ## UI Patterns
 
 ### Logo Usage
+
 - Include the Codebuff logo alongside the company name in key UI components
 - Logo placement:
   - Navbar: Primary placement
@@ -54,10 +55,13 @@ The authentication system in Codebuff's web application plays a crucial role in 
   - `/public/favicon/favicon-16x16.ico`: Small variant
 
 ### Code Snippets
+
 When displaying inline code snippets with copy buttons:
+
 - Use `inline-block` on the container, not `inline-flex` or `flex`
 - Keep the flex layout for internal alignment between code and copy button
 - Example structure:
+
 ```jsx
 <div className="inline-block">
   <div className="px-4 bg-gray-800 rounded-lg p-4 flex items-center gap-2">
@@ -66,7 +70,6 @@ When displaying inline code snippets with copy buttons:
   </div>
 </div>
 ```
-
 
 ### Toast Notifications
 
@@ -81,14 +84,31 @@ When displaying inline code snippets with copy buttons:
 - Implementation: Add `user-select: all` to clickable code elements
 - Use this pattern for npm install commands, terminal commands, and other copyable snippets
 
+### Video Player Behavior
+
+- Prefer focused video watching over multitasking
+- When embedding videos, implement UI that encourages users to finish or explicitly exit video before continuing page navigation
+- This promotes better engagement with video content
+- Consider modal/overlay implementations for video players rather than inline embedding
 
 ## Component Architecture
+
+### UI Component Library
+
+- Use shadcn UI components instead of native HTML elements
+- Maintain consistency with existing component patterns
+- Example: Prefer shadcn Dialog over HTML dialog element
+- Find components in `web/src/components/ui/`
+- Install new shadcn components with: `bunx --bun shadcn@latest add [component-name]`
+- Use Lucide icons instead of raw SVGs for consistency
+- Import icons from 'lucide-react' package
 
 ### Client Components and Providers
 
 - Important considerations for client-side interactivity:
 
 1. Client Component Placement:
+
    - Place client components that need interactivity INSIDE provider components
    - Put client components after ThemeProvider, SessionProvider, and QueryProvider
    - Exception: Components that don't need provider context can go before providers
@@ -99,20 +119,21 @@ When displaying inline code snippets with copy buttons:
    - Always check component placement in layout hierarchy when debugging client-side issues
 
 Example of correct ordering:
+
 ```jsx
 <ThemeProvider>
   <SessionProvider>
-    <QueryProvider>
-      {/* Interactive components go here */}
-    </QueryProvider>
+    <QueryProvider>{/* Interactive components go here */}</QueryProvider>
   </SessionProvider>
 </ThemeProvider>
 ```
+
 ### Component Layering
 
 Important considerations for interactive components:
 
 1. Z-index Requirements:
+
    - Interactive components must have proper z-index positioning AND be inside providers
    - Components with dropdowns or overlays should use z-20 or higher
    - The navbar uses z-10 by default
@@ -125,7 +146,8 @@ Important considerations for interactive components:
    - Always check both provider context and z-index when debugging click events
 
 Example of correct layering:
-```jsx
+
+````jsx
 <div className="relative z-20">...</div> // Interactive component
 ## Referral System
 
@@ -256,8 +278,10 @@ This structure helps in maintaining a clear separation of concerns while allowin
 ```typescript
 type ResponseData = { message: string }
 NextResponse<ResponseData>
-```
+````
+
 - For error responses, include error field in the type:
+
 ```typescript
 type ApiResponse = SuccessResponse | { error: string }
 NextResponse<ApiResponse>
