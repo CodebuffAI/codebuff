@@ -5,6 +5,7 @@ import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
+import { getNextQuotaReset } from 'common/util/dates'
 
 type UsageData = {
   creditsUsed: number
@@ -93,7 +94,8 @@ const UsagePage = async () => {
   let endDate = q.endDate
   if (endDate < new Date()) {
     // endDate is in the past, so we should reset the quota
-    endDate = await quotaManager.setNextQuota(false)
+    const nextQuotaReset = getNextQuotaReset(endDate)
+    await quotaManager.setNextQuota(false, nextQuotaReset)
   }
 
   const usageData: UsageData = {

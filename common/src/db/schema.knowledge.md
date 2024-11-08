@@ -28,6 +28,8 @@ Note: Setup has been primarily tested on Mac. Windows users may encounter platfo
 - Example: For timestamp calculations based on other columns, prefer GENERATED ALWAYS AS over DEFAULT
 - The endDate field in quota queries is derived from next_quota_reset using COALESCE
 - Important: When querying quota info, endDate already contains the next_quota_reset value - avoid redundant selection
+- The endDate field in quota queries is derived from next_quota_reset using COALESCE
+- Important: When querying quota info, endDate already contains the next_quota_reset value - avoid redundant selection
 
 ## Referral System Implementation
 

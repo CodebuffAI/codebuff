@@ -11,6 +11,7 @@ import { sql, eq } from 'drizzle-orm'
 import { genUsageResponse, sendAction } from './websocket-action'
 import { logger } from '@/util/logger'
 import { env } from '@/env.mjs'
+import { getNextQuotaReset } from 'common/util/dates'
 
 export class WebSocketMiddleware {
   private middlewares: Array<
@@ -105,7 +106,8 @@ protec.use(async (action, _clientSessionId, ws) => {
         const quotaManager = new AuthenticatedQuotaManager()
         if (quota.nextQuotaReset < new Date()) {
           // End date is in the past, so we should reset the quota
-          await quotaManager.setNextQuota(quota.userId, false)
+          const nextQuotaReset = getNextQuotaReset(quota.nextQuotaReset)
+          await quotaManager.setNextQuota(quota.userId, false, nextQuotaReset)
           return
         }
 
@@ -149,7 +151,12 @@ protec.use(async (action, _clientSessionId, ws) => {
         const quotaManager = new AnonymousQuotaManager()
         if (quota.nextQuotaReset < new Date()) {
           // End date is in the past, so we should reset the quota
-          await quotaManager.setNextQuota(quota.fingerprintId, false)
+          const nextQuotaReset = getNextQuotaReset(quota.nextQuotaReset)
+          await quotaManager.setNextQuota(
+            quota.fingerprintId,
+            false,
+            nextQuotaReset
+          )
           return
         }
 

@@ -16,6 +16,7 @@ import * as schema from 'common/db/schema'
 import { claudeModels, TOOL_RESULT_MARKER } from 'common/constants'
 import { protec } from './middleware'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
+import { getNextQuotaReset } from 'common/src/util/dates'
 import { logger, withLoggerContext } from '@/util/logger'
 import { generateCommitMessage } from '@/generate-commit-message'
 import { hasMaxedReferrals } from 'common/util/server/referral'
@@ -57,7 +58,8 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
 
   // Case 1: end date is in the past, so just reset the quota
   if (endDate < new Date()) {
-    await quotaManager.setNextQuota(false)
+    const nextQuotaReset = getNextQuotaReset(endDate)
+    await quotaManager.setNextQuota(false, nextQuotaReset)
 
     // pull their newly updated info
     const newQuota = await quotaManager.checkQuota()
@@ -71,7 +73,8 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
   // Case 2: end date hasn't been reached yet
   // if a non-subscribed user has exceeded their quota, set their quota exceeded flag
   if (creditsUsed >= quota && !subscription_active) {
-    await quotaManager.setNextQuota(true)
+    const nextQuotaReset = getNextQuotaReset(endDate)
+    await quotaManager.setNextQuota(true, nextQuotaReset)
   }
 
   return { usage: creditsUsed, limit: quota, subscription_active }
