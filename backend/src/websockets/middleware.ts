@@ -106,7 +106,7 @@ protec.use(async (action, _clientSessionId, ws) => {
         if (quota.quotaExceeded) {
           if (quota.nextQuotaReset < new Date()) {
             // End date is in the past, so we should reset the quota
-            await quotaManager.resetQuota(quota.userId)
+            await quotaManager.setNextQuota(quota.userId, false)
           } else {
             logger.error(`Quota exceeded for user ${quota.userId}`)
             return genUsageResponse(fingerprintId, quota.userId)
@@ -149,7 +149,7 @@ protec.use(async (action, _clientSessionId, ws) => {
         if (quota.quotaExceeded) {
           if (quota.nextQuotaReset < new Date()) {
             // End date is in the past, so we should reset the quota
-            quotaManager.resetQuota(quota.fingerprintId)
+            await quotaManager.setNextQuota(quota.fingerprintId, false)
           } else {
             logger.error(`Quota exceeded for fingerprint ${fingerprintId}`)
             return genUsageResponse(fingerprintId)

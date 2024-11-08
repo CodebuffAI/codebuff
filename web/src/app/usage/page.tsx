@@ -22,13 +22,17 @@ const UsagePage = async () => {
   }
 
   const quotaManager = getQuotaManager('authenticated', session.user.id)
+  const q = await quotaManager.checkQuota()
+  if (q.endDate < new Date()) {
+    q.endDate = await quotaManager.setNextQuota(true)
+  }
+
   const {
     creditsUsed,
     quota: totalQuota,
     endDate,
     subscription_active: subscriptionActive,
-  } = await quotaManager.checkQuota()
-
+  } = q
   const remainingCredits = Math.max(0, totalQuota - creditsUsed)
 
   return (

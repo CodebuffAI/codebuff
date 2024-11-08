@@ -17,15 +17,16 @@ export interface IQuotaManager {
     endDate: Date
     subscription_active: boolean
   }>
-  resetQuota(id: string): Promise<void>
+  // resetQuota(id: string): Promise<void>
+  setNextQuota(id: string, quota_exceeded: boolean): Promise<Date>
 }
 
 export class AnonymousQuotaManager implements IQuotaManager {
   async updateQuota(fingerprintId: string) {
-    const { creditsUsed, quota, endDate } = await this.checkQuota(fingerprintId)
+    const { creditsUsed, quota } = await this.checkQuota(fingerprintId)
 
     if (creditsUsed >= quota) {
-      await this.setQuotaExceeded(fingerprintId)
+      await this.setNextQuota(fingerprintId, true)
     }
     return {
       creditsUsed,
@@ -76,18 +77,21 @@ export class AnonymousQuotaManager implements IQuotaManager {
     }
   }
 
-  async resetQuota(fingerprintId: string): Promise<void> {
-    await db
-      .update(schema.fingerprint)
-      .set({
-        quota_exceeded: false,
-        next_quota_reset: sql`now() + INTERVAL '1 month'`,
-      })
-      .where(eq(schema.fingerprint.id, fingerprintId))
-  }
+  // async resetQuota(fingerprintId: string): Promise<void> {
+  //   await db
+  //     .update(schema.fingerprint)
+  //     .set({
+  //       quota_exceeded: false,
+  //       next_quota_reset: sql`now() + INTERVAL '1 month'`,
+  //     })
+  //     .where(eq(schema.fingerprint.id, fingerprintId))
+  // }
 
-  private async setQuotaExceeded(fingerprintId: string): Promise<void> {
-    const nextQuotaReset = await db
+  async setNextQuota(
+    fingerprintId: string,
+    quota_exceeded: boolean
+  ): Promise<Date> {
+    const quotaReset = await db
       .select({
         next_quota_reset: schema.fingerprint.next_quota_reset,
       })
@@ -100,13 +104,17 @@ export class AnonymousQuotaManager implements IQuotaManager {
         return null
       })
 
+    const nextQuotaReset = getNextQuotaReset(quotaReset)
+
     await db
       .update(schema.fingerprint)
       .set({
-        quota_exceeded: true,
-        next_quota_reset: getNextQuotaReset(nextQuotaReset),
+        quota_exceeded,
+        next_quota_reset: nextQuotaReset,
       })
       .where(eq(schema.fingerprint.id, fingerprintId))
+
+    return nextQuotaReset
   }
 }
 
@@ -116,7 +124,7 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
       await this.checkQuota(userId)
 
     if (creditsUsed >= quota && !subscription_active) {
-      await this.setQuotaExceeded(userId)
+      await this.setNextQuota(userId, true)
     }
     return {
       creditsUsed,
@@ -179,18 +187,18 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
     }
   }
 
-  async resetQuota(userId: string): Promise<void> {
-    await db
-      .update(schema.user)
-      .set({ 
-        quota_exceeded: false, 
-        next_quota_reset: sql`now() + INTERVAL '1 month'`
-      })
-      .where(eq(schema.user.id, userId))
-  }
+  // async resetQuota(userId: string): Promise<void> {
+  //   await db
+  //     .update(schema.user)
+  //     .set({
+  //       quota_exceeded: false,
+  //       next_quota_reset: sql`now() + INTERVAL '1 month'`,
+  //     })
+  //     .where(eq(schema.user.id, userId))
+  // }
 
-  private async setQuotaExceeded(userId: string): Promise<void> {
-    const nextQuotaReset = await db
+  async setNextQuota(userId: string, quota_exceeded: boolean): Promise<Date> {
+    const quotaReset = await db
       .select({
         next_quota_reset: schema.user.next_quota_reset,
       })
@@ -203,13 +211,16 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
         return null
       })
 
+    const nextQuotaReset = getNextQuotaReset(quotaReset)
     await db
       .update(schema.user)
       .set({
-        quota_exceeded: true,
-        next_quota_reset: getNextQuotaReset(nextQuotaReset),
+        quota_exceeded,
+        next_quota_reset: nextQuotaReset,
       })
       .where(eq(schema.user.id, userId))
+
+    return nextQuotaReset
   }
 }
 
@@ -224,6 +235,8 @@ export const getQuotaManager = (authType: AuthType, id: string) => {
   return {
     updateQuota: () => manager.updateQuota(id),
     checkQuota: () => manager.checkQuota(id),
-    resetQuota: () => manager.resetQuota(id),
+    setNextQuota: (quota_exceeded: boolean) =>
+      manager.setNextQuota(id, quota_exceeded),
+    // resetQuota: () => manager.resetQuota(id),
   }
 }
