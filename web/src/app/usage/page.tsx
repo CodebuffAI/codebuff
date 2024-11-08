@@ -1,3 +1,5 @@
+'use server'
+
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,7 +26,7 @@ const UsagePage = async () => {
   const quotaManager = getQuotaManager('authenticated', session.user.id)
   const q = await quotaManager.checkQuota()
   if (q.endDate < new Date()) {
-    q.endDate = await quotaManager.setNextQuota(true)
+    q.endDate = await quotaManager.setNextQuota(false)
   }
 
   const {
