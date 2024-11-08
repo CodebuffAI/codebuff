@@ -103,14 +103,15 @@ protec.use(async (action, _clientSessionId, ws) => {
         }
 
         const quotaManager = new AuthenticatedQuotaManager()
+        if (quota.nextQuotaReset < new Date()) {
+          // End date is in the past, so we should reset the quota
+          await quotaManager.setNextQuota(quota.userId, false)
+          return
+        }
+
         if (quota.quotaExceeded) {
-          if (quota.nextQuotaReset < new Date()) {
-            // End date is in the past, so we should reset the quota
-            await quotaManager.setNextQuota(quota.userId, false)
-          } else {
-            logger.error(`Quota exceeded for user ${quota.userId}`)
-            return genUsageResponse(fingerprintId, quota.userId)
-          }
+          logger.error(`Quota exceeded for user ${quota.userId}`)
+          return genUsageResponse(fingerprintId, quota.userId)
         }
         return
       }
@@ -146,15 +147,17 @@ protec.use(async (action, _clientSessionId, ws) => {
         }
 
         const quotaManager = new AnonymousQuotaManager()
-        if (quota.quotaExceeded) {
-          if (quota.nextQuotaReset < new Date()) {
-            // End date is in the past, so we should reset the quota
-            await quotaManager.setNextQuota(quota.fingerprintId, false)
-          } else {
-            logger.error(`Quota exceeded for fingerprint ${fingerprintId}`)
-            return genUsageResponse(fingerprintId)
-          }
+        if (quota.nextQuotaReset < new Date()) {
+          // End date is in the past, so we should reset the quota
+          await quotaManager.setNextQuota(quota.fingerprintId, false)
+          return
         }
+
+        if (quota.quotaExceeded) {
+          logger.error(`Quota exceeded for fingerprint ${fingerprintId}`)
+          return genUsageResponse(fingerprintId)
+        }
+
         return
       }
     )
