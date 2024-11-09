@@ -84,6 +84,15 @@ When displaying inline code snippets with copy buttons:
 - Implementation: Add `user-select: all` to clickable code elements
 - Use this pattern for npm install commands, terminal commands, and other copyable snippets
 
+### Dropdown Patterns
+
+For FAQ-style expandable content:
+- Content should expand in place, pushing down other elements
+- Include right-aligned chevron icon to indicate expandability
+- Match text color to theme (gray-700 light, gray-300 dark)
+- Maintain consistent padding and text alignment
+- Use whitespace-normal on content to handle long answers
+
 ### Video Player Behavior
 
 - Prefer focused video watching over multitasking
@@ -102,6 +111,10 @@ When displaying inline code snippets with copy buttons:
 - Install new shadcn components with: `bunx --bun shadcn@latest add [component-name]`
 - Use Lucide icons instead of raw SVGs for consistency
 - Import icons from 'lucide-react' package
+- When adding new UI components:
+  - Always include necessary imports at the top of the file
+  - Import UI components from '@/components/ui/[component-name]'
+  - Import types and interfaces if the component requires props
 
 ### Client Components and Providers
 
