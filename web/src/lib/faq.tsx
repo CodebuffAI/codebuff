@@ -24,11 +24,11 @@ export const faqs: faq[] = [
   },
   {
     question: "Help! Codebuff made a bad change, and how I undo it?",
-    answer: "Use 'undo' after Codebuff has made a change to remove the edits."
+    answer: "Type 'undo' after Codebuff has made a change to remove the edits."
   },
   {
     question: "Can I see the changes that Codebuff has made as a diff?",
-    answer: "Yes! Use 'diff' after Codebuff has made a change to see the edits! For all the cool features that Codebuff has, type 'help' in the terminal when Codebuff is running."
+    answer: "Yes! Type 'diff' after Codebuff has made a change to see the edits! For all the cool features that Codebuff has, type 'help' in the terminal when Codebuff is running."
   },
   {
     question: "How does Codebuff actually work?",
