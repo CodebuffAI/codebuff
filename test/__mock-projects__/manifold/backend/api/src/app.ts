@@ -283,6 +283,7 @@ const apiRoute = (endpoint: RequestHandler) => {
 }
 
 export const app = express()
+console.log('🚀 Manifold API server starting up...')
 app.use(requestMonitoring)
 
 app.options('*', allowCorsUnrestricted)
