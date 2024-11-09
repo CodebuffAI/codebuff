@@ -88,7 +88,6 @@ describe('processFileBlock', () => {
 
   it('applyRemainingChanges handles non-matching diff blocks', async () => {
     const oldContent = readMockFile('remaining-changes/old.ts')
-    const newContent = readMockFile('remaining-changes/search-replace.ts')
     const expectedContent = readMockFile('remaining-changes/expected.ts')
 
     const mockWs = {
@@ -97,16 +96,30 @@ describe('processFileBlock', () => {
 
     const mockRequestFile = mock().mockResolvedValue(oldContent)
 
-    // Parse search/replace blocks from newContent
-    const match = newContent.match(
-      /<search>([\s\S]*?)<\/search>\s*<replace>([\s\S]*?)<\/replace>/
-    )
-    const [, searchContent, replaceContent] = match || []
+    // Create git-style diff block
+    const searchContent = `export function processData(items: string[]) {
+  const results = []
+  for (const item of items) {
+    // Process each item
+    const processed = item.toUpperCase()
+    results.push(processed)
+  }
+  return results
+}`
+    const replaceContent = `export function processData(items: string[]) {
+  const results = []
+  for (const item of items) {
+    // Add validation check
+    if (!item) continue
+
+    // Process each item
+    const processed = item.toUpperCase()
+    results.push(processed)
+  }
+  return results
+}`
     const incorrectSearchContent = searchContent + ' hi'
-    const incorrectNewContent = newContent.replace(
-      searchContent,
-      incorrectSearchContent
-    )
+    const incorrectNewContent = `<<<<<<< SEARCH\n${incorrectSearchContent}\n=======\n${replaceContent}\n>>>>>>> REPLACE`
 
     const mockRetryDiffBlocksPrompt = mock().mockResolvedValue({
       newDiffBlocks: [],

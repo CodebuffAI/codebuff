@@ -79,7 +79,7 @@ export async function generateKnowledgeFiles(
     Otherwise, check the existing knowledge files to see if there isn't something written about it yet. If there is, don't output anything because we don't want to repeat ourselves.
     Finally, for any meaningful change that hasn't been captured in the knowledge file, you should update a knowledge file with <edit_file> blocks. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
 
-    When you are updating an existing knowledge file, please either reproduce the entire file or use <search> and <replace> blocks to indicate the specific lines you are changing from the existing file.
+    When you are updating an existing knowledge file, please either reproduce the entire file or use SEARCH/REPLACE edits to indicate the specific lines you are changing from the existing file.
     Do not update any files other than knowledge files (files that end in '.knowledge.md').
     `
 

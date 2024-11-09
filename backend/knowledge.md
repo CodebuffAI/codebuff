@@ -99,6 +99,18 @@ The backend handles file operations for the Codebuff project:
 
 - **Reading Files**: The `read_files` tool allows the AI to access project file contents.
 - **Applying Changes**: The `applyChanges` function in `prompts.ts` processes and applies file modifications suggested by the AI.
+- **Diff Format**: Uses git-style diff markers for code changes:
+  ```
+  <<<<<<< SEARCH
+  old code
+  =======
+  new code
+  >>>>>>> REPLACE
+  ```
+  This format aligns with git's diff style for familiarity and consistency. Always use the `createSearchReplaceBlock` helper function to generate these blocks rather than writing the markers directly:
+  ```ts
+  createSearchReplaceBlock(oldCode, newCode)
+  ```
 
 ## Web Scraping
 

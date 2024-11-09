@@ -1,5 +1,6 @@
 import { expect, describe, it } from 'bun:test'
 import { parseAndGetDiffBlocksSingleFile } from 'backend/generate-diffs-prompt'
+import { createSearchReplaceBlock } from 'common/util/file'
 
 describe('parseAndGetDiffBlocksSingleFile', () => {
   it('should handle multiline imports', () => {
@@ -14,8 +15,10 @@ function App() {
   return <div>Hello</div>
 }`
 
-    const searchReplaceContent = `<search>import { Button, Card, Input, Label } from './components'</search>
-<replace>import { Button, Card, Input, Label, Select } from './components'</replace>`
+    const searchReplaceContent = createSearchReplaceBlock(
+      'import { Button, Card, Input, Label } from \'./components\'',
+      'import { Button, Card, Input, Label, Select } from \'./components\''
+    )
 
     const { diffBlocks, diffBlocksThatDidntMatch } =
       parseAndGetDiffBlocksSingleFile(searchReplaceContent, oldContent)
@@ -44,18 +47,17 @@ function App() {
             log_item(item)
     return True`
 
-    const searchReplaceContent = `<search>
-for item in items:
+    const searchReplaceContent = createSearchReplaceBlock(
+      `for item in items:
     if item.valid:
         process_item(item)
-        log_item(item)</search>
-<replace>
-for item in items:
+        log_item(item)`,
+      `for item in items:
     if item.valid:
         process_item(item)
         log_item(item)
-        mark_processed(item)
-</replace>`
+        mark_processed(item)`
+    )
 
     const { diffBlocks, diffBlocksThatDidntMatch } =
       parseAndGetDiffBlocksSingleFile(searchReplaceContent, oldContent)
@@ -84,15 +86,13 @@ for item in items:
     return result;
 }`
 
-    const searchReplaceContent = `<search>
-    const result = data
+    const searchReplaceContent = createSearchReplaceBlock(
+      `    const result = data
         .map(item => {
             return item.value;
-        })
-</search>
-<replace>
-    const result = data.map(item=>{return item.value;})
-</replace>`
+        })`,
+      `    const result = data.map(item=>{return item.value;})`
+    )
     const { diffBlocks, diffBlocksThatDidntMatch } =
       parseAndGetDiffBlocksSingleFile(searchReplaceContent, oldContent)
 
@@ -112,8 +112,10 @@ for item in items:
     );
 }`
 
-    const searchReplaceContent = `<search>doSomething(arg1,arg2)</search>
-<replace>doSomething(arg2,arg1)</replace>`
+    const searchReplaceContent = createSearchReplaceBlock(
+      'doSomething(arg1,arg2)',
+      'doSomething(arg2,arg1)'
+    )
 
     const { diffBlocks, diffBlocksThatDidntMatch } =
       parseAndGetDiffBlocksSingleFile(searchReplaceContent, oldContent)

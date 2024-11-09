@@ -2,6 +2,7 @@ import {
   ProjectFileContext,
   createFileBlock,
   createMarkdownFileBlock,
+  createSearchReplaceBlock,
   printFileTree,
   printFileTreeWithTokens,
 } from 'common/util/file'
@@ -122,59 +123,51 @@ ${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
 
 If the file already exists, this will overwrite the file with the new contents.
 
-Instead of rewriting the entire file, there is a second format that is preferred: use pairs of <search> and <replace> blocks to indicate the specific lines you are changing from the existing file. You can use multiple pairs of <search> and <replace> blocks to make multiple changes to the file.
+Instead of rewriting the entire file, there is a second format that is preferred: use pairs of SEARCH/REPLACE blocks to indicate the specific lines you are changing from the existing file. You should use multiple SEARCH/REPLACE blocks within one <edit_file> block to make multiple changes to the file.
 
 Example: the following adds a deleteComment handler to the API
 ${createFileBlock(
   'backend/src/api.ts',
-  `<search>
-import { hideComment } from './hide-comment'
-</search>
-<replace>
-import { hideComment } from './hide-comment'
-import { deleteComment } from './delete-comment'
-</replace>
+  `${createSearchReplaceBlock(
+    `import { hideComment } from './hide-comment'`,
+    `import { hideComment } from './hide-comment'
+import { deleteComment } from './delete-comment'`
+  )}
 
-<search>
-const handlers: { [k in APIPath]: APIHandler<k> } = {
+${createSearchReplaceBlock(
+  `const handlers: { [k in APIPath]: APIHandler<k> } = {
+  'hide-comment': hideComment,`,
+  `const handlers: { [k in APIPath]: APIHandler<k> } = {
   'hide-comment': hideComment,
-</search>
-<replace>
-const handlers: { [k in APIPath]: APIHandler<k> } = {
-  'hide-comment': hideComment,
-  'delete-comment': deleteComment,
-</replace>`
+  'delete-comment': deleteComment,`
+)}`
 )}
 
 Example: the following adds a new prop and updates the rendering of a React component
 ${createFileBlock(
   'src/components/UserProfile.tsx',
-  `<search>
-interface UserProfileProps {
+  `${createSearchReplaceBlock(
+    `interface UserProfileProps {
   name: string;
   email: string;
-}
-</search>
-<replace>
-interface UserProfileProps {
+}`,
+    `interface UserProfileProps {
   name: string;
   email: string;
   isAdmin: boolean;
-}
-</replace>
+}`
+  )}
 
-<search>
-const UserProfile: React.FC<UserProfileProps> = ({ name, email }) => {
+${createSearchReplaceBlock(
+    `const UserProfile: React.FC<UserProfileProps> = ({ name, email }) => {
   return (
     <div>
       <h2>{name}</h2>
       <p>{email}</p>
     </div>
   );
-};
-</search>
-<replace>
-const UserProfile: React.FC<UserProfileProps> = ({ name, email, isAdmin }) => {
+};`,
+    `const UserProfile: React.FC<UserProfileProps> = ({ name, email, isAdmin }) => {
   return (
     <div>
       <h2>{name}</h2>
@@ -182,8 +175,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ name, email, isAdmin }) => {
       {isAdmin && <p>Admin User</p>}
     </div>
   );
-};
-</replace>`
+};`
+)}`
 )}
 
 It's good to:

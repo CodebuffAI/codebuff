@@ -101,6 +101,10 @@ export const createMarkdownFileBlock = (filePath: string, content: string) => {
   return `\`\`\`${filePath}\n${content}\n\`\`\``
 }
 
+export const createSearchReplaceBlock = (search: string, replace: string) => {
+  return `<<<<<<< SEARCH\n${search}\n=======\n${replace}\n>>>>>>> REPLACE`
+}
+
 export function printFileTree(
   nodes: FileTreeNode[],
   depth: number = 0
