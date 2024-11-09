@@ -359,9 +359,9 @@ ${STOP_MARKER}
     const knowledgeFileBlocks = knowledgeChanges.map((change) =>
       createFileBlock(change.filePath, change.content)
     )
-    fullResponse += `\n\n<extra_knowledge_updates>\n${knowledgeFileBlocks.join(
+    fullResponse += `\n\nI'll also update the following knowledge:\n${knowledgeFileBlocks.join(
       '\n\n'
-    )}\n</extra_knowledge_updates>`
+    )}`
   }
 
   return {
