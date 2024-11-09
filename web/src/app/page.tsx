@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Card, CardContent } from '@/components/ui/card'
 import Marquee from '@/components/ui/marquee'
 import { testimonials } from '@/lib/testimonials'
-import { faqs } from '@/lib/FAQ'
+import { faqs } from '@/lib/faq'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
 
