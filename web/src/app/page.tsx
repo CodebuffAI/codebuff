@@ -228,15 +228,7 @@ const Home = () => {
                   <ChevronDown className="h-4 w-4" />
                 </summary>
                 <div className="text-gray-700 dark:text-gray-300 px-4 pb-4 items-center">
-                  {item.answer.map((segment, i) => (
-                    segment.link ? (
-                      <a key={i} href={segment.link.url} className="no-underline hover:underline">
-                        {segment.text}
-                      </a>
-                    ) : (
-                      <span key={i}>{segment.text}</span>
-                    )
-                  ))}
+                  {item.answer}
                 </div>
               </details>
             ))}

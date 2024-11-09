@@ -105,6 +105,46 @@ For FAQ-style expandable content:
 ### Content Management
 
 - Keep page content (text, links, etc.) in separate TypeScript files under src/lib/
+- When handling interactive content in FAQ answers:
+  - Use ReactNode type for answers that need interactive elements
+  - Preserve hover states and styling on links (use className="underline hover:text-blue-500")
+  - Format JSX fragments consistently:
+    ```tsx
+    answer: (
+      <>
+        Text content
+        <a href="url" className="underline hover:text-blue-500">
+          Link text
+        </a>
+      </>
+    )
+    ```
+  - Add spacing between text and links with {' '}
+  - Use parentheses for multiline JSX
+  - Indent nested JSX elements two spaces
+  - For simple text-only answers, use plain strings instead of JSX
+  - When mixing text and links, always wrap in fragments (<>) for consistency
+  - Avoid unnecessary JSX when a string will suffice
+- When handling interactive content in FAQ answers:
+  - Use ReactNode type for answers that need interactive elements
+  - Preserve hover states and styling on links (use className="underline hover:text-blue-500")
+  - Format JSX fragments consistently:
+    ```tsx
+    answer: (
+      <>
+        Text content
+        <a href="url" className="underline hover:text-blue-500">
+          Link text
+        </a>
+      </>
+    )
+    ```
+  - Add spacing between text and links with {' '}
+  - Use parentheses for multiline JSX
+  - Indent nested JSX elements two spaces
+  - For simple text-only answers, use plain strings instead of JSX
+  - When mixing text and links, always wrap in fragments (<>) for consistency
+  - Avoid unnecessary JSX when a string will suffice
 - Content files should follow consistent patterns:
   - Use lowercase for file names and type names (e.g., `faq.ts`, `type faq = {...}`)
   - Export a single array constant with plural name (e.g., `export const faqs: faq[]`)
