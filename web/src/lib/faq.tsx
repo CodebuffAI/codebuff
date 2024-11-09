@@ -50,7 +50,7 @@ export const faqs: faq[] = [
   },
   {
     question: "Why is Codebuff so expensive?",
-    answer: "We realize this is a lot more than competitors, but in exchange, we do more LLM calls with more examples native to your codebase that leads to more accurate identification of relevant files and better code edits.'"
+    answer: "We realize this is a lot more than competitors, but in exchange, we do more LLM calls with more examples native to your codebase that leads to more accurate identification of relevant files and better code edits."
   },
   {
     question: "I have more questions!",
