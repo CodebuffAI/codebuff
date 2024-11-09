@@ -542,7 +542,7 @@ async function getFileVersionUpdates(
     }
   }
 
-  const readFilesPaths = [...newFiles, ...previousFilePaths].filter(
+  const readFilesPaths = newFiles.filter(
     (f) => loadedFiles[f] !== null
   )
   const { readFilesMessage, toolCallMessage } =
