@@ -84,15 +84,6 @@ When displaying inline code snippets with copy buttons:
 - Implementation: Add `user-select: all` to clickable code elements
 - Use this pattern for npm install commands, terminal commands, and other copyable snippets
 
-### Details/Summary Elements
-
-- The HTML details element requires special handling for styling:
-  - Hide the default marker with `marker:[font-size:0px]`
-  - Use a custom chevron icon for the dropdown indicator
-  - Standard Tailwind font weight classes may not work as expected on summary elements
-  - Consider using CSS font-weight property directly or styling a child element instead
-  - Test font weight changes visually as dev tools may show classes being applied without visual effect
-
 ### Video Player Behavior
 
 - Prefer focused video watching over multitasking
