@@ -1,6 +1,6 @@
 'use client'
 import { Button } from '@/components/ui/button'
-import { FolderCodeIcon, TerminalIcon, Copy, ZapIcon, Play } from 'lucide-react'
+import { FolderCodeIcon, TerminalIcon, Copy, ZapIcon, Play, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { BackgroundBeams } from '@/components/ui/background-beams'
@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Card, CardContent } from '@/components/ui/card'
 import Marquee from '@/components/ui/marquee'
 import { testimonials } from '@/lib/testimonials'
+import { faqs } from '@/lib/faq'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
 
@@ -213,6 +214,25 @@ const Home = () => {
               </div>
             </Marquee>
           ))}
+        </section>
+
+        <section className="py-20 relative z-10">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+            FAQ
+          </h2>
+          <div className="max-w-3xl mx-auto space-y-4">
+            {faqs.map((item, index) => (
+              <details key={index}>
+                <summary className="flex cursor-pointer font-semibold w-full text-left p-4 text-gray-700 dark:text-gray-300 justify-between items-center marker:[font-size:0px]">
+                  {item.question}
+                  <ChevronDown className="h-4 w-4" />
+                </summary>
+                <div className="text-gray-700 dark:text-gray-300 px-4 pb-4 items-center">
+                  {item.answer}
+                </div>
+              </details>
+            ))}
+          </div>
         </section>
 
         <section className="py-20 relative z-10">
