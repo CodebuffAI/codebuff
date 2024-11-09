@@ -13,3 +13,4 @@ dist
 tsconfig.tsbuildinfo
 .manicode
 __mock-projects__
+.aider*
