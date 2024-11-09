@@ -84,15 +84,6 @@ When displaying inline code snippets with copy buttons:
 - Implementation: Add `user-select: all` to clickable code elements
 - Use this pattern for npm install commands, terminal commands, and other copyable snippets
 
-### Dropdown Patterns
-
-For FAQ-style expandable content:
-- Content should expand in place, pushing down other elements
-- Include right-aligned chevron icon to indicate expandability
-- Match text color to theme (gray-700 light, gray-300 dark)
-- Maintain consistent padding and text alignment
-- Use whitespace-normal on content to handle long answers
-
 ### Video Player Behavior
 
 - Prefer focused video watching over multitasking
@@ -101,87 +92,6 @@ For FAQ-style expandable content:
 - Consider modal/overlay implementations for video players rather than inline embedding
 
 ## Component Architecture
-
-### Content Management
-
-- Keep page content (text, links, etc.) in separate TypeScript files under src/lib/
-- When handling interactive content in FAQ answers:
-  - Use ReactNode type for answers that need interactive elements
-  - Preserve hover states and styling on links (use className="underline hover:text-blue-500")
-  - Format JSX fragments consistently:
-    ```tsx
-    answer: (
-      <>
-        Text content
-        <a href="url" className="underline hover:text-blue-500">
-          Link text
-        </a>
-      </>
-    )
-    ```
-  - Add spacing between text and links with {' '}
-  - Use parentheses for multiline JSX
-  - Indent nested JSX elements two spaces
-  - For simple text-only answers, use plain strings instead of JSX
-  - When mixing text and links, always wrap in fragments (<>) for consistency
-  - Avoid unnecessary JSX when a string will suffice
-- When handling interactive content in FAQ answers:
-  - Use ReactNode type for answers that need interactive elements
-  - Preserve hover states and styling on links (use className="underline hover:text-blue-500")
-  - Format JSX fragments consistently:
-    ```tsx
-    answer: (
-      <>
-        Text content
-        <a href="url" className="underline hover:text-blue-500">
-          Link text
-        </a>
-      </>
-    )
-    ```
-  - Add spacing between text and links with {' '}
-  - Use parentheses for multiline JSX
-  - Indent nested JSX elements two spaces
-  - For simple text-only answers, use plain strings instead of JSX
-  - When mixing text and links, always wrap in fragments (<>) for consistency
-  - Avoid unnecessary JSX when a string will suffice
-- Content files should follow consistent patterns:
-  - Use lowercase for file names and type names (e.g., `faq.ts`, `type faq = {...}`)
-  - Export a single array constant with plural name (e.g., `export const faqs: faq[]`)
-  - Use structured types for content, not HTML strings:
-    ```typescript
-    // Instead of HTML strings:
-    type Content = { text: string }
-    
-    // Use structured content:
-    type TextSegment = {
-      text: string
-      link?: { url: string }
-    }
-    type Content = { segments: TextSegment[] }
-    ```
-  - Components handle rendering structured content into HTML
-  - Follow existing patterns like testimonials.ts for similar content types
-- Components should:
-  - Import the array constant directly (not individual items)
-  - Handle rendering markdown/formatting to HTML
-  - Keep UI logic separate from content
-  - Preserve all existing content when refactoring structure
-  - Never delete content when changing data format/types
-- Example structure:
-  ```ts
-  // src/lib/content.ts
-  export type content = {
-    title: string
-    description: string
-  }
-  export const contents: content[] = [...]
-  ```
-  ```tsx
-  // src/app/page.tsx
-  import { contents } from '@/lib/content'
-  ```
-
 ### UI Component Library
 
 - Use shadcn UI components instead of native HTML elements
@@ -191,10 +101,6 @@ For FAQ-style expandable content:
 - Install new shadcn components with: `bunx --bun shadcn@latest add [component-name]`
 - Use Lucide icons instead of raw SVGs for consistency
 - Import icons from 'lucide-react' package
-- When adding new UI components:
-  - Always include necessary imports at the top of the file
-  - Import UI components from '@/components/ui/[component-name]'
-  - Import types and interfaces if the component requires props
 
 ### Client Components and Providers
 

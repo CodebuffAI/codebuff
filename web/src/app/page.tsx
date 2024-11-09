@@ -218,12 +218,12 @@ const Home = () => {
 
         <section className="py-20 relative z-10">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
-            Frequently Asked Questions
+            FAQ
           </h2>
           <div className="max-w-3xl mx-auto space-y-4">
             {faqs.map((item, index) => (
               <details key={index}>
-                <summary className="flex cursor-pointer w-full text-left p-4 text-gray-700 dark:text-gray-300 justify-between items-center marker:[font-size:0px]">
+                <summary className="flex cursor-pointer font-semibold w-full text-left p-4 text-gray-700 dark:text-gray-300 justify-between items-center marker:[font-size:0px]">
                   {item.question}
                   <ChevronDown className="h-4 w-4" />
                 </summary>
