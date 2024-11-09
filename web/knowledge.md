@@ -102,6 +102,46 @@ For FAQ-style expandable content:
 
 ## Component Architecture
 
+### Content Management
+
+- Keep page content (text, links, etc.) in separate TypeScript files under src/lib/
+- Content files should follow consistent patterns:
+  - Use lowercase for file names and type names (e.g., `faq.ts`, `type faq = {...}`)
+  - Export a single array constant with plural name (e.g., `export const faqs: faq[]`)
+  - Use structured types for content, not HTML strings:
+    ```typescript
+    // Instead of HTML strings:
+    type Content = { text: string }
+    
+    // Use structured content:
+    type TextSegment = {
+      text: string
+      link?: { url: string }
+    }
+    type Content = { segments: TextSegment[] }
+    ```
+  - Components handle rendering structured content into HTML
+  - Follow existing patterns like testimonials.ts for similar content types
+- Components should:
+  - Import the array constant directly (not individual items)
+  - Handle rendering markdown/formatting to HTML
+  - Keep UI logic separate from content
+  - Preserve all existing content when refactoring structure
+  - Never delete content when changing data format/types
+- Example structure:
+  ```ts
+  // src/lib/content.ts
+  export type content = {
+    title: string
+    description: string
+  }
+  export const contents: content[] = [...]
+  ```
+  ```tsx
+  // src/app/page.tsx
+  import { contents } from '@/lib/content'
+  ```
+
 ### UI Component Library
 
 - Use shadcn UI components instead of native HTML elements
