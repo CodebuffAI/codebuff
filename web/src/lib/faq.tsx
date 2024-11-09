@@ -23,12 +23,12 @@ export const faqs: faq[] = [
     answer: "Yes! Use '.codebuffignore' to tell Codebuff to ignore these files or folders. Codebuff also does not read 'gitignore'd files."
   },
   {
-    question: "Help! Codebuff made a bad change, and how I undo it?",
-    answer: "Type 'undo' after Codebuff has made a change to remove the edits."
+    question: "Help! Codebuff made a bad change, how I undo it?",
+    answer: "Type 'undo' to remove the edits! For other cool features, type 'help' in the terminal when Codebuff is running."
   },
   {
     question: "Can I see the changes that Codebuff has made as a diff?",
-    answer: "Yes! Type 'diff' after Codebuff has made a change to see the edits! For all the cool features that Codebuff has, type 'help' in the terminal when Codebuff is running."
+    answer: "Yes! Type 'diff' after Codebuff has made a change to see the edits! For other cool features, type 'help' in the terminal when Codebuff is running."
   },
   {
     question: "How does Codebuff actually work?",
@@ -43,7 +43,7 @@ export const faqs: faq[] = [
     answer: (
       <>
         We currently have an alpha SDK that exposes the same natural language interface for your apps to call and receive code edits.{' '}
-        <a href="https://codebuff.retool.com/form/c8b15919-52d0-4572-aca5-533317403dde" className="underline hover:text-blue-500">
+        <a href="https://codebuff.retool.com/form/c8b15919-52d0-4572-aca5-533317403dde" className="no-underline hover:underline">
           Sign up here for early access!
         </a>
       </>
@@ -58,11 +58,11 @@ export const faqs: faq[] = [
     answer: (
       <>
         Contact us at{' '}
-        <a href="mailto:support@codebuff.com" className="underline hover:text-blue-500">
+        <a href="mailto:support@codebuff.com" className="no-underline hover:underline">
           support@codebuff.com
         </a>
         {' '}or{' '}
-        <a href="https://discord.gg/mcWTGjgTj3" className="underline hover:text-blue-500">
+        <a href="https://discord.gg/mcWTGjgTj3" className="no-underline hover:underline">
           join our Discord
         </a>
         !
