@@ -174,10 +174,5 @@ Return only the full, complete file content with no additional text or explanati
     `applyRemainingChanges for ${diffBlocksThatDidntMatch.length} blocks`
   )
 
-  // Extract content from within code blocks
-  const match = response.match(/```(?:\w*\n)?([\s\S]*?)```/)
-  if (match) {
-    return match[1]
-  }
   return response + '\n'
 }
