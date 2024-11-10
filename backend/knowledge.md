@@ -166,6 +166,13 @@ The backend implements a tool handling system that allows the AI assistant to pe
    - When changing function signatures, be especially careful to find all call sites
    - Consider using grep or your IDE's find-all-references feature to ensure complete coverage
 
+2. **Async Operations**:
+   - Prefer non-blocking operations for auxiliary checks that don't affect core flow
+   - Use OpenAI's mini models for quick classification tasks (e.g., detecting user intent)
+   - Extract reusable prompting logic into separate functions at file bottom
+   - Keep main logic flow clear by moving implementation details down
+   - Import model constants from common/constants.ts instead of hardcoding
+
 ## Build and Deployment
 
 1. **Build Process**: The backend uses TypeScript compilation to build the project.

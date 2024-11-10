@@ -3,6 +3,8 @@ import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import path from 'path'
 
 import { promptClaudeStream } from './claude'
+import { openaiModels } from 'common/constants'
+import { promptOpenAI } from './openai-api'
 import {
   createFileBlock,
   FileVersion,
@@ -39,6 +41,22 @@ export async function mainPrompt(
   onResponseChunk: (chunk: string) => void,
   userId?: string
 ) {
+  const lastUserMessageIndex = messages.findLastIndex(
+    (message) =>
+      message.role === 'user' &&
+      typeof message.content === 'string' &&
+      !message.content.includes(TOOL_RESULT_MARKER)
+  )
+  const allowUnboundedIterationPromise = checkToAllowUnboundedIteration(
+    messages[lastUserMessageIndex],
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    }
+  )
+
   let fullResponse = ''
   let genKnowledgeFilesPromise: Promise<Promise<FileChange | null>[]> =
     Promise.resolve([])
@@ -114,16 +132,11 @@ export async function mainPrompt(
     })
   }
 
-  const lastUserMessageIndex = messages.findLastIndex(
-    (message) =>
-      message.role === 'user' &&
-      typeof message.content === 'string' &&
-      !message.content.includes(TOOL_RESULT_MARKER)
-  )
   const numAssistantMessages = messages
     .slice(lastUserMessageIndex)
     .filter((message) => message.role === 'assistant').length
-  const shouldPause = numAssistantMessages >= 3
+  const shouldPause =
+    !(await allowUnboundedIterationPromise) && numAssistantMessages >= 3
   if (shouldPause) {
     const response = `\nI'll pause to get more instructions from the user.\n`
     onResponseChunk(response)
@@ -142,7 +155,7 @@ export async function mainPrompt(
     : []
   let isComplete = false
   let iterationCount = 0
-  const MAX_ITERATIONS = 10
+  const MAX_ITERATIONS = 5
 
   let newLastMessage: Message = lastMessage
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
@@ -552,4 +565,47 @@ async function getFileVersionUpdates(
     readFilesMessage,
     toolCallMessage,
   }
+}
+
+async function checkToAllowUnboundedIteration(
+  message: Message,
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+  }
+): Promise<boolean> {
+  if (message.role !== 'user' || typeof message.content !== 'string') {
+    return false
+  }
+
+  const checkInfinitePrompt = `Does this user message indicate they want the assistant to continue until all cases are done or a condition is met? Answer only "yes" or "no", and do not include any other text.
+Message: "${message.content}"
+
+Examples of language indicating "yes":
+- "do all of the cases"
+- "run until condition X is satisfied" 
+- "do the rest of the cases"
+- "keep going until finished"
+- "continue until complete"
+- "build the whole thing"
+- "complete the entire task"
+
+Examples of language indicating "no":
+- "Please continue"
+- "Build feature X for me"
+`
+  const response = await promptOpenAI(
+    [{ role: 'user', content: checkInfinitePrompt }],
+    {
+      model: openaiModels.gpt4omini,
+      ...options,
+    }
+  )
+  logger.debug(
+    { response, userMessage: message.content },
+    'checkToAllowUnboundedIteration'
+  )
+  return response.toLowerCase().includes('yes')
 }
