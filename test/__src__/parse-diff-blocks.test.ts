@@ -16,8 +16,8 @@ function App() {
 }`
 
     const searchReplaceContent = createSearchReplaceBlock(
-      'import { Button, Card, Input, Label } from \'./components\'',
-      'import { Button, Card, Input, Label, Select } from \'./components\''
+      "import { Button, Card, Input, Label } from './components'",
+      "import { Button, Card, Input, Label, Select } from './components'"
     )
 
     const { diffBlocks, diffBlocksThatDidntMatch } =
@@ -76,7 +76,7 @@ function App() {
             mark_processed(item)`)
   })
 
-  it('should handle whitespace differences in search content', () => {
+  it('should handle whitespace differences in search content', async () => {
     const oldContent = `function processData(data) {
     const result = data
         .map(item => {
@@ -102,6 +102,25 @@ function App() {
         .map(item => {
             return item.value;
         })`)
+  })
+
+  it('should handle empty or single newline replace blocks', () => {
+    const oldContent = `function test() {
+  // Some comment
+  doSomething();
+}`
+
+    // Test empty replace
+    let searchReplaceContent = createSearchReplaceBlock(
+      '  // Some comment\n',
+      ''
+    )
+    let { diffBlocks, diffBlocksThatDidntMatch } =
+      parseAndGetDiffBlocksSingleFile(searchReplaceContent, oldContent)
+
+    expect(diffBlocksThatDidntMatch.length).toBe(0)
+    expect(diffBlocks.length).toBe(1)
+    expect(diffBlocks[0].replaceContent).toBe('')
   })
 
   it('should preserve original whitespace when matching', () => {
