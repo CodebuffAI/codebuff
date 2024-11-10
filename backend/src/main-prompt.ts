@@ -376,7 +376,7 @@ ${STOP_MARKER}
 }
 
 function getRelevantFileInfoMessage(filePaths: string[]) {
-  const readFilesMessage = `Reading the following files...<files>${filePaths.join(', ')}</files>`
+  const readFilesMessage = `Reading additional files...<files>${filePaths.join(', ')}</files>`
   const toolCallMessage = `<tool_call name="find_files">Please find the files relevant to the user request</tool_call>`
   return { readFilesMessage, toolCallMessage }
 }
@@ -542,9 +542,7 @@ async function getFileVersionUpdates(
     }
   }
 
-  const readFilesPaths = newFiles.filter(
-    (f) => loadedFiles[f] !== null
-  )
+  const readFilesPaths = addedFiles.map((f) => f.path)
   const { readFilesMessage, toolCallMessage } =
     getRelevantFileInfoMessage(readFilesPaths)
 
