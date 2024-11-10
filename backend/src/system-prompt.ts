@@ -40,7 +40,6 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
         files.map((f) => f.path)
       ),
       systemPromptTokens: countTokensJson(systemPrompt),
-      systemPrompt,
     },
     'search system prompt tokens'
   )
@@ -157,7 +156,7 @@ ${createFileBlock(
 }`
   )}
 ${createSearchReplaceBlock(
-    `const UserProfile: React.FC<UserProfileProps> = ({ name, email }) => {
+  `const UserProfile: React.FC<UserProfileProps> = ({ name, email }) => {
   return (
     <div>
       <h2>{name}</h2>
@@ -165,7 +164,7 @@ ${createSearchReplaceBlock(
     </div>
   );
 };`,
-    `const UserProfile: React.FC<UserProfileProps> = ({ name, email, isAdmin }) => {
+  `const UserProfile: React.FC<UserProfileProps> = ({ name, email, isAdmin }) => {
   return (
     <div>
       <h2>{name}</h2>
