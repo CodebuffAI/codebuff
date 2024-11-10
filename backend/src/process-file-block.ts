@@ -109,7 +109,19 @@ export async function processFileBlock(
   const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
   if (hunkStartIndex !== -1) {
     patch = lines.slice(hunkStartIndex).join('\n')
-  } else patch = ''
+  } else {
+    logger.debug(
+      {
+        filePath,
+        oldContent,
+        changes: newContent,
+        patch,
+        diffBlocks,
+      },
+      `processFileBlock: No change to ${filePath}`
+    )
+    return null
+  }
   patch = patch.replaceAll('\n', lineEnding)
 
   logger.debug(

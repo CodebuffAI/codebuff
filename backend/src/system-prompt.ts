@@ -90,7 +90,6 @@ export const getAgentSystemPrompt = (
         files.map((f) => f.path)
       ),
       systemPromptTokens: countTokensJson(systemPrompt),
-      systemPrompt,
     },
     'agent system prompt tokens'
   )
@@ -123,7 +122,8 @@ ${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
 
 If the file already exists, this will overwrite the file with the new contents.
 
-Instead of rewriting the entire file, there is a second format that is preferred: use pairs of SEARCH/REPLACE blocks to indicate the specific lines you are changing from the existing file. You should use multiple SEARCH/REPLACE blocks within one <edit_file> block to make multiple changes to the file.
+Instead of rewriting the entire file, there is a second format that is preferred: use pairs of SEARCH/REPLACE blocks to indicate the specific lines you are changing from the existing file.
+Rather than creating multiple <edit_file> blocks for a single file, you must combine these into a single <edit_file> block that uses multiple SEARCH/REPLACE blocks. Restated: You should try hard to put all the SEARCH/REPLACE blocks for a single file into a single <edit_file> block.
 
 Example: the following adds a deleteComment handler to the API
 ${createFileBlock(
@@ -133,7 +133,6 @@ ${createFileBlock(
     `import { hideComment } from './hide-comment'
 import { deleteComment } from './delete-comment'`
   )}
-
 ${createSearchReplaceBlock(
   `const handlers: { [k in APIPath]: APIHandler<k> } = {
   'hide-comment': hideComment,`,
@@ -157,7 +156,6 @@ ${createFileBlock(
   isAdmin: boolean;
 }`
   )}
-
 ${createSearchReplaceBlock(
     `const UserProfile: React.FC<UserProfileProps> = ({ name, email }) => {
   return (
@@ -247,7 +245,7 @@ You have access to the following tools:
 
 Important notes:
 - Immediately after you write out a tool call, you should write ${STOP_MARKER}, and then do not write out any other text. You will automatically be prompted to continue with the result of the tool call.
-- Do not write out a tool call within an <edit_file> block. If you want to read a file before editing it, write the <tool_call> first.
+- Do not write out a tool call within an <edit_file> block. If you want to read a file before editing it, write the <tool_call> first. Similarly, do not write a tool call to run a terminal command within an <edit_file> block.
 
 ## Finding files
 
@@ -339,7 +337,7 @@ ${lastReadFilePaths.join('\n')}
 
 <user_shell_config_files>
 ${Object.entries(shellConfigFiles)
-  .map(([path, content]) => createFileBlock(path, content))
+  .map(([path, content]) => createMarkdownFileBlock(path, content))
   .join('\n')}
 </user_shell_config_files>
 `.trim()
