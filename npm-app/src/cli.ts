@@ -204,11 +204,6 @@ export class CLI {
   private handleExit() {
     console.log('\n\n')
     console.log(`${this.client.sessionCreditsUsed} credits used this session.`)
-    console.log(
-      this.client.limit,
-      this.client.usage,
-      typeof this.client.nextQuotaReset
-    )
     if (
       !!this.client.limit &&
       !!this.client.usage &&
@@ -225,7 +220,7 @@ export class CLI {
         `${this.client.limit - this.client.usage} / ${this.client.limit} credits remaining. Renews in ${daysUntilReset} days.`
       )
     }
-    console.log(green('Exiting. Codebuff out!'))
+    console.log(green('Codebuff out!'))
     process.exit(0)
   }
 

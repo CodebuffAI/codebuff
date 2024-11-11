@@ -115,25 +115,36 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
 ])
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
+export const ResponseCompleteSchema = z.object({
+  type: z.literal('response-complete'),
+  userInputId: z.string(),
+  response: z.string(),
+  changes: CHANGES,
+  addedFileVersions: z.array(FileVersionSchema),
+  resetFileVersions: z.boolean(),
+  usage: z.number().optional(),
+  limit: z.number().optional(),
+  subscription_active: z.boolean().optional(),
+  next_quota_reset: z.coerce.date().optional(),
+  referralLink: z.string().optional(),
+})
+
+export const UsageReponseSchema = z.object({
+  type: z.literal('usage-response'),
+  usage: z.number(),
+  limit: z.number(),
+  referralLink: z.string().optional(),
+  subscription_active: z.boolean(),
+  next_quota_reset: z.coerce.date(),
+})
+
 export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('response-chunk'),
     userInputId: z.string(),
     chunk: z.string(),
   }),
-  z.object({
-    type: z.literal('response-complete'),
-    userInputId: z.string(),
-    response: z.string(),
-    changes: CHANGES,
-    addedFileVersions: z.array(FileVersionSchema),
-    resetFileVersions: z.boolean(),
-    usage: z.number().optional(),
-    limit: z.number().optional(),
-    subscription_active: z.boolean().optional(),
-    next_quota_reset: z.coerce.date().optional(),
-    referralLink: z.string().optional(),
-  }),
+  ResponseCompleteSchema,
   z.object({
     type: z.literal('read-files'),
     filePaths: z.array(z.string()),
@@ -171,14 +182,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     fingerprintHash: z.string(),
     loginUrl: z.string().url(),
   }),
-  z.object({
-    type: z.literal('usage-response'),
-    usage: z.number(),
-    limit: z.number(),
-    referralLink: z.string().optional(),
-    subscription_active: z.boolean(),
-    next_quota_reset: z.coerce.date(),
-  }),
+  UsageReponseSchema,
   z.object({
     type: z.literal('action-error'),
     message: z.string(),

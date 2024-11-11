@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws'
 import { green } from 'picocolors'
 
-import { ServerAction, ClientAction } from '../actions'
+import { ServerAction, ClientAction, SERVER_ACTION_SCHEMA } from '../actions'
 import {
   ClientMessage,
   ClientMessageType,

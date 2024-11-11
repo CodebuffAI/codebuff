@@ -9,7 +9,14 @@ import { applyChanges } from 'common/util/changes'
 import { User } from 'common/util/credentials'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
 import { ChatStorage } from './chat-storage'
-import { FileChanges, Message, ServerAction } from 'common/actions'
+import {
+  FileChanges,
+  Message,
+  ResponseCompleteSchema,
+  SERVER_ACTION_SCHEMA,
+  ServerAction,
+  UsageReponseSchema,
+} from 'common/actions'
 import { toolHandlers } from './tool-handlers'
 import {
   CREDITS_REFERRAL_BONUS,
@@ -317,8 +324,11 @@ export class Client {
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
-      console.log(`Usage: ${action.usage} / ${action.limit} credits`)
-      this.setUsage(action)
+      const parsedAction = UsageReponseSchema.safeParse(action)
+      if (!parsedAction.success) return
+      const a = parsedAction.data
+      console.log(`Usage: ${a.usage} / ${a.limit} credits`)
+      this.setUsage(a)
       this.returnControlToUser()
     })
   }
@@ -486,40 +496,45 @@ export class Client {
       onChunk(chunk)
     })
 
-    unsubscribeComplete = this.webSocket.subscribe('response-complete', (a) => {
-      if (a.userInputId !== userInputId) return
-      unsubscribeChunks()
-      unsubscribeComplete()
-      if (a.resetFileVersions) {
-        this.fileVersions = [a.addedFileVersions]
-      } else {
-        this.fileVersions.push(a.addedFileVersions)
-      }
-      resolveResponse({ ...a, wasStoppedByUser: false })
-      this.currentUserInputId = undefined
+    unsubscribeComplete = this.webSocket.subscribe(
+      'response-complete',
+      (action) => {
+        const parsedAction = ResponseCompleteSchema.safeParse(action)
+        if (!parsedAction.success || action.userInputId !== userInputId) return
+        const a = parsedAction.data
+        unsubscribeChunks()
+        unsubscribeComplete()
+        if (a.resetFileVersions) {
+          this.fileVersions = [a.addedFileVersions]
+        } else {
+          this.fileVersions.push(a.addedFileVersions)
+        }
+        resolveResponse({ ...a, wasStoppedByUser: false })
+        this.currentUserInputId = undefined
 
-      if (
-        !a.usage ||
-        !a.next_quota_reset ||
-        a.subscription_active === undefined ||
-        !a.limit
-      ) {
-        return
-      }
+        if (
+          !a.usage ||
+          !a.next_quota_reset ||
+          a.subscription_active === undefined ||
+          !a.limit
+        ) {
+          return
+        }
 
-      this.setUsage({
-        usage: a.usage,
-        limit: a.limit,
-        subscription_active: a.subscription_active,
-        next_quota_reset: a.next_quota_reset,
-      })
-      this.sessionCreditsUsed += a.usage
+        this.setUsage({
+          usage: a.usage,
+          limit: a.limit,
+          subscription_active: a.subscription_active,
+          next_quota_reset: a.next_quota_reset,
+        })
+        this.sessionCreditsUsed += a.usage
 
-      // Indicates a change in the user's plan
-      if (this.limit !== a.limit) {
-        this.lastWarnedPct = 0
+        // Indicates a change in the user's plan
+        if (this.limit !== a.limit) {
+          this.lastWarnedPct = 0
+        }
       }
-    })
+    )
 
     return {
       responsePromise,
