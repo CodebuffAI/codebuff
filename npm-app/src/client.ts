@@ -489,6 +489,9 @@ export class Client {
 
       if (!a.usage || !a.limit || a.subscription_active === undefined) return
 
+      // Track total credits used in this session
+      this.sessionCreditsUsed += a.usage
+
       this.subscription_active = a.subscription_active
       this.usage = a.usage
       if (this.limit !== a.limit) {
