@@ -295,6 +295,13 @@ const commitMessage = await commitMessagePromise;
 
 This technique can be applied to various scenarios where asynchronous operations can be started early in the process flow.
 
+## Code Style
+
+### Variable Updates
+- Prefer direct variable updates over helper methods for simple operations
+- Example: For incrementing counters or updating simple state, use direct assignment rather than creating setter methods
+- This keeps the code simpler and reduces unnecessary abstraction
+
 ## End of Document
 
 ## Logging and Debugging

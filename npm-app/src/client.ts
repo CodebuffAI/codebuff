@@ -37,6 +37,7 @@ export class Client {
   public usage: number = 0
   public limit: number = 0
   public subscription_active: boolean = false
+  public sessionCreditsUsed: number = 0
 
   constructor(
     websocketUrl: string,
