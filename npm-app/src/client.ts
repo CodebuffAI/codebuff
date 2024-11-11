@@ -521,13 +521,15 @@ export class Client {
           return
         }
 
+        if (this.usage > 0) {
+          this.sessionCreditsUsed = this.usage - a.usage
+        }
         this.setUsage({
           usage: a.usage,
           limit: a.limit,
           subscription_active: a.subscription_active,
           next_quota_reset: a.next_quota_reset,
         })
-        this.sessionCreditsUsed += a.usage
 
         // Indicates a change in the user's plan
         if (this.limit !== a.limit) {
