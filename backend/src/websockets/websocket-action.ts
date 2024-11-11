@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws'
 import { eq, and, gt } from 'drizzle-orm'
-import { isEqual } from 'lodash'
+import _, { isEqual } from 'lodash'
 import { match, P } from 'ts-pattern'
 
 import { ClientMessage } from 'common/websockets/websocket-schema'
@@ -48,13 +48,17 @@ export const getUserIdFromAuthToken = async (
   return userId
 }
 
-async function calculateUsage(fingerprintId: string, userId?: string) {
+async function calculateUsage(
+  fingerprintId: string,
+  userId?: string,
+  sessionId?: string
+) {
   const quotaManager = getQuotaManager(
     userId ? 'authenticated' : 'anonymous',
     userId ?? fingerprintId
   )
   const { creditsUsed, quota, endDate, subscription_active } =
-    await quotaManager.checkQuota()
+    await quotaManager.checkQuota(sessionId)
 
   // Case 1: end date is in the past, so just reset the quota
   if (endDate < new Date()) {
@@ -62,7 +66,7 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
     await quotaManager.setNextQuota(false, nextQuotaReset)
 
     // pull their newly updated info
-    const newQuota = await quotaManager.checkQuota()
+    const newQuota = await quotaManager.checkQuota(sessionId)
     return {
       usage: newQuota.creditsUsed,
       limit: newQuota.quota,
@@ -87,6 +91,7 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
 }
 
 export async function genUsageResponse(
+  sessionId: string,
   fingerprintId: string,
   userId?: string
 ): Promise<Extract<ServerAction, { type: 'usage-response' }>> {
@@ -94,7 +99,7 @@ export async function genUsageResponse(
     { fingerprintId, userId },
     async () => {
       const { usage, limit, subscription_active, next_quota_reset } =
-        await calculateUsage(fingerprintId, userId)
+        await calculateUsage(fingerprintId, userId, sessionId)
       logger.info('Sending usage info')
 
       let referralLink: string | undefined = undefined
@@ -196,7 +201,7 @@ const onUserInput = async (
             referralLink,
             subscription_active,
             next_quota_reset,
-          } = await genUsageResponse(fingerprintId, userId)
+          } = await genUsageResponse(clientSessionId, fingerprintId, userId)
           sendAction(ws, {
             type: 'response-complete',
             userInputId,
@@ -418,11 +423,11 @@ const onInit = async (
 
 export const onUsageRequest = async (
   { fingerprintId, authToken }: Extract<ClientAction, { type: 'usage' }>,
-  _clientSessionId: string,
+  clientSessionId: string,
   ws: WebSocket
 ) => {
   const userId = await getUserIdFromAuthToken(authToken)
-  const action = await genUsageResponse(fingerprintId, userId)
+  const action = await genUsageResponse(clientSessionId, fingerprintId, userId)
   sendAction(ws, action)
 }
 

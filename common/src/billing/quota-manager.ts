@@ -19,7 +19,10 @@ export interface IQuotaManager {
 }
 
 export class AnonymousQuotaManager implements IQuotaManager {
-  async checkQuota(fingerprintId: string): Promise<{
+  async checkQuota(
+    fingerprintId: string,
+    sessionId?: string
+  ): Promise<{
     creditsUsed: number
     quota: number
     endDate: Date
@@ -32,6 +35,11 @@ export class AnonymousQuotaManager implements IQuotaManager {
     const result = await db
       .select({
         creditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
+        ...(sessionId
+          ? {
+              sessionCreditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0)) OVER (PARTITION BY ${schema.message.client_id})`,
+            }
+          : {}),
         endDate,
       })
       .from(schema.fingerprint)
@@ -77,7 +85,7 @@ export class AnonymousQuotaManager implements IQuotaManager {
 }
 
 export class AuthenticatedQuotaManager implements IQuotaManager {
-  async checkQuota(userId: string) {
+  async checkQuota(userId: string, sessionId?: string) {
     const startDate: SQL<string> = sql<string>`COALESCE(${schema.user.next_quota_reset}, now()) - INTERVAL '1 month'`
     const endDate: SQL<string> = sql<string>`COALESCE(${schema.user.next_quota_reset}, now())`
 
@@ -89,6 +97,11 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
         subscription_active: schema.user.subscription_active,
         endDate,
         creditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
+        ...(sessionId
+          ? {
+              sessionCreditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0)) OVER (PARTITION BY ${schema.message.client_id})`,
+            }
+          : {}),
       })
       .from(schema.user)
       .leftJoin(
@@ -156,7 +169,7 @@ export const getQuotaManager = (authType: AuthType, id: string) => {
     .exhaustive()
 
   return {
-    checkQuota: () => manager.checkQuota(id),
+    checkQuota: (sessionId?: string) => manager.checkQuota(id, sessionId),
     setNextQuota: (quota_exceeded: boolean, next_quota_reset: Date) =>
       manager.setNextQuota(id, quota_exceeded, next_quota_reset),
   }
