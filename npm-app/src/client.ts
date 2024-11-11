@@ -38,6 +38,7 @@ export class Client {
   public limit: number = 0
   public subscription_active: boolean = false
   public sessionCreditsUsed: number = 0
+  public nextQuotaReset: Date | null = null
 
   constructor(
     websocketUrl: string,
@@ -487,13 +488,19 @@ export class Client {
       resolveResponse({ ...a, wasStoppedByUser: false })
       this.currentUserInputId = undefined
 
-      if (!a.usage || !a.limit || a.subscription_active === undefined) return
+      if (
+        !a.usage ||
+        !a.next_quota_reset ||
+        a.subscription_active === undefined ||
+        !a.limit
+      )
+        return
 
       // Track total credits used in this session
-      this.sessionCreditsUsed += a.usage
-
-      this.subscription_active = a.subscription_active
       this.usage = a.usage
+      this.sessionCreditsUsed += this.usage
+      this.nextQuotaReset = a.next_quota_reset
+      this.subscription_active = a.subscription_active
       if (this.limit !== a.limit) {
         // Indicates a change in the user's plan
         this.lastWarnedPct = 0

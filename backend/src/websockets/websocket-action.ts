@@ -67,6 +67,7 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
       usage: newQuota.creditsUsed,
       limit: newQuota.quota,
       subscription_active: newQuota.subscription_active,
+      next_quota_reset: nextQuotaReset,
     }
   }
 
@@ -77,7 +78,12 @@ async function calculateUsage(fingerprintId: string, userId?: string) {
     await quotaManager.setNextQuota(true, nextQuotaReset)
   }
 
-  return { usage: creditsUsed, limit: quota, subscription_active }
+  return {
+    usage: creditsUsed,
+    limit: quota,
+    subscription_active,
+    next_quota_reset: endDate,
+  }
 }
 
 export async function genUsageResponse(
@@ -87,10 +93,8 @@ export async function genUsageResponse(
   const params = await withLoggerContext(
     { fingerprintId, userId },
     async () => {
-      const { usage, limit, subscription_active } = await calculateUsage(
-        fingerprintId,
-        userId
-      )
+      const { usage, limit, subscription_active, next_quota_reset } =
+        await calculateUsage(fingerprintId, userId)
       logger.info('Sending usage info')
 
       let referralLink: string | undefined = undefined
@@ -115,6 +119,7 @@ export async function genUsageResponse(
         limit,
         referralLink,
         subscription_active,
+        next_quota_reset,
       }
     }
   )
@@ -185,8 +190,13 @@ const onUserInput = async (
             resetFileVersions,
           })
         } else {
-          const { usage, limit, referralLink, subscription_active } =
-            await genUsageResponse(fingerprintId, userId)
+          const {
+            usage,
+            limit,
+            referralLink,
+            subscription_active,
+            next_quota_reset,
+          } = await genUsageResponse(fingerprintId, userId)
           sendAction(ws, {
             type: 'response-complete',
             userInputId,
@@ -198,6 +208,7 @@ const onUserInput = async (
             referralLink,
             addedFileVersions,
             resetFileVersions,
+            next_quota_reset,
           })
         }
       } catch (e) {

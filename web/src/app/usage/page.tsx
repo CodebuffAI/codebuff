@@ -6,13 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/util/dates'
-
-type UsageData = {
-  creditsUsed: number
-  totalQuota: number
-  endDate: Date
-  subscriptionActive: boolean
-}
+import { UsageData } from 'common/src/types/usage'
 
 const SignInCard = () => (
   <Card>
@@ -27,7 +21,7 @@ const SignInCard = () => (
 )
 
 const UsageDisplay = ({ data }: { data: UsageData }) => {
-  const { creditsUsed, totalQuota, endDate, subscriptionActive } = data
+  const { creditsUsed, totalQuota, nextQuotaReset, subscriptionActive } = data
   const remainingCredits = Math.max(0, totalQuota - creditsUsed)
 
   return (
@@ -73,8 +67,8 @@ const UsageDisplay = ({ data }: { data: UsageData }) => {
             <span>{totalQuota.toLocaleString('en-US')}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="font-semibold">Billing cycle end:</span>
-            <p>{endDate.toDateString()}</p>
+            <span className="font-semibold">Quota resets:</span>
+            <p>{nextQuotaReset.toDateString()}</p>
           </div>
         </div>
       </CardContent>
@@ -103,7 +97,8 @@ const UsagePage = async () => {
   const usageData: UsageData = {
     creditsUsed: q.creditsUsed,
     totalQuota: q.quota,
-    endDate: q.endDate,
+    remainingCredits: q.quota - q.creditsUsed,
+    nextQuotaReset: q.endDate,
     subscriptionActive: q.subscription_active,
   }
 
