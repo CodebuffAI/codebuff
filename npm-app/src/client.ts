@@ -169,11 +169,15 @@ export class Client {
     subscription_active,
     next_quota_reset,
     referralLink,
+    session_credits_used,
   }: Omit<Extract<ServerAction, { type: 'usage-response' }>, 'type'>) {
     this.usage = usage
     this.limit = limit
     this.subscription_active = subscription_active
     this.nextQuotaReset = next_quota_reset
+    if (!!session_credits_used) {
+      this.sessionCreditsUsed = session_credits_used
+    }
     this.showUsageWarning(referralLink)
   }
 
@@ -529,6 +533,7 @@ export class Client {
           limit: a.limit,
           subscription_active: a.subscription_active,
           next_quota_reset: a.next_quota_reset,
+          session_credits_used: a.session_credits_used ?? 0,
         })
 
         // Indicates a change in the user's plan

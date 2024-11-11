@@ -4,13 +4,16 @@ import * as schema from '../db/schema'
 import { and, between, eq, SQL, sql } from 'drizzle-orm'
 import { match } from 'ts-pattern'
 
+type CheckQuotaResult = Promise<{
+  creditsUsed: number
+  quota: number
+  endDate: Date
+  subscription_active: boolean
+  session_credits_used?: number
+}>
+
 export interface IQuotaManager {
-  checkQuota(id: string): Promise<{
-    creditsUsed: number
-    quota: number
-    endDate: Date
-    subscription_active: boolean
-  }>
+  checkQuota(id: string): CheckQuotaResult
   setNextQuota(
     id: string,
     quota_exceeded: boolean,
@@ -22,24 +25,15 @@ export class AnonymousQuotaManager implements IQuotaManager {
   async checkQuota(
     fingerprintId: string,
     sessionId?: string
-  ): Promise<{
-    creditsUsed: number
-    quota: number
-    endDate: Date
-    subscription_active: boolean
-  }> {
+  ): CheckQuotaResult {
     const quota = CREDITS_USAGE_LIMITS.ANON
     const startDate: SQL<string> = sql<string>`COALESCE(${schema.fingerprint.next_quota_reset}, now()) - INTERVAL '1 month'`
     const endDate: SQL<string> = sql<string>`COALESCE(${schema.fingerprint.next_quota_reset}, now())`
+    let session_credits_used = undefined
 
     const result = await db
       .select({
         creditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
-        ...(sessionId
-          ? {
-              sessionCreditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0)) OVER (PARTITION BY ${schema.message.client_id})`,
-            }
-          : {}),
         endDate,
       })
       .from(schema.fingerprint)
@@ -56,16 +50,39 @@ export class AnonymousQuotaManager implements IQuotaManager {
         if (rows.length > 0) return rows[0]
         return {
           creditsUsed: '0',
-          quota,
           endDate: new Date().toDateString(),
         }
       })
+
+    if (sessionId) {
+      session_credits_used = await db
+        .select({
+          client_id: schema.message.client_id,
+          user_id: schema.message.user_id,
+          sessionCreditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
+        })
+        .from(schema.message)
+        .where(
+          and(
+            eq(schema.message.client_id, sessionId),
+            eq(schema.message.fingerprint_id, fingerprintId)
+          )
+        )
+        .groupBy(schema.message.client_id, schema.message.fingerprint_id)
+        .then((rows) => {
+          if (rows.length > 0) {
+            return parseInt(rows[0].sessionCreditsUsed)
+          }
+          return 0
+        })
+    }
 
     return {
       creditsUsed: parseInt(result.creditsUsed),
       quota,
       endDate: new Date(result.endDate),
       subscription_active: false,
+      session_credits_used,
     }
   }
 
@@ -85,9 +102,10 @@ export class AnonymousQuotaManager implements IQuotaManager {
 }
 
 export class AuthenticatedQuotaManager implements IQuotaManager {
-  async checkQuota(userId: string, sessionId?: string) {
+  async checkQuota(userId: string, sessionId?: string): CheckQuotaResult {
     const startDate: SQL<string> = sql<string>`COALESCE(${schema.user.next_quota_reset}, now()) - INTERVAL '1 month'`
     const endDate: SQL<string> = sql<string>`COALESCE(${schema.user.next_quota_reset}, now())`
+    let session_credits_used = undefined
 
     const result = await db
       .select({
@@ -97,11 +115,6 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
         subscription_active: schema.user.subscription_active,
         endDate,
         creditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
-        ...(sessionId
-          ? {
-              sessionCreditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0)) OVER (PARTITION BY ${schema.message.client_id})`,
-            }
-          : {}),
       })
       .from(schema.user)
       .leftJoin(
@@ -116,8 +129,8 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
         schema.user.quota,
         schema.user.stripe_customer_id,
         schema.user.stripe_price_id,
-        schema.user.next_quota_reset,
-        schema.user.subscription_active
+        schema.user.subscription_active,
+        schema.user.next_quota_reset
       )
       .then((rows) => {
         if (rows.length > 0) return rows[0]
@@ -131,6 +144,29 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
         }
       })
 
+    if (sessionId) {
+      session_credits_used = await db
+        .select({
+          client_id: schema.message.client_id,
+          user_id: schema.message.user_id,
+          sessionCreditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
+        })
+        .from(schema.message)
+        .where(
+          and(
+            eq(schema.message.client_id, sessionId),
+            eq(schema.message.user_id, userId)
+          )
+        )
+        .groupBy(schema.message.client_id, schema.message.user_id)
+        .then((rows) => {
+          if (rows.length > 0) {
+            return parseInt(rows[0].sessionCreditsUsed)
+          }
+          return 0
+        })
+    }
+
     const quota =
       !result?.stripe_customer_id && !result?.stripe_price_id
         ? CREDITS_USAGE_LIMITS.FREE
@@ -141,7 +177,7 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
       quota,
       endDate: new Date(result.endDate),
       subscription_active: !!result.subscription_active,
-      next_quota_reset: new Date(result.endDate),
+      session_credits_used,
     }
   }
 

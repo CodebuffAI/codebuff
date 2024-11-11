@@ -115,20 +115,6 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
 ])
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
-export const ResponseCompleteSchema = z.object({
-  type: z.literal('response-complete'),
-  userInputId: z.string(),
-  response: z.string(),
-  changes: CHANGES,
-  addedFileVersions: z.array(FileVersionSchema),
-  resetFileVersions: z.boolean(),
-  usage: z.number().optional(),
-  limit: z.number().optional(),
-  subscription_active: z.boolean().optional(),
-  next_quota_reset: z.coerce.date().optional(),
-  referralLink: z.string().optional(),
-})
-
 export const UsageReponseSchema = z.object({
   type: z.literal('usage-response'),
   usage: z.number(),
@@ -136,7 +122,24 @@ export const UsageReponseSchema = z.object({
   referralLink: z.string().optional(),
   subscription_active: z.boolean(),
   next_quota_reset: z.coerce.date(),
+  session_credits_used: z.number(),
 })
+export type UsageResponse = z.infer<typeof UsageReponseSchema>
+
+export const ResponseCompleteSchema = z
+  .object({
+    type: z.literal('response-complete'),
+    userInputId: z.string(),
+    response: z.string(),
+    changes: CHANGES,
+    addedFileVersions: z.array(FileVersionSchema),
+    resetFileVersions: z.boolean(),
+  })
+  .merge(
+    UsageReponseSchema.omit({
+      type: true,
+    }).partial()
+  )
 
 export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({

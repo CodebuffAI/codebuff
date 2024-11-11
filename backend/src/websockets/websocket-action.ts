@@ -5,7 +5,12 @@ import { match, P } from 'ts-pattern'
 
 import { ClientMessage } from 'common/websockets/websocket-schema'
 import { mainPrompt } from '../main-prompt'
-import { ClientAction, ServerAction } from 'common/actions'
+import {
+  ClientAction,
+  ServerAction,
+  UsageReponseSchema,
+  UsageResponse,
+} from 'common/actions'
 import { sendMessage } from './server'
 import { getSearchSystemPrompt } from '../system-prompt'
 import { promptClaude } from '../claude'
@@ -50,15 +55,20 @@ export const getUserIdFromAuthToken = async (
 
 async function calculateUsage(
   fingerprintId: string,
-  userId?: string,
-  sessionId?: string
+  userId: string | undefined,
+  sessionId: string | undefined
 ) {
   const quotaManager = getQuotaManager(
     userId ? 'authenticated' : 'anonymous',
     userId ?? fingerprintId
   )
-  const { creditsUsed, quota, endDate, subscription_active } =
-    await quotaManager.checkQuota(sessionId)
+  const {
+    creditsUsed,
+    quota,
+    endDate,
+    subscription_active,
+    session_credits_used,
+  } = await quotaManager.checkQuota(sessionId)
 
   // Case 1: end date is in the past, so just reset the quota
   if (endDate < new Date()) {
@@ -72,6 +82,7 @@ async function calculateUsage(
       limit: newQuota.quota,
       subscription_active: newQuota.subscription_active,
       next_quota_reset: nextQuotaReset,
+      session_credits_used: newQuota.session_credits_used,
     }
   }
 
@@ -87,6 +98,7 @@ async function calculateUsage(
     limit: quota,
     subscription_active,
     next_quota_reset: endDate,
+    session_credits_used,
   }
 }
 
@@ -94,12 +106,17 @@ export async function genUsageResponse(
   sessionId: string,
   fingerprintId: string,
   userId?: string
-): Promise<Extract<ServerAction, { type: 'usage-response' }>> {
+): Promise<UsageResponse> {
   const params = await withLoggerContext(
     { fingerprintId, userId },
     async () => {
-      const { usage, limit, subscription_active, next_quota_reset } =
-        await calculateUsage(fingerprintId, userId, sessionId)
+      const {
+        usage,
+        limit,
+        subscription_active,
+        next_quota_reset,
+        session_credits_used,
+      } = await calculateUsage(fingerprintId, userId, sessionId)
       logger.info('Sending usage info')
 
       let referralLink: string | undefined = undefined
@@ -125,6 +142,7 @@ export async function genUsageResponse(
         referralLink,
         subscription_active,
         next_quota_reset,
+        session_credits_used: session_credits_used ?? 0,
       }
     }
   )
@@ -201,6 +219,7 @@ const onUserInput = async (
             referralLink,
             subscription_active,
             next_quota_reset,
+            session_credits_used,
           } = await genUsageResponse(clientSessionId, fingerprintId, userId)
           sendAction(ws, {
             type: 'response-complete',
@@ -214,6 +233,7 @@ const onUserInput = async (
             addedFileVersions,
             resetFileVersions,
             next_quota_reset,
+            session_credits_used,
           })
         }
       } catch (e) {
