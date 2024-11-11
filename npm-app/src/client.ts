@@ -156,6 +156,20 @@ export class Client {
     })
   }
 
+  public setUsage({
+    usage,
+    limit,
+    subscription_active,
+    next_quota_reset,
+    referralLink,
+  }: Omit<Extract<ServerAction, { type: 'usage-response' }>, 'type'>) {
+    this.usage = usage
+    this.limit = limit
+    this.subscription_active = subscription_active
+    this.nextQuotaReset = next_quota_reset
+    this.showUsageWarning(referralLink)
+  }
+
   private setupSubscriptions() {
     this.webSocket.subscribe('action-error', (action) => {
       console.error(['', red(`Error: ${action.message}`)].join('\n'))
@@ -303,12 +317,8 @@ export class Client {
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
-      const { usage, limit, subscription_active, referralLink } = action
-      console.log(`Usage: ${usage} / ${limit} credits`)
-      this.usage = usage
-      this.limit = limit
-      this.subscription_active = subscription_active
-      this.showUsageWarning(referralLink)
+      console.log(`Usage: ${action.usage} / ${action.limit} credits`)
+      this.setUsage(action)
       this.returnControlToUser()
     })
   }
@@ -328,8 +338,8 @@ export class Client {
     const pct: number = match(Math.floor((this.usage / this.limit) * 100))
       .with(P.number.gte(100), () => 100)
       .with(P.number.gte(75), () => 75)
-      .with(P.number.gte(50), () => 50)
-      .with(P.number.gte(25), () => 25)
+      // .with(P.number.gte(50), () => 50)
+      // .with(P.number.gte(25), () => 25)
       .otherwise(() => 0)
 
     // User has used all their allotted credits, but they haven't been notified yet
@@ -493,21 +503,22 @@ export class Client {
         !a.next_quota_reset ||
         a.subscription_active === undefined ||
         !a.limit
-      )
+      ) {
         return
-
-      // Track total credits used in this session
-      this.usage = a.usage
-      this.sessionCreditsUsed += this.usage
-      this.nextQuotaReset = a.next_quota_reset
-      this.subscription_active = a.subscription_active
-      if (this.limit !== a.limit) {
-        // Indicates a change in the user's plan
-        this.lastWarnedPct = 0
-        this.limit = a.limit
       }
 
-      this.showUsageWarning(a.referralLink)
+      this.setUsage({
+        usage: a.usage,
+        limit: a.limit,
+        subscription_active: a.subscription_active,
+        next_quota_reset: a.next_quota_reset,
+      })
+      this.sessionCreditsUsed += a.usage
+
+      // Indicates a change in the user's plan
+      if (this.limit !== a.limit) {
+        this.lastWarnedPct = 0
+      }
     })
 
     return {
