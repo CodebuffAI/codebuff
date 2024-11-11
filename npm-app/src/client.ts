@@ -522,7 +522,7 @@ export class Client {
         }
 
         if (this.usage > 0) {
-          this.sessionCreditsUsed = this.usage - a.usage
+          this.sessionCreditsUsed = a.usage - this.usage
         }
         this.setUsage({
           usage: a.usage,
