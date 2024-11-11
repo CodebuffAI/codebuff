@@ -202,7 +202,10 @@ export class CLI {
   }
 
   private handleExit() {
-    console.log(green('\n\nExiting. Codebuff out!'))
+    console.log(
+      green(`${this.client.sessionCreditsUsed} credits used this session.`)
+    )
+    console.log(green('Exiting. Codebuff out!'))
     process.exit(0)
   }
 
