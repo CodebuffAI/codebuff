@@ -131,7 +131,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     usage: z.number().optional(),
     limit: z.number().optional(),
     subscription_active: z.boolean().optional(),
-    next_quota_reset: z.date().optional(),
+    next_quota_reset: z.coerce.date().optional(),
     referralLink: z.string().optional(),
   }),
   z.object({
@@ -177,7 +177,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     limit: z.number(),
     referralLink: z.string().optional(),
     subscription_active: z.boolean(),
-    next_quota_reset: z.date(),
+    next_quota_reset: z.coerce.date(),
   }),
   z.object({
     type: z.literal('action-error'),

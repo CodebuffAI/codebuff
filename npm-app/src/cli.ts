@@ -207,11 +207,11 @@ export class CLI {
     console.log(
       this.client.limit,
       this.client.usage,
-      this.client.nextQuotaReset
+      typeof this.client.nextQuotaReset
     )
     if (
-      !this.client.limit &&
-      !this.client.usage &&
+      !!this.client.limit &&
+      !!this.client.usage &&
       !!this.client.nextQuotaReset
     ) {
       const daysUntilReset = Math.max(
