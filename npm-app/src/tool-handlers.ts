@@ -19,7 +19,6 @@ export const handleScrapeWebPage: ToolHandler = async (
   return `<web_scraped_content url="${url}">${content}</web_scraped_content>`
 }
 
-
 export const handleRunTerminalCommand = async (
   input: { command: string },
   id: string,
@@ -65,9 +64,8 @@ export const handleRunTerminalCommand = async (
       stderr += data.toString()
       if (
         mode === 'user' &&
-        (
-          // Mac
-          dataStr.includes('command not found') ||
+        // Mac
+        (dataStr.includes('command not found') ||
           // Linux
           dataStr.includes(': not found') ||
           // Common
@@ -117,6 +115,12 @@ export const handleRunTerminalCommand = async (
   })
 }
 
+const truncate = (str: string, maxLength: number) => {
+  return str.length > maxLength
+    ? str.slice(0, maxLength) + '\n[...TRUNCATED_DUE_TO_LENGTH]'
+    : str
+}
+
 function formatResult(
   stdout: string,
   stderr: string,
@@ -124,8 +128,8 @@ function formatResult(
   exitCode?: number | null
 ): string {
   let result = '<terminal_command_result>\n'
-  result += `<stdout>${stdout}</stdout>\n`
-  result += `<stderr>${stderr}</stderr>\n`
+  result += `<stdout>${truncate(stdout, 10000)}</stdout>\n`
+  result += `<stderr>${truncate(stderr, 10000)}</stderr>\n`
   if (status !== undefined) {
     result += `<status>${status}</status>\n`
   }
