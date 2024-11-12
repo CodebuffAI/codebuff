@@ -70,13 +70,13 @@ type InstallerInfo = {
   scope: 'global' | 'local'
 }
 
-function detectInstaller(): InstallerInfo | undefined {
+export function detectInstaller(): InstallerInfo | undefined {
   let codebuffLocation = ''
   try {
     if (process.platform === 'win32') {
-      codebuffLocation = execSync('where codebuff').toString().trim()
+      codebuffLocation = execSync('where manicode').toString().trim()
     } else {
-      codebuffLocation = execSync('which codebuff').toString().trim()
+      codebuffLocation = execSync('which manicode').toString().trim()
     }
   } catch (error) {
     // Continue with empty location - could be a local installation
@@ -134,7 +134,7 @@ function detectInstaller(): InstallerInfo | undefined {
   return undefined
 }
 
-function runUpdateCodebuff(installerInfo: InstallerInfo) {
+export function runUpdateCodebuff(installerInfo: InstallerInfo) {
   let command: string
   const isGlobal = installerInfo.scope === 'global'
 

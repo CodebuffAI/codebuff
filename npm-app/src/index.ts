@@ -1,43 +1,26 @@
 #!/usr/bin/env node
 
-import fs from 'fs'
-import path from 'path'
-import { yellow } from 'picocolors'
-
-import { CLI } from './cli'
-import {
-  initProjectFileContextWithWorker,
-  setProjectRoot,
-} from './project-files'
-import { updateCodebuff } from './update-manicode'
+import { green } from 'picocolors'
+import { detectInstaller, runUpdateCodebuff } from './update-manicode'
 
 async function codebuff(
   projectDir: string | undefined,
   { initialInput, autoGit }: { initialInput?: string; autoGit: boolean }
 ) {
-  const dir = setProjectRoot(projectDir)
-
-  const updatePromise = updateCodebuff()
-  const initFileContextPromise = initProjectFileContextWithWorker(dir)
-
-  const readyPromise = Promise.all([updatePromise, initFileContextPromise])
-
-  const cli = new CLI(readyPromise, { autoGit })
-
   console.log(
-    `Codebuff will read and write files in "${dir}". Type "help" for a list of commands.`
-  )
-
-  const gitDir = path.join(dir, '.git')
-  if (!fs.existsSync(gitDir)) {
-    console.warn(
-      yellow(
-        'Warning: No .git directory found. Make sure you are at the top level of your project.'
-      )
+    green(
+      `Thanks for using Manicode! We've been renamed to Codebuff. Unfortunately, you will need to use the \`codebuff\` npm package from now on.`
     )
+  )
+  const installer = detectInstaller()
+  if (installer) {
+    runUpdateCodebuff(installer)
+  } else {
+    console.log('Please install codebuff with `npm i -g codebuff`')
   }
+  console.log(green(`Run \`codebuff\` to continue.`))
 
-  cli.printInitialPrompt(initialInput)
+  process.exit(0)
 }
 
 if (require.main === module) {
