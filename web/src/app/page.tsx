@@ -1,6 +1,14 @@
 'use client'
 import { Button } from '@/components/ui/button'
-import { FolderCodeIcon, TerminalIcon, Copy, ZapIcon, Play, ChevronDown } from 'lucide-react'
+import {
+  FolderCodeIcon,
+  TerminalIcon,
+  Copy,
+  ZapIcon,
+  Play,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react'
 import Link from 'next/link'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { BackgroundBeams } from '@/components/ui/background-beams'
@@ -17,6 +25,7 @@ const Home = () => {
   const { theme } = useTheme()
   const { toast } = useToast()
   const [isVideoOpen, setIsVideoOpen] = useState(false)
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null)
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText('npm install -g codebuff')
@@ -222,12 +231,22 @@ const Home = () => {
           </h2>
           <div className="max-w-3xl mx-auto space-y-4">
             {faqs.map((item, index) => (
-              <details key={index}>
-                <summary className="flex cursor-pointer font-semibold w-full text-left p-4 text-gray-700 dark:text-gray-300 justify-between items-center marker:[font-size:0px]">
+              <details key={index} open={openFaqIndex === index}>
+                <summary
+                  className="flex cursor-pointer font-bold w-full text-left p-4 text-gray-700 dark:text-gray-300 justify-between items-center marker:[font-size:0px] [&::-webkit-details-marker]:hidden"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setOpenFaqIndex(openFaqIndex === index ? null : index)
+                  }}
+                >
                   {item.question}
-                  <ChevronDown className="h-4 w-4" />
+                  {openFaqIndex === index ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
                 </summary>
-                <div className="text-gray-700 dark:text-gray-300 px-4 pb-4 items-center">
+                <div className="text-gray-500 dark:text-white px-4 pb-4 items-center">
                   {item.answer}
                 </div>
               </details>

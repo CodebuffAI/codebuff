@@ -103,6 +103,14 @@ When displaying inline code snippets with copy buttons:
 - Use Lucide icons instead of raw SVGs for consistency
 - Import icons from 'lucide-react' package
 
+### UI Patterns
+
+For expandable/collapsible UI elements:
+- Use React state management instead of CSS-only solutions
+- Track currently open item with useState to ensure only one section is open at a time
+- Toggle visibility by swapping icons rather than rotating them
+- Example: Use different icons (ChevronDown/ChevronUp) based on state instead of CSS transforms
+
 ### Client Components and Providers
 
 - Important considerations for client-side interactivity:
