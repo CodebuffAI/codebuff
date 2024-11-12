@@ -79,11 +79,14 @@ When displaying inline code snippets with copy buttons:
 
 ### Banner Design
 
-- For banners with icons and text that may wrap on mobile:
-  - Increase icon size on mobile when text wraps to multiple lines
-  - Maintain proper spacing between icon and text across breakpoints
-  - Consider text alignment and icon placement when content wraps
-- This ensures visual balance and readability across all device sizes
+- For mobile layouts:
+  - Remove decorative elements (icons, illustrations) that don't add functional value
+  - Focus on essential content and actions
+  - Prefer clean, text-focused layouts over visual embellishments
+- For desktop:
+  - Can include supplementary visual elements to enhance aesthetics
+  - Maintain proper spacing between icons and text
+  - Consider text alignment and element placement
 
 ### Text Selection
 

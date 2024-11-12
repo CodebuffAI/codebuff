@@ -16,7 +16,7 @@ export function Banner() {
       <div className="md:container mx-auto flex items-center justify-between">
         <div className="w-8" />
         <div className="flex items-center gap-2 text-center">
-          <Gift className="h-5 w-5 md:h-4 md:w-4" />
+          <Gift className="hidden md:block h-4 w-4" />
           <p className="text-sm">
             Refer a friend, and earn {CREDITS_REFERRAL_BONUS} credits per month for both
             of you!{' '}
