@@ -67,3 +67,7 @@ export const replaceNonStandardPlaceholderComments = (
 export const randBoolFromStr = (str: string) => {
   return sumBy(str.split(''), (char) => char.charCodeAt(0)) % 2 === 0
 }
+
+export const pluralize = (word: string, count: number) => {
+  return count === 1 ? word : `${word}s`
+}
