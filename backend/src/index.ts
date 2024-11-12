@@ -10,7 +10,7 @@ const port = env.PORT
 app.use(express.json())
 
 app.get('/', (req, res) => {
-  res.send('Manicode Backend Server')
+  res.send('Codebuff Backend Server')
 })
 
 app.get('/healthz', (req, res) => {

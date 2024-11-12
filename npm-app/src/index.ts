@@ -9,7 +9,7 @@ import {
   initProjectFileContextWithWorker,
   setProjectRoot,
 } from './project-files'
-import { updateCodebuff } from './update-manicode'
+import { updateCodebuff } from './update-codebuff'
 
 async function codebuff(
   projectDir: string | undefined,
