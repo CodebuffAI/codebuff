@@ -9,7 +9,8 @@
   - Decimal numbers
   - Language/locale specific rules
   - Irregular plurals (e.g., child -> children)
-  - Words ending in y, s, ch, sh, x
+  - Words ending in y: only change to 'ies' if preceded by a consonant (e.g., "fly" -> "flies" but "day" -> "days")
+  - Words ending in s, ch, sh, x: add 'es'
   - Special suffixes (-es, -ies)
 
 Simple implementations can lead to bugs. Prefer using established i18n/l10n libraries for production text transformations.

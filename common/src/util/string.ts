@@ -71,8 +71,8 @@ export const randBoolFromStr = (str: string) => {
 export const pluralize = (word: string, count: number) => {
   if (count === 1) return word
 
-  // Handle words ending in 'y'
-  if (word.endsWith('y')) {
+  // Handle words ending in 'y' (unless preceded by a vowel)
+  if (word.endsWith('y') && !word.endsWith('ay')) {
     return word.slice(0, -1) + 'ies'
   }
 
