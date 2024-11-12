@@ -26,6 +26,7 @@ import {
   commitChanges,
   getStagedChanges,
 } from 'common/util/git'
+import { pluralize } from 'common/util/string'
 
 export class CLI {
   private client: Client
@@ -203,7 +204,9 @@ export class CLI {
 
   private handleExit() {
     console.log('\n\n')
-    console.log(`${this.client.sessionCreditsUsed} credits used this session.`)
+    console.log(
+      `${pluralize(this.client.sessionCreditsUsed, 'credit')} used this session.`
+    )
     if (
       !!this.client.limit &&
       !!this.client.usage &&
@@ -217,7 +220,7 @@ export class CLI {
         )
       )
       console.log(
-        `${this.client.limit - this.client.usage} / ${this.client.limit} credits remaining. Renews in ${daysUntilReset} days.`
+        `${this.client.limit - this.client.usage} / ${this.client.limit} credits remaining. Renews in ${pluralize(daysUntilReset, 'day')}.`
       )
     }
     console.log(green('Codebuff out!'))

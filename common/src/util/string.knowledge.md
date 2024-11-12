@@ -9,7 +9,7 @@
   - Decimal numbers
   - Language/locale specific rules
   - Irregular plurals (e.g., child -> children)
-  - Words ending in y: only change to 'ies' if preceded by a consonant (e.g., "fly" -> "flies" but "day" -> "days")
+  - Words ending in y: only change to 'ies' if preceded by a consonant (e.g., "fly" -> "flies" but "day" -> "days", "key" -> "keys")
   - Words ending in s, ch, sh, x: add 'es'
   - Special suffixes (-es, -ies)
 
