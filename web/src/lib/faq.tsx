@@ -37,10 +37,9 @@ export const faqs: faq[] = [
         engineer. All file names ending in knowledge.md are loaded into context
         automatically, and you can use the files to do your own prompt
         engineering for Codebuff. If you do not have a knowledge.md file,
-        Codebuff would not write one, but it will happily update existing
-        knowledge.md files autonomously to give itself more information about
-        the codebase. The Codebuff codebase currently has a knowledge.md in
-        almost every directory.
+        Codebuff will not write one, but it will update existing knowledge.md
+        files autonomously. The Codebuff codebase currently has a knowledge.md
+        in almost every directory.
       </>
     ),
   },
