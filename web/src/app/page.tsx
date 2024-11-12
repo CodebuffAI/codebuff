@@ -70,7 +70,7 @@ const Home = () => {
         </main>
 
         <section className="py-10 px-4 relative z-10 space-y-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
             Watch a Demo
           </h2>
           <div className="max-w-3xl mx-auto">
@@ -137,7 +137,7 @@ const Home = () => {
         </section>
 
         <section id="features" className="px-4 py-20 relative z-10 space-y-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center px-4 md:px-0">
             Revolutionize Your Coding Workflow
           </h2>
           <div className="grid md:grid-cols-3 gap-8">
@@ -175,7 +175,7 @@ const Home = () => {
         </section>
 
         <section className="py-20 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
             What Developers Are Saying
           </h2>
           <h6 className="text-center text-gray-700 dark:text-gray-300 text-sm mt-2 mb-12">
@@ -226,7 +226,7 @@ const Home = () => {
         </section>
 
         <section className="py-20 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 px-4 md:px-0">
             FAQ
           </h2>
           <div className="max-w-3xl mx-auto space-y-4">
@@ -255,7 +255,7 @@ const Home = () => {
         </section>
 
         <section className="py-20 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 px-4 md:px-0">
             Ready to experience magic?
           </h2>
           <div className="text-center">

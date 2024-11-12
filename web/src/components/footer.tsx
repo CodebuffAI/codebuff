@@ -6,7 +6,7 @@ import { siteConfig } from '@/lib/constant'
 export const Footer = () => {
   return (
     <footer className="w-full border-t z-10">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Logo and company name */}
           <div className="flex items-center space-x-2">
@@ -31,6 +31,13 @@ export const Footer = () => {
                 className="text-muted-foreground hover:text-primary"
               >
                 Home
+              </Link>
+              <Link
+                href="https://news.codebuff.com"
+                target="_blank"
+                className="text-muted-foreground hover:text-primary"
+              >
+                News
               </Link>
               <Link
                 href="/pricing"
@@ -83,7 +90,7 @@ export const Footer = () => {
 
         <Separator className="my-4" />
 
-        <div className="text-center text-sm text-muted-foreground">
+        <div className="text-center text-xs text-muted-foreground">
           © {new Date().getFullYear()} {siteConfig.title}. All rights reserved.
         </div>
       </div>

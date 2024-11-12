@@ -12,14 +12,14 @@ export function Banner() {
   if (!isVisible) return <></>
 
   return (
-    <div className="w-full bg-blue-900 text-white px-4 py-2 relative z-20">
+    <div className="w-full bg-blue-900 text-white px-4 py-2 md:py-0 relative z-20">
       <div className="md:container mx-auto flex items-center justify-between">
         <div className="w-8" />
         <div className="flex items-center gap-2 text-center">
           <Gift className="hidden md:block h-4 w-4" />
           <p className="text-sm">
-            Refer a friend, and earn {CREDITS_REFERRAL_BONUS} credits per month for both
-            of you!{' '}
+            Refer a friend, and earn {CREDITS_REFERRAL_BONUS} credits per month
+            for both of you!{' '}
             <Link href="/referrals" className="underline hover:text-blue-200">
               Learn more
             </Link>
