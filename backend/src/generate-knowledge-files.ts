@@ -74,13 +74,16 @@ export async function generateKnowledgeFiles(
     
     Consider how strong of a "yes" you gave to each of these questions. Only with at least one very strong "yes" should you output anything.
     
-    Should we create or update a knowledge file? If not, please skip the rest of the response and don't output anything. This is the most common case; there should be a high bar to creating or updating a knowledge file.
+    Next, consider:
+    3. Is there a lesson here that is not specific to just this change? Is there knowledge that is not derivable from the code written? Is there some context that would be applicable for the future that the user would want recorded?
+
+    If all of these questions are not also a strong yes, please skip the rest of the response and don't output anything. This is the most common case; there should be a high bar to creating or updating a knowledge file.
 
     Otherwise, check the existing knowledge files to see if there isn't something written about it yet. If there is, don't output anything because we don't want to repeat ourselves.
     Finally, for any meaningful change that hasn't been captured in the knowledge file, you should update a knowledge file with <edit_file> blocks. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
 
     When you are updating an existing knowledge file, please do not remove previous knowledge file content. Instead, either reproduce the entire file with your additions or use SEARCH/REPLACE edits to insert new lines into the existing file.
-    Do not update any files other than knowledge files (files that end in '.knowledge.md').
+    Do not update any files other than knowledge files (files that end in 'knowledge.md').
     `
 
   const messages = [
