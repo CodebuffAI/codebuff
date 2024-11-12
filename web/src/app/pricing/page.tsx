@@ -121,6 +121,30 @@ const PricingPage = () => {
       ),
     },
     {
+      name: 'Pro Plus',
+      price: '$500/month',
+      credits: CREDITS_USAGE_LIMITS.PRO_PLUS,
+      features: [
+        '$0.95 per 100 credits afterwards',
+        'Priority support over email or Discord',
+        'Dedicated account manager',
+        'Custom integrations available',
+      ],
+      cardFooterChildren: (
+        <div className="w-full flex flex-col items-center text-center justify-center space-y-2">
+          <Button
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+            onClick={() => handleCreateCheckoutSession()}
+            disabled={isPending}
+          >
+            {isPending && <Icons.loader className="mr-2 size-4 animate-spin" />}
+            Contact Sales
+          </Button>
+        </div>
+      ),
+    },
+
+    {
       name: 'Enterprise',
       price: 'Custom',
       credits: 'Custom',

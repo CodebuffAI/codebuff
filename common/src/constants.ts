@@ -46,18 +46,20 @@ export const SKIPPED_TERMINAL_COMMANDS = [
 
 export const MAX_DATE = new Date(86399999999999)
 
-export type UsageLimits = 'ANON' | 'FREE' | 'PAID'
+export type UsageLimits = 'ANON' | 'FREE' | 'PAID' | 'PRO_PLUS'
 export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
   process.env.NEXT_PUBLIC_ENVIRONMENT === 'local'
     ? {
         ANON: 1_000_000,
         FREE: 2_500_000,
         PAID: 10_000_000,
+        PRO_PLUS: 55_000_000,
       }
     : {
         ANON: 750,
         FREE: 1_500,
         PAID: 10_000,
+        PRO_PLUS: 55_000,
       }
 export const CREDITS_REFERRAL_BONUS = 500
 
