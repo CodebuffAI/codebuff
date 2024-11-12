@@ -69,5 +69,17 @@ export const randBoolFromStr = (str: string) => {
 }
 
 export const pluralize = (word: string, count: number) => {
-  return count === 1 ? word : `${word}s`
+  if (count === 1) return word
+
+  // Handle words ending in 'y'
+  if (word.endsWith('y')) {
+    return word.slice(0, -1) + 'ies'
+  }
+
+  // Handle words ending in s, sh, ch, x, z
+  if (word.match(/[sxz]$/) || word.match(/[cs]h$/)) {
+    return word + 'es'
+  }
+
+  return word + 's'
 }
