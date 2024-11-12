@@ -11,11 +11,13 @@ import { userFromJson, CREDENTIALS_PATH } from './credentials'
 import { ChatStorage } from './chat-storage'
 import {
   FileChanges,
+  InitResponseSchema,
   Message,
   ResponseCompleteSchema,
   SERVER_ACTION_SCHEMA,
   ServerAction,
   UsageReponseSchema,
+  UsageResponse,
 } from 'common/actions'
 import { toolHandlers } from './tool-handlers'
 import {
@@ -170,7 +172,7 @@ export class Client {
     next_quota_reset,
     referralLink,
     session_credits_used,
-  }: Omit<Extract<ServerAction, { type: 'usage-response' }>, 'type'>) {
+  }: Omit<UsageResponse, 'type'>) {
     this.usage = usage
     this.limit = limit
     this.subscription_active = subscription_active
@@ -565,7 +567,11 @@ export class Client {
     )
 
     return new Promise<void>(async (resolve) => {
-      this.webSocket.subscribe('init-response', () => {
+      this.webSocket.subscribe('init-response', (a) => {
+        const parsedAction = InitResponseSchema.safeParse(a)
+        if (!parsedAction.success) return
+
+        this.setUsage(parsedAction.data)
         resolve()
       })
 

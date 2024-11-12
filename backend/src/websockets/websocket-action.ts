@@ -82,7 +82,7 @@ async function calculateUsage(
       limit: newQuota.quota,
       subscription_active: newQuota.subscription_active,
       next_quota_reset: nextQuotaReset,
-      session_credits_used: newQuota.session_credits_used,
+      session_credits_used: newQuota.session_credits_used ?? 0,
     }
   }
 
@@ -98,7 +98,7 @@ async function calculateUsage(
     limit: quota,
     subscription_active,
     next_quota_reset: endDate,
-    session_credits_used,
+    session_credits_used: session_credits_used ?? 0,
   }
 }
 
@@ -142,7 +142,7 @@ export async function genUsageResponse(
         referralLink,
         subscription_active,
         next_quota_reset,
-        session_credits_used: session_credits_used ?? 0,
+        session_credits_used,
       }
     }
   )
@@ -435,8 +435,21 @@ const onInit = async (
     } catch (e) {
       logger.error(e, 'Error in init')
     }
+
+    const {
+      usage,
+      limit,
+      subscription_active,
+      next_quota_reset,
+      session_credits_used,
+    } = await calculateUsage(fingerprintId, userId, clientSessionId)
     sendAction(ws, {
       type: 'init-response',
+      usage,
+      limit,
+      subscription_active,
+      next_quota_reset,
+      session_credits_used,
     })
   })
 }

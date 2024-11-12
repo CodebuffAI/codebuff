@@ -126,6 +126,17 @@ export const UsageReponseSchema = z.object({
 })
 export type UsageResponse = z.infer<typeof UsageReponseSchema>
 
+export const InitResponseSchema = z
+  .object({
+    type: z.literal('init-response'),
+  })
+  .merge(
+    UsageReponseSchema.omit({
+      type: true,
+    })
+  )
+export type InitResponse = z.infer<typeof InitResponseSchema>
+
 export const ResponseCompleteSchema = z
   .object({
     type: z.literal('response-complete'),
@@ -171,9 +182,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     isUpToDate: z.boolean(),
     latestVersion: z.string(),
   }),
-  z.object({
-    type: z.literal('init-response'),
-  }),
+  InitResponseSchema,
   z.object({
     type: z.literal('auth-result'),
     user: userSchema.optional(),

@@ -29,7 +29,7 @@ export class AnonymousQuotaManager implements IQuotaManager {
     const quota = CREDITS_USAGE_LIMITS.ANON
     const startDate: SQL<string> = sql<string>`COALESCE(${schema.fingerprint.next_quota_reset}, now()) - INTERVAL '1 month'`
     const endDate: SQL<string> = sql<string>`COALESCE(${schema.fingerprint.next_quota_reset}, now())`
-    let session_credits_used = undefined
+    let session_credits_used: number | undefined = undefined
 
     const result = await db
       .select({
