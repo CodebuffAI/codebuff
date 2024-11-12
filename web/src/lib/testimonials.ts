@@ -30,6 +30,14 @@ export const testimonials: Testimonial[][] = [
       link: '/testimonials/proof/chrisjan-wust.png',
     },
     {
+      quote:
+        'Yesterday at this time, I posted about testing Codebuff for our dark → light mode conversion. Today at 10 AM, our new light design is live in production...',
+      author: 'Stefan Gasser',
+      title: 'Founder & CEO',
+      avatar: '/testimonials/stefan-gasser.jpg',
+      link: 'https://www.linkedin.com/posts/stefan-gasser_24-hour-update-from-idea-to-production-activity-7261680039333666818-G0XP',
+    },
+    {
       quote: 'Just had a magical manicode moment: ... And it just worked!',
       author: 'Stephen Grugett',
       title: 'Founder & CEO',
