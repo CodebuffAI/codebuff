@@ -77,6 +77,14 @@ When displaying inline code snippets with copy buttons:
 - This helps with discoverability and matches the project's emphasis on clear user interactions
 - Implementation: Remove the `opacity-0` class from the close button's base styles
 
+### Banner Design
+
+- For banners with icons and text that may wrap on mobile:
+  - Increase icon size on mobile when text wraps to multiple lines
+  - Maintain proper spacing between icon and text across breakpoints
+  - Consider text alignment and icon placement when content wraps
+- This ensures visual balance and readability across all device sizes
+
 ### Text Selection
 
 - When users click to copy command snippets or code blocks, select the entire text
