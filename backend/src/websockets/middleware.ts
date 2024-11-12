@@ -78,7 +78,7 @@ export const protec = new WebSocketMiddleware()
 protec.use(async (action, _clientSessionId, _) => {
   logger.debug(`Protecting action of type: '${action.type}'`)
 })
-protec.use(async (action, _clientSessionId, ws) => {
+protec.use(async (action, clientSessionId, ws) => {
   return match(action)
     .with(
       {
@@ -113,7 +113,7 @@ protec.use(async (action, _clientSessionId, ws) => {
 
         if (quota.quotaExceeded) {
           logger.error(`Quota exceeded for user ${quota.userId}`)
-          return genUsageResponse(fingerprintId, quota.userId)
+          return genUsageResponse(clientSessionId, fingerprintId, quota.userId)
         }
         return
       }
@@ -162,7 +162,7 @@ protec.use(async (action, _clientSessionId, ws) => {
 
         if (quota.quotaExceeded) {
           logger.error(`Quota exceeded for fingerprint ${fingerprintId}`)
-          return genUsageResponse(fingerprintId)
+          return genUsageResponse(clientSessionId, fingerprintId)
         }
 
         return

@@ -9,7 +9,16 @@ import { applyChanges } from 'common/util/changes'
 import { User } from 'common/util/credentials'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
 import { ChatStorage } from './chat-storage'
-import { FileChanges, Message, ServerAction } from 'common/actions'
+import {
+  FileChanges,
+  InitResponseSchema,
+  Message,
+  ResponseCompleteSchema,
+  SERVER_ACTION_SCHEMA,
+  ServerAction,
+  UsageReponseSchema,
+  UsageResponse,
+} from 'common/actions'
 import { toolHandlers } from './tool-handlers'
 import {
   CREDITS_REFERRAL_BONUS,
@@ -37,6 +46,8 @@ export class Client {
   public usage: number = 0
   public limit: number = 0
   public subscription_active: boolean = false
+  public sessionCreditsUsed: number = 0
+  public nextQuotaReset: Date | null = null
 
   constructor(
     websocketUrl: string,
@@ -152,6 +163,24 @@ export class Client {
       fingerprintId: await this.getFingerprintId(),
       referralCode,
     })
+  }
+
+  public setUsage({
+    usage,
+    limit,
+    subscription_active,
+    next_quota_reset,
+    referralLink,
+    session_credits_used,
+  }: Omit<UsageResponse, 'type'>) {
+    this.usage = usage
+    this.limit = limit
+    this.subscription_active = subscription_active
+    this.nextQuotaReset = next_quota_reset
+    if (!!session_credits_used) {
+      this.sessionCreditsUsed = session_credits_used
+    }
+    this.showUsageWarning(referralLink)
   }
 
   private setupSubscriptions() {
@@ -301,12 +330,11 @@ export class Client {
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
-      const { usage, limit, subscription_active, referralLink } = action
-      console.log(`Usage: ${usage} / ${limit} credits`)
-      this.usage = usage
-      this.limit = limit
-      this.subscription_active = subscription_active
-      this.showUsageWarning(referralLink)
+      const parsedAction = UsageReponseSchema.safeParse(action)
+      if (!parsedAction.success) return
+      const a = parsedAction.data
+      console.log(`Usage: ${a.usage} / ${a.limit} credits`)
+      this.setUsage(a)
       this.returnControlToUser()
     })
   }
@@ -326,8 +354,8 @@ export class Client {
     const pct: number = match(Math.floor((this.usage / this.limit) * 100))
       .with(P.number.gte(100), () => 100)
       .with(P.number.gte(75), () => 75)
-      .with(P.number.gte(50), () => 50)
-      .with(P.number.gte(25), () => 25)
+      // .with(P.number.gte(50), () => 50)
+      // .with(P.number.gte(25), () => 25)
       .otherwise(() => 0)
 
     // User has used all their allotted credits, but they haven't been notified yet
@@ -474,30 +502,48 @@ export class Client {
       onChunk(chunk)
     })
 
-    unsubscribeComplete = this.webSocket.subscribe('response-complete', (a) => {
-      if (a.userInputId !== userInputId) return
-      unsubscribeChunks()
-      unsubscribeComplete()
-      if (a.resetFileVersions) {
-        this.fileVersions = [a.addedFileVersions]
-      } else {
-        this.fileVersions.push(a.addedFileVersions)
-      }
-      resolveResponse({ ...a, wasStoppedByUser: false })
-      this.currentUserInputId = undefined
+    unsubscribeComplete = this.webSocket.subscribe(
+      'response-complete',
+      (action) => {
+        const parsedAction = ResponseCompleteSchema.safeParse(action)
+        if (!parsedAction.success || action.userInputId !== userInputId) return
+        const a = parsedAction.data
+        unsubscribeChunks()
+        unsubscribeComplete()
+        if (a.resetFileVersions) {
+          this.fileVersions = [a.addedFileVersions]
+        } else {
+          this.fileVersions.push(a.addedFileVersions)
+        }
+        resolveResponse({ ...a, wasStoppedByUser: false })
+        this.currentUserInputId = undefined
 
-      if (!a.usage || !a.limit || a.subscription_active === undefined) return
+        if (
+          !a.usage ||
+          !a.next_quota_reset ||
+          a.subscription_active === undefined ||
+          !a.limit
+        ) {
+          return
+        }
 
-      this.subscription_active = a.subscription_active
-      this.usage = a.usage
-      if (this.limit !== a.limit) {
+        if (this.usage > 0) {
+          this.sessionCreditsUsed = a.usage - this.usage
+        }
+        this.setUsage({
+          usage: a.usage,
+          limit: a.limit,
+          subscription_active: a.subscription_active,
+          next_quota_reset: a.next_quota_reset,
+          session_credits_used: a.session_credits_used ?? 0,
+        })
+
         // Indicates a change in the user's plan
-        this.lastWarnedPct = 0
-        this.limit = a.limit
+        if (this.limit !== a.limit) {
+          this.lastWarnedPct = 0
+        }
       }
-
-      this.showUsageWarning(a.referralLink)
-    })
+    )
 
     return {
       responsePromise,
@@ -521,7 +567,11 @@ export class Client {
     )
 
     return new Promise<void>(async (resolve) => {
-      this.webSocket.subscribe('init-response', () => {
+      this.webSocket.subscribe('init-response', (a) => {
+        const parsedAction = InitResponseSchema.safeParse(a)
+        if (!parsedAction.success) return
+
+        this.setUsage(parsedAction.data)
         resolve()
       })
 

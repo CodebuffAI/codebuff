@@ -115,24 +115,50 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
 ])
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
-export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('response-chunk'),
-    userInputId: z.string(),
-    chunk: z.string(),
-  }),
-  z.object({
+export const UsageReponseSchema = z.object({
+  type: z.literal('usage-response'),
+  usage: z.number(),
+  limit: z.number(),
+  referralLink: z.string().optional(),
+  subscription_active: z.boolean(),
+  next_quota_reset: z.coerce.date(),
+  session_credits_used: z.number(),
+})
+export type UsageResponse = z.infer<typeof UsageReponseSchema>
+
+export const InitResponseSchema = z
+  .object({
+    type: z.literal('init-response'),
+  })
+  .merge(
+    UsageReponseSchema.omit({
+      type: true,
+    })
+  )
+export type InitResponse = z.infer<typeof InitResponseSchema>
+
+export const ResponseCompleteSchema = z
+  .object({
     type: z.literal('response-complete'),
     userInputId: z.string(),
     response: z.string(),
     changes: CHANGES,
     addedFileVersions: z.array(FileVersionSchema),
     resetFileVersions: z.boolean(),
-    usage: z.number().optional(),
-    limit: z.number().optional(),
-    subscription_active: z.boolean().optional(),
-    referralLink: z.string().optional(),
+  })
+  .merge(
+    UsageReponseSchema.omit({
+      type: true,
+    }).partial()
+  )
+
+export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('response-chunk'),
+    userInputId: z.string(),
+    chunk: z.string(),
   }),
+  ResponseCompleteSchema,
   z.object({
     type: z.literal('read-files'),
     filePaths: z.array(z.string()),
@@ -156,9 +182,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     isUpToDate: z.boolean(),
     latestVersion: z.string(),
   }),
-  z.object({
-    type: z.literal('init-response'),
-  }),
+  InitResponseSchema,
   z.object({
     type: z.literal('auth-result'),
     user: userSchema.optional(),
@@ -170,13 +194,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     fingerprintHash: z.string(),
     loginUrl: z.string().url(),
   }),
-  z.object({
-    type: z.literal('usage-response'),
-    usage: z.number(),
-    limit: z.number(),
-    referralLink: z.string().optional(),
-    subscription_active: z.boolean(),
-  }),
+  UsageReponseSchema,
   z.object({
     type: z.literal('action-error'),
     message: z.string(),

@@ -26,6 +26,7 @@ import {
   commitChanges,
   getStagedChanges,
 } from 'common/util/git'
+import { pluralize } from 'common/util/string'
 
 export class CLI {
   private client: Client
@@ -202,7 +203,30 @@ export class CLI {
   }
 
   private handleExit() {
-    console.log(green('\n\nExiting. Codebuff out!'))
+    console.log('\n\n')
+    console.log(
+      `${pluralize(this.client.sessionCreditsUsed, 'credit')} used this session.`
+    )
+    if (
+      !!this.client.limit &&
+      !!this.client.usage &&
+      !!this.client.nextQuotaReset
+    ) {
+      const daysUntilReset = Math.max(
+        0,
+        Math.floor(
+          (this.client.nextQuotaReset.getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24)
+        )
+      )
+      console.log(
+        `${Math.max(
+          0,
+          this.client.limit - this.client.usage
+        )} / ${this.client.limit} credits remaining. Renews in ${pluralize(daysUntilReset, 'day')}.`
+      )
+    }
+    console.log(green('Codebuff out!'))
     process.exit(0)
   }
 

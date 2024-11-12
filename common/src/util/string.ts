@@ -67,3 +67,27 @@ export const replaceNonStandardPlaceholderComments = (
 export const randBoolFromStr = (str: string) => {
   return sumBy(str.split(''), (char) => char.charCodeAt(0)) % 2 === 0
 }
+
+export const pluralize = (count: number, word: string) => {
+  if (count === 1) return word
+
+  // Handle words ending in 'y' (unless preceded by a vowel)
+  if (word.endsWith('y') && !word.match(/[aeiou]y$/)) {
+    return word.slice(0, -1) + 'ies'
+  }
+
+  // Handle words ending in s, sh, ch, x, z, o
+  if (word.match(/[sxz]$/) || word.match(/[cs]h$/) || word.match(/o$/)) {
+    return word + 'es'
+  }
+
+  // Handle words ending in f/fe
+  if (word.endsWith('f')) {
+    return word.slice(0, -1) + 'ves'
+  }
+  if (word.endsWith('fe')) {
+    return word.slice(0, -2) + 'ves'
+  }
+
+  return `${count} ${word + 's'}`
+}
