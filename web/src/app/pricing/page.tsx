@@ -176,14 +176,14 @@ const PricingPage = () => {
         <div className="grid md:grid-cols-4 gap-8 mt-12">
           {pricingPlans.map((plan, index) => (
             <Card key={index} className="bg-gray-900 text-white flex flex-col">
-              <CardHeader>
+              <CardHeader className="min-h-[180px] flex flex-col">
                 <h3 className="text-2xl font-bold">{plan.name}</h3>
                 <p className="text-4xl font-bold mt-2">{plan.price}</p>
                 {plan.credits && (
                   <p className="text-lg mt-2">{plan.credits} credits/month</p>
                 )}
               </CardHeader>
-              <CardContent className="flex-grow">
+              <CardContent className="flex-grow flex flex-col justify-between">
                 <ul className="mt-4 space-y-2">
                   {plan.features.map((feature, idx) => (
                     <li key={idx}>{feature}</li>
