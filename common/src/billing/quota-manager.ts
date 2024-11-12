@@ -58,7 +58,7 @@ export class AnonymousQuotaManager implements IQuotaManager {
       session_credits_used = await db
         .select({
           client_id: schema.message.client_id,
-          user_id: schema.message.user_id,
+          fingerprint_id: schema.message.fingerprint_id,
           sessionCreditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
         })
         .from(schema.message)
