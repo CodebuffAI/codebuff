@@ -169,7 +169,7 @@ Replace with:
 
 Please rewrite the file content to include these intended changes while preserving the rest of the file. Only make the minimal changes necessary to incorporate the intended edits. Do not edit any other code. Please preserve all other comments, etc.
 
-Return only the full, complete file content with no additional text or explanation without using \`\`\` markdown code blocks. Start with the first line of the file instead. Do not excerpt portions of the file, write out the entire updated file.`
+Return only the full, complete file content with no additional text or explanation. Do not use \`\`\` markdown code blocks to enclose the file content, instead, start with the first line of the file. Do not excerpt portions of the file, write out the entire updated file.`
 
   const startTime = Date.now()
   const response = await promptOpenAI([{ role: 'user', content: prompt }], {
@@ -186,5 +186,11 @@ Return only the full, complete file content with no additional text or explanati
     `applyRemainingChanges for ${diffBlocksThatDidntMatch.length} blocks`
   )
 
-  return response + '\n'
+  // Only remove backticks if they wrap the entire response
+  const cleanResponse = response.match(/^```[^\n]*\n([\s\S]*)\n```$/)
+    ? response.replace(/^```[^\n]*\n/, '').replace(/\n```$/, '')
+    : response
+
+  // Add newline to maintain consistency with original file endings
+  return cleanResponse + '\n'
 }
