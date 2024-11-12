@@ -14,7 +14,7 @@ export async function updateCodebuff() {
     if (!installerInfo) {
       console.log(
         yellow(
-          "There's a new version available! Please update Codebuff to prevent errors"
+          "There's a new version available! Please update Codebuff to prevent errors (run `npm install -g codebuff` to update)."
         )
       )
       return
