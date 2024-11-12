@@ -220,7 +220,10 @@ export class CLI {
         )
       )
       console.log(
-        `${this.client.limit - this.client.usage} / ${this.client.limit} credits remaining. Renews in ${pluralize(daysUntilReset, 'day')}.`
+        `${Math.max(
+          0,
+          this.client.limit - this.client.usage
+        )} / ${this.client.limit} credits remaining. Renews in ${pluralize(daysUntilReset, 'day')}.`
       )
     }
     console.log(green('Codebuff out!'))
