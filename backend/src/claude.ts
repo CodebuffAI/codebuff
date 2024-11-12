@@ -67,7 +67,7 @@ export const promptClaudeStream = async function* (
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
       model,
-      max_tokens: maxTokens ?? 4096,
+      max_tokens: maxTokens ?? 8192,
       temperature: 0,
       messages,
       system,
