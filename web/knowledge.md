@@ -140,7 +140,13 @@ Example of correct ordering:
 
 Important considerations for interactive components:
 
-1. Z-index Requirements:
+1. Pricing Cards Layout:
+   - Pricing cards must remain in a single row
+   - Use appropriate grid column settings to accommodate all tiers
+   - Current layout supports 4 cards: Free, Pro Plus, Pro, and Enterprise
+   - Maintain consistent card heights and spacing
+
+2. Z-index Requirements:
 
    - Interactive components must have proper z-index positioning AND be inside providers
    - Components with dropdowns or overlays should use z-20 or higher

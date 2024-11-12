@@ -125,10 +125,8 @@ const PricingPage = () => {
       price: '$500/month',
       credits: CREDITS_USAGE_LIMITS.PRO_PLUS,
       features: [
-        '$0.95 per 100 credits afterwards',
+        '$0.90 per 100 credits afterwards',
         'Priority support over email or Discord',
-        'Dedicated account manager',
-        'Custom integrations available',
       ],
       cardFooterChildren: (
         <div className="w-full flex flex-col items-center text-center justify-center space-y-2">
@@ -184,7 +182,7 @@ const PricingPage = () => {
             </i>
           </p>
 
-          <div className="grid md:grid-cols-3 gap-8 mt-12">
+          <div className="grid md:grid-cols-4 gap-8 mt-12">
             {pricingPlans.map((plan, index) => (
               <Card
                 key={index}
