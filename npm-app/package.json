@@ -1,12 +1,12 @@
 {
   "name": "manicode",
-  "version": "1.0.100",
+  "version": "1.0.101",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "codebuff": "dist/index.js"
+    "manicode": "dist/index.js"
   },
   "scripts": {
     "prebuild": "bun run with-env -- bun clean && cd ../common && bun run build && cd ../packages/code-map && bun run build",
