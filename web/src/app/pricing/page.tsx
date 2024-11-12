@@ -43,7 +43,7 @@ const PricingPage = () => {
 
   const pricingPlans = [
     {
-      name: 'Free (for logged in users)',
+      name: 'Free',
       price: '$0/month',
       credits: CREDITS_USAGE_LIMITS.FREE,
       features: [
@@ -73,7 +73,7 @@ const PricingPage = () => {
       credits: CREDITS_USAGE_LIMITS.PAID,
       features: [
         '$0.95 per 100 credits afterwards',
-        'Priority support over email or Discord',
+        'Priority support over email and Discord',
       ],
       cardFooterChildren: (
         <div className="w-full flex flex-col items-center text-center justify-center space-y-2">
@@ -113,7 +113,7 @@ const PricingPage = () => {
                 {isPending && (
                   <Icons.loader className="mr-2 size-4 animate-spin" />
                 )}
-                Upgrade to pro
+                Upgrade
               </>
             )}
           </Button>
@@ -126,31 +126,25 @@ const PricingPage = () => {
       credits: CREDITS_USAGE_LIMITS.PRO_PLUS,
       features: [
         '$0.90 per 100 credits afterwards',
-        'Priority support over email or Discord',
+        'Priority support over email and Discord',
       ],
       cardFooterChildren: (
-        <div className="w-full flex flex-col items-center text-center justify-center space-y-2">
-          <Button
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-            onClick={() => handleCreateCheckoutSession()}
-            disabled={isPending}
-          >
-            {isPending && <Icons.loader className="mr-2 size-4 animate-spin" />}
-            Contact Sales
-          </Button>
-        </div>
+        <Button
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+          asChild
+        >
+          <Link href={'mailto:support@codebuff.com'}>Contact Support</Link>
+        </Button>
       ),
     },
 
     {
-      name: 'Enterprise',
-      price: 'Custom',
-      credits: 'Custom',
+      name: 'Team',
+      price: '$99/month + usage',
+      // credits: 'Custom',
       features: [
-        'Team collaboration',
-        '24/7 support',
-        'Custom features',
-        'Custom integrations',
+        'Custom credit limits per member',
+        'Priority support over email, Discord, and Slack',
       ],
       cardFooterChildren: (
         <Button
@@ -167,47 +161,51 @@ const PricingPage = () => {
     <div className="overflow-hidden">
       <BackgroundBeams />
 
-      <div className="max-w-6xl mx-auto">
-        <main className="container mx-auto px-4 py-20 text-center relative z-10">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6">
-            Choose Your Plan
-          </h1>
-          <p className="text-xl md:text-2xl mb-12 text-gray-500 max-w-3xl mx-auto">
-            Unlock the full potential of Codebuff with our flexible,
-            credits-based pricing options.
-          </p>
-          <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
-            <i>
-              An intense 1-hour work session typically uses 500-1000 credits.
-            </i>
-          </p>
+      <main className="container mx-auto px-4 py-20 text-center relative z-10">
+        <h1 className="text-5xl md:text-7xl font-bold mb-6">
+          Choose Your Plan
+        </h1>
+        <p className="text-xl md:text-2xl mb-12 text-gray-500 max-w-3xl mx-auto">
+          Unlock the full potential of Codebuff with our flexible, credits-based
+          pricing options.
+        </p>
+        <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
+          <i>An intense 1-hour work session typically uses 500-1000 credits.</i>
+        </p>
 
-          <div className="grid md:grid-cols-4 gap-8 mt-12">
-            {pricingPlans.map((plan, index) => (
-              <Card
-                key={index}
-                className="bg-gray-900 text-white flex flex-col"
-              >
-                <CardHeader>
-                  <h3 className="text-2xl font-bold">{plan.name}</h3>
-                  <p className="text-4xl font-bold mt-2">{plan.price}</p>
+        <div className="grid md:grid-cols-4 gap-8 mt-12">
+          {pricingPlans.map((plan, index) => (
+            <Card key={index} className="bg-gray-900 text-white flex flex-col">
+              <CardHeader>
+                <h3 className="text-2xl font-bold">{plan.name}</h3>
+                <p className="text-4xl font-bold mt-2">{plan.price}</p>
+                {plan.credits && (
                   <p className="text-lg mt-2">{plan.credits} credits/month</p>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <ul className="mt-4 space-y-2">
-                    {plan.features.map((feature, idx) => (
-                      <li key={idx}>{feature}</li>
-                    ))}
-                  </ul>
-                </CardContent>
-                <CardFooter className="w-full justify-center">
-                  {plan.cardFooterChildren}
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        </main>
-      </div>
+                )}
+              </CardHeader>
+              <CardContent className="flex-grow">
+                <ul className="mt-4 space-y-2">
+                  {plan.features.map((feature, idx) => (
+                    <li key={idx}>{feature}</li>
+                  ))}
+                </ul>
+              </CardContent>
+              <CardFooter className="w-full justify-center">
+                {plan.cardFooterChildren}
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+
+        <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
+          <i>
+            For enterprise inquiries, please reach out to{' '}
+            <Link href={'mailto:founders@codebuff.com'} className="underline">
+              founders@codebuff.com
+            </Link>
+          </i>
+        </p>
+      </main>
     </div>
   )
 }
