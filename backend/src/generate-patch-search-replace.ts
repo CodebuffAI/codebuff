@@ -5,7 +5,6 @@ import { EXISTING_CODE_MARKER, openaiModels } from 'common/constants'
 import { replaceNonStandardPlaceholderComments } from 'common/util/string'
 import { logger } from './util/logger'
 import { parseFileBlocks } from 'common/util/file'
-import { generateExpandedFileWithDiffBlocks } from './generate-diffs-prompt'
 
 export async function generatePatchWithSearchReplace(
   clientSessionId: string,
@@ -44,17 +43,17 @@ export async function generatePatchWithSearchReplace(
     let newContentWithPlaceholders = shouldAddPlaceholderComments
       ? `${EXISTING_CODE_MARKER}\n\n${normalizedNewContent}\n\n${EXISTING_CODE_MARKER}`
       : normalizedNewContent
-    updatedFile = await generateExpandedFileWithDiffBlocks(
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      normalizedOldContent,
-      newContentWithPlaceholders,
-      filePath,
-      messageHistory,
-      fullResponse,
-      userId
-    )
+    // updatedFile = await generateExpandedFileWithDiffBlocks(
+    //   clientSessionId,
+    //   fingerprintId,
+    //   userInputId,
+    //   normalizedOldContent,
+    //   newContentWithPlaceholders,
+    //   filePath,
+    //   messageHistory,
+    //   fullResponse,
+    //   userId
+    // )
   }
   let patch = createPatch(filePath, normalizedOldContent, normalizedNewContent)
   const lines = patch.split('\n')
