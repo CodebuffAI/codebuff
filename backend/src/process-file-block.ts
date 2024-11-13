@@ -9,6 +9,7 @@ import {
 } from './generate-diffs-prompt'
 import { openaiModels } from 'common/constants'
 import { promptOpenAI } from './openai-api'
+import { createSearchReplaceBlock } from 'common/util/file'
 
 export async function processFileBlock(
   clientSessionId: string,
@@ -97,6 +98,7 @@ export async function processFileBlock(
     updatedContent = await applyRemainingChanges(
       updatedContent,
       updatedDiffBlocksThatDidntMatch,
+      fullResponse,
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -140,36 +142,39 @@ export async function processFileBlock(
 async function applyRemainingChanges(
   updatedContent: string,
   diffBlocksThatDidntMatch: { searchContent: string; replaceContent: string }[],
+  fullResponse: string,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined
 ) {
   const prompt = `
+You will be helping to rewrite a file with changes.
+
+Here is the context for the change:
+<assistant_thoughts>
+${fullResponse}
+</assistant_thoughts>
+
 Here's the current content of the file:
 
 \`\`\`
 ${updatedContent}
 \`\`\`
 
-The following changes were intended but could not be applied using exact string matching:
+The following changes were intended for this file but could not be applied using exact string matching. Note that the changes are represented as SEARCH strings found in the current file that are intended to be replaced with the REPLACE strings. Often the SEARCH string will contain extra lines of context to help match a location in the file.
 
 ${diffBlocksThatDidntMatch
   .map(
-    (block, i) => `
-Change ${i + 1}:
-Search content:
-\`\`\`${block.searchContent}\`\`\`
-
-Replace with:
-\`\`\`${block.replaceContent}\`\`\`
-`
+    (block, i) => `Change ${i + 1}:
+${createSearchReplaceBlock(block.searchContent, block.replaceContent)}`
   )
   .join('\n')}
 
 Please rewrite the file content to include these intended changes while preserving the rest of the file. Only make the minimal changes necessary to incorporate the intended edits. Do not edit any other code. Please preserve all other comments, etc.
 
-Return only the full, complete file content with no additional text or explanation. Do not use \`\`\` markdown code blocks to enclose the file content, instead, start with the first line of the file. Do not excerpt portions of the file, write out the entire updated file.`
+Return only the full, complete file content with no additional text or explanation. Do not use \`\`\` markdown code blocks to enclose the file content, instead, start with the first line of the file. Do not excerpt portions of the file, write out the entire updated file.
+`.trim()
 
   const startTime = Date.now()
   const response = await promptOpenAI([{ role: 'user', content: prompt }], {
