@@ -82,8 +82,7 @@ function detectInstaller(): InstallerInfo | undefined {
     // Continue with empty location - could be a local installation
   }
 
-  const path = codebuffLocation.split('\n')[0] ?? ''
-  const pathIncludesNodeModules = path.includes('node_modules')
+  const binPath = (codebuffLocation.split('\n')[0] ?? '').replace(/\\/g, '/')
   const npmUserAgent = process.env.npm_config_user_agent ?? ''
 
   // Check for package manager script environments
@@ -95,35 +94,39 @@ function detectInstaller(): InstallerInfo | undefined {
     npmUserAgent.includes('npm')
 
   // Mac: /Users/jahooma/.yarn/bin/codebuff
-  if (isYarnScript || path.includes('.yarn')) {
+  if (isYarnScript || binPath.includes('.yarn')) {
     return {
       installer: 'yarn',
-      scope: path.includes('.yarn') ? 'global' : 'local',
+      scope: binPath.includes('.yarn') ? 'global' : 'local',
     }
   }
 
   // Windows: ~/AppData/Local/pnpm/store
   // macOS: ~/Library/pnpm/store
   // Linux: ~/.local/share/pnpm/store
-  if (isPnpmScript || path.includes('pnpm')) {
+  if (isPnpmScript || binPath.includes('pnpm')) {
     return {
       installer: 'pnpm',
-      scope: path.includes('pnpm') ? 'global' : 'local',
+      scope: binPath.includes('pnpm') ? 'global' : 'local',
     }
   }
 
   // Mac: /Users/jahooma/.bun/install/cache
-  if (isBunScript || path.includes('.bun')) {
+  if (isBunScript || binPath.includes('.bun')) {
     return {
       installer: 'bun',
-      scope: path.includes('.bun') ? 'global' : 'local',
+      scope: binPath.includes('.bun') ? 'global' : 'local',
     }
   }
 
   // /usr/local/lib/node_modules on macOS/Linux or %AppData%\npm/node_modules on Windows
   // OR: .nvm/versions/node/v18.17.0/bin/codebuff on mac
+  // OR /Users/stefan/Library/Application Support/Herd/config/nvm/versions/node/v22.9.0/bin/codebuff
+  // OR ~/.config/nvm/versions/node/v22.11.0/bin/codebuff
   const isGlobalNpmPath =
-    path.includes('npm') || path.startsWith('/usr/') || path.includes('.nvm')
+    binPath.includes('npm') ||
+    binPath.startsWith('/usr/') ||
+    binPath.includes('nvm/')
   if (isNpmScript || isGlobalNpmPath) {
     return {
       installer: 'npm',
