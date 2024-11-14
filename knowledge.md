@@ -224,7 +224,6 @@ A Python package for Codebuff has been created as a skeleton in python-app. Key 
 
 Upon start-up, the client checks the npmjs.org registry for the latest version of the npm package. If the version is newer, Codebuff will automatically try to download and install the latest version. Once it does, it'll prompt the user to restart the application.
 
-# Development workflow
+# Verifying changes
 
-When the user asks for something done, and the assistant makes changes, you should do the following on every code change:
-Run the type checker with `bun run --cwd backend tsc` (or sub "backend" for the appropriate project) and then fix any errors.
+After every code change, you should run the type checker with `bun run --cwd backend tsc` (or sub "backend" for the appropriate project) and then fix any type errors that resulted from your change.
