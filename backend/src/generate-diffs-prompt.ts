@@ -25,8 +25,8 @@ export const parseAndGetDiffBlocks = (
 
     while ((blockMatch = blockRegex.exec(fileContent)) !== null) {
       const change = {
-        searchContent: removeNewlinesFromStartAndEnd(blockMatch[1]),
-        replaceContent: removeNewlinesFromStartAndEnd(blockMatch[2]),
+        searchContent: blockMatch[1],
+        replaceContent: blockMatch[2],
       }
 
       if (oldFileContent.includes(change.searchContent)) {
@@ -67,8 +67,8 @@ export const parseAndGetDiffBlocksSingleFile = (
 
   while ((blockMatch = blockRegex.exec(newContent)) !== null) {
     const change = {
-      searchContent: removeNewlinesFromStartAndEnd(blockMatch[1]),
-      replaceContent: removeNewlinesFromStartAndEnd(blockMatch[2]),
+      searchContent: blockMatch[1],
+      replaceContent: blockMatch[2],
     }
 
     if (oldFileContent.includes(change.searchContent)) {
@@ -172,10 +172,6 @@ const tryToDoStringReplacementWithExtraIndentation = (
     }
   }
   return null
-}
-
-const removeNewlinesFromStartAndEnd = (content: string): string => {
-  return content.replace(/^\n+|\n+$/g, '')
 }
 
 export const retryDiffBlocksPrompt = async (

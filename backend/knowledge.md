@@ -112,6 +112,11 @@ The backend handles file operations for the Codebuff project:
   createSearchReplaceBlock(oldCode, newCode)
   ```
 
+  Important whitespace handling rules:
+  - Preserve all whitespace in search/replace blocks, including leading/trailing newlines
+  - Do not strip or normalize whitespace as it may be significant for matching
+  - Match exact whitespace when possible before falling back to whitespace-insensitive matching
+
 ## Web Scraping
 
 The backend now includes a web scraping tool that allows the AI assistant to retrieve content from external web pages. This functionality is useful for gathering information from documentation, APIs, or other web-based resources.
