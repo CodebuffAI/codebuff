@@ -13,7 +13,7 @@ import {
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
-import { FileChange, Message } from 'common/actions'
+import { FileChange, FileChanges, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { requestFile, requestFiles } from './websockets/websocket-action'
 import { processFileBlock } from './process-file-block'
@@ -39,7 +39,8 @@ export async function mainPrompt(
   fingerprintId: string,
   userInputId: string,
   onResponseChunk: (chunk: string) => void,
-  userId?: string
+  userId: string | undefined,
+  changesAlreadyApplied: FileChanges
 ) {
   const lastUserMessageIndex = messages.findLastIndex(
     (message) =>

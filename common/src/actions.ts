@@ -66,7 +66,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     userInputId: z.string(),
     messages: z.array(MessageSchema),
     fileContext: ProjectFileContextSchema,
-    previousChanges: CHANGES,
+    changesAlreadyApplied: CHANGES,
   }),
   z.object({
     type: z.literal('read-files-response'),
@@ -143,6 +143,7 @@ export const ResponseCompleteSchema = z
     userInputId: z.string(),
     response: z.string(),
     changes: CHANGES,
+    changesAlreadyApplied: CHANGES,
     addedFileVersions: z.array(FileVersionSchema),
     resetFileVersions: z.boolean(),
   })
@@ -169,6 +170,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     response: z.string(),
     data: ToolCallSchema,
     changes: CHANGES,
+    changesAlreadyApplied: CHANGES,
     addedFileVersions: z.array(FileVersionSchema),
     resetFileVersions: z.boolean(),
   }),

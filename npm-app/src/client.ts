@@ -194,6 +194,7 @@ export class Client {
       const {
         response,
         changes,
+        changesAlreadyApplied,
         data,
         userInputId,
         addedFileVersions,
@@ -242,7 +243,10 @@ export class Client {
           this.chatStorage.getCurrentChat(),
           toolResultMessage
         )
-        await this.sendUserInput(changes, userInputId)
+        await this.sendUserInput(
+          [...changesAlreadyApplied, ...changes],
+          userInputId
+        )
       } else {
         console.error(`No handler found for tool: ${name}`)
       }
@@ -259,7 +263,7 @@ export class Client {
     })
 
     this.webSocket.subscribe('npm-version-status', (action) => {
-      const { isUpToDate, latestVersion } = action
+      const { isUpToDate } = action
       if (!isUpToDate) {
         console.warn(
           yellow(
@@ -416,18 +420,6 @@ export class Client {
     this.currentUserInputId = userInputId
     const currentChat = this.chatStorage.getCurrentChat()
     const { messages, fileVersions: messageFileVersions } = currentChat
-    const messageText = messages
-      .map((m) => JSON.stringify(m.content))
-      .join('\n')
-    const filesContent = messageText.match(/<files>(.*?)<\/files>/gs)
-    const lastFilesContent = filesContent
-      ? filesContent[filesContent.length - 1]
-      : ''
-    const fileList = lastFilesContent
-      .replace(/<\/?files>/g, '')
-      .trim()
-      .split(', ')
-      .filter((str) => str)
 
     const currentFileVersion =
       messageFileVersions[messageFileVersions.length - 1]?.files ?? {}
@@ -441,7 +433,7 @@ export class Client {
       userInputId,
       messages,
       fileContext,
-      previousChanges,
+      changesAlreadyApplied: previousChanges,
       fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
     })
@@ -463,13 +455,11 @@ export class Client {
     let unsubscribeComplete: () => void
     let streamStarted = false
 
-    const responsePromise = new Promise<{
-      response: string
-      changes: FileChanges
-      wasStoppedByUser: boolean
-      addedFileVersions: FileVersion[]
-      resetFileVersions: boolean
-    }>((resolve, reject) => {
+    const responsePromise = new Promise<
+      ServerAction & { type: 'response-complete' } & {
+        wasStoppedByUser: boolean
+      }
+    >((resolve, reject) => {
       resolveResponse = resolve
       rejectResponse = reject
     })
@@ -482,6 +472,7 @@ export class Client {
         userInputId,
         response: responseBuffer + '\n[RESPONSE_STOPPED_BY_USER]',
         changes: [],
+        changesAlreadyApplied: [],
         addedFileVersions: [],
         resetFileVersions: false,
         type: 'response-complete',

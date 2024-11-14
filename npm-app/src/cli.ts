@@ -418,7 +418,8 @@ export class CLI {
     this.chatStorage.addMessage(currentChat, newMessage)
 
     this.isReceivingResponse = true
-    const { response, changes } = await this.sendUserInputAndAwaitResponse()
+    const { response, changes, changesAlreadyApplied } =
+      await this.sendUserInputAndAwaitResponse()
     this.isReceivingResponse = false
 
     this.stopLoadingAnimation()
@@ -435,7 +436,8 @@ export class CLI {
       }
     }
 
-    const filesChanged = uniq(changes.map((change) => change.filePath))
+    const allChanges = [...changesAlreadyApplied, ...changes]
+    const filesChanged = uniq(allChanges.map((change) => change.filePath))
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
 
     const { created, modified } = applyChanges(getProjectRoot(), changes)
@@ -454,7 +456,7 @@ export class CLI {
     }
     console.log()
 
-    this.lastChanges = changes
+    this.lastChanges = allChanges
 
     const assistantMessage: Message = {
       role: 'assistant',

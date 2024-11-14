@@ -150,6 +150,16 @@ The backend implements a tool handling system that allows the AI assistant to pe
 2. **Available Tools**: Current tools include read_files, scrape_web_page, search_manifold_markets, and run_terminal_command.
 3. **Tool Execution**: When the AI makes a tool call, the backend processes it and provides the results back to the AI.
 
+### Change Tracking During Tool Calls
+
+Important: Changes made during tool execution must be properly tracked:
+- Changes made before a tool call are marked as "already applied"
+- Tool handlers must pass their changes back to server as changesAlreadyApplied
+- Final response includes all previously applied changes before tool calls and any changes in the last assistant response.
+- The client shows the diff from all the changes
+
+This ensures changes are properly tracked through the entire system and shown to the user at the end of their request.
+
 ## Error Handling and Debugging
 
 1. **Logging**: The `debug.ts` file provides logging functionality for debugging purposes.

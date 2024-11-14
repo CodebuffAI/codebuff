@@ -160,7 +160,7 @@ const onUserInput = async (
     userInputId,
     messages,
     fileContext,
-    previousChanges,
+    changesAlreadyApplied,
   }: Extract<ClientAction, { type: 'user-input' }>,
   clientSessionId: string,
   ws: WebSocket
@@ -197,7 +197,8 @@ const onUserInput = async (
               userInputId,
               chunk,
             }),
-          userId
+          userId,
+          changesAlreadyApplied
         )
 
         logger.debug({ response, changes, toolCall }, 'response-complete')
@@ -209,6 +210,7 @@ const onUserInput = async (
             response,
             data: toolCall,
             changes,
+            changesAlreadyApplied,
             addedFileVersions,
             resetFileVersions,
           })
@@ -226,6 +228,7 @@ const onUserInput = async (
             userInputId,
             response,
             changes,
+            changesAlreadyApplied,
             usage,
             limit,
             subscription_active,
@@ -253,6 +256,7 @@ const onUserInput = async (
           userInputId,
           response,
           changes: [],
+          changesAlreadyApplied,
           addedFileVersions: [],
           resetFileVersions: false,
         })
