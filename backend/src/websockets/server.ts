@@ -33,7 +33,10 @@ function parseMessage(data: RawData): ClientMessage {
   try {
     messageObj = JSON.parse(data.toString())
   } catch (err) {
-    logger.error({ err, data }, 'Error parsing message: not valid UTF-8 encoded JSON.')
+    logger.error(
+      { err, data },
+      'Error parsing message: not valid UTF-8 encoded JSON.'
+    )
     throw new MessageParseError('Message was not valid UTF-8 encoded JSON.')
   }
   const result = CLIENT_MESSAGE_SCHEMA.safeParse(messageObj)
@@ -97,7 +100,7 @@ async function processMessage(
 export function listen(server: HttpServer, path: string) {
   logger.info(`Listening on websocket path: ${path}`)
   const wss = new WebSocketServer({ server, path })
-  let deadConnectionCleaner: NodeJS.Timeout | undefined
+  let deadConnectionCleaner: any | undefined
   wss.on('listening', () => {
     logger.info(`Web socket server listening on ${path}.`)
     deadConnectionCleaner = setInterval(function ping() {
