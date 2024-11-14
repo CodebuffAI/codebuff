@@ -144,6 +144,7 @@ const PricingPage = () => {
       // credits: 'Custom',
       features: [
         'Custom credit limits per member',
+        'Pre-buy credits',
         'Priority support over email, Discord, and Slack',
       ],
       cardFooterChildren: (
