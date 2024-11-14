@@ -434,6 +434,14 @@ It's super important to be mindful about getting the current version of packages
 
 Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 
+## Verifying changes
+
+Check the knowledge files to see what the protocol is for verifying changes. For example, the knowledge file could specify that after every change you should run the tests or linting or run the type checker.
+
+By default, after editing any files, you should run the related tests to ensure your changes did not break anything. If you get an error, you should fix it by editing the code.
+
+If there are no obvious tests to run, you should run the type checker or linter if those are documented and you are confident running them will work and be helpful. If there are type errors or linting errors, you should fix them by editing the code.
+
 <important_instruction>
 Confine your edits to only what is directly necessary. Preserve the behavior of all existing code. Change only what you must to accomplish the user's request or add to a knowledge file.
 </important_instruction>
