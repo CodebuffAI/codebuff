@@ -123,6 +123,94 @@ function App() {
     expect(diffBlocks[0].replaceContent).toBe('')
   })
 
+  it('should handle search block with content but empty replace block', () => {
+    const oldContent = `import { useState, useEffect } from 'react'
+import { Chess } from 'chess.js'
+import axios from 'axios'
+
+function ChessGame() {
+  // Chess game state management
+  const [game] = useState(new Chess())
+  const [currentMoveIndex, setCurrentMoveIndex] = useState(0)
+  const [moves, setMoves] = useState<string[]>([])
+
+  useEffect(() => {
+      // Fetch latest game from Tata Steel tournament
+      // TODO: Replace with actual tournament API endpoint
+      const fetchGame = async () => {
+          try {
+              const response = await axios.get('https://lichess.org/api/broadcast/round/latest')
+              // Process PGN and set moves
+              // This is a placeholder - we'll need the actual tournament API
+              setMoves(['e4', 'e5', 'Nf3']) // Example moves
+          } catch (error) {
+              console.error('Failed to fetch game:', error)
+          }
+      }
+      fetchGame()
+  }, [])
+
+  const nextMove = () => {
+      if (currentMoveIndex < moves.length) {
+          game.move(moves[currentMoveIndex])
+          setCurrentMoveIndex(prev => prev + 1)
+      }
+  }
+
+  const prevMove = () => {
+      if (currentMoveIndex > 0) {
+          game.undo()
+          setCurrentMoveIndex(prev => prev - 1)
+      }
+  }
+}`
+
+    const searchReplaceContent = `<<<<<<< SEARCH
+  // Chess game state management
+  const [game] = useState(new Chess())
+  const [currentMoveIndex, setCurrentMoveIndex] = useState(0)
+  const [moves, setMoves] = useState<string[]>([])
+
+  useEffect(() => {
+      // Fetch latest game from Tata Steel tournament
+      // TODO: Replace with actual tournament API endpoint
+      const fetchGame = async () => {
+          try {
+              const response = await axios.get('https://lichess.org/api/broadcast/round/latest')
+              // Process PGN and set moves
+              // This is a placeholder - we'll need the actual tournament API
+              setMoves(['e4', 'e5', 'Nf3']) // Example moves
+          } catch (error) {
+              console.error('Failed to fetch game:', error)
+          }
+      }
+      fetchGame()
+  }, [])
+
+  const nextMove = () => {
+      if (currentMoveIndex < moves.length) {
+          game.move(moves[currentMoveIndex])
+          setCurrentMoveIndex(prev => prev + 1)
+      }
+  }
+
+  const prevMove = () => {
+      if (currentMoveIndex > 0) {
+          game.undo()
+          setCurrentMoveIndex(prev => prev - 1)
+      }
+  }
+=======
+>>>>>>> REPLACE
+`
+    const { diffBlocks, diffBlocksThatDidntMatch } =
+      parseAndGetDiffBlocksSingleFile(searchReplaceContent, oldContent)
+
+    expect(diffBlocksThatDidntMatch.length).toBe(0)
+    expect(diffBlocks.length).toBe(1)
+    expect(diffBlocks[0].replaceContent).toBe('')
+  })
+
   it('should preserve original whitespace when matching', () => {
     const oldContent = `function test() {
     doSomething(
