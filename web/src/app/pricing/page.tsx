@@ -47,6 +47,7 @@ const PricingPage = () => {
       price: '$0/month',
       credits: CREDITS_USAGE_LIMITS.FREE,
       features: [
+        'No overage allowed',
         <Link
           key="community-support"
           href="https://discord.gg/mcWTGjgTj3"
@@ -72,7 +73,7 @@ const PricingPage = () => {
       price: '$99/month',
       credits: CREDITS_USAGE_LIMITS.PAID,
       features: [
-        '$0.95 per 100 credits afterwards',
+        'Overage allowed ($0.99 per 100 credits)',
         'Priority support over email and Discord',
       ],
       cardFooterChildren: (
@@ -125,7 +126,7 @@ const PricingPage = () => {
       price: '$500/month',
       credits: CREDITS_USAGE_LIMITS.PRO_PLUS,
       features: [
-        '$0.90 per 100 credits afterwards',
+        'Overage allowed ($0.90 per 100 credits)',
         'Priority support over email and Discord',
       ],
       cardFooterChildren: (
@@ -171,7 +172,7 @@ const PricingPage = () => {
           pricing options.
         </p>
         <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
-          <i>An intense 1-hour work session typically uses 500-1000 credits.</i>
+          <i>An intense 1-hour work session typically uses 500 credits.</i>
         </p>
 
         <div className="grid md:grid-cols-4 gap-8 mt-12">
