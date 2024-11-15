@@ -1,8 +1,17 @@
-npm publish
+# Testing Infrastructure
+
+### Test Input Sources
+
+- twitch-plays-codebuff.sh: Integrates with Twitch chat via robotty.de API
+  - API endpoint: `https://recent-messages.robotty.de/api/v2/recent-messages/codebuff_ai`
+  - Query params: limit=1 for single message, after/before for timestamp filtering
+  - Message format: Parse "PRIVMSG #codebuff_ai :" prefix
+  - Important: Cache last processed message to prevent duplicates
 
 ## Code Style
 
 ### Variable Updates
+
 - Prefer direct variable updates over helper methods for simple operations
 - Example: For incrementing counters or updating simple state, use direct assignment rather than creating setter methods
 - Keep calculations simple - prefer direct addition/subtraction over computing differences
