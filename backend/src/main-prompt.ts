@@ -371,10 +371,10 @@ ${STOP_MARKER}
   )
   if (knowledgeChanges.length > 0) {
     const knowledgeFileBlocks = knowledgeChanges.map((change) =>
-      createFileBlock(change.filePath, change.content)
+      createFileBlock(change.filePath, '[UPDATED_BY_ANOTHER_ASSISTANT]')
     )
-    fullResponse += `\n\nI'll also update the following knowledge:\n${knowledgeFileBlocks.join(
-      '\n\n'
+    fullResponse += `\n\nI also updated the following knowledge files:\n${knowledgeFileBlocks.join(
+      '\n'
     )}`
   }
 

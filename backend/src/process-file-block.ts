@@ -22,6 +22,13 @@ export async function processFileBlock(
   newContent: string,
   userId: string | undefined
 ): Promise<FileChange | null> {
+  if (newContent.trim() === '[UPDATED_BY_ANOTHER_ASSISTANT]') {
+    return null
+  }
+  else if (newContent.trim().startsWith('@@')) {
+    // Note: Can remove this case in a bit. It stops content that was supposed to be a patch.
+    return null
+  }
   const oldContent = await requestFile(ws, filePath)
 
   if (oldContent === null) {

@@ -107,9 +107,9 @@ export async function generateKnowledgeFiles(
     userId,
   })
 
-  const files = parseFileBlocks(response)
-  const knowledgeFiles = Object.fromEntries(
-    Object.entries(files).filter(([filePath]) =>
+  const fileChanges = parseFileBlocks(response)
+  const knowledgeFileChanges = Object.fromEntries(
+    Object.entries(fileChanges).filter(([filePath]) =>
       filePath.endsWith('knowledge.md')
     )
   )
@@ -118,16 +118,16 @@ export async function generateKnowledgeFiles(
     {
       fileContext,
       initialMessages,
-      files: Object.keys(files),
-      knowledgeFiles: Object.keys(knowledgeFiles),
+      files: Object.keys(fileChanges),
+      knowledgeFiles: Object.keys(knowledgeFileChanges),
       response,
     },
     'generateKnowledgeFiles: context and response'
   )
 
-  const fileChangePromises = Object.entries(knowledgeFiles).map(
-    ([filePath, fileContent]) =>
-      processFileBlock(
+  const fileChangePromises = Object.entries(knowledgeFileChanges).map(
+    async ([filePath, changes]) => {
+      const fileChange = await processFileBlock(
         clientSessionId,
         fingerprintId,
         userInputId,
@@ -135,7 +135,7 @@ export async function generateKnowledgeFiles(
         messages,
         fullResponse,
         filePath,
-        fileContent,
+        changes,
         userId
       ).catch((error) => {
         logger.error(
@@ -144,6 +144,11 @@ export async function generateKnowledgeFiles(
         )
         return null
       })
+      if (fileChange) {
+        return { ...fileChange, changes }
+      }
+      return null
+    }
   )
   return fileChangePromises
 }

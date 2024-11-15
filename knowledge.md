@@ -226,4 +226,10 @@ Upon start-up, the client checks the npmjs.org registry for the latest version o
 
 # Verifying changes
 
-After every code change, you should run the type checker with `bun run --cwd backend tsc` (or sub "backend" for the appropriate project) and then fix any type errors that resulted from your change.
+Use judgment when verifying changes. For complex changes that could affect types or dependencies, run the type checker with `bun run --cwd backend tsc` (or sub "backend" for the appropriate project) and then fix any type errors that resulted from your change. For simple changes like adding console.logs or text updates, type checking is unnecessary.
+
+Only run type checking when:
+
+1. Specifically requested by the user
+2. Making non-trivial changes that could affect types
+3. Changing code that is imported by other files
