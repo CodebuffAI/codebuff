@@ -10,6 +10,7 @@ import {
 import { openaiModels } from 'common/constants'
 import { promptOpenAI } from './openai-api'
 import { createSearchReplaceBlock } from 'common/util/file'
+import { promptRelaceAI } from './relace-api'
 
 export async function processFileBlock(
   clientSessionId: string,
@@ -24,8 +25,7 @@ export async function processFileBlock(
 ): Promise<FileChange | null> {
   if (newContent.trim() === '[UPDATED_BY_ANOTHER_ASSISTANT]') {
     return null
-  }
-  else if (newContent.trim().startsWith('@@')) {
+  } else if (newContent.trim().startsWith('@@')) {
     // Note: Can remove this case in a bit. It stops content that was supposed to be a patch.
     return null
   }
@@ -74,32 +74,32 @@ export async function processFileBlock(
   let updatedDiffBlocksThatDidntMatch: {
     searchContent: string
     replaceContent: string
-  }[] = []
-  if (diffBlocksThatDidntMatch.length > 0) {
-    const { newDiffBlocks, newDiffBlocksThatDidntMatch } =
-      await retryDiffBlocksPrompt(
-        filePath,
-        normalizedOldContent,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-        diffBlocksThatDidntMatch
-      )
-    diffBlocks.push(...newDiffBlocks)
+  }[] = [...diffBlocks, ...diffBlocksThatDidntMatch]
+  // if (diffBlocksThatDidntMatch.length > 0) {
+  //   const { newDiffBlocks, newDiffBlocksThatDidntMatch } =
+  //     await retryDiffBlocksPrompt(
+  //       filePath,
+  //       normalizedOldContent,
+  //       clientSessionId,
+  //       fingerprintId,
+  //       userInputId,
+  //       userId,
+  //       diffBlocksThatDidntMatch
+  //     )
+  //   diffBlocks.push(...newDiffBlocks)
 
-    updatedDiffBlocksThatDidntMatch = newDiffBlocksThatDidntMatch
-  }
+  //   updatedDiffBlocksThatDidntMatch = newDiffBlocksThatDidntMatch
+  // }
 
   const noDiffBlocks =
     diffBlocks.length === 0 && diffBlocksThatDidntMatch.length === 0
   let updatedContent = noDiffBlocks
     ? normalizedNewContent
     : normalizedOldContent
-  for (const diffBlock of diffBlocks) {
-    const { searchContent, replaceContent } = diffBlock
-    updatedContent = updatedContent.replace(searchContent, replaceContent)
-  }
+  // for (const diffBlock of diffBlocks) {
+  //   const { searchContent, replaceContent } = diffBlock
+  //   updatedContent = updatedContent.replace(searchContent, replaceContent)
+  // }
 
   if (updatedDiffBlocksThatDidntMatch.length > 0) {
     updatedContent = await applyRemainingChanges(
@@ -184,13 +184,20 @@ Return only the full, complete file content with no additional text or explanati
 `.trim()
 
   const startTime = Date.now()
-  const response = await promptOpenAI([{ role: 'user', content: prompt }], {
+  // const response = await promptOpenAI([{ role: 'user', content: prompt }], {
+  //   clientSessionId,
+  //   fingerprintId,
+  //   userInputId,
+  //   userId,
+  //   model: openaiModels.gpt4omini,
+  //   predictedContent: updatedContent,
+  // })
+  const response = await promptRelaceAI([{ role: 'user', content: prompt }], {
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-    model: openaiModels.gpt4omini,
-    predictedContent: updatedContent,
+    model: 'Fast-Apply',
   })
   const endTime = Date.now()
   logger.debug(

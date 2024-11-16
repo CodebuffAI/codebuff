@@ -23,6 +23,7 @@ export const env = createEnv({
     ANTHROPIC_API_KEY2: z.string().min(1).startsWith('sk-ant-'),
     HELICONE_API_KEY: z.string().min(1).startsWith('pk-helicone-'),
     OPEN_AI_KEY: z.string().min(1).startsWith('sk-proj-'),
+    RELACE_API_KEY: z.string().min(1).startsWith('rlc-'),
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
     STRIPE_SUBSCRIPTION_PRICE_ID: z.string().min(1),
