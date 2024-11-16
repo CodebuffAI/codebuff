@@ -16,6 +16,8 @@ import { CopyIcon, CheckIcon, GiftIcon } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import type { ReferralCodeResponse } from '@/app/api/referrals/[code]/route'
 import { Button } from '@/components/ui/button'
+import { env } from '@/env.mjs'
+import CardWithBeams from '@/components/card-with-beams'
 
 const InputWithCopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
@@ -54,11 +56,15 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
 export default function RedeemPage({ params }: { params: { code: string } }) {
   const { data: session, status } = useSession()
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['referrals'],
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['referrals', params.code],
     queryFn: async (): Promise<ReferralCodeResponse> => {
       const res = await fetch(`/api/referrals/${params.code}`)
-      return res.json()
+      const ret = await res.json()
+      if (!res.ok) {
+        throw new Error(`Error fetching referral code: ${ret.error}`)
+      }
+      return ret
     },
   })
 
@@ -75,6 +81,23 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
         </CardContent>
       </Card>
     )
+  }
+
+  if (error) {
+    return CardWithBeams({
+      title: 'Uh-oh, spaghettio!',
+      description: "We couldn't fetch this referral code.",
+      content: (
+        <>
+          <p>
+            Something went wrong. Please reach out to{' '}
+            {env.NEXT_PUBLIC_SUPPORT_EMAIL} for help, and send the following
+            error:
+          </p>
+          <code>{error.message}</code>
+        </>
+      ),
+    })
   }
 
   return (

@@ -22,6 +22,7 @@ import Link from 'next/link'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 import { getReferralLink } from 'common/util/referral'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
+import CardWithBeams from '@/components/card-with-beams'
 
 const copyReferral = (link: string) => {
   navigator.clipboard.writeText(link)
@@ -47,10 +48,11 @@ const ReferralsPage = () => {
     queryKey: ['referrals'],
     queryFn: async () => {
       const response = await fetch('/api/referrals')
+      const ret = await response.json()
       if (!response.ok) {
-        throw new Error('Failed to fetch referral data')
+        throw new Error(`Failed to fetch referral data: ${ret.error}`)
       }
-      return response.json()
+      return ret
     },
     enabled: !!session?.user,
     refetchInterval: 15000,
@@ -59,11 +61,20 @@ const ReferralsPage = () => {
   const link = data?.referralCode ? getReferralLink(data.referralCode) : ''
 
   if (error) {
-    return (
-      <Card className="mb-6">
-        <div>An error occurred: {error.message}</div>
-      </Card>
-    )
+    return CardWithBeams({
+      title: 'Uh-oh, spaghettio!',
+      description: "We couldn't fetch your referral data.",
+      content: (
+        <>
+          <p>
+            Something went wrong. Please reach out to{' '}
+            {env.NEXT_PUBLIC_SUPPORT_EMAIL} for help, and send the following
+            error:
+          </p>
+          <code>{error.message}</code>
+        </>
+      ),
+    })
   }
 
   if (status === 'unauthenticated') {
