@@ -7,6 +7,10 @@
   - Query params: limit=1 for single message, after/before for timestamp filtering
   - Message format: Parse "PRIVMSG #codebuff_ai :" prefix
   - Important: Cache last processed message to prevent duplicates
+  - When processing historical messages in reverse order:
+    - Stop on first successful send OR first duplicate
+    - Never process messages older than last known processed message
+    - This prevents unnecessary processing and maintains message order
 
 ## Code Style
 

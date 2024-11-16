@@ -29,8 +29,8 @@ while true; do
       if [ ! -z "$message" ] && [ "$message" != "$last_message" ]; then
         send_input "$message"
         last_message="$message"
-        break
       fi
+      break
     done <<< "$messages"
   fi
   
