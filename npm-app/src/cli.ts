@@ -358,7 +358,7 @@ export class CLI {
         userInput.toLowerCase().startsWith(command)
       ) &&
         !userInput.includes('error ') &&
-        userInput.split(' ').length <= 4)
+        userInput.split(' ').length <= 5)
     ) {
       const withoutRunPrefix = userInput.replace(runPrefix, '')
       const { result, stdout, stderr } = await handleRunTerminalCommand(

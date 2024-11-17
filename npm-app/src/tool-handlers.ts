@@ -75,7 +75,11 @@ export const handleRunTerminalCommand = async (
           // Windows
           dataStr.includes(
             'is not recognized as an internal or external command'
-          ))
+          ) ||
+          dataStr.includes('/bin/sh: -c: line') ||
+          dataStr.includes('/bin/sh: line') ||
+          dataStr.startsWith('fatal:') ||
+          dataStr.startsWith('error:'))
       ) {
         resolve({
           result: 'command not found',

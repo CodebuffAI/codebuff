@@ -34,7 +34,6 @@ export const SKIPPED_TERMINAL_COMMANDS = [
   'yes',
   'help',
   'find',
-  'kill',
   'add',
   'hey',
   'diff',
@@ -42,6 +41,7 @@ export const SKIPPED_TERMINAL_COMMANDS = [
   'please',
   'apply',
   'look',
+  'do',
 ]
 
 export const MAX_DATE = new Date(86399999999999)
