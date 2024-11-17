@@ -26,6 +26,10 @@ export const GET = async () => {
     line_items: [
       {
         price: env.STRIPE_SUBSCRIPTION_PRICE_ID,
+        quantity: 1,
+      },
+      {
+        price: env.STRIPE_OVERAGE_PRICE_ID,
       },
     ],
     success_url: `${env.NEXT_PUBLIC_APP_URL}/pricing?session_id={CHECKOUT_SESSION_ID}`,
