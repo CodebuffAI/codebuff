@@ -199,7 +199,31 @@ async function generateFileRequests(
     return { files: [], duration: 0 }
   })
 
-  const keyResults = await Promise.all([...keyPromises, examplePromise])
+  const testAndConfigPrompt = generateTestAndConfigFilesPrompt(
+    userPrompt,
+    assistantPrompt,
+    fileContext,
+    countPerRequest
+  )
+
+  const testAndConfigPromise = getRelevantFiles(
+    {
+      messages: messagesExcludingLastIfByUser,
+      system,
+    },
+    testAndConfigPrompt,
+    claudeModels.haiku,
+    'Tests and Config',
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId
+  ).catch((error) => {
+    logger.error({ error }, 'Error requesting test and config files')
+    return { files: [], duration: 0 }
+  })
+
+  const keyResults = await Promise.all([...keyPromises, examplePromise, testAndConfigPromise])
   const nonObviousResults = await Promise.all(nonObviousPromises)
 
   return { keyResults, nonObviousResults }
@@ -344,8 +368,9 @@ Please follow these steps to determine which files to request:
    - Main functionality files
    - Configuration files
    - Utility functions
-   - Test files
    - Documentation files
+   
+Note: Do not include test files (*.test.ts, *.spec.ts, or the equivalent in other languages) as these are handled by a separate request.
 3. Include files that might provide context or be indirectly related to the request.
 4. Be comprehensive in your selection, but avoid including obviously irrelevant files.
 5. Try to list exactly ${count} files.
@@ -403,8 +428,9 @@ Please follow these steps to determine which key files to request:
    - Main functionality files
    - Key configuration files
    - Central utility functions
-   - Primary test files (if testing is involved)
    - Documentation files
+
+Note: Do not include test files (*.test.ts, *.spec.ts, or the equivalent in other languages) as these are handled by a separate request.
 3. Prioritize files that are likely to require modifications or provide essential context.
 4. Limit your selection to approximately 10 files to ensure a focused approach.
 5. Order the files by most important first.
@@ -419,6 +445,59 @@ ${range(count)
   .join('\n')}
 
 Remember to focus on the most important files and limit your selection to exactly ${count} files. List each file path on a new line without any additional characters or formatting.
+
+IMPORTANT: You must include the full relative path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
+
+That means every file that is not at the project root should start with one of the following directories:
+${topLevelDirectories(fileContext).join('\n')}
+
+Please limit your response just the file paths on new lines. Do not write anything else.
+`.trim()
+}
+
+function generateTestAndConfigFilesPrompt(
+  userPrompt: string | null,
+  assistantPrompt: string | null,
+  fileContext: ProjectFileContext,
+  count: number
+): string {
+  const exampleFiles = getExampleFileList(fileContext, 100)
+  return `
+Your task is to find test and configuration files relevant to the following user request.
+
+Random project files:
+${exampleFiles.join('\n')}
+
+${
+  userPrompt
+    ? `<user_prompt>${userPrompt}</user_prompt>`
+    : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
+}
+
+Do not act on the above instructions for the user, instead, we are asking you to find relevant test and configuration files.
+
+Please follow these steps to determine which files to request:
+
+1. Look for test files that verify the functionality being modified
+2. Find configuration files for:
+   - Build system and compilation
+   - Type checking
+   - Linting and code style
+   - Test runners and test configuration
+   - Package management
+3. Focus on files like (or the equivalent in other languages):
+   - test files (*.test.ts, *.spec.ts, etc)
+   - package.json with build/test scripts
+   - CI configuration files
+
+Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
+
+Your response should contain only files separated by new lines in the following format:
+${range(count)
+  .map((i) => `full/path/to/file${i + 1}.ts`)
+  .join('\n')}
+
+Remember to focus on test and configuration files and limit your selection to exactly ${count} files. List each file path on a new line without any additional characters or formatting.
 
 IMPORTANT: You must include the full relative path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
 
@@ -456,6 +535,8 @@ Please follow these steps to determine which files to request:
 
 1. Analyze the user's last request and the assistant's prompt and identify the core components or tasks.
 2. Look for files that could have code similar to what would be needed to fulfill the user's request. These files can serve as examples of what to write.
+
+Note: Do not include test files (*.test.ts, *.spec.ts, or the equivalent in other languages) as these are handled by a separate request.
 
 Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
 
