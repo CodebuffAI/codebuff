@@ -24,8 +24,7 @@ export async function processFileBlock(
 ): Promise<FileChange | null> {
   if (newContent.trim() === '[UPDATED_BY_ANOTHER_ASSISTANT]') {
     return null
-  }
-  else if (newContent.trim().startsWith('@@')) {
+  } else if (newContent.trim().startsWith('@@')) {
     // Note: Can remove this case in a bit. It stops content that was supposed to be a patch.
     return null
   }
@@ -101,10 +100,40 @@ export async function processFileBlock(
     updatedContent = updatedContent.replace(searchContent, replaceContent)
   }
 
-  if (updatedDiffBlocksThatDidntMatch.length > 0) {
+  const outputHasReplaceBlocks =
+    updatedContent.includes('<<<<<<< SEARCH') ||
+    updatedContent.includes('>>>>>>> REPLACE')
+  if (outputHasReplaceBlocks) {
+    logger.debug(
+      {
+        filePath,
+        newContent,
+        oldContent,
+        diffBlocks,
+        diffBlocksThatDidntMatch,
+      },
+      `processFileBlock: ERROR 4236481: Included SEARCH/REPLACE blocks for ${filePath}`
+    )
     updatedContent = await applyRemainingChanges(
       updatedContent,
-      updatedDiffBlocksThatDidntMatch,
+      normalizedNewContent,
+      filePath,
+      fullResponse,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId
+    )
+  } else if (updatedDiffBlocksThatDidntMatch.length > 0) {
+    const changes = updatedDiffBlocksThatDidntMatch
+      .map((block) =>
+        createSearchReplaceBlock(block.searchContent, block.replaceContent)
+      )
+      .join('\n')
+    updatedContent = await applyRemainingChanges(
+      updatedContent,
+      changes,
+      filePath,
       fullResponse,
       clientSessionId,
       fingerprintId,
@@ -148,7 +177,8 @@ export async function processFileBlock(
 
 async function applyRemainingChanges(
   updatedContent: string,
-  diffBlocksThatDidntMatch: { searchContent: string; replaceContent: string }[],
+  changes: string,
+  filePath: string,
   fullResponse: string,
   clientSessionId: string,
   fingerprintId: string,
@@ -169,14 +199,9 @@ Here's the current content of the file:
 ${updatedContent}
 \`\`\`
 
-The following changes were intended for this file but could not be applied using exact string matching. Note that the changes are represented as SEARCH strings found in the current file that are intended to be replaced with the REPLACE strings. Often the SEARCH string will contain extra lines of context to help match a location in the file.
+The following changes were intended for this file but could not be applied using exact string matching. Note that each change is represented as a SEARCH string found in the current file that is intended to be replaced with the REPLACE string. Often the SEARCH string will contain extra lines of context to help match a location in the file.
 
-${diffBlocksThatDidntMatch
-  .map(
-    (block, i) => `Change ${i + 1}:
-${createSearchReplaceBlock(block.searchContent, block.replaceContent)}`
-  )
-  .join('\n')}
+${changes}
 
 Please rewrite the file content to include these intended changes while preserving the rest of the file. Only make the minimal changes necessary to incorporate the intended edits. Do not edit any other code. Please preserve all other comments, etc.
 
@@ -194,8 +219,8 @@ Return only the full, complete file content with no additional text or explanati
   })
   const endTime = Date.now()
   logger.debug(
-    { response, diffBlocksThatDidntMatch, duration: endTime - startTime },
-    `applyRemainingChanges for ${diffBlocksThatDidntMatch.length} blocks`
+    { response, changes, duration: endTime - startTime },
+    `applyRemainingChanges for ${filePath}`
   )
 
   // Only remove backticks if they wrap the entire response
