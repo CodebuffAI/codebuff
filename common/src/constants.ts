@@ -5,6 +5,22 @@ export const FIND_FILES_MARKER = '[' + 'FIND_FILES_PLEASE]'
 export const TOOL_RESULT_MARKER = '[' + 'TOOL_RESULT]'
 export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'
 
+export const DEFAULT_IGNORED_FILES = [
+  '.git',
+  '.env',
+  '*.min.*',
+  'node_modules',
+  'venv',
+  'virtualenv',
+  'env',
+  '.venv',
+  '.virtualenv',
+  'ENV',
+  '__pycache__',
+  '*.egg-info/',
+  '*.pyc',
+]
+
 export const SKIPPED_TERMINAL_COMMANDS = [
   'continue',
   'date',
