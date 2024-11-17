@@ -118,9 +118,9 @@ export const message = pgTable('message', {
   output_tokens: integer('output_tokens').notNull(),
   cost: numeric('cost', { precision: 100, scale: 20 }).notNull(),
   credits: integer('credits').notNull(),
-  user_id: text('user_id').references(() => user.id),
+  user_id: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
   fingerprint_id: text('fingerprint_id')
-    .references(() => fingerprint.id)
+    .references(() => fingerprint.id, { onDelete: 'cascade' })
     .notNull(),
 })
 

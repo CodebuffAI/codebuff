@@ -81,7 +81,7 @@ const PricingPage = () => {
           {session?.data?.user?.subscription_active &&
             (session?.data?.user?.stripe_price_id ? (
               <p className="text-xs">
-                Need to cancel? Click{' '}
+                Need to cancel?<br></br>Click{' '}
                 <Link
                   href={env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}
                   className="hover:text-blue-500 hover:underline"

@@ -50,6 +50,13 @@
       "when": 1730531223234,
       "tag": "0006_first_quasimodo",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1731803666080,
+      "tag": "0007_equal_warlock",
+      "breakpoints": true
     }
   ]
 }
