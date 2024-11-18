@@ -45,6 +45,7 @@ export const SKIPPED_TERMINAL_COMMANDS = [
   'unset',
   'what',
   'which',
+  'where',
   'who',
   'write',
   'yes',
