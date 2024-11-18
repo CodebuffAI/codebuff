@@ -364,7 +364,6 @@ ${lastMessage.content}
 
       if (shouldStop) {
         isComplete = true
-        fullResponse = fullResponse.replace(STOP_MARKER, '')
         logger.debug('Reached STOP_MARKER and confirmed should stop')
       } else {
         // Signal to client to continue the conversation

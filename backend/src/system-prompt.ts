@@ -350,7 +350,6 @@ const getProjectFilesPromptContent = (fileContext: ProjectFileContext) => {
         )
         .join('\n')
     )
-    .filter((str) => str)
 
   const intro = `
 # Project files
