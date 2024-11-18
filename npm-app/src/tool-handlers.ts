@@ -150,5 +150,4 @@ export const toolHandlers: Record<string, ToolHandler> = {
     handleRunTerminalCommand(input, id, 'assistant').then(
       (result) => result.result
     )) as ToolHandler,
-  continue: async () => 'Please continue.',
 }
