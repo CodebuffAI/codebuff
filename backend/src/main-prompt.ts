@@ -564,7 +564,8 @@ async function getFileVersionUpdates(
       }
       i++
     }
-    const newFileVersions = [resetFileVersion]
+    const newFileVersions =
+      resetFileVersion.length > 0 ? [resetFileVersion] : []
 
     const { readFilesMessage, toolCallMessage } =
       getRelevantFileInfoMessage(readFilesPaths)
@@ -589,7 +590,9 @@ async function getFileVersionUpdates(
     }
   }
 
-  const newFileVersions = [...fileVersions, addedFiles]
+  const newFileVersions = [...fileVersions, addedFiles].filter(
+    (files) => files.length > 0
+  )
   if (newFiles.length === 0) {
     return {
       newFileVersions,
