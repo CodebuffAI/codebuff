@@ -201,7 +201,7 @@ const onUserInput = async (
           changesAlreadyApplied
         )
 
-        logger.debug({ response, changes, toolCall }, 'response-complete')
+        logger.debug({ response, changes, changesAlreadyApplied, toolCall }, 'response-complete')
 
         if (toolCall) {
           sendAction(ws, {
