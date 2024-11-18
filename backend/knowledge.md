@@ -67,7 +67,11 @@ The Codebuff backend is built on Node.js using TypeScript. It uses an Express se
 
 3. **Claude Integration (claude.ts)**: Provides functions for interacting with the Claude AI model, including streaming responses and handling tool calls.
 
-4. **Main Prompt Handler (main-prompt.ts)**: Processes user inputs, generates responses, and manages file changes and tool calls.
+4. **Main Prompt Handler (main-prompt.ts)**: Processes user inputs, generates responses, and manages file changes and tool calls. Key features:
+   - Smart conversation flow management
+   - Progress detection to avoid infinite loops
+   - Graceful pause/continue handling when STOP_MARKER is reached
+   - Uses GPT-4 Mini for quick classification of conversation state
 
 5. **System Prompt Generator (system-prompt.ts)**: Creates the initial prompt for the AI assistant with project-specific context and instructions.
 
@@ -84,6 +88,39 @@ The backend uses WebSockets for real-time, bidirectional communication with clie
 - **Message Types**: Various message types (e.g., 'identify', 'subscribe', 'action') for different operations.
 - **Action Handling**: The `websocket-action.ts` file processes incoming action messages and triggers appropriate responses.
 - **Subscription Management**: Clients can subscribe to specific topics for targeted updates.
+
+## WebSocket Communication Flow
+
+1. Client connects to the WebSocket server.
+2. Client sends user input and file context to the server.
+3. Server processes the input using Claude AI.
+4. Server streams response chunks back to the client.
+5. Client receives and displays the response in real-time.
+6. Server sends file changes to the client for application.
+
+## Conversation Flow Management
+
+The system uses a multi-layered approach to manage conversation flow:
+
+1. **Progress Detection**: When handling unbounded iterations (e.g., "do all cases"), the system periodically checks if:
+   - The user's request has been satisfied
+   - The conversation is stuck in a loop
+   - No meaningful progress is being made
+
+2. **Smart Continuation**: 
+   - Uses Claude Sonnet with agent system prompt for conversation state decisions
+   - Ensures consistent context and quality by using same model as main conversation
+   - If progress is satisfactory, gracefully stops
+   - If more work needed, continues with clear context
+   - Checks progress when STOP_MARKER is reached
+
+3. **Client-Server Coordination**:
+   - Uses tool calls to delegate continuation decisions to client
+   - Server sends 'continue' tool call instead of continuing server-side
+   - Maintains client control over conversation flow
+   - Allows client to check in between iterations
+
+This architecture prevents infinite loops while allowing productive work to continue, and ensures the client maintains control over the conversation flow.
 
 ## Claude Integration
 
@@ -152,8 +189,9 @@ This approach ensures that clients receive immediate feedback about their quota 
 The backend implements a tool handling system that allows the AI assistant to perform various actions:
 
 1. **Tool Definition**: Tools are defined in `tools.ts`, specifying their name, description, and input schema.
-2. **Available Tools**: Current tools include read_files, scrape_web_page, search_manifold_markets, and run_terminal_command.
-3. **Tool Execution**: When the AI makes a tool call, the backend processes it and provides the results back to the AI.
+2. **Tool Implementation**: All tool handlers must be implemented in `npm-app/src/tool-handlers.ts`. Never implement handlers elsewhere.
+3. **Available Tools**: Current tools include read_files, scrape_web_page, search_manifold_markets, run_terminal_command, and continue.
+4. **Tool Execution**: When the AI makes a tool call, the backend processes it and provides the results back to the AI.
 
 ### Change Tracking During Tool Calls
 

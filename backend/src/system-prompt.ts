@@ -47,12 +47,8 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
   return systemPrompt
 }
 
-export const getAgentSystemPrompt = (
-  fileContext: ProjectFileContext,
-  options: { checkFiles: boolean }
-) => {
+export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
   const { fileVersions } = fileContext
-  const { checkFiles } = options
   const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
   const projectFileTreePrompt = getProjectFileTreePrompt(fileContext)
@@ -77,7 +73,7 @@ export const getAgentSystemPrompt = (
       cache_control: { type: 'ephemeral' as const },
       text: buildArray(
         getGitChangesPrompt(fileContext),
-        getResponseFormatPrompt(checkFiles, files)
+        getResponseFormatPrompt(files)
       ).join('\n\n'),
     }
   )
@@ -411,7 +407,7 @@ ${truncateString(gitChanges.lastCommitMessages, maxLength / 10)}
 `.trim()
 }
 
-const getResponseFormatPrompt = (checkFiles: boolean, files: string[]) => {
+const getResponseFormatPrompt = (files: string[]) => {
   return `
 # Response format
 
@@ -429,7 +425,7 @@ If the user is requesting a change that you think has already been made based on
 
 Do not write code except when editing files with <edit_file> blocks.
 
-When adding new packages, use the <tool_call name="run_terminal_command">...</tool_call> tool to install the package rather than editing the package.json file with a guess at the version number to use. This way, you will be sure to have the latest version of the package.
+When adding new packages, use the <tool_call name="run_terminal_command">...</tool_call> tool to install the package rather than editing the package.json file with a guess at the version number to use. This way, you will be sure to have the latest version of the package. Do not install packages globally unless asked by the user (e.g. Don't run \`npm install -g <package-name>\`). Always try to use the package manager associated with the project (e.g. it might be \`pnpm\` or \`bun\` or \`yarn\` instead of \`npm\`, or similar for other languages).
 It's super important to be mindful about getting the current version of packages no matter the language or package manager. In npm, use \`npm install\` for new packages rather than just editing the package.json file, because only running the install command will get the latest version. If adding a package with maven or another package manager, make sure you update the version to the latest rather than just writing out any version number.
 
 Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
@@ -442,7 +438,7 @@ At the end of every response to the user, you should verify the changes you've m
 
 First, check the knowledge files to see what the protocol is for verifying changes. For example, a \`knowledge.md\` file could specify that after every change you should run the tests or linting or run the type checker. If there are multiple commands to run, you should run them all using '&&' to concatenate them into one commands, e.g. \`npm run lint && npm run test\`.
 
-By default, after editing any files, you should run the related tests and/or the type checker and/or the linter, if you are confident in how to run these checks from the terminal and you think the checks will be informative. Use these checks to ensure your changes did not break anything. If you get an error, you should fix it by editing the code. If the project is set up with unit tests, consider adding a new unit test to verify your change in addition to running the existing checks.
+By default, after editing any files, you should run the related tests and/or the type checker and/or the linter, if you are confident in how to run these checks from the terminal and you think the checks will be informative. Prefer running scripts in package.json (or similar spec for other languages) if possible. Use these checks to ensure your changes did not break anything. If you get an error, you should fix it by editing the code. If the project is set up with unit tests, consider adding a new unit test to verify your change in addition to running the existing checks.
 
 <important_instruction>
 Confine your edits to only what is directly necessary. Preserve the behavior of all existing code. Change only what you must to accomplish the user's request or add to a knowledge file.
