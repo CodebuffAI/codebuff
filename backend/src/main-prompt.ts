@@ -3,8 +3,7 @@ import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import path from 'path'
 
 import { promptClaudeStream } from './claude'
-import { openaiModels } from 'common/constants'
-import { promptOpenAI } from './openai-api'
+import { TOOL_RESULT_MARKER, STOP_MARKER } from 'common/constants'
 import {
   createFileBlock,
   FileVersion,
@@ -12,7 +11,6 @@ import {
 } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
-import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
 import { FileChange, FileChanges, Message } from 'common/actions'
 import { ToolCall } from 'common/actions'
 import { requestFile, requestFiles } from './websockets/websocket-action'
@@ -27,6 +25,10 @@ import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
 import { difference, uniq, zip } from 'lodash'
 import { filterDefined } from 'common/util/array'
+import {
+  checkConversationProgress,
+  checkToAllowUnboundedIteration,
+} from './conversation-progress'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -133,11 +135,12 @@ export async function mainPrompt(
     })
   }
 
+  const allowUnboundedIteration = await allowUnboundedIterationPromise
+
   const numAssistantMessages = messages
     .slice(lastUserMessageIndex)
     .filter((message) => message.role === 'assistant').length
-  const shouldPause =
-    !(await allowUnboundedIterationPromise) && numAssistantMessages >= 3
+  const shouldPause = !allowUnboundedIteration && numAssistantMessages >= 3
   if (shouldPause) {
     const response = `\nI'll pause to get more instructions from the user.\n`
     onResponseChunk(response)
@@ -162,22 +165,31 @@ export async function mainPrompt(
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
     newLastMessage = {
       ...lastMessage,
-      content: `${lastMessage.content}
-
-<additional_instruction>
+      content: `
+<system_instruction>
 Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.
-</additional_instruction>
-<additional_instruction>
+</system_instruction>
+<system_instruction>
 Always end your response with the following marker:
 ${STOP_MARKER}
-</additional_instruction>`,
+</system_instruction>
+${
+  lastMessage.content.includes(TOOL_RESULT_MARKER)
+    ? `
+<system_instruction>
+If the tool result above is of a terminal command succeeding, and you have completed a minimal version of the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user.
+</system_instruction>
+  `.trim()
+    : ''
+}
+
+${lastMessage.content}
+`.trim(),
     }
   }
 
   while (!isComplete && iterationCount < MAX_ITERATIONS) {
-    const system = getAgentSystemPrompt(fileContext, {
-      checkFiles: false,
-    })
+    const system = getAgentSystemPrompt(fileContext)
     const messagesWithContinuedMessage = continuedMessages
       ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
       : messages
@@ -330,9 +342,40 @@ ${STOP_MARKER}
       isComplete = true
       logger.debug(maybeToolCall, 'tool call')
     } else if (fullResponse.includes(STOP_MARKER)) {
-      isComplete = true
-      fullResponse = fullResponse.replace(STOP_MARKER, '')
-      logger.debug('Reached STOP_MARKER')
+      // Check if we should actually stop or continue
+      const shouldStop =
+        !allowUnboundedIteration ||
+        (await checkConversationProgress(
+          [
+            ...messages.slice(lastUserMessageIndex),
+            {
+              role: 'assistant' as const,
+              content: fullResponse,
+            },
+          ],
+          fileContext,
+          {
+            clientSessionId,
+            fingerprintId,
+            userInputId,
+            userId,
+          }
+        ))
+
+      if (shouldStop) {
+        isComplete = true
+        fullResponse = fullResponse.replace(STOP_MARKER, '')
+        logger.debug('Reached STOP_MARKER and confirmed should stop')
+      } else {
+        // Signal to client to continue the conversation
+        logger.debug('Reached STOP_MARKER but should continue')
+        toolCall = {
+          id: Math.random().toString(36).slice(2),
+          name: 'continue',
+          input: {},
+        }
+        isComplete = true
+      }
     } else {
       logger.debug('Continuing to generate')
       const fullResponseMinusLastLine =
@@ -569,47 +612,4 @@ async function getFileVersionUpdates(
     readFilesMessage,
     toolCallMessage,
   }
-}
-
-async function checkToAllowUnboundedIteration(
-  message: Message,
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId: string | undefined
-  }
-): Promise<boolean> {
-  if (message.role !== 'user' || typeof message.content !== 'string') {
-    return false
-  }
-
-  const checkInfinitePrompt = `Does this user message indicate they want the assistant to continue until all cases are done or a condition is met? Answer only "yes" or "no", and do not include any other text.
-Message: "${message.content}"
-
-Examples of language indicating "yes":
-- "do all of the cases"
-- "run until condition X is satisfied" 
-- "do the rest of the cases"
-- "keep going until finished"
-- "continue until complete"
-- "build the whole thing"
-- "complete the entire task"
-
-Examples of language indicating "no":
-- "Please continue"
-- "Build feature X for me"
-`
-  const response = await promptOpenAI(
-    [{ role: 'user', content: checkInfinitePrompt }],
-    {
-      model: openaiModels.gpt4omini,
-      ...options,
-    }
-  )
-  logger.debug(
-    { response, userMessage: message.content },
-    'checkToAllowUnboundedIteration'
-  )
-  return response.toLowerCase().includes('yes')
 }
