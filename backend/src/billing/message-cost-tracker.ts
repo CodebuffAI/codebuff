@@ -2,7 +2,10 @@ import { models } from 'common/constants'
 import { OpenAIMessage } from '@/openai-api'
 import { Message } from 'common/actions'
 import db from 'common/db'
+import { stripeServer } from 'common/util/stripe'
 import * as schema from 'common/db/schema'
+import { eq } from 'drizzle-orm'
+import { logger, withLoggerContext } from '@/util/logger'
 
 const PROFIT_MARGIN = 0.2
 
@@ -80,7 +83,7 @@ export const saveMessage = async (value: {
 
   const creditsUsed = Math.round(cost * 100 * (1 + PROFIT_MARGIN))
 
-  return db.insert(schema.message).values({
+  const savedMessage = await db.insert(schema.message).values({
     id: value.messageId,
     user_id: value.userId,
     fingerprint_id: value.fingerprintId,
@@ -97,4 +100,49 @@ export const saveMessage = async (value: {
     credits: creditsUsed,
     finished_at: value.finishedAt,
   })
+
+  // Report usage to Stripe asynchronously after saving to db
+  withLoggerContext(
+    { userId: value.userId, messageId: value.messageId },
+    async () => {
+      if (!value.userId) {
+        // logger.debug('No userId provided, skipping usage reporting')
+        return
+      }
+
+      try {
+        const user = await db.query.user.findFirst({
+          where: eq(schema.user.id, value.userId),
+          columns: {
+            stripe_customer_id: true,
+            subscription_active: true,
+          },
+        })
+        if (!user || !user.stripe_customer_id || !user.subscription_active) {
+          // logger.debug('No user found or no stripe_customer_id or no active subscription, skipping usage reporting')
+          return
+        }
+
+        await stripeServer.billing.meterEvents.create({
+          event_name: 'credits',
+          timestamp: Math.floor(value.finishedAt.getTime() / 1000),
+          payload: {
+            stripe_customer_id: user.stripe_customer_id,
+            value: creditsUsed.toString(),
+          },
+        })
+        logger.info(
+          {
+            creditsUsed,
+            userId: value.userId,
+          },
+          `Reported to Stripe: ${creditsUsed} credits used.`
+        )
+      } catch (error) {
+        logger.error({ error, creditsUsed }, 'Failed to report usage to Stripe')
+      }
+    }
+  )
+
+  return savedMessage
 }

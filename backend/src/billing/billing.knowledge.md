@@ -97,6 +97,16 @@ Key functions:
 - `handleSubscriptionChange`: Updates user quota and subscription status.
 - `handleInvoicePaid`: Resets quota and updates subscription status on payment.
 
+### Usage Metering
+
+Important: When sending meter events to Stripe:
+
+- Send events for all users - Stripe automatically filters events outside billing period
+- No need for rate limiting - Stripe's API designed for high volume
+- Events before subscription starts are ignored by Stripe
+- Keep implementation simple - avoid premature optimization like batching or complex helper functions
+- Prefer async operations that don't block the main flow
+
 ## Client-Side Integration
 
 The client (`npm-app/src/client.ts`) handles:
@@ -134,11 +144,11 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
    - Document the reason for state changes (e.g., "endDate is in the past, so we should reset the quota")
    - Prefer explicit if statements with comments over ternaries for complex state changes
    - Document the reason for state changes (e.g., "endDate is in the past, so we should reset the quota")
-6. Combine related database queries into single operations:
+8. Combine related database queries into single operations:
    - Methods should return all necessary data in one query
    - Avoid separate queries for related data (e.g., subscription status with quota info)
    - Example: checkQuota returns quota and subscription status together
-6. Test all billing code paths thoroughly:
+9. Test all billing code paths thoroughly:
    - Test both anonymous and authenticated users
    - Verify subscription status handling
    - Test quota exceeded scenarios

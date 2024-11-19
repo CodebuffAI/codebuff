@@ -201,7 +201,10 @@ const onUserInput = async (
           changesAlreadyApplied
         )
 
-        logger.debug({ response, changes, changesAlreadyApplied, toolCall }, 'response-complete')
+        logger.debug(
+          { response, changes, changesAlreadyApplied, toolCall },
+          'response-complete'
+        )
 
         if (toolCall) {
           sendAction(ws, {
@@ -274,7 +277,7 @@ const onClearAuthTokenRequest = async (
   }: Extract<ClientAction, { type: 'clear-auth-token' }>,
   _clientSessionId: string,
   _ws: WebSocket
-) => {
+): Promise<void> => {
   await withLoggerContext(
     { fingerprintId, userId, authToken, fingerprintHash },
     async () => {
@@ -303,15 +306,15 @@ const onClearAuthTokenRequest = async (
   )
 }
 
-const onLoginCodeRequest = (
+const onLoginCodeRequest = async (
   {
     fingerprintId,
     referralCode,
   }: Extract<ClientAction, { type: 'login-code-request' }>,
   _clientSessionId: string,
   ws: WebSocket
-): void => {
-  withLoggerContext({ fingerprintId }, async () => {
+): Promise<void> => {
+  await withLoggerContext({ fingerprintId }, async () => {
     const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes in the future
     const fingerprintHash = genAuthCode(
       fingerprintId,
