@@ -17,8 +17,8 @@ export async function checkConversationProgress(
   }
 ) {
   const prompt = `Review the conversation since the last user input and determine if we should stop. We should stop if either:
-1. A minimal version of the user's request appears to be satisfied based on the changes and responses made
-2. The conversation seems stuck in a loop or not making meaningful progress
+1. The user's request appears to be satisfied based on the changes and responses made
+2. The conversation seems stuck in a loop or not making meaningful progress toward the user's request.
 
 Consider the conversation history:
 ${messages
@@ -32,7 +32,10 @@ ${messages
   )
   .join('\n\n')}
 
-Answer with only "STOP" or "CONTINUE". Do not include any other text.`
+Answer with "STOP" or "CONTINUE". If "STOP", do not include any other text.
+
+Otherwise, say very briefly what still needs to be completed to satify the user request.
+`
 
   const system = getAgentSystemPrompt(fileContext)
 
@@ -48,7 +51,7 @@ Answer with only "STOP" or "CONTINUE". Do not include any other text.`
     `checkConversationProgress ${response}`
   )
 
-  return shouldStop
+  return { shouldStop, response }
 }
 
 export async function checkToAllowUnboundedIteration(

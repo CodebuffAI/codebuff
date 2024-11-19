@@ -177,7 +177,7 @@ ${
   lastMessage.content.includes(TOOL_RESULT_MARKER)
     ? `
 <system_instruction>
-If the tool result above is of a terminal command succeeding, and you have completed a minimal version of the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user.
+If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request.
 </system_instruction>
   `.trim()
     : ''
@@ -342,10 +342,12 @@ ${lastMessage.content}
       isComplete = true
       logger.debug(maybeToolCall, 'tool call')
     } else if (fullResponse.includes(STOP_MARKER)) {
-      // Check if we should actually stop or continue
-      const shouldStop =
-        !allowUnboundedIteration ||
-        (await checkConversationProgress(
+      isComplete = true
+      if (!allowUnboundedIteration) {
+        logger.debug('Reached STOP_MARKER')
+      } else {
+        // Check if we should actually stop or continue
+        const { shouldStop, response } = await checkConversationProgress(
           [
             ...messages.slice(lastUserMessageIndex),
             {
@@ -360,20 +362,21 @@ ${lastMessage.content}
             userInputId,
             userId,
           }
-        ))
+        )
 
-      if (shouldStop) {
-        isComplete = true
-        logger.debug('Reached STOP_MARKER and confirmed should stop')
-      } else {
-        // Signal to client to continue the conversation
-        logger.debug('Reached STOP_MARKER but should continue')
-        toolCall = {
-          id: Math.random().toString(36).slice(2),
-          name: 'continue',
-          input: {},
+        if (shouldStop) {
+          logger.debug('Reached STOP_MARKER and confirmed should stop')
+        } else {
+          // Signal to client to continue the conversation
+          logger.debug('Reached STOP_MARKER but should continue')
+          toolCall = {
+            id: Math.random().toString(36).slice(2),
+            name: 'continue',
+            input: {
+              response: `The product manager says to continue.`,
+            },
+          }
         }
-        isComplete = true
       }
     } else {
       logger.debug('Continuing to generate')
