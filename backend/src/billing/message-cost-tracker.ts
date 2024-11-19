@@ -6,6 +6,7 @@ import { stripeServer } from 'common/util/stripe'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { logger, withLoggerContext } from '@/util/logger'
+import { pluralize } from 'common/util/string'
 
 const PROFIT_MARGIN = 0.2
 
@@ -118,7 +119,12 @@ export const saveMessage = async (value: {
             subscription_active: true,
           },
         })
-        if (!user || !user.stripe_customer_id || !user.subscription_active) {
+        if (
+          !user ||
+          !user.stripe_customer_id ||
+          !user.subscription_active ||
+          !creditsUsed
+        ) {
           // logger.debug('No user found or no stripe_customer_id or no active subscription, skipping usage reporting')
           return
         }
@@ -131,12 +137,15 @@ export const saveMessage = async (value: {
             value: creditsUsed.toString(),
           },
         })
-        logger.info(
+        logger.debug(
           {
-            creditsUsed,
+            credits: creditsUsed,
+            request: value.request,
+            client_request_id: value.userInputId,
+            response: value.response,
             userId: value.userId,
           },
-          `Reported to Stripe: ${creditsUsed} credits used.`
+          `${pluralize(creditsUsed, 'credit')} used.`
         )
       } catch (error) {
         logger.error({ error, creditsUsed }, 'Failed to report usage to Stripe')
