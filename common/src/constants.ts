@@ -59,6 +59,7 @@ export const SKIPPED_TERMINAL_COMMANDS = [
   'apply',
   'look',
   'do',
+  'break',
 ]
 
 export const MAX_DATE = new Date(86399999999999)
