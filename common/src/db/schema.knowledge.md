@@ -3,6 +3,7 @@
 ## Local Development Setup
 
 Important: Local database must be initialized before running schema operations:
+
 1. Docker must be running
 2. Local database container needs to be created and healthy
 3. Then schema operations (generate, migrate) can be run
@@ -10,6 +11,7 @@ Important: Local database must be initialized before running schema operations:
 ## Environment Setup
 
 Important: The database setup requires:
+
 1. A running Docker instance
 2. Proper environment configuration:
    - stack.env with ENVIRONMENT=local and NEXT_PUBLIC_ENVIRONMENT=local
@@ -20,7 +22,8 @@ Important: The database setup requires:
    - Run schema operations
 
 Note: Setup has been primarily tested on Mac. Windows users may encounter platform-specific issues:
-- When using __dirname or path.join() in config files, convert Windows backslashes to forward slashes
+
+- When using \_\_dirname or path.join() in config files, convert Windows backslashes to forward slashes
 
 ## Column Defaults and Calculations
 

@@ -95,6 +95,7 @@ export const fingerprint = pgTable('fingerprint', {
   next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
     sql<Date>`now() + INTERVAL '1 month'`
   ),
+  created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 })
 
 export const message = pgTable('message', {
