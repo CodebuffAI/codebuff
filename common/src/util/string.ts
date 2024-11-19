@@ -69,24 +69,24 @@ export const randBoolFromStr = (str: string) => {
 }
 
 export const pluralize = (count: number, word: string) => {
-  if (count === 1) return word
+  if (count === 1) return `${count} ${word}`
 
   // Handle words ending in 'y' (unless preceded by a vowel)
   if (word.endsWith('y') && !word.match(/[aeiou]y$/)) {
-    return word.slice(0, -1) + 'ies'
+    return `${count} ${word.slice(0, -1) + 'ies'}`
   }
 
   // Handle words ending in s, sh, ch, x, z, o
   if (word.match(/[sxz]$/) || word.match(/[cs]h$/) || word.match(/o$/)) {
-    return word + 'es'
+    return `${count} ${word + 'es'}`
   }
 
   // Handle words ending in f/fe
   if (word.endsWith('f')) {
-    return word.slice(0, -1) + 'ves'
+    return `${count} ${word.slice(0, -1) + 'ves'}`
   }
   if (word.endsWith('fe')) {
-    return word.slice(0, -2) + 'ves'
+    return `${count} ${word.slice(0, -2) + 'ves'}`
   }
 
   return `${count} ${word + 's'}`
