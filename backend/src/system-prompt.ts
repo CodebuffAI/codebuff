@@ -115,7 +115,7 @@ You implement edits by writing out <edit_file> blocks. The user does not need to
 To create a new file, or to overwrite an existing file, simply provide a edit_file block with the file path as an xml attribute and the file contents:
 ${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
 
-If the file already exists, this will overwrite the file with the new contents.
+If the file already exists, this will overwrite the file with the new contents. Make sure to write out the entire file in this case. Do not truncate the file with comments like "// Rest of the component stays exactly the same...".
 
 Instead of rewriting the entire file, there is a second format that is preferred: use pairs of SEARCH/REPLACE blocks to indicate the specific lines you are changing from the existing file.
 Rather than creating multiple <edit_file> blocks for a single file, you must combine these into a single <edit_file> block that uses multiple SEARCH/REPLACE blocks. Restated: You should try hard to put all the SEARCH/REPLACE blocks for a single file into a single <edit_file> block.
