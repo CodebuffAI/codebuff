@@ -1,6 +1,6 @@
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
-import { openaiModels, claudeModels } from 'common/constants'
+import { openaiModels, claudeModels, STOP_MARKER } from 'common/constants'
 import { promptOpenAI } from './openai-api'
 import { promptClaude } from './claude'
 import { getAgentSystemPrompt } from './system-prompt'
@@ -16,7 +16,8 @@ export async function checkConversationProgress(
     userId: string | undefined
   }
 ) {
-  const prompt = `Review the conversation since the last user input and determine if we should stop. We should stop if either:
+  const prompt =
+    `Review the conversation since the last user input and determine if we should stop. We should stop if either:
 1. The user's request appears to be satisfied based on the changes and responses made
 2. The conversation seems stuck in a loop or not making meaningful progress toward the user's request.
 
@@ -35,7 +36,7 @@ ${messages
 Answer with "STOP" or "CONTINUE". If "STOP", do not include any other text.
 
 Otherwise, say very briefly what still needs to be completed to satify the user request.
-`
+`.trim()
 
   const system = getAgentSystemPrompt(fileContext)
 
@@ -51,7 +52,7 @@ Otherwise, say very briefly what still needs to be completed to satify the user 
     `checkConversationProgress ${response}`
   )
 
-  return { shouldStop, response }
+  return { shouldStop, response: response.replace(STOP_MARKER, '') }
 }
 
 export async function checkToAllowUnboundedIteration(
@@ -67,7 +68,8 @@ export async function checkToAllowUnboundedIteration(
     return false
   }
 
-  const checkInfinitePrompt = `Does this user message indicate they want the assistant to continue until all cases are done or a condition is met? Answer only "yes" or "no", and do not include any other text.
+  const checkInfinitePrompt =
+    `Does this user message indicate they want the assistant to continue until all cases are done or a condition is met? Answer only "yes" or "no", and do not include any other text.
 Message: "${message.content}"
 
 Examples of language indicating "yes":
@@ -88,7 +90,7 @@ Examples of language indicating "no":
 - "Try again"
 
 These cases include everything else the user might say. It is common to answer "no".
-`
+`.trim()
   const response = await promptOpenAI(
     [{ role: 'user', content: checkInfinitePrompt }],
     {

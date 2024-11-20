@@ -346,7 +346,7 @@ ${lastMessage.content}
       if (!allowUnboundedIteration) {
         logger.debug('Reached STOP_MARKER')
       } else {
-        // Check if we should actually stop or continue
+        // Check if we should actually stop or continue via tool call
         const { shouldStop, response } = await checkConversationProgress(
           [
             ...messages.slice(lastUserMessageIndex),
@@ -364,6 +364,8 @@ ${lastMessage.content}
           }
         )
 
+        onResponseChunk(`\n${response}\n\n`)
+
         if (shouldStop) {
           logger.debug('Reached STOP_MARKER and confirmed should stop')
         } else {
@@ -373,7 +375,7 @@ ${lastMessage.content}
             id: Math.random().toString(36).slice(2),
             name: 'continue',
             input: {
-              response: `The product manager says to continue.`,
+              response: `Determination on proceeding to complete user request: ${response}`,
             },
           }
         }
