@@ -72,16 +72,22 @@ Message: "${message.content}"
 
 Examples of language indicating "yes":
 - "do all of the cases"
-- "run until condition X is satisfied" 
-- "do the rest of the cases"
-- "keep going until finished"
-- "continue until complete"
 - "build the whole thing"
 - "complete the entire task"
+- "do the rest of the cases"
+- "run until condition X is satisfied" 
+- "keep going until finished"
+- "continue until complete"
+
+In these cases the user either asks to do all of something or says to keep going until a condition is met. Only say "yes" if the response is like this. This is rare.
 
 Examples of language indicating "no":
 - "Please continue"
 - "Build feature X for me"
+- "That didn't do it yet"
+- "Try again"
+
+These cases include everything else the user might say. It is common to answer "no".
 `
   const response = await promptOpenAI(
     [{ role: 'user', content: checkInfinitePrompt }],
