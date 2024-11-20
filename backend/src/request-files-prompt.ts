@@ -386,7 +386,7 @@ ${range(count)
 
 List each file path on a new line without any additional characters or formatting.
 
-IMPORTANT: You must include the full relative path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
+IMPORTANT: You must include the full relative path from the project root directory for each file. This is not the absolute path, but the path relative to the project root. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
@@ -446,7 +446,7 @@ ${range(count)
 
 Remember to focus on the most important files and limit your selection to exactly ${count} files. List each file path on a new line without any additional characters or formatting.
 
-IMPORTANT: You must include the full relative path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
+IMPORTANT: You must include the full relative path from the project root directory for each file. This is not the absolute path, but the path relative to the project root. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
@@ -499,7 +499,7 @@ ${range(count)
 
 Remember to focus on test and configuration files and limit your selection to exactly ${count} files. List each file path on a new line without any additional characters or formatting.
 
-IMPORTANT: You must include the full relative path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
+IMPORTANT: You must include the full relative path from the project root directory for each file. This is not the absolute path, but the path relative to the project root. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
@@ -549,7 +549,7 @@ ${range(count)
 
 Remember to focus on the most important example files and limit your selection to exactly ${count} files. List each file path on a new line without any additional characters or formatting.
 
-IMPORTANT: You must include the full relative path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
+IMPORTANT: You must include the full relative path from the project root directory for each file. This is not the absolute path, but the path relative to the project root. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
