@@ -69,55 +69,46 @@ export async function mainPrompt(
 
   let addedFileVersions: FileVersion[] = []
   let resetFileVersions = false
+  const justUsedATool = didClientUseTool(lastMessage)
 
-  if (!didClientUseTool(lastMessage)) {
-    // Step 1: Read more files.
+  // Step 1: Read more files.
+  const system = getSearchSystemPrompt(fileContext)
+  const {
+    newFileVersions,
+    toolCallMessage,
+    addedFiles,
+    clearFileVersions,
+    readFilesMessage,
+  } = await getFileVersionUpdates(ws, messages, system, fileContext, null, {
+    skipRequestingFiles: justUsedATool,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+  })
+  fileContext.fileVersions = newFileVersions
+  if (clearFileVersions) {
+    resetFileVersions = true
+  } else {
+    addedFileVersions.push(...addedFiles)
+  }
+  if (readFilesMessage !== undefined) {
+    onResponseChunk(readFilesMessage)
+    fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}`
+
+    // Prompt cache the new files.
     const system = getSearchSystemPrompt(fileContext)
-    // If the fileContext.files is empty, use prompts to select files and add them to context.
-    const {
-      newFileVersions,
-      toolCallMessage,
-      addedFiles,
-      clearFileVersions,
-      readFilesMessage,
-    } = await getFileVersionUpdates(
-      ws,
-      fileContext,
-      { messages, system },
-      null,
+    warmCacheForRequestRelevantFiles(
+      system,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId
     )
-    fileContext.fileVersions = newFileVersions
-    if (clearFileVersions) {
-      resetFileVersions = true
-    } else {
-      addedFileVersions.push(...addedFiles)
-    }
-    if (readFilesMessage !== undefined) {
-      onResponseChunk(readFilesMessage)
-      fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}`
-
-      // Prompt cache the new files.
-      const system = getSearchSystemPrompt(fileContext)
-      warmCacheForRequestRelevantFiles(
-        system,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId
-      )
-    }
   }
 
   const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
-  if (
-    hasKnowledgeFiles &&
-    messages.length > 1 &&
-    !didClientUseTool(lastMessage)
-  ) {
+  if (hasKnowledgeFiles && messages.length > 1 && !justUsedATool) {
     // Already have context from existing chat
     // If client used tool, we don't want to generate knowledge files because the user isn't really in control
     genKnowledgeFilesPromise = generateKnowledgeFiles(
@@ -312,13 +303,17 @@ ${lastMessage.content}
         readFilesMessage,
       } = await getFileVersionUpdates(
         ws,
+        messages,
+        getSearchSystemPrompt(fileContext),
         fileContext,
-        { messages, system: getSearchSystemPrompt(fileContext) },
         fullResponse,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId
+        {
+          skipRequestingFiles: false,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        }
       )
       fileContext.fileVersions = newFileVersions
       if (clearFileVersions) {
@@ -364,7 +359,7 @@ ${lastMessage.content}
           }
         )
 
-        onResponseChunk(`\n${response}\n\n`)
+        onResponseChunk(`\n${response}\n`)
 
         if (shouldStop) {
           logger.debug('Reached STOP_MARKER and confirmed should stop')
@@ -446,20 +441,25 @@ const FILE_TOKEN_BUDGET = 90_000
 
 async function getFileVersionUpdates(
   ws: WebSocket,
+  messages: Message[],
+  system: string | Array<TextBlockParam>,
   fileContext: ProjectFileContext,
-  {
-    messages,
-    system,
-  }: {
-    messages: Message[]
-    system: string | Array<TextBlockParam>
-  },
   prompt: string | null,
-  clientSessionId: string,
-  fingerprntId: string,
-  userInputId: string,
-  userId: string | undefined
+  options: {
+    skipRequestingFiles: boolean
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+  }
 ) {
+  const {
+    skipRequestingFiles,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+  } = options
   const { fileVersions } = fileContext
   const files = fileVersions.flatMap((files) => files)
   const previousFilePaths = uniq(files.map(({ path }) => path))
@@ -483,16 +483,17 @@ async function getFileVersionUpdates(
     )
     .filter((path): path is string => path !== undefined)
 
-  const requestedFiles =
-    (await requestRelevantFiles(
-      { messages, system },
-      fileContext,
-      prompt,
-      clientSessionId,
-      fingerprntId,
-      userInputId,
-      userId
-    )) ?? []
+  const requestedFiles = skipRequestingFiles
+    ? []
+    : (await requestRelevantFiles(
+        { messages, system },
+        fileContext,
+        prompt,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId
+      )) ?? []
 
   const allFilePaths = uniq([
     ...requestedFiles,
