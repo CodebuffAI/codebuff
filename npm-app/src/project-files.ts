@@ -178,26 +178,31 @@ export function getFiles(filePaths: string[]) {
   const ig = parseGitignore(projectRoot)
 
   for (const filePath of filePaths) {
-    const fullPath = path.join(projectRoot, filePath)
+    // Convert absolute paths within project to relative paths
+    const relativePath = filePath.startsWith(projectRoot) 
+      ? path.relative(projectRoot, filePath)
+      : filePath
+    const fullPath = path.join(projectRoot, relativePath)
+    
     if (!fullPath.startsWith(projectRoot)) {
-      result[filePath] = '[FILE_OUTSIDE_PROJECT]'
+      result[relativePath] = '[FILE_OUTSIDE_PROJECT]'
       continue
     }
-    if (ig.ignores(filePath)) {
-      result[filePath] = '[FILE_IGNORED]'
+    if (ig.ignores(relativePath)) {
+      result[relativePath] = '[FILE_IGNORED]'
       continue
     }
     try {
       const stats = fs.statSync(fullPath)
       if (stats.size > MAX_FILE_SIZE) {
-        result[filePath] =
+        result[relativePath] =
           `[FILE_TOO_LARGE: ${(stats.size / (1024 * 1024)).toFixed(2)}MB]`
       } else {
         const content = fs.readFileSync(fullPath, 'utf8')
-        result[filePath] = content
+        result[relativePath] = content
       }
     } catch (error) {
-      result[filePath] = null
+      result[relativePath] = null
     }
   }
   return result
