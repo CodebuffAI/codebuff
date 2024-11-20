@@ -9,7 +9,10 @@ import {
 } from './generate-diffs-prompt'
 import { openaiModels } from 'common/constants'
 import { promptOpenAI } from './openai-api'
-import { createSearchReplaceBlock } from 'common/util/file'
+import {
+  createSearchReplaceBlock,
+  cleanMarkdownCodeBlock,
+} from 'common/util/file'
 
 export async function processFileBlock(
   clientSessionId: string,
@@ -32,9 +35,7 @@ export async function processFileBlock(
 
   if (oldContent === null) {
     // Remove markdown code block syntax if present
-    let cleanContent = newContent
-      .replace(/^```[^\n]*\n/, '')
-      .replace(/\n```$/, '')
+    let cleanContent = cleanMarkdownCodeBlock(newContent)
 
     const { diffBlocks } = parseAndGetDiffBlocksSingleFile(cleanContent, '')
     if (diffBlocks.length > 0) {
@@ -205,28 +206,31 @@ ${changes}
 
 Please rewrite the file content to include these intended changes while preserving the rest of the file. Only make the minimal changes necessary to incorporate the intended edits. Do not edit any other code. Please preserve all other comments, etc.
 
-Return only the full, complete file content with no additional text or explanation. Do not use \`\`\` markdown code blocks to enclose the file content, instead, start with the first line of the file. Do not excerpt portions of the file, write out the entire updated file.
+Return only the full, complete file content with no additional text or explanation. Do not edit any other code. Please preserve all other comments, etc.
 `.trim()
 
   const startTime = Date.now()
-  const response = await promptOpenAI([{ role: 'user', content: prompt }], {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    model: openaiModels.gpt4omini,
-    predictedContent: updatedContent,
-  })
+  const response = await promptOpenAI(
+    [
+      { role: 'user', content: prompt },
+      { role: 'assistant', content: '```' },
+    ],
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      model: openaiModels.gpt4omini,
+      predictedContent: updatedContent,
+    }
+  )
   const endTime = Date.now()
   logger.debug(
     { response, changes, duration: endTime - startTime },
     `applyRemainingChanges for ${filePath}`
   )
 
-  // Only remove backticks if they wrap the entire response
-  const cleanResponse = response.match(/^```[^\n]*\n([\s\S]*)\n```$/)
-    ? response.replace(/^```[^\n]*\n/, '').replace(/\n```$/, '')
-    : response
+  const cleanResponse = cleanMarkdownCodeBlock(response)
 
   // Add newline to maintain consistency with original file endings
   return cleanResponse + '\n'

@@ -209,6 +209,15 @@ This ensures changes are properly tracked through the entire system and shown to
 2. **Error Catching**: WebSocket errors are caught and logged in both server and client code.
 3. **Graceful Degradation**: The system attempts to handle errors gracefully, providing meaningful error messages when possible.
 
+## AI Response Handling
+
+When cleaning responses from AI models:
+- Always handle markdown code blocks with language tags (e.g. ```typescript)
+- Strip both the opening and closing backticks and any language identifier
+- Preserve the actual code content exactly as returned
+- Example: "```typescript\ncode\n```" should become just "code\n"
+- This pattern appears in process-file-block.ts and other files that process AI responses
+
 ## Code Changes and Refactoring
 
 1. **Thoroughness**: When updating function calls or patterns:

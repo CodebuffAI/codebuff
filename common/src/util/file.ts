@@ -155,3 +155,13 @@ export const ensureDirectoryExists = (baseDir: string) => {
     fs.mkdirSync(baseDir, { recursive: true })
   }
 }
+
+/**
+ * Removes markdown code block syntax if present, including any language tag
+ */
+export const cleanMarkdownCodeBlock = (content: string): string => {
+  const cleanResponse = content.match(/^```(?:[a-zA-Z]+)?\n([\s\S]*)\n```$/)
+    ? content.replace(/^```(?:[a-zA-Z]+)?\n/, '').replace(/\n```$/, '')
+    : content
+  return cleanResponse
+}
