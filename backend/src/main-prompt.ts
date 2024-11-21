@@ -431,8 +431,15 @@ ${lastMessage.content}
   }
 }
 
-function getRelevantFileInfoMessage(filePaths: string[]) {
-  const readFilesMessage = `Reading additional files...<files>${filePaths.join(', ')}</files>`
+function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
+  const readFilesMessage =
+    (isFirstTime ? 'Reading files...\n' : 'Reading additional files...\n') +
+    `${filePaths
+      .slice(0, 3)
+      .map((path) => `- ${path}`)
+      .join(
+        '\n'
+      )}${filePaths.length > 3 ? `\nand ${filePaths.length - 3} more: ` : ''}${filePaths.slice(3).join(', ')}`
   const toolCallMessage = `<tool_call name="find_files">Please find the files relevant to the user request</tool_call>`
   return { readFilesMessage, toolCallMessage }
 }
@@ -572,8 +579,10 @@ async function getFileVersionUpdates(
     const newFileVersions =
       resetFileVersion.length > 0 ? [resetFileVersion] : []
 
-    const { readFilesMessage, toolCallMessage } =
-      getRelevantFileInfoMessage(readFilesPaths)
+    const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage(
+      readFilesPaths,
+      true
+    )
 
     logger.debug(
       {
@@ -608,8 +617,10 @@ async function getFileVersionUpdates(
   }
 
   const readFilesPaths = addedFiles.map((f) => f.path)
-  const { readFilesMessage, toolCallMessage } =
-    getRelevantFileInfoMessage(readFilesPaths)
+  const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage(
+    readFilesPaths,
+    fileVersions.length <= 1
+  )
 
   return {
     newFileVersions,
