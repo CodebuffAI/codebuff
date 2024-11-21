@@ -92,5 +92,14 @@ export const testimonials: Testimonial[][] = [
       avatar: '/testimonials/shardool-patel.jpg',
       link: '/testimonials/proof/shardool-patel.png',
     },
+    {
+      quote:
+        "For those who use (n)vim or other terminal-based editors, some friends of mine built @ManicodeAI and I've really been enjoying it. I can give it coding tasks right from my terminal and it just takes care of them for me...",
+      author: 'Dennis Beatty',
+      title: 'Founder & CEO',
+      avatar:
+        'https://pbs.twimg.com/profile_images/943341063502286848/2h_xKTs9_400x400.jpg',
+      link: 'https://x.com/dnsbty/status/1849612125972594929?s=46',
+    },
   ],
 ]
