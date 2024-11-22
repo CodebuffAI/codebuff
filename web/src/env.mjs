@@ -32,6 +32,7 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email().min(1),
     NEXT_PUBLIC_APP_URL: z.string().min(1),
     NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: z.string().url().min(1),
+    NEXT_PUBLIC_LINKEDIN_PARTNER_ID: z.string().optional(),
   },
   runtimeEnv: {
     NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT,
@@ -52,5 +53,7 @@ export const env = createEnv({
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL:
       process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL,
+    NEXT_PUBLIC_LINKEDIN_PARTNER_ID:
+      process.env.NEXT_PUBLIC_LINKEDIN_PARTNER_ID,
   },
 })

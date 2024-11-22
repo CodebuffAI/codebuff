@@ -2,6 +2,7 @@ import { Separator } from '@/components/ui/separator'
 import Link from 'next/link'
 import Image from 'next/image'
 import { siteConfig } from '@/lib/constant'
+import { LinkedInInsightTag } from 'nextjs-linkedin-insight-tag'
 
 export const Footer = () => {
   return (
@@ -94,6 +95,7 @@ export const Footer = () => {
           © {new Date().getFullYear()} {siteConfig.title}. All rights reserved.
         </div>
       </div>
+      <LinkedInInsightTag />
     </footer>
   )
 }
