@@ -1,5 +1,7 @@
 'use client'
 import { Button } from '@/components/ui/button'
+import { useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   FolderCodeIcon,
   TerminalIcon,
@@ -26,6 +28,14 @@ const Home = () => {
   const { toast } = useToast()
   const [isVideoOpen, setIsVideoOpen] = useState(false)
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null)
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const liFatId = searchParams.get('li_fat_id')
+    if (liFatId) {
+      localStorage.setItem('li_fat_id', liFatId)
+    }
+  }, [searchParams])
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText('npm install -g codebuff')
