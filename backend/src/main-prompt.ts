@@ -146,7 +146,7 @@ export async function mainPrompt(
 
   let toolCall: ToolCall | null = null
   let continuedMessages: Message[] = fullResponse
-    ? [{ role: 'assistant', content: fullResponse }]
+    ? [{ role: 'assistant', content: fullResponse.trim() }]
     : []
   let isComplete = false
   let iterationCount = 0
@@ -347,7 +347,7 @@ ${lastMessage.content}
             ...messages.slice(lastUserMessageIndex),
             {
               role: 'assistant' as const,
-              content: fullResponse,
+              content: fullResponse.trim(),
             },
           ],
           fileContext,
