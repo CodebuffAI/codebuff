@@ -1,53 +1,20 @@
 'use client'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { linkedInTrack } from 'nextjs-linkedin-insight-tag'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import Link from 'next/link'
 import { CREDITS_USAGE_LIMITS } from 'common/constants'
-import { loadStripe } from '@stripe/stripe-js'
 import { env } from '@/env.mjs'
-import Stripe from 'stripe'
 import { useSession } from 'next-auth/react'
 import { Icons } from '@/components/icons'
 import { useRouter } from 'next/navigation'
-
-const LINKED_IN_CAMPAIGN_ID = 719181716 // 'Codebuff YC'
+import { handleCreateCheckoutSession } from '@/lib/stripe'
 
 const PricingPage = () => {
   const [isPending, setIsPending] = useState(false)
   const session = useSession()
   const router = useRouter()
-
-  const handleCreateCheckoutSession = async () => {
-    setIsPending(true)
-
-    if (session.status !== 'authenticated') {
-      router.push('/login')
-      return
-    }
-
-    const liFatId = localStorage.getItem('li_fat_id')
-    if (liFatId) {
-      linkedInTrack(LINKED_IN_CAMPAIGN_ID)
-    }
-
-    const res = await fetch('/api/stripe/checkout-session')
-    const checkoutSession: Stripe.Response<Stripe.Checkout.Session> = await res
-      .json()
-      .then(
-        ({ session }) => session as Stripe.Response<Stripe.Checkout.Session>
-      )
-    const stripe = await loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-    if (!stripe) {
-      throw new Error('Stripe not loaded')
-    }
-
-    await stripe.redirectToCheckout({
-      sessionId: checkoutSession.id,
-    })
-  }
 
   const pricingPlans = [
     {
@@ -112,7 +79,7 @@ const PricingPage = () => {
             ))}
           <Button
             className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-            onClick={() => handleCreateCheckoutSession()}
+            onClick={() => handleCreateCheckoutSession(setIsPending)}
             disabled={isPending || session.data?.user?.subscription_active}
           >
             {session?.data?.user?.subscription_active ? (

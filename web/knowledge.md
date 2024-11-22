@@ -114,6 +114,18 @@ When displaying inline code snippets with copy buttons:
 - Use Lucide icons instead of raw SVGs for consistency
 - Import icons from 'lucide-react' package
 
+### Business Logic Organization
+
+- Shared business logic should be centralized in utility files
+- Payment/checkout flows belong in stripe-related utilities
+- Analytics/tracking logic belongs in dedicated tracking files
+- Example locations:
+  - Payment flows: `src/lib/stripe.ts`
+  - Analytics: `src/lib/linkedin.ts`
+  - Other shared utils: `src/lib/utils.ts`
+- Avoid duplicating business logic in components
+- Components should import and use shared utilities
+
 ### UI Patterns
 
 For expandable/collapsible UI elements:

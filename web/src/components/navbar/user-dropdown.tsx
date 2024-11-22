@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { loadStripe } from '@stripe/stripe-js'
 import Image from 'next/image'
 import { Session } from 'next-auth'
 import { signOut } from 'next-auth/react'
+import { handleCreateCheckoutSession } from '@/lib/stripe'
+import { useRouter } from 'next/navigation'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
@@ -16,30 +17,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { env } from '@/env.mjs'
-import Stripe from 'stripe'
 
 export const UserDropdown = ({ session: { user } }: { session: Session }) => {
   const [isPending, setIsPending] = useState(false)
-
-  const handleCreateCheckoutSession = async () => {
-    setIsPending(true)
-
-    const res = await fetch('/api/stripe/checkout-session')
-    const checkoutSession: Stripe.Response<Stripe.Checkout.Session> = await res
-      .json()
-      .then(
-        ({ session }) => session as Stripe.Response<Stripe.Checkout.Session>
-      )
-    const stripe = await loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-    if (!stripe) {
-      throw new Error('Stripe not loaded')
-    }
-
-    await stripe.redirectToCheckout({
-      sessionId: checkoutSession.id,
-    })
-  }
+  const router = useRouter()
 
   return (
     <DropdownMenu>
@@ -65,7 +46,7 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
           />
           <h2 className="py-2 text-lg font-bold">{user?.name}</h2>
           <Button
-            onClick={handleCreateCheckoutSession}
+            onClick={() => handleCreateCheckoutSession(setIsPending)}
             disabled={user?.subscription_active || isPending}
             className="w-64"
           >
