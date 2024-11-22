@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { linkedInTrack } from 'nextjs-linkedin-insight-tag'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import Link from 'next/link'
@@ -23,6 +24,11 @@ const PricingPage = () => {
     if (session.status !== 'authenticated') {
       router.push('/login')
       return
+    }
+
+    const liFatId = localStorage.getItem('li_fat_id')
+    if (liFatId) {
+      linkedInTrack(353503946) // 'Codebuff YC'
     }
 
     const res = await fetch('/api/stripe/checkout-session')

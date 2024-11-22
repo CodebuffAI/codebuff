@@ -34,6 +34,9 @@ const Home = () => {
     const liFatId = searchParams.get('li_fat_id')
     if (liFatId) {
       localStorage.setItem('li_fat_id', liFatId)
+      const url = new URL(window.location.href)
+      url.searchParams.delete('li_fat_id')
+      window.history.replaceState({}, '', url)
     }
   }, [searchParams])
 
