@@ -13,6 +13,8 @@ import { useSession } from 'next-auth/react'
 import { Icons } from '@/components/icons'
 import { useRouter } from 'next/navigation'
 
+const LINKED_IN_CAMPAIGN_ID = 719181716 // 'Codebuff YC'
+
 const PricingPage = () => {
   const [isPending, setIsPending] = useState(false)
   const session = useSession()
@@ -28,7 +30,7 @@ const PricingPage = () => {
 
     const liFatId = localStorage.getItem('li_fat_id')
     if (liFatId) {
-      linkedInTrack(353503946) // 'Codebuff YC'
+      linkedInTrack(LINKED_IN_CAMPAIGN_ID)
     }
 
     const res = await fetch('/api/stripe/checkout-session')
