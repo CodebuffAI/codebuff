@@ -376,9 +376,9 @@ ${lastMessage.content}
         }
       }
     } else {
-      logger.debug('Continuing to generate')
-      const fullResponseMinusLastLine =
-        fullResponse.split('\n').slice(0, -1).join('\n') + '\n'
+      const lines = fullResponse.split('\n')
+      logger.debug({ lastLine: lines.at(-1) }, 'Continuing to generate')
+      const fullResponseMinusLastLine = lines.slice(0, -1).join('\n') + '\n'
       continuedMessages = [
         {
           role: 'assistant',
@@ -441,7 +441,10 @@ function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
         '\n'
       )}${filePaths.length > 3 ? `\nand ${filePaths.length - 3} more: ` : ''}${filePaths.slice(3).join(', ')}`
   const toolCallMessage = `<tool_call name="find_files">Please find the files relevant to the user request</tool_call>`
-  return { readFilesMessage, toolCallMessage }
+  return {
+    readFilesMessage: filePaths.length === 0 ? '' : readFilesMessage,
+    toolCallMessage,
+  }
 }
 
 const FILE_TOKEN_BUDGET = 90_000
