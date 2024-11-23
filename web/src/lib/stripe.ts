@@ -18,7 +18,6 @@ export const handleCreateCheckoutSession = async (
 
   await stripe.redirectToCheckout({
     sessionId: checkoutSession.id,
-    successUrl: `${env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
   })
 
   setIsPending(false)

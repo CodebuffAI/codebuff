@@ -4,6 +4,7 @@ import CardWithBeams from '@/components/card-with-beams'
 import Image from 'next/image'
 import { trackUpgradeClick } from '@/lib/trackConversions'
 import { useEffect } from 'react'
+import { CREDITS_USAGE_LIMITS } from 'common/constants'
 
 const PaymentSuccessPage = () => {
   useEffect(() => {
@@ -11,8 +12,8 @@ const PaymentSuccessPage = () => {
   }, [])
 
   return CardWithBeams({
-    title: 'Payment successful!',
-    description: 'Welcome to Codebuff Pro.',
+    title: 'Payment successful.',
+    description: `Welcome to Codebuff Pro! Your credits just went up to ${CREDITS_USAGE_LIMITS.PAID}.`,
     content: (
       <div className="flex flex-col space-y-2">
         <Image

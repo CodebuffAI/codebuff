@@ -32,7 +32,7 @@ export const GET = async () => {
         price: env.STRIPE_OVERAGE_PRICE_ID,
       },
     ],
-    success_url: `${env.NEXT_PUBLIC_APP_URL}/pricing?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: env.NEXT_PUBLIC_APP_URL,
     allow_promotion_codes: true,
   })
