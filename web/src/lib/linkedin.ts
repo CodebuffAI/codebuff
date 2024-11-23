@@ -4,8 +4,8 @@ export const trackUpgradeClick = (): string => {
   // Came from LinkedIn
   const liFatId = localStorage.getItem('li_fat_id')
   if (liFatId) {
-    const { linkedInTrack } = require('nextjs-linkedin-insight-tag')
-    linkedInTrack(LINKED_IN_CAMPAIGN_ID)
+    // const { linkedInTrack } = require('nextjs-linkedin-insight-tag')
+    // linkedInTrack(LINKED_IN_CAMPAIGN_ID)
     localStorage.removeItem('li_fat_id')
     return `?ref=linkedin&li_fat_id=${liFatId}`
   }
