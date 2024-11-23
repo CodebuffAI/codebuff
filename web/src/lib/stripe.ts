@@ -10,7 +10,7 @@ export const handleCreateCheckoutSession = async (
 
   const utm_source = trackUpgradeClick()
 
-  const res = await fetch(`/api/stripe/checkout-session${utm_source}`)
+  const res = await fetch(`/api/stripe/checkout-session`)
   const checkoutSession: Stripe.Response<Stripe.Checkout.Session> = await res
     .json()
     .then(({ session }) => session as Stripe.Response<Stripe.Checkout.Session>)
@@ -19,15 +19,16 @@ export const handleCreateCheckoutSession = async (
     throw new Error('Stripe not loaded')
   }
 
-  const successUrl = new URL(`${env.NEXT_PUBLIC_APP_URL}/payment-success`)
-  successUrl.searchParams.set('session_id', checkoutSession.id)
-  if (utm_source) {
-    successUrl.searchParams.append('utm_source', utm_source.slice(12)) // Remove "?utm_source="
-  }
+  // const successUrl = new URL(`${env.NEXT_PUBLIC_APP_URL}/payment-success`)
+  // successUrl.searchParams.set('session_id', checkoutSession.id)
+  // if (utm_source) {
+  //   successUrl.searchParams.append('utm_source', utm_source.slice(12)) // Remove "?utm_source="
+  // }
 
   await stripe.redirectToCheckout({
     sessionId: checkoutSession.id,
-    successUrl: successUrl.toString(),
+    successUrl: `${env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+    // successUrl: successUrl.toString(),
   })
 
   setIsPending(false)
