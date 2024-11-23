@@ -104,6 +104,16 @@ When displaying inline code snippets with copy buttons:
 
 ## Component Architecture
 
+### Success State Pattern
+- Use CardWithBeams component for success/completion states
+- Examples: Payment success, onboarding completion
+- Consistent layout:
+  - Title announcing success
+  - Description of completed action
+  - Optional next steps or instructions
+  - Can include media (images, icons)
+- Found in `web/src/components/card-with-beams.tsx`
+
 ### UI Component Library
 
 - Use shadcn UI components instead of native HTML elements

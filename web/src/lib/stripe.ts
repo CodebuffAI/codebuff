@@ -1,14 +1,11 @@
 import { loadStripe } from '@stripe/stripe-js'
 import { env } from '@/env.mjs'
-import { trackUpgradeClick } from './linkedin'
 import Stripe from 'stripe'
 
 export const handleCreateCheckoutSession = async (
   setIsPending: (isPending: boolean) => void
 ) => {
   setIsPending(true)
-
-  const utm_source = trackUpgradeClick()
 
   const res = await fetch(`/api/stripe/checkout-session`)
   const checkoutSession: Stripe.Response<Stripe.Checkout.Session> = await res
@@ -19,16 +16,9 @@ export const handleCreateCheckoutSession = async (
     throw new Error('Stripe not loaded')
   }
 
-  // const successUrl = new URL(`${env.NEXT_PUBLIC_APP_URL}/payment-success`)
-  // successUrl.searchParams.set('session_id', checkoutSession.id)
-  // if (utm_source) {
-  //   successUrl.searchParams.append('utm_source', utm_source.slice(12)) // Remove "?utm_source="
-  // }
-
   await stripe.redirectToCheckout({
     sessionId: checkoutSession.id,
     successUrl: `${env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-    // successUrl: successUrl.toString(),
   })
 
   setIsPending(false)

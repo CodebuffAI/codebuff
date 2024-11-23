@@ -12,8 +12,11 @@ The application implements LinkedIn conversion tracking using a multi-step flow:
 2. Conversion Points:
    - Track upgrades using `linkedInTrack` from nextjs-linkedin-insight-tag
    - Multiple conversion points exist:
-     - Direct upgrade flow
+     - Direct upgrade flow (trackUpgradeClick)
+     - Payment success page load
      - Subscription checkout completion
+   - Important: Do not remove li_fat_id from localStorage until conversion is confirmed
+   - Keep li_fat_id through payment flow to ensure successful attribution
    - Always include stored `li_fat_id` in tracking calls
 
 Important: This pattern ensures accurate attribution even when users don't convert immediately during their first visit.
