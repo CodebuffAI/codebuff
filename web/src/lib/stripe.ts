@@ -19,9 +19,15 @@ export const handleCreateCheckoutSession = async (
     throw new Error('Stripe not loaded')
   }
 
+  const successUrl = new URL(`${env.NEXT_PUBLIC_APP_URL}/payment-success`)
+  successUrl.searchParams.set('session_id', checkoutSession.id)
+  if (utm_source) {
+    successUrl.searchParams.append('utm_source', utm_source.slice(12)) // Remove "?utm_source="
+  }
+
   await stripe.redirectToCheckout({
     sessionId: checkoutSession.id,
-    successUrl: `${env.NEXT_PUBLIC_APP_URL}/payment-success`,
+    successUrl: successUrl.toString(),
   })
 
   setIsPending(false)
