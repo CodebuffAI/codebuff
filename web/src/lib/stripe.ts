@@ -8,9 +8,9 @@ export const handleCreateCheckoutSession = async (
 ) => {
   setIsPending(true)
 
-  const ref = trackUpgradeClick()
+  const utm_source = trackUpgradeClick()
 
-  const res = await fetch(`/api/stripe/checkout-session${ref}`)
+  const res = await fetch(`/api/stripe/checkout-session${utm_source}`)
   const checkoutSession: Stripe.Response<Stripe.Checkout.Session> = await res
     .json()
     .then(({ session }) => session as Stripe.Response<Stripe.Checkout.Session>)
@@ -21,6 +21,7 @@ export const handleCreateCheckoutSession = async (
 
   await stripe.redirectToCheckout({
     sessionId: checkoutSession.id,
+    successUrl: `${env.NEXT_PUBLIC_APP_URL}/payment-success`,
   })
 
   setIsPending(false)

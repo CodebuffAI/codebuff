@@ -7,7 +7,7 @@ export const trackUpgradeClick = (): string => {
     // const { linkedInTrack } = require('nextjs-linkedin-insight-tag')
     // linkedInTrack(LINKED_IN_CAMPAIGN_ID)
     localStorage.removeItem('li_fat_id')
-    return `?ref=linkedin&li_fat_id=${liFatId}`
+    return `?utm_source=linkedin&li_fat_id=${liFatId}`
   }
 
   // Handle other campaigns
