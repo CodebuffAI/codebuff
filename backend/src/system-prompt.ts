@@ -273,7 +273,7 @@ Use cases:
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use \`git mv\` or \`git rm\` instead of \`mv\` or \`rm\` so that changes are tracked.
 4. Installing dependencies (e.g., "npm install <package-name>"). Be sure to use the right package manager for the project.
 5. Running grep (or equivalent in Windows) or find to search code to find references or token definitions. This will help you locate the right file.
-6. Running scripts. Check the package.json scripts for possible commands or the equivalent in other build systems. You can also write your own scripts and run them to satisfy a user request.
+6. Running scripts. Check the package.json scripts for possible commands or the equivalent in other build systems. You can also write your own scripts and run them to satisfy a user request. Do not run long running scripts, e.g. \`npm run dev\` that starts a server that does not exit.
 
 Do not use the run_terminal_command tool to create or edit files. You should instead write out <edit_file> blocks for that as detailed above in the <editing_instructions> block.
 
