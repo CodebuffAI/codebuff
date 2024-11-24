@@ -166,3 +166,4 @@ When cleaning responses from AI models:
    - Improved formatting of welcome message in CLI.
 
 Remember to keep this knowledge file updated as the application evolves.
+```

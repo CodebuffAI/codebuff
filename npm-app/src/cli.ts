@@ -454,10 +454,7 @@ export class CLI {
       console.log(green(`- Updated ${file}`))
     }
     if (created.length > 0 || modified.length > 0) {
-      if (
-        changes.length > 0 &&
-        this.client.lastRequestCredits > REQUEST_CREDIT_SHOW_THRESHOLD
-      ) {
+      if (this.client.lastRequestCredits > REQUEST_CREDIT_SHOW_THRESHOLD) {
         console.log(
           `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
         )
