@@ -147,6 +147,9 @@ export function printFileTreeWithTokens(
     }
     path.pop()
   }
+  if (nodes.length === 0) {
+    result = '[No files in this directory.]'
+  }
   return result
 }
 

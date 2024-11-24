@@ -380,6 +380,10 @@ If the included set of files is not sufficient to address the user's request, yo
             : undefined,
       } as const)
     ),
+    fileBlockSets.length === 0 && {
+      type: 'text',
+      text: 'There are no files selected yet.',
+    },
   ])
 }
 
