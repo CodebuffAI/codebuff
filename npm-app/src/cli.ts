@@ -451,11 +451,11 @@ export class CLI {
       console.log(green(`- Updated ${file}`))
     }
     if (created.length > 0 || modified.length > 0) {
-      const creditsUsed =
-        changes.length > 0 ? this.client.lastRequestCredits : 0
-      console.log(
-        `\n${pluralize(creditsUsed, 'credit')} used for this request.`
-      )
+      if (changes.length > 0 && this.client.lastRequestCredits > 10) {
+        console.log(
+          `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
+        )
+      }
       console.log('Complete! Type "diff" to see the changes made.')
       this.client.showUsageWarning()
     }
