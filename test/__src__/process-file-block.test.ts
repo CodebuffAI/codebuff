@@ -257,6 +257,81 @@ function test() {
 
     expect(result).toBeNull()
   })
+
+  it('should handle multiple diff blocks in a single file', async () => {
+    const mockWs = {
+      send: mock(),
+    } as unknown as WebSocket
+
+    const oldContent = `
+function add(a: number, b: number) {
+  return a + b;
+}
+
+function multiply(a: number, b: number) {
+  return a * b;
+}
+
+function divide(a: number, b: number) {
+  return a / b;
+}
+`.trim()
+
+    const newContent = `<<<<<<< SEARCH
+function add(a: number, b: number) {
+  return a + b;
+}
+=======
+function add(a: number, b: number) {
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Invalid arguments');
+  }
+  return a + b;
+}
+>>>>>>> REPLACE
+
+<<<<<<< SEARCH
+function multiply(a: number, b: number) {
+  return a * b;
+}
+=======
+function multiply(a: number, b: number) {
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Invalid arguments');
+  }
+  return a * b;
+}
+>>>>>>> REPLACE
+
+function divide(a: number, b: number) {
+  return a / b;
+}`
+
+    const mockRequestFile = mock().mockResolvedValue(oldContent)
+    mock.module('backend/websockets/websocket-action', () => ({
+      requestFile: mockRequestFile,
+    }))
+
+    const result = await processFileBlock(
+      'clientSessionId',
+      'fingerprintId',
+      'userInputId',
+      mockWs,
+      [],
+      '',
+      'test.ts',
+      newContent,
+      'userId'
+    )
+
+    expect(result).not.toBeNull()
+    expect(result?.type).toBe('patch')
+    if (result?.type === 'patch') {
+      const updatedContent = applyPatch(oldContent, result.content)
+      expect(updatedContent).toContain('if (typeof a !== \'number\' || typeof b !== \'number\')')
+      expect(updatedContent.match(/if \(typeof a !== 'number' \|\| typeof b !== 'number'\)/g)?.length).toBe(2)
+    }
+  })
 })
 
 const mockDataPath = path.join(__dirname, '..', '__mock-data__')
