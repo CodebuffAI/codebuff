@@ -118,6 +118,10 @@ The client (`npm-app/src/client.ts`) handles:
   - Server returns total credits used in session
   - Client calculates per-request usage by comparing new total with cached value
   - Important: Use delta between totals to show credits used per request
+- Credit tracking:
+  - Server returns total credits used in session
+  - Client calculates per-request usage by comparing new total with cached value
+  - Important: Use delta between totals to show credits used per request
 
 ## WebSocket Communication
 

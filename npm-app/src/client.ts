@@ -179,7 +179,7 @@ export class Client {
     this.subscription_active = subscription_active
     this.nextQuotaReset = next_quota_reset
     if (!!session_credits_used) {
-      this.lastRequestCredits = Math.min(
+      this.lastRequestCredits = Math.max(
         session_credits_used - this.sessionCreditsUsed,
         0
       )
