@@ -452,7 +452,7 @@ export class CLI {
     }
     if (created.length > 0 || modified.length > 0) {
       const creditsUsed =
-        changes.length > 0 ? this.client.sessionCreditsUsed : 0
+        changes.length > 0 ? this.client.lastRequestCredits : 0
       console.log(
         `\n${pluralize(creditsUsed, 'credit')} used for this request.`
       )

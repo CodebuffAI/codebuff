@@ -114,6 +114,10 @@ The client (`npm-app/src/client.ts`) handles:
 - User authentication and login.
 - Displaying usage warnings to users.
 - Subscription to usage updates from the server.
+- Credit tracking:
+  - Server returns total credits used in session
+  - Client calculates per-request usage by comparing new total with cached value
+  - Important: Use delta between totals to show credits used per request
 
 ## WebSocket Communication
 
