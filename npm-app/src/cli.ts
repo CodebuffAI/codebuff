@@ -16,7 +16,10 @@ import {
   setFiles,
 } from './project-files'
 import { handleRunTerminalCommand } from './tool-handlers'
-import { SKIPPED_TERMINAL_COMMANDS } from 'common/constants'
+import {
+  MIN_CREDITS_USED_TO_TELL_USER,
+  SKIPPED_TERMINAL_COMMANDS,
+} from 'common/constants'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import { FileChanges } from 'common/actions'
@@ -451,7 +454,10 @@ export class CLI {
       console.log(green(`- Updated ${file}`))
     }
     if (created.length > 0 || modified.length > 0) {
-      if (changes.length > 0 && this.client.lastRequestCredits > 10) {
+      if (
+        changes.length > 0 &&
+        this.client.lastRequestCredits > MIN_CREDITS_USED_TO_TELL_USER
+      ) {
         console.log(
           `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
         )
