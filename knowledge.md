@@ -2,10 +2,24 @@
 
 Codebuff is a tool for editing codebases via natural language instruction to Buff, an expert AI programming assistant.
 
+## File Change Management
+
+Codebuff uses the generate diffs by expansion strategy for managing file changes. This approach has Haiku expand a file with placeholders into the full file, and then generates string patches instead of search and replace blocks.
+
+Key points:
+
+- The FileChanges type is an array of string patches.
+- The mainPrompt function uses the generatePatch function from generate-diffs-via-expansion.ts to create patches.
+- The client-side code applies patches using the applyPatch function from the 'diff' library.
+
+This change improves the accuracy and reliability of file modifications, especially for complex changes or when dealing with large files.
+
 ## Project Goals
 
 1. **Developer Productivity**: Reduce the time and effort required for common programming tasks, allowing developers to focus on higher-level problem-solving.
+
 2. **Learning and Adaptation**: Develop a system that learns from user interactions and improves its assistance over time.
+
 3. **Focus on power users**: Make expert software engineers move even faster.
 
 ## Key Technologies
@@ -13,7 +27,7 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 - **TypeScript**: The primary programming language used throughout the project.
 - **Node.js**: The runtime environment for executing the application.
 - **WebSockets**: Used for real-time communication between the client and server.
-- **Claude AI**: Powers the AI programming assistant.
+- **Claude AI**: Powers Mani, the AI programming assistant.
 
 ## Project Structure
 
@@ -29,10 +43,10 @@ There are three top-level code directories:
 2. **WebSocket Server**: Handles real-time communication between the client and the backend.
 3. **File Management**: Reads, parses, and modifies project files.
 4. **Action Handling**: Processes various client and server actions.
-5. **Message History**: Manages conversation history between the user and the assistant.
+5. **Message History**: Manages conversation history between the user and Mani.
 6. **Chat Storage**: Persists chat sessions and allows users to manage multiple conversations.
 7. **Knowledge Management**: Handles the creation, updating, and organization of knowledge files.
-8. **Terminal Command Execution**: Allows the assistant to run shell commands in the user's terminal.
+8. **Terminal Command Execution**: Allows Buffy to run shell commands in the user's terminal.
 
 ## Important Files
 
@@ -53,21 +67,27 @@ The Codebuff project includes a referral system designed to encourage user growt
 - Implementation: Spread across multiple files in the project, handling various aspects such as code generation, validation, and reward distribution.
 - Limits: There's a cap on the number of referrals a user can make to prevent system abuse.
 
+The referral system integrates with the user authentication flow and credit management system, providing a seamless experience for both new and existing users.
+
+- `common/src/util/server/referral.ts`: Contains the `hasMaxedReferrals` function to check if a user has reached their referral limit.
+- `web/src/app/api/referrals/route.ts`: Handles API routes for referral-related operations.
+- `common/src/util/referral.ts`: Contains utility functions like `getReferralLink`.
+
 ## Development Guidelines
 
 1. Use TypeScript for all new code to maintain type safety.
 2. Follow existing code structure and naming conventions.
-3. Ensure alternating user and assistant messages in conversation history.
+3. Ensure alternating user and Buffy messages in conversation history.
 4. Update knowledge files for significant changes or new features.
 5. Write clear, concise comments and documentation for complex logic.
 6. Remember that imports automatically remove 'src' from the path. When editing files, always include 'src' in the file path if it's part of the actual directory structure.
 
 ## Knowledge Management
 
-### Knowledge File Management
+## Knowledge File Management
 
 - Knowledge is stored in `knowledge.md` files, which can be created in relevant directories throughout the project.
-- The assistant automatically updates knowledge files when learning new information or correcting mistakes.
+- Buffy automatically updates knowledge files when learning new information or correcting mistakes.
 - Developers are encouraged to review and commit knowledge file changes to share insights across the team.
 
 When updating knowledge files:
@@ -78,9 +98,11 @@ When updating knowledge files:
 4. Keep entries concise and relevant to the long-term understanding of the project.
 5. When in doubt, prefer broader, more abstract descriptions over detailed, low-level explanations.
 
+These guidelines help maintain useful and accessible knowledge files that provide valuable context without becoming overly verbose or quickly outdated.
+
 ## Terminal Command Execution
 
-The assistant can execute terminal commands using the `run_terminal_command` tool. This feature allows it to perform various tasks such as:
+Buffy can execute terminal commands using the `run_terminal_command` tool. This feature allows Buffy to perform various tasks such as:
 
 - Searching files with grep
 - Installing dependencies
@@ -143,7 +165,14 @@ The assistant can execute terminal commands using the `run_terminal_command` too
 - User input is validated and sanitized before processing.
 - File operations are restricted to the project directory to prevent unauthorized access.
 
-## Code guide
+## TODO
+
+- Implement authentication and authorization for WebSocket connections.
+- Add more comprehensive error handling and logging.
+- Implement rate limiting for AI requests to manage resource usage.
+- Create a robust testing suite for all components.
+
+# Code guide
 
 - We don't specify return types for functions, since Typescript will infer them.
 - Always include 'src' in file paths when it's part of the actual directory structure, even though imports automatically remove it.
@@ -154,6 +183,42 @@ Important constants and configuration values are centralized in `common/src/cons
 
 - `CREDITS_REFERRAL_BONUS`: The number of credits awarded for a successful referral.
 - `CREDITS_USAGE_LIMITS`: Defines credit limits for different user types (ANON, FREE, PAID).
+
+Centralizing these constants makes it easier to manage and update project-wide settings.
+
+## Referral System
+
+Codebuff implements a referral system to encourage user growth and reward existing users for bringing in new members. The referral system works as follows:
+
+1. Each user receives a unique referral code.
+2. Users can share their referral code with others.
+3. When a new user signs up using a referral code, both the referrer and the new user receive bonus credits.
+4. There's a limit to how many successful referrals a user can make.
+
+The referral system is integrated across the web application and the CLI tool, providing a seamless experience for users to share and redeem referral codes.
+
+## Development Guidelines
+
+1. Use TypeScript for all new code to maintain type safety.
+   The referral system is implemented across several files:
+
+- Implement authentication and authorization for WebSocket connections.
+- Add more comprehensive error handling and logging.
+- Implement rate limiting for AI requests to manage resource usage.
+- Create a robust testing suite for all components.
+
+# Code guide
+
+- We don't specify return types for functions, since Typescript will infer them. Don't write return types for functions!
+- Always include 'src' in file paths when it's part of the actual directory structure, even though imports automatically remove it.
+
+## Python Package
+
+A Python package for Codebuff has been created as a skeleton in python-app. Key points:
+
+- It's currently a placeholder that prints a message about the package coming soon and suggests installing the npm version.
+
+- The Python package is intended to be developed further in the future to provide similar functionality to the npm version.
 
 ## Version Checking
 
