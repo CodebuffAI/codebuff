@@ -363,8 +363,6 @@ export class Client {
     const pct: number = match(Math.floor((this.usage / this.limit) * 100))
       .with(P.number.gte(100), () => 100)
       .with(P.number.gte(75), () => 75)
-      // .with(P.number.gte(50), () => 50)
-      // .with(P.number.gte(25), () => 25)
       .otherwise(() => 0)
 
     // User has used all their allotted credits, but they haven't been notified yet
@@ -523,9 +521,6 @@ export class Client {
           return
         }
 
-        // if (this.usage > 0) {
-        //   this.sessionCreditsUsed = a.session_credits_used ?? 0
-        // }
         this.setUsage({
           usage: a.usage,
           limit: a.limit,
