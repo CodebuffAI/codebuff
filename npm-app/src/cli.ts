@@ -451,7 +451,12 @@ export class CLI {
       console.log(green(`- Updated ${file}`))
     }
     if (created.length > 0 || modified.length > 0) {
-      console.log('\nComplete! Type "diff" to see the changes made.')
+      const creditsUsed =
+        changes.length > 0 ? this.client.sessionCreditsUsed : 0
+      console.log(
+        `\n${pluralize(creditsUsed, 'credit')} used for this request.`
+      )
+      console.log('Complete! Type "diff" to see the changes made.')
       this.client.showUsageWarning()
     }
     console.log()
