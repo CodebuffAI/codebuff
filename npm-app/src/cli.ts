@@ -17,7 +17,7 @@ import {
 } from './project-files'
 import { handleRunTerminalCommand } from './tool-handlers'
 import {
-  MIN_CREDITS_USED_TO_TELL_USER,
+  REQUEST_CREDIT_SHOW_THRESHOLD,
   SKIPPED_TERMINAL_COMMANDS,
 } from 'common/constants'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
@@ -456,7 +456,7 @@ export class CLI {
     if (created.length > 0 || modified.length > 0) {
       if (
         changes.length > 0 &&
-        this.client.lastRequestCredits > MIN_CREDITS_USED_TO_TELL_USER
+        this.client.lastRequestCredits > REQUEST_CREDIT_SHOW_THRESHOLD
       ) {
         console.log(
           `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
