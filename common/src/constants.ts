@@ -62,7 +62,7 @@ export const SKIPPED_TERMINAL_COMMANDS = [
   'break',
 ]
 
-export const REQUEST_CREDIT_SHOW_THRESHOLD = 50
+export const REQUEST_CREDIT_SHOW_THRESHOLD = 100
 export const MAX_DATE = new Date(86399999999999)
 
 export type UsageLimits = 'ANON' | 'FREE' | 'PAID' | 'PRO_PLUS'
