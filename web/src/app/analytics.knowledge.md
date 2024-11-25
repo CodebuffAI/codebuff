@@ -18,6 +18,8 @@ The application implements LinkedIn conversion tracking using a multi-step flow:
    - Important: Do not remove li_fat_id from localStorage until conversion is confirmed
    - Keep li_fat_id through payment flow to ensure successful attribution
    - Always include stored `li_fat_id` in tracking calls
+   - Keep li_fat_id through payment flow to ensure successful attribution
+   - Always include stored `li_fat_id` in tracking calls
 
 Important: This pattern ensures accurate attribution even when users don't convert immediately during their first visit.
 

@@ -319,7 +319,7 @@ export class Client {
         )
         const responseToUser = [
           'Authentication successful!',
-          `Welcome, ${action.user.name}. Your credits have been increased by ${CREDITS_USAGE_LIMITS.FREE / CREDITS_USAGE_LIMITS.ANON}x to ${CREDITS_USAGE_LIMITS.FREE} per month. Happy coding!`,
+          `Welcome, ${action.user.name}. Your credits have been increased by ${CREDITS_USAGE_LIMITS.FREE / CREDITS_USAGE_LIMITS.ANON}x to ${CREDITS_USAGE_LIMITS.FREE.toLocaleString()} per month. Happy coding!`,
           `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month each: ${process.env.NEXT_PUBLIC_APP_URL}/referrals`,
         ]
         console.log(responseToUser.join('\n'))
