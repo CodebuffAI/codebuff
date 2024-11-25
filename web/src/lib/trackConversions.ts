@@ -2,7 +2,7 @@ import { linkedInTrack } from 'nextjs-linkedin-insight-tag'
 
 export const LINKED_IN_CAMPAIGN_ID = 719181716 // 'Codebuff YC'
 
-export const trackUpgradeClick = (
+export const trackUpgrade = (
   markConversionComplete: boolean
 ): URLSearchParams => {
   const params = new URLSearchParams()
@@ -16,6 +16,17 @@ export const trackUpgradeClick = (
     }
     params.set('utm_source', 'linkedin')
     params.set('li_fat_id', liFatId)
+  }
+
+  // test campaign
+  const testUtmId = localStorage.getItem('test_utm_id')
+  if (testUtmId) {
+    if (markConversionComplete) {
+      console.log(`test campaign tracked: ${testUtmId}`)
+      localStorage.removeItem('test_utm_id')
+    }
+    params.set('utm_source', 'test')
+    params.set('test_utm_id', testUtmId)
   }
 
   // Handle other campaigns

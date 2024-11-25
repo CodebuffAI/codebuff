@@ -34,9 +34,17 @@ const Home = () => {
     const liFatId = searchParams.get('li_fat_id')
     if (liFatId) {
       localStorage.setItem('li_fat_id', liFatId)
-      const url = new URL(window.location.href)
-      url.searchParams.delete('li_fat_id')
-      window.history.replaceState({}, '', url)
+      // const url = new URL(window.location.href)
+      // url.searchParams.delete('li_fat_id')
+      // window.history.replaceState({}, '', url)
+    }
+
+    const testUtmId = searchParams.get('test_utm_id')
+    if (testUtmId) {
+      localStorage.setItem('test_utm_id', testUtmId)
+      // const url = new URL(window.location.href)
+      // url.searchParams.delete('test_utm_id')
+      // window.history.replaceState({}, '', url)
     }
   }, [searchParams])
 
@@ -140,7 +148,7 @@ const Home = () => {
               target="_blank"
             >
               <img
-                src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=${theme}`}
+                src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=${theme ?? 'light'}`}
                 alt="Codebuff - Better&#0032;code&#0032;generation&#0032;than&#0032;Cursor&#0044;&#0032;from&#0032;your&#0032;CLI | Product Hunt"
                 width="250"
                 height="54"
