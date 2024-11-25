@@ -37,9 +37,11 @@ Index Performance Guidelines:
 - Avoid indexing high cardinality columns (many unique values) without careful consideration
 - For timestamp columns used in range queries, consider:
   - Query patterns (point vs range queries)
-  - Data distribution
+  - Data distribution 
   - Write overhead vs read benefit
+  - Avoid if used with dynamic BETWEEN clauses
 - Index foreign keys and common filter columns
+- Consider index selectivity - how well it narrows down results
 
 Key indexing decisions:
 - Index foreign keys used in joins (user_id, fingerprint_id)
