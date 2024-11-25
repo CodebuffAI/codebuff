@@ -5,7 +5,8 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { env } from '@/env.mjs'
 import { stripeServer } from 'common/src/util/stripe'
 
-export const GET = async () => {
+export const GET = async (request: Request) => {
+  const { searchParams } = new URL(request.url)
   const session = await getServerSession(authOptions)
 
   if (!session?.user) {
@@ -32,8 +33,8 @@ export const GET = async () => {
         price: env.STRIPE_OVERAGE_PRICE_ID,
       },
     ],
-    success_url: `${env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: env.NEXT_PUBLIC_APP_URL,
+    success_url: `${env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&${searchParams}`,
+    cancel_url: `${env.NEXT_PUBLIC_APP_URL}?${searchParams}`,
     allow_promotion_codes: true,
   })
 

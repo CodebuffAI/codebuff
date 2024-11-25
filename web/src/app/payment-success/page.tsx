@@ -5,10 +5,18 @@ import Image from 'next/image'
 import { trackUpgradeClick } from '@/lib/trackConversions'
 import { useEffect } from 'react'
 import { CREDITS_USAGE_LIMITS } from 'common/constants'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 
 const PaymentSuccessPage = () => {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
   useEffect(() => {
-    trackUpgradeClick()
+    const params = trackUpgradeClick(false)
+    const newParams = new URLSearchParams(searchParams)
+    params.forEach((value, key) => newParams.set(key, value))
+    router.replace(`${pathname}?${newParams}`)
   }, [])
 
   return CardWithBeams({
