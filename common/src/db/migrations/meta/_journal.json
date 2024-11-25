@@ -64,6 +64,13 @@
       "when": 1732056924078,
       "tag": "0008_puzzling_carnage",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1732514890008,
+      "tag": "0009_bitter_rumiko_fujikawa",
+      "breakpoints": true
     }
   ]
 }
