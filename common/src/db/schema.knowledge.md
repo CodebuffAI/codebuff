@@ -25,6 +25,14 @@ Note: Setup has been primarily tested on Mac. Windows users may encounter platfo
 
 - When using \_\_dirname or path.join() in config files, convert Windows backslashes to forward slashes
 
+## Index Management
+
+Important: Define indexes in schema.ts rather than just migrations:
+- Keeps all structural database elements in one place
+- Makes indexes visible during schema review
+- Serves as documentation for query optimization
+- Helps track performance-critical queries
+
 ## Column Defaults and Calculations
 
 - Use Postgres's built-in calculated columns (GENERATED ALWAYS AS) instead of default values when computing values from other columns

@@ -10,6 +10,7 @@ import {
   numeric,
   uuid,
   pgEnum,
+  index,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
 import { ReferralStatusValues } from '../types/referral'
@@ -98,32 +99,44 @@ export const fingerprint = pgTable('fingerprint', {
   created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 })
 
-export const message = pgTable('message', {
-  id: text('id').primaryKey(),
-  finished_at: timestamp('finished_at', { mode: 'date' }).notNull(),
-  client_id: text('client_id').notNull(), // TODO: `CHECK` that this starts w/ prefix `mc-client-`
-  client_request_id: text('client_request_id').notNull(), // TODO: `CHECK` that this starts w/ prefix `mc-input-`
-  model: text('model').notNull(),
-  request: jsonb('request').notNull(),
-  lastMessage: jsonb('last_message').generatedAlwaysAs(
-    (): SQL => sql`${message.request} -> -1`
-  ),
-  response: jsonb('response').notNull(),
-  input_tokens: integer('input_tokens').notNull().default(0),
-  cache_creation_input_tokens: integer('cache_creation_input_tokens')
-    .notNull()
-    .default(0),
-  cache_read_input_tokens: integer('cache_read_input_tokens')
-    .notNull()
-    .default(0),
-  output_tokens: integer('output_tokens').notNull(),
-  cost: numeric('cost', { precision: 100, scale: 20 }).notNull(),
-  credits: integer('credits').notNull(),
-  user_id: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
-  fingerprint_id: text('fingerprint_id')
-    .references(() => fingerprint.id, { onDelete: 'cascade' })
-    .notNull(),
-})
+export const message = pgTable(
+  'message',
+  {
+    id: text('id').primaryKey(),
+    finished_at: timestamp('finished_at', { mode: 'date' }).notNull(),
+    client_id: text('client_id').notNull(), // TODO: `CHECK` that this starts w/ prefix `mc-client-`
+    client_request_id: text('client_request_id').notNull(), // TODO: `CHECK` that this starts w/ prefix `mc-input-`
+    model: text('model').notNull(),
+    request: jsonb('request').notNull(),
+    lastMessage: jsonb('last_message').generatedAlwaysAs(
+      (): SQL => sql`${message.request} -> -1`
+    ),
+    response: jsonb('response').notNull(),
+    input_tokens: integer('input_tokens').notNull().default(0),
+    cache_creation_input_tokens: integer('cache_creation_input_tokens')
+      .notNull()
+      .default(0),
+    cache_read_input_tokens: integer('cache_read_input_tokens')
+      .notNull()
+      .default(0),
+    output_tokens: integer('output_tokens').notNull(),
+    cost: numeric('cost', { precision: 100, scale: 20 }).notNull(),
+    credits: integer('credits').notNull(),
+    user_id: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    fingerprint_id: text('fingerprint_id')
+      .references(() => fingerprint.id, { onDelete: 'cascade' })
+      .notNull(),
+  },
+  (table) => ({
+    message_fingerprint_id_idx: index('message_fingerprint_id_idx').on(
+      table.fingerprint_id
+    ),
+    message_user_id_idx: index('message_user_id_idx').on(table.user_id),
+    // message_finished_at_idx: index('message_finished_at_idx').on(
+    //   table.finished_at
+    // ),
+  })
+)
 
 export const session = pgTable('session', {
   sessionToken: text('sessionToken').notNull().primaryKey(),
