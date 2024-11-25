@@ -1,0 +1,2 @@
+CREATE INDEX IF NOT EXISTS "message_fingerprint_id_idx" ON "message" USING btree ("fingerprint_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "message_user_id_idx" ON "message" USING btree ("user_id");

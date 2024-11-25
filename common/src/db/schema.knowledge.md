@@ -25,6 +25,29 @@ Note: Setup has been primarily tested on Mac. Windows users may encounter platfo
 
 - When using \_\_dirname or path.join() in config files, convert Windows backslashes to forward slashes
 
+## Index Management
+
+Important: Define indexes in schema.ts rather than just migrations:
+- Keeps all structural database elements in one place
+- Makes indexes visible during schema review
+- Serves as documentation for query optimization
+- Helps track performance-critical queries
+
+Index Performance Guidelines:
+- Avoid indexing high cardinality columns (many unique values) without careful consideration
+- For timestamp columns used in range queries, consider:
+  - Query patterns (point vs range queries)
+  - Data distribution 
+  - Write overhead vs read benefit
+  - Avoid if used with dynamic BETWEEN clauses
+- Index foreign keys and common filter columns
+- Consider index selectivity - how well it narrows down results
+
+Key indexing decisions:
+- Index foreign keys used in joins (user_id, fingerprint_id)
+- Avoid indexing high-cardinality timestamp columns with range queries
+- Focus on columns with high selectivity in WHERE clauses
+
 ## Column Defaults and Calculations
 
 - Use Postgres's built-in calculated columns (GENERATED ALWAYS AS) instead of default values when computing values from other columns
