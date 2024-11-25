@@ -16,7 +16,10 @@ import {
   setFiles,
 } from './project-files'
 import { handleRunTerminalCommand } from './tool-handlers'
-import { SKIPPED_TERMINAL_COMMANDS } from 'common/constants'
+import {
+  REQUEST_CREDIT_SHOW_THRESHOLD,
+  SKIPPED_TERMINAL_COMMANDS,
+} from 'common/constants'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import { FileChanges } from 'common/actions'
@@ -451,7 +454,12 @@ export class CLI {
       console.log(green(`- Updated ${file}`))
     }
     if (created.length > 0 || modified.length > 0) {
-      console.log('\nComplete! Type "diff" to see the changes made.')
+      if (this.client.lastRequestCredits > REQUEST_CREDIT_SHOW_THRESHOLD) {
+        console.log(
+          `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
+        )
+      }
+      console.log('Complete! Type "diff" to see the changes made.')
       this.client.showUsageWarning()
     }
     console.log()

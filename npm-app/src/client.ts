@@ -46,6 +46,7 @@ export class Client {
   public usage: number = 0
   public limit: number = 0
   public subscription_active: boolean = false
+  public lastRequestCredits: number = 0
   public sessionCreditsUsed: number = 0
   public nextQuotaReset: Date | null = null
 
@@ -178,6 +179,10 @@ export class Client {
     this.subscription_active = subscription_active
     this.nextQuotaReset = next_quota_reset
     if (!!session_credits_used) {
+      this.lastRequestCredits = Math.max(
+        session_credits_used - this.sessionCreditsUsed,
+        0
+      )
       this.sessionCreditsUsed = session_credits_used
     }
     this.showUsageWarning(referralLink)
@@ -358,8 +363,6 @@ export class Client {
     const pct: number = match(Math.floor((this.usage / this.limit) * 100))
       .with(P.number.gte(100), () => 100)
       .with(P.number.gte(75), () => 75)
-      // .with(P.number.gte(50), () => 50)
-      // .with(P.number.gte(25), () => 25)
       .otherwise(() => 0)
 
     // User has used all their allotted credits, but they haven't been notified yet
@@ -518,9 +521,6 @@ export class Client {
           return
         }
 
-        if (this.usage > 0) {
-          this.sessionCreditsUsed = a.usage - this.usage
-        }
         this.setUsage({
           usage: a.usage,
           limit: a.limit,
