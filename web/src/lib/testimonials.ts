@@ -10,6 +10,13 @@ export const testimonials: Testimonial[][] = [
   [
     {
       quote:
+        "I played around with Codebuff and added some features to something I was working on. It really does have a different feeling than any other AI tools I've used; feels much more right, and I'm impressed by how you managed to land on that when nobody else did.",
+      author: 'JJ Fliegelman',
+      title: 'Founder',
+      link: '/testimonials/proof/jj-fliegelman.png',
+    },
+    {
+      quote:
         "As a Ruby on Rails dev this was a challenge as client want the solution in Python and Manicode has saved my skin big time as l've never used Python. So kudos.",
       author: 'Anonymous',
       title: 'Developer',
