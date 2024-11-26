@@ -136,6 +136,11 @@ The backend handles file operations for the Codebuff project:
 
 - **Reading Files**: The `read_files` tool allows the AI to access project file contents.
 - **Applying Changes**: The `applyChanges` function in `prompts.ts` processes and applies file modifications suggested by the AI.
+- **Path Requirements**: File paths must:
+  - Not start with '/' (strip leading slashes)
+  - Be relative to project root
+  - Not contain '..' segments
+  - Not be absolute paths
 - **Diff Format**: Uses git-style diff markers for code changes:
   ```
   <<<<<<< SEARCH
@@ -208,6 +213,7 @@ This ensures changes are properly tracked through the entire system and shown to
 1. **Logging**: The `debug.ts` file provides logging functionality for debugging purposes.
 2. **Error Catching**: WebSocket errors are caught and logged in both server and client code.
 3. **Graceful Degradation**: The system attempts to handle errors gracefully, providing meaningful error messages when possible.
+4. **Change Verification**: Always verify file changes were applied successfully. Changes can fail silently.
 
 ## AI Response Handling
 

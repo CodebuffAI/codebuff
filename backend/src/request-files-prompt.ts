@@ -1,5 +1,5 @@
 import { range, shuffle, uniq } from 'lodash'
-import { dirname } from 'path'
+import { dirname, isAbsolute, normalize } from 'path'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { Message } from 'common/actions'
@@ -102,6 +102,17 @@ export async function requestRelevantFiles(
   )
 
   return uniq([...keyFiles, ...nonObviousFiles])
+    .filter((p) => {
+      if (isAbsolute(p)) return false
+      if (p.includes('..')) return false
+      try {
+        normalize(p)
+        return true
+      } catch {
+        return false
+      }
+    })
+    .map(p => p.startsWith('/') ? p.slice(1) : p)
 }
 
 async function generateFileRequests(

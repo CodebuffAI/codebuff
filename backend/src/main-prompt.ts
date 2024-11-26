@@ -509,16 +509,7 @@ async function getFileVersionUpdates(
     ...requestedFiles,
     ...editedFilePaths,
     ...previousFilePaths,
-  ]).filter((p) => {
-    if (path.isAbsolute(p)) return false
-    if (p.includes('..')) return false
-    try {
-      path.normalize(p)
-      return true
-    } catch {
-      return false
-    }
-  })
+  ])
   const loadedFiles = await requestFiles(ws, allFilePaths)
 
   const filteredRequestedFiles = requestedFiles.filter((filePath, i) => {
