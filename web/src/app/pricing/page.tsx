@@ -119,7 +119,7 @@ const PricingPage = () => {
       price: '$99/month + usage',
       // credits: 'Custom',
       features: [
-        'Custom credit limits per member',
+        'Custom credit limits per member (min. 3 members)',
         'Pre-buy credits',
         'Priority support over email, Discord, and Slack',
       ],
