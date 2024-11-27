@@ -8,17 +8,23 @@ export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'
 export const DEFAULT_IGNORED_FILES = [
   '.git',
   '.env',
+  '.env.*',
+  'env',
+  'ENV',
   '*.min.*',
   'node_modules',
   'venv',
   'virtualenv',
-  'env',
   '.venv',
   '.virtualenv',
-  'ENV',
   '__pycache__',
   '*.egg-info/',
   '*.pyc',
+  '.DS_Store',
+  '.pytest_cache',
+  '.mypy_cache',
+  '.ruff_cache',
+  '.next',
 ]
 
 export const SKIPPED_TERMINAL_COMMANDS = [
