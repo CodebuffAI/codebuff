@@ -106,7 +106,15 @@ export const testimonials: Testimonial[][] = [
       title: 'Founder & CEO',
       avatar:
         'https://pbs.twimg.com/profile_images/943341063502286848/2h_xKTs9_400x400.jpg',
-      link: 'https://x.com/dnsbty/status/1849612125972594929?s=46',
+      link: 'https://x.com/dnsbty/status/1849612125972594929',
+    },
+    {
+      quote:
+        'when investors ask me about codebuff I tell them i use it 6 days a week',
+      author: 'Dexter Horthy',
+      title: 'Founder & CEO',
+      avatar: '/testimonials/dex.jpg',
+      link: '/testimonials/proof/dex.png',
     },
   ],
 ]
