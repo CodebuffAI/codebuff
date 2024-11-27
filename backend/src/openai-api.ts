@@ -41,6 +41,7 @@ export async function promptOpenAI(
     model: string
     userId: string | undefined
     predictedContent?: string
+    maxTokens?: number
   }
 ) {
   const {
@@ -50,6 +51,7 @@ export async function promptOpenAI(
     model,
     userId,
     predictedContent,
+    maxTokens,
   } = options
   const openai = getOpenAI(fingerprintId)
   try {
@@ -62,6 +64,7 @@ export async function promptOpenAI(
         ...(predictedContent
           ? { prediction: { type: 'content', content: predictedContent } }
           : {}),
+        max_tokens: maxTokens,
       }),
       timeoutPromise(200_000) as Promise<OpenAI.Chat.ChatCompletion>,
     ])

@@ -13,12 +13,12 @@ import {
 } from 'common/actions'
 import { sendMessage } from './server'
 import { getSearchSystemPrompt } from '../system-prompt'
-import { promptClaude } from '../claude'
+import { promptOpenAI } from '../openai-api'
 import { env } from '../env.mjs'
 import db from 'common/db'
 import { genAuthCode } from 'common/util/credentials'
 import * as schema from 'common/db/schema'
-import { claudeModels, TOOL_RESULT_MARKER } from 'common/constants'
+import { openaiModels, TOOL_RESULT_MARKER } from 'common/constants'
 import { protec } from './middleware'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/src/util/dates'
@@ -421,7 +421,7 @@ const onInit = async (
     const system = getSearchSystemPrompt(fileContext)
     const userId = await getUserIdFromAuthToken(authToken)
     try {
-      await promptClaude(
+      await promptOpenAI(
         [
           {
             role: 'user',
@@ -429,8 +429,7 @@ const onInit = async (
           },
         ],
         {
-          model: claudeModels.haiku,
-          system,
+          model: openaiModels.gpt4o,
           clientSessionId,
           fingerprintId,
           userId,

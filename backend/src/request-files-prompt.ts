@@ -2,19 +2,19 @@ import { range, shuffle, uniq } from 'lodash'
 import { dirname, isAbsolute, normalize } from 'path'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
-import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
-import { model_types, promptClaude, System } from './claude'
-import { claudeModels } from 'common/constants'
+import { model_types, System } from './claude'
+import { claudeModels, openaiModels } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from './util/logger'
+import { OpenAIMessage, promptOpenAI } from './openai-api'
 
 export async function requestRelevantFiles(
   {
     messages,
     system,
   }: {
-    messages: Message[]
+    messages: OpenAIMessage[]
     system: string | Array<TextBlockParam>
   },
   fileContext: ProjectFileContext,
@@ -112,7 +112,7 @@ export async function requestRelevantFiles(
         return false
       }
     })
-    .map(p => p.startsWith('/') ? p.slice(1) : p)
+    .map((p) => (p.startsWith('/') ? p.slice(1) : p))
 }
 
 async function generateFileRequests(
@@ -120,7 +120,7 @@ async function generateFileRequests(
   assistantPrompt: string | null,
   fileContext: ProjectFileContext,
   countPerRequest: number,
-  messagesExcludingLastIfByUser: Message[],
+  messagesExcludingLastIfByUser: OpenAIMessage[],
   system: string | Array<TextBlockParam>,
   clientSessionId: string,
   fingerprintId: string,
@@ -234,14 +234,18 @@ async function generateFileRequests(
     return { files: [], duration: 0 }
   })
 
-  const keyResults = await Promise.all([...keyPromises, examplePromise, testAndConfigPromise])
+  const keyResults = await Promise.all([
+    ...keyPromises,
+    examplePromise,
+    testAndConfigPromise,
+  ])
   const nonObviousResults = await Promise.all(nonObviousPromises)
 
   return { keyResults, nonObviousResults }
 }
 
 const checkNewFilesNecessary = async (
-  messages: Message[],
+  messages: OpenAIMessage[],
   system: System,
   clientSessionId: string,
   fingerprintId: string,
@@ -259,11 +263,17 @@ We'll need any files that should be modified to fulfill the user's request, or a
 
 Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient. Do not write anything else.
 `
-  const response = await promptClaude(
-    [...messages, { role: 'user', content: prompt }],
+  const response = await promptOpenAI(
+    [
+      {
+        role: 'system' as const,
+        content: system,
+      },
+      ...messages,
+      { role: 'user', content: prompt },
+    ],
     {
-      model: claudeModels.haiku,
-      system,
+      model: openaiModels.gpt4o,
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -279,7 +289,7 @@ async function getRelevantFiles(
     messages,
     system,
   }: {
-    messages: Message[]
+    messages: OpenAIMessage[]
     system: string | Array<TextBlockParam>
   },
   userPrompt: string,
@@ -291,6 +301,10 @@ async function getRelevantFiles(
   userId?: string
 ) {
   const messagesWithPrompt = [
+    {
+      role: 'system' as const,
+      content: system,
+    },
     ...messages,
     {
       role: 'user' as const,
@@ -298,9 +312,8 @@ async function getRelevantFiles(
     },
   ]
   const start = performance.now()
-  const response = await promptClaude(messagesWithPrompt, {
-    model,
-    system,
+  const response = await promptOpenAI(messagesWithPrompt, {
+    model: openaiModels.gpt4o,
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -576,16 +589,19 @@ export const warmCacheForRequestRelevantFiles = async (
   userInputId: string,
   userId: string | undefined
 ) => {
-  await promptClaude(
+  await promptOpenAI(
     [
+      {
+        role: 'system' as const,
+        content: system,
+      },
       {
         role: 'user' as const,
         content: 'hi',
       },
     ],
     {
-      model: claudeModels.haiku,
-      system,
+      model: openaiModels.gpt4o,
       clientSessionId,
       fingerprintId,
       userId,

@@ -1,6 +1,5 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import path from 'path'
 
 import { promptClaudeStream } from './claude'
 import { TOOL_RESULT_MARKER, STOP_MARKER } from 'common/constants'
@@ -23,12 +22,13 @@ import { processStreamWithTags } from './process-stream'
 import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
-import { difference, uniq, zip } from 'lodash'
+import { cloneDeep, difference, uniq, zip } from 'lodash'
 import { filterDefined } from 'common/util/array'
 import {
   checkConversationProgress,
   checkToAllowUnboundedIteration,
 } from './conversation-progress'
+import { OpenAIMessage } from './openai-api'
 
 /**
  * Prompt claude, handle tool calls, and generate file changes.
@@ -493,10 +493,21 @@ async function getFileVersionUpdates(
     )
     .filter((path): path is string => path !== undefined)
 
+  const openAiMessages = messages.map((message) => {
+    const copy = cloneDeep(message)
+    if (copy.content && typeof copy.content === 'object') {
+      for (const key in copy.content) {
+        if (key.startsWith('cache_control')) {
+          delete copy.content[key]
+        }
+      }
+    }
+    return copy as OpenAIMessage
+  })
   const requestedFiles = skipRequestingFiles
     ? []
     : (await requestRelevantFiles(
-        { messages, system },
+        { messages: openAiMessages, system },
         fileContext,
         prompt,
         clientSessionId,
