@@ -179,7 +179,7 @@ ${lastMessage.content}
     }
   }
 
-  while (!isComplete && iterationCount < MAX_ITERATIONS) {
+  while (!isComplete) {
     const system = getAgentSystemPrompt(fileContext)
     const messagesWithContinuedMessage = continuedMessages
       ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
@@ -392,10 +392,19 @@ ${lastMessage.content}
     }
 
     iterationCount++
-  }
-
-  if (iterationCount >= MAX_ITERATIONS) {
-    logger.warn('Reached maximum number of iterations in mainPrompt')
+    if (iterationCount >= MAX_ITERATIONS) {
+      logger.warn('Reached maximum number of iterations in mainPrompt')
+      isComplete = true
+      if (allowUnboundedIteration && toolCall === null) {
+        toolCall = {
+          id: Math.random().toString(36).slice(2),
+          name: 'continue',
+          input: {
+            response: `Continue`,
+          },
+        }
+      }
+    }
   }
 
   if (fileProcessingPromises.length > 0) {
