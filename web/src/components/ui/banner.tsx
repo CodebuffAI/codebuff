@@ -5,11 +5,19 @@ import { X, Gift } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
+import { useSearchParams } from 'next/navigation'
+import { sponseeConfig } from '@/lib/constant'
 
 export function Banner() {
   const [isVisible, setIsVisible] = useState(true)
+  const searchParams = useSearchParams()
+  const utmSource = searchParams.get('utm_source')
+  const referrer = searchParams.get('referrer')
 
-  if (!isVisible) return <></>
+  if (!isVisible) return null
+
+  const isYouTubeReferral =
+    utmSource === 'youtube' && referrer && referrer in sponseeConfig
 
   return (
     <div className="w-full bg-blue-900 text-white px-4 py-2 md:py-0 relative z-20">
@@ -18,9 +26,25 @@ export function Banner() {
         <div className="flex items-center gap-2 text-center">
           <Gift className="hidden md:block h-4 w-4" />
           <p className="text-sm">
-            Refer a friend, and earn {CREDITS_REFERRAL_BONUS} credits per month
-            for both of you!{' '}
-            <Link href="/referrals" className="underline hover:text-blue-200">
+            {isYouTubeReferral ? (
+              <>
+                {sponseeConfig[referrer as keyof typeof sponseeConfig].name} got
+                you an extra {CREDITS_REFERRAL_BONUS} credits per month!
+              </>
+            ) : (
+              <>
+                Refer a friend, and earn {CREDITS_REFERRAL_BONUS} credits per
+                month for both of you!
+              </>
+            )}{' '}
+            <Link
+              href={
+                isYouTubeReferral
+                  ? `/referrals/${sponseeConfig[referrer as keyof typeof sponseeConfig].referralCode}`
+                  : '/referrals'
+              }
+              className="underline hover:text-blue-200"
+            >
               Learn more
             </Link>
           </p>

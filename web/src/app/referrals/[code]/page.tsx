@@ -18,6 +18,7 @@ import type { ReferralCodeResponse } from '@/app/api/referrals/[code]/route'
 import { Button } from '@/components/ui/button'
 import { env } from '@/env.mjs'
 import CardWithBeams from '@/components/card-with-beams'
+import { sponseeConfig } from '@/lib/constant'
 
 const InputWithCopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
@@ -54,12 +55,16 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
 }
 
 export default function RedeemPage({ params }: { params: { code: string } }) {
+  const code =
+    params.code in sponseeConfig
+      ? sponseeConfig[params.code as keyof typeof sponseeConfig].referralCode
+      : params.code
   const { data: session, status } = useSession()
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['referrals', params.code],
+    queryKey: ['referrals', code],
     queryFn: async (): Promise<ReferralCodeResponse> => {
-      const res = await fetch(`/api/referrals/${params.code}`)
+      const res = await fetch(`/api/referrals/${code}`)
       const ret = await res.json()
       if (!res.ok) {
         throw new Error(`Error fetching referral code: ${ret.error}`)
@@ -116,8 +121,10 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
             <p className="text-red-600 mt-2">{data.status.details.msg}</p>
           ) : (
             <p>
-              Your friend {data?.referrerName} just scored you some sweet sweet
-              credits.
+              {code in sponseeConfig
+                ? sponseeConfig[code as keyof typeof sponseeConfig].name
+                : data?.referrerName}{' '}
+              just scored you some sweet sweet credits.
             </p>
           )}
         </CardContent>

@@ -1,6 +1,6 @@
 import '@/styles/globals.css'
 
-import { PropsWithChildren } from 'react'
+import { PropsWithChildren, useEffect } from 'react'
 import type { Metadata } from 'next'
 
 import { Footer } from '@/components/footer'
@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import SessionProvider from '@/lib/SessionProvider'
 import QueryProvider from '@/components/providers/query-client-provider'
 import { env } from '@/env.mjs'
+import { useSearchParams } from 'next/navigation'
 
 export const generateMetadata = (): Metadata => ({
   metadataBase: new URL(siteConfig.url()),

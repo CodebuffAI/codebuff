@@ -1,6 +1,5 @@
 'use client'
-import { Button } from '@/components/ui/button'
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   FolderCodeIcon,
@@ -12,16 +11,17 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useTheme } from 'next-themes'
+import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { BackgroundBeams } from '@/components/ui/background-beams'
-import { useTheme } from 'next-themes'
 import { useToast } from '@/components/ui/use-toast'
 import { Card, CardContent } from '@/components/ui/card'
 import Marquee from '@/components/ui/marquee'
 import { testimonials } from '@/lib/testimonials'
 import { faqs } from '@/lib/faq'
 import { cn } from '@/lib/utils'
-import { useState } from 'react'
+import { storeSearchParams } from '@/lib/trackConversions'
 
 const Home = () => {
   const { theme } = useTheme()
@@ -31,21 +31,7 @@ const Home = () => {
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    const liFatId = searchParams.get('li_fat_id')
-    if (liFatId) {
-      localStorage.setItem('li_fat_id', liFatId)
-      // const url = new URL(window.location.href)
-      // url.searchParams.delete('li_fat_id')
-      // window.history.replaceState({}, '', url)
-    }
-
-    const testUtmId = searchParams.get('test_utm_id')
-    if (testUtmId) {
-      localStorage.setItem('test_utm_id', testUtmId)
-      // const url = new URL(window.location.href)
-      // url.searchParams.delete('test_utm_id')
-      // window.history.replaceState({}, '', url)
-    }
+    storeSearchParams(searchParams)
   }, [searchParams])
 
   const copyToClipboard = () => {

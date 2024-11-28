@@ -124,6 +124,16 @@ When displaying inline code snippets with copy buttons:
 - Use Lucide icons instead of raw SVGs for consistency
 - Import icons from 'lucide-react' package
 
+### Component Architecture
+
+- Extract shared styles into reusable components or base components
+- Avoid duplicating Tailwind classes across similar components
+- When creating variants of a component:
+  - Create a base component with shared structure/styles
+  - Pass variant-specific content via props
+  - Keep styling consistent between variants
+- Example: Banner variants should share container and button styles
+
 ### Business Logic Organization
 
 - Shared business logic should be centralized in utility files

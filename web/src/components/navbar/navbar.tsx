@@ -40,12 +40,14 @@ export const Navbar = async () => {
         <Link href="/pricing" className="hover:text-blue-400 transition-colors">
           Pricing
         </Link>
-        <Link
-          href="/referrals"
-          className="hover:text-blue-400 transition-colors"
-        >
-          Referrals
-        </Link>
+        {session && (
+          <Link
+            href="/referrals"
+            className="hover:text-blue-400 transition-colors"
+          >
+            Referrals
+          </Link>
+        )}
         {session && (
           <Link href="/usage" className="hover:text-blue-400 transition-colors">
             Usage
