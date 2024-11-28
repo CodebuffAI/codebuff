@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from 'bun:test'
+import { expect, describe, it, mock } from 'bun:test'
 import path from 'path'
 import fs from 'fs'
 
@@ -6,8 +6,31 @@ import { WebSocket } from 'ws'
 import { applyPatch } from 'common/util/patch'
 import { processFileBlock } from 'backend/process-file-block'
 import { TEST_USER_ID } from 'common/constants'
+import { cleanMarkdownCodeBlock } from 'common/util/file'
 
-describe('processFileBlock', () => {
+describe('cleanMarkdownCodeBlock', () => {
+  it('should remove markdown code block syntax with language tag', () => {
+    const input = '```typescript\nconst x = 1;\n```'
+    expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;')
+  })
+
+  it('should remove markdown code block syntax without language tag', () => {
+    const input = '```\nconst x = 1;\n```'
+    expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;')
+  })
+
+  it('should return original content if not a code block', () => {
+    const input = 'const x = 1;'
+    expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;')
+  })
+
+  it('should handle multiline code blocks', () => {
+    const input = '```javascript\nconst x = 1;\nconst y = 2;\n```'
+    expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;\nconst y = 2;')
+  })
+})
+
+describe('parseAndGetDiffBlocksSingleFile', () => {
   it('should handle markdown code blocks when creating new files', async () => {
     const mockWs = {
       send: mock(),
