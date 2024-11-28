@@ -7,6 +7,8 @@ export const sponseeConfig = {
   },
 } as const
 
+export const sponsees = Object.values(sponseeConfig)
+
 export const siteConfig = {
   title: 'Codebuff',
   description:

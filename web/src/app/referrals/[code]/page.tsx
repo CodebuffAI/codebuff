@@ -18,7 +18,7 @@ import type { ReferralCodeResponse } from '@/app/api/referrals/[code]/route'
 import { Button } from '@/components/ui/button'
 import { env } from '@/env.mjs'
 import CardWithBeams from '@/components/card-with-beams'
-import { sponseeConfig } from '@/lib/constant'
+import { sponsees } from '@/lib/constant'
 
 const InputWithCopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
@@ -55,10 +55,8 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
 }
 
 export default function RedeemPage({ params }: { params: { code: string } }) {
-  const code =
-    params.code in sponseeConfig
-      ? sponseeConfig[params.code as keyof typeof sponseeConfig].referralCode
-      : params.code
+  const sponsee = sponsees.find((e) => e.referralCode === params.code)
+  const code = sponsee ? sponsee.referralCode : params.code
   const { data: session, status } = useSession()
 
   const { data, isLoading, error } = useQuery({
@@ -121,10 +119,8 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
             <p className="text-red-600 mt-2">{data.status.details.msg}</p>
           ) : (
             <p>
-              {code in sponseeConfig
-                ? sponseeConfig[code as keyof typeof sponseeConfig].name
-                : data?.referrerName}{' '}
-              just scored you some sweet sweet credits.
+              {sponsee ? sponsee.name : data?.referrerName} just scored you some
+              sweet sweet credits.
             </p>
           )}
         </CardContent>
