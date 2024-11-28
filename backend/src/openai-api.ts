@@ -42,6 +42,7 @@ export async function promptOpenAI(
     userId: string | undefined
     predictedContent?: string
     maxTokens?: number
+    temperature?: number
   }
 ) {
   const {
@@ -52,6 +53,7 @@ export async function promptOpenAI(
     userId,
     predictedContent,
     maxTokens,
+    temperature,
   } = options
   const openai = getOpenAI(fingerprintId)
   try {
@@ -59,7 +61,7 @@ export async function promptOpenAI(
       openai.chat.completions.create({
         model,
         messages,
-        temperature: 0,
+        temperature: temperature ?? 0,
         // store: true,
         ...(predictedContent
           ? { prediction: { type: 'content', content: predictedContent } }
