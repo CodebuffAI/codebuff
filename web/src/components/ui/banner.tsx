@@ -2,13 +2,13 @@
 
 import { Button } from './button'
 import { X, Gift } from 'lucide-react'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 import { useSearchParams } from 'next/navigation'
 import { sponseeConfig } from '@/lib/constant'
 
-export function Banner() {
+function BannerContent() {
   const [isVisible, setIsVisible] = useState(true)
   const searchParams = useSearchParams()
   const utmSource = searchParams.get('utm_source')
@@ -60,5 +60,13 @@ export function Banner() {
         </Button>
       </div>
     </div>
+  )
+}
+
+export function Banner() {
+  return (
+    <Suspense>
+      <BannerContent />
+    </Suspense>
   )
 }
