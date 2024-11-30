@@ -3,14 +3,15 @@ import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from 'common/util/object'
 import { Message } from 'common/actions'
 import { claudeModels, STOP_MARKER } from 'common/constants'
-import { RATE_LIMIT_POLICY } from './constants'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
 
 export type model_types = (typeof claudeModels)[keyof typeof claudeModels]
 
-export type System = string | Array<TextBlockParam>
+export type System =
+  | string
+  | Array<TextBlockParam & { cache_control?: { type: 'ephemeral' } }>
 
 export const promptClaudeStream = async function* (
   messages: Message[],
