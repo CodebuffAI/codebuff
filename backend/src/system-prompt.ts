@@ -367,12 +367,12 @@ If the included set of files is not sufficient to address the user's request, yo
 
   return buildArray([
     {
-      type: 'text',
+      type: 'text' as const,
       text: intro,
     } as const,
     ...fileBlockSets.map((fileBlockSet, i) =>
       removeUndefinedProps({
-        type: 'text',
+        type: 'text' as const,
         text: fileBlockSet,
         cache_control:
           i === fileBlockSets.length - 1 || i === fileBlockSets.length - 2
@@ -381,7 +381,7 @@ If the included set of files is not sufficient to address the user's request, yo
       } as const)
     ),
     fileBlockSets.length === 0 && {
-      type: 'text',
+      type: 'text' as const,
       text: 'There are no files selected yet.',
     },
   ])

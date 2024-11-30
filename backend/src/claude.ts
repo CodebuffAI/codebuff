@@ -9,9 +9,7 @@ import { logger } from './util/logger'
 
 export type model_types = (typeof claudeModels)[keyof typeof claudeModels]
 
-export type System =
-  | string
-  | Array<TextBlockParam & { cache_control?: { type: 'ephemeral' } }>
+export type System = string | Array<TextBlockParam>
 
 export const promptClaudeStream = async function* (
   messages: Message[],
