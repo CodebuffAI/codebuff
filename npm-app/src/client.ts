@@ -185,7 +185,7 @@ export class Client {
       )
       this.sessionCreditsUsed = session_credits_used
     }
-    this.showUsageWarning(referralLink)
+    // this.showUsageWarning(referralLink)
   }
 
   private setupSubscriptions() {
@@ -330,7 +330,8 @@ export class Client {
         console.log(responseToUser.join('\n'))
         this.lastWarnedPct = 0
 
-        this.returnControlToUser()
+        this.getUsage()
+        // this.returnControlToUser()
       } else {
         console.warn(
           `Authentication failed: ${action.message}. Please try again in a few minutes or contact support at ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL}.`
