@@ -81,8 +81,8 @@ export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
         PRO_PLUS: 55_000_000,
       }
     : {
-        ANON: 750,
-        FREE: 1_500,
+        ANON: 500,
+        FREE: 1_000,
         PAID: 10_000,
         PRO_PLUS: 55_000,
       }
