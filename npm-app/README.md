@@ -1,49 +1,49 @@
 # The most powerful coding agent
 
-Codebuff is a CLI tool that writes code for you.
+Codecaine is a CLI tool that writes code for you. If you need a little speedup, codecaine is perfect.
 
-1. Run `codebuff` from your project directory
+1. Run `codecaine` from your project directory
 2. Tell it what to do
-3. It will read and write to files and run commands to produce the code you want
+3. It will read and write to files and run commands to produce the lines of code you want.
 
-Note: Codebuff will run commands in your terminal as it deems necessary to fulfill your request.
+Note: Codecaine will run commands in your terminal as it deems necessary to fulfill your request. It might get too lit, so you may need to ask it to focus.
 
 ## Installation
 
-To install Codebuff, run:
+To install Codecaine, run:
 
 ```bash
-npm install -g codebuff
+npm install -g codecaine
 ```
 
 (Use `sudo` if you get a permission error.)
 
 ## Usage
 
-After installation, you can start Codebuff by running:
+After installation, you can start Codecaine by running:
 
 ```bash
-codebuff [project-directory]
+codecaine [project-directory]
 ```
 
-If no project directory is specified, Codebuff will use the current directory.
+If no project directory is specified, Codecaine will use the current directory.
 
-After running `codebuff`, simply chat with it to say what coding task you want done.
+After running `codecaine`, simply chat with it to say what coding task you want done.
 
 ## Features
 
 - Understands your whole codebase
 - Creates and edits multiple files based on your request
 - Can run your tests or type checker or linter; can install packages
-- It's powerful: ask Codebuff to keep working until it reaches a condition and it will.
+- It's powerful: ask Codecaine to keep working until it reaches a condition and it will. It's pretty cracked.
 
-Our users regularly use Codebuff to implement new features, write unit tests, refactor code,write scripts, or give advice.
+Our users regularly use Codecaine to speed up their development.
 
 ## Knowledge Files
 
-To unlock the full benefits of modern LLMs, we recommend storing knowledge alongside your code. Add a `knowledge.md` file anywhere in your project to provide helpful context, guidance, and tips for the LLM as it performs tasks for you.
+To unlock the full benefits of modern LLMs, we recommend storing knowledge alongside your code. Add a `knowledge.md` file anywhere in your project to provide helpful context, guidance, and tips for the LLM as it performs tasks for you. Sometimes Codecaine will use this knowledge to improve its responses, but sometimes it might forget.
 
-Codebuff can fluently read and write files, so it will add knowledge as it goes. You don't need to write knowledge manually!
+Codecaine can fluently read and write files, so it will add knowledge as it goes. You don't need to create your knowledge files manually! Codecaine may sometimes repeat itself, so you may need to ask it to focus.
 
 Some have said every change should be paired with a unit test. In 2024, every change should come with a knowledge update!
 
@@ -51,14 +51,14 @@ Some have said every change should be paired with a unit test. In 2024, every ch
 
 1. Create a `knowledge.md` file and collect specific points of advice. The assistant will use this knowledge to improve its responses.
 2. Type `undo` or `redo` to revert or reapply file changes from the conversation.
-3. Press `Esc` or `Ctrl+C` while Codebuff is generating a response to stop it.
+3. Press `Esc` or `Ctrl+C` while Codecaine is generating a response to stop it.
 
 ## Troubleshooting
 
 If you are getting permission errors during installation, try using sudo:
 
 ```
-sudo npm install -g codebuff
+sudo npm install -g codecaine
 ```
 
 Or, we recommend [installing node with a version manager](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). See below.
@@ -77,4 +77,4 @@ Make sure to uninstall your existing node program. Then get this executable:
 
 ## Feedback
 
-We value your input! Please email your feedback to `founders@codebuff.com`. Thank you for using Codebuff!
+We value your input! Please email your feedback to `founders@codebuff.com`. Thank you for using Codecaine!
