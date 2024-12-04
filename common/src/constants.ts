@@ -66,6 +66,7 @@ export const SKIPPED_TERMINAL_COMMANDS = [
   'look',
   'do',
   'break',
+  'install',
 ]
 
 export const REQUEST_CREDIT_SHOW_THRESHOLD = 1
