@@ -245,9 +245,7 @@ const onUserInput = async (
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')
         const response =
-          e && typeof e === 'object' && 'message' in e
-            ? `\n\nError: ${e.message}`
-            : ''
+          e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
         sendAction(ws, {
           type: 'response-chunk',
           userInputId,

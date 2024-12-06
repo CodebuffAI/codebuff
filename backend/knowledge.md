@@ -214,6 +214,7 @@ This ensures changes are properly tracked through the entire system and shown to
 2. **Error Catching**: WebSocket errors are caught and logged in both server and client code.
 3. **Graceful Degradation**: The system attempts to handle errors gracefully, providing meaningful error messages when possible.
 4. **Change Verification**: Always verify file changes were applied successfully. Changes can fail silently.
+5. **API Error Handling**: Only retry on connection errors (type "APIConnectionError"). Other error types indicate issues that won't be resolved by retrying.
 
 ## AI Response Handling
 
@@ -314,3 +315,5 @@ Remember to keep the referral system logic consistent between the backend API an
 These changes aim to provide a better user experience by offering more informative error messages, streamlining usage information handling, and improving the overall system consistency.
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
+
+```

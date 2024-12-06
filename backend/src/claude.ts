@@ -1,4 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk'
+import Anthropic, {
+  APIConnectionError,
+  BadRequestError,
+} from '@anthropic-ai/sdk'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from 'common/util/object'
 import { Message } from 'common/actions'
@@ -6,12 +9,17 @@ import { claudeModels, STOP_MARKER } from 'common/constants'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
+import { sleep } from 'common/util/helpers'
+import { APIError } from '@anthropic-ai/sdk/error'
+
+const MAX_RETRIES = 3
+const INITIAL_RETRY_DELAY = 1000 // 1 second
 
 export type model_types = (typeof claudeModels)[keyof typeof claudeModels]
 
 export type System = string | Array<TextBlockParam>
 
-export const promptClaudeStream = async function* (
+async function* promptClaudeStreamWithoutRetry(
   messages: Message[],
   options: {
     system?: System
@@ -38,6 +46,10 @@ export const promptClaudeStream = async function* (
   } = options
 
   const apiKey = env.ANTHROPIC_API_KEY2
+
+  if (!apiKey) {
+    throw new Error('Missing ANTHROPIC_API_KEY')
+  }
 
   if (!apiKey) {
     throw new Error('Missing ANTHROPIC_API_KEY')
@@ -158,6 +170,52 @@ export const promptClaudeStream = async function* (
       }
     }
   }
+}
+
+export const promptClaudeStream = async function* (
+  messages: Message[],
+  options: {
+    system?: System
+    tools?: Tool[]
+    model?: model_types
+    maxTokens?: number
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId?: string
+    ignoreDatabaseAndHelicone?: boolean
+  }
+): AsyncGenerator<string, void, unknown> {
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      yield* promptClaudeStreamWithoutRetry(messages, options)
+      return
+    } catch (error) {
+      // Only retry on connection errors (e.g. internal server error, overloaded, etc.)
+      if (error instanceof APIConnectionError) {
+        logger.error(
+          { error, attempt },
+          'Claude API connection error, retrying...'
+        )
+
+        if (attempt < MAX_RETRIES - 1) {
+          // Exponential backoff
+          const delayMs = INITIAL_RETRY_DELAY * Math.pow(2, attempt)
+          await sleep(delayMs)
+        }
+      } else {
+        // For other types of errors, throw immediately
+        const parsedError = error as APIError
+        throw new Error(
+          `Anthropic API error: ${parsedError.message}. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+        )
+      }
+    }
+  }
+
+  throw new Error(
+    `Max retries exceeded. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+  )
 }
 
 export const promptClaude = async (
