@@ -14,7 +14,6 @@ import { handleCreateCheckoutSession } from '@/lib/stripe'
 const PricingPage = () => {
   const [isPending, setIsPending] = useState(false)
   const session = useSession()
-  const router = useRouter()
 
   const pricingPlans = [
     {
@@ -45,7 +44,7 @@ const PricingPage = () => {
     },
     {
       name: 'Pro',
-      price: '$99/month',
+      price: '$49/month',
       credits: CREDITS_USAGE_LIMITS.PAID,
       features: [
         'Overage allowed ($0.99 per 100 credits)',
@@ -98,7 +97,7 @@ const PricingPage = () => {
     },
     {
       name: 'Pro Plus',
-      price: '$500/month',
+      price: '$249/month',
       credits: CREDITS_USAGE_LIMITS.PRO_PLUS,
       features: [
         'Overage allowed ($0.90 per 100 credits)',
