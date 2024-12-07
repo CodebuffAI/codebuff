@@ -142,6 +142,18 @@ The backend integrates with multiple AI models to process user inputs and genera
   - Use promptGroq instead of promptOpenAI for API calls
   - Does not support continuation-based responses
 
+### Together AI Integration
+- **Purpose**: Used specifically for file request generation and classification
+- **Model Selection**: Uses meta-llama/Llama-3.3-70B-Instruct-Turbo model
+- **API Differences**:
+  - Similar interface to Groq - no streaming, basic completion calls
+  - Used as a drop-in replacement for Groq in file request workflows
+
+### Type Sharing Across Providers
+- Use OpenAIMessage type for all LLM providers (Claude, Groq, Together AI)
+- All providers follow OpenAI's message structure format
+- Avoids unnecessary type duplication and simplifies integration
+
 ## File Management
 
 The backend handles file operations for the Codebuff project:

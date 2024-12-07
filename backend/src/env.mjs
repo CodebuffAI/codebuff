@@ -24,6 +24,7 @@ export const env = createEnv({
     HELICONE_API_KEY: z.string().min(1).startsWith('pk-helicone-'),
     OPEN_AI_KEY: z.string().min(1).startsWith('sk-proj-'),
     GROQ_API_KEY: z.string().min(1).startsWith('gsk_'),
+    TOGETHER_AI_KEY: z.string().min(1),
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
     STRIPE_SUBSCRIPTION_PRICE_ID: z.string().min(1),
