@@ -97,6 +97,7 @@ export async function requestRelevantFiles(
       nonObviousResults,
       newFilesNecessary,
       newFilesNecessaryResponse,
+      assistantPrompt,
     },
     'requestRelevantFiles: Results'
   )
@@ -112,7 +113,7 @@ export async function requestRelevantFiles(
         return false
       }
     })
-    .map(p => p.startsWith('/') ? p.slice(1) : p)
+    .map((p) => (p.startsWith('/') ? p.slice(1) : p))
 }
 
 async function generateFileRequests(
@@ -234,7 +235,11 @@ async function generateFileRequests(
     return { files: [], duration: 0 }
   })
 
-  const keyResults = await Promise.all([...keyPromises, examplePromise, testAndConfigPromise])
+  const keyResults = await Promise.all([
+    ...keyPromises,
+    examplePromise,
+    testAndConfigPromise,
+  ])
   const nonObviousResults = await Promise.all(nonObviousPromises)
 
   return { keyResults, nonObviousResults }

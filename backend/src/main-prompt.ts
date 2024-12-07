@@ -240,6 +240,8 @@ ${lastMessage.content}
             contentAttributes.command = content
           } else if (name === 'scrape_web_page') {
             contentAttributes.url = content
+          } else if (name === 'read_files') {
+            contentAttributes.file_paths = content
           }
           fullResponse += `<tool_call name="${attributes.name}">${content}</tool_call>`
           toolCall = {
@@ -292,10 +294,10 @@ ${lastMessage.content}
       fullResponse += '\n[END]'
     }
 
-    const maybeToolCall = toolCall as ToolCall | null
+    const toolCallResult = toolCall as ToolCall | null
 
-    if (maybeToolCall?.name === 'find_files') {
-      logger.debug(maybeToolCall, 'tool call')
+    if (toolCallResult?.name === 'find_files') {
+      logger.debug(toolCallResult, 'tool call')
       const {
         newFileVersions,
         addedFiles,
@@ -322,8 +324,8 @@ ${lastMessage.content}
         addedFileVersions.push(...addedFiles)
       }
       if (readFilesMessage !== undefined) {
-        onResponseChunk(`\n\n${readFilesMessage}`)
-        fullResponse += `\n\n${readFilesMessage}`
+        onResponseChunk(`\n${readFilesMessage}`)
+        fullResponse += `\n${readFilesMessage}`
       }
       toolCall = null
       isComplete = false
@@ -333,9 +335,67 @@ ${lastMessage.content}
           content: fullResponse.trim(),
         },
       ]
-    } else if (maybeToolCall !== null) {
+    } else if (toolCallResult?.name === 'read_files') {
+      logger.debug(toolCallResult, 'tool call')
+      const existingFilePaths = fileContext.fileVersions.flatMap((files) =>
+        files.map((file) => file.path)
+      )
+      const filePaths = ((toolCallResult.input.file_paths as string) ?? '')
+        .trim()
+        .split('\n')
+        .filter((path) => path)
+      const newFilePaths = difference(filePaths, existingFilePaths)
+      logger.debug(
+        {
+          content: toolCallResult.input.file_paths,
+          existingFilePaths,
+          filePaths,
+          newFilePaths,
+        },
+        'read_files tool call'
+      )
+
+      const {
+        newFileVersions,
+        addedFiles,
+        clearFileVersions,
+        readFilesMessage,
+      } = await getFileVersionUpdates(
+        ws,
+        messages,
+        getSearchSystemPrompt(fileContext),
+        fileContext,
+        fullResponse,
+        {
+          skipRequestingFiles: false,
+          requestedFiles: newFilePaths,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        }
+      )
+      fileContext.fileVersions = newFileVersions
+      if (clearFileVersions) {
+        resetFileVersions = true
+      } else {
+        addedFileVersions.push(...addedFiles)
+      }
+      if (readFilesMessage !== undefined) {
+        onResponseChunk(`\n${readFilesMessage}`)
+        fullResponse += `\n${readFilesMessage}`
+      }
+      toolCall = null
+      isComplete = false
+      continuedMessages = [
+        {
+          role: 'assistant',
+          content: fullResponse.trim(),
+        },
+      ]
+    } else if (toolCallResult !== null) {
       isComplete = true
-      logger.debug(maybeToolCall, 'tool call')
+      logger.debug(toolCallResult, 'tool call')
     } else if (fullResponse.includes(STOP_MARKER)) {
       isComplete = true
       if (!allowUnboundedIteration) {
@@ -466,6 +526,7 @@ async function getFileVersionUpdates(
   prompt: string | null,
   options: {
     skipRequestingFiles: boolean
+    requestedFiles?: string[]
     clientSessionId: string
     fingerprintId: string
     userInputId: string
@@ -504,7 +565,8 @@ async function getFileVersionUpdates(
 
   const requestedFiles = skipRequestingFiles
     ? []
-    : (await requestRelevantFiles(
+    : options.requestedFiles ??
+      (await requestRelevantFiles(
         { messages, system },
         fileContext,
         prompt,
@@ -512,7 +574,8 @@ async function getFileVersionUpdates(
         fingerprintId,
         userInputId,
         userId
-      )) ?? []
+      )) ??
+      []
 
   const allFilePaths = uniq([
     ...requestedFiles,

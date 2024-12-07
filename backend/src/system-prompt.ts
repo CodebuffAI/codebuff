@@ -235,6 +235,7 @@ const toolsPrompt = `
 
 You have access to the following tools:
 - <tool_call name="find_files">[DESCRIPTION_OF_FILES]</tool_call>: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
+- <tool_call name="read_files">[LIST_OF_FILE_PATHS]</tool_call>: Provide a list of file paths to read, separated by newlines. The file paths must be the full path relative to the project root directory. Prefer using this tool over find_files when you know the exact file(s) you want to read.
 - <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
 - <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
 
@@ -260,6 +261,14 @@ However, use this tool sparingly. DO NOT USE "find_files" WHEN:
 - You want to edit a file that you already have in context. Double check that the file is not listed in the <relevant_files> block already before calling find_files.
 - You already called it recently. Multiple calls in a row are not productive.
 - You are inside an <edit_file> block.
+
+## Reading files
+
+Use the <tool_call name="read_files">...</tool_call> tool to read files you don't already have in context.
+
+Feel free to use this tool as much as needed to read files that would be relevant to the user's request.
+
+However, do not use this tool to read files that you already have in context. Do not repeat reading calls that you have already read.
 
 ## Running terminal commands
 
