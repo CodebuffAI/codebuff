@@ -240,6 +240,8 @@ ${lastMessage.content}
             contentAttributes.command = content
           } else if (name === 'scrape_web_page') {
             contentAttributes.url = content
+          } else if (name === 'find_files') {
+            contentAttributes.description = content
           } else if (name === 'read_files') {
             contentAttributes.file_paths = content
           }
@@ -298,6 +300,7 @@ ${lastMessage.content}
 
     if (toolCallResult?.name === 'find_files') {
       logger.debug(toolCallResult, 'tool call')
+      const description = toolCallResult.input.description
       const {
         newFileVersions,
         addedFiles,
@@ -305,10 +308,10 @@ ${lastMessage.content}
         readFilesMessage,
       } = await getFileVersionUpdates(
         ws,
-        messages,
+        [...messages, { role: 'assistant', content: fullResponse }],
         getSearchSystemPrompt(fileContext),
         fileContext,
-        fullResponse,
+        description,
         {
           skipRequestingFiles: false,
           clientSessionId,
@@ -362,10 +365,10 @@ ${lastMessage.content}
         readFilesMessage,
       } = await getFileVersionUpdates(
         ws,
-        messages,
+        [...messages, { role: 'assistant', content: fullResponse }],
         getSearchSystemPrompt(fileContext),
         fileContext,
-        fullResponse,
+        null,
         {
           skipRequestingFiles: false,
           requestedFiles: newFilePaths,
