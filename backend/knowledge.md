@@ -8,7 +8,7 @@ This document provides an overview of the Codebuff backend architecture, key com
 2. [Key Technologies](#key-technologies)
 3. [Main Components](#main-components)
 4. [WebSocket Communication](#websocket-communication)
-5. [Claude Integration](#claude-integration)
+5. [AI Provider Integration](#ai-provider-integration)
 6. [File Management](#file-management)
 7. [Tool Handling](#tool-handling)
 8. [Error Handling and Debugging](#error-handling-and-debugging)
@@ -122,13 +122,25 @@ The system uses a multi-layered approach to manage conversation flow:
 
 This architecture prevents infinite loops while allowing productive work to continue, and ensures the client maintains control over the conversation flow.
 
-## Claude Integration
+## AI Provider Integration
 
-The backend integrates with the Claude AI model to process user inputs and generate code changes. Important aspects include:
+The backend integrates with multiple AI models to process user inputs and generate code changes:
 
+### Claude Integration
 - **Streaming Responses**: Responses from Claude are streamed in real-time to the client.
 - **Tool Calls**: The AI can make tool calls (e.g., reading files) during its processing.
 - **File Change Management**: The backend processes AI-suggested file changes and applies them to the project.
+
+### Groq Integration
+- **Simple Implementation**: Keep Groq integration minimal and focused on core functionality.
+- **No Streaming**: Groq API is used with basic completion calls rather than streaming.
+- **Provider-Specific Design**: Implement only features that match Groq's capabilities rather than copying OpenAI/Claude patterns.
+- **Model Selection**: Use llama70 (llama-3.3-70b-versatile) model for Groq API calls.
+- **API Differences**:
+  - No streaming support unlike OpenAI/Claude
+  - Simpler completion interface without advanced features
+  - Use promptGroq instead of promptOpenAI for API calls
+  - Does not support continuation-based responses
 
 ## File Management
 
@@ -314,3 +326,5 @@ Remember to keep the referral system logic consistent between the backend API an
 These changes aim to provide a better user experience by offering more informative error messages, streamlining usage information handling, and improving the overall system consistency.
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
+
+```

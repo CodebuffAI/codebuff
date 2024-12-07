@@ -4,17 +4,17 @@ import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { ProjectFileContext } from 'common/util/file'
 import { System } from './claude'
-import { openaiModels } from 'common/constants'
+import { groqModels } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from './util/logger'
-import { OpenAIMessage, promptOpenAI } from './openai-api'
+import { GroqMessage, promptGroq } from './groq-api'
 
 export async function requestRelevantFiles(
   {
     messages,
     system,
   }: {
-    messages: OpenAIMessage[]
+    messages: GroqMessage[]
     system: string | Array<TextBlockParam>
   },
   fileContext: ProjectFileContext,
@@ -121,7 +121,7 @@ async function generateFileRequests(
   assistantPrompt: string | null,
   fileContext: ProjectFileContext,
   countPerRequest: number,
-  messagesExcludingLastIfByUser: OpenAIMessage[],
+  messagesExcludingLastIfByUser: GroqMessage[],
   system: string | Array<TextBlockParam>,
   clientSessionId: string,
   fingerprintId: string,
@@ -206,7 +206,7 @@ async function generateFileRequests(
 }
 
 const checkNewFilesNecessary = async (
-  messages: OpenAIMessage[],
+  messages: GroqMessage[],
   system: System,
   clientSessionId: string,
   fingerprintId: string,
@@ -225,17 +225,14 @@ We'll need any files that should be modified to fulfill the user's request, or a
 
 Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient. Do not write anything else.
 `
-  const response = await promptOpenAI(
+  const response = await promptGroq(
     [
-      {
-        role: 'system' as const,
-        content: system,
-      },
+      ...systemToMessages(system),
       ...messages,
       { role: 'user', content: prompt },
     ],
     {
-      model: openaiModels.gpt4o,
+      model: groqModels.llama70,
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -253,7 +250,7 @@ async function getRelevantFiles(
     messages,
     system,
   }: {
-    messages: OpenAIMessage[]
+    messages: GroqMessage[]
     system: string | Array<TextBlockParam>
   },
   userPrompt: string,
@@ -264,10 +261,7 @@ async function getRelevantFiles(
   userId?: string
 ) {
   const messagesWithPrompt = [
-    {
-      role: 'system' as const,
-      content: system,
-    },
+    ...systemToMessages(system),
     ...messages,
     {
       role: 'user' as const,
@@ -275,8 +269,8 @@ async function getRelevantFiles(
     },
   ]
   const start = performance.now()
-  const response = await promptOpenAI(messagesWithPrompt, {
-    model: openaiModels.gpt4o,
+  const response = await promptGroq(messagesWithPrompt, {
+    model: groqModels.llama70,
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -549,19 +543,16 @@ export const warmCacheForRequestRelevantFiles = async (
   userInputId: string,
   userId: string | undefined
 ) => {
-  await promptOpenAI(
+  await promptGroq(
     [
-      {
-        role: 'system' as const,
-        content: system,
-      },
+      ...systemToMessages(system),
       {
         role: 'user' as const,
         content: 'hi',
       },
     ],
     {
-      model: openaiModels.gpt4o,
+      model: groqModels.llama70,
       clientSessionId,
       fingerprintId,
       userId,
@@ -571,4 +562,18 @@ export const warmCacheForRequestRelevantFiles = async (
   ).catch((error) => {
     logger.error(error, 'Error warming cache for requestRelevantFiles')
   })
+}
+
+const systemToMessages = (system: System) => {
+  return typeof system === 'string'
+    ? [
+        {
+          role: 'system' as const,
+          content: system,
+        },
+      ]
+    : system.map((block) => ({
+        role: 'system' as const,
+        content: block.text,
+      }))
 }

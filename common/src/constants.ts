@@ -93,6 +93,10 @@ export const claudeModels = {
   haiku: 'claude-3-5-haiku-20241022',
 } as const
 
+export const groqModels = {
+  llama70: 'llama-3.3-70b-versatile',
+} as const
+
 export const openaiModels = {
   gpt4o: 'gpt-4o-2024-08-06',
   gpt4omini: 'gpt-4o-mini-2024-07-18',
@@ -101,6 +105,7 @@ export const openaiModels = {
 export const models = {
   ...claudeModels,
   ...openaiModels,
+  ...groqModels,
 }
 
 export const TEST_USER_ID = 'test-user-id'
