@@ -115,11 +115,11 @@ const PricingPage = () => {
 
     {
       name: 'Team',
-      price: '$99/month + usage',
-      // credits: 'Custom',
+      price: '$99/seat/month',
+      credits: '$0.90 per 100',
       features: [
-        'Custom credit limits per member (min. 3 members)',
-        'Pre-buy credits',
+        'Custom credit limits per member',
+        'Custom account limits',
         'Priority support over email, Discord, and Slack',
       ],
       cardFooterChildren: (
@@ -157,7 +157,7 @@ const PricingPage = () => {
                 <p className="text-4xl font-bold mt-2">{plan.price}</p>
                 {plan.credits && (
                   <p className="text-lg mt-2">
-                    {plan.credits.toLocaleString()} credits/month
+                    {plan.credits.toLocaleString()} credits
                   </p>
                 )}
               </CardHeader>
