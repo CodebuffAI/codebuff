@@ -414,32 +414,34 @@ const onInit = async (
       })
       .onConflictDoNothing()
 
-    // warm context cache
-    const startTime = Date.now()
-    const system = getSearchSystemPrompt(fileContext)
     const userId = await getUserIdFromAuthToken(authToken)
-    try {
-      await promptClaude(
-        [
-          {
-            role: 'user',
-            content: 'please respond with just a single word "codebuff"',
-          },
-        ],
-        {
-          model: claudeModels.haiku,
-          system,
-          clientSessionId,
-          fingerprintId,
-          userId,
-          userInputId: 'init-cache',
-          maxTokens: 1,
-        }
-      )
-      logger.info(`Warming context cache done in ${Date.now() - startTime}ms`)
-    } catch (e) {
-      logger.error(e, 'Error in init')
-    }
+
+    // DISABLED FOR NOW
+    // warm context cache
+    // const startTime = Date.now()
+    // const system = getSearchSystemPrompt(fileContext)
+    // try {
+    //   await promptClaude(
+    //     [
+    //       {
+    //         role: 'user',
+    //         content: 'please respond with just a single word "codebuff"',
+    //       },
+    //     ],
+    //     {
+    //       model: claudeModels.haiku,
+    //       system,
+    //       clientSessionId,
+    //       fingerprintId,
+    //       userId,
+    //       userInputId: 'init-cache',
+    //       maxTokens: 1,
+    //     }
+    //   )
+    //   logger.info(`Warming context cache done in ${Date.now() - startTime}ms`)
+    // } catch (e) {
+    //   logger.error(e, 'Error in init')
+    // }
 
     const {
       usage,
