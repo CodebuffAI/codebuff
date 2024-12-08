@@ -558,31 +558,23 @@ export class Client {
       this.fileVersions
     )
 
-    return new Promise<void>(async (resolve) => {
-      this.webSocket.subscribe('init-response', (a) => {
-        const parsedAction = InitResponseSchema.safeParse(a)
-        if (!parsedAction.success) return
+    // Don't wait for response anymore.
+    this.webSocket.subscribe('init-response', (a) => {
+      const parsedAction = InitResponseSchema.safeParse(a)
+      if (!parsedAction.success) return
 
-        this.setUsage(parsedAction.data)
-        resolve()
-      })
-
-      this.webSocket
-        .sendAction({
-          type: 'init',
-          fingerprintId: await this.getFingerprintId(),
-          authToken: this.user?.authToken,
-          fileContext,
-        })
-        .catch((e) => {
-          // console.error('Error warming context cache', e)
-          resolve()
-        })
-
-      // If it takes too long, resolve the promise to avoid hanging the CLI.
-      setTimeout(() => {
-        resolve()
-      }, 30_000)
+      this.setUsage(parsedAction.data)
     })
+
+    this.webSocket
+      .sendAction({
+        type: 'init',
+        fingerprintId: await this.getFingerprintId(),
+        authToken: this.user?.authToken,
+        fileContext,
+      })
+      .catch((e) => {
+        // console.error('Error warming context cache', e)
+      })
   }
 }
