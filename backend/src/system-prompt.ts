@@ -16,19 +16,26 @@ import { filterObject, removeUndefinedProps } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 
 export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
+  const { fileVersions } = fileContext
+  const shouldDoPromptCaching = fileVersions.length > 1
+
   const systemPrompt = buildArray(
     {
       type: 'text' as const,
-      cache_control: { type: 'ephemeral' as const },
+      cache_control: shouldDoPromptCaching
+        ? { type: 'ephemeral' as const }
+        : undefined,
       text: [
         getProjectFileTreePrompt(fileContext),
         getMiscFilesPrompt(fileContext),
       ].join('\n\n'),
     },
-    ...getProjectFilesPromptContent(fileContext),
+    ...getProjectFilesPromptContent(fileContext, shouldDoPromptCaching),
     {
       type: 'text' as const,
-      cache_control: { type: 'ephemeral' as const },
+      cache_control: shouldDoPromptCaching
+        ? { type: 'ephemeral' as const }
+        : undefined,
       text: [getGitChangesPrompt(fileContext)].join('\n\n'),
     }
   )
@@ -67,7 +74,7 @@ export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
         getMiscFilesPrompt(fileContext)
       ).join('\n\n'),
     },
-    ...getProjectFilesPromptContent(fileContext),
+    ...getProjectFilesPromptContent(fileContext, true),
     {
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
@@ -349,7 +356,10 @@ ${Object.entries(shellConfigFiles)
 `.trim()
 }
 
-const getProjectFilesPromptContent = (fileContext: ProjectFileContext) => {
+const getProjectFilesPromptContent = (
+  fileContext: ProjectFileContext,
+  shouldDoPromptCaching: boolean
+) => {
   const { fileVersions } = fileContext
 
   const fileBlockSets = fileVersions
@@ -384,7 +394,8 @@ If the included set of files is not sufficient to address the user's request, yo
         type: 'text' as const,
         text: fileBlockSet,
         cache_control:
-          i === fileBlockSets.length - 1 || i === fileBlockSets.length - 2
+          shouldDoPromptCaching &&
+          (i === fileBlockSets.length - 1 || i === fileBlockSets.length - 2)
             ? { type: 'ephemeral' as const }
             : undefined,
       } as const)
