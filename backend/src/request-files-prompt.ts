@@ -218,14 +218,14 @@ const checkNewFilesNecessary = async (
 ) => {
   const startTime = Date.now()
   const prompt = `
-Given the user's request and the current context, determine if new files are necessary to fulfill the request.
-Current files: ${previousFiles.length > 0 ? previousFiles.join(', ') : 'None'}
+Given the user's request, the project files specified in the <project_file_tree> tag, and the conversation history, determine if new files should be read to fulfill the request.
+Current files read: ${previousFiles.length > 0 ? previousFiles.join(', ') : 'None'}
 User request: ${userPrompt}
 
-We'll need any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad requests may require many files as context.
+We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad user requests may require many files as context.
 
-Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient. Do not write anything else.
-`
+Answer with just 'YES' if reading new files is necessary, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
+`.trim()
   const response = await promptTogetherAI(
     [
       ...systemToMessages(system),
