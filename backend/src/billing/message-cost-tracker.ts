@@ -19,12 +19,14 @@ const TOKENS_COST_PER_M = {
     [models.haiku]: 1,
     [models.gpt4o]: 2.5,
     [models.gpt4omini]: 0.15,
+    [models.llama70]: 0.88,
   },
   output: {
     [models.sonnet]: 15,
     [models.haiku]: 5,
     [models.gpt4o]: 10.0,
     [models.gpt4omini]: 0.6,
+    [models.llama70]: 0.88,
   },
   cache_creation: {
     [models.sonnet]: 3.75,
