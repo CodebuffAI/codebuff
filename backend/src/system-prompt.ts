@@ -19,7 +19,7 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
   const systemPrompt = buildArray(
     {
       type: 'text' as const,
-      cache_control: { type: 'ephemeral' as const },
+      // cache_control: { type: 'ephemeral' as const },
       text: [
         getProjectFileTreePrompt(fileContext),
         getMiscFilesPrompt(fileContext),
@@ -28,7 +28,7 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
     ...getProjectFilesPromptContent(fileContext),
     {
       type: 'text' as const,
-      cache_control: { type: 'ephemeral' as const },
+      // cache_control: { type: 'ephemeral' as const },
       text: [getGitChangesPrompt(fileContext)].join('\n\n'),
     }
   )
@@ -56,7 +56,7 @@ export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
   const systemPrompt = buildArray(
     {
       type: 'text' as const,
-      cache_control: { type: 'ephemeral' as const },
+      // cache_control: { type: 'ephemeral' as const },
       text: buildArray(
         introPrompt,
         editingFilesPrompt,
@@ -70,7 +70,7 @@ export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
     ...getProjectFilesPromptContent(fileContext),
     {
       type: 'text' as const,
-      cache_control: { type: 'ephemeral' as const },
+      // cache_control: { type: 'ephemeral' as const },
       text: buildArray(
         getGitChangesPrompt(fileContext),
         getResponseFormatPrompt(files)
@@ -383,10 +383,10 @@ If the included set of files is not sufficient to address the user's request, yo
       removeUndefinedProps({
         type: 'text' as const,
         text: fileBlockSet,
-        cache_control:
-          i === fileBlockSets.length - 1 || i === fileBlockSets.length - 2
-            ? { type: 'ephemeral' as const }
-            : undefined,
+        // cache_control:
+        //   i === fileBlockSets.length - 1 || i === fileBlockSets.length - 2
+        //     ? { type: 'ephemeral' as const }
+        //     : undefined,
       } as const)
     ),
     fileBlockSets.length === 0 && {

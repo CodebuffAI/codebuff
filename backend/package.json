@@ -16,6 +16,7 @@
     "test:watch": "bun test --watch"
   },
   "dependencies": {
+    "@anthropic-ai/bedrock-sdk": "0.9.0",
     "@anthropic-ai/sdk": "0.27.3",
     "@t3-oss/env-core": "0.11.1",
     "diff": "5.2.0",

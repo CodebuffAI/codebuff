@@ -1,7 +1,6 @@
-import Anthropic, {
-  APIConnectionError,
-  BadRequestError,
-} from '@anthropic-ai/sdk'
+import { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk'
+import { APIConnectionError } from '@anthropic-ai/sdk'
+import { APIError } from '@anthropic-ai/sdk/error'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from 'common/util/object'
 import { Message } from 'common/actions'
@@ -10,7 +9,6 @@ import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
 import { sleep } from 'common/util/helpers'
-import { APIError } from '@anthropic-ai/sdk/error'
 
 const MAX_RETRIES = 3
 const INITIAL_RETRY_DELAY = 1000 // 1 second
@@ -45,34 +43,29 @@ async function* promptClaudeStreamWithoutRetry(
     ignoreDatabaseAndHelicone = false,
   } = options
 
-  const apiKey = env.ANTHROPIC_API_KEY2
-
-  if (!apiKey) {
-    throw new Error('Missing ANTHROPIC_API_KEY')
-  }
-
-  if (!apiKey) {
-    throw new Error('Missing ANTHROPIC_API_KEY')
-  }
-
-  const anthropic = new Anthropic({
-    apiKey,
-    ...(ignoreDatabaseAndHelicone
-      ? {}
-      : {
-          baseURL: 'https://anthropic.helicone.ai/',
-        }),
-    defaultHeaders: {
-      'anthropic-beta': 'prompt-caching-2024-07-31',
-      ...(ignoreDatabaseAndHelicone
-        ? {}
-        : {
-            'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
-            'Helicone-User-Id': fingerprintId,
-            // 'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
-            'Helicone-LLM-Security-Enabled': 'true',
-          }),
+  const anthropic = new AnthropicBedrock({
+    awsAccessKey: env.AWS_ACCESS_KEY_ID,
+    awsSecretKey: env.AWS_SECRET_ACCESS_KEY,
+    awsRegion: 'us-west-2',
+    performanceConfig: {
+      latency: 'optimized',
     },
+    // ...(ignoreDatabaseAndHelicone
+    //   ? {}
+    //   : {
+    //       baseURL: 'https://anthropic.helicone.ai/',
+    //     }),
+    // defaultHeaders: {
+    //   'anthropic-beta': 'prompt-caching-2024-07-31',
+    //   ...(ignoreDatabaseAndHelicone
+    //     ? {}
+    //     : {
+    //         'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
+    //         'Helicone-User-Id': fingerprintId,
+    //         // 'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
+    //         'Helicone-LLM-Security-Enabled': 'true',
+    //       }),
+    // },
   })
 
   const stream = anthropic.messages.stream(

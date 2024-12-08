@@ -90,8 +90,10 @@ export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
 export const CREDITS_REFERRAL_BONUS = 500
 
 export const claudeModels = {
-  sonnet: 'claude-3-5-sonnet-20241022',
-  haiku: 'claude-3-5-haiku-20241022',
+  // sonnet: 'claude-3-5-sonnet-20241022',
+  // haiku: 'claude-3-5-haiku-20241022',
+  sonnet: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+  haiku: 'anthropic.claude-3-5-haiku-20241022-v1:0',
 } as const
 
 export const openaiModels = {
