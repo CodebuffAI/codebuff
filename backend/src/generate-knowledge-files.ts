@@ -52,7 +52,7 @@ export async function generateKnowledgeFiles(
   const userPrompt = `    
     Do not act on the user's last request, but keep it in mind. Instead, your task will be to decide whether to create or update a knowledge file.
 
-    Carefully answer the following questions. The more you answer "yes" to these questions, the more likely it is that we should create a knowledge file.
+    Carefully consider the following questions, but do not write anything. The more you think the answer is "yes" to these questions, the more likely it is that we should create a knowledge file.
 
     Questions:
     1. In the last user message, was the user correcting the assistant's last response based on missing context the assistant should know?
@@ -64,7 +64,7 @@ export async function generateKnowledgeFiles(
     3. Is there a lesson here that is not specific to just this change? Is there knowledge that is not derivable from the code written? Is there some context that would be applicable for the future that the user would want recorded?
     4. Is there a significant piece of new information that is not already in the codebase or a knowledge file? It has to not be derivable from the codebase at all.
 
-    If not all of these questions are a strong yes, please skip the rest of the response and don't output anything. This is the most common case by far; there should be a really high bar to creating or updating a knowledge file.
+    If not all of these questions are a strong yes, don't output anything other than "No knowledge file changes needed". This is the most common case by far; there should be a really high bar to creating or updating a knowledge file.
 
     Otherwise, you should update a knowledge file with <edit_file> blocks to capture the new information. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
 
