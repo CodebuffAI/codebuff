@@ -52,6 +52,40 @@ The authentication system in Codebuff's web application plays a crucial role in 
   - Display an intro section at the top
   - Show subsection content below for continuous scrolling
   - Act as content aggregators, not just navigation pages
+
+### Documentation System Architecture
+
+1. **Content Organization**:
+   - Content stored in MDX files under `src/content/`
+   - Categories: help, tips, showcase, case-studies
+   - Each document requires frontmatter with title, section, tags, order
+   - Files automatically sorted by order field within sections
+
+2. **Navigation Structure**:
+   - Persistent sidebar with collapsible sections
+   - Sidebar must remain visible while scrolling
+   - Support both inter-page navigation and intra-page scrolling
+   - Section headings are interactive:
+     - Click to scroll to section
+     - Hover to reveal copy link button
+     - Links include hash for direct section access
+
+3. **Technical Implementation**:
+   - Uses ContentLayer for MDX processing
+   - Dynamic imports for MDX components
+   - Custom components must be explicitly passed to MDX provider
+   - All MDX components must be Client Components
+   - Heading components must accept full HTML element props
+
+4. **Styling Guidelines**:
+   - Use prose-compact for tighter vertical spacing
+   - Maintain consistent heading margins
+   - Preserve sidebar width with shrink-0
+   - Account for navbar height in sticky positioning
+- Section landing pages (e.g. Help & FAQ, Tips & Tricks) should:
+  - Display an intro section at the top
+  - Show subsection content below for continuous scrolling
+  - Act as content aggregators, not just navigation pages
 - Navigation sidebar requirements:
   - Must remain visible and static at all times while scrolling
   - Use shrink-0 to prevent width collapse
