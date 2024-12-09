@@ -19,11 +19,10 @@ export default function DocPage({ params }: DocPageProps) {
     (doc: Doc) => doc.category === params.category && doc.slug === params.slug
   )
 
+  const MDXContent = useMDXComponent(doc?.body.code ?? '')
   if (!doc) {
     return notFound()
   }
-
-  const MDXContent = useMDXComponent(doc.body.code)
 
   const components = {
     CodeDemo: dynamic(() =>

@@ -6,11 +6,21 @@ import dynamic from 'next/dynamic'
 import { useMDXComponent } from 'next-contentlayer/hooks'
 import { Check, Link } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import type { Doc } from '@/types/docs'
 
 interface CategoryPageProps {
   params: {
     category: string
   }
+}
+
+const DocPage = ({ doc, components }: { doc: Doc; components: any }) => {
+  const MDXContent = useMDXComponent(doc.body.code)
+  return (
+    <article className="prose dark:prose-invert prose-compact">
+      <MDXContent components={components} />
+    </article>
+  )
 }
 
 export default function CategoryPage({ params }: CategoryPageProps) {
@@ -28,8 +38,10 @@ export default function CategoryPage({ params }: CategoryPageProps) {
       import('@/components/docs/mdx/code-demo').then((mod) => mod.CodeDemo)
     ),
     h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
       const [copied, setCopied] = useState(false)
 
+      // eslint-disable-next-line react-hooks/rules-of-hooks
       useEffect(() => {
         if (copied) {
           setTimeout(() => setCopied(false), 2000)
@@ -75,17 +87,9 @@ export default function CategoryPage({ params }: CategoryPageProps) {
 
   return (
     <div className="max-w-3xl mx-auto space-y-24">
-      {sortedDocs.map((doc) => {
-        const MDXContent = useMDXComponent(doc.body.code)
-        return (
-          <article
-            key={doc.slug}
-            className="prose dark:prose-invert prose-compact"
-          >
-            <MDXContent components={components} />
-          </article>
-        )
-      })}
+      {sortedDocs.map((doc) => (
+        <DocPage key={doc.slug} doc={doc} components={components} />
+      ))}
     </div>
   )
 }
