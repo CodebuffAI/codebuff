@@ -13,6 +13,7 @@ import {
   createSearchReplaceBlock,
   cleanMarkdownCodeBlock,
 } from 'common/util/file'
+import { safeReplace } from 'common/util/string'
 
 export async function processFileBlock(
   clientSessionId: string,
@@ -98,7 +99,7 @@ export async function processFileBlock(
     : normalizedOldContent
   for (const diffBlock of diffBlocks) {
     const { searchContent, replaceContent } = diffBlock
-    updatedContent = updatedContent.replace(searchContent, replaceContent)
+    updatedContent = safeReplace(updatedContent, searchContent, replaceContent)
   }
 
   const outputHasReplaceBlocks =
