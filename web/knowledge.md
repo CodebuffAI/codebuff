@@ -42,113 +42,6 @@ The authentication system in Codebuff's web application plays a crucial role in 
 
 ## UI Patterns
 
-### Documentation Layout
-
-- Main content should replace existing content, not shift layout
-- Sidebar navigation should show both sections and subsections
-- Right sidebar (table of contents) should only appear when needed
-- Keep layout changes minimal when navigating between pages
-- Section landing pages (e.g. Help & FAQ, Tips & Tricks) should:
-  - Display an intro section at the top
-  - Show subsection content below for continuous scrolling
-  - Act as content aggregators, not just navigation pages
-
-### Documentation System Architecture
-
-1. **Content Organization**:
-   - Content stored in MDX files under `src/content/`
-   - Categories: help, tips, showcase, case-studies
-   - Each document requires frontmatter with title, section, tags, order
-   - Files automatically sorted by order field within sections
-
-2. **Navigation Structure**:
-   - Persistent sidebar with collapsible sections
-   - Sidebar must remain visible while scrolling
-   - Support both inter-page navigation and intra-page scrolling
-   - Section headings are interactive:
-     - Click to scroll to section
-     - Hover to reveal copy link button
-     - Links include hash for direct section access
-
-3. **Technical Implementation**:
-   - Uses ContentLayer for MDX processing
-   - Dynamic imports for MDX components
-   - Custom components must be explicitly passed to MDX provider
-   - All MDX components must be Client Components
-   - Heading components must accept full HTML element props
-
-4. **Styling Guidelines**:
-   - Use prose-compact for tighter vertical spacing
-   - Maintain consistent heading margins
-   - Preserve sidebar width with shrink-0
-   - Account for navbar height in sticky positioning
-- Section landing pages (e.g. Help & FAQ, Tips & Tricks) should:
-  - Display an intro section at the top
-  - Show subsection content below for continuous scrolling
-  - Act as content aggregators, not just navigation pages
-- Navigation sidebar requirements:
-  - Must remain visible and static at all times while scrolling
-  - Use shrink-0 to prevent width collapse
-  - Avoid position: sticky which allows scrolling out of view
-  - Consider the sidebar a critical navigation element that should never be hidden
-  - Support dual navigation modes:
-    - Scroll to sections within current page
-    - Navigate between different pages when clicking subsections from another page
-- Navigation sidebar requirements:
-  - Must remain visible and static at all times while scrolling
-  - Use shrink-0 to prevent width collapse
-  - Avoid position: sticky which allows scrolling out of view
-  - Consider the sidebar a critical navigation element that should never be hidden
-  - Support dual navigation modes:
-    - Scroll to sections within current page
-    - Navigate between different pages when clicking subsections from another page
-- Navigation sidebar requirements:
-  - Must remain visible and static at all times while scrolling
-  - Use shrink-0 to prevent width collapse
-  - Avoid position: sticky which allows scrolling out of view
-  - Consider the sidebar a critical navigation element that should never be hidden
-  - Support dual navigation modes:
-    - Scroll to sections within current page
-    - Navigate between different pages when clicking subsections from another page
-- Fixed elements must account for the navbar:
-  - Never use absolute positioning (top: 0)
-  - Fixed sidebars should maintain spacing below navbar
-  - Preserve consistent layout across all pages
-- Navigation sidebar requirements:
-  - Must remain visible and static at all times while scrolling
-  - Use shrink-0 to prevent width collapse
-  - Avoid position: sticky which allows scrolling out of view
-  - Consider the sidebar a critical navigation element that should never be hidden
-
-### MDX Components
-
-- All components used in MDX files must be explicitly imported and passed to the MDX provider
-- Custom components like CodeDemo need to be registered before they can be used in MDX content
-- Components referenced in MDX are not automatically imported - they must be provided through the MDX context
-- MDX components must be Client Components - cannot use Server Components
-- Use dynamic imports with next/dynamic for MDX components to ensure proper client-side rendering
-- When using dynamic imports:
-  - Export the component as named export (not default)
-  - Use .then() to extract the named component: 
-  ```tsx
-  dynamic(() => import('@/components/docs/mdx/code-demo').then((mod) => mod.CodeDemo))
-  ```
-- Custom MDX components must match HTML element types:
-  - For h1-h6, component must accept all HTMLHeadingElement props
-  - Props type must extend DetailedHTMLProps<HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>
-  - Children prop must be explicitly typed as required
-
-### Documentation Layout
-
-- Main content should replace existing content, not shift layout
-- Sidebar navigation should show both sections and subsections
-- Right sidebar (table of contents) should only appear when needed
-- Keep layout changes minimal when navigating between pages
-- Section landing pages (e.g. Help & FAQ, Tips & Tricks) should:
-  - Display an intro section at the top
-  - Show subsection content below for continuous scrolling
-  - Act as content aggregators, not just navigation pages
-
 ### Logo Usage
 
 - Include the Codebuff logo alongside the company name in key UI components
@@ -212,6 +105,7 @@ When displaying inline code snippets with copy buttons:
 ## Component Architecture
 
 ### Success State Pattern
+
 - Use CardWithBeams component for success/completion states
 - Examples: Payment success, onboarding completion
 - Consistent layout:
@@ -256,6 +150,7 @@ When displaying inline code snippets with copy buttons:
 ### UI Patterns
 
 For expandable/collapsible UI elements:
+
 - Use React state management instead of CSS-only solutions
 - Track currently open item with useState to ensure only one section is open at a time
 - Toggle visibility by swapping icons rather than rotating them
@@ -291,6 +186,7 @@ Example of correct ordering:
 Important considerations for interactive components:
 
 1. Pricing Cards Layout:
+
    - Pricing cards must remain in a single row
    - Use appropriate grid column settings to accommodate all tiers
    - Current layout supports 4 cards: Free, Pro Plus, Pro, and Enterprise
@@ -304,7 +200,7 @@ Important considerations for interactive components:
    - Banner and other top-level interactive components use z-20
    - Ensure parent elements have `position: relative` when using z-index
 
-2. Common Issues:
+3. Common Issues:
    - Components may appear but not be clickable if z-index is too low
    - Moving components inside providers alone may not fix interactivity
    - Always check both provider context and z-index when debugging click events
@@ -466,6 +362,7 @@ Key functions:
 ### Subscription Updates
 
 Important: When updating Stripe subscriptions:
+
 - Cannot add duplicate prices to a subscription - each price can only be used once
 - When updating existing items, pass the subscription item ID in the items array:
   ```js
@@ -478,9 +375,9 @@ Important: When updating Stripe subscriptions:
 - Never delete subscription items before adding new ones - this can cause subscription to become invalid
 - Map existing items to new prices while preserving their IDs:
   ```js
-  items = subscription.items.data.map(item => ({
+  items = subscription.items.data.map((item) => ({
     id: item.id,
-    price: newPriceId
+    price: newPriceId,
   }))
   ```
 - Set `proration_behavior: 'none'` to avoid partial period charges
