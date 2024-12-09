@@ -286,7 +286,7 @@ Purpose: Better fulfill the user request by running terminal commands in the use
 Use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors.
 2. Running test scripts (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
-3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use \`git mv\` or \`git rm\` instead of \`mv\` or \`rm\` so that changes are tracked.
+3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\` or \`rm\`.
 4. Installing dependencies (e.g., "npm install <package-name>"). Be sure to use the right package manager for the project.
 5. Running grep (or equivalent in Windows) or find to search code to find references or token definitions. This will help you locate the right file.
 6. Running scripts. Check the package.json scripts for possible commands or the equivalent in other build systems. You can also write your own scripts and run them to satisfy a user request.
