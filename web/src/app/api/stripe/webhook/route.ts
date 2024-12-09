@@ -129,7 +129,7 @@ async function handleSubscriptionChange(
       quota_exceeded: false,
       quota: newQuota,
       next_quota_reset: new Date(subscription.current_period_end * 1000),
-      subscription_active: usageTier === 'PAID',
+      subscription_active: !!newSubscriptionId,
       stripe_price_id: newSubscriptionId,
     })
     .where(eq(schema.user.stripe_customer_id, customerId))
