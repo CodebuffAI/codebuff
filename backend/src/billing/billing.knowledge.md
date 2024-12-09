@@ -54,6 +54,35 @@ Key methods:
 - Active subscriptions completely bypass quota exceeded checks
 - Non-subscribed users are blocked when exceeding their quota
 - Quota tracking continues even when checks are bypassed for billing purposes
+
+### Subscription Migrations
+
+Important: When migrating subscriptions to new prices:
+- Preserve existing usage meter records for 'Credits'
+- Don't reset usage data during price changes
+- Ensure fair billing by carrying forward accumulated usage
+- Usage data should persist across subscription updates
+- Use the dedicated credits meter ID (mtr_test_61RUgv7ouoAAMKoE341KrNS6SjmqWUXA) when tracking usage
+
+When preserving usage data during migrations:
+- Use billing.meters.listEventSummaries to get historical usage
+- Calculate usage from start of current invoice period
+- This ensures accurate billing across subscription changes
+- Important: Record usage before updating subscription items to prevent gaps in billing
+- When preserving usage data during migrations:
+  - Use billing.meters.event_summaries endpoint to get historical usage
+  - Calculate usage from start of current invoice period
+  - This ensures accurate billing across subscription changes
+  - Important: Record usage before updating subscription items to prevent gaps in billing
+
+When preserving usage data during migrations:
+- Use billing.meterEvents.create to record usage
+- Required payload fields:
+  - event_name: The meter name (e.g. 'credits')
+  - payload.stripe_customer_id: Customer's ID
+  - payload.value: Usage amount to record
+- This ensures usage history is maintained when moving customers between subscription tiers
+- Important: Record usage before updating subscription items to prevent gaps in billing
 - Subscription and quota status must flow from backend to client via websocket messages:
   - Backend determines subscription status and quota state
   - Communicates via 'usage-response' message type
@@ -106,6 +135,15 @@ Important: When sending meter events to Stripe:
 - Events before subscription starts are ignored by Stripe
 - Keep implementation simple - avoid premature optimization like batching or complex helper functions
 - Prefer async operations that don't block the main flow
+
+### Subscription Migrations
+
+Important: When migrating subscriptions to new prices:
+- Preserve existing usage meter records for 'Credits'
+- Don't reset usage data during price changes
+- Ensure fair billing by carrying forward accumulated usage
+- Usage data should persist across subscription updates
+- Use the dedicated credits meter ID (mtr_test_61RUgv7ouoAAMKoE341KrNS6SjmqWUXA) when tracking usage
 
 ## Client-Side Integration
 
@@ -170,3 +208,37 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 3. Implement real-time quota updates for improved user experience.
 4. Expand Stripe integration to handle more complex billing scenarios.
 5. Develop a system for usage analytics to inform pricing strategies.
+
+## Stripe API Best Practices
+
+### Pagination
+- All Stripe list endpoints have a default limit of 100 items
+- Always implement pagination when using list endpoints to ensure processing all records
+- Use has_more and starting_after parameters to paginate through results
+- Example pagination pattern:
+  ```typescript
+  let hasMore = true;
+  let lastId = undefined;
+  
+  while (hasMore) {
+    const response = await stripeServer.customers.list({
+      limit: 100,
+      starting_after: lastId
+    });
+    
+    // Process response.data
+    
+    hasMore = response.has_more;
+    if (hasMore) {
+      lastId = response.data[response.data.length - 1].id;
+    }
+  }
+  ```
+
+## Price Tiers and Migration Handling
+
+Important: Some customers are on legacy or special pricing tiers that require manual handling during migrations:
+- $499/mo tier customers require manual migration
+- Do not include these customers in automated price update scripts
+- Always verify subscription price before automated updates
+- When writing migration scripts, add price checks to exclude special tiers
