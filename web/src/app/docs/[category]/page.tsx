@@ -36,24 +36,27 @@ export default function CategoryPage({ params }: CategoryPageProps) {
         }
       }, [copied])
 
+      const title = children?.toString()
+      const id = title?.toLowerCase().replace(/\s+/g, '-')
+      if (!title) return <></>
+
       return (
         <div className="group">
           <h1
             className="inline-block hover:cursor-pointer hover:underline -mb-4"
             onClick={() => {
-              const id = children?.toString().toLowerCase().replace(/\s+/g, '-')
               if (id) {
                 document
                   .getElementById(id)
                   ?.scrollIntoView({ behavior: 'smooth' })
               }
             }}
-            id={children?.toString().toLowerCase().replace(/\s+/g, '-')}
+            id={id}
           >
-            {children}
+            {title}
             <button
               onClick={() => {
-                const url = `${window.location.pathname}#${children?.toString().toLowerCase().replace(/\s+/g, '-')}`
+                const url = `${window.location.pathname}#${id}`
                 window.navigator.clipboard.writeText(
                   window.location.origin + url
                 )
