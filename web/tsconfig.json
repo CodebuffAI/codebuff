@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "es6",
     "lib": ["dom", "dom.iterable", "esnext"],
+    "baseUrl": ".",
     "types": ["@testing-library/jest-dom"],
     "allowJs": true,
     "skipLibCheck": true,
@@ -25,7 +26,13 @@
     }
   },
   "references": [{ "path": "../common" }],
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".contentlayer/generated"
+  ],
   "exclude": ["node_modules"],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
