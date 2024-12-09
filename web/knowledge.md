@@ -343,3 +343,46 @@ NextResponse<ResponseData>
 type ApiResponse = SuccessResponse | { error: string }
 NextResponse<ApiResponse>
 ```
+
+## Stripe Integration
+
+Stripe webhooks (`web/src/app/api/stripe/webhook/route.ts`) handle:
+
+- Subscription creation, updates, and deletions.
+- Invoice payments.
+
+Key functions:
+
+- `handleSubscriptionChange`: Updates user quota and subscription status.
+- `handleInvoicePaid`: Resets quota and updates subscription status on payment.
+
+### Subscription Updates
+
+Important: When updating Stripe subscriptions:
+- Cannot add duplicate prices to a subscription - each price can only be used once
+- When updating existing items, pass the subscription item ID in the items array:
+  ```js
+  items: [{ id: 'si_existing', price: 'price_new' }]
+  ```
+- For new prices, add without an ID:
+  ```js
+  items: [{ price: 'price_new' }]
+  ```
+- Never delete subscription items before adding new ones - this can cause subscription to become invalid
+- Map existing items to new prices while preserving their IDs:
+  ```js
+  items = subscription.items.data.map(item => ({
+    id: item.id,
+    price: newPriceId
+  }))
+  ```
+- Set `proration_behavior: 'none'` to avoid partial period charges
+- Consider providing migration coupons for customer retention
+- Important: Stripe automatically handles unused time when updating subscriptions:
+  - By default, creates credit for unused time on next invoice
+  - To make a pure price change without credits, use `proration_behavior: 'none'`
+  - Do not try to manually handle unused time credits
+- Important: Stripe automatically handles unused time when updating subscriptions:
+  - By default, creates credit for unused time on next invoice
+  - To make a pure price change without credits, use `proration_behavior: 'none'`
+  - Do not try to manually handle unused time credits
