@@ -5,9 +5,10 @@ import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
 import { promptClaude, System } from './claude'
-import { claudeModels } from 'common/constants'
+import { claudeModels, models } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from './util/logger'
+import { OpenAIMessage, promptOpenAI } from './openai-api'
 
 export async function requestRelevantFiles(
   {
@@ -98,6 +99,7 @@ export async function requestRelevantFiles(
       results,
       newFilesNecessary,
       newFilesNecessaryResponse,
+      newFilesNecessaryDuration,
     },
     'requestRelevantFiles: Results'
   )
@@ -246,11 +248,14 @@ We'll need to read any files that should be modified to fulfill the user's reque
 
 Answer with just 'YES' if reading new files is necessary, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
-  const response = await promptClaude(
-    [...messages, { role: 'user', content: prompt }],
+  const response = await promptOpenAI(
+    [
+      { role: 'system', content: system },
+      ...(messages as OpenAIMessage[]),
+      { role: 'user', content: prompt },
+    ],
     {
-      model: claudeModels.haiku,
-      system,
+      model: models.gpt4omini,
       clientSessionId,
       fingerprintId,
       userInputId,
