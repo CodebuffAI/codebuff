@@ -123,10 +123,12 @@ function detectInstaller(): InstallerInfo | undefined {
   // OR: .nvm/versions/node/v18.17.0/bin/codebuff on mac
   // OR /Users/stefan/Library/Application Support/Herd/config/nvm/versions/node/v22.9.0/bin/codebuff
   // OR ~/.config/nvm/versions/node/v22.11.0/bin/codebuff
+  // OR /opt/homebrew/bin/codebuff
   const isGlobalNpmPath =
     binPath.includes('npm') ||
     binPath.startsWith('/usr/') ||
-    binPath.includes('nvm/')
+    binPath.includes('nvm/') ||
+    binPath.includes('homebrew/bin')
   if (isNpmScript || isGlobalNpmPath) {
     return {
       installer: 'npm',
