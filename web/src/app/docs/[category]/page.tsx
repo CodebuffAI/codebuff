@@ -91,7 +91,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
 
   return (
     <div className="max-w-3xl mx-auto space-y-24">
-      {docs.map((doc) => (
+      {sortedDocs.map((doc) => (
         <DocPage key={doc.slug} doc={doc} components={components} />
       ))}
     </div>

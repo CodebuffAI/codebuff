@@ -159,6 +159,13 @@ Buffy can execute terminal commands using the `run_terminal_command` tool. This 
 - Run commands with `bun` instead of `npm` (e.g., `bun install` not `npm install`)
 - Use `bun run` for script execution
 - Project uses Bun as the package manager - always use `bun` commands instead of `npm`
+- Project uses Bun as the package manager - always use `bun` commands instead of `npm`
+
+## Package Management
+
+- Use Bun for all package management operations
+- Run commands with `bun` instead of `npm` (e.g., `bun install` not `npm install`)
+- Use `bun run` for script execution
 
 ## Error Handling and Debugging
 
