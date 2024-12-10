@@ -27,7 +27,7 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
         : undefined,
       text: [
         getProjectFileTreePrompt(fileContext),
-        getMiscFilesPrompt(fileContext),
+        getSystemInfoPrompt(fileContext),
       ].join('\n\n'),
     },
     ...getProjectFilesPromptContent(fileContext, shouldDoPromptCaching),
@@ -71,7 +71,7 @@ export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
         toolsPrompt,
         // For large projects, don't include file tree in agent context.
         projectFileTreePrompt.length < 40_000 ? projectFileTreePrompt : null,
-        getMiscFilesPrompt(fileContext)
+        getSystemInfoPrompt(fileContext)
       ).join('\n\n'),
     },
     ...getProjectFilesPromptContent(fileContext, true),
@@ -336,24 +336,27 @@ Note: the project file tree is cached from the start of this conversation.
 `.trim()
 }
 
-const getMiscFilesPrompt = (fileContext: ProjectFileContext) => {
-  const { fileTree, shellConfigFiles } = fileContext
+const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
+  const { fileTree, shellConfigFiles, systemInfo } = fileContext
   const flattenedNodes = flattenTree(fileTree)
   const lastReadFilePaths = getLastReadFilePaths(flattenedNodes, 20)
 
   return `
-# Recently read files & shell config
+# System Info
 
-The following are the most recently read files according to the OS atime. This is cached from the start of this conversation:
-<recently_read_file_paths_most_recent_first>
-${lastReadFilePaths.join('\n')}
-</recently_read_file_paths_most_recent_first>
+Operating System: ${systemInfo.platform}
+Shell: ${systemInfo.shell}
 
 <user_shell_config_files>
 ${Object.entries(shellConfigFiles)
   .map(([path, content]) => createMarkdownFileBlock(path, content))
   .join('\n')}
 </user_shell_config_files>
+
+The following are the most recently read files according to the OS atime. This is cached from the start of this conversation:
+<recently_read_file_paths_most_recent_first>
+${lastReadFilePaths.join('\n')}
+</recently_read_file_paths_most_recent_first>
 `.trim()
 }
 
