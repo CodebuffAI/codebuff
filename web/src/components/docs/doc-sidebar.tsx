@@ -45,7 +45,7 @@ export function DocSidebar({
   onNavigate,
 }: {
   className?: string
-  onNavigate?: () => void
+  onNavigate: () => void
 }) {
   const pathname = usePathname()
 
