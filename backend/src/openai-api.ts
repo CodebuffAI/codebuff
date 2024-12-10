@@ -52,6 +52,7 @@ export async function promptOpenAI(
     predictedContent,
   } = options
   const openai = getOpenAI(fingerprintId)
+  const startTime = Date.now()
   try {
     const response = await Promise.race([
       openai.chat.completions.create({
@@ -86,6 +87,7 @@ export async function promptOpenAI(
           inputTokens: response.usage?.prompt_tokens || 0,
           outputTokens: response.usage?.completion_tokens || 0,
           finishedAt: new Date(),
+          latencyMs: Date.now() - startTime,
         })
       }
       return content
@@ -142,6 +144,7 @@ export async function promptOpenAIWithContinuation(
       ? [...messages, continuedMessage]
       : messages
 
+    const startTime = Date.now()
     try {
       const stream = await Promise.race([
         openai.chat.completions.create({
@@ -177,6 +180,7 @@ export async function promptOpenAIWithContinuation(
             inputTokens: chunk.usage.prompt_tokens,
             outputTokens: chunk.usage.completion_tokens,
             finishedAt: new Date(),
+            latencyMs: Date.now() - startTime,
           })
         }
       }
