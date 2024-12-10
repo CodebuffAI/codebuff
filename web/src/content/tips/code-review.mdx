@@ -1,17 +1,34 @@
 ---
-title: "Code Review Best Practices"
-section: "tips"
-tags: ["review", "best-practices"]
+title: 'Code Review Best Practices'
+section: 'tips'
+tags: ['review', 'best-practices']
 order: 2
 ---
 
-# Code Review Best Practices
+# Codebuff Best Practices
 
 Learn how to use Codebuff to streamline your code review process.
 
-## Automated Reviews
+## Start in a Git Repo
 
-Codebuff can help automate parts of your code review:
-- Style consistency checks
-- Common bug detection
-- Performance improvement suggestions
+Ensure you're in a Git repository before starting Codebuff. This will allow you to track changes that Codebuff makes to your code.
+
+If Codebuff introduces an issue you don't like, you can easily revert to the previous version.
+
+## Leverage `.gitignore` in your repo
+
+Codebuff will ignore files specified in your `.gitignore` file. This allows you to specify files that you don't want Codebuff to read, like configuration files or build artifacts.
+
+If there are files you want to keep tracked in Git, but you don't want Codebuff to read, you can create a `.codebuffignore` file in your repo.
+
+## Planning
+
+Codebuff is really good at ad-hoc changes, but sometimes you have bigger features to build. You can ask Codebuff to help plan out all the details of your feature before you start coding!
+
+Do a long brain dump of your feature, with as much technical detail as you want to consider. Don't worry about formatting it nicely.
+
+Then, ask Codebuff to `re-word what I said in a goal-oriented plan, and output that to a `plan.md` file in markdown format.
+
+Codebuff will write out what it thinks is the best way to implement your feature, and you can use that as a starting point! Make sure to read through it carefully and adjust anything needed.
+
+Then, you can simply ask Codebuff to build the feature, using the `plan.md` file you both collaborated on as a guide.
