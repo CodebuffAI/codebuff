@@ -60,6 +60,73 @@ src/
 - Preserve sidebar width with shrink-0
 - Account for navbar height in sticky positioning
 
+## Mobile Support
+
+Important: For mobile navigation:
+- Use shadcn's official Sidebar component rather than custom mobile solutions
+- Follow the implementation guide at ui.shadcn.com/docs/components/sidebar
+- This ensures consistent behavior and maintainability
+- Provides built-in mobile-friendly navigation patterns
+
+### Mobile Menu Button Placement
+- Place mobile menu triggers inline with section content
+- Avoid placing triggers that push other content to the right
+- Menu buttons should not affect the layout of surrounding elements
+- Align with the main content's title rather than subsection headings
+- For slide-out navigation, prefer shadcn's official Sheet component over custom solutions
+- Reference ui.shadcn.com for latest mobile navigation patterns and examples
+
+### Mobile Sheet Navigation
+- Bottom sheets must be scrollable when content exceeds height
+- Include visual affordances for closing:
+  - Add visible handle/line at top of sheet that stays fixed
+  - Handle should be draggable to dismiss sheet
+  - Support swipe-down-to-dismiss gesture
+- Use viewport-relative heights (e.g. h-[33vh]) for consistent sizing
+- Important UX behaviors:
+  - Preserve original page scroll position when sheet is dismissed
+  - Automatically dismiss sheet when user navigates to new content
+  - Keep drag indicator visible with solid background while content scrolls
+- Important UX behaviors:
+  - Preserve original page scroll position when sheet is dismissed
+  - Automatically dismiss sheet when user navigates to new content
+  - Keep drag indicator visible with solid background while content scrolls
+- Important UX behaviors:
+  - Preserve original page scroll position when sheet is dismissed
+  - Automatically dismiss sheet when user navigates to new content
+  - Keep drag indicator visible with solid background while content scrolls
+- Important: When using shadcn components:
+  - Always check official docs at ui.shadcn.com first
+  - Don't try to recreate functionality that exists in the component
+  - Install complete component with all its dependencies
+  - Copy exact markup structure from examples
+
+### Shadcn Component Integration
+- Components may look different from shadcn.com even with identical code
+- Visual differences often come from missing CSS variables in globals.css
+- Each component relies on both:
+  - Component-specific styles in the component file
+  - Theme variables in globals.css (colors, animations, spacing)
+- When copying from shadcn.com examples:
+  - Check both component code AND required CSS variables
+  - Compare globals.css with shadcn.com source for missing variables
+  - Verify all animations and transitions are defined in tailwind.config.ts
+- Important: Some component functionality requires modifying the base component file:
+  - Features like swipe-to-dismiss must be added to the component source
+  - Don't just add props to the usage site - check the component implementation
+  - Common examples: Sheet swipe gestures, Dialog animations, Drawer transitions
+
+### Shadcn Component Integration
+- Components may look different from shadcn.com even with identical code
+- Visual differences often come from missing CSS variables in globals.css
+- Each component relies on both:
+  - Component-specific styles in the component file
+  - Theme variables in globals.css (colors, animations, spacing)
+- When copying from shadcn.com examples:
+  - Check both component code AND required CSS variables
+  - Compare globals.css with shadcn.com source for missing variables
+  - Verify all animations and transitions are defined in tailwind.config.ts
+
 ## Component Requirements
 
 ### MDX Components
@@ -113,3 +180,4 @@ order: 1
 3. Keep sidebar visible and functional at all times
 4. Ensure smooth transitions between sections
 5. Preserve URL state with proper hash handling
+```

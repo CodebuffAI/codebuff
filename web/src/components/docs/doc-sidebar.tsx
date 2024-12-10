@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { getDocsByCategory } from '@/lib/docs'
 
-const sections = [
+export const sections = [
   {
     title: 'Help & FAQ',
     href: '/docs/help',
@@ -40,7 +40,13 @@ const sections = [
   },
 ]
 
-export function DocSidebar({ className }: { className?: string }) {
+export function DocSidebar({
+  className,
+  onNavigate,
+}: {
+  className?: string
+  onNavigate?: () => void
+}) {
   const pathname = usePathname()
 
   return (
@@ -49,6 +55,10 @@ export function DocSidebar({ className }: { className?: string }) {
         <div key={section.href}>
           <Link
             href={section.href}
+            onClick={() => {
+              const sheet = document.querySelector('[data-state="open"]')
+              if (sheet) sheet.setAttribute('data-state', 'closed')
+            }}
             className={cn(
               'block px-3 py-2 hover:bg-accent rounded-md transition-colors',
               pathname === section.href && 'bg-accent'
@@ -63,6 +73,7 @@ export function DocSidebar({ className }: { className?: string }) {
                   key={subsection.href}
                   href={`${section.href}#${subsection.title.toLowerCase().replace(/\s+/g, '-')}`}
                   onClick={(e) => {
+                    onNavigate?.()
                     // If we're on the same page, scroll instead of navigate
                     if (pathname.startsWith(section.href)) {
                       e.preventDefault()
@@ -73,6 +84,10 @@ export function DocSidebar({ className }: { className?: string }) {
                         .getElementById(id)
                         ?.scrollIntoView({ behavior: 'smooth' })
                     }
+                    // Close sheet after navigation
+                    const sheet = document.querySelector('[data-state="open"]')
+                    if (sheet) sheet.setAttribute('data-state', 'closed')
+                    onNavigate?.()
                   }}
                   className={cn(
                     'block w-full text-left px-3 py-1 text-sm hover:bg-accent rounded-md transition-colors text-muted-foreground',

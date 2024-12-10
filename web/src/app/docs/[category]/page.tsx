@@ -74,10 +74,14 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                 )
                 setCopied(true)
               }}
-              className="opacity-0 group-hover:opacity-100 p-2 transition-opacity"
+              className="xs:opacity-100 xl:opacity-0 group-hover:opacity-100 p-2 rounded-full transition-opacity duration-300 ease-in-out"
               aria-label="Copy link to section"
             >
-              {copied ? <Check className="text-green-500" /> : <Link />}
+              {copied ? (
+                <Check className="text-green-500 h-5 w-5" />
+              ) : (
+                <Link className="h-5 w-5" />
+              )}
             </button>
           </h1>
         </div>
