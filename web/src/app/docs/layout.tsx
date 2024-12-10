@@ -13,12 +13,12 @@ export default function DocsLayout({
 }) {
   const pathname = usePathname()
   return (
-    <div className="py-6">
+    <div className="pt-6">
       <div className="container flex gap-12">
         <DocSidebar className="hidden lg:block w-64 shrink-0 sticky top-[24px] h-[calc(100vh-24px)] overflow-y-auto" />
         <main className="flex-1">{children}</main>
       </div>
-      <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-muted container p-4 border">
+      <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-muted container p-4 rounded-t-lg">
         <Sheet
           onOpenChange={(open) => {
             if (!open) {
@@ -38,11 +38,11 @@ export default function DocsLayout({
           <SheetContent side="bottom" className="h-[33vh] p-6 overflow-y-auto">
             <DocSidebar />
           </SheetContent>
+          <h1 className="text-2xl font-bold">
+            {sections.find((section) => pathname.startsWith(section.href))
+              ?.title || 'Documentation'}
+          </h1>
         </Sheet>
-        <h1 className="text-2xl font-bold">
-          {sections.find((section) => pathname.startsWith(section.href))
-            ?.title || 'Documentation'}
-        </h1>
       </div>
     </div>
   )
