@@ -83,6 +83,7 @@ export function DocSidebar({
                       document
                         .getElementById(id)
                         ?.scrollIntoView({ behavior: 'smooth' })
+                      history.replaceState(null, '', `#${id}`)
                     }
                     // Close sheet after navigation
                     const sheet = document.querySelector('[data-state="open"]')
