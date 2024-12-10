@@ -2,6 +2,7 @@
   "name": "codebuff",
   "version": "1.0.119",
   "description": "AI dev assistant",
+  "type": "module",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,23 +10,23 @@
     "codebuff": "dist/index.js"
   },
   "scripts": {
-    "prebuild": "bun run with-env -- bun clean && cd ../common && bun run build && cd ../packages/code-map && bun run build",
+    "prebuild": "bun clean && cd ../common && bun run build && cd ../packages/code-map && bun run build",
     "build": "tsc && tsc-alias",
     "postbuild": "mkdir -p dist/common && cp -r ../common/dist/* dist/common && mkdir -p dist/code-map && cp -r ../packages/code-map/dist/* dist/code-map && tsc-alias",
     "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
     "prepublishOnly": "bun run build && bun run clean-package.js",
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "start-js": "bun run with-env -- node dist/index.js ..",
-    "start": "bun run build && bun run with-env -- ts-node src/index.ts .. --auto-git",
-    "start-dir": "bun run with-env -- ts-node src/index.ts",
-    "with-env": "env-cmd -f ./loadEnv.js",
-    "start-manifold": "bun run with-env -- ts-node src/index.ts ../../manifold",
-    "start-litestar": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/litestar",
-    "start-jpcsp": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/jpcsp",
-    "start-vscode": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/vscode",
-    "start-nushell": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/nushell",
-    "start-prod": "bun run with-env -- ts-node src/index.ts"
+    "start": "bun run build && ENVIRONMENT=local bun src/index.ts",
+    "demo:menu": "ENVIRONMENT=local bun src/demo.tsx menu",
+    "demo:progress": "ENVIRONMENT=local bun src/demo.tsx progress",
+    "start-dir": "ENVIRONMENT=local bun src/index.ts",
+    "start-manifold": "ENVIRONMENT=local bun src/index.ts ../../manifold",
+    "start-litestar": "ENVIRONMENT=local bun src/index.ts ../test/__mock-projects__/litestar",
+    "start-jpcsp": "ENVIRONMENT=local bun src/index.ts ../test/__mock-projects__/jpcsp",
+    "start-vscode": "ENVIRONMENT=local bun src/index.ts ../test/__mock-projects__/vscode",
+    "start-nushell": "ENVIRONMENT=local bun src/index.ts ../test/__mock-projects__/nushell",
+    "start-prod": "ENVIRONMENT=local bun src/index.ts"
   },
   "files": [
     "dist",
@@ -34,13 +35,19 @@
   "dependencies": {
     "@types/diff": "5.2.1",
     "axios": "1.7.4",
+    "blessed": "^0.1.81",
+    "blessed-contrib": "^4.11.0",
     "cheerio": "1.0.0",
+    "cli-table3": "^0.6.5",
     "diff": "5.2.0",
     "env-cmd": "^10.1.0",
     "ignore": "5.3.2",
+    "ink": "3.2.0",
     "lodash": "*",
     "nanoid": "5.0.7",
     "picocolors": "1.1.0",
+    "prompts": "^2.4.2",
+    "react": "17.0.2",
     "systeminformation": "5.23.4",
     "tree-sitter": "0.21.1",
     "tree-sitter-c": "0.23.0",
@@ -57,5 +64,12 @@
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
     "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/ink": "2.0.3",
+    "@types/node": "^20.10.1",
+    "@types/react": "17.0.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.3.2"
   }
 }

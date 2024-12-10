@@ -8,39 +8,51 @@ const ENV_VARS_TO_PULL = [
   'NEXT_PUBLIC_SUPPORT_EMAIL',
 ]
 
-dotenv.config({ path: '../stack.env' })
-if (!process.env.ENVIRONMENT) {
-  console.error('ENVIRONMENT is not set, please check `stack.env`')
-  process.exit(1)
+// Default environment for local development
+const defaultEnv = {
+  ENVIRONMENT: 'local',
+  NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
+  NEXT_PUBLIC_BACKEND_URL: 'http://localhost:3001',
+  NEXT_PUBLIC_SUPPORT_EMAIL: 'support@example.com'
 }
 
-const path = `../.env.${process.env.ENVIRONMENT}`
-console.log(`Using environment: ${process.env.ENVIRONMENT} (path: ${path})`)
-
-const envFileContent = fs.readFileSync(path, 'utf-8')
-const lines = envFileContent.split('\n')
-const env = {
-  ENVIRONMENT: process.env.ENVIRONMENT,
+// Try to load stack.env, but use defaults if it doesn't exist
+try {
+  dotenv.config({ path: '../stack.env' })
+} catch (error) {
+  console.log('Using default local environment')
 }
 
-lines.forEach((line) => {
-  const trimmedLine = line.trim()
-  if (!trimmedLine || trimmedLine.startsWith('#')) return
+// Use environment from stack.env or default to 'local'
+const environment = process.env.ENVIRONMENT || 'local'
+const envPath = `../.env.${environment}`
 
-  const [key, v] = trimmedLine.split('=')
-  const value = v
-    .split("'")
-    .filter((t) => !!t)
-    .join('')
-    .trim()
+let env = { ...defaultEnv }
 
-  match(key).with(...ENV_VARS_TO_PULL, (key) => {
-    env[key] = value
-  })
-})
+// Try to load environment-specific file if it exists
+try {
+  if (fs.existsSync(envPath)) {
+    const envFileContent = fs.readFileSync(envPath, 'utf-8')
+    const lines = envFileContent.split('\n')
 
-if (Object.values(env).length === ENV_VARS_TO_PULL.length) {
-  throw new Error('Missing expected environment variable(s)!')
+    lines.forEach((line) => {
+      const trimmedLine = line.trim()
+      if (!trimmedLine || trimmedLine.startsWith('#')) return
+
+      const [key, v] = trimmedLine.split('=')
+      const value = v
+        .split("'")
+        .filter((t) => !!t)
+        .join('')
+        .trim()
+
+      match(key).with(...ENV_VARS_TO_PULL, (key) => {
+        env[key] = value
+      })
+    })
+  }
+} catch (error) {
+  console.log('Using default environment variables')
 }
 
 module.exports = Promise.resolve(env)

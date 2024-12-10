@@ -6,11 +6,13 @@
     "esModuleInterop": true,
     "noImplicitReturns": true,
     "sourceMap": true,
-    "strict": true,
-    "target": "esnext",
+    "declaration": true,
+    "target": "es2020",
     "incremental": true,
     "isolatedModules": true,
-    "types": ["node"],
+    "jsx": "react",
+    "allowJs": true,
+    "types": ["node", "react", "ink"],
     "typeRoots": ["./node_modules/@types", "../node_modules/@types"],
     "baseUrl": ".",
     "paths": {
@@ -19,7 +21,8 @@
     },
     "outDir": "./dist",
     "rootDir": "./src",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "skipLibCheck": true
   },
   "include": ["src/**/*", "package.json"],
   "references": [

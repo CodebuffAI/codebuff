@@ -1,35 +1,36 @@
 import { uniq } from 'lodash'
-import { applyChanges } from 'common/util/changes'
+import { applyChanges } from '../common/src/util/changes.js'
 import * as readline from 'readline'
 import { green, red, yellow, underline } from 'picocolors'
 import { parse } from 'path'
+import { render } from 'ink'
+import * as React from 'react'
 
-import { websocketUrl } from './config'
-import { ChatStorage } from './chat-storage'
-import { Client } from './client'
-import { Message } from 'common/actions'
-import { displayMenu } from './menu'
+import { websocketUrl } from './config.js'
+import { ChatStorage } from './chat-storage.js'
+import { Client } from './client.js'
+import { Message, FileChanges } from '../common/src/actions.js'
+import { displayMenu } from './menu.js'
 import {
   getChangesSinceLastFileVersion,
   getExistingFiles,
   getProjectRoot,
   setFiles,
-} from './project-files'
-import { handleRunTerminalCommand } from './tool-handlers'
+} from './project-files.js'
+import { handleRunTerminalCommand } from './tool-handlers.js'
 import {
   REQUEST_CREDIT_SHOW_THRESHOLD,
   SKIPPED_TERMINAL_COMMANDS,
-} from 'common/constants'
-import { createFileBlock, ProjectFileContext } from 'common/util/file'
-import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-import { FileChanges } from 'common/actions'
+} from '../common/src/constants.js'
+import { createFileBlock, ProjectFileContext } from '../common/src/util/file.js'
+import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper.js'
 import {
   stageAllChanges,
   hasStagedChanges,
   commitChanges,
   getStagedChanges,
-} from 'common/util/git'
-import { pluralize } from 'common/util/string'
+} from '../common/src/util/git.js'
+import { pluralize } from '../common/src/util/string.js'
 
 export class CLI {
   private client: Client
@@ -301,13 +302,13 @@ export class CLI {
       return
     }
 
-    this.lastChanges.forEach((change) => {
+    this.lastChanges.forEach((change: FileChanges[number]) => {
       console.log('-', change.filePath)
       const lines = change.content
         .split('\n')
-        .map((line) => (change.type === 'file' ? '+' + line : line))
+        .map((line: string) => (change.type === 'file' ? '+' + line : line))
 
-      lines.forEach((line) => {
+      lines.forEach((line: string) => {
         if (line.startsWith('+')) {
           console.log(green(line))
         } else if (line.startsWith('-')) {
@@ -516,5 +517,50 @@ export class CLI {
     const result = await responsePromise
     this.stopResponse = null
     return result
+  }
+
+  public async handleDemoComponents(args: string[]) {
+    const component = args[0];
+
+    if (!component) {
+      console.log('Please specify a component to demo: menu or progress');
+      return;
+    }
+
+    switch (component.toLowerCase()) {
+      case 'menu':
+        const { SelectMenu } = await import('./components/terminal-ui/SelectMenu.js');
+        render(
+          React.createElement(SelectMenu, {
+            items: [
+              { type: 'header', label: 'DEMO MENU' },
+              'Option 1',
+              'Option 2',
+              'Option 3',
+              { type: 'header', label: 'MORE OPTIONS' },
+              'Option 4',
+              'Exit'
+            ],
+            onSelect: (index) => {
+              console.log(`Selected option ${index}`);
+              if (index === 6) process.exit(0); // Exit on last option
+            }
+          })
+        );
+        break;
+
+      case 'progress':
+        const { ProgressBar } = await import('./components/terminal-ui/ProgressBar.js');
+        render(
+          React.createElement(ProgressBar, {
+            percent: 75,
+            label: 'Demo Progress'
+          })
+        );
+        break;
+
+      default:
+        console.log('Unknown component. Available components: menu, progress');
+    }
   }
 }
