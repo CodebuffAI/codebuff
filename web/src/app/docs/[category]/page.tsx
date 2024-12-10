@@ -30,9 +30,6 @@ export default function CategoryPage({ params }: CategoryPageProps) {
     return notFound()
   }
 
-  // Sort by order field
-  const sortedDocs = [...docs].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-
   const components = {
     CodeDemo: dynamic(() =>
       import('@/components/docs/mdx/code-demo').then((mod) => mod.CodeDemo)
