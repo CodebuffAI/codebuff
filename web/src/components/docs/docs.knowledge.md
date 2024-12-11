@@ -140,6 +140,11 @@ Important: For mobile navigation:
 - Simply returning raw content in computed fields is insufficient
 - Contentlayer needs to transform the MDX into executable code
 
+### MDX File Handling
+- Prefer dynamic imports over contentlayer computed fields for optional MDX files
+- Always handle missing MDX files gracefully with try/catch or existence checks
+- Example: For CTA content that may not exist in every category
+
 ### Navigation Components
 
 - Sidebar must handle both scroll and navigation

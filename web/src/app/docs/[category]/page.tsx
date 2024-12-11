@@ -24,7 +24,12 @@ const DocPage = ({ doc, components }: { doc: Doc; components: any }) => {
       {doc.category && (
         <div className="mt-12 border-t pt-8">
           {React.createElement(
-            dynamic(() => import(`@/content/${doc.category}/_cta.mdx`))
+            dynamic(
+              () =>
+                import(`@/content/${doc.category}/_cta.mdx`).catch(
+                  () => () => null
+                ) // Return empty component if import fails
+            )
           )}
         </div>
       )}
