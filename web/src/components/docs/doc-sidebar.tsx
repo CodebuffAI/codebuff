@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { getDocsByCategory } from '@/lib/docs'
+import { getDocsByCategory, getNewsArticles, NewsArticle } from '@/lib/docs'
+import { useEffect, useMemo, useState } from 'react'
 
 export const sections = [
   {
@@ -13,6 +14,7 @@ export const sections = [
       title: doc.title,
       href: `/docs/help/${doc.slug}`,
     })),
+    external: false,
   },
   {
     title: 'Tips & Tricks',
@@ -21,6 +23,7 @@ export const sections = [
       title: doc.title,
       href: `/docs/tips/${doc.slug}`,
     })),
+    external: false,
   },
   {
     title: 'Project Showcase',
@@ -29,6 +32,7 @@ export const sections = [
       title: doc.title,
       href: `/docs/showcase/${doc.slug}`,
     })),
+    external: false,
   },
   {
     title: 'Case Studies',
@@ -37,6 +41,7 @@ export const sections = [
       title: doc.title,
       href: `/docs/case-studies/${doc.slug}`,
     })),
+    external: false,
   },
 ]
 
@@ -48,10 +53,33 @@ export function DocSidebar({
   onNavigate: () => void
 }) {
   const pathname = usePathname()
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([])
+
+  const allSections = useMemo(
+    () => [
+      ...sections,
+      {
+        title: 'News',
+        href: 'https://news.codebuff.com',
+        external: true,
+        subsections: newsArticles,
+      },
+    ],
+    [newsArticles]
+  )
+
+  useEffect(() => {
+    async function fetchNews() {
+      const articles = await getNewsArticles()
+      setNewsArticles(articles)
+    }
+
+    fetchNews()
+  }, [])
 
   return (
     <nav className={cn('space-y-4', className)}>
-      {sections.map((section) => (
+      {allSections.map((section) => (
         <div key={section.href}>
           <Link
             href={section.href}
@@ -59,6 +87,7 @@ export function DocSidebar({
               const sheet = document.querySelector('[data-state="open"]')
               if (sheet) sheet.setAttribute('data-state', 'closed')
             }}
+            target={section.external ? '_blank' : undefined}
             className={cn(
               'block px-3 py-2 hover:bg-accent rounded-md transition-colors',
               pathname === section.href && 'bg-accent'
