@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { getDocsByCategory } from '@/lib/docs'
+import { useEffect, useState } from 'react'
 
 export const sections = [
   {
@@ -46,6 +47,7 @@ export const sections = [
     title: 'News',
     href: 'https://news.codebuff.com',
     external: true,
+    subsections: [], // Will be populated dynamically
   },
 ]
 
@@ -57,6 +59,19 @@ export function DocSidebar({
   onNavigate: () => void
 }) {
   const pathname = usePathname()
+  const [newsArticles, setNewsArticles] = useState([])
+
+  useEffect(() => {
+    async function fetchNews() {
+      const articles = await getNewsArticles()
+      setNewsArticles(articles)
+
+      // Update the News section with the articles
+      sections.find((s) => s.title === 'News')!.subsections = articles
+    }
+
+    fetchNews()
+  }, [])
 
   return (
     <nav className={cn('space-y-4', className)}>
