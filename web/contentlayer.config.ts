@@ -30,8 +30,15 @@ export const Doc = defineDocumentType(() => ({
           doc._raw.sourceFileDir,
           '_cta.mdx'
         )
-        console.log('ctaPath', ctaPath)
-        return fs.existsSync(ctaPath) ? fs.readFileSync(ctaPath, 'utf8') : ''
+        if (!fs.existsSync(ctaPath)) {
+          return undefined
+        }
+        // Use the same processing as the main content
+        const content = fs.readFileSync(ctaPath, 'utf8')
+        return {
+          raw: content,
+          code: content, // Contentlayer will process this into MDX
+        }
       },
     },
   },

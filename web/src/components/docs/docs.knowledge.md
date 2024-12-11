@@ -136,6 +136,9 @@ Important: For mobile navigation:
 - Must be Client Components
 - Use dynamic imports with next/dynamic
 - Export as named exports for proper dynamic loading
+- Raw MDX content must be processed by Contentlayer before use
+- Simply returning raw content in computed fields is insufficient
+- Contentlayer needs to transform the MDX into executable code
 
 ### Navigation Components
 

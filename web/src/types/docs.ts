@@ -8,5 +8,5 @@ export interface Doc {
   slug: string
   category: string
   body: MDX
-  ctaContent?: string
+  ctaContent?: MDX
 }
