@@ -1,4 +1,5 @@
 import { allDocs } from '.contentlayer/generated'
+import { Article } from '@/app/api/feed/route'
 import type { Doc } from '@/types/docs'
 
 export function getDocsByCategory(category: string) {
@@ -18,19 +19,12 @@ export interface NewsArticle {
 export async function getNewsArticles(): Promise<NewsArticle[]> {
   try {
     const res = await fetch('/api/feed')
-    const text = await res.text()
-    // Parse XML string directly without DOMParser
-    const items = text.match(/<item>[\s\S]*?<\/item>/g) || []
-
-    return items.map((item) => {
-      const title = item.match(/<title>\s*<!\[CDATA\[(.*?)\]\]>/)?.[1] || ''
-      const href = item.match(/<link>(.*?)<\/link>/)?.[1] || ''
-      return {
-        title,
-        href,
-        external: true,
-      }
-    })
+    const { articles }: { articles: Article[] } = await res.json()
+    return articles.map((article) => ({
+      title: article.title,
+      href: article.href,
+      external: true,
+    }))
   } catch (error) {
     console.error('Failed to fetch news articles:', error)
     return []
