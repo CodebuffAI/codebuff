@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { getDocsByCategory } from '@/lib/docs'
+import { getDocsByCategory, getNewsArticles } from '@/lib/docs'
 import { useEffect, useState } from 'react'
 
 export const sections = [

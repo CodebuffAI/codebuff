@@ -13,15 +13,18 @@ export async function getNewsArticles() {
   try {
     const res = await fetch('https://news.codebuff.com/feed')
     const text = await res.text()
-    const parser = new DOMParser()
-    const xml = parser.parseFromString(text, 'text/xml')
-    const items = xml.querySelectorAll('item')
+    // Parse XML string directly without DOMParser
+    const items = text.match(/<item>[\s\S]*?<\/item>/g) || []
     
-    return Array.from(items).map(item => ({
-      title: item.querySelector('title')?.textContent?.replace('<![CDATA[', '').replace(']]>', '') || '',
-      href: item.querySelector('link')?.textContent || '',
-      external: true
-    }))
+    return items.map(item => {
+      const title = item.match(/<title>\s*<!\[CDATA\[(.*?)\]\]>/)?.[1] || ''
+      const href = item.match(/<link>(.*?)<\/link>/)?.[1] || ''
+      return {
+        title,
+        href,
+        external: true
+      }
+    })
   } catch (error) {
     console.error('Failed to fetch news articles:', error)
     return []
