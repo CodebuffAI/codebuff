@@ -1,4 +1,4 @@
-import { spawn } from 'child_process'
+import { ChildProcess, spawn } from 'child_process'
 import path from 'path'
 import { green } from 'picocolors'
 
@@ -19,6 +19,9 @@ export const handleScrapeWebPage: ToolHandler = async (
   return `<web_scraped_content url="${url}">${content}</web_scraped_content>`
 }
 
+// Persistent shell session
+let persistentShell: ReturnType<typeof spawn> | null = null
+
 export const handleRunTerminalCommand = async (
   input: { command: string },
   id: string,
@@ -34,10 +37,17 @@ export const handleRunTerminalCommand = async (
       console.log()
       console.log(green(`> ${command}`))
     }
-    const childProcess = spawn(command, {
-      shell: true,
-      cwd: getProjectRoot(),
-    })
+
+    if (!persistentShell) {
+      persistentShell = spawn(process.env.SHELL || 'bash', [], {
+        cwd: getProjectRoot(),
+      })
+    } else {
+      persistentShell.stdin?.write(`cd ${getProjectRoot()}\n`)
+    }
+
+    const childProcess = persistentShell as ChildProcess
+    childProcess.stdin?.write(command + '\n')
 
     const timer = setTimeout(() => {
       if (mode === 'assistant') {
@@ -54,12 +64,12 @@ export const handleRunTerminalCommand = async (
       }
     }, MAX_EXECUTION_TIME)
 
-    childProcess.stdout.on('data', (data) => {
+    childProcess.stdout?.on('data', (data) => {
       process.stdout.write(data.toString())
       stdout += data.toString()
     })
 
-    childProcess.stderr.on('data', (data) => {
+    childProcess.stderr?.on('data', (data) => {
       const dataStr = data.toString()
       stderr += data.toString()
       if (
