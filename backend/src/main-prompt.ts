@@ -43,7 +43,7 @@ export async function mainPrompt(
   onResponseChunk: (chunk: string) => void,
   userId: string | undefined,
   changesAlreadyApplied: FileChanges,
-  mode: Mode = 'normal'
+  mode: Mode
 ) {
   const lastUserMessageIndex = messages.findLastIndex(
     (message) =>
@@ -84,6 +84,7 @@ export async function mainPrompt(
     fingerprintId,
     userInputId,
     userId,
+    mode,
   })
   fileContext.fileVersions = newFileVersions
   if (clearFileVersions) {
@@ -299,6 +300,7 @@ ${lastMessage.content}
           fingerprintId,
           userInputId,
           userId,
+          mode,
         }
       )
       fileContext.fileVersions = newFileVersions
@@ -357,6 +359,7 @@ ${lastMessage.content}
           fingerprintId,
           userInputId,
           userId,
+          mode,
         }
       )
       fileContext.fileVersions = newFileVersions
@@ -504,6 +507,7 @@ async function getFileVersionUpdates(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
+    mode: Mode
   }
 ) {
   const {
@@ -512,6 +516,7 @@ async function getFileVersionUpdates(
     fingerprintId,
     userInputId,
     userId,
+    mode,
   } = options
   const { fileVersions } = fileContext
   const files = fileVersions.flatMap((files) => files)
@@ -546,7 +551,8 @@ async function getFileVersionUpdates(
         clientSessionId,
         fingerprintId,
         userInputId,
-        userId
+        userId,
+        mode
       )) ??
       []
 

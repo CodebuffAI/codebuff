@@ -6,8 +6,7 @@ import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
 import { promptClaude, System } from './claude'
 import { getModelForMode, type Mode } from 'common/constants'
-import { claudeModels, openaiModels, models } from 'common/constants'
-import type { model_types } from './claude'
+import { claudeModels, models } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from './util/logger'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
@@ -25,13 +24,19 @@ export async function requestRelevantFiles(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string
+  userId: string | undefined,
+  mode: Mode
 ) {
   const { fileVersions } = fileContext
   const previousFiles = uniq(
     fileVersions.flatMap((files) => files.map(({ path }) => path))
   )
-  const countPerRequest = 5
+  const countPerRequest =
+    mode === 'expensive'
+      ? 6
+      : mode === 'cheap'
+        ? 7
+        : 5
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -53,7 +58,8 @@ export async function requestRelevantFiles(
         userInputId,
         previousFiles,
         userPrompt,
-        userId
+        userId,
+        mode
       ).catch((error) => {
         logger.error({ error }, 'Error checking new files necessary')
         return { newFilesNecessary: true, response: 'N/A', duration: 0 }
@@ -69,7 +75,8 @@ export async function requestRelevantFiles(
     clientSessionId,
     fingerprintId,
     userInputId,
-    userId
+    userId,
+    mode
   )
 
   const newFilesNecessaryResult = await newFilesNecessaryPromise
@@ -130,8 +137,8 @@ async function generateFileRequests(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string,
-  mode: Mode = 'normal'
+  userId: string | undefined,
+  mode: Mode
 ) {
   const keyPrompt = generateKeyRequestFilesPrompt(
     userPrompt,
@@ -157,77 +164,83 @@ async function generateFileRequests(
     return { files: [], duration: 0 }
   })
 
-  const examplePrompt = generateExampleFilesPrompt(
-    userPrompt,
-    assistantPrompt,
-    fileContext,
-    countPerRequest
-  )
-
-  const examplePromise = getRelevantFiles(
-    {
-      messages: messagesExcludingLastIfByUser,
-      system,
-    },
-    examplePrompt,
-    'Examples',
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId
-  ).catch((error) => {
-    logger.error({ error }, 'Error requesting example files')
-    return { files: [], duration: 0 }
-  })
-
-  const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
-    userPrompt,
-    assistantPrompt,
-    fileContext,
-    countPerRequest
-  )
-
-  const nonObviousPromise = getRelevantFiles(
-    {
-      messages: messagesExcludingLastIfByUser,
-      system,
-    },
-    nonObviousPrompt,
-    'Non-Obvious',
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId
-  )
-
-  const testAndConfigPrompt = generateTestAndConfigFilesPrompt(
-    userPrompt,
-    assistantPrompt,
-    fileContext,
-    countPerRequest
-  )
-
-  const testAndConfigPromise = getRelevantFiles(
-    {
-      messages: messagesExcludingLastIfByUser,
-      system,
-    },
-    testAndConfigPrompt,
-    'Tests and Config',
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId
-  ).catch((error) => {
-    logger.error({ error }, 'Error requesting test and config files')
-    return { files: [], duration: 0 }
-  })
-
-  // In cheap mode, only run key files request
-  const promises = [keyPromise]
+  // Only create additional file request promises if not in cheap mode
+  let promises = [keyPromise]
   if (mode !== 'cheap') {
-    promises.push(examplePromise, nonObviousPromise, testAndConfigPromise)
+    const examplePrompt = generateExampleFilesPrompt(
+      userPrompt,
+      assistantPrompt,
+      fileContext,
+      countPerRequest
+    )
+
+    const examplePromise = getRelevantFiles(
+      {
+        messages: messagesExcludingLastIfByUser,
+        system,
+      },
+      examplePrompt,
+      'Examples',
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId
+    ).catch((error) => {
+      logger.error({ error }, 'Error requesting example files')
+      return { files: [], duration: 0 }
+    })
+
+    const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
+      userPrompt,
+      assistantPrompt,
+      fileContext,
+      countPerRequest
+    )
+
+    const nonObviousPromise = getRelevantFiles(
+      {
+        messages: messagesExcludingLastIfByUser,
+        system,
+      },
+      nonObviousPrompt,
+      'Non-Obvious',
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId
+    )
+
+    const testAndConfigPrompt = generateTestAndConfigFilesPrompt(
+      userPrompt,
+      assistantPrompt,
+      fileContext,
+      countPerRequest
+    )
+
+    const testAndConfigPromise = getRelevantFiles(
+      {
+        messages: messagesExcludingLastIfByUser,
+        system,
+      },
+      testAndConfigPrompt,
+      'Tests and Config',
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId
+    ).catch((error) => {
+      logger.error({ error }, 'Error requesting test and config files')
+      return { files: [], duration: 0 }
+    })
+
+    promises = [
+      ...promises,
+      examplePromise,
+      nonObviousPromise,
+      testAndConfigPromise,
+    ]
   }
+
   const results = await Promise.all(promises)
   return results
 }
@@ -240,7 +253,8 @@ const checkNewFilesNecessary = async (
   userInputId: string,
   previousFiles: string[],
   userPrompt: string,
-  userId?: string
+  userId: string | undefined,
+  mode: Mode
 ) => {
   const startTime = Date.now()
   const prompt = `
@@ -259,7 +273,7 @@ Answer with just 'YES' if reading new files is necessary, or 'NO' if the current
       { role: 'user', content: prompt },
     ],
     {
-      model: models.gpt4omini,
+      model: mode === 'expensive' ? models.gpt4o : models.gpt4omini,
       clientSessionId,
       fingerprintId,
       userInputId,
