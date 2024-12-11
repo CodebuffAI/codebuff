@@ -99,9 +99,14 @@ export const openaiModels = {
   gpt4omini: 'gpt-4o-mini-2024-07-18',
 } as const
 
+export const geminiModels = {
+  gemini2flash: 'gemini-2.0-flash-exp',
+} as const
+
 export const models = {
   ...claudeModels,
   ...openaiModels,
+  ...geminiModels,
 }
 
 export const TEST_USER_ID = 'test-user-id'
