@@ -1,6 +1,4 @@
 import { defineDocumentType, makeSource } from 'contentlayer/source-files'
-import * as fs from 'fs'
-import * as path from 'path'
 
 export const Doc = defineDocumentType(() => ({
   name: 'Doc',
@@ -20,26 +18,6 @@ export const Doc = defineDocumentType(() => ({
     category: {
       type: 'string',
       resolve: (doc) => doc._raw.sourceFileDir,
-    },
-    ctaContent: {
-      type: 'mdx',
-      resolve: async (doc) => {
-        const ctaPath = path.join(
-          process.cwd(),
-          'src/content',
-          doc._raw.sourceFileDir,
-          '_cta.mdx'
-        )
-        if (!fs.existsSync(ctaPath)) {
-          return undefined
-        }
-        // Use the same processing as the main content
-        const content = fs.readFileSync(ctaPath, 'utf8')
-        return {
-          raw: content,
-          code: content, // Contentlayer will process this into MDX
-        }
-      },
     },
   },
 }))

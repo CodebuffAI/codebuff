@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { notFound } from 'next/navigation'
 import { getDocsByCategory } from '@/lib/docs'
 import dynamic from 'next/dynamic'
@@ -16,15 +17,15 @@ interface CategoryPageProps {
 
 const DocPage = ({ doc, components }: { doc: Doc; components: any }) => {
   const MDXContent = useMDXComponent(doc.body.code)
-  console.log('doc.ctaContent.code', doc.ctaContent?.code)
-  const CtaContent = useMDXComponent(doc.ctaContent?.code ?? '')
 
   return (
     <article className="prose dark:prose-invert prose-compact">
       <MDXContent components={components} />
-      {doc.ctaContent && (
+      {doc.category && (
         <div className="mt-12 border-t pt-8">
-          <CtaContent components={components} />
+          {React.createElement(
+            dynamic(() => import(`@/content/${doc.category}/_cta.mdx`))
+          )}
         </div>
       )}
     </article>
