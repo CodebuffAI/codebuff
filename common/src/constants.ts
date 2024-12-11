@@ -89,6 +89,19 @@ export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
       }
 export const CREDITS_REFERRAL_BONUS = 500
 
+export const modes = ['cheap', 'normal', 'expensive'] as const
+export type Mode = (typeof modes)[number]
+
+export const getModelForMode = (
+  mode: Mode,
+  operation: 'agent' | 'file-requests'
+) => {
+  if (operation === 'agent') {
+    return mode === 'cheap' ? claudeModels.haiku : claudeModels.sonnet
+  }
+  return mode === 'expensive' ? claudeModels.sonnet : claudeModels.haiku
+}
+
 export const claudeModels = {
   sonnet: 'claude-3-5-sonnet-20241022',
   haiku: 'claude-3-5-haiku-20241022',

@@ -19,6 +19,7 @@ import { handleRunTerminalCommand } from './tool-handlers'
 import {
   REQUEST_CREDIT_SHOW_THRESHOLD,
   SKIPPED_TERMINAL_COMMANDS,
+  type Mode,
 } from 'common/constants'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
@@ -36,6 +37,7 @@ export class CLI {
   private chatStorage: ChatStorage
   private readyPromise: Promise<any>
   private autoGit: boolean
+  private mode: Mode
   private rl: readline.Interface
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
@@ -50,9 +52,10 @@ export class CLI {
 
   constructor(
     readyPromise: Promise<[void, ProjectFileContext]>,
-    { autoGit }: { autoGit: boolean }
+    { autoGit, mode }: { autoGit: boolean; mode: Mode }
   ) {
     this.autoGit = autoGit
+    this.mode = mode
     this.chatStorage = new ChatStorage()
     this.rl = readline.createInterface({
       input: process.stdin,
@@ -71,7 +74,8 @@ export class CLI {
           this.stopResponse()
         }
         this.stopLoadingAnimation()
-      }
+      },
+      this.mode
     )
 
     this.readyPromise = Promise.all([

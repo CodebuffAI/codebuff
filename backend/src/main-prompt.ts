@@ -1,17 +1,17 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import path from 'path'
 
 import { promptClaudeStream } from './claude'
-import { TOOL_RESULT_MARKER, STOP_MARKER } from 'common/constants'
 import {
-  createFileBlock,
-  FileVersion,
-  ProjectFileContext,
-} from 'common/util/file'
+  TOOL_RESULT_MARKER,
+  STOP_MARKER,
+  getModelForMode,
+} from 'common/constants'
+import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { FileChange, FileChanges, Message } from 'common/actions'
+import { type Mode } from 'common/constants'
 import { ToolCall } from 'common/actions'
 import { requestFile, requestFiles } from './websockets/websocket-action'
 import { processFileBlock } from './process-file-block'
@@ -42,7 +42,8 @@ export async function mainPrompt(
   userInputId: string,
   onResponseChunk: (chunk: string) => void,
   userId: string | undefined,
-  changesAlreadyApplied: FileChanges
+  changesAlreadyApplied: FileChanges,
+  mode: Mode = 'normal'
 ) {
   const lastUserMessageIndex = messages.findLastIndex(
     (message) =>
@@ -174,6 +175,7 @@ ${lastMessage.content}
 
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
+      model: getModelForMode(mode, 'agent'),
       clientSessionId,
       fingerprintId,
       userInputId,

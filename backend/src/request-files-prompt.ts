@@ -5,7 +5,9 @@ import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
 import { promptClaude, System } from './claude'
-import { claudeModels, models } from 'common/constants'
+import { getModelForMode, type Mode } from 'common/constants'
+import { claudeModels, openaiModels, models } from 'common/constants'
+import type { model_types } from './claude'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from './util/logger'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
@@ -128,7 +130,8 @@ async function generateFileRequests(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string
+  userId?: string,
+  mode: Mode = 'normal'
 ) {
   const keyPrompt = generateKeyRequestFilesPrompt(
     userPrompt,
@@ -147,7 +150,8 @@ async function generateFileRequests(
     clientSessionId,
     fingerprintId,
     userInputId,
-    userId
+    userId,
+    mode
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [], duration: 0 }
@@ -219,12 +223,12 @@ async function generateFileRequests(
     return { files: [], duration: 0 }
   })
 
-  const results = await Promise.all([
-    keyPromise,
-    examplePromise,
-    nonObviousPromise,
-    testAndConfigPromise,
-  ])
+  // In cheap mode, only run key files request
+  const promises = [keyPromise]
+  if (mode !== 'cheap') {
+    promises.push(examplePromise, nonObviousPromise, testAndConfigPromise)
+  }
+  const results = await Promise.all(promises)
   return results
 }
 
@@ -281,7 +285,8 @@ async function getRelevantFiles(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string
+  userId?: string,
+  mode: Mode = 'normal'
 ) {
   const messagesWithPrompt = [
     ...messages,
@@ -292,7 +297,7 @@ async function getRelevantFiles(
   ]
   const start = performance.now()
   const response = await promptClaude(messagesWithPrompt, {
-    model: claudeModels.haiku,
+    model: getModelForMode(mode, 'file-requests'),
     system,
     clientSessionId,
     fingerprintId,

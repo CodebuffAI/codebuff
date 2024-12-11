@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from 'fs'
+import { type Mode } from 'common/constants'
 import path from 'path'
 import { yellow } from 'picocolors'
 
@@ -13,7 +14,7 @@ import { updateCodebuff } from './update-codebuff'
 
 async function codebuff(
   projectDir: string | undefined,
-  { initialInput, autoGit }: { initialInput?: string; autoGit: boolean }
+  { initialInput, autoGit, mode }: { initialInput?: string; autoGit: boolean; mode: Mode }
 ) {
   const dir = setProjectRoot(projectDir)
 
@@ -22,7 +23,7 @@ async function codebuff(
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
 
-  const cli = new CLI(readyPromise, { autoGit })
+  const cli = new CLI(readyPromise, { autoGit, mode })
 
   console.log(
     `Codebuff will read and write files in "${dir}". Type "help" for a list of commands.`
@@ -48,6 +49,16 @@ if (require.main === module) {
     args.splice(args.indexOf('--auto-git'), 1)
   }
 
+  let mode: Mode = 'normal'
+  if (args.includes('--mode')) {
+    const modeIndex = args.indexOf('--mode')
+    const modeValue = args[modeIndex + 1]
+    if (modeValue === 'cheap' || modeValue === 'normal' || modeValue === 'expensive') {
+      mode = modeValue
+      args.splice(modeIndex, 2)
+    }
+  }
+
   const projectPath = args[0]
   const initialInput = args.slice(1).join(' ')
 
@@ -61,11 +72,15 @@ if (require.main === module) {
       'If an initial prompt is provided, it will be sent as the first user input.'
     )
     console.log()
+    console.log('Options:')
+    console.log('  --mode <cheap|normal|expensive>  Set the mode (default: normal)')
+    console.log('  --auto-git                      Enable automatic git commits')
+    console.log()
     console.log(
       'Codebuff allows you to interact with your codebase using natural language.'
     )
     process.exit(0)
   }
 
-  codebuff(projectPath, { initialInput, autoGit })
+  codebuff(projectPath, { initialInput, autoGit, mode })
 }

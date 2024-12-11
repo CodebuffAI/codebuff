@@ -154,17 +154,19 @@ export async function genUsageResponse(
 }
 
 const onUserInput = async (
-  {
+  action: Extract<ClientAction, { type: 'user-input' }>,
+  clientSessionId: string,
+  ws: WebSocket
+) => {
+  const {
     fingerprintId,
     authToken,
     userInputId,
     messages,
     fileContext,
     changesAlreadyApplied,
-  }: Extract<ClientAction, { type: 'user-input' }>,
-  clientSessionId: string,
-  ws: WebSocket
-) => {
+    mode = 'normal'
+  } = action
   await withLoggerContext(
     { fingerprintId, authToken, clientRequestId: userInputId },
     async () => {
@@ -198,7 +200,8 @@ const onUserInput = async (
               chunk,
             }),
           userId,
-          changesAlreadyApplied
+          changesAlreadyApplied,
+          action.mode
         )
 
         logger.debug(

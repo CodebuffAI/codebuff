@@ -24,6 +24,7 @@ import {
   CREDITS_REFERRAL_BONUS,
   CREDITS_USAGE_LIMITS,
   TOOL_RESULT_MARKER,
+  type Mode,
 } from 'common/constants'
 
 import { uniq } from 'lodash'
@@ -39,6 +40,7 @@ export class Client {
   private currentUserInputId: string | undefined
   private returnControlToUser: () => void
   private fingerprintId: string | undefined
+  private mode: Mode
   public fileVersions: FileVersion[][] = []
 
   public user: User | undefined
@@ -54,8 +56,10 @@ export class Client {
     websocketUrl: string,
     chatStorage: ChatStorage,
     onWebSocketError: () => void,
-    returnControlToUser: () => void
+    returnControlToUser: () => void,
+    mode: Mode
   ) {
+    this.mode = mode
     this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
     this.user = this.getUser()
@@ -440,6 +444,7 @@ export class Client {
       changesAlreadyApplied: previousChanges,
       fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
+      mode: this.mode,
     })
   }
 
