@@ -34,6 +34,13 @@ export const Footer = () => {
                 Home
               </Link>
               <Link
+                href="/docs"
+                target="_blank"
+                className="text-muted-foreground hover:text-primary"
+              >
+                Docs
+              </Link>
+              <Link
                 href="https://news.codebuff.com"
                 target="_blank"
                 className="text-muted-foreground hover:text-primary"
