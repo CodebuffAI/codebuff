@@ -14,7 +14,11 @@ import { updateCodebuff } from './update-codebuff'
 
 async function codebuff(
   projectDir: string | undefined,
-  { initialInput, autoGit, mode }: { initialInput?: string; autoGit: boolean; mode: Mode }
+  {
+    initialInput,
+    autoGit,
+    mode,
+  }: { initialInput?: string; autoGit: boolean; mode: Mode }
 ) {
   const dir = setProjectRoot(projectDir)
 
@@ -50,13 +54,12 @@ if (require.main === module) {
   }
 
   let mode: Mode = 'normal'
-  if (args.includes('--mode')) {
-    const modeIndex = args.indexOf('--mode')
-    const modeValue = args[modeIndex + 1]
-    if (modeValue === 'cheap' || modeValue === 'normal' || modeValue === 'expensive') {
-      mode = modeValue
-      args.splice(modeIndex, 2)
-    }
+  if (args.includes('--cheap')) {
+    mode = 'cheap'
+    args.splice(args.indexOf('--cheap'), 1)
+  } else if (args.includes('--expensive')) {
+    mode = 'expensive'
+    args.splice(args.indexOf('--expensive'), 1)
   }
 
   const projectPath = args[0]
@@ -73,8 +76,15 @@ if (require.main === module) {
     )
     console.log()
     console.log('Options:')
-    console.log('  --mode <cheap|normal|expensive>  Set the mode (default: normal)')
-    console.log('  --auto-git                      Enable automatic git commits')
+    console.log(
+      '  --cheap                         Use lower quality models & fetch fewer files'
+    )
+    console.log(
+      '  --expensive                     Use higher quality models and fetch more files'
+    )
+    console.log(
+      '  --auto-git                      Enable automatic git commits'
+    )
     console.log()
     console.log(
       'Codebuff allows you to interact with your codebase using natural language.'
