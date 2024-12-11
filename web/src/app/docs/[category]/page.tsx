@@ -6,6 +6,7 @@ import { getDocsByCategory } from '@/lib/docs'
 import dynamic from 'next/dynamic'
 import { useMDXComponent } from 'next-contentlayer/hooks'
 import { Check, Link } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
 import { useEffect, useState } from 'react'
 import type { Doc } from '@/types/docs'
 
@@ -21,17 +22,11 @@ const DocPage = ({ doc, components }: { doc: Doc; components: any }) => {
   return (
     <article className="prose dark:prose-invert prose-compact">
       <MDXContent components={components} />
-      {doc.category && (
-        <div className="mt-12 border-t pt-8">
-          {React.createElement(
-            dynamic(
-              () =>
-                import(`@/content/${doc.category}/_cta.mdx`).catch(
-                  () => () => null
-                ) // Return empty component if import fails
-            )
-          )}
-        </div>
+
+      {React.createElement(
+        dynamic(() =>
+          import(`@/content/${doc.category}/_cta.mdx`).catch(() => () => null)
+        )
       )}
     </article>
   )
@@ -104,10 +99,12 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-24">
-      {sortedDocs.map((doc) => (
-        <DocPage key={doc.slug} doc={doc} components={components} />
-      ))}
+    <div className="max-w-3xl mx-auto space-y-12">
+      {sortedDocs
+        .map((doc) => (
+          <DocPage key={doc.slug} doc={doc} components={components} />
+        ))
+        .join(<Separator />)}
     </div>
   )
 }
