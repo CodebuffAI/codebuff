@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.118",
+  "version": "1.0.119",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -17,7 +17,7 @@
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "start-js": "bun run with-env -- node dist/index.js ..",
-    "start": "bun run with-env -- ts-node src/index.ts .. --auto-git",
+    "start": "bun run build && bun run with-env -- ts-node src/index.ts .. --auto-git",
     "start-dir": "bun run with-env -- ts-node src/index.ts",
     "with-env": "env-cmd -f ./loadEnv.js",
     "start-manifold": "bun run with-env -- ts-node src/index.ts ../../manifold",

@@ -72,7 +72,8 @@ export const saveMessage = async (value: {
   outputTokens: number
   cacheCreationInputTokens?: number
   cacheReadInputTokens?: number
-  finishedAt: Date
+  finishedAt: Date,
+  latencyMs: number
 }) => {
   const cost = calcCost(
     value.model,
@@ -100,6 +101,7 @@ export const saveMessage = async (value: {
     cost: cost.toString(),
     credits: creditsUsed,
     finished_at: value.finishedAt,
+    latency_ms: value.latencyMs,
   })
 
   // Report usage to Stripe asynchronously after saving to db

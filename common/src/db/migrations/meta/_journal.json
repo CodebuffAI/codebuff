@@ -71,6 +71,13 @@
       "when": 1732514890008,
       "tag": "0009_bitter_rumiko_fujikawa",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1733873293927,
+      "tag": "0010_overjoyed_red_skull",
+      "breakpoints": true
     }
   ]
 }

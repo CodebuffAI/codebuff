@@ -7,13 +7,7 @@
   "scripts": {
     "start": "bun run -r tsconfig-paths/register src/index.ts",
     "dev": "bun --hot run -r tsconfig-paths/register src/index.ts",
-    "prebuild": "bun clean && cd ../common && bun run ../scripts/build-version-info.js",
-    "build": "tsc --build && tsc-alias",
-    "postbuild": "mkdir -p dist/common && cp -R ../common/dist/* dist/common && tsc-alias",
-    "clean": "rm -rf dist && rm -f tsconfig.tsbuildinfo",
-    "test": "bun test",
-    "test:manifold": "bun test src/__tests__/manifold-project.test.ts",
-    "test:watch": "bun test --watch"
+    "build": "tsc --build && tsc-alias"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.27.3",
@@ -26,7 +20,7 @@
     "openai": "4.67.1",
     "pino": "9.4.0",
     "postgres": "3.4.4",
-    "tiktoken": "1.0.15",
+    "tiktoken": "1.0.17",
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
     "zod": "3.23.8"

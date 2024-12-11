@@ -52,8 +52,8 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
   )
 
   console.log('\nASK CODEBUFF TO...')
-  console.log('- Write unit tests')
   console.log('- Build a feature. Brain dump what you want first.')
+  console.log('- Write unit tests')
   console.log('- Refactor a component into multiple components')
   console.log('- Fix errors from compiling your project or running tests')
   console.log('- Write a script.')
@@ -75,6 +75,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
     '- Type "undo" or "redo" (abbreviated "u" or "r") to undo or redo the last change'
   )
   console.log('- Type "login" to log into Codebuff')
+  console.log('- Type "exit" or press Ctrl+C twice to exit Codebuff')
   console.log(
     '- Type "diff" or "d" to show changes from the last assistant response'
   )

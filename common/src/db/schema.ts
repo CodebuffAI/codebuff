@@ -120,6 +120,7 @@ export const message = pgTable(
     output_tokens: integer('output_tokens').notNull(),
     cost: numeric('cost', { precision: 100, scale: 20 }).notNull(),
     credits: integer('credits').notNull(),
+    latency_ms: integer('latency_ms'),
     user_id: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
     fingerprint_id: text('fingerprint_id')
       .references(() => fingerprint.id, { onDelete: 'cascade' })

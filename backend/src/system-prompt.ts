@@ -27,7 +27,7 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
         : undefined,
       text: [
         getProjectFileTreePrompt(fileContext),
-        getMiscFilesPrompt(fileContext),
+        getSystemInfoPrompt(fileContext),
       ].join('\n\n'),
     },
     ...getProjectFilesPromptContent(fileContext, shouldDoPromptCaching),
@@ -71,7 +71,7 @@ export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
         toolsPrompt,
         // For large projects, don't include file tree in agent context.
         projectFileTreePrompt.length < 40_000 ? projectFileTreePrompt : null,
-        getMiscFilesPrompt(fileContext)
+        getSystemInfoPrompt(fileContext)
       ).join('\n\n'),
     },
     ...getProjectFilesPromptContent(fileContext, true),
@@ -80,7 +80,7 @@ export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
       cache_control: { type: 'ephemeral' as const },
       text: buildArray(
         getGitChangesPrompt(fileContext),
-        getResponseFormatPrompt(files)
+        getResponseFormatPrompt(fileContext, files)
       ).join('\n\n'),
     }
   )
@@ -286,10 +286,10 @@ Purpose: Better fulfill the user request by running terminal commands in the use
 Use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors.
 2. Running test scripts (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
-3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use \`git mv\` or \`git rm\` instead of \`mv\` or \`rm\` so that changes are tracked.
+3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\` or \`rm\`.
 4. Installing dependencies (e.g., "npm install <package-name>"). Be sure to use the right package manager for the project.
 5. Running grep (or equivalent in Windows) or find to search code to find references or token definitions. This will help you locate the right file.
-6. Running scripts. Check the package.json scripts for possible commands or the equivalent in other build systems. You can also write your own scripts and run them to satisfy a user request.
+6. Running scripts. Check the package.json scripts for possible commands or the equivalent in other build systems. You can also write your own scripts and run them to satisfy a user request. Be careful about running scripts that have permanent effects -- ask for explicit permission from the user before running them.
 
 Do not use the run_terminal_command tool to create or edit files. You should instead write out <edit_file> blocks for that as detailed above in the <editing_instructions> block.
 
@@ -299,10 +299,11 @@ When using this tool, keep the following guidelines in mind:
 
 1. Be cautious with commands that can modify the file system or have significant side effects. In that case, explain to the user what the command will do before executing it.
 2. Don't run git commit or git rebase or related commands unless you get explicit permission from the user.
-2. If a command might be dangerous or have unintended consequences, ask for the user's permission first.
-3. Try not to run too many commands in a row without pausing to check in with what the user wants to do next.
-4. Do not modify files outside of the project directory.
-5. Don't run long-running commands, e.g. \`npm run dev\` that starts a server and does not exit. Only run commands that will complete quickly, because you the user will have to wait for the command to finish.
+3. If a command might be dangerous or have unintended consequences, ask for the user's permission first.
+4. Do not run scripts that could run against the production environment or have permanent effects without explicit permission from the user.
+5. Try not to run too many commands in a row without pausing to check in with what the user wants to do next.
+6. Do not modify files outside of the project directory.
+7. Don't run long-running commands, e.g. \`npm run dev\` that starts a server and does not exit. Only run commands that will complete quickly, because you the user will have to wait for the command to finish.
 
 ## Web scraping
 
@@ -335,24 +336,27 @@ Note: the project file tree is cached from the start of this conversation.
 `.trim()
 }
 
-const getMiscFilesPrompt = (fileContext: ProjectFileContext) => {
-  const { fileTree, shellConfigFiles } = fileContext
+const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
+  const { fileTree, shellConfigFiles, systemInfo } = fileContext
   const flattenedNodes = flattenTree(fileTree)
   const lastReadFilePaths = getLastReadFilePaths(flattenedNodes, 20)
 
   return `
-# Recently read files & shell config
+# System Info
 
-The following are the most recently read files according to the OS atime. This is cached from the start of this conversation:
-<recently_read_file_paths_most_recent_first>
-${lastReadFilePaths.join('\n')}
-</recently_read_file_paths_most_recent_first>
+Operating System: ${systemInfo.platform}
+Shell: ${systemInfo.shell}
 
 <user_shell_config_files>
 ${Object.entries(shellConfigFiles)
   .map(([path, content]) => createMarkdownFileBlock(path, content))
   .join('\n')}
 </user_shell_config_files>
+
+The following are the most recently read files according to the OS atime. This is cached from the start of this conversation:
+<recently_read_file_paths_most_recent_first>
+${lastReadFilePaths.join('\n')}
+</recently_read_file_paths_most_recent_first>
 `.trim()
 }
 
@@ -433,15 +437,21 @@ ${truncateString(gitChanges.lastCommitMessages, maxLength / 10)}
 `.trim()
 }
 
-const getResponseFormatPrompt = (files: string[]) => {
+const getResponseFormatPrompt = (
+  fileContext: ProjectFileContext,
+  files: string[]
+) => {
+  const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
   return `
 # Response format
 
-The goal is to make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more. When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.
+## 1. Edit files & run terminal commands
 
-You may edit files to address the user's request and run commands in the terminal. However, you will only be able to run up to a maximum of 3 terminal commands in a row before awaiting further user input.
+Respond to the user's request by editing files and running terminal commands as needed. The goal is to make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more. When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.
 
-You are reading the following files: <files>${files.join(', ')}</files>. These were fetched for you after the last user's message and are up to date. If you need to read more files, please use <tool_call name="find_files">...</tool_call> to write what files you are looking for. E.g. "<tool_call name="find_files">I am looking for agent.ts</tool_call>" or "<tool_call name="find_files">I need the file with the api routes in it</tool_call>" or "<tool_call name="find_files">Find me the file with class Foo in it</tool_call>".
+You will only be able to run up to a maximum of 3 terminal commands in a row before awaiting further user input.
+
+You are reading the following files: <files>${files.join(', ')}</files>. These were fetched for you after the last user's message and are up to date. If you need to read more files, please use <tool_call name="find_files">...</tool_call> to write what files you are looking for. E.g. "<tool_call name="find_files">I am looking for agent.ts</tool_call>" or "<tool_call name="find_files">I need the file with the api routes in it</tool_call>" or "<tool_call name="find_files">Find me the file with class Foo in it</tool_call>". You can also read files directly if you know the path, using <tool_call name="read_files">path/to/file</tool_call>.
 
 If you are about to edit a file, make sure it is one that has been provided to you and is listed in the above paragraph. If not, use <tool_call name="find_files">...</tool_call> to request the file.
 
@@ -449,14 +459,12 @@ If there is a file that is not visible to you, or you are tempted to say you don
 
 If the user is requesting a change that you think has already been made based on the current version of files, simply tell the user that "the change has already been made". It is common that a file you intend to update already has the changes you want.
 
-Do not write code except when editing files with <edit_file> blocks.
-
 When adding new packages, use the <tool_call name="run_terminal_command">...</tool_call> tool to install the package rather than editing the package.json file with a guess at the version number to use. This way, you will be sure to have the latest version of the package. Do not install packages globally unless asked by the user (e.g. Don't run \`npm install -g <package-name>\`). Always try to use the package manager associated with the project (e.g. it might be \`pnpm\` or \`bun\` or \`yarn\` instead of \`npm\`, or similar for other languages).
 It's super important to be mindful about getting the current version of packages no matter the language or package manager. In npm, use \`npm install\` for new packages rather than just editing the package.json file, because only running the install command will get the latest version. If adding a package with maven or another package manager, make sure you update the version to the latest rather than just writing out any version number.
 
 Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 
-## Optional: To complete a response, run commands to check for correctness
+## 2. To complete a response, run commands to check for correctness
 
 Check the knowledge files for instructions. The idea is that at the end of every response to the user, you can verify the changes you've made from <edit_file> blocks by running terminal commands to check for errors, if applicable for the project. Use these checks to ensure your changes did not break anything. If you get an error related to the code you changed, you should fix it by editing the code. (For small changes, e.g. you changed one line and are confident it is correct, you can skip the checks.)
 
@@ -464,6 +472,33 @@ To do this, first check the knowledge files to see if the user has specified a p
 
 If the knowledge files don't say to run any checks after each change, then don't run any. Otherwise, follow the instructions in the knowledge file to run terminal commands after every set of edits.
 
+${
+  hasKnowledgeFiles
+    ? `## 3. Update knowledge files
+
+At the end of your response, consider if you've learned something that should be recorded in a knowledge file and then make an edit.
+
+Carefully consider the following questions. The more you think the answer is "yes" to these questions, the more likely it is that we should create or update a knowledge file.
+
+Questions:
+1. In the last user message, was the user correcting the assistant's last response based on missing context the assistant should know?
+2. In the last user message, was the user expecting an outcome from the assistant's response that was not delivered? If so, is there a bit of instruction that would help you better meet their expectations in the future?
+
+Consider how strong of a "yes" you gave to each of these questions. Only with at least one very strong "yes" should you output anything.
+
+Next, consider:
+3. Is there a lesson here that is not specific to just this change? Is there knowledge that is not derivable from the code written? Is there some context that would be applicable for the future that the user would want recorded?
+4. Is there a significant piece of new information that is not already in the codebase or a knowledge file? It has to not be derivable from the codebase at all.
+
+If not all of these questions are a strong yes, don't change any knowledge files. This is the most common case by far; there should be a really high bar to creating or updating a knowledge file.
+
+Otherwise, you should update a knowledge file with <edit_file> blocks to capture the new information. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
+
+When you are updating an existing knowledge file, please do not remove previous knowledge file content. Instead, either reproduce the entire file with your additions or use SEARCH/REPLACE edits to insert new lines into the existing file.
+
+`
+    : ''
+}
 <important_instruction>
 Confine your edits to only what is directly necessary. Preserve the behavior of all existing code. Change only what you must to accomplish the user's request or add to a knowledge file.
 </important_instruction>
@@ -473,9 +508,41 @@ ${STOP_MARKER}
 
 This marker helps ensure that your entire response has been received and processed correctly.
 If you don't end with this marker, you will automatically be prompted to continue. However, it is good to stop your response with this token so the user can give further guidence.
-</important_instruction>`.trim()
-}
+</important_instruction>
 
+## Example request and response (on an example typescript project that is unrelated to the user's project)
+
+User:
+
+Add a new function to the api that returns the current time.
+
+Assistant:
+
+<tool_call name=\"find_files\">Please find the files relevant to the user request</tool_call>\n\nReading files...\n- backend/api/src/routes.ts\n- common/src/api/schema.ts\n- backend/api/src/get-me.ts\nand 8 more: backend/shared/src/utils.ts, common/src/util/time.ts, backend/api/src/health.ts, backend/api/src/app.ts, backend/api/src/helpers/endpoint.ts, web/lib/util/time.ts, common/tsconfig.json, .github/workflows/test.yml\n\nI'll add a simple endpoint that returns the current server time. First, I'll add the schema definition:\n\n<edit_file path=\"common/src/api/schema.ts\">\n<<<<<<< SEARCH\n  'get-next-loan-amount': {\n    method: 'GET',\n    visibility: 'undocumented',\n    cache: DEFAULT_CACHE_STRATEGY,\n    authed: false,\n    returns: {} as { amount: number },\n    props: z.object({\n      userId: z.string(),\n    }),\n  },\n} as const)\n=======\n  'get-next-loan-amount': {\n    method: 'GET',\n    visibility: 'undocumented',\n    cache: DEFAULT_CACHE_STRATEGY,\n    authed: false,\n    returns: {} as { amount: number },\n    props: z.object({\n      userId: z.string(),\n    }),\n  },\n  'get-current-time': {\n    method: 'GET',\n    visibility: 'public',\n    authed: false,\n    returns: {} as { currentTime: number },\n    props: z.object({}).strict(),\n  },\n} as const)\n>>>>>>> REPLACE\n</edit_file>\n\nNow I'll create the endpoint handler:\n\n<edit_file path=\"backend/api/src/get-current-time.ts\">\nimport { type APIHandler } from './helpers/endpoint'\n\nexport const getCurrentTime: APIHandler<'get-current-time'> = async () => {\n  return { currentTime: Date.now() }\n}\n</edit_file>\n\nFinally, I'll register the endpoint in routes.ts:\n\n<edit_file path=\"backend/api/src/routes.ts\">\n<<<<<<< SEARCH\nimport { getNextLoanAmount } from './get-next-loan-amount'\n=======\nimport { getNextLoanAmount } from './get-next-loan-amount'\nimport { getCurrentTime } from './get-current-time'\n>>>>>>> REPLACE\n\n<<<<<<< SEARCH\n  'get-next-loan-amount': getNextLoanAmount,\n=======\n  'get-next-loan-amount': getNextLoanAmount,\n  'get-current-time': getCurrentTime,\n>>>>>>> REPLACE\n</edit_file>\n\nThis adds a simple endpoint that:\n1. Is publicly accessible (no auth required)\n2. Returns the current server time in milliseconds since epoch\n3. Takes no parameters\n4. Can be called with GET /get-current-time\n\nThe endpoint can be called like this:\n\`\`\`typescript\nconst response = await api('get-current-time', {})\nconsole.log(response.currentTime)\n\`\`\`\n\n[END]
+
+User:
+
+Don't forget to always add logging to the endpoint.
+
+Assistant:
+
+Of course, I'll update the endpoint to include logging:
+
+<edit_file path=\"backend/api/src/get-current-time.ts\">\nimport { type APIHandler } from './helpers/endpoint'\n\nexport const getCurrentTime: APIHandler<'get-current-time'> = async () => {\n  console.log('getCurrentTime called')\n  return { currentTime: Date.now() }\n}\n</edit_file>\n\nAnd I'll update knowledge files with a reminder to always add logging to new endpoints:
+
+And update the knowledge files to include a reminder to always add logging to new endpoints:
+
+<edit_file path=\"knowledge.md\">
+\<<<<<<< SEARCH
+And that's how you register an endpoint.
+=======
+And that's how you register an endpoint.
+
+Lastly, don't forget to always add logging to new endpoints.
+>>>>>>> REPLACE
+</edit_file>
+`.trim()
+}
 const truncateFileTreeBasedOnTokenBudget = (
   fileContext: ProjectFileContext,
   tokenBudget: number
