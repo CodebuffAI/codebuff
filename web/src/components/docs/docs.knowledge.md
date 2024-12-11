@@ -145,6 +145,21 @@ Important: For mobile navigation:
 - Always handle missing MDX files gracefully with try/catch or existence checks
 - Example: For CTA content that may not exist in every category
 
+### Component Separation Patterns
+- When separating list items with dividers:
+  - Prefer CSS Grid with divide utilities over manual separators
+  - Note: divide-y requires items to be directly adjacent
+  - When using gap with divide-y, the divider may appear uneven
+  - For equal spacing, either:
+    - Use padding instead of gap
+    - Use explicit Separator components
+  - Example pattern with divide-y:
+  ```tsx
+  <div className="grid divide-y divide-border">
+    {items.map(item => <Item key={item.id} {...item} />)}
+  </div>
+  ```
+
 ### Navigation Components
 
 - Sidebar must handle both scroll and navigation

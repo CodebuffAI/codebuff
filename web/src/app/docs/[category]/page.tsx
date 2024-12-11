@@ -6,7 +6,6 @@ import { getDocsByCategory } from '@/lib/docs'
 import dynamic from 'next/dynamic'
 import { useMDXComponent } from 'next-contentlayer/hooks'
 import { Check, Link } from 'lucide-react'
-import { Separator } from '@/components/ui/separator'
 import { useEffect, useState } from 'react'
 import type { Doc } from '@/types/docs'
 
@@ -99,12 +98,10 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-12">
-      {sortedDocs
-        .map((doc) => (
-          <DocPage key={doc.slug} doc={doc} components={components} />
-        ))
-        .join(<Separator />)}
+    <div className="max-w-3xl mx-auto grid divide-y divide-border [&>*]:py-12 first:[&>*]:pt-0 last:[&>*]:pb-0">
+      {sortedDocs.map((doc) => (
+        <DocPage key={doc.slug} doc={doc} components={components} />
+      ))}
     </div>
   )
 }
