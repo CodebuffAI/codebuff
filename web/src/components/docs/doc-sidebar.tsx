@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { getDocsByCategory, getNewsArticles } from '@/lib/docs'
+import { getDocsByCategory, getNewsArticles, NewsArticle } from '@/lib/docs'
 import { useEffect, useState } from 'react'
 
 export const sections = [
@@ -43,12 +43,6 @@ export const sections = [
     })),
     external: false,
   },
-  {
-    title: 'News',
-    href: 'https://news.codebuff.com',
-    external: true,
-    subsections: [], // Will be populated dynamically
-  },
 ]
 
 export function DocSidebar({
@@ -59,7 +53,7 @@ export function DocSidebar({
   onNavigate: () => void
 }) {
   const pathname = usePathname()
-  const [newsArticles, setNewsArticles] = useState([])
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([])
 
   useEffect(() => {
     async function fetchNews() {
@@ -73,9 +67,19 @@ export function DocSidebar({
     fetchNews()
   }, [])
 
+  const allSections = [
+    ...sections,
+    {
+      title: 'News',
+      href: 'https://news.codebuff.com',
+      external: true,
+      subsections: newsArticles,
+    },
+  ]
+
   return (
     <nav className={cn('space-y-4', className)}>
-      {sections.map((section) => (
+      {allSections.map((section) => (
         <div key={section.href}>
           <Link
             href={section.href}

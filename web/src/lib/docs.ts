@@ -9,20 +9,26 @@ export function getDocsByCategory(category: string) {
     .sort((a: Doc, b: Doc) => (a.order ?? 0) - (b.order ?? 0))
 }
 
-export async function getNewsArticles() {
+export interface NewsArticle {
+  title: string
+  href: string
+  external: boolean
+}
+
+export async function getNewsArticles(): Promise<NewsArticle[]> {
   try {
     const res = await fetch('https://news.codebuff.com/feed')
     const text = await res.text()
     // Parse XML string directly without DOMParser
     const items = text.match(/<item>[\s\S]*?<\/item>/g) || []
-    
-    return items.map(item => {
+
+    return items.map((item) => {
       const title = item.match(/<title>\s*<!\[CDATA\[(.*?)\]\]>/)?.[1] || ''
       const href = item.match(/<link>(.*?)<\/link>/)?.[1] || ''
       return {
         title,
         href,
-        external: true
+        external: true,
       }
     })
   } catch (error) {
