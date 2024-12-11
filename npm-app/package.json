@@ -16,6 +16,7 @@
     "prepublishOnly": "bun run build && bun run clean-package.js",
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "test": "bun test",
     "start-js": "bun run with-env -- node dist/index.js ..",
     "start": "bun run build && bun run with-env -- ts-node src/index.ts .. --auto-git",
     "start-dir": "bun run with-env -- ts-node src/index.ts",
@@ -57,5 +58,12 @@
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
     "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.1",
+    "bun-types": "^1.1.38",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5"
   }
 }

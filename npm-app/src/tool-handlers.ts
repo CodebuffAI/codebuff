@@ -20,7 +20,7 @@ export const handleScrapeWebPage: ToolHandler = async (
 }
 
 // Persistent shell session
-let persistentShell: ReturnType<typeof spawn> | null = null
+export let persistentShell: ReturnType<typeof spawn> | null = null
 
 export const handleRunTerminalCommand = async (
   input: { command: string },
@@ -51,7 +51,11 @@ export const handleRunTerminalCommand = async (
 
     const timer = setTimeout(() => {
       if (mode === 'assistant') {
-        childProcess.kill()
+        // Send Ctrl+C to interrupt the current command
+        childProcess.stdin?.write(Buffer.from([0x03]))
+        // Clean up listeners after interruption
+        childProcess.stdout?.removeAllListeners('data')
+        childProcess.stderr?.removeAllListeners('data')
         resolve({
           result: formatResult(
             stdout,
@@ -64,6 +68,11 @@ export const handleRunTerminalCommand = async (
       }
     }, MAX_EXECUTION_TIME)
 
+    // Remove any existing listeners
+    childProcess.stdout?.removeAllListeners('data')
+    childProcess.stderr?.removeAllListeners('data')
+
+    // Add new listeners for this command
     childProcess.stdout?.on('data', (data) => {
       process.stdout.write(data.toString())
       stdout += data.toString()
@@ -108,6 +117,9 @@ export const handleRunTerminalCommand = async (
       }
 
       clearTimeout(timer)
+      // Clean up listeners after completion
+      childProcess.stdout?.removeAllListeners('data')
+      childProcess.stderr?.removeAllListeners('data')
       resolve({
         result: formatResult(stdout, stderr, 'Command completed', code),
         stdout,
@@ -120,6 +132,9 @@ export const handleRunTerminalCommand = async (
 
     childProcess.on('error', (error) => {
       clearTimeout(timer)
+      // Clean up listeners after error
+      childProcess.stdout?.removeAllListeners('data')
+      childProcess.stderr?.removeAllListeners('data')
       resolve({
         result: `<terminal_command_error>Failed to execute command: ${error.message}</terminal_command_error>`,
         stdout,
