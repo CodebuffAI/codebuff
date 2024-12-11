@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { getDocsByCategory, getNewsArticles, NewsArticle } from '@/lib/docs'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 export const sections = [
   {
@@ -55,27 +55,27 @@ export function DocSidebar({
   const pathname = usePathname()
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([])
 
+  const allSections = useMemo(
+    () => [
+      ...sections,
+      {
+        title: 'News',
+        href: 'https://news.codebuff.com',
+        external: true,
+        subsections: newsArticles,
+      },
+    ],
+    [newsArticles]
+  )
+
   useEffect(() => {
     async function fetchNews() {
       const articles = await getNewsArticles()
       setNewsArticles(articles)
-
-      // Update the News section with the articles
-      sections.find((s) => s.title === 'News')!.subsections = articles
     }
 
     fetchNews()
   }, [])
-
-  const allSections = [
-    ...sections,
-    {
-      title: 'News',
-      href: 'https://news.codebuff.com',
-      external: true,
-      subsections: newsArticles,
-    },
-  ]
 
   return (
     <nav className={cn('space-y-4', className)}>
