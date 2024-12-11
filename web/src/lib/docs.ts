@@ -17,7 +17,9 @@ export interface NewsArticle {
 
 export async function getNewsArticles(): Promise<NewsArticle[]> {
   try {
-    const res = await fetch('https://news.codebuff.com/feed')
+    const res = await fetch('https://news.codebuff.com/feed', {
+      mode: 'no-cors'
+    })
     const text = await res.text()
     // Parse XML string directly without DOMParser
     const items = text.match(/<item>[\s\S]*?<\/item>/g) || []
