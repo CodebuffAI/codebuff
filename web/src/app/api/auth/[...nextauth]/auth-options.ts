@@ -10,7 +10,6 @@ import { eq } from 'drizzle-orm'
 import { Adapter } from 'next-auth/adapters'
 import { parse, format } from 'url'
 import { CREDITS_USAGE_LIMITS } from 'common/constants'
-import { getNextQuotaReset } from 'common/src/util/dates'
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {

@@ -62,11 +62,11 @@ export const account = pgTable(
     id_token: text('id_token'),
     session_state: text('session_state'),
   },
-  (account) => ({
-    compoundKey: primaryKey({
+  (account) => [
+    primaryKey({
       columns: [account.provider, account.providerAccountId],
     }),
-  })
+  ]
 )
 
 export const referral = pgTable(
@@ -85,9 +85,7 @@ export const referral = pgTable(
       .defaultNow(),
     completed_at: timestamp('completed_at', { mode: 'date' }),
   },
-  (table) => ({
-    pk: primaryKey({ columns: [table.referrer_id, table.referred_id] }),
-  })
+  (table) => [primaryKey({ columns: [table.referrer_id, table.referred_id] })]
 )
 export const fingerprint = pgTable('fingerprint', {
   id: text('id').primaryKey(),
@@ -128,12 +126,10 @@ export const message = pgTable(
       .references(() => fingerprint.id, { onDelete: 'cascade' })
       .notNull(),
   },
-  (table) => ({
-    message_fingerprint_id_idx: index('message_fingerprint_id_idx').on(
-      table.fingerprint_id
-    ),
-    message_user_id_idx: index('message_user_id_idx').on(table.user_id),
-  })
+  (table) => [
+    index('message_fingerprint_id_idx').on(table.fingerprint_id),
+    index('message_user_id_idx').on(table.user_id),
+  ]
 )
 
 export const session = pgTable('session', {
@@ -152,7 +148,5 @@ export const verificationToken = pgTable(
     token: text('token').notNull(),
     expires: timestamp('expires', { mode: 'date' }).notNull(),
   },
-  (vt) => ({
-    compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
-  })
+  (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
 )

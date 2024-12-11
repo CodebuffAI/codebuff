@@ -30,12 +30,8 @@ export const Navbar = async () => {
         <span className="font-mono text-2xl font-bold">Codebuff</span>
       </Link>
       <nav className="hidden md:flex space-x-4">
-        <Link
-          href="https://news.codebuff.com"
-          target="_blank"
-          className="hover:text-blue-400 transition-colors"
-        >
-          News
+        <Link href={`/docs`} className="hover:text-blue-400 transition-colors">
+          Docs
         </Link>
         <Link href="/pricing" className="hover:text-blue-400 transition-colors">
           Pricing

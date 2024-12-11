@@ -105,6 +105,7 @@ When displaying inline code snippets with copy buttons:
 ## Component Architecture
 
 ### Success State Pattern
+
 - Use CardWithBeams component for success/completion states
 - Examples: Payment success, onboarding completion
 - Consistent layout:
@@ -149,6 +150,7 @@ When displaying inline code snippets with copy buttons:
 ### UI Patterns
 
 For expandable/collapsible UI elements:
+
 - Use React state management instead of CSS-only solutions
 - Track currently open item with useState to ensure only one section is open at a time
 - Toggle visibility by swapping icons rather than rotating them
@@ -184,6 +186,7 @@ Example of correct ordering:
 Important considerations for interactive components:
 
 1. Pricing Cards Layout:
+
    - Pricing cards must remain in a single row
    - Use appropriate grid column settings to accommodate all tiers
    - Current layout supports 4 cards: Free, Pro Plus, Pro, and Enterprise
@@ -197,7 +200,7 @@ Important considerations for interactive components:
    - Banner and other top-level interactive components use z-20
    - Ensure parent elements have `position: relative` when using z-index
 
-2. Common Issues:
+3. Common Issues:
    - Components may appear but not be clickable if z-index is too low
    - Moving components inside providers alone may not fix interactivity
    - Always check both provider context and z-index when debugging click events
@@ -359,6 +362,7 @@ Key functions:
 ### Subscription Updates
 
 Important: When updating Stripe subscriptions:
+
 - Cannot add duplicate prices to a subscription - each price can only be used once
 - When updating existing items, pass the subscription item ID in the items array:
   ```js
@@ -371,9 +375,9 @@ Important: When updating Stripe subscriptions:
 - Never delete subscription items before adding new ones - this can cause subscription to become invalid
 - Map existing items to new prices while preserving their IDs:
   ```js
-  items = subscription.items.data.map(item => ({
+  items = subscription.items.data.map((item) => ({
     id: item.id,
-    price: newPriceId
+    price: newPriceId,
   }))
   ```
 - Set `proration_behavior: 'none'` to avoid partial period charges
