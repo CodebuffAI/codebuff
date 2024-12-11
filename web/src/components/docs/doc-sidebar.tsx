@@ -13,6 +13,7 @@ export const sections = [
       title: doc.title,
       href: `/docs/help/${doc.slug}`,
     })),
+    external: false,
   },
   {
     title: 'Tips & Tricks',
@@ -21,6 +22,7 @@ export const sections = [
       title: doc.title,
       href: `/docs/tips/${doc.slug}`,
     })),
+    external: false,
   },
   {
     title: 'Project Showcase',
@@ -29,6 +31,7 @@ export const sections = [
       title: doc.title,
       href: `/docs/showcase/${doc.slug}`,
     })),
+    external: false,
   },
   {
     title: 'Case Studies',
@@ -37,6 +40,12 @@ export const sections = [
       title: doc.title,
       href: `/docs/case-studies/${doc.slug}`,
     })),
+    external: false,
+  },
+  {
+    title: 'News',
+    href: 'https://news.codebuff.com',
+    external: true,
   },
 ]
 
@@ -59,6 +68,7 @@ export function DocSidebar({
               const sheet = document.querySelector('[data-state="open"]')
               if (sheet) sheet.setAttribute('data-state', 'closed')
             }}
+            target={section.external ? '_blank' : undefined}
             className={cn(
               'block px-3 py-2 hover:bg-accent rounded-md transition-colors',
               pathname === section.href && 'bg-accent'
