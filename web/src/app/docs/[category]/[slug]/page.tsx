@@ -18,8 +18,10 @@ export default function DocPage({ params }: DocPageProps) {
   const doc = (allDocs as Doc[]).find(
     (doc: Doc) => doc.category === params.category && doc.slug === params.slug
   )
+  console.log('doc?.slug', doc?.slug)
 
   const MDXContent = useMDXComponent(doc?.body.code ?? '')
+  const CtaContent = useMDXComponent(doc?.ctaContent ?? '')
   if (!doc) {
     return notFound()
   }
@@ -33,7 +35,12 @@ export default function DocPage({ params }: DocPageProps) {
   return (
     <div className="max-w-3xl mx-auto">
       <article className="prose dark:prose-invert">
-        <MDXContent components={components} />
+        {!doc.slug.startsWith('_') && <MDXContent components={components} />}
+        {doc.ctaContent && (
+          <div className="mt-12 border-t pt-8">
+            <CtaContent />
+          </div>
+        )}
       </article>
     </div>
   )

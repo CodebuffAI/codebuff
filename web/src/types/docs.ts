@@ -7,7 +7,6 @@ export interface Doc {
   order?: number
   slug: string
   category: string
-  body: {
-    code: string
-  }
+  body: MDX
+  ctaContent?: string
 }

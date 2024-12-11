@@ -16,9 +16,17 @@ interface CategoryPageProps {
 
 const DocPage = ({ doc, components }: { doc: Doc; components: any }) => {
   const MDXContent = useMDXComponent(doc.body.code)
+  console.log('doc.body.code', doc.body.code)
+  const CtaContent = useMDXComponent(doc.ctaContent ?? '')
+
   return (
     <article className="prose dark:prose-invert prose-compact">
       <MDXContent components={components} />
+      {doc.ctaContent && (
+        <div className="mt-12 border-t pt-8">
+          <CtaContent components={components} />
+        </div>
+      )}
     </article>
   )
 }
