@@ -251,7 +251,7 @@ const Home = () => {
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 px-4 md:px-0">
             FAQ
           </h2>
-          <div className="max-w-3xl mx-auto space-y-4">
+          <div className="max-w-3xl mx-auto space-y-4 px-4">
             {faqs.map((item, index) => (
               <details key={index} open={openFaqIndex === index}>
                 <summary

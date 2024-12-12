@@ -19,9 +19,9 @@ export function CodeDemo({ children, language }: CodeDemoProps) {
   }
 
   return (
-    <div className="rounded-lg border px-2">
+    <div className="rounded-lg border px-2 justify-self-center w-80 md:w-full">
       <div className="flex items-center justify-between">
-        <div className="text-xs text-muted-foreground py-2 font-mono">
+        <div className="text-xs text-muted-foreground pl-1 py-2 font-mono">
           {language}
         </div>
         {copied ? (
@@ -34,7 +34,7 @@ export function CodeDemo({ children, language }: CodeDemoProps) {
         )}
       </div>
       {language && <Separator />}
-      <pre className="text-sm my-2 bg-background text-foreground rounded-lg">
+      <pre className="text-sm my-2 bg-background text-foreground rounded-lg overflow-x-auto">
         <code>{children}</code>
       </pre>
     </div>
