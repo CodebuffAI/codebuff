@@ -17,7 +17,7 @@ import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 
 export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
   const { fileVersions } = fileContext
-  const shouldDoPromptCaching = fileVersions.length > 1
+  const shouldDoPromptCaching = false // fileVersions.length > 1
 
   const systemPrompt = buildArray(
     {
