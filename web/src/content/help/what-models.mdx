@@ -1,0 +1,19 @@
+---
+title: 'What models do you use?'
+section: 'help'
+tags: ['introduction', 'faq']
+order: 2
+---
+
+# What models do you use?
+
+We primarily use Claude 3.5 Sonnet for the coding, and Claude 3.5 Haiku to find relevant files.
+
+Codebuff also uses GPT-4o-mini as a fallback to rewrite files with an intended edit (using their fancy Predicted Outputs API).
+
+We have two new modes, which slightly changes the models we use:
+
+- `--pro`: uses Sonnet for searching for files instead of Haiku, meaning it gets better context on your codebase. It also gets more files. It uses gpt4o instead gpt4o-mini to decide whether more files are needed.
+- `--lite`: uses Haiku for editing instead of Sonnet (1/3 cost). It also pulls way fewer files, meaning that the context cost will be much smaller
+
+You can use `--pro` or `--lite` to switch between the two models at startup time!

@@ -45,6 +45,9 @@ export default function CategoryPage({ params }: CategoryPageProps) {
     CodeDemo: dynamic(() =>
       import('@/components/docs/mdx/code-demo').then((mod) => mod.CodeDemo)
     ),
+    a: dynamic(() =>
+      import('@/components/docs/mdx/custom-link').then((mod) => mod.CustomLink)
+    ),
     h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => {
       // eslint-disable-next-line react-hooks/rules-of-hooks
       const [copied, setCopied] = useState(false)
