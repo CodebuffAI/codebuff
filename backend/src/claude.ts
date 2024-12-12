@@ -47,9 +47,9 @@ async function* promptClaudeStreamWithoutRetry(
     awsAccessKey: env.AWS_ACCESS_KEY_ID,
     awsSecretKey: env.AWS_SECRET_ACCESS_KEY,
     awsRegion: 'us-west-2',
-    performanceConfig: {
-      latency: 'optimized',
-    },
+    // performanceConfig: {
+    //   latency: 'optimized',
+    // },
     // ...(ignoreDatabaseAndHelicone
     //   ? {}
     //   : {
