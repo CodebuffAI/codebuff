@@ -31,8 +31,7 @@ export async function requestRelevantFiles(
   const previousFiles = uniq(
     fileVersions.flatMap((files) => files.map(({ path }) => path))
   )
-  const countPerRequest =
-    costMode === 'expensive' ? 6 : costMode === 'cheap' ? 7 : 5
+  const countPerRequest = costMode === 'pro' ? 6 : costMode === 'lite' ? 7 : 5
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -160,9 +159,9 @@ async function generateFileRequests(
     return { files: [], duration: 0 }
   })
 
-  // Only create additional file request promises if not in cheap mode
+  // Only create additional file request promises if not in lite mode
   let promises = [keyPromise]
-  if (costMode !== 'cheap') {
+  if (costMode !== 'lite') {
     const examplePrompt = generateExampleFilesPrompt(
       userPrompt,
       assistantPrompt,

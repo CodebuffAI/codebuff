@@ -58,6 +58,7 @@ Key methods:
 ### Subscription Migrations
 
 Important: When migrating subscriptions to new prices:
+
 - Preserve existing usage meter records for 'Credits'
 - Don't reset usage data during price changes
 - Ensure fair billing by carrying forward accumulated usage
@@ -65,6 +66,7 @@ Important: When migrating subscriptions to new prices:
 - Use the dedicated credits meter ID (mtr_test_61RUgv7ouoAAMKoE341KrNS6SjmqWUXA) when tracking usage
 
 When preserving usage data during migrations:
+
 - Use billing.meters.listEventSummaries to get historical usage
 - Calculate usage from start of current invoice period
 - This ensures accurate billing across subscription changes
@@ -76,6 +78,7 @@ When preserving usage data during migrations:
   - Important: Record usage before updating subscription items to prevent gaps in billing
 
 When preserving usage data during migrations:
+
 - Use billing.meterEvents.create to record usage
 - Required payload fields:
   - event_name: The meter name (e.g. 'credits')
@@ -139,6 +142,7 @@ Important: When sending meter events to Stripe:
 ### Subscription Migrations
 
 Important: When migrating subscriptions to new prices:
+
 - Preserve existing usage meter records for 'Credits'
 - Don't reset usage data during price changes
 - Ensure fair billing by carrying forward accumulated usage
@@ -171,7 +175,7 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 ## Best Practices
 
 1. Always use `getQuotaManager` to obtain the correct quota manager instance.
-2. Perform quota checks before processing expensive operations.
+2. Perform quota checks before processing pro operations.
 3. Update quotas after successful operations that consume credits.
 4. Ensure proper error handling for quota exceeded scenarios.
 5. Regularly review and adjust pricing and quota limits based on usage patterns.
@@ -212,25 +216,27 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 ## Stripe API Best Practices
 
 ### Pagination
+
 - All Stripe list endpoints have a default limit of 100 items
 - Always implement pagination when using list endpoints to ensure processing all records
 - Use has_more and starting_after parameters to paginate through results
 - Example pagination pattern:
+
   ```typescript
-  let hasMore = true;
-  let lastId = undefined;
-  
+  let hasMore = true
+  let lastId = undefined
+
   while (hasMore) {
     const response = await stripeServer.customers.list({
       limit: 100,
-      starting_after: lastId
-    });
-    
+      starting_after: lastId,
+    })
+
     // Process response.data
-    
-    hasMore = response.has_more;
+
+    hasMore = response.has_more
     if (hasMore) {
-      lastId = response.data[response.data.length - 1].id;
+      lastId = response.data[response.data.length - 1].id
     }
   }
   ```
@@ -238,6 +244,7 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 ## Price Tiers and Migration Handling
 
 Important: Some customers are on legacy or special pricing tiers that require manual handling during migrations:
+
 - $499/mo tier customers require manual migration
 - Do not include these customers in automated price update scripts
 - Always verify subscription price before automated updates

@@ -89,7 +89,7 @@ export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
       }
 export const CREDITS_REFERRAL_BONUS = 500
 
-export const costModes = ['cheap', 'normal', 'expensive'] as const
+export const costModes = ['lite', 'normal', 'pro'] as const
 export type CostMode = (typeof costModes)[number]
 
 export const getModelForMode = (
@@ -97,13 +97,13 @@ export const getModelForMode = (
   operation: 'agent' | 'file-requests' | 'check-new-files'
 ) => {
   if (operation === 'agent') {
-    return costMode === 'cheap' ? claudeModels.haiku : claudeModels.sonnet
+    return costMode === 'lite' ? claudeModels.haiku : claudeModels.sonnet
   }
   if (operation === 'file-requests') {
-    return costMode === 'expensive' ? claudeModels.sonnet : claudeModels.haiku
+    return costMode === 'pro' ? claudeModels.sonnet : claudeModels.haiku
   }
   if (operation === 'check-new-files') {
-    return costMode === 'expensive' ? models.gpt4o : models.gpt4omini
+    return costMode === 'pro' ? models.gpt4o : models.gpt4omini
   }
   throw new Error(`Unknown operation: ${operation}`)
 }

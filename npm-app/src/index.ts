@@ -54,12 +54,12 @@ if (require.main === module) {
   }
 
   let costMode: CostMode = 'normal'
-  if (args.includes('--cheap')) {
-    costMode = 'cheap'
-    args.splice(args.indexOf('--cheap'), 1)
-  } else if (args.includes('--expensive')) {
-    costMode = 'expensive'
-    args.splice(args.indexOf('--expensive'), 1)
+  if (args.includes('--lite')) {
+    costMode = 'lite'
+    args.splice(args.indexOf('--lite'), 1)
+  } else if (args.includes('--pro')) {
+    costMode = 'pro'
+    args.splice(args.indexOf('--pro'), 1)
   }
 
   const projectPath = args[0]
@@ -77,10 +77,10 @@ if (require.main === module) {
     console.log()
     console.log('Options:')
     console.log(
-      '  --cheap                         Use lower quality models & fetch fewer files'
+      '  --lite                          Use budget models & fetch fewer files'
     )
     console.log(
-      '  --expensive                     Use higher quality models and fetch more files'
+      '  --pro                           Use higher quality models and fetch more files'
     )
     console.log(
       '  --auto-git                      Enable automatic git commits'
