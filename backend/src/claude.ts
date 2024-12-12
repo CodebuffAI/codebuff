@@ -68,6 +68,7 @@ async function* promptClaudeStreamWithoutRetry(
     // },
   })
 
+  const startTime = Date.now()
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
       model,
@@ -159,6 +160,7 @@ async function* promptClaudeStreamWithoutRetry(
           cacheCreationInputTokens,
           cacheReadInputTokens,
           finishedAt: new Date(),
+          latencyMs: Date.now() - startTime,
         })
       }
     }

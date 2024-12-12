@@ -1,7 +1,18 @@
-/** @type {import('next').NextConfig} */
+import { withContentlayer } from 'next-contentlayer'
+import createMDX from '@next/mdx'
 import { env } from './src/env.mjs'
 
+const withMDX = createMDX({
+  extension: /\.mdx?$/,
+  options: {
+    remarkPlugins: [],
+    rehypePlugins: [],
+  },
+})
+
+/** @type {import('next').NextConfig} */
 const nextConfig = {
+  pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
   headers: () => {
     return [
       {
@@ -14,14 +25,6 @@ const nextConfig = {
         ],
       },
     ]
-  },
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'avatars.githubusercontent.com',
-      },
-    ],
   },
   reactStrictMode: false,
   async redirects() {
@@ -39,6 +42,14 @@ const nextConfig = {
       },
     ]
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+  },
 }
 
-export default nextConfig
+export default withContentlayer(withMDX(nextConfig))

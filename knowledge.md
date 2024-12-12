@@ -151,6 +151,21 @@ Buffy can execute terminal commands using the `run_terminal_command` tool. This 
 - `clean-package.js` modifies `package.json` to remove unnecessary information.
 - The `postpublish` script restores the original `package.json`.
 - NODE_ENV is set to 'production' for the published package at runtime.
+- Project uses Bun as the package manager - always use `bun` commands instead of `npm`
+
+## Package Management
+
+- Use Bun for all package management operations
+- Run commands with `bun` instead of `npm` (e.g., `bun install` not `npm install`)
+- Use `bun run` for script execution
+- Project uses Bun as the package manager - always use `bun` commands instead of `npm`
+- Project uses Bun as the package manager - always use `bun` commands instead of `npm`
+
+## Package Management
+
+- Use Bun for all package management operations
+- Run commands with `bun` instead of `npm` (e.g., `bun install` not `npm install`)
+- Use `bun run` for script execution
 
 ## Error Handling and Debugging
 

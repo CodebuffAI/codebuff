@@ -91,3 +91,16 @@ export const pluralize = (count: number, word: string) => {
 
   return `${count} ${word + 's'}`
 }
+
+/**
+ * Safely replaces all occurrences of a search string with a replacement string,
+ * escaping special replacement patterns (like $) in the replacement string.
+ */
+export const safeReplace = (
+  content: string,
+  searchStr: string,
+  replaceStr: string
+): string => {
+  const escapedReplaceStr = replaceStr.replace(/\$/g, '$$$$')
+  return content.replace(searchStr, escapedReplaceStr)
+}

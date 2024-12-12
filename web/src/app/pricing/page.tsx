@@ -14,7 +14,6 @@ import { handleCreateCheckoutSession } from '@/lib/stripe'
 const PricingPage = () => {
   const [isPending, setIsPending] = useState(false)
   const session = useSession()
-  const router = useRouter()
 
   const pricingPlans = [
     {
@@ -45,7 +44,7 @@ const PricingPage = () => {
     },
     {
       name: 'Pro',
-      price: '$99/month',
+      price: '$49/month',
       credits: CREDITS_USAGE_LIMITS.PAID,
       features: [
         'Overage allowed ($0.99 per 100 credits)',
@@ -98,7 +97,7 @@ const PricingPage = () => {
     },
     {
       name: 'Pro Plus',
-      price: '$500/month',
+      price: '$249/month',
       credits: CREDITS_USAGE_LIMITS.PRO_PLUS,
       features: [
         'Overage allowed ($0.90 per 100 credits)',
@@ -116,11 +115,11 @@ const PricingPage = () => {
 
     {
       name: 'Team',
-      price: '$99/month + usage',
-      // credits: 'Custom',
+      price: '$99/seat/month',
+      credits: '$0.90 per 100',
       features: [
-        'Custom credit limits per member (min. 3 members)',
-        'Pre-buy credits',
+        'Custom credit limits per member',
+        'Custom account limits',
         'Priority support over email, Discord, and Slack',
       ],
       cardFooterChildren: (
@@ -158,7 +157,7 @@ const PricingPage = () => {
                 <p className="text-4xl font-bold mt-2">{plan.price}</p>
                 {plan.credits && (
                   <p className="text-lg mt-2">
-                    {plan.credits.toLocaleString()} credits/month
+                    {plan.credits.toLocaleString()} credits
                   </p>
                 )}
               </CardHeader>

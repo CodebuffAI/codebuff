@@ -61,8 +61,6 @@ export async function mainPrompt(
   )
 
   let fullResponse = ''
-  let genKnowledgeFilesPromise: Promise<Promise<FileChange | null>[]> =
-    Promise.resolve([])
   const fileProcessingPromises: Promise<FileChange | null>[] = []
   const lastMessage = messages[messages.length - 1]
   const messagesWithoutLastMessage = messages.slice(0, -1)
@@ -105,25 +103,6 @@ export async function mainPrompt(
       userInputId,
       userId
     )
-  }
-
-  const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
-  if (hasKnowledgeFiles && messages.length > 1 && !justUsedATool) {
-    // Already have context from existing chat
-    // If client used tool, we don't want to generate knowledge files because the user isn't really in control
-    genKnowledgeFilesPromise = generateKnowledgeFiles(
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      ws,
-      fullResponse,
-      fileContext,
-      messages,
-      userId
-    ).catch((error) => {
-      logger.error({ error }, 'Error generating knowledge files')
-      return []
-    })
   }
 
   const allowUnboundedIteration = await allowUnboundedIterationPromise
@@ -474,22 +453,11 @@ ${lastMessage.content}
     onResponseChunk('\nApplying file changes. Please wait...\n')
   }
 
-  const knowledgeChangePromises = await genKnowledgeFilesPromise
-  fileProcessingPromises.push(...knowledgeChangePromises)
-
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
   )
-  const knowledgeChanges = filterDefined(
-    await Promise.all(knowledgeChangePromises)
-  )
-  if (knowledgeChanges.length > 0) {
-    const knowledgeFileBlocks = knowledgeChanges.map((change) =>
-      createFileBlock(change.filePath, '[UPDATED_BY_ANOTHER_ASSISTANT]')
-    )
-    fullResponse += `\n\nI also updated the following knowledge files:\n${knowledgeFileBlocks.join(
-      '\n'
-    )}`
+  if (changes.length === 0 && fileProcessingPromises.length > 0) {
+    onResponseChunk('No changes to existing files.\n')
   }
 
   return {

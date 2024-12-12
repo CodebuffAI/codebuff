@@ -46,6 +46,14 @@ export const ProjectFileContextSchema = z.object({
   }),
   changesSinceLastChat: z.record(z.string(), z.string()),
   shellConfigFiles: z.record(z.string(), z.string()),
+  systemInfo: z.object({
+    platform: z.string(),
+    shell: z.string(),
+    nodeVersion: z.string(),
+    arch: z.string(),
+    homedir: z.string(),
+    cpus: z.number(),
+  }),
   fileVersions: z.array(z.array(FileVersionSchema)),
 })
 

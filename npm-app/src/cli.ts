@@ -41,6 +41,7 @@ export class CLI {
   private stopResponse: (() => void) | null = null
   private loadingInterval: NodeJS.Timeout | null = null
   private lastChanges: FileChanges = []
+  private lastSigintTime: number = 0
 
   private lastInputTime: number = 0
   private consecutiveFastInputs: number = 0
@@ -57,6 +58,7 @@ export class CLI {
       input: process.stdin,
       output: process.stdout,
       historySize: 1000,
+      terminal: true,
     })
     this.client = new Client(
       websocketUrl,
@@ -91,8 +93,20 @@ export class CLI {
       if (this.isReceivingResponse) {
         this.handleStopResponse()
       } else {
-        this.handleExit()
+        const now = Date.now()
+        if (now - this.lastSigintTime < 3000) {
+          // 3 second window
+          this.handleExit()
+        } else {
+          this.lastSigintTime = now
+          console.log('\nPress Ctrl-C again to exit')
+          this.rl.prompt()
+        }
       }
+    })
+
+    this.rl.on('close', () => {
+      this.handleExit()
     })
 
     process.stdin.on('keypress', (_, key) => {

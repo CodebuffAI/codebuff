@@ -1,6 +1,7 @@
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import { platform } from 'process'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { createPatch } from 'diff'
@@ -102,6 +103,7 @@ export const getProjectFileContext = async (
     )
     const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
     const shellConfigFiles = loadShellConfigFiles()
+    const shell = process.env.SHELL || process.env.COMSPEC || 'unknown'
 
     const fileTokenScores = await getFileTokenScores(projectRoot, allFilePaths)
 
@@ -111,6 +113,14 @@ export const getProjectFileContext = async (
       fileTokenScores,
       knowledgeFiles,
       shellConfigFiles,
+      systemInfo: {
+        platform: platform,
+        shell: path.basename(shell),
+        nodeVersion: process.version,
+        arch: process.arch,
+        homedir: os.homedir(),
+        cpus: os.cpus().length,
+      },
       ...updatedProps,
     }
   } else {
@@ -179,11 +189,10 @@ export function getFiles(filePaths: string[]) {
 
   for (const filePath of filePaths) {
     // Convert absolute paths within project to relative paths
-    const relativePath = filePath.startsWith(projectRoot) 
+    const relativePath = filePath.startsWith(projectRoot)
       ? path.relative(projectRoot, filePath)
       : filePath
     const fullPath = path.join(projectRoot, relativePath)
-    
     if (!fullPath.startsWith(projectRoot)) {
       result[relativePath] = '[FILE_OUTSIDE_PROJECT]'
       continue

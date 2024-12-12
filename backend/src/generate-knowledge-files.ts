@@ -30,13 +30,12 @@ export async function generateKnowledgeFiles(
 
     ${editingFilesPrompt}
 
-    In this conversation, the assistant and user are making changes to a codebase. You should use this chat history to create a knowledge file if their changes are meaningful. If their changes are not meaningful, you should not create/update a knowledge file.
-    IMPORTANT: a meaningful change is one that is not easily self-evident in the code. An example of a meaningful change is if the user wants to use a package manager aside from the default, because that is hard to find in the codebase. A good rule of thumb is if a quick, hurried glance through the code is enough to understand the change, it is not meaningful to add to our knowledge files. If the change is too complex or requires a lot of context to understand, it's meaningful and thus a good idea to add it to the knowledge file.
+    In this conversation, the assistant and user are making changes to a codebase. You should use this chat history to create or update a knowledge file if their changes are meaningful. If their changes are not meaningful, you should not create/update a knowledge file.
+    IMPORTANT: a meaningful change is one that is not easily self-evident in the code.
     Here are some examples of meaningful changes:
-    - user added a new package to the project -> this means developers likely want to use this package to extend the project's functionality in a particular way and other developers/LLMs may want to use it as well. A knowledge file would be a great way for everyone to be on the same page about the new package and how it fits into the project.
     - user has corrected your previous response because you made a mistake -> this means the user had something else in mind. A knowledge file would be a great way for everyone to learn from your mistake and improve your responses in the future.
     
-    Here are some examples of meaningless changes:
+    Here are some examples of changes that are not meaningful:
     - user has asked you to keep adding new features to the project -> this means the user is likely not interested in the project's current functionality and is looking for something else.
     - code is sufficient to explain the change -> this means developers can easily figure out the context of the change without needing a knowledge file.
     <important>
@@ -53,38 +52,25 @@ export async function generateKnowledgeFiles(
   const userPrompt = `    
     Do not act on the user's last request, but keep it in mind. Instead, your task will be to decide whether to create or update a knowledge file.
 
-    Think before you write the knowledge file in <thinking> tags. Use that space to think about why the change is important and what it means for the project, and verify that we don't already have something similar in the existing knowledge files. Make sure to show your work!
-
-    First, please summarize the penultimate and last set of messages between the user and the assistant. Use the following format:
-    [user]: [message summary]
-    [assistant]: [message summary]
-    [change made]: [note about the change]
-
-    [user]: [message summary]
-    [assistant]: [message summary]
-    [change made]: [note about the change]
-    
-    First, explain the last change asked in your own words.
-
-    Next, carefully answer the following questions. The more you answer "yes" to these questions, the more likely it is that we should create a knowledge file.
+    Carefully consider the following questions, but do not write anything. The more you think the answer is "yes" to these questions, the more likely it is that we should create a knowledge file.
 
     Questions:
-    1. Was the user correcting the assistant's previous response based on missing context the assistant should know?
-    2. Was the user expecting an outcome from the assistant's response that was not delivered? If so, is there a bit of instruction that would help you better meet their expectations in the future?
+    1. In the last user message, was the user correcting the assistant's last response based on missing context the assistant should know?
+    2. In the last user message, was the user expecting an outcome from the assistant's response that was not delivered? If so, is there a bit of instruction that would help you better meet their expectations in the future?
     
     Consider how strong of a "yes" you gave to each of these questions. Only with at least one very strong "yes" should you output anything.
     
     Next, consider:
     3. Is there a lesson here that is not specific to just this change? Is there knowledge that is not derivable from the code written? Is there some context that would be applicable for the future that the user would want recorded?
+    4. Is there a significant piece of new information that is not already in the codebase or a knowledge file? It has to not be derivable from the codebase at all.
 
-    If all of these questions are not also a strong yes, please skip the rest of the response and don't output anything. This is the most common case; there should be a high bar to creating or updating a knowledge file.
+    If not all of these questions are a strong yes, don't output anything other than "No knowledge file changes needed". This is the most common case by far; there should be a really high bar to creating or updating a knowledge file.
 
-    Otherwise, check the existing knowledge files to see if there isn't something written about it yet. If there is, don't output anything because we don't want to repeat ourselves.
-    Finally, for any meaningful change that hasn't been captured in the knowledge file, you should update a knowledge file with <edit_file> blocks. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
+    Otherwise, you should update a knowledge file with <edit_file> blocks to capture the new information. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
 
     When you are updating an existing knowledge file, please do not remove previous knowledge file content. Instead, either reproduce the entire file with your additions or use SEARCH/REPLACE edits to insert new lines into the existing file.
     Do not update any files other than knowledge files (files that end in 'knowledge.md').
-    `
+    `.trim()
 
   const messages = [
     ...initialMessages,
