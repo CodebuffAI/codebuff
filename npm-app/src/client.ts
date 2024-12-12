@@ -24,7 +24,7 @@ import {
   CREDITS_REFERRAL_BONUS,
   CREDITS_USAGE_LIMITS,
   TOOL_RESULT_MARKER,
-  type Mode,
+  type CostMode,
 } from 'common/constants'
 
 import { uniq } from 'lodash'
@@ -40,7 +40,7 @@ export class Client {
   private currentUserInputId: string | undefined
   private returnControlToUser: () => void
   private fingerprintId: string | undefined
-  private mode: Mode
+  private costMode: CostMode
   public fileVersions: FileVersion[][] = []
 
   public user: User | undefined
@@ -57,9 +57,9 @@ export class Client {
     chatStorage: ChatStorage,
     onWebSocketError: () => void,
     returnControlToUser: () => void,
-    mode: Mode
+    costMode: CostMode
   ) {
-    this.mode = mode
+    this.costMode = costMode
     this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
     this.user = this.getUser()
@@ -444,7 +444,7 @@ export class Client {
       changesAlreadyApplied: previousChanges,
       fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
-      mode: this.mode,
+      costMode: this.costMode,
     })
   }
 

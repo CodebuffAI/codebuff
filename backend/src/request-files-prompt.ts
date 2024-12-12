@@ -4,8 +4,8 @@ import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
-import { promptClaude, System } from './claude'
-import { getModelForMode, type Mode } from 'common/constants'
+import { model_types, promptClaude, System } from './claude'
+import { getModelForMode, type CostMode } from 'common/constants'
 import { claudeModels, models } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from './util/logger'
@@ -25,18 +25,14 @@ export async function requestRelevantFiles(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  mode: Mode
+  costMode: CostMode
 ) {
   const { fileVersions } = fileContext
   const previousFiles = uniq(
     fileVersions.flatMap((files) => files.map(({ path }) => path))
   )
   const countPerRequest =
-    mode === 'expensive'
-      ? 6
-      : mode === 'cheap'
-        ? 7
-        : 5
+    costMode === 'expensive' ? 6 : costMode === 'cheap' ? 7 : 5
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -59,7 +55,7 @@ export async function requestRelevantFiles(
         previousFiles,
         userPrompt,
         userId,
-        mode
+        costMode
       ).catch((error) => {
         logger.error({ error }, 'Error checking new files necessary')
         return { newFilesNecessary: true, response: 'N/A', duration: 0 }
@@ -76,7 +72,7 @@ export async function requestRelevantFiles(
     fingerprintId,
     userInputId,
     userId,
-    mode
+    costMode
   )
 
   const newFilesNecessaryResult = await newFilesNecessaryPromise
@@ -138,7 +134,7 @@ async function generateFileRequests(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  mode: Mode
+  costMode: CostMode
 ) {
   const keyPrompt = generateKeyRequestFilesPrompt(
     userPrompt,
@@ -158,7 +154,7 @@ async function generateFileRequests(
     fingerprintId,
     userInputId,
     userId,
-    mode
+    costMode
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [], duration: 0 }
@@ -166,7 +162,7 @@ async function generateFileRequests(
 
   // Only create additional file request promises if not in cheap mode
   let promises = [keyPromise]
-  if (mode !== 'cheap') {
+  if (costMode !== 'cheap') {
     const examplePrompt = generateExampleFilesPrompt(
       userPrompt,
       assistantPrompt,
@@ -254,7 +250,7 @@ const checkNewFilesNecessary = async (
   previousFiles: string[],
   userPrompt: string,
   userId: string | undefined,
-  mode: Mode
+  costMode: CostMode
 ) => {
   const startTime = Date.now()
   const prompt = `
@@ -273,7 +269,7 @@ Answer with just 'YES' if reading new files is necessary, or 'NO' if the current
       { role: 'user', content: prompt },
     ],
     {
-      model: mode === 'expensive' ? models.gpt4o : models.gpt4omini,
+      model: getModelForMode(costMode, 'check-new-files'),
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -300,7 +296,7 @@ async function getRelevantFiles(
   fingerprintId: string,
   userInputId: string,
   userId?: string,
-  mode: Mode = 'normal'
+  costMode: CostMode = 'normal'
 ) {
   const messagesWithPrompt = [
     ...messages,
@@ -311,7 +307,7 @@ async function getRelevantFiles(
   ]
   const start = performance.now()
   const response = await promptClaude(messagesWithPrompt, {
-    model: getModelForMode(mode, 'file-requests'),
+    model: getModelForMode(costMode, 'file-requests') as model_types,
     system,
     clientSessionId,
     fingerprintId,

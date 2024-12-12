@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import fs from 'fs'
-import { type Mode } from 'common/constants'
+import { type CostMode } from 'common/constants'
 import path from 'path'
 import { yellow } from 'picocolors'
 
@@ -17,8 +17,8 @@ async function codebuff(
   {
     initialInput,
     autoGit,
-    mode,
-  }: { initialInput?: string; autoGit: boolean; mode: Mode }
+    costMode,
+  }: { initialInput?: string; autoGit: boolean; costMode: CostMode }
 ) {
   const dir = setProjectRoot(projectDir)
 
@@ -27,7 +27,7 @@ async function codebuff(
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
 
-  const cli = new CLI(readyPromise, { autoGit, mode })
+  const cli = new CLI(readyPromise, { autoGit, costMode })
 
   console.log(
     `Codebuff will read and write files in "${dir}". Type "help" for a list of commands.`
@@ -53,12 +53,12 @@ if (require.main === module) {
     args.splice(args.indexOf('--auto-git'), 1)
   }
 
-  let mode: Mode = 'normal'
+  let costMode: CostMode = 'normal'
   if (args.includes('--cheap')) {
-    mode = 'cheap'
+    costMode = 'cheap'
     args.splice(args.indexOf('--cheap'), 1)
   } else if (args.includes('--expensive')) {
-    mode = 'expensive'
+    costMode = 'expensive'
     args.splice(args.indexOf('--expensive'), 1)
   }
 
@@ -92,5 +92,5 @@ if (require.main === module) {
     process.exit(0)
   }
 
-  codebuff(projectPath, { initialInput, autoGit, mode })
+  codebuff(projectPath, { initialInput, autoGit, costMode })
 }

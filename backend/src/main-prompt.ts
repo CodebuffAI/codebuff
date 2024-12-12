@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
-import { promptClaudeStream } from './claude'
+import { model_types, promptClaudeStream } from './claude'
 import {
   TOOL_RESULT_MARKER,
   STOP_MARKER,
@@ -11,7 +11,7 @@ import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
 import { FileChange, FileChanges, Message } from 'common/actions'
-import { type Mode } from 'common/constants'
+import { type CostMode } from 'common/constants'
 import { ToolCall } from 'common/actions'
 import { requestFile, requestFiles } from './websockets/websocket-action'
 import { processFileBlock } from './process-file-block'
@@ -43,7 +43,7 @@ export async function mainPrompt(
   onResponseChunk: (chunk: string) => void,
   userId: string | undefined,
   changesAlreadyApplied: FileChanges,
-  mode: Mode
+  costMode: CostMode
 ) {
   const lastUserMessageIndex = messages.findLastIndex(
     (message) =>
@@ -87,7 +87,7 @@ export async function mainPrompt(
     fingerprintId,
     userInputId,
     userId,
-    mode,
+    costMode,
   })
   fileContext.fileVersions = newFileVersions
   if (clearFileVersions) {
@@ -179,7 +179,7 @@ ${lastMessage.content}
 
     const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
-      model: getModelForMode(mode, 'agent'),
+      model: getModelForMode(costMode, 'agent') as model_types,
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -303,7 +303,7 @@ ${lastMessage.content}
           fingerprintId,
           userInputId,
           userId,
-          mode,
+          costMode,
         }
       )
       fileContext.fileVersions = newFileVersions
@@ -362,7 +362,7 @@ ${lastMessage.content}
           fingerprintId,
           userInputId,
           userId,
-          mode,
+          costMode,
         }
       )
       fileContext.fileVersions = newFileVersions
@@ -510,7 +510,7 @@ async function getFileVersionUpdates(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
-    mode: Mode
+    costMode: CostMode
   }
 ) {
   const {
@@ -519,7 +519,7 @@ async function getFileVersionUpdates(
     fingerprintId,
     userInputId,
     userId,
-    mode,
+    costMode,
   } = options
   const { fileVersions } = fileContext
   const files = fileVersions.flatMap((files) => files)
@@ -555,7 +555,7 @@ async function getFileVersionUpdates(
         fingerprintId,
         userInputId,
         userId,
-        mode
+        costMode
       )) ??
       []
 

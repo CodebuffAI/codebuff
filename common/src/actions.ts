@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
 import { userSchema } from './util/credentials'
-import { modes } from './constants'
+import { costModes } from './constants'
 
 const MessageContentObjectSchema = z.union([
   z.object({
@@ -68,7 +68,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     messages: z.array(MessageSchema),
     fileContext: ProjectFileContextSchema,
     changesAlreadyApplied: CHANGES,
-    mode: z.enum(modes).optional().default('normal'),
+    costMode: z.enum(costModes).optional().default('normal'),
   }),
   z.object({
     type: z.literal('read-files-response'),

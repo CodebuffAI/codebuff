@@ -165,7 +165,7 @@ const onUserInput = async (
     messages,
     fileContext,
     changesAlreadyApplied,
-    mode = 'normal'
+    costMode = 'normal',
   } = action
   await withLoggerContext(
     { fingerprintId, authToken, clientRequestId: userInputId },
@@ -201,7 +201,7 @@ const onUserInput = async (
             }),
           userId,
           changesAlreadyApplied,
-          action.mode
+          action.costMode
         )
 
         logger.debug(
