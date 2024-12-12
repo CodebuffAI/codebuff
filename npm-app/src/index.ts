@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 import fs from 'fs'
+import { type CostMode } from 'common/constants'
 import path from 'path'
-import { yellow } from 'picocolors'
+import { bold, yellow, blueBright } from 'picocolors'
 
 import { CLI } from './cli'
 import {
@@ -13,7 +14,11 @@ import { updateCodebuff } from './update-codebuff'
 
 async function codebuff(
   projectDir: string | undefined,
-  { initialInput, autoGit }: { initialInput?: string; autoGit: boolean }
+  {
+    initialInput,
+    autoGit,
+    costMode,
+  }: { initialInput?: string; autoGit: boolean; costMode: CostMode }
 ) {
   const dir = setProjectRoot(projectDir)
 
@@ -22,8 +27,14 @@ async function codebuff(
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
 
-  const cli = new CLI(readyPromise, { autoGit })
+  const cli = new CLI(readyPromise, { autoGit, costMode })
 
+  const costModeDescription = {
+    lite: bold(yellow('Lite mode ✨enabled')),
+    normal: '',
+    pro: bold(blueBright('Pro mode️ ⚡enabled')),
+  }
+  console.log(`${costModeDescription[costMode]}`)
   console.log(
     `Codebuff will read and write files in "${dir}". Type "help" for a list of commands.`
   )
@@ -48,6 +59,15 @@ if (require.main === module) {
     args.splice(args.indexOf('--auto-git'), 1)
   }
 
+  let costMode: CostMode = 'normal'
+  if (args.includes('--lite')) {
+    costMode = 'lite'
+    args.splice(args.indexOf('--lite'), 1)
+  } else if (args.includes('--pro')) {
+    costMode = 'pro'
+    args.splice(args.indexOf('--pro'), 1)
+  }
+
   const projectPath = args[0]
   const initialInput = args.slice(1).join(' ')
 
@@ -61,11 +81,22 @@ if (require.main === module) {
       'If an initial prompt is provided, it will be sent as the first user input.'
     )
     console.log()
+    console.log('Options:')
+    console.log(
+      '  --lite                          Use budget models & fetch fewer files'
+    )
+    console.log(
+      '  --pro                           Use higher quality models and fetch more files'
+    )
+    console.log(
+      '  --auto-git                      Enable automatic git commits'
+    )
+    console.log()
     console.log(
       'Codebuff allows you to interact with your codebase using natural language.'
     )
     process.exit(0)
   }
 
-  codebuff(projectPath, { initialInput, autoGit })
+  codebuff(projectPath, { initialInput, autoGit, costMode })
 }

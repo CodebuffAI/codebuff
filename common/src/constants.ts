@@ -89,6 +89,25 @@ export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
       }
 export const CREDITS_REFERRAL_BONUS = 500
 
+export const costModes = ['lite', 'normal', 'pro'] as const
+export type CostMode = (typeof costModes)[number]
+
+export const getModelForMode = (
+  costMode: CostMode,
+  operation: 'agent' | 'file-requests' | 'check-new-files'
+) => {
+  if (operation === 'agent') {
+    return costMode === 'lite' ? claudeModels.haiku : claudeModels.sonnet
+  }
+  if (operation === 'file-requests') {
+    return costMode === 'pro' ? claudeModels.sonnet : claudeModels.haiku
+  }
+  if (operation === 'check-new-files') {
+    return costMode === 'pro' ? models.gpt4o : models.gpt4omini
+  }
+  throw new Error(`Unknown operation: ${operation}`)
+}
+
 export const claudeModels = {
   sonnet: 'claude-3-5-sonnet-20241022',
   haiku: 'claude-3-5-haiku-20241022',

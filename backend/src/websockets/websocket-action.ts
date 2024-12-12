@@ -18,7 +18,7 @@ import { env } from '../env.mjs'
 import db from 'common/db'
 import { genAuthCode } from 'common/util/credentials'
 import * as schema from 'common/db/schema'
-import { claudeModels, TOOL_RESULT_MARKER } from 'common/constants'
+import { TOOL_RESULT_MARKER } from 'common/constants'
 import { protec } from './middleware'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/src/util/dates'
@@ -154,17 +154,19 @@ export async function genUsageResponse(
 }
 
 const onUserInput = async (
-  {
+  action: Extract<ClientAction, { type: 'user-input' }>,
+  clientSessionId: string,
+  ws: WebSocket
+) => {
+  const {
     fingerprintId,
     authToken,
     userInputId,
     messages,
     fileContext,
     changesAlreadyApplied,
-  }: Extract<ClientAction, { type: 'user-input' }>,
-  clientSessionId: string,
-  ws: WebSocket
-) => {
+    costMode = 'normal',
+  } = action
   await withLoggerContext(
     { fingerprintId, authToken, clientRequestId: userInputId },
     async () => {
@@ -198,7 +200,8 @@ const onUserInput = async (
               chunk,
             }),
           userId,
-          changesAlreadyApplied
+          changesAlreadyApplied,
+          action.costMode
         )
 
         logger.debug(
