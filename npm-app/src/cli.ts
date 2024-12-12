@@ -169,19 +169,12 @@ export class CLI {
   }
 
   public printInitialPrompt(initialInput?: string) {
-    const costModeDescription = {
-      lite: ' (lite mode)',
-      normal: '',
-      pro: ' (pro mode)',
-    }
     if (this.client.user) {
       console.log(
-        `\nWelcome back ${this.client.user.name}${costModeDescription[this.costMode]}! What would you like to do?`
+        `\nWelcome back ${this.client.user.name}! What would you like to do?`
       )
     } else {
-      console.log(
-        `What would you like to do?${costModeDescription[this.costMode]}\n`
-      )
+      console.log(`What would you like to do?\n`)
     }
     this.rl.prompt()
     if (initialInput) {

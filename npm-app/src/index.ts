@@ -3,7 +3,7 @@
 import fs from 'fs'
 import { type CostMode } from 'common/constants'
 import path from 'path'
-import { yellow } from 'picocolors'
+import { bold, yellow, blueBright } from 'picocolors'
 
 import { CLI } from './cli'
 import {
@@ -29,6 +29,12 @@ async function codebuff(
 
   const cli = new CLI(readyPromise, { autoGit, costMode })
 
+  const costModeDescription = {
+    lite: bold(yellow('Lite mode ✨enabled')),
+    normal: '',
+    pro: bold(blueBright('Pro mode️ ⚡enabled')),
+  }
+  console.log(`${costModeDescription[costMode]}`)
   console.log(
     `Codebuff will read and write files in "${dir}". Type "help" for a list of commands.`
   )
