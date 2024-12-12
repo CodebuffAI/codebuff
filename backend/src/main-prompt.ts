@@ -59,7 +59,10 @@ export async function mainPrompt(
       userInputId,
       userId,
     }
-  )
+  ).catch((error) => {
+    logger.error(error, 'Error checking to allow unbounded iteration')
+    return false
+  })
 
   let fullResponse = ''
   const fileProcessingPromises: Promise<FileChange | null>[] = []
