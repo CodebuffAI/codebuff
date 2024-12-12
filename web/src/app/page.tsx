@@ -9,6 +9,7 @@ import {
   Play,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
@@ -16,12 +17,53 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import { useToast } from '@/components/ui/use-toast'
-import { Card, CardContent } from '@/components/ui/card'
 import Marquee from '@/components/ui/marquee'
-import { testimonials } from '@/lib/testimonials'
+import { Testimonial, testimonials } from '@/lib/testimonials'
 import { faqs } from '@/lib/faq'
 import { cn } from '@/lib/utils'
 import { storeSearchParams } from '@/lib/trackConversions'
+
+const ReviewCard = ({ t }: { t: Testimonial }) => {
+  return (
+    <figure
+      className={cn(
+        'relative w-64 lg:w-80 cursor-pointer overflow-hidden rounded-xl border p-6',
+        // light styles
+        'border-gray-950/[.1] bg-gray-950/[.01] hover:bg-gray-950/[.05]',
+        // dark styles
+        'dark:border-gray-50/[.1] dark:bg-gray-50/[.10] dark:hover:bg-gray-50/[.15]'
+      )}
+    >
+      <div className="flex justify-between">
+        <div className="flex flex-row items-center gap-2">
+          <img
+            className="rounded-full"
+            width="32"
+            height="32"
+            alt=""
+            src={
+              t.avatar ??
+              `https://avatar.vercel.sh/${t.author.split(' ').join('-').toLowerCase()}?size=32`
+            }
+          />
+          <div className="flex flex-col">
+            <figcaption className="text-sm font-medium dark:text-white">
+              {t.author}
+            </figcaption>
+            <p className="text-xs font-medium dark:text-white/40">{t.title}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <ExternalLink
+            className="h-4 w-4"
+            onClick={() => window.open(t.link)}
+          />
+        </div>
+      </div>
+      <blockquote className="mt-4 text-sm lg:text-base">{t.quote}</blockquote>
+    </figure>
+  )
+}
 
 const Home = () => {
   const { theme } = useTheme()
@@ -198,34 +240,7 @@ const Home = () => {
             >
               <div className="flex gap-4">
                 {row.map((testimonial, i) => (
-                  <Card
-                    key={i}
-                    className={cn(
-                      'w-[350px] shrink-0',
-                      testimonial.link &&
-                        'cursor-pointer hover:scale-105 transition-transform'
-                    )}
-                    onClick={() =>
-                      testimonial.link &&
-                      window.open(testimonial.link, '_blank')
-                    }
-                  >
-                    <CardContent className="pt-6">
-                      <p className="mb-4">{testimonial.quote}</p>
-                      <div className="flex items-center gap-2">
-                        {testimonial.avatar && (
-                          <img
-                            src={testimonial.avatar}
-                            alt={testimonial.author}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
-                        )}
-                        <p className="font-semibold">
-                          - {testimonial.author}, {testimonial.title}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <ReviewCard key={i} t={testimonial} />
                 ))}
               </div>
             </Marquee>
