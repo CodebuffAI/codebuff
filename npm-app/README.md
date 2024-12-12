@@ -28,6 +28,13 @@ codebuff [project-directory]
 
 If no project directory is specified, Codebuff will use the current directory.
 
+You can also control the cost/quality tradeoff with these flags:
+
+```bash
+codebuff --lite  # Budget mode for more econonmical responses
+codebuff --pro   # Premium mode for higher quality responses
+```
+
 After running `codebuff`, simply chat with it to say what coding task you want done.
 
 ## Features

@@ -30,9 +30,9 @@ async function codebuff(
   const cli = new CLI(readyPromise, { autoGit, costMode })
 
   const costModeDescription = {
-    lite: bold(yellow('Lite mode ✨enabled')),
+    lite: bold(yellow('Lite mode ✨ enabled')),
     normal: '',
-    pro: bold(blueBright('Pro mode️ ⚡enabled')),
+    pro: bold(blueBright('Pro mode️ ⚡ enabled')),
   }
   console.log(`${costModeDescription[costMode]}`)
   console.log(
