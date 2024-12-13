@@ -31,7 +31,7 @@ export async function requestRelevantFiles(
   const previousFiles = uniq(
     fileVersions.flatMap((files) => files.map(({ path }) => path))
   )
-  const countPerRequest = costMode === 'pro' ? 6 : costMode === 'lite' ? 7 : 5
+  const countPerRequest = costMode === 'pro' ? 9 : costMode === 'lite' ? 7 : 8
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -162,28 +162,29 @@ async function generateFileRequests(
   // Only create additional file request promises if not in lite mode
   let promises = [keyPromise]
   if (costMode !== 'lite') {
-    const examplePrompt = generateExampleFilesPrompt(
-      userPrompt,
-      assistantPrompt,
-      fileContext,
-      countPerRequest
-    )
+    // TODO: reenable example files and test files prompts
+    // const examplePrompt = generateExampleFilesPrompt(
+    //   userPrompt,
+    //   assistantPrompt,
+    //   fileContext,
+    //   countPerRequest
+    // )
 
-    const examplePromise = getRelevantFiles(
-      {
-        messages: messagesExcludingLastIfByUser,
-        system,
-      },
-      examplePrompt,
-      'Examples',
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId
-    ).catch((error) => {
-      logger.error({ error }, 'Error requesting example files')
-      return { files: [], duration: 0 }
-    })
+    // const examplePromise = getRelevantFiles(
+    //   {
+    //     messages: messagesExcludingLastIfByUser,
+    //     system,
+    //   },
+    //   examplePrompt,
+    //   'Examples',
+    //   clientSessionId,
+    //   fingerprintId,
+    //   userInputId,
+    //   userId
+    // ).catch((error) => {
+    //   logger.error({ error }, 'Error requesting example files')
+    //   return { files: [], duration: 0 }
+    // })
 
     const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
       userPrompt,
@@ -205,34 +206,34 @@ async function generateFileRequests(
       userId
     )
 
-    const testAndConfigPrompt = generateTestAndConfigFilesPrompt(
-      userPrompt,
-      assistantPrompt,
-      fileContext,
-      countPerRequest
-    )
+    // const testAndConfigPrompt = generateTestAndConfigFilesPrompt(
+    //   userPrompt,
+    //   assistantPrompt,
+    //   fileContext,
+    //   countPerRequest
+    // )
 
-    const testAndConfigPromise = getRelevantFiles(
-      {
-        messages: messagesExcludingLastIfByUser,
-        system,
-      },
-      testAndConfigPrompt,
-      'Tests and Config',
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId
-    ).catch((error) => {
-      logger.error({ error }, 'Error requesting test and config files')
-      return { files: [], duration: 0 }
-    })
+    // const testAndConfigPromise = getRelevantFiles(
+    //   {
+    //     messages: messagesExcludingLastIfByUser,
+    //     system,
+    //   },
+    //   testAndConfigPrompt,
+    //   'Tests and Config',
+    //   clientSessionId,
+    //   fingerprintId,
+    //   userInputId,
+    //   userId
+    // ).catch((error) => {
+    //   logger.error({ error }, 'Error requesting test and config files')
+    //   return { files: [], duration: 0 }
+    // })
 
     promises = [
       ...promises,
-      examplePromise,
+      // examplePromise,
       nonObviousPromise,
-      testAndConfigPromise,
+      // testAndConfigPromise,
     ]
   }
 
