@@ -46,12 +46,12 @@ export const testimonials: Testimonial[][] = [
     },
     {
       quote:
-        "For those who use (n)vim or other terminal-based editors, some friends of mine built @ManicodeAI and I've really been enjoying it. I can give it coding tasks right from my terminal and it just takes care of them for me...",
+        "One of my favorite parts of every day is hearing @brett_beatty giggle in awe at @CodebuffAI. We've been using it daily for a couple months now and it's still incredible 🤯",
       author: 'Dennis Beatty',
       title: 'Founder & CEO',
       avatar:
         'https://pbs.twimg.com/profile_images/943341063502286848/2h_xKTs9_400x400.jpg',
-      link: 'https://x.com/dnsbty/status/1849612125972594929',
+      link: 'https://x.com/dnsbty/status/1867062230614938034',
     },
     {
       quote:
