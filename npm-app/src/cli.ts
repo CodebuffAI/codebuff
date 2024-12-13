@@ -113,6 +113,11 @@ export class CLI {
       this.handleExit()
     })
 
+    process.on('SIGTSTP', () => {
+      // Exit on Ctrl+Z
+      this.handleExit()
+    })
+
     process.stdin.on('keypress', (_, key) => {
       if (key.name === 'escape') {
         this.handleEscKey()
