@@ -168,6 +168,11 @@ async function handleInvoiceCreated(
         value: `-${referralCredits}`,
       },
     })
+
+    // Add note explaining the referral credit adjustment
+    await stripeServer.invoices.update(invoiceCreated.data.object.id, {
+      description: `Referral bonus: ${referralCredits} credits deducted`,
+    })
   }
 }
 
