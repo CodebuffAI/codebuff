@@ -66,8 +66,8 @@ const Onboard = async ({ searchParams }: PageProps) => {
       description: 'Auth code expired.',
       content: (
         <p>
-          Please generate a new code and reach out to support@codebuff.com if the
-          problem persists.
+          Please generate a new code and reach out to support@codebuff.com if
+          the problem persists.
         </p>
       ),
     })
