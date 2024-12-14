@@ -29,14 +29,16 @@ import {
   hasStagedChanges,
   commitChanges,
   getStagedChanges,
+  stagePatches,
 } from 'common/util/git'
 import { pluralize } from 'common/util/string'
+import { CliOptions, GitCommand } from './types'
 
 export class CLI {
   private client: Client
   private chatStorage: ChatStorage
   private readyPromise: Promise<any>
-  private autoGit: boolean
+  private git: GitCommand
   private costMode: CostMode
   private rl: readline.Interface
   private isReceivingResponse: boolean = false
@@ -52,9 +54,9 @@ export class CLI {
 
   constructor(
     readyPromise: Promise<[void, ProjectFileContext]>,
-    { autoGit, costMode }: { autoGit: boolean; costMode: CostMode }
+    { git, costMode }: CliOptions
   ) {
-    this.autoGit = autoGit
+    this.git = git
     this.costMode = costMode
     this.chatStorage = new ChatStorage()
     this.rl = readline.createInterface({
@@ -408,11 +410,6 @@ export class CLI {
     this.startLoadingAnimation()
     await this.readyPromise
 
-    let autoCommitPromise: Promise<string | undefined> | null = null
-    if (this.autoGit) {
-      autoCommitPromise = this.autoCommitChanges()
-    }
-
     const currentChat = this.chatStorage.getCurrentChat()
     const { fileVersions } = currentChat
     const currentFileVersion =
@@ -450,18 +447,6 @@ export class CLI {
 
     this.stopLoadingAnimation()
 
-    if (this.autoGit) {
-      const commitMessage = await autoCommitPromise
-      if (commitMessage) {
-        console.log(green('\nAutomatically committed changes:'))
-        console.log(`${commitMessage}`)
-      }
-      const changesStaged = stageAllChanges()
-      if (changesStaged) {
-        console.log(green('\nAll previous changes have been staged'))
-      }
-    }
-
     const allChanges = [...changesAlreadyApplied, ...changes]
     const filesChanged = uniq(allChanges.map((change) => change.filePath))
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
@@ -477,6 +462,13 @@ export class CLI {
       console.log(green(`- Updated ${file}`))
     }
     if (created.length > 0 || modified.length > 0) {
+      // Stage previous changes if flag was set
+      if (this.git === 'stage' && this.lastChanges.length > 0) {
+        const staged = stagePatches(getProjectRoot(), this.lastChanges)
+        if (staged) {
+          console.log(green('\nStaged previous changes'))
+        }
+      }
       if (this.client.lastRequestCredits > REQUEST_CREDIT_SHOW_THRESHOLD) {
         console.log(
           `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`

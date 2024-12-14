@@ -216,7 +216,7 @@ export const promptClaudeStream = async function* (
   }
 
   throw new Error(
-    `Max retries exceeded. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+    `Sorry, system's a bit overwhelmed. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
   )
 }
 

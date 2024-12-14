@@ -11,14 +11,11 @@ import {
   setProjectRoot,
 } from './project-files'
 import { updateCodebuff } from './update-codebuff'
+import { CliOptions } from './types'
 
 async function codebuff(
   projectDir: string | undefined,
-  {
-    initialInput,
-    autoGit,
-    costMode,
-  }: { initialInput?: string; autoGit: boolean; costMode: CostMode }
+  { initialInput, git, costMode }: CliOptions
 ) {
   const dir = setProjectRoot(projectDir)
 
@@ -27,7 +24,7 @@ async function codebuff(
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
 
-  const cli = new CLI(readyPromise, { autoGit, costMode })
+  const cli = new CLI(readyPromise, { git, costMode })
 
   const costModeDescription = {
     lite: bold(yellow('Lite mode ✨ enabled')),
@@ -54,9 +51,13 @@ async function codebuff(
 if (require.main === module) {
   const args = process.argv.slice(2)
   const help = args.includes('--help') || args.includes('-h')
-  const autoGit = args.includes('--auto-git')
-  if (autoGit) {
-    args.splice(args.indexOf('--auto-git'), 1)
+  const gitArg = args.indexOf('--git')
+  const git =
+    gitArg !== -1 && args[gitArg + 1] === 'stage'
+      ? ('stage' as const)
+      : undefined
+  if (gitArg !== -1) {
+    args.splice(gitArg, 2)
   }
 
   let costMode: CostMode = 'normal'
@@ -89,7 +90,7 @@ if (require.main === module) {
       '  --pro                           Use higher quality models and fetch more files'
     )
     console.log(
-      '  --auto-git                      Enable automatic git commits'
+      '  --git stage                     Stage changes from last message'
     )
     console.log()
     console.log(
@@ -98,5 +99,5 @@ if (require.main === module) {
     process.exit(0)
   }
 
-  codebuff(projectPath, { initialInput, autoGit, costMode })
+  codebuff(projectPath, { initialInput, git, costMode })
 }
