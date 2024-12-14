@@ -72,7 +72,7 @@ export const saveMessage = async (value: {
   outputTokens: number
   cacheCreationInputTokens?: number
   cacheReadInputTokens?: number
-  finishedAt: Date,
+  finishedAt: Date
   latencyMs: number
 }) => {
   const cost = calcCost(
@@ -139,16 +139,6 @@ export const saveMessage = async (value: {
             value: creditsUsed.toString(),
           },
         })
-        // logger.debug(
-        //   {
-        //     credits: creditsUsed,
-        //     // request: value.request,
-        //     client_request_id: value.userInputId,
-        //     response: value.response,
-        //     userId: value.userId,
-        //   },
-        //   `${pluralize(creditsUsed, 'credit')} reported to Stripe`
-        // )
       } catch (error) {
         logger.error({ error, creditsUsed }, 'Failed to report usage to Stripe')
       }
