@@ -451,6 +451,14 @@ export class CLI {
     const filesChanged = uniq(allChanges.map((change) => change.filePath))
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
 
+    // Stage previous changes if flag was set
+    if (this.git === 'stage' && this.lastChanges.length > 0) {
+      const staged = stagePatches(getProjectRoot(), this.lastChanges)
+      if (staged) {
+        console.log(green('\nStaged previous changes'))
+      }
+    }
+
     const { created, modified } = applyChanges(getProjectRoot(), changes)
     if (created.length > 0 || modified.length > 0) {
       console.log()
@@ -462,13 +470,6 @@ export class CLI {
       console.log(green(`- Updated ${file}`))
     }
     if (created.length > 0 || modified.length > 0) {
-      // Stage previous changes if flag was set
-      if (this.git === 'stage' && this.lastChanges.length > 0) {
-        const staged = stagePatches(getProjectRoot(), this.lastChanges)
-        if (staged) {
-          console.log(green('\nStaged previous changes'))
-        }
-      }
       if (this.client.lastRequestCredits > REQUEST_CREDIT_SHOW_THRESHOLD) {
         console.log(
           `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
