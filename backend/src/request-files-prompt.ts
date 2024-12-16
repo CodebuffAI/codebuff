@@ -260,6 +260,9 @@ User request: ${userPrompt}
 
 We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad user requests may require many files as context.
 
+If the user is following up on a previous request, you should not read new files.
+If the user says something like "hi" with no specific request, you should not read new files.
+
 Answer with just 'YES' if reading new files is necessary, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
   const response = await promptOpenAI(
