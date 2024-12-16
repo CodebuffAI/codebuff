@@ -659,9 +659,8 @@ async function getFileVersionUpdates(
     }
   }
 
-  const readFilesPaths = addedFiles.map((f) => f.path)
   const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage(
-    readFilesPaths,
+    newFiles,
     fileVersions.length <= 1
   )
 
