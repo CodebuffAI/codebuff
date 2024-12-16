@@ -242,7 +242,6 @@ ${lastMessage.content}
     })
 
     let savedForNextChunk = ''
-    let foundEndOfResponse = false
     for await (const chunk of streamWithTags) {
       fullResponse += chunk
       // Don't print [END] to user.
@@ -250,7 +249,6 @@ ${lastMessage.content}
       savedForNextChunk = ''
 
       if (printedChunk.includes('\n[END]')) {
-        foundEndOfResponse = true
         printedChunk = printedChunk.replace('\n[END]', '')
       } else if (
         chunk.endsWith('\n') ||
@@ -276,9 +274,6 @@ ${lastMessage.content}
       }
 
       onResponseChunk(printedChunk)
-    }
-    if (foundEndOfResponse) {
-      fullResponse += '\n[END]'
     }
 
     const toolCallResult = toolCall as ToolCall | null
