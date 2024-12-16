@@ -336,6 +336,11 @@ Note: the project file tree is cached from the start of this conversation.
 `.trim()
 }
 
+const windowsNote = `
+Note: many commands in the terminal are different on Windows.
+For example, the mkdir command is \`mkdir\` instead of \`mkdir -p\`. Instead of grep, use \`findstr\`. Instead of \`ls\` use \`dir\` to list files. Instead of \`mv\` use \`move\`. Instead of \`rm\` use \`del\`. Instead of \`cp\` use \`copy\`. Unless the user is in Powershell, in which case you should use the Powershell commands instead.
+`.trim()
+
 const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
   const { fileTree, shellConfigFiles, systemInfo } = fileContext
   const flattenedNodes = flattenTree(fileTree)
@@ -345,6 +350,7 @@ const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
 # System Info
 
 Operating System: ${systemInfo.platform}
+${systemInfo.platform === 'win32' ? windowsNote + '\n' : ''}
 Shell: ${systemInfo.shell}
 
 <user_shell_config_files>
