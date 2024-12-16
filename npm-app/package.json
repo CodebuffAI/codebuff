@@ -31,6 +31,9 @@
     "dist",
     "README.md"
   ],
+  "engines": {
+    "node": ">=14"
+  },
   "dependencies": {
     "@types/diff": "5.2.1",
     "axios": "1.7.4",
