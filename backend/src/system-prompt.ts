@@ -243,6 +243,7 @@ const toolsPrompt = `
 You have access to the following tools:
 - <tool_call name="find_files">[DESCRIPTION_OF_FILES]</tool_call>: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
 - <tool_call name="read_files">[LIST_OF_FILE_PATHS]</tool_call>: Provide a list of file paths to read, separated by newlines. The file paths must be the full path relative to the project root directory. Prefer using this tool over find_files when you know the exact file(s) you want to read.
+- <tool_call name="code_search">[PATTERN]</tool_call>: Search for the given pattern in the project directory. Use this tool to search for code in the project, like function names, class names, variable names, types, where a function is called from, where it is defined, etc.
 - <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
 - <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
 
@@ -276,6 +277,38 @@ Use the <tool_call name="read_files">...</tool_call> tool to read files you don'
 Feel free to use this tool as much as needed to read files that would be relevant to the user's request.
 
 However, do not use this tool to read files that you already have in context. Do not repeat reading calls that you have already read.
+
+## Code search
+
+Use the <tool_call name="code_search">...</tool_call> tool to search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool.
+
+Purpose: Search through code files to find files with specific text patterns, function names, variable names, and more.
+
+Examples:
+<tool_call name="code_search">foo</tool_call>
+<tool_call name="code_search">"import.*foo"</tool_call>
+
+Note: you need quotes around the pattern if it contains special characters.
+
+Use cases:
+1. Finding all references to a function, class, or variable name across the codebase
+2. Searching for specific code patterns or implementations
+3. Looking up where certain strings or text appear
+4. Finding files that contain specific imports or dependencies
+5. Locating configuration settings or environment variables
+
+The pattern supports regular expressions and will search recursively through all files in the project by default. Some tips:
+- Be as constraining in the pattern as possible to limit the number of files returned, e.g. if searching for the definition of a function, use "(function foo|const foo)" or "def foo" instead of merely "foo".
+- Use word boundaries (\b) to match whole words only
+- Searches file content and filenames
+- Automatically ignores binary files, hidden files, and files in .gitignore
+- Case-sensitive by default. Use -i to make it case insensitive.
+- Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
+
+Do not use code_search when:
+- You already know the exact file location
+- You want to load the contents of files (use find_files instead)
+- You're inside an <edit_file> block
 
 ## Running terminal commands
 

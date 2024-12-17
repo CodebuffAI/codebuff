@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@types/diff": "5.2.1",
+    "@vscode/ripgrep": "1.15.9",
     "axios": "1.7.4",
     "cheerio": "1.0.0",
     "diff": "5.2.0",
@@ -60,5 +61,8 @@
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
     "zod": "3.23.8"
-  }
+  },
+  "trustedDependencies": [
+    "@vscode/ripgrep"
+  ]
 }

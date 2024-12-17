@@ -45,6 +45,7 @@
     "node": ">=20.0.0"
   },
   "trustedDependencies": [
+    "@vscode/ripgrep",
     "tree-sitter-c",
     "tree-sitter-c-sharp",
     "tree-sitter-cpp",

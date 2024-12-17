@@ -229,6 +229,8 @@ ${lastMessage.content}
             contentAttributes.description = content
           } else if (name === 'read_files') {
             contentAttributes.file_paths = content
+          } else if (name === 'code_search') {
+            contentAttributes.pattern = content
           }
           fullResponse += `<tool_call name="${attributes.name}">${content}</tool_call>`
           toolCall = {
