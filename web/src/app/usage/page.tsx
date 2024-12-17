@@ -4,14 +4,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
-import { getQuotaManager } from 'common/src/billing/quota-manager'
+import { AuthenticatedQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/util/dates'
 import { UsageData } from 'common/src/types/usage'
-import { OVERAGE_RATE_PRO } from 'common/constants'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
-import { eq } from 'drizzle-orm'
-import { stripeServer } from 'common/src/util/stripe'
 
 const SignInCard = () => (
   <Card>
@@ -95,59 +90,20 @@ const UsagePage = async () => {
     return <SignInCard />
   }
 
-  const quotaManager = getQuotaManager('authenticated', session.user.id)
-  let q = await quotaManager.checkQuota()
+  // const quotaManager = getQuotaManager('authenticated', session.user.id)
+  const quotaManager = new AuthenticatedQuotaManager()
+  let q = await quotaManager.checkQuota(session.user.id)
   if (q.endDate < new Date()) {
     // endDate is in the past, so reset the quota
     const nextQuotaReset = getNextQuotaReset(q.endDate)
-    await quotaManager.setNextQuota(false, nextQuotaReset)
+    await quotaManager.setNextQuota(session.user.id, false, nextQuotaReset)
 
     // get their newly updated info
-    q = await quotaManager.checkQuota()
+    q = await quotaManager.checkQuota(session.user.id)
   }
-
-  // Get user's subscription from Stripe
-  const user = await db.query.user.findFirst({
-    where: eq(schema.user.id, session.user.id),
-    columns: {
-      stripe_customer_id: true,
-      stripe_price_id: true,
-    },
-  })
-
-  let overageRate: number | null = null
-  if (user?.stripe_customer_id && user?.stripe_price_id) {
-    const subscriptions = await stripeServer.subscriptions.list({
-      customer: user.stripe_customer_id,
-      status: 'active',
-      limit: 1,
-    })
-
-    if (subscriptions.data[0]?.id) {
-      const subscription = await stripeServer.subscriptions.retrieve(
-        subscriptions.data[0].id,
-        {
-          expand: ['items.data.price.tiers'],
-        }
-      )
-
-      // Get the metered price item which contains our overage rate
-      const meteredPrice = subscription.items.data.find(
-        (item) => item.price.recurring?.usage_type === 'metered'
-      )
-
-      if (meteredPrice?.price.tiers) {
-        for (const tier of meteredPrice.price.tiers) {
-          if (tier.up_to === null || q.creditsUsed <= tier.up_to) {
-            if (tier.unit_amount_decimal) {
-              overageRate = parseFloat(tier.unit_amount_decimal)
-              break
-            }
-          }
-        }
-      }
-    }
-  }
+  const { overageRate } = await quotaManager.getStripeSubscriptionQuota(
+    session.user.id
+  )
 
   const usageData: UsageData = {
     creditsUsed: q.creditsUsed,

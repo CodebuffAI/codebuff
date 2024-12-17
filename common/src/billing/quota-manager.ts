@@ -1,3 +1,4 @@
+import { stripeServer } from '../util/stripe'
 import { CREDITS_USAGE_LIMITS } from '../constants'
 import db from '../db'
 import * as schema from '../db/schema'
@@ -102,6 +103,57 @@ export class AnonymousQuotaManager implements IQuotaManager {
 }
 
 export class AuthenticatedQuotaManager implements IQuotaManager {
+  async getStripeSubscriptionQuota(
+    userId: string
+  ): Promise<{ quota: number; overageRate: number | null }> {
+    // Get user's subscription from Stripe
+    const user = await db.query.user.findFirst({
+      where: eq(schema.user.id, userId),
+      columns: {
+        stripe_customer_id: true,
+        stripe_price_id: true,
+      },
+    })
+
+    let overageRate: number | null = null
+    let quota = CREDITS_USAGE_LIMITS.PAID
+    if (user?.stripe_customer_id && user?.stripe_price_id) {
+      const subscriptions = await stripeServer.subscriptions.list({
+        customer: user.stripe_customer_id,
+        status: 'active',
+        limit: 1,
+      })
+
+      if (subscriptions.data[0]?.id) {
+        const subscription = await stripeServer.subscriptions.retrieve(
+          subscriptions.data[0].id,
+          {
+            expand: ['items.data.price.tiers'],
+          }
+        )
+
+        // Get the metered price item which contains our overage rate
+        const meteredPrice = subscription.items.data.find(
+          (item) => item.price.recurring?.usage_type === 'metered'
+        )
+
+        if (meteredPrice?.price.tiers) {
+          for (const tier of meteredPrice.price.tiers) {
+            if (tier.up_to) {
+              quota = Math.max(quota, tier.up_to)
+            }
+            if (tier.up_to === null && tier.unit_amount_decimal) {
+              overageRate = parseFloat(tier.unit_amount_decimal)
+              break
+            }
+          }
+        }
+      }
+    }
+
+    return { quota, overageRate }
+  }
+
   async checkQuota(userId: string, sessionId?: string): CheckQuotaResult {
     const startDate: SQL<string> = sql<string>`COALESCE(${schema.user.next_quota_reset}, now()) - INTERVAL '1 month'`
     const endDate: SQL<string> = sql<string>`COALESCE(${schema.user.next_quota_reset}, now())`
