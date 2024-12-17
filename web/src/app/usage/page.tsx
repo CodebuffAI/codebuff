@@ -7,11 +7,11 @@ import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/util/dates'
 import { UsageData } from 'common/src/types/usage'
-import {
-  CREDITS_USAGE_LIMITS,
-  OVERAGE_RATE_PRO,
-  OVERAGE_RATE_PRO_PLUS,
-} from 'common/constants'
+import { OVERAGE_RATE_PRO } from 'common/constants'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { eq } from 'drizzle-orm'
+import { stripeServer } from 'common/src/util/stripe'
 
 const SignInCard = () => (
   <Card>
@@ -27,10 +27,6 @@ const SignInCard = () => (
 
 const UsageDisplay = ({ data }: { data: UsageData }) => {
   const { creditsUsed, totalQuota, nextQuotaReset, subscriptionActive } = data
-  const overageRate =
-    totalQuota === CREDITS_USAGE_LIMITS.PRO_PLUS
-      ? OVERAGE_RATE_PRO_PLUS
-      : OVERAGE_RATE_PRO
   const remainingCredits = Math.max(0, totalQuota - creditsUsed)
 
   return (
@@ -45,15 +41,16 @@ const UsageDisplay = ({ data }: { data: UsageData }) => {
               <p>
                 You have exceeded your monthly quota, but you can continue using
                 Codebuff. You will be charged an overage fee of $
-                {overageRate.toFixed(2)} per 100 additional credits.
+                {data.overageRate.toFixed(2)} per 100 additional credits.
               </p>
               <p className="mt-2">
                 Current overage bill:{' '}
                 <b>
                   $
-                  {(((creditsUsed - totalQuota) / 100) * overageRate).toFixed(
-                    2
-                  )}
+                  {(
+                    ((creditsUsed - totalQuota) / 100) *
+                    data.overageRate
+                  ).toFixed(2)}
                 </b>
               </p>
             </div>
@@ -100,12 +97,56 @@ const UsagePage = async () => {
     q = await quotaManager.checkQuota()
   }
 
+  // Get user's subscription from Stripe
+  const user = await db.query.user.findFirst({
+    where: eq(schema.user.id, session.user.id),
+    columns: {
+      stripe_customer_id: true,
+      stripe_price_id: true,
+    },
+  })
+
+  let overageRate: number = OVERAGE_RATE_PRO
+  if (user?.stripe_customer_id && user?.stripe_price_id) {
+    const subscriptions = await stripeServer.subscriptions.list({
+      customer: user.stripe_customer_id,
+      status: 'active',
+      limit: 1,
+    })
+
+    if (subscriptions.data[0]?.id) {
+      const subscription = await stripeServer.subscriptions.retrieve(
+        subscriptions.data[0].id,
+        {
+          expand: ['items.data.price.tiers'],
+        }
+      )
+
+      // Get the metered price item which contains our overage rate
+      const meteredPrice = subscription.items.data.find(
+        (item) => item.price.recurring?.usage_type === 'metered'
+      )
+
+      if (meteredPrice?.price.tiers) {
+        for (const tier of meteredPrice.price.tiers) {
+          if (tier.up_to === null || q.creditsUsed <= tier.up_to) {
+            if (tier.unit_amount_decimal) {
+              overageRate = parseFloat(tier.unit_amount_decimal)
+              break
+            }
+          }
+        }
+      }
+    }
+  }
+
   const usageData: UsageData = {
     creditsUsed: q.creditsUsed,
     totalQuota: q.quota,
     remainingCredits: q.quota - q.creditsUsed,
     nextQuotaReset: q.endDate,
     subscriptionActive: q.subscription_active,
+    overageRate,
   }
 
   return <UsageDisplay data={usageData} />
