@@ -7,6 +7,11 @@ import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/util/dates'
 import { UsageData } from 'common/src/types/usage'
+import {
+  CREDITS_USAGE_LIMITS,
+  OVERAGE_RATE_PRO,
+  OVERAGE_RATE_PRO_PLUS,
+} from 'common/constants'
 
 const SignInCard = () => (
   <Card>
@@ -22,6 +27,10 @@ const SignInCard = () => (
 
 const UsageDisplay = ({ data }: { data: UsageData }) => {
   const { creditsUsed, totalQuota, nextQuotaReset, subscriptionActive } = data
+  const overageRate =
+    totalQuota === CREDITS_USAGE_LIMITS.PRO_PLUS
+      ? OVERAGE_RATE_PRO_PLUS
+      : OVERAGE_RATE_PRO
   const remainingCredits = Math.max(0, totalQuota - creditsUsed)
 
   return (
@@ -35,17 +44,14 @@ const UsageDisplay = ({ data }: { data: UsageData }) => {
             <div className="p-4 mb-4 bg-yellow-100 dark:bg-blue-900 rounded-md space-y-2">
               <p>
                 You have exceeded your monthly quota, but you can continue using
-                Codebuff.
-              </p>
-              <p>
-                You will be charged an overage fee of $0.90 per 100 additional
-                credits.
+                Codebuff. You will be charged an overage fee of $
+                {overageRate.toFixed(2)} per 100 additional credits.
               </p>
               <p className="mt-2">
-                Current overage:{' '}
+                Current overage bill:{' '}
                 <b>
                   $
-                  {(Math.ceil((creditsUsed - totalQuota) / 100) * 0.9).toFixed(
+                  {(((creditsUsed - totalQuota) / 100) * overageRate).toFixed(
                     2
                   )}
                 </b>

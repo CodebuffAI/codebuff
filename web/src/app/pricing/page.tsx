@@ -4,11 +4,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import Link from 'next/link'
-import { CREDITS_USAGE_LIMITS } from 'common/constants'
+import {
+  CREDITS_USAGE_LIMITS,
+  OVERAGE_RATE_PRO,
+  OVERAGE_RATE_PRO_PLUS,
+} from 'common/constants'
 import { env } from '@/env.mjs'
 import { useSession } from 'next-auth/react'
 import { Icons } from '@/components/icons'
-import { useRouter } from 'next/navigation'
 import { handleCreateCheckoutSession } from '@/lib/stripe'
 
 const PricingPage = () => {
@@ -47,7 +50,7 @@ const PricingPage = () => {
       price: '$49/month',
       credits: CREDITS_USAGE_LIMITS.PAID,
       features: [
-        'Overage allowed ($0.99 per 100 credits)',
+        `Overage allowed ($${OVERAGE_RATE_PRO.toFixed(2)} per 100 credits)`,
         'Priority support over email and Discord',
       ],
       cardFooterChildren: (
@@ -100,7 +103,7 @@ const PricingPage = () => {
       price: '$249/month',
       credits: CREDITS_USAGE_LIMITS.PRO_PLUS,
       features: [
-        'Overage allowed ($0.90 per 100 credits)',
+        `Overage allowed ($${OVERAGE_RATE_PRO_PLUS.toFixed(2)} per 100 credits)`,
         'Priority support over email and Discord',
       ],
       cardFooterChildren: (

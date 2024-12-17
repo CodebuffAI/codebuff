@@ -128,4 +128,7 @@ export const models = {
   ...geminiModels,
 }
 
+export const OVERAGE_RATE_PRO = 0.99
+export const OVERAGE_RATE_PRO_PLUS = 0.90
+
 export const TEST_USER_ID = 'test-user-id'
