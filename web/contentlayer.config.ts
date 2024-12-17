@@ -25,5 +25,6 @@ export const Doc = defineDocumentType(() => ({
 export default makeSource({
   contentDirPath: 'src/content',
   documentTypes: [Doc],
+  contentDirExclude: ['case-studies/_cta.mdx'],
   disableImportAliasWarning: true,
 })
