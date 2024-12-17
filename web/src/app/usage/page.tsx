@@ -38,21 +38,30 @@ const UsageDisplay = ({ data }: { data: UsageData }) => {
         <div className="space-y-4">
           {creditsUsed > totalQuota && subscriptionActive && (
             <div className="p-4 mb-4 bg-yellow-100 dark:bg-blue-900 rounded-md space-y-2">
-              <p>
-                You have exceeded your monthly quota, but you can continue using
-                Codebuff. You will be charged an overage fee of $
-                {data.overageRate.toFixed(2)} per 100 additional credits.
-              </p>
-              <p className="mt-2">
-                Current overage bill:{' '}
-                <b>
-                  $
-                  {(
-                    ((creditsUsed - totalQuota) / 100) *
-                    data.overageRate
-                  ).toFixed(2)}
-                </b>
-              </p>
+              {data.overageRate ? (
+                <>
+                  <p>
+                    You have exceeded your monthly quota, but you can continue
+                    using Codebuff. You will be charged an overage fee of $
+                    {data.overageRate.toFixed(2)} per 100 additional credits.
+                  </p>
+                  <p className="mt-2">
+                    Current overage bill:{' '}
+                    <b>
+                      $
+                      {(
+                        ((creditsUsed - totalQuota) / 100) *
+                        data.overageRate
+                      ).toFixed(2)}
+                    </b>
+                  </p>
+                </>
+              ) : (
+                <p>
+                  You have exceeded your monthly quota, but you can continue
+                  using Codebuff.
+                </p>
+              )}
             </div>
           )}
           <div className="flex justify-between items-center">
@@ -106,7 +115,7 @@ const UsagePage = async () => {
     },
   })
 
-  let overageRate: number = OVERAGE_RATE_PRO
+  let overageRate: number | null = null
   if (user?.stripe_customer_id && user?.stripe_price_id) {
     const subscriptions = await stripeServer.subscriptions.list({
       customer: user.stripe_customer_id,
