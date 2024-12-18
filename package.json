@@ -4,6 +4,7 @@
   "private": true,
   "license": "UNLICENSED",
   "workspaces": [
+    "cli",
     "common",
     "backend",
     "npm-app",
@@ -58,6 +59,8 @@
     "tree-sitter-rust"
   ],
   "dependencies": {
-    "codebuff": "^1.0.119"
+    "codebuff": "^1.0.119",
+    "react": "18.2.0",
+    "react-reconciler": "0.31.0"
   }
 }

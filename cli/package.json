@@ -1,0 +1,24 @@
+{
+  "name": "cli",
+  "module": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "bun run index.tsx"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0",
+    "react": "18.2.0",
+    "react-reconciler": "0.31.0"
+  },
+  "dependencies": {
+    "@types/react": "^19.0.1",
+    "ink": "^5.1.0",
+    "ink-select-input": "^6.0.0",
+    "ink-text-input": "^6.0.0",
+    "meow": "^13.2.0",
+    "signal-exit": "^4.1.0"
+  }
+}
