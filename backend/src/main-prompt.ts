@@ -284,7 +284,7 @@ ${lastMessage.content}
     if (toolCallResult?.name === 'plan_complex_change') {
       const { prompt } = toolCallResult.input
 
-      onResponseChunk(`\nPosing the following problem...\n${prompt}\n`)
+      onResponseChunk(`\n${prompt}\n`)
 
       const filePaths = await getRelevantFilesForPlanning(
         messages,
@@ -305,8 +305,9 @@ ${lastMessage.content}
 
       const existingFilePaths = Object.keys(fileContents)
       onResponseChunk(`\nRelevant files:\n${existingFilePaths.join(' ')}\n`)
-      onResponseChunk(`\nThinking deeply about this problem...\n`)
       fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
+
+      onResponseChunk(`\nThinking deeply (can take a few minutes)...\n`)
 
       logger.debug(
         {
@@ -314,7 +315,7 @@ ${lastMessage.content}
           filePaths,
           existingFilePaths,
         },
-        'Thinking deeply about this problem'
+        'Thinking deeply'
       )
 
       const plan = await planComplexChange(prompt, fileContents, {
