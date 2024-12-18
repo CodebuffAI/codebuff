@@ -116,6 +116,7 @@ export const claudeModels = {
 export const openaiModels = {
   gpt4o: 'gpt-4o-2024-08-06',
   gpt4omini: 'gpt-4o-mini-2024-07-18',
+  o1: 'o1-2024-12-17',
 } as const
 
 export const geminiModels = {
@@ -129,6 +130,6 @@ export const models = {
 }
 
 export const OVERAGE_RATE_PRO = 0.99
-export const OVERAGE_RATE_PRO_PLUS = 0.90
+export const OVERAGE_RATE_PRO_PLUS = 0.9
 
 export const TEST_USER_ID = 'test-user-id'

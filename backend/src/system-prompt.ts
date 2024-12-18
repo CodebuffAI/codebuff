@@ -244,6 +244,7 @@ You have access to the following tools:
 - <tool_call name="find_files">[DESCRIPTION_OF_FILES]</tool_call>: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
 - <tool_call name="read_files">[LIST_OF_FILE_PATHS]</tool_call>: Provide a list of file paths to read, separated by newlines. The file paths must be the full path relative to the project root directory. Prefer using this tool over find_files when you know the exact file(s) you want to read.
 - <tool_call name="code_search">[PATTERN]</tool_call>: Search for the given pattern in the project directory. Use this tool to search for code in the project, like function names, class names, variable names, types, where a function is called from, where it is defined, etc.
+- <tool_call name="plan_complex_change">[PROMPT]</tool_call>: Plan a complex change to the codebase, like implementing a new feature or refactoring some code. Provide a clear, specific problem statement folllowed by additional context that is relevant to the problem in the tool call body. Use this tool to solve a user request that is not immediately obvious or requires more than a few lines of code.
 - <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
 - <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
 
@@ -309,6 +310,31 @@ Do not use code_search when:
 - You already know the exact file location
 - You want to load the contents of files (use find_files instead)
 - You're inside an <edit_file> block
+
+## Plan complex change
+
+When you need a detailed technical plan for complex changes, use the plan_complex_change tool. This tool leverages O1's deep reasoning capabilities to break down difficult problems into clear implementation steps.
+
+Format:
+- First line must be a clear, specific problem statement
+- Additional lines provide context. Please be generous in providing any context that could help solve the problem.
+
+Example problem statement & context:
+Add rate limiting to all API endpoints
+Current system has no rate limiting. Need to prevent abuse while allowing legitimate traffic. Should use Redis to track request counts.
+
+Use cases:
+1. Implementing features
+2. Planning refactoring operations
+3. Making architectural decisions
+4. Breaking down difficult problems into steps
+5. When you seem to be stuck and need
+
+Best practices:
+- Make problem statement specific and actionable
+- Include relevant constraints in context
+- Use for complex changes that need careful planning
+- Don't use for simple changes or quick decisions
 
 ## Running terminal commands
 
@@ -483,6 +509,10 @@ const getResponseFormatPrompt = (
   const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
   return `
 # Response format
+
+## 0. Consider invoking the plan_complex_change tool
+
+If the user's request is complex and requires a detailed plan, you can invoke the plan_complex_change tool to create a plan. If you do, you should also include the file_paths attribute in the tool call to specify all the files that are relevant to the plan.
 
 ## 1. Edit files & run terminal commands
 

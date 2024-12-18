@@ -1,11 +1,13 @@
 import { WebSocket } from 'ws'
+import { planComplexChange } from './openai-api'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
-import { model_types, promptClaudeStream } from './claude'
+import { model_types, promptClaude, promptClaudeStream } from './claude'
 import {
   TOOL_RESULT_MARKER,
   STOP_MARKER,
   getModelForMode,
+  claudeModels,
 } from 'common/constants'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
@@ -30,9 +32,6 @@ import {
   checkToAllowUnboundedIteration,
 } from './conversation-progress'
 
-/**
- * Prompt claude, handle tool calls, and generate file changes.
- */
 export async function mainPrompt(
   ws: WebSocket,
   messages: Message[],
@@ -231,6 +230,8 @@ ${lastMessage.content}
             contentAttributes.file_paths = content
           } else if (name === 'code_search') {
             contentAttributes.pattern = content
+          } else if (name === 'plan_complex_change') {
+            contentAttributes.prompt = content
           }
           fullResponse += `<tool_call name="${attributes.name}">${content}</tool_call>`
           toolCall = {
@@ -280,7 +281,67 @@ ${lastMessage.content}
 
     const toolCallResult = toolCall as ToolCall | null
 
-    if (toolCallResult?.name === 'find_files') {
+    if (toolCallResult?.name === 'plan_complex_change') {
+      const { prompt } = toolCallResult.input
+
+      onResponseChunk(`\nPosing the following problem...\n${prompt}\n`)
+
+      const filePaths = await getRelevantFilesForPlanning(
+        messages,
+        prompt,
+        fileContext,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId
+      )
+
+      const loadedFiles = await requestFiles(ws, filePaths)
+      const fileContents = Object.fromEntries(
+        Object.entries(loadedFiles).filter(
+          ([_, content]) => content !== null
+        ) as [string, string][]
+      )
+
+      const existingFilePaths = Object.keys(fileContents)
+      onResponseChunk(`\nRelevant files:\n${existingFilePaths.join(' ')}\n`)
+      onResponseChunk(`\nThinking deeply about this problem...\n`)
+      fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
+
+      logger.debug(
+        {
+          prompt,
+          filePaths,
+          existingFilePaths,
+        },
+        'Thinking deeply about this problem'
+      )
+
+      const plan = await planComplexChange(prompt, fileContents, {
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      })
+      logger.debug(
+        {
+          prompt,
+          file_paths: filePaths,
+          response: plan,
+        },
+        'Generated plan'
+      )
+      onResponseChunk(`\nGenerated technical plan:\n${plan}\n`)
+      fullResponse += `\nGenerated technical plan:\n${plan}\n`
+      toolCall = null
+      isComplete = false
+      continuedMessages = [
+        {
+          role: 'assistant',
+          content: fullResponse.trim(),
+        },
+      ]
+    } else if (toolCallResult?.name === 'find_files') {
       logger.debug(toolCallResult, 'tool call')
       const description = toolCallResult.input.description
       const {
@@ -672,4 +733,37 @@ async function getFileVersionUpdates(
     readFilesMessage,
     toolCallMessage,
   }
+}
+
+/**
+ * Prompt claude, handle tool calls, and generate file changes.
+ */
+async function getRelevantFilesForPlanning(
+  messages: Message[],
+  prompt: string,
+  fileContext: ProjectFileContext,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined
+) {
+  const response = await promptClaude(
+    [
+      ...messages,
+      {
+        role: 'user',
+        content: `Given this request:\n${prompt}\n\nPlease list up to 20 file paths from the project that would be most relevant for implementing this change. Only output the file paths, one per line, nothing else.`,
+      },
+    ],
+    {
+      model: claudeModels.sonnet,
+      system: getAgentSystemPrompt(fileContext),
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    }
+  )
+
+  return response.split('\n').filter((line) => line.trim().length > 0)
 }

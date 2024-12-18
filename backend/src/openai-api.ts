@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
-import { RATE_LIMIT_POLICY } from './constants'
-import { STOP_MARKER, TEST_USER_ID } from 'common/constants'
+import { STOP_MARKER, TEST_USER_ID, models } from 'common/constants'
+import { createMarkdownFileBlock } from 'common/util/file'
 import { Stream } from 'openai/streaming'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
@@ -32,6 +32,41 @@ const timeoutPromise = (ms: number) =>
     setTimeout(() => reject(new Error('OpenAI API request timed out')), ms)
   )
 
+export async function planComplexChange(
+  prompt: string,
+  files: Record<string, string>,
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+  }
+) {
+  const messages: OpenAIMessage[] = [
+    {
+      role: 'user',
+      content: `${
+        Object.keys(files).length > 0
+          ? `Relevant Files:\n\n${Object.entries(files)
+              .map(([path, content]) => createMarkdownFileBlock(path, content))
+              .join('\n')}\n\n`
+          : ''
+      }${prompt}
+
+Please plan and create a detailed solution.`,
+    },
+  ]
+
+  console.log('messages', messages)
+  const response = await promptOpenAI(messages, {
+    ...options,
+    model: models.o1,
+    temperature: 1,
+  })
+
+  return response
+}
+
 export async function promptOpenAI(
   messages: OpenAIMessage[],
   options: {
@@ -41,6 +76,7 @@ export async function promptOpenAI(
     model: string
     userId: string | undefined
     predictedContent?: string
+    temperature?: number
   }
 ) {
   const {
@@ -58,13 +94,15 @@ export async function promptOpenAI(
       openai.chat.completions.create({
         model,
         messages,
-        temperature: 0,
+        temperature: options.temperature ?? 0,
         // store: true,
         ...(predictedContent
           ? { prediction: { type: 'content', content: predictedContent } }
           : {}),
       }),
-      timeoutPromise(200_000) as Promise<OpenAI.Chat.ChatCompletion>,
+      timeoutPromise(
+        model.startsWith('o1') ? 800_000 : 200_000
+      ) as Promise<OpenAI.Chat.ChatCompletion>,
     ])
 
     if (
@@ -167,6 +205,7 @@ export async function promptOpenAIWithContinuation(
         }
 
         if (chunk.usage) {
+          console.log('chunk.usage', chunk.usage)
           const messageId = chunk.id
           saveMessage({
             messageId,
