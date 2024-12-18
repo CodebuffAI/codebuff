@@ -758,7 +758,7 @@ async function getRelevantFilesForPlanning(
     ],
     {
       model: claudeModels.sonnet,
-      system: getAgentSystemPrompt(fileContext),
+      system: getSearchSystemPrompt(fileContext),
       clientSessionId,
       fingerprintId,
       userInputId,

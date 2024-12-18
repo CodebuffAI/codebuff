@@ -518,7 +518,7 @@ If the user's request is complex or requires a detailed plan, you should invoke 
 - Making an architectural decision
 - Breaking down a difficult problem into steps
 
-In all these cases, you should invoke the plan_complex_change tool to create a plan. Otherwise, you can skip this step.
+In all these cases, you should invoke the plan_complex_change tool to create a plan.
 
 ## 1. Edit files & run terminal commands
 
