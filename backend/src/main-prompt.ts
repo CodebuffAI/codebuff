@@ -22,11 +22,10 @@ import {
   warmCacheForRequestRelevantFiles,
 } from './request-files-prompt'
 import { processStreamWithTags } from './process-stream'
-import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
 import { difference, uniq, zip } from 'lodash'
-import { filterDefined } from 'common/util/array'
+import { buildArray } from 'common/util/array'
 import {
   checkConversationProgress,
   checkToAllowUnboundedIteration,
@@ -139,31 +138,26 @@ export async function mainPrompt(
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
     newLastMessage = {
       ...lastMessage,
-      content: `
-<system_instruction>
-Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.
-</system_instruction>
-<system_instruction>
-Always end your response with the following marker:
-${STOP_MARKER}
-</system_instruction>
-${
-  lastMessage.content.includes(TOOL_RESULT_MARKER)
-    ? `
-<system_instruction>
-If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request.
-</system_instruction>
-  `.trim()
-    : ''
-}
-
-${lastMessage.content}
-`.trim(),
+      content:
+        buildArray(
+          'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
+          costMode === 'pro' &&
+            "If applicable, please invoke the plan_complex_change tool to create a plan for the user's request.",
+          `Always end your response with the following marker:\n${STOP_MARKER}`,
+          lastMessage.content.includes(TOOL_RESULT_MARKER) &&
+            "If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request."
+        )
+          .map(
+            (line) => `<important_instruction>${line}</important_instruction>`
+          )
+          .join('\n') +
+        '\n\n' +
+        lastMessage.content,
     }
   }
 
   while (!isComplete) {
-    const system = getAgentSystemPrompt(fileContext)
+    const system = getAgentSystemPrompt(fileContext, costMode)
     const messagesWithContinuedMessage = continuedMessages
       ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
       : messages

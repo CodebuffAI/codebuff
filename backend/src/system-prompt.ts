@@ -8,7 +8,7 @@ import {
 } from 'common/util/file'
 import { buildArray } from 'common/util/array'
 import { truncateString } from 'common/util/string'
-import { STOP_MARKER } from 'common/constants'
+import { CostMode, STOP_MARKER } from 'common/constants'
 import { countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
 import { sortBy, sum, uniq } from 'lodash'
@@ -54,7 +54,10 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
   return systemPrompt
 }
 
-export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
+export const getAgentSystemPrompt = (
+  fileContext: ProjectFileContext,
+  costMode: CostMode
+) => {
   const { fileVersions } = fileContext
   const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
@@ -80,7 +83,7 @@ export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
       cache_control: { type: 'ephemeral' as const },
       text: buildArray(
         getGitChangesPrompt(fileContext),
-        getResponseFormatPrompt(fileContext, files)
+        getResponseFormatPrompt(fileContext, files, costMode)
       ).join('\n\n'),
     }
   )
@@ -505,13 +508,16 @@ ${truncateString(gitChanges.lastCommitMessages, maxLength / 10)}
 
 const getResponseFormatPrompt = (
   fileContext: ProjectFileContext,
-  files: string[]
+  files: string[],
+  costMode: CostMode
 ) => {
   const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
   return `
 # Response format
 
-## 0. Invoke the plan_complex_change tool
+${
+  costMode === 'pro'
+    ? `## 0. Invoke the plan_complex_change tool
 
 If the user's request is complex or requires a detailed plan, you should invoke the plan_complex_change tool to create a plan. Examples of complex requests include:
 - Implementing a new feature
@@ -520,7 +526,9 @@ If the user's request is complex or requires a detailed plan, you should invoke 
 - Breaking down a difficult problem into steps
 
 In all these cases, you should invoke the plan_complex_change tool to create a plan.
-
+`
+    : ''
+}
 ## 1. Edit files & run terminal commands
 
 Respond to the user's request by editing files and running terminal commands as needed. The goal is to make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more. When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.
