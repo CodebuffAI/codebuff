@@ -139,18 +139,7 @@ export async function mainPrompt(
     newLastMessage = {
       ...lastMessage,
       content:
-        buildArray(
-          'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
-          costMode === 'pro' &&
-            'If the user request is complex (e.g. requires changes across multiple files or systems), please consider invoking the plan_complex_change tool to create a plan.',
-          `Always end your response with the following marker:\n${STOP_MARKER}`,
-          lastMessage.content.includes(TOOL_RESULT_MARKER) &&
-            "If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request."
-        )
-          .map(
-            (line) => `<important_instruction>${line}</important_instruction>`
-          )
-          .join('\n') +
+        getExtraInstructionForUserPrompt(fileContext, messages, costMode) +
         '\n\n' +
         lastMessage.content,
     }
@@ -539,6 +528,36 @@ export async function mainPrompt(
       : addedFileVersions,
     resetFileVersions,
   }
+}
+
+function getExtraInstructionForUserPrompt(
+  fileContext: ProjectFileContext,
+  messages: Message[],
+  costMode: CostMode
+) {
+  const lastMessage = messages[messages.length - 1]
+  const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
+  const isNotFirstUserMessage =
+    messages.filter((m) => m.role === 'user').length > 1
+
+  return buildArray(
+    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
+
+    costMode === 'pro' &&
+      'If the user request is complex (e.g. requires changes across multiple files or systems), please consider invoking the plan_complex_change tool to create a plan.',
+
+    hasKnowledgeFiles &&
+      isNotFirstUserMessage &&
+      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
+
+    `Always end your response with the following marker:\n${STOP_MARKER}`,
+
+    typeof lastMessage.content === 'string' &&
+      lastMessage.content.includes(TOOL_RESULT_MARKER) &&
+      "If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request."
+  )
+    .map((line) => `<important_instruction>${line}</important_instruction>`)
+    .join('\n')
 }
 
 function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
