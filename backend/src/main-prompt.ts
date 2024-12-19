@@ -108,7 +108,7 @@ export async function mainPrompt(
     )
   }
 
-  const allowUnboundedIteration = await allowUnboundedIterationPromise
+  let allowUnboundedIteration = await allowUnboundedIterationPromise
 
   const numAssistantMessages = messages
     .slice(lastUserMessageIndex)
@@ -278,7 +278,7 @@ export async function mainPrompt(
     if (toolCallResult?.name === 'plan_complex_change') {
       const { prompt } = toolCallResult.input
 
-      onResponseChunk(`\n${prompt}\n`)
+      onResponseChunk(`\nPrompt: ${prompt}\n`)
 
       const filePaths = await getRelevantFilesForPlanning(
         messages,
@@ -328,6 +328,10 @@ export async function mainPrompt(
       )
       onResponseChunk(`\nGenerated technical plan:\n${plan}\n`)
       fullResponse += `\nGenerated technical plan:\n${plan}\n`
+
+      // Enable unbounded iteration mode after generating plan
+      allowUnboundedIteration = true
+
       toolCall = null
       isComplete = false
       continuedMessages = [
@@ -455,6 +459,7 @@ export async function mainPrompt(
           ],
           fileContext,
           {
+            costMode,
             clientSessionId,
             fingerprintId,
             userInputId,
