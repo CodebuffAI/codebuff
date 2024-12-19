@@ -1,11 +1,12 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
-import { model_types, promptClaudeStream } from './claude'
+import { model_types, promptClaude, promptClaudeStream } from './claude'
 import {
   TOOL_RESULT_MARKER,
   STOP_MARKER,
   getModelForMode,
+  claudeModels,
 } from 'common/constants'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
@@ -20,19 +21,16 @@ import {
   warmCacheForRequestRelevantFiles,
 } from './request-files-prompt'
 import { processStreamWithTags } from './process-stream'
-import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
 import { difference, uniq, zip } from 'lodash'
-import { filterDefined } from 'common/util/array'
+import { buildArray } from 'common/util/array'
 import {
   checkConversationProgress,
   checkToAllowUnboundedIteration,
 } from './conversation-progress'
+import { getRelevantFilesForPlanning, planComplexChange } from './planning'
 
-/**
- * Prompt claude, handle tool calls, and generate file changes.
- */
 export async function mainPrompt(
   ws: WebSocket,
   messages: Message[],
@@ -110,7 +108,7 @@ export async function mainPrompt(
     )
   }
 
-  const allowUnboundedIteration = await allowUnboundedIterationPromise
+  let allowUnboundedIteration = await allowUnboundedIterationPromise
 
   const numAssistantMessages = messages
     .slice(lastUserMessageIndex)
@@ -140,31 +138,26 @@ export async function mainPrompt(
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
     newLastMessage = {
       ...lastMessage,
-      content: `
-<system_instruction>
-Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.
-</system_instruction>
-<system_instruction>
-Always end your response with the following marker:
-${STOP_MARKER}
-</system_instruction>
-${
-  lastMessage.content.includes(TOOL_RESULT_MARKER)
-    ? `
-<system_instruction>
-If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request.
-</system_instruction>
-  `.trim()
-    : ''
-}
-
-${lastMessage.content}
-`.trim(),
+      content:
+        buildArray(
+          'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
+          costMode === 'pro' &&
+            'If the user request is complex (e.g. requires changes across multiple files or systems), please consider invoking the plan_complex_change tool to create a plan.',
+          `Always end your response with the following marker:\n${STOP_MARKER}`,
+          lastMessage.content.includes(TOOL_RESULT_MARKER) &&
+            "If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request."
+        )
+          .map(
+            (line) => `<important_instruction>${line}</important_instruction>`
+          )
+          .join('\n') +
+        '\n\n' +
+        lastMessage.content,
     }
   }
 
   while (!isComplete) {
-    const system = getAgentSystemPrompt(fileContext)
+    const system = getAgentSystemPrompt(fileContext, costMode)
     const messagesWithContinuedMessage = continuedMessages
       ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
       : messages
@@ -231,6 +224,8 @@ ${lastMessage.content}
             contentAttributes.file_paths = content
           } else if (name === 'code_search') {
             contentAttributes.pattern = content
+          } else if (name === 'plan_complex_change') {
+            contentAttributes.prompt = content
           }
           fullResponse += `<tool_call name="${attributes.name}">${content}</tool_call>`
           toolCall = {
@@ -280,7 +275,76 @@ ${lastMessage.content}
 
     const toolCallResult = toolCall as ToolCall | null
 
-    if (toolCallResult?.name === 'find_files') {
+    if (toolCallResult?.name === 'plan_complex_change') {
+      const { prompt } = toolCallResult.input
+
+      onResponseChunk(`\nPrompt: ${prompt}\n`)
+
+      const filePaths = await getRelevantFilesForPlanning(
+        messages,
+        prompt,
+        fileContext,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId
+      )
+
+      const loadedFiles = await requestFiles(ws, filePaths)
+      const fileContents = Object.fromEntries(
+        Object.entries(loadedFiles).filter(
+          ([_, content]) => content !== null
+        ) as [string, string][]
+      )
+
+      const existingFilePaths = Object.keys(fileContents)
+      onResponseChunk(`\nRelevant files:\n${existingFilePaths.join(' ')}\n`)
+      fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
+
+      onResponseChunk(`\nThinking deeply (can take a few minutes)...\n\n`)
+
+      logger.debug(
+        {
+          prompt,
+          filePaths,
+          existingFilePaths,
+        },
+        'Thinking deeply'
+      )
+
+      const plan = await planComplexChange(
+        prompt,
+        fileContents,
+        onResponseChunk,
+        {
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        }
+      )
+      fullResponse += plan
+      logger.debug(
+        {
+          prompt,
+          file_paths: filePaths,
+          response: plan,
+        },
+        'Generated plan'
+      )
+
+      // Enable unbounded iteration mode after generating plan
+      allowUnboundedIteration = true
+
+      toolCall = null
+      isComplete = false
+      continuedMessages = [
+        {
+          role: 'assistant',
+          content: fullResponse.trim(),
+        },
+      ]
+    } else if (toolCallResult?.name === 'find_files') {
       logger.debug(toolCallResult, 'tool call')
       const description = toolCallResult.input.description
       const {
@@ -399,6 +463,7 @@ ${lastMessage.content}
           ],
           fileContext,
           {
+            costMode,
             clientSessionId,
             fingerprintId,
             userInputId,
