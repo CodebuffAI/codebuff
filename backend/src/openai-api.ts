@@ -126,20 +126,20 @@ export async function promptOpenAI(
     temperature?: number
   }
 ) {
-  let content = ''
   try {
     const timeout = options.model.startsWith('o1') ? 800_000 : 200_000
     const stream = promptOpenAIStream(messages, options)
 
-    const result = await Promise.race([
+    let content = ''
+    await Promise.race([
       (async () => {
         for await (const chunk of stream) {
           content += chunk
         }
-        return content
       })(),
       timeoutPromise(timeout),
     ])
+    const result = content
 
     if (!result) {
       throw new Error('No response from OpenAI')
