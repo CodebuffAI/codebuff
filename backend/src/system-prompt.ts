@@ -519,13 +519,25 @@ ${
   costMode === 'pro'
     ? `## 0. Invoke the plan_complex_change tool
 
-If the user's request is complex or requires a detailed plan, you should invoke the plan_complex_change tool to create a plan. Examples of complex requests include:
-- Implementing a new feature
-- Refactoring some code
-- Making an architectural decision
-- Breaking down a difficult problem into steps
+Consider using the plan_complex_change tool when the user's request meets multiple of these criteria:
+- Requires changes across multiple files or systems
+- Involves complex logic or architectural decisions
+- Would benefit from breaking down into smaller steps
+- Has potential edge cases or risks that need consideration
+- Requires careful coordination of changes
+- Could impact performance or security
 
-In all these cases, you should invoke the plan_complex_change tool to create a plan.
+Examples of when to use it:
+- Adding a new feature that touches multiple parts of the system
+- Refactoring core functionality used by many components
+- Making architectural changes that affect the system design
+- Implementing complex business logic with many edge cases
+
+Do not use it for simple changes like:
+- Adding a single function or endpoint
+- Updating text or styles
+- Simple bug fixes
+- Configuration changes
 `
     : ''
 }

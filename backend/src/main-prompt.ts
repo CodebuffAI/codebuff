@@ -142,7 +142,7 @@ export async function mainPrompt(
         buildArray(
           'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
           costMode === 'pro' &&
-            "If applicable, please consider invoking the plan_complex_change tool to create a plan for the user's request.",
+            'If the user request is complex (e.g. requires changes across multiple files or systems), please consider invoking the plan_complex_change tool to create a plan.',
           `Always end your response with the following marker:\n${STOP_MARKER}`,
           lastMessage.content.includes(TOOL_RESULT_MARKER) &&
             "If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request."
