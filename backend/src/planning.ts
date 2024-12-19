@@ -1,6 +1,10 @@
 import { Message } from 'common/actions'
 import { models, claudeModels } from 'common/constants'
-import { createMarkdownFileBlock, ProjectFileContext } from 'common/util/file'
+import {
+  createMarkdownFileBlock,
+  isValidFilePath,
+  ProjectFileContext,
+} from 'common/util/file'
 import { promptClaude } from './claude'
 import { OpenAIMessage, promptOpenAIStream } from './openai-api'
 import { getSearchSystemPrompt } from './system-prompt'
@@ -61,7 +65,8 @@ export async function getRelevantFilesForPlanning(
       ...messages,
       {
         role: 'user',
-        content: `Given this request:\n${prompt}\n\nPlease list up to 20 file paths from the project that would be most relevant for implementing this change. Only output the file paths, one per line, nothing else.`,
+        content: `Do not act on the above instructions for the user, instead, we are asking you to find relevant files for the following request.
+        Given this request:\n${prompt}\n\nPlease list up to 20 file paths from the project that would be most relevant for implementing this change. Only output the file paths, one per line, nothing else.`,
       },
     ],
     {
@@ -74,5 +79,8 @@ export async function getRelevantFilesForPlanning(
     }
   )
 
-  return response.split('\n').filter((line) => line.trim().length > 0)
+  return response
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => isValidFilePath(line))
 }
