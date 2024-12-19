@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
-import { Box, Text, useStdin } from 'ink'
+import { Box, Text, useStdin, useInput } from 'ink'
+import Spawn from './ui/Spawn'
 import SelectInput from 'ink-select-input'
 import TextInput from 'ink-text-input'
 import Spinner from './ui/Spinner'
 import SimpleProgressBar from './ui/SimpleProgressBar'
 import MultiSelect from './ui/MultiSelect'
 import type { Item } from './types'
+import Script from './ui/Script'
 
 // Dynamic imports for ESM compatibility
 const Table = await import('ink-table').then((m) => m.default)
@@ -44,16 +46,47 @@ const App = ({ name = 'Stranger' }: Props) => {
 
   return (
     <Box flexDirection="column">
-      <Text>Select an option:</Text>
-      <Box>
-        {/* <SelectInput
+      <Script
+        parallel
+        commands={{
+          'delayed greeting': [
+            {
+              command: 'echo',
+              args: [
+                'Hello from our own delayed spawn implementation before sleep!',
+              ],
+              operator: '&&',
+            },
+            {
+              command: 'sleep',
+              args: ['5s'],
+              operator: '&&',
+            },
+            {
+              command: 'echo',
+              args: ['Hello from our own spawn implementation after sleep!'],
+            },
+          ],
+          'uppercase greeting': [
+            {
+              command: 'echo',
+              args: ['Hello from our own spawn implementation!'],
+              operator: '|',
+            },
+            { command: 'tr', args: ['a-z', 'A-Z'] }, // Convert to uppercase as an example
+          ],
+        }}
+      />
+      {/* <Text>Select an option:</Text> */}
+      {/* <Box>
+        <SelectInput
           items={items}
           onSelect={(item: SelectItem) => {
             setSelected(item.value)
             setLoading(true)
             setTimeout(() => setLoading(false), 2000)
             }}
-            /> */}
+            />
         <MultiSelect
           items={items}
           onConfirm={(items: Item[]) => {
@@ -62,7 +95,7 @@ const App = ({ name = 'Stranger' }: Props) => {
             setTimeout(() => setLoading(false), 2000)
           }}
         />
-      </Box>
+      </Box> */}
 
       {selected && (
         <Box flexDirection="column">
