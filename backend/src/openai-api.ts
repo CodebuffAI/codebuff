@@ -1,6 +1,5 @@
 import OpenAI from 'openai'
-import { STOP_MARKER, TEST_USER_ID, models } from 'common/constants'
-import { createMarkdownFileBlock } from 'common/util/file'
+import { STOP_MARKER, TEST_USER_ID } from 'common/constants'
 import { Stream } from 'openai/streaming'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
@@ -118,45 +117,6 @@ export async function* promptOpenAIStream(
     )
     throw error
   }
-}
-
-export async function planComplexChange(
-  prompt: string,
-  files: Record<string, string>,
-  onChunk: (chunk: string) => void,
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId: string | undefined
-  }
-) {
-  const messages: OpenAIMessage[] = [
-    {
-      role: 'user',
-      content: `${
-        Object.keys(files).length > 0
-          ? `Relevant Files:\n\n${Object.entries(files)
-              .map(([path, content]) => createMarkdownFileBlock(path, content))
-              .join('\n')}\n\n`
-          : ''
-      }${prompt}
-
-Please plan and create a detailed solution.`,
-    },
-  ]
-
-  let fullResponse = ''
-  for await (const chunk of promptOpenAIStream(messages, {
-    ...options,
-    model: models.o1,
-    temperature: 1,
-  })) {
-    fullResponse += chunk
-    onChunk(chunk)
-  }
-
-  return fullResponse
 }
 
 export async function promptOpenAI(
@@ -297,7 +257,6 @@ export async function promptOpenAIWithContinuation(
         }
 
         if (chunk.usage) {
-          console.log('chunk.usage', chunk.usage)
           const messageId = chunk.id
           saveMessage({
             messageId,

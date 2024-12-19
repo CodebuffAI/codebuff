@@ -1,5 +1,4 @@
 import { WebSocket } from 'ws'
-import { planComplexChange } from './openai-api'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { model_types, promptClaude, promptClaudeStream } from './claude'
@@ -30,6 +29,7 @@ import {
   checkConversationProgress,
   checkToAllowUnboundedIteration,
 } from './conversation-progress'
+import { getRelevantFilesForPlanning, planComplexChange } from './planning'
 
 export async function mainPrompt(
   ws: WebSocket,
@@ -737,37 +737,4 @@ async function getFileVersionUpdates(
     readFilesMessage,
     toolCallMessage,
   }
-}
-
-/**
- * Prompt claude, handle tool calls, and generate file changes.
- */
-async function getRelevantFilesForPlanning(
-  messages: Message[],
-  prompt: string,
-  fileContext: ProjectFileContext,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined
-) {
-  const response = await promptClaude(
-    [
-      ...messages,
-      {
-        role: 'user',
-        content: `Given this request:\n${prompt}\n\nPlease list up to 20 file paths from the project that would be most relevant for implementing this change. Only output the file paths, one per line, nothing else.`,
-      },
-    ],
-    {
-      model: claudeModels.sonnet,
-      system: getSearchSystemPrompt(fileContext),
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-    }
-  )
-
-  return response.split('\n').filter((line) => line.trim().length > 0)
 }
