@@ -142,7 +142,7 @@ export async function mainPrompt(
         buildArray(
           'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
           costMode === 'pro' &&
-            "If applicable, please invoke the plan_complex_change tool to create a plan for the user's request.",
+            "If applicable, please consider invoking the plan_complex_change tool to create a plan for the user's request.",
           `Always end your response with the following marker:\n${STOP_MARKER}`,
           lastMessage.content.includes(TOOL_RESULT_MARKER) &&
             "If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request."
@@ -301,7 +301,7 @@ export async function mainPrompt(
       onResponseChunk(`\nRelevant files:\n${existingFilePaths.join(' ')}\n`)
       fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
 
-      onResponseChunk(`\nThinking deeply (can take a few minutes)...\n`)
+      onResponseChunk(`\nThinking deeply (can take a few minutes)...\n\n`)
 
       logger.debug(
         {
@@ -312,12 +312,18 @@ export async function mainPrompt(
         'Thinking deeply'
       )
 
-      const plan = await planComplexChange(prompt, fileContents, {
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      })
+      const plan = await planComplexChange(
+        prompt,
+        fileContents,
+        onResponseChunk,
+        {
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        }
+      )
+      fullResponse += plan
       logger.debug(
         {
           prompt,
@@ -326,8 +332,6 @@ export async function mainPrompt(
         },
         'Generated plan'
       )
-      onResponseChunk(`\nGenerated technical plan:\n${plan}\n`)
-      fullResponse += `\nGenerated technical plan:\n${plan}\n`
 
       // Enable unbounded iteration mode after generating plan
       allowUnboundedIteration = true

@@ -32,9 +32,98 @@ const timeoutPromise = (ms: number) =>
     setTimeout(() => reject(new Error('OpenAI API request timed out')), ms)
   )
 
+export async function* promptOpenAIStream(
+  messages: OpenAIMessage[],
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: string
+    userId: string | undefined
+    predictedContent?: string
+    temperature?: number
+  }
+): AsyncGenerator<string, void, unknown> {
+  const {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model,
+    userId,
+    predictedContent,
+  } = options
+  const openai = getOpenAI(fingerprintId)
+  const startTime = Date.now()
+
+  try {
+    const stream = await Promise.race([
+      openai.chat.completions.create({
+        model,
+        messages,
+        temperature: options.temperature ?? 0,
+        stream: true,
+        ...(predictedContent
+          ? { prediction: { type: 'content', content: predictedContent } }
+          : {}),
+      }),
+      timeoutPromise(
+        model.startsWith('o1') ? 800_000 : 200_000
+      ) as Promise<Stream<OpenAI.Chat.ChatCompletionChunk>>,
+    ])
+
+    let content = ''
+    let messageId: string | undefined
+    let inputTokens = 0
+    let outputTokens = 0
+
+    for await (const chunk of stream) {
+      if (chunk.choices[0]?.delta?.content) {
+        const delta = chunk.choices[0].delta.content
+        content += delta
+        yield delta
+      }
+
+      if (chunk.usage) {
+        messageId = chunk.id
+        inputTokens = chunk.usage.prompt_tokens
+        outputTokens = chunk.usage.completion_tokens
+      }
+    }
+
+    if (messageId && messages.length > 0 && userId !== TEST_USER_ID) {
+      saveMessage({
+        messageId,
+        userId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        model,
+        request: messages,
+        response: content,
+        inputTokens: inputTokens || 0,
+        outputTokens: outputTokens || 0,
+        finishedAt: new Date(),
+        latencyMs: Date.now() - startTime,
+      })
+    }
+  } catch (error) {
+    logger.error(
+      {
+        error:
+          error && typeof error === 'object' && 'message' in error
+            ? error.message
+            : 'Unknown error',
+      },
+      'Error calling OpenAI API'
+    )
+    throw error
+  }
+}
+
 export async function planComplexChange(
   prompt: string,
   files: Record<string, string>,
+  onChunk: (chunk: string) => void,
   options: {
     clientSessionId: string
     fingerprintId: string
@@ -57,14 +146,17 @@ Please plan and create a detailed solution.`,
     },
   ]
 
-  console.log('messages', messages)
-  const response = await promptOpenAI(messages, {
+  let fullResponse = ''
+  for await (const chunk of promptOpenAIStream(messages, {
     ...options,
     model: models.o1,
     temperature: 1,
-  })
+  })) {
+    fullResponse += chunk
+    onChunk(chunk)
+  }
 
-  return response
+  return fullResponse
 }
 
 export async function promptOpenAI(
