@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react'
-import { Box, Text } from 'ink'
+import React, { useState } from 'react'
+import { Box, Text, useStdin } from 'ink'
 import SelectInput from 'ink-select-input'
 import TextInput from 'ink-text-input'
+import Spinner from './ui/Spinner'
+import SimpleProgressBar from './ui/SimpleProgressBar'
+import MultiSelect from './ui/MultiSelect'
+import type { Item } from './types'
 
-type SelectItem = {
-  label: string
-  value: string
-}
+// Dynamic imports for ESM compatibility
+const Table = await import('ink-table').then((m) => m.default)
+const Divider = await import('ink-divider').then((m) => m.default)
 
 const items = [
   {
@@ -23,34 +26,10 @@ const items = [
   },
 ]
 
-const SimpleProgressBar = ({ percent }: { percent: number }) => {
-  const filled = '█'.repeat(Math.floor(percent * 20))
-  const empty = '░'.repeat(20 - Math.floor(percent * 20))
-  const percentage = Math.floor(percent * 100) + '%'
-  return (
-    <Box>
-      <Text>
-        <Text color="green">{filled}</Text>
-        {empty} {percentage}
-      </Text>
-    </Box>
-  )
-}
-
-const Spinner = () => {
-  const [frame, setFrame] = useState(0)
-  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setFrame((f) => (f + 1) % frames.length)
-    }, 80)
-
-    return () => clearInterval(timer)
-  }, [])
-
-  return <Text color="yellow">{frames[frame]}</Text>
-}
+const tableData = [
+  { name: 'John', age: '30', city: 'New York' },
+  { name: 'Jane', age: '25', city: 'San Francisco' },
+]
 
 type Props = {
   name?: string
@@ -61,15 +40,24 @@ const App = ({ name = 'Stranger' }: Props) => {
   const [selected, setSelected] = useState('')
   const [loading, setLoading] = useState(false)
   const [inputValue, setInputValue] = useState('')
+  const { isRawModeSupported } = useStdin()
 
   return (
     <Box flexDirection="column">
       <Text>Select an option:</Text>
       <Box>
-        <SelectInput
+        {/* <SelectInput
           items={items}
           onSelect={(item: SelectItem) => {
             setSelected(item.value)
+            setLoading(true)
+            setTimeout(() => setLoading(false), 2000)
+            }}
+            /> */}
+        <MultiSelect
+          items={items}
+          onConfirm={(items: Item[]) => {
+            setSelected(items[0].value)
             setLoading(true)
             setTimeout(() => setLoading(false), 2000)
           }}
@@ -92,6 +80,14 @@ const App = ({ name = 'Stranger' }: Props) => {
                 Enter text:{' '}
                 <TextInput value={inputValue} onChange={setInputValue} />
               </Text>
+
+              <Divider title="Additional Components" />
+
+              <Text>Multi-Select Example:</Text>
+              {/* <MultiSelect items={items} onSubmit={console.log} /> */}
+
+              <Text>Table Example:</Text>
+              <Table data={tableData} />
             </Box>
           )}
         </Box>

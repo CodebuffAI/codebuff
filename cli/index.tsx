@@ -27,9 +27,6 @@ const cli = meow(
 )
 
 // Enable raw mode on stdin
-process.stdin.setRawMode?.(true)
 process.stdin.resume()
 
-render(<App name={cli.flags.name} />, {
-  stdin: process.stdin,
-})
+render(<App name={cli.flags.name} />)

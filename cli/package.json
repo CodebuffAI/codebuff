@@ -16,7 +16,9 @@
   "dependencies": {
     "@types/react": "^19.0.1",
     "ink": "^5.1.0",
+    "ink-divider": "^4.0.2",
     "ink-select-input": "^6.0.0",
+    "ink-table": "^3.1.0",
     "ink-text-input": "^6.0.0",
     "meow": "^13.2.0",
     "signal-exit": "^4.1.0"
