@@ -2,7 +2,7 @@ import { Message } from 'common/actions'
 import { models, claudeModels } from 'common/constants'
 import { createMarkdownFileBlock, ProjectFileContext } from 'common/util/file'
 import { promptClaude } from './claude'
-import { OpenAIMessage, promptOpenAIStream } from './openai-api'
+import { OpenAIMessage, promptOpenAIStream } from './open-router'
 import { getSearchSystemPrompt } from './system-prompt'
 
 export async function planComplexChange(
