@@ -6,7 +6,7 @@ import {
   ProjectFileContext,
 } from 'common/util/file'
 import { promptClaude } from './claude'
-import { OpenAIMessage, promptOpenAIStream } from './openai-api'
+import { OpenAIMessage, promptOpenAIStream } from './open-router'
 import { getSearchSystemPrompt } from './system-prompt'
 
 export async function planComplexChange(
