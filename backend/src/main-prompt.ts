@@ -48,18 +48,24 @@ export async function mainPrompt(
       typeof message.content === 'string' &&
       !message.content.includes(TOOL_RESULT_MARKER)
   )
-  const allowUnboundedIterationPromise = checkToAllowUnboundedIteration(
-    messages[lastUserMessageIndex],
-    {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-    }
-  ).catch((error) => {
-    logger.error(error, 'Error checking to allow unbounded iteration')
-    return false
-  })
+  const assistantReplyMessageIndex = lastUserMessageIndex + 1
+  const assistantReplyMessage = messages[assistantReplyMessageIndex]
+  const assistantIsExecutingPlan =
+    assistantReplyMessage && typeof assistantReplyMessage.content === 'string'
+      ? assistantReplyMessage.content.includes('plan_complex_change')
+      : false
+
+  const allowUnboundedIterationPromise = assistantIsExecutingPlan
+    ? Promise.resolve(true)
+    : checkToAllowUnboundedIteration(messages[lastUserMessageIndex], {
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      }).catch((error) => {
+        logger.error(error, 'Error checking to allow unbounded iteration')
+        return false
+      })
 
   let fullResponse = ''
   const fileProcessingPromises: Promise<FileChange | null>[] = []
@@ -327,17 +333,14 @@ export async function mainPrompt(
         'Generated plan'
       )
 
-      // Enable unbounded iteration mode after generating plan
-      allowUnboundedIteration = true
-
-      toolCall = null
-      isComplete = false
-      continuedMessages = [
-        {
-          role: 'assistant',
-          content: fullResponse.trim(),
+      toolCall = {
+        id: Math.random().toString(36).slice(2),
+        name: 'continue',
+        input: {
+          response: `Please implement the full plan.`,
         },
-      ]
+      }
+      isComplete = true
     } else if (toolCallResult?.name === 'find_files') {
       logger.debug(toolCallResult, 'tool call')
       const description = toolCallResult.input.description
@@ -565,7 +568,7 @@ function getExtraInstructionForUserPrompt(
 
     `Always end your response with the following marker:\n${STOP_MARKER}`
   )
-    .map((line) => `<important_instruction>${line}</important_instruction>`)
+    .map((line) => `<system_instruction>${line}</system_instruction>`)
     .join('\n')
 }
 
