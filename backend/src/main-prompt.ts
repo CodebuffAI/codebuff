@@ -323,6 +323,7 @@ export async function mainPrompt(
           userId,
         }
       )
+      onResponseChunk(`\n\n`)
       fullResponse += plan
       logger.debug(
         {
@@ -555,6 +556,9 @@ function getExtraInstructionForUserPrompt(
     !justUsedATool &&
       costMode === 'pro' &&
       'If the user request is complex (e.g. requires changes across multiple files or systems), please consider invoking the plan_complex_change tool to create a plan.',
+
+    hasKnowledgeFiles &&
+      'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case.',
 
     hasKnowledgeFiles &&
       isNotFirstUserMessage &&
