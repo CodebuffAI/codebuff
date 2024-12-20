@@ -15,12 +15,12 @@
     "diff": "5.2.0",
     "dotenv": "16.4.5",
     "express": "4.19.2",
+    "gpt-tokenizer": "2.8.1",
     "ignore": "5.3.2",
     "lodash": "*",
     "openai": "4.67.1",
     "pino": "9.4.0",
     "postgres": "3.4.4",
-    "tiktoken": "1.0.17",
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
     "zod": "3.23.8"
