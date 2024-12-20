@@ -38,7 +38,7 @@ const Script: React.FC<ScriptProps> = ({ commands, parallel = false }) => {
   })
 
   return (
-    <Box flexDirection="column">
+    <>
       {Object.entries(commands).map(([name, cmds], index) => (
         <Spawn
           key={index}
@@ -49,7 +49,7 @@ const Script: React.FC<ScriptProps> = ({ commands, parallel = false }) => {
           onComplete={() => handleComplete(index)}
         />
       ))}
-    </Box>
+    </>
   )
 }
 

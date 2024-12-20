@@ -6,6 +6,7 @@
     "start": "bun run index.tsx"
   },
   "devDependencies": {
+    "react-devtools-core": "^6.0.1",
     "@types/bun": "latest"
   },
   "peerDependencies": {

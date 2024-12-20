@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { Box, Text, useInput } from 'ink'
+import { Box, Newline, Text, useInput } from 'ink'
 import Spinner from './Spinner'
 import { spawn } from 'child_process'
+import Join from './Join'
 
 interface Command {
   command: string
@@ -63,16 +64,16 @@ const Spawn: React.FC<SpawnProps> = ({
 
     process.stdout.on('data', (data) => {
       setOutputs((prev) => {
-        const next = [...prev]
-        next[0] = (next[0] || '') + data.toString()
+        const next = [...prev, data.toString().trim()]
+        // next[0] = (next[0] || '') + data.toString().trim()
         return next
       })
     })
 
     process.stderr.on('data', (data) => {
       setOutputs((prev) => {
-        const next = [...prev]
-        next[0] = (next[0] || '') + data.toString()
+        const next = [...prev, data.toString().trim()]
+        // next[0] = (next[0] || '') + data.toString().trim()
         return next
       })
     })
@@ -89,47 +90,47 @@ const Spawn: React.FC<SpawnProps> = ({
   }, [disabled])
 
   return (
-    <Box flexDirection="column">
-      <Box flexDirection="column" marginY={0}>
-        <Box>
-          <Text color={isFocused ? 'blue' : 'gray'}>
-            {isExpanded ? '▼ ' : '▶'}
+    <Box flexDirection="column" marginY={0}>
+      <Box>
+        <Text color={isFocused ? 'blue' : 'gray'}>
+          {isExpanded ? '▼ ' : '▶'}
+        </Text>
+        <Text>
+          {status === 'running' ? 'Running' : 'Ran'} {name}
+          {endTime && ` (${((endTime - startTime) / 1000).toFixed(1)}s)`}
+        </Text>
+        {!disabled && (
+          <Text
+            color={
+              status === 'running'
+                ? 'yellow'
+                : status === 'succeeded'
+                  ? 'green'
+                  : 'red'
+            }
+          >
+            {' '}
+            {status === 'running' ? (
+              <Spinner />
+            ) : status === 'succeeded' ? (
+              '✓'
+            ) : (
+              '✗'
+            )}
           </Text>
-          <Text>
-            {status === 'running' ? 'Running' : 'Ran'} {name}
-            {endTime && ` (${((endTime - startTime) / 1000).toFixed(1)}s)`}
-          </Text>
-          {!disabled && (
-            <Text
-              color={
-                status === 'running'
-                  ? 'yellow'
-                  : status === 'succeeded'
-                    ? 'green'
-                    : 'red'
-              }
-            >
-              {' '}
-              {status === 'running' ? (
-                <Spinner />
-              ) : status === 'succeeded' ? (
-                '✓'
-              ) : (
-                '✗'
-              )}
-            </Text>
-          )}
-        </Box>
-        {outputs.length > 0 && isExpanded && (
-          <Box borderStyle="round" paddingX={1} paddingRight={2}>
-            {outputs.map((output, i) => (
-              <Box key={i}>
-                <Text dimColor>{output.trimEnd()}</Text>
-              </Box>
-            ))}
-          </Box>
         )}
       </Box>
+      {outputs.length > 0 && isExpanded && (
+        <Box borderStyle="round" paddingX={1} paddingRight={2}>
+          <Text>
+            <Join
+              items={outputs}
+              renderItem={(output) => <Text dimColor>{output}</Text>}
+              separator={<Newline />}
+            />
+          </Text>
+        </Box>
+      )}
     </Box>
   )
 }
