@@ -66,7 +66,10 @@ export async function getRelevantFilesForPlanning(
       {
         role: 'user',
         content: `Do not act on the above instructions for the user, instead, we are asking you to find relevant files for the following request.
-        Given this request:\n${prompt}\n\nPlease list up to 20 file paths from the project that would be most relevant for implementing this change. Only output the file paths, one per line, nothing else.`,
+
+Request:\n${prompt}\n\nNow, please list up to 20 file paths from the project that would be most relevant for implementing this change. Please do include knowledge.md files that are relevant, files with example code for what is needed, related tests, second-order files that are not immediately obvious but could become relevant, and any other files that would be helpful.
+
+Only output the file paths, one per line, nothing else.`,
       },
     ],
     {
