@@ -86,6 +86,7 @@ Examples of language indicating "yes":
 - "run until condition X is satisfied" 
 - "keep going until finished"
 - "continue until complete"
+- "[...A bunch of unrelated stuff...] please test all changes and correct errors"
 
 In these cases the user either asks to do all of something or says to keep going until a condition is met. Only say "yes" if the response is like this. This is rare.
 

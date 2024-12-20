@@ -1,12 +1,11 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
-import { model_types, promptClaude, promptClaudeStream } from './claude'
+import { model_types, promptClaudeStream } from './claude'
 import {
   TOOL_RESULT_MARKER,
   STOP_MARKER,
   getModelForMode,
-  claudeModels,
 } from 'common/constants'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
@@ -113,7 +112,7 @@ export async function mainPrompt(
   const numAssistantMessages = messages
     .slice(lastUserMessageIndex)
     .filter((message) => message.role === 'assistant').length
-  const shouldPause = !allowUnboundedIteration && numAssistantMessages >= 3
+  const shouldPause = !allowUnboundedIteration && numAssistantMessages >= 6
   if (shouldPause) {
     const response = `\nI'll pause to get more instructions from the user.\n`
     onResponseChunk(response)
@@ -139,7 +138,13 @@ export async function mainPrompt(
     newLastMessage = {
       ...lastMessage,
       content:
-        getExtraInstructionForUserPrompt(fileContext, messages, costMode) +
+        getExtraInstructionForUserPrompt(
+          fileContext,
+          messages,
+          costMode,
+          justUsedATool,
+          numAssistantMessages
+        ) +
         '\n\n' +
         lastMessage.content,
     }
@@ -533,9 +538,10 @@ export async function mainPrompt(
 function getExtraInstructionForUserPrompt(
   fileContext: ProjectFileContext,
   messages: Message[],
-  costMode: CostMode
+  costMode: CostMode,
+  justUsedATool: boolean,
+  numAssistantMessages: number
 ) {
-  const lastMessage = messages[messages.length - 1]
   const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
   const isNotFirstUserMessage =
     messages.filter((m) => m.role === 'user').length > 1
@@ -543,18 +549,21 @@ function getExtraInstructionForUserPrompt(
   return buildArray(
     'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
 
-    costMode === 'pro' &&
+    !justUsedATool &&
+      costMode === 'pro' &&
       'If the user request is complex (e.g. requires changes across multiple files or systems), please consider invoking the plan_complex_change tool to create a plan.',
 
     hasKnowledgeFiles &&
       isNotFirstUserMessage &&
       "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
 
-    `Always end your response with the following marker:\n${STOP_MARKER}`,
+    numAssistantMessages >= 3 &&
+      'Please consider pausing to get more instructions from the user.',
 
-    typeof lastMessage.content === 'string' &&
-      lastMessage.content.includes(TOOL_RESULT_MARKER) &&
-      "If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request."
+    justUsedATool &&
+      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request.`,
+
+    `Always end your response with the following marker:\n${STOP_MARKER}`
   )
     .map((line) => `<important_instruction>${line}</important_instruction>`)
     .join('\n')
