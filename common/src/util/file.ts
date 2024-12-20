@@ -113,6 +113,10 @@ export const createSearchReplaceBlock = (search: string, replace: string) => {
   return `<<<<<<< SEARCH\n${search}\n=======\n${replace}\n>>>>>>> REPLACE`
 }
 
+export const createSearchInsertBlock = (search: string, insert: string) => {
+  return `<<<<<<< SEARCH\n${search}\n=======\n${insert}\n>>>>>>> INSERT`
+}
+
 export function printFileTree(
   nodes: FileTreeNode[],
   depth: number = 0

@@ -96,6 +96,7 @@ if (require.main === module) {
     console.log(
       'Codebuff allows you to interact with your codebase using natural language.'
     )
+    console.log('For more information, visit: https://codebuff.com')
     process.exit(0)
   }
 

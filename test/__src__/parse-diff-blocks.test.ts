@@ -1,6 +1,6 @@
 import { expect, describe, it } from 'bun:test'
 import { parseAndGetDiffBlocksSingleFile } from 'backend/generate-diffs-prompt'
-import { createSearchReplaceBlock } from 'common/util/file'
+import { createSearchReplaceBlock, createSearchInsertBlock } from 'common/util/file'
 
 describe('parseAndGetDiffBlocksSingleFile', () => {
   it('should handle multiline imports', () => {
@@ -102,6 +102,63 @@ function App() {
         .map(item => {
             return item.value;
         })`)
+  })
+
+  it('should handle INSERT blocks', () => {
+    const oldContent = `interface Props {
+  name: string;
+  email: string;
+  role: string;
+}`
+
+    const searchInsertContent = createSearchInsertBlock(
+      `interface Props {
+  name: string;
+  email: string;`,
+      '  age: number;'
+    )
+
+    const { diffBlocks, diffBlocksThatDidntMatch } =
+      parseAndGetDiffBlocksSingleFile(searchInsertContent, oldContent)
+
+    expect(diffBlocksThatDidntMatch.length).toBe(0)
+    expect(diffBlocks.length).toBe(1)
+    expect(diffBlocks[0].searchContent).toBe(`interface Props {
+  name: string;
+  email: string;`)
+    expect(diffBlocks[0].replaceContent).toBe(`interface Props {
+  name: string;
+  email: string;
+  age: number;`)
+  })
+
+  it('should handle INSERT blocks with indentation', () => {
+    const oldContent = `class User {
+    private data = {
+        name: '',
+        email: '',
+    }
+}`
+
+    const searchInsertContent = createSearchInsertBlock(
+      `    private data = {
+        name: '',
+        email: '',`,
+      '        age: 0,'
+    )
+
+    const { diffBlocks, diffBlocksThatDidntMatch } =
+      parseAndGetDiffBlocksSingleFile(searchInsertContent, oldContent)
+
+    expect(diffBlocksThatDidntMatch.length).toBe(0)
+    expect(diffBlocks.length).toBe(1)
+    expect(diffBlocks[0].searchContent).toBe(`    private data = {
+        name: '',
+        email: '',`)
+    expect(diffBlocks[0].replaceContent).toBe(`    private data = {
+        name: '',
+        email: '',
+        age: 0,`)
   })
 
   it('should handle empty or single newline replace blocks', () => {

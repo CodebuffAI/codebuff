@@ -3,6 +3,7 @@ import {
   createFileBlock,
   createMarkdownFileBlock,
   createSearchReplaceBlock,
+  createSearchInsertBlock,
   printFileTree,
   printFileTreeWithTokens,
 } from 'common/util/file'
@@ -180,6 +181,21 @@ ${createSearchReplaceBlock(
   );
 };`
 )}`
+)}
+
+There is a third and final format for editing files, if you only need to insert new lines. Similar to the SEARCH/REPLACE format, you will specify a search string which should match content in the original file. This should match complete lines of code. But secondly you will provide an insert string which contains the lines you want to insert directly after the search string.
+
+When you are just adding a contiguous block of lines, it's helpful to use this format, since you won't have to repeat the search string.
+
+Example: the following adds a new prop to the UserProfile component
+${createFileBlock(
+  'src/components/UserProfile.tsx',
+  `${createSearchInsertBlock(
+    `interface UserProfileProps {
+  name: string;
+  email: string;`,
+    '  isAdmin: boolean;'
+  )}`
 )}
 
 It's good to:

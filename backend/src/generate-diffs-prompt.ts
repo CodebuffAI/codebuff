@@ -20,13 +20,14 @@ export const parseAndGetDiffBlocks = (
   const files = parseFileBlocks(response)
   for (const fileContent of Object.values(files)) {
     const blockRegex =
-      /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g
+      /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> (?:REPLACE|INSERT)/g
     let blockMatch
 
     while ((blockMatch = blockRegex.exec(fileContent)) !== null) {
+      const isInsert = blockMatch[0].endsWith('>>>>>>> INSERT')
       const change = {
         searchContent: blockMatch[1],
-        replaceContent: blockMatch[2],
+        replaceContent: isInsert ? blockMatch[1] + '\n' + blockMatch[2] : blockMatch[2],
       }
 
       if (oldFileContent.includes(change.searchContent)) {
@@ -62,13 +63,14 @@ export const parseAndGetDiffBlocksSingleFile = (
   }[] = []
   const diffBlocks: { searchContent: string; replaceContent: string }[] = []
   const blockRegex =
-    /<<<<<<< SEARCH\n([\s\S]*?)\n?=======\n([\s\S]*?)\n?>>>>>>> REPLACE/g
+    /<<<<<<< SEARCH\n([\s\S]*?)\n?=======\n([\s\S]*?)\n?>>>>>>> (?:REPLACE|INSERT)/g
   let blockMatch
 
   while ((blockMatch = blockRegex.exec(newContent)) !== null) {
+    const isInsert = blockMatch[0].endsWith('>>>>>>> INSERT')
     const change = {
       searchContent: blockMatch[1],
-      replaceContent: blockMatch[2],
+      replaceContent: isInsert ? blockMatch[1] + '\n' + blockMatch[2] : blockMatch[2],
     }
 
     if (oldFileContent.includes(change.searchContent)) {
