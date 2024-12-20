@@ -148,6 +148,7 @@ export async function mainPrompt(
           fileContext,
           messages,
           costMode,
+          allowUnboundedIteration,
           justUsedATool,
           numAssistantMessages
         ) +
@@ -543,6 +544,7 @@ function getExtraInstructionForUserPrompt(
   fileContext: ProjectFileContext,
   messages: Message[],
   costMode: CostMode,
+  allowUnboundedIteration: boolean,
   justUsedATool: boolean,
   numAssistantMessages: number
 ) {
@@ -551,7 +553,10 @@ function getExtraInstructionForUserPrompt(
     messages.filter((m) => m.role === 'user').length > 1
 
   return buildArray(
-    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
+    'Please preserve as much of the existing code, its comments, and its behavior as possible.' +
+      allowUnboundedIteration
+      ? ''
+      : ' Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
 
     !justUsedATool &&
       costMode === 'pro' &&
