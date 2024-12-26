@@ -14,6 +14,7 @@ import { logger } from './util/logger'
 import { sortBy, sum, uniq } from 'lodash'
 import { filterObject, removeUndefinedProps } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
+import { Message } from 'common/actions'
 
 export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
   const { fileVersions } = fileContext
@@ -56,12 +57,31 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
 
 export const getAgentSystemPrompt = (
   fileContext: ProjectFileContext,
-  costMode: CostMode
+  costMode: CostMode,
+  historicalMessages: Message[] = []
 ) => {
   const { fileVersions } = fileContext
   const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
   const projectFileTreePrompt = getProjectFileTreePrompt(fileContext)
+
+  const historicalMessagesPrompt =
+    historicalMessages.length > 0
+      ? `
+# Relevant Historical Messages
+
+The following messages from previous conversations are relevant to the current request:
+
+${historicalMessages
+  .map(
+    (m) =>
+      `${m.role.toUpperCase()}: ${
+        typeof m.content === 'string' ? m.content : '[Complex message content]'
+      }`
+  )
+  .join('\n\n')}
+`.trim()
+      : ''
 
   const systemPrompt = buildArray(
     {
@@ -69,6 +89,7 @@ export const getAgentSystemPrompt = (
       cache_control: { type: 'ephemeral' as const },
       text: buildArray(
         introPrompt,
+        historicalMessagesPrompt,
         editingFilesPrompt,
         knowledgeFilesPrompt,
         toolsPrompt,

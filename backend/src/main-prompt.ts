@@ -2,6 +2,7 @@ import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { model_types, promptClaudeStream } from './claude'
+import { requestMessageContext } from './request-message-context'
 import {
   TOOL_RESULT_MARKER,
   STOP_MARKER,
@@ -76,8 +77,19 @@ export async function mainPrompt(
   let resetFileVersions = false
   const justUsedATool = didClientUseTool(lastMessage)
 
-  // Step 1: Read more files.
   const system = getSearchSystemPrompt(fileContext)
+
+  // Step 1: Read more files, and get relevant historical messages
+  const historicalMessages = await requestMessageContext(
+    messages,
+    system,
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    }
+  )
   const {
     newFileVersions,
     toolCallMessage,
@@ -158,7 +170,11 @@ export async function mainPrompt(
   }
 
   while (!isComplete) {
-    const system = getAgentSystemPrompt(fileContext, costMode)
+    const system = getAgentSystemPrompt(
+      fileContext,
+      costMode,
+      historicalMessages
+    )
     const messagesWithContinuedMessage = continuedMessages
       ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
       : messages
