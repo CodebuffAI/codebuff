@@ -11,9 +11,7 @@ import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from './util/logger'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { promptDeepseek } from './deepseek-api'
-
-const messagesWithSystem = (messages: Message[], system: System) =>
-  [{ role: 'system', content: system }, ...messages] as OpenAIMessage[]
+import { messagesWithSystem } from '@/util/messages'
 
 export async function requestRelevantFiles(
   {
@@ -595,11 +593,11 @@ Please limit your response just the file paths on new lines. Do not write anythi
 
 export const warmCacheForRequestRelevantFiles = async (
   system: System,
+  costMode: CostMode,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined,
-  costMode: CostMode
+  userId: string | undefined
 ) => {
   const promise =
     costMode === 'lite'

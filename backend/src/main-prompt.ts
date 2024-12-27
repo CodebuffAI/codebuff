@@ -6,6 +6,7 @@ import {
   TOOL_RESULT_MARKER,
   STOP_MARKER,
   getModelForMode,
+  models,
 } from 'common/constants'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
@@ -29,6 +30,8 @@ import {
   checkToAllowUnboundedIteration,
 } from './conversation-progress'
 import { getRelevantFilesForPlanning, planComplexChange } from './planning'
+import { promptDeepseekStream } from './deepseek-api'
+import { messagesWithSystem } from '@/util/messages'
 
 export async function mainPrompt(
   ws: WebSocket,
@@ -106,6 +109,7 @@ export async function mainPrompt(
     const system = getSearchSystemPrompt(fileContext)
     warmCacheForRequestRelevantFiles(
       system,
+      costMode,
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -171,14 +175,30 @@ export async function mainPrompt(
       'Prompting Claude Main'
     )
 
-    const stream = promptClaudeStream(messagesWithContinuedMessage, {
-      system,
-      model: getModelForMode(costMode, 'agent') as model_types,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-    })
+    let stream: AsyncGenerator<string, void, unknown>
+    if (costMode === 'lite') {
+      stream = promptDeepseekStream(
+        messagesWithSystem(messagesWithContinuedMessage, system),
+        {
+          model: models.deepseekChat,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        }
+      )
+      onResponseChunk('\n\n')
+      fullResponse += '\n\n'
+    } else {
+      stream = promptClaudeStream(messagesWithContinuedMessage, {
+        system,
+        model: getModelForMode(costMode, 'agent') as model_types,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      })
+    }
     const streamWithTags = processStreamWithTags(stream, {
       edit_file: {
         attributeNames: ['path'],

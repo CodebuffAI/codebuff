@@ -24,7 +24,7 @@ const getDeepseekClient = (fingerprintId: string) => {
   return deepseekClient
 }
 
-export async function promptDeepseek(
+export async function* promptDeepseekStream(
   messages: OpenAIMessage[],
   options: {
     clientSessionId: string
@@ -35,7 +35,7 @@ export async function promptDeepseek(
     maxTokens?: number
     temperature?: number
   }
-) {
+): AsyncGenerator<string, void, unknown> {
   const {
     clientSessionId,
     fingerprintId,
@@ -47,22 +47,44 @@ export async function promptDeepseek(
   } = options
   const deepseek = getDeepseekClient(fingerprintId)
   const startTime = Date.now()
+
   try {
-    const response = await deepseek.chat.completions.create({
+    const stream = await deepseek.chat.completions.create({
       model,
       messages,
       temperature: temperature ?? 0,
       max_tokens: maxTokens,
+      stream: true,
     })
 
-    const content = response.choices[0].message.content ?? ''
-    const usage = response.usage as CompletionUsage & {
-      prompt_cache_miss_tokens: number
-      prompt_cache_hit_tokens: number
+    let content = ''
+    let messageId: string | undefined
+    let inputTokens = 0
+    let cacheReadInputTokens = 0
+    let outputTokens = 0
+
+    for await (const chunk of stream) {
+      if (chunk.choices[0]?.delta?.content) {
+        const delta = chunk.choices[0].delta.content
+        content += delta
+        yield delta
+      }
+
+      if (chunk.usage) {
+        const usage = chunk.usage as CompletionUsage & {
+          prompt_cache_miss_tokens: number
+          prompt_cache_hit_tokens: number
+        }
+        messageId = chunk.id
+        inputTokens = usage.prompt_cache_miss_tokens
+        cacheReadInputTokens = usage.prompt_cache_hit_tokens
+        outputTokens = usage.completion_tokens
+      }
     }
-    if (usage) {
+
+    if (messageId && messages.length > 0) {
       saveMessage({
-        messageId: `deepseek-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        messageId: `deepseek-${messageId}`,
         userId,
         clientSessionId,
         fingerprintId,
@@ -70,15 +92,13 @@ export async function promptDeepseek(
         model,
         request: messages,
         response: content,
-        inputTokens: usage.prompt_cache_miss_tokens,
-        cacheReadInputTokens: usage.prompt_cache_hit_tokens,
-        outputTokens: usage.completion_tokens,
+        inputTokens,
+        cacheReadInputTokens,
+        outputTokens,
         finishedAt: new Date(),
         latencyMs: Date.now() - startTime,
       })
     }
-
-    return content
   } catch (error) {
     logger.error(
       {
@@ -91,6 +111,40 @@ export async function promptDeepseek(
       'Error calling Deepseek API'
     )
 
+    throw error
+  }
+}
+
+export async function promptDeepseek(
+  messages: OpenAIMessage[],
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: string
+    userId: string | undefined
+    maxTokens?: number
+    temperature?: number
+  }
+) {
+  const stream = promptDeepseekStream(messages, options)
+
+  try {
+    let content = ''
+    for await (const chunk of stream) {
+      content += chunk
+    }
+    return content
+  } catch (error) {
+    logger.error(
+      {
+        error:
+          error && typeof error === 'object' && 'message' in error
+            ? error.message
+            : 'Unknown error',
+      },
+      'Error calling Deepseek API'
+    )
     throw error
   }
 }
