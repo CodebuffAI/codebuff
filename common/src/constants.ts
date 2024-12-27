@@ -124,11 +124,16 @@ export const geminiModels = {
   gemini2flash: 'gemini-2.0-flash-exp',
 } as const
 
+export const deepseekModels = {
+  deepseekChat: 'deepseek-chat',
+} as const
+
 export const models = {
   ...claudeModels,
   ...openaiModels,
   ...geminiModels,
-}
+  ...deepseekModels,
+} as const
 
 export const OVERAGE_RATE_PRO = 0.99
 export const OVERAGE_RATE_PRO_PLUS = 0.9
