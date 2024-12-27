@@ -24,6 +24,7 @@ export const env = createEnv({
     HELICONE_API_KEY: z.string().min(1).startsWith('pk-helicone-'),
     OPEN_AI_KEY: z.string().min(1).startsWith('sk-proj-'),
     GEMINI_API_KEY: z.string().min(1).startsWith('AI'),
+    DEEPSEEK_API_KEY: z.string().min(1).startsWith('sk-'),
     OPEN_ROUTER_API_KEY: z.string().min(1).startsWith('sk-or-v1-'),
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),

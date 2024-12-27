@@ -10,6 +10,10 @@ import { claudeModels, models } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from './util/logger'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
+import { promptDeepseek } from './deepseek-api'
+
+const messagesWithSystem = (messages: Message[], system: System) =>
+  [{ role: 'system', content: system }, ...messages] as OpenAIMessage[]
 
 export async function requestRelevantFiles(
   {
@@ -309,14 +313,28 @@ async function getRelevantFiles(
     },
   ]
   const start = performance.now()
-  const response = await promptClaude(messagesWithPrompt, {
-    model: getModelForMode(costMode, 'file-requests') as model_types,
-    system,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-  })
+  let response: string
+  if (costMode === 'lite') {
+    response = await promptDeepseek(
+      messagesWithSystem(messagesWithPrompt, system),
+      {
+        model: models.deepseekChat,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      }
+    )
+  } else {
+    response = await promptClaude(messagesWithPrompt, {
+      model: getModelForMode(costMode, 'file-requests') as model_types,
+      system,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    })
+  }
   const end = performance.now()
   const duration = end - start
 
@@ -580,25 +598,36 @@ export const warmCacheForRequestRelevantFiles = async (
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined
+  userId: string | undefined,
+  costMode: CostMode
 ) => {
-  await promptClaude(
-    [
-      {
-        role: 'user' as const,
-        content: 'hi',
-      },
-    ],
-    {
-      model: claudeModels.haiku,
-      system,
-      clientSessionId,
-      fingerprintId,
-      userId,
-      userInputId,
-      maxTokens: 1,
-    }
-  ).catch((error) => {
+  const promise =
+    costMode === 'lite'
+      ? promptDeepseek(messagesWithSystem([], system), {
+          model: models.deepseekChat,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        })
+      : promptClaude(
+          [
+            {
+              role: 'user' as const,
+              content: 'hi',
+            },
+          ],
+          {
+            model: claudeModels.haiku,
+            system,
+            clientSessionId,
+            fingerprintId,
+            userId,
+            userInputId,
+            maxTokens: 1,
+          }
+        )
+  await promise.catch((error) => {
     logger.error(error, 'Error warming cache for requestRelevantFiles')
   })
 }

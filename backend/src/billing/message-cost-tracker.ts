@@ -6,7 +6,6 @@ import { stripeServer } from 'common/util/stripe'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { logger, withLoggerContext } from '@/util/logger'
-import { pluralize } from 'common/util/string'
 
 const PROFIT_MARGIN = 0.2
 
@@ -20,6 +19,7 @@ const TOKENS_COST_PER_M = {
     [models.gpt4o]: 2.5,
     [models.gpt4omini]: 0.15,
     [models.o1]: 15,
+    [models.deepseekChat]: 0.14,
   },
   output: {
     [models.sonnet]: 15,
@@ -36,12 +36,6 @@ const TOKENS_COST_PER_M = {
   cache_read: {
     [models.sonnet]: 0.3,
     [models.haiku]: 0.1,
-  },
-  // DeepSeek
-  prompt_cache_miss_tokens: {
-    [models.deepseekChat]: 0.14,
-  },
-  prompt_cache_hit_tokens: {
     [models.deepseekChat]: 0.014,
   },
 }
