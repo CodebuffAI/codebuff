@@ -36,7 +36,7 @@ export const Navbar = async () => {
         />
         <span className="font-mono text-2xl font-bold">Codebuff</span>
       </Link>
-      <nav className="hidden md:flex space-x-4">
+      <nav className="hidden md:flex space-x-4 ml-auto">
         <Link href={`/docs`} className="hover:text-blue-400 transition-colors">
           Docs
         </Link>
