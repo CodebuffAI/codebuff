@@ -42,6 +42,7 @@ export class Client {
   private fingerprintId: string | undefined
   private costMode: CostMode
   public fileVersions: FileVersion[][] = []
+  public fileContext: ProjectFileContext | undefined
 
   public user: User | undefined
   public lastWarnedPct: number = 0
@@ -69,6 +70,7 @@ export class Client {
 
   public initFileVersions(projectFileContext: ProjectFileContext) {
     const { knowledgeFiles } = projectFileContext
+    this.fileContext = projectFileContext
     this.fileVersions = [
       Object.entries(knowledgeFiles).map(([path, content]) => ({
         path,
@@ -436,6 +438,7 @@ export class Client {
       currentFileVersion,
       this.fileVersions
     )
+    this.fileContext = fileContext
     this.webSocket.sendAction({
       type: 'user-input',
       userInputId,

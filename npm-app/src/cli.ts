@@ -1,4 +1,5 @@
 import { uniq } from 'lodash'
+import { getAllFilePaths } from 'common/project-file-tree'
 import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
 import { green, red, yellow, underline } from 'picocolors'
@@ -64,6 +65,22 @@ export class CLI {
       output: process.stdout,
       historySize: 1000,
       terminal: true,
+      completer: (line: string) => {
+        if (!this.client.fileContext?.fileTree) return [[], line]
+
+        const tokenNames = Object.values(
+          this.client.fileContext.fileTokenScores
+        ).flatMap((o) => Object.keys(o))
+        const paths = getAllFilePaths(this.client.fileContext.fileTree)
+
+        const lastWord = line.split(' ').pop() || ''
+
+        const matchingTokens = [...tokenNames, ...paths].filter(
+          (token) =>
+            token.startsWith(lastWord) || token.includes('/' + lastWord)
+        )
+        return [matchingTokens, lastWord]
+      },
     })
     this.client = new Client(
       websocketUrl,
