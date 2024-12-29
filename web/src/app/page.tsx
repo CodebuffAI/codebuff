@@ -98,13 +98,17 @@ const Home = () => {
         <div className="relative w-full h-[20rem] md:h-[28rem] flex items-center justify-center">
           <div className="relative h-full flex">
             <video
-              src="/codebuff-intro1.mp4"
               className="rounded-2xl shadow-lg max-h-full w-auto"
               autoPlay
               muted
               loop
               playsInline
-            />
+              disableRemotePlayback
+              preload="auto"
+            >
+              <source src="/codebuff-intro1.mp4" type="video/mp4" />
+              <source src="/codebuff-intro1.webm" type="video/webm" />
+            </video>
           </div>
         </div>
 
