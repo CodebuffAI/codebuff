@@ -89,75 +89,39 @@ const Home = () => {
       <BackgroundBeams />
 
       <div className="max-w-6xl mx-auto">
-        <main className="px-6 py-20 relative z-10 text-center space-y-8">
-          <h1 className="text-5xl md:text-7xl font-bold -mt-6 mx-auto">
-            Code at the Speed of Thought
+        <main className="px-6 relative z-10 text-center">
+          <h1 className="text-4xl md:text-7xl font-bold mb-16">
+            Code faster with AI
           </h1>
-          <div className="text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            <p className="md:hidden">
-              Edit your codebase and run commands quickly, with natural language
-              in your terminal.
-            </p>
-            <div className="hidden md:block">
-              <p>Edit your codebase and run commands quickly</p>
-              <p>with natural language in your terminal.</p>
-            </div>
-          </div>
-          <section className="relative z-10">
-            <div className="mb-4">Try Codebuff for free:</div>
-
-            <div className="inline-block">
-              <div className="px-4 bg-gray-800 rounded-lg p-4 flex items-center gap-2">
-                <code className="text-white">npm install -g codebuff</code>
-                <Copy
-                  className="h-4 w-4 text-gray-400 hover:text-white cursor-pointer"
-                  onClick={copyToClipboard}
-                />
-              </div>
-            </div>
-          </section>
         </main>
 
-        <section className="py-10 px-4 relative z-10 space-y-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
-            Watch a Demo
-          </h2>
-          <div className="max-w-3xl mx-auto">
-            <div className="aspect-w-16 aspect-h-full h-96">
-              <Button
-                onClick={() => setIsVideoOpen(true)}
-                className="bg-gray-800 hover:bg-gray-700 rounded-lg shadow-lg p-0 h-full w-full ring-1 ring-gray-400/20"
-              >
-                <div className="relative w-full h-full">
-                  <img
-                    src="/video-thumbnail.jpg"
-                    alt="Video thumbnail"
-                    className="w-full h-full object-cover object-center rounded-lg"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-gray-500 rounded-full p-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500">
-                      <Play className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
-                </div>
-              </Button>
+        <div className="relative w-full h-[20rem] md:h-[28rem] flex items-center justify-center">
+          <div className="relative h-full flex">
+            <video
+              src="/codebuff-intro1.mp4"
+              className="rounded-2xl shadow-lg max-h-full w-auto"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+          </div>
+        </div>
+
+        <section className="relative z-10 text-center py-8">
+          <div className="mb-4">Try now for free:</div>
+
+          <div className="inline-block">
+            <div className="px-4 bg-gray-800 rounded-lg p-4 flex items-center gap-2">
+              <code className="text-white">npm install -g codebuff</code>
+              <Copy
+                className="h-4 w-4 text-gray-400 hover:text-white cursor-pointer"
+                onClick={copyToClipboard}
+              />
             </div>
           </div>
-          <Dialog open={isVideoOpen} onOpenChange={setIsVideoOpen}>
-            <DialogContent className="max-w-3xl bg-transparent border-0 p-0">
-              <div className="aspect-w-16 aspect-h-full h-96">
-                <iframe
-                  src="https://www.youtube.com/embed/dQ0NOMsu0dA"
-                  title="Codebuff Demo"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full rounded-lg shadow-lg"
-                ></iframe>
-              </div>
-            </DialogContent>
-          </Dialog>
 
-          <div className="flex justify-center space-x-8 pt-4">
+          <div className="flex justify-center space-x-8 pt-32 pb-8 px-4">
             <div className="flex flex-col items-center">
               <p>Backed by</p>
               <Link
@@ -227,7 +191,8 @@ const Home = () => {
           <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
             What Developers Are Saying
           </h2>
-          <h6 className="text-center text-gray-700 dark:text-gray-300 text-sm mt-2 mb-12">
+
+          <h6 className="text-center text-gray-700 dark:text-gray-300 text-sm mb-12">
             (note: some testimonials reference our previous name,
             &quot;Manicode&quot; – they refer to the same product)
           </h6>
@@ -245,6 +210,46 @@ const Home = () => {
               </div>
             </Marquee>
           ))}
+        </section>
+
+        <section className="py-10 px-4 relative z-10 space-y-8">
+          <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
+            Watch a Demo
+          </h2>
+          <div className="max-w-3xl mx-auto">
+            <div className="aspect-w-16 aspect-h-full h-96">
+              <Button
+                onClick={() => setIsVideoOpen(true)}
+                className="bg-gray-800 hover:bg-gray-700 rounded-lg shadow-lg p-0 h-full w-full ring-1 ring-gray-400/20"
+              >
+                <div className="relative w-full h-full">
+                  <img
+                    src="/video-thumbnail.jpg"
+                    alt="Video thumbnail"
+                    className="w-full h-full object-cover object-center rounded-lg"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="bg-gray-500 rounded-full p-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500">
+                      <Play className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </div>
+              </Button>
+            </div>
+          </div>
+          <Dialog open={isVideoOpen} onOpenChange={setIsVideoOpen}>
+            <DialogContent className="max-w-3xl bg-transparent border-0 p-0">
+              <div className="aspect-w-16 aspect-h-full h-96">
+                <iframe
+                  src="https://www.youtube.com/embed/dQ0NOMsu0dA"
+                  title="Codebuff Demo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full rounded-lg shadow-lg"
+                ></iframe>
+              </div>
+            </DialogContent>
+          </Dialog>
         </section>
 
         <section className="py-20 relative z-10">
