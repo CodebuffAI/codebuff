@@ -106,7 +106,7 @@ export const handleRunTerminalCommand = async (
           stdout: commandOutput,
         })
         if (mode === 'assistant') {
-          console.log(green(`Command completed\n`))
+          console.log(green(`Command completed`))
         }
 
         // Reset the PTY to the project root
