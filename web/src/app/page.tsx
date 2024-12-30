@@ -90,16 +90,20 @@ const Home = () => {
 
       <div className="max-w-6xl mx-auto">
         <main className="px-6 relative z-10 text-center">
-          <h1 className="text-4xl md:text-7xl font-bold mb-16">
+          <h1 className="text-4xl md:text-7xl font-bold mb-4">
             <span className="whitespace-nowrap">Code faster</span>{' '}
             <span className="whitespace-nowrap">with AI</span>
           </h1>
+          <p className="text-xl md:text-2xl text-muted-foreground mb-16">
+            <span className="whitespace-nowrap">A coding companion</span>{' '}
+            <span className="whitespace-nowrap">in your terminal</span>
+          </p>
         </main>
 
-        <div className="relative w-full h-[20rem] md:h-[28rem] flex items-center justify-center px-4 md:px-0">
-          <div className="relative h-full flex rounded-2xl overflow-hidden">
+        <div className="relative w-full flex items-center justify-center px-4 rounded-lg">
+          <div className="relative h-full flex rounded-lg overflow-hidden">
             <video
-              className="rounded-2xl shadow-lg max-h-full w-auto"
+              className="rounded-lg shadow-lg max-h-full w-auto"
               autoPlay
               muted
               loop
@@ -124,33 +128,6 @@ const Home = () => {
                 onClick={copyToClipboard}
               />
             </div>
-          </div>
-
-          <div className="flex justify-center space-x-8 pt-32 pb-8 px-4">
-            <div className="flex flex-col items-center">
-              <p>Backed by</p>
-              <Link
-                target="_blank"
-                href="https://www.ycombinator.com/companies/codebuff"
-              >
-                <img
-                  src="/y-combinator.svg"
-                  alt="y combinator logo"
-                  className="h-8 w-full"
-                />
-              </Link>
-            </div>
-            <a
-              href="https://www.producthunt.com/posts/codebuff?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-codebuff"
-              target="_blank"
-            >
-              <img
-                src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=${theme ?? 'light'}`}
-                alt="Codebuff - Better&#0032;code&#0032;generation&#0032;than&#0032;Cursor&#0044;&#0032;from&#0032;your&#0032;CLI | Product Hunt"
-                width="250"
-                height="54"
-              />
-            </a>
           </div>
         </section>
 
@@ -215,6 +192,33 @@ const Home = () => {
               </div>
             </Marquee>
           ))}
+
+          <div className="flex flex-col md:flex-row items-center justify-center md:space-x-8 space-y-8 md:space-y-0 pt-32">
+            <div className="flex flex-col items-center">
+              <p>Backed by</p>
+              <Link
+                target="_blank"
+                href="https://www.ycombinator.com/companies/codebuff"
+              >
+                <img
+                  src="/y-combinator.svg"
+                  alt="y combinator logo"
+                  className="h-8 w-full"
+                />
+              </Link>
+            </div>
+            <a
+              href="https://www.producthunt.com/posts/codebuff?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-codebuff"
+              target="_blank"
+            >
+              <img
+                src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=${theme ?? 'light'}`}
+                alt="Codebuff - Better&#0032;code&#0032;generation&#0032;than&#0032;Cursor&#0044;&#0032;from&#0032;your&#0032;CLI | Product Hunt"
+                width="250"
+                height="54"
+              />
+            </a>
+          </div>
         </section>
 
         <section className="py-10 px-4 relative z-10 space-y-8">
