@@ -51,12 +51,11 @@ export const handleRunTerminalCommand = async (
   input: { command: string },
   id: string,
   mode: 'user' | 'assistant'
-): Promise<{ result: string; stdout: string; stderr: string }> => {
+): Promise<{ result: string; stdout: string }> => {
   // Note: With PTY, all output comes through stdout since it emulates a real terminal
   const { command } = input
   return new Promise((resolve) => {
     let stdout = ''
-    let stderr = '' // Kept for API compatibility, but PTY combines all output
     const MAX_EXECUTION_TIME = 10_000
 
     if (mode === 'assistant') {
@@ -77,11 +76,10 @@ export const handleRunTerminalCommand = async (
         resolve({
           result: formatResult(
             stdout,
-            stderr,
+            undefined,
             `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
           ),
           stdout,
-          stderr,
         })
       }
     }, MAX_EXECUTION_TIME)
@@ -100,9 +98,13 @@ export const handleRunTerminalCommand = async (
         }
 
         resolve({
-          result: formatResult(commandOutput, stderr, 'Command completed', 0),
+          result: formatResult(
+            commandOutput,
+            undefined,
+            'Command completed',
+            0
+          ),
           stdout: commandOutput,
-          stderr,
         })
         if (mode === 'assistant') {
           console.log(green(`Command finished with exit code: 0\n`))
@@ -133,7 +135,6 @@ export const handleRunTerminalCommand = async (
         resolve({
           result: 'command not found',
           stdout: commandOutput,
-          stderr: '',
         })
         return
       }
@@ -155,13 +156,15 @@ const truncate = (str: string, maxLength: number) => {
 
 function formatResult(
   stdout: string,
-  stderr: string,
+  stderr: string | undefined,
   status?: string,
   exitCode?: number | null
 ): string {
   let result = '<terminal_command_result>\n'
   result += `<stdout>${truncate(stdout, 10000)}</stdout>\n`
-  result += `<stderr>${truncate(stderr, 10000)}</stderr>\n`
+  if (stderr !== undefined) {
+    result += `<stderr>${truncate(stderr, 10000)}</stderr>\n`
+  }
   if (status !== undefined) {
     result += `<status>${status}</status>\n`
   }
