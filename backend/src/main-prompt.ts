@@ -268,6 +268,8 @@ export async function mainPrompt(
 
       if (printedChunk.includes('\n[END]')) {
         printedChunk = printedChunk.replace('\n[END]', '')
+      } else if (printedChunk.includes(STOP_MARKER)) {
+        printedChunk = printedChunk.replace(STOP_MARKER, '')
       } else if (
         chunk.endsWith('\n') ||
         chunk.endsWith('\n[') ||
