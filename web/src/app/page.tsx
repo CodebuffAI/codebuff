@@ -91,11 +91,12 @@ const Home = () => {
       <div className="max-w-6xl mx-auto">
         <main className="px-6 relative z-10 text-center">
           <h1 className="text-4xl md:text-7xl font-bold mb-16">
-            Code faster with AI
+            <span className="whitespace-nowrap">Code faster</span>{' '}
+            <span className="whitespace-nowrap">with AI</span>
           </h1>
         </main>
 
-        <div className="relative w-full h-[20rem] md:h-[28rem] flex items-center justify-center">
+        <div className="relative w-full h-[20rem] md:h-[28rem] flex items-center justify-center px-4 md:px-0">
           <div className="relative h-full flex">
             <video
               className="rounded-2xl shadow-lg max-h-full w-auto"
