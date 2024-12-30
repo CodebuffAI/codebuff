@@ -91,7 +91,9 @@ export const handleRunTerminalCommand = async (
 
     const dataDisposable = ptyProcess.onData((data: string) => {
       const totalOutput = streamedCommand + commandOutput + data
-      const hasNextPromptOnWindows = totalOutput.includes('(base)')
+      // Windows PowerShell prompt pattern: "MM/DD HH:mm Path ►"
+      const windowsPromptRegex = /\d{2}\/\d{2}\s\d{2}:\d{2}\s.*\s►/
+      const hasNextPromptOnWindows = windowsPromptRegex.test(totalOutput)
       if (totalOutput.includes('bash-3.2$ ') || hasNextPromptOnWindows) {
         clearTimeout(timer)
         dataDisposable.dispose()
