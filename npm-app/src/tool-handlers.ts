@@ -70,10 +70,10 @@ export const handleRunTerminalCommand = async (
       if (mode === 'assistant') {
         // Kill the existing PTY
         ptyProcess.kill()
-        
+
         // Create a new PTY instance
         persistentPty = initializePty()
-        
+
         resolve({
           result: formatResult(
             stdout,
@@ -113,10 +113,6 @@ export const handleRunTerminalCommand = async (
       // Skip command echo
       if (data === `${command}\r\n`) return
 
-      // Process command output
-      process.stdout.write(data)
-      commandOutput += data
-
       // Try to detect error messages in the output
       if (
         mode === 'user' &&
@@ -139,7 +135,11 @@ export const handleRunTerminalCommand = async (
           stdout: commandOutput,
           stderr: '',
         })
+        return
       }
+
+      process.stdout.write(data)
+      commandOutput += data
     })
 
     // Write the command
