@@ -3,7 +3,7 @@ import path from 'path'
 import { green } from 'picocolors'
 import { rgPath } from '@vscode/ripgrep'
 import * as os from 'os'
-import * as pty from 'node-pty'
+import * as pty from 'node-pty-prebuilt-multiarch'
 
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot, setProjectRoot } from './project-files'
