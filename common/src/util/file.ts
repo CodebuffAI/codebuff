@@ -176,3 +176,16 @@ export const cleanMarkdownCodeBlock = (content: string): string => {
     : content
   return cleanResponse
 }
+
+export function isValidFilePath(path: string) {
+  if (!path) return false
+
+  // Check for whitespace
+  if (/\s/.test(path)) return false
+
+  // Check for invalid characters
+  const invalidChars = /[<>:"|?*\x00-\x1F]/g
+  if (invalidChars.test(path)) return false
+
+  return true
+}

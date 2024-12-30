@@ -19,16 +19,6 @@ export const faqs: faq[] = [
     ),
   },
   {
-    question: 'What models do you use?',
-    answer: (
-      <p>
-        We primarily use Claude 3.5 Sonnet for the coding, and Claude 3.5 Haiku
-        to find relevant files. We also use GPT-4o-mini as a fallback to rewrite
-        files with an intended edit (using their fancy Predicted Outputs API).
-      </p>
-    ),
-  },
-  {
     question: 'Can I specify custom instructions for Codebuff?',
     answer: (
       <p>
@@ -37,9 +27,9 @@ export const faqs: faq[] = [
         engineer. All file names ending in knowledge.md are loaded into context
         automatically, and you can use the files to do your own prompt
         engineering for Codebuff. If you do not have a knowledge.md file,
-        Codebuff typically will not create one, but it will update existing knowledge.md
-        files autonomously. The Codebuff codebase currently has a knowledge.md
-        in almost every directory.
+        Codebuff typically will not create one, but it will update existing
+        knowledge.md files autonomously. The Codebuff codebase currently has a
+        knowledge.md in almost every directory.
       </p>
     ),
   },
@@ -72,53 +62,36 @@ export const faqs: faq[] = [
       </p>
     ),
   },
-  {
-    question: 'How does Codebuff actually work?',
-    answer: (
-      <p>
-        You invoke it in your terminal with 'codebuff' and it starts by running
-        through the source files in that directory and subdirectories and
-        parsing out all the function and class names (or equivalents in 11
-        languages) with the tree-sitter library. Then, it fires off a request to
-        Claude Haiku 3.5 to cache this codebase context so user inputs can be
-        responded to with lower latency (Prompt caching is OP!). We have a
-        stateless server that passes messages along to Anthropic or OpenAI and
-        websockets to ferry data back and forth to clients. Claude 3.5 Haiku
-        picks the relevant files, and we load them into context and Claude 3.5
-        Sonnet responds with the right edit.
-      </p>
-    ),
-  },
-  {
-    question: 'What have other users made with Codebuff?',
-    answer: (
-      <p>
-        Many users do real work professionally on large codebases with Codebuff.
-        You can use Codebuff to write features faster, create and run unit tests
-        until they pass, or add integrations to new API's. Codebuff is great for
-        any task that feels like drudge work, such as setting up OAuth or
-        writing one-off scripts. We've also seen users build whole apps from
-        scratch over the weekend for their teams and personal use. At the end of
-        the day, with Codebuff you can spend more of your time thinking about
-        architecture and design, instead of implementation details.
-      </p>
-    ),
-  },
-  {
-    question: 'Can I integrate Codebuff into my app/product/system?',
-    answer: (
-      <p>
-        We currently have an alpha SDK that exposes the same natural language
-        interface for your apps to call and receive code edits.{' '}
-        <a
-          href="https://codebuff.retool.com/form/c8b15919-52d0-4572-aca5-533317403dde"
-          className="no-underline hover:underline"
-        >
-          Sign up here for early access!
-        </a>
-      </p>
-    ),
-  },
+  // {
+  //   question: 'What have other users made with Codebuff?',
+  //   answer: (
+  //     <p>
+  //       Many users do real work professionally on large codebases with Codebuff.
+  //       You can use Codebuff to write features faster, create and run unit tests
+  //       until they pass, or add integrations to new API's. Codebuff is great for
+  //       any task that feels like drudge work, such as setting up OAuth or
+  //       writing one-off scripts. We've also seen users build whole apps from
+  //       scratch over the weekend for their teams and personal use. At the end of
+  //       the day, with Codebuff you can spend more of your time thinking about
+  //       architecture and design, instead of implementation details.
+  //     </p>
+  //   ),
+  // },
+  // {
+  //   question: 'Can I integrate Codebuff into my app/product/system?',
+  //   answer: (
+  //     <p>
+  //       We currently have an alpha SDK that exposes the same natural language
+  //       interface for your apps to call and receive code edits.{' '}
+  //       <a
+  //         href="https://codebuff.retool.com/form/c8b15919-52d0-4572-aca5-533317403dde"
+  //         className="no-underline hover:underline"
+  //       >
+  //         Sign up here for early access!
+  //       </a>
+  //     </p>
+  //   ),
+  // },
   {
     question: 'Why is Codebuff so expensive?',
     answer: (

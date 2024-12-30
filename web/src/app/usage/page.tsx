@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
-import { getQuotaManager } from 'common/src/billing/quota-manager'
+import { AuthenticatedQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/util/dates'
 import { UsageData } from 'common/src/types/usage'
 
@@ -33,23 +33,30 @@ const UsageDisplay = ({ data }: { data: UsageData }) => {
         <div className="space-y-4">
           {creditsUsed > totalQuota && subscriptionActive && (
             <div className="p-4 mb-4 bg-yellow-100 dark:bg-blue-900 rounded-md space-y-2">
-              <p>
-                You have exceeded your monthly quota, but you can continue using
-                Codebuff.
-              </p>
-              <p>
-                You will be charged an overage fee of $0.90 per 100 additional
-                credits.
-              </p>
-              <p className="mt-2">
-                Current overage:{' '}
-                <b>
-                  $
-                  {(Math.ceil((creditsUsed - totalQuota) / 100) * 0.9).toFixed(
-                    2
-                  )}
-                </b>
-              </p>
+              {data.overageRate ? (
+                <>
+                  <p>
+                    You have exceeded your monthly quota, but you can continue
+                    using Codebuff. You will be charged an overage fee of $
+                    {data.overageRate.toFixed(2)} per 100 additional credits.
+                  </p>
+                  <p className="mt-2">
+                    Current overage bill:{' '}
+                    <b>
+                      $
+                      {(
+                        ((creditsUsed - totalQuota) / 100) *
+                        data.overageRate
+                      ).toFixed(2)}
+                    </b>
+                  </p>
+                </>
+              ) : (
+                <p>
+                  You have exceeded your monthly quota, but you can continue
+                  using Codebuff.
+                </p>
+              )}
             </div>
           )}
           <div className="flex justify-between items-center">
@@ -83,16 +90,20 @@ const UsagePage = async () => {
     return <SignInCard />
   }
 
-  const quotaManager = getQuotaManager('authenticated', session.user.id)
-  let q = await quotaManager.checkQuota()
+  // const quotaManager = getQuotaManager('authenticated', session.user.id)
+  const quotaManager = new AuthenticatedQuotaManager()
+  let q = await quotaManager.checkQuota(session.user.id)
   if (q.endDate < new Date()) {
     // endDate is in the past, so reset the quota
     const nextQuotaReset = getNextQuotaReset(q.endDate)
-    await quotaManager.setNextQuota(false, nextQuotaReset)
+    await quotaManager.setNextQuota(session.user.id, false, nextQuotaReset)
 
     // get their newly updated info
-    q = await quotaManager.checkQuota()
+    q = await quotaManager.checkQuota(session.user.id)
   }
+  const { overageRate } = await quotaManager.getStripeSubscriptionQuota(
+    session.user.id
+  )
 
   const usageData: UsageData = {
     creditsUsed: q.creditsUsed,
@@ -100,6 +111,7 @@ const UsagePage = async () => {
     remainingCredits: q.quota - q.creditsUsed,
     nextQuotaReset: q.endDate,
     subscriptionActive: q.subscription_active,
+    overageRate,
   }
 
   return <UsageDisplay data={usageData} />

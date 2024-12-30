@@ -4,11 +4,14 @@ import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
-import { promptClaude, System } from './claude'
+import { model_types, promptClaude, System } from './claude'
+import { getModelForMode, type CostMode } from 'common/constants'
 import { claudeModels, models } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from './util/logger'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
+import { promptDeepseek } from './deepseek-api'
+import { messagesWithSystem } from '@/util/messages'
 
 export async function requestRelevantFiles(
   {
@@ -23,13 +26,14 @@ export async function requestRelevantFiles(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string
+  userId: string | undefined,
+  costMode: CostMode
 ) {
   const { fileVersions } = fileContext
   const previousFiles = uniq(
     fileVersions.flatMap((files) => files.map(({ path }) => path))
   )
-  const countPerRequest = 5
+  const countPerRequest = costMode === 'pro' ? 9 : costMode === 'lite' ? 7 : 8
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -51,7 +55,8 @@ export async function requestRelevantFiles(
         userInputId,
         previousFiles,
         userPrompt,
-        userId
+        userId,
+        costMode
       ).catch((error) => {
         logger.error({ error }, 'Error checking new files necessary')
         return { newFilesNecessary: true, response: 'N/A', duration: 0 }
@@ -67,7 +72,8 @@ export async function requestRelevantFiles(
     clientSessionId,
     fingerprintId,
     userInputId,
-    userId
+    userId,
+    costMode
   )
 
   const newFilesNecessaryResult = await newFilesNecessaryPromise
@@ -128,7 +134,8 @@ async function generateFileRequests(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string
+  userId: string | undefined,
+  costMode: CostMode
 ) {
   const keyPrompt = generateKeyRequestFilesPrompt(
     userPrompt,
@@ -147,84 +154,92 @@ async function generateFileRequests(
     clientSessionId,
     fingerprintId,
     userInputId,
-    userId
+    userId,
+    costMode
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [], duration: 0 }
   })
 
-  const examplePrompt = generateExampleFilesPrompt(
-    userPrompt,
-    assistantPrompt,
-    fileContext,
-    countPerRequest
-  )
+  // Only create additional file request promises if not in lite mode
+  let promises = [keyPromise]
+  if (costMode !== 'lite') {
+    // TODO: reenable example files and test files prompts
+    // const examplePrompt = generateExampleFilesPrompt(
+    //   userPrompt,
+    //   assistantPrompt,
+    //   fileContext,
+    //   countPerRequest
+    // )
 
-  const examplePromise = getRelevantFiles(
-    {
-      messages: messagesExcludingLastIfByUser,
-      system,
-    },
-    examplePrompt,
-    'Examples',
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId
-  ).catch((error) => {
-    logger.error({ error }, 'Error requesting example files')
-    return { files: [], duration: 0 }
-  })
+    // const examplePromise = getRelevantFiles(
+    //   {
+    //     messages: messagesExcludingLastIfByUser,
+    //     system,
+    //   },
+    //   examplePrompt,
+    //   'Examples',
+    //   clientSessionId,
+    //   fingerprintId,
+    //   userInputId,
+    //   userId
+    // ).catch((error) => {
+    //   logger.error({ error }, 'Error requesting example files')
+    //   return { files: [], duration: 0 }
+    // })
 
-  const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
-    userPrompt,
-    assistantPrompt,
-    fileContext,
-    countPerRequest
-  )
+    const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
+      userPrompt,
+      assistantPrompt,
+      fileContext,
+      countPerRequest
+    )
 
-  const nonObviousPromise = getRelevantFiles(
-    {
-      messages: messagesExcludingLastIfByUser,
-      system,
-    },
-    nonObviousPrompt,
-    'Non-Obvious',
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId
-  )
+    const nonObviousPromise = getRelevantFiles(
+      {
+        messages: messagesExcludingLastIfByUser,
+        system,
+      },
+      nonObviousPrompt,
+      'Non-Obvious',
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId
+    )
 
-  const testAndConfigPrompt = generateTestAndConfigFilesPrompt(
-    userPrompt,
-    assistantPrompt,
-    fileContext,
-    countPerRequest
-  )
+    // const testAndConfigPrompt = generateTestAndConfigFilesPrompt(
+    //   userPrompt,
+    //   assistantPrompt,
+    //   fileContext,
+    //   countPerRequest
+    // )
 
-  const testAndConfigPromise = getRelevantFiles(
-    {
-      messages: messagesExcludingLastIfByUser,
-      system,
-    },
-    testAndConfigPrompt,
-    'Tests and Config',
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId
-  ).catch((error) => {
-    logger.error({ error }, 'Error requesting test and config files')
-    return { files: [], duration: 0 }
-  })
+    // const testAndConfigPromise = getRelevantFiles(
+    //   {
+    //     messages: messagesExcludingLastIfByUser,
+    //     system,
+    //   },
+    //   testAndConfigPrompt,
+    //   'Tests and Config',
+    //   clientSessionId,
+    //   fingerprintId,
+    //   userInputId,
+    //   userId
+    // ).catch((error) => {
+    //   logger.error({ error }, 'Error requesting test and config files')
+    //   return { files: [], duration: 0 }
+    // })
 
-  const results = await Promise.all([
-    keyPromise,
-    examplePromise,
-    nonObviousPromise,
-    testAndConfigPromise,
-  ])
+    promises = [
+      ...promises,
+      // examplePromise,
+      nonObviousPromise,
+      // testAndConfigPromise,
+    ]
+  }
+
+  const results = await Promise.all(promises)
   return results
 }
 
@@ -236,7 +251,8 @@ const checkNewFilesNecessary = async (
   userInputId: string,
   previousFiles: string[],
   userPrompt: string,
-  userId?: string
+  userId: string | undefined,
+  costMode: CostMode
 ) => {
   const startTime = Date.now()
   const prompt = `
@@ -245,6 +261,9 @@ Current files read: ${previousFiles.length > 0 ? previousFiles.join(', ') : 'Non
 User request: ${userPrompt}
 
 We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad user requests may require many files as context.
+
+If the user is following up on a previous request, you should not read new files.
+If the user says something like "hi" with no specific request, you should not read new files.
 
 Answer with just 'YES' if reading new files is necessary, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
@@ -255,7 +274,7 @@ Answer with just 'YES' if reading new files is necessary, or 'NO' if the current
       { role: 'user', content: prompt },
     ],
     {
-      model: models.gpt4omini,
+      model: getModelForMode(costMode, 'check-new-files'),
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -281,7 +300,8 @@ async function getRelevantFiles(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string
+  userId?: string,
+  costMode: CostMode = 'normal'
 ) {
   const messagesWithPrompt = [
     ...messages,
@@ -291,14 +311,28 @@ async function getRelevantFiles(
     },
   ]
   const start = performance.now()
-  const response = await promptClaude(messagesWithPrompt, {
-    model: claudeModels.haiku,
-    system,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-  })
+  let response: string
+  if (costMode === 'lite') {
+    response = await promptDeepseek(
+      messagesWithSystem(messagesWithPrompt, system),
+      {
+        model: models.deepseekChat,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      }
+    )
+  } else {
+    response = await promptClaude(messagesWithPrompt, {
+      model: getModelForMode(costMode, 'file-requests') as model_types,
+      system,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    })
+  }
   const end = performance.now()
   const duration = end - start
 
@@ -559,28 +593,39 @@ Please limit your response just the file paths on new lines. Do not write anythi
 
 export const warmCacheForRequestRelevantFiles = async (
   system: System,
+  costMode: CostMode,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined
 ) => {
-  await promptClaude(
-    [
-      {
-        role: 'user' as const,
-        content: 'hi',
-      },
-    ],
-    {
-      model: claudeModels.haiku,
-      system,
-      clientSessionId,
-      fingerprintId,
-      userId,
-      userInputId,
-      maxTokens: 1,
-    }
-  ).catch((error) => {
+  const promise =
+    costMode === 'lite'
+      ? promptDeepseek(messagesWithSystem([], system), {
+          model: models.deepseekChat,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        })
+      : promptClaude(
+          [
+            {
+              role: 'user' as const,
+              content: 'hi',
+            },
+          ],
+          {
+            model: claudeModels.haiku,
+            system,
+            clientSessionId,
+            fingerprintId,
+            userId,
+            userInputId,
+            maxTokens: 1,
+          }
+        )
+  await promise.catch((error) => {
     logger.error(error, 'Error warming cache for requestRelevantFiles')
   })
 }

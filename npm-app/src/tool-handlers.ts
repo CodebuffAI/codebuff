@@ -1,6 +1,7 @@
 import { ChildProcess, spawn } from 'child_process'
 import path from 'path'
 import { green } from 'picocolors'
+import { rgPath } from '@vscode/ripgrep'
 
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot, setProjectRoot } from './project-files'
@@ -169,6 +170,52 @@ function formatResult(
   return result
 }
 
+export const handleCodeSearch: ToolHandler = async (
+  input: { pattern: string },
+  id: string
+) => {
+  return new Promise((resolve) => {
+    let stdout = ''
+    let stderr = ''
+
+    const command = `${path.resolve(rgPath)} ${input.pattern} .`
+    console.log()
+    console.log(green(`Searching project for: ${input.pattern}`))
+    const childProcess = spawn(command, {
+      cwd: getProjectRoot(),
+      shell: true,
+    })
+
+    childProcess.stdout.on('data', (data) => {
+      stdout += data.toString()
+    })
+
+    childProcess.stderr.on('data', (data) => {
+      stderr += data.toString()
+    })
+
+    childProcess.on('close', (code) => {
+      console.log()
+      const truncatedStdout = truncate(stdout, 10000)
+      const truncatedStderr = truncate(stderr, 1000)
+      resolve(
+        formatResult(
+          truncatedStdout,
+          truncatedStderr,
+          'Code search completed',
+          code
+        )
+      )
+    })
+
+    childProcess.on('error', (error) => {
+      resolve(
+        `<terminal_command_error>Failed to execute ripgrep: ${error.message}</terminal_command_error>`
+      )
+    })
+  })
+}
+
 export const toolHandlers: Record<string, ToolHandler> = {
   scrape_web_page: handleScrapeWebPage,
   run_terminal_command: ((input, id) =>
@@ -176,4 +223,5 @@ export const toolHandlers: Record<string, ToolHandler> = {
       (result) => result.result
     )) as ToolHandler,
   continue: async (input, id) => input.response ?? 'Please continue',
+  code_search: handleCodeSearch,
 }

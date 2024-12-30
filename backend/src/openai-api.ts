@@ -1,5 +1,4 @@
 import OpenAI from 'openai'
-import { RATE_LIMIT_POLICY } from './constants'
 import { STOP_MARKER, TEST_USER_ID } from 'common/constants'
 import { Stream } from 'openai/streaming'
 import { env } from './env.mjs'
@@ -27,6 +26,89 @@ const getOpenAI = (fingerprintId: string) => {
   return openai
 }
 
+export async function* promptOpenAIStream(
+  messages: OpenAIMessage[],
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: string
+    userId: string | undefined
+    predictedContent?: string
+    temperature?: number
+  }
+): AsyncGenerator<string, void, unknown> {
+  const {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model,
+    userId,
+    predictedContent,
+  } = options
+  const openai = getOpenAI(fingerprintId)
+  const startTime = Date.now()
+
+  try {
+    const stream = await openai.chat.completions.create({
+      model,
+      messages,
+      temperature: options.temperature ?? 0,
+      stream: true,
+      ...(predictedContent
+        ? { prediction: { type: 'content', content: predictedContent } }
+        : {}),
+    })
+
+    let content = ''
+    let messageId: string | undefined
+    let inputTokens = 0
+    let outputTokens = 0
+
+    for await (const chunk of stream) {
+      if (chunk.choices[0]?.delta?.content) {
+        const delta = chunk.choices[0].delta.content
+        content += delta
+        yield delta
+      }
+
+      if (chunk.usage) {
+        messageId = chunk.id
+        inputTokens = chunk.usage.prompt_tokens
+        outputTokens = chunk.usage.completion_tokens
+      }
+    }
+
+    if (messageId && messages.length > 0 && userId !== TEST_USER_ID) {
+      saveMessage({
+        messageId,
+        userId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        model,
+        request: messages,
+        response: content,
+        inputTokens: inputTokens || 0,
+        outputTokens: outputTokens || 0,
+        finishedAt: new Date(),
+        latencyMs: Date.now() - startTime,
+      })
+    }
+  } catch (error) {
+    logger.error(
+      {
+        error:
+          error && typeof error === 'object' && 'message' in error
+            ? error.message
+            : 'Unknown error',
+      },
+      'Error calling OpenAI API'
+    )
+    throw error
+  }
+}
+
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
     setTimeout(() => reject(new Error('OpenAI API request timed out')), ms)
@@ -41,59 +123,28 @@ export async function promptOpenAI(
     model: string
     userId: string | undefined
     predictedContent?: string
+    temperature?: number
   }
 ) {
-  const {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    model,
-    userId,
-    predictedContent,
-  } = options
-  const openai = getOpenAI(fingerprintId)
-  const startTime = Date.now()
   try {
-    const response = await Promise.race([
-      openai.chat.completions.create({
-        model,
-        messages,
-        temperature: 0,
-        // store: true,
-        ...(predictedContent
-          ? { prediction: { type: 'content', content: predictedContent } }
-          : {}),
-      }),
-      timeoutPromise(200_000) as Promise<OpenAI.Chat.ChatCompletion>,
-    ])
+    const timeout = options.model.startsWith('o1') ? 800_000 : 200_000
+    const stream = promptOpenAIStream(messages, options)
 
-    if (
-      response.choices &&
-      response.choices.length > 0 &&
-      response.choices[0].message
-    ) {
-      const messageId = response.id
-      const content = response.choices[0].message.content || ''
-      if (messages.length > 0 && userId !== TEST_USER_ID) {
-        saveMessage({
-          messageId,
-          userId,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          model,
-          request: messages,
-          response: content,
-          inputTokens: response.usage?.prompt_tokens || 0,
-          outputTokens: response.usage?.completion_tokens || 0,
-          finishedAt: new Date(),
-          latencyMs: Date.now() - startTime,
-        })
-      }
-      return content
-    } else {
+    let content = ''
+    await Promise.race([
+      (async () => {
+        for await (const chunk of stream) {
+          content += chunk
+        }
+      })(),
+      timeoutPromise(timeout),
+    ])
+    const result = content
+
+    if (!result) {
       throw new Error('No response from OpenAI')
     }
+    return result
   } catch (error) {
     logger.error(
       {
@@ -104,7 +155,6 @@ export async function promptOpenAI(
       },
       'Error calling OpenAI API'
     )
-
     throw error
   }
 }

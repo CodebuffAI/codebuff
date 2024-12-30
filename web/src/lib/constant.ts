@@ -11,8 +11,7 @@ export const sponsees = Object.values(sponseeConfig)
 
 export const siteConfig = {
   title: 'Codebuff',
-  description:
-    'Codebuff is a tool for editing codebases via natural language instruction to Buffy, an expert AI programming assistant.',
+  description: 'Code faster with AI using Codebuff. Edit your codebase and run terminal commands via natural language instruction.',
   keywords: () => [
     'Manicode',
     'Codebuff',

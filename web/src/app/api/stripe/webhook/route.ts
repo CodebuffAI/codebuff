@@ -6,8 +6,9 @@ import { env } from '@/env.mjs'
 import { stripeServer } from 'common/src/util/stripe'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { CREDITS_USAGE_LIMITS } from 'common/constants'
+import { CREDITS_USAGE_LIMITS, UsageLimits } from 'common/constants'
 import { match, P } from 'ts-pattern'
+import { AuthenticatedQuotaManager } from 'common/billing/quota-manager'
 
 const getCustomerId = (
   customer: string | Stripe.Customer | Stripe.DeletedCustomer
@@ -65,33 +66,42 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
         // Only downgrade to FREE tier when subscription period has ended
         await handleSubscriptionChange(event.data.object, 'FREE')
         break
+      case 'invoice.created':
+        await handleInvoiceCreated(event)
+        break
       case 'invoice.paid':
         await handleInvoicePaid(event)
         break
       default:
         console.log(`Unhandled event type ${event.type}`)
+        return NextResponse.json(
+          {
+            error: {
+              message: 'Method Not Allowed',
+            },
+          },
+          { status: 405 }
+        )
     }
     return NextResponse.json({ received: true })
-  } catch {
+  } catch (err) {
+    const error = err as Error
+    console.error('Error processing webhook:', error)
     return NextResponse.json(
       {
         error: {
-          message: 'Method Not Allowed',
+          message: error.message,
         },
       },
-      { status: 405 }
+      { status: 500 }
     )
   }
 }
 
-async function handleSubscriptionChange(
-  subscription: Stripe.Subscription,
-  usageTier: keyof typeof CREDITS_USAGE_LIMITS
-) {
-  const customerId = getCustomerId(subscription.customer)
-
-  // Fetch the user's current quota and referral credits
-  const referralCredits = await db
+async function getTotalReferralCreditsForCustomer(
+  customerId: string
+): Promise<number> {
+  return db
     .select({
       referralCredits: sum(schema.referral.credits),
     })
@@ -109,12 +119,37 @@ async function handleSubscriptionChange(
       const firstRow = rows[0]
       return parseInt(firstRow?.referralCredits ?? '0')
     })
+}
 
-  const baseQuota = CREDITS_USAGE_LIMITS[usageTier]
+async function handleSubscriptionChange(
+  subscription: Stripe.Subscription,
+  usageTier: UsageLimits
+) {
+  const customerId = getCustomerId(subscription.customer)
+  console.log(`Customer ID: ${customerId}`)
+
+  // Get the user ID from the customer ID
+  const user = await db.query.user.findFirst({
+    where: eq(schema.user.stripe_customer_id, customerId),
+    columns: { id: true },
+  })
+
+  if (!user) {
+    throw new Error('No user found for customer ID')
+  }
+  console.log(`Found user ID: ${user.id}`)
+
+  // Get quota from Stripe subscription
+  const quotaManager = new AuthenticatedQuotaManager()
+  const { quota } = await quotaManager.getStripeSubscriptionQuota(user.id)
+  const baseQuota = Math.max(quota, CREDITS_USAGE_LIMITS[usageTier])
+
+  // Add referral credits
+  const referralCredits = await getTotalReferralCreditsForCustomer(customerId)
   const newQuota = baseQuota + referralCredits
-
-  // TODO: If downgrading, check Stripe to see if they have exceeded quota, don't just blindly reset. But for now it's fine to just trust them.
-  // A good indicator that we've created compelling value is if people are subscribing and unsubscribing just to get some more free usage
+  console.log(
+    `Calculated new quota: ${newQuota} (base: ${baseQuota}, referral: ${referralCredits})`
+  )
 
   let newSubscriptionId: string | null = subscription.id
   if (subscription.cancellation_details?.reason) {
@@ -123,6 +158,8 @@ async function handleSubscriptionChange(
     )
     newSubscriptionId = null
   }
+  console.log(`New subscription ID: ${newSubscriptionId}`)
+
   await db
     .update(schema.user)
     .set({
@@ -133,6 +170,38 @@ async function handleSubscriptionChange(
       stripe_price_id: newSubscriptionId,
     })
     .where(eq(schema.user.stripe_customer_id, customerId))
+}
+
+async function handleInvoiceCreated(
+  invoiceCreated: Stripe.InvoiceCreatedEvent
+) {
+  const customer = invoiceCreated.data.object.customer
+
+  if (!customer) {
+    throw new Error('No customer found in invoice paid event')
+  }
+
+  const customerId = getCustomerId(customer)
+
+  // Get total referral credits for this user
+  const referralCredits = await getTotalReferralCreditsForCustomer(customerId)
+
+  // Apply referral credits to the user's Stripe usage
+  if (referralCredits > 0) {
+    await stripeServer.billing.meterEvents.create({
+      event_name: 'credits',
+      timestamp: Math.floor(new Date().getTime() / 1000),
+      payload: {
+        stripe_customer_id: customerId,
+        value: `-${referralCredits}`,
+      },
+    })
+
+    // Add note explaining the referral credit adjustment
+    await stripeServer.invoices.update(invoiceCreated.data.object.id, {
+      description: `Referral bonus: ${referralCredits} credits deducted`,
+    })
+  }
 }
 
 async function handleInvoicePaid(invoicePaid: Stripe.InvoicePaidEvent) {

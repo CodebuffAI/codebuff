@@ -1,6 +1,11 @@
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
-import { openaiModels, claudeModels, STOP_MARKER } from 'common/constants'
+import {
+  openaiModels,
+  claudeModels,
+  STOP_MARKER,
+  CostMode,
+} from 'common/constants'
 import { promptOpenAI } from './openai-api'
 import { promptClaude } from './claude'
 import { getAgentSystemPrompt } from './system-prompt'
@@ -10,6 +15,7 @@ export async function checkConversationProgress(
   messages: Message[],
   fileContext: ProjectFileContext,
   options: {
+    costMode: CostMode
     clientSessionId: string
     fingerprintId: string
     userInputId: string
@@ -18,7 +24,7 @@ export async function checkConversationProgress(
 ) {
   const prompt =
     `Review the conversation since the last user input and determine if we should stop. We should stop if either:
-1. The user's request appears to be satisfied based on the changes and responses made
+1. The user's request appears to be completely satisfied based on the changes and responses made
 2. The conversation seems stuck in a loop or not making meaningful progress toward the user's request.
 
 Consider the conversation history:
@@ -38,7 +44,7 @@ Answer with "STOP" or "CONTINUE". If "STOP", do not include any other text.
 Otherwise, say very briefly what still needs to be completed to satify the user request.
 `.trim()
 
-  const system = getAgentSystemPrompt(fileContext)
+  const system = getAgentSystemPrompt(fileContext, options.costMode)
 
   const response = await promptClaude([{ role: 'user', content: prompt }], {
     model: claudeModels.sonnet,
@@ -80,6 +86,7 @@ Examples of language indicating "yes":
 - "run until condition X is satisfied" 
 - "keep going until finished"
 - "continue until complete"
+- "[...A bunch of unrelated stuff...] please test all changes and correct errors"
 
 In these cases the user either asks to do all of something or says to keep going until a condition is met. Only say "yes" if the response is like this. This is rare.
 

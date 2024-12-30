@@ -24,6 +24,7 @@ import {
   CREDITS_REFERRAL_BONUS,
   CREDITS_USAGE_LIMITS,
   TOOL_RESULT_MARKER,
+  type CostMode,
 } from 'common/constants'
 
 import { uniq } from 'lodash'
@@ -39,7 +40,9 @@ export class Client {
   private currentUserInputId: string | undefined
   private returnControlToUser: () => void
   private fingerprintId: string | undefined
+  private costMode: CostMode
   public fileVersions: FileVersion[][] = []
+  public fileContext: ProjectFileContext | undefined
 
   public user: User | undefined
   public lastWarnedPct: number = 0
@@ -54,8 +57,10 @@ export class Client {
     websocketUrl: string,
     chatStorage: ChatStorage,
     onWebSocketError: () => void,
-    returnControlToUser: () => void
+    returnControlToUser: () => void,
+    costMode: CostMode
   ) {
+    this.costMode = costMode
     this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
     this.chatStorage = chatStorage
     this.user = this.getUser()
@@ -65,6 +70,7 @@ export class Client {
 
   public initFileVersions(projectFileContext: ProjectFileContext) {
     const { knowledgeFiles } = projectFileContext
+    this.fileContext = projectFileContext
     this.fileVersions = [
       Object.entries(knowledgeFiles).map(([path, content]) => ({
         path,
@@ -371,7 +377,7 @@ export class Client {
       if (this.subscription_active) {
         console.warn(
           yellow(
-            `You have exceeded your monthly quota, but feel free to keep using Codebuff! We'll charge you a discounted rate ($0.90/100) credits until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/usage for more details.`
+            `You have exceeded your monthly quota, but feel free to keep using Codebuff! We'll continue to charge you until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/usage for more details.`
           )
         )
         this.lastWarnedPct = 100
@@ -432,6 +438,7 @@ export class Client {
       currentFileVersion,
       this.fileVersions
     )
+    this.fileContext = fileContext
     this.webSocket.sendAction({
       type: 'user-input',
       userInputId,
@@ -440,6 +447,7 @@ export class Client {
       changesAlreadyApplied: previousChanges,
       fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
+      costMode: this.costMode,
     })
   }
 

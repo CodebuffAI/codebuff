@@ -3,7 +3,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Menu, DollarSign, Users, LogIn, BarChart2 } from 'lucide-react'
+import {
+  Menu,
+  DollarSign,
+  Users,
+  LogIn,
+  BarChart2,
+  BookHeart,
+} from 'lucide-react'
 import { ThemeSwitcher } from '../theme-switcher'
 import { Button } from '../ui/button'
 import { UserDropdown } from './user-dropdown'
@@ -29,13 +36,9 @@ export const Navbar = async () => {
         />
         <span className="font-mono text-2xl font-bold">Codebuff</span>
       </Link>
-      <nav className="hidden md:flex space-x-4">
-        <Link
-          href="https://news.codebuff.com"
-          target="_blank"
-          className="hover:text-blue-400 transition-colors"
-        >
-          News
+      <nav className="hidden md:flex space-x-4 ml-auto">
+        <Link href={`/docs`} className="hover:text-blue-400 transition-colors">
+          Docs
         </Link>
         <Link href="/pricing" className="hover:text-blue-400 transition-colors">
           Pricing
@@ -63,6 +66,12 @@ export const Navbar = async () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href="/docs" className="flex items-center">
+                <BookHeart className="mr-2 h-4 w-4" />
+                Docs
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/pricing" className="flex items-center">
                 <DollarSign className="mr-2 h-4 w-4" />

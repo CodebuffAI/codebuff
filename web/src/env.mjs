@@ -25,6 +25,7 @@ export const env = createEnv({
     STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
     STRIPE_SUBSCRIPTION_PRICE_ID: z.string().min(1),
     STRIPE_OVERAGE_PRICE_ID: z.string().min(1),
+    LOOPS_API_KEY: z.string().min(1),
   },
   client: {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
@@ -47,6 +48,7 @@ export const env = createEnv({
     STRIPE_WEBHOOK_SECRET_KEY: process.env.STRIPE_WEBHOOK_SECRET_KEY,
     STRIPE_SUBSCRIPTION_PRICE_ID: process.env.STRIPE_SUBSCRIPTION_PRICE_ID,
     STRIPE_OVERAGE_PRICE_ID: process.env.STRIPE_OVERAGE_PRICE_ID,
+    LOOPS_API_KEY: process.env.LOOPS_API_KEY,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,

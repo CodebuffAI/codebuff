@@ -10,15 +10,8 @@ export const testimonials: Testimonial[][] = [
   [
     {
       quote:
-        "I played around with Codebuff and added some features to something I was working on. It really does have a different feeling than any other AI tools I've used; feels much more right, and I'm impressed by how you managed to land on that when nobody else did.",
-      author: 'JJ Fliegelman',
-      title: 'Founder',
-      link: '/testimonials/proof/jj-fliegelman.png',
-    },
-    {
-      quote:
         "As a Ruby on Rails dev this was a challenge as client want the solution in Python and Manicode has saved my skin big time as l've never used Python. So kudos.",
-      author: 'Anonymous',
+      author: 'anonymous',
       title: 'Developer',
       link: '/testimonials/proof/ruby-on-rails.png',
     },
@@ -53,6 +46,15 @@ export const testimonials: Testimonial[][] = [
     },
     {
       quote:
+        "One of my favorite parts of every day is hearing @brett_beatty giggle in awe at @CodebuffAI. We've been using it daily for a couple months now and it's still incredible 🤯",
+      author: 'Dennis Beatty',
+      title: 'Founder & CEO',
+      avatar:
+        'https://pbs.twimg.com/profile_images/943341063502286848/2h_xKTs9_400x400.jpg',
+      link: 'https://x.com/dnsbty/status/1867062230614938034',
+    },
+    {
+      quote:
         'Just did a complete structural refactoring that would have took 4-8 hours by a human in 30 minutes using Claude (Web) to drive Codebuff to finish line. I think research in AI+AI pair programming is a must. ',
       author: 'Omar',
       title: 'Design Engineer',
@@ -61,6 +63,13 @@ export const testimonials: Testimonial[][] = [
     },
   ],
   [
+    {
+      quote:
+        "I played around with Codebuff and added some features to something I was working on. It really does have a different feeling than any other AI tools I've used; feels much more right, and I'm impressed by how you managed to land on that when nobody else did.",
+      author: 'JJ Fliegelman',
+      title: 'Founder',
+      link: '/testimonials/proof/jj-fliegelman.png',
+    },
     {
       quote: "I finally tried composer. It's ass compared to manicode",
       author: 'anonymous',
@@ -98,15 +107,6 @@ export const testimonials: Testimonial[][] = [
       title: 'Founder & CTO',
       avatar: '/testimonials/shardool-patel.jpg',
       link: '/testimonials/proof/shardool-patel.png',
-    },
-    {
-      quote:
-        "For those who use (n)vim or other terminal-based editors, some friends of mine built @ManicodeAI and I've really been enjoying it. I can give it coding tasks right from my terminal and it just takes care of them for me...",
-      author: 'Dennis Beatty',
-      title: 'Founder & CEO',
-      avatar:
-        'https://pbs.twimg.com/profile_images/943341063502286848/2h_xKTs9_400x400.jpg',
-      link: 'https://x.com/dnsbty/status/1849612125972594929',
     },
     {
       quote:

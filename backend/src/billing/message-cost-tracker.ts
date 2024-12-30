@@ -6,7 +6,6 @@ import { stripeServer } from 'common/util/stripe'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { logger, withLoggerContext } from '@/util/logger'
-import { pluralize } from 'common/util/string'
 
 const PROFIT_MARGIN = 0.2
 
@@ -19,12 +18,16 @@ const TOKENS_COST_PER_M = {
     [models.haiku]: 1,
     [models.gpt4o]: 2.5,
     [models.gpt4omini]: 0.15,
+    [models.o1]: 15,
+    [models.deepseekChat]: 0.14,
   },
   output: {
     [models.sonnet]: 15,
     [models.haiku]: 5,
     [models.gpt4o]: 10.0,
     [models.gpt4omini]: 0.6,
+    [models.o1]: 60,
+    [models.deepseekChat]: 0.28,
   },
   cache_creation: {
     [models.sonnet]: 3.75,
@@ -33,6 +36,7 @@ const TOKENS_COST_PER_M = {
   cache_read: {
     [models.sonnet]: 0.3,
     [models.haiku]: 0.1,
+    [models.deepseekChat]: 0.014,
   },
 }
 
@@ -72,7 +76,7 @@ export const saveMessage = async (value: {
   outputTokens: number
   cacheCreationInputTokens?: number
   cacheReadInputTokens?: number
-  finishedAt: Date,
+  finishedAt: Date
   latencyMs: number
 }) => {
   const cost = calcCost(
@@ -139,16 +143,6 @@ export const saveMessage = async (value: {
             value: creditsUsed.toString(),
           },
         })
-        // logger.debug(
-        //   {
-        //     credits: creditsUsed,
-        //     // request: value.request,
-        //     client_request_id: value.userInputId,
-        //     response: value.response,
-        //     userId: value.userId,
-        //   },
-        //   `${pluralize(creditsUsed, 'credit')} reported to Stripe`
-        // )
       } catch (error) {
         logger.error({ error, creditsUsed }, 'Failed to report usage to Stripe')
       }

@@ -1,10 +1,18 @@
+'use client'
+
 import { Separator } from '@/components/ui/separator'
 import Link from 'next/link'
 import Image from 'next/image'
 import { siteConfig } from '@/lib/constant'
 import { LinkedInInsightTag } from 'nextjs-linkedin-insight-tag'
+import { usePathname } from 'next/navigation'
 
 export const Footer = () => {
+  const pathname = usePathname()
+  if (pathname.startsWith('/docs')) {
+    return <></>
+  }
+
   return (
     <footer className="w-full border-t z-10">
       <div className="container mx-auto px-4 py-4">
@@ -32,6 +40,13 @@ export const Footer = () => {
                 className="text-muted-foreground hover:text-primary"
               >
                 Home
+              </Link>
+              <Link
+                href="/docs"
+                target="_blank"
+                className="text-muted-foreground hover:text-primary"
+              >
+                Docs
               </Link>
               <Link
                 href="https://news.codebuff.com"

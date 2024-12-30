@@ -1,4 +1,5 @@
 import { uniq } from 'lodash'
+import { getAllFilePaths } from 'common/project-file-tree'
 import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
 import { green, red, yellow, underline } from 'picocolors'
@@ -19,6 +20,7 @@ import { handleRunTerminalCommand } from './tool-handlers'
 import {
   REQUEST_CREDIT_SHOW_THRESHOLD,
   SKIPPED_TERMINAL_COMMANDS,
+  type CostMode,
 } from 'common/constants'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
@@ -28,14 +30,17 @@ import {
   hasStagedChanges,
   commitChanges,
   getStagedChanges,
+  stagePatches,
 } from 'common/util/git'
 import { pluralize } from 'common/util/string'
+import { CliOptions, GitCommand } from './types'
 
 export class CLI {
   private client: Client
   private chatStorage: ChatStorage
   private readyPromise: Promise<any>
-  private autoGit: boolean
+  private git: GitCommand
+  private costMode: CostMode
   private rl: readline.Interface
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
@@ -50,15 +55,32 @@ export class CLI {
 
   constructor(
     readyPromise: Promise<[void, ProjectFileContext]>,
-    { autoGit }: { autoGit: boolean }
+    { git, costMode }: CliOptions
   ) {
-    this.autoGit = autoGit
+    this.git = git
+    this.costMode = costMode
     this.chatStorage = new ChatStorage()
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
       historySize: 1000,
       terminal: true,
+      completer: (line: string) => {
+        if (!this.client.fileContext?.fileTree) return [[], line]
+
+        const tokenNames = Object.values(
+          this.client.fileContext.fileTokenScores
+        ).flatMap((o) => Object.keys(o))
+        const paths = getAllFilePaths(this.client.fileContext.fileTree)
+
+        const lastWord = line.split(' ').pop() || ''
+
+        const matchingTokens = [...tokenNames, ...paths].filter(
+          (token) =>
+            token.startsWith(lastWord) || token.includes('/' + lastWord)
+        )
+        return [matchingTokens, lastWord]
+      },
     })
     this.client = new Client(
       websocketUrl,
@@ -71,7 +93,8 @@ export class CLI {
           this.stopResponse()
         }
         this.stopLoadingAnimation()
-      }
+      },
+      this.costMode
     )
 
     this.readyPromise = Promise.all([
@@ -106,6 +129,11 @@ export class CLI {
     })
 
     this.rl.on('close', () => {
+      this.handleExit()
+    })
+
+    process.on('SIGTSTP', () => {
+      // Exit on Ctrl+Z
       this.handleExit()
     })
 
@@ -399,11 +427,6 @@ export class CLI {
     this.startLoadingAnimation()
     await this.readyPromise
 
-    let autoCommitPromise: Promise<string | undefined> | null = null
-    if (this.autoGit) {
-      autoCommitPromise = this.autoCommitChanges()
-    }
-
     const currentChat = this.chatStorage.getCurrentChat()
     const { fileVersions } = currentChat
     const currentFileVersion =
@@ -441,21 +464,21 @@ export class CLI {
 
     this.stopLoadingAnimation()
 
-    if (this.autoGit) {
-      const commitMessage = await autoCommitPromise
-      if (commitMessage) {
-        console.log(green('\nAutomatically committed changes:'))
-        console.log(`${commitMessage}`)
-      }
-      const changesStaged = stageAllChanges()
-      if (changesStaged) {
-        console.log(green('\nAll previous changes have been staged'))
-      }
-    }
-
     const allChanges = [...changesAlreadyApplied, ...changes]
     const filesChanged = uniq(allChanges.map((change) => change.filePath))
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
+
+    // Stage previous changes if flag was set
+    if (
+      this.git === 'stage' &&
+      this.lastChanges.length > 0 &&
+      changes.length > 0
+    ) {
+      const didStage = stagePatches(getProjectRoot(), this.lastChanges)
+      if (didStage) {
+        console.log(green('\nStaged previous changes'))
+      }
+    }
 
     const { created, modified } = applyChanges(getProjectRoot(), changes)
     if (created.length > 0 || modified.length > 0) {
