@@ -133,10 +133,15 @@ export const handleRunTerminalCommand = async (
       // Try to detect error messages in the output
       if (
         mode === 'user' &&
+        // Mac
         (data.includes('command not found') ||
+          // Linux
           data.includes(': not found') ||
+          // Common
           data.includes('syntax error:') ||
+          // Linux
           data.includes('Syntax error:') ||
+          // Windows
           data.includes(
             'is not recognized as an internal or external command'
           ) ||
