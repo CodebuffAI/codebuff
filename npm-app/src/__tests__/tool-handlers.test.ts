@@ -1,23 +1,14 @@
-import { handleRunTerminalCommand, persistentPty } from '../tool-handlers'
+import { handleRunTerminalCommand, resetPtyShell } from '../tool-handlers'
 
 // Set up test directory
 beforeAll(() => {
-  process.chdir(process.cwd())
-})
-
-afterAll(() => {
-  // Clean up any remaining shell processes
-  if (persistentPty) {
-    persistentPty.kill()
-  }
+  resetPtyShell(process.cwd())
 })
 
 describe('handleRunTerminalCommand', () => {
   afterEach(() => {
     // Clean up after each test
-    if (persistentPty) {
-      persistentPty.kill()
-    }
+    resetPtyShell(process.cwd())
   })
 
   it('should preserve shell state between commands', async () => {
@@ -47,10 +38,10 @@ describe('handleRunTerminalCommand', () => {
     )
 
     const result = await longRunningCommand
-    
+
     // Verify the shell was restarted
     expect(result.result).toContain('Shell has been restarted')
-    
+
     // Verify we can still run commands after restart
     const subsequentCommand = await handleRunTerminalCommand(
       { command: 'echo "test"' },

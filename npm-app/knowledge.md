@@ -13,6 +13,7 @@
   - Set TERM env var to match terminal type
   - Always provide cols/rows dimensions
   - Kill and restart PTY on command timeout instead of using Ctrl+C
+  - Commands timeout after 10 seconds to prevent hanging
   - Set environment variables to prevent paging and prompts:
     - PAGER=cat: Disable paging for commands like git log
     - GIT_PAGER=cat: Specifically disable git paging

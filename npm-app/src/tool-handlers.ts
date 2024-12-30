@@ -46,6 +46,9 @@ const createPty = (dir: string) => {
 
 let persistentPty: pty.IPty | null = null
 export const resetPtyShell = (dir: string) => {
+  if (persistentPty) {
+    persistentPty.kill()
+  }
   persistentPty = createPty(dir)
 }
 
@@ -71,10 +74,7 @@ export const handleRunTerminalCommand = async (
 
     const timer = setTimeout(() => {
       if (mode === 'assistant') {
-        // Kill the existing PTY
-        ptyProcess.kill()
-
-        // Create a new PTY instance
+        // Kill and recreated PTY
         resetPtyShell(getProjectRoot())
 
         resolve({
