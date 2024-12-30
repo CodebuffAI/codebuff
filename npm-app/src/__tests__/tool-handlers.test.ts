@@ -1,4 +1,4 @@
-import { handleRunTerminalCommand, persistentShell } from '../tool-handlers'
+import { handleRunTerminalCommand, persistentPty } from '../tool-handlers'
 
 // Set up test directory
 beforeAll(() => {
@@ -7,16 +7,16 @@ beforeAll(() => {
 
 afterAll(() => {
   // Clean up any remaining shell processes
-  if (persistentShell) {
-    persistentShell.kill()
+  if (persistentPty) {
+    persistentPty.kill()
   }
 })
 
 describe('handleRunTerminalCommand', () => {
   afterEach(() => {
     // Clean up after each test
-    if (persistentShell) {
-      persistentShell.kill()
+    if (persistentPty) {
+      persistentPty.kill()
     }
   })
 
@@ -38,19 +38,25 @@ describe('handleRunTerminalCommand', () => {
     expect(result2.stdout.trim()).toBe('hello')
   })
 
-  it('should handle command interruption', async () => {
+  it('should handle command timeout by restarting shell', async () => {
+    // Start a command that will definitely timeout
     const longRunningCommand = handleRunTerminalCommand(
-      { command: 'sleep 0.5' }, // Use a very short sleep
+      { command: 'sleep 15' }, // Longer than MAX_EXECUTION_TIME
       'test-id',
       'assistant'
     )
 
-    // Command should resolve within timeout period
-    const result = await Promise.race([
-      longRunningCommand,
-      new Promise((resolve) => setTimeout(resolve, 2000, 'timeout')), // Shorter timeout
-    ])
-
-    expect(result).not.toBe('timeout')
+    const result = await longRunningCommand
+    
+    // Verify the shell was restarted
+    expect(result.result).toContain('Shell has been restarted')
+    
+    // Verify we can still run commands after restart
+    const subsequentCommand = await handleRunTerminalCommand(
+      { command: 'echo "test"' },
+      'test-id',
+      'assistant'
+    )
+    expect(subsequentCommand.stdout).toContain('test')
   })
 })

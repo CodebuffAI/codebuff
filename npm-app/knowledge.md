@@ -1,5 +1,24 @@
 # Testing Infrastructure
 
+## Terminal Handling
+
+- Using node-pty for terminal emulation instead of child_process
+- PTY combines stdout and stderr into single data stream
+- All terminal output comes through onData event
+- This better matches real terminal behavior
+- Command completion detected by shell prompt reappearance
+- Must handle command echo and prompt filtering to avoid duplicate output
+- Terminal configuration:
+  - Use 'xterm-256color' for best compatibility
+  - Set TERM env var to match terminal type
+  - Always provide cols/rows dimensions
+  - Kill and restart PTY on command timeout instead of using Ctrl+C
+  - Set environment variables to prevent paging and prompts:
+    - PAGER=cat: Disable paging for commands like git log
+    - GIT_PAGER=cat: Specifically disable git paging
+    - GIT_TERMINAL_PROMPT=0: Prevent git from prompting
+    - LESS=-FRX: Output all at once without paging
+
 ### Test Input Sources
 
 - twitch-plays-codebuff.sh: Integrates with Twitch chat via robotty.de API

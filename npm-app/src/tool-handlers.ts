@@ -1,7 +1,9 @@
-import { ChildProcess, spawn } from 'child_process'
+import { spawn } from 'child_process'
 import path from 'path'
 import { green } from 'picocolors'
 import { rgPath } from '@vscode/ripgrep'
+import * as os from 'os'
+import * as pty from 'node-pty'
 
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot, setProjectRoot } from './project-files'
@@ -20,18 +22,41 @@ export const handleScrapeWebPage: ToolHandler = async (
   return `<web_scraped_content url="${url}">${content}</web_scraped_content>`
 }
 
-// Persistent shell session
-export let persistentShell: ReturnType<typeof spawn> | null = null
+export const initializePty = () => {
+  const isWindows = os.platform() === 'win32'
+  const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash'
+  const persistentPty = pty.spawn(shell, [], {
+    name: 'xterm-256color',
+    cols: process.stdout.columns || 80,
+    rows: process.stdout.rows || 24,
+    cwd: getProjectRoot(),
+    env: {
+      ...process.env,
+      TERM: 'xterm-256color',
+      PAGER: 'cat',
+      GIT_PAGER: 'cat',
+      GIT_TERMINAL_PROMPT: '0',
+      ...(isWindows ? { TERM: 'cygwin' } : {}),
+      LESS: '-FRX',
+      TERM_PROGRAM: 'mintty',
+    },
+  })
+  persistentPty.write(`cd ${getProjectRoot()}\r`)
+  return persistentPty
+}
+
+export let persistentPty = initializePty()
 
 export const handleRunTerminalCommand = async (
   input: { command: string },
   id: string,
   mode: 'user' | 'assistant'
 ): Promise<{ result: string; stdout: string; stderr: string }> => {
+  // Note: With PTY, all output comes through stdout since it emulates a real terminal
   const { command } = input
   return new Promise((resolve) => {
     let stdout = ''
-    let stderr = ''
+    let stderr = '' // Kept for API compatibility, but PTY combines all output
     const MAX_EXECUTION_TIME = 10_000
 
     if (mode === 'assistant') {
@@ -39,29 +64,21 @@ export const handleRunTerminalCommand = async (
       console.log(green(`> ${command}`))
     }
 
-    if (!persistentShell) {
-      persistentShell = spawn(process.env.SHELL || 'bash', [], {
-        cwd: getProjectRoot(),
-      })
-    } else {
-      persistentShell.stdin?.write(`cd ${getProjectRoot()}\n`)
-    }
-
-    const childProcess = persistentShell as ChildProcess
-    childProcess.stdin?.write(command + '\n')
+    const ptyProcess = persistentPty
 
     const timer = setTimeout(() => {
       if (mode === 'assistant') {
-        // Send Ctrl+C to interrupt the current command
-        childProcess.stdin?.write(Buffer.from([0x03]))
-        // Clean up listeners after interruption
-        childProcess.stdout?.removeAllListeners('data')
-        childProcess.stderr?.removeAllListeners('data')
+        // Kill the existing PTY
+        ptyProcess.kill()
+        
+        // Create a new PTY instance
+        persistentPty = initializePty()
+        
         resolve({
           result: formatResult(
             stdout,
             stderr,
-            `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds. Partial results shown.`
+            `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
           ),
           stdout,
           stderr,
@@ -69,79 +86,64 @@ export const handleRunTerminalCommand = async (
       }
     }, MAX_EXECUTION_TIME)
 
-    // Remove any existing listeners
-    childProcess.stdout?.removeAllListeners('data')
-    childProcess.stderr?.removeAllListeners('data')
+    let commandOutput = ''
 
-    // Add new listeners for this command
-    childProcess.stdout?.on('data', (data) => {
-      process.stdout.write(data.toString())
-      stdout += data.toString()
-    })
+    const dataDisposable = ptyProcess.onData((data: string) => {
+      // Shell prompt means command is complete
+      if (data.includes('bash-3.2$ ')) {
+        clearTimeout(timer)
+        dataDisposable.dispose()
 
-    childProcess.stderr?.on('data', (data) => {
-      const dataStr = data.toString()
-      stderr += data.toString()
-      if (
-        mode === 'user' &&
-        // Mac
-        (dataStr.includes('command not found') ||
-          // Linux
-          dataStr.includes(': not found') ||
-          // Common
-          dataStr.includes('syntax error:') ||
-          // Linux
-          dataStr.includes('Syntax error:') ||
-          // Windows
-          dataStr.includes(
-            'is not recognized as an internal or external command'
-          ) ||
-          dataStr.includes('/bin/sh: -c: line') ||
-          dataStr.includes('/bin/sh: line') ||
-          dataStr.startsWith('fatal:') ||
-          dataStr.startsWith('error:'))
-      ) {
+        if (command.startsWith('cd ') && mode === 'user') {
+          const newWorkingDirectory = command.split(' ')[1]
+          setProjectRoot(path.join(getProjectRoot(), newWorkingDirectory))
+        }
+
         resolve({
-          result: 'command not found',
-          stdout,
+          result: formatResult(commandOutput, stderr, 'Command completed', 0),
+          stdout: commandOutput,
           stderr,
         })
-      } else {
-        process.stderr.write(data.toString())
+        if (mode === 'assistant') {
+          console.log(green(`Command finished with exit code: 0\n`))
+        }
+        return
+      }
+
+      // Skip command echo
+      if (data === `${command}\r\n`) return
+
+      // Process command output
+      process.stdout.write(data)
+      commandOutput += data
+
+      // Try to detect error messages in the output
+      if (
+        mode === 'user' &&
+        (data.includes('command not found') ||
+          data.includes(': not found') ||
+          data.includes('syntax error:') ||
+          data.includes('Syntax error:') ||
+          data.includes(
+            'is not recognized as an internal or external command'
+          ) ||
+          data.includes('/bin/sh: -c: line') ||
+          data.includes('/bin/sh: line') ||
+          data.startsWith('fatal:') ||
+          data.startsWith('error:'))
+      ) {
+        clearTimeout(timer)
+        dataDisposable.dispose()
+        resolve({
+          result: 'command not found',
+          stdout: commandOutput,
+          stderr: '',
+        })
       }
     })
 
-    childProcess.on('close', (code) => {
-      if (command.startsWith('cd ') && code === 0 && mode === 'user') {
-        const newWorkingDirectory = command.split(' ')[1]
-        setProjectRoot(path.join(getProjectRoot(), newWorkingDirectory))
-      }
-
-      clearTimeout(timer)
-      // Clean up listeners after completion
-      childProcess.stdout?.removeAllListeners('data')
-      childProcess.stderr?.removeAllListeners('data')
-      resolve({
-        result: formatResult(stdout, stderr, 'Command completed', code),
-        stdout,
-        stderr,
-      })
-      if (mode === 'assistant') {
-        console.log(green(`Command finished with exit code: ${code}\n`))
-      }
-    })
-
-    childProcess.on('error', (error) => {
-      clearTimeout(timer)
-      // Clean up listeners after error
-      childProcess.stdout?.removeAllListeners('data')
-      childProcess.stderr?.removeAllListeners('data')
-      resolve({
-        result: `<terminal_command_error>Failed to execute command: ${error.message}</terminal_command_error>`,
-        stdout,
-        stderr,
-      })
-    })
+    // Write the command
+    ptyProcess.write(command + '\r')
   })
 }
 
