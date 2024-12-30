@@ -97,7 +97,7 @@ const Home = () => {
         </main>
 
         <div className="relative w-full h-[20rem] md:h-[28rem] flex items-center justify-center px-4 md:px-0">
-          <div className="relative h-full flex">
+          <div className="relative h-full flex rounded-2xl overflow-hidden">
             <video
               className="rounded-2xl shadow-lg max-h-full w-auto"
               autoPlay
