@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
 import {
   FolderCodeIcon,
@@ -36,15 +37,17 @@ const ReviewCard = ({ t }: { t: Testimonial }) => {
     >
       <div className="flex justify-between">
         <div className="flex flex-row items-center gap-2">
-          <img
+          <Image
             className="rounded-full"
-            width="32"
-            height="32"
+            width={32}
+            height={32}
             alt=""
             src={
               t.avatar ??
               `https://avatar.vercel.sh/${t.author.split(' ').join('-').toLowerCase()}?size=32`
             }
+            priority={false}
+            loading="lazy"
           />
           <div className="flex flex-col">
             <figcaption className="text-sm font-medium dark:text-white">
@@ -169,6 +172,46 @@ const Home = () => {
           </div>
         </section>
 
+        <section className="py-10 px-4 relative z-10 space-y-8">
+          <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
+            Watch a Demo
+          </h2>
+          <div className="max-w-3xl mx-auto">
+            <div className="aspect-w-16 aspect-h-full h-96">
+              <Button
+                onClick={() => setIsVideoOpen(true)}
+                className="bg-gray-800 hover:bg-gray-700 rounded-lg shadow-lg p-0 h-full w-full ring-1 ring-gray-400/20"
+              >
+                <div className="relative w-full h-full">
+                  <img
+                    src="/video-thumbnail.jpg"
+                    alt="Video thumbnail"
+                    className="w-full h-full object-cover object-center rounded-lg"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="bg-gray-500 rounded-full p-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500">
+                      <Play className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </div>
+              </Button>
+            </div>
+          </div>
+          <Dialog open={isVideoOpen} onOpenChange={setIsVideoOpen}>
+            <DialogContent className="max-w-3xl bg-transparent border-0 p-0">
+              <div className="aspect-w-16 aspect-h-full h-96">
+                <iframe
+                  src="https://www.youtube.com/embed/dQ0NOMsu0dA"
+                  title="Codebuff Demo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full rounded-lg shadow-lg"
+                ></iframe>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </section>
+
         <section className="py-20 relative z-10">
           <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
             What Developers Are Saying
@@ -219,46 +262,6 @@ const Home = () => {
               />
             </a>
           </div>
-        </section>
-
-        <section className="py-10 px-4 relative z-10 space-y-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
-            Watch a Demo
-          </h2>
-          <div className="max-w-3xl mx-auto">
-            <div className="aspect-w-16 aspect-h-full h-96">
-              <Button
-                onClick={() => setIsVideoOpen(true)}
-                className="bg-gray-800 hover:bg-gray-700 rounded-lg shadow-lg p-0 h-full w-full ring-1 ring-gray-400/20"
-              >
-                <div className="relative w-full h-full">
-                  <img
-                    src="/video-thumbnail.jpg"
-                    alt="Video thumbnail"
-                    className="w-full h-full object-cover object-center rounded-lg"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-gray-500 rounded-full p-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500">
-                      <Play className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
-                </div>
-              </Button>
-            </div>
-          </div>
-          <Dialog open={isVideoOpen} onOpenChange={setIsVideoOpen}>
-            <DialogContent className="max-w-3xl bg-transparent border-0 p-0">
-              <div className="aspect-w-16 aspect-h-full h-96">
-                <iframe
-                  src="https://www.youtube.com/embed/dQ0NOMsu0dA"
-                  title="Codebuff Demo"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full rounded-lg shadow-lg"
-                ></iframe>
-              </div>
-            </DialogContent>
-          </Dialog>
         </section>
 
         <section className="py-20 relative z-10">

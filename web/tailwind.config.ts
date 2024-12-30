@@ -91,18 +91,18 @@ const config = {
         },
         marquee: {
           from: {
-            transform: 'translateX(0)',
+            transform: 'translate3d(0, 0, 0)',
           },
           to: {
-            transform: 'translateX(calc(-100% - var(--gap)))',
+            transform: 'translate3d(calc(-100% - var(--gap)), 0, 0)',
           },
         },
         'marquee-vertical': {
           from: {
-            transform: 'translateY(0)',
+            transform: 'translate3d(0, 0, 0)',
           },
           to: {
-            transform: 'translateY(calc(-100% - var(--gap)))',
+            transform: 'translate3d(0, calc(-100% - var(--gap)), 0)',
           },
         },
       },
