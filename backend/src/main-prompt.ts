@@ -80,7 +80,7 @@ export async function mainPrompt(
   const justUsedATool = didClientUseTool(lastMessage)
 
   // Step 1: Read more files.
-  const system = getSearchSystemPrompt(fileContext)
+  const system = getSearchSystemPrompt(fileContext, costMode)
   const {
     newFileVersions,
     toolCallMessage,
@@ -106,7 +106,7 @@ export async function mainPrompt(
     fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}`
 
     // Prompt cache the new files.
-    const system = getSearchSystemPrompt(fileContext)
+    const system = getSearchSystemPrompt(fileContext, costMode)
     warmCacheForRequestRelevantFiles(
       system,
       costMode,
@@ -376,7 +376,7 @@ export async function mainPrompt(
       } = await getFileVersionUpdates(
         ws,
         [...messages, { role: 'assistant', content: fullResponse }],
-        getSearchSystemPrompt(fileContext),
+        getSearchSystemPrompt(fileContext, costMode),
         fileContext,
         description,
         {
@@ -434,7 +434,7 @@ export async function mainPrompt(
       } = await getFileVersionUpdates(
         ws,
         [...messages, { role: 'assistant', content: fullResponse }],
-        getSearchSystemPrompt(fileContext),
+        getSearchSystemPrompt(fileContext, costMode),
         fileContext,
         null,
         {
@@ -619,8 +619,6 @@ function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
   }
 }
 
-const FILE_TOKEN_BUDGET = 90_000
-
 async function getFileVersionUpdates(
   ws: WebSocket,
   messages: Message[],
@@ -645,6 +643,8 @@ async function getFileVersionUpdates(
     userId,
     costMode,
   } = options
+  const FILE_TOKEN_BUDGET = costMode === 'lite' ? 30_000 : 90_000
+
   const { fileVersions } = fileContext
   const files = fileVersions.flatMap((files) => files)
   const previousFilePaths = uniq(files.map(({ path }) => path))

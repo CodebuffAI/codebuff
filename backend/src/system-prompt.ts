@@ -15,7 +15,10 @@ import { sortBy, sum, uniq } from 'lodash'
 import { filterObject, removeUndefinedProps } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 
-export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
+export function getSearchSystemPrompt(
+  fileContext: ProjectFileContext,
+  costMode: CostMode
+) {
   const { fileVersions } = fileContext
   const shouldDoPromptCaching = fileVersions.length > 1
 
@@ -26,7 +29,7 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
         ? { type: 'ephemeral' as const }
         : undefined,
       text: [
-        getProjectFileTreePrompt(fileContext),
+        getProjectFileTreePrompt(fileContext, costMode),
         getSystemInfoPrompt(fileContext),
       ].join('\n\n'),
     },
@@ -61,7 +64,7 @@ export const getAgentSystemPrompt = (
   const { fileVersions } = fileContext
   const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
-  const projectFileTreePrompt = getProjectFileTreePrompt(fileContext)
+  const projectFileTreePrompt = getProjectFileTreePrompt(fileContext, costMode)
 
   const systemPrompt = buildArray(
     {
@@ -73,7 +76,9 @@ export const getAgentSystemPrompt = (
         knowledgeFilesPrompt,
         toolsPrompt,
         // For large projects, don't include file tree in agent context.
-        projectFileTreePrompt.length < 40_000 ? projectFileTreePrompt : null,
+        projectFileTreePrompt.length < (costMode === 'lite' ? 10_000 : 40_000)
+          ? projectFileTreePrompt
+          : null,
         getSystemInfoPrompt(fileContext)
       ).join('\n\n'),
     },
@@ -373,11 +378,14 @@ When using this tool, keep the following guidelines in mind:
 Scrape any url that could help address the user's request.
 `.trim()
 
-export const getProjectFileTreePrompt = (fileContext: ProjectFileContext) => {
+export const getProjectFileTreePrompt = (
+  fileContext: ProjectFileContext,
+  costMode: CostMode
+) => {
   const { currentWorkingDirectory } = fileContext
   const { printedTree } = truncateFileTreeBasedOnTokenBudget(
     fileContext,
-    80_000
+    costMode === 'lite' ? 30_000 : 80_000
   )
   return `
 # Project file tree
