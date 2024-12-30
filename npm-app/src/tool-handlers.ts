@@ -65,7 +65,8 @@ export const handleRunTerminalCommand = async (
     }
     const ptyProcess = persistentPty
     const MAX_EXECUTION_TIME = 10_000
-    let stdout = ''
+    let streamedCommand = ''
+    let commandOutput = ''
 
     if (mode === 'assistant') {
       console.log()
@@ -79,21 +80,19 @@ export const handleRunTerminalCommand = async (
 
         resolve({
           result: formatResult(
-            stdout,
+            commandOutput,
             undefined,
             `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
           ),
-          stdout,
+          stdout: commandOutput,
         })
       }
     }, MAX_EXECUTION_TIME)
 
-    let streamedCommand = ''
-    let commandOutput = ''
-
     const dataDisposable = ptyProcess.onData((data: string) => {
-      // Shell prompt means command is complete
-      if (data.includes('bash-3.2$ ') || data.includes('Directory: ')) {
+      const totalOutput = streamedCommand + commandOutput + data
+      const hasNextPromptOnWindows = totalOutput.includes('(base)')
+      if (totalOutput.includes('bash-3.2$ ') || hasNextPromptOnWindows) {
         clearTimeout(timer)
         dataDisposable.dispose()
 
@@ -112,7 +111,6 @@ export const handleRunTerminalCommand = async (
 
         // Reset the PTY to the project root
         ptyProcess.write(`cd ${getProjectRoot()}\r`)
-
         return
       }
 
@@ -124,8 +122,11 @@ export const handleRunTerminalCommand = async (
       }
 
       // Check if prefix contains the command and some output
-      if (!streamedCommand.startsWith(command) && prefix.startsWith(command)) {
-        streamedCommand += data
+      if (
+        !streamedCommand.trim().startsWith(command) &&
+        prefix.startsWith(command)
+      ) {
+        streamedCommand += prefix.slice(0, command.length)
         data = prefix.slice(command.length)
       }
 
