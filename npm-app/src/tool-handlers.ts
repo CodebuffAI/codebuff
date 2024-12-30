@@ -22,14 +22,14 @@ export const handleScrapeWebPage: ToolHandler = async (
   return `<web_scraped_content url="${url}">${content}</web_scraped_content>`
 }
 
-export const initializePty = () => {
+const createPty = (dir: string) => {
   const isWindows = os.platform() === 'win32'
   const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash'
   const persistentPty = pty.spawn(shell, [], {
     name: 'xterm-256color',
     cols: process.stdout.columns || 80,
     rows: process.stdout.rows || 24,
-    cwd: getProjectRoot(),
+    cwd: dir,
     env: {
       ...process.env,
       TERM: 'xterm-256color',
@@ -41,11 +41,13 @@ export const initializePty = () => {
       TERM_PROGRAM: 'mintty',
     },
   })
-  persistentPty.write(`cd ${getProjectRoot()}\r`)
   return persistentPty
 }
 
-export let persistentPty = initializePty()
+let persistentPty: pty.IPty | null = null
+export const resetPtyShell = (dir: string) => {
+  persistentPty = createPty(dir)
+}
 
 export const handleRunTerminalCommand = async (
   input: { command: string },
@@ -55,15 +57,17 @@ export const handleRunTerminalCommand = async (
   // Note: With PTY, all output comes through stdout since it emulates a real terminal
   const { command } = input
   return new Promise((resolve) => {
-    let stdout = ''
+    if (!persistentPty) {
+      throw new Error('Persistent PTY not initialized')
+    }
+    const ptyProcess = persistentPty
     const MAX_EXECUTION_TIME = 10_000
+    let stdout = ''
 
     if (mode === 'assistant') {
       console.log()
       console.log(green(`> ${command}`))
     }
-
-    const ptyProcess = persistentPty
 
     const timer = setTimeout(() => {
       if (mode === 'assistant') {
@@ -71,7 +75,7 @@ export const handleRunTerminalCommand = async (
         ptyProcess.kill()
 
         // Create a new PTY instance
-        persistentPty = initializePty()
+        resetPtyShell(getProjectRoot())
 
         resolve({
           result: formatResult(
@@ -84,6 +88,7 @@ export const handleRunTerminalCommand = async (
       }
     }, MAX_EXECUTION_TIME)
 
+    let streamedCommand = ''
     let commandOutput = ''
 
     const dataDisposable = ptyProcess.onData((data: string) => {
@@ -98,22 +103,31 @@ export const handleRunTerminalCommand = async (
         }
 
         resolve({
-          result: formatResult(
-            commandOutput,
-            undefined,
-            'Command completed',
-            0
-          ),
+          result: formatResult(commandOutput, undefined, 'Command completed'),
           stdout: commandOutput,
         })
         if (mode === 'assistant') {
-          console.log(green(`Command finished with exit code: 0\n`))
+          console.log(green(`Command completed\n`))
         }
+
+        // Reset the PTY to the project root
+        ptyProcess.write(`cd ${getProjectRoot()}\r`)
+
         return
       }
 
-      // Skip command echo
-      if (data === `${command}\r\n`) return
+      const prefix = (streamedCommand + data).trim()
+      // Skip command echo and partial command echoes
+      if (command.startsWith(prefix)) {
+        streamedCommand += data
+        return
+      }
+
+      // Check if prefix contains the command and some output
+      if (!streamedCommand.startsWith(command) && prefix.startsWith(command)) {
+        streamedCommand += data
+        data = prefix.slice(command.length)
+      }
 
       // Try to detect error messages in the output
       if (

@@ -12,12 +12,14 @@ import {
 } from './project-files'
 import { updateCodebuff } from './update-codebuff'
 import { CliOptions } from './types'
+import { resetPtyShell } from './tool-handlers'
 
 async function codebuff(
   projectDir: string | undefined,
   { initialInput, git, costMode }: CliOptions
 ) {
   const dir = setProjectRoot(projectDir)
+  resetPtyShell(dir)
 
   const updatePromise = updateCodebuff()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
