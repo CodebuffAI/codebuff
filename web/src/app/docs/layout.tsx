@@ -22,7 +22,6 @@ export default function DocsLayout({
           onNavigate={() => setOpen(false)}
         />
         <main className="flex-1 pb-36 flex justify-center">{children}</main>
-        <div className="w-64"></div>
       </div>
       <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-muted container p-4 rounded-t-lg">
         <Sheet
