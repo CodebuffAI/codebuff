@@ -93,7 +93,7 @@ export const handleRunTerminalCommand = async (
 
     const dataDisposable = ptyProcess.onData((data: string) => {
       // Shell prompt means command is complete
-      if (data.includes('bash-3.2$ ')) {
+      if (data.includes('bash-3.2$ ') || data.includes('Directory: ')) {
         clearTimeout(timer)
         dataDisposable.dispose()
 
