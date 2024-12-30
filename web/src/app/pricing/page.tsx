@@ -141,16 +141,17 @@ const PricingPage = () => {
       <BackgroundBeams />
 
       <main className="container mx-auto px-4 py-20 text-center relative z-10">
-        <h1 className="text-5xl md:text-7xl font-bold mb-6">
-          Choose Your Plan
-        </h1>
-        <p className="text-xl md:text-2xl mb-12 text-gray-500 max-w-3xl mx-auto">
-          Unlock the full potential of Codebuff with our flexible, credits-based
-          pricing options.
-        </p>
-        <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
-          <i>An intense 1-hour work session typically uses 500 credits.</i>
-        </p>
+        <div className="p-4">
+          <h1 className="text-5xl md:text-7xl font-bold mb-6">
+            Choose Your Plan
+          </h1>
+          <p className="text-xl md:text-2xl mb-12 text-gray-500 max-w-3xl mx-auto">
+            Explore our flexible, credits-based pricing options.
+          </p>
+          <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
+            <i>An intense 1-hour work session typically uses 500 credits.</i>
+          </p>
+        </div>
 
         <div className="grid md:grid-cols-4 gap-8 mt-12">
           {pricingPlans.map((plan, index) => (

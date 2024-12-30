@@ -13,7 +13,7 @@ Codebuff also uses GPT-4o-mini as a fallback to rewrite files with an intended e
 
 We have two new modes, which slightly changes the models we use:
 
-- `--pro`: uses Sonnet for searching for files instead of Haiku, meaning it gets better context on your codebase. It also gets more files. It uses gpt4o instead gpt4o-mini to decide whether more files are needed.
-- `--lite`: uses Haiku for editing instead of Sonnet (1/3 cost). It also pulls way fewer files, meaning that the context cost will be much smaller
+- `--pro`: uses Sonnet for searching for files instead of the default Haiku, meaning it gets better context on your codebase. It also gets more files. It uses gpt4o instead gpt4o-mini to decide whether more files are needed.
+- `--lite`: uses Deepseek V3 for editing instead of Sonnet (1/10 the cost). It also pulls way fewer files, meaning that the context cost will be much smaller.
 
 You can use `--pro` or `--lite` to switch between the two models at startup time!
