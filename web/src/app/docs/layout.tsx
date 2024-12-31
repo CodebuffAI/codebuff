@@ -21,7 +21,9 @@ export default function DocsLayout({
           className="hidden lg:block w-64 shrink-0 sticky top-[24px] h-[calc(100vh-24px)] overflow-y-auto"
           onNavigate={() => setOpen(false)}
         />
-        <main className="flex-1 pb-36 flex justify-center">{children}</main>
+        <main className="flex flex-1 place-content-center pb-36">
+          {children}
+        </main>
       </div>
       <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-muted container p-4 rounded-t-lg">
         <Sheet
@@ -37,16 +39,19 @@ export default function DocsLayout({
           }}
         >
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="mr-2">
+            <Button variant="ghost" size="icon">
               <Menu className="h-6 w-6" />
               <span className="sr-only">Toggle menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-[33vh] p-6 overflow-y-auto">
+          <SheetContent
+            side="bottom"
+            className="h-1/2 p-6 pt-12 overflow-y-auto"
+          >
             <DocSidebar onNavigate={() => setOpen(false)} />
           </SheetContent>
           <SheetTrigger asChild>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-2xl font-bold w-full">
               {sections.find((section) => pathname.startsWith(section.href))
                 ?.title || 'Documentation'}
             </h1>

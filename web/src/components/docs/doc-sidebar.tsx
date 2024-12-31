@@ -83,11 +83,11 @@ export function DocSidebar({
         <div key={section.href}>
           <Link
             href={section.href}
+            target={section.external ? '_blank' : undefined}
             onClick={() => {
               const sheet = document.querySelector('[data-state="open"]')
               if (sheet) sheet.setAttribute('data-state', 'closed')
             }}
-            target={section.external ? '_blank' : undefined}
             className={cn(
               'block px-3 py-2 hover:bg-accent rounded-md transition-colors',
               pathname === section.href && 'bg-accent'
@@ -100,7 +100,12 @@ export function DocSidebar({
               {section.subsections.map((subsection) => (
                 <Link
                   key={subsection.href}
-                  href={`${section.href}#${subsection.title.toLowerCase().replace(/\s+/g, '-')}`}
+                  href={
+                    section.external
+                      ? subsection.href
+                      : `${section.href}#${subsection.title.toLowerCase().replace(/\s+/g, '-')}`
+                  }
+                  target={section.external ? '_blank' : undefined}
                   onClick={(e) => {
                     onNavigate?.()
                     // If we're on the same page, scroll instead of navigate
