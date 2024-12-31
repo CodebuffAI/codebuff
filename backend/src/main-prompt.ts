@@ -307,6 +307,7 @@ export async function mainPrompt(
         messages,
         prompt,
         fileContext,
+        costMode,
         clientSessionId,
         fingerprintId,
         userInputId,

@@ -1,5 +1,5 @@
 import { Message } from 'common/actions'
-import { models, claudeModels } from 'common/constants'
+import { models, claudeModels, CostMode } from 'common/constants'
 import {
   createMarkdownFileBlock,
   isValidFilePath,
@@ -55,10 +55,11 @@ export async function getRelevantFilesForPlanning(
   messages: Message[],
   prompt: string,
   fileContext: ProjectFileContext,
+  costMode: CostMode,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined
+  userId: string | undefined,
 ) {
   const response = await promptClaude(
     [
@@ -74,7 +75,7 @@ Only output the file paths, one per line, nothing else.`,
     ],
     {
       model: claudeModels.sonnet,
-      system: getSearchSystemPrompt(fileContext),
+      system: getSearchSystemPrompt(fileContext, costMode),
       clientSessionId,
       fingerprintId,
       userInputId,
