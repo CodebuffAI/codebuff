@@ -10,7 +10,7 @@
     "target": "esnext",
     "incremental": true,
     "isolatedModules": true,
-    "types": ["node", "jest"],
+    "types": ["node"],
     "typeRoots": ["./node_modules/@types", "../node_modules/@types"],
     "baseUrl": ".",
     "paths": {
