@@ -788,8 +788,11 @@ async function getFileVersionUpdates(
     }
   }
 
+  const existingNewFilePaths = newFiles.filter(
+    (path) => loadedFiles[path] && loadedFiles.content !== null
+  )
   const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage(
-    newFiles,
+    existingNewFilePaths,
     fileVersions.length <= 1
   )
 
