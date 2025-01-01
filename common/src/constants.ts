@@ -71,7 +71,7 @@ export const REQUEST_CREDIT_SHOW_THRESHOLD = 1
 export const MAX_DATE = new Date(86399999999999)
 
 export const OVERAGE_RATE_PRO = 0.99
-export const OVERAGE_RATE_PRO_PLUS = 0.9
+export const OVERAGE_RATE_MOAR_PRO = 0.9
 export const CREDITS_REFERRAL_BONUS = 500
 
 // Helper to convert from UsageLimits to display names
@@ -109,7 +109,7 @@ export enum UsageLimits {
 export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {
   ANON: {
     limit: 500,
-    planName: UsageLimits.FREE,
+    planName: UsageLimits.ANON,
     displayName: 'Anonymous',
     monthlyPrice: 0,
     overageRate: null,
@@ -133,7 +133,7 @@ export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {
     planName: UsageLimits.MOAR_PRO,
     displayName: 'Moar Pro',
     monthlyPrice: 249,
-    overageRate: OVERAGE_RATE_PRO_PLUS,
+    overageRate: OVERAGE_RATE_MOAR_PRO,
   },
 }
 

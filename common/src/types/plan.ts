@@ -1,6 +1,6 @@
 import { UsageLimits } from '../constants'
 
-export type PlanName = 'Free' | 'Pro' | 'Moar Pro' | 'Team'
+export type PlanName = 'Free' | 'Pro' | 'Moar Pro' | 'Team' | 'Team'
 
 // Convert UsageLimits enum to plan name
 export const getPlanNameFromUsageLimit = (limit: UsageLimits): PlanName => {

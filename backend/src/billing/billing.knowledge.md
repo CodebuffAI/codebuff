@@ -213,6 +213,18 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 4. Expand Stripe integration to handle more complex billing scenarios.
 5. Develop a system for usage analytics to inform pricing strategies.
 
+## Subscription Previews
+
+When previewing subscription changes:
+- Use `stripeServer.invoices.retrieveUpcoming()` to preview changes without modifying the subscription
+- Always propagate Stripe error details (code, message, statusCode) to the client
+- Handle both API errors (from Stripe) and request errors (from React Query) in the UI
+- This provides accurate proration calculations directly from Stripe
+- Use `stripeServer.invoices.retrieveUpcoming()` to preview changes without modifying the subscription
+- This provides accurate proration calculations directly from Stripe
+- Include `subscription_proration_date` to ensure consistent calculations between preview and actual update
+- The preview includes credits for unused time and charges for the new plan
+
 ## Stripe API Best Practices
 
 ### Pagination

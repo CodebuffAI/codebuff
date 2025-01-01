@@ -60,6 +60,7 @@
     "tailwind-merge": "^2.5.2",
     "three": "^0.168.0",
     "three-globe": "^2.31.1",
+    "ts-pattern": "^5.6.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

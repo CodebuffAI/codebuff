@@ -124,6 +124,11 @@ When displaying inline code snippets with copy buttons:
 - Install new shadcn components with: `bunx --bun shadcn@latest add [component-name]`
 - Use Lucide icons instead of raw SVGs for consistency
 - Import icons from 'lucide-react' package
+- For theme-aware components:
+  - Use CSS variables defined in globals.css (e.g. --background, --foreground)
+  - Use utility classes like bg-primary and text-primary-foreground
+  - These automatically handle light/dark mode transitions
+  - Example: `bg-primary text-primary-foreground hover:bg-primary/90`
 
 ### Component Architecture
 
@@ -167,6 +172,7 @@ For expandable/collapsible UI elements:
    - Exception: Components that don't need provider context can go before providers
 
 2. Common Issues:
+
    - Buttons/interactions may not work if component is placed before providers
    - State updates may fail silently when providers are missing
    - Always check component placement in layout hierarchy when debugging client-side issues
@@ -333,13 +339,9 @@ This feature enhances user experience by providing transparency about resource c
 
 After making changes to the web application code:
 
-1. Build common package if changes affect shared types:
+1. Build common package if changes affect shared types and run type checking:
    ```bash
-   bun run --cwd common build
-   ```
-2. Run type checking:
-   ```bash
-   bun run --cwd web tsc
+   bun run --cwd common build && bun run --cwd web tsc
    ```
 
 This ensures type safety is maintained across the application.
@@ -390,6 +392,7 @@ NextResponse<ApiResponse>
 ### Subscription Previews
 
 When previewing subscription changes:
+
 - Use `stripeServer.invoices.retrieveUpcoming()` to preview changes without modifying the subscription
 - Always propagate Stripe error details (code, message, statusCode) to the client
 - Handle both API errors (from Stripe) and request errors (from React Query) in the UI
@@ -440,6 +443,7 @@ Important: When updating Stripe subscriptions:
 - Set `proration_behavior: 'none'` to avoid partial period charges
 - Consider providing migration coupons for customer retention
 - Important: Stripe automatically handles unused time when updating subscriptions:
+
   - By default, creates credit for unused time on next invoice
   - To make a pure price change without credits, use `proration_behavior: 'none'`
   - Do not try to manually handle unused time credits
