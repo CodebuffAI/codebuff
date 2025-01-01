@@ -1,3 +1,17 @@
-import { planNames } from '../constants'
+import { UsageLimits } from '../constants'
 
-export type PlanName = typeof planNames[number]
+export type PlanName = 'Free' | 'Pro' | 'Moar Pro' | 'Team'
+
+// Convert UsageLimits enum to plan name
+export const getPlanNameFromUsageLimit = (limit: UsageLimits): PlanName => {
+  switch (limit) {
+    case UsageLimits.FREE:
+      return 'Free'
+    case UsageLimits.PRO:
+      return 'Pro'
+    case UsageLimits.MOAR_PRO:
+      return 'Moar Pro'
+    default:
+      return 'Free'
+  }
+}

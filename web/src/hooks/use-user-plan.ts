@@ -12,7 +12,7 @@ export const useUserPlan = (subscriptionId: string | null | undefined) => {
         throw new Error('Failed to fetch subscription details')
       }
       const data = await response.json()
-      return data.currentPlan as PlanName
+      return data.currentPlan
     },
     enabled: !!subscriptionId,
   })

@@ -36,41 +36,37 @@ const Home = () => {
 
   // TODO: handle case where token has expired
   return (
-    <div className="overflow-hidden">
-      <BackgroundBeams />
-
-      <main className="container mx-auto flex flex-col items-center relative z-10">
-        <div className="w-full sm:w-1/2 md:w-1/3">
-          {authCode ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="mb-2">Login</CardTitle>
-                <CardDescription>
-                  Continue to sign in to the Codebuff CLI.
-                  {/* If you just logged into Codebuff from the command line, please
+    <main className="container mx-auto flex flex-col items-center relative z-10">
+      <div className="w-full sm:w-1/2 md:w-1/3">
+        {authCode ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="mb-2">Login</CardTitle>
+              <CardDescription>
+                Continue to sign in to the Codebuff CLI.
+                {/* If you just logged into Codebuff from the command line, please
                   select an OAuth provider below to continue. */}
-                </CardDescription>
-                {/* <CardDescription>
+              </CardDescription>
+              {/* <CardDescription>
                   (Otherwise, you can just close this window. Phishing attack
                   averted, phew!)
                 </CardDescription> */}
-              </CardHeader>
-              <SignInCardFooter />
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Login</CardTitle>
-                <CardDescription>
-                  Increased rate limits, priority support, and more!
-                </CardDescription>
-              </CardHeader>
-              <SignInCardFooter />
-            </Card>
-          )}
-        </div>
-      </main>
-    </div>
+            </CardHeader>
+            <SignInCardFooter />
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Login</CardTitle>
+              <CardDescription>
+                Increased rate limits, priority support, and more!
+              </CardDescription>
+            </CardHeader>
+            <SignInCardFooter />
+          </Card>
+        )}
+      </div>
+    </main>
   )
 }
 

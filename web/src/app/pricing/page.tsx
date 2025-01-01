@@ -4,11 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import Link from 'next/link'
-import {
-  CREDITS_USAGE_LIMITS,
-  OVERAGE_RATE_PRO,
-  OVERAGE_RATE_PRO_PLUS,
-} from 'common/constants'
+import { PLAN_CONFIGS } from 'common/constants'
 import { useSession } from 'next-auth/react'
 import { useUserPlan } from '@/hooks/use-user-plan'
 import { PricingCardFooter } from '@/components/pricing/pricing-card-footer'
@@ -18,20 +14,15 @@ const PricingPage = () => {
   const session = useSession()
   const { data: currentPlan } = useUserPlan(session.data?.user?.stripe_price_id)
 
-  const pricingPlans: Array<{
-    name: PlanName
-    price: string
-    credits?: number
-    creditsDisplay?: string
-    features: (string | JSX.Element)[]
-    cardFooterChildren: JSX.Element
-  }> = [
-    {
-      name: 'Free',
-      price: '$0/month',
-      credits: CREDITS_USAGE_LIMITS.FREE,
-      features: [
-        'No overage allowed',
+  const pricingPlans = Object.values(PLAN_CONFIGS).map((config) => ({
+    name: config.displayName as PlanName,
+    price: config.monthlyPrice ? `$${config.monthlyPrice}/month` : 'Custom',
+    credits: config.limit,
+    features: [
+      config.overageRate
+        ? `Overage allowed ($${config.overageRate.toFixed(2)} per 100 credits)`
+        : 'No overage allowed',
+      config.displayName === 'Free' ? (
         <Link
           key="community-support"
           href="https://discord.gg/mcWTGjgTj3"
@@ -39,9 +30,13 @@ const PricingPage = () => {
           target="_blank"
         >
           Community support
-        </Link>,
-      ],
-      cardFooterChildren: (
+        </Link>
+      ) : (
+        'Priority support over email and Discord'
+      ),
+    ],
+    cardFooterChildren:
+      config.displayName === 'Free' ? (
         <Button
           className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
           asChild
@@ -50,53 +45,10 @@ const PricingPage = () => {
             Get Started
           </Link>
         </Button>
+      ) : (
+        <PricingCardFooter planName={config.displayName as PlanName} currentPlan={currentPlan} />
       ),
-    },
-    {
-      name: 'Pro',
-      price: '$49/month',
-      credits: CREDITS_USAGE_LIMITS.PRO,
-      features: [
-        `Overage allowed ($${OVERAGE_RATE_PRO.toFixed(2)} per 100 credits)`,
-        'Priority support over email and Discord',
-      ],
-      cardFooterChildren: (
-        <PricingCardFooter planName={'Pro'} currentPlan={currentPlan} />
-      ),
-    },
-    {
-      name: 'Moar Pro',
-      price: '$249/month',
-      credits: CREDITS_USAGE_LIMITS.MOAR_PRO,
-      features: [
-        `Overage allowed ($${OVERAGE_RATE_PRO_PLUS.toFixed(2)} per 100 credits)`,
-        'Priority support over email and Discord',
-      ],
-      cardFooterChildren: (
-        <PricingCardFooter planName={'Moar Pro'} currentPlan={currentPlan} />
-      ),
-    },
-
-    {
-      name: 'Team',
-      price: '$99/seat/month',
-      credits: undefined,
-      creditsDisplay: '$0.90 per 100',
-      features: [
-        'Custom credit limits per member',
-        'Custom account limits',
-        'Priority support over email, Discord, and Slack',
-      ],
-      cardFooterChildren: (
-        <Button
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-          asChild
-        >
-          <Link href={'mailto:founders@codebuff.com'}>Contact Sales</Link>
-        </Button>
-      ),
-    },
-  ]
+  }))
 
   return (
     <div className="overflow-hidden">
@@ -130,13 +82,11 @@ const PricingPage = () => {
                   />
                 </h3>
                 <p className="text-4xl font-bold mt-2">{plan.price}</p>
-                {plan.credits ? (
+                {plan.credits && (
                   <p className="text-lg mt-2">
                     {plan.credits.toLocaleString()} credits
                   </p>
-                ) : plan.creditsDisplay ? (
-                  <p className="text-lg mt-2">{plan.creditsDisplay}</p>
-                ) : null}
+                )}
               </CardHeader>
               <CardContent className="flex-grow flex flex-col justify-between">
                 <ul className="mt-4 space-y-2">

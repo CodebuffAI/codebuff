@@ -3,11 +3,38 @@ import { getServerSession } from 'next-auth'
 import { stripeServer } from 'common/src/util/stripe'
 import { authOptions } from '../../../auth/[...nextauth]/auth-options'
 import { env } from '@/env.mjs'
+import { PLAN_CONFIGS } from 'common/constants'
 import { PlanName } from 'common/src/types/plan'
 
 export const GET = async (request: Request) => {
   const { searchParams } = new URL(request.url)
-  const targetPlan = searchParams.get('targetPlan') as PlanName
+  const targetPlan = searchParams.get('targetPlan')
+  if (!targetPlan) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'invalid-plan',
+          message: 'Target plan is required',
+        },
+      },
+      { status: 400 }
+    )
+  }
+
+  const planConfig = Object.values(PLAN_CONFIGS).find(
+    (config) => config.displayName === targetPlan
+  )
+  if (!planConfig) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'invalid-plan',
+          message: 'Invalid target plan',
+        },
+      },
+      { status: 400 }
+    )
+  }
   const session = await getServerSession(authOptions)
 
   if (!session?.user) {
@@ -72,7 +99,7 @@ export const GET = async (request: Request) => {
         currentMonthlyRate: currentSubscription.items.data[0].price.unit_amount
           ? currentSubscription.items.data[0].price.unit_amount / 100
           : 0,
-        newMonthlyRate: targetPlan === 'Pro' ? 49 : 249,
+        newMonthlyRate: planConfig.monthlyPrice,
         daysRemainingInBillingPeriod: Math.ceil(
           (currentSubscription.current_period_end * 1000 - Date.now()) /
             (1000 * 60 * 60 * 24)
@@ -86,7 +113,7 @@ export const GET = async (request: Request) => {
         currentMonthlyRate: 0,
         newMonthlyRate: targetPlan === 'Pro' ? 49 : 249,
         daysRemainingInBillingPeriod: 0,
-        prorationAmount: targetPlan === 'Pro' ? 49 : 249,
+        prorationAmount: planConfig.monthlyPrice,
         prorationDate: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days from now
       })
     }

@@ -1,5 +1,3 @@
-// import { env } from './env.mjs'
-
 export const STOP_MARKER = '[' + 'END]'
 export const FIND_FILES_MARKER = '[' + 'FIND_FILES_PLEASE]'
 export const TOOL_RESULT_MARKER = '[' + 'TOOL_RESULT]'
@@ -72,24 +70,85 @@ export const SKIPPED_TERMINAL_COMMANDS = [
 export const REQUEST_CREDIT_SHOW_THRESHOLD = 1
 export const MAX_DATE = new Date(86399999999999)
 
-export const planNames = ['Free', 'Pro', 'Moar Pro', 'Team'] as const
-export type PlanName = typeof planNames[number]
-export type UsageLimits = 'ANON' | 'FREE' | 'PRO' | 'MOAR_PRO'
-export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
-  process.env.NEXT_PUBLIC_ENVIRONMENT === 'local'
-    ? {
-        ANON: 1_000_000,
-        FREE: 2_500_000,
-        PRO: 5_000_000,
-        MOAR_PRO: 27_500_000,
-      }
-    : {
-        ANON: 500,
-        FREE: 1_000,
-        PRO: 5_000,
-        MOAR_PRO: 27_500,
-      }
+export const OVERAGE_RATE_PRO = 0.99
+export const OVERAGE_RATE_PRO_PLUS = 0.9
 export const CREDITS_REFERRAL_BONUS = 500
+
+// Helper to convert from UsageLimits to display names
+export const getPlanDisplayName = (limit: UsageLimits): string => {
+  return PLAN_CONFIGS[limit].displayName
+}
+
+// Helper to convert from display name to UsageLimits
+export const getUsageLimitFromPlanName = (planName: string): UsageLimits => {
+  const entry = Object.entries(PLAN_CONFIGS).find(
+    ([_, config]) => config.planName === planName
+  )
+  if (!entry) {
+    throw new Error(`Invalid plan name: ${planName}`)
+  }
+  return entry[0] as UsageLimits
+}
+
+export type PlanConfig = {
+  limit: number
+  planName: UsageLimits
+  displayName: string
+  monthlyPrice: number | null // null for custom pricing (e.g. Team plan)
+  overageRate: number | null // null if no overage allowed
+}
+
+export enum UsageLimits {
+  ANON = 'ANON',
+  FREE = 'FREE',
+  PRO = 'PRO',
+  MOAR_PRO = 'MOAR_PRO',
+}
+
+// Define base configs with production values
+export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {
+  ANON: {
+    limit: 500,
+    planName: UsageLimits.FREE,
+    displayName: 'Anonymous',
+    monthlyPrice: 0,
+    overageRate: null,
+  },
+  FREE: {
+    limit: 1_000,
+    planName: UsageLimits.FREE,
+    displayName: 'Free',
+    monthlyPrice: 0,
+    overageRate: null,
+  },
+  PRO: {
+    limit: 5_000,
+    planName: UsageLimits.PRO,
+    displayName: 'Pro',
+    monthlyPrice: 49,
+    overageRate: OVERAGE_RATE_PRO,
+  },
+  MOAR_PRO: {
+    limit: 27_500,
+    planName: UsageLimits.MOAR_PRO,
+    displayName: 'Moar Pro',
+    monthlyPrice: 249,
+    overageRate: OVERAGE_RATE_PRO_PLUS,
+  },
+}
+
+// Multiply limits by 1000 in local environment
+if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'local') {
+  Object.values(PLAN_CONFIGS).forEach((config) => {
+    config.limit *= 1000
+  })
+}
+
+// Helper to get credits limit from a plan config
+export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
+  Object.fromEntries(
+    Object.entries(PLAN_CONFIGS).map(([key, config]) => [key, config.limit])
+  ) as Record<UsageLimits, number>
 
 export const costModes = ['lite', 'normal', 'pro'] as const
 export type CostMode = (typeof costModes)[number]
@@ -136,8 +195,5 @@ export const models = {
   ...geminiModels,
   ...deepseekModels,
 } as const
-
-export const OVERAGE_RATE_PRO = 0.99
-export const OVERAGE_RATE_PRO_PLUS = 0.9
 
 export const TEST_USER_ID = 'test-user-id'
