@@ -21,7 +21,7 @@ const PaymentSuccessPage = () => {
 
   return CardWithBeams({
     title: 'Payment successful.',
-    description: `Welcome to Codebuff Pro, your credits just went up to ${CREDITS_USAGE_LIMITS.PAID.toLocaleString()}!`,
+    description: `Welcome to Codebuff Pro, your credits just went up to ${CREDITS_USAGE_LIMITS.PRO.toLocaleString()}!`,
     content: (
       <div className="flex flex-col space-y-2">
         <Image

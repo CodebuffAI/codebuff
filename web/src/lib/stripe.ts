@@ -3,11 +3,7 @@ import { env } from '@/env.mjs'
 import Stripe from 'stripe'
 import { trackUpgrade } from './trackConversions'
 
-export const handleCreateCheckoutSession = async (
-  setIsPending: (isPending: boolean) => void
-) => {
-  setIsPending(true)
-
+export const handleCreateCheckoutSession = async () => {
   const params = trackUpgrade(false)
   const res = await fetch(`/api/stripe/checkout-session?${params}`)
   const checkoutSession: Stripe.Response<Stripe.Checkout.Session> = await res
@@ -21,6 +17,4 @@ export const handleCreateCheckoutSession = async (
   await stripe.redirectToCheckout({
     sessionId: checkoutSession.id,
   })
-
-  setIsPending(false)
 }

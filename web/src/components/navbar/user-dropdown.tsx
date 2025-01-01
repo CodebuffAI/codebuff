@@ -46,19 +46,14 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
           />
           <h2 className="py-2 text-lg font-bold">{user?.name}</h2>
           <Button
-            onClick={() => handleCreateCheckoutSession(setIsPending)}
-            disabled={user?.subscription_active || isPending}
+            onClick={() => handleCreateCheckoutSession()}
+            disabled={user?.subscription_active}
             className="w-64"
           >
             {user?.subscription_active ? (
               <p>You are on the pro tier!</p>
             ) : (
-              <>
-                {isPending && (
-                  <Icons.loader className="mr-2 size-4 animate-spin" />
-                )}
-                Upgrade to pro
-              </>
+              <>Upgrade to pro</>
             )}
           </Button>
         </div>

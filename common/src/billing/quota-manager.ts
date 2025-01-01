@@ -116,7 +116,7 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
     })
 
     let overageRate: number | null = null
-    let quota = CREDITS_USAGE_LIMITS.PAID
+    let quota = CREDITS_USAGE_LIMITS.PRO
     if (user?.stripe_customer_id && user?.stripe_price_id) {
       const subscriptions = await stripeServer.subscriptions.list({
         customer: user.stripe_customer_id,

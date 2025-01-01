@@ -26,7 +26,7 @@ export const GET = async (request: Request) => {
     customer: session.user.stripe_customer_id,
     line_items: [
       {
-        price: env.STRIPE_SUBSCRIPTION_PRICE_ID,
+        price: env.STRIPE_PRO_PRICE_ID,
         quantity: 1,
       },
       {

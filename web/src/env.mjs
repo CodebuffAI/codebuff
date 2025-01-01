@@ -23,7 +23,8 @@ export const env = createEnv({
     NEXTAUTH_SECRET: z.string().min(1),
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
-    STRIPE_SUBSCRIPTION_PRICE_ID: z.string().min(1),
+    STRIPE_PRO_PRICE_ID: z.string().min(1),
+    STRIPE_MOAR_PRO_PRICE_ID: z.string().min(1), // Price ID for Moar Pro tier
     STRIPE_OVERAGE_PRICE_ID: z.string().min(1),
     LOOPS_API_KEY: z.string().min(1),
   },
@@ -46,7 +47,8 @@ export const env = createEnv({
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET_KEY: process.env.STRIPE_WEBHOOK_SECRET_KEY,
-    STRIPE_SUBSCRIPTION_PRICE_ID: process.env.STRIPE_SUBSCRIPTION_PRICE_ID,
+    STRIPE_PRO_PRICE_ID: process.env.STRIPE_PRO_PRICE_ID,
+    STRIPE_MOAR_PRO_PRICE_ID: process.env.STRIPE_MOAR_PRO_PRICE_ID,
     STRIPE_OVERAGE_PRICE_ID: process.env.STRIPE_OVERAGE_PRICE_ID,
     LOOPS_API_KEY: process.env.LOOPS_API_KEY,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:

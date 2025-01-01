@@ -171,6 +171,14 @@ For expandable/collapsible UI elements:
    - State updates may fail silently when providers are missing
    - Always check component placement in layout hierarchy when debugging client-side issues
 
+3. Converting Client to Server Components:
+   - Replace `useSession()` with `getServerSession(authOptions)`
+   - Remove React hooks like `useState`
+   - Make component async to use `await`
+   - Access session data directly from `session.user` instead of `session.data.user`
+   - For interactive elements (onClick, onChange etc.), extract them into separate client components
+   - Pass data to client components as props, avoiding passing functions or event handlers from server components
+
 Example of correct ordering:
 
 ```jsx
@@ -321,6 +329,21 @@ The application includes a usage tracking feature to allow users to monitor thei
 
 This feature enhances user experience by providing transparency about resource consumption and helps users manage their account effectively.
 
+## Verifying Changes
+
+After making changes to the web application code:
+
+1. Build common package if changes affect shared types:
+   ```bash
+   bun run --cwd common build
+   ```
+2. Run type checking:
+   ```bash
+   bun run --cwd web tsc
+   ```
+
+This ensures type safety is maintained across the application.
+
 ## Type Management
 
 ### API Routes and Types
@@ -328,6 +351,21 @@ This feature enhances user experience by providing transparency about resource c
 - When typing API responses in frontend components, use types from the corresponding API route file
 - Don't create new types for API responses - reference the source of truth in the route files
 - This ensures type consistency between frontend and backend
+- Prefer returning domain-specific values over implementation details:
+  - Good: Return `currentPlan: "Pro"` for client to compare directly
+  - Avoid: Return price IDs that client must map to env variables
+
+### Data Fetching
+
+- Use React Query (Tanstack Query) for all API calls
+- Benefits:
+  - Automatic caching and revalidation
+  - Loading and error states
+  - Deduplication of requests
+  - Retry logic
+- Create custom hooks for reusable queries
+- Use queryKey arrays that include all dependencies
+- Enable/disable queries based on required dependencies
 
 This structure helps in maintaining a clear separation of concerns while allowing necessary sharing of code between different parts of the application.
 
@@ -349,6 +387,20 @@ NextResponse<ApiResponse>
 
 ## Stripe Integration
 
+### Subscription Previews
+
+When previewing subscription changes:
+- Use `stripeServer.invoices.retrieveUpcoming()` to preview changes without modifying the subscription
+- Always propagate Stripe error details (code, message, statusCode) to the client
+- Handle both API errors (from Stripe) and request errors (from React Query) in the UI
+- This provides accurate proration calculations directly from Stripe
+- Use `stripeServer.invoices.retrieveUpcoming()` to preview changes without modifying the subscription
+- This provides accurate proration calculations directly from Stripe
+- Include `subscription_proration_date` to ensure consistent calculations between preview and actual update
+- The preview includes credits for unused time and charges for the new plan
+
+### Webhooks
+
 Stripe webhooks (`web/src/app/api/stripe/webhook/route.ts`) handle:
 
 - Subscription creation, updates, and deletions.
@@ -364,6 +416,40 @@ Key functions:
 Important: When updating Stripe subscriptions:
 
 - Cannot add duplicate prices to a subscription - each price can only be used once
+- The `stripe_price_id` field in the user table actually stores the subscription ID, not the price ID
+- To determine a user's current plan:
+  1. Retrieve subscription using the stored subscription ID
+  2. Find the base price item (usage_type='licensed', not metered)
+  3. Use price.id from that item to determine the actual plan
+- When updating existing items, pass the subscription item ID in the items array:
+  ```js
+  items: [{ id: 'si_existing', price: 'price_new' }]
+  ```
+- For new prices, add without an ID:
+  ```js
+  items: [{ price: 'price_new' }]
+  ```
+- Never delete subscription items before adding new ones - this can cause subscription to become invalid
+- Map existing items to new prices while preserving their IDs:
+  ```js
+  items = subscription.items.data.map((item) => ({
+    id: item.id,
+    price: newPriceId,
+  }))
+  ```
+- Set `proration_behavior: 'none'` to avoid partial period charges
+- Consider providing migration coupons for customer retention
+- Important: Stripe automatically handles unused time when updating subscriptions:
+  - By default, creates credit for unused time on next invoice
+  - To make a pure price change without credits, use `proration_behavior: 'none'`
+  - Do not try to manually handle unused time credits
+
+- Cannot add duplicate prices to a subscription - each price can only be used once
+- The `stripe_price_id` field in the user table actually stores the subscription ID, not the price ID
+- To determine a user's current plan:
+  1. Retrieve subscription using the stored subscription ID
+  2. Find the base price item (usage_type='licensed', not metered)
+  3. Use price.id from that item to determine the actual plan
 - When updating existing items, pass the subscription item ID in the items array:
   ```js
   items: [{ id: 'si_existing', price: 'price_new' }]
