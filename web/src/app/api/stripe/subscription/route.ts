@@ -253,6 +253,7 @@ export const GET = async (request: Request) => {
           ? licensedItem.price.unit_amount / 100
           : 0,
         newMonthlyRate: planConfig.monthlyPrice,
+        currentQuota: totalQuota,
         daysRemainingInBillingPeriod: Math.ceil(
           (currentSubscription.current_period_end -
             Math.floor(new Date().getTime() / 1000)) /
