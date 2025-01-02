@@ -49,7 +49,7 @@ describe('QuotaManager', () => {
   describe('Anonymous Users', () => {
     it('should check quota for unauthenticated user', async () => {
       const result = await anonymousManager.checkQuota('test-fingerprint')
-      expect(result.creditsUsed).toBe(500)
+      expect(result.creditsUsed).toBe(250)
       expect(result.quota).toBe(CREDITS_USAGE_LIMITS.ANON)
       expect(result.subscription_active).toBe(false)
     })
@@ -134,7 +134,7 @@ describe('QuotaManager', () => {
                       {
                         creditsUsed: '500',
                         subscription_active: false,
-                        quota: CREDITS_USAGE_LIMITS.ANON,
+                        quota: CREDITS_USAGE_LIMITS.FREE,
                         endDate: new Date().toISOString(),
                         userId: 'test-user-id',
                         sessionToken: 'valid-token',
