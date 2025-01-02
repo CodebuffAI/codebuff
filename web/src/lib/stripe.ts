@@ -3,8 +3,9 @@ import { env } from '@/env.mjs'
 import Stripe from 'stripe'
 import { trackUpgrade } from './trackConversions'
 
-export const handleCreateCheckoutSession = async () => {
-  const params = trackUpgrade(false)
+export const handleCreateCheckoutSession = async (plan: string) => {
+  const params = new URLSearchParams(trackUpgrade(false))
+  params.append('plan', plan)
   const res = await fetch(`/api/stripe/checkout-session?${params}`)
   const checkoutSession: Stripe.Response<Stripe.Checkout.Session> = await res
     .json()

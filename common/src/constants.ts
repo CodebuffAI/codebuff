@@ -69,6 +69,7 @@ export const SKIPPED_TERMINAL_COMMANDS = [
 
 export const REQUEST_CREDIT_SHOW_THRESHOLD = 1
 export const MAX_DATE = new Date(86399999999999)
+export const BILLING_PERIOD_DAYS = 30
 
 export const OVERAGE_RATE_PRO = 0.99
 export const OVERAGE_RATE_MOAR_PRO = 0.9

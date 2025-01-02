@@ -57,8 +57,31 @@ Key methods:
 
 ### Subscription Migrations
 
-Important: When migrating subscriptions to new prices:
+Important: When handling multiple subscription tiers:
+- Each subscription tier needs both a base price ID and an overage price ID
+- When updating subscriptions, both price IDs must be updated together
+- Never rely on array position to identify subscription items
+- Always check price.recurring.usage_type to identify 'licensed' vs 'metered' items
+- Both licensed (base) and metered (overage) items must exist for valid subscription
+- Verify metered item exists before recording usage or updating subscription
+- When validating current plan, check both licensed and metered price IDs match
 
+Important: When organizing subscription-related code:
+- Extract price ID mapping into reusable functions to avoid duplication
+- Check authentication before any other validation
+- Validate plan changes before checking subscription status
+- Validate target plan differs from current plan to prevent unnecessary operations
+- Handle unpaid invoices check as early as possible
+- Keep subscription item order consistent (licensed first, metered second)
+- Capture usage data before any subscription changes
+
+Important: When changing subscription tiers:
+- Capture total usage before updating subscription, as usage records may become inaccessible after plan change
+- Record old usage under new plan immediately after upgrade to preserve history
+- Check for unpaid invoices before allowing plan changes
+- Use proration_behavior: 'always_invoice' to generate immediate charges
+
+Important: When migrating subscriptions to new prices:
 - Preserve existing usage meter records for 'Credits'
 - Don't reset usage data during price changes
 - Ensure fair billing by carrying forward accumulated usage
@@ -108,6 +131,69 @@ Defined in `common/src/constants.ts`:
 - ANON: 1,000 credits
 - FREE: 2,500 credits
 - PAID: 50,000 credits
+
+## Usage Limit Handling
+
+- The system tracks user usage and compares it against their quota limit.
+- Warning messages are shown at 25%, 50%, and 75% of the usage limit.
+- When a user reaches or exceeds 100% of their usage limit:
+  - An error message MUST ALWAYS be displayed to the user.
+  - This error message should inform the user that they've reached their monthly limit.
+  - For logged-in users, provide a link to the pricing page for upgrades.
+  - For anonymous users, prompt them to log in for more credits.
+  - If available, include a referral link for additional credits.
+
+## Overage Charge Display
+
+When showing billing information to users:
+- Lead with immediate charge and explain proration
+- Show monthly estimate with explicit start date
+- Break down charges into base rate and overages
+- Show rate comparisons inline with the charges they affect
+- Use color to highlight savings (green) and costs (amber)
+- Add brief explanatory notes about billing timing
+- Display individual line items from Stripe invoice previews:
+  - Show each line item with description and amount
+  - Use green text for credits (negative amounts)
+  - Group charges and credits separately with visual separation
+  - Show date ranges for each line item when available
+  - Convert all amounts from cents to dollars
+  - Label credits section as "Credits & Adjustments"
+  - Calculate total amount from line items rather than using preview.amount_due
+  - Remove redundant total fields when line items contain the same information
+
+## Savings Presentation
+
+When highlighting cost savings:
+- Place savings message between total amount and breakdown
+- Use visual distinction (e.g., colored background) to draw attention
+- Split into "what changed" and "what you save" for clarity
+- Include timeframe context ("monthly at current usage")
+- Use side-by-side layout to show rate change and total savings
+
+## Overage Rate Calculation
+
+Important: When calculating overage rates:
+- Use the metered price item, not the base subscription price
+- Compare against overage price IDs (e.g. STRIPE_PRO_OVERAGE_PRICE_ID)
+- Always verify metered item exists before accessing
+
+## Proration Calculations
+
+Important: When calculating prorated charges:
+- Always use new Date().getTime() instead of Date.now() for UTC consistency
+- Get unused credits from Stripe's preview.lines.data amounts
+- Sum all line amounts - negative values automatically become credits
+- Convert from cents to dollars by dividing by 100
+- Use licensed item (not array index) for base price calculations
+
+Important: When handling multiple subscription tiers:
+- Each subscription tier needs both a base price ID and an overage price ID
+- When updating subscriptions, both price IDs must be updated together
+- Never rely on array position to identify subscription items
+- Always check price.recurring.usage_type to identify 'licensed' vs 'metered' items
+- Both licensed (base) and metered (overage) items must exist for valid subscription
+- Verify metered item exists before recording usage or updating subscription
 
 ## Cost Calculation
 

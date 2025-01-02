@@ -46,7 +46,7 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
           />
           <h2 className="py-2 text-lg font-bold">{user?.name}</h2>
           <Button
-            onClick={() => handleCreateCheckoutSession()}
+            onClick={() => handleCreateCheckoutSession('Pro')}
             disabled={user?.subscription_active}
             className="w-64"
           >

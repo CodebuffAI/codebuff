@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
+import { LoadingDots } from '@/components/ui/loading-dots'
 import Link from 'next/link'
 import { env } from '@/env.mjs'
 import { useRouter } from 'next/navigation'
@@ -10,11 +11,13 @@ import { PlanName } from 'common/src/types/plan'
 type PricingCardFooterProps = {
   planName: PlanName
   currentPlan: PlanName | undefined
+  isLoading?: boolean
 }
 
 export const PricingCardFooter = ({
   planName,
   currentPlan,
+  isLoading,
 }: PricingCardFooterProps) => {
   const isCurrentPlan = currentPlan === planName
   const router = useRouter()
@@ -38,16 +41,20 @@ export const PricingCardFooter = ({
       <Button
         className={cn(
           'w-full text-white transition-colors',
-          isCurrentPlan
+          isCurrentPlan || isLoading
             ? 'bg-gray-400 cursor-not-allowed'
             : 'bg-blue-600 hover:bg-blue-700'
         )}
         onClick={() => {
           router.push(`/subscription/confirm?plan=${planName}`)
         }}
-        disabled={isCurrentPlan}
+        disabled={isCurrentPlan || isLoading}
       >
-        {isCurrentPlan ? <p>You are on this tier!</p> : <>Upgrade</>}
+        {isLoading ? (
+          <LoadingDots />
+        ) : (
+          <>{isCurrentPlan ? <p>You are on this tier!</p> : <>Upgrade</>}</>
+        )}
       </Button>
     </div>
   )

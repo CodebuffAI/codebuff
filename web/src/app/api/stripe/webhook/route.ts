@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { eq, or, sql, SQL, sum } from 'drizzle-orm'
+import { eq, sql, SQL } from 'drizzle-orm'
 
 import { env } from '@/env.mjs'
 import { stripeServer } from 'common/src/util/stripe'
+import { getTotalReferralCreditsForCustomer } from '@/lib/stripe-utils'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { CREDITS_USAGE_LIMITS, UsageLimits } from 'common/constants'
@@ -57,11 +58,17 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
         // We should use this webhook to send general onboarding material, welcome emails, etc.
         break
       case 'customer.subscription.created':
-        await handleSubscriptionChange(event.data.object, UsageLimits.PRO)
+      case 'customer.subscription.updated': {
+        // Determine plan type from subscription items
+        const subscription = event.data.object as Stripe.Subscription
+        const priceId = subscription.items.data[0].price.id
+        const usageLimit =
+          priceId === env.STRIPE_PRO_PRICE_ID
+            ? UsageLimits.PRO
+            : UsageLimits.MOAR_PRO
+        await handleSubscriptionChange(subscription, usageLimit)
         break
-      case 'customer.subscription.updated':
-        await handleSubscriptionChange(event.data.object, UsageLimits.PRO)
-        break
+      }
       case 'customer.subscription.deleted':
         // Only downgrade to FREE tier when subscription period has ended
         await handleSubscriptionChange(event.data.object, UsageLimits.FREE)
@@ -96,29 +103,6 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       { status: 500 }
     )
   }
-}
-
-async function getTotalReferralCreditsForCustomer(
-  customerId: string
-): Promise<number> {
-  return db
-    .select({
-      referralCredits: sum(schema.referral.credits),
-    })
-    .from(schema.user)
-    .leftJoin(
-      schema.referral,
-      or(
-        eq(schema.referral.referrer_id, schema.user.id),
-        eq(schema.referral.referred_id, schema.user.id)
-      )
-    )
-    .where(eq(schema.user.stripe_customer_id, customerId))
-    .limit(1)
-    .then((rows) => {
-      const firstRow = rows[0]
-      return parseInt(firstRow?.referralCredits ?? '0')
-    })
 }
 
 async function handleSubscriptionChange(

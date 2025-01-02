@@ -50,7 +50,7 @@ Improve the subscription upgrade/downgrade flow to be clearer, more immediate, a
 1. Subscription Preview Endpoint:
 
    ```typescript
-   GET /api/stripe/subscription/preview
+   GET /api/stripe/subscription
    Query params: targetPlan (pro | moar-pro)
    Returns:
    - Immediate charge amount

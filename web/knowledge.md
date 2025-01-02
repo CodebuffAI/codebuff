@@ -165,6 +165,26 @@ For expandable/collapsible UI elements:
 
 - Important considerations for client-side interactivity:
 
+### Loading States
+
+- For data-dependent pages:
+  - Check authentication state before making API calls
+  - Show appropriate UI for unauthenticated users immediately
+  - Use React Suspense boundaries for loading states:
+    - Split data-fetching components from layout components
+    - Place Suspense boundary as close to data fetch as possible
+    - Keep static content outside of Suspense to avoid unnecessary loading states
+    - Use loading.tsx for route segments that take time to render
+  - For component-level loading:
+    - Prefer animated loading indicators over static skeletons for small UI elements
+    - Use LoadingDots component for inline loading states
+    - Keep loading states minimal but matching final content shape
+    - Ensure loading indicators match the text color of the content they're replacing
+
+### Client Components and Providers
+
+- Important considerations for client-side interactivity:
+
 1. Client Component Placement:
 
    - Place client components that need interactivity INSIDE provider components

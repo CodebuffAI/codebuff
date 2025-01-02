@@ -19,20 +19,34 @@ export const GET = async (request: Request) => {
       },
       { status: 401 }
     )
-  }
+  }    const targetPlan = searchParams.get('plan')
+    if (!targetPlan) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'invalid-plan',
+            message: 'Target plan is required',
+          },
+        },
+        { status: 400 }
+      )
+    }
 
-  const checkoutSession = await stripeServer.checkout.sessions.create({
-    mode: 'subscription',
-    customer: session.user.stripe_customer_id,
-    line_items: [
-      {
-        price: env.STRIPE_PRO_PRICE_ID,
-        quantity: 1,
-      },
-      {
-        price: env.STRIPE_OVERAGE_PRICE_ID,
-      },
-    ],
+    const priceId = targetPlan === 'Pro' ? env.STRIPE_PRO_PRICE_ID : env.STRIPE_MOAR_PRO_PRICE_ID
+    const overagePriceId = targetPlan === 'Pro' ? env.STRIPE_PRO_OVERAGE_PRICE_ID : env.STRIPE_MOAR_PRO_OVERAGE_PRICE_ID
+
+    const checkoutSession = await stripeServer.checkout.sessions.create({
+      mode: 'subscription',
+      customer: session.user.stripe_customer_id,
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+        {
+          price: overagePriceId,
+        },
+      ],
     success_url: `${env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&${searchParams}`,
     cancel_url: `${env.NEXT_PUBLIC_APP_URL}?${searchParams}`,
     allow_promotion_codes: true,
