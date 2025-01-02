@@ -149,7 +149,7 @@ const PricingPage = () => {
             Explore our flexible, credits-based pricing options.
           </p>
           <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
-            <i>An intense 1-hour work session typically uses 250 credits.</i>
+            <i>An intense 1-hour work session typically uses 500 credits.</i>
           </p>
         </div>
 
