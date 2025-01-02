@@ -28,7 +28,6 @@ const MobilePlanSummary = ({
     <TabsContent value="current" className="mt-4">
       <div className="space-y-4">
         <div>
-          <div className="font-medium mb-2">Current Plan</div>
           <div className="space-y-1">
             <div className="flex justify-between">
               <span>Base rate</span>
@@ -54,19 +53,19 @@ const MobilePlanSummary = ({
             </div>
           </div>
         </div>
-        <div className="space-y-2">
-          <Separator />
+        <Separator />
+        <div>
           <div className="flex justify-between font-medium">
-            <span>Monthly Total</span>
+            <span>Total</span>
             <span>${currentMonthlyTotal.toFixed(2)}</span>
           </div>
+          <div className="text-xs text-gray-500 text-right">per month</div>
         </div>
       </div>
     </TabsContent>
     <TabsContent value="new" className="mt-4">
       <div className="space-y-4">
         <div>
-          <div className="font-medium mb-2">New Plan</div>
           <div className="space-y-1">
             <div className="flex justify-between">
               <span>Base rate</span>
@@ -86,10 +85,7 @@ const MobilePlanSummary = ({
             <div>
               <span>Overage</span>
               <div className="text-xs text-gray-500">
-                {preview.overageCredits.toLocaleString()} credits
-                {preview.newOverageAmount === 0 && (
-                  <span className="text-green-600"> (included)</span>
-                )}
+                {preview.newOverageAmount.toLocaleString()} credits
               </div>
             </div>
             <div className="text-right">
@@ -100,12 +96,13 @@ const MobilePlanSummary = ({
             </div>
           </div>
         </div>
-        <div className="space-y-2">
-          <Separator />
+        <Separator />
+        <div>
           <div className="flex justify-between font-medium">
-            <span>Monthly Total</span>
+            <span>Total</span>
             <span>${newMonthlyTotal.toFixed(2)}</span>
           </div>
+          <div className="text-xs text-gray-500 text-right">per month</div>
         </div>
       </div>
     </TabsContent>
@@ -122,7 +119,7 @@ const DesktopPlanSummary = ({
     {/* Current Plan */}
     <div className="space-y-4">
       <div>
-        <div className="font-medium mb-2">Current Plan</div>
+        <div className="text-lg font-semibold mb-2">Current Plan</div>
         <div className="space-y-1">
           <div className="flex justify-between">
             <span>Base rate</span>
@@ -148,12 +145,13 @@ const DesktopPlanSummary = ({
           </div>
         </div>
       </div>
-      <div className="space-y-2">
-        <Separator />
+      <Separator />
+      <div>
         <div className="flex justify-between font-medium">
-          <span>Monthly Total</span>
+          <span>Total</span>
           <span>${currentMonthlyTotal.toFixed(2)}</span>
         </div>
+        <div className="text-xs text-gray-500 text-right">per month</div>
       </div>
     </div>
 
@@ -163,7 +161,7 @@ const DesktopPlanSummary = ({
     {/* New Plan */}
     <div className="space-y-4">
       <div>
-        <div className="font-medium mb-2">New Plan</div>
+        <div className="text-lg font-semibold mb-2">New Plan</div>
         <div className="space-y-1">
           <div className="flex justify-between">
             <span>Base rate</span>
@@ -183,10 +181,7 @@ const DesktopPlanSummary = ({
           <div>
             <span>Overage</span>
             <div className="text-xs text-gray-500">
-              {preview.overageCredits.toLocaleString()} credits
-              {preview.newOverageAmount === 0 && (
-                <span className="text-green-600"> (included)</span>
-              )}
+              {preview.newOverageAmount.toLocaleString()} credits
             </div>
           </div>
           <div className="text-right">
@@ -197,12 +192,13 @@ const DesktopPlanSummary = ({
           </div>
         </div>
       </div>
-      <div className="space-y-2">
-        <Separator />
+      <Separator />
+      <div>
         <div className="flex justify-between font-medium">
-          <span>Monthly Total</span>
+          <span>Total</span>
           <span>${newMonthlyTotal.toFixed(2)}</span>
         </div>
+        <div className="text-xs text-gray-500 text-right">per month</div>
       </div>
     </div>
   </div>
@@ -211,10 +207,7 @@ const DesktopPlanSummary = ({
 export const NewPlanSummary = ({
   preview,
   targetPlan,
-}: Omit<
-  PlanSummaryProps,
-  'currentMonthlyTotal' | 'newMonthlyTotal' | 'monthlySavings'
->) => {
+}: Omit<PlanSummaryProps, 'currentMonthlyTotal' | 'newMonthlyTotal'>) => {
   const isMobile = useIsMobile()
   const currentMonthlyTotal =
     preview.currentMonthlyRate + preview.currentOverageAmount
@@ -224,7 +217,7 @@ export const NewPlanSummary = ({
   if (!preview.overageCredits) return null
 
   return (
-    <>
+    <div className="space-y-4">
       {monthlySavings > 0 && (
         <div className={'p-3 bg-green-50 dark:bg-green-900/20 rounded-lg'}>
           <div className="text-sm text-green-600 dark:text-green-400">
@@ -232,6 +225,14 @@ export const NewPlanSummary = ({
           </div>
         </div>
       )}
+
+      <div className="text-sm">
+        You've used{' '}
+        <span className="font-medium">
+          {preview.creditsUsed.toLocaleString()} credits
+        </span>{' '}
+        during this billing period so far.
+      </div>
 
       <div
         className={cn(
@@ -255,6 +256,6 @@ export const NewPlanSummary = ({
           />
         )}
       </div>
-    </>
+    </div>
   )
 }

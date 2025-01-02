@@ -8,7 +8,7 @@ interface BillingAdjustmentDetailsProps {
   targetPlan: PlanName
 }
 
-export const BillingAdjustmentDetails = ({
+export const BillingAdjustments = ({
   preview,
   targetPlan,
 }: BillingAdjustmentDetailsProps) => {

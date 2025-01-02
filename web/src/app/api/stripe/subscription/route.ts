@@ -217,6 +217,9 @@ export const GET = async (request: Request) => {
       )
       const totalQuota = baseQuota + referralCredits
 
+      // Calculate overage based on current quota
+      const overageCredits = Math.max(0, creditsUsed - totalQuota)
+
       // Get the new plan's credit limit
       const newPlanLimit =
         CREDITS_USAGE_LIMITS[targetPlan === 'Pro' ? 'PRO' : 'MOAR_PRO']
@@ -260,7 +263,8 @@ export const GET = async (request: Request) => {
             (24 * 60 * 60)
         ),
         prorationDate: currentSubscription.current_period_end,
-        overageCredits: currentOverageCredits,
+        overageCredits,
+        creditsUsed,
         currentOverageRate,
         newOverageRate,
         newOverageAmount,

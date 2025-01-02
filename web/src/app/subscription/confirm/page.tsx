@@ -11,7 +11,7 @@ import { handleCreateCheckoutSession } from '@/lib/stripe'
 import { PlanName, SubscriptionPreviewResponse } from 'common/src/types/plan'
 import { match, P } from 'ts-pattern'
 import { NewPlanSummary } from './components/new-plan-summary'
-import { BillingAdjustmentDetails } from './components/billing-adjustment-details'
+import { BillingAdjustments } from './components/billing-adjustments'
 
 type MatchState = {
   targetPlan: PlanName | null
@@ -88,7 +88,7 @@ const ConfirmSubscriptionPage = () => {
           <h2 className="text-xl font-bold mb-4">New Plan Summary</h2>
           <div className="space-y-4">
             <NewPlanSummary preview={preview} targetPlan={targetPlan} />
-            <BillingAdjustmentDetails
+            <BillingAdjustments
               preview={preview}
               targetPlan={targetPlan}
             />

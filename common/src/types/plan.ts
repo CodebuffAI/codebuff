@@ -29,6 +29,7 @@ export interface SubscriptionPreviewResponse {
   currentOverageRate: number
   newOverageRate: number
   currentQuota: number
+  creditsUsed: number
 }
 
 // Convert UsageLimits enum to plan name
