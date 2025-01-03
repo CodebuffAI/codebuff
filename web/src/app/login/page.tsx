@@ -1,6 +1,5 @@
 'use client'
 
-import { BackgroundBeams } from '@/components/ui/background-beams'
 import { useSearchParams } from 'next/navigation'
 import {
   Card,

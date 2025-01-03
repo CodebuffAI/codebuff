@@ -1,12 +1,12 @@
 import { Button } from '@/components/ui/button'
 import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
-import { LoadingDots } from '@/components/ui/loading-dots'
 import Link from 'next/link'
 import { env } from '@/env.mjs'
 import { useRouter } from 'next/navigation'
 import { cn, changeOrUpgrade } from '@/lib/utils'
 import { UsageLimits, PLAN_CONFIGS } from 'common/constants'
 import { capitalize } from 'common/util/string'
+import { Icons } from '../icons'
 
 type PricingCardFooterProps = {
   planName: UsageLimits
@@ -65,7 +65,7 @@ export const PricingCardFooter = ({
           disabled={isLoading}
         >
           {isLoading ? (
-            <LoadingDots />
+            <Icons.loader className="mr-2 size-4 animate-spin" />
           ) : (
             <p>{capitalize(changeOrUpgrade(currentPlan, planName))}</p>
           )}

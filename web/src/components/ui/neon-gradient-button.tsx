@@ -1,9 +1,10 @@
-"use client";
+'use client'
 
 import { ButtonHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
-interface NeonGradientButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface NeonGradientButtonProps
+  extends ButtonHTMLAttributes<HTMLButtonElement> {
   neonColors?: {
     firstColor: string
     secondColor: string
@@ -17,13 +18,15 @@ export const NeonGradientButton = ({
     firstColor: '#ff00aa',
     secondColor: '#00FFF1',
   },
+  disabled,
   ...props
 }: NeonGradientButtonProps) => {
   return (
     <button
       className={cn(
         'relative z-10 rounded-[var(--border-radius)] inline-block',
-        className
+        className,
+        disabled ? 'cursor-not-allowed' : 'cursor-pointer'
       )}
       style={
         {
@@ -33,6 +36,7 @@ export const NeonGradientButton = ({
           '--neon-second-color': neonColors.secondColor,
         } as React.CSSProperties
       }
+      disabled={disabled}
       {...props}
     >
       <div

@@ -21,6 +21,7 @@ interface PlanSummaryProps {
 
 const MobilePlanSummary = ({
   preview,
+  currentPlan,
   targetPlan,
   currentMonthlyTotal,
   newMonthlyTotal,
@@ -47,13 +48,21 @@ const MobilePlanSummary = ({
             <div>
               <span>Overage</span>
               <div className="text-xs text-gray-500">
-                {preview.overageCredits.toLocaleString()} credits
+                {currentPlan === UsageLimits.FREE ? (
+                  <div>No overage allowed</div>
+                ) : (
+                  <div>
+                    {preview.overageCredits.toLocaleString()} credits over quota
+                  </div>
+                )}
               </div>
             </div>
             <div className="text-right">
               <div>${preview.currentOverageAmount.toFixed(2)}</div>
               <div className="text-xs text-gray-500">
-                ${preview.currentOverageRate.toFixed(2)} per 100
+                {preview.currentOverageRate
+                  ? `${preview.currentOverageRate.toFixed(2)} per 100`
+                  : `--`}
               </div>
             </div>
           </div>
@@ -79,10 +88,7 @@ const MobilePlanSummary = ({
             <div className="flex justify-between text-xs text-gray-500">
               <span>Includes</span>
               <span>
-                {CREDITS_USAGE_LIMITS[
-                  targetPlan === UsageLimits.PRO ? 'PRO' : 'MOAR_PRO'
-                ].toLocaleString()}{' '}
-                credits
+                {CREDITS_USAGE_LIMITS[targetPlan].toLocaleString()} credits
               </span>
             </div>
           </div>
@@ -90,7 +96,13 @@ const MobilePlanSummary = ({
             <div>
               <span>Overage</span>
               <div className="text-xs text-gray-500">
-                {preview.overageCredits.toLocaleString()} credits
+                {targetPlan === UsageLimits.FREE ? (
+                  <div>No overage allowed</div>
+                ) : (
+                  <div>
+                    {preview.overageCredits.toLocaleString()} credits over quota
+                  </div>
+                )}
               </div>
             </div>
             <div className="text-right">
@@ -140,13 +152,21 @@ const DesktopPlanSummary = ({
           <div>
             <span>Overage</span>
             <div className="text-xs text-gray-500">
-              {CREDITS_USAGE_LIMITS[currentPlan].toLocaleString()} credits
+              {currentPlan === UsageLimits.FREE ? (
+                <div>No overage allowed</div>
+              ) : (
+                <div>
+                  {preview.overageCredits.toLocaleString()} credits over quota
+                </div>
+              )}
             </div>
           </div>
           <div className="text-right">
             <div>${preview.currentOverageAmount.toFixed(2)}</div>
             <div className="text-xs text-gray-500">
-              ${PLAN_CONFIGS[currentPlan].overageRate!.toFixed(2)} per 100
+              {PLAN_CONFIGS[currentPlan].overageRate
+                ? `${PLAN_CONFIGS[currentPlan].overageRate.toFixed(2)} per 100`
+                : `--`}
             </div>
           </div>
         </div>
@@ -184,7 +204,13 @@ const DesktopPlanSummary = ({
           <div>
             <span>Overage</span>
             <div className="text-xs text-gray-500">
-              {PLAN_CONFIGS[targetPlan].limit.toLocaleString()} credits
+              {targetPlan === UsageLimits.FREE ? (
+                <div>No overage allowed</div>
+              ) : (
+                <div>
+                  {preview.overageCredits.toLocaleString()} credits over quota
+                </div>
+              )}
             </div>
           </div>
           <div className="text-right">

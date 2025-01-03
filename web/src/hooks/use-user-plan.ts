@@ -6,7 +6,7 @@ export const useUserPlan = (subscriptionId: string | null | undefined) => {
     queryKey: ['userPlan', subscriptionId],
     queryFn: async () => {
       if (!subscriptionId) return
-      const response = await fetch('/api/stripe/subscription?details=basic')
+      const response = await fetch('/api/stripe/subscription')
       if (!response.ok) {
         throw new Error('Failed to fetch subscription details')
       }

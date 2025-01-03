@@ -95,7 +95,7 @@ export type PlanConfig = {
   limit: number
   planName: UsageLimits
   displayName: string
-  monthlyPrice: number | null // null for custom pricing (e.g. Team plan)
+  monthlyPrice: number
   overageRate: number | null // null if no overage allowed
 }
 

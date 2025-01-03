@@ -391,6 +391,30 @@ Important: When modifying or using code from common:
 
 ### API Routes and Types
 
+### API Route Organization and Utilities
+- Split complex API routes into focused endpoints
+- Use descriptive route names that indicate the action being performed
+- Example: Subscription management
+  - `/api/stripe/subscription` - Get current subscription info
+  - `/api/stripe/subscription/change` - Handle subscription changes and upgrades
+  - Each endpoint has a single responsibility
+  - Makes the codebase easier to understand and maintain
+  - Keeps related business logic together
+  - Reduces complexity in individual routes
+- Avoid query parameters for different behaviors
+  - Use separate endpoints instead
+  - Let business logic determine the response
+  - Makes the API more predictable and easier to understand
+
+### Utility Organization
+- Group related utility functions by domain (e.g., stripe-subscription-utils.ts)
+- Keep utilities close to where they're used (e.g., web/src/lib for web-specific utils)
+- Share common utilities between API routes to:
+  - Reduce code duplication
+  - Maintain consistent validation and error handling
+  - Make business logic more maintainable
+
+
 - When typing API responses in frontend components, use types from the corresponding API route file
 - Don't create new types for API responses - reference the source of truth in the route files
 - This ensures type consistency between frontend and backend

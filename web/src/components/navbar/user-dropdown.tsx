@@ -1,10 +1,8 @@
 'use client'
 
-import { useState } from 'react'
 import Image from 'next/image'
 import { Session } from 'next-auth'
 import { signOut } from 'next-auth/react'
-import { handleCreateCheckoutSession } from '@/lib/stripe'
 import { useRouter } from 'next/navigation'
 
 import { Icons } from '@/components/icons'
@@ -19,7 +17,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 export const UserDropdown = ({ session: { user } }: { session: Session }) => {
-  const [isPending, setIsPending] = useState(false)
   const router = useRouter()
 
   return (
@@ -46,7 +43,7 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
           />
           <h2 className="py-2 text-lg font-bold">{user?.name}</h2>
           <Button
-            onClick={() => handleCreateCheckoutSession('Pro')}
+            onClick={() => router.push('/pricing')}
             disabled={user?.subscription_active}
             className="w-64"
           >

@@ -4,10 +4,14 @@ import { eq, sql, SQL } from 'drizzle-orm'
 
 import { env } from '@/env.mjs'
 import { stripeServer } from 'common/src/util/stripe'
-import { getTotalReferralCreditsForCustomer } from '@/lib/stripe-utils'
+import {
+  getPlanFromPriceId,
+  getSubscriptionItemByType,
+  getTotalReferralCreditsForCustomer,
+} from '@/lib/stripe-utils'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { CREDITS_USAGE_LIMITS, UsageLimits } from 'common/constants'
+import { PLAN_CONFIGS, UsageLimits } from 'common/constants'
 import { match, P } from 'ts-pattern'
 import { AuthenticatedQuotaManager } from 'common/billing/quota-manager'
 
@@ -61,12 +65,9 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       case 'customer.subscription.updated': {
         // Determine plan type from subscription items
         const subscription = event.data.object as Stripe.Subscription
-        const priceId = subscription.items.data[0].price.id
-        const usageLimit =
-          priceId === env.STRIPE_PRO_PRICE_ID
-            ? UsageLimits.PRO
-            : UsageLimits.MOAR_PRO
-        await handleSubscriptionChange(subscription, usageLimit)
+        const basePriceId = getSubscriptionItemByType(subscription, 'licensed')
+        const plan = getPlanFromPriceId(basePriceId?.price.id)
+        await handleSubscriptionChange(subscription, plan)
         break
       }
       case 'customer.subscription.deleted':
@@ -126,7 +127,7 @@ async function handleSubscriptionChange(
   // Get quota from Stripe subscription
   const quotaManager = new AuthenticatedQuotaManager()
   const { quota } = await quotaManager.getStripeSubscriptionQuota(user.id)
-  const baseQuota = Math.max(quota, CREDITS_USAGE_LIMITS[usageTier])
+  const baseQuota = Math.max(quota, PLAN_CONFIGS[usageTier].limit)
 
   // Add referral credits
   const referralCredits = await getTotalReferralCreditsForCustomer(customerId)

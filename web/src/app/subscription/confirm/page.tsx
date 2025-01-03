@@ -19,7 +19,8 @@ import { useToast } from '@/components/ui/use-toast'
 import { env } from '@/env.mjs'
 import { changeOrUpgrade } from '@/lib/utils'
 import { capitalize } from 'common/util/string'
-import { LoadingDots } from '@/components/ui/loading-dots'
+import { loadStripe } from '@stripe/stripe-js'
+import { Icons } from '@/components/icons'
 
 const useUpgradeSubscription = () => {
   const router = useRouter()
@@ -27,7 +28,7 @@ const useUpgradeSubscription = () => {
 
   return useMutation({
     mutationFn: async (targetPlan: UsageLimits) => {
-      const response = await fetch('/api/stripe/subscription', {
+      const response = await fetch('/api/stripe/subscription/change', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,7 +46,21 @@ const useUpgradeSubscription = () => {
 
       return response.json()
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      if (data?.session) {
+        // Server wants us to redirect to Stripe
+        const stripe = await loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+        if (!stripe) {
+          throw new Error('Stripe not loaded')
+        }
+        console.log('Redirecting to Stripe checkout session:', data.session.id)
+
+        await stripe.redirectToCheckout({
+          sessionId: data.session.id,
+        })
+        return
+      }
+
       router.push('/payment-success')
     },
     onError: async (error: any) => {
@@ -93,7 +108,7 @@ const ConfirmSubscriptionPage = () => {
     queryKey: ['subscriptionPreview', targetPlan],
     queryFn: async () => {
       const response = await fetch(
-        `/api/stripe/subscription?targetPlan=${targetPlan}`
+        `/api/stripe/subscription/change?targetPlan=${targetPlan}`
       )
       if (!response.ok) {
         const errorData = await response.json()
@@ -175,11 +190,10 @@ const ConfirmSubscriptionPage = () => {
               }}
               className="font-semibold text-sm"
             >
-              {upgradeMutation.isPending ? (
-                <LoadingDots />
-              ) : (
-                `Confirm ${capitalize(modification)}`
+              {upgradeMutation.isPending && (
+                <Icons.loader className="mr-2 size-4 animate-spin" />
               )}
+              Confirm {capitalize(modification)}
             </NeonGradientButton>
           </CardFooter>
         </>

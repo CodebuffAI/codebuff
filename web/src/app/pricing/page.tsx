@@ -1,21 +1,15 @@
 'use client'
 
-import { Suspense } from 'react'
-import Loading from './loading'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import Link from 'next/link'
-import {
-  PLAN_CONFIGS,
-  CREDITS_USAGE_LIMITS,
-  UsageLimits,
-} from 'common/constants'
+import { PLAN_CONFIGS, UsageLimits } from 'common/constants'
 import { useSession } from 'next-auth/react'
 import { useUserPlan } from '@/hooks/use-user-plan'
 import { PricingCardFooter } from '@/components/pricing/pricing-card-footer'
-import { CurrentPlanBadge } from '@/components/pricing/current-plan-badge'
+
 
 const PricingCards = () => {
   const session = useSession()
@@ -23,8 +17,7 @@ const PricingCards = () => {
     data: currentPlan,
     isLoading,
     isPending,
-  } = useUserPlan(session.data?.user?.stripe_price_id)
-  // const currentPlan = currentPlanLimit ? PLAN_CONFIGS[currentPlanLimit].displayName as PlanName : 'Free' as PlanName
+  } = useUserPlan(session.data?.user?.stripe_customer_id)
 
   const pricingPlans = [
     ...Object.entries(PLAN_CONFIGS)
@@ -62,13 +55,10 @@ const PricingCards = () => {
             ),
           ],
           cardFooterChildren:
-            config.displayName === 'Free' ? (
+            config.planName === UsageLimits.FREE ? (
               <Button
                 className={cn(
-                  'w-full text-white',
-                  currentPlan
-                    ? 'bg-gray-400 pointer-events-none'
-                    : 'bg-blue-600 hover:bg-blue-700 transition-colors'
+                  'w-full text-white bg-blue-600 hover:bg-blue-700 transition-colors'
                 )}
                 asChild
                 disabled={!!currentPlan}
@@ -107,7 +97,6 @@ const PricingCards = () => {
     },
   ]
 
-  console.log('pricingPlans', pricingPlans)
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 container mx-auto">
       {pricingPlans.map((plan, index) => (
@@ -118,10 +107,15 @@ const PricingCards = () => {
           <CardHeader className="min-h-[200px] flex flex-col">
             <h3 className="text-2xl font-bold relative">
               {plan.displayName}
-              <CurrentPlanBadge
-                planName={plan.name as UsageLimits}
-                subscriptionId={session?.data?.user?.stripe_price_id}
-              />
+              {currentPlan === plan.name && (
+                <div className="absolute -right-8 -top-8 transform rotate-12">
+                  <div className="relative">
+                    <div className="relative bg-blue-500 text-white text-xs px-3 py-2 rounded-lg shadow-lg transform hover:rotate-0 transition-transform duration-200">
+                      Current Plan
+                    </div>
+                  </div>
+                </div>
+              )}
             </h3>
             <div className="mt-4 space-y-2">
               <p className="text-3xl font-bold">{plan.price}</p>
