@@ -25,7 +25,7 @@ export const Navbar = async () => {
   const session = await getServerSession(authOptions)
 
   return (
-    <header className="container mx-auto px-4 py-6 flex justify-between items-center relative z-10">
+    <header className="container mx-auto p-4 flex justify-between items-center relative z-10">
       <Link href="/" className="flex items-center space-x-2">
         <Image
           src="/favicon/favicon-16x16.ico"

@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 import Loading from './loading'
 import { PlanName } from 'common/src/types/plan'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import Link from 'next/link'
@@ -48,8 +49,12 @@ const PricingCards = () => {
         cardFooterChildren:
           config.displayName === 'Free' ? (
             <Button
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              className={cn(
+                "w-full text-white",
+                currentPlan ? "bg-gray-400 pointer-events-none" : "bg-blue-600 hover:bg-blue-700 transition-colors"
+              )}
               asChild
+              disabled={!!currentPlan}
             >
               <Link href={'https://www.npmjs.com/package/codebuff'}>
                 Get Started
@@ -84,7 +89,7 @@ const PricingCards = () => {
   ]
 
   return (
-    <div className="grid md:grid-cols-4 gap-8">
+    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 container mx-auto">
       {pricingPlans.map((plan, index) => (
         <Card
           key={index}

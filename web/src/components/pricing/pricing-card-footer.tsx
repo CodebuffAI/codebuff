@@ -1,12 +1,14 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
+import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
 import { LoadingDots } from '@/components/ui/loading-dots'
 import Link from 'next/link'
 import { env } from '@/env.mjs'
 import { useRouter } from 'next/navigation'
-import { cn } from '@/lib/utils'
+import { cn, changeOrUpgrade } from '@/lib/utils'
 import { PlanName } from 'common/src/types/plan'
+import { PLAN_CONFIGS } from 'common/constants'
 
 type PricingCardFooterProps = {
   planName: PlanName
@@ -38,24 +40,37 @@ export const PricingCardFooter = ({
           </p>
         </div>
       )}
-      <Button
-        className={cn(
-          'w-full text-white transition-colors',
-          isCurrentPlan || isLoading
-            ? 'bg-gray-400 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-700'
-        )}
-        onClick={() => {
-          router.push(`/subscription/confirm?plan=${planName}`)
-        }}
-        disabled={isCurrentPlan || isLoading}
-      >
-        {isLoading ? (
-          <LoadingDots />
-        ) : (
-          <>{isCurrentPlan ? <p>You are on this tier!</p> : <>Upgrade</>}</>
-        )}
-      </Button>
+      {isCurrentPlan ? (
+        <NeonGradientButton
+          className="w-full cursor-not-allowed"
+          disabled={true}
+          neonColors={{
+            firstColor: '#FFD700', // Gold
+            secondColor: '#FFA500', // Orange
+          }}
+        >
+          You are on this tier!
+        </NeonGradientButton>
+      ) : (
+        <Button
+          className={cn(
+            'w-full text-white transition-colors',
+            isLoading
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700'
+          )}
+          onClick={() => {
+            router.push(`/subscription/confirm?plan=${planName}`)
+          }}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <LoadingDots />
+          ) : (
+            <p>{changeOrUpgrade(currentPlan, planName)}</p>
+          )}
+        </Button>
+      )}
     </div>
   )
 }

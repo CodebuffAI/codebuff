@@ -1,17 +1,24 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useSession } from 'next-auth/react'
+import { useUserPlan } from '@/hooks/use-user-plan'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { BackgroundBeams } from '@/components/ui/background-beams'
 import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
 import { SkeletonLoading } from '@/components/ui/skeleton-loading'
-import { handleCreateCheckoutSession } from '@/lib/stripe'
+import { useRouter } from 'next/navigation'
 import { PlanName, SubscriptionPreviewResponse } from 'common/src/types/plan'
 import { match, P } from 'ts-pattern'
 import { NewPlanSummary } from './components/new-plan-summary'
 import { BillingAdjustments } from './components/billing-adjustments'
+import { Toaster } from '@/components/ui/toaster'
+import { useToast } from '@/components/ui/use-toast'
+import { env } from '@/env.mjs'
+import { changeOrUpgrade } from '@/lib/utils'
+import { capitalize } from 'common/util/string'
+import { LoadingDots } from '@/components/ui/loading-dots'
 
 type MatchState = {
   targetPlan: PlanName | null
@@ -20,9 +27,68 @@ type MatchState = {
   preview: SubscriptionPreviewResponse | null
 }
 
+const useUpgradeSubscription = () => {
+  const router = useRouter()
+  const { toast } = useToast()
+
+  return useMutation({
+    mutationFn: async (targetPlan: PlanName) => {
+      const response = await fetch('/api/stripe/subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ targetPlan }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(
+          error.message ||
+            `Failed to change subscription. Please reach out to support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}.`
+        )
+      }
+
+      return response.json()
+    },
+    onSuccess: () => {
+      router.push('/payment-success')
+    },
+    onError: async (error: any) => {
+      console.error('Error upgrading subscription:', error)
+
+      // Try to get the error message from the API response
+      let errorMessage = error.message
+      if (error instanceof Error && 'cause' in error) {
+        try {
+          const response = error.cause as Response
+          if (response?.json) {
+            const data = await response.json()
+            errorMessage = data.error?.message || errorMessage
+          }
+        } catch (e) {
+          console.error('Failed to parse error response:', e)
+        }
+      }
+
+      toast({
+        variant: 'destructive',
+        title: `Error updating subscription`,
+        description: errorMessage,
+      })
+    },
+  })
+}
+
 const ConfirmSubscriptionPage = () => {
   const searchParams = useSearchParams()
   const targetPlan = searchParams.get('plan') as PlanName
+  const upgradeMutation = useUpgradeSubscription()
+  const session = useSession()
+  const { data: currentPlan } = useUserPlan(
+    session.data?.user?.stripe_customer_id
+  )
+  const modification = changeOrUpgrade(currentPlan, targetPlan)
 
   const {
     data: preview,
@@ -79,19 +145,22 @@ const ConfirmSubscriptionPage = () => {
     .with({ preview: P.not(P.nullish) }, ({ preview }) => (
       <>
         <CardHeader>
-          <h1 className="text-3xl font-bold">Confirm Your Upgrade</h1>
+          <h1 className="text-3xl font-bold">
+            Confirm Your {capitalize(modification)}
+          </h1>
           <p className="text-gray-500">
-            You're about to upgrade to {targetPlan}
+            You're about to {modification} to {targetPlan}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <h2 className="text-xl font-bold mb-4">New Plan Summary</h2>
           <div className="space-y-4">
-            <NewPlanSummary preview={preview} targetPlan={targetPlan} />
-            <BillingAdjustments
+            <NewPlanSummary
               preview={preview}
               targetPlan={targetPlan}
+              currentPlan={currentPlan}
             />
+            <BillingAdjustments preview={preview} targetPlan={targetPlan} />
           </div>
         </CardContent>
         <CardFooter className="flex justify-between">
@@ -99,14 +168,19 @@ const ConfirmSubscriptionPage = () => {
             Cancel
           </Button>
           <NeonGradientButton
-            onClick={() => handleCreateCheckoutSession(targetPlan)}
+            onClick={() => upgradeMutation.mutate(targetPlan)}
+            disabled={upgradeMutation.isPending}
             neonColors={{
               firstColor: '#4F46E5',
               secondColor: '#06B6D4',
             }}
             className="font-semibold text-sm"
           >
-            Confirm Upgrade
+            {upgradeMutation.isPending ? (
+              <LoadingDots />
+            ) : (
+              `Confirm ${capitalize(modification)}`
+            )}
           </NeonGradientButton>
         </CardFooter>
       </>
@@ -121,8 +195,9 @@ const ConfirmSubscriptionPage = () => {
     ))
 
   return (
-    <main className="container mx-auto px-4 relative z-10">
+    <main className="container mx-auto p-4 relative z-10">
       <Card className="max-w-2xl mx-auto">{content}</Card>
+      <Toaster />
     </main>
   )
 }

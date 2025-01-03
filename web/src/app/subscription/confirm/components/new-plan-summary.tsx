@@ -5,10 +5,11 @@ import { Separator } from '@/components/ui/separator'
 import { CREDITS_USAGE_LIMITS } from 'common/constants'
 import { PlanName, SubscriptionPreviewResponse } from 'common/src/types/plan'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { cn } from '@/lib/utils'
+import { changeOrUpgrade, cn } from '@/lib/utils'
 
 interface PlanSummaryProps {
   preview: SubscriptionPreviewResponse
+  currentPlan: PlanName
   targetPlan: PlanName
   currentMonthlyTotal: number
   newMonthlyTotal: number
@@ -85,7 +86,7 @@ const MobilePlanSummary = ({
             <div>
               <span>Overage</span>
               <div className="text-xs text-gray-500">
-                {preview.newOverageAmount.toLocaleString()} credits
+                {preview.newOverageCredits.toLocaleString()} credits
               </div>
             </div>
             <div className="text-right">
@@ -181,7 +182,7 @@ const DesktopPlanSummary = ({
           <div>
             <span>Overage</span>
             <div className="text-xs text-gray-500">
-              {preview.newOverageAmount.toLocaleString()} credits
+              {preview.newOverageCredits.toLocaleString()} credits
             </div>
           </div>
           <div className="text-right">
@@ -206,6 +207,7 @@ const DesktopPlanSummary = ({
 
 export const NewPlanSummary = ({
   preview,
+  currentPlan,
   targetPlan,
 }: Omit<PlanSummaryProps, 'currentMonthlyTotal' | 'newMonthlyTotal'>) => {
   const isMobile = useIsMobile()
@@ -213,25 +215,18 @@ export const NewPlanSummary = ({
     preview.currentMonthlyRate + preview.currentOverageAmount
   const newMonthlyTotal = preview.newMonthlyRate + preview.newOverageAmount
   const monthlySavings = currentMonthlyTotal - newMonthlyTotal
+  const modification = changeOrUpgrade(currentPlan, targetPlan)
 
   if (!preview.overageCredits) return null
 
   return (
     <div className="space-y-4">
-      {monthlySavings > 0 && (
-        <div className={'p-3 bg-green-50 dark:bg-green-900/20 rounded-lg'}>
-          <div className="text-sm text-green-600 dark:text-green-400">
-            You'll save ${monthlySavings.toFixed(2)} per month
-          </div>
-        </div>
-      )}
-
       <div className="text-sm">
         You've used{' '}
         <span className="font-medium">
           {preview.creditsUsed.toLocaleString()} credits
         </span>{' '}
-        during this billing period so far.
+        during this billing period so far.{' '}
       </div>
 
       <div
@@ -244,6 +239,7 @@ export const NewPlanSummary = ({
           <MobilePlanSummary
             preview={preview}
             targetPlan={targetPlan}
+            currentPlan={currentPlan}
             currentMonthlyTotal={currentMonthlyTotal}
             newMonthlyTotal={newMonthlyTotal}
           />
@@ -251,9 +247,19 @@ export const NewPlanSummary = ({
           <DesktopPlanSummary
             preview={preview}
             targetPlan={targetPlan}
+            currentPlan={currentPlan}
             currentMonthlyTotal={currentMonthlyTotal}
             newMonthlyTotal={newMonthlyTotal}
           />
+        )}
+        {monthlySavings > 0 && (
+          <span className="mt-2 text-sm inline-block">
+            Based on your current usage, you should save about{' '}
+            <div className="text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 inline-block ">
+              ${monthlySavings.toFixed(2)}
+            </div>{' '}
+            per month.
+          </span>
         )}
       </div>
     </div>

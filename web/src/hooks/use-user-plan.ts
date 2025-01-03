@@ -1,7 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { PlanName } from 'common/src/types/plan'
-
 export const useUserPlan = (subscriptionId: string | null | undefined) => {
   return useQuery({
     queryKey: ['userPlan', subscriptionId],

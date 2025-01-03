@@ -15,6 +15,8 @@ import type Stripe from 'stripe'
 import { PlanName, SubscriptionPreviewResponse } from 'common/src/types/plan'
 import { getTotalReferralCreditsForCustomer } from '@/lib/stripe-utils'
 import { match, P } from 'ts-pattern'
+import { changeOrUpgrade, type PlanChangeOperation } from '@/lib/utils'
+import { withRetry } from 'common/src/util/promise'
 
 type PlanPriceIds = {
   priceId: string
@@ -72,6 +74,55 @@ async function validatePlanChange(
 
   const currentSubscription = await getCurrentSubscription(customerId)
   if (currentSubscription) {
+    // Check subscription status
+    if (currentSubscription.status !== 'active') {
+      return {
+        error: {
+          code: 'invalid-subscription-state',
+          message: match(currentSubscription.status)
+            .with(
+              'past_due',
+              () =>
+                'Your subscription has past due payments. Please update your payment method.'
+            )
+            .with(
+              'canceled',
+              () =>
+                'Your subscription has been canceled. Please reactivate your subscription first.'
+            )
+            .with(
+              'incomplete',
+              () =>
+                'Your subscription setup is incomplete. Please complete the setup first.'
+            )
+            .with(
+              'incomplete_expired',
+              () =>
+                'Your previous subscription attempt expired. Please try again.'
+            )
+            .otherwise(
+              () => 'Your subscription is not in an active state for upgrades.'
+            ),
+        },
+        status: 400,
+      }
+    }
+
+    // Check for trial periods
+    if (currentSubscription.trial_end) {
+      const trialEnd = new Date(currentSubscription.trial_end * 1000)
+      if (trialEnd > new Date()) {
+        return {
+          error: {
+            code: 'trial-active',
+            message:
+              'Please wait until your trial period ends before changing plans.',
+          },
+          status: 400,
+        }
+      }
+    }
+
     const { priceId, overagePriceId } = getPlanPriceIds(targetPlan as string)
     const licensedItem = getSubscriptionItemByType(
       currentSubscription,
@@ -251,7 +302,7 @@ export const GET = async (request: Request) => {
             // Get current usage, quota, and referral credits
             const quotaManager = new AuthenticatedQuotaManager()
             const { creditsUsed, quota: baseQuota } =
-              await quotaManager.checkQuota(session.user?.id ?? '')
+              await quotaManager.checkQuota(user.id ?? '')
 
             // Add referral credits to quota
             const referralCredits = await getTotalReferralCreditsForCustomer(
@@ -265,9 +316,6 @@ export const GET = async (request: Request) => {
             // Get the new plan's credit limit
             const newPlanLimit =
               CREDITS_USAGE_LIMITS[targetPlan === 'Pro' ? 'PRO' : 'MOAR_PRO']
-
-            // Calculate current overage based on current quota
-            const currentOverageCredits = Math.max(0, creditsUsed - totalQuota)
 
             // Calculate new overage based on new plan's quota
             const newOverageCredits = Math.max(0, creditsUsed - newPlanLimit)
@@ -289,9 +337,8 @@ export const GET = async (request: Request) => {
 
             // Calculate overage amo–unts using respective credits and rates
             const currentOverageAmount =
-              Math.ceil(currentOverageCredits / 100) * currentOverageRate
-            const newOverageAmount =
-              Math.ceil(newOverageCredits / 100) * newOverageRate
+              (overageCredits / 100) * currentOverageRate
+            const newOverageAmount = (newOverageCredits / 100) * newOverageRate
 
             const previewResponse: SubscriptionPreviewResponse = {
               currentMonthlyRate: licensedItem.price.unit_amount
@@ -306,6 +353,7 @@ export const GET = async (request: Request) => {
               ),
               prorationDate: currentSubscription.current_period_end,
               overageCredits,
+              newOverageCredits,
               creditsUsed,
               currentOverageRate,
               newOverageRate,
@@ -422,33 +470,32 @@ export const POST = async (request: Request) => {
 
     console.log('Starting subscription update to', targetPlan)
 
-    // Get total usage under current plan before making any changes
+    const { priceId, overagePriceId } = getPlanPriceIds(targetPlan)
     const licensedItem = getSubscriptionItemByType(
       currentSubscription,
       'licensed'
     )
-    console.log('Fetching current metered usage...')
     const meteredItem = getSubscriptionItemByType(
       currentSubscription,
       'metered'
     )
+
     if (!licensedItem || !meteredItem) {
       throw new Error('No metered subscription item found')
     }
 
-    const usage = await stripeServer.subscriptionItems.listUsageRecordSummaries(
-      meteredItem.id
-    )
+    // Determine if this is a downgrade by comparing plan prices
+    const currentPlanName =
+      currentSubscription.items.data.find(
+        (item) => item.price.recurring?.usage_type === 'licensed'
+      )?.price.id === env.STRIPE_PRO_PRICE_ID
+        ? 'Pro'
+        : 'Moar Pro'
 
-    const totalUsage = usage.data.reduce(
-      (sum, record) => sum + record.total_usage,
-      0
-    )
-    console.log('Current total usage:', totalUsage)
+    const isDowngrade =
+      changeOrUpgrade(currentPlanName, targetPlan) === 'change'
 
-    const { priceId, overagePriceId } = getPlanPriceIds(targetPlan)
-
-    console.log('Updating subscription items...')
+    console.log(`${isDowngrade ? 'Downgrade' : 'Upgrade'} to ${targetPlan}...`)
     // Update subscription items
     const updatedSubscription = await stripeServer.subscriptions.update(
       currentSubscription.id,
@@ -463,13 +510,18 @@ export const POST = async (request: Request) => {
             price: overagePriceId,
           },
         ],
-        proration_behavior: 'always_invoice',
+        proration_behavior: isDowngrade ? 'none' : 'always_invoice',
       }
     )
 
     console.log('Subscription updated successfully')
 
     // Record the usage under the new plan
+    const quotaManager = new AuthenticatedQuotaManager()
+    const { creditsUsed: totalUsage } = await quotaManager.checkQuota(
+      session.user.id
+    )
+    console.log('Current total usage:', totalUsage)
     if (totalUsage > 0) {
       console.log('Recording existing usage under new plan...')
       const newMeteredItem = getSubscriptionItemByType(
@@ -483,15 +535,54 @@ export const POST = async (request: Request) => {
       }
 
       console.log('Creating usage record for', totalUsage, 'credits')
-      await stripeServer.subscriptionItems.createUsageRecord(
-        newMeteredItem.id,
-        {
-          quantity: totalUsage,
+
+      try {
+        await stripeServer.billing.meterEvents.create({
+          event_name: 'credits',
           timestamp: Math.floor(new Date().getTime() / 1000),
-          action: 'increment',
-        }
-      )
-      console.log('Usage record created successfully')
+          payload: {
+            stripe_customer_id: session.user.stripe_customer_id,
+            value: totalUsage.toString(),
+          },
+        })
+        console.log('Usage record created successfully')
+      } catch (error) {
+        // Log detailed error context for manual investigation
+        console.error('Failed to record usage:', {
+          // User context
+          userId: session.user.id,
+          customerId: session.user.stripe_customer_id,
+
+          // Subscription context
+          subscriptionId: updatedSubscription.id,
+          oldPlanPriceId: licensedItem.price.id,
+          newPlanPriceId: priceId,
+
+          // Usage context
+          totalUsage,
+          timestamp: new Date().toISOString(),
+          billingPeriodStart: new Date(
+            updatedSubscription.current_period_start * 1000
+          ).toISOString(),
+          billingPeriodEnd: new Date(
+            updatedSubscription.current_period_end * 1000
+          ).toISOString(),
+
+          // Error details
+          error: {
+            message: error instanceof Error ? error.message : String(error),
+            type:
+              error instanceof Error ? error.constructor.name : typeof error,
+            raw: error,
+          },
+        })
+
+        throw new Error(
+          'Failed to record usage. Our team has been notified and will ensure your usage is properly recorded. Please reach out to support at ' +
+            env.NEXT_PUBLIC_SUPPORT_EMAIL +
+            ' if you have any concerns.'
+        )
+      }
     }
 
     console.log('Subscription change completed successfully')

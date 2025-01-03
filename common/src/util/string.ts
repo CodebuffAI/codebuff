@@ -96,6 +96,11 @@ export const pluralize = (count: number, word: string) => {
  * Safely replaces all occurrences of a search string with a replacement string,
  * escaping special replacement patterns (like $) in the replacement string.
  */
+export const capitalize = (str: string) => {
+  if (!str) return str
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
 export const safeReplace = (
   content: string,
   searchStr: string,

@@ -188,36 +188,28 @@ export const promptClaudeStream = async function* (
     ignoreDatabaseAndHelicone?: boolean
   }
 ): AsyncGenerator<string, void, unknown> {
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      yield* promptClaudeStreamWithoutRetry(messages, options)
-      return
-    } catch (error) {
-      // Only retry on connection errors (e.g. internal server error, overloaded, etc.)
-      if (error instanceof APIConnectionError) {
-        logger.error(
-          { error, attempt },
-          'Claude API connection error, retrying...'
-        )
-
-        if (attempt < MAX_RETRIES - 1) {
-          // Exponential backoff
-          const delayMs = INITIAL_RETRY_DELAY * Math.pow(2, attempt)
-          await sleep(delayMs)
-        }
-      } else {
-        // For other types of errors, throw immediately
-        const parsedError = error as APIError
-        throw new Error(
-          `Anthropic API error: ${parsedError.message}. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
-        )
+  try {
+    await withRetry(
+      async () => {
+        yield* promptClaudeStreamWithoutRetry(messages, options)
+      },
+      {
+        onRetry: (error, attempt) => {
+          logger.error(
+            { error, attempt },
+            'Claude API connection error, retrying...'
+          )
+        },
+        shouldRetry: (error) => error instanceof APIConnectionError,
       }
-    }
+    )
+  } catch (error) {
+    // For other types of errors, throw immediately
+    const parsedError = error as APIError
+    throw new Error(
+      `Anthropic API error: ${parsedError.message}. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+    )
   }
-
-  throw new Error(
-    `Sorry, system's a bit overwhelmed. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
-  )
 }
 
 export const promptClaude = async (

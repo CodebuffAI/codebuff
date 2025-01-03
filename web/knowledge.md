@@ -366,6 +366,20 @@ After making changes to the web application code:
 
 This ensures type safety is maintained across the application.
 
+Important: When modifying or using code from common:
+- Always build common package first before running web type checking
+- Changes to common won't be reflected in web until common is rebuilt
+- This applies to new exports, type changes, and utility functions
+
+## UI Patterns
+
+### Plan Change Terminology
+- Use consistent wording for plan changes throughout the app
+- "Upgrade" when target plan price is higher than current plan
+- "Change" when target plan price is lower or equal
+- Use getPlanChangeType utility from lib/utils.ts to determine which term to use
+- Apply this consistently in buttons, headers, and error messages
+
 ## Type Management
 
 ### API Routes and Types

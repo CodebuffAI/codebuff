@@ -86,14 +86,40 @@ Important: When migrating subscriptions to new prices:
 - Don't reset usage data during price changes
 - Ensure fair billing by carrying forward accumulated usage
 - Usage data should persist across subscription updates
-- Use the dedicated credits meter ID (mtr_test_61RUgv7ouoAAMKoE341KrNS6SjmqWUXA) when tracking usage
-
-When preserving usage data during migrations:
-
-- Use billing.meters.listEventSummaries to get historical usage
+- Use the dedicated credits meter ID (mtr_test_61RUgv7ouoAAMKoE341KrNS6SjmqWUXA) when tracking usageWhen preserving usage data during migrations:
+- Use billing.meters.event_summaries endpoint to get historical usage
 - Calculate usage from start of current invoice period
 - This ensures accurate billing across subscription changes
 - Important: Record usage before updating subscription items to prevent gaps in billing
+
+Important: When recording usage:
+- Use billing.meterEvents.create instead of subscriptionItems.createUsageRecord
+- The legacy usage record system is being deprecated
+- Example:
+  ```typescript
+  await stripeServer.billing.meterEvents.create({
+    event_name: 'credits',
+    timestamp: Math.floor(new Date().getTime() / 1000),
+    payload: {
+      stripe_customer_id: customerId,
+      value: totalUsage.toString(),
+    },
+  })
+  ```
+- When getting usage totals:
+  ```typescript
+### Usage Tracking
+
+Important: When tracking usage:
+- Use QuotaManager to get usage data instead of querying Stripe directly
+- QuotaManager provides more accurate data as it includes all usage from our database
+- Stripe usage records may lag behind our actual usage data
+- Example:
+  ```typescript
+  const quotaManager = new AuthenticatedQuotaManager()
+  const { creditsUsed } = await quotaManager.checkQuota(userId)
+  ```
+  ```
 - When preserving usage data during migrations:
   - Use billing.meters.event_summaries endpoint to get historical usage
   - Calculate usage from start of current invoice period
@@ -187,6 +213,27 @@ Important: When calculating prorated charges:
 - Convert from cents to dollars by dividing by 100
 - Use licensed item (not array index) for base price calculations
 
+### Plan Change Behavior
+
+Important: When determining upgrade vs downgrade:
+- Never parse price IDs or amounts from Stripe - these are just identifiers
+- Instead, use PLAN_CONFIGS to compare monthly prices between plans
+- Map Stripe price IDs to plan names, then compare plan configs:
+  ```typescript
+  const currentPlanName = priceId === env.STRIPE_PRO_PRICE_ID ? 'Pro' : 'Moar Pro'
+  const isDowngrade = changeOrUpgrade(currentPlanName, targetPlan) === 'change'
+  ```
+
+Important: Different proration behavior for upgrades vs downgrades:
+- For upgrades: Use `proration_behavior: 'always_invoice'`
+  - Takes effect immediately
+  - Charges prorated amount for new plan
+  - Credits unused time on old plan
+- For downgrades: Use `proration_behavior: 'none'`
+  - Changes take effect at end of billing period
+  - No immediate refunds
+  - Prevents upgrade/downgrade cycling for partial period credits
+
 Important: When handling multiple subscription tiers:
 - Each subscription tier needs both a base price ID and an overage price ID
 - When updating subscriptions, both price IDs must be updated together
@@ -254,9 +301,16 @@ Critical considerations when handling subscription updates:
    - Handle partial period credits correctly
 
 4. Error Recovery:
-   - Implement retry logic for usage recording
-   - Log failed migrations for manual review
-   - Consider automated recovery procedures
+   - Do not retry usage recording failures - these need manual investigation
+   - Log detailed context for failed operations to enable manual fixes:
+     - User context (IDs, customer info)
+     - Subscription context (old/new IDs, plan changes)
+     - Usage context (amounts, billing period dates)
+     - Error details (message, type, raw error)
+   - Show user-friendly messages that:
+     - Acknowledge the error is tracked
+     - Provide support contact information
+     - Assure users the team will handle it
 
 ## Client-Side Integration
 
@@ -370,3 +424,13 @@ Important: Some customers are on legacy or special pricing tiers that require ma
 - Do not include these customers in automated price update scripts
 - Always verify subscription price before automated updates
 - When writing migration scripts, add price checks to exclude special tiers
+
+### Plan Name Mapping
+
+When working with plan names:
+- Display names (PlanName): 'Free', 'Pro', 'Moar Pro'
+- Internal names (UsageLimits): 'FREE', 'PRO', 'MOAR_PRO'
+- Always map between them when accessing PLAN_CONFIGS:
+  ```typescript
+  const config = PLAN_CONFIGS[planName === 'Free' ? 'FREE' : planName === 'Pro' ? 'PRO' : 'MOAR_PRO']
+  ```

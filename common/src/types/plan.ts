@@ -24,6 +24,7 @@ export interface SubscriptionPreviewResponse {
 
   // Overage details
   overageCredits: number
+  newOverageCredits: number
   currentOverageAmount: number
   newOverageAmount: number
   currentOverageRate: number
