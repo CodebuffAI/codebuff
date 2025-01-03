@@ -14,6 +14,7 @@ import { AuthenticatedQuotaManager } from 'common/billing/quota-manager'
 import type Stripe from 'stripe'
 import { PlanName, SubscriptionPreviewResponse } from 'common/src/types/plan'
 import { getTotalReferralCreditsForCustomer } from '@/lib/stripe-utils'
+import { match, P } from 'ts-pattern'
 
 type PlanPriceIds = {
   priceId: string
@@ -140,177 +141,241 @@ export const GET = async (request: Request) => {
 
   const { searchParams } = new URL(request.url)
   const targetPlan = searchParams.get('targetPlan')
+  const details = searchParams.get('details')
+  const user = session.user
 
-  const validationResult = await validatePlanChange(
+  return match({
     targetPlan,
-    session.user.stripe_customer_id
-  )
-  if ('error' in validationResult) {
-    return NextResponse.json(validationResult.error, {
-      status: validationResult.status,
+    details,
+  })
+    .with({ details: 'basic' }, async () => {
+      try {
+        const subscription = await getCurrentSubscription(
+          user.stripe_customer_id
+        )
+        const basePriceItem = subscription?.items.data.find(
+          (item) => item.price.recurring?.usage_type === 'licensed'
+        )
+
+        let currentPlan: PlanName | null = null
+        if (basePriceItem?.price.id === env.STRIPE_PRO_PRICE_ID) {
+          currentPlan = 'Pro'
+        } else if (basePriceItem?.price.id === env.STRIPE_MOAR_PRO_PRICE_ID) {
+          currentPlan = 'Moar Pro'
+        }
+
+        return NextResponse.json({ currentPlan })
+      } catch (error) {
+        console.error('Error fetching subscription:', error)
+        return NextResponse.json(
+          {
+            error: {
+              code: 'stripe-error',
+              message: 'Failed to fetch subscription details',
+            },
+          },
+          { status: 500 }
+        )
+      }
     })
-  }
-  const { planConfig } = validationResult
-  if (!planConfig.monthlyPrice) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'invalid-plan',
-          message: 'Invalid target plan',
-        },
-      },
-      { status: 400 }
-    )
-  }
+    .with(
+      { details: 'full', targetPlan: P.string },
+      { details: P.nullish, targetPlan: P.string },
+      async ({ targetPlan }) => {
+        const validationResult = await validatePlanChange(
+          targetPlan,
+          user.stripe_customer_id
+        )
+        if ('error' in validationResult) {
+          return NextResponse.json(validationResult.error, {
+            status: validationResult.status,
+          })
+        }
+        const { planConfig } = validationResult
+        if (!planConfig.monthlyPrice) {
+          return NextResponse.json(
+            {
+              error: {
+                code: 'invalid-plan',
+                message: 'Invalid target plan',
+              },
+            },
+            { status: 400 }
+          )
+        }
 
-  try {
-    const currentSubscription = await getCurrentSubscription(
-      session.user.stripe_customer_id
-    )
-    const { priceId, overagePriceId } = getPlanPriceIds(targetPlan as string)
+        try {
+          const currentSubscription = await getCurrentSubscription(
+            user.stripe_customer_id
+          )
+          const { priceId, overagePriceId } = getPlanPriceIds(targetPlan)
 
-    if (currentSubscription) {
-      const licensedItem = getSubscriptionItemByType(
-        currentSubscription,
-        'licensed'
-      )
-      const meteredItem = getSubscriptionItemByType(
-        currentSubscription,
-        'metered'
-      )
+          if (currentSubscription) {
+            const licensedItem = getSubscriptionItemByType(
+              currentSubscription,
+              'licensed'
+            )
+            const meteredItem = getSubscriptionItemByType(
+              currentSubscription,
+              'metered'
+            )
 
-      if (!licensedItem) {
-        throw new Error('No licensed subscription item found')
+            if (!licensedItem) {
+              throw new Error('No licensed subscription item found')
+            }
+
+            if (!meteredItem) {
+              throw new Error('No metered subscription item found')
+            }
+
+            const items = [
+              {
+                id: licensedItem.id,
+                price: priceId,
+              },
+              {
+                id: meteredItem.id,
+                price: overagePriceId,
+              },
+            ]
+
+            const preview = await stripeServer.invoices.retrieveUpcoming({
+              customer: user.stripe_customer_id,
+              subscription: currentSubscription.id,
+              subscription_items: items,
+              subscription_proration_date: Math.floor(
+                new Date().getTime() / 1000
+              ),
+            })
+
+            // Get current usage, quota, and referral credits
+            const quotaManager = new AuthenticatedQuotaManager()
+            const { creditsUsed, quota: baseQuota } =
+              await quotaManager.checkQuota(session.user?.id ?? '')
+
+            // Add referral credits to quota
+            const referralCredits = await getTotalReferralCreditsForCustomer(
+              user.stripe_customer_id
+            )
+            const totalQuota = baseQuota + referralCredits
+
+            // Calculate overage based on current quota
+            const overageCredits = Math.max(0, creditsUsed - totalQuota)
+
+            // Get the new plan's credit limit
+            const newPlanLimit =
+              CREDITS_USAGE_LIMITS[targetPlan === 'Pro' ? 'PRO' : 'MOAR_PRO']
+
+            // Calculate current overage based on current quota
+            const currentOverageCredits = Math.max(0, creditsUsed - totalQuota)
+
+            // Calculate new overage based on new plan's quota
+            const newOverageCredits = Math.max(0, creditsUsed - newPlanLimit)
+
+            // Get current overage rate from subscription's metered price
+            const currentMeteredItem = getSubscriptionItemByType(
+              currentSubscription,
+              'metered'
+            )
+            if (!currentMeteredItem) {
+              throw new Error('No metered subscription item found')
+            }
+            const currentOverageRate =
+              currentMeteredItem.price.id === env.STRIPE_PRO_OVERAGE_PRICE_ID
+                ? OVERAGE_RATE_PRO
+                : OVERAGE_RATE_MOAR_PRO
+            const newOverageRate =
+              targetPlan === 'Pro' ? OVERAGE_RATE_PRO : OVERAGE_RATE_MOAR_PRO
+
+            // Calculate overage amo–unts using respective credits and rates
+            const currentOverageAmount =
+              Math.ceil(currentOverageCredits / 100) * currentOverageRate
+            const newOverageAmount =
+              Math.ceil(newOverageCredits / 100) * newOverageRate
+
+            const previewResponse: SubscriptionPreviewResponse = {
+              currentMonthlyRate: licensedItem.price.unit_amount
+                ? licensedItem.price.unit_amount / 100
+                : 0,
+              newMonthlyRate: planConfig.monthlyPrice,
+              currentQuota: totalQuota,
+              daysRemainingInBillingPeriod: Math.ceil(
+                (currentSubscription.current_period_end -
+                  Math.floor(new Date().getTime() / 1000)) /
+                  (24 * 60 * 60)
+              ),
+              prorationDate: currentSubscription.current_period_end,
+              overageCredits,
+              creditsUsed,
+              currentOverageRate,
+              newOverageRate,
+              newOverageAmount,
+              currentOverageAmount,
+              lineItems: preview.lines.data
+                .filter((d) => d.proration)
+                .map((line) => ({
+                  amount: line.amount / 100,
+                  description: line.description || '',
+                  period: line.period,
+                  proration: line.proration,
+                })),
+            }
+
+            return NextResponse.json(previewResponse)
+          } else {
+            // New subscription - no proration needed
+            const endDate =
+              Math.floor(new Date().getTime() / 1000) +
+              BILLING_PERIOD_DAYS * 24 * 60 * 60
+
+            const response = {
+              currentMonthlyRate: 0,
+              newMonthlyRate: planConfig.monthlyPrice,
+              daysRemainingInBillingPeriod: BILLING_PERIOD_DAYS,
+              prorationAmount: planConfig.monthlyPrice,
+              prorationDate: endDate,
+            }
+
+            return NextResponse.json(response)
+          }
+        } catch (error: any) {
+          console.error('Error fetching subscription preview:', error)
+          return NextResponse.json(
+            {
+              error: {
+                code: error.code || 'stripe-error',
+                message:
+                  error.message || 'Failed to fetch subscription preview',
+              },
+            },
+            { status: error.statusCode || 500 }
+          )
+        }
       }
-
-      if (!meteredItem) {
-        throw new Error('No metered subscription item found')
-      }
-
-      const items = [
+    )
+    .with({ details: P.string }, () => {
+      return NextResponse.json(
         {
-          id: licensedItem.id,
-          price: priceId,
+          error: {
+            code: 'invalid-plan',
+            message: 'details query parameter can only be "basic" or "full"',
+          },
         },
+        { status: 400 }
+      )
+    })
+    .with({ targetPlan: P.nullish }, { targetPlan: P.string }, () => {
+      return NextResponse.json(
         {
-          id: meteredItem.id,
-          price: overagePriceId,
+          error: {
+            code: 'invalid-plan',
+            message: 'target plan query parameter is invalid',
+          },
         },
-      ]
-
-      const preview = await stripeServer.invoices.retrieveUpcoming({
-        customer: session.user.stripe_customer_id,
-        subscription: currentSubscription.id,
-        subscription_items: items,
-        subscription_proration_date: Math.floor(new Date().getTime() / 1000),
-      })
-
-      // Get current usage, quota, and referral credits
-      const quotaManager = new AuthenticatedQuotaManager()
-      const { creditsUsed, quota: baseQuota } = await quotaManager.checkQuota(
-        session.user.id
+        { status: 400 }
       )
-
-      // Add referral credits to quota
-      const referralCredits = await getTotalReferralCreditsForCustomer(
-        session.user.stripe_customer_id
-      )
-      const totalQuota = baseQuota + referralCredits
-
-      // Calculate overage based on current quota
-      const overageCredits = Math.max(0, creditsUsed - totalQuota)
-
-      // Get the new plan's credit limit
-      const newPlanLimit =
-        CREDITS_USAGE_LIMITS[targetPlan === 'Pro' ? 'PRO' : 'MOAR_PRO']
-
-      // Calculate current overage based on current quota
-      const currentOverageCredits = Math.max(0, creditsUsed - totalQuota)
-
-      // Calculate new overage based on new plan's quota
-      const newOverageCredits = Math.max(0, creditsUsed - newPlanLimit)
-
-      // Get current overage rate from subscription's metered price
-      const currentMeteredItem = getSubscriptionItemByType(
-        currentSubscription,
-        'metered'
-      )
-      if (!currentMeteredItem) {
-        throw new Error('No metered subscription item found')
-      }
-      const currentOverageRate =
-        currentMeteredItem.price.id === env.STRIPE_PRO_OVERAGE_PRICE_ID
-          ? OVERAGE_RATE_PRO
-          : OVERAGE_RATE_MOAR_PRO
-      const newOverageRate =
-        targetPlan === 'Pro' ? OVERAGE_RATE_PRO : OVERAGE_RATE_MOAR_PRO
-
-      // Calculate overage amounts using respective credits and rates
-      const currentOverageAmount =
-        Math.ceil(currentOverageCredits / 100) * currentOverageRate
-      const newOverageAmount =
-        Math.ceil(newOverageCredits / 100) * newOverageRate
-
-      const previewResponse: SubscriptionPreviewResponse = {
-        currentMonthlyRate: licensedItem.price.unit_amount
-          ? licensedItem.price.unit_amount / 100
-          : 0,
-        newMonthlyRate: planConfig.monthlyPrice,
-        currentQuota: totalQuota,
-        daysRemainingInBillingPeriod: Math.ceil(
-          (currentSubscription.current_period_end -
-            Math.floor(new Date().getTime() / 1000)) /
-            (24 * 60 * 60)
-        ),
-        prorationDate: currentSubscription.current_period_end,
-        overageCredits,
-        creditsUsed,
-        currentOverageRate,
-        newOverageRate,
-        newOverageAmount,
-        currentOverageAmount,
-        lineItems: preview.lines.data
-          .filter((d) => d.proration)
-          .map((line) => ({
-            amount: line.amount / 100, // Convert to dollars
-            description: line.description || '',
-            period: line.period,
-            proration: line.proration,
-          })),
-      }
-
-      return NextResponse.json(previewResponse)
-    } else {
-      // New subscription - no proration needed
-      // For new subscriptions, no proration needed
-      const startDate = Math.floor(Date.now() / 1000)
-      const endDate =
-        Math.floor(new Date().getTime() / 1000) +
-        BILLING_PERIOD_DAYS * 24 * 60 * 60
-
-      const response = {
-        currentMonthlyRate: 0,
-        newMonthlyRate: planConfig.monthlyPrice,
-        daysRemainingInBillingPeriod: BILLING_PERIOD_DAYS,
-        prorationAmount: planConfig.monthlyPrice,
-        prorationDate: endDate,
-      }
-
-      console.log('Sending subscription preview response:', response)
-      return NextResponse.json(response)
-    }
-  } catch (error: any) {
-    console.error('Error fetching subscription preview:', error)
-    return NextResponse.json(
-      {
-        error: {
-          code: error.code || 'stripe-error',
-          message: error.message || 'Failed to fetch subscription preview',
-        },
-      },
-      { status: error.statusCode || 500 }
-    )
-  }
+    })
+    .exhaustive()
 }
 
 export const POST = async (request: Request) => {

@@ -228,12 +228,35 @@ Important: When sending meter events to Stripe:
 ### Subscription Migrations
 
 Important: When migrating subscriptions to new prices:
-
 - Preserve existing usage meter records for 'Credits'
 - Don't reset usage data during price changes
 - Ensure fair billing by carrying forward accumulated usage
 - Usage data should persist across subscription updates
 - Use the dedicated credits meter ID (mtr_test_61RUgv7ouoAAMKoE341KrNS6SjmqWUXA) when tracking usage
+
+### Edge Cases in Plan Changes
+
+Critical considerations when handling subscription updates:
+
+1. Usage Migration Safety:
+   - Always capture total usage before updating subscription
+   - Record old usage under new plan immediately after upgrade
+   - Consider implementing rollback mechanism for failed migrations
+
+2. Concurrent Updates:
+   - Implement request deduplication or locking
+   - Verify subscription hasn't changed since preview was generated
+   - Use optimistic locking when updating subscriptions
+
+3. Subscription States:
+   - Validate subscription is in valid state for upgrade
+   - Check for: canceled, past_due, incomplete states
+   - Handle partial period credits correctly
+
+4. Error Recovery:
+   - Implement retry logic for usage recording
+   - Log failed migrations for manual review
+   - Consider automated recovery procedures
 
 ## Client-Side Integration
 
