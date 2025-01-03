@@ -1,10 +1,8 @@
-'use client'
-
+import { UsageLimits } from 'common/constants'
 import { useUserPlan } from '@/hooks/use-user-plan'
-import { PlanName } from 'common/src/types/plan'
 
 type CurrentPlanBadgeProps = {
-  planName: PlanName
+  planName: UsageLimits
   subscriptionId: string | null | undefined
 }
 
@@ -14,6 +12,7 @@ export const CurrentPlanBadge = ({
 }: CurrentPlanBadgeProps) => {
   const { data: currentPlan } = useUserPlan(subscriptionId)
 
+  console.log(currentPlan, planName)
   if (!subscriptionId || !currentPlan || currentPlan !== planName) return null
 
   return (

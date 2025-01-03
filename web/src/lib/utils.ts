@@ -1,29 +1,19 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { PLAN_CONFIGS } from 'common/constants'
+import { PLAN_CONFIGS, UsageLimits } from 'common/constants'
 
 export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs))
 
 export type PlanChangeOperation = 'upgrade' | 'change'
 
 export const changeOrUpgrade = (
-  currentPlan: string | null | undefined,
-  targetPlan: string
+  currentPlan: UsageLimits | null | undefined,
+  targetPlan: UsageLimits
 ): PlanChangeOperation => {
   if (!currentPlan) return 'upgrade'
 
-  const currentConfig =
-    PLAN_CONFIGS[
-      currentPlan === 'Free'
-        ? 'FREE'
-        : currentPlan === 'Pro'
-          ? 'PRO'
-          : 'MOAR_PRO'
-    ]
-  const targetConfig =
-    PLAN_CONFIGS[
-      targetPlan === 'Free' ? 'FREE' : targetPlan === 'Pro' ? 'PRO' : 'MOAR_PRO'
-    ]
+  const currentConfig = PLAN_CONFIGS[currentPlan]
+  const targetConfig = PLAN_CONFIGS[targetPlan]
 
   if (!currentConfig?.monthlyPrice || !targetConfig?.monthlyPrice)
     return 'upgrade'

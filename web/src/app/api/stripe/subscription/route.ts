@@ -12,11 +12,11 @@ import {
 } from 'common/constants'
 import { AuthenticatedQuotaManager } from 'common/billing/quota-manager'
 import type Stripe from 'stripe'
-import { PlanName, SubscriptionPreviewResponse } from 'common/src/types/plan'
+import { SubscriptionPreviewResponse } from 'common/src/types/plan'
+import { UsageLimits } from 'common/constants'
 import { getTotalReferralCreditsForCustomer } from '@/lib/stripe-utils'
 import { match, P } from 'ts-pattern'
-import { changeOrUpgrade, type PlanChangeOperation } from '@/lib/utils'
-import { withRetry } from 'common/src/util/promise'
+import { changeOrUpgrade } from '@/lib/utils'
 
 type PlanPriceIds = {
   priceId: string
@@ -32,21 +32,21 @@ function getSubscriptionItemByType(
   )
 }
 
-function getPlanPriceIds(targetPlan: string): PlanPriceIds {
-  return {
-    priceId:
-      targetPlan === 'Pro'
-        ? env.STRIPE_PRO_PRICE_ID
-        : env.STRIPE_MOAR_PRO_PRICE_ID,
-    overagePriceId:
-      targetPlan === 'Pro'
-        ? env.STRIPE_PRO_OVERAGE_PRICE_ID
-        : env.STRIPE_MOAR_PRO_OVERAGE_PRICE_ID,
-  }
+function getPlanPriceIds(targetPlan: string): PlanPriceIds | null {
+  return match(targetPlan)
+    .with(UsageLimits.PRO, () => ({
+      priceId: env.STRIPE_PRO_PRICE_ID,
+      overagePriceId: env.STRIPE_PRO_OVERAGE_PRICE_ID,
+    }))
+    .with(UsageLimits.MOAR_PRO, () => ({
+      priceId: env.STRIPE_MOAR_PRO_PRICE_ID,
+      overagePriceId: env.STRIPE_MOAR_PRO_OVERAGE_PRICE_ID,
+    }))
+    .otherwise(() => null)
 }
 
 async function validatePlanChange(
-  targetPlan: string | null,
+  targetPlan: UsageLimits | null,
   customerId: string
 ) {
   if (!targetPlan) {
@@ -59,9 +59,7 @@ async function validatePlanChange(
     }
   }
 
-  const planConfig = Object.values(PLAN_CONFIGS).find(
-    (config) => config.displayName === targetPlan
-  )
+  const planConfig = PLAN_CONFIGS[targetPlan]
   if (!planConfig || !planConfig.monthlyPrice) {
     return {
       error: {
@@ -123,7 +121,16 @@ async function validatePlanChange(
       }
     }
 
-    const { priceId, overagePriceId } = getPlanPriceIds(targetPlan as string)
+    const priceIds = getPlanPriceIds(targetPlan as string)
+    if (!priceIds) {
+      return {
+        error: {
+          code: 'invalid-plan',
+          message: 'Invalid target plan',
+        },
+        status: 400,
+      }
+    }
     const licensedItem = getSubscriptionItemByType(
       currentSubscription,
       'licensed'
@@ -137,6 +144,7 @@ async function validatePlanChange(
       throw new Error('Missing required subscription items')
     }
 
+    const { overagePriceId, priceId } = priceIds
     if (
       licensedItem.price.id === priceId &&
       meteredItem.price.id === overagePriceId
@@ -208,11 +216,11 @@ export const GET = async (request: Request) => {
           (item) => item.price.recurring?.usage_type === 'licensed'
         )
 
-        let currentPlan: PlanName | null = null
+        let currentPlan: UsageLimits | null = null
         if (basePriceItem?.price.id === env.STRIPE_PRO_PRICE_ID) {
-          currentPlan = 'Pro'
+          currentPlan = UsageLimits.PRO
         } else if (basePriceItem?.price.id === env.STRIPE_MOAR_PRO_PRICE_ID) {
-          currentPlan = 'Moar Pro'
+          currentPlan = UsageLimits.MOAR_PRO
         }
 
         return NextResponse.json({ currentPlan })
@@ -234,7 +242,7 @@ export const GET = async (request: Request) => {
       { details: P.nullish, targetPlan: P.string },
       async ({ targetPlan }) => {
         const validationResult = await validatePlanChange(
-          targetPlan,
+          targetPlan as UsageLimits,
           user.stripe_customer_id
         )
         if ('error' in validationResult) {
@@ -259,7 +267,19 @@ export const GET = async (request: Request) => {
           const currentSubscription = await getCurrentSubscription(
             user.stripe_customer_id
           )
-          const { priceId, overagePriceId } = getPlanPriceIds(targetPlan)
+          const priceIds = getPlanPriceIds(targetPlan)
+          if (!priceIds) {
+            return NextResponse.json(
+              {
+                error: {
+                  code: 'invalid-plan',
+                  message: 'Invalid target plan',
+                },
+              },
+              { status: 400 }
+            )
+          }
+          const { priceId, overagePriceId } = priceIds
 
           if (currentSubscription) {
             const licensedItem = getSubscriptionItemByType(
@@ -314,8 +334,7 @@ export const GET = async (request: Request) => {
             const overageCredits = Math.max(0, creditsUsed - totalQuota)
 
             // Get the new plan's credit limit
-            const newPlanLimit =
-              CREDITS_USAGE_LIMITS[targetPlan === 'Pro' ? 'PRO' : 'MOAR_PRO']
+            const newPlanLimit = CREDITS_USAGE_LIMITS[targetPlan as UsageLimits]
 
             // Calculate new overage based on new plan's quota
             const newOverageCredits = Math.max(0, creditsUsed - newPlanLimit)
@@ -332,8 +351,7 @@ export const GET = async (request: Request) => {
               currentMeteredItem.price.id === env.STRIPE_PRO_OVERAGE_PRICE_ID
                 ? OVERAGE_RATE_PRO
                 : OVERAGE_RATE_MOAR_PRO
-            const newOverageRate =
-              targetPlan === 'Pro' ? OVERAGE_RATE_PRO : OVERAGE_RATE_MOAR_PRO
+            const newOverageRate = planConfig.overageRate || 0
 
             // Calculate overage amo–unts using respective credits and rates
             const currentOverageAmount =
@@ -352,7 +370,8 @@ export const GET = async (request: Request) => {
                   (24 * 60 * 60)
               ),
               prorationDate: currentSubscription.current_period_end,
-              overageCredits: newOverageCredits,
+              overageCredits,
+              newOverageCredits,
               creditsUsed,
               currentOverageRate,
               newOverageRate,
@@ -436,7 +455,13 @@ export const POST = async (request: Request) => {
 
   try {
     const body = await request.json()
-    const targetPlan = body.targetPlan as PlanName
+    const planParam = body.targetPlan as string
+    const targetPlan =
+      planParam === 'Pro'
+        ? UsageLimits.PRO
+        : planParam === 'Moar Pro'
+          ? UsageLimits.MOAR_PRO
+          : UsageLimits.FREE
 
     const validationResult = await validatePlanChange(
       targetPlan,
@@ -469,7 +494,14 @@ export const POST = async (request: Request) => {
 
     console.log('Starting subscription update to', targetPlan)
 
-    const { priceId, overagePriceId } = getPlanPriceIds(targetPlan)
+    const priceIds = getPlanPriceIds(targetPlan)
+    if (!priceIds) {
+      return NextResponse.json(
+        { error: { message: 'Invalid target plan' } },
+        { status: 400 }
+      )
+    }
+    const { priceId, overagePriceId } = priceIds
     const licensedItem = getSubscriptionItemByType(
       currentSubscription,
       'licensed'
@@ -488,8 +520,8 @@ export const POST = async (request: Request) => {
       currentSubscription.items.data.find(
         (item) => item.price.recurring?.usage_type === 'licensed'
       )?.price.id === env.STRIPE_PRO_PRICE_ID
-        ? 'Pro'
-        : 'Moar Pro'
+        ? UsageLimits.PRO
+        : UsageLimits.MOAR_PRO
 
     const isDowngrade =
       changeOrUpgrade(currentPlanName, targetPlan) === 'change'

@@ -2,15 +2,19 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
-import { CREDITS_USAGE_LIMITS } from 'common/constants'
-import { PlanName, SubscriptionPreviewResponse } from 'common/src/types/plan'
+import {
+  CREDITS_USAGE_LIMITS,
+  PLAN_CONFIGS,
+  UsageLimits,
+} from 'common/constants'
+import { SubscriptionPreviewResponse } from 'common/src/types/plan'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { changeOrUpgrade, cn } from '@/lib/utils'
 
 interface PlanSummaryProps {
   preview: SubscriptionPreviewResponse
-  currentPlan: PlanName
-  targetPlan: PlanName
+  currentPlan: UsageLimits
+  targetPlan: UsageLimits
   currentMonthlyTotal: number
   newMonthlyTotal: number
 }
@@ -76,7 +80,7 @@ const MobilePlanSummary = ({
               <span>Includes</span>
               <span>
                 {CREDITS_USAGE_LIMITS[
-                  targetPlan === 'Pro' ? 'PRO' : 'MOAR_PRO'
+                  targetPlan === UsageLimits.PRO ? 'PRO' : 'MOAR_PRO'
                 ].toLocaleString()}{' '}
                 credits
               </span>
@@ -113,6 +117,7 @@ const MobilePlanSummary = ({
 const DesktopPlanSummary = ({
   preview,
   targetPlan,
+  currentPlan,
   currentMonthlyTotal,
   newMonthlyTotal,
 }: PlanSummaryProps) => (
@@ -135,13 +140,13 @@ const DesktopPlanSummary = ({
           <div>
             <span>Overage</span>
             <div className="text-xs text-gray-500">
-              {preview.overageCredits.toLocaleString()} credits
+              {CREDITS_USAGE_LIMITS[currentPlan].toLocaleString()} credits
             </div>
           </div>
           <div className="text-right">
             <div>${preview.currentOverageAmount.toFixed(2)}</div>
             <div className="text-xs text-gray-500">
-              ${preview.currentOverageRate.toFixed(2)} per 100
+              ${PLAN_CONFIGS[currentPlan].overageRate!.toFixed(2)} per 100
             </div>
           </div>
         </div>
@@ -171,10 +176,7 @@ const DesktopPlanSummary = ({
           <div className="flex justify-between text-xs text-gray-500">
             <span>Includes</span>
             <span>
-              {CREDITS_USAGE_LIMITS[
-                targetPlan === 'Pro' ? 'PRO' : 'MOAR_PRO'
-              ].toLocaleString()}{' '}
-              credits
+              {CREDITS_USAGE_LIMITS[targetPlan].toLocaleString()} credits
             </span>
           </div>
         </div>
@@ -182,13 +184,13 @@ const DesktopPlanSummary = ({
           <div>
             <span>Overage</span>
             <div className="text-xs text-gray-500">
-              {preview.overageCredits.toLocaleString()} credits
+              {PLAN_CONFIGS[targetPlan].limit.toLocaleString()} credits
             </div>
           </div>
           <div className="text-right">
             <div>${preview.newOverageAmount.toFixed(2)}</div>
             <div className="text-xs text-gray-500">
-              ${preview.newOverageRate.toFixed(2)} per 100
+              ${PLAN_CONFIGS[targetPlan].overageRate!.toFixed(2)} per 100
             </div>
           </div>
         </div>
@@ -216,8 +218,6 @@ export const NewPlanSummary = ({
   const newMonthlyTotal = preview.newMonthlyRate + preview.newOverageAmount
   const monthlySavings = currentMonthlyTotal - newMonthlyTotal
   const modification = changeOrUpgrade(currentPlan, targetPlan)
-
-  if (!preview.overageCredits) return null
 
   return (
     <div className="space-y-4">
@@ -260,7 +260,7 @@ export const NewPlanSummary = ({
               <div className="text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 inline-block ">
                 ${monthlySavings.toFixed(2)}
               </div>{' '}
-              per month.
+              per month by switching.
             </>
           </span>
         )}

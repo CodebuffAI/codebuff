@@ -1,5 +1,3 @@
-'use client'
-
 import { Button } from '@/components/ui/button'
 import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
 import { LoadingDots } from '@/components/ui/loading-dots'
@@ -7,13 +5,12 @@ import Link from 'next/link'
 import { env } from '@/env.mjs'
 import { useRouter } from 'next/navigation'
 import { cn, changeOrUpgrade } from '@/lib/utils'
-import { PlanName } from 'common/src/types/plan'
-import { PLAN_CONFIGS } from 'common/constants'
+import { UsageLimits, PLAN_CONFIGS } from 'common/constants'
 import { capitalize } from 'common/util/string'
 
 type PricingCardFooterProps = {
-  planName: PlanName
-  currentPlan: PlanName | undefined
+  planName: UsageLimits
+  currentPlan: UsageLimits | undefined
   isLoading?: boolean
 }
 
@@ -61,7 +58,9 @@ export const PricingCardFooter = ({
               : 'bg-blue-600 hover:bg-blue-700'
           )}
           onClick={() => {
-            router.push(`/subscription/confirm?plan=${planName}`)
+            router.push(
+              `/subscription/confirm?plan=${PLAN_CONFIGS[planName].planName}`
+            )
           }}
           disabled={isLoading}
         >

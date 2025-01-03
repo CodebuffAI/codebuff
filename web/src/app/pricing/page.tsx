@@ -2,13 +2,16 @@
 
 import { Suspense } from 'react'
 import Loading from './loading'
-import { PlanName } from 'common/src/types/plan'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import Link from 'next/link'
-import { PLAN_CONFIGS, CREDITS_USAGE_LIMITS } from 'common/constants'
+import {
+  PLAN_CONFIGS,
+  CREDITS_USAGE_LIMITS,
+  UsageLimits,
+} from 'common/constants'
 import { useSession } from 'next-auth/react'
 import { useUserPlan } from '@/hooks/use-user-plan'
 import { PricingCardFooter } from '@/components/pricing/pricing-card-footer'
@@ -21,55 +24,71 @@ const PricingCards = () => {
     isLoading,
     isPending,
   } = useUserPlan(session.data?.user?.stripe_price_id)
+  // const currentPlan = currentPlanLimit ? PLAN_CONFIGS[currentPlanLimit].displayName as PlanName : 'Free' as PlanName
 
   const pricingPlans = [
-    ...Object.values(PLAN_CONFIGS)
-      .filter((value) => value.planName !== 'ANON')
-      .map((config) => ({
-        name: config.displayName as PlanName,
-        price: config.monthlyPrice ? `$${config.monthlyPrice}/month` : 'Custom',
-        credits: config.limit,
-        features: [
-          config.overageRate
-            ? `Overage allowed ($${config.overageRate.toFixed(2)} per 100 credits)`
-            : 'No overage allowed',
-          config.displayName === 'Free' ? (
-            <Link
-              key="community-support"
-              href="https://discord.gg/mcWTGjgTj3"
-              className="hover:underline"
-              target="_blank"
-            >
-              Community support
-            </Link>
-          ) : (
-            'Priority support over email and Discord'
-          ),
-        ],
-        cardFooterChildren:
-          config.displayName === 'Free' ? (
-            <Button
-              className={cn(
-                "w-full text-white",
-                currentPlan ? "bg-gray-400 pointer-events-none" : "bg-blue-600 hover:bg-blue-700 transition-colors"
-              )}
-              asChild
-              disabled={!!currentPlan}
-            >
-              <Link href={'https://www.npmjs.com/package/codebuff'}>
-                Get Started
+    ...Object.entries(PLAN_CONFIGS)
+      .filter(([key]) => key !== UsageLimits.ANON)
+      .map(
+        ([key, config]): {
+          name: UsageLimits
+          displayName: string
+          price: string
+          credits: number
+          features: (string | JSX.Element)[]
+          cardFooterChildren: JSX.Element
+        } => ({
+          name: config.planName,
+          displayName: config.displayName,
+          price: config.monthlyPrice
+            ? `$${config.monthlyPrice}/month`
+            : 'Custom',
+          credits: config.limit,
+          features: [
+            config.overageRate
+              ? `Overage allowed ($${config.overageRate.toFixed(2)} per 100 credits)`
+              : 'No overage allowed',
+            config.displayName === 'Free' ? (
+              <Link
+                key="community-support"
+                href="https://discord.gg/mcWTGjgTj3"
+                className="hover:underline"
+                target="_blank"
+              >
+                Community support
               </Link>
-            </Button>
-          ) : (
-            <PricingCardFooter
-              planName={config.displayName as PlanName}
-              currentPlan={currentPlan}
-              isLoading={isLoading || isPending}
-            />
-          ),
-      })),
+            ) : (
+              'Priority support over email and Discord'
+            ),
+          ],
+          cardFooterChildren:
+            config.displayName === 'Free' ? (
+              <Button
+                className={cn(
+                  'w-full text-white',
+                  currentPlan
+                    ? 'bg-gray-400 pointer-events-none'
+                    : 'bg-blue-600 hover:bg-blue-700 transition-colors'
+                )}
+                asChild
+                disabled={!!currentPlan}
+              >
+                <Link href={'https://www.npmjs.com/package/codebuff'}>
+                  Get Started
+                </Link>
+              </Button>
+            ) : (
+              <PricingCardFooter
+                planName={config.planName as UsageLimits}
+                currentPlan={currentPlan ?? UsageLimits.FREE}
+                isLoading={isLoading || isPending}
+              />
+            ),
+        })
+      ),
     {
-      name: 'Team' as PlanName,
+      name: 'TEAM',
+      displayName: 'Team',
       price: '$99/seat/month',
       credits: '$0.90 per 100',
       features: [
@@ -88,6 +107,7 @@ const PricingCards = () => {
     },
   ]
 
+  console.log('pricingPlans', pricingPlans)
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 container mx-auto">
       {pricingPlans.map((plan, index) => (
@@ -97,9 +117,9 @@ const PricingCards = () => {
         >
           <CardHeader className="min-h-[200px] flex flex-col">
             <h3 className="text-2xl font-bold relative">
-              {plan.name}
+              {plan.displayName}
               <CurrentPlanBadge
-                planName={plan.name}
+                planName={plan.name as UsageLimits}
                 subscriptionId={session?.data?.user?.stripe_price_id}
               />
             </h3>
@@ -134,7 +154,7 @@ const PricingPage = () => {
       <BackgroundBeams />
 
       <main className="container mx-auto px-4 py-20 text-center relative z-10">
-        <div className="p-4">
+        <div className="p-8">
           <h1 className="text-5xl md:text-7xl font-bold mb-6">
             Choose Your Plan
           </h1>

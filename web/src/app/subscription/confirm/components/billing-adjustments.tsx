@@ -1,11 +1,12 @@
 'use client'
 
 import { InvoiceLineItems } from './invoice-line-items'
-import { PlanName, SubscriptionPreviewResponse } from 'common/src/types/plan'
+import { SubscriptionPreviewResponse } from 'common/src/types/plan'
+import { UsageLimits } from 'common/constants'
 
 interface BillingAdjustmentDetailsProps {
   preview: SubscriptionPreviewResponse
-  targetPlan: PlanName
+  targetPlan: UsageLimits
 }
 
 export const BillingAdjustments = ({

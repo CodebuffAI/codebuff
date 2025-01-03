@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
 import { SkeletonLoading } from '@/components/ui/skeleton-loading'
 import { useRouter } from 'next/navigation'
-import { PlanName, SubscriptionPreviewResponse } from 'common/src/types/plan'
+import { SubscriptionPreviewResponse } from 'common/src/types/plan'
+import { UsageLimits, PLAN_CONFIGS } from 'common/constants'
 import { match, P } from 'ts-pattern'
 import { NewPlanSummary } from './components/new-plan-summary'
 import { BillingAdjustments } from './components/billing-adjustments'
@@ -20,19 +21,12 @@ import { changeOrUpgrade } from '@/lib/utils'
 import { capitalize } from 'common/util/string'
 import { LoadingDots } from '@/components/ui/loading-dots'
 
-type MatchState = {
-  targetPlan: PlanName | null
-  isLoading: boolean
-  error: Error | null
-  preview: SubscriptionPreviewResponse | null
-}
-
 const useUpgradeSubscription = () => {
   const router = useRouter()
   const { toast } = useToast()
 
   return useMutation({
-    mutationFn: async (targetPlan: PlanName) => {
+    mutationFn: async (targetPlan: UsageLimits) => {
       const response = await fetch('/api/stripe/subscription', {
         method: 'POST',
         headers: {
@@ -82,7 +76,8 @@ const useUpgradeSubscription = () => {
 
 const ConfirmSubscriptionPage = () => {
   const searchParams = useSearchParams()
-  const targetPlan = searchParams.get('plan') as PlanName
+  const planParam = searchParams.get('plan')
+  const targetPlan = planParam as UsageLimits
   const upgradeMutation = useUpgradeSubscription()
   const session = useSession()
   const { data: currentPlan } = useUserPlan(
@@ -114,7 +109,8 @@ const ConfirmSubscriptionPage = () => {
     refetchOnReconnect: false,
   })
 
-  const content = match<MatchState>({
+  const content = match({
+    currentPlan,
     targetPlan,
     isLoading,
     error,
@@ -142,49 +138,53 @@ const ConfirmSubscriptionPage = () => {
         </CardFooter>
       </>
     ))
-    .with({ preview: P.not(P.nullish) }, ({ preview }) => (
-      <>
-        <CardHeader>
-          <h1 className="text-3xl font-bold">
-            Confirm Your {capitalize(modification)}
-          </h1>
-          <p className="text-gray-500">
-            You're about to {modification} to {targetPlan}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <h2 className="text-xl font-bold mb-4">New Plan Summary</h2>
-          <div className="space-y-4">
-            <NewPlanSummary
-              preview={preview}
-              targetPlan={targetPlan}
-              currentPlan={currentPlan}
-            />
-            <BillingAdjustments preview={preview} targetPlan={targetPlan} />
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button variant="outline" onClick={() => window.history.back()}>
-            Cancel
-          </Button>
-          <NeonGradientButton
-            onClick={() => upgradeMutation.mutate(targetPlan)}
-            disabled={upgradeMutation.isPending}
-            neonColors={{
-              firstColor: '#4F46E5',
-              secondColor: '#06B6D4',
-            }}
-            className="font-semibold text-sm"
-          >
-            {upgradeMutation.isPending ? (
-              <LoadingDots />
-            ) : (
-              `Confirm ${capitalize(modification)}`
-            )}
-          </NeonGradientButton>
-        </CardFooter>
-      </>
-    ))
+    .with(
+      { preview: P.not(P.nullish), currentPlan: P.not(P.nullish) },
+      ({ preview, currentPlan }) => (
+        <>
+          <CardHeader>
+            <h1 className="text-3xl font-bold">
+              Confirm Your {capitalize(modification)}
+            </h1>
+            <p className="text-gray-500">
+              You're about to {modification} to{' '}
+              {PLAN_CONFIGS[targetPlan as UsageLimits].displayName}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <h2 className="text-xl font-bold mb-4">New Plan Summary</h2>
+            <div className="space-y-4">
+              <NewPlanSummary
+                preview={preview}
+                targetPlan={targetPlan}
+                currentPlan={currentPlan}
+              />
+              <BillingAdjustments preview={preview} targetPlan={targetPlan} />
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button variant="outline" onClick={() => window.history.back()}>
+              Cancel
+            </Button>
+            <NeonGradientButton
+              onClick={() => upgradeMutation.mutate(targetPlan as UsageLimits)}
+              disabled={upgradeMutation.isPending}
+              neonColors={{
+                firstColor: '#4F46E5',
+                secondColor: '#06B6D4',
+              }}
+              className="font-semibold text-sm"
+            >
+              {upgradeMutation.isPending ? (
+                <LoadingDots />
+              ) : (
+                `Confirm ${capitalize(modification)}`
+              )}
+            </NeonGradientButton>
+          </CardFooter>
+        </>
+      )
+    )
     .otherwise(() => (
       <CardContent>
         <h1 className="text-3xl font-bold text-red-500">Unexpected Error</h1>

@@ -42,6 +42,13 @@ The authentication system in Codebuff's web application plays a crucial role in 
 
 ## UI Patterns
 
+### Plan Type Management
+- Use UsageLimits enum from common/constants.ts for all plan types
+- Avoid string literals for plan names - use PLAN_CONFIGS[UsageLimits].displayName
+- All plans, including special plans like Team, should be defined in PLAN_CONFIGS
+- This ensures type safety and consistent plan naming across the application
+
+
 ### Logo Usage
 
 - Include the Codebuff logo alongside the company name in key UI components
