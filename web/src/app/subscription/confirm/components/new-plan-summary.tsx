@@ -86,7 +86,7 @@ const MobilePlanSummary = ({
             <div>
               <span>Overage</span>
               <div className="text-xs text-gray-500">
-                {preview.newOverageCredits.toLocaleString()} credits
+                {preview.overageCredits.toLocaleString()} credits
               </div>
             </div>
             <div className="text-right">
@@ -182,7 +182,7 @@ const DesktopPlanSummary = ({
           <div>
             <span>Overage</span>
             <div className="text-xs text-gray-500">
-              {preview.newOverageCredits.toLocaleString()} credits
+              {preview.overageCredits.toLocaleString()} credits
             </div>
           </div>
           <div className="text-right">
@@ -252,13 +252,16 @@ export const NewPlanSummary = ({
             newMonthlyTotal={newMonthlyTotal}
           />
         )}
+
         {monthlySavings > 0 && (
           <span className="mt-2 text-sm inline-block">
-            Based on your current usage, you should save about{' '}
-            <div className="text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 inline-block ">
-              ${monthlySavings.toFixed(2)}
-            </div>{' '}
-            per month.
+            <>
+              Based on your current usage, you should save about{' '}
+              <div className="text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 inline-block ">
+                ${monthlySavings.toFixed(2)}
+              </div>{' '}
+              per month.
+            </>
           </span>
         )}
       </div>

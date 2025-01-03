@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 import { cn, changeOrUpgrade } from '@/lib/utils'
 import { PlanName } from 'common/src/types/plan'
 import { PLAN_CONFIGS } from 'common/constants'
+import { capitalize } from 'common/util/string'
 
 type PricingCardFooterProps = {
   planName: PlanName
@@ -67,7 +68,7 @@ export const PricingCardFooter = ({
           {isLoading ? (
             <LoadingDots />
           ) : (
-            <p>{changeOrUpgrade(currentPlan, planName)}</p>
+            <p>{capitalize(changeOrUpgrade(currentPlan, planName))}</p>
           )}
         </Button>
       )}

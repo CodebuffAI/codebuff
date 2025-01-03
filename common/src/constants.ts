@@ -138,7 +138,7 @@ export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {
   },
 }
 
-// Multiply limits by 1000 in local environment
+// Increase limits by 1000 in local environment to make testing easier
 if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'local') {
   Object.values(PLAN_CONFIGS).forEach((config) => {
     config.limit *= 1000

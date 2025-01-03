@@ -12,7 +12,10 @@ export const BillingAdjustments = ({
   preview,
   targetPlan,
 }: BillingAdjustmentDetailsProps) => {
-  const totalDue = preview.lineItems.reduce((total, item) => total + item.amount, 0)
+  const totalDue = preview.lineItems.reduce(
+    (total, item) => total + item.amount,
+    0
+  )
 
   return (
     <div className="space-y-4">
@@ -24,12 +27,24 @@ export const BillingAdjustments = ({
       </div>
 
       <div className="flex justify-between items-center">
-        <span className="text-2xl font-bold">Due today</span>
-        <span className="text-2xl font-bold">${totalDue.toFixed(2)}</span>
+        {totalDue > 0 ? (
+          <>
+            <span className="text-2xl font-bold">Due today</span>
+            <span className="text-2xl font-bold">${totalDue.toFixed(2)}</span>
+          </>
+        ) : (
+          <>
+            <span className="text-2xl font-bold">Credit amount</span>
+            <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+              ${Math.abs(totalDue).toFixed(2)}
+            </span>
+          </>
+        )}
       </div>
       <p className="text-sm text-gray-500 mt-2">
-        Prorated charge for remaining {preview.daysRemainingInBillingPeriod} days
-        of current billing period, excluding overage charges.
+        {totalDue > 0
+          ? `Prorated charge for remaining ${preview.daysRemainingInBillingPeriod} days of current billing period, excluding overage charges.`
+          : `Credit will be applied to your next bill.`}
       </p>
     </div>
   )

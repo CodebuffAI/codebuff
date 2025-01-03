@@ -7,15 +7,13 @@ import { useEffect } from 'react'
 import { CREDITS_USAGE_LIMITS, PLAN_CONFIGS } from 'common/constants'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useUserPlan } from '@/hooks/use-user-plan'
-import { getSession } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 
-'use client'
-
-const PaymentSuccessPage = async () => {
+const PaymentSuccessPage = () => {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const session = await getSession()
+  const { data: session } = useSession()
   const { data: currentPlan } = useUserPlan(session?.user?.stripe_customer_id)
 
   useEffect(() => {
@@ -25,8 +23,14 @@ const PaymentSuccessPage = async () => {
     router.replace(`${pathname}?${newParams}`)
   }, [])
 
-  const planConfig = currentPlan ? PLAN_CONFIGS[currentPlan as keyof typeof PLAN_CONFIGS] : null
-  const credits = planConfig ? CREDITS_USAGE_LIMITS[planConfig.planName as keyof typeof CREDITS_USAGE_LIMITS] : 0
+  const planConfig = currentPlan
+    ? PLAN_CONFIGS[currentPlan as keyof typeof PLAN_CONFIGS]
+    : null
+  const credits = planConfig
+    ? CREDITS_USAGE_LIMITS[
+        planConfig.planName as keyof typeof CREDITS_USAGE_LIMITS
+      ]
+    : 0
 
   return CardWithBeams({
     title: 'Upgrade successful!',

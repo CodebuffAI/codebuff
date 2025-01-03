@@ -224,15 +224,15 @@ Important: When determining upgrade vs downgrade:
   const isDowngrade = changeOrUpgrade(currentPlanName, targetPlan) === 'change'
   ```
 
-Important: Different proration behavior for upgrades vs downgrades:
-- For upgrades: Use `proration_behavior: 'always_invoice'`
-  - Takes effect immediately
+Important: Use `proration_behavior: 'create_prorations'` for plan changes:
+- Takes effect immediately
+- For upgrades:
   - Charges prorated amount for new plan
   - Credits unused time on old plan
-- For downgrades: Use `proration_behavior: 'none'`
-  - Changes take effect at end of billing period
-  - No immediate refunds
-  - Prevents upgrade/downgrade cycling for partial period credits
+- For downgrades:
+  - Processes refund to original payment method for unused time
+  - Handles large credits appropriately instead of carrying forward
+  - More customer-friendly than holding credits for future use
 
 Important: When handling multiple subscription tiers:
 - Each subscription tier needs both a base price ID and an overage price ID

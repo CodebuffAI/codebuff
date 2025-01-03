@@ -352,8 +352,7 @@ export const GET = async (request: Request) => {
                   (24 * 60 * 60)
               ),
               prorationDate: currentSubscription.current_period_end,
-              overageCredits,
-              newOverageCredits,
+              overageCredits: newOverageCredits,
               creditsUsed,
               currentOverageRate,
               newOverageRate,
@@ -510,7 +509,7 @@ export const POST = async (request: Request) => {
             price: overagePriceId,
           },
         ],
-        proration_behavior: isDowngrade ? 'none' : 'always_invoice',
+        proration_behavior: 'create_prorations',
       }
     )
 
