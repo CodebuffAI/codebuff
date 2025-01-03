@@ -3,11 +3,13 @@
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
-    "start": "bun run index.tsx"
+    "start": "bun run src/index.tsx"
   },
   "devDependencies": {
+    "@types/bun": "latest",
+    "@types/uuid": "^10.0.0",
     "react-devtools-core": "^6.0.1",
-    "@types/bun": "latest"
+    "systeminformation": "^5.24.8"
   },
   "peerDependencies": {
     "typescript": "^5.0.0",

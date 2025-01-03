@@ -1,16 +1,15 @@
 import React from 'react'
-import DemoPage from './pages/demo'
+import ChatPage from './pages/chat'
 import ResponsiveBox from './ui/ResponsiveBox'
 
 type Props = {
   name?: string
-  showDemo?: boolean
 }
 
-const App = ({ showDemo = true }: Props) => {
+const App = ({ name }: Props) => {
   return (
     <ResponsiveBox>
-      <DemoPage />
+      <ChatPage />
     </ResponsiveBox>
   )
 }
