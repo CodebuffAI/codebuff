@@ -54,6 +54,7 @@ describe('parseAndGetDiffBlocksSingleFile', () => {
       '',
       'test.ts',
       newContent,
+      'normal',
       'userId'
     )
 
@@ -96,6 +97,7 @@ describe('parseAndGetDiffBlocksSingleFile', () => {
       '',
       filePath,
       newContent,
+      'normal',
       'userId'
     )
     expect(result).not.toBeNull()
@@ -150,6 +152,7 @@ function test() {
       '',
       'test.ts',
       newContent,
+      'normal',
       'userId'
     )
 
@@ -221,6 +224,7 @@ function test() {
       '', // No full response needed
       'remaining-changes/test.ts',
       incorrectNewContent,
+      'normal',
       TEST_USER_ID
     )
 
@@ -255,6 +259,7 @@ function test() {
       '',
       'test.ts',
       newContent,
+      'normal',
       'userId'
     )
 
@@ -275,6 +280,7 @@ function test() {
       '',
       'test.ts',
       '[UPDATED_BY_ANOTHER_ASSISTANT]',
+      'normal',
       'userId'
     )
 
@@ -344,6 +350,7 @@ function divide(a: number, b: number) {
       '',
       'test.ts',
       newContent,
+      'normal',
       'userId'
     )
 
@@ -351,8 +358,14 @@ function divide(a: number, b: number) {
     expect(result?.type).toBe('patch')
     if (result?.type === 'patch') {
       const updatedContent = applyPatch(oldContent, result.content)
-      expect(updatedContent).toContain('if (typeof a !== \'number\' || typeof b !== \'number\')')
-      expect(updatedContent.match(/if \(typeof a !== 'number' \|\| typeof b !== 'number'\)/g)?.length).toBe(2)
+      expect(updatedContent).toContain(
+        "if (typeof a !== 'number' || typeof b !== 'number')"
+      )
+      expect(
+        updatedContent.match(
+          /if \(typeof a !== 'number' \|\| typeof b !== 'number'\)/g
+        )?.length
+      ).toBe(2)
     }
   })
 })

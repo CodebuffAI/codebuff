@@ -7,7 +7,7 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { openaiModels } from 'common/constants'
+import { CostMode, openaiModels } from 'common/constants'
 import { promptOpenAI } from './openai-api'
 import {
   createSearchReplaceBlock,
@@ -24,6 +24,7 @@ export async function processFileBlock(
   fullResponse: string,
   filePath: string,
   newContent: string,
+  costMode: CostMode,
   userId: string | undefined
 ): Promise<FileChange | null> {
   if (newContent.trim() === '[UPDATED_BY_ANOTHER_ASSISTANT]') {
@@ -81,6 +82,7 @@ export async function processFileBlock(
       await retryDiffBlocksPrompt(
         filePath,
         normalizedOldContent,
+        costMode,
         clientSessionId,
         fingerprintId,
         userInputId,
