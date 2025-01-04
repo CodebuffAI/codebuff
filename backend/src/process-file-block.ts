@@ -126,7 +126,8 @@ export async function processFileBlock(
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId
+      userId,
+      costMode
     )
   } else if (updatedDiffBlocksThatDidntMatch.length > 0) {
     const changes = updatedDiffBlocksThatDidntMatch
@@ -142,7 +143,8 @@ export async function processFileBlock(
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId
+      userId,
+      costMode
     )
   }
 
@@ -187,7 +189,8 @@ async function applyRemainingChanges(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined
+  userId: string | undefined,
+  costMode: CostMode
 ) {
   const prompt = `
 You will be helping to rewrite a file with changes.
@@ -223,7 +226,7 @@ Return only the full, complete file content with no additional text or explanati
       fingerprintId,
       userInputId,
       userId,
-      model: openaiModels.gpt4omini,
+      model: costMode === 'pro' ? openaiModels.gpt4o : openaiModels.gpt4omini,
       predictedContent: updatedContent,
     }
   )
