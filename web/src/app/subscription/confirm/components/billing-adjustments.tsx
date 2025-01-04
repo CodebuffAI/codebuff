@@ -34,7 +34,7 @@ export const BillingAdjustments = ({
         <div className="space-y-1 text-sm">
           <InvoiceLineItems items={preview.lineItems} targetPlan={targetPlan} />
         </div>
-        <Separator />
+        {/* <Separator /> */}
         <div className="space-y-1">
           <div className="flex justify-between items-center">
             {totalDue > 0 ? (
@@ -53,12 +53,18 @@ export const BillingAdjustments = ({
               </>
             )}
           </div>
+        </div>
+        <Separator />
+        <div className="space-y-1">
+          <div className="flex justify-between items-center">
+            <span className="text-2xl font-bold">Next bill total</span>
+            <span className="text-2xl font-bold">
+              ${(preview.newMonthlyRate + totalDue).toFixed(2)}
+            </span>
+          </div>
           <div className="text-sm text-gray-500 text-left">
             applied on{' '}
-            {new Date(
-              Date.now() +
-                preview.daysRemainingInBillingPeriod * 24 * 60 * 60 * 1000
-            ).toLocaleDateString()}
+            {new Date(preview.prorationDate * 1000).toLocaleDateString()}
           </div>
         </div>
       </div>

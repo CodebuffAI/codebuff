@@ -7,11 +7,12 @@ import { BackgroundBeams } from '@/components/ui/background-beams'
 import Link from 'next/link'
 import { PLAN_CONFIGS, UsageLimits } from 'common/constants'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { useUserPlan } from '@/hooks/use-user-plan'
 import { PricingCardFooter } from '@/components/pricing/pricing-card-footer'
 
-
 const PricingCards = () => {
+  const router = useRouter()
   const session = useSession()
   const {
     data: currentPlan,
@@ -60,12 +61,15 @@ const PricingCards = () => {
                 className={cn(
                   'w-full text-white bg-blue-600 hover:bg-blue-700 transition-colors'
                 )}
-                asChild
-                disabled={!!currentPlan}
+                onClick={() => {
+                  currentPlan === UsageLimits.FREE
+                    ? router.push('https://www.npmjs.com/package/codebuff')
+                    : router.push(
+                        `/subscription/confirm?plan=${PLAN_CONFIGS[UsageLimits.FREE].planName}`
+                      )
+                }}
               >
-                <Link href={'https://www.npmjs.com/package/codebuff'}>
-                  Get Started
-                </Link>
+                {currentPlan ? 'Change' : 'Get Started'}
               </Button>
             ) : (
               <PricingCardFooter
