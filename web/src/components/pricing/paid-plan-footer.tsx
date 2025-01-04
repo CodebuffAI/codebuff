@@ -8,17 +8,17 @@ import { UsageLimits, PLAN_CONFIGS } from 'common/constants'
 import { capitalize } from 'common/util/string'
 import { Icons } from '../icons'
 
-type PricingCardFooterProps = {
+type PaidPlanFooterProps = {
   planName: UsageLimits
   currentPlan: UsageLimits | undefined
   isLoading?: boolean
 }
 
-export const PricingCardFooter = ({
+export const PaidPlanFooter = ({
   planName,
   currentPlan,
   isLoading,
-}: PricingCardFooterProps) => {
+}: PaidPlanFooterProps) => {
   const isCurrentPlan = currentPlan === planName
   const router = useRouter()
 

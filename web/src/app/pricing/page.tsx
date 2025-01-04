@@ -1,7 +1,6 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import Link from 'next/link'
@@ -9,7 +8,8 @@ import { PLAN_CONFIGS, UsageLimits } from 'common/constants'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useUserPlan } from '@/hooks/use-user-plan'
-import { PricingCardFooter } from '@/components/pricing/pricing-card-footer'
+import { PaidPlanFooter } from '@/components/pricing/paid-plan-footer'
+import { FreePlanButton } from '@/components/pricing/free-plan-button'
 
 const PricingCards = () => {
   const router = useRouter()
@@ -57,22 +57,9 @@ const PricingCards = () => {
           ],
           cardFooterChildren:
             config.planName === UsageLimits.FREE ? (
-              <Button
-                className={cn(
-                  'w-full text-white bg-blue-600 hover:bg-blue-700 transition-colors'
-                )}
-                onClick={() => {
-                  currentPlan === UsageLimits.FREE
-                    ? router.push('https://www.npmjs.com/package/codebuff')
-                    : router.push(
-                        `/subscription/confirm?plan=${PLAN_CONFIGS[UsageLimits.FREE].planName}`
-                      )
-                }}
-              >
-                {currentPlan ? 'Change' : 'Get Started'}
-              </Button>
+              <FreePlanButton currentPlan={currentPlan} />
             ) : (
-              <PricingCardFooter
+              <PaidPlanFooter
                 planName={config.planName as UsageLimits}
                 currentPlan={currentPlan ?? UsageLimits.FREE}
                 isLoading={isLoading || isPending}
