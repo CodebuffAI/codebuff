@@ -24,20 +24,6 @@ export const PaidPlanFooter = ({
 
   return (
     <div className="w-full flex flex-col items-center text-center justify-center space-y-2">
-      {isCurrentPlan && (
-        <div className="mb-4">
-          <p className="text-xs">
-            Need to cancel?<br></br>Click{' '}
-            <Link
-              href={env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}
-              className="hover:text-blue-500 hover:underline"
-            >
-              here
-            </Link>{' '}
-            (to break our hearts)
-          </p>
-        </div>
-      )}
       {isCurrentPlan ? (
         <NeonGradientButton
           className="w-full cursor-not-allowed"
