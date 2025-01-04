@@ -136,6 +136,25 @@ When displaying inline code snippets with copy buttons:
   - Use utility classes like bg-primary and text-primary-foreground
   - These automatically handle light/dark mode transitions
   - Example: `bg-primary text-primary-foreground hover:bg-primary/90`
+- For subtle interactive elements:
+  - Use semi-transparent backgrounds matching parent container theme
+  - Add matching borders with reduced opacity
+  - Increase background opacity on hover while staying in theme
+  - Example: If parent uses `bg-blue-50`, use:
+    ```
+    bg-blue-50/50 hover:bg-blue-100/50
+    border-blue-100 dark:border-blue-900/50
+    ```
+- For collapsible headers:
+  - Combine the summary and trigger into one interactive element
+  - Use flex with gap for consistent spacing between elements
+  - Keep chevron icon on the right as a subtle expand indicator
+  - Example: `<CollapsibleTrigger><div class="flex gap-2"><span>Label</span><span>Value</span></div><ChevronDown /></CollapsibleTrigger>`
+- For collapsible animations:
+  - Use group on trigger and group-data-[state=open] on animated element
+  - Add transform and origin-center for smooth rotation
+  - Combine with transition-transform, duration, and ease-in-out
+  - Example: `group-data-[state=open]:-rotate-180 transform transition-transform duration-200 ease-in-out origin-center`
 
 ### Component Architecture
 
