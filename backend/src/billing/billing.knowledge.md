@@ -58,6 +58,7 @@ Key methods:
 ### Subscription Migrations
 
 Important: When handling multiple subscription tiers:
+
 - Each subscription tier needs both a base price ID and an overage price ID
 - When updating subscriptions, both price IDs must be updated together
 - Never rely on array position to identify subscription items
@@ -67,6 +68,7 @@ Important: When handling multiple subscription tiers:
 - When validating current plan, check both licensed and metered price IDs match
 
 Important: When organizing subscription-related code:
+
 - Extract price ID mapping into reusable functions to avoid duplication
 - Check authentication before any other validation
 - Validate plan changes before checking subscription status
@@ -76,12 +78,14 @@ Important: When organizing subscription-related code:
 - Capture usage data before any subscription changes
 
 Important: When changing subscription tiers:
+
 - Capture total usage before updating subscription, as usage records may become inaccessible after plan change
 - Record old usage under new plan immediately after upgrade to preserve history
 - Check for unpaid invoices before allowing plan changes
 - Use proration_behavior: 'always_invoice' to generate immediate charges
 
 Important: When migrating subscriptions to new prices:
+
 - Preserve existing usage meter records for 'Credits'
 - Don't reset usage data during price changes
 - Ensure fair billing by carrying forward accumulated usage
@@ -93,6 +97,7 @@ Important: When migrating subscriptions to new prices:
 - Important: Record usage before updating subscription items to prevent gaps in billing
 
 Important: When recording usage:
+
 - Use billing.meterEvents.create instead of subscriptionItems.createUsageRecord
 - The legacy usage record system is being deprecated
 - Example:
@@ -107,19 +112,29 @@ Important: When recording usage:
   })
   ```
 - When getting usage totals:
+
   ```typescript
+
+  ```
+
 ### Usage Tracking
 
 Important: When tracking usage:
+
 - Use QuotaManager to get usage data instead of querying Stripe directly
 - QuotaManager provides more accurate data as it includes all usage from our database
 - Stripe usage records may lag behind our actual usage data
 - Example:
+
   ```typescript
   const quotaManager = new AuthenticatedQuotaManager()
   const { creditsUsed } = await quotaManager.checkQuota(userId)
   ```
+
   ```
+
+  ```
+
 - When preserving usage data during migrations:
   - Use billing.meters.event_summaries endpoint to get historical usage
   - Calculate usage from start of current invoice period
@@ -172,6 +187,7 @@ Defined in `common/src/constants.ts`:
 ## Overage Charge Display
 
 When showing billing information to users:
+
 - Lead with immediate charge and explain proration
 - Show monthly estimate with explicit start date
 - Break down charges into base rate and overages
@@ -191,6 +207,7 @@ When showing billing information to users:
 ## Savings Presentation
 
 When highlighting cost savings:
+
 - Place savings message between total amount and breakdown
 - Use visual distinction (e.g., colored background) to draw attention
 - Split into "what changed" and "what you save" for clarity
@@ -200,6 +217,7 @@ When highlighting cost savings:
 ## Overage Rate Calculation
 
 Important: When calculating overage rates:
+
 - Use the metered price item, not the base subscription price
 - Compare against overage price IDs (e.g. STRIPE_PRO_OVERAGE_PRICE_ID)
 - Always verify metered item exists before accessing
@@ -207,40 +225,12 @@ Important: When calculating overage rates:
 ## Proration Calculations
 
 Important: When calculating prorated charges:
+
 - Always use new Date().getTime() instead of Date.now() for UTC consistency
 - Get unused credits from Stripe's preview.lines.data amounts
 - Sum all line amounts - negative values automatically become credits
 - Convert from cents to dollars by dividing by 100
 - Use licensed item (not array index) for base price calculations
-
-### Plan Change Behavior
-
-Important: When determining upgrade vs downgrade:
-- Never parse price IDs or amounts from Stripe - these are just identifiers
-- Instead, use PLAN_CONFIGS to compare monthly prices between plans
-- Map Stripe price IDs to plan names, then compare plan configs:
-  ```typescript
-  const currentPlanName = priceId === env.STRIPE_PRO_PRICE_ID ? 'Pro' : 'Moar Pro'
-  const isDowngrade = changeOrUpgrade(currentPlanName, targetPlan) === 'change'
-  ```
-
-Important: Use `proration_behavior: 'create_prorations'` for plan changes:
-- Takes effect immediately
-- For upgrades:
-  - Charges prorated amount for new plan
-  - Credits unused time on old plan
-- For downgrades:
-  - Processes refund to original payment method for unused time
-  - Handles large credits appropriately instead of carrying forward
-  - More customer-friendly than holding credits for future use
-
-Important: When handling multiple subscription tiers:
-- Each subscription tier needs both a base price ID and an overage price ID
-- When updating subscriptions, both price IDs must be updated together
-- Never rely on array position to identify subscription items
-- Always check price.recurring.usage_type to identify 'licensed' vs 'metered' items
-- Both licensed (base) and metered (overage) items must exist for valid subscription
-- Verify metered item exists before recording usage or updating subscription
 
 ## Cost Calculation
 
@@ -275,6 +265,7 @@ Important: When sending meter events to Stripe:
 ### Subscription Migrations
 
 Important: When migrating subscriptions to new prices:
+
 - Preserve existing usage meter records for 'Credits'
 - Don't reset usage data during price changes
 - Ensure fair billing by carrying forward accumulated usage
@@ -286,16 +277,19 @@ Important: When migrating subscriptions to new prices:
 Critical considerations when handling subscription updates:
 
 1. Usage Migration Safety:
+
    - Always capture total usage before updating subscription
    - Record old usage under new plan immediately after upgrade
    - Consider implementing rollback mechanism for failed migrations
 
 2. Concurrent Updates:
+
    - Implement request deduplication or locking
    - Verify subscription hasn't changed since preview was generated
    - Use optimistic locking when updating subscriptions
 
 3. Subscription States:
+
    - Validate subscription is in valid state for upgrade
    - Check for: canceled, past_due, incomplete states
    - Handle partial period credits correctly
@@ -379,6 +373,7 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 ## Subscription Previews
 
 When previewing subscription changes:
+
 - Use `stripeServer.invoices.retrieveUpcoming()` to preview changes without modifying the subscription
 - Always propagate Stripe error details (code, message, statusCode) to the client
 - Handle both API errors (from Stripe) and request errors (from React Query) in the UI
@@ -414,23 +409,4 @@ When previewing subscription changes:
       lastId = response.data[response.data.length - 1].id
     }
   }
-  ```
-
-## Price Tiers and Migration Handling
-
-Important: Some customers are on legacy or special pricing tiers that require manual handling during migrations:
-
-- $499/mo tier customers require manual migration
-- Do not include these customers in automated price update scripts
-- Always verify subscription price before automated updates
-- When writing migration scripts, add price checks to exclude special tiers
-
-### Plan Name Mapping
-
-When working with plan names:
-- Display names (PlanName): 'Free', 'Pro', 'Moar Pro'
-- Internal names (UsageLimits): 'FREE', 'PRO', 'MOAR_PRO'
-- Always map between them when accessing PLAN_CONFIGS:
-  ```typescript
-  const config = PLAN_CONFIGS[planName === 'Free' ? 'FREE' : planName === 'Pro' ? 'PRO' : 'MOAR_PRO']
   ```

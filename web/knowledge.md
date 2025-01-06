@@ -43,11 +43,11 @@ The authentication system in Codebuff's web application plays a crucial role in 
 ## UI Patterns
 
 ### Plan Type Management
+
 - Use UsageLimits enum from common/constants.ts for all plan types
 - Avoid string literals for plan names - use PLAN_CONFIGS[UsageLimits].displayName
 - All plans, including special plans like Team, should be defined in PLAN_CONFIGS
 - This ensures type safety and consistent plan naming across the application
-
 
 ### Logo Usage
 
@@ -554,12 +554,6 @@ Important: When updating Stripe subscriptions:
     price: newPriceId,
   }))
   ```
-- Set `proration_behavior: 'none'` to avoid partial period charges
-- Consider providing migration coupons for customer retention
-- Important: Stripe automatically handles unused time when updating subscriptions:
-  - By default, creates credit for unused time on next invoice
-  - To make a pure price change without credits, use `proration_behavior: 'none'`
-  - Do not try to manually handle unused time credits
 - Important: Stripe automatically handles unused time when updating subscriptions:
   - By default, creates credit for unused time on next invoice
   - To make a pure price change without credits, use `proration_behavior: 'none'`
