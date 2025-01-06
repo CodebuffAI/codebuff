@@ -157,9 +157,10 @@ export const handleCodeSearch: ToolHandler = async (
     let stdout = ''
     let stderr = ''
 
-    const command = `${path.resolve(rgPath)} ${input.pattern} .`
+    const pattern = input.pattern.replace(/"/g, '')
+    const command = `${path.resolve(rgPath)} "${pattern}" .`
     console.log()
-    console.log(green(`Searching project for: ${input.pattern}`))
+    console.log(green(`Searching project for: ${pattern}`))
     const childProcess = spawn(command, {
       cwd: getProjectRoot(),
       shell: true,
@@ -174,7 +175,7 @@ export const handleCodeSearch: ToolHandler = async (
     })
 
     childProcess.on('close', (code) => {
-      console.log()
+      console.log(green(`${stdout.split('\n').length - 1} results`))
       const truncatedStdout = truncate(stdout, 10000)
       const truncatedStderr = truncate(stderr, 1000)
       resolve(
