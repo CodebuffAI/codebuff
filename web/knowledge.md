@@ -42,6 +42,13 @@ The authentication system in Codebuff's web application plays a crucial role in 
 
 ## UI Patterns
 
+### Plan Type Management
+
+- Use UsageLimits enum from common/constants.ts for all plan types
+- Avoid string literals for plan names - use PLAN_CONFIGS[UsageLimits].displayName
+- All plans, including special plans like Team, should be defined in PLAN_CONFIGS
+- This ensures type safety and consistent plan naming across the application
+
 ### Logo Usage
 
 - Include the Codebuff logo alongside the company name in key UI components
@@ -124,6 +131,30 @@ When displaying inline code snippets with copy buttons:
 - Install new shadcn components with: `bunx --bun shadcn@latest add [component-name]`
 - Use Lucide icons instead of raw SVGs for consistency
 - Import icons from 'lucide-react' package
+- For theme-aware components:
+  - Use CSS variables defined in globals.css (e.g. --background, --foreground)
+  - Use utility classes like bg-primary and text-primary-foreground
+  - These automatically handle light/dark mode transitions
+  - Example: `bg-primary text-primary-foreground hover:bg-primary/90`
+- For subtle interactive elements:
+  - Use semi-transparent backgrounds matching parent container theme
+  - Add matching borders with reduced opacity
+  - Increase background opacity on hover while staying in theme
+  - Example: If parent uses `bg-blue-50`, use:
+    ```
+    bg-blue-50/50 hover:bg-blue-100/50
+    border-blue-100 dark:border-blue-900/50
+    ```
+- For collapsible headers:
+  - Combine the summary and trigger into one interactive element
+  - Use flex with gap for consistent spacing between elements
+  - Keep chevron icon on the right as a subtle expand indicator
+  - Example: `<CollapsibleTrigger><div class="flex gap-2"><span>Label</span><span>Value</span></div><ChevronDown /></CollapsibleTrigger>`
+- For collapsible animations:
+  - Use group on trigger and group-data-[state=open] on animated element
+  - Add transform and origin-center for smooth rotation
+  - Combine with transition-transform, duration, and ease-in-out
+  - Example: `group-data-[state=open]:-rotate-180 transform transition-transform duration-200 ease-in-out origin-center`
 
 ### Component Architecture
 
@@ -160,6 +191,26 @@ For expandable/collapsible UI elements:
 
 - Important considerations for client-side interactivity:
 
+### Loading States
+
+- For data-dependent pages:
+  - Check authentication state before making API calls
+  - Show appropriate UI for unauthenticated users immediately
+  - Use React Suspense boundaries for loading states:
+    - Split data-fetching components from layout components
+    - Place Suspense boundary as close to data fetch as possible
+    - Keep static content outside of Suspense to avoid unnecessary loading states
+    - Use loading.tsx for route segments that take time to render
+  - For component-level loading:
+    - Prefer animated loading indicators over static skeletons for small UI elements
+    - Use LoadingDots component for inline loading states
+    - Keep loading states minimal but matching final content shape
+    - Ensure loading indicators match the text color of the content they're replacing
+
+### Client Components and Providers
+
+- Important considerations for client-side interactivity:
+
 1. Client Component Placement:
 
    - Place client components that need interactivity INSIDE provider components
@@ -167,9 +218,18 @@ For expandable/collapsible UI elements:
    - Exception: Components that don't need provider context can go before providers
 
 2. Common Issues:
+
    - Buttons/interactions may not work if component is placed before providers
    - State updates may fail silently when providers are missing
    - Always check component placement in layout hierarchy when debugging client-side issues
+
+3. Converting Client to Server Components:
+   - Replace `useSession()` with `getServerSession(authOptions)`
+   - Remove React hooks like `useState`
+   - Make component async to use `await`
+   - Access session data directly from `session.user` instead of `session.data.user`
+   - For interactive elements (onClick, onChange etc.), extract them into separate client components
+   - Pass data to client components as props, avoiding passing functions or event handlers from server components
 
 Example of correct ordering:
 
@@ -321,13 +381,77 @@ The application includes a usage tracking feature to allow users to monitor thei
 
 This feature enhances user experience by providing transparency about resource consumption and helps users manage their account effectively.
 
+## Verifying Changes
+
+After making changes to the web application code:
+
+1. Build common package if changes affect shared types and run type checking:
+   ```bash
+   bun run --cwd common build && bun run --cwd web tsc
+   ```
+
+This ensures type safety is maintained across the application.
+
+Important: When modifying or using code from common:
+- Always build common package first before running web type checking
+- Changes to common won't be reflected in web until common is rebuilt
+- This applies to new exports, type changes, and utility functions
+
+## UI Patterns
+
+### Plan Change Terminology
+- Use consistent wording for plan changes throughout the app
+- "Upgrade" when target plan price is higher than current plan
+- "Change" when target plan price is lower or equal
+- Use getPlanChangeType utility from lib/utils.ts to determine which term to use
+- Apply this consistently in buttons, headers, and error messages
+
 ## Type Management
 
 ### API Routes and Types
 
+### API Route Organization and Utilities
+- Split complex API routes into focused endpoints
+- Use descriptive route names that indicate the action being performed
+- Example: Subscription management
+  - `/api/stripe/subscription` - Get current subscription info
+  - `/api/stripe/subscription/change` - Handle subscription changes and upgrades
+  - Each endpoint has a single responsibility
+  - Makes the codebase easier to understand and maintain
+  - Keeps related business logic together
+  - Reduces complexity in individual routes
+- Avoid query parameters for different behaviors
+  - Use separate endpoints instead
+  - Let business logic determine the response
+  - Makes the API more predictable and easier to understand
+
+### Utility Organization
+- Group related utility functions by domain (e.g., stripe-subscription-utils.ts)
+- Keep utilities close to where they're used (e.g., web/src/lib for web-specific utils)
+- Share common utilities between API routes to:
+  - Reduce code duplication
+  - Maintain consistent validation and error handling
+  - Make business logic more maintainable
+
+
 - When typing API responses in frontend components, use types from the corresponding API route file
 - Don't create new types for API responses - reference the source of truth in the route files
 - This ensures type consistency between frontend and backend
+- Prefer returning domain-specific values over implementation details:
+  - Good: Return `currentPlan: "Pro"` for client to compare directly
+  - Avoid: Return price IDs that client must map to env variables
+
+### Data Fetching
+
+- Use React Query (Tanstack Query) for all API calls
+- Benefits:
+  - Automatic caching and revalidation
+  - Loading and error states
+  - Deduplication of requests
+  - Retry logic
+- Create custom hooks for reusable queries
+- Use queryKey arrays that include all dependencies
+- Enable/disable queries based on required dependencies
 
 This structure helps in maintaining a clear separation of concerns while allowing necessary sharing of code between different parts of the application.
 
@@ -349,6 +473,21 @@ NextResponse<ApiResponse>
 
 ## Stripe Integration
 
+### Subscription Previews
+
+When previewing subscription changes:
+
+- Use `stripeServer.invoices.retrieveUpcoming()` to preview changes without modifying the subscription
+- Always propagate Stripe error details (code, message, statusCode) to the client
+- Handle both API errors (from Stripe) and request errors (from React Query) in the UI
+- This provides accurate proration calculations directly from Stripe
+- Use `stripeServer.invoices.retrieveUpcoming()` to preview changes without modifying the subscription
+- This provides accurate proration calculations directly from Stripe
+- Include `subscription_proration_date` to ensure consistent calculations between preview and actual update
+- The preview includes credits for unused time and charges for the new plan
+
+### Webhooks
+
 Stripe webhooks (`web/src/app/api/stripe/webhook/route.ts`) handle:
 
 - Subscription creation, updates, and deletions.
@@ -364,6 +503,11 @@ Key functions:
 Important: When updating Stripe subscriptions:
 
 - Cannot add duplicate prices to a subscription - each price can only be used once
+- The `stripe_price_id` field in the user table actually stores the subscription ID, not the price ID
+- To determine a user's current plan:
+  1. Retrieve subscription using the stored subscription ID
+  2. Find the base price item (usage_type='licensed', not metered)
+  3. Use price.id from that item to determine the actual plan
 - When updating existing items, pass the subscription item ID in the items array:
   ```js
   items: [{ id: 'si_existing', price: 'price_new' }]
@@ -383,9 +527,33 @@ Important: When updating Stripe subscriptions:
 - Set `proration_behavior: 'none'` to avoid partial period charges
 - Consider providing migration coupons for customer retention
 - Important: Stripe automatically handles unused time when updating subscriptions:
+
   - By default, creates credit for unused time on next invoice
   - To make a pure price change without credits, use `proration_behavior: 'none'`
   - Do not try to manually handle unused time credits
+
+- Cannot add duplicate prices to a subscription - each price can only be used once
+- The `stripe_price_id` field in the user table actually stores the subscription ID, not the price ID
+- To determine a user's current plan:
+  1. Retrieve subscription using the stored subscription ID
+  2. Find the base price item (usage_type='licensed', not metered)
+  3. Use price.id from that item to determine the actual plan
+- When updating existing items, pass the subscription item ID in the items array:
+  ```js
+  items: [{ id: 'si_existing', price: 'price_new' }]
+  ```
+- For new prices, add without an ID:
+  ```js
+  items: [{ price: 'price_new' }]
+  ```
+- Never delete subscription items before adding new ones - this can cause subscription to become invalid
+- Map existing items to new prices while preserving their IDs:
+  ```js
+  items = subscription.items.data.map((item) => ({
+    id: item.id,
+    price: newPriceId,
+  }))
+  ```
 - Important: Stripe automatically handles unused time when updating subscriptions:
   - By default, creates credit for unused time on next invoice
   - To make a pure price change without credits, use `proration_behavior: 'none'`

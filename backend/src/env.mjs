@@ -28,7 +28,6 @@ export const env = createEnv({
     OPEN_ROUTER_API_KEY: z.string().min(1).startsWith('sk-or-v1-'),
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
-    STRIPE_SUBSCRIPTION_PRICE_ID: z.string().min(1),
     PORT: z.coerce.number().min(1000),
     ENVIRONMENT: z.string().min(1),
     NEXT_PUBLIC_APP_URL: z.string().min(1),

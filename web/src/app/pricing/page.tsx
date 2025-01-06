@@ -1,123 +1,75 @@
 'use client'
-import { useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import Link from 'next/link'
-import {
-  CREDITS_USAGE_LIMITS,
-  OVERAGE_RATE_PRO,
-  OVERAGE_RATE_PRO_PLUS,
-} from 'common/constants'
-import { env } from '@/env.mjs'
+import { PLAN_CONFIGS, UsageLimits } from 'common/constants'
 import { useSession } from 'next-auth/react'
-import { Icons } from '@/components/icons'
-import { handleCreateCheckoutSession } from '@/lib/stripe'
+import { useRouter } from 'next/navigation'
+import { useUserPlan } from '@/hooks/use-user-plan'
+import { PaidPlanFooter } from '@/components/pricing/paid-plan-footer'
+import { FreePlanButton } from '@/components/pricing/free-plan-button'
 
-const PricingPage = () => {
-  const [isPending, setIsPending] = useState(false)
+const PricingCards = () => {
+  const router = useRouter()
   const session = useSession()
+  const {
+    data: currentPlan,
+    isLoading,
+    isPending,
+  } = useUserPlan(session.data?.user?.stripe_customer_id)
 
   const pricingPlans = [
-    {
-      name: 'Free',
-      price: '$0/month',
-      credits: CREDITS_USAGE_LIMITS.FREE,
-      features: [
-        'No overage allowed',
-        <Link
-          key="community-support"
-          href="https://discord.gg/mcWTGjgTj3"
-          className="hover:underline"
-          target="_blank"
-        >
-          Community support
-        </Link>,
-      ],
-      cardFooterChildren: (
-        <Button
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-          asChild
-        >
-          <Link href={'https://www.npmjs.com/package/codebuff'}>
-            Get Started
-          </Link>
-        </Button>
-      ),
-    },
-    {
-      name: 'Pro',
-      price: '$49/month',
-      credits: CREDITS_USAGE_LIMITS.PAID,
-      features: [
-        `Overage allowed ($${OVERAGE_RATE_PRO.toFixed(2)} per 100 credits)`,
-        'Priority support over email and Discord',
-      ],
-      cardFooterChildren: (
-        <div className="w-full flex flex-col items-center text-center justify-center space-y-2">
-          {session?.data?.user?.subscription_active &&
-            (session?.data?.user?.stripe_price_id ? (
-              <p className="text-xs">
-                Need to cancel?<br></br>Click{' '}
-                <Link
-                  href={env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}
-                  className="hover:text-blue-500 hover:underline"
-                >
-                  here
-                </Link>{' '}
-                (to break our hearts)
-              </p>
+    ...Object.entries(PLAN_CONFIGS)
+      .filter(([key]) => key !== UsageLimits.ANON)
+      .map(
+        ([key, config]): {
+          name: UsageLimits
+          displayName: string
+          price: string
+          credits: number
+          features: (string | JSX.Element)[]
+          cardFooterChildren: JSX.Element
+        } => ({
+          name: config.planName,
+          displayName: config.displayName,
+          price: config.monthlyPrice
+            ? `$${config.monthlyPrice}/month`
+            : 'Custom',
+          credits: config.limit,
+          features: [
+            config.overageRate
+              ? `Overage allowed ($${config.overageRate.toFixed(2)} per 100 credits)`
+              : 'No overage allowed',
+            config.displayName === 'Free' ? (
+              <Link
+                key="community-support"
+                href="https://discord.gg/mcWTGjgTj3"
+                className="hover:underline"
+                target="_blank"
+              >
+                Community support
+              </Link>
             ) : (
-              <p className="text-xs">
-                Your subscription won&apos;t renew. Manage it{' '}
-                <Link
-                  href={env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}
-                  className="hover:text-blue-500 hover:underline"
-                >
-                  here
-                </Link>
-                .
-              </p>
-            ))}
-          <Button
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-            onClick={() => handleCreateCheckoutSession(setIsPending)}
-            disabled={isPending || session.data?.user?.subscription_active}
-          >
-            {session?.data?.user?.subscription_active ? (
-              <p>You are on the pro tier!</p>
+              'Priority support over email and Discord'
+            ),
+          ],
+          cardFooterChildren:
+            config.planName === UsageLimits.FREE ? (
+              <FreePlanButton currentPlan={currentPlan} />
             ) : (
-              <>
-                {isPending && (
-                  <Icons.loader className="mr-2 size-4 animate-spin" />
-                )}
-                Upgrade
-              </>
-            )}
-          </Button>
-        </div>
+              <PaidPlanFooter
+                planName={config.planName as UsageLimits}
+                currentPlan={currentPlan ?? UsageLimits.FREE}
+                isLoading={isLoading || isPending}
+              />
+            ),
+        })
       ),
-    },
     {
-      name: 'Pro Plus',
-      price: '$249/month',
-      credits: CREDITS_USAGE_LIMITS.PRO_PLUS,
-      features: [
-        `Overage allowed ($${OVERAGE_RATE_PRO_PLUS.toFixed(2)} per 100 credits)`,
-        'Priority support over email and Discord',
-      ],
-      cardFooterChildren: (
-        <Button
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-          asChild
-        >
-          <Link href={'mailto:support@codebuff.com'}>Contact Support</Link>
-        </Button>
-      ),
-    },
-
-    {
-      name: 'Team',
+      name: 'TEAM',
+      displayName: 'Team',
       price: '$99/seat/month',
       credits: '$0.90 per 100',
       features: [
@@ -137,11 +89,57 @@ const PricingPage = () => {
   ]
 
   return (
+    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 container mx-auto">
+      {pricingPlans.map((plan, index) => (
+        <Card
+          key={index}
+          className="bg-gray-900 text-white flex flex-col relative"
+        >
+          <CardHeader className="min-h-[200px] flex flex-col">
+            <h3 className="text-2xl font-bold relative">
+              {plan.displayName}
+              {currentPlan === plan.name && (
+                <div className="absolute -right-8 -top-8 transform rotate-12">
+                  <div className="relative">
+                    <div className="relative bg-blue-500 text-white text-xs px-3 py-2 rounded-lg shadow-lg transform hover:rotate-0 transition-transform duration-200">
+                      Current Plan
+                    </div>
+                  </div>
+                </div>
+              )}
+            </h3>
+            <div className="mt-4 space-y-2">
+              <p className="text-3xl font-bold">{plan.price}</p>
+              {plan.credits && (
+                <p className="text-lg text-gray-300">
+                  {plan.credits.toLocaleString()} credits
+                </p>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="flex-grow flex flex-col justify-between pt-6">
+            <ul className="space-y-3 text-gray-300">
+              {plan.features.map((feature, idx) => (
+                <li key={idx}>{feature}</li>
+              ))}
+            </ul>
+          </CardContent>
+          <CardFooter className="w-full justify-center pt-6">
+            {plan.cardFooterChildren}
+          </CardFooter>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+const PricingPage = () => {
+  return (
     <div className="overflow-hidden">
       <BackgroundBeams />
 
       <main className="container mx-auto px-4 py-20 text-center relative z-10">
-        <div className="p-4">
+        <div className="p-8">
           <h1 className="text-5xl md:text-7xl font-bold mb-6">
             Choose Your Plan
           </h1>
@@ -153,31 +151,7 @@ const PricingPage = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-4 gap-8 mt-12">
-          {pricingPlans.map((plan, index) => (
-            <Card key={index} className="bg-gray-900 text-white flex flex-col">
-              <CardHeader className="min-h-[180px] flex flex-col">
-                <h3 className="text-2xl font-bold">{plan.name}</h3>
-                <p className="text-4xl font-bold mt-2">{plan.price}</p>
-                {plan.credits && (
-                  <p className="text-lg mt-2">
-                    {plan.credits.toLocaleString()} credits
-                  </p>
-                )}
-              </CardHeader>
-              <CardContent className="flex-grow flex flex-col justify-between">
-                <ul className="mt-4 space-y-2">
-                  {plan.features.map((feature, idx) => (
-                    <li key={idx}>{feature}</li>
-                  ))}
-                </ul>
-              </CardContent>
-              <CardFooter className="w-full justify-center">
-                {plan.cardFooterChildren}
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+        <PricingCards />
 
         <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
           <i>
