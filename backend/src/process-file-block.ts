@@ -7,7 +7,7 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { openaiModels } from 'common/constants'
+import { CostMode, openaiModels } from 'common/constants'
 import { promptOpenAI } from './openai-api'
 import {
   createSearchReplaceBlock,
@@ -24,6 +24,7 @@ export async function processFileBlock(
   fullResponse: string,
   filePath: string,
   newContent: string,
+  costMode: CostMode,
   userId: string | undefined
 ): Promise<FileChange | null> {
   if (newContent.trim() === '[UPDATED_BY_ANOTHER_ASSISTANT]') {
@@ -81,6 +82,7 @@ export async function processFileBlock(
       await retryDiffBlocksPrompt(
         filePath,
         normalizedOldContent,
+        costMode,
         clientSessionId,
         fingerprintId,
         userInputId,
@@ -124,7 +126,8 @@ export async function processFileBlock(
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId
+      userId,
+      costMode
     )
   } else if (updatedDiffBlocksThatDidntMatch.length > 0) {
     const changes = updatedDiffBlocksThatDidntMatch
@@ -140,7 +143,8 @@ export async function processFileBlock(
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId
+      userId,
+      costMode
     )
   }
 
@@ -185,7 +189,8 @@ async function applyRemainingChanges(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined
+  userId: string | undefined,
+  costMode: CostMode
 ) {
   const prompt = `
 You will be helping to rewrite a file with changes.
@@ -221,7 +226,7 @@ Return only the full, complete file content with no additional text or explanati
       fingerprintId,
       userInputId,
       userId,
-      model: openaiModels.gpt4omini,
+      model: costMode === 'pro' ? openaiModels.gpt4o : openaiModels.gpt4omini,
       predictedContent: updatedContent,
     }
   )

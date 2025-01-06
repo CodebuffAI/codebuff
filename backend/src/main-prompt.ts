@@ -219,6 +219,7 @@ export async function mainPrompt(
               fullResponse,
               path,
               filePathWithoutStartNewline,
+              costMode,
               userId
             ).catch((error) => {
               logger.error(error, 'Error processing file block')

@@ -80,7 +80,11 @@ export const handleRunTerminalCommand = async (
           dataStr.includes('/bin/sh: -c: line') ||
           dataStr.includes('/bin/sh: line') ||
           dataStr.startsWith('fatal:') ||
-          dataStr.startsWith('error:'))
+          dataStr.startsWith('error:') ||
+          dataStr.startsWith('Der Befehl') ||
+          dataStr.includes(
+            'ist entweder falsch geschrieben oder konnte nicht gefunden werden'
+          ))
       ) {
         resolve({
           result: 'command not found',
