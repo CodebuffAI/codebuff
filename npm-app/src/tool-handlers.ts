@@ -75,7 +75,7 @@ export const handleRunTerminalCommand = async (
 
     const timer = setTimeout(() => {
       if (mode === 'assistant') {
-        // Kill and recreated PTY
+        // Kill and recreate PTY
         resetPtyShell(getProjectRoot())
 
         resolve({
@@ -95,6 +95,10 @@ export const handleRunTerminalCommand = async (
       const windowsPromptRegex = /\d{2}\/\d{2}\s\d{2}:\d{2}\s.*\s►/
       const hasNextPromptOnWindows = windowsPromptRegex.test(totalOutput)
       if (totalOutput.includes('bash-3.2$ ') || hasNextPromptOnWindows) {
+        commandOutput += data
+        process.stdout.write(data)
+        process.stdout.clearLine(0)
+        process.stdout.cursorTo(0)
         clearTimeout(timer)
         dataDisposable.dispose()
 
@@ -103,16 +107,17 @@ export const handleRunTerminalCommand = async (
           setProjectRoot(path.join(getProjectRoot(), newWorkingDirectory))
         }
 
-        resolve({
-          result: formatResult(commandOutput, undefined, 'Command completed'),
-          stdout: commandOutput,
-        })
         if (mode === 'assistant') {
           console.log(green(`Command completed`))
         }
 
         // Reset the PTY to the project root
         ptyProcess.write(`cd ${getProjectRoot()}\r`)
+
+        resolve({
+          result: formatResult(commandOutput, undefined, 'Command completed'),
+          stdout: commandOutput,
+        })
         return
       }
 
