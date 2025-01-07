@@ -90,11 +90,21 @@ export const handleRunTerminalCommand = async (
     }, MAX_EXECUTION_TIME)
 
     const dataDisposable = ptyProcess.onData((data: string) => {
-      const totalOutput = streamedCommand + commandOutput + data
+      const output = commandOutput + data
+
       // Windows PowerShell prompt pattern: "MM/DD HH:mm Path ►"
-      const windowsPromptRegex = /\d{2}\/\d{2}\s\d{2}:\d{2}\s.*\s►/
-      const hasNextPromptOnWindows = windowsPromptRegex.test(totalOutput)
-      if (totalOutput.includes('bash-3.2$ ') || hasNextPromptOnWindows) {
+      const simpleWindowsPromptRegex = /\d{2}:\d{2}.*►/
+      const simpleWindowsPromptRegex2 = /PS [A-Z]:\\.*>/ // E.g. matches PS C:\jahooma\www\Finance-Scraper>
+      const hasSimplePromptOnWindows =
+        simpleWindowsPromptRegex.test(output)
+      const hasSimplePromptOnWindows2 =
+        simpleWindowsPromptRegex2.test(output)
+
+      if (
+        output.includes('bash-3.2$ ') ||
+        hasSimplePromptOnWindows ||
+        hasSimplePromptOnWindows2
+      ) {
         commandOutput += data
         process.stdout.write(data)
         process.stdout.clearLine(0)
