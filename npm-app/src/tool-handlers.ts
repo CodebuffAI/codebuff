@@ -7,6 +7,7 @@ import * as pty from '@homebridge/node-pty-prebuilt-multiarch'
 
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot, setProjectRoot } from './project-files'
+import { detectShell } from './util/detect-shell'
 
 export type ToolHandler = (input: any, id: string) => Promise<string>
 
@@ -24,7 +25,12 @@ export const handleScrapeWebPage: ToolHandler = async (
 
 const createPty = (dir: string) => {
   const isWindows = os.platform() === 'win32'
-  const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash'
+  const currShell = detectShell()
+  const shell = isWindows
+    ? currShell === 'powershell'
+      ? 'powershell.exe'
+      : 'cmd.exe'
+    : 'bash'
   const persistentPty = pty.spawn(shell, [], {
     name: 'xterm-256color',
     cols: process.stdout.columns || 80,
