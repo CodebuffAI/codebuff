@@ -2,7 +2,9 @@
   "name": "codebuff-tests",
   "version": "1.0.0",
   "description": "Scripts package for Codebuff",
-  "scripts": {},
+  "scripts": {
+    "mrr": "bun calculate-mrr.ts"
+  },
   "dependencies": {
     "backend": "file:../backend",
     "lodash": "^4.17.21"

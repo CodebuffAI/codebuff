@@ -370,6 +370,24 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 4. Expand Stripe integration to handle more complex billing scenarios.
 5. Develop a system for usage analytics to inform pricing strategies.
 
+## Revenue Tracking
+
+To calculate MRR and ARR:
+```bash
+bun run --cwd scripts mrr
+```
+
+This script:
+- Sums base subscription fees from all active subscriptions
+- Excludes usage-based billing and subscriptions scheduled for cancellation
+- Handles pagination for all subscriptions
+- Shows both monthly (MRR) and annualized (ARR) revenue
+
+Important: When calculating MRR:
+- Check subscription.cancel_at_period_end to exclude subscriptions scheduled for cancellation
+- Only count the base subscription fee (licensed item), not metered usage
+- Use subscription.status='active' to exclude already-cancelled subscriptions
+
 ## Subscription Previews
 
 When previewing subscription changes:
