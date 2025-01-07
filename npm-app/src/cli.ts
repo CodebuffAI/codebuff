@@ -406,7 +406,7 @@ export class CLI {
         userInput.split(' ').length <= 5)
     ) {
       const withoutRunPrefix = userInput.replace(runPrefix, '')
-      const { result, stdout, stderr } = await handleRunTerminalCommand(
+      const { result, stdout } = await handleRunTerminalCommand(
         { command: withoutRunPrefix },
         'user',
         'user'
@@ -417,7 +417,6 @@ export class CLI {
         return
       } else if (hasRunPrefix) {
         process.stdout.write(stdout)
-        process.stderr.write(stderr)
         this.setPrompt()
         this.rl.prompt()
         return
