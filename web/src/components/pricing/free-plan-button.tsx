@@ -10,6 +10,8 @@ type FreePlanButtonProps = {
 
 export const FreePlanButton = ({ currentPlan }: FreePlanButtonProps) => {
   const router = useRouter()
+  const isFreeTier =
+    currentPlan === UsageLimits.FREE || currentPlan === UsageLimits.ANON
 
   return (
     <Button
@@ -17,7 +19,7 @@ export const FreePlanButton = ({ currentPlan }: FreePlanButtonProps) => {
         'w-full text-white bg-blue-600 hover:bg-blue-700 transition-colors'
       )}
       onClick={() => {
-        if (currentPlan === UsageLimits.FREE) {
+        if (isFreeTier) {
           router.push('https://www.npmjs.com/package/codebuff')
         } else {
           // For downgrades to free plan, send to cancellation portal
@@ -25,7 +27,7 @@ export const FreePlanButton = ({ currentPlan }: FreePlanButtonProps) => {
         }
       }}
     >
-      {currentPlan === UsageLimits.FREE ? 'Get Started' : 'Downgrade'}
+      {isFreeTier ? 'Get Started' : 'Downgrade'}
     </Button>
   )
 }
