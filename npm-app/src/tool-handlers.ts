@@ -131,6 +131,9 @@ export const handleRunTerminalCommand = async (
           data.startsWith('Der Befehl') ||
           data.includes(
             'ist entweder falsch geschrieben oder konnte nicht gefunden werden'
+          ) ||
+          data.includes(
+            'wurde nicht als Name eines Cmdlet, einer Funktion, einer Skriptdatei oder eines ausführbaren'
           ))
       ) {
         clearTimeout(timer)
