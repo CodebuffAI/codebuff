@@ -66,27 +66,26 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
         // Determine plan type from subscription items
         const subscription = event.data.object as Stripe.Subscription
         
-        // Handle specific subscription states that require downgrading to FREE
-        if (subscription.status === 'incomplete_expired' || subscription.status === 'unpaid') {
-          // Immediately downgrade for payment-related failures
-          await handleSubscriptionChange(subscription, UsageLimits.FREE)
-          break
-        } else if (subscription.status === 'canceled') {
-          if (subscription.cancel_at_period_end) {
+        // Handle subscription states with ts-pattern match
+        await match(subscription)
+          .with({ status: P.union('incomplete_expired', 'unpaid') }, async (sub) => {
+            // Immediately downgrade for payment-related failures
+            await handleSubscriptionChange(sub, UsageLimits.FREE)
+          })
+          .with({ status: 'canceled', cancel_at_period_end: true }, () => {
             // Keep user on current plan until period end
             // No action needed, subscription.deleted event will handle the downgrade
-            break
-          } else {
+          })
+          .with({ status: 'canceled', cancel_at_period_end: false }, async (sub) => {
             // Immediate cancellation, downgrade now
-            await handleSubscriptionChange(subscription, UsageLimits.FREE)
-            break
-          }
-        }
-        
-        // For other states (active, trialing, past_due), proceed normally
-        const basePriceId = getSubscriptionItemByType(subscription, 'licensed')
-        const plan = getPlanFromPriceId(basePriceId?.price.id)
-        await handleSubscriptionChange(subscription, plan)
+            await handleSubscriptionChange(sub, UsageLimits.FREE)
+          })
+          .otherwise(async (sub) => {
+            // For other states (active, trialing, past_due), proceed normally
+            const basePriceId = getSubscriptionItemByType(sub, 'licensed')
+            const plan = getPlanFromPriceId(basePriceId?.price.id)
+            await handleSubscriptionChange(sub, plan)
+          })
         break
       }
       case 'customer.subscription.deleted':
