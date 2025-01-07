@@ -67,9 +67,20 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
         const subscription = event.data.object as Stripe.Subscription
         
         // Handle specific subscription states that require downgrading to FREE
-        if (['incomplete_expired', 'canceled', 'unpaid'].includes(subscription.status)) {
+        if (subscription.status === 'incomplete_expired' || subscription.status === 'unpaid') {
+          // Immediately downgrade for payment-related failures
           await handleSubscriptionChange(subscription, UsageLimits.FREE)
           break
+        } else if (subscription.status === 'canceled') {
+          if (subscription.cancel_at_period_end) {
+            // Keep user on current plan until period end
+            // No action needed, subscription.deleted event will handle the downgrade
+            break
+          } else {
+            // Immediate cancellation, downgrade now
+            await handleSubscriptionChange(subscription, UsageLimits.FREE)
+            break
+          }
         }
         
         // For other states (active, trialing, past_due), proceed normally
