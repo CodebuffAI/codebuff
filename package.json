@@ -45,6 +45,7 @@
     "node": ">=20.0.0"
   },
   "trustedDependencies": [
+    "@homebridge/node-pty-prebuilt-multiarch",
     "@vscode/ripgrep",
     "tree-sitter-c",
     "tree-sitter-c-sharp",

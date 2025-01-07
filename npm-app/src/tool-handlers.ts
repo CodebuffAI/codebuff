@@ -2,6 +2,8 @@ import { spawn } from 'child_process'
 import path from 'path'
 import { green } from 'picocolors'
 import { rgPath } from '@vscode/ripgrep'
+import * as os from 'os'
+import * as pty from '@homebridge/node-pty-prebuilt-multiarch'
 
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot, setProjectRoot } from './project-files'
@@ -20,107 +22,155 @@ export const handleScrapeWebPage: ToolHandler = async (
   return `<web_scraped_content url="${url}">${content}</web_scraped_content>`
 }
 
+const createPty = (dir: string) => {
+  const isWindows = os.platform() === 'win32'
+  const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash'
+  const persistentPty = pty.spawn(shell, [], {
+    name: 'xterm-256color',
+    cols: process.stdout.columns || 80,
+    rows: process.stdout.rows || 24,
+    cwd: dir,
+    env: {
+      ...process.env,
+      TERM: 'xterm-256color',
+      PAGER: 'cat',
+      GIT_PAGER: 'cat',
+      GIT_TERMINAL_PROMPT: '0',
+      ...(isWindows ? { TERM: 'cygwin' } : {}),
+      LESS: '-FRX',
+      TERM_PROGRAM: 'mintty',
+    },
+  })
+  return persistentPty
+}
+
+let persistentPty: pty.IPty | null = null
+export const resetPtyShell = (dir: string) => {
+  if (persistentPty) {
+    persistentPty.kill()
+  }
+  persistentPty = createPty(dir)
+}
+
 export const handleRunTerminalCommand = async (
   input: { command: string },
   id: string,
   mode: 'user' | 'assistant'
-): Promise<{ result: string; stdout: string; stderr: string }> => {
+): Promise<{ result: string; stdout: string }> => {
+  // Note: With PTY, all output comes through stdout since it emulates a real terminal
   const { command } = input
   return new Promise((resolve) => {
-    let stdout = ''
-    let stderr = ''
+    if (!persistentPty) {
+      throw new Error('Persistent PTY not initialized')
+    }
+    const ptyProcess = persistentPty
     const MAX_EXECUTION_TIME = 10_000
+    let streamedCommand = ''
+    let commandOutput = ''
 
     if (mode === 'assistant') {
       console.log()
       console.log(green(`> ${command}`))
     }
-    const childProcess = spawn(command, {
-      shell: true,
-      cwd: getProjectRoot(),
-    })
 
     const timer = setTimeout(() => {
       if (mode === 'assistant') {
-        childProcess.kill()
+        // Kill and recreated PTY
+        resetPtyShell(getProjectRoot())
+
         resolve({
           result: formatResult(
-            stdout,
-            stderr,
-            `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds. Partial results shown.`
+            commandOutput,
+            undefined,
+            `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
           ),
-          stdout,
-          stderr,
+          stdout: commandOutput,
         })
       }
     }, MAX_EXECUTION_TIME)
 
-    childProcess.stdout.on('data', (data) => {
-      process.stdout.write(data.toString())
-      stdout += data.toString()
-    })
+    const dataDisposable = ptyProcess.onData((data: string) => {
+      const totalOutput = streamedCommand + commandOutput + data
+      // Windows PowerShell prompt pattern: "MM/DD HH:mm Path ►"
+      const windowsPromptRegex = /\d{2}\/\d{2}\s\d{2}:\d{2}\s.*\s►/
+      const hasNextPromptOnWindows = windowsPromptRegex.test(totalOutput)
+      if (totalOutput.includes('bash-3.2$ ') || hasNextPromptOnWindows) {
+        clearTimeout(timer)
+        dataDisposable.dispose()
 
-    childProcess.stderr.on('data', (data) => {
-      const dataStr = data.toString()
-      stderr += data.toString()
+        if (command.startsWith('cd ') && mode === 'user') {
+          const newWorkingDirectory = command.split(' ')[1]
+          setProjectRoot(path.join(getProjectRoot(), newWorkingDirectory))
+        }
+
+        resolve({
+          result: formatResult(commandOutput, undefined, 'Command completed'),
+          stdout: commandOutput,
+        })
+        if (mode === 'assistant') {
+          console.log(green(`Command completed`))
+        }
+
+        // Reset the PTY to the project root
+        ptyProcess.write(`cd ${getProjectRoot()}\r`)
+        return
+      }
+
+      const prefix = (streamedCommand + data).trim()
+      // Skip command echo and partial command echoes
+      if (command.startsWith(prefix)) {
+        streamedCommand += data
+        return
+      }
+
+      // Check if prefix contains the command and some output
+      if (
+        !streamedCommand.trim().startsWith(command) &&
+        prefix.startsWith(command)
+      ) {
+        streamedCommand += prefix.slice(0, command.length)
+        data = prefix.slice(command.length)
+      }
+
+      // Try to detect error messages in the output
       if (
         mode === 'user' &&
         // Mac
-        (dataStr.includes('command not found') ||
+        (data.includes('command not found') ||
           // Linux
-          dataStr.includes(': not found') ||
+          data.includes(': not found') ||
           // Common
-          dataStr.includes('syntax error:') ||
+          data.includes('syntax error:') ||
           // Linux
-          dataStr.includes('Syntax error:') ||
+          data.includes('Syntax error:') ||
           // Windows
-          dataStr.includes(
+          data.includes(
             'is not recognized as an internal or external command'
           ) ||
-          dataStr.includes('/bin/sh: -c: line') ||
-          dataStr.includes('/bin/sh: line') ||
-          dataStr.startsWith('fatal:') ||
-          dataStr.startsWith('error:') ||
-          dataStr.startsWith('Der Befehl') ||
-          dataStr.includes(
+          data.includes('/bin/sh: -c: line') ||
+          data.includes('/bin/sh: line') ||
+          data.startsWith('fatal:') ||
+          data.startsWith('error:') ||
+          data.startsWith('Der Befehl') ||
+          data.includes(
             'ist entweder falsch geschrieben oder konnte nicht gefunden werden'
           ))
       ) {
+        clearTimeout(timer)
+        dataDisposable.dispose()
         resolve({
           result: 'command not found',
-          stdout,
-          stderr,
+          stdout: commandOutput,
         })
-      } else {
-        process.stderr.write(data.toString())
-      }
-    })
-
-    childProcess.on('close', (code) => {
-      if (command.startsWith('cd ') && code === 0 && mode === 'user') {
-        const newWorkingDirectory = command.split(' ')[1]
-        setProjectRoot(path.join(getProjectRoot(), newWorkingDirectory))
+        return
       }
 
-      clearTimeout(timer)
-      resolve({
-        result: formatResult(stdout, stderr, 'Command completed', code),
-        stdout,
-        stderr,
-      })
-      if (mode === 'assistant') {
-        console.log(green(`Command finished with exit code: ${code}\n`))
-      }
+      process.stdout.write(data)
+      commandOutput += data
     })
 
-    childProcess.on('error', (error) => {
-      clearTimeout(timer)
-      resolve({
-        result: `<terminal_command_error>Failed to execute command: ${error.message}</terminal_command_error>`,
-        stdout,
-        stderr,
-      })
-    })
+    // Write the command
+    ptyProcess.write(command + '\r')
   })
 }
 
@@ -132,13 +182,15 @@ const truncate = (str: string, maxLength: number) => {
 
 function formatResult(
   stdout: string,
-  stderr: string,
+  stderr: string | undefined,
   status?: string,
   exitCode?: number | null
 ): string {
   let result = '<terminal_command_result>\n'
   result += `<stdout>${truncate(stdout, 10000)}</stdout>\n`
-  result += `<stderr>${truncate(stderr, 10000)}</stderr>\n`
+  if (stderr !== undefined) {
+    result += `<stderr>${truncate(stderr, 10000)}</stderr>\n`
+  }
   if (status !== undefined) {
     result += `<status>${status}</status>\n`
   }
