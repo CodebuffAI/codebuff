@@ -32,7 +32,7 @@ export const PaidPlanFooter = ({
           className="w-full text-white bg-blue-600 hover:bg-blue-700 transition-colors"
           onClick={() => router.push('/login')}
         >
-          Log in to Upgrade
+          Upgrade
         </Button>
       </div>
     )
