@@ -22,7 +22,7 @@ const PricingCards = () => {
   } = useUserPlan(session.data?.user?.stripe_customer_id)
   
   // Set currentPlan to FREE for logged-out users to ensure proper button rendering
-  const effectiveCurrentPlan = !session.data ? UsageLimits.FREE : currentPlan
+  const effectiveCurrentPlan = !session.data ? UsageLimits.ANON : currentPlan
 
   const pricingPlans = [
     ...Object.entries(PLAN_CONFIGS)
