@@ -65,6 +65,14 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       case 'customer.subscription.updated': {
         // Determine plan type from subscription items
         const subscription = event.data.object as Stripe.Subscription
+        
+        // Handle specific subscription states that require downgrading to FREE
+        if (['incomplete_expired', 'canceled', 'unpaid'].includes(subscription.status)) {
+          await handleSubscriptionChange(subscription, UsageLimits.FREE)
+          break
+        }
+        
+        // For other states (active, trialing, past_due), proceed normally
         const basePriceId = getSubscriptionItemByType(subscription, 'licensed')
         const plan = getPlanFromPriceId(basePriceId?.price.id)
         await handleSubscriptionChange(subscription, plan)
