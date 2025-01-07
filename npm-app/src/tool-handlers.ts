@@ -7,7 +7,7 @@ import * as pty from '@homebridge/node-pty-prebuilt-multiarch'
 
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot, setProjectRoot } from './project-files'
-import { detectShell } from './util/detect-shell'
+import { detectShell } from './utils/detect-shell'
 
 export type ToolHandler = (input: any, id: string) => Promise<string>
 
