@@ -14,11 +14,15 @@ import { FreePlanButton } from '@/components/pricing/free-plan-button'
 const PricingCards = () => {
   const router = useRouter()
   const session = useSession()
+  // For logged-out users, we don't need to fetch the plan
   const {
     data: currentPlan,
     isLoading,
     isPending,
   } = useUserPlan(session.data?.user?.stripe_customer_id)
+  
+  // Set currentPlan to FREE for logged-out users to ensure proper button rendering
+  const effectiveCurrentPlan = !session.data ? UsageLimits.FREE : currentPlan
 
   const pricingPlans = [
     ...Object.entries(PLAN_CONFIGS)
@@ -57,11 +61,11 @@ const PricingCards = () => {
           ],
           cardFooterChildren:
             config.planName === UsageLimits.FREE ? (
-              <FreePlanButton currentPlan={currentPlan} />
+              <FreePlanButton currentPlan={effectiveCurrentPlan} />
             ) : (
               <PaidPlanFooter
                 planName={config.planName as UsageLimits}
-                currentPlan={currentPlan ?? UsageLimits.FREE}
+                currentPlan={effectiveCurrentPlan ?? UsageLimits.FREE}
                 isLoading={isLoading || isPending}
               />
             ),

@@ -7,6 +7,7 @@ import { cn, changeOrUpgrade } from '@/lib/utils'
 import { UsageLimits, PLAN_CONFIGS } from 'common/constants'
 import { capitalize } from 'common/util/string'
 import { Icons } from '../icons'
+import { useSession } from 'next-auth/react'
 
 type PaidPlanFooterProps = {
   planName: UsageLimits
@@ -21,6 +22,21 @@ export const PaidPlanFooter = ({
 }: PaidPlanFooterProps) => {
   const isCurrentPlan = currentPlan === planName
   const router = useRouter()
+  const session = useSession()
+
+  // If user is not logged in, show login button
+  if (!session.data) {
+    return (
+      <div className="w-full flex flex-col items-center text-center justify-center space-y-2">
+        <Button
+          className="w-full text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+          onClick={() => router.push('/login')}
+        >
+          Log in to Upgrade
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="w-full flex flex-col items-center text-center justify-center space-y-2">
