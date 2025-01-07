@@ -65,8 +65,8 @@ export const handleRunTerminalCommand = async (
     }
     const ptyProcess = persistentPty
     const MAX_EXECUTION_TIME = 10_000
-    let streamedCommand = ''
     let commandOutput = ''
+    let foundFirstNewLine = false
 
     if (mode === 'assistant') {
       console.log()
@@ -90,61 +90,17 @@ export const handleRunTerminalCommand = async (
     }, MAX_EXECUTION_TIME)
 
     const dataDisposable = ptyProcess.onData((data: string) => {
-      const output = commandOutput + data
+      const prefix = commandOutput + data
 
-      // Windows PowerShell prompt pattern: "MM/DD HH:mm Path ►"
-      const simpleWindowsPromptRegex = /\d{2}:\d{2}.*►/
-      const simpleWindowsPromptRegex2 = /PS [A-Z]:\\.*>/ // E.g. matches PS C:\jahooma\www\Finance-Scraper>
-      const hasSimplePromptOnWindows =
-        simpleWindowsPromptRegex.test(output)
-      const hasSimplePromptOnWindows2 =
-        simpleWindowsPromptRegex2.test(output)
-
-      if (
-        output.includes('bash-3.2$ ') ||
-        hasSimplePromptOnWindows ||
-        hasSimplePromptOnWindows2
-      ) {
-        commandOutput += data
-        process.stdout.write(data)
-        process.stdout.clearLine(0)
-        process.stdout.cursorTo(0)
-        clearTimeout(timer)
-        dataDisposable.dispose()
-
-        if (command.startsWith('cd ') && mode === 'user') {
-          const newWorkingDirectory = command.split(' ')[1]
-          setProjectRoot(path.join(getProjectRoot(), newWorkingDirectory))
+      // Skip the first line of the output, because it's the command being printed.
+      if (!foundFirstNewLine) {
+        if (!prefix.includes('\n')) {
+          return
         }
 
-        if (mode === 'assistant') {
-          console.log(green(`Command completed`))
-        }
-
-        // Reset the PTY to the project root
-        ptyProcess.write(`cd ${getProjectRoot()}\r`)
-
-        resolve({
-          result: formatResult(commandOutput, undefined, 'Command completed'),
-          stdout: commandOutput,
-        })
-        return
-      }
-
-      const prefix = (streamedCommand + data).trim()
-      // Skip command echo and partial command echoes
-      if (command.startsWith(prefix)) {
-        streamedCommand += data
-        return
-      }
-
-      // Check if prefix contains the command and some output
-      if (
-        !streamedCommand.trim().startsWith(command) &&
-        prefix.startsWith(command)
-      ) {
-        streamedCommand += prefix.slice(0, command.length)
-        data = prefix.slice(command.length)
+        foundFirstNewLine = true
+        const newLineIndex = prefix.indexOf('\n')
+        data = prefix.slice(newLineIndex + 1)
       }
 
       // Try to detect error messages in the output
@@ -175,6 +131,45 @@ export const handleRunTerminalCommand = async (
         dataDisposable.dispose()
         resolve({
           result: 'command not found',
+          stdout: commandOutput,
+        })
+        return
+      }
+
+      // Detect the end of the command output if the prompt is printed.
+      // Windows PowerShell prompt pattern: "MM/DD HH:mm Path ►"
+      const simpleWindowsPromptRegex = /\d{2}:\d{2}.*►/
+      // Another PowerShell prompt: "PS C:\jahooma\www\Finance-Scraper>"
+      const simpleWindowsPromptRegex2 = /PS [A-Z]:\\.*>/
+      const hasSimplePromptOnWindows = simpleWindowsPromptRegex.test(prefix)
+      const hasSimplePromptOnWindows2 = simpleWindowsPromptRegex2.test(prefix)
+
+      if (
+        prefix.includes('bash-3.2$ ') ||
+        hasSimplePromptOnWindows ||
+        hasSimplePromptOnWindows2
+      ) {
+        commandOutput += data
+        process.stdout.write(data)
+        process.stdout.clearLine(0)
+        process.stdout.cursorTo(0)
+        clearTimeout(timer)
+        dataDisposable.dispose()
+
+        if (command.startsWith('cd ') && mode === 'user') {
+          const newWorkingDirectory = command.split(' ')[1]
+          setProjectRoot(path.join(getProjectRoot(), newWorkingDirectory))
+        }
+
+        if (mode === 'assistant') {
+          console.log(green(`Command completed`))
+        }
+
+        // Reset the PTY to the project root
+        ptyProcess.write(`cd ${getProjectRoot()}\r`)
+
+        resolve({
+          result: formatResult(commandOutput, undefined, 'Command completed'),
           stdout: commandOutput,
         })
         return
