@@ -21,9 +21,111 @@ interface BrowserPreviewProps {
   theme?: PreviewTheme
 }
 
+const getIframeContent = (
+  content: string,
+  isRainbow: boolean,
+  theme: PreviewTheme
+) => {
+  const styles = `
+    <style>
+      body {
+        margin: 0;
+        padding: 16px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 14px;
+        ${
+          theme === 'light'
+            ? `
+          background: white;
+          color: #111827;
+        `
+            : theme === 'terminal-y'
+              ? `
+          background: black;
+          color: #10B981;
+        `
+              : theme === 'retro'
+                ? `
+          background: #002448;
+          color: #FFB000;
+          text-shadow: 2px 0 0 rgba(255,176,0,0.6);
+          animation: textflicker 0.1s infinite;
+        `
+                : `
+          background: transparent;
+          color: inherit;
+        `
+        }
+      }
+      @keyframes textflicker {
+        0% { opacity: 0.95; text-shadow: 2px 0 0 rgba(255,176,0,0.6); }
+        25% { opacity: 0.92; text-shadow: -2px 0 0 rgba(255,176,0,0.6); }
+        50% { opacity: 0.94; text-shadow: 2px 0 0 rgba(255,176,0,0.6); }
+        75% { opacity: 0.91; text-shadow: -2px 0 0 rgba(255,176,0,0.6); }
+        100% { opacity: 0.95; text-shadow: 2px 0 0 rgba(255,176,0,0.6); }
+      }
+      .error { color: #EF4444; }
+      .error-box { 
+        background: rgba(239,68,68,0.1);
+        padding: 16px;
+        border-radius: 6px;
+        margin: 8px 0;
+      }
+      .success { color: #10B981; }
+      h1 { font-size: 24px; margin-bottom: 16px; }
+      p { margin: 8px 0; }
+      .dim { opacity: 0.75; }
+    </style>
+  `
+
+  const errorContent = `
+    <h1 class="error">Error: Component failed to render</h1>
+    <div class="error-box">
+      <p>TypeError: Cannot read properties of undefined (reading 'greeting')</p>
+      <p class="dim">at HelloWorld (./components/HelloWorld.tsx:12:23)</p>
+      <p class="dim">at renderWithHooks (./node_modules/react-dom/cjs/react-dom.development.js:14985:18)</p>
+    </div>
+    <p class="dim">This error occurred while attempting to render the greeting component.</p>
+  `
+
+  const fixedContent = `
+    <h1>Hello World! 👋</h1>
+    <p>Welcome to my demo component.</p>
+    <p class="success">Everything is working perfectly now!</p>
+  `
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        ${styles}
+      </head>
+      <body>
+        <div ${
+          isRainbow
+            ? `
+          style="
+            display: inline-block;
+            padding: 16px;
+            border-radius: 6px;
+            background: linear-gradient(to right, rgba(239,68,68,0.9), rgba(168,85,247,0.9), rgba(59,130,246,0.9));
+            color: white;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.25);
+          "
+        `
+            : ''
+        }>
+          ${content === 'error' ? errorContent : content === 'fixed' ? fixedContent : content}
+        </div>
+      </body>
+    </html>
+  `
+}
+
 const BrowserPreview: React.FC<BrowserPreviewProps> = ({
   content,
-  isRainbow,
+  isRainbow = false,
   theme = 'default',
 }) => {
   return (
@@ -78,22 +180,11 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
               ].join(' ')
           )}
         >
-          <pre
-            className={cn(
-              'whitespace-pre-wrap relative',
-              isRainbow &&
-                [
-                  'bg-gradient-to-r from-red-500/90 via-purple-500/90 to-blue-500/90',
-                  'rounded-lg',
-                  'p-2',
-                  'text-white',
-                  'shadow-inner',
-                  'relative',
-                ].join(' ')
-            )}
-          >
-            {content}
-          </pre>
+          <iframe
+            srcDoc={getIframeContent(content, isRainbow, theme)}
+            className="w-full h-full border-none"
+            sandbox="allow-scripts"
+          />
         </div>
       </div>
     </div>
@@ -108,14 +199,7 @@ const InteractiveTerminalDemo = () => {
       a list of commands.
     </WrappedTerminalOutput>,
   ])
-  const [previewContent, setPreviewContent] =
-    useState<string>(`Error: Component failed to render
-----------------------------------
-TypeError: Cannot read properties of undefined (reading 'greeting')
-    at HelloWorld (./components/HelloWorld.tsx:12:23)
-    at renderWithHooks (./node_modules/react-dom/cjs/react-dom.development.js:14985:18)
-
-This error occurred while attempting to render the greeting component.`)
+  const [previewContent, setPreviewContent] = useState<string>('error')
   const [isRainbow, setIsRainbow] = useState(false)
   const [theme, setTheme] = useState<PreviewTheme>('default')
 
@@ -176,10 +260,7 @@ This error occurred while attempting to render the greeting component.`)
           I'll add proper punctuation and improve the code style...
         </WrappedTerminalOutput>
       )
-      setPreviewContent(`Hello World! 👋
-Welcome to my demo component.
-
-Everything is working perfectly now!`)
+      setPreviewContent('fixed')
     } else if (input === 'clear') {
       setTerminalLines([])
       return
