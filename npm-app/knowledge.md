@@ -74,3 +74,15 @@ When using native dependencies that require compilation:
 - Document the fallback behavior in user-facing messages
 - Example: node-pty falls back to child_process when prebuilds aren't available
 
+## Windows Path Handling
+
+When matching Windows paths in regex patterns:
+- To match a literal backslash, use 3 backslashes in the regex:
+  - One backslash to escape in JavaScript string
+  - Two backslashes to create literal backslash in regex
+  - Example: `/[A-Z]:\\\S+/` matches "C:\Users"
+- Common Windows patterns:
+  - Drive letter: `[A-Z]:`
+  - Full path: `[A-Z]:\\\S+`
+  - UNC path: `\\\\\S+\\\S+`
+

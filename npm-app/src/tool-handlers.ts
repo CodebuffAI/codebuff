@@ -146,13 +146,18 @@ export const handleRunTerminalCommand = async (
         const simpleWindowsPromptRegex = /\d{2}:\d{2}.*►/
         // Another PowerShell prompt: "PS C:\jahooma\www\Finance-Scraper>"
         const simpleWindowsPromptRegex2 = /PS [A-Z]:\\.*>/
+        // Another cmd prompt: "C:\jahooma\www\Finance-Scraper>"
+        const simpleWindowsPromptRegex3 = /[A-Z]:\\\S+>/
+
         const hasSimplePromptOnWindows = simpleWindowsPromptRegex.test(prefix)
         const hasSimplePromptOnWindows2 = simpleWindowsPromptRegex2.test(prefix)
+        const hasSimplePromptOnWindows3 = simpleWindowsPromptRegex3.test(prefix)
 
         if (
           prefix.includes('bash-3.2$ ') ||
           hasSimplePromptOnWindows ||
-          hasSimplePromptOnWindows2
+          hasSimplePromptOnWindows2 ||
+          hasSimplePromptOnWindows3
         ) {
           commandOutput += data
           process.stdout.write(data)
