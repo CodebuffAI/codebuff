@@ -1,9 +1,5 @@
 import React, { useState } from 'react'
-import Terminal, {
-  ColorMode,
-  TerminalInput,
-  TerminalOutput,
-} from './ui/terminal'
+import Terminal, { ColorMode, TerminalOutput } from './ui/terminal'
 import { useIsMobile } from '../hooks/use-mobile'
 import { cn } from '../lib/utils'
 import { sleep } from 'common/util/helpers'
@@ -225,14 +221,23 @@ const InteractiveTerminalDemo = () => {
 
     if (input === 'help') {
       newLines.push(
+        <TerminalOutput key={`help-${Date.now()}`} className="text-wrap">
+          {'>'} help
+        </TerminalOutput>,
         <TerminalOutput key={`help-${Date.now()}`}>
-          <p>Available commands:</p>
-          <p>• fix the bug - Fix a bug in the code</p>
-          <p>• rainbow - Add a rainbow gradient to the component</p>
-          <p>• theme - Change the visual theme</p>
+          <p>ASK CODEBUFF TO...</p>
+          <p>• "fix the bug" - Fix a bug in the code</p>
+          <p>• "add rainbow" - Add a rainbow gradient to the component</p>
+          <p>• "change theme" - Change the visual theme</p>
+          <p className="mt-4">
+            <b>
+              Keep in mind that this is just a demo – install the package to get
+              the full experience!
+            </b>
+          </p>
         </TerminalOutput>
       )
-    } else if (input === 'rainbow') {
+    } else if (input === 'add rainbow') {
       setIsRainbow(true)
       newLines.push(
         <TerminalOutput key={`rainbow-cmd-${Date.now()}`}>
@@ -248,7 +253,7 @@ const InteractiveTerminalDemo = () => {
           🌈 Added a rainbow gradient to the component!
         </TerminalOutput>
       )
-    } else if (input === 'theme') {
+    } else if (input === 'change theme') {
       const themes: PreviewTheme[] = ['terminal-y', 'retro', 'light']
       const currentIndex = themes.indexOf(theme)
       const nextTheme = themes[(currentIndex + 1) % themes.length]
@@ -371,7 +376,10 @@ const InteractiveTerminalDemo = () => {
           <Terminal
             name="Terminal"
             colorMode={ColorMode.Dark}
-            onInput={handleInput}
+            onInput={(input) => {
+              const cleanInput = input.trim().toLowerCase()
+              handleInput(cleanInput)
+            }}
             scrollToPosition={true}
             height={isMobile ? '200px' : '800px'}
             prompt="> "
