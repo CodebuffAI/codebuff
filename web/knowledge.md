@@ -55,6 +55,10 @@ The authentication system in Codebuff's web application plays a crucial role in 
     - Does not work well with percentage heights or container-based sizing
     - Use useIsMobile hook to switch between mobile/desktop heights
     - Consider rebuilding with a more flexible terminal component in future
+  - Text wrapping:
+    - Add whitespace-pre-wrap to both container and content divs
+    - This ensures long lines wrap instead of causing horizontal scroll
+    - Important for good UX on mobile devices
   - For responsive height:
     - Set base height prop for mobile
     - Use lg:!h-[size] to override on desktop
@@ -141,6 +145,10 @@ When showing code previews in the UI:
 - Show filename/path in URL-like bar
 - Use system colors that adapt to light/dark mode
 - Keep content area scrollable and monospaced
+- For gradient borders:
+  - Use p-[1px] with gradient background on outer div
+  - Wrap content in inner div with solid background
+  - This creates a gradient border effect that works in both light/dark modes
 - For side-by-side layouts with fixed heights:
   - Set fixed height on parent container
   - Use flex layout with h-full on children
