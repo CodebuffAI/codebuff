@@ -115,15 +115,29 @@ const getIframeContent = (
 
   const fixedContent = `
     <h1>Hello World! 👋</h1>
-    <p>Welcome to my demo component.</p>
     <p class="success">Everything is working perfectly now!</p>
-  `
+    <p>Like the demo? Use it for real so we can justify this demo:</p>
+    <code><pre>npm install -g codebuff</pre></code>
+    `
 
   return `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+          tailwind.config = {
+            theme: {
+              extend: {
+                colors: {
+                  error: '#EF4444',
+                  success: '#10B981',
+                }
+              }
+            }
+          }
+        </script>
         ${styles}
       </head>
       <body>

@@ -168,6 +168,11 @@ When displaying inline code snippets with copy buttons:
   - Use template literals for dynamic content instead of JSX interpolation
   - Always provide unique key props for dynamic terminal lines
   - Use theme.dark to determine ColorMode.Dark vs ColorMode.Light
+  - When handling code blocks in responses:
+    - Use regex to extract only the code content between backticks
+    - Don't include non-code text in the output
+    - Join multiple code blocks with newlines
+    - Keep original text for message display, replacing code blocks with placeholders
   - For proper text wrapping in terminal input:
     - Use whitespace-pre-wrap for preserving newlines while allowing wrapping
     - Use break-all to prevent overflow on long strings without spaces
@@ -185,6 +190,11 @@ When showing code previews in the UI:
 - Show filename/path in URL-like bar
 - Use system colors that adapt to light/dark mode
 - Keep content area scrollable and monospaced
+- For dynamic iframes with Tailwind:
+  - Include Tailwind via CDN: `<script src="https://cdn.tailwindcss.com"></script>`
+  - Configure Tailwind theme inside iframe to match app's theme
+  - Define custom colors in tailwind.config to match app's color scheme
+  - Remove redundant CSS when using Tailwind classes
 - For gradient borders:
   - Use p-[1px] with gradient background on outer div
   - Wrap content in inner div with solid background
@@ -538,6 +548,127 @@ Important: When modifying or using code from common:
 ### API Route Organization and Utilities
 - Split complex API routes into focused endpoints
 - Use descriptive route names that indicate the action being performed
+- For API routes that handle external requests:
+  - For CORS in Next.js App Router:
+    - Export an OPTIONS handler for preflight requests:
+      ```typescript
+      const corsHeaders = {
+        'Access-Control-Allow-Origin': env.NEXT_PUBLIC_APP_URL,
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Credentials': 'true',
+      }
+
+      export async function OPTIONS() {
+        return new Response(null, {
+          status: 204,
+          headers: corsHeaders,
+        })
+      }
+      ```
+    - Include CORS headers in ALL responses:
+      ```typescript
+      return new Response(data, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      })
+      ```
+    - Keep headers consistent between OPTIONS and actual requests
+    - Define headers once and reuse to avoid inconsistencies
+    - Remember to include CORS headers even in error responses
+    ```typescript
+    const cors = Cors({
+      methods: ['POST'], // Only include methods actually used
+      origin: env.NEXT_PUBLIC_APP_URL, // Restrict to your domain
+      credentials: true,
+    })
+
+    // Helper to run middleware with App Router's Request/Response
+    function runMiddleware(request: Request, response: Response) {
+      return new Promise((resolve, reject) => {
+        const req: any = {
+          method: request.method,
+          headers: Object.fromEntries(request.headers.entries()),
+        }
+        const res: any = {
+          statusCode: response.status,
+          setHeader: (name: string, value: string) => {
+            response.headers.set(name, value)
+          },
+          end: () => resolve(undefined),
+        }
+
+        cors(req, res, (result: Error | unknown) => {
+          if (result instanceof Error) return reject(result)
+          return resolve(result)
+        })
+      })
+    }
+
+    // Use in route handler
+    const response = new Response()
+    await runMiddleware(request, response)
+    ```
+  - This provides proper preflight handling and header setting
+  - More reliable than manual CORS header configuration
+  - Important: CORS headers must be included in ALL responses, including error responses:
+    ```typescript
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': env.NEXT_PUBLIC_APP_URL,
+      'Access-Control-Allow-Methods': 'POST',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Credentials': 'true',
+    }
+
+    // Add to all responses, including errors
+    return new Response(JSON.stringify({ error: 'Some error' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      },
+    })
+    ```
+  - Double-check origin in route handler:
+    ```typescript
+    const origin = request.headers.get('origin')
+    if (origin !== env.NEXT_PUBLIC_APP_URL) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized origin' }),
+        { status: 403 }
+      )
+    }
+    ```
+  - Use both CORS headers and runtime origin checks for defense in depth
+  - Example next.config.mjs configuration:
+    ```typescript
+    headers: [
+      {
+        source: '/api/specific-endpoint',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: env.NEXT_PUBLIC_APP_URL },
+          { key: 'Access-Control-Allow-Methods', value: 'POST' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type' },
+        ],
+      }
+    ]
+    ```
+  - For request validation with Zod:
+    - Use z.object() to define the shape of the request body
+    - For non-empty strings, use z.string().min(1)
+    - For non-empty arrays, use z.array().min(1)
+    - Return 400 status with validation error message  - For rate limiting API routes:
+  - Get client IP from x-forwarded-for header (first IP in comma-separated list)
+  - Track requests per IP with a Map or Redis store
+  - Set appropriate window (e.g., 10 requests per minute)
+  - Return 429 status when limit exceeded
+  - Clean up old entries periodically
+  - Consider using Redis in production for persistence
+  - Important: In-memory Maps reset on server restart and don't work across multiple instances
+  - Important: setInterval cleanup may not run in serverless environments
 - Example: Subscription management
   - `/api/stripe/subscription` - Get current subscription info
   - `/api/stripe/subscription/change` - Handle subscription changes and upgrades
