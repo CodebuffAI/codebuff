@@ -9,6 +9,7 @@ import React, {
 import TerminalInput from './terminal-input'
 import TerminalOutput from './terminal-output'
 import './style.css'
+import { cn } from '@/lib/utils'
 
 export enum ColorMode {
   Light,
@@ -18,7 +19,6 @@ export enum ColorMode {
 export interface Props {
   name?: string
   prompt?: string
-  height?: string
   colorMode?: ColorMode
   children?: ReactNode
   onInput?: ((input: string) => void) | null | undefined
@@ -27,12 +27,12 @@ export interface Props {
   yellowBtnCallback?: () => void
   greenBtnCallback?: () => void
   scrollToPosition?: boolean
+  className?: string
 }
 
 const Terminal = ({
   name,
   prompt,
-  height = '600px',
   colorMode,
   onInput,
   children,
@@ -41,6 +41,7 @@ const Terminal = ({
   yellowBtnCallback,
   greenBtnCallback,
   scrollToPosition = true,
+  className,
 }: Props) => {
   const [currentLineInput, setCurrentLineInput] = useState('')
   const [cursorPos, setCursorPos] = useState(0)
@@ -171,9 +172,10 @@ const Terminal = ({
   if (colorMode === ColorMode.Light) {
     classes.push('react-terminal-light')
   }
+
   return (
     <div className={classes.join(' ')} data-terminal-name={name}>
-      <div className="react-terminal-window-buttons">
+      <div className="react-terminal-window-buttons flex-none">
         <button
           className={`${yellowBtnCallback ? 'clickable' : ''} red-btn`}
           disabled={!redBtnCallback}
@@ -190,7 +192,10 @@ const Terminal = ({
           onClick={greenBtnCallback}
         />
       </div>
-      <div className="react-terminal" style={{ height }} ref={terminalRef}>
+      <div
+        className={cn('react-terminal', 'flex-1', className)}
+        ref={terminalRef}
+      >
         {children}
         {typeof onInput === 'function' && (
           <div

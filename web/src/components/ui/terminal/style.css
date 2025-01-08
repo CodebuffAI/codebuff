@@ -19,9 +19,17 @@
 }
 
 .react-terminal {
-  overflow: auto;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0; /* Important: allows flex child to scroll */
+}
+
+.react-terminal-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .react-terminal-wrapper.react-terminal-light {

@@ -217,7 +217,6 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
 }
 
 const InteractiveTerminalDemo = () => {
-  const isMobile = useIsMobile()
   const [terminalLines, setTerminalLines] = useState<React.ReactNode[]>([
     <TerminalOutput key="welcome">
       Codebuff will read and write files in "/my-demo-project". Type "help" for
@@ -387,30 +386,31 @@ const InteractiveTerminalDemo = () => {
     <div className="flex flex-col lg:flex-row gap-4 max-w-6xl mx-auto px-4">
       <div className="w-full lg:w-1/2 h-full flex">
         <div className="w-full text-sm">
-          <Terminal
-            name="Terminal"
-            colorMode={ColorMode.Dark}
-            onInput={(input) => {
-              const cleanInput = input.trim().toLowerCase()
-              handleInput(cleanInput)
-            }}
-            scrollToPosition={true}
-            height={isMobile ? '200px' : '800px'}
-            prompt="> "
-          >
-            <div
-              className={cn(
-                'flex flex-col text-sm whitespace-pre-wrap',
-                isLoading && 'opacity-50'
-              )}
+          <div className="h-[200px] md:h-[400px] lg:h-[800px]">
+            <Terminal
+              name="Terminal"
+              colorMode={ColorMode.Dark}
+              onInput={(input) => {
+                const cleanInput = input.trim().toLowerCase()
+                handleInput(cleanInput)
+              }}
+              scrollToPosition={true}
+              prompt="> "
             >
-              {terminalLines}
-            </div>
-          </Terminal>
+              <div
+                className={cn(
+                  'flex flex-col text-sm whitespace-pre-wrap',
+                  isLoading && 'opacity-50'
+                )}
+              >
+                {terminalLines}
+              </div>
+            </Terminal>
+          </div>
         </div>
       </div>
 
-      <div className="w-full lg:w-1/2 flex">
+      <div className="w-full lg:w-1/2 h-[200px] md:h-[400px] lg:h-[800px] flex">
         <BrowserPreview
           content={previewContent}
           isRainbow={isRainbow}

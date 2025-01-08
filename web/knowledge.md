@@ -68,10 +68,18 @@ When creating retro CRT monitor effects:
   - Wrap Terminal component in a div with text-sm to control font size
   - Font size can't be controlled directly through Terminal props
   - Height handling quirks:
-    - Component requires exact pixel heights (e.g. "200px")
-    - Does not work well with percentage heights or container-based sizing
-    - Use useIsMobile hook to switch between mobile/desktop heights
-    - Consider rebuilding with a more flexible terminal component in future
+    - Use flex layout with fixed container height
+    - Terminal wrapper should be flex-col with h-full
+    - Terminal content should be flex-1 with overflow-y-auto
+    - Set min-height: 0 to allow flex child to scroll
+    - Parent controls height with responsive Tailwind classes:
+      ```tsx
+      <div className="h-[200px] md:h-[600px] lg:h-[800px]">
+        <Terminal />
+      </div>
+      ```
+    - Prefer Tailwind breakpoints over custom hooks for responsive design
+    - This prevents content growth from breaking layout
   - Text wrapping strategies:
     - Try break-words + overflow-hidden for basic word wrapping
     - overflow-wrap-anywhere for more aggressive wrapping
@@ -266,6 +274,22 @@ When showing code previews in the UI:
   - Pass variant-specific content via props
   - Keep styling consistent between variants
 - Example: Banner variants should share container and button styles
+- For component height management:
+  - Components should use h-full internally and accept className prop
+  - Let parent components control final height with Tailwind classes
+  - Example:
+    ```tsx
+    // Component
+    const MyComponent = ({ className }) => (
+      <div className={cn("h-full", className)}>...</div>
+    )
+    
+    // Usage
+    <div className="h-[200px] md:h-[800px]">
+      <MyComponent />
+    </div>
+    ```
+  - This allows for responsive heights and better composition
 
 ### Business Logic Organization
 
