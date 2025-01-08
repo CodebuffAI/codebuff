@@ -43,6 +43,15 @@ The authentication system in Codebuff's web application plays a crucial role in 
 ## UI Patterns
 
 ### Terminal Component Usage
+
+#### Component Wrapping Pattern
+- When a third-party component needs consistent styling:
+  - Create a wrapper component in components/ui/
+  - Pass through all props using ...props spread
+  - Add className support using cn() utility
+  - Apply default styles that can be overridden
+  - This ensures consistent styling while maintaining flexibility
+
 - When using react-terminal-ui's TerminalOutput component:
   - Must provide a single string/element as children, not an array
   - Use template literals for dynamic content instead of JSX interpolation
@@ -55,10 +64,24 @@ The authentication system in Codebuff's web application plays a crucial role in 
     - Does not work well with percentage heights or container-based sizing
     - Use useIsMobile hook to switch between mobile/desktop heights
     - Consider rebuilding with a more flexible terminal component in future
-  - Text wrapping:
-    - Add whitespace-pre-wrap to both container and content divs
-    - This ensures long lines wrap instead of causing horizontal scroll
-    - Important for good UX on mobile devices
+  - Text wrapping strategies:
+    - Try break-words + overflow-hidden for basic word wrapping
+    - overflow-wrap-anywhere for more aggressive wrapping
+    - max-w-full + break-words to force width-based wrapping
+    - grid layout with min-w-0 to handle flex container overflow
+    - For side-by-side layouts with fixed heights:
+      - Set fixed height on parent container
+      - Use grid layout to avoid flex container growth
+      - Add min-w-0 to allow content to shrink below its natural width
+      - Combine multiple strategies for best results:
+        - whitespace-pre-wrap to preserve newlines but allow wrapping
+        - break-words to handle word breaks when needed
+        - overflow-x-auto as fallback if wrapping fails
+        - min-w-0 to allow container to shrink below content width
+        - For react-terminal-ui specifically:
+          - Wrap TerminalOutput content in <p className="text-wrap">
+          - Create a wrapper component to handle this automatically
+          - This ensures consistent text wrapping across all terminal output
   - For responsive height:
     - Set base height prop for mobile
     - Use lg:!h-[size] to override on desktop
