@@ -52,33 +52,48 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
         <div
           className={cn(
             'p-4 font-mono text-sm overflow-auto flex-1 border rounded-b-lg border-gray-200 dark:border-gray-700',
-            isRainbow &&
-              'bg-gradient-to-r from-red-500 via-purple-500 to-blue-500',
-            theme === 'light' && 'bg-white text-gray-900 border-2 border-gray-200',
+
+            theme === 'light' &&
+              'bg-white text-gray-900 border-2 border-gray-200',
             theme === 'terminal-y' && 'bg-black text-green-500',
             theme === 'retro' &&
               [
-                'bg-gradient-to-b from-[#001224] via-[#000B24] via-[#000B24] to-[#001224] text-[#FFB000] relative font-["Perfect_DOS_VGA_437"]',
+                'bg-[#002448] text-[#FFB000] relative font-["Perfect_DOS_VGA_437"]',
                 'before:content-[""] before:absolute before:inset-0',
-                'before:bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.4)_50%)]',
-                'before:bg-[size:100%_3px] before:pointer-events-none',
-                'before:animate-scanlines before:opacity-50',
+                'before:bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.6)_50%)]',
+                'before:bg-[size:100%_4px] before:pointer-events-none',
+                'before:animate-scanlines before:opacity-70',
                 'after:content-[""] after:absolute after:inset-0',
-                'after:bg-[linear-gradient(90deg,rgba(0,0,0,0.5)_0%,transparent_8%,transparent_92%,rgba(0,0,0,0.5)_100%)]',
-                'after:bg-[linear-gradient(180deg,rgba(0,0,0,0.5)_0%,transparent_8%,transparent_92%,rgba(0,0,0,0.5)_100%)]',
-                'after:rounded-[60px/45px]',
+                'after:bg-[linear-gradient(90deg,rgba(0,0,0,0.7)_0%,transparent_15%,transparent_85%,rgba(0,0,0,0.7)_100%)]',
+                'after:bg-[linear-gradient(180deg,rgba(0,0,0,0.7)_0%,transparent_15%,transparent_85%,rgba(0,0,0,0.7)_100%)]',
+                'after:rounded-none',
                 'after:bg-blend-multiply after:bg-no-repeat',
                 '[&_*]:animate-textflicker',
-                'border-t-[4px] border-l-[4px] border-[#555] border-r-[4px] border-r-[#111] border-b-[4px] border-b-[#111]',
-                'shadow-[0_0_100px_rgba(255,176,0,0.2)]',
-                'backdrop-blur-[1px]',
+                'border-t-[6px] border-l-[6px] border-[#555] border-r-[6px] border-r-[#111] border-b-[6px] border-b-[#111]',
+                'shadow-[0_0_150px_rgba(255,176,0,0.3)]',
+                'backdrop-blur-[2px]',
                 'after:mix-blend-overlay',
-                'after:opacity-70',
+                'after:opacity-80',
                 'after:animate-crtflicker',
               ].join(' ')
           )}
         >
-          <pre className={cn('whitespace-pre-wrap')}>{content}</pre>
+          <pre
+            className={cn(
+              'whitespace-pre-wrap relative',
+              isRainbow &&
+                [
+                  'bg-gradient-to-r from-red-500/90 via-purple-500/90 to-blue-500/90',
+                  'rounded-lg',
+                  'p-2',
+                  'text-white',
+                  'shadow-inner',
+                  'relative',
+                ].join(' ')
+            )}
+          >
+            {content}
+          </pre>
         </div>
       </div>
     </div>
@@ -104,18 +119,16 @@ const InteractiveTerminalDemo = () => {
       newLines.push(
         <WrappedTerminalOutput key={`help-${Date.now()}`}>
           <p>Available commands:</p>
-          <p>• help - Show this help message</p>
           <p>• fix bug - Fix a bug in the code</p>
           <p>• rainbow - Add a rainbow gradient to the component</p>
           <p>• theme - Change the visual theme</p>
-          <p>• clear - Clear the terminal</p>
         </WrappedTerminalOutput>
       )
     } else if (input === 'rainbow') {
       setIsRainbow(true)
       newLines.push(
         <WrappedTerminalOutput key={`rainbow-cmd-${Date.now()}`}>
-          {'>'} please make the background rainbow colored
+          {'>'} please make the hello world background rainbow-colored
         </WrappedTerminalOutput>,
         <WrappedTerminalOutput key={`rainbow-preamble-${Date.now()}`}>
           <b className="text-green-400">Codebuff:</b> Reading additional
@@ -137,6 +150,12 @@ const InteractiveTerminalDemo = () => {
         <WrappedTerminalOutput key={`theme-cmd-${Date.now()}`}>
           {'>'} change the theme to be more {nextTheme}
         </WrappedTerminalOutput>,
+        <WrappedTerminalOutput key={`rainbow-preamble-${Date.now()}`}>
+          <b className="text-green-400">Codebuff:</b> Reading additional
+          files...
+          <p>- web/src/components/ui/card.tsx</p>
+          <p>- common/src/util/file.ts</p>
+        </WrappedTerminalOutput>,
         <WrappedTerminalOutput key={`theme-1-${Date.now()}`}>
           Switching to a more {nextTheme} theme... ✨
         </WrappedTerminalOutput>
@@ -150,17 +169,7 @@ const InteractiveTerminalDemo = () => {
           I'll add proper punctuation and improve the code style...
         </WrappedTerminalOutput>
       )
-      setPreviewContent(`// app.js
-function greet(name) {
-  // Add input validation
-  if (!name) {
-    throw new Error('Name is required')
-  }
-  
-  console.log(\`Hello \${name}!\`)
-}
-
-greet('world')`)
+      setPreviewContent(`hello world!`)
     } else if (input === 'clear') {
       setTerminalLines([])
       return
