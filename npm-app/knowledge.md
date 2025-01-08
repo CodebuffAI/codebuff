@@ -2,17 +2,24 @@
 
 ## Terminal Handling
 
-- Using node-pty for terminal emulation instead of child_process
-- PTY combines stdout and stderr into single data stream
-- All terminal output comes through onData event
-- This better matches real terminal behavior
-- Command completion detected by shell prompt reappearance
-- Must handle command echo and prompt filtering to avoid duplicate output
-- Terminal configuration:
-  - Use 'xterm-256color' for best compatibility
+- Primary: Using node-pty for terminal emulation
+  - PTY combines stdout and stderr into single data stream
+  - All terminal output comes through onData event
+  - Better matches real terminal behavior
+  - Command completion detected by shell prompt reappearance
+  - Must handle command echo and prompt filtering to avoid duplicate output
+
+- Fallback: Using child_process when node-pty is unavailable
+  - Handles cases where node-pty prebuilds aren't available
+  - Provides basic terminal functionality without PTY features
+  - Maintains core command execution capabilities
+  - Used automatically when node-pty fails to load
+
+- Terminal configuration for both modes:
+  - Use 'xterm-256color' for best compatibility when using PTY
   - Set TERM env var to match terminal type
-  - Always provide cols/rows dimensions
-  - Kill and restart PTY on command timeout instead of using Ctrl+C
+  - Always provide cols/rows dimensions for PTY
+  - Kill and restart shell on command timeout instead of using Ctrl+C
   - Commands timeout after 10 seconds to prevent hanging
   - Set environment variables to prevent paging and prompts:
     - PAGER=cat: Disable paging for commands like git log
@@ -57,3 +64,13 @@
   - When exiting the application
 
 ### Usage Warnings
+
+## Native Dependencies
+
+When using native dependencies that require compilation:
+- Make them optional dependencies to prevent installation failures
+- Implement fallbacks using pure JavaScript/Node.js alternatives
+- Test both the primary and fallback implementations
+- Document the fallback behavior in user-facing messages
+- Example: node-pty falls back to child_process when prebuilds aren't available
+

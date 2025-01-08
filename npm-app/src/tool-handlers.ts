@@ -3,7 +3,11 @@ import path from 'path'
 import { green } from 'picocolors'
 import { rgPath } from '@vscode/ripgrep'
 import * as os from 'os'
-import * as pty from '@homebridge/node-pty-prebuilt-multiarch'
+
+let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
+try {
+  pty = require('@homebridge/node-pty-prebuilt-multiarch')
+} catch (error) {}
 
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot, setProjectRoot } from './project-files'
@@ -24,38 +28,52 @@ export const handleScrapeWebPage: ToolHandler = async (
 }
 
 const createPty = (dir: string) => {
-  const isWindows = os.platform() === 'win32'
-  const currShell = detectShell()
-  const shell = isWindows
-    ? currShell === 'powershell'
-      ? 'powershell.exe'
-      : 'cmd.exe'
-    : 'bash'
-  const persistentPty = pty.spawn(shell, [], {
-    name: 'xterm-256color',
-    cols: process.stdout.columns || 80,
-    rows: process.stdout.rows || 24,
-    cwd: dir,
-    env: {
-      ...process.env,
-      TERM: 'xterm-256color',
-      PAGER: 'cat',
-      GIT_PAGER: 'cat',
-      GIT_TERMINAL_PROMPT: '0',
-      ...(isWindows ? { TERM: 'cygwin' } : {}),
-      LESS: '-FRX',
-      TERM_PROGRAM: 'mintty',
-    },
-  })
-  return persistentPty
+  if (pty) {
+    const isWindows = os.platform() === 'win32'
+    const currShell = detectShell()
+    const shell = isWindows
+      ? currShell === 'powershell'
+        ? 'powershell.exe'
+        : 'cmd.exe'
+      : 'bash'
+    const persistentPty = pty.spawn(shell, [], {
+      name: 'xterm-256color',
+      cols: process.stdout.columns || 80,
+      rows: process.stdout.rows || 24,
+      cwd: dir,
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color',
+        PAGER: 'cat',
+        GIT_PAGER: 'cat',
+        GIT_TERMINAL_PROMPT: '0',
+        ...(isWindows ? { TERM: 'cygwin' } : {}),
+        LESS: '-FRX',
+        TERM_PROGRAM: 'mintty',
+      },
+    })
+    return { type: 'pty', pty: persistentPty } as const
+  } else {
+    // Fallback to child_process
+    const isWindows = os.platform() === 'win32'
+    const currShell = detectShell()
+    const shell = isWindows
+      ? currShell === 'powershell'
+        ? 'powershell.exe'
+        : 'cmd.exe'
+      : 'bash'
+    return { type: 'process', shell } as const
+  }
 }
 
-let persistentPty: pty.IPty | null = null
+let persistentProcess: ReturnType<typeof createPty> | null = null
 export const resetPtyShell = (dir: string) => {
-  if (persistentPty) {
-    persistentPty.kill()
+  if (persistentProcess) {
+    if (persistentProcess.type === 'pty') {
+      persistentProcess.pty.kill()
+    }
   }
-  persistentPty = createPty(dir)
+  persistentProcess = createPty(dir)
 }
 
 export const handleRunTerminalCommand = async (
@@ -63,107 +81,176 @@ export const handleRunTerminalCommand = async (
   id: string,
   mode: 'user' | 'assistant'
 ): Promise<{ result: string; stdout: string }> => {
-  // Note: With PTY, all output comes through stdout since it emulates a real terminal
   const { command } = input
+  const MAX_EXECUTION_TIME = 10_000
+
   return new Promise((resolve) => {
-    if (!persistentPty) {
-      throw new Error('Persistent PTY not initialized')
-    }
-    const ptyProcess = persistentPty
-    const MAX_EXECUTION_TIME = 10_000
-    let commandOutput = ''
-    let foundFirstNewLine = false
-
-    if (mode === 'assistant') {
-      console.log()
-      console.log(green(`> ${command}`))
+    if (!persistentProcess) {
+      throw new Error('Shell not initialized')
     }
 
-    const timer = setTimeout(() => {
+    if (persistentProcess.type === 'pty') {
+      // Use PTY implementation
+      const ptyProcess = persistentProcess.pty
+      let commandOutput = ''
+      let foundFirstNewLine = false
+
       if (mode === 'assistant') {
-        // Kill and recreate PTY
-        resetPtyShell(getProjectRoot())
-
-        resolve({
-          result: formatResult(
-            commandOutput,
-            undefined,
-            `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
-          ),
-          stdout: commandOutput,
-        })
+        console.log()
+        console.log(green(`> ${command}`))
       }
-    }, MAX_EXECUTION_TIME)
 
-    const dataDisposable = ptyProcess.onData((data: string) => {
-      const prefix = commandOutput + data
+      const timer = setTimeout(() => {
+        if (mode === 'assistant') {
+          // Kill and recreate PTY
+          resetPtyShell(getProjectRoot())
 
-      // Skip the first line of the output, because it's the command being printed.
-      if (!foundFirstNewLine) {
-        if (!prefix.includes('\n')) {
+          resolve({
+            result: formatResult(
+              commandOutput,
+              undefined,
+              `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
+            ),
+            stdout: commandOutput,
+          })
+        }
+      }, MAX_EXECUTION_TIME)
+
+      const dataDisposable = ptyProcess.onData((data: string) => {
+        const prefix = commandOutput + data
+
+        // Skip the first line of the output, because it's the command being printed.
+        if (!foundFirstNewLine) {
+          if (!prefix.includes('\n')) {
+            return
+          }
+
+          foundFirstNewLine = true
+          const newLineIndex = prefix.indexOf('\n')
+          data = prefix.slice(newLineIndex + 1)
+        }
+
+        // Try to detect error messages in the output
+        if (mode === 'user' && isNotACommand(data)) {
+          clearTimeout(timer)
+          dataDisposable.dispose()
+          resolve({
+            result: 'command not found',
+            stdout: commandOutput,
+          })
           return
         }
 
-        foundFirstNewLine = true
-        const newLineIndex = prefix.indexOf('\n')
-        data = prefix.slice(newLineIndex + 1)
-      }
+        // Detect the end of the command output if the prompt is printed.
+        // Windows PowerShell prompt pattern: "MM/DD HH:mm Path ►"
+        const simpleWindowsPromptRegex = /\d{2}:\d{2}.*►/
+        // Another PowerShell prompt: "PS C:\jahooma\www\Finance-Scraper>"
+        const simpleWindowsPromptRegex2 = /PS [A-Z]:\\.*>/
+        const hasSimplePromptOnWindows = simpleWindowsPromptRegex.test(prefix)
+        const hasSimplePromptOnWindows2 = simpleWindowsPromptRegex2.test(prefix)
 
-      // Try to detect error messages in the output
-      if (
-        mode === 'user' &&
-        // Mac
-        (data.includes('command not found') ||
-          // Linux
-          data.includes(': not found') ||
-          // Common
-          data.includes('syntax error:') ||
-          // Linux
-          data.includes('Syntax error:') ||
-          // Windows
-          data.includes(
-            'is not recognized as an internal or external command'
-          ) ||
-          data.includes('/bin/sh: -c: line') ||
-          data.includes('/bin/sh: line') ||
-          data.startsWith('fatal:') ||
-          data.startsWith('error:') ||
-          data.startsWith('Der Befehl') ||
-          data.includes(
-            'ist entweder falsch geschrieben oder konnte nicht gefunden werden'
-          ) ||
-          data.includes(
-            'wurde nicht als Name eines Cmdlet, einer Funktion, einer Skriptdatei oder eines ausführbaren'
-          ))
-      ) {
-        clearTimeout(timer)
-        dataDisposable.dispose()
-        resolve({
-          result: 'command not found',
-          stdout: commandOutput,
-        })
-        return
-      }
+        if (
+          prefix.includes('bash-3.2$ ') ||
+          hasSimplePromptOnWindows ||
+          hasSimplePromptOnWindows2
+        ) {
+          commandOutput += data
+          process.stdout.write(data)
+          process.stdout.clearLine(0)
+          process.stdout.cursorTo(0)
+          clearTimeout(timer)
+          dataDisposable.dispose()
 
-      // Detect the end of the command output if the prompt is printed.
-      // Windows PowerShell prompt pattern: "MM/DD HH:mm Path ►"
-      const simpleWindowsPromptRegex = /\d{2}:\d{2}.*►/
-      // Another PowerShell prompt: "PS C:\jahooma\www\Finance-Scraper>"
-      const simpleWindowsPromptRegex2 = /PS [A-Z]:\\.*>/
-      const hasSimplePromptOnWindows = simpleWindowsPromptRegex.test(prefix)
-      const hasSimplePromptOnWindows2 = simpleWindowsPromptRegex2.test(prefix)
+          if (command.startsWith('cd ') && mode === 'user') {
+            const newWorkingDirectory = command.split(' ')[1]
+            setProjectRoot(path.join(getProjectRoot(), newWorkingDirectory))
+          }
 
-      if (
-        prefix.includes('bash-3.2$ ') ||
-        hasSimplePromptOnWindows ||
-        hasSimplePromptOnWindows2
-      ) {
-        commandOutput += data
+          if (mode === 'assistant') {
+            console.log(green(`Command completed`))
+          }
+
+          // Reset the PTY to the project root
+          ptyProcess.write(`cd ${getProjectRoot()}\r`)
+
+          resolve({
+            result: formatResult(commandOutput, undefined, 'Command completed'),
+            stdout: commandOutput,
+          })
+          return
+        }
+
         process.stdout.write(data)
-        process.stdout.clearLine(0)
-        process.stdout.cursorTo(0)
+        commandOutput += data
+      })
+
+      // Write the command
+      ptyProcess.write(command + '\r')
+    } else {
+      // Fallback to child_process implementation
+      const isWindows = os.platform() === 'win32'
+      let commandOutput = ''
+
+      if (mode === 'assistant') {
+        console.log()
+        console.log(green(`> ${command}`))
+      }
+
+      const childProcess = spawn(
+        persistentProcess.shell,
+        [isWindows ? '/c' : '-c', command],
+        {
+          cwd: getProjectRoot(),
+          env: {
+            ...process.env,
+            PAGER: 'cat',
+            GIT_PAGER: 'cat',
+            GIT_TERMINAL_PROMPT: '0',
+            LESS: '-FRX',
+          },
+        }
+      )
+
+      const timer = setTimeout(() => {
+        childProcess.kill()
+        if (mode === 'assistant') {
+          resolve({
+            result: formatResult(
+              commandOutput,
+              undefined,
+              `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated.`
+            ),
+            stdout: commandOutput,
+          })
+        }
+      }, MAX_EXECUTION_TIME)
+
+      childProcess.stdout.on('data', (data: Buffer) => {
+        const output = data.toString()
+        process.stdout.write(output)
+        commandOutput += output
+      })
+
+      childProcess.stderr.on('data', (data: Buffer) => {
+        const output = data.toString()
+
+        // Try to detect error messages in the output
+        if (mode === 'user' && isNotACommand(output)) {
+          clearTimeout(timer)
+          childProcess.kill()
+          resolve({
+            result: 'command not found',
+            stdout: commandOutput,
+          })
+          return
+        }
+
+        process.stdout.write(output)
+        commandOutput += output
+      })
+
+      childProcess.on('close', (code) => {
         clearTimeout(timer)
-        dataDisposable.dispose()
 
         if (command.startsWith('cd ') && mode === 'user') {
           const newWorkingDirectory = command.split(' ')[1]
@@ -174,22 +261,12 @@ export const handleRunTerminalCommand = async (
           console.log(green(`Command completed`))
         }
 
-        // Reset the PTY to the project root
-        ptyProcess.write(`cd ${getProjectRoot()}\r`)
-
         resolve({
-          result: formatResult(commandOutput, undefined, 'Command completed'),
+          result: formatResult(commandOutput, undefined, `Command completed`),
           stdout: commandOutput,
         })
-        return
-      }
-
-      process.stdout.write(data)
-      commandOutput += data
-    })
-
-    // Write the command
-    ptyProcess.write(command + '\r')
+      })
+    }
   })
 }
 
@@ -275,4 +352,29 @@ export const toolHandlers: Record<string, ToolHandler> = {
     )) as ToolHandler,
   continue: async (input, id) => input.response ?? 'Please continue',
   code_search: handleCodeSearch,
+}
+
+const isNotACommand = (output: string) => {
+  return (
+    output.includes('command not found') ||
+    // Linux
+    output.includes(': not found') ||
+    // Common
+    output.includes('syntax error:') ||
+    // Linux
+    output.includes('Syntax error:') ||
+    // Windows
+    output.includes('is not recognized as an internal or external command') ||
+    output.includes('/bin/sh: -c: line') ||
+    output.includes('/bin/sh: line') ||
+    output.startsWith('fatal:') ||
+    output.startsWith('error:') ||
+    output.startsWith('Der Befehl') ||
+    output.includes(
+      'ist entweder falsch geschrieben oder konnte nicht gefunden werden'
+    ) ||
+    output.includes(
+      'wurde nicht als Name eines Cmdlet, einer Funktion, einer Skriptdatei oder eines ausführbaren'
+    )
+  )
 }
