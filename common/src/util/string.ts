@@ -109,3 +109,29 @@ export const safeReplace = (
   const escapedReplaceStr = replaceStr.replace(/\$/g, '$$$$')
   return content.replace(searchStr, escapedReplaceStr)
 }
+
+export const hasLazyEdit = (content: string) =>
+  content.includes('// rest of the') ||
+  content.includes('# rest of the') ||
+  // Match various comment styles with ellipsis and specific words
+  /\/\/\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
+    content
+  ) || // C-style single line
+  /\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\//.test(
+    content
+  ) || // C-style multi-line
+  /#\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
+    content
+  ) || // Python/Ruby style
+  /<!--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*-->/.test(
+    content
+  ) || // HTML style
+  /--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
+    content
+  ) || // SQL/Haskell style
+  /%\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
+    content
+  ) || // MATLAB style
+  /{\s*\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\/\s*}/.test(
+    content
+  ) // JSX style
