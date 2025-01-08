@@ -42,6 +42,14 @@ The authentication system in Codebuff's web application plays a crucial role in 
 
 ## UI Patterns
 
+### CRT Screen Effects
+When creating retro CRT monitor effects:
+- Use linear gradients instead of radial for screen edges - radial creates unrealistic circular vignetting
+- Combine horizontal and vertical gradients for authentic edge darkening
+- Keep content area clear (97% transparent in middle)
+- Use subtle rounded corners (40px/30px) to match real CRT monitors
+- Layer multiple effects: scanlines, text flicker, and screen glow
+
 ### Terminal Component Usage
 
 #### Component Wrapping Pattern

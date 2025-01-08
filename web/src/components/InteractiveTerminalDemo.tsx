@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import Terminal, { ColorMode, TerminalOutput } from 'react-terminal-ui'
-import { useIsMobile } from '@/hooks/use-mobile'
-import { cn } from '@/lib/utils'
+import { useIsMobile } from '../hooks/use-mobile'
+import { cn } from '../lib/utils'
 
 const WrappedTerminalOutput: React.FC<
   React.PropsWithChildren<{ className?: string }>
@@ -13,16 +13,18 @@ const WrappedTerminalOutput: React.FC<
   )
 }
 
+type PreviewTheme = 'default' | 'terminal-y' | 'retro' | 'light'
+
 interface BrowserPreviewProps {
   content: string
-  isMobile: boolean
   isRainbow?: boolean
+  theme?: PreviewTheme
 }
 
 const BrowserPreview: React.FC<BrowserPreviewProps> = ({
   content,
   isRainbow,
-  isMobile,
+  theme = 'default',
 }) => {
   return (
     <div
@@ -51,7 +53,29 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
           className={cn(
             'p-4 font-mono text-sm overflow-auto flex-1 border rounded-b-lg border-gray-200 dark:border-gray-700',
             isRainbow &&
-              'bg-gradient-to-r from-red-500 via-purple-500 to-blue-500'
+              'bg-gradient-to-r from-red-500 via-purple-500 to-blue-500',
+            theme === 'light' && 'bg-white text-gray-900 border-2 border-gray-200',
+            theme === 'terminal-y' && 'bg-black text-green-500',
+            theme === 'retro' &&
+              [
+                'bg-gradient-to-b from-[#001224] via-[#000B24] via-[#000B24] to-[#001224] text-[#FFB000] relative font-["Perfect_DOS_VGA_437"]',
+                'before:content-[""] before:absolute before:inset-0',
+                'before:bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.4)_50%)]',
+                'before:bg-[size:100%_3px] before:pointer-events-none',
+                'before:animate-scanlines before:opacity-50',
+                'after:content-[""] after:absolute after:inset-0',
+                'after:bg-[linear-gradient(90deg,rgba(0,0,0,0.5)_0%,transparent_8%,transparent_92%,rgba(0,0,0,0.5)_100%)]',
+                'after:bg-[linear-gradient(180deg,rgba(0,0,0,0.5)_0%,transparent_8%,transparent_92%,rgba(0,0,0,0.5)_100%)]',
+                'after:rounded-[60px/45px]',
+                'after:bg-blend-multiply after:bg-no-repeat',
+                '[&_*]:animate-textflicker',
+                'border-t-[4px] border-l-[4px] border-[#555] border-r-[4px] border-r-[#111] border-b-[4px] border-b-[#111]',
+                'shadow-[0_0_100px_rgba(255,176,0,0.2)]',
+                'backdrop-blur-[1px]',
+                'after:mix-blend-overlay',
+                'after:opacity-70',
+                'after:animate-crtflicker',
+              ].join(' ')
           )}
         >
           <pre className={cn('whitespace-pre-wrap')}>{content}</pre>
@@ -71,6 +95,7 @@ const InteractiveTerminalDemo = () => {
   ])
   const [previewContent, setPreviewContent] = useState<string>(`hello world`)
   const [isRainbow, setIsRainbow] = useState(false)
+  const [theme, setTheme] = useState<PreviewTheme>('default')
 
   const handleInput = (input: string) => {
     const newLines = [...terminalLines]
@@ -82,6 +107,7 @@ const InteractiveTerminalDemo = () => {
           <p>• help - Show this help message</p>
           <p>• fix bug - Fix a bug in the code</p>
           <p>• rainbow - Add a rainbow gradient to the component</p>
+          <p>• theme - Change the visual theme</p>
           <p>• clear - Clear the terminal</p>
         </WrappedTerminalOutput>
       )
@@ -99,6 +125,20 @@ const InteractiveTerminalDemo = () => {
         </WrappedTerminalOutput>,
         <WrappedTerminalOutput key={`rainbow-1-${Date.now()}`}>
           🌈 Added a rainbow gradient to the component!
+        </WrappedTerminalOutput>
+      )
+    } else if (input === 'theme') {
+      const themes: PreviewTheme[] = ['default', 'terminal-y', 'retro', 'light']
+      const currentIndex = themes.indexOf(theme)
+      const nextTheme = themes[(currentIndex + 1) % themes.length]
+      setTheme(nextTheme)
+
+      newLines.push(
+        <WrappedTerminalOutput key={`theme-cmd-${Date.now()}`}>
+          {'>'} change the theme to be more {nextTheme}
+        </WrappedTerminalOutput>,
+        <WrappedTerminalOutput key={`theme-1-${Date.now()}`}>
+          Switching to a more {nextTheme} theme... ✨
         </WrappedTerminalOutput>
       )
     } else if (input === 'fix bug') {
@@ -161,7 +201,7 @@ greet('world')`)
         <BrowserPreview
           content={previewContent}
           isRainbow={isRainbow}
-          isMobile={isMobile}
+          theme={theme}
         />
       </div>
     </div>
