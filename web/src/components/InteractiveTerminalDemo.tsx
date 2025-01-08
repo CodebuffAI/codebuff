@@ -15,17 +15,19 @@ const WrappedTerminalOutput: React.FC<
 
 interface BrowserPreviewProps {
   content: string
+  isMobile: boolean
   isRainbow?: boolean
 }
 
 const BrowserPreview: React.FC<BrowserPreviewProps> = ({
   content,
   isRainbow,
+  isMobile,
 }) => {
   return (
     <div
       className={cn(
-        'rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 w-full flex flex-col'
+        'rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 w-full flex flex-col min-h-[200px]'
       )}
     >
       <div className="rounded-lg bg-white dark:bg-gray-900 flex flex-col flex-1">
@@ -79,7 +81,7 @@ const InteractiveTerminalDemo = () => {
           <p>Available commands:</p>
           <p>• help - Show this help message</p>
           <p>• fix bug - Fix a bug in the code</p>
-          <p>• rainbow - Add a rainbow gradient to the browser</p>
+          <p>• rainbow - Add a rainbow gradient to the component</p>
           <p>• clear - Clear the terminal</p>
         </WrappedTerminalOutput>
       )
@@ -96,7 +98,7 @@ const InteractiveTerminalDemo = () => {
           <p>- web/tailwind.config.ts</p>
         </WrappedTerminalOutput>,
         <WrappedTerminalOutput key={`rainbow-1-${Date.now()}`}>
-          🌈 Added a rainbow gradient to the browser!
+          🌈 Added a rainbow gradient to the component!
         </WrappedTerminalOutput>
       )
     } else if (input === 'fix bug') {
@@ -156,7 +158,11 @@ greet('world')`)
       </div>
 
       <div className="w-full lg:w-1/2 flex">
-        <BrowserPreview content={previewContent} isRainbow={isRainbow} />
+        <BrowserPreview
+          content={previewContent}
+          isRainbow={isRainbow}
+          isMobile={isMobile}
+        />
       </div>
     </div>
   )
