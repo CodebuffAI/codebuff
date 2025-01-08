@@ -58,6 +58,7 @@
     "react-dom": "^18",
     "react-hook-form": "^7.53.0",
     "react-spring": "^9.7.4",
+    "react-terminal-ui": "^1.3.0",
     "shadcn-ui": "^0.9.4",
     "stripe": "^16.11.0",
     "tailwind-merge": "^2.5.2",

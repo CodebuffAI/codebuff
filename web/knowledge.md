@@ -42,6 +42,24 @@ The authentication system in Codebuff's web application plays a crucial role in 
 
 ## UI Patterns
 
+### Terminal Component Usage
+- When using react-terminal-ui's TerminalOutput component:
+  - Must provide a single string/element as children, not an array
+  - Use template literals for dynamic content instead of JSX interpolation
+  - Always provide unique key props for dynamic terminal lines
+  - Use theme.dark to determine ColorMode.Dark vs ColorMode.Light
+  - Wrap Terminal component in a div with text-sm to control font size
+  - Font size can't be controlled directly through Terminal props
+  - Height handling quirks:
+    - Component requires exact pixel heights (e.g. "200px")
+    - Does not work well with percentage heights or container-based sizing
+    - Use useIsMobile hook to switch between mobile/desktop heights
+    - Consider rebuilding with a more flexible terminal component in future
+  - For responsive height:
+    - Set base height prop for mobile
+    - Use lg:!h-[size] to override on desktop
+    - Important (!) needed to override inline styles
+
 ### Plan Type Management
 
 - Use UsageLimits enum from common/constants.ts for all plan types
@@ -108,6 +126,31 @@ When displaying inline code snippets with copy buttons:
 - When embedding videos, implement UI that encourages users to finish or explicitly exit video before continuing page navigation
 - This promotes better engagement with video content
 - Consider modal/overlay implementations for video players rather than inline embedding
+
+### Terminal Component Usage
+- When using react-terminal-ui's TerminalOutput component:
+  - Must provide a single string/element as children, not an array
+  - Use template literals for dynamic content instead of JSX interpolation
+  - Always provide unique key props for dynamic terminal lines
+  - Use theme.dark to determine ColorMode.Dark vs ColorMode.Light
+
+### Code Editor Preview
+When showing code previews in the UI:
+- Use browser-like window styling to provide familiar context
+- Include title bar with traffic light circles (red, yellow, green)
+- Show filename/path in URL-like bar
+- Use system colors that adapt to light/dark mode
+- Keep content area scrollable and monospaced
+- For side-by-side layouts with fixed heights:
+  - Set fixed height on parent container
+  - Use flex layout with h-full on children
+  - Allow content areas to scroll independently
+  - This prevents unbounded growth from height="100%" components
+- For side-by-side layouts with fixed heights:
+  - Set fixed height on parent container
+  - Use flex layout with h-full on children
+  - Allow content areas to scroll independently
+  - This prevents unbounded growth from height="100%" components
 
 ## Component Architecture
 
