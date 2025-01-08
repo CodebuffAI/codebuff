@@ -108,7 +108,14 @@ const InteractiveTerminalDemo = () => {
       a list of commands.
     </WrappedTerminalOutput>,
   ])
-  const [previewContent, setPreviewContent] = useState<string>(`hello world`)
+  const [previewContent, setPreviewContent] =
+    useState<string>(`Error: Component failed to render
+----------------------------------
+TypeError: Cannot read properties of undefined (reading 'greeting')
+    at HelloWorld (./components/HelloWorld.tsx:12:23)
+    at renderWithHooks (./node_modules/react-dom/cjs/react-dom.development.js:14985:18)
+
+This error occurred while attempting to render the greeting component.`)
   const [isRainbow, setIsRainbow] = useState(false)
   const [theme, setTheme] = useState<PreviewTheme>('default')
 
@@ -141,7 +148,7 @@ const InteractiveTerminalDemo = () => {
         </WrappedTerminalOutput>
       )
     } else if (input === 'theme') {
-      const themes: PreviewTheme[] = ['default', 'terminal-y', 'retro', 'light']
+      const themes: PreviewTheme[] = ['terminal-y', 'retro', 'light']
       const currentIndex = themes.indexOf(theme)
       const nextTheme = themes[(currentIndex + 1) % themes.length]
       setTheme(nextTheme)
@@ -169,7 +176,10 @@ const InteractiveTerminalDemo = () => {
           I'll add proper punctuation and improve the code style...
         </WrappedTerminalOutput>
       )
-      setPreviewContent(`hello world!`)
+      setPreviewContent(`Hello World! 👋
+Welcome to my demo component.
+
+Everything is working perfectly now!`)
     } else if (input === 'clear') {
       setTerminalLines([])
       return
