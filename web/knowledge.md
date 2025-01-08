@@ -168,6 +168,15 @@ When displaying inline code snippets with copy buttons:
   - Use template literals for dynamic content instead of JSX interpolation
   - Always provide unique key props for dynamic terminal lines
   - Use theme.dark to determine ColorMode.Dark vs ColorMode.Light
+  - For proper text wrapping in terminal input:
+    - Use whitespace-pre-wrap for preserving newlines while allowing wrapping
+    - Use break-all to prevent overflow on long strings without spaces
+    - Wrap input content in a div with these classes for consistent wrapping
+    - Use flex flex-row items-center to keep cursor on same line as text
+    - For auto-scrolling:
+      - Keep ref to terminal container div
+      - Scroll to bottom on user input and when lines change
+      - Use smooth scrolling behavior for better UX
 
 ### Code Editor Preview
 When showing code previews in the UI:
@@ -448,6 +457,40 @@ Key points:
 Pricing information is displayed on the pricing page (`web/src/app/pricing/page.tsx`).
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
+
+## Deepseek Integration
+
+When using Deepseek in web API routes:
+- Use OpenAI's client library with custom baseURL: 'https://api.deepseek.com'
+- Model name is 'deepseek-chat' for the chat completion endpoint
+- Requires DEEPSEEK_API_KEY in environment variables
+- Returns content in the same format as OpenAI's API
+- When handling responses with code blocks:
+  - Keep text before and after code blocks for context
+  - Extract only code content for HTML display
+  - Replace code blocks with placeholders in message history
+  - Return both HTML and message content separately
+- Support arrays of prompts to allow multi-turn conversations
+
+## Interactive Terminal Demo
+
+The demo terminal component supports:
+- Special commands (rainbow, theme, fix bug, clear)
+- Fallback to Deepseek AI for any unrecognized commands
+- Dynamic iframe content injection with proper HTML document structure
+- Loading states that maintain terminal interactivity
+- Random file selection (2-5 files) from a predefined list to simulate file reading
+- Consistent styling and theming across both terminal and preview
+- Multi-turn conversations with Deepseek by maintaining message history
+- Sends full conversation history to API with each request
+
+Initial state shows a simulated error component that:
+- Uses playful emojis (🎭, 💡) to indicate it's a demo
+- Has a dashed border to visually separate from real errors
+- Includes explicit text mentioning it's simulated
+- Provides hints about how to interact with the demo
+- Maintains React-like error styling for authenticity
+This creates a better narrative flow for users trying out the demo while avoiding confusion with real errors.
 
 ## Usage Tracking
 

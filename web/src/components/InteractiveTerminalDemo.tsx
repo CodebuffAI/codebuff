@@ -1,16 +1,40 @@
 import React, { useState } from 'react'
-import Terminal, { ColorMode, TerminalOutput } from 'react-terminal-ui'
+import Terminal, {
+  ColorMode,
+  TerminalInput,
+  TerminalOutput,
+} from './ui/terminal'
 import { useIsMobile } from '../hooks/use-mobile'
 import { cn } from '../lib/utils'
+import { sleep } from 'common/util/helpers'
 
-const WrappedTerminalOutput: React.FC<
-  React.PropsWithChildren<{ className?: string }>
-> = ({ children, className, ...props }) => {
-  return (
-    <TerminalOutput {...props}>
-      <p className={cn('text-wrap', className)}>{children}</p>
-    </TerminalOutput>
-  )
+const POSSIBLE_FILES = [
+  'web/src/components/ui/dialog.tsx',
+  'web/src/components/ui/button.tsx',
+  'web/src/components/ui/input.tsx',
+  'web/src/components/ui/card.tsx',
+  'web/src/components/ui/sheet.tsx',
+  'web/src/lib/utils.ts',
+  'web/src/lib/hooks.ts',
+  'web/src/styles/globals.css',
+  'web/tailwind.config.ts',
+  'web/src/app/layout.tsx',
+  'web/src/app/page.tsx',
+  'web/src/components/navbar/navbar.tsx',
+  'web/src/components/footer.tsx',
+  'web/src/components/providers/theme-provider.tsx',
+  'web/src/hooks/use-mobile.tsx',
+  'web/src/hooks/use-theme.tsx',
+  'common/src/util/string.ts',
+  'common/src/util/array.ts',
+  'common/src/util/file.ts',
+  'common/src/constants.ts',
+]
+
+const getRandomFiles = (min: number = 2, max: number = 5) => {
+  const count = Math.floor(Math.random() * (max - min + 1)) + min // Random number between min and max
+  const shuffled = [...POSSIBLE_FILES].sort(() => 0.5 - Math.random())
+  return shuffled.slice(0, count)
 }
 
 type PreviewTheme = 'default' | 'terminal-y' | 'retro' | 'light'
@@ -19,6 +43,7 @@ interface BrowserPreviewProps {
   content: string
   isRainbow?: boolean
   theme?: PreviewTheme
+  isLoading?: boolean
 }
 
 const getIframeContent = (
@@ -79,13 +104,17 @@ const getIframeContent = (
   `
 
   const errorContent = `
-    <h1 class="error">Error: Component failed to render</h1>
-    <div class="error-box">
-      <p>TypeError: Cannot read properties of undefined (reading 'greeting')</p>
-      <p class="dim">at HelloWorld (./components/HelloWorld.tsx:12:23)</p>
-      <p class="dim">at renderWithHooks (./node_modules/react-dom/cjs/react-dom.development.js:14985:18)</p>
+    <div style="border: 2px dashed #EF4444; padding: 16px; border-radius: 8px;">
+      <h1 class="error">🎭 Demo Error: Component failed to render</h1>
+      <p class="dim" style="margin-top: 16px; font-style: italic;">💡 Tip: This is just a demo - not a real error!</p>
+      <div class="error-box">
+        <p>TypeError: Cannot read properties of undefined (reading 'greeting')</p>
+        <p class="dim">at DemoComponent (./components/DemoComponent.tsx:12:23)</p>
+        <p class="dim">at renderWithHooks (./node_modules/react-dom/cjs/react-dom.development.js:14985:18)</p>
+      </div>
+      <p class="dim">This is a simulated error in our demo component.
+      <p><b>Try typing "fix the bug" to resolve it!</b></p>
     </div>
-    <p class="dim">This error occurred while attempting to render the greeting component.</p>
   `
 
   const fixedContent = `
@@ -127,6 +156,7 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
   content,
   isRainbow = false,
   theme = 'default',
+  isLoading = false,
 }) => {
   return (
     <div
@@ -153,38 +183,23 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
         {/* Content area */}
         <div
           className={cn(
-            'p-4 font-mono text-sm overflow-auto flex-1 border rounded-b-lg border-gray-200 dark:border-gray-700',
-
-            theme === 'light' &&
-              'bg-white text-gray-900 border-2 border-gray-200',
-            theme === 'terminal-y' && 'bg-black text-green-500',
-            theme === 'retro' &&
-              [
-                'bg-[#002448] text-[#FFB000] relative font-["Perfect_DOS_VGA_437"]',
-                'before:content-[""] before:absolute before:inset-0',
-                'before:bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.6)_50%)]',
-                'before:bg-[size:100%_4px] before:pointer-events-none',
-                'before:animate-scanlines before:opacity-70',
-                'after:content-[""] after:absolute after:inset-0',
-                'after:bg-[linear-gradient(90deg,rgba(0,0,0,0.7)_0%,transparent_15%,transparent_85%,rgba(0,0,0,0.7)_100%)]',
-                'after:bg-[linear-gradient(180deg,rgba(0,0,0,0.7)_0%,transparent_15%,transparent_85%,rgba(0,0,0,0.7)_100%)]',
-                'after:rounded-none',
-                'after:bg-blend-multiply after:bg-no-repeat',
-                '[&_*]:animate-textflicker',
-                'border-t-[6px] border-l-[6px] border-[#555] border-r-[6px] border-r-[#111] border-b-[6px] border-b-[#111]',
-                'shadow-[0_0_150px_rgba(255,176,0,0.3)]',
-                'backdrop-blur-[2px]',
-                'after:mix-blend-overlay',
-                'after:opacity-80',
-                'after:animate-crtflicker',
-              ].join(' ')
+            'flex-1 border rounded-b-lg border-gray-200 dark:border-gray-700 relative',
+            theme === 'light' && 'bg-white',
+            theme === 'terminal-y' && 'bg-black',
+            theme === 'retro' && 'bg-[#002448]'
           )}
         >
-          <iframe
-            srcDoc={getIframeContent(content, isRainbow, theme)}
-            className="w-full h-full border-none"
-            sandbox="allow-scripts"
-          />
+          {isLoading ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 dark:border-gray-100"></div>
+            </div>
+          ) : (
+            <iframe
+              srcDoc={getIframeContent(content, isRainbow, theme)}
+              className="w-full h-full border-none"
+              sandbox="allow-scripts"
+            />
+          )}
         </div>
       </div>
     </div>
@@ -194,42 +209,44 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
 const InteractiveTerminalDemo = () => {
   const isMobile = useIsMobile()
   const [terminalLines, setTerminalLines] = useState<React.ReactNode[]>([
-    <WrappedTerminalOutput key="welcome">
+    <TerminalOutput key="welcome">
       Codebuff will read and write files in "/my-demo-project". Type "help" for
       a list of commands.
-    </WrappedTerminalOutput>,
+    </TerminalOutput>,
   ])
   const [previewContent, setPreviewContent] = useState<string>('error')
+  const [isLoading, setIsLoading] = useState(false)
   const [isRainbow, setIsRainbow] = useState(false)
   const [theme, setTheme] = useState<PreviewTheme>('default')
+  const [messages, setMessages] = useState<string[]>([])
 
-  const handleInput = (input: string) => {
+  const handleInput = async (input: string) => {
     const newLines = [...terminalLines]
 
     if (input === 'help') {
       newLines.push(
-        <WrappedTerminalOutput key={`help-${Date.now()}`}>
+        <TerminalOutput key={`help-${Date.now()}`}>
           <p>Available commands:</p>
-          <p>• fix bug - Fix a bug in the code</p>
+          <p>• fix the bug - Fix a bug in the code</p>
           <p>• rainbow - Add a rainbow gradient to the component</p>
           <p>• theme - Change the visual theme</p>
-        </WrappedTerminalOutput>
+        </TerminalOutput>
       )
     } else if (input === 'rainbow') {
       setIsRainbow(true)
       newLines.push(
-        <WrappedTerminalOutput key={`rainbow-cmd-${Date.now()}`}>
+        <TerminalOutput key={`rainbow-cmd-${Date.now()}`}>
           {'>'} please make the hello world background rainbow-colored
-        </WrappedTerminalOutput>,
-        <WrappedTerminalOutput key={`rainbow-preamble-${Date.now()}`}>
+        </TerminalOutput>,
+        <TerminalOutput key={`rainbow-preamble-${Date.now()}`}>
           <b className="text-green-400">Codebuff:</b> Reading additional
           files...
           <p>- web/src/components/app.tsx</p>
           <p>- web/tailwind.config.ts</p>
-        </WrappedTerminalOutput>,
-        <WrappedTerminalOutput key={`rainbow-1-${Date.now()}`}>
+        </TerminalOutput>,
+        <TerminalOutput key={`rainbow-1-${Date.now()}`}>
           🌈 Added a rainbow gradient to the component!
-        </WrappedTerminalOutput>
+        </TerminalOutput>
       )
     } else if (input === 'theme') {
       const themes: PreviewTheme[] = ['terminal-y', 'retro', 'light']
@@ -238,42 +255,110 @@ const InteractiveTerminalDemo = () => {
       setTheme(nextTheme)
 
       newLines.push(
-        <WrappedTerminalOutput key={`theme-cmd-${Date.now()}`}>
+        <TerminalOutput key={`theme-cmd-${Date.now()}`}>
           {'>'} change the theme to be more {nextTheme}
-        </WrappedTerminalOutput>,
-        <WrappedTerminalOutput key={`rainbow-preamble-${Date.now()}`}>
+        </TerminalOutput>,
+        <TerminalOutput key={`rainbow-preamble-${Date.now()}`}>
           <b className="text-green-400">Codebuff:</b> Reading additional
           files...
           <p>- web/src/components/ui/card.tsx</p>
           <p>- common/src/util/file.ts</p>
-        </WrappedTerminalOutput>,
-        <WrappedTerminalOutput key={`theme-1-${Date.now()}`}>
-          Switching to a more {nextTheme} theme... ✨
-        </WrappedTerminalOutput>
+        </TerminalOutput>,
+        <TerminalOutput key={`theme-1-${Date.now()}`}>
+          Sure, let's switch to a more {nextTheme} theme... ✨
+        </TerminalOutput>,
+        <TerminalOutput key={`fix-1-${Date.now()}`}>
+          <p>Applying file changes. Please wait...</p>
+          <p className="text-green-400">- Updated web/src/components/app.tsx</p>
+        </TerminalOutput>
       )
-    } else if (input === 'fix bug') {
+    } else if (input === 'fix the bug') {
       newLines.push(
-        <WrappedTerminalOutput key={`fix-1-${Date.now()}`}>
-          I found a potential bug - the greeting is missing an exclamation mark.
-        </WrappedTerminalOutput>,
-        <WrappedTerminalOutput key={`fix-2-${Date.now()}`}>
-          I'll add proper punctuation and improve the code style...
-        </WrappedTerminalOutput>
+        <TerminalOutput key={`fix-1-${Date.now()}`}>
+          <b className="text-green-400">Codebuff:</b> I found a potential bug -
+          the greeting is missing an exclamation mark.
+        </TerminalOutput>,
+        <TerminalOutput key={`fix-2-${Date.now()}`}>
+          I'll add proper punctuation and improve the code style.
+        </TerminalOutput>,
+        <TerminalOutput key={`fix-3-${Date.now()}`}>
+          <p>Applying file changes. Please wait...</p>
+          <p className="text-green-400">- Updated web/src/components/app.tsx</p>
+          <p className="text-green-400">- Created web/tailwind.config.ts</p>
+        </TerminalOutput>
       )
       setPreviewContent('fixed')
     } else if (input === 'clear') {
       setTerminalLines([])
       return
     } else {
-      const errorMessage = `Command not found: ${input}`
+      setIsLoading(true)
+      const randomFiles = getRandomFiles()
       newLines.push(
-        <WrappedTerminalOutput key={`error-1-${Date.now()}`}>
-          {errorMessage}
-        </WrappedTerminalOutput>,
-        <WrappedTerminalOutput key={`error-2-${Date.now()}`}>
-          Type 'help' to see available commands
-        </WrappedTerminalOutput>
+        <TerminalOutput key={`ask-1-${Date.now()}`}>
+          <p>
+            {'> '}
+            {input}
+          </p>
+        </TerminalOutput>,
+        <TerminalOutput key={`files-${Date.now()}`}>
+          <b className="text-green-400">Codebuff:</b> Reading additional
+          files...
+          {randomFiles.slice(0, 3).map((file) => (
+            <p key={file} className="text-wrap">
+              - {file}
+            </p>
+          ))}
+          {randomFiles.length > 3 && (
+            <p className="text-wrap">
+              and {randomFiles.length - 3} more:{' '}
+              {randomFiles.slice(3).join(', ')}
+            </p>
+          )}
+        </TerminalOutput>,
+        <TerminalOutput key={`ask-${Date.now()}`}>Thinking...</TerminalOutput>
       )
+      setTerminalLines(newLines)
+
+      try {
+        const response = await fetch('/api/demo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: [...messages, input],
+          }),
+        })
+
+        if (!response.ok) throw new Error('Failed to get response')
+
+        const { html, message } = await response.json()
+
+        setMessages((prev) => [...prev, input, message])
+        newLines.push(
+          <TerminalOutput key={`resp-1-${Date.now()}`}>
+            {message}
+          </TerminalOutput>,
+          <TerminalOutput key={`resp-2-${Date.now()}`}>
+            Applying file changes. Please wait...
+          </TerminalOutput>,
+          <TerminalOutput key={`resp-3-${Date.now()}`}>
+            <p className="text-green-400">- Updated web/src/app/page.tsx</p>
+          </TerminalOutput>
+        )
+        setTerminalLines(newLines)
+
+        await sleep(1000) // Delay so the user has time to read the output
+        setPreviewContent(html)
+      } catch (error) {
+        console.error('Error:', error)
+        newLines.push(
+          <TerminalOutput key={`error-${Date.now()}`}>
+            Sorry, I encountered an error while processing your request.
+          </TerminalOutput>
+        )
+      } finally {
+        setIsLoading(false)
+      }
     }
 
     setTerminalLines(newLines)
@@ -287,10 +372,16 @@ const InteractiveTerminalDemo = () => {
             name="Terminal"
             colorMode={ColorMode.Dark}
             onInput={handleInput}
-            height={isMobile ? '200px' : '600px'}
+            scrollToPosition={true}
+            height={isMobile ? '200px' : '800px'}
             prompt="> "
           >
-            <div className="flex flex-col text-sm whitespace-pre-wrap">
+            <div
+              className={cn(
+                'flex flex-col text-sm whitespace-pre-wrap',
+                isLoading && 'opacity-50'
+              )}
+            >
               {terminalLines}
             </div>
           </Terminal>
@@ -302,6 +393,7 @@ const InteractiveTerminalDemo = () => {
           content={previewContent}
           isRainbow={isRainbow}
           theme={theme}
+          isLoading={isLoading}
         />
       </div>
     </div>

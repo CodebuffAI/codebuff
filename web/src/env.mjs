@@ -28,6 +28,7 @@ export const env = createEnv({
     STRIPE_MOAR_PRO_PRICE_ID: z.string().min(1), // Price ID for Moar Pro tier
     STRIPE_MOAR_PRO_OVERAGE_PRICE_ID: z.string().min(1),
     LOOPS_API_KEY: z.string().min(1),
+    DEEPSEEK_API_KEY: z.string().min(1),
   },
   client: {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
@@ -62,5 +63,6 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL,
     NEXT_PUBLIC_LINKEDIN_PARTNER_ID:
       process.env.NEXT_PUBLIC_LINKEDIN_PARTNER_ID,
+    DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
   },
 })
