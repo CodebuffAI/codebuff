@@ -42,6 +42,76 @@ The authentication system in Codebuff's web application plays a crucial role in 
 
 ## UI Patterns
 
+### CRT Screen Effects
+When creating retro CRT monitor effects:
+- Use linear gradients instead of radial for screen edges - radial creates unrealistic circular vignetting
+- Combine horizontal and vertical gradients for authentic edge darkening
+- Keep content area clear (97% transparent in middle)
+- Use subtle rounded corners (40px/30px) to match real CRT monitors
+- Layer multiple effects: scanlines, text flicker, and screen glow
+
+### Demo Content Guidelines
+
+When creating interactive demos:
+- Show suggested actions rather than simulated errors
+- Use welcoming, positive messaging
+- Include emojis and clear descriptions for each action
+- Provide a clear path for users to discover features
+- Keep help/documentation easily accessible
+
+### Terminal Component Usage
+
+#### Component Wrapping Pattern
+- When a third-party component needs consistent styling:
+  - Create a wrapper component in components/ui/
+  - Pass through all props using ...props spread
+  - Add className support using cn() utility
+  - Apply default styles that can be overridden
+  - This ensures consistent styling while maintaining flexibility
+
+- When using react-terminal-ui's TerminalOutput component:
+  - Must provide a single string/element as children, not an array
+  - Use template literals for dynamic content instead of JSX interpolation
+  - Always provide unique key props for dynamic terminal lines
+  - Use theme.dark to determine ColorMode.Dark vs ColorMode.Light
+  - Wrap Terminal component in a div with text-sm to control font size
+  - Font size can't be controlled directly through Terminal props
+  - Height handling quirks:
+    - Use flex layout with fixed container height
+    - Terminal wrapper should be flex-col with h-full
+    - Terminal content should be flex-1 with overflow-y-auto
+    - Set min-height: 0 to allow flex child to scroll
+    - Parent controls height with responsive Tailwind classes:
+      ```tsx
+      <div className="h-[200px] md:h-[600px] lg:h-[800px]">
+        <Terminal />
+      </div>
+      ```
+    - Prefer Tailwind breakpoints over custom hooks for responsive design
+    - This prevents content growth from breaking layout
+  - Text wrapping strategies:
+    - Try break-words + overflow-hidden for basic word wrapping
+    - overflow-wrap-anywhere for more aggressive wrapping
+    - max-w-full + break-words to force width-based wrapping
+    - grid layout with min-w-0 to handle flex container overflow
+    - For side-by-side layouts with fixed heights:
+      - Set fixed height on parent container
+      - Use grid layout to avoid flex container growth
+      - Add min-w-0 to allow content to shrink below its natural width
+      - Combine multiple strategies for best results:
+        - whitespace-pre-wrap to preserve newlines but allow wrapping
+        - break-words to handle word breaks when needed
+        - overflow-x-auto as fallback if wrapping fails
+        - min-w-0 to allow container to shrink below content width
+        - For react-terminal-ui specifically:
+          - Wrap TerminalOutput content in <p className="text-wrap">
+          - Create a wrapper component to handle this automatically
+          - This ensures consistent text wrapping across all terminal output
+  - For responsive height:
+    - Set base height prop for mobile
+    - Use lg:!h-[size] to override on desktop
+    - Important (!) needed to override inline styles
+
 ### Plan Type Management
 
 - Use UsageLimits enum from common/constants.ts for all plan types
@@ -109,18 +179,170 @@ When displaying inline code snippets with copy buttons:
 - This promotes better engagement with video content
 - Consider modal/overlay implementations for video players rather than inline embedding
 
+### Terminal Component Usage
+- When using react-terminal-ui's TerminalOutput component:
+  - Must provide a single string/element as children, not an array
+  - Use template literals for dynamic content instead of JSX interpolation
+  - Always provide unique key props for dynamic terminal lines
+  - Use theme.dark to determine ColorMode.Dark vs ColorMode.Light
+  - When handling code blocks in responses:
+    - Use regex to extract only the code content between backticks
+    - Don't include non-code text in the output
+    - Join multiple code blocks with newlines
+    - Keep original text for message display, replacing code blocks with placeholders
+  - For proper text wrapping in terminal input:
+    - Use whitespace-pre-wrap for preserving newlines while allowing wrapping
+    - Use break-all to prevent overflow on long strings without spaces
+    - Wrap input content in a div with these classes for consistent wrapping
+    - Use flex flex-row items-center to keep cursor on same line as text
+    - For auto-scrolling:
+      - Keep ref to terminal container div
+      - Scroll to bottom on user input and when lines change
+      - Use smooth scrolling behavior for better UX
+
+### Code Editor Preview
+When showing code previews in the UI:
+- Use browser-like window styling to provide familiar context
+- Include title bar with traffic light circles (red, yellow, green)
+- Show filename/path in URL-like bar
+- Use system colors that adapt to light/dark mode
+- Keep content area scrollable and monospaced
+- For dynamic iframes with Tailwind:
+  - Include Tailwind via CDN: `<script src="https://cdn.tailwindcss.com"></script>`
+  - Configure Tailwind theme inside iframe to match app's theme
+  - Define custom colors in tailwind.config to match app's color scheme
+  - Remove redundant CSS when using Tailwind classes
+- For gradient borders:
+  - Use p-[1px] with gradient background on outer div
+  - Wrap content in inner div with solid background
+  - This creates a gradient border effect that works in both light/dark modes
+- For side-by-side layouts with fixed heights:
+  - Set fixed height on parent container
+  - Use flex layout with h-full on children
+  - Allow content areas to scroll independently
+  - This prevents unbounded growth from height="100%" components
+- For side-by-side layouts with fixed heights:
+  - Set fixed height on parent container
+  - Use flex layout with h-full on children
+  - Allow content areas to scroll independently
+  - This prevents unbounded growth from height="100%" components
+
 ## Component Architecture
 
 ### Success State Pattern
 
-- Use CardWithBeams component for success/completion states
-- Examples: Payment success, onboarding completion
-- Consistent layout:
-  - Title announcing success
-  - Description of completed action
-  - Optional next steps or instructions
+- Use shadcn Card component for consistent card styling
+- For floating cards (e.g., cookie consent, notifications):
+  - Wrap in container class for proper horizontal alignment
+  - Use md:!px-0 to override container padding on desktop
+  - For desktop left alignment:
+    - Add md:left-4 and md:right-auto for positioning
+    - Use md:ml-0 to override any auto margins
+  - For mobile full-width:
+    - Use inset-x-0 for edge-to-edge positioning
+    - Keep container class for centered content
+  - Add backdrop-blur-sm and bg-background/80 for semi-transparent effect
+  - Set z-50 to ensure card appears above other content
+- For success states:
+  - Use CardWithBeams component
+  - Examples: Payment success, onboarding completion
+  - Include title, description, and optional next steps
   - Can include media (images, icons)
-- Found in `web/src/components/card-with-beams.tsx`
+
+### Card Design
+
+- Use shadcn Card component for consistent card styling
+- For floating cards (e.g., cookie consent, notifications), two approaches:
+  1. Container-based positioning:
+     - Use container class for consistent page margins
+     - Use inset-x-0 for full-width on mobile
+     - Add md:left-4 and md:right-auto for desktop positioning
+     - Use md:ml-0 to override auto margins
+  2. Fixed positioning with explicit margins:
+     - Use fixed with bottom-4 left-4 right-4 for mobile
+     - Use md:left-8 md:right-auto for desktop (matches container padding)
+     - Simpler approach when container class causes positioning issues
+  - Common styles for both approaches:
+    - Add backdrop-blur-sm and bg-background/80 for semi-transparent effect
+    - Set z-50 to ensure card appears above other content
+    - Use transition-opacity for smooth fade effects
+
+### Responsive Card Positioning
+
+For cards that need different positioning on mobile vs desktop:
+- Use container class with md: breakpoint modifiers
+- Position fixed with inset-x-0 for full-width on mobile
+- Use md:left-4 md:right-auto for left-aligned on desktop
+- Set md:max-w-sm to constrain width on larger screens
+- Add rounded corners only on desktop with md:rounded-lg
+- Example use case: Cookie consent card that converts from banner to card
+
+### Code Style
+
+- Use ts-pattern's match syntax instead of complex if/else chains
+- Match syntax provides better type safety and more readable code
+- Especially useful when handling multiple related conditions
+- Example:
+  ```typescript
+  await match(input)
+    .with('exact-match', () => { /* handle exact match */ })
+    .with(P.string.includes('partial'), () => { /* handle partial match */ })
+    .with(P.when((s: string) => s.includes('a') && s.includes('b')), () => { /* handle multiple conditions */ })
+    .otherwise(() => { /* handle default case */ })
+  ```
+
+### Error Handling
+
+#### Rate Limit Handling
+- Use HTTP status code 429 to detect rate limits
+- Show user-friendly error messages in the UI
+- For React Query mutations:
+  ```typescript
+  interface ApiResponse {
+    // response type
+  }
+  
+  const mutation = useMutation<ApiResponse, Error, string>({
+    mutationFn: async (input) => {
+      const response = await fetch('/api/endpoint')
+      if (!response.ok) {
+        const error = await response.json()
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again in a minute.')
+        }
+        throw new Error(error.error || 'Failed to get response')
+      }
+      return response.json()
+    }
+  })
+
+  // Use mutation.isPending (not isLoading) for loading state
+  return (
+    <div className={mutation.isPending ? 'opacity-50' : ''}>
+      {mutation.isPending && <LoadingSpinner />}
+    </div>
+  )
+
+  // Important: Use isPending instead of isLoading in React Query v5+
+  // - isPending: true during the first mutation
+  // - isLoading: deprecated in v5, use isPending instead
+  ```
+
+### UI Component State Management
+
+- Separate independent visual states into their own state variables
+- Avoid deriving visual states from content/data states
+- Pass visual states as explicit props to child components
+- Example: For a component with error and content:
+  ```typescript
+  // Good
+  const [showError, setShowError] = useState(true)
+  const [content, setContent] = useState('')
+  
+  // Avoid
+  const [content, setContent] = useState('error')
+  const showError = content === 'error'
+  ```
 
 ### UI Component Library
 
@@ -165,6 +387,22 @@ When displaying inline code snippets with copy buttons:
   - Pass variant-specific content via props
   - Keep styling consistent between variants
 - Example: Banner variants should share container and button styles
+- For component height management:
+  - Components should use h-full internally and accept className prop
+  - Let parent components control final height with Tailwind classes
+  - Example:
+    ```tsx
+    // Component
+    const MyComponent = ({ className }) => (
+      <div className={cn("h-full", className)}>...</div>
+    )
+    
+    // Usage
+    <div className="h-[200px] md:h-[800px]">
+      <MyComponent />
+    </div>
+    ```
+  - This allows for responsive heights and better composition
 
 ### Business Logic Organization
 
@@ -179,6 +417,27 @@ When displaying inline code snippets with copy buttons:
 - Components should import and use shared utilities
 
 ### UI Patterns
+
+### Dialog State Management
+- When using dialogs with state:
+  - Open dialog by setting state to true in click handlers
+  - Let the dialog's onOpenChange handle closing automatically
+  - Avoid setting state to false in button click handlers - this prevents the dialog from opening
+  - Place dialogs at the end of the component, outside of other layout containers
+  - Keep dialog content simple and focused
+  - For video/media dialogs, use bg-transparent and border-0 styles
+  - For installation/getting started dialogs:
+    - Provide clear step-by-step instructions
+    - Use CodeDemo component for command snippets (has built-in copy functionality)
+    - Add links to external documentation for users who want to learn more
+    - Use text-muted-foreground for supplementary information
+
+### Icon Click Handling
+- When using Lucide icons in clickable areas:
+  - Icons have pointer-events-none by default
+  - Place onClick handlers on parent elements instead of icons
+  - Add cursor-pointer to the parent element
+  - Keep hover states on the icon for visual feedback
 
 For expandable/collapsible UI elements:
 
@@ -245,7 +504,25 @@ Example of correct ordering:
 
 Important considerations for interactive components:
 
-1. Pricing Cards Layout:
+1. Z-index Requirements:
+
+   - Interactive components must have proper z-index positioning AND be inside providers
+   - Components with dropdowns or overlays should use z-20 or higher
+   - The navbar uses z-10 by default
+   - Banner and other top-level interactive components use z-20
+   - Ensure parent elements have `position: relative` when using z-index
+
+2. Common Issues:
+   - Components may appear but not be clickable if z-index is too low
+   - Moving components inside providers alone may not fix interactivity
+   - Always check both provider context and z-index when debugging click events
+
+Example of correct layering:
+```jsx
+<div className="relative z-20">...</div> // Interactive component
+```
+
+3. Pricing Cards Layout:
 
    - Pricing cards must remain in a single row
    - Use appropriate grid column settings to accommodate all tiers
@@ -367,6 +644,40 @@ Pricing information is displayed on the pricing page (`web/src/app/pricing/page.
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
 
+## Deepseek Integration
+
+When using Deepseek in web API routes:
+- Use OpenAI's client library with custom baseURL: 'https://api.deepseek.com'
+- Model name is 'deepseek-chat' for the chat completion endpoint
+- Requires DEEPSEEK_API_KEY in environment variables
+- Returns content in the same format as OpenAI's API
+- When handling responses with code blocks:
+  - Keep text before and after code blocks for context
+  - Extract only code content for HTML display
+  - Replace code blocks with placeholders in message history
+  - Return both HTML and message content separately
+- Support arrays of prompts to allow multi-turn conversations
+
+## Interactive Terminal Demo
+
+The demo terminal component supports:
+- Special commands (rainbow, theme, fix bug, clear)
+- Fallback to Deepseek AI for any unrecognized commands
+- Dynamic iframe content injection with proper HTML document structure
+- Loading states that maintain terminal interactivity
+- Random file selection (2-5 files) from a predefined list to simulate file reading
+- Consistent styling and theming across both terminal and preview
+- Multi-turn conversations with Deepseek by maintaining message history
+- Sends full conversation history to API with each request
+
+Initial state shows a simulated error component that:
+- Uses playful emojis (🎭, 💡) to indicate it's a demo
+- Has a dashed border to visually separate from real errors
+- Includes explicit text mentioning it's simulated
+- Provides hints about how to interact with the demo
+- Maintains React-like error styling for authenticity
+This creates a better narrative flow for users trying out the demo while avoiding confusion with real errors.
+
 ## Usage Tracking
 
 The application includes a usage tracking feature to allow users to monitor their credit consumption:
@@ -399,6 +710,13 @@ Important: When modifying or using code from common:
 
 ## UI Patterns
 
+### Analytics Implementation
+
+Important: When integrating PostHog:
+- Initialize variables before using them in analytics events
+- Calculate derived values before sending them to PostHog
+- Avoid using variables in analytics events before they're declared
+
 ### Plan Change Terminology
 - Use consistent wording for plan changes throughout the app
 - "Upgrade" when target plan price is higher than current plan
@@ -410,9 +728,143 @@ Important: When modifying or using code from common:
 
 ### API Routes and Types
 
+### Content Organization
+
+- Content is stored in MDX files under `src/content/`
+- Categories: help, tips, showcase, case-studies
+- Each document requires frontmatter with title, section, tags, order
+- Files automatically sorted by order field within sections
+- FAQ content should be organized by topic:
+  - General FAQs go in help/faq.mdx
+  - Feature-specific FAQs go in relevant feature docs
+  - Create new MDX files for related features (e.g., version-control.mdx for undo/redo/diff features)
+  - Keep documentation focused and organized by feature rather than mixing in FAQs
+  - This makes content more discoverable and maintainable
+
 ### API Route Organization and Utilities
 - Split complex API routes into focused endpoints
 - Use descriptive route names that indicate the action being performed
+- For API routes that handle external requests:
+  - For CORS in Next.js App Router:
+    - Export an OPTIONS handler for preflight requests:
+      ```typescript
+      const corsHeaders = {
+        'Access-Control-Allow-Origin': env.NEXT_PUBLIC_APP_URL,
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Credentials': 'true',
+      }
+
+      export async function OPTIONS() {
+        return new Response(null, {
+          status: 204,
+          headers: corsHeaders,
+        })
+      }
+      ```
+    - Include CORS headers in ALL responses:
+      ```typescript
+      return new Response(data, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      })
+      ```
+    - Keep headers consistent between OPTIONS and actual requests
+    - Define headers once and reuse to avoid inconsistencies
+    - Remember to include CORS headers even in error responses
+    ```typescript
+    const cors = Cors({
+      methods: ['POST'], // Only include methods actually used
+      origin: env.NEXT_PUBLIC_APP_URL, // Restrict to your domain
+      credentials: true,
+    })
+
+    // Helper to run middleware with App Router's Request/Response
+    function runMiddleware(request: Request, response: Response) {
+      return new Promise((resolve, reject) => {
+        const req: any = {
+          method: request.method,
+          headers: Object.fromEntries(request.headers.entries()),
+        }
+        const res: any = {
+          statusCode: response.status,
+          setHeader: (name: string, value: string) => {
+            response.headers.set(name, value)
+          },
+          end: () => resolve(undefined),
+        }
+
+        cors(req, res, (result: Error | unknown) => {
+          if (result instanceof Error) return reject(result)
+          return resolve(result)
+        })
+      })
+    }
+
+    // Use in route handler
+    const response = new Response()
+    await runMiddleware(request, response)
+    ```
+  - This provides proper preflight handling and header setting
+  - More reliable than manual CORS header configuration
+  - Important: CORS headers must be included in ALL responses, including error responses:
+    ```typescript
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': env.NEXT_PUBLIC_APP_URL,
+      'Access-Control-Allow-Methods': 'POST',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Credentials': 'true',
+    }
+
+    // Add to all responses, including errors
+    return new Response(JSON.stringify({ error: 'Some error' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      },
+    })
+    ```
+  - Double-check origin in route handler:
+    ```typescript
+    const origin = request.headers.get('origin')
+    if (origin !== env.NEXT_PUBLIC_APP_URL) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized origin' }),
+        { status: 403 }
+      )
+    }
+    ```
+  - Use both CORS headers and runtime origin checks for defense in depth
+  - Example next.config.mjs configuration:
+    ```typescript
+    headers: [
+      {
+        source: '/api/specific-endpoint',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: env.NEXT_PUBLIC_APP_URL },
+          { key: 'Access-Control-Allow-Methods', value: 'POST' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type' },
+        ],
+      }
+    ]
+    ```
+  - For request validation with Zod:
+    - Use z.object() to define the shape of the request body
+    - For non-empty strings, use z.string().min(1)
+    - For non-empty arrays, use z.array().min(1)
+    - Return 400 status with validation error message  - For rate limiting API routes:
+  - Get client IP from x-forwarded-for header (first IP in comma-separated list)
+  - Track requests per IP with a Map or Redis store
+  - Set appropriate window (e.g., 10 requests per minute)
+  - Return 429 status when limit exceeded
+  - Clean up old entries periodically
+  - Consider using Redis in production for persistence
+  - Important: In-memory Maps reset on server restart and don't work across multiple instances
+  - Important: setInterval cleanup may not run in serverless environments
 - Example: Subscription management
   - `/api/stripe/subscription` - Get current subscription info
   - `/api/stripe/subscription/change` - Handle subscription changes and upgrades
