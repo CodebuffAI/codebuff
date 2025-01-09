@@ -1,15 +1,26 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useCallback, useEffect, createContext, useContext } from 'react'
 import posthog from 'posthog-js'
 import { PostHogProvider as PHProvider } from 'posthog-js/react'
-import { usePathname } from 'next/navigation'
 import { env } from '@/env.mjs'
 
-export function PostHogProvider({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
+type PostHogContextType = {
+  reinitialize: () => void
+}
 
-  useEffect(() => {
+const PostHogContext = createContext<PostHogContextType | null>(null)
+
+export function usePostHog() {
+  const context = useContext(PostHogContext)
+  if (!context) {
+    throw new Error('usePostHog must be used within a PostHogProvider')
+  }
+  return context
+}
+
+export function PostHogProvider({ children }: { children: React.ReactNode }) {
+  const initializePostHog = useCallback(() => {
     // Check for user consent
     const consent = localStorage.getItem('cookieConsent')
     const hasConsented = consent === null || consent === 'true'
@@ -24,12 +35,15 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       // Handle page views
       posthog.capture('$pageview')
     }
+  }, [])
 
-    // Clean up function when the component unmounts
-    return () => {
-      // posthog.shutdown()
-    }
-  }, [pathname])
+  useEffect(() => {
+    initializePostHog()
+  }, [initializePostHog])
 
-  return <PHProvider client={posthog}>{children}</PHProvider>
+  return (
+    <PostHogContext.Provider value={{ reinitialize: initializePostHog }}>
+      <PHProvider client={posthog}>{children}</PHProvider>
+    </PostHogContext.Provider>
+  )
 }

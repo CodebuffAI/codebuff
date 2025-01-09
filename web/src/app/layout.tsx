@@ -68,7 +68,8 @@ const RootLayout = ({ children }: PropsWithChildren) => {
                 <Navbar />
                 <div className="flex-grow">{children}</div>
                 <Footer />
-                <Toaster />                  <CookieConsentCard />
+                <Toaster />
+                <CookieConsentCard />
               </PostHogProvider>
             </QueryProvider>
           </SessionProvider>

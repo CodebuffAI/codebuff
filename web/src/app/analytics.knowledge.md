@@ -6,9 +6,15 @@ Important: When integrating PostHog:
 - Initialize after user consent
 - Respect Do Not Track browser setting
 - Anonymize IP addresses by setting `$ip: null`
-- Reload page after consent to ensure proper initialization
+- Use React Context to expose reinitialization function instead of reloading page
 - Place PostHogProvider above other providers in component tree
 - Track events with additional context (theme, referrer, etc.)
+- For cookie consent:
+  - Avoid page reloads which cause UI flicker
+  - Use context to expose reinitialize function
+  - Keep consent UI components inside PostHogProvider
+  - Keep components simple - prefer single component over wrapper when possible
+  - Place consent UI inside PostHogProvider to access context directly
 
 Example event tracking:
 ```typescript

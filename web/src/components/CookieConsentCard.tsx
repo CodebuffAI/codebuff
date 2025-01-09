@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { usePostHog } from '@/lib/PostHogProvider'
 
 export function CookieConsentCard() {
   const [visible, setVisible] = useState(false)
   const [opacity, setOpacity] = useState(1)
+  const { reinitialize } = usePostHog()
 
   useEffect(() => {
     const consent = localStorage.getItem('cookieConsent')
@@ -31,8 +33,7 @@ export function CookieConsentCard() {
   const handleAccept = () => {
     localStorage.setItem('cookieConsent', 'true')
     setVisible(false)
-    // Reload the page to initialize PostHog after consent
-    window.location.reload()
+    reinitialize()
   }
 
   const handleDecline = () => {
