@@ -278,10 +278,10 @@ const InteractiveTerminalDemo = () => {
     },
     onMutate: (input) => {
       // Track terminal input event
-      posthog.capture('terminal_demo_command', {
+      posthog.capture('executed terminal command', {
         command: input,
+        demo_terminal: true,
       })
-
 
       const randomFiles = getRandomFiles()
       const newLines = [
@@ -335,7 +335,6 @@ const InteractiveTerminalDemo = () => {
       await sleep(1000) // Delay so the user has time to read the output
       setPreviewContent(data.html)
     },
-
   })
 
   const handleInput = async (input: string) => {
@@ -343,8 +342,9 @@ const InteractiveTerminalDemo = () => {
 
     await match(input)
       .with('help', () => {
-        posthog.capture('terminal_demo_help_viewed', {
+        posthog.capture('viewed demo terminal help', {
           theme: colorTheme,
+          demo_terminal: true,
         })
         newLines.push(
           <TerminalOutput key={`help-${Date.now()}`} className="text-wrap">
@@ -366,7 +366,7 @@ const InteractiveTerminalDemo = () => {
         )
       })
       .with(P.string.includes('rainbow'), () => {
-        posthog.capture('terminal_demo_rainbow_added')
+        posthog.capture('added demo terminal rainbow', { demo_terminal: true })
         setIsRainbow(true)
         newLines.push(
           <TerminalOutput key={`rainbow-cmd-${Date.now()}`}>
@@ -388,9 +388,10 @@ const InteractiveTerminalDemo = () => {
         const currentIndex = themes.indexOf(previewTheme)
         const nextTheme = themes[(currentIndex + 1) % themes.length]
 
-        posthog.capture('terminal_demo_theme_changed', {
+        posthog.capture('changed demo terminal theme', {
           from_theme: colorTheme,
           to_theme: nextTheme,
+          demo_terminal: true,
         })
         setPreviewTheme(nextTheme)
 
@@ -418,7 +419,7 @@ const InteractiveTerminalDemo = () => {
       .with(
         P.when((s: string) => s.includes('fix') && s.includes('bug')),
         () => {
-          posthog.capture('terminal_demo_bug_fixed')
+          posthog.capture('fixed demo terminal bug', { demo_terminal: true })
           setShowError(false)
           newLines.push(
             <TerminalOutput key={`fix-1-${Date.now()}`}>
@@ -443,7 +444,6 @@ const InteractiveTerminalDemo = () => {
         setTerminalLines([])
       })
       .otherwise(async () => {
-
         const randomFiles = getRandomFiles()
         newLines.push(
           <TerminalOutput key={`ask-1-${Date.now()}`}>

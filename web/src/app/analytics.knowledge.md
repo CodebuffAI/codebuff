@@ -35,9 +35,18 @@ Important event tracking considerations:
 - Avoid theme variable naming conflicts with component state by using aliases (e.g., colorTheme)
 - Pass event handlers down as props rather than accessing global posthog in child components
 
+## Event Naming Convention
+
+Event names should be verb-forward, past tense, using spaces. Examples:
+- clicked get started
+- opened demo video
+- viewed terminal help
+- changed terminal theme
+- executed terminal command
+
 Example event properties:
 ```typescript
-// Button click events
+// Click events
 {
   location: 'hero_section' | 'cta_section' | 'install_dialog',
   theme: string,
