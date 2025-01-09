@@ -20,6 +20,7 @@ import {
   parseGitignore,
 } from 'common/project-file-tree'
 import { getFileTokenScores } from 'code-map/parse'
+import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 const execAsync = promisify(exec)
 
@@ -102,6 +103,9 @@ export const getProjectFileContext = async (
       filePath.endsWith('knowledge.md')
     )
     const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
+    const knowledgeFilesWithScrapedContent =
+      await addScrapedContentToFiles(knowledgeFiles)
+
     const shellConfigFiles = loadShellConfigFiles()
     const shell = process.env.SHELL || process.env.COMSPEC || 'unknown'
 
@@ -111,7 +115,7 @@ export const getProjectFileContext = async (
       currentWorkingDirectory: projectRoot,
       fileTree,
       fileTokenScores,
-      knowledgeFiles,
+      knowledgeFiles: knowledgeFilesWithScrapedContent,
       shellConfigFiles,
       systemInfo: {
         platform: platform,
@@ -223,6 +227,22 @@ export function getExistingFiles(filePaths: string[]) {
     string
   >
 }
+export async function addScrapedContentToFiles(files: Record<string, string>) {
+  const newFiles = { ...files }
+  await Promise.all(
+    Object.entries(files).map(async ([filePath, content]) => {
+      const urls = parseUrlsFromContent(content)
+      const scrapedContent = await getScrapedContentBlocks(urls)
+
+      newFiles[filePath] =
+        content +
+        (scrapedContent.length > 0 ? '\n' : '') +
+        scrapedContent.join('\n')
+    })
+  )
+  return newFiles
+}
+
 export function getFilesAbsolutePath(filePaths: string[]) {
   const result: Record<string, string | null> = {}
   for (const filePath of filePaths) {
