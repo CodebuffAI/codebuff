@@ -338,15 +338,15 @@ const InteractiveTerminalDemo = () => {
   })
 
   const handleInput = async (input: string) => {
-    const newLines = [...terminalLines]
-
-    await match(input)
+    match(input)
       .with('help', () => {
         posthog.capture('viewed demo terminal help', {
           theme: colorTheme,
           demo_terminal: true,
         })
-        newLines.push(
+        setTerminalLines((prev) => [
+          ...prev,
+
           <TerminalOutput key={`help-${Date.now()}`} className="text-wrap">
             {'>'} help
           </TerminalOutput>,
@@ -362,13 +362,14 @@ const InteractiveTerminalDemo = () => {
                 get the full experience!
               </b>
             </p>
-          </TerminalOutput>
-        )
+          </TerminalOutput>,
+        ])
       })
       .with(P.string.includes('rainbow'), () => {
         posthog.capture('added demo terminal rainbow', { demo_terminal: true })
         setIsRainbow(true)
-        newLines.push(
+        setTerminalLines((prev) => [
+          ...prev,
           <TerminalOutput key={`rainbow-cmd-${Date.now()}`}>
             {'>'} please make the hello world background rainbow-colored
           </TerminalOutput>,
@@ -380,8 +381,8 @@ const InteractiveTerminalDemo = () => {
           </TerminalOutput>,
           <TerminalOutput key={`rainbow-1-${Date.now()}`}>
             🌈 Added a rainbow gradient to the component!
-          </TerminalOutput>
-        )
+          </TerminalOutput>,
+        ])
       })
       .with('change theme', () => {
         const themes: PreviewTheme[] = ['terminal-y', 'retro', 'light']
@@ -395,7 +396,8 @@ const InteractiveTerminalDemo = () => {
         })
         setPreviewTheme(nextTheme)
 
-        newLines.push(
+        setTerminalLines((prev) => [
+          ...prev,
           <TerminalOutput key={`theme-cmd-${Date.now()}`}>
             {'>'} change the theme to be more {nextTheme}
           </TerminalOutput>,
@@ -413,15 +415,16 @@ const InteractiveTerminalDemo = () => {
             <p className="text-green-400">
               - Updated web/src/components/app.tsx
             </p>
-          </TerminalOutput>
-        )
+          </TerminalOutput>,
+        ])
       })
       .with(
         P.when((s: string) => s.includes('fix') && s.includes('bug')),
         () => {
           posthog.capture('fixed demo terminal bug', { demo_terminal: true })
           setShowError(false)
-          newLines.push(
+          setTerminalLines((prev) => [
+            ...prev,
             <TerminalOutput key={`fix-1-${Date.now()}`}>
               <b className="text-green-400">Codebuff:</b> I found a potential
               bug - the greeting is missing an exclamation mark.
@@ -435,46 +438,17 @@ const InteractiveTerminalDemo = () => {
                 - Updated web/src/components/app.tsx
               </p>
               <p className="text-green-400">- Created web/tailwind.config.ts</p>
-            </TerminalOutput>
-          )
+            </TerminalOutput>,
+          ])
           setPreviewContent('fixed')
         }
       )
       .with('clear', () => {
         setTerminalLines([])
       })
-      .otherwise(async () => {
-        const randomFiles = getRandomFiles()
-        newLines.push(
-          <TerminalOutput key={`ask-1-${Date.now()}`}>
-            <p>
-              {'> '}
-              {input}
-            </p>
-          </TerminalOutput>,
-          <TerminalOutput key={`files-${Date.now()}`}>
-            <b className="text-green-400">Codebuff:</b> Reading additional
-            files...
-            {randomFiles.slice(0, 3).map((file) => (
-              <p key={file} className="text-wrap">
-                - {file}
-              </p>
-            ))}
-            {randomFiles.length > 3 && (
-              <p className="text-wrap">
-                and {randomFiles.length - 3} more:{' '}
-                {randomFiles.slice(3).join(', ')}
-              </p>
-            )}
-          </TerminalOutput>,
-          <TerminalOutput key={`ask-${Date.now()}`}>Thinking...</TerminalOutput>
-        )
-        setTerminalLines(newLines)
-
-        await demoMutation.mutateAsync(input)
+      .otherwise(() => {
+        demoMutation.mutate(input)
       })
-
-    setTerminalLines(newLines)
   }
 
   return (

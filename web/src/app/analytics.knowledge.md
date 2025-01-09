@@ -139,6 +139,13 @@ Important: This pattern ensures accurate attribution even when users don't conve
    - Maintain consistent tracking parameters across all conversion points
    - Example: Subscription conversion tracking should use same campaign ID everywhere
 
+2. API Security:
+   - When checking origins for CORS:
+     - Parse URLs to compare just domain and port
+     - Ignore protocol (http/https) differences
+     - Handle missing or malformed origin headers
+     - Keep CORS headers consistent in both success and error responses
+
 ## UTM Source Handling
 
 Special UTM sources:

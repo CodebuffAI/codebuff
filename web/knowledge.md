@@ -229,6 +229,25 @@ When showing code previews in the UI:
 
 ## Component Architecture
 
+### React Query Mutation Patterns
+
+Important: When using useMutation with UI state:
+- Let mutation handlers (onMutate, onSuccess, onError) own their state updates
+- Avoid setting state after awaiting mutation if handlers also set state
+- For components with both local and mutation-driven state:
+  ```typescript
+  // Handle local state updates first
+  if (isLocalAction(input)) {
+    setLocalState(newState)
+    return
+  }
+  
+  // Let mutation handlers own their state for API calls
+  await mutation.mutateAsync(input)
+  ```
+- This pattern prevents race conditions between local state updates and mutation handlers
+- Keeps state management responsibilities clear and separated
+
 ### Success State Pattern
 
 - Use shadcn Card component for consistent card styling

@@ -202,10 +202,44 @@ const callDeepseekAPI = async (
 }
 
 export async function POST(request: Request) {
-  // Check origin
+  // Check origin by comparing domain and port
   const origin = request.headers.get('origin')
-  if (origin !== env.NEXT_PUBLIC_APP_URL) {
-    return new Response(JSON.stringify({ error: 'Unauthorized origin' }), {
+  if (!origin) {
+    return new Response(JSON.stringify({ error: 'Missing origin header' }), {
+      status: 403,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  }
+
+  // Remove www. prefix and normalize hostnames
+  const normalizeHost = (host: string) => host.replace(/^www\./, '')
+
+  // Parse URLs to compare just domain and port
+  try {
+    const originUrl = new URL(origin)
+    const allowedUrl = new URL(env.NEXT_PUBLIC_APP_URL)
+
+    const originBase = normalizeHost(originUrl.host)
+    const allowedBase = normalizeHost(allowedUrl.host)
+
+    if (originBase !== allowedBase) {
+      console.log('User origin differs from app', {
+        originBase,
+        allowedBase,
+      })
+      return new Response(JSON.stringify({ error: 'Unauthorized origin' }), {
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      })
+    }
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Invalid origin format' }), {
       status: 403,
       headers: {
         'Content-Type': 'application/json',
