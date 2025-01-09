@@ -6,7 +6,7 @@
     "build": "tsc && cp -R tree-sitter-queries ./dist/"
   },
   "dependencies": {
-    "tree-sitter": "0.21.1",
+    "tree-sitter": "0.22.4",
     "tree-sitter-c": "0.23.0",
     "tree-sitter-c-sharp": "0.23.0",
     "tree-sitter-cpp": "0.23.0",
