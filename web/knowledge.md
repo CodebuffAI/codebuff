@@ -254,6 +254,22 @@ When showing code previews in the UI:
     .otherwise(() => { /* handle default case */ })
   ```
 
+### UI Component State Management
+
+- Separate independent visual states into their own state variables
+- Avoid deriving visual states from content/data states
+- Pass visual states as explicit props to child components
+- Example: For a component with error and content:
+  ```typescript
+  // Good
+  const [showError, setShowError] = useState(true)
+  const [content, setContent] = useState('')
+  
+  // Avoid
+  const [content, setContent] = useState('error')
+  const showError = content === 'error'
+  ```
+
 ### UI Component Library
 
 - Use shadcn UI components instead of native HTML elements

@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 import Terminal, { ColorMode, TerminalOutput } from './ui/terminal'
-import { useIsMobile } from '../hooks/use-mobile'
 import { cn } from '../lib/utils'
 import { sleep } from 'common/util/helpers'
 import { match, P } from 'ts-pattern'
 import posthog from 'posthog-js'
 import { useTheme } from 'next-themes'
+
+const FIX_BUG_FLAG = false
 
 const POSSIBLE_FILES = [
   'web/src/components/ui/dialog.tsx',
@@ -105,16 +106,7 @@ const getIframeContent = (
   `
 
   const errorContent = `
-    <div style="padding: 16px; border-radius: 8px;">
-      <h1 class="text-xl">👋 Welcome to the Codebuff Demo!</h1>
-      <p class="dim" style="margin-top: 16px;">Try these example prompts in the terminal:</p>
-      <div style="margin: 16px 0; padding: 16px; background: rgba(59,130,246,0.1); border-radius: 8px;">
-        <p>🌈 <b>"Add a rainbow gradient"</b> - Make things colorful</p>
-        <p>🎨 <b>"Change the theme"</b> - Try different visual styles</p>
-        <p>🔧 <b>"Fix the bug"</b> - See how Codebuff handles errors</p>
-      </div>
-      <p class="dim">Or type <b>"help"</b> to see all available commands!</p>
-
+    <div>
       <div style="margin-top: 32px; border: 2px dashed #EF4444; padding: 16px; border-radius: 8px;">
         <h2 class="error">🎭 Demo Error: Component failed to render</h2>
         <p class="dim" style="margin-top: 16px; font-style: italic;">💡 Tip: This is just a demo - not a real error!</p>
@@ -171,7 +163,8 @@ const getIframeContent = (
         `
             : ''
         }>
-          ${showError ? errorContent : content === 'fixed' ? fixedContent : content}
+          ${content === 'fixed' ? fixedContent : content}
+          ${showError ? errorContent : ''}
         </div>
       </body>
     </html>
@@ -241,8 +234,17 @@ const InteractiveTerminalDemo = () => {
       a list of commands.
     </TerminalOutput>,
   ])
-  const [previewContent, setPreviewContent] = useState<string>('')
-  const [showError, setShowError] = useState(true)
+  const [previewContent, setPreviewContent] =
+    useState<string>(`<div style="padding: 16px; border-radius: 8px;">
+      <h1 class="text-xl">👋 Welcome to the Codebuff Demo!</h1>
+      <p class="dim" style="margin-top: 16px;">Try these example prompts in the terminal:</p>
+      <div style="margin: 16px 0; padding: 16px; background: rgba(59,130,246,0.1); border-radius: 8px;">
+        <p>🌈 <b>"Add a rainbow gradient"</b> - Make things colorful</p>
+        <p>🎨 <b>"Change the theme"</b> - Try different visual styles</p>
+        <p>🍊 <b>"Draw an orange"</b> - Color or fruit? Let us decide!</p>
+      </div>
+      <p class="dim">Or type <b>"help"</b> to see all available commands!</p>`)
+  const [showError, setShowError] = useState(FIX_BUG_FLAG)
   const [isLoading, setIsLoading] = useState(false)
   const [isRainbow, setIsRainbow] = useState(false)
   const [previewTheme, setPreviewTheme] = useState<PreviewTheme>('default')
@@ -252,7 +254,7 @@ const InteractiveTerminalDemo = () => {
     // Track terminal input event
     posthog.capture('terminal_demo_command', {
       command: input,
-      theme: colorTheme
+      theme: colorTheme,
     })
 
     const newLines = [...terminalLines]
@@ -260,7 +262,7 @@ const InteractiveTerminalDemo = () => {
     const result = await match(input)
       .with('help', () => {
         posthog.capture('terminal_demo_help_viewed', {
-          theme: colorTheme
+          theme: colorTheme,
         })
         newLines.push(
           <TerminalOutput key={`help-${Date.now()}`} className="text-wrap">
@@ -268,13 +270,14 @@ const InteractiveTerminalDemo = () => {
           </TerminalOutput>,
           <TerminalOutput key={`help-${Date.now()}`}>
             <p>ASK CODEBUFF TO...</p>
-            <p>• "fix the bug" - Fix a bug in the code</p>
+            {FIX_BUG_FLAG && <p>• "fix the bug" - Fix a bug in the code</p>}
             <p>• "add rainbow" - Add a rainbow gradient to the component</p>
             <p>• "change theme" - Change the visual theme</p>
+            <p>• "draw an orange" - Color or fruit? Let us decide!</p>
             <p className="mt-4">
               <b>
-                Keep in mind that this is just a demo – install the package to get
-                the full experience!
+                Keep in mind that this is just a demo – install the package to
+                get the full experience!
               </b>
             </p>
           </TerminalOutput>
@@ -282,7 +285,7 @@ const InteractiveTerminalDemo = () => {
       })
       .with(P.string.includes('rainbow'), () => {
         posthog.capture('terminal_demo_rainbow_added', {
-          theme: colorTheme
+          theme: colorTheme,
         })
         setIsRainbow(true)
         newLines.push(
@@ -304,10 +307,10 @@ const InteractiveTerminalDemo = () => {
         const themes: PreviewTheme[] = ['terminal-y', 'retro', 'light']
         const currentIndex = themes.indexOf(previewTheme)
         const nextTheme = themes[(currentIndex + 1) % themes.length]
-        
+
         posthog.capture('terminal_demo_theme_changed', {
           from_theme: colorTheme,
-          to_theme: nextTheme
+          to_theme: nextTheme,
         })
         setPreviewTheme(nextTheme)
 
@@ -326,102 +329,109 @@ const InteractiveTerminalDemo = () => {
           </TerminalOutput>,
           <TerminalOutput key={`fix-1-${Date.now()}`}>
             <p>Applying file changes. Please wait...</p>
-            <p className="text-green-400">- Updated web/src/components/app.tsx</p>
+            <p className="text-green-400">
+              - Updated web/src/components/app.tsx
+            </p>
           </TerminalOutput>
         )
       })
-      .with(P.when((s: string) => s.includes('fix') && s.includes('bug')), () => {
-        posthog.capture('terminal_demo_bug_fixed', {
-          theme: colorTheme
-        })
-        setShowError(false)
-        newLines.push(
-          <TerminalOutput key={`fix-1-${Date.now()}`}>
-            <b className="text-green-400">Codebuff:</b> I found a potential bug -
-            the greeting is missing an exclamation mark.
-          </TerminalOutput>,
-          <TerminalOutput key={`fix-2-${Date.now()}`}>
-            I'll add proper punctuation and improve the code style.
-          </TerminalOutput>,
-          <TerminalOutput key={`fix-3-${Date.now()}`}>
-            <p>Applying file changes. Please wait...</p>
-            <p className="text-green-400">- Updated web/src/components/app.tsx</p>
-            <p className="text-green-400">- Created web/tailwind.config.ts</p>
-          </TerminalOutput>
-        )
-        setPreviewContent('fixed')
-      })
+      .with(
+        P.when((s: string) => s.includes('fix') && s.includes('bug')),
+        () => {
+          posthog.capture('terminal_demo_bug_fixed', {
+            theme: colorTheme,
+          })
+          setShowError(false)
+          newLines.push(
+            <TerminalOutput key={`fix-1-${Date.now()}`}>
+              <b className="text-green-400">Codebuff:</b> I found a potential
+              bug - the greeting is missing an exclamation mark.
+            </TerminalOutput>,
+            <TerminalOutput key={`fix-2-${Date.now()}`}>
+              I'll add proper punctuation and improve the code style.
+            </TerminalOutput>,
+            <TerminalOutput key={`fix-3-${Date.now()}`}>
+              <p>Applying file changes. Please wait...</p>
+              <p className="text-green-400">
+                - Updated web/src/components/app.tsx
+              </p>
+              <p className="text-green-400">- Created web/tailwind.config.ts</p>
+            </TerminalOutput>
+          )
+          setPreviewContent('fixed')
+        }
+      )
       .with('clear', () => {
         setTerminalLines([])
       })
       .otherwise(async () => {
-      setIsLoading(true)
-      const randomFiles = getRandomFiles()
-      newLines.push(
-        <TerminalOutput key={`ask-1-${Date.now()}`}>
-          <p>
-            {'> '}
-            {input}
-          </p>
-        </TerminalOutput>,
-        <TerminalOutput key={`files-${Date.now()}`}>
-          <b className="text-green-400">Codebuff:</b> Reading additional
-          files...
-          {randomFiles.slice(0, 3).map((file) => (
-            <p key={file} className="text-wrap">
-              - {file}
-            </p>
-          ))}
-          {randomFiles.length > 3 && (
-            <p className="text-wrap">
-              and {randomFiles.length - 3} more:{' '}
-              {randomFiles.slice(3).join(', ')}
-            </p>
-          )}
-        </TerminalOutput>,
-        <TerminalOutput key={`ask-${Date.now()}`}>Thinking...</TerminalOutput>
-      )
-      setTerminalLines(newLines)
-
-      try {
-        const response = await fetch('/api/demo', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: [...messages, input],
-          }),
-        })
-
-        if (!response.ok) throw new Error('Failed to get response')
-
-        const { html, message } = await response.json()
-
-        setMessages((prev) => [...prev, input, message])
+        setIsLoading(true)
+        const randomFiles = getRandomFiles()
         newLines.push(
-          <TerminalOutput key={`resp-1-${Date.now()}`}>
-            {message}
+          <TerminalOutput key={`ask-1-${Date.now()}`}>
+            <p>
+              {'> '}
+              {input}
+            </p>
           </TerminalOutput>,
-          <TerminalOutput key={`resp-2-${Date.now()}`}>
-            Applying file changes. Please wait...
+          <TerminalOutput key={`files-${Date.now()}`}>
+            <b className="text-green-400">Codebuff:</b> Reading additional
+            files...
+            {randomFiles.slice(0, 3).map((file) => (
+              <p key={file} className="text-wrap">
+                - {file}
+              </p>
+            ))}
+            {randomFiles.length > 3 && (
+              <p className="text-wrap">
+                and {randomFiles.length - 3} more:{' '}
+                {randomFiles.slice(3).join(', ')}
+              </p>
+            )}
           </TerminalOutput>,
-          <TerminalOutput key={`resp-3-${Date.now()}`}>
-            <p className="text-green-400">- Updated web/src/app/page.tsx</p>
-          </TerminalOutput>
+          <TerminalOutput key={`ask-${Date.now()}`}>Thinking...</TerminalOutput>
         )
         setTerminalLines(newLines)
 
-        await sleep(1000) // Delay so the user has time to read the output
-        setPreviewContent(html)
-      } catch (error) {
-        console.error('Error:', error)
-        newLines.push(
-          <TerminalOutput key={`error-${Date.now()}`}>
-            Sorry, I encountered an error while processing your request.
-          </TerminalOutput>
-        )
-      } finally {
-        setIsLoading(false)
-      }
+        try {
+          const response = await fetch('/api/demo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: [...messages, input],
+            }),
+          })
+
+          if (!response.ok) throw new Error('Failed to get response')
+
+          const { html, message } = await response.json()
+
+          setMessages((prev) => [...prev, input, message])
+          newLines.push(
+            <TerminalOutput key={`resp-1-${Date.now()}`}>
+              {message}
+            </TerminalOutput>,
+            <TerminalOutput key={`resp-2-${Date.now()}`}>
+              Applying file changes. Please wait...
+            </TerminalOutput>,
+            <TerminalOutput key={`resp-3-${Date.now()}`}>
+              <p className="text-green-400">- Updated web/src/app/page.tsx</p>
+            </TerminalOutput>
+          )
+          setTerminalLines(newLines)
+
+          await sleep(1000) // Delay so the user has time to read the output
+          setPreviewContent(html)
+        } catch (error) {
+          console.error('Error:', error)
+          newLines.push(
+            <TerminalOutput key={`error-${Date.now()}`}>
+              Sorry, I encountered an error while processing your request.
+            </TerminalOutput>
+          )
+        } finally {
+          setIsLoading(false)
+        }
       })
 
     setTerminalLines(newLines)
