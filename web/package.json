@@ -54,6 +54,7 @@
     "next-themes": "^0.3.0",
     "nextjs-linkedin-insight-tag": "^0.0.6",
     "pg": "^8.13.0",
+    "posthog-js": "^1.205.0",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.53.0",

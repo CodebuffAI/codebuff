@@ -3,6 +3,9 @@ import Terminal, { ColorMode, TerminalOutput } from './ui/terminal'
 import { useIsMobile } from '../hooks/use-mobile'
 import { cn } from '../lib/utils'
 import { sleep } from 'common/util/helpers'
+import { match, P } from 'ts-pattern'
+import posthog from 'posthog-js'
+import { useTheme } from 'next-themes'
 
 const POSSIBLE_FILES = [
   'web/src/components/ui/dialog.tsx',
@@ -37,6 +40,7 @@ type PreviewTheme = 'default' | 'terminal-y' | 'retro' | 'light'
 
 interface BrowserPreviewProps {
   content: string
+  showError?: boolean
   isRainbow?: boolean
   theme?: PreviewTheme
   isLoading?: boolean
@@ -44,6 +48,7 @@ interface BrowserPreviewProps {
 
 const getIframeContent = (
   content: string,
+  showError: boolean,
   isRainbow: boolean,
   theme: PreviewTheme
 ) => {
@@ -100,23 +105,34 @@ const getIframeContent = (
   `
 
   const errorContent = `
-    <div style="border: 2px dashed #EF4444; padding: 16px; border-radius: 8px;">
-      <h1 class="error">🎭 Demo Error: Component failed to render</h1>
-      <p class="dim" style="margin-top: 16px; font-style: italic;">💡 Tip: This is just a demo - not a real error!</p>
-      <div class="error-box">
-        <p>TypeError: Cannot read properties of undefined (reading 'greeting')</p>
-        <p class="dim">at DemoComponent (./components/DemoComponent.tsx:12:23)</p>
-        <p class="dim">at renderWithHooks (./node_modules/react-dom/cjs/react-dom.development.js:14985:18)</p>
+    <div style="padding: 16px; border-radius: 8px;">
+      <h1 class="text-xl">👋 Welcome to the Codebuff Demo!</h1>
+      <p class="dim" style="margin-top: 16px;">Try these example prompts in the terminal:</p>
+      <div style="margin: 16px 0; padding: 16px; background: rgba(59,130,246,0.1); border-radius: 8px;">
+        <p>🌈 <b>"Add a rainbow gradient"</b> - Make things colorful</p>
+        <p>🎨 <b>"Change the theme"</b> - Try different visual styles</p>
+        <p>🔧 <b>"Fix the bug"</b> - See how Codebuff handles errors</p>
       </div>
-      <p class="dim">This is a simulated error in our demo component.
-      <p><b>Try typing "fix the bug" to resolve it!</b></p>
+      <p class="dim">Or type <b>"help"</b> to see all available commands!</p>
+
+      <div style="margin-top: 32px; border: 2px dashed #EF4444; padding: 16px; border-radius: 8px;">
+        <h2 class="error">🎭 Demo Error: Component failed to render</h2>
+        <p class="dim" style="margin-top: 16px; font-style: italic;">💡 Tip: This is just a demo - not a real error!</p>
+        <div class="error-box">
+          <p>TypeError: Cannot read properties of undefined (reading 'greeting')</p>
+          <p class="dim">at DemoComponent (./components/DemoComponent.tsx:12:23)</p>
+          <p class="dim">at renderWithHooks (./node_modules/react-dom/cjs/react-dom.development.js:14985:18)</p>
+        </div>
+        <p class="dim">This is a simulated error in our demo component.</p>
+        <p><b>Try typing "fix the bug" to resolve it!</b></p>
+      </div>
     </div>
   `
 
   const fixedContent = `
     <h1>Hello World! 👋</h1>
     <p class="success">Everything is working perfectly now!</p>
-    <p>Like the demo? Use it for real so we can justify this demo:</p>
+    <p>Like the demo? Pls install Codebuff so we can justify keeping this demo pls:</p>
     <code><pre>npm install -g codebuff</pre></code>
     `
 
@@ -155,7 +171,7 @@ const getIframeContent = (
         `
             : ''
         }>
-          ${content === 'error' ? errorContent : content === 'fixed' ? fixedContent : content}
+          ${showError ? errorContent : content === 'fixed' ? fixedContent : content}
         </div>
       </body>
     </html>
@@ -164,6 +180,7 @@ const getIframeContent = (
 
 const BrowserPreview: React.FC<BrowserPreviewProps> = ({
   content,
+  showError = false,
   isRainbow = false,
   theme = 'default',
   isLoading = false,
@@ -205,7 +222,7 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
             </div>
           ) : (
             <iframe
-              srcDoc={getIframeContent(content, isRainbow, theme)}
+              srcDoc={getIframeContent(content, showError, isRainbow, theme)}
               className="w-full h-full border-none"
               sandbox="allow-scripts"
             />
@@ -217,99 +234,127 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
 }
 
 const InteractiveTerminalDemo = () => {
+  const { theme: colorTheme } = useTheme()
   const [terminalLines, setTerminalLines] = useState<React.ReactNode[]>([
     <TerminalOutput key="welcome">
       Codebuff will read and write files in "/my-demo-project". Type "help" for
       a list of commands.
     </TerminalOutput>,
   ])
-  const [previewContent, setPreviewContent] = useState<string>('error')
+  const [previewContent, setPreviewContent] = useState<string>('')
+  const [showError, setShowError] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [isRainbow, setIsRainbow] = useState(false)
-  const [theme, setTheme] = useState<PreviewTheme>('default')
+  const [previewTheme, setPreviewTheme] = useState<PreviewTheme>('default')
   const [messages, setMessages] = useState<string[]>([])
 
   const handleInput = async (input: string) => {
+    // Track terminal input event
+    posthog.capture('terminal_demo_command', {
+      command: input,
+      theme: colorTheme
+    })
+
     const newLines = [...terminalLines]
 
-    if (input === 'help') {
-      newLines.push(
-        <TerminalOutput key={`help-${Date.now()}`} className="text-wrap">
-          {'>'} help
-        </TerminalOutput>,
-        <TerminalOutput key={`help-${Date.now()}`}>
-          <p>ASK CODEBUFF TO...</p>
-          <p>• "fix the bug" - Fix a bug in the code</p>
-          <p>• "add rainbow" - Add a rainbow gradient to the component</p>
-          <p>• "change theme" - Change the visual theme</p>
-          <p className="mt-4">
-            <b>
-              Keep in mind that this is just a demo – install the package to get
-              the full experience!
-            </b>
-          </p>
-        </TerminalOutput>
-      )
-    } else if (input === 'add rainbow') {
-      setIsRainbow(true)
-      newLines.push(
-        <TerminalOutput key={`rainbow-cmd-${Date.now()}`}>
-          {'>'} please make the hello world background rainbow-colored
-        </TerminalOutput>,
-        <TerminalOutput key={`rainbow-preamble-${Date.now()}`}>
-          <b className="text-green-400">Codebuff:</b> Reading additional
-          files...
-          <p>- web/src/components/app.tsx</p>
-          <p>- web/tailwind.config.ts</p>
-        </TerminalOutput>,
-        <TerminalOutput key={`rainbow-1-${Date.now()}`}>
-          🌈 Added a rainbow gradient to the component!
-        </TerminalOutput>
-      )
-    } else if (input === 'change theme') {
-      const themes: PreviewTheme[] = ['terminal-y', 'retro', 'light']
-      const currentIndex = themes.indexOf(theme)
-      const nextTheme = themes[(currentIndex + 1) % themes.length]
-      setTheme(nextTheme)
+    const result = await match(input)
+      .with('help', () => {
+        posthog.capture('terminal_demo_help_viewed', {
+          theme: colorTheme
+        })
+        newLines.push(
+          <TerminalOutput key={`help-${Date.now()}`} className="text-wrap">
+            {'>'} help
+          </TerminalOutput>,
+          <TerminalOutput key={`help-${Date.now()}`}>
+            <p>ASK CODEBUFF TO...</p>
+            <p>• "fix the bug" - Fix a bug in the code</p>
+            <p>• "add rainbow" - Add a rainbow gradient to the component</p>
+            <p>• "change theme" - Change the visual theme</p>
+            <p className="mt-4">
+              <b>
+                Keep in mind that this is just a demo – install the package to get
+                the full experience!
+              </b>
+            </p>
+          </TerminalOutput>
+        )
+      })
+      .with(P.string.includes('rainbow'), () => {
+        posthog.capture('terminal_demo_rainbow_added', {
+          theme: colorTheme
+        })
+        setIsRainbow(true)
+        newLines.push(
+          <TerminalOutput key={`rainbow-cmd-${Date.now()}`}>
+            {'>'} please make the hello world background rainbow-colored
+          </TerminalOutput>,
+          <TerminalOutput key={`rainbow-preamble-${Date.now()}`}>
+            <b className="text-green-400">Codebuff:</b> Reading additional
+            files...
+            <p>- web/src/components/app.tsx</p>
+            <p>- web/tailwind.config.ts</p>
+          </TerminalOutput>,
+          <TerminalOutput key={`rainbow-1-${Date.now()}`}>
+            🌈 Added a rainbow gradient to the component!
+          </TerminalOutput>
+        )
+      })
+      .with('change theme', () => {
+        const themes: PreviewTheme[] = ['terminal-y', 'retro', 'light']
+        const currentIndex = themes.indexOf(previewTheme)
+        const nextTheme = themes[(currentIndex + 1) % themes.length]
+        
+        posthog.capture('terminal_demo_theme_changed', {
+          from_theme: colorTheme,
+          to_theme: nextTheme
+        })
+        setPreviewTheme(nextTheme)
 
-      newLines.push(
-        <TerminalOutput key={`theme-cmd-${Date.now()}`}>
-          {'>'} change the theme to be more {nextTheme}
-        </TerminalOutput>,
-        <TerminalOutput key={`rainbow-preamble-${Date.now()}`}>
-          <b className="text-green-400">Codebuff:</b> Reading additional
-          files...
-          <p>- web/src/components/ui/card.tsx</p>
-          <p>- common/src/util/file.ts</p>
-        </TerminalOutput>,
-        <TerminalOutput key={`theme-1-${Date.now()}`}>
-          Sure, let's switch to a more {nextTheme} theme... ✨
-        </TerminalOutput>,
-        <TerminalOutput key={`fix-1-${Date.now()}`}>
-          <p>Applying file changes. Please wait...</p>
-          <p className="text-green-400">- Updated web/src/components/app.tsx</p>
-        </TerminalOutput>
-      )
-    } else if (input === 'fix the bug') {
-      newLines.push(
-        <TerminalOutput key={`fix-1-${Date.now()}`}>
-          <b className="text-green-400">Codebuff:</b> I found a potential bug -
-          the greeting is missing an exclamation mark.
-        </TerminalOutput>,
-        <TerminalOutput key={`fix-2-${Date.now()}`}>
-          I'll add proper punctuation and improve the code style.
-        </TerminalOutput>,
-        <TerminalOutput key={`fix-3-${Date.now()}`}>
-          <p>Applying file changes. Please wait...</p>
-          <p className="text-green-400">- Updated web/src/components/app.tsx</p>
-          <p className="text-green-400">- Created web/tailwind.config.ts</p>
-        </TerminalOutput>
-      )
-      setPreviewContent('fixed')
-    } else if (input === 'clear') {
-      setTerminalLines([])
-      return
-    } else {
+        newLines.push(
+          <TerminalOutput key={`theme-cmd-${Date.now()}`}>
+            {'>'} change the theme to be more {nextTheme}
+          </TerminalOutput>,
+          <TerminalOutput key={`rainbow-preamble-${Date.now()}`}>
+            <b className="text-green-400">Codebuff:</b> Reading additional
+            files...
+            <p>- web/src/components/ui/card.tsx</p>
+            <p>- common/src/util/file.ts</p>
+          </TerminalOutput>,
+          <TerminalOutput key={`theme-1-${Date.now()}`}>
+            Sure, let's switch to a more {nextTheme} theme... ✨
+          </TerminalOutput>,
+          <TerminalOutput key={`fix-1-${Date.now()}`}>
+            <p>Applying file changes. Please wait...</p>
+            <p className="text-green-400">- Updated web/src/components/app.tsx</p>
+          </TerminalOutput>
+        )
+      })
+      .with(P.when((s: string) => s.includes('fix') && s.includes('bug')), () => {
+        posthog.capture('terminal_demo_bug_fixed', {
+          theme: colorTheme
+        })
+        setShowError(false)
+        newLines.push(
+          <TerminalOutput key={`fix-1-${Date.now()}`}>
+            <b className="text-green-400">Codebuff:</b> I found a potential bug -
+            the greeting is missing an exclamation mark.
+          </TerminalOutput>,
+          <TerminalOutput key={`fix-2-${Date.now()}`}>
+            I'll add proper punctuation and improve the code style.
+          </TerminalOutput>,
+          <TerminalOutput key={`fix-3-${Date.now()}`}>
+            <p>Applying file changes. Please wait...</p>
+            <p className="text-green-400">- Updated web/src/components/app.tsx</p>
+            <p className="text-green-400">- Created web/tailwind.config.ts</p>
+          </TerminalOutput>
+        )
+        setPreviewContent('fixed')
+      })
+      .with('clear', () => {
+        setTerminalLines([])
+      })
+      .otherwise(async () => {
       setIsLoading(true)
       const randomFiles = getRandomFiles()
       newLines.push(
@@ -377,7 +422,7 @@ const InteractiveTerminalDemo = () => {
       } finally {
         setIsLoading(false)
       }
-    }
+      })
 
     setTerminalLines(newLines)
   }
@@ -413,8 +458,9 @@ const InteractiveTerminalDemo = () => {
       <div className="w-full lg:w-1/2 h-[200px] md:h-[400px] lg:h-[800px] flex">
         <BrowserPreview
           content={previewContent}
+          showError={showError}
           isRainbow={isRainbow}
-          theme={theme}
+          theme={previewTheme}
           isLoading={isLoading}
         />
       </div>

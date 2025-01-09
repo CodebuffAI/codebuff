@@ -25,7 +25,7 @@ export const env = createEnv({
     STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
     STRIPE_PRO_PRICE_ID: z.string().min(1),
     STRIPE_PRO_OVERAGE_PRICE_ID: z.string().min(1),
-    STRIPE_MOAR_PRO_PRICE_ID: z.string().min(1), // Price ID for Moar Pro tier
+    STRIPE_MOAR_PRO_PRICE_ID: z.string().min(1),
     STRIPE_MOAR_PRO_OVERAGE_PRICE_ID: z.string().min(1),
     LOOPS_API_KEY: z.string().min(1),
     DEEPSEEK_API_KEY: z.string().min(1),
@@ -37,6 +37,8 @@ export const env = createEnv({
     NEXT_PUBLIC_APP_URL: z.string().min(1),
     NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: z.string().url().min(1),
     NEXT_PUBLIC_LINKEDIN_PARTNER_ID: z.string().optional(),
+    NEXT_PUBLIC_POSTHOG_API_KEY: z.string().min(1),
+    NEXT_PUBLIC_POSTHOG_HOST_URL: z.string().url().optional(),
   },
   runtimeEnv: {
     NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT,
@@ -63,6 +65,8 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL,
     NEXT_PUBLIC_LINKEDIN_PARTNER_ID:
       process.env.NEXT_PUBLIC_LINKEDIN_PARTNER_ID,
+    NEXT_PUBLIC_POSTHOG_API_KEY: process.env.NEXT_PUBLIC_POSTHOG_API_KEY,
+    NEXT_PUBLIC_POSTHOG_HOST_URL: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
   },
 })

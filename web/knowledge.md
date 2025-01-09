@@ -50,6 +50,15 @@ When creating retro CRT monitor effects:
 - Use subtle rounded corners (40px/30px) to match real CRT monitors
 - Layer multiple effects: scanlines, text flicker, and screen glow
 
+### Demo Content Guidelines
+
+When creating interactive demos:
+- Show suggested actions rather than simulated errors
+- Use welcoming, positive messaging
+- Include emojis and clear descriptions for each action
+- Provide a clear path for users to discover features
+- Keep help/documentation easily accessible
+
 ### Terminal Component Usage
 
 #### Component Wrapping Pattern
@@ -231,6 +240,20 @@ When showing code previews in the UI:
   - Can include media (images, icons)
 - Found in `web/src/components/card-with-beams.tsx`
 
+### Code Style
+
+- Use ts-pattern's match syntax instead of complex if/else chains
+- Match syntax provides better type safety and more readable code
+- Especially useful when handling multiple related conditions
+- Example:
+  ```typescript
+  await match(input)
+    .with('exact-match', () => { /* handle exact match */ })
+    .with(P.string.includes('partial'), () => { /* handle partial match */ })
+    .with(P.when((s: string) => s.includes('a') && s.includes('b')), () => { /* handle multiple conditions */ })
+    .otherwise(() => { /* handle default case */ })
+  ```
+
 ### UI Component Library
 
 - Use shadcn UI components instead of native HTML elements
@@ -305,6 +328,22 @@ When showing code previews in the UI:
 
 ### UI Patterns
 
+### Dialog State Management
+- When using dialogs with state:
+  - Open dialog by setting state to true in click handlers
+  - Let the dialog's onOpenChange handle closing automatically
+  - Avoid setting state to false in button click handlers - this prevents the dialog from opening
+  - Place dialogs at the end of the component, outside of other layout containers
+  - Keep dialog content simple and focused
+  - For video/media dialogs, use bg-transparent and border-0 styles
+
+### Icon Click Handling
+- When using Lucide icons in clickable areas:
+  - Icons have pointer-events-none by default
+  - Place onClick handlers on parent elements instead of icons
+  - Add cursor-pointer to the parent element
+  - Keep hover states on the icon for visual feedback
+
 For expandable/collapsible UI elements:
 
 - Use React state management instead of CSS-only solutions
@@ -370,7 +409,25 @@ Example of correct ordering:
 
 Important considerations for interactive components:
 
-1. Pricing Cards Layout:
+1. Z-index Requirements:
+
+   - Interactive components must have proper z-index positioning AND be inside providers
+   - Components with dropdowns or overlays should use z-20 or higher
+   - The navbar uses z-10 by default
+   - Banner and other top-level interactive components use z-20
+   - Ensure parent elements have `position: relative` when using z-index
+
+2. Common Issues:
+   - Components may appear but not be clickable if z-index is too low
+   - Moving components inside providers alone may not fix interactivity
+   - Always check both provider context and z-index when debugging click events
+
+Example of correct layering:
+```jsx
+<div className="relative z-20">...</div> // Interactive component
+```
+
+3. Pricing Cards Layout:
 
    - Pricing cards must remain in a single row
    - Use appropriate grid column settings to accommodate all tiers
@@ -558,6 +615,13 @@ Important: When modifying or using code from common:
 
 ## UI Patterns
 
+### Analytics Implementation
+
+Important: When integrating PostHog:
+- Initialize variables before using them in analytics events
+- Calculate derived values before sending them to PostHog
+- Avoid using variables in analytics events before they're declared
+
 ### Plan Change Terminology
 - Use consistent wording for plan changes throughout the app
 - "Upgrade" when target plan price is higher than current plan
@@ -568,6 +632,19 @@ Important: When modifying or using code from common:
 ## Type Management
 
 ### API Routes and Types
+
+### Content Organization
+
+- Content is stored in MDX files under `src/content/`
+- Categories: help, tips, showcase, case-studies
+- Each document requires frontmatter with title, section, tags, order
+- Files automatically sorted by order field within sections
+- FAQ content should be organized by topic:
+  - General FAQs go in help/faq.mdx
+  - Feature-specific FAQs go in relevant feature docs
+  - Create new MDX files for related features (e.g., version-control.mdx for undo/redo/diff features)
+  - Keep documentation focused and organized by feature rather than mixing in FAQs
+  - This makes content more discoverable and maintainable
 
 ### API Route Organization and Utilities
 - Split complex API routes into focused endpoints

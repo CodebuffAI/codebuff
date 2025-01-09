@@ -5,17 +5,33 @@ import { Copy, Check } from 'lucide-react'
 import { useState } from 'react'
 
 interface CodeDemoProps {
-  children: React.ReactNode
+  children: JSX.Element[] | JSX.Element | string
   language: string
 }
 
 export function CodeDemo({ children, language }: CodeDemoProps) {
   const [copied, setCopied] = useState(false)
 
-  const copyReferral = (link: string) => {
-    navigator.clipboard.writeText(link)
+  const copyToClipboard = (content: string) => {
+    navigator.clipboard.writeText(content)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const getContent = (c: CodeDemoProps['children']): string => {
+    if (typeof c === 'string') {
+      return c
+    }
+
+    if (Array.isArray(c)) {
+      return c.map((child) => getContent(child)).join('\n')
+    }
+
+    if (typeof c === 'object' && c.props && c.props.children) {
+      return getContent(c.props.children)
+    }
+
+    return ''
   }
 
   return (
@@ -29,7 +45,7 @@ export function CodeDemo({ children, language }: CodeDemoProps) {
         ) : (
           <Copy
             className="h-4 w-4 text-gray-400 hover:text-foreground cursor-pointer"
-            onClick={() => children && copyReferral(children.toString())}
+            onClick={() => copyToClipboard(getContent(children))}
           />
         )}
       </div>
