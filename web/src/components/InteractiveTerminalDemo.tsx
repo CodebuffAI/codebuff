@@ -5,6 +5,7 @@ import { sleep } from 'common/util/helpers'
 import { match, P } from 'ts-pattern'
 import posthog from 'posthog-js'
 import { useTheme } from 'next-themes'
+import { useMutation } from '@tanstack/react-query'
 
 const FIX_BUG_FLAG = false
 
@@ -226,6 +227,11 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
   )
 }
 
+interface DemoResponse {
+  html: string
+  message: string
+}
+
 const InteractiveTerminalDemo = () => {
   const { theme: colorTheme } = useTheme()
   const [terminalLines, setTerminalLines] = useState<React.ReactNode[]>([
@@ -245,21 +251,97 @@ const InteractiveTerminalDemo = () => {
       </div>
       <p class="dim">Or type <b>"help"</b> to see all available commands!</p>`)
   const [showError, setShowError] = useState(FIX_BUG_FLAG)
-  const [isLoading, setIsLoading] = useState(false)
+
   const [isRainbow, setIsRainbow] = useState(false)
   const [previewTheme, setPreviewTheme] = useState<PreviewTheme>('default')
   const [messages, setMessages] = useState<string[]>([])
 
-  const handleInput = async (input: string) => {
-    // Track terminal input event
-    posthog.capture('terminal_demo_command', {
-      command: input,
-      theme: colorTheme,
-    })
+  const demoMutation = useMutation<DemoResponse, Error, string>({
+    mutationFn: async (input: string) => {
+      const response = await fetch('/api/demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: [...messages, input],
+        }),
+      })
 
+      if (!response.ok) {
+        const error = await response.json()
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again in a minute.')
+        }
+        throw new Error(error.error || 'Failed to get response')
+      }
+
+      return response.json()
+    },
+    onMutate: (input) => {
+      // Track terminal input event
+      posthog.capture('terminal_demo_command', {
+        command: input,
+      })
+
+
+      const randomFiles = getRandomFiles()
+      const newLines = [
+        <TerminalOutput key={`ask-1-${Date.now()}`}>
+          <p>
+            {'> '}
+            {input}
+          </p>
+        </TerminalOutput>,
+        <TerminalOutput key={`files-${Date.now()}`}>
+          <b className="text-green-400">Codebuff:</b> Reading additional
+          files...
+          {randomFiles.slice(0, 3).map((file) => (
+            <p key={file} className="text-wrap">
+              - {file}
+            </p>
+          ))}
+          {randomFiles.length > 3 && (
+            <p className="text-wrap">
+              and {randomFiles.length - 3} more:{' '}
+              {randomFiles.slice(3).join(', ')}
+            </p>
+          )}
+        </TerminalOutput>,
+        <TerminalOutput key={`ask-${Date.now()}`}>Thinking...</TerminalOutput>,
+      ]
+      setTerminalLines((prev) => [...prev, ...newLines])
+    },
+    onError: (error) => {
+      setTerminalLines((prev) => [
+        ...prev,
+        <TerminalOutput key={`error-${Date.now()}`} className="text-red-500">
+          {error.message}
+        </TerminalOutput>,
+      ])
+    },
+    onSuccess: async (data) => {
+      setMessages((prev) => [...prev, data.message])
+      const newLines = [
+        <TerminalOutput key={`resp-1-${Date.now()}`}>
+          {data.message}
+        </TerminalOutput>,
+        <TerminalOutput key={`resp-2-${Date.now()}`}>
+          Applying file changes. Please wait...
+        </TerminalOutput>,
+        <TerminalOutput key={`resp-3-${Date.now()}`}>
+          <p className="text-green-400">- Updated web/src/app/page.tsx</p>
+        </TerminalOutput>,
+      ]
+      setTerminalLines((prev) => [...prev, ...newLines])
+      await sleep(1000) // Delay so the user has time to read the output
+      setPreviewContent(data.html)
+    },
+
+  })
+
+  const handleInput = async (input: string) => {
     const newLines = [...terminalLines]
 
-    const result = await match(input)
+    await match(input)
       .with('help', () => {
         posthog.capture('terminal_demo_help_viewed', {
           theme: colorTheme,
@@ -284,9 +366,7 @@ const InteractiveTerminalDemo = () => {
         )
       })
       .with(P.string.includes('rainbow'), () => {
-        posthog.capture('terminal_demo_rainbow_added', {
-          theme: colorTheme,
-        })
+        posthog.capture('terminal_demo_rainbow_added')
         setIsRainbow(true)
         newLines.push(
           <TerminalOutput key={`rainbow-cmd-${Date.now()}`}>
@@ -338,9 +418,7 @@ const InteractiveTerminalDemo = () => {
       .with(
         P.when((s: string) => s.includes('fix') && s.includes('bug')),
         () => {
-          posthog.capture('terminal_demo_bug_fixed', {
-            theme: colorTheme,
-          })
+          posthog.capture('terminal_demo_bug_fixed')
           setShowError(false)
           newLines.push(
             <TerminalOutput key={`fix-1-${Date.now()}`}>
@@ -365,7 +443,7 @@ const InteractiveTerminalDemo = () => {
         setTerminalLines([])
       })
       .otherwise(async () => {
-        setIsLoading(true)
+
         const randomFiles = getRandomFiles()
         newLines.push(
           <TerminalOutput key={`ask-1-${Date.now()}`}>
@@ -393,45 +471,7 @@ const InteractiveTerminalDemo = () => {
         )
         setTerminalLines(newLines)
 
-        try {
-          const response = await fetch('/api/demo', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              prompt: [...messages, input],
-            }),
-          })
-
-          if (!response.ok) throw new Error('Failed to get response')
-
-          const { html, message } = await response.json()
-
-          setMessages((prev) => [...prev, input, message])
-          newLines.push(
-            <TerminalOutput key={`resp-1-${Date.now()}`}>
-              {message}
-            </TerminalOutput>,
-            <TerminalOutput key={`resp-2-${Date.now()}`}>
-              Applying file changes. Please wait...
-            </TerminalOutput>,
-            <TerminalOutput key={`resp-3-${Date.now()}`}>
-              <p className="text-green-400">- Updated web/src/app/page.tsx</p>
-            </TerminalOutput>
-          )
-          setTerminalLines(newLines)
-
-          await sleep(1000) // Delay so the user has time to read the output
-          setPreviewContent(html)
-        } catch (error) {
-          console.error('Error:', error)
-          newLines.push(
-            <TerminalOutput key={`error-${Date.now()}`}>
-              Sorry, I encountered an error while processing your request.
-            </TerminalOutput>
-          )
-        } finally {
-          setIsLoading(false)
-        }
+        await demoMutation.mutateAsync(input)
       })
 
     setTerminalLines(newLines)
@@ -455,7 +495,7 @@ const InteractiveTerminalDemo = () => {
               <div
                 className={cn(
                   'flex flex-col text-sm whitespace-pre-wrap',
-                  isLoading && 'opacity-50'
+                  demoMutation.isPending && 'opacity-50'
                 )}
               >
                 {terminalLines}
@@ -471,7 +511,7 @@ const InteractiveTerminalDemo = () => {
           showError={showError}
           isRainbow={isRainbow}
           theme={previewTheme}
-          isLoading={isLoading}
+          isLoading={demoMutation.isPending}
         />
       </div>
     </div>

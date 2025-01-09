@@ -254,6 +254,43 @@ When showing code previews in the UI:
     .otherwise(() => { /* handle default case */ })
   ```
 
+### Error Handling
+
+#### Rate Limit Handling
+- Use HTTP status code 429 to detect rate limits
+- Show user-friendly error messages in the UI
+- For React Query mutations:
+  ```typescript
+  interface ApiResponse {
+    // response type
+  }
+  
+  const mutation = useMutation<ApiResponse, Error, string>({
+    mutationFn: async (input) => {
+      const response = await fetch('/api/endpoint')
+      if (!response.ok) {
+        const error = await response.json()
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again in a minute.')
+        }
+        throw new Error(error.error || 'Failed to get response')
+      }
+      return response.json()
+    }
+  })
+
+  // Use mutation.isPending (not isLoading) for loading state
+  return (
+    <div className={mutation.isPending ? 'opacity-50' : ''}>
+      {mutation.isPending && <LoadingSpinner />}
+    </div>
+  )
+
+  // Important: Use isPending instead of isLoading in React Query v5+
+  // - isPending: true during the first mutation
+  // - isLoading: deprecated in v5, use isPending instead
+  ```
+
 ### UI Component State Management
 
 - Separate independent visual states into their own state variables
