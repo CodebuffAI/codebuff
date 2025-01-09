@@ -8,7 +8,7 @@ import { Navbar } from '@/components/navbar/navbar'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { PostHogProvider } from '@/lib/PostHogProvider'
-import { CookieConsentBanner } from '@/components/CookieConsentBanner'
+import { CookieConsentCard } from '@/components/CookieConsentCard'
 import { Banner } from '@/components/ui/banner'
 import { siteConfig } from '@/lib/constant'
 import { fonts } from '@/lib/fonts'
@@ -68,8 +68,7 @@ const RootLayout = ({ children }: PropsWithChildren) => {
                 <Navbar />
                 <div className="flex-grow">{children}</div>
                 <Footer />
-                <Toaster />
-                <CookieConsentBanner />
+                <Toaster />                  <CookieConsentCard />
               </PostHogProvider>
             </QueryProvider>
           </SessionProvider>

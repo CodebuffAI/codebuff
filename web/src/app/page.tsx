@@ -2,17 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import posthog from 'posthog-js'
-import InteractiveTerminalDemo from '@/components/InteractiveTerminalDemo'
 import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
 import {
   FolderCodeIcon,
   TerminalIcon,
-  Copy,
   ZapIcon,
   Play,
-  ChevronDown,
-  ChevronUp,
   ExternalLink,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -20,14 +16,20 @@ import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { BackgroundBeams } from '@/components/ui/background-beams'
-import { useToast } from '@/components/ui/use-toast'
 import Marquee from '@/components/ui/marquee'
 import { Testimonial, testimonials } from '@/lib/testimonials'
 import { cn } from '@/lib/utils'
 import { storeSearchParams } from '@/lib/trackConversions'
-import { Input } from '@/components/ui/input'
+import InteractiveTerminalDemo from '@/components/InteractiveTerminalDemo'
+import { CodeDemo } from '@/components/docs/mdx/code-demo'
 
-const ReviewCard = ({ t, onTestimonialClick }: { t: Testimonial; onTestimonialClick: (author: string, link: string) => void }) => {
+const ReviewCard = ({
+  t,
+  onTestimonialClick,
+}: {
+  t: Testimonial
+  onTestimonialClick: (author: string, link: string) => void
+}) => {
   return (
     <figure
       className={cn(
@@ -74,7 +76,6 @@ const ReviewCard = ({ t, onTestimonialClick }: { t: Testimonial; onTestimonialCl
 
 const Home = () => {
   const { theme } = useTheme()
-  const { toast } = useToast()
   const [isVideoOpen, setIsVideoOpen] = useState(false)
   const [isInstallOpen, setIsInstallOpen] = useState(false)
   const searchParams = useSearchParams()
@@ -82,31 +83,13 @@ const Home = () => {
   const handleGetStartedClick = () => {
     // Track the event with PostHog
     posthog.capture('get_started_clicked', {
-      referrer: document.referrer,
-      theme: theme,
-      location: 'hero_section'
-    });
-    setIsInstallOpen(true);
-  }
-
-  const handleCopyCommand = (command: string, location: string) => {
-    navigator.clipboard.writeText(command)
-    toast({
-      title: 'Copied to clipboard',
-      description: "Let's code! 🤖",
+      location: 'hero_section',
     })
-    posthog.capture('command_copied', {
-      command,
-      location,
-      theme: theme
-    })
+    setIsInstallOpen(true)
   }
 
   const handleVideoOpen = () => {
-    posthog.capture('demo_video_opened', {
-      theme: theme,
-      referrer: document.referrer
-    })
+    posthog.capture('demo_video_opened')
     setIsVideoOpen(true)
   }
 
@@ -114,7 +97,6 @@ const Home = () => {
     posthog.capture('testimonial_clicked', {
       author,
       link,
-      theme: theme
     })
     window.open(link)
   }
@@ -130,7 +112,7 @@ const Home = () => {
         <div className="relative z-10 flex flex-col max-w-6xl mx-auto mt-8 mb-16 space-y-24">
           {/* Hero Section */}
           <section className="relative px-6 text-center">
-            <h1 className="text-4xl md:text-7xl font-bold mb-4">
+            <h1 className="text-4xl md:text-7xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
               <span className="whitespace-nowrap">Code faster</span>{' '}
               <span className="whitespace-nowrap">with AI</span>
             </h1>
@@ -140,7 +122,7 @@ const Home = () => {
                 onClick={handleGetStartedClick}
                 className="relative z-10 bg-blue-900 hover:bg-blue-700 text-white text-lg py-6 px-8 transition-colors"
               >
-                Try Now For Free
+                Try For Free
               </Button>
             </section>
 
@@ -164,7 +146,7 @@ const Home = () => {
 
           {/* Features Section */}
           <section id="features" className="px-4 space-y-8">
-            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
+            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
               Revolutionize Your Coding Workflow
             </h2>
             <div className="grid md:grid-cols-3 gap-8">
@@ -212,7 +194,7 @@ const Home = () => {
 
           {/* Testimonials Section */}
           <section>
-            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
+            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
               What Developers Are Saying
             </h2>
 
@@ -229,9 +211,9 @@ const Home = () => {
               >
                 <div className="flex gap-4">
                   {row.map((testimonial, i) => (
-                    <ReviewCard 
-                      key={i} 
-                      t={testimonial} 
+                    <ReviewCard
+                      key={i}
+                      t={testimonial}
                       onTestimonialClick={handleTestimonialClick}
                     />
                   ))}
@@ -269,10 +251,10 @@ const Home = () => {
 
           {/* Video Demo Section */}
           <section className="px-4">
-            <h2 className="text-3xl md:text-4xl font-bold text-center md:px-0 pb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
               Watch a Demo
             </h2>
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-3xl mx-auto mt-8">
               <div className="aspect-w-16 aspect-h-full h-96">
                 <Button
                   onClick={handleVideoOpen}
@@ -297,26 +279,20 @@ const Home = () => {
 
           {/* CTA Section */}
           <section className="mb-32">
-            <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 px-4 md:px-0">
+            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
               Ready to experience magic?
             </h2>
-            <div className="text-center">
-              <Button 
-                className="bg-blue-900 hover:bg-blue-700 text-white transition-colors"
+            <div className="text-center mt-8">
+              <Button
+                className="relative z-10 bg-blue-900 hover:bg-blue-700 text-white text-lg py-6 px-8 transition-colors"
                 onClick={() => {
                   posthog.capture('start_coding_clicked', {
                     location: 'cta_section',
-                    theme: theme,
-                    referrer: document.referrer
                   })
+                  setIsInstallOpen(true)
                 }}
               >
-                <Link
-                  href="https://www.npmjs.com/package/codebuff"
-                  target="_blank"
-                >
-                  Start Coding with AI
-                </Link>
+                Start Coding with AI
               </Button>
             </div>
           </section>
@@ -331,37 +307,23 @@ const Home = () => {
             <ol className="list-decimal list-inside space-y-6">
               <li>Open your favorite terminal.</li>
               <li>
-                Install Codebuff globally:
-                <div className="relative my-2">
-                  <Input
-                    value="npm i -g codebuff"
-                    readOnly
-                    className="font-mono bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-                  />
-                  <Button
-                    onClick={() => handleCopyCommand('npm i -g codebuff', 'install_dialog')}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
-                    variant="ghost"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
+                Install Codebuff globally via{' '}
+                <Link
+                  href="https://www.npmjs.com/package/codebuff"
+                  target="_blank"
+                  className="text-blue-500 hover:text-blue-400 underline"
+                >
+                  npm
+                </Link>
+                :
+                <div className="mt-2">
+                  <CodeDemo language="bash">npm i -g codebuff</CodeDemo>
                 </div>
               </li>
               <li>
                 Run Codebuff:
-                <div className="relative my-2">
-                  <Input
-                    value="codebuff"
-                    readOnly
-                    className="font-mono bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-                  />
-                  <Button
-                    onClick={() => handleCopyCommand('codebuff', 'install_dialog')}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
-                    variant="ghost"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
+                <div className="mt-2">
+                  <CodeDemo language="bash">codebuff</CodeDemo>
                 </div>
               </li>
             </ol>

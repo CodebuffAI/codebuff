@@ -231,14 +231,51 @@ When showing code previews in the UI:
 
 ### Success State Pattern
 
-- Use CardWithBeams component for success/completion states
-- Examples: Payment success, onboarding completion
-- Consistent layout:
-  - Title announcing success
-  - Description of completed action
-  - Optional next steps or instructions
+- Use shadcn Card component for consistent card styling
+- For floating cards (e.g., cookie consent, notifications):
+  - Wrap in container class for proper horizontal alignment
+  - Use md:!px-0 to override container padding on desktop
+  - For desktop left alignment:
+    - Add md:left-4 and md:right-auto for positioning
+    - Use md:ml-0 to override any auto margins
+  - For mobile full-width:
+    - Use inset-x-0 for edge-to-edge positioning
+    - Keep container class for centered content
+  - Add backdrop-blur-sm and bg-background/80 for semi-transparent effect
+  - Set z-50 to ensure card appears above other content
+- For success states:
+  - Use CardWithBeams component
+  - Examples: Payment success, onboarding completion
+  - Include title, description, and optional next steps
   - Can include media (images, icons)
-- Found in `web/src/components/card-with-beams.tsx`
+
+### Card Design
+
+- Use shadcn Card component for consistent card styling
+- For floating cards (e.g., cookie consent, notifications), two approaches:
+  1. Container-based positioning:
+     - Use container class for consistent page margins
+     - Use inset-x-0 for full-width on mobile
+     - Add md:left-4 and md:right-auto for desktop positioning
+     - Use md:ml-0 to override auto margins
+  2. Fixed positioning with explicit margins:
+     - Use fixed with bottom-4 left-4 right-4 for mobile
+     - Use md:left-8 md:right-auto for desktop (matches container padding)
+     - Simpler approach when container class causes positioning issues
+  - Common styles for both approaches:
+    - Add backdrop-blur-sm and bg-background/80 for semi-transparent effect
+    - Set z-50 to ensure card appears above other content
+    - Use transition-opacity for smooth fade effects
+
+### Responsive Card Positioning
+
+For cards that need different positioning on mobile vs desktop:
+- Use container class with md: breakpoint modifiers
+- Position fixed with inset-x-0 for full-width on mobile
+- Use md:left-4 md:right-auto for left-aligned on desktop
+- Set md:max-w-sm to constrain width on larger screens
+- Add rounded corners only on desktop with md:rounded-lg
+- Example use case: Cookie consent card that converts from banner to card
 
 ### Code Style
 
@@ -389,6 +426,11 @@ When showing code previews in the UI:
   - Place dialogs at the end of the component, outside of other layout containers
   - Keep dialog content simple and focused
   - For video/media dialogs, use bg-transparent and border-0 styles
+  - For installation/getting started dialogs:
+    - Provide clear step-by-step instructions
+    - Use CodeDemo component for command snippets (has built-in copy functionality)
+    - Add links to external documentation for users who want to learn more
+    - Use text-muted-foreground for supplementary information
 
 ### Icon Click Handling
 - When using Lucide icons in clickable areas:
