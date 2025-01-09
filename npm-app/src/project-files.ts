@@ -1,6 +1,6 @@
 import fs from 'fs'
 import os from 'os'
-import path from 'path'
+import path, { isAbsolute } from 'path'
 import { platform } from 'process'
 import { exec } from 'child_process'
 import { promisify } from 'util'
@@ -197,7 +197,7 @@ export function getFiles(filePaths: string[]) {
       ? path.relative(projectRoot, filePath)
       : filePath
     const fullPath = path.join(projectRoot, relativePath)
-    if (!fullPath.startsWith(projectRoot)) {
+    if (isAbsolute(relativePath) || !fullPath.startsWith(projectRoot)) {
       result[relativePath] = '[FILE_OUTSIDE_PROJECT]'
       continue
     }

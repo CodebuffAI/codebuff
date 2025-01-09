@@ -252,7 +252,7 @@ const toolsPrompt = `
 
 You have access to the following tools:
 - <tool_call name="find_files">[DESCRIPTION_OF_FILES]</tool_call>: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
-- <tool_call name="read_files">[LIST_OF_FILE_PATHS]</tool_call>: Provide a list of file paths to read, separated by newlines. The file paths must be the full path relative to the project root directory. Prefer using this tool over find_files when you know the exact file(s) you want to read.
+- <tool_call name="read_files">[LIST_OF_FILE_PATHS]</tool_call>: Provide a list of file paths to read, separated by newlines. The file paths must be relative to the project root directory. Prefer using this tool over find_files when you know the exact file(s) you want to read.
 - <tool_call name="code_search">[PATTERN]</tool_call>: Search for the given pattern in the project directory. Use this tool to search for code in the project, like function names, class names, variable names, types, where a function is called from, where it is defined, etc.
 - <tool_call name="plan_complex_change">[PROMPT]</tool_call>: Plan a complex change to the codebase, like implementing a new feature or refactoring some code. Provide a clear, specific problem statement folllowed by additional context that is relevant to the problem in the tool call body. Use this tool to solve a user request that is not immediately obvious or requires more than a few lines of code.
 - <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
@@ -289,6 +289,8 @@ Use the <tool_call name="read_files">...</tool_call> tool to read files you don'
 Feel free to use this tool as much as needed to read files that would be relevant to the user's request.
 
 However, do not use this tool to read files that you already have in context. Do not repeat reading calls that you have already read.
+
+Make sure the file paths are relative to the project root directory, not absolute paths like "C:\\Users\\my-project\\example.ts". Also ensure that the path includes all intermediate directories to the file.
 
 ## Code search
 
