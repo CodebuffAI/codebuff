@@ -278,9 +278,8 @@ const InteractiveTerminalDemo = () => {
     },
     onMutate: (input) => {
       // Track terminal input event
-      posthog.capture('executed terminal command', {
+      posthog.capture('demo_terminal.command_executed', {
         command: input,
-        demo_terminal: true,
       })
 
       const randomFiles = getRandomFiles()
@@ -340,10 +339,7 @@ const InteractiveTerminalDemo = () => {
   const handleInput = async (input: string) => {
     match(input)
       .with('help', () => {
-        posthog.capture('viewed demo terminal help', {
-          theme: colorTheme,
-          demo_terminal: true,
-        })
+        posthog.capture('demo_terminal.help_viewed')
         setTerminalLines((prev) => [
           ...prev,
 
@@ -366,7 +362,7 @@ const InteractiveTerminalDemo = () => {
         ])
       })
       .with(P.string.includes('rainbow'), () => {
-        posthog.capture('added demo terminal rainbow', { demo_terminal: true })
+        posthog.capture('demo_terminal.rainbow_added')
         setIsRainbow(true)
         setTerminalLines((prev) => [
           ...prev,
@@ -389,10 +385,9 @@ const InteractiveTerminalDemo = () => {
         const currentIndex = themes.indexOf(previewTheme)
         const nextTheme = themes[(currentIndex + 1) % themes.length]
 
-        posthog.capture('changed demo terminal theme', {
-          from_theme: colorTheme,
-          to_theme: nextTheme,
-          demo_terminal: true,
+        posthog.capture('demo_terminal.theme_changed', {
+          from: colorTheme,
+          to: nextTheme,
         })
         setPreviewTheme(nextTheme)
 
@@ -421,7 +416,7 @@ const InteractiveTerminalDemo = () => {
       .with(
         P.when((s: string) => s.includes('fix') && s.includes('bug')),
         () => {
-          posthog.capture('fixed demo terminal bug', { demo_terminal: true })
+          posthog.capture('demo_terminal.bug_fixed')
           setShowError(false)
           setTerminalLines((prev) => [
             ...prev,

@@ -28,7 +28,8 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     if (hasConsented && typeof window !== 'undefined') {
       // Initialize PostHog
       posthog.init(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
-        api_host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
+        api_host: '/ingest',
+        ui_host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
         person_profiles: 'always',
       })
 

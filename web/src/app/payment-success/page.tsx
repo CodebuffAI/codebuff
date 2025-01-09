@@ -1,13 +1,14 @@
 'use client'
 
-import CardWithBeams from '@/components/card-with-beams'
 import Image from 'next/image'
-import { trackUpgrade } from '@/lib/trackConversions'
 import { useEffect } from 'react'
+import posthog from 'posthog-js'
 import { PLAN_CONFIGS } from 'common/constants'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useUserPlan } from '@/hooks/use-user-plan'
 import { useSession } from 'next-auth/react'
+import CardWithBeams from '@/components/card-with-beams'
+import { trackUpgrade } from '@/lib/trackConversions'
+import { useUserPlan } from '@/hooks/use-user-plan'
 
 const PaymentSuccessPage = () => {
   const router = useRouter()
@@ -15,12 +16,33 @@ const PaymentSuccessPage = () => {
   const searchParams = useSearchParams()
   const { data: session } = useSession()
   const { data: currentPlan } = useUserPlan(session?.user?.stripe_customer_id)
+
   useEffect(() => {
     const params = trackUpgrade(true)
     const newParams = new URLSearchParams(searchParams)
     params.forEach((value, key) => newParams.set(key, value))
     router.replace(`${pathname}?${newParams}`)
-  }, [])
+
+    if (session?.user) {
+      posthog.capture('subscription.payment_completed', {
+        plan: currentPlan,
+      })
+    }
+  }, [session, currentPlan])
+
+  if (!session?.user) {
+    return CardWithBeams({
+      title: 'You&apos;re not logged in.',
+      description: 'How can you pay but not be logged in?!',
+      content: (
+        <p>
+          Err this is awkward... Please reach out to support at{' '}
+          <a href="mailto:support@codebuff.com">support@codebuff.com</a> for
+          help finishing your upgrade.
+        </p>
+      ),
+    })
+  }
 
   if (!currentPlan) {
     return CardWithBeams({

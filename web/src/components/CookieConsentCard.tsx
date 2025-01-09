@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import posthog from 'posthog-js'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { usePostHog } from '@/lib/PostHogProvider'
@@ -34,11 +35,13 @@ export function CookieConsentCard() {
     localStorage.setItem('cookieConsent', 'true')
     setVisible(false)
     reinitialize()
+    posthog.capture('cookie_consent.accepted')
   }
 
   const handleDecline = () => {
     localStorage.setItem('cookieConsent', 'false')
     setVisible(false)
+    posthog.capture('cookie_consent.declined')
   }
 
   if (!visible || !opacity) {

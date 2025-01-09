@@ -28,44 +28,209 @@ posthog.capture('event_name', {
 ## Event Tracking Patterns
 
 Important event tracking considerations:
-- Include theme context with all events via useTheme hook
 - Track location/source of identical actions (e.g., 'copy_action' from different places)
 - For terminal interactions, track both the command and its result
-- When tracking theme changes, include both old and new theme values
-- Avoid theme variable naming conflicts with component state by using aliases (e.g., colorTheme)
 - Pass event handlers down as props rather than accessing global posthog in child components
+- Do not track UI theme in analytics events - this is not relevant for business metrics
+- Track user consent events before initializing analytics to understand opt-out rates
+- PostHog tracking must be done client-side - cannot be used in API routes or server components
+- Track all user-facing notifications (toasts) to understand what messages users commonly see
+
+## Event Categories
+
+The application uses the following event categories for consistent tracking:
+
+1. Home Page Events (`home.*`)
+   - home.cta_clicked
+   - home.video_opened
+   - home.testimonial_clicked
+
+2. Demo Terminal Events (`demo_terminal.*`)
+   - demo_terminal.command_executed
+   - demo_terminal.help_viewed
+   - demo_terminal.theme_changed
+   - demo_terminal.bug_fixed
+   - demo_terminal.rainbow_added
+
+3. Authentication Events (`auth.*`)
+   - auth.login_started
+   - auth.login_completed
+   - auth.logout_completed
+
+4. Cookie Consent Events (`cookie_consent.*`)
+   - cookie_consent.accepted
+   - cookie_consent.declined
+
+4. Subscription Events (`subscription.*`)
+   - subscription.plan_viewed
+   - subscription.upgrade_started
+   - subscription.payment_completed
+   - subscription.change_confirmed
+
+5. Referral Events (`referral.*`)
+   - referral.link_copied
+   - referral.code_redeemed
+   - referral.invite_sent
+
+6. Documentation Events (`docs.*`)
+   - docs.viewed
+
+7. Banner Events (`banner.*`)
+   - banner.clicked
+
+8. Usage Events (`usage.*`)
+   - usage.warning_shown
+
+9. Navigation Events (`navigation.*`)
+   - navigation.docs_clicked
+   - navigation.pricing_clicked
+
+10. Toast Events (`toast.*`)
+   - toast.shown
+
+Properties that should be included with events:
+
+1. Toast Events:
+   ```typescript
+   {
+     title?: string,      // The toast title if provided
+     variant?: 'default' | 'destructive'  // The toast variant
+   }
+   ```
+
+Properties that should be included with events:
+
+1. Usage Events:
+   ```typescript
+   {
+     credits_used: number,
+     credits_limit: number,
+     percentage_used: number
+   }
+   ```
+
+Properties that should be included with events:
+
+1. Documentation Events:
+   ```typescript
+   {
+     section: string // The documentation section being viewed
+   }
+   ```
+
+2. Banner Events:
+   ```typescript
+   {
+     type: 'youtube_referral' | 'referral',
+     source?: string // The referrer if available
+   }
+   ```
+
+Other Events:
+
+1. Auth Events:
+   ```typescript
+   {
+     provider: 'github' | 'google'
+   }
+   ```
+
+2. Subscription Events:
+   ```typescript
+   {
+     current_plan?: string,
+     target_plan?: string
+   }
+   ```
+
+3. Referral Events:
+   ```typescript
+   {
+     referrer?: string,
+     code?: string
+   }
+   ```
+
+Example event tracking:
+```typescript
+import posthog from 'posthog-js'
+
+// Component setup
+const Component = () => {
+  // Event tracking
+  posthog.capture('category.event_name', {
+    // Add relevant properties
+  })
+}
+```
 
 ## Event Naming Convention
 
-Event names should be verb-forward, past tense, using spaces. Examples:
-- clicked get started
-- opened demo video
-- viewed terminal help
-- changed terminal theme
-- executed terminal command
+Event names should use dot notation to create natural groupings, with verb-first past tense actions. Format: `category.action_performed`
+
+Examples by category:
+
+### Demo Terminal Events
+- demo_terminal.command_executed
+- demo_terminal.help_viewed  
+- demo_terminal.theme_changed
+- demo_terminal.bug_fixed
+
+### Authentication Events  
+- auth.login_started
+- auth.login_completed
+- auth.logout_completed
+
+### Subscription Events
+- subscription.plan_viewed
+- subscription.upgrade_started
+- subscription.payment_completed
+
+### Referral Events
+- referral.link_copied
+- referral.code_redeemed
+- referral.invite_sent
 
 Example event properties:
 ```typescript
-// Click events
+// Terminal events
 {
-  location: 'hero_section' | 'cta_section' | 'install_dialog',
-  theme: string,
-  referrer?: string
+  command?: string,    // For command executions
+  theme: string,       // Current theme
+  from_theme?: string, // For theme changes
+  to_theme?: string,   // For theme changes
 }
 
-// Copy events
+// Auth events
 {
-  command: string,
-  location: string,
-  theme: string
+  provider: 'github' | 'google',
+  success: boolean,
+  error?: string
 }
 
-// Theme change events
+// Subscription events
 {
-  from_theme: string,
-  to_theme: string
+  current_plan: string,
+  target_plan?: string,
+  source: 'pricing_page' | 'user_menu' | 'usage_warning'
 }
 ```
+
+### Best Practices
+
+1. **Consistent Categories**: Use established categories (demo_terminal, auth, subscription, etc.) for all new events
+
+2. **Event Properties**:
+   - Include theme in all UI events
+   - Add source/location for user actions
+   - Include error details for failure cases
+   - Keep property names consistent across similar events
+
+3. **Naming Rules**:
+   - Use snake_case for both category and action
+   - Keep categories lowercase
+   - Use past tense for actions
+   - Be specific about the action (e.g., 'payment_completed' vs 'paid')
 
 ## Component Patterns
 

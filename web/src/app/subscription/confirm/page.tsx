@@ -19,10 +19,13 @@ import { useToast } from '@/components/ui/use-toast'
 import { env } from '@/env.mjs'
 import { changeOrUpgrade } from '@/lib/utils'
 import { capitalize } from 'common/util/string'
+import posthog from 'posthog-js'
+import { useTheme } from 'next-themes'
 import { loadStripe } from '@stripe/stripe-js'
 import { Icons } from '@/components/icons'
 
-const useUpgradeSubscription = () => {
+const useUpgradeSubscription = (currentPlan: UsageLimits | null | undefined, targetPlan: UsageLimits) => {
+  const { theme } = useTheme()
   const router = useRouter()
   const { toast } = useToast()
 
@@ -47,6 +50,11 @@ const useUpgradeSubscription = () => {
       return response.json()
     },
     onSuccess: async (data) => {
+      posthog.capture('subscription.upgrade_started', {
+        current_plan: currentPlan,
+        target_plan: targetPlan,
+      })
+
       if (data?.session) {
         // Server wants us to redirect to Stripe
         const stripe = await loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
@@ -93,7 +101,7 @@ const ConfirmSubscriptionPage = () => {
   const searchParams = useSearchParams()
   const planParam = searchParams.get('plan')
   const targetPlan = planParam as UsageLimits
-  const upgradeMutation = useUpgradeSubscription()
+  const upgradeMutation = useUpgradeSubscription(currentPlan, targetPlan)
   const session = useSession()
   const { data: currentPlan } = useUserPlan(
     session.data?.user?.stripe_customer_id

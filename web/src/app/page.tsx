@@ -82,19 +82,19 @@ const Home = () => {
 
   const handleGetStartedClick = () => {
     // Track the event with PostHog
-    posthog.capture('clicked "Try For Free" button', {
+    posthog.capture('home.cta_clicked', {
       location: 'hero_section',
     })
     setIsInstallOpen(true)
   }
 
   const handleVideoOpen = () => {
-    posthog.capture('opened demo video')
+    posthog.capture('home.video_opened')
     setIsVideoOpen(true)
   }
 
   const handleTestimonialClick = (author: string, link: string) => {
-    posthog.capture('clicked testimonial', {
+    posthog.capture('home.testimonial_clicked', {
       author,
       link,
     })
@@ -286,7 +286,7 @@ const Home = () => {
               <Button
                 className="relative z-10 bg-blue-900 hover:bg-blue-700 text-white text-lg py-6 px-8 transition-colors"
                 onClick={() => {
-                  posthog.capture('clicked start coding', {
+                  posthog.capture('home.cta_clicked', {
                     location: 'cta_section',
                   })
                   setIsInstallOpen(true)
