@@ -1,7 +1,6 @@
 import fs from 'fs'
 import os from 'os'
 import path, { isAbsolute } from 'path'
-import { platform } from 'process'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { createPatch } from 'diff'
@@ -21,6 +20,7 @@ import {
 } from 'common/project-file-tree'
 import { getFileTokenScores } from 'code-map/parse'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+import { getSystemInfo } from './utils/system-info'
 
 const execAsync = promisify(exec)
 
@@ -107,8 +107,6 @@ export const getProjectFileContext = async (
       await addScrapedContentToFiles(knowledgeFiles)
 
     const shellConfigFiles = loadShellConfigFiles()
-    const shell = process.env.SHELL || process.env.COMSPEC || 'unknown'
-
     const fileTokenScores = await getFileTokenScores(projectRoot, allFilePaths)
 
     cachedProjectFileContext = {
@@ -117,14 +115,7 @@ export const getProjectFileContext = async (
       fileTokenScores,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
       shellConfigFiles,
-      systemInfo: {
-        platform: platform,
-        shell: path.basename(shell),
-        nodeVersion: process.version,
-        arch: process.arch,
-        homedir: os.homedir(),
-        cpus: os.cpus().length,
-      },
+      systemInfo: getSystemInfo(),
       ...updatedProps,
     }
   } else {
