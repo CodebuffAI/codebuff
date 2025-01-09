@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
 import { SkeletonLoading } from '@/components/ui/skeleton-loading'
 import { useRouter } from 'next/navigation'
+import posthog from 'posthog-js'
 import { SubscriptionPreviewResponse } from 'common/src/types/plan'
 import { UsageLimits, PLAN_CONFIGS } from 'common/constants'
 import { match, P } from 'ts-pattern'
@@ -19,13 +20,13 @@ import { useToast } from '@/components/ui/use-toast'
 import { env } from '@/env.mjs'
 import { changeOrUpgrade } from '@/lib/utils'
 import { capitalize } from 'common/util/string'
-import posthog from 'posthog-js'
-import { useTheme } from 'next-themes'
 import { loadStripe } from '@stripe/stripe-js'
 import { Icons } from '@/components/icons'
 
-const useUpgradeSubscription = (currentPlan: UsageLimits | null | undefined, targetPlan: UsageLimits) => {
-  const { theme } = useTheme()
+const useUpgradeSubscription = (
+  currentPlan: UsageLimits | null | undefined,
+  targetPlan: UsageLimits
+) => {
   const router = useRouter()
   const { toast } = useToast()
 
@@ -101,11 +102,11 @@ const ConfirmSubscriptionPage = () => {
   const searchParams = useSearchParams()
   const planParam = searchParams.get('plan')
   const targetPlan = planParam as UsageLimits
-  const upgradeMutation = useUpgradeSubscription(currentPlan, targetPlan)
   const session = useSession()
   const { data: currentPlan } = useUserPlan(
     session.data?.user?.stripe_customer_id
   )
+  const upgradeMutation = useUpgradeSubscription(currentPlan, targetPlan)
   const modification = changeOrUpgrade(currentPlan, targetPlan)
 
   const {
