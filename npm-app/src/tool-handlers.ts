@@ -6,7 +6,10 @@ import * as os from 'os'
 
 let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
 try {
+  const tempConsoleError = console.error
+  console.error = () => {}
   pty = require('@homebridge/node-pty-prebuilt-multiarch')
+  console.error = tempConsoleError
 } catch (error) {}
 
 import { scrapeWebPage } from './web-scraper'
