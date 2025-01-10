@@ -9,6 +9,16 @@
   - Command completion detected by shell prompt reappearance
   - Must handle command echo and prompt filtering to avoid duplicate output
 
+### Windows-Specific Handling
+
+Important: Windows terminal handling requires special care:
+- Avoid process.stdout.clearLine() and cursorTo() - use ANSI escape sequences instead
+- Write to new lines rather than clearing existing ones
+- Use '\x1b[1A\x1b[2K' for reliable line clearing (move up + clear)
+- Always check process.platform === 'win32' before using platform-specific code
+- Handle multiple Windows shell types (cmd.exe, powershell)
+- Detect shell type using multiple fallback methods
+
 - Fallback: Using child_process when node-pty is unavailable
   - Handles cases where node-pty prebuilds aren't available
   - Provides basic terminal functionality without PTY features

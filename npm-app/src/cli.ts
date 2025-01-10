@@ -4,6 +4,18 @@ import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
 import { green, red, yellow, underline } from 'picocolors'
 import { parse } from 'path'
+import * as readline from 'readline'
+
+function rewriteLine(line: string) {
+  // Only do line rewriting if we have an interactive TTY
+  if (process.stdout.isTTY) {
+    readline.clearLine(process.stdout, 0)
+    readline.cursorTo(process.stdout, 0)
+    process.stdout.write(line)
+  } else {
+    process.stdout.write(line + '\n')
+  }
+}
 
 import { websocketUrl } from './config'
 import { ChatStorage } from './chat-storage'
@@ -294,9 +306,7 @@ export class CLI {
     const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
     let i = 0
     this.loadingInterval = setInterval(() => {
-      process.stdout.clearLine(0)
-      process.stdout.cursorTo(0)
-      process.stdout.write(green(`${chars[i]} Thinking...`))
+      rewriteLine(green(`${chars[i]} Thinking...`))
       i = (i + 1) % chars.length
     }, 100)
   }
@@ -305,8 +315,7 @@ export class CLI {
     if (this.loadingInterval) {
       clearInterval(this.loadingInterval)
       this.loadingInterval = null
-      process.stdout.clearLine(0)
-      process.stdout.cursorTo(0)
+      rewriteLine('')  // Clear the spinner line
     }
   }
 
