@@ -9,11 +9,16 @@ export type DeepseekMessage = OpenAI.Chat.ChatCompletionMessageParam
 
 let deepseekClient: OpenAI | null = null
 
+const DEEPSEEK_TIMEOUT_MS = 90_000
+const DEEPSEEK_MAX_RETRIES = 3
+
 const getDeepseekClient = (fingerprintId: string) => {
   if (!deepseekClient) {
     deepseekClient = new OpenAI({
       apiKey: env.DEEPSEEK_API_KEY,
       baseURL: 'https://api.deepseek.com',
+      timeout: DEEPSEEK_TIMEOUT_MS,
+      maxRetries: DEEPSEEK_MAX_RETRIES,
       defaultHeaders: {
         'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
         'Helicone-User-Id': fingerprintId,
