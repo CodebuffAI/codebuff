@@ -5,12 +5,14 @@ import { rgPath } from '@vscode/ripgrep'
 import * as os from 'os'
 
 let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
+const tempConsoleError = console.error
+console.error = () => {}
 try {
-  const tempConsoleError = console.error
-  console.error = () => {}
   pty = require('@homebridge/node-pty-prebuilt-multiarch')
+} catch (error) {
+} finally {
   console.error = tempConsoleError
-} catch (error) {}
+}
 
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot, setProjectRoot } from './project-files'
@@ -378,9 +380,7 @@ const isNotACommand = (output: string) => {
     output.startsWith('fatal:') ||
     output.startsWith('error:') ||
     output.startsWith('Der Befehl') ||
-    output.includes(
-      'ist entweder falsch geschrieben oder konnte nicht gefunden werden'
-    ) ||
+    output.includes('konnte nicht gefunden werden') ||
     output.includes(
       'wurde nicht als Name eines Cmdlet, einer Funktion, einer Skriptdatei oder eines ausführbaren'
     )
