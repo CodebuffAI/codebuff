@@ -101,9 +101,9 @@ const Terminal = ({
       if (scrollToPosition) {
         setTimeout(
           () =>
-            terminalRef?.current?.scrollIntoView({
-              behavior: 'auto',
-              block: 'nearest',
+            terminalRef?.current?.scrollTo({
+              top: terminalRef.current.scrollHeight,
+              behavior: 'smooth',
             }),
           500
         )
