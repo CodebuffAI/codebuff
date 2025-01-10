@@ -1,9 +1,10 @@
 import OpenAI from 'openai'
+import { z } from 'zod'
 import { STOP_MARKER, TEST_USER_ID } from 'common/constants'
 import { Stream } from 'openai/streaming'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
-import { logger } from './util/logger'
+import { logger, withLoggerContext } from './util/logger'
 
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -127,24 +128,106 @@ export async function promptOpenAI(
   }
 ) {
   try {
-    const timeout = options.model.startsWith('o1') ? 800_000 : 200_000
-    const stream = promptOpenAIStream(messages, options)
+    // Handle o-series reasoning models differently
+    if (options.model.startsWith('o')) {
+      const openai = getOpenAI(options.fingerprintId)
+      const startTime = Date.now()
 
-    let content = ''
-    await Promise.race([
-      (async () => {
-        for await (const chunk of stream) {
-          content += chunk
+      try {
+        const response = await Promise.race([
+          openai.chat.completions.create({
+            model: options.model,
+            messages,
+            ...(options.predictedContent
+              ? {
+                  prediction: {
+                    type: 'content',
+                    content: options.predictedContent,
+                  },
+                }
+              : {}),
+            stream: false,
+            reasoning_effort: 'high',
+          }),
+          timeoutPromise(1_000_000),
+        ])
+
+        // Validate OpenAI response shape with Zod
+        const ChatCompletionSchema = z.object({
+          id: z.string(),
+          choices: z
+            .array(
+              z.object({
+                message: z.object({
+                  content: z.string(),
+                }),
+              })
+            )
+            .min(1),
+          usage: z.object({
+            prompt_tokens: z.number(),
+            completion_tokens: z.number(),
+          }),
+        })
+
+        const result = ChatCompletionSchema.safeParse(response)
+        if (!result.success) {
+          throw new Error(
+            'Invalid response from OpenAI: ' + result.error.message
+          )
         }
-      })(),
-      timeoutPromise(timeout),
-    ])
-    const result = content
 
-    if (!result) {
-      throw new Error('No response from OpenAI')
+        const content = result.data.choices[0].message.content
+
+        // Save message metrics
+        if (messages.length > 0 && options.userId !== TEST_USER_ID) {
+          saveMessage({
+            messageId: result.data.id,
+            userId: options.userId,
+            clientSessionId: options.clientSessionId,
+            fingerprintId: options.fingerprintId,
+            userInputId: options.userInputId,
+            model: options.model,
+            request: messages,
+            response: content,
+            inputTokens: result.data.usage.prompt_tokens,
+            outputTokens: result.data.usage.completion_tokens,
+            finishedAt: new Date(),
+            latencyMs: Date.now() - startTime,
+          })
+        }
+
+        return content
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === 'OpenAI API request timed out'
+        ) {
+          throw new Error(
+            'Request timed out - the model is taking too long to respond'
+          )
+        }
+        throw error
+      }
+    } else {
+      // Use streaming for other models
+      const stream = promptOpenAIStream(messages, options)
+      let content = ''
+      await Promise.race([
+        (async () => {
+          for await (const chunk of stream) {
+            content += chunk
+          }
+        })(),
+        timeoutPromise(200_000),
+      ])
+      const result = content
+
+      if (!result) {
+        throw new Error('No response from OpenAI')
+      }
+      return result
     }
-    return result
   } catch (error) {
     logger.error(
       {

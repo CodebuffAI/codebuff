@@ -6,7 +6,7 @@ import {
   ProjectFileContext,
 } from 'common/util/file'
 import { promptClaude } from './claude'
-import { OpenAIMessage, promptOpenAIStream } from './openai-api'
+import { OpenAIMessage, promptOpenAI, promptOpenAIStream } from './openai-api'
 import { getSearchSystemPrompt } from './system-prompt'
 
 export async function planComplexChange(
@@ -35,15 +35,10 @@ Please plan and create a detailed solution.`,
     },
   ]
 
-  let fullResponse = ''
-  for await (const chunk of promptOpenAIStream(messages, {
+  let fullResponse = await promptOpenAI(messages, {
     ...options,
     model: models.o1,
-    temperature: 1,
-  })) {
-    fullResponse += chunk
-    onChunk(chunk)
-  }
+  })
 
   return fullResponse
 }
@@ -59,7 +54,7 @@ export async function getRelevantFilesForPlanning(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined,
+  userId: string | undefined
 ) {
   const response = await promptClaude(
     [
