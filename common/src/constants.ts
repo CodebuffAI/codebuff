@@ -70,7 +70,6 @@ export const SKIPPED_TERMINAL_COMMANDS = [
 export const REQUEST_CREDIT_SHOW_THRESHOLD = 1
 export const MAX_DATE = new Date(86399999999999)
 export const BILLING_PERIOD_DAYS = 30
-
 export const OVERAGE_RATE_PRO = 0.99
 export const OVERAGE_RATE_MOAR_PRO = 0.9
 export const CREDITS_REFERRAL_BONUS = 500
@@ -99,12 +98,14 @@ export type PlanConfig = {
   overageRate: number | null // null if no overage allowed
 }
 
-export enum UsageLimits {
-  ANON = 'ANON',
-  FREE = 'FREE',
-  PRO = 'PRO',
-  MOAR_PRO = 'MOAR_PRO',
-}
+export const UsageLimits = {
+  ANON: 'ANON',
+  FREE: 'FREE',
+  PRO: 'PRO',
+  MOAR_PRO: 'MOAR_PRO',
+} as const
+
+export type UsageLimits = (typeof UsageLimits)[keyof typeof UsageLimits]
 
 // Define base configs with production values
 export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {

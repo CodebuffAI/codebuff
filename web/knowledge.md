@@ -43,7 +43,9 @@ The authentication system in Codebuff's web application plays a crucial role in 
 ## UI Patterns
 
 ### CRT Screen Effects
+
 When creating retro CRT monitor effects:
+
 - Use linear gradients instead of radial for screen edges - radial creates unrealistic circular vignetting
 - Combine horizontal and vertical gradients for authentic edge darkening
 - Keep content area clear (97% transparent in middle)
@@ -53,6 +55,7 @@ When creating retro CRT monitor effects:
 ### Demo Content Guidelines
 
 When creating interactive demos:
+
 - Show suggested actions rather than simulated errors
 - Use welcoming, positive messaging
 - Include emojis and clear descriptions for each action
@@ -62,7 +65,9 @@ When creating interactive demos:
 ### Terminal Component Usage
 
 #### Component Wrapping Pattern
+
 - When a third-party component needs consistent styling:
+
   - Create a wrapper component in components/ui/
   - Pass through all props using ...props spread
   - Add className support using cn() utility
@@ -180,6 +185,7 @@ When displaying inline code snippets with copy buttons:
 - Consider modal/overlay implementations for video players rather than inline embedding
 
 ### Terminal Component Usage
+
 - When using react-terminal-ui's TerminalOutput component:
   - Must provide a single string/element as children, not an array
   - Use template literals for dynamic content instead of JSX interpolation
@@ -201,7 +207,9 @@ When displaying inline code snippets with copy buttons:
       - Use smooth scrolling behavior for better UX
 
 ### Code Editor Preview
+
 When showing code previews in the UI:
+
 - Use browser-like window styling to provide familiar context
 - Include title bar with traffic light circles (red, yellow, green)
 - Show filename/path in URL-like bar
@@ -232,19 +240,22 @@ When showing code previews in the UI:
 ### React Query Mutation Patterns
 
 Important: When using useMutation with UI state:
+
 - Let mutation handlers (onMutate, onSuccess, onError) own their state updates
 - Avoid setting state after awaiting mutation if handlers also set state
 - For components with both local and mutation-driven state:
+
   ```typescript
   // Handle local state updates first
   if (isLocalAction(input)) {
     setLocalState(newState)
     return
   }
-  
+
   // Let mutation handlers own their state for API calls
   await mutation.mutateAsync(input)
   ```
+
 - This pattern prevents race conditions between local state updates and mutation handlers
 - Keeps state management responsibilities clear and separated
 
@@ -289,6 +300,7 @@ Important: When using useMutation with UI state:
 ### Responsive Card Positioning
 
 For cards that need different positioning on mobile vs desktop:
+
 - Use container class with md: breakpoint modifiers
 - Position fixed with inset-x-0 for full-width on mobile
 - Use md:left-4 md:right-auto for left-aligned on desktop
@@ -304,23 +316,36 @@ For cards that need different positioning on mobile vs desktop:
 - Example:
   ```typescript
   await match(input)
-    .with('exact-match', () => { /* handle exact match */ })
-    .with(P.string.includes('partial'), () => { /* handle partial match */ })
-    .with(P.when((s: string) => s.includes('a') && s.includes('b')), () => { /* handle multiple conditions */ })
-    .otherwise(() => { /* handle default case */ })
+    .with('exact-match', () => {
+      /* handle exact match */
+    })
+    .with(P.string.includes('partial'), () => {
+      /* handle partial match */
+    })
+    .with(
+      P.when((s: string) => s.includes('a') && s.includes('b')),
+      () => {
+        /* handle multiple conditions */
+      }
+    )
+    .otherwise(() => {
+      /* handle default case */
+    })
   ```
 
 ### Error Handling
 
 #### Rate Limit Handling
+
 - Use HTTP status code 429 to detect rate limits
 - Show user-friendly error messages in the UI
 - For React Query mutations:
+
   ```typescript
   interface ApiResponse {
     // response type
   }
-  
+
   const mutation = useMutation<ApiResponse, Error, string>({
     mutationFn: async (input) => {
       const response = await fetch('/api/endpoint')
@@ -353,11 +378,12 @@ For cards that need different positioning on mobile vs desktop:
 - Avoid deriving visual states from content/data states
 - Pass visual states as explicit props to child components
 - Example: For a component with error and content:
+
   ```typescript
   // Good
   const [showError, setShowError] = useState(true)
   const [content, setContent] = useState('')
-  
+
   // Avoid
   const [content, setContent] = useState('error')
   const showError = content === 'error'
@@ -410,17 +436,19 @@ For cards that need different positioning on mobile vs desktop:
   - Components should use h-full internally and accept className prop
   - Let parent components control final height with Tailwind classes
   - Example:
+
     ```tsx
     // Component
     const MyComponent = ({ className }) => (
       <div className={cn("h-full", className)}>...</div>
     )
-    
+
     // Usage
     <div className="h-[200px] md:h-[800px]">
       <MyComponent />
     </div>
     ```
+
   - This allows for responsive heights and better composition
 
 ### Business Logic Organization
@@ -438,6 +466,7 @@ For cards that need different positioning on mobile vs desktop:
 ### UI Patterns
 
 ### Dialog State Management
+
 - When using dialogs with state:
   - Open dialog by setting state to true in click handlers
   - Let the dialog's onOpenChange handle closing automatically
@@ -452,6 +481,7 @@ For cards that need different positioning on mobile vs desktop:
     - Use text-muted-foreground for supplementary information
 
 ### Icon Click Handling
+
 - When using Lucide icons in clickable areas:
   - Icons have pointer-events-none by default
   - Place onClick handlers on parent elements instead of icons
@@ -537,6 +567,7 @@ Important considerations for interactive components:
    - Always check both provider context and z-index when debugging click events
 
 Example of correct layering:
+
 ```jsx
 <div className="relative z-20">...</div> // Interactive component
 ```
@@ -548,7 +579,7 @@ Example of correct layering:
    - Current layout supports 4 cards: Free, Pro Plus, Pro, and Enterprise
    - Maintain consistent card heights and spacing
 
-2. Z-index Requirements:
+4. Z-index Requirements:
 
    - Interactive components must have proper z-index positioning AND be inside providers
    - Components with dropdowns or overlays should use z-20 or higher
@@ -556,7 +587,7 @@ Example of correct layering:
    - Banner and other top-level interactive components use z-20
    - Ensure parent elements have `position: relative` when using z-index
 
-3. Common Issues:
+5. Common Issues:
    - Components may appear but not be clickable if z-index is too low
    - Moving components inside providers alone may not fix interactivity
    - Always check both provider context and z-index when debugging click events
@@ -713,14 +744,18 @@ This feature enhances user experience by providing transparency about resource c
 
 ## Verifying Changes
 
-After making changes to the web application code:
+After making changes to the web application code, always run type checking:
 
-1. Build common package if changes affect shared types and run type checking:
-   ```bash
-   bun run --cwd common build && bun run --cwd web tsc
-   ```
+```bash
+bun run --cwd common build && bun run --cwd web tsc
+```
 
 This ensures type safety is maintained across the application.
+
+Important: When modifying or using code from common:
+- Always build common package first before running web type checking
+- Changes to common won't be reflected in web until common is rebuilt
+- This applies to new exports, type changes, and utility functions
 
 Important: When modifying or using code from common:
 - Always build common package first before running web type checking
