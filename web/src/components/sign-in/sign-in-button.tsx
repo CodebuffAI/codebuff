@@ -7,7 +7,7 @@ import posthog from 'posthog-js'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
-import { sleep } from 'common/util/helpers'
+import { sleep } from 'common/util/promise'
 import { toast } from '../ui/use-toast'
 
 export const SignInButton = ({

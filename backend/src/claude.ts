@@ -9,7 +9,7 @@ import { claudeModels, STOP_MARKER } from 'common/constants'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
-import { sleep } from 'common/util/helpers'
+import { sleep } from 'common/util/promise'
 import { APIError } from '@anthropic-ai/sdk/error'
 
 const MAX_RETRIES = 3

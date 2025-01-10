@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import Terminal, { ColorMode, TerminalOutput } from './ui/terminal'
 import { cn } from '../lib/utils'
-import { sleep } from 'common/util/helpers'
+import { sleep } from 'common/util/promise'
 import { match, P } from 'ts-pattern'
 import posthog from 'posthog-js'
 import { useTheme } from 'next-themes'
