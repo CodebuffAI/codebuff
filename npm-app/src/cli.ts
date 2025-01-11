@@ -4,7 +4,6 @@ import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
 import { green, red, yellow, underline } from 'picocolors'
 import { parse } from 'path'
-import * as readline from 'readline'
 
 function rewriteLine(line: string) {
   // Only do line rewriting if we have an interactive TTY
@@ -315,7 +314,7 @@ export class CLI {
     if (this.loadingInterval) {
       clearInterval(this.loadingInterval)
       this.loadingInterval = null
-      rewriteLine('')  // Clear the spinner line
+      rewriteLine('') // Clear the spinner line
     }
   }
 
