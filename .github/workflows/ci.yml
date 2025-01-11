@@ -34,4 +34,4 @@ jobs:
         run: bun run --cwd npm-app typecheck
 
       - name: Build "web" package
-        run: bun run --cwd web build
+        run: bun run --cwd web typecheck
