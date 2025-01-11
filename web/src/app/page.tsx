@@ -317,7 +317,7 @@ const Home = () => {
                 </Link>
                 :
                 <div className="mt-2">
-                  <CodeDemo language="bash">npm i -g codebuff</CodeDemo>
+                  <CodeDemo language="bash">npm install -g codebuff</CodeDemo>
                 </div>
               </li>
               <li>

@@ -135,7 +135,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
             <ol className="list-decimal list-inside space-y-6">
               <li>
                 Install Codebuff globally:
-                <InputWithCopyButton text={'npm i -g codebuff'} />
+                <InputWithCopyButton text={'npm install -g codebuff'} />
               </li>
               <li>
                 Run Codebuff in Terminal
