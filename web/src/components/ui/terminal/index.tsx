@@ -154,10 +154,15 @@ const Terminal = ({
     for (const terminalEl of document.getElementsByClassName(
       'react-terminal-wrapper'
     )) {
-      const listener = () =>
+      const listener = () => {
+        // Focus the hidden input
         (
           terminalEl?.querySelector('.terminal-hidden-input') as HTMLElement
         )?.focus()
+        
+        // Scroll terminal to top of viewport with some padding
+        terminalEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
       terminalEl?.addEventListener('click', listener)
       elListeners.push({ terminalEl, listener })
     }
