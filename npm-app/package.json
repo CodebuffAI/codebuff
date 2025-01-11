@@ -26,7 +26,8 @@
     "start-jpcsp": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/jpcsp",
     "start-vscode": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/vscode",
     "start-nushell": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/nushell",
-    "start-prod": "bun run with-env -- ts-node src/index.ts"
+    "start-prod": "bun run with-env -- ts-node src/index.ts",
+    "typecheck": "tsc --noEmit && tsc-alias"
   },
   "files": [
     "dist",

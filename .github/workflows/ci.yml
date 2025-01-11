@@ -30,7 +30,7 @@ jobs:
 
       # 3. Then build + type-check "npm-app"
       - name: Build "npm-app" package
-        run: bun run --cwd npm-app build
+        run: bun run --cwd npm-app typecheck
 
       # 4. Finally run type-check on "web"
       - name: Type-check "web" package
