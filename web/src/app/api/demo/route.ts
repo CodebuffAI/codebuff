@@ -269,6 +269,21 @@ export async function POST(request: Request) {
     })
   }
 
+  // Log user activity
+  const userAgent = headers().get('user-agent') || 'unknown'
+  const referer = headers().get('referer') || 'unknown'
+
+  console.log('Demo API Request:', {
+    ip,
+    userAgent,
+    referer,
+    messageHistory: Array.isArray(data.prompt) ? data.prompt : [data.prompt],
+    currentMessage: Array.isArray(data.prompt)
+      ? data.prompt[data.prompt.length - 1]
+      : data.prompt,
+    timestamp: new Date().toISOString(),
+  })
+
   // Call Deepseek API
   const prompts = Array.isArray(data.prompt) ? data.prompt : [data.prompt]
   const { html, message, error: apiError } = await callDeepseekAPI(prompts)
