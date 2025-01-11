@@ -133,7 +133,7 @@ export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {
   MOAR_PRO: {
     limit: 27_500,
     planName: UsageLimits.MOAR_PRO,
-    displayName: 'Moar Pro',
+    displayName: 'Pro Max',
     monthlyPrice: 249,
     overageRate: OVERAGE_RATE_MOAR_PRO,
   },
