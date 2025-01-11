@@ -158,16 +158,17 @@ export const handleRunTerminalCommand = async (
         const hasSimplePromptOnWindows2 = simpleWindowsPromptRegex2.test(prefix)
         const hasSimplePromptOnWindows3 = simpleWindowsPromptRegex3.test(prefix)
 
-        if (
+        const promptDetected = 
           prefix.includes('bash-3.2$ ') ||
           hasSimplePromptOnWindows ||
           hasSimplePromptOnWindows2 ||
           hasSimplePromptOnWindows3
-        ) {
+
+        if (promptDetected) {
           commandOutput += data
           process.stdout.write(data)
-          process.stdout.clearLine(0)
-          process.stdout.cursorTo(0)
+          // Add a newline instead of clearing to avoid overwriting
+          process.stdout.write('\n')
           clearTimeout(timer)
           dataDisposable.dispose()
 
