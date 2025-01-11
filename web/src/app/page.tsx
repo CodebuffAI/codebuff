@@ -33,11 +33,11 @@ const ReviewCard = ({
   return (
     <figure
       className={cn(
-        'relative w-64 lg:w-80 cursor-pointer overflow-hidden rounded-xl border p-6',
+        'relative w-64 lg:w-80 cursor-pointer overflow-hidden rounded-xl p-6',
         // light styles
-        'border-gray-950/[.1] bg-gray-950/[.01] hover:bg-gray-950/[.05]',
+        'bg-white hover:bg-gray-50 border',
         // dark styles
-        'dark:border-gray-50/[.1] dark:bg-gray-50/[.10] dark:hover:bg-gray-50/[.15]'
+        'dark:bg-gray-800 dark:hover:bg-gray-700'
       )}
       onClick={() => onTestimonialClick(t.author, t.link)}
     >
@@ -150,32 +150,32 @@ const Home = () => {
               Revolutionize Your Coding Workflow
             </h2>
             <div className="grid md:grid-cols-3 gap-8">
-              <div className="bg-gray-900 p-6 rounded-lg">
+              <div className="bg-white border dark:bg-gray-800 p-6 rounded-lg">
                 <FolderCodeIcon className="h-12 w-12 text-blue-500 mb-4" />
-                <h3 className="text-xl text-white font-semibold mb-2">
+                <h3 className="text-xl dark:text-white font-semibold mb-2">
                   Whole-codebase Understanding
                 </h3>
-                <p className="text-gray-400">
+                <p className="text-gray-600 dark:text-gray-400">
                   Ask for any change and Codebuff will find the relevant
                   sections out of thousands of files.
                 </p>
               </div>
-              <div className="bg-gray-900 p-6 rounded-lg">
+              <div className="bg-white border dark:bg-gray-800 p-6 rounded-lg">
                 <ZapIcon className="h-12 w-12 text-blue-500 mb-4" />
-                <h3 className="text-xl text-white font-semibold mb-2">
+                <h3 className="text-xl dark:text-white font-semibold mb-2">
                   10x Your Dev Productivity
                 </h3>
-                <p className="text-gray-400">
+                <p className="text-gray-600 dark:text-gray-400">
                   Get more done when using Codebuff to write features, debug
                   tests, refactor files, and install packages.
                 </p>
               </div>
-              <div className="bg-gray-900 p-6 rounded-lg">
+              <div className="bg-white border dark:bg-gray-800 p-6 rounded-lg">
                 <TerminalIcon className="h-12 w-12 text-blue-500 mb-4" />
-                <h3 className="text-xl text-white font-semibold mb-2">
+                <h3 className="text-xl dark:text-white font-semibold mb-2">
                   Fully Capable Agent in Your Terminal
                 </h3>
-                <p className="text-gray-400">
+                <p className="text-gray-600 dark:text-gray-400">
                   Codebuff can run terminal commands, create and edit files, and
                   more.
                 </p>

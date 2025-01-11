@@ -136,13 +136,8 @@
 }
 
 .terminal-hidden-input {
-  position: absolute;
-  opacity: 0;
-  height: 0;
-  width: 0;
-  padding: 0;
-  border: none;
-  pointer-events: none;
+  position: fixed;
+  left: -1000px;
 }
 
 /* .react-terminal-progress {
