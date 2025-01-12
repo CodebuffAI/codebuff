@@ -26,6 +26,8 @@ const createPty = (dir: string) => {
         : 'cmd.exe'
       : 'bash'
 
+    const shellWithoutExe = shell.split('.')[0]
+
     // Prepare shell init commands
     let shellInitCommands = ''
     if (!isWindows) {
@@ -42,7 +44,7 @@ const createPty = (dir: string) => {
         '$PSProfile = $PROFILE.CurrentUserAllHosts; if (Test-Path $PSProfile) { . $PSProfile }\n'
     }
 
-    const persistentPty = pty.spawn(shell, [], {
+    const persistentPty = pty.spawn(shell, isWindows ? [] : ['--login'], {
       name: 'xterm-256color',
       cols: process.stdout.columns || 80,
       rows: process.stdout.rows || 24,
@@ -66,6 +68,11 @@ const createPty = (dir: string) => {
         NO_COLOR: process.env.NO_COLOR, // Respect NO_COLOR if set
         FORCE_COLOR: '1', // Enable colors in CI/CD
         CI: process.env.CI, // Preserve CI environment
+        // Locale settings for consistent output
+        LANG: 'en_US.UTF-8',
+        LC_ALL: 'en_US.UTF-8',
+        // Shell-specific settings
+        SHELL: shellWithoutExe,
       },
     })
 
@@ -89,6 +96,14 @@ const createPty = (dir: string) => {
 }
 
 let persistentProcess: ReturnType<typeof createPty> | null = null
+
+process.stdout.on('resize', () => {
+  if (!persistentProcess) return
+  const { pty } = persistentProcess
+  if (pty) {
+    pty.resize(process.stdout.columns, process.stdout.rows)
+  }
+})
 
 export const resetPtyShell = (dir: string) => {
   if (persistentProcess) {

@@ -13,6 +13,10 @@
     - ~/.config/fish/config.fish for fish
     - ~/.bashrc for bash
     - PowerShell profile on Windows ($PROFILE.CurrentUserAllHosts)
+  - Shell initialization requires both:
+    - --login flag for Unix shells to load login shell environment
+    - Explicit sourcing of RC files for shell-specific configurations
+    - Windows shells don't use --login flag
   
   - Sets environment variables for optimal experience:
     - TERM='xterm-256color' for color support
@@ -26,6 +30,20 @@
       - Respects NO_COLOR standard
       - Forces colors with FORCE_COLOR='1'
       - Preserves CI environment settings
+    
+    - Environment setup:
+      - History configuration:
+        - HISTSIZE=10000 and HISTFILESIZE=20000 for extensive history
+        - Higher than bash defaults (500) but reasonable for modern systems
+        - HISTCONTROL to ignore duplicates and space-prefixed commands
+      - Editor settings (EDITOR/VISUAL) preserved from user environment
+      - Locale settings (LANG/LC_ALL) for consistent UTF-8 output
+      - Critical environment preservation (PATH, HOME, USER)
+      - Shell-specific options:
+        - History enabled with 'set -o history'
+        - Extended pattern matching where available
+        - Emacs-style command line editing
+        - SHELL env var uses base name without .exe (e.g. 'powershell' not 'powershell.exe')
 
 ### Windows-Specific Handling
 
