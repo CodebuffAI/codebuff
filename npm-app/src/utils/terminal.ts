@@ -150,7 +150,7 @@ export const runTerminalCommand = async (
   command: string,
   mode: 'user' | 'assistant'
 ): Promise<{ result: string; stdout: string }> => {
-  const MAX_EXECUTION_TIME = 10_000
+  const MAX_EXECUTION_TIME = 30_000
 
   const projectRoot = getProjectRoot()
 
