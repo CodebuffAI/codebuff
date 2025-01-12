@@ -39,12 +39,14 @@ export const handleCodeSearch: ToolHandler = async (
     let stdout = ''
     let stderr = ''
 
+    const dir = getProjectRoot()
+    const basename = path.basename(dir)
     const pattern = input.pattern.replace(/"/g, '')
     const command = `${path.resolve(rgPath)} "${pattern}" .`
     console.log()
-    console.log(green(`Searching project for: ${pattern}`))
+    console.log(green(`Searching ${basename} for "${pattern}":`))
     const childProcess = spawn(command, {
-      cwd: getProjectRoot(),
+      cwd: dir,
       shell: true,
     })
 
@@ -57,7 +59,17 @@ export const handleCodeSearch: ToolHandler = async (
     })
 
     childProcess.on('close', (code) => {
-      console.log(green(`${stdout.split('\n').length - 1} results`))
+      const lines = stdout.split('\n').filter((line) => line.trim())
+      const maxResults = 3
+      const previewResults = lines.slice(0, maxResults)
+      if (previewResults.length > 0) {
+        console.log(previewResults.join('\n'))
+        if (lines.length > maxResults) {
+          console.log('...')
+        }
+      }
+      console.log(green(`Found ${lines.length} results\n`))
+
       const truncatedStdout = truncateStringWithMessage(stdout, 10000)
       const truncatedStderr = truncateStringWithMessage(stderr, 1000)
       resolve(
