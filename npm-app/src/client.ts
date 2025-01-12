@@ -496,7 +496,7 @@ export class Client {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
-      if (!streamStarted) {
+      if (!streamStarted && chunk.trim()) {
         streamStarted = true
         onStreamStart()
       }
