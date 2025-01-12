@@ -44,7 +44,7 @@ const createPty = (dir: string) => {
         '$PSProfile = $PROFILE.CurrentUserAllHosts; if (Test-Path $PSProfile) { . $PSProfile }\n'
     }
 
-    const persistentPty = pty.spawn(shell, isWindows ? [] : ['--login'], {
+    const persistentPty = pty.spawn(shell, [], {
       name: 'xterm-256color',
       cols: process.stdout.columns || 80,
       rows: process.stdout.rows || 24,
