@@ -1,4 +1,5 @@
-import { handleRunTerminalCommand, resetPtyShell } from '../tool-handlers'
+import { handleRunTerminalCommand } from '../tool-handlers'
+import { resetPtyShell } from '../utils/terminal'
 
 // Set up test directory
 beforeAll(() => {

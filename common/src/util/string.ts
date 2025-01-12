@@ -7,6 +7,16 @@ export const truncateString = (str: string, maxLength: number) => {
   return str.slice(0, maxLength) + '...'
 }
 
+export const truncateStringWithMessage = (
+  str: string,
+  maxLength: number,
+  message: string = 'TRUNCATED_DUE_TO_LENGTH'
+) => {
+  return str.length > maxLength
+    ? str.slice(0, maxLength) + `\n[...${message}]`
+    : str
+}
+
 export const replaceNonStandardPlaceholderComments = (
   content: string,
   replacement: string

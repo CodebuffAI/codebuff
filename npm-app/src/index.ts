@@ -12,7 +12,7 @@ import {
 } from './project-files'
 import { updateCodebuff } from './update-codebuff'
 import { CliOptions } from './types'
-import { resetPtyShell } from './tool-handlers'
+import { resetPtyShell } from './utils/terminal'
 
 async function codebuff(
   projectDir: string | undefined,
