@@ -23,6 +23,8 @@ export const DEFAULT_IGNORED_FILES = [
   '.mypy_cache',
   '.ruff_cache',
   '.next',
+  'package-lock.json',
+  'bun.lockb',
 ]
 
 export const SKIPPED_TERMINAL_COMMANDS = [
