@@ -165,10 +165,6 @@ export const handleRunTerminalCommand = async (
           hasSimplePromptOnWindows3
 
         if (promptDetected) {
-          commandOutput += data
-          process.stdout.write(data)
-          // Add a newline instead of clearing to avoid overwriting
-          process.stdout.write('\n')
           clearTimeout(timer)
           dataDisposable.dispose()
 
