@@ -3,7 +3,7 @@ import path from 'path'
 import { green } from 'picocolors'
 import * as os from 'os'
 import { detectShell } from './detect-shell'
-import { getProjectRoot, setProjectRoot } from 'src/project-files'
+import { getProjectRoot, setProjectRoot } from '../project-files'
 import { truncateStringWithMessage } from 'common/util/string'
 
 let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
