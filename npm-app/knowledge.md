@@ -8,6 +8,24 @@
   - Better matches real terminal behavior
   - Command completion detected by shell prompt reappearance
   - Must handle command echo and prompt filtering to avoid duplicate output
+  - Sources appropriate shell RC file on startup:
+    - ~/.zshrc for zsh
+    - ~/.config/fish/config.fish for fish
+    - ~/.bashrc for bash
+    - PowerShell profile on Windows ($PROFILE.CurrentUserAllHosts)
+  
+  - Sets environment variables for optimal experience:
+    - TERM='xterm-256color' for color support
+    - PAGER='cat' to prevent paging
+    - LESS='-FRX' for better output display
+    - Windows-specific:
+      - ANSICON='1' for better ANSI support
+      - PROMPT='$P$G' for reliable prompt parsing (shows just path and '>')
+      - PSModulePath preserved for PowerShell modules
+    - Color handling:
+      - Respects NO_COLOR standard
+      - Forces colors with FORCE_COLOR='1'
+      - Preserves CI environment settings
 
 ### Windows-Specific Handling
 

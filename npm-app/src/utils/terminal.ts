@@ -25,6 +25,23 @@ const createPty = (dir: string) => {
         ? 'powershell.exe'
         : 'cmd.exe'
       : 'bash'
+
+    // Prepare shell init commands
+    let shellInitCommands = ''
+    if (!isWindows) {
+      const rcFile =
+        currShell === 'zsh'
+          ? '~/.zshrc'
+          : currShell === 'fish'
+            ? '~/.config/fish/config.fish'
+            : '~/.bashrc'
+      shellInitCommands = `source ${rcFile} 2>/dev/null || true\n`
+    } else if (currShell === 'powershell') {
+      // Try to source PowerShell profile if it exists
+      shellInitCommands =
+        '$PSProfile = $PROFILE.CurrentUserAllHosts; if (Test-Path $PSProfile) { . $PSProfile }\n'
+    }
+
     const persistentPty = pty.spawn(shell, [], {
       name: 'xterm-256color',
       cols: process.stdout.columns || 80,
@@ -36,11 +53,27 @@ const createPty = (dir: string) => {
         PAGER: 'cat',
         GIT_PAGER: 'cat',
         GIT_TERMINAL_PROMPT: '0',
-        ...(isWindows ? { TERM: 'cygwin' } : {}),
+        ...(isWindows
+          ? {
+              TERM: 'cygwin',
+              ANSICON: '1', // Better ANSI support in cmd.exe
+              PROMPT: '$P$G', // Simple prompt to avoid parsing issues
+              PSModulePath: process.env.PSModulePath || '', // Preserve PowerShell modules
+            }
+          : {}),
         LESS: '-FRX',
         TERM_PROGRAM: 'mintty',
+        NO_COLOR: process.env.NO_COLOR, // Respect NO_COLOR if set
+        FORCE_COLOR: '1', // Enable colors in CI/CD
+        CI: process.env.CI, // Preserve CI environment
       },
     })
+
+    // Source the shell config file if available
+    if (shellInitCommands) {
+      persistentPty.write(shellInitCommands)
+    }
+
     return { type: 'pty', pty: persistentPty } as const
   } else {
     // Fallback to child_process
@@ -165,20 +198,16 @@ export const runTerminalCommand = async (
         // Detect the end of the command output if the prompt is printed.
         // Windows PowerShell prompt pattern: "MM/DD HH:mm Path ►"
         const simpleWindowsPromptRegex = /\d{2}:\d{2}.*►/
-        // Another PowerShell prompt: "PS C:\jahooma\www\Finance-Scraper>"
-        const simpleWindowsPromptRegex2 = /PS [A-Z]:\\.*>/
-        // Another cmd prompt: "C:\jahooma\www\Finance-Scraper>"
-        const simpleWindowsPromptRegex3 = /[A-Z]:\\\S+>/
+        // Another cmd prompt: "C:\Users\Name\My Projects>"
+        const simpleWindowsPromptRegex2 = /[A-Z]:\\.*\\.*>/
 
         const hasSimplePromptOnWindows = simpleWindowsPromptRegex.test(prefix)
         const hasSimplePromptOnWindows2 = simpleWindowsPromptRegex2.test(prefix)
-        const hasSimplePromptOnWindows3 = simpleWindowsPromptRegex3.test(prefix)
 
         const promptDetected =
           prefix.includes('bash-3.2$ ') ||
           hasSimplePromptOnWindows ||
-          hasSimplePromptOnWindows2 ||
-          hasSimplePromptOnWindows3
+          hasSimplePromptOnWindows2
 
         if (promptDetected) {
           clearTimeout(timer)
