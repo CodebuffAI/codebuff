@@ -112,7 +112,7 @@ export type UsageLimits = (typeof UsageLimits)[keyof typeof UsageLimits]
 // Define base configs with production values
 export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {
   ANON: {
-    limit: 500,
+    limit: 250,
     planName: UsageLimits.ANON,
     displayName: 'Anonymous',
     monthlyPrice: 0,
