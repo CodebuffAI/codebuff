@@ -485,8 +485,8 @@ export class CLI {
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
 
     // Stage previous changes if flag was set
-    if (this.git === 'stage' && changesAlreadyApplied.length > 0) {
-      const didStage = stagePatches(getProjectRoot(), changesAlreadyApplied)
+    if (this.git === 'stage' && allChanges.length > 0) {
+      const didStage = stagePatches(getProjectRoot(), allChanges)
       if (didStage) {
         console.log(green('\nStaged previous changes'))
       }
