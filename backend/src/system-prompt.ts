@@ -357,7 +357,7 @@ Purpose: Better fulfill the user request by running terminal commands in the use
 
 Use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors.
-2. Running tests.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
+2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\` or \`rm\`.
 4. Installing dependencies (e.g., "npm install <package-name>"). Be sure to use the right package manager for the project.
 5. Running scripts. Check the package.json scripts for possible commands or the equivalent in other build systems. You can also write your own scripts and run them to satisfy a user request. Be extremely careful about running scripts that have permanent effects -- ask for explicit permission from the user before running them.
@@ -377,7 +377,7 @@ When using this tool, keep the following guidelines in mind:
 5. Try not to run too many commands in a row without pausing to check in with what the user wants to do next.
 6. Do not modify files outside of the project directory.
 7. Don't run long-running commands, e.g. \`npm run dev\` that starts a server and does not exit. Only run commands that will complete quickly, because you the user will have to wait for the command to finish.
-8. Be mindful of the user's environment and try not to make big changes without explicit permission. Ask permission before setting up something big like installing venv or virtual environments or gobally installing packages.
+8. Be mindful of the user's environment and try not to make big changes without explicit permission. Ask permission before setting up something big like installing venv or virtual environments or globally installing packages.
 
 ## Web scraping
 
