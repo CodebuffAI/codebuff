@@ -27,7 +27,8 @@
     "start-vscode": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/vscode",
     "start-nushell": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/nushell",
     "start-prod": "bun run with-env -- ts-node src/index.ts",
-    "typecheck": "tsc --noEmit && tsc-alias"
+    "typecheck-this-package": "tsc --noEmit && tsc-alias",
+    "typecheck": "bun run --cwd ../common build && bun run --cwd ../packages/code-map build && bun run typecheck-this-package"
   },
   "files": [
     "dist",

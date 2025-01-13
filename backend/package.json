@@ -7,7 +7,8 @@
   "scripts": {
     "start": "bun run -r tsconfig-paths/register src/index.ts",
     "dev": "bun --hot run -r tsconfig-paths/register src/index.ts",
-    "build": "tsc --build && tsc-alias"
+    "typecheck-this-package": "tsc --noEmit && tsc-alias",
+    "typecheck": "bun run --cwd ../common build && bun run typecheck-this-package"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.27.3",
