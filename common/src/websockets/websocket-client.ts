@@ -1,7 +1,6 @@
 import { WebSocket } from 'ws'
-import { green } from 'picocolors'
 
-import { ServerAction, ClientAction, SERVER_ACTION_SCHEMA } from '../actions'
+import { ServerAction, ClientAction } from '../actions'
 import {
   ClientMessage,
   ClientMessageType,
@@ -62,13 +61,15 @@ export class APIRealtimeClient {
   heartbeat?: any
   hadError = false
   onError: () => void
+  onReconnect: () => void
 
-  constructor(url: string, onError: () => void) {
+  constructor(url: string, onError: () => void, onReconnect: () => void) {
     this.url = url
     this.txid = 0
     this.txns = new Map()
     this.subscribers = new Map()
     this.onError = onError
+    this.onReconnect = onReconnect
   }
 
   get state() {
@@ -87,7 +88,7 @@ export class APIRealtimeClient {
     this.ws.onmessage = (ev) => {
       if (this.hadError) {
         this.hadError = false
-        console.log(green('Reconnected!'))
+        this.onReconnect()
       }
       this.receiveMessage(JSON.parse(ev.data as any))
     }

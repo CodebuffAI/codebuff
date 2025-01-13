@@ -93,18 +93,13 @@ export class CLI {
         return [matchingTokens, lastWord]
       },
     })
+
     this.client = new Client(
       websocketUrl,
       this.chatStorage,
       this.onWebSocketError.bind(this),
-      () => {
-        this.rl.prompt()
-        this.isReceivingResponse = false
-        if (this.stopResponse) {
-          this.stopResponse()
-        }
-        this.stopLoadingAnimation()
-      },
+      this.onWebSocketReconnect.bind(this),
+      this.returnControlToUser.bind(this),
       this.costMode
     )
 
@@ -156,6 +151,15 @@ export class CLI {
     })
   }
 
+  private returnControlToUser() {
+    this.rl.prompt()
+    this.isReceivingResponse = false
+    if (this.stopResponse) {
+      this.stopResponse()
+    }
+    this.stopLoadingAnimation()
+  }
+
   private onWebSocketError() {
     this.stopLoadingAnimation()
     this.isReceivingResponse = false
@@ -164,6 +168,11 @@ export class CLI {
       this.stopResponse = null
     }
     console.error(yellow('\nCould not connect. Retrying...'))
+  }
+
+  private onWebSocketReconnect() {
+    console.log(green('\nReconnected!'))
+    this.returnControlToUser()
   }
 
   private detectPasting() {

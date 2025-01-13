@@ -57,11 +57,16 @@ export class Client {
     websocketUrl: string,
     chatStorage: ChatStorage,
     onWebSocketError: () => void,
+    onWebSocketReconnect: () => void,
     returnControlToUser: () => void,
     costMode: CostMode
   ) {
     this.costMode = costMode
-    this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
+    this.webSocket = new APIRealtimeClient(
+      websocketUrl,
+      onWebSocketError,
+      onWebSocketReconnect
+    )
     this.chatStorage = chatStorage
     this.user = this.getUser()
     this.getFingerprintId()
