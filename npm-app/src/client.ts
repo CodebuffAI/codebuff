@@ -33,6 +33,8 @@ import * as fs from 'fs'
 import { match, P } from 'ts-pattern'
 import { calculateFingerprint } from './fingerprint'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
+import { stagePatches } from 'common/util/git'
+import { GitCommand } from './types'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -52,6 +54,7 @@ export class Client {
   public lastRequestCredits: number = 0
   public sessionCreditsUsed: number = 0
   public nextQuotaReset: Date | null = null
+  private git: GitCommand
 
   constructor(
     websocketUrl: string,
@@ -59,9 +62,11 @@ export class Client {
     onWebSocketError: () => void,
     onWebSocketReconnect: () => void,
     returnControlToUser: () => void,
-    costMode: CostMode
+    costMode: CostMode,
+    git: GitCommand
   ) {
     this.costMode = costMode
+    this.git = git
     this.webSocket = new APIRealtimeClient(
       websocketUrl,
       onWebSocketError,
@@ -227,6 +232,14 @@ export class Client {
 
       const filesChanged = uniq(changes.map((change) => change.filePath))
       this.chatStorage.saveFilesChanged(filesChanged)
+
+      // Stage files about to be changed if flag was set
+      if (this.git === 'stage' && changes.length > 0) {
+        const didStage = stagePatches(getProjectRoot(), changes)
+        if (didStage) {
+          console.log(green('\nStaged previous changes'))
+        }
+      }
 
       applyChanges(getProjectRoot(), changes)
 

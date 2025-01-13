@@ -100,7 +100,8 @@ export class CLI {
       this.onWebSocketError.bind(this),
       this.onWebSocketReconnect.bind(this),
       this.returnControlToUser.bind(this),
-      this.costMode
+      this.costMode,
+      this.git
     )
 
     this.readyPromise = Promise.all([
@@ -484,9 +485,9 @@ export class CLI {
     const filesChanged = uniq(allChanges.map((change) => change.filePath))
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
 
-    // Stage previous changes if flag was set
-    if (this.git === 'stage' && allChanges.length > 0) {
-      const didStage = stagePatches(getProjectRoot(), allChanges)
+    // Stage files about to be changed if flag was set
+    if (this.git === 'stage' && changes.length > 0) {
+      const didStage = stagePatches(getProjectRoot(), changes)
       if (didStage) {
         console.log(green('\nStaged previous changes'))
       }
