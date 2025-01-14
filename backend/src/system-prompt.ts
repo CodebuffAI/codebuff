@@ -24,8 +24,9 @@ export function getSearchSystemPrompt(
   const shouldDoPromptCaching = fileVersions.length > 1
 
   const maxTokens = costMode === 'lite' ? 64_000 : 200_000
-  const miscTokens = 5_000
+  const miscTokens = 10_000
   const systemPromptTokenBudget = maxTokens - messagesTokens - miscTokens
+
   const projectFilesPromptContent = getProjectFilesPromptContent(
     fileContext,
     true
@@ -36,16 +37,23 @@ export function getSearchSystemPrompt(
   const fileTreeTokenBudget =
     systemPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)
 
+  const projectFileTreePrompt = getProjectFileTreePrompt(
+    fileContext,
+    costMode,
+    fileTreeTokenBudget
+  )
+  const fileTreeTokens = countTokensJson(projectFileTreePrompt)
+
+  const systemInfoPrompt = getSystemInfoPrompt(fileContext)
+  const systemInfoTokens = countTokens(systemInfoPrompt)
+
   const systemPrompt = buildArray(
     {
       type: 'text' as const,
       cache_control: shouldDoPromptCaching
         ? { type: 'ephemeral' as const }
         : undefined,
-      text: [
-        getProjectFileTreePrompt(fileContext, costMode, fileTreeTokenBudget),
-        getSystemInfoPrompt(fileContext),
-      ].join('\n\n'),
+      text: [projectFileTreePrompt, systemInfoPrompt].join('\n\n'),
     },
     ...projectFilesPromptContent,
     {
@@ -59,11 +67,14 @@ export function getSearchSystemPrompt(
 
   logger.debug(
     {
-      fileTokenCounts: countTokensJson(fileContext.fileVersions),
+      filesTokens,
+      fileTreeTokens,
+      systemInfoTokens,
       fileVersions: fileContext.fileVersions.map((files) =>
         files.map((f) => f.path)
       ),
       systemPromptTokens: countTokensJson(systemPrompt),
+      messagesTokens,
     },
     'search system prompt tokens'
   )
@@ -80,7 +91,7 @@ export const getAgentSystemPrompt = (
   const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
   const maxTokens = costMode === 'lite' ? 64_000 : 200_000
-  const miscTokens = 5_000
+  const miscTokens = 15_000
   const agentPromptTokenBudget = maxTokens - messagesTokens - miscTokens
   const projectFilesPromptContent = getProjectFilesPromptContent(
     fileContext,
@@ -97,6 +108,23 @@ export const getAgentSystemPrompt = (
     costMode,
     fileTreeTokenBudget
   )
+  const fileTreeTokens = countTokensJson(projectFileTreePrompt)
+  const maybeProjectFileTreePrompt =
+    // For large projects, don't include file tree in agent context.
+    fileTreeTokens < (costMode === 'lite' ? 2_500 : 10_000)
+      ? projectFileTreePrompt
+      : null
+  const maybeFileTreeTokens = maybeProjectFileTreePrompt ? fileTreeTokens : 0
+
+  const systemInfoPrompt = getSystemInfoPrompt(fileContext)
+  const systemInfoTokens = countTokens(systemInfoPrompt)
+
+  const responseFormatPrompt = getResponseFormatPrompt(
+    fileContext,
+    files,
+    costMode
+  )
+  const responseFormatTokens = countTokens(responseFormatPrompt)
 
   const systemPrompt = buildArray(
     {
@@ -107,31 +135,29 @@ export const getAgentSystemPrompt = (
         editingFilesPrompt,
         knowledgeFilesPrompt,
         toolsPrompt,
-        // For large projects, don't include file tree in agent context.
-        projectFileTreePrompt.length < (costMode === 'lite' ? 10_000 : 40_000)
-          ? projectFileTreePrompt
-          : null,
-        getSystemInfoPrompt(fileContext)
+        maybeProjectFileTreePrompt,
+        systemInfoPrompt
       ).join('\n\n'),
     },
     ...projectFilesPromptContent,
     {
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
-      text: buildArray(
-        gitChangesPrompt,
-        getResponseFormatPrompt(fileContext, files, costMode)
-      ).join('\n\n'),
+      text: buildArray(gitChangesPrompt, responseFormatPrompt).join('\n\n'),
     }
   )
 
   logger.debug(
     {
-      totalFileTokens: countTokensJson(fileContext.fileVersions),
+      filesTokens,
+      fileTreeTokens: maybeFileTreeTokens,
+      systemInfoTokens,
+      responseFormatTokens,
       fileVersions: fileContext.fileVersions.map((files) =>
         files.map((f) => f.path)
       ),
       systemPromptTokens: countTokensJson(systemPrompt),
+      messagesTokens,
     },
     'agent system prompt tokens'
   )
@@ -424,7 +450,7 @@ export const getProjectFileTreePrompt = (
   const { currentWorkingDirectory } = fileContext
   const { printedTree } = truncateFileTreeBasedOnTokenBudget(
     fileContext,
-    Math.max(0, fileTreeTokenBudget)
+    Math.min(Math.max(0, fileTreeTokenBudget), 100_000)
   )
   return `
 # Project file tree
