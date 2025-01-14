@@ -90,6 +90,27 @@ export class CLI {
           (token) =>
             token.startsWith(lastWord) || token.includes('/' + lastWord)
         )
+        if (matchingTokens.length > 1) {
+          // Find common characters after lastWord
+          const suffixes = matchingTokens.map(token => {
+            const index = token.indexOf(lastWord)
+            return token.slice(index + lastWord.length)
+          })
+          let commonPrefix = ''
+          const firstSuffix = suffixes[0]
+          for (let i = 0; i < firstSuffix.length; i++) {
+            const char = firstSuffix[i]
+            if (suffixes.every(suffix => suffix[i] === char)) {
+              commonPrefix += char
+            } else {
+              break
+            }
+          }
+          if (commonPrefix) {
+            // Match the common prefix
+            return [[lastWord + commonPrefix], lastWord]
+          }
+        }
         return [matchingTokens, lastWord]
       },
     })
