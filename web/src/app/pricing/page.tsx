@@ -61,7 +61,10 @@ const PricingCards = () => {
           ],
           cardFooterChildren:
             config.planName === UsageLimits.FREE ? (
-              <FreePlanButton currentPlan={effectiveCurrentPlan} />
+              <FreePlanButton
+                currentPlan={effectiveCurrentPlan}
+                userEmail={session.data?.user?.email}
+              />
             ) : (
               <PaidPlanFooter
                 planName={config.planName as UsageLimits}

@@ -6,9 +6,13 @@ import { UsageLimits } from 'common/constants'
 
 type FreePlanButtonProps = {
   currentPlan: UsageLimits | undefined
+  userEmail: string | undefined | null
 }
 
-export const FreePlanButton = ({ currentPlan }: FreePlanButtonProps) => {
+export const FreePlanButton = ({
+  currentPlan,
+  userEmail,
+}: FreePlanButtonProps) => {
   const router = useRouter()
   const isFreeTier =
     currentPlan === UsageLimits.FREE || currentPlan === UsageLimits.ANON
@@ -23,7 +27,9 @@ export const FreePlanButton = ({ currentPlan }: FreePlanButtonProps) => {
           router.push('https://www.npmjs.com/package/codebuff')
         } else {
           // For downgrades to free plan, send to cancellation portal
-          router.push(env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL)
+          router.push(
+            `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(userEmail ?? '')}`
+          )
         }
       }}
     >

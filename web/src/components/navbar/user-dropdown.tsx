@@ -5,6 +5,7 @@ import { Session } from 'next-auth'
 import { signOut } from 'next-auth/react'
 import posthog from 'posthog-js'
 import { useRouter } from 'next/navigation'
+import { env } from '@/env.mjs'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
@@ -43,17 +44,21 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
             height={100}
           />
           <h2 className="py-2 text-lg font-bold">{user?.name}</h2>
-          <Button
-            onClick={() => router.push('/pricing')}
-            disabled={user?.subscription_active}
-            className="w-64"
-          >
-            {user?.subscription_active ? (
-              <p>You are on the pro tier!</p>
-            ) : (
-              <>Upgrade to pro</>
-            )}
-          </Button>
+          {user?.subscription_active ? (
+            <Button
+              onClick={() => window.location.href = `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(user?.email ?? '')}`}
+              className="w-64"
+            >
+              Manage Billing
+            </Button>
+          ) : (
+            <Button
+              onClick={() => router.push('/pricing')}
+              className="w-64"
+            >
+              Upgrade to pro
+            </Button>
+          )}
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => {
