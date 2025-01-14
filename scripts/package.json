@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Scripts package for Codebuff",
   "scripts": {
-    "mrr": "bun calculate-mrr.ts"
+    "mrr": "bun calculate-mrr.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "backend": "file:../backend",
