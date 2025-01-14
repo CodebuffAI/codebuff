@@ -159,7 +159,7 @@ export const runTerminalCommand = async (
 ): Promise<{ result: string; stdout: string }> => {
   const MAX_EXECUTION_TIME = 30_000
 
-  const projectRoot = getProjectRoot()
+  let projectRoot = getProjectRoot()
 
   return new Promise((resolve) => {
     if (!persistentProcess) {
@@ -233,7 +233,9 @@ export const runTerminalCommand = async (
 
           if (command.startsWith('cd ') && mode === 'user') {
             const newWorkingDirectory = command.split(' ')[1]
-            setProjectRoot(path.join(projectRoot, newWorkingDirectory))
+            projectRoot = setProjectRoot(
+              path.join(projectRoot, newWorkingDirectory)
+            )
           }
 
           if (mode === 'assistant') {
