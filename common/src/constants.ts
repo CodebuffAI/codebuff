@@ -168,7 +168,7 @@ export const getModelForMode = (
     return costMode === 'pro' ? claudeModels.sonnet : claudeModels.haiku
   }
   if (operation === 'check-new-files') {
-    return costMode === 'pro' ? models.gpt4o : models.gpt4omini
+    return costMode === 'lite' ? models.gpt4omini : models.gpt4o
   }
   throw new Error(`Unknown operation: ${operation}`)
 }
