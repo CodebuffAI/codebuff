@@ -32,6 +32,7 @@ const getCustomerId = (
     .exhaustive()
 }
 
+
 const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const buf = await req.text()
@@ -137,23 +138,8 @@ async function handleSubscriptionChange(
   const customerId = getCustomerId(subscription.customer)
   console.log(`Customer ID: ${customerId}`)
 
-  // Get the user ID from the customer ID
-  const user = await db.query.user.findFirst({
-    where: eq(schema.user.stripe_customer_id, customerId),
-    columns: { id: true },
-  })
-
-  if (!user) {
-    throw new Error('No user found for customer ID')
-  }
-  console.log(`Found user ID: ${user.id}`)
-
-  // Get quota from Stripe subscription
-  const quotaManager = new AuthenticatedQuotaManager()
-  const { quota } = await quotaManager.getStripeSubscriptionQuota(user.id)
-  const baseQuota = Math.max(quota, PLAN_CONFIGS[usageTier].limit)
-
-  // Add referral credits
+  // Get quota from the target plan and add referral credits
+  const baseQuota = PLAN_CONFIGS[usageTier].limit
   const referralCredits = await getTotalReferralCreditsForCustomer(customerId)
   const newQuota = baseQuota + referralCredits
   console.log(
@@ -161,11 +147,16 @@ async function handleSubscriptionChange(
   )
 
   let newSubscriptionId: string | null = subscription.id
-  if (subscription.cancellation_details?.reason) {
-    console.log(
-      `Subscription cancelled: ${subscription.cancellation_details.reason}`
-    )
-    newSubscriptionId = null
+  if (subscription.canceled_at) {
+    const cancelTime = new Date(subscription.canceled_at * 1000)
+    const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000)
+    
+    if (cancelTime <= fiveMinutesFromNow) {
+      console.log(
+        `Subscription cancelled at ${cancelTime.toISOString()}`
+      )
+      newSubscriptionId = null
+    }
   }
   console.log(`New subscription ID: ${newSubscriptionId}`)
 

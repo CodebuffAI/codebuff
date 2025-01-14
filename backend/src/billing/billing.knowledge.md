@@ -55,6 +55,16 @@ Key methods:
 - Non-subscribed users are blocked when exceeding their quota
 - Quota tracking continues even when checks are bypassed for billing purposes
 
+Important: When handling subscription states:
+- Distinguish between immediate cancellation and scheduled cancellation (cancel_at_period_end)
+- Keep subscription active until period end for scheduled cancellations
+- For downgrades, use the new plan's quota immediately - do not look up current subscription quota
+- Always preserve referral credits through plan changes by adding them after determining the new base quota
+- When checking for cancelled subscriptions:
+  - Use subscription.canceled_at timestamp instead of cancellation_details
+  - Consider subscription cancelled if canceled_at is in past or within next 5 minutes
+  - This handles both immediate cancellations and scheduled cancellations that are about to take effect
+
 ### Subscription Migrations
 
 Important: When handling multiple subscription tiers:
