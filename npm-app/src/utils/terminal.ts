@@ -193,6 +193,14 @@ export const runTerminalCommand = async (
       }, MAX_EXECUTION_TIME)
 
       const dataDisposable = ptyProcess.onData((data: string) => {
+        // Trim first line if it's the prompt identifier
+        if (
+          commandOutput.trim() === '' &&
+          data.trimStart().startsWith(promptIdentifier)
+        ) {
+          data = data.trimStart().slice(promptIdentifier.length)
+        }
+
         const prefix = commandOutput + data
 
         // Skip the first line of the output, because it's the command being printed.
