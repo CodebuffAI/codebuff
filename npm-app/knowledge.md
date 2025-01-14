@@ -17,6 +17,8 @@
     - --login flag for Unix shells to load login shell environment
     - Explicit sourcing of RC files for shell-specific configurations
     - Windows shells don't use --login flag
+    - For Unix shells, set PS1 prompt after sourcing RC files
+    - Windows uses PROMPT env var, Unix uses PS1 command
   
   - Sets environment variables for optimal experience:
     - TERM='xterm-256color' for color support

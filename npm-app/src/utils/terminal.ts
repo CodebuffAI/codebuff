@@ -16,6 +16,8 @@ try {
   console.error = tempConsoleError
 }
 
+const promptIdentifier = '@36261@'
+
 const createPty = (dir: string) => {
   if (pty) {
     const isWindows = os.platform() === 'win32'
@@ -44,14 +46,13 @@ const createPty = (dir: string) => {
         '$PSProfile = $PROFILE.CurrentUserAllHosts; if (Test-Path $PSProfile) { . $PSProfile }\n'
     }
 
-    const persistentPty = pty.spawn(shell, [], {
+    const persistentPty = pty.spawn(shell, isWindows ? [] : ['--login'], {
       name: 'xterm-256color',
       cols: process.stdout.columns || 80,
       rows: process.stdout.rows || 24,
       cwd: dir,
       env: {
         ...process.env,
-        TERM: 'xterm-256color',
         PAGER: 'cat',
         GIT_PAGER: 'cat',
         GIT_TERMINAL_PROMPT: '0',
@@ -59,10 +60,12 @@ const createPty = (dir: string) => {
           ? {
               TERM: 'cygwin',
               ANSICON: '1', // Better ANSI support in cmd.exe
-              PROMPT: '$P$G', // Simple prompt to avoid parsing issues
+              PROMPT: promptIdentifier,
               PSModulePath: process.env.PSModulePath || '', // Preserve PowerShell modules
             }
-          : {}),
+          : {
+              TERM: 'xterm-256color',
+            }),
         LESS: '-FRX',
         TERM_PROGRAM: 'mintty',
         NO_COLOR: process.env.NO_COLOR, // Respect NO_COLOR if set
@@ -79,6 +82,10 @@ const createPty = (dir: string) => {
     // Source the shell config file if available
     if (shellInitCommands) {
       persistentPty.write(shellInitCommands)
+    }
+    // Set prompt for Unix shells after sourcing config
+    if (!isWindows) {
+      persistentPty.write(`PS1='${promptIdentifier}'\n`)
     }
 
     return { type: 'pty', pty: persistentPty } as const
@@ -210,19 +217,7 @@ export const runTerminalCommand = async (
           return
         }
 
-        // Detect the end of the command output if the prompt is printed.
-        // Windows PowerShell prompt pattern: "MM/DD HH:mm Path ►"
-        const simpleWindowsPromptRegex = /\d{2}:\d{2}.*►/
-        // Another cmd prompt: "C:\Users\Name\My Projects>"
-        const simpleWindowsPromptRegex2 = /[A-Z]:\\.*\\.*>/
-
-        const hasSimplePromptOnWindows = simpleWindowsPromptRegex.test(prefix)
-        const hasSimplePromptOnWindows2 = simpleWindowsPromptRegex2.test(prefix)
-
-        const promptDetected =
-          prefix.includes('bash-3.2$ ') ||
-          hasSimplePromptOnWindows ||
-          hasSimplePromptOnWindows2
+        const promptDetected = prefix.includes(promptIdentifier)
 
         if (promptDetected) {
           clearTimeout(timer)
