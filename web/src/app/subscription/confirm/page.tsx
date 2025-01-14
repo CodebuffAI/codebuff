@@ -70,7 +70,8 @@ const useUpgradeSubscription = (
         return
       }
 
-      router.push('/payment-success')
+      const modification = changeOrUpgrade(currentPlan, targetPlan)
+      router.push('/payment-change?modification=' + modification)
     },
     onError: async (error: any) => {
       console.error('Error upgrading subscription:', error)
