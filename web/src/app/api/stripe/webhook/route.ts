@@ -65,21 +65,27 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       case 'customer.subscription.updated': {
         // Determine plan type from subscription items
         const subscription = event.data.object as Stripe.Subscription
-        
+
         // Handle subscription states with ts-pattern match
         await match(subscription)
-          .with({ status: P.union('incomplete_expired', 'unpaid') }, async (sub) => {
-            // Immediately downgrade for payment-related failures
-            await handleSubscriptionChange(sub, UsageLimits.FREE)
-          })
+          .with(
+            { status: P.union('incomplete_expired', 'unpaid') },
+            async (sub) => {
+              // Immediately downgrade for payment-related failures
+              await handleSubscriptionChange(sub, UsageLimits.FREE)
+            }
+          )
           .with({ status: 'canceled', cancel_at_period_end: true }, () => {
             // Keep user on current plan until period end
             // No action needed, subscription.deleted event will handle the downgrade
           })
-          .with({ status: 'canceled', cancel_at_period_end: false }, async (sub) => {
-            // Immediate cancellation, downgrade now
-            await handleSubscriptionChange(sub, UsageLimits.FREE)
-          })
+          .with(
+            { status: 'canceled', cancel_at_period_end: false },
+            async (sub) => {
+              // Immediate cancellation, downgrade now
+              await handleSubscriptionChange(sub, UsageLimits.FREE)
+            }
+          )
           .otherwise(async (sub) => {
             // For other states (active, trialing, past_due), proceed normally
             const basePriceId = getSubscriptionItemByType(sub, 'licensed')
@@ -188,8 +194,6 @@ async function handleInvoiceCreated(
 
   // Get total referral credits for this user
   const referralCredits = await getTotalReferralCreditsForCustomer(customerId)
-
-  // Apply referral credits to the user's Stripe usage
   if (referralCredits > 0) {
     await stripeServer.billing.meterEvents.create({
       event_name: 'credits',
@@ -197,12 +201,8 @@ async function handleInvoiceCreated(
       payload: {
         stripe_customer_id: customerId,
         value: `-${referralCredits}`,
+        description: `Referral bonus: your bill was reduced by ${referralCredits} credits.`,
       },
-    })
-
-    // Add note explaining the referral credit adjustment
-    await stripeServer.invoices.update(invoiceCreated.data.object.id, {
-      description: `Referral bonus: ${referralCredits} credits deducted`,
     })
   }
 }

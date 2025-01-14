@@ -247,6 +247,16 @@ Stripe webhooks (`web/src/app/api/stripe/webhook/route.ts`) handle:
 - Subscription creation, updates, and deletions.
 - Invoice payments.
 
+Important: When handling invoice.created events:
+- Cannot modify invoice description during checkout sessions
+- Only update invoice descriptions for regular subscription invoices
+- Skip description updates when invoice has subscription or checkout_session fields
+
+Important: When handling invoice.created events:
+- Cannot modify invoice description during checkout sessions
+- Only update invoice descriptions for regular subscription invoices
+- Skip description updates when invoice has subscription or checkout_session fields
+
 Key functions:
 
 - `handleSubscriptionChange`: Updates user quota and subscription status.
@@ -261,6 +271,19 @@ Important: When sending meter events to Stripe:
 - Events before subscription starts are ignored by Stripe
 - Keep implementation simple - avoid premature optimization like batching or complex helper functions
 - Prefer async operations that don't block the main flow
+- For billing adjustments like referral credits:
+  - Use billing.meterEvents.create with negative values
+  - This is more reliable than modifying invoice descriptions
+  - Credits will appear directly in line items
+  - No need to modify invoice metadata or descriptions
+  - Cannot use Stripe coupons/promotions for usage-based credits:
+    - Coupons only support fixed amounts or percentages
+    - Credits need to scale with usage and tier rates
+    - Stick with negative meter events for usage-based credits
+  - For visibility in invoices:
+    - Add description in meter event payload
+    - Description appears in invoice line items
+    - Example: `description: 'Referral bonus: 500 credits'`
 
 ### Subscription Migrations
 
