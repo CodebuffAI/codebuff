@@ -1,5 +1,6 @@
 import { Message } from 'common/actions'
 import { models, claudeModels, CostMode } from 'common/constants'
+import { countTokensJson } from './util/token-counter'
 import {
   createMarkdownFileBlock,
   isValidFilePath,
@@ -70,7 +71,7 @@ Only output the file paths, one per line, nothing else.`,
     ],
     {
       model: claudeModels.sonnet,
-      system: getSearchSystemPrompt(fileContext, costMode),
+      system: getSearchSystemPrompt(fileContext, costMode, countTokensJson(messages)),
       clientSessionId,
       fingerprintId,
       userInputId,

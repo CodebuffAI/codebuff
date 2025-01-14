@@ -10,6 +10,7 @@ import { promptOpenAI } from './openai-api'
 import { promptClaude } from './claude'
 import { getAgentSystemPrompt } from './system-prompt'
 import { logger } from './util/logger'
+import { countTokensJson } from './util/token-counter'
 
 export async function checkConversationProgress(
   messages: Message[],
@@ -44,7 +45,12 @@ Answer with "STOP" or "CONTINUE". If "STOP", do not include any other text.
 Otherwise, say very briefly what still needs to be completed to satify the user request.
 `.trim()
 
-  const system = getAgentSystemPrompt(fileContext, options.costMode)
+  const messagesTokens = countTokensJson([{ role: 'user', content: prompt }])
+  const system = getAgentSystemPrompt(
+    fileContext,
+    options.costMode,
+    messagesTokens
+  )
 
   const response = await promptClaude([{ role: 'user', content: prompt }], {
     model: claudeModels.sonnet,

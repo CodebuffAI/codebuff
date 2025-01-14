@@ -79,8 +79,9 @@ export async function mainPrompt(
   let resetFileVersions = false
   const justUsedATool = didClientUseTool(lastMessage)
 
+  const messagesTokens = countTokensJson(messages)
   // Step 1: Read more files.
-  const system = getSearchSystemPrompt(fileContext, costMode)
+  const system = getSearchSystemPrompt(fileContext, costMode, messagesTokens)
   const {
     newFileVersions,
     toolCallMessage,
@@ -106,7 +107,7 @@ export async function mainPrompt(
     fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}`
 
     // Prompt cache the new files.
-    const system = getSearchSystemPrompt(fileContext, costMode)
+    const system = getSearchSystemPrompt(fileContext, costMode, messagesTokens)
     warmCacheForRequestRelevantFiles(
       system,
       costMode,
@@ -162,10 +163,12 @@ export async function mainPrompt(
   }
 
   while (!isComplete) {
-    const system = getAgentSystemPrompt(fileContext, costMode)
     const messagesWithContinuedMessage = continuedMessages
       ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
       : messages
+
+    const messagesTokens = countTokensJson(messagesWithContinuedMessage)
+    const system = getAgentSystemPrompt(fileContext, costMode, messagesTokens)
 
     logger.debug(
       {
@@ -378,7 +381,7 @@ export async function mainPrompt(
       } = await getFileVersionUpdates(
         ws,
         [...messages, { role: 'assistant', content: fullResponse }],
-        getSearchSystemPrompt(fileContext, costMode),
+        getSearchSystemPrompt(fileContext, costMode, messagesTokens),
         fileContext,
         description,
         {
@@ -436,7 +439,7 @@ export async function mainPrompt(
       } = await getFileVersionUpdates(
         ws,
         [...messages, { role: 'assistant', content: fullResponse }],
-        getSearchSystemPrompt(fileContext, costMode),
+        getSearchSystemPrompt(fileContext, costMode, messagesTokens),
         fileContext,
         null,
         {
@@ -645,7 +648,7 @@ async function getFileVersionUpdates(
     userId,
     costMode,
   } = options
-  const FILE_TOKEN_BUDGET = costMode === 'lite' ? 30_000 : 90_000
+  const FILE_TOKEN_BUDGET = costMode === 'lite' ? 25_000 : 80_000
 
   const { fileVersions } = fileContext
   const files = fileVersions.flatMap((files) => files)

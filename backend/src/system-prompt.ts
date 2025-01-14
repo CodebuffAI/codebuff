@@ -9,7 +9,7 @@ import {
 import { buildArray } from 'common/util/array'
 import { truncateString } from 'common/util/string'
 import { CostMode, STOP_MARKER } from 'common/constants'
-import { countTokensJson } from './util/token-counter'
+import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
 import { sortBy, sum, uniq } from 'lodash'
 import { filterObject, removeUndefinedProps } from 'common/util/object'
@@ -17,10 +17,24 @@ import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 
 export function getSearchSystemPrompt(
   fileContext: ProjectFileContext,
-  costMode: CostMode
+  costMode: CostMode,
+  messagesTokens: number
 ) {
   const { fileVersions } = fileContext
   const shouldDoPromptCaching = fileVersions.length > 1
+
+  const maxTokens = costMode === 'lite' ? 64_000 : 200_000
+  const miscTokens = 5_000
+  const systemPromptTokenBudget = maxTokens - messagesTokens - miscTokens
+  const projectFilesPromptContent = getProjectFilesPromptContent(
+    fileContext,
+    true
+  )
+  const filesTokens = countTokensJson(projectFilesPromptContent)
+
+  const gitChangesPrompt = getGitChangesPrompt(fileContext)
+  const fileTreeTokenBudget =
+    systemPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)
 
   const systemPrompt = buildArray(
     {
@@ -29,17 +43,17 @@ export function getSearchSystemPrompt(
         ? { type: 'ephemeral' as const }
         : undefined,
       text: [
-        getProjectFileTreePrompt(fileContext, costMode),
+        getProjectFileTreePrompt(fileContext, costMode, fileTreeTokenBudget),
         getSystemInfoPrompt(fileContext),
       ].join('\n\n'),
     },
-    ...getProjectFilesPromptContent(fileContext, shouldDoPromptCaching),
+    ...projectFilesPromptContent,
     {
       type: 'text' as const,
       cache_control: shouldDoPromptCaching
         ? { type: 'ephemeral' as const }
         : undefined,
-      text: [getGitChangesPrompt(fileContext)].join('\n\n'),
+      text: [gitChangesPrompt].join('\n\n'),
     }
   )
 
@@ -59,12 +73,30 @@ export function getSearchSystemPrompt(
 
 export const getAgentSystemPrompt = (
   fileContext: ProjectFileContext,
-  costMode: CostMode
+  costMode: CostMode,
+  messagesTokens: number
 ) => {
   const { fileVersions } = fileContext
   const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
-  const projectFileTreePrompt = getProjectFileTreePrompt(fileContext, costMode)
+  const maxTokens = costMode === 'lite' ? 64_000 : 200_000
+  const miscTokens = 5_000
+  const agentPromptTokenBudget = maxTokens - messagesTokens - miscTokens
+  const projectFilesPromptContent = getProjectFilesPromptContent(
+    fileContext,
+    true
+  )
+  const filesTokens = countTokensJson(projectFilesPromptContent)
+
+  const gitChangesPrompt = getGitChangesPrompt(fileContext)
+  const fileTreeTokenBudget =
+    agentPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)
+
+  const projectFileTreePrompt = getProjectFileTreePrompt(
+    fileContext,
+    costMode,
+    fileTreeTokenBudget
+  )
 
   const systemPrompt = buildArray(
     {
@@ -82,12 +114,12 @@ export const getAgentSystemPrompt = (
         getSystemInfoPrompt(fileContext)
       ).join('\n\n'),
     },
-    ...getProjectFilesPromptContent(fileContext, true),
+    ...projectFilesPromptContent,
     {
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
       text: buildArray(
-        getGitChangesPrompt(fileContext),
+        gitChangesPrompt,
         getResponseFormatPrompt(fileContext, files, costMode)
       ).join('\n\n'),
     }
@@ -386,12 +418,13 @@ Scrape any url that could help address the user's request.
 
 export const getProjectFileTreePrompt = (
   fileContext: ProjectFileContext,
-  costMode: CostMode
+  costMode: CostMode,
+  fileTreeTokenBudget: number
 ) => {
   const { currentWorkingDirectory } = fileContext
   const { printedTree } = truncateFileTreeBasedOnTokenBudget(
     fileContext,
-    costMode === 'lite' ? 30_000 : 80_000
+    Math.max(0, fileTreeTokenBudget)
   )
   return `
 # Project file tree
