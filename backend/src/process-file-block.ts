@@ -255,7 +255,7 @@ Return only the full, complete file content with no additional text or explanati
       fingerprintId,
       userInputId,
       userId,
-      model: costMode === 'pro' ? openaiModels.gpt4o : openaiModels.gpt4omini,
+      model: costMode === 'max' ? openaiModels.gpt4o : openaiModels.gpt4omini,
       predictedContent: updatedContent,
     }
   )

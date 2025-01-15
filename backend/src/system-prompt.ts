@@ -589,7 +589,7 @@ const getResponseFormatPrompt = (
 # Response format
 
 ${
-  costMode === 'pro'
+  costMode === 'max'
     ? `## 0. Invoke the plan_complex_change tool
 
 Consider using the plan_complex_change tool when the user's request meets multiple of these criteria:

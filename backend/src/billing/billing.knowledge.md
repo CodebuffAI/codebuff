@@ -56,6 +56,7 @@ Key methods:
 - Quota tracking continues even when checks are bypassed for billing purposes
 
 Important: When handling subscription states:
+
 - Distinguish between immediate cancellation and scheduled cancellation (cancel_at_period_end)
 - Keep subscription active until period end for scheduled cancellations
 - For downgrades, use the new plan's quota immediately - do not look up current subscription quota
@@ -258,11 +259,13 @@ Stripe webhooks (`web/src/app/api/stripe/webhook/route.ts`) handle:
 - Invoice payments.
 
 Important: When handling invoice.created events:
+
 - Cannot modify invoice description during checkout sessions
 - Only update invoice descriptions for regular subscription invoices
 - Skip description updates when invoice has subscription or checkout_session fields
 
 Important: When handling invoice.created events:
+
 - Cannot modify invoice description during checkout sessions
 - Only update invoice descriptions for regular subscription invoices
 - Skip description updates when invoice has subscription or checkout_session fields
@@ -365,7 +368,7 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 ## Best Practices
 
 1. Always use `getQuotaManager` to obtain the correct quota manager instance.
-2. Perform quota checks before processing pro operations.
+2. Perform quota checks before processing operations.
 3. Update quotas after successful operations that consume credits.
 4. Ensure proper error handling for quota exceeded scenarios.
 5. Regularly review and adjust pricing and quota limits based on usage patterns.
@@ -406,17 +409,20 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 ## Revenue Tracking
 
 To calculate MRR and ARR:
+
 ```bash
 bun run --cwd scripts mrr
 ```
 
 This script:
+
 - Sums base subscription fees from all active subscriptions
 - Excludes usage-based billing and subscriptions scheduled for cancellation
 - Handles pagination for all subscriptions
 - Shows both monthly (MRR) and annualized (ARR) revenue
 
 Important: When calculating MRR:
+
 - Check subscription.cancel_at_period_end to exclude subscriptions scheduled for cancellation
 - Only count the base subscription fee (licensed item), not metered usage
 - Use subscription.status='active' to exclude already-cancelled subscriptions

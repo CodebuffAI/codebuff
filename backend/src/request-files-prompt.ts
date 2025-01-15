@@ -33,7 +33,7 @@ export async function requestRelevantFiles(
   const previousFiles = uniq(
     fileVersions.flatMap((files) => files.map(({ path }) => path))
   )
-  const countPerRequest = costMode === 'pro' ? 9 : costMode === 'lite' ? 7 : 8
+  const countPerRequest = costMode === 'max' ? 9 : costMode === 'lite' ? 7 : 8
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =

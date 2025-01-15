@@ -586,7 +586,7 @@ function getExtraInstructionForUserPrompt(
       : ' Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
 
     !justUsedATool &&
-      costMode === 'pro' &&
+      costMode === 'max' &&
       'If the user request is very complex (e.g. requires changes across multiple files or systems), please consider invoking the plan_complex_change tool to create a plan, although this should be used sparingly.',
 
     hasKnowledgeFiles &&

@@ -32,7 +32,7 @@ You can also control the cost/quality tradeoff with these flags:
 
 ```bash
 codebuff --lite  # Budget mode for more econonmical responses
-codebuff --max   # Premium mode for higher quality responses (--o1 and --pro also work)
+codebuff --max   # Premium mode for higher quality responses (--o1 also works)
 ```
 
 After running `codebuff`, simply chat with it to say what coding task you want done.

@@ -136,7 +136,7 @@ export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {
   MOAR_PRO: {
     limit: 27_500,
     planName: UsageLimits.MOAR_PRO,
-    displayName: 'Pro Max',
+    displayName: 'Pro Plus',
     monthlyPrice: 249,
     overageRate: OVERAGE_RATE_MOAR_PRO,
   },
@@ -155,7 +155,7 @@ export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
     Object.entries(PLAN_CONFIGS).map(([key, config]) => [key, config.limit])
   ) as Record<UsageLimits, number>
 
-export const costModes = ['lite', 'normal', 'pro'] as const
+export const costModes = ['lite', 'normal', 'max'] as const
 export type CostMode = (typeof costModes)[number]
 
 export const getModelForMode = (
@@ -166,7 +166,7 @@ export const getModelForMode = (
     return costMode === 'lite' ? claudeModels.haiku : claudeModels.sonnet
   }
   if (operation === 'file-requests') {
-    return costMode === 'pro' ? claudeModels.sonnet : claudeModels.haiku
+    return costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku
   }
   if (operation === 'check-new-files') {
     return costMode === 'lite' ? models.gpt4omini : models.gpt4o
