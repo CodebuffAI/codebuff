@@ -66,9 +66,12 @@ if (require.main === module) {
   if (args.includes('--lite')) {
     costMode = 'lite'
     args.splice(args.indexOf('--lite'), 1)
-  } else if (args.includes('--pro')) {
+  } else if (args.includes('--pro') || args.includes('--o1') || args.includes('--max')) {
     costMode = 'pro'
-    args.splice(args.indexOf('--pro'), 1)
+    // Remove whichever flag was used
+    if (args.includes('--pro')) args.splice(args.indexOf('--pro'), 1)
+    if (args.includes('--o1')) args.splice(args.indexOf('--o1'), 1) 
+    if (args.includes('--max')) args.splice(args.indexOf('--max'), 1)
   }
 
   const projectPath = args[0]
@@ -89,7 +92,7 @@ if (require.main === module) {
       '  --lite                          Use budget models & fetch fewer files'
     )
     console.log(
-      '  --pro                           Use higher quality models and fetch more files'
+      '  --max, --pro, --o1              Use higher quality models and fetch more files'
     )
     console.log(
       '  --git stage                     Stage changes from last message'

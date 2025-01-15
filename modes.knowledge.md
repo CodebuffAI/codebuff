@@ -79,8 +79,8 @@ codebuff --lite
 # Run in normal mode (default)
 codebuff
 
-# Run in pro mode
-codebuff --pro
+# Run in max mode
+codebuff --max
 ```
 
 ## Technical Details

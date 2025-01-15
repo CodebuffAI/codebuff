@@ -80,7 +80,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
     '- Type "diff" or "d" to show changes from the last assistant response'
   )
   console.log(
-    '- Start codebuff with --lite for efficient, budget responses or --pro for higher quality responses'
+    '- Start codebuff with --lite for efficient, budget responses or --max for higher quality responses'
   )
   console.log(`- Redeem a referral code by simply pasting it here.`)
   console.log(
