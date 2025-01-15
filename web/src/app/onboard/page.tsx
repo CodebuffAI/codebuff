@@ -13,6 +13,8 @@ import { genAuthCode } from 'common/util/credentials'
 import { env } from '@/env.mjs'
 import CardWithBeams from '@/components/card-with-beams'
 import { redeemReferralCode } from '../api/referrals/helpers'
+import { AuthenticatedQuotaManager } from 'common/billing/quota-manager'
+import ClientAnalytics from './ClientAnalytics'
 
 interface PageProps {
   searchParams: {
@@ -26,6 +28,20 @@ const Onboard = async ({ searchParams }: PageProps) => {
   const referralCode = searchParams.referral_code
   const session = await getServerSession(authOptions)
   const user = session?.user
+  
+  // Initialize state variables
+  let isFirstTime = true
+  let hasNewCredits = false
+  let redeemReferralMessage = <></>
+
+  // Initialize analytics component
+  const analyticsComponent = (
+    <ClientAnalytics
+      isFirstTime={isFirstTime}
+      hasNewCredits={hasNewCredits}
+      referralCode={referralCode}
+    />
+  )
 
   // Check if values are present
   if (!authCode || !user) {
@@ -94,10 +110,55 @@ const Onboard = async ({ searchParams }: PageProps) => {
   if (fingerprintExists.length > 0) {
     return CardWithBeams({
       title: 'Your account is already connected to your cli!',
-      description:
-        'Feel free to close this window and head back to your terminal. Enjoy the extra api credits!',
-      content: <p>No replay attack for you 👊</p>,
+      description: hasNewCredits
+        ? 'Feel free to close this window and head back to your terminal. Enjoy your new credits!'
+        : 'Feel free to close this window and head back to your terminal.',
+      content: (
+        <div className="flex flex-col space-y-2">
+          <p>No replay attack for you 👊</p>
+          {redeemReferralMessage}
+          {analyticsComponent}
+        </div>
+      ),
     })
+  }
+
+  // Check user's usage to determine if they're a first-time user
+  const quotaManager = new AuthenticatedQuotaManager()
+  const { creditsUsed } = await quotaManager.checkQuota(user.id)
+  isFirstTime = creditsUsed === 0
+  hasNewCredits = isFirstTime
+
+  // Process referral code if present
+  if (referralCode) {
+    try {
+      const redeemReferralResp = await redeemReferralCode(referralCode, user.id)
+      const respJson = await redeemReferralResp.json()
+      if (!redeemReferralResp.ok) {
+        throw new Error(respJson.error)
+      }
+      redeemReferralMessage = (
+        <p>
+          You just earned an extra {respJson.credits_redeemed} credits from your
+          referral code!
+        </p>
+      )
+      hasNewCredits = true
+    } catch (e) {
+      console.error(e)
+      const error = e as Error
+      redeemReferralMessage = (
+        <div className="flex flex-col space-y-2">
+          <p>
+            Uh-oh, we couldn&apos;t apply your referral code. {error.message}
+          </p>
+          <p>
+            Please try again and reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if
+            the problem persists.
+          </p>
+        </div>
+      )
+    }
   }
 
   // Add it to the db
@@ -135,55 +196,49 @@ const Onboard = async ({ searchParams }: PageProps) => {
     return !!session.length
   })
 
-  let redeemReferralMessage = <></>
-  if (referralCode) {
-    try {
-      const redeemReferralResp = await redeemReferralCode(referralCode, user.id)
-      const respJson = await redeemReferralResp.json()
-      if (!redeemReferralResp.ok) {
-        throw new Error(respJson.error)
-      }
-      redeemReferralMessage = (
-        <p>
-          You just earned an extra {respJson.credits_redeemed} credits from your
-          referral code!
-        </p>
-      )
-    } catch (e) {
-      console.error(e)
-      const error = e as Error
-      redeemReferralMessage = (
-        <div className="flex flex-col space-y-2">
-          <p>
-            Uh-oh, we couldn&apos;t apply your referral code. {error.message}
-          </p>
-          <p>
-            Please try again and reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if
-            the problem persists.
-          </p>
-        </div>
-      )
-    }
-  }
+  // All database operations completed successfully
 
   // Render the result
   if (didInsert) {
-    return CardWithBeams({
-      title: 'Nicely done!',
-      description:
-        'Feel free to close this window and head back to your terminal.',
-      content: (
-        <div className="flex flex-col space-y-2">
-          <Image
-            src="/auth-success.png"
-            alt="Successful authentication"
-            width={600}
-            height={600}
-          />
-          {redeemReferralMessage}
-        </div>
-      ),
-    })
+    if (isFirstTime) {
+      return CardWithBeams({
+        title: 'Welcome to Codebuff!',
+        description: hasNewCredits
+          ? 'Your credits are now live. Have fun!'
+          : 'Your account is now set up and ready to go.',
+        content: (
+          <div className="flex flex-col space-y-2">
+            <Image
+              src="/auth-success.png"
+              alt="Successful authentication"
+              width={600}
+              height={600}
+            />
+            {redeemReferralMessage}
+            {analyticsComponent}
+          </div>
+        ),
+      })
+    } else {
+      return CardWithBeams({
+        title: 'Glad to see you again!',
+        description: hasNewCredits
+          ? 'Your account is active and you have new credits to use.'
+          : 'Your account is already active; no extra steps needed.',
+        content: (
+          <div className="flex flex-col space-y-2">
+            <Image
+              src="/auth-success.png"
+              alt="Successful authentication"
+              width={600}
+              height={600}
+            />
+            {redeemReferralMessage}
+            {analyticsComponent}
+          </div>
+        ),
+      })
+    }
   }
   return CardWithBeams({
     title: 'Uh-oh, spaghettio!',
