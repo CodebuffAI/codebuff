@@ -358,9 +358,9 @@ Purpose: Search through code files to find files with specific text patterns, fu
 
 Examples:
 <tool_call name="code_search">foo</tool_call>
-<tool_call name="code_search">"import.*foo"</tool_call>
+<tool_call name="code_search">import.*foo</tool_call>
 
-Note: you need quotes around the pattern if it contains special characters.
+Note: quotes will be automatically added around your code search pattern. You might need to escape special characters like '-' or '.' or '\' if you want to search for them.
 
 Use cases:
 1. Finding all references to a function, class, or variable name across the codebase
