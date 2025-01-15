@@ -16,7 +16,7 @@
     "start-client": "bun --cwd npm-app start",
     "start-web": "bun run start-db && bun --cwd web dev",
     "start-studio": "bun --cwd common db:studio",
-    "start-server": "bun run start-db && bun --cwd backend dev",
+    "start-server": "bun --cwd backend dev",
     "start-manifold": "bun --cwd npm-app start-manifold",
     "start-litestar": "bun --cwd npm-app start-litestar",
     "start-jpcsp": "bun --cwd npm-app start-jpcsp",

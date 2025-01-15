@@ -1,7 +1,4 @@
-import Anthropic, {
-  APIConnectionError,
-  BadRequestError,
-} from '@anthropic-ai/sdk'
+import Anthropic, { APIConnectionError } from '@anthropic-ai/sdk'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from 'common/util/object'
 import { Message } from 'common/actions'
@@ -51,10 +48,6 @@ async function* promptClaudeStreamWithoutRetry(
     throw new Error('Missing ANTHROPIC_API_KEY')
   }
 
-  if (!apiKey) {
-    throw new Error('Missing ANTHROPIC_API_KEY')
-  }
-
   const anthropic = new Anthropic({
     apiKey,
     ...(ignoreDatabaseAndHelicone
@@ -76,6 +69,7 @@ async function* promptClaudeStreamWithoutRetry(
   })
 
   const startTime = Date.now()
+
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
       model,
@@ -145,31 +139,34 @@ async function* promptClaudeStreamWithoutRetry(
     }
 
     // End of turn
-    if (type === 'message_delta' && 'usage' in chunk) {
+    if (
+      type === 'message_delta' &&
+      'usage' in chunk &&
+      !ignoreDatabaseAndHelicone
+    ) {
       if (!messageId) {
-        console.error('No messageId found')
+        logger.error('No messageId found')
         break
       }
 
       outputTokens += chunk.usage.output_tokens
-      if (messages.length > 0 && !ignoreDatabaseAndHelicone) {
-        saveMessage({
-          messageId,
-          userId,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          request: messages,
-          model,
-          response: fullResponse,
-          inputTokens,
-          outputTokens,
-          cacheCreationInputTokens,
-          cacheReadInputTokens,
-          finishedAt: new Date(),
-          latencyMs: Date.now() - startTime,
-        })
-      }
+
+      saveMessage({
+        messageId,
+        userId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        request: messages,
+        model,
+        response: fullResponse,
+        inputTokens,
+        outputTokens,
+        cacheCreationInputTokens,
+        cacheReadInputTokens,
+        finishedAt: new Date(),
+        latencyMs: Date.now() - startTime,
+      })
     }
   }
 }
