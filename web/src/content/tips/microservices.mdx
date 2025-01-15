@@ -5,11 +5,12 @@ tags: ['microservices', 'architecture']
 order: 8
 ---
 
-# Microservices Development
+# Working with Microservices
 
 ## Project Organization
 
 ### Repository Structure
+
 ```
 services/
   auth-service/
@@ -24,6 +25,7 @@ services/
 ```
 
 ### Knowledge Management
+
 - Create service-specific knowledge files
 - Document service boundaries
 - Track dependencies
@@ -32,12 +34,14 @@ services/
 ## Development Patterns
 
 ### Service Communication
+
 - Document API contracts
 - Maintain consistent patterns
 - Version interfaces
 - Handle failures gracefully
 
 ### Code Generation
+
 ```bash
 # Generate service skeleton
 codebuff "Create new payment-service structure"
@@ -50,6 +54,7 @@ codebuff "Create TypeScript client for payment API"
 ```
 
 ### Testing Strategy
+
 - Unit test services
 - Integration tests
 - Contract testing
@@ -58,18 +63,21 @@ codebuff "Create TypeScript client for payment API"
 ## Best Practices
 
 ### Service Independence
+
 - Maintain clear boundaries
 - Document dependencies
 - Version APIs
 - Handle failures
 
 ### Consistency
+
 - Use shared libraries
 - Follow team patterns
 - Document exceptions
 - Maintain standards
 
 ### Deployment
+
 - Version services
 - Track dependencies
 - Document rollout
@@ -78,6 +86,7 @@ codebuff "Create TypeScript client for payment API"
 ## Common Workflows
 
 ### New Service
+
 ```bash
 # 1. Generate structure
 codebuff "Create service skeleton"
@@ -93,6 +102,7 @@ codebuff "Create OpenAPI spec"
 ```
 
 ### API Changes
+
 ```bash
 # 1. Plan changes
 codebuff "Plan API update"
@@ -110,18 +120,21 @@ codebuff "Add integration tests"
 ## Tips for Success
 
 ### Development
+
 - Start small
 - Iterate quickly
 - Test thoroughly
 - Document clearly
 
 ### Deployment
+
 - Version carefully
 - Deploy gradually
 - Monitor closely
 - Rollback quickly
 
 ### Maintenance
+
 - Update regularly
 - Monitor performance
 - Track dependencies
