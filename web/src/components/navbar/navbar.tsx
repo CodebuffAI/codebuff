@@ -37,7 +37,7 @@ export const Navbar = async () => {
           height={32}
           className="rounded-sm"
         />
-        <span className="font-mono text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
+        <span className="font-mono text-2xl font-bold">
           Codebuff
         </span>
       </Link>
@@ -57,13 +57,16 @@ export const Navbar = async () => {
         {session && (
           <Link
             href="/referrals"
-            className="hover:text-blue-400 transition-colors"
+            className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
           >
             Referrals
           </Link>
         )}
         {session && (
-          <Link href="/usage" className="hover:text-blue-400 transition-colors">
+          <Link 
+            href="/usage" 
+            className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
+          >
             Usage
           </Link>
         )}

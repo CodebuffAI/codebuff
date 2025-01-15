@@ -200,7 +200,7 @@ const Home = () => {
             <p className="text-center text-lg text-muted-foreground">
               Experience the power of Codebuff right in your browser
             </p>
-            <div className="rounded-xl overflow-hidden border border-gray-200/20 shadow-2xl">
+            <div className="rounded-xl overflow-hidden shadow-2xl">
               <InteractiveTerminalDemo />
             </div>
           </section>

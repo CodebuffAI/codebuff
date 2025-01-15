@@ -182,7 +182,7 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
   return (
     <div
       className={cn(
-        'rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 w-full flex flex-col min-h-[200px]'
+        'rounded-lg overflow-hidden w-full flex flex-col min-h-[200px]'
       )}
     >
       <div className="rounded-lg bg-white dark:bg-gray-900 flex flex-col flex-1">
@@ -446,8 +446,7 @@ const InteractiveTerminalDemo = () => {
       })
   }
 
-  return (
-    <div className="flex flex-col lg:flex-row gap-4 max-w-6xl mx-auto px-4">
+  return (      <div className="flex flex-col lg:flex-row gap-4">
       <div className="w-full lg:w-1/2 h-full flex">
         <div className="w-full text-sm">
           <div className="h-[200px] md:h-[400px] lg:h-[800px]">
