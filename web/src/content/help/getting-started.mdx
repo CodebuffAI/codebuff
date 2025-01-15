@@ -7,26 +7,136 @@ order: 1
 
 # Getting Started with Codebuff
 
-Welcome to Codebuff! This guide will help you get up and running quickly with our AI-powered coding assistant.
+Hey there! 👋 Let's get you up and running with Codebuff, your new AI programming buddy. Whether you're building the next big thing or just fixing some bugs, we'll help you code faster and smarter.
 
-## Installation
+## Quick Start
 
-Install Codebuff globally using npm:
+First things first, let's install Codebuff:
 
 <CodeDemo language="bash">npm install -g codebuff</CodeDemo>
 
-## Basic Usage
-
-Start using Codebuff in your project directory:
+That's it! Jump right in by running:
 
 <CodeDemo language="bash">codebuff</CodeDemo>
 
-You can also start Codebuff with different cost/quality modes:
+Want to optimize for speed or quality? We've got you covered:
 
 <CodeDemo language="bash">
-  codebuff --lite # Economy mode for value-focused responses
-  <></>
-  codebuff --pro # Premium mode for higher quality responses
+  codebuff --lite  # Faster, lighter on credits
+  codebuff --pro   # Deeper understanding, better results
 </CodeDemo>
 
-That's it! Codebuff is now ready to help you with your coding tasks.
+## Setting Up Your Project
+
+Before we dive in, let's set up your project for success:
+
+1. Got Git? Great! If not:
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial commit"
+   ```
+   This lets you track changes and undo anything you don't like.
+
+2. Tell Codebuff what to ignore:
+   ```bash
+   echo "node_modules/" >> .codebuffignore
+   echo "dist/" >> .codebuffignore
+   ```
+   Just like .gitignore, but for Codebuff!
+
+3. Help Codebuff understand your project:
+   ```bash
+   # Create a knowledge file (think: project notes for AI)
+   echo "# Project Overview" > knowledge.md
+   ```
+
+## Let's Write Some Code!
+
+Here's what Codebuff can do for you:
+
+### Need a New Component?
+```bash
+codebuff "Create a React component for user profiles with name, bio, and avatar"
+```
+
+### Found a Bug?
+```bash
+codebuff "Fix the type error in Button.tsx - it's not handling onClick properly"
+```
+
+### Time to Refactor?
+```bash
+codebuff "Refactor this auth code to use the new API endpoints"
+```
+
+### Documentation Anyone?
+```bash
+codebuff "Add JSDoc comments to these utility functions"
+```
+
+## Pro Tips 🎯
+
+### Start Small
+- Begin with simple requests
+- Get a feel for how Codebuff thinks
+- Use `diff` to review changes before they're applied
+
+### Use Version Control
+- Keep your work committed
+- Review changes with `git diff`
+- Easily undo anything you don't like
+
+### Stay Organized
+- Work in specific directories for focus
+- Use knowledge files like documentation
+- Keep your .codebuffignore clean
+
+### Be Specific
+- Reference file paths when relevant
+- Break big tasks into smaller steps
+- Tell Codebuff what you're trying to achieve
+
+## Managing Costs
+
+Keep those credits in check:
+
+1. Choose Your Mode:
+   - `--lite`: Quick changes, fewer credits
+   - Default: Balanced approach
+   - `--pro`: Deep understanding when you need it
+
+2. Stay Focused:
+   ```bash
+   cd src/components
+   codebuff
+   ```
+   Less context = fewer credits used
+
+3. Track Usage:
+   ```bash
+   codebuff usage
+   ```
+   Keep an eye on your credit balance
+
+## What's Next?
+
+1. Explore More:
+   - Check out our keyboard shortcuts
+   - Learn about version control integration
+   - Try different modes
+
+2. Join the Community:
+   - Get help on Discord
+   - Share your wins
+   - Learn from others
+
+3. Make It Yours:
+   - Set up your knowledge files
+   - Configure your ignores
+   - Find your workflow sweet spot
+
+Remember: Codebuff learns as you go. Take a minute to set up those knowledge files - your future self will thank you! 
+
+Need help? We're just a Discord message away. Let's build something awesome together! 🚀
+

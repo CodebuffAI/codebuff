@@ -2,6 +2,14 @@
 
 ## Local Development Setup
 
+### Monitoring Database Changes
+
+For real-time monitoring of database changes, use psql's built-in `\watch` command instead of external watch tools:
+```sql
+SELECT ... FROM table \watch seconds;
+```
+This creates a single persistent connection rather than creating new connections on each refresh.
+
 Important: Local database must be initialized before running schema operations:
 
 1. Docker must be running

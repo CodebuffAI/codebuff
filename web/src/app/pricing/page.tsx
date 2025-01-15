@@ -4,6 +4,17 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import Link from 'next/link'
+import { cn } from '@/lib/utils'
+import { 
+  ZapIcon, 
+  RocketIcon, 
+  RefreshCwIcon,
+  ShieldCheckIcon,
+  HeartIcon,
+  MessageSquareIcon,
+  CheckCircle2Icon,
+  SparklesIcon 
+} from 'lucide-react'
 import { PLAN_CONFIGS, UsageLimits } from 'common/constants'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
@@ -96,38 +107,47 @@ const PricingCards = () => {
   ]
 
   return (
-    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 container mx-auto">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 lg:gap-8 container mx-auto px-4 md:px-6">
       {pricingPlans.map((plan, index) => (
         <Card
           key={index}
-          className="bg-gray-900 text-white flex flex-col relative"
+          className={cn(
+            "bg-gradient-to-br from-gray-900 to-gray-800 text-white flex flex-col relative",
+            "border-gray-800 hover:border-gray-700/50 transition-all duration-300",
+            "shadow-lg hover:shadow-xl hover:shadow-blue-900/20",
+            "transform hover:-translate-y-1"
+          )}
         >
           <CardHeader className="min-h-[200px] flex flex-col">
-            <h3 className="text-2xl font-bold relative">
+            <h3 className="text-2xl font-bold relative flex items-center gap-3">
               {plan.displayName}
               {currentPlan === plan.name && (
-                <div className="absolute -right-8 -top-8 transform rotate-12">
-                  <div className="relative">
-                    <div className="relative bg-blue-500 text-white text-xs px-3 py-2 rounded-lg shadow-lg transform hover:rotate-0 transition-transform duration-200">
-                      Current Plan
-                    </div>
-                  </div>
-                </div>
+                <span className="inline-flex items-center rounded-full bg-gradient-to-r from-blue-500 to-purple-500 px-3 py-1 text-xs font-medium text-white ring-2 ring-blue-500/50 animate-pulse">
+                  Current Plan
+                </span>
               )}
             </h3>
-            <div className="mt-4 space-y-2">
-              <p className="text-3xl font-bold">{plan.price}</p>
+            <div className="mt-4 space-y-3">
+              <p className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+                {plan.price}
+              </p>
               {plan.credits && (
-                <p className="text-lg text-gray-300">
-                  {plan.credits.toLocaleString()} credits
-                </p>
+                <div className="flex items-center justify-center gap-2">
+                  <SparklesIcon className="h-5 w-5 text-yellow-500" />
+                  <p className="text-lg text-gray-300">
+                    {plan.credits.toLocaleString()} credits
+                  </p>
+                </div>
               )}
             </div>
           </CardHeader>
           <CardContent className="flex-grow flex flex-col justify-between pt-6">
-            <ul className="space-y-3 text-gray-300">
+            <ul className="space-y-4 text-gray-300">
               {plan.features.map((feature, idx) => (
-                <li key={idx}>{feature}</li>
+                <li key={idx} className="flex items-center gap-2">
+                  <CheckCircle2Icon className="h-5 w-5 text-green-500 flex-shrink-0" />
+                  <span className="text-sm">{feature}</span>
+                </li>
               ))}
             </ul>
           </CardContent>
@@ -141,33 +161,70 @@ const PricingCards = () => {
 }
 
 const PricingPage = () => {
-  return (
-    <div className="overflow-hidden">
-      <BackgroundBeams />
+  return (      <div className="overflow-hidden min-h-screen">
+        <BackgroundBeams />
 
-      <main className="container mx-auto px-4 py-20 text-center relative z-10">
-        <div className="p-8">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6">
-            Choose Your Plan
-          </h1>
-          <p className="text-xl md:text-2xl mb-12 text-gray-500 max-w-3xl mx-auto">
-            Explore our flexible, credits-based pricing options.
-          </p>
-          <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
-            <i>An intense 1-hour work session typically uses 500 credits.</i>
-          </p>
-        </div>
+        <main className="container mx-auto px-4 py-20 text-center relative z-10">
+          <div className="p-8 space-y-8">
+            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-br from-blue-600 via-blue-800 to-purple-700 dark:from-blue-400 dark:via-blue-600 dark:to-purple-500">
+              Choose Your Plan
+            </h1>
+            <p className="text-xl md:text-2xl mb-12 text-muted-foreground max-w-3xl mx-auto">
+              Supercharge your coding with AI assistance
+            </p>
+            
+            {/* Key benefits */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto mb-8">
+              <div className="flex items-center gap-3 justify-center p-4 rounded-xl bg-gray-900/50 border border-gray-800">
+                <ZapIcon className="h-5 w-5 text-yellow-500" />
+                <span className="text-lg text-muted-foreground">500 credits = 1 hour coding</span>
+              </div>
+              <div className="flex items-center gap-3 justify-center p-4 rounded-xl bg-gray-900/50 border border-gray-800">
+                <RocketIcon className="h-5 w-5 text-blue-500" />
+                <span className="text-lg text-muted-foreground">Unlimited repositories</span>
+              </div>
+              <div className="flex items-center gap-3 justify-center p-4 rounded-xl bg-gray-900/50 border border-gray-800">
+                <RefreshCwIcon className="h-5 w-5 text-green-500" />
+                <span className="text-lg text-muted-foreground">Credits reset monthly</span>
+              </div>
+            </div>
+          </div>          <div className="relative">
+            {/* Add subtle gradient behind cards */}
+            <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 via-purple-500/5 to-blue-500/5 dark:from-blue-900/10 dark:via-purple-900/10 dark:to-blue-900/10 blur-3xl -z-10" />
+            
+            <PricingCards />
 
-        <PricingCards />
+            <div className="mt-24 space-y-12">
+              {/* Trust badges */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+                <div className="flex flex-col items-center space-y-2 p-6 rounded-xl bg-gray-900/30 border border-gray-800">
+                  <ShieldCheckIcon className="h-8 w-8 text-blue-500 mb-2" />
+                  <h3 className="font-semibold text-lg">Secure & Private</h3>
+                  <p className="text-sm text-muted-foreground text-center">Your code stays on your machine</p>
+                </div>
+                <div className="flex flex-col items-center space-y-2 p-6 rounded-xl bg-gray-900/30 border border-gray-800">
+                  <HeartIcon className="h-8 w-8 text-red-500 mb-2" />
+                  <h3 className="font-semibold text-lg">Satisfaction Guaranteed</h3>
+                  <p className="text-sm text-muted-foreground text-center">14-day money-back guarantee</p>
+                </div>
+                <div className="flex flex-col items-center space-y-2 p-6 rounded-xl bg-gray-900/30 border border-gray-800">
+                  <MessageSquareIcon className="h-8 w-8 text-purple-500 mb-2" />
+                  <h3 className="font-semibold text-lg">24/7 Support</h3>
+                  <p className="text-sm text-muted-foreground text-center">Get help when you need it</p>
+                </div>
+              </div>
 
-        <p className="text-lg mt-12 text-gray-600 max-w-3xl mx-auto">
-          <i>
-            For enterprise inquiries, please reach out to{' '}
-            <Link href={'mailto:founders@codebuff.com'} className="underline">
-              founders@codebuff.com
-            </Link>
-          </i>
-        </p>
+              <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+                Need something custom?{' '}
+                <Link 
+                  href={'mailto:founders@codebuff.com'} 
+                  className="text-blue-500 hover:text-blue-400 underline decoration-blue-500/30 hover:decoration-blue-400"
+                >
+                  Contact our team
+                </Link>
+              </p>
+            </div>
+          </div>
       </main>
     </div>
   )

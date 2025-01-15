@@ -1,0 +1,128 @@
+---
+title: 'Working with Microservices'
+section: 'tips'
+tags: ['microservices', 'architecture']
+order: 8
+---
+
+# Microservices Development
+
+## Project Organization
+
+### Repository Structure
+```
+services/
+  auth-service/
+    knowledge.md
+    src/
+  user-service/
+    knowledge.md
+    src/
+  api-gateway/
+    knowledge.md
+    src/
+```
+
+### Knowledge Management
+- Create service-specific knowledge files
+- Document service boundaries
+- Track dependencies
+- Maintain API contracts
+
+## Development Patterns
+
+### Service Communication
+- Document API contracts
+- Maintain consistent patterns
+- Version interfaces
+- Handle failures gracefully
+
+### Code Generation
+```bash
+# Generate service skeleton
+codebuff "Create new payment-service structure"
+
+# Add API endpoints
+codebuff "Add payment processing endpoint"
+
+# Generate client
+codebuff "Create TypeScript client for payment API"
+```
+
+### Testing Strategy
+- Unit test services
+- Integration tests
+- Contract testing
+- Performance testing
+
+## Best Practices
+
+### Service Independence
+- Maintain clear boundaries
+- Document dependencies
+- Version APIs
+- Handle failures
+
+### Consistency
+- Use shared libraries
+- Follow team patterns
+- Document exceptions
+- Maintain standards
+
+### Deployment
+- Version services
+- Track dependencies
+- Document rollout
+- Monitor health
+
+## Common Workflows
+
+### New Service
+```bash
+# 1. Generate structure
+codebuff "Create service skeleton"
+
+# 2. Add core logic
+codebuff "Implement main endpoints"
+
+# 3. Add tests
+codebuff "Generate service tests"
+
+# 4. Document API
+codebuff "Create OpenAPI spec"
+```
+
+### API Changes
+```bash
+# 1. Plan changes
+codebuff "Plan API update"
+
+# 2. Update service
+codebuff "Implement new endpoint"
+
+# 3. Update clients
+codebuff "Update API client"
+
+# 4. Add tests
+codebuff "Add integration tests"
+```
+
+## Tips for Success
+
+### Development
+- Start small
+- Iterate quickly
+- Test thoroughly
+- Document clearly
+
+### Deployment
+- Version carefully
+- Deploy gradually
+- Monitor closely
+- Rollback quickly
+
+### Maintenance
+- Update regularly
+- Monitor performance
+- Track dependencies
+- Document changes

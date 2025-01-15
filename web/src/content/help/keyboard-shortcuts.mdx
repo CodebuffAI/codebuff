@@ -5,23 +5,48 @@ tags: ["shortcuts", "productivity"]
 order: 2
 ---
 
-# Shortcuts
+# Shortcuts & Commands
 
-Special commands to get the most out of Codebuff
+## Navigation Commands
+- `cd <directory>`: Change working directory
+- `pwd`: Show current directory
+- `ls`: List files in current directory
+- `exit` or `quit`: Exit Codebuff
 
-- `login` to log into Codebuff
+## Version Control
 - `undo` or `u`: Undo last change
-- `redo` or `r` : Redo change
-- `diff` or `d` to show changes from last assistant response
-- `ESC` or `Ctrl/Cmd + C` to stop generation
+- `redo` or `r`: Redo change
+- `diff` or `d`: Show changes from last assistant response
+- `git status`: Show current git status
+- `git diff`: Show all pending changes
 
-## Command Line Flags
+## Session Management
+- `login`: Log into Codebuff
+- `usage`: Show current credit usage
+- `clear`: Clear terminal screen
+- `ESC` or `Ctrl/Cmd + C`: Stop generation
+- `help`: Show available commands
 
-When starting Codebuff, you can use these flags to control the cost/quality tradeoff:
+## Cost Control Flags
+When starting Codebuff, use these flags to control the cost/quality tradeoff:
 
 - `--lite`: Use budget models & fetch fewer files for more economical responses
 - `--pro`: Use higher quality models and fetch more files for more comprehensive responses
 
-## Terminal commands
+## Terminal Integration
 - Enter terminal commands directly, like `cd backend` or `npm test`
-- `/run <command>`: run long terminal commands
+- `/run <command>`: Run long terminal commands
+- Use standard shell features like command history (up/down arrows)
+- Tab completion works for files and directories
+
+## Project Navigation
+- Start in subdirectories to focus on specific parts of your project
+- Use relative or absolute paths with commands
+- Navigate between directories while maintaining context
+- Return to project root with `cd` command
+
+## Tips
+- Use tab completion to avoid typing full paths
+- Combine commands with && for multiple operations
+- Press ESC twice to access the menu
+- Use arrow keys to navigate command history

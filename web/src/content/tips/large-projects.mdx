@@ -1,0 +1,42 @@
+---
+title: 'Working with Large Projects'
+section: 'tips'
+tags: ['best-practices', 'scaling']
+order: 6
+---
+
+# Working with Large Projects
+
+## Directory-Based Approach
+
+When working with large codebases, start Codebuff from specific directories to maintain focus:
+
+```bash
+cd backend
+codebuff
+```
+
+This helps Codebuff concentrate on relevant files and provide more targeted assistance.
+
+## Knowledge Organization
+
+For large projects:
+- Create separate knowledge.md files in key directories
+- Focus each knowledge file on its directory's specific concerns
+- Link related concepts across knowledge files
+- Keep root knowledge.md for project-wide concepts
+
+## Effective Communication
+
+When working with large codebases:
+- Be specific about file locations
+- Reference related files explicitly
+- Break large changes into smaller, focused requests
+- Use the `--pro` mode for better context understanding
+
+## Performance Tips
+
+- Use `.codebuffignore` to exclude irrelevant directories
+- Start in subdirectories when possible
+- Break large refactoring tasks into smaller chunks
+- Let Codebuff handle file discovery instead of listing all files

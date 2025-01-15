@@ -26,7 +26,10 @@ export const Navbar = async () => {
 
   return (
     <header className="container mx-auto p-4 flex justify-between items-center relative z-10">
-      <Link href="/" className="flex items-center space-x-2">
+      <Link 
+        href="/" 
+        className="flex items-center space-x-2 transition-transform hover:scale-105"
+      >
         <Image
           src="/favicon/favicon-16x16.ico"
           alt="Codebuff Logo"
@@ -34,13 +37,21 @@ export const Navbar = async () => {
           height={32}
           className="rounded-sm"
         />
-        <span className="font-mono text-2xl font-bold">Codebuff</span>
+        <span className="font-mono text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
+          Codebuff
+        </span>
       </Link>
-      <nav className="hidden md:flex space-x-4 ml-auto">
-        <Link href={`/docs`} className="hover:text-blue-400 transition-colors">
+      <nav className="hidden md:flex space-x-6 ml-auto">
+        <Link 
+          href={`/docs`} 
+          className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
+        >
           Docs
         </Link>
-        <Link href="/pricing" className="hover:text-blue-400 transition-colors">
+        <Link 
+          href="/pricing" 
+          className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
+        >
           Pricing
         </Link>
         {session && (
@@ -106,7 +117,7 @@ export const Navbar = async () => {
           <UserDropdown session={session} />
         ) : (
           <Link href="/login" className="hidden md:inline-block">
-            <Button className="bg-blue-600 hover:bg-blue-400 text-white transition-colors">
+            <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105">
               Log in
             </Button>
           </Link>

@@ -34,10 +34,9 @@ const ReviewCard = ({
     <figure
       className={cn(
         'relative w-64 lg:w-80 cursor-pointer overflow-hidden rounded-xl p-6',
-        // light styles
-        'bg-white hover:bg-gray-50 border',
-        // dark styles
-        'dark:bg-gray-800 dark:hover:bg-gray-700'
+        'bg-gradient-to-br from-white to-gray-50 hover:to-gray-100 border border-gray-200/50 shadow-lg hover:shadow-xl',
+        'dark:from-gray-800 dark:to-gray-900 dark:hover:to-gray-800 dark:border-gray-700/50',
+        'transition-all duration-200 hover:-translate-y-1'
       )}
       onClick={() => onTestimonialClick(t.author, t.link)}
     >
@@ -112,22 +111,26 @@ const Home = () => {
         <div className="relative z-10 flex flex-col max-w-6xl mx-auto mt-8 mb-16 space-y-24">
           {/* Hero Section */}
           <section className="relative px-6 text-center">
-            <h1 className="text-4xl md:text-7xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
+            <h1 className="text-4xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-br from-blue-600 via-blue-800 to-purple-700 dark:from-blue-400 dark:via-blue-600 dark:to-purple-500">
               <span className="whitespace-nowrap">Code faster</span>{' '}
               <span className="whitespace-nowrap">with AI</span>
             </h1>
 
-            <section className="text-center mb-8">
+            <p className="text-lg md:text-xl mb-8 text-muted-foreground max-w-2xl mx-auto">
+              Your AI programming assistant that understands your entire codebase
+            </p>
+
+            <section className="text-center mb-12">
               <Button
                 onClick={handleGetStartedClick}
-                className="relative z-10 bg-blue-900 hover:bg-blue-700 text-white text-lg py-6 px-8 transition-colors"
+                className="relative z-10 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white text-lg py-6 px-8 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 transform"
               >
                 Try For Free
               </Button>
             </section>
 
-            <div className="relative w-full flex items-center justify-center rounded-lg">
-              <div className="relative h-full flex rounded-lg overflow-hidden">
+            <div className="relative w-full flex items-center justify-center rounded-xl">
+              <div className="relative h-full flex rounded-xl overflow-hidden shadow-2xl border border-gray-200/20">
                 <video
                   className="rounded-lg shadow-lg max-h-full w-auto"
                   autoPlay
@@ -150,32 +153,38 @@ const Home = () => {
               Revolutionize Your Coding Workflow
             </h2>
             <div className="grid md:grid-cols-3 gap-8">
-              <div className="bg-white border dark:bg-gray-800 p-6 rounded-lg">
-                <FolderCodeIcon className="h-12 w-12 text-blue-500 mb-4" />
-                <h3 className="text-xl dark:text-white font-semibold mb-2">
+              <div className="group bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 p-8 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-1">
+                <div className="bg-blue-100 dark:bg-blue-900/30 rounded-full w-16 h-16 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-200">
+                  <FolderCodeIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="text-xl dark:text-white font-semibold mb-3">
                   Whole-codebase Understanding
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-muted-foreground">
                   Ask for any change and Codebuff will find the relevant
                   sections out of thousands of files.
                 </p>
               </div>
-              <div className="bg-white border dark:bg-gray-800 p-6 rounded-lg">
-                <ZapIcon className="h-12 w-12 text-blue-500 mb-4" />
-                <h3 className="text-xl dark:text-white font-semibold mb-2">
+              <div className="group bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 p-8 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-1">
+                <div className="bg-purple-100 dark:bg-purple-900/30 rounded-full w-16 h-16 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-200">
+                  <ZapIcon className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                </div>
+                <h3 className="text-xl dark:text-white font-semibold mb-3">
                   10x Your Dev Productivity
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-muted-foreground">
                   Get more done when using Codebuff to write features, debug
                   tests, refactor files, and install packages.
                 </p>
               </div>
-              <div className="bg-white border dark:bg-gray-800 p-6 rounded-lg">
-                <TerminalIcon className="h-12 w-12 text-blue-500 mb-4" />
-                <h3 className="text-xl dark:text-white font-semibold mb-2">
+              <div className="group bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 p-8 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-1">
+                <div className="bg-green-100 dark:bg-green-900/30 rounded-full w-16 h-16 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-200">
+                  <TerminalIcon className="h-8 w-8 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="text-xl dark:text-white font-semibold mb-3">
                   Fully Capable Agent in Your Terminal
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-muted-foreground">
                   Codebuff can run terminal commands, create and edit files, and
                   more.
                 </p>
@@ -185,11 +194,15 @@ const Home = () => {
 
           {/* Demo Section */}
           <section className="px-4 space-y-8">
-            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
-              Wanna try a demo?
+            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
+              Try It Out
             </h2>
-            <p className="text-center">Type stuff in this demo terminal!</p>
-            <InteractiveTerminalDemo />
+            <p className="text-center text-lg text-muted-foreground">
+              Experience the power of Codebuff right in your browser
+            </p>
+            <div className="rounded-xl overflow-hidden border border-gray-200/20 shadow-2xl">
+              <InteractiveTerminalDemo />
+            </div>
           </section>
 
           {/* Testimonials Section */}
@@ -202,26 +215,28 @@ const Home = () => {
               (note: some testimonials reference our previous name,
               &quot;Manicode&quot; – they refer to the same product)
             </h6>
-            {testimonials.map((row, rowIndex) => (
-              <Marquee
-                key={rowIndex}
-                className="py-4"
-                pauseOnHover
-                reverse={rowIndex % 2 === 1}
-              >
-                <div className="flex gap-4">
-                  {row.map((testimonial, i) => (
-                    <ReviewCard
-                      key={i}
-                      t={testimonial}
-                      onTestimonialClick={handleTestimonialClick}
-                    />
-                  ))}
-                </div>
-              </Marquee>
-            ))}
+            <div className="mt-12 space-y-8">
+              {testimonials.map((row, rowIndex) => (
+                <Marquee
+                  key={rowIndex}
+                  className="py-6"
+                  pauseOnHover
+                  reverse={rowIndex % 2 === 1}
+                >
+                  <div className="flex gap-6">
+                    {row.map((testimonial, i) => (
+                      <ReviewCard
+                        key={i}
+                        t={testimonial}
+                        onTestimonialClick={handleTestimonialClick}
+                      />
+                    ))}
+                  </div>
+                </Marquee>
+              ))}
+            </div>
 
-            <div className="flex flex-col md:flex-row items-center justify-center md:space-x-8 space-y-8 md:space-y-0 mt-16">
+            <div className="flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-24">
               <div className="flex flex-col items-center">
                 <p>Backed by</p>
                 <Link
@@ -278,13 +293,17 @@ const Home = () => {
           </section>
 
           {/* CTA Section */}
-          <section className="mb-32">
-            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
-              Ready to experience magic?
-            </h2>
-            <div className="text-center mt-8">
+          <section className="mb-32 relative">
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/5 to-blue-500/10 dark:via-blue-900/10 dark:to-blue-900/20 -z-10" />
+            <div className="max-w-4xl mx-auto text-center px-4 py-16">
+              <h2 className="text-3xl md:text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
+                Ready to experience magic?
+              </h2>
+              <p className="text-lg md:text-xl mb-8 text-muted-foreground">
+                Join thousands of developers who are coding faster with AI
+              </p>
               <Button
-                className="relative z-10 bg-blue-900 hover:bg-blue-700 text-white text-lg py-6 px-8 transition-colors"
+                className="relative z-10 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-lg py-6 px-8 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 transform"
                 onClick={() => {
                   posthog.capture('home.cta_clicked', {
                     location: 'cta_section',
