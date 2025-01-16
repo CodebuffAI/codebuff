@@ -7,95 +7,28 @@ order: 4
 
 # Frequently Asked Questions
 
-## Data & Privacy
+## Do you store my data?
 
-### Do you store my code? 🔒
-Nope! We're just a bridge between you and the AI models. Your code stays on your machine - we only pass what's needed for each request to OpenAI and Anthropic. We do keep some chat logs temporarily for debugging, and store basic chat history, but that's it. Soon we'll have a Privacy Mode that won't store anything at all!
+We don't store your codebase. Mostly our server is a thin client that passes data along to OpenAI and Anthropic. We store logs of your chats temporarily to help us debug. We also store portions of your chat history in our database. Soon, we plan to support a Privacy Mode where no data at all is stored.
 
-### How secure is my code? 🛡️
-We take security seriously:
-- Everything's encrypted with HTTPS
-- Your code stays local
-- Logs are automatically cleaned up
-- You're always in control
+## What if I don't trust you with access to my filesystem?
 
-### Can I use Codebuff with private repos? 🤫
-Absolutely! Since Codebuff runs locally, it works with any repository - public, private, or even that side project you haven't told anyone about yet.
+No problem! We made a [Dockerfile](https://github.com/CodebuffAI/codebuff-docker) that you can use. It'll set up Codebuff in an environment that's isolated from your filesystem and only has the code you want to share.
 
-## Usage & Features
+## Can I specify custom instructions for Codebuff?
 
-### Can I customize how Codebuff works? 🎛️
-You bet! Create `knowledge.md` files to teach Codebuff about your project. Think of them like notes you'd write for another developer joining your team. Codebuff reads these files and adapts to your project's patterns and preferences.
+Yes! We recommend you create knowledge.md files to give Codebuff more context about your codebase, like you're introducing it to another engineer. All file names ending in knowledge.md are loaded into context automatically, and you can use the files to do your own prompt engineering for Codebuff.
 
-### Can I tell Codebuff to ignore certain files? 📁
-Yep! Codebuff automatically respects your `.gitignore`, and you can create a `.codebuffignore` file for anything else you want to exclude. Perfect for keeping Codebuff focused on what matters.
+If you do not have a knowledge.md file, Codebuff typically will not create one, but it will update existing knowledge.md files autonomously. The Codebuff codebase currently has a knowledge.md in almost every directory.
 
-### How do I handle big projects? 🏗️
-We've got you covered:
-- Start in specific directories (`cd backend`)
-- Use `.codebuffignore` strategically
-- Break big changes into smaller bits
-- Use `--pro` mode for better context
+## Can I tell Codebuff to ignore certain files?
 
-### Can I use Codebuff offline? 🌐
-Not yet - we need an internet connection to talk to the AI models. But hey, that's what airplane mode is for, right?
+Codebuff by default will not read files that are specified in your .gitignore. You can also create a '.codebuffignore' file to specify additional files or folders to ignore.
 
-## Cost & Credits
+## Why is Codebuff so expensive?
 
-### Why does Codebuff cost more than alternatives? 💰
-Fair question! We do more heavy lifting behind the scenes - more context analysis, smarter file handling, and deeper understanding of your codebase. It's like the difference between a quick chat and a proper code review.
+We realize it costs a bit more than alternatives, but in exchange, Codebuff does more LLM calls using more examples from your codebase, leading to better code edits.
 
-### How can I keep costs down? 📊
-Smart strategies to stretch your credits:
-- Use `--lite` mode for simple stuff
-- Work in subdirectories
-- Keep your `.codebuffignore` tidy
-- Track usage with `codebuff usage`
+## I have more questions!
 
-### What's in the free tier? 🎁
-You get:
-- Monthly credit allowance
-- All core features
-- Community support
-- Basic integrations
-Plus, you can earn more credits through referrals!
-
-## Technical Stuff
-
-### How does version control work? 🔄
-Codebuff plays nice with your existing git workflow:
-- Changes go to your working directory
-- You control what gets committed
-- Standard git commands work as expected
-- Easy to undo if needed
-
-### IDE integration? 👨‍💻
-Right now we're terminal-based, but IDE integration is on our roadmap. Stay tuned!
-
-### What about type safety? 🎯
-Don't worry - Codebuff understands type systems and keeps your code type-safe. No more "any" type sneaking in!
-
-## Help & Community
-
-### Need more help? 🤝
-We've got your back! Reach out:
-- Email us at [support@codebuff.com](mailto:support@codebuff.com)
-- Join our [Discord](https://discord.gg/mcWTGjgTj3)
-- Check out our docs
-- Try the `help` command
-
-### Found a bug? 🐛
-Let us know:
-- Drop by our Discord
-- Email the support team
-- Use the `feedback` command
-We love squashing bugs!
-
-### Want to stay updated? 📢
-Keep in touch:
-- Join our [Discord](https://discord.gg/mcWTGjgTj3) for announcements
-- Watch for new docs
-- Look for in-app notifications
-We're shipping improvements all the time!
-
-Remember: We're developers too, and we built Codebuff to solve real problems we faced. If something's not working right or could be better, let us know! We're always listening and improving.
+We're happy to answer! Contact us at [support@codebuff.com](mailto:support@codebuff.com) or [join our Discord](https://discord.gg/mcWTGjgTj3)!

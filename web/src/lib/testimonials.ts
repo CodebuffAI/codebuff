@@ -103,7 +103,7 @@ export const testimonials: Testimonial[][] = [
     },
     {
       quote:
-        "Im basically hiring an engineer for $250/month, that's how I see it",
+        "Im basically hiring an engineer for $50/month, that's how I see it",
       author: 'Shardool Patel',
       title: 'Founder & CTO',
       avatar: '/testimonials/shardool-patel.jpg',

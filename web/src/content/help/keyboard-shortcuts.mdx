@@ -1,59 +1,30 @@
 ---
-title: 'Shortcuts & Commands'
+title: 'Keyboard Shortcuts'
 section: 'help'
 tags: ['shortcuts', 'productivity']
 order: 2
 ---
 
-# Shortcuts & Commands
+# Shortcuts
 
-## Navigation Commands
+Special commands to get the most out of Codebuff
 
-- `cd <directory>`: Change working directory
-- `pwd`: Show current directory
-- `ls`: List files in current directory
-- `exit` or `quit`: Exit Codebuff
-
-## Version Control
-
+- `login` to log into Codebuff
 - `undo` or `u`: Undo last change
-- `redo` or `r`: Redo change
-- `diff` or `d`: Show changes from last assistant response
-- `git status`: Show current git status
-- `git diff`: Show all pending changes
+- `redo` or `r` : Redo change
+- `diff` or `d` to show changes from last assistant response
+- `ESC` or `Ctrl/Cmd + C` to stop generation
+- `usage` to show current credit usage
+- `clear` to clear terminal screen
 
-## Session Management
+## Command Line Flags
 
-- `login`: Log into Codebuff
-- `usage`: Show current credit usage
-- `clear`: Clear terminal screen
-- `ESC` or `Ctrl/Cmd + C`: Stop generation
-- `help`: Show available commands
-
-## Cost Control Flags
-
-When starting Codebuff, use these flags to control the cost/quality tradeoff:
+When starting Codebuff, you can use these flags to control the cost/quality tradeoff:
 
 - `--lite`: Use budget models & fetch fewer files for more economical responses
-- `--pro`: Use higher quality models and fetch more files for more comprehensive responses
+- `--max`: Use higher quality models & fetch more files for more comprehensive responses – o1 for deep thinking, 3.5 Sonnet for picking files (also accepts `--o1`)
 
-## Terminal Integration
+## Terminal commands
 
 - Enter terminal commands directly, like `cd backend` or `npm test`
-- `/run <command>`: Run long terminal commands
-- Use standard shell features like command history (up/down arrows)
-- Tab completion works for files and directories
-
-## Project Navigation
-
-- Start in subdirectories to focus on specific parts of your project
-- Use relative or absolute paths with commands
-- Navigate between directories while maintaining context
-- Return to project root with `cd` command
-
-## Tips
-
-- Use tab completion to avoid typing full paths
-- Combine commands with && for multiple operations
-- Press ESC twice to access the menu
-- Use arrow keys to navigate command history
+- `/run <command>`: run long terminal commands

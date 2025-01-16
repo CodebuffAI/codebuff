@@ -1,130 +1,19 @@
 ---
-title: 'AI Models Codebuff Uses'
+title: 'What models do you use?'
 section: 'help'
-tags: ['models', 'technical']
+tags: ['introduction', 'faq']
 order: 2
 ---
 
-# AI Models Codebuff Uses
+# What models do you use?
 
-Ever wonder what's powering your coding assistant? Let's peek behind the curtain!
+We primarily use Claude 3.5 Sonnet for the coding, and Claude 3.5 Haiku to find relevant files, and o1 for deep thinking.
 
-## Our Model Stack
+Codebuff also uses GPT-4o-mini as a fallback to rewrite files with an intended edit (using their fancy Predicted Outputs API), and GPT-4o to decided whether to read more files.
 
-### Primary Workhorse: Claude 3.5 Sonnet
+We have two new modes, which slightly changes the models we use:
 
-This is our go-to for most coding tasks. Why? It's got:
+- `--max`: uses o1 for thinking through hard problems. Uses Sonnet for searching for files instead of the default Haiku, meaning it gets better context on your codebase.
+- `--lite`: uses Deepseek V3 for editing instead of Sonnet (1/20 the cost). It also pulls fewer files, meaning that the context cost will be much smaller.
 
-- Deep understanding of code structure
-- Excellent context handling
-- Strong type system awareness
-- Reliable code generation
-
-### Quick Scout: Claude 3.5 Haiku
-
-Our file-finding specialist. It's:
-
-- Lightning fast
-- Context-aware
-- Cost-effective
-- Perfect for quick decisions
-
-### Backup Brain: GPT-4o-mini
-
-Steps in for specific tasks using OpenAI's Predicted Outputs API. Great for:
-
-- Pattern matching
-- Code completion
-- Quick validations
-- Syntax checking
-
-## Power Modes 🎮
-
-We've got different modes to match your needs:
-
-### Pro Mode (`--pro`)
-
-```bash
-codebuff --pro
-```
-
-- Uses Sonnet for everything (including file search)
-- Pulls in more context
-- Better for complex changes
-- Perfect for architectural work
-
-### Normal Mode (default)
-
-```bash
-codebuff
-```
-
-- Balanced approach
-- Haiku for file search
-- Sonnet for coding
-- Great for most tasks
-
-### Lite Mode (`--lite`)
-
-```bash
-codebuff --lite
-```
-
-- Uses Deepseek V3 (1/10th the cost!)
-- Minimal file fetching
-- Perfect for quick changes
-- Great for simple tasks
-
-## When to Use What? 🎯
-
-### Use Pro Mode When:
-
-- Refactoring complex systems
-- Working with intricate types
-- Making architectural changes
-- Needing deep context understanding
-
-### Use Normal Mode When:
-
-- Writing new features
-- Fixing bugs
-- Adding tests
-- Most everyday tasks
-
-### Use Lite Mode When:
-
-- Making quick edits
-- Working on simple features
-- Adding documentation
-- Watching your credit usage
-
-## Pro Tips 💡
-
-1. Start Light:
-
-   ```bash
-   codebuff --lite "Add JSDoc to this function"
-   ```
-
-   Perfect for simple changes!
-
-2. Go Pro for Complex Stuff:
-
-   ```bash
-   codebuff --pro "Refactor auth system to use OAuth"
-   ```
-
-   When you need the extra brainpower.
-
-3. Mix and Match:
-   - Start with lite mode
-   - Switch to pro if needed
-   - Find your sweet spot
-
-Remember: The best mode is the one that gets your job done efficiently. Don't be afraid to experiment and find what works best for your workflow!
-
-## Looking Ahead 🔮
-
-We're constantly evaluating and integrating new models. Our goal? Make Codebuff smarter while keeping it cost-effective. Stay tuned for more improvements!
-
-Want to geek out about AI models? Join us on [Discord](https://discord.gg/mcWTGjgTj3)! We love talking tech. 🤓
+You can use `codebuff --max` or `codebuff --lite` to set the mode at startup time!
