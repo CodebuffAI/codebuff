@@ -106,7 +106,7 @@ const Home = () => {
 
   return (
     <>
-      <div className="relative overflow-hidden">
+      <div className="relative overflow-hidden bg-gradient-to-b from-transparent via-blue-500/[0.02] to-blue-500/[0.03] dark:via-blue-900/[0.02] dark:to-blue-900/[0.03]">
         <BackgroundBeams className="z-0" />
         <div className="relative z-10 flex flex-col max-w-6xl mx-auto mt-8 mb-16 space-y-24">
           {/* Hero Section */}
@@ -117,7 +117,8 @@ const Home = () => {
             </h1>
 
             <p className="text-lg md:text-xl mb-8 text-muted-foreground max-w-2xl mx-auto">
-              Your AI programming assistant that understands your entire codebase
+              Your AI programming assistant that understands your entire
+              codebase
             </p>
 
             <section className="text-center mb-12">
@@ -194,7 +195,7 @@ const Home = () => {
 
           {/* Demo Section */}
           <section className="px-4 space-y-8">
-            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
+            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
               Try It Out
             </h2>
             <p className="text-center text-lg text-muted-foreground">
@@ -215,7 +216,7 @@ const Home = () => {
               (note: some testimonials reference our previous name,
               &quot;Manicode&quot; – they refer to the same product)
             </h6>
-            <div className="mt-12 space-y-8">
+            <div className="mt-12 space-y-1">
               {testimonials.map((row, rowIndex) => (
                 <Marquee
                   key={rowIndex}
@@ -236,7 +237,7 @@ const Home = () => {
               ))}
             </div>
 
-            <div className="flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-24">
+            <div className="flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-8">
               <div className="flex flex-col items-center">
                 <p>Backed by</p>
                 <Link
@@ -293,17 +294,16 @@ const Home = () => {
           </section>
 
           {/* CTA Section */}
-          <section className="mb-32 relative">
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/5 to-blue-500/10 dark:via-blue-900/10 dark:to-blue-900/20 -z-10" />
+          <section className="mb-32">
             <div className="max-w-4xl mx-auto text-center px-4 py-16">
-              <h2 className="text-3xl md:text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
+              <h2 className="text-3xl md:text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-br from-blue-600 via-blue-800 to-purple-700 dark:from-blue-400 dark:via-blue-600 dark:to-purple-500">
                 Ready to experience magic?
               </h2>
               <p className="text-lg md:text-xl mb-8 text-muted-foreground">
                 Join thousands of developers who are coding faster with AI
               </p>
               <Button
-                className="relative z-10 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-lg py-6 px-8 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 transform"
+                className="relative z-10 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white text-lg py-6 px-8 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 transform"
                 onClick={() => {
                   posthog.capture('home.cta_clicked', {
                     location: 'cta_section',
@@ -340,7 +340,7 @@ const Home = () => {
                 </div>
               </li>
               <li>
-                Run Codebuff:
+                Run Codebuff in a project directory:
                 <div className="mt-2">
                   <CodeDemo language="bash">codebuff</CodeDemo>
                 </div>

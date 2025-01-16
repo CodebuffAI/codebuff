@@ -10,10 +10,11 @@ export const testimonials: Testimonial[][] = [
   [
     {
       quote:
-        "As a Ruby on Rails dev this was a challenge as client want the solution in Python and Manicode has saved my skin big time as l've never used Python. So kudos.",
-      author: 'anonymous',
-      title: 'Developer',
-      link: '/testimonials/proof/ruby-on-rails.png',
+        'I was so flabbergasted that it even did the pip install for me haha',
+      author: 'Daniel Hsu',
+      title: 'Founder & CEO',
+      avatar: '/testimonials/daniel-hsu.jpg',
+      link: '/testimonials/proof/daniel-hsu.jpg',
     },
     {
       quote: 'Dude you guys are building something good',
@@ -102,7 +103,7 @@ export const testimonials: Testimonial[][] = [
     },
     {
       quote:
-        "Im basically hiring an engineer for 100/month, that's how I see it",
+        "Im basically hiring an engineer for $250/month, that's how I see it",
       author: 'Shardool Patel',
       title: 'Founder & CTO',
       avatar: '/testimonials/shardool-patel.jpg',
