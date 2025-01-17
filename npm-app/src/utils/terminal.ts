@@ -61,7 +61,6 @@ const createPty = (dir: string) => {
               TERM: 'cygwin',
               ANSICON: '1', // Better ANSI support in cmd.exe
               PROMPT: promptIdentifier,
-              PSModulePath: process.env.PSModulePath || '', // Preserve PowerShell modules
             }
           : {
               TERM: 'xterm-256color',
@@ -69,7 +68,6 @@ const createPty = (dir: string) => {
         LESS: '-FRX',
         TERM_PROGRAM: 'mintty',
         FORCE_COLOR: '1', // Enable colors in CI/CD
-        CI: process.env.CI, // Preserve CI environment
         // Locale settings for consistent output
         LANG: 'en_US.UTF-8',
         LC_ALL: 'en_US.UTF-8',
