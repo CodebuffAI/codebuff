@@ -68,7 +68,6 @@ const createPty = (dir: string) => {
             }),
         LESS: '-FRX',
         TERM_PROGRAM: 'mintty',
-        NO_COLOR: process.env.NO_COLOR, // Respect NO_COLOR if set
         FORCE_COLOR: '1', // Enable colors in CI/CD
         CI: process.env.CI, // Preserve CI environment
         // Locale settings for consistent output
