@@ -11,6 +11,10 @@ order: 4
 
 We don't store your codebase. Mostly our server is a thin client that passes data along to OpenAI and Anthropic. We store logs of your chats temporarily to help us debug. We also store portions of your chat history in our database. Soon, we plan to support a Privacy Mode where no data at all is stored.
 
+## What if I don't trust you with access to my filesystem?
+
+No problem! We made a [Dockerfile](https://github.com/CodebuffAI/codebuff-docker) that you can use. It'll set up Codebuff in an environment that's isolated from your filesystem and only has the code you want to share.
+
 ## Can I specify custom instructions for Codebuff?
 
 Yes! We recommend you create knowledge.md files to give Codebuff more context about your codebase, like you're introducing it to another engineer. All file names ending in knowledge.md are loaded into context automatically, and you can use the files to do your own prompt engineering for Codebuff.

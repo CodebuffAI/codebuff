@@ -96,7 +96,7 @@ export function DocSidebar({
             {section.title}
           </Link>
           {section.subsections && section.subsections.length > 0 && (
-            <div className="ml-4 mt-1 space-y-1">
+            <div className="ml-2 mt-1 space-y-1">
               {section.subsections.map((subsection) => (
                 <Link
                   key={subsection.href}
@@ -116,7 +116,8 @@ export function DocSidebar({
                         .replace(/\s+/g, '-')
                       document
                         .getElementById(id)
-                        ?.scrollIntoView({ behavior: 'smooth' })
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
                       history.replaceState(null, '', `#${id}`)
                     }
                     // Close sheet after navigation

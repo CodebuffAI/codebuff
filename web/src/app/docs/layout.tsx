@@ -16,14 +16,12 @@ export default function DocsLayout({
   const [open, setOpen] = useState(false)
   return (
     <div className="pt-6">
-      <div className="container flex">
+      <div className="container flex md:space-x-4">
         <DocSidebar
           className="hidden lg:block w-64 shrink-0 sticky top-[24px] h-[calc(100vh-24px)] overflow-y-auto"
           onNavigate={() => setOpen(false)}
         />
-        <main className="flex flex-1 place-content-center pb-36">
-          {children}
-        </main>
+        <main className="flex-1 mx-auto pb-36">{children}</main>
       </div>
       <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-muted container p-4 rounded-t-lg">
         <Sheet

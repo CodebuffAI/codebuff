@@ -42,6 +42,18 @@ The authentication system in Codebuff's web application plays a crucial role in 
 
 ## UI Patterns
 
+### Section Title Gradients
+
+- Use blue-to-purple gradients for hero and call-to-action sections:
+  ```tsx
+  'bg-gradient-to-br from-blue-600 via-blue-800 to-purple-700 dark:from-blue-400 dark:via-blue-600 dark:to-purple-500'
+  ```
+- Use simple foreground fade for content section headers:
+  ```tsx
+  'bg-gradient-to-b from-foreground to-foreground/70'
+  ```
+- This creates visual hierarchy: vibrant gradients for first/last impressions, subtle fades for content sections
+
 ### CRT Screen Effects
 
 When creating retro CRT monitor effects:
@@ -279,6 +291,86 @@ Important: When using useMutation with UI state:
   - Include title, description, and optional next steps
   - Can include media (images, icons)
 
+### MDX Code Blocks
+
+- Always use markdown code blocks (```) instead of the `CodeDemo` component for code blocks:
+
+  ````tsx
+  // Instead of:
+  <CodeDemo language="bash">npm install</CodeDemo>
+  ↓ ```
+
+  ```bash
+  // Use:
+  npm install
+  ````
+
+- This ensures consistent styling and copy functionality across all code examples
+- Supports all common languages (bash, typescript, javascript, etc.)
+
+### ContentLayer Configuration
+
+- When adding remark plugins to ContentLayer:
+  - Use array syntax for plugin configuration: `remarkPlugins: [[myPlugin]]`
+  - Plugin must return `Plugin<any[], Root>` type for proper typing
+  - Example:
+    ```ts
+    function myPlugin(): Plugin<any[], Root> {
+      return function transformer(tree) {
+        // Transform the AST
+      }
+    }
+    ```
+  - This ensures proper type compatibility with ContentLayer's MDX processing
+  - For code block transformations:
+    - Check node.lang to detect if language is specified
+    - Skip transformation for plain code blocks (no lang)
+    - This allows mixing transformed and untransformed code blocks
+- Important: Code blocks must handle mobile overflow:
+
+  - Use whitespace-pre-wrap to allow text wrapping
+  - Use break-words to prevent horizontal overflow
+  - Always test on narrow viewports
+  - For component height management:
+
+    - Components should use h-full internally and accept className prop
+    - Let parent components control final height with Tailwind classes
+    - Example:
+
+      ```tsx
+      // Component
+      const MyComponent = ({ className }) => (
+        <div className={cn("h-full", className)}>...</div>
+      )
+
+      // Usage
+      <div className="h-[200px] md:h-[800px]">
+        <MyComponent />
+      </div>
+      ```
+
+    - This allows for responsive heights and better composition
+
+  - For component height management:
+
+    - Components should use h-full internally and accept className prop
+    - Let parent components control final height with Tailwind classes
+    - Example:
+
+      ```tsx
+      // Component
+      const MyComponent = ({ className }) => (
+        <div className={cn("h-full", className)}>...</div>
+      )
+
+      // Usage
+      <div className="h-[200px] md:h-[800px]">
+        <MyComponent />
+      </div>
+      ```
+
+    - This allows for responsive heights and better composition
+
 ### Card Design
 
 - Use shadcn Card component for consistent card styling
@@ -433,6 +525,7 @@ For cards that need different positioning on mobile vs desktop:
   - Keep styling consistent between variants
 - Example: Banner variants should share container and button styles
 - For component height management:
+
   - Components should use h-full internally and accept className prop
   - Let parent components control final height with Tailwind classes
   - Example:

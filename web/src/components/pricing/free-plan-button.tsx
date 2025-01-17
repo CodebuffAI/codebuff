@@ -20,7 +20,10 @@ export const FreePlanButton = ({
   return (
     <Button
       className={cn(
-        'w-full text-white bg-blue-600 hover:bg-blue-700 transition-colors'
+        'w-full text-white transition-all duration-200',
+        'shadow-lg hover:shadow-xl',
+        'transform hover:scale-105',
+        'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
       )}
       onClick={() => {
         if (isFreeTier) {

@@ -13,24 +13,23 @@ Codebuff uses knowledge files to store project-specific information and best pra
 
 You can ask Codebuff to create an initial knowledge file for your project:
 
-<CodeDemo language="bash">
-codebuff . "Please create a knowledge.md file with initial project information"
-</CodeDemo>
+```bash
+    codebuff . "Please create a knowledge.md file with initial project information"
+```
 
 Or create one manually:
 
 1. Create a `knowledge.md` file at the root of your project:
 
-<CodeDemo language="bash">
-touch knowledge.md
-</CodeDemo>
+```bash
+    touch knowledge.md
+```
 
 2. For larger projects, you can optionally create additional knowledge files in subdirectories:
 
-<CodeDemo language="bash">
-touch backend/knowledge.md
-touch frontend/knowledge.md
-</CodeDemo>
+```bash
+    touch backend/knowledge.md touch frontend/knowledge.md
+```
 
 This organization helps keep knowledge specific to different parts of your codebase close to the relevant code.
 
@@ -58,6 +57,7 @@ You can specify commands that Codebuff should run after making changes to verify
 ## Verifying Changes
 
 After any code changes, run these commands to verify correctness:
+
 - Run `npm run typecheck` to check for type errors
 - Run `npm test` to ensure tests pass
 ```

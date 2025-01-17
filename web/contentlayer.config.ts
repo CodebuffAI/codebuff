@@ -1,4 +1,5 @@
 import { defineDocumentType, makeSource } from 'contentlayer/source-files'
+import { remarkCodeToCodeDemo } from './src/lib/remark-code-to-codedemo'
 
 export const Doc = defineDocumentType(() => ({
   name: 'Doc',
@@ -27,4 +28,8 @@ export default makeSource({
   documentTypes: [Doc],
   contentDirExclude: ['case-studies/_cta.mdx'],
   disableImportAliasWarning: true,
+  mdx: {
+    remarkPlugins: [[remarkCodeToCodeDemo]],
+    rehypePlugins: [],
+  },
 })

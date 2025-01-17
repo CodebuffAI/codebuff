@@ -1,0 +1,60 @@
+---
+title: 'Working with Large Projects'
+section: 'tips'
+tags: ['best-practices', 'scaling']
+order: 6
+---
+
+# Working with Large Projects
+
+In general, Codebuff works quite well in larger projects. For example, we've pulled Codebuff into the VSCode repo (millions of lines of code) and have had no issues in our testing. That said, if you're noticing Codebuff getting stuck/forgetting context too soon or using a ton of credits, here are some tips to help you mitigate those issues.
+
+## Directory-Based Approach
+
+When working with large codebases, you can start Codebuff from specific directories to maintain focus:
+
+```bash
+    cd backend
+    codebuff
+```
+
+This helps Codebuff concentrate on relevant files and provide more targeted assistance.
+
+## Knowledge Organization
+
+For large projects:
+
+- Create separate knowledge.md files in key directories, like so:
+
+  ```
+  services/
+  auth-service/
+      knowledge.md
+      src/
+  user-service/
+      knowledge.md
+      src/
+  api-gateway/
+      knowledge.md
+      src/
+  ```
+
+- Focus each knowledge file on its directory's specific concerns
+- Link related concepts across knowledge files
+- Keep root knowledge.md for project-wide concepts
+
+## Effective Communication
+
+When working with large codebases:
+
+- Be specific about file locations
+- Reference related files explicitly
+- Break large changes into smaller, focused requests
+- Use the `--max` mode for better context understanding (--lite tends to have a smaller context window)
+
+## Performance Tips
+
+- Leverage your `.codebuffignore` and `.gitignore` files to exclude irrelevant directories
+- Start in subdirectories when possible
+- Break large refactoring tasks into smaller chunks
+- Let Codebuff handle file discovery instead of listing all files

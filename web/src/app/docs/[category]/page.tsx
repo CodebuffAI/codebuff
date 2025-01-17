@@ -49,7 +49,7 @@ const DocPage = ({ doc, components }: { doc: Doc; components: any }) => {
   const MDXContent = useMDXComponent(doc.body.code)
 
   return (
-    <article className="prose dark:prose-invert prose-compact">
+    <article className="prose dark:prose-invert prose-compact [&_h1]:scroll-mt-24 [&_h2]:scroll-mt-24 [&_h3]:scroll-mt-24">
       <MDXContent components={components} />
 
       {React.createElement(
@@ -96,7 +96,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
       return (
         <div className="group">
           <h1
-            className="inline-block hover:cursor-pointer hover:underline -mb-4"
+            className="inline-block hover:cursor-pointer hover:underline -mb-4 scroll-mt-24"
             onClick={() => {
               if (id) {
                 document

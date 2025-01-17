@@ -15,8 +15,8 @@ export const Footer = () => {
 
   return (
     <footer className="w-full border-t z-10">
-      <div className="container mx-auto px-4 py-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div className="container mx-auto flex flex-col gap-4 py-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 py-4">
           {/* Logo and company name */}
           <div className="flex items-center space-x-2">
             <Link href="/" className="flex items-center space-x-2">
@@ -33,7 +33,7 @@ export const Footer = () => {
 
           {/* Site Map */}
           <div>
-            <h3 className="font-semibold mb-4">Site Map</h3>
+            <h3 className="font-semibold mb-4">Site</h3>
             <nav className="flex flex-col space-y-2">
               <Link
                 href="/"
@@ -104,7 +104,7 @@ export const Footer = () => {
           </div>
         </div>
 
-        <Separator className="my-4" />
+        <Separator />
 
         <div className="text-center text-xs text-muted-foreground">
           © {new Date().getFullYear()} {siteConfig.title}. All rights reserved.
