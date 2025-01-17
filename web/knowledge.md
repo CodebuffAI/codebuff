@@ -305,6 +305,41 @@ Important: When using useMutation with UI state:
   ```
 - This ensures consistent styling and copy functionality across all code examples
 - Supports all common languages (bash, typescript, javascript, etc.)
+- Important: When showing markdown examples, always use CodeDemo:
+  ```tsx
+  // Instead of:
+  ```markdown
+  ## Title
+  - List item
+  ```
+  
+  // Use:
+  <CodeDemo language="markdown">
+    ## Title
+    <></>- List item
+  </CodeDemo>
+  ```
+  - Raw markdown code blocks can interfere with Tailwind Typography's prose styles
+  - Use <></> for line breaks in markdown examples
+
+### ContentLayer Configuration
+
+- When adding remark plugins to ContentLayer:
+  - Use array syntax for plugin configuration: `remarkPlugins: [[myPlugin]]`
+  - Plugin must return `Plugin<any[], Root>` type for proper typing
+  - Example:
+    ```ts
+    function myPlugin(): Plugin<any[], Root> {
+      return function transformer(tree) {
+        // Transform the AST
+      }
+    }
+    ```
+  - This ensures proper type compatibility with ContentLayer's MDX processing
+  - For code block transformations:
+    - Check node.lang to detect if language is specified
+    - Skip transformation for plain code blocks (no lang)
+    - This allows mixing transformed and untransformed code blocks
 - Important: Code blocks must handle mobile overflow:
   - Use whitespace-pre-wrap to allow text wrapping
   - Use break-words to prevent horizontal overflow
