@@ -92,7 +92,7 @@ export class CLI {
         )
         if (matchingTokens.length > 1) {
           // Find common characters after lastWord
-          const suffixes = matchingTokens.map(token => {
+          const suffixes = matchingTokens.map((token) => {
             const index = token.indexOf(lastWord)
             return token.slice(index + lastWord.length)
           })
@@ -100,7 +100,7 @@ export class CLI {
           const firstSuffix = suffixes[0]
           for (let i = 0; i < firstSuffix.length; i++) {
             const char = firstSuffix[i]
-            if (suffixes.every(suffix => suffix[i] === char)) {
+            if (suffixes.every((suffix) => suffix[i] === char)) {
               commonPrefix += char
             } else {
               break
@@ -442,6 +442,7 @@ export class CLI {
         userInput.toLowerCase().startsWith(command)
       ) &&
         !userInput.includes('error ') &&
+        !userInput.includes("'") &&
         userInput.split(' ').length <= 5)
     ) {
       const withoutRunPrefix = userInput.replace(runPrefix, '')
