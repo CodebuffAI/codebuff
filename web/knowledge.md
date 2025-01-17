@@ -46,11 +46,11 @@ The authentication system in Codebuff's web application plays a crucial role in 
 
 - Use blue-to-purple gradients for hero and call-to-action sections:
   ```tsx
-  "bg-gradient-to-br from-blue-600 via-blue-800 to-purple-700 dark:from-blue-400 dark:via-blue-600 dark:to-purple-500"
+  'bg-gradient-to-br from-blue-600 via-blue-800 to-purple-700 dark:from-blue-400 dark:via-blue-600 dark:to-purple-500'
   ```
 - Use simple foreground fade for content section headers:
   ```tsx
-  "bg-gradient-to-b from-foreground to-foreground/70"
+  'bg-gradient-to-b from-foreground to-foreground/70'
   ```
 - This creates visual hierarchy: vibrant gradients for first/last impressions, subtle fades for content sections
 
@@ -293,34 +293,20 @@ Important: When using useMutation with UI state:
 
 ### MDX Code Blocks
 
-- Always use the `CodeDemo` component for code blocks instead of markdown code blocks (```):
-  ```tsx
+- Always use markdown code blocks (```) instead of the `CodeDemo` component for code blocks:
+
+  ````tsx
   // Instead of:
-  ```bash
-  npm install
-  ```
-  
-  // Use:
   <CodeDemo language="bash">npm install</CodeDemo>
-  ```
+  ↓ ```
+
+  ```bash
+  // Use:
+  npm install
+  ````
+
 - This ensures consistent styling and copy functionality across all code examples
 - Supports all common languages (bash, typescript, javascript, etc.)
-- Important: When showing markdown examples, always use CodeDemo:
-  ```tsx
-  // Instead of:
-  ```markdown
-  ## Title
-  - List item
-  ```
-  
-  // Use:
-  <CodeDemo language="markdown">
-    ## Title
-    <></>- List item
-  </CodeDemo>
-  ```
-  - Raw markdown code blocks can interfere with Tailwind Typography's prose styles
-  - Use <></> for line breaks in markdown examples
 
 ### ContentLayer Configuration
 
@@ -341,13 +327,16 @@ Important: When using useMutation with UI state:
     - Skip transformation for plain code blocks (no lang)
     - This allows mixing transformed and untransformed code blocks
 - Important: Code blocks must handle mobile overflow:
+
   - Use whitespace-pre-wrap to allow text wrapping
   - Use break-words to prevent horizontal overflow
   - Always test on narrow viewports
   - For component height management:
+
     - Components should use h-full internally and accept className prop
     - Let parent components control final height with Tailwind classes
     - Example:
+
       ```tsx
       // Component
       const MyComponent = ({ className }) => (
@@ -359,11 +348,15 @@ Important: When using useMutation with UI state:
         <MyComponent />
       </div>
       ```
+
     - This allows for responsive heights and better composition
+
   - For component height management:
+
     - Components should use h-full internally and accept className prop
     - Let parent components control final height with Tailwind classes
     - Example:
+
       ```tsx
       // Component
       const MyComponent = ({ className }) => (
@@ -375,6 +368,7 @@ Important: When using useMutation with UI state:
         <MyComponent />
       </div>
       ```
+
     - This allows for responsive heights and better composition
 
 ### Card Design
@@ -531,6 +525,7 @@ For cards that need different positioning on mobile vs desktop:
   - Keep styling consistent between variants
 - Example: Banner variants should share container and button styles
 - For component height management:
+
   - Components should use h-full internally and accept className prop
   - Let parent components control final height with Tailwind classes
   - Example:
