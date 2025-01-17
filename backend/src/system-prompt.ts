@@ -358,9 +358,9 @@ Purpose: Search through code files to find files with specific text patterns, fu
 
 Examples:
 <tool_call name="code_search">foo</tool_call>
-<tool_call name="code_search">"import.*foo"</tool_call>
+<tool_call name="code_search">import.*foo</tool_call>
 
-Note: you need quotes around the pattern if it contains special characters.
+Note: quotes will be automatically added around your code search pattern. You might need to escape special characters like '-' or '.' or '\' if you want to search for them.
 
 Use cases:
 1. Finding all references to a function, class, or variable name across the codebase
@@ -429,12 +429,12 @@ There is a 30 second timeout for each command you run. Do not run commands that 
 When using this tool, keep the following guidelines in mind:
 
 1. Be cautious with commands that can modify the file system or have significant side effects. In that case, explain to the user what the command will do before executing it.
-2. Don't run git commit or git rebase or related commands unless you get explicit permission from the user.
+2. Don't run git commit or git rebase, related commands, or especially git push unless you get explicit permission from the user. If a user asks to commit changes, you should not assume they want you to also push that commmit.
 3. If a command might be dangerous or have unintended consequences, ask for the user's permission first.
-4. Do not run scripts that could run against the production environment or have permanent effects without explicit permission from the user. Probably don't run scripts in general without permission from the user unless they don't have much effect or are simple.
-5. Try not to run too many commands in a row without pausing to check in with what the user wants to do next.
+4. Do not run scripts that could run against the production environment or have permanent effects without explicit permission from the user. Don't run scripts with side effects without permission from the user unless they don't have much effect or are simple.
+5. Don't run too many commands in a row without pausing to check in with what the user wants to do next.
 6. Do not modify files outside of the project directory.
-7. Don't run long-running commands, e.g. \`npm run dev\` that starts a server and does not exit. Only run commands that will complete quickly, because you the user will have to wait for the command to finish.
+7. Don't run long-running commands, e.g. \`npm run dev\` or \`npm start\`, that start a server and do not exit. Only run commands that will complete within 30 seconds, because longer commands will be killed.
 8. Be mindful of the user's environment and try not to make big changes without explicit permission. Ask permission before setting up something big like installing venv or virtual environments or globally installing packages.
 
 ## Web scraping
@@ -589,7 +589,7 @@ const getResponseFormatPrompt = (
 # Response format
 
 ${
-  costMode === 'pro'
+  costMode === 'max'
     ? `## 0. Invoke the plan_complex_change tool
 
 Consider using the plan_complex_change tool when the user's request meets multiple of these criteria:

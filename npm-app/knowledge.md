@@ -2,6 +2,15 @@
 
 ## Terminal Handling
 
+### Command Execution Rules
+
+- Skip running input as terminal command if it:
+  - Starts with a skipped command (like 'help', 'find', etc.)
+  - Contains 'error'
+  - Contains single quotes (to avoid shell interpretation issues)
+  - Has more than 5 words
+  - Unless explicitly prefixed with '/run'
+
 - Primary: Using node-pty for terminal emulation
   - PTY combines stdout and stderr into single data stream
   - All terminal output comes through onData event

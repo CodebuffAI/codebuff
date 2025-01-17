@@ -181,8 +181,11 @@ The backend now includes a web scraping tool that allows the AI assistant to ret
 
 ## API Error Handling
 
-- Only retry on connection errors (type "APIConnectionError")
+- Only retry on connection errors (type "APIConnectionError") for most APIs
 - Other error types indicate issues that won't be resolved by retrying
+- Exception: Deepseek API rarely errors but can be very slow
+  - Use timeouts (2min) with retries rather than waiting indefinitely
+  - Only retry on timeout errors, not API errors
 
 ## Message Storage
 

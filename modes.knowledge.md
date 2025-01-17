@@ -10,7 +10,7 @@ The mode feature has been implemented across several components:
 
 1. Command Line Interface:
 
-   - Set cost mode via flag: `codebuff --<lite|normal|pro>`
+   - Set cost mode via flag: `codebuff --<lite|normal|max>`
    - Parsed in npm-app/src/index.ts
    - Defaults to "normal" if not specified
 
@@ -25,22 +25,22 @@ The mode feature has been implemented across several components:
    - Main prompt (agent):
      - lite: claude-3-haiku
      - normal: claude-3-sonnet
-     - pro: claude-3-sonnet
+     - max: claude-3-sonnet
    - File requests:
      - lite: claude-3-haiku (key files only)
      - normal: claude-3-haiku
-     - pro: gpt-4o
+     - max: gpt-4o
 
 4. File Request Optimization:
    - Cheap mode skips non-obvious and test/config prompts
    - Only runs key file requests in lite mode
-   - Full file request suite in normal/pro modes
+   - Full file request suite in normal/max modes
 
 ## Implementation Plan
 
 1. Command Line Interface
 
-   - Add --mode flag to CLI with values "lite", "normal", or "pro"
+   - Add --mode flag to CLI with values "lite", "normal", or "max"
    - Default to "normal" if not specified
    - Parse in npm-app/src/cli.ts using process.argv
    - Update welcome message to show current mode
@@ -58,11 +58,11 @@ The mode feature has been implemented across several components:
      - Main prompt (agent):
        - lite: claude-3-haiku
        - normal: claude-3-sonnet
-       - pro: claude-3-sonnet
+       - max: claude-3-sonnet
      - File requests:
        - lite: claude-3-haiku (key files only)
        - normal: claude-3-haiku
-       - pro: gpt-4o
+       - max: gpt-4o
    - Update main-prompt.ts to pass mode to promptClaudeStream
    - Update request-files-prompt.ts to skip non-obvious and test/config prompts in lite mode
 
@@ -79,8 +79,8 @@ codebuff --lite
 # Run in normal mode (default)
 codebuff
 
-# Run in pro mode
-codebuff --pro
+# Run in max mode
+codebuff --max
 ```
 
 ## Technical Details
@@ -97,6 +97,6 @@ codebuff --pro
 
 ## Future Considerations
 
-- Add more granular modes beyond just lite/normal/pro
+- Add more granular modes beyond just lite/normal/max
 - Allow per-request mode override
 - Add usage tracking per mode

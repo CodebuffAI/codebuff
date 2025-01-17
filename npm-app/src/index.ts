@@ -3,7 +3,7 @@
 import fs from 'fs'
 import { type CostMode } from 'common/constants'
 import path from 'path'
-import { bold, yellow, blueBright } from 'picocolors'
+import { bold, yellow, blueBright, red } from 'picocolors'
 
 import { CLI } from './cli'
 import {
@@ -31,7 +31,7 @@ async function codebuff(
   const costModeDescription = {
     lite: bold(yellow('Lite mode ✨ enabled')),
     normal: '',
-    pro: bold(blueBright('Pro mode️ ⚡ enabled')),
+    max: bold(blueBright('Max mode️ ⚡ enabled')),
   }
   console.log(`${costModeDescription[costMode]}`)
   console.log(
@@ -66,9 +66,25 @@ if (require.main === module) {
   if (args.includes('--lite')) {
     costMode = 'lite'
     args.splice(args.indexOf('--lite'), 1)
-  } else if (args.includes('--pro')) {
-    costMode = 'pro'
-    args.splice(args.indexOf('--pro'), 1)
+  } else if (
+    args.includes('--pro') ||
+    args.includes('--o1') ||
+    args.includes('--max')
+  ) {
+    costMode = 'max'
+
+    // Remove whichever flag was used
+    if (args.includes('--pro')) {
+      args.splice(args.indexOf('--pro'), 1)
+      console.error(
+        red(
+          'Warning: The --pro flag is deprecated. Please restart codebuff and use the --max option instead.'
+        )
+      )
+      process.exit(1)
+    }
+    if (args.includes('--o1')) args.splice(args.indexOf('--o1'), 1)
+    if (args.includes('--max')) args.splice(args.indexOf('--max'), 1)
   }
 
   const projectPath = args[0]
@@ -89,7 +105,7 @@ if (require.main === module) {
       '  --lite                          Use budget models & fetch fewer files'
     )
     console.log(
-      '  --pro                           Use higher quality models and fetch more files'
+      '  --max, --o1                     Use higher quality models and fetch more files'
     )
     console.log(
       '  --git stage                     Stage changes from last message'
