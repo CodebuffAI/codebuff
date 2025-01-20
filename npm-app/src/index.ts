@@ -53,6 +53,25 @@ async function codebuff(
 if (require.main === module) {
   const args = process.argv.slice(2)
   const help = args.includes('--help') || args.includes('-h')
+  
+  // Handle --init flag before other flags
+  const initIndex = args.indexOf('--init')
+  if (initIndex !== -1) {
+    const template = args[initIndex + 1]
+    const projectName = args[initIndex + 2] || template
+    
+    if (!template) {
+      console.error('Please specify a template name')
+      console.log('Available templates:')
+      console.log('  nextjs - Next.js starter template')
+      process.exit(1)
+    }
+
+    const { initStarterProject } = require('./init-starter')
+    initStarterProject(template, projectName)
+    process.exit(0)
+  }
+
   const gitArg = args.indexOf('--git')
   const git =
     gitArg !== -1 && args[gitArg + 1] === 'stage'
@@ -101,6 +120,9 @@ if (require.main === module) {
     )
     console.log()
     console.log('Options:')
+    console.log(
+      '  --init <template> [name]        Create new project from template'
+    )
     console.log(
       '  --lite                          Use budget models & fetch fewer files'
     )
