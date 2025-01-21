@@ -183,7 +183,7 @@ export async function mainPrompt(
       stream = promptDeepseekStream(
         messagesWithSystem(messagesWithContinuedMessage, system),
         {
-          model: models.deepseekChat,
+          model: models.deepseekReasoner,
           clientSessionId,
           fingerprintId,
           userInputId,
