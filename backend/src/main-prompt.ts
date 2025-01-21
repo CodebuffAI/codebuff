@@ -190,8 +190,6 @@ export async function mainPrompt(
           userId,
         }
       )
-      onResponseChunk('\n\n')
-      fullResponse += '\n\n'
     } else {
       stream = promptClaudeStream(messagesWithContinuedMessage, {
         system,
