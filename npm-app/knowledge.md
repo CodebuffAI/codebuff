@@ -1,3 +1,20 @@
+# Environment Setup
+
+Before running the app, ensure you have the required environment files:
+
+1. `stack.env` in project root with:
+```
+ENVIRONMENT=local
+NEXT_PUBLIC_ENVIRONMENT=local
+```
+
+2. `.env.local` in project root with:
+```
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_BACKEND_URL=localhost:3001
+NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com
+```
+
 # Testing Infrastructure
 
 ## Terminal Handling
