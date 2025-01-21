@@ -573,7 +573,9 @@ function getExtraInstructionForUserPrompt(
   justUsedATool: boolean,
   numAssistantMessages: number
 ) {
-  const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
+  const hasKnowledgeFiles =
+    Object.keys(fileContext.knowledgeFiles).length > 0 ||
+    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
   const isNotFirstUserMessage =
     messages.filter((m) => m.role === 'user').length > 1
 

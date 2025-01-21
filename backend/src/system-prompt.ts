@@ -274,6 +274,8 @@ Each knowledge file should develop over time into a concise but rich repository 
 
 Make sure you edit knowledge files by using <edit_file> blocks. Do not write out their contents outside of <edit_file> blocks.
 
+There is a special class of user knowledge files that are stored in the user's home directory, e.g. \`~/.knowledge.md\`. These files are available to be read, but you cannot edit them because they are outside of the project directory. Do not try to edit them with <edit_file> blocks or otherwise.
+
 Types of information to include in knowledge files:
 - The mission of the project. Goals, purpose, and a high-level overview of the project.
 - Explanations of how different parts of the codebase work or interact.
@@ -506,17 +508,24 @@ const getProjectFilesPromptContent = (
   fileContext: ProjectFileContext,
   shouldDoPromptCaching: boolean
 ) => {
-  const { fileVersions } = fileContext
+  const { fileVersions, userKnowledgeFiles } = fileContext
 
-  const fileBlockSets = fileVersions
-    .filter((files) => files.length > 0)
-    .map((files) =>
-      files
-        .map(({ path, content }) =>
-          createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
-        )
-        .join('\n')
-    )
+  const userKnowledgeFilesSet = Object.entries(userKnowledgeFiles ?? {}).map(
+    ([path, content]) =>
+      createMarkdownFileBlock(`~/${path}`, content ?? '[FILE_DOES_NOT_EXIST]')
+  )
+  const fileBlockSets = [
+    ...userKnowledgeFilesSet,
+    ...fileVersions
+      .filter((files) => files.length > 0)
+      .map((files) =>
+        files
+          .map(({ path, content }) =>
+            createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
+          )
+          .join('\n')
+      ),
+  ]
 
   const intro = `
 # Project files
@@ -584,7 +593,9 @@ const getResponseFormatPrompt = (
   files: string[],
   costMode: CostMode
 ) => {
-  const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
+  const hasKnowledgeFiles =
+    Object.keys(fileContext.knowledgeFiles).length > 0 ||
+    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
   return `
 # Response format
 
