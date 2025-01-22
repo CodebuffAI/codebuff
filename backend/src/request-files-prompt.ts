@@ -33,7 +33,7 @@ export async function requestRelevantFiles(
   const previousFiles = uniq(
     fileVersions.flatMap((files) => files.map(({ path }) => path))
   )
-  const countPerRequest = costMode === 'max' ? 9 : costMode === 'lite' ? 7 : 8
+  const countPerRequest = costMode === 'max' ? 9 : costMode === 'lite' ? 8 : 8
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -161,83 +161,80 @@ async function generateFileRequests(
     return { files: [], duration: 0 }
   })
 
-  // Only create additional file request promises if not in lite mode
   let promises = [keyPromise]
-  if (costMode !== 'lite') {
-    // TODO: reenable example files and test files prompts
-    // const examplePrompt = generateExampleFilesPrompt(
-    //   userPrompt,
-    //   assistantPrompt,
-    //   fileContext,
-    //   countPerRequest
-    // )
+  // TODO: reenable example files and test files prompts
+  // const examplePrompt = generateExampleFilesPrompt(
+  //   userPrompt,
+  //   assistantPrompt,
+  //   fileContext,
+  //   countPerRequest
+  // )
 
-    // const examplePromise = getRelevantFiles(
-    //   {
-    //     messages: messagesExcludingLastIfByUser,
-    //     system,
-    //   },
-    //   examplePrompt,
-    //   'Examples',
-    //   clientSessionId,
-    //   fingerprintId,
-    //   userInputId,
-    //   userId
-    // ).catch((error) => {
-    //   logger.error({ error }, 'Error requesting example files')
-    //   return { files: [], duration: 0 }
-    // })
+  // const examplePromise = getRelevantFiles(
+  //   {
+  //     messages: messagesExcludingLastIfByUser,
+  //     system,
+  //   },
+  //   examplePrompt,
+  //   'Examples',
+  //   clientSessionId,
+  //   fingerprintId,
+  //   userInputId,
+  //   userId
+  // ).catch((error) => {
+  //   logger.error({ error }, 'Error requesting example files')
+  //   return { files: [], duration: 0 }
+  // })
 
-    const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
-      userPrompt,
-      assistantPrompt,
-      fileContext,
-      countPerRequest
-    )
+  const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
+    userPrompt,
+    assistantPrompt,
+    fileContext,
+    countPerRequest
+  )
 
-    const nonObviousPromise = getRelevantFiles(
-      {
-        messages: messagesExcludingLastIfByUser,
-        system,
-      },
-      nonObviousPrompt,
-      'Non-Obvious',
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId
-    )
+  const nonObviousPromise = getRelevantFiles(
+    {
+      messages: messagesExcludingLastIfByUser,
+      system,
+    },
+    nonObviousPrompt,
+    'Non-Obvious',
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId
+  )
 
-    // const testAndConfigPrompt = generateTestAndConfigFilesPrompt(
-    //   userPrompt,
-    //   assistantPrompt,
-    //   fileContext,
-    //   countPerRequest
-    // )
+  // const testAndConfigPrompt = generateTestAndConfigFilesPrompt(
+  //   userPrompt,
+  //   assistantPrompt,
+  //   fileContext,
+  //   countPerRequest
+  // )
 
-    // const testAndConfigPromise = getRelevantFiles(
-    //   {
-    //     messages: messagesExcludingLastIfByUser,
-    //     system,
-    //   },
-    //   testAndConfigPrompt,
-    //   'Tests and Config',
-    //   clientSessionId,
-    //   fingerprintId,
-    //   userInputId,
-    //   userId
-    // ).catch((error) => {
-    //   logger.error({ error }, 'Error requesting test and config files')
-    //   return { files: [], duration: 0 }
-    // })
+  // const testAndConfigPromise = getRelevantFiles(
+  //   {
+  //     messages: messagesExcludingLastIfByUser,
+  //     system,
+  //   },
+  //   testAndConfigPrompt,
+  //   'Tests and Config',
+  //   clientSessionId,
+  //   fingerprintId,
+  //   userInputId,
+  //   userId
+  // ).catch((error) => {
+  //   logger.error({ error }, 'Error requesting test and config files')
+  //   return { files: [], duration: 0 }
+  // })
 
-    promises = [
-      ...promises,
-      // examplePromise,
-      nonObviousPromise,
-      // testAndConfigPromise,
-    ]
-  }
+  promises = [
+    ...promises,
+    // examplePromise,
+    nonObviousPromise,
+    // testAndConfigPromise,
+  ]
 
   const results = await Promise.all(promises)
   return results
@@ -410,13 +407,13 @@ Please follow these steps to determine which files to request:
    - Configuration files
    - Utility functions
    - Documentation files
-   
-Note: Do not include test files (*.test.ts, *.spec.ts, or the equivalent in other languages) as these are handled by a separate request.
 3. Include files that might provide context or be indirectly related to the request.
 4. Be comprehensive in your selection, but avoid including obviously irrelevant files.
 5. List a maximum of ${count} files. It's fine to list fewer if there are not great candidates.
 
-Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
+Please exclude the following files from your response:
+- Test files (*.test.ts, *.spec.ts, or the equivalent in other languages) as these are handled by a separate request.
+- Knowledge files, i.e. any files with 'knowledge.md' in the file name. These files are selected independently.
 
 Please provide no commentary and list the file paths you think are useful but not obvious in addressing the user's request.
 
@@ -467,12 +464,12 @@ Please follow these steps to determine which key files to request:
    - Key configuration files
    - Central utility functions
    - Documentation files
-
-Note: Do not include test files (*.test.ts, *.spec.ts, or the equivalent in other languages) as these are handled by a separate request.
 3. Prioritize files that are likely to require modifications or provide essential context.
 4. Order the files by most important first.
 
-Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
+Please exclude the following files from your response:
+- Test files (*.test.ts, *.spec.ts, or the equivalent in other languages) as these are handled by a separate request.
+- Knowledge files, i.e. any files with 'knowledge.md' in the file name. These files are selected independently.
 
 Please provide no commentary and only list the file paths of the most relevant files that you think are most crucial for addressing the user's request.
 
