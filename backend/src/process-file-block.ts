@@ -78,6 +78,7 @@ export async function processFileBlock(
     searchContent: string
     replaceContent: string
   }[] = [...diffBlocks, ...diffBlocksThatDidntMatch]
+  // TODO: REENABLE
   // if (diffBlocksThatDidntMatch.length > 0) {
   //   const { newDiffBlocks, newDiffBlocksThatDidntMatch } =
   //     await retryDiffBlocksPrompt(
@@ -99,10 +100,11 @@ export async function processFileBlock(
   let updatedContent = noDiffBlocks
     ? normalizedNewContent
     : normalizedOldContent
-  for (const diffBlock of diffBlocks) {
-    const { searchContent, replaceContent } = diffBlock
-    updatedContent = safeReplace(updatedContent, searchContent, replaceContent)
-  }
+  // TODO: REENABLE
+  // for (const diffBlock of diffBlocks) {
+  //   const { searchContent, replaceContent } = diffBlock
+  //   updatedContent = safeReplace(updatedContent, searchContent, replaceContent)
+  // }
 
   const outputHasLazyEdit =
     hasLazyEdit(updatedContent) && !hasLazyEdit(normalizedOldContent)
