@@ -36,6 +36,7 @@ export async function promptRelaceAI(
 ) {
   const { model, clientSessionId, fingerprintId, userInputId, userId } = options
   const relaceAI = getRelaceAI()
+  const startTime = Date.now()
   try {
     const response = await Promise.race([
       relaceAI.chat.completions.create({
@@ -65,6 +66,7 @@ export async function promptRelaceAI(
           inputTokens: response.usage?.prompt_tokens || 0,
           outputTokens: response.usage?.completion_tokens || 0,
           finishedAt: new Date(),
+          latencyMs: Date.now() - startTime,
         })
       }
       return content
