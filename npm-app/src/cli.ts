@@ -2,8 +2,11 @@ import { uniq } from 'lodash'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
-import { green, red, yellow, underline } from 'picocolors'
+import { green, red, yellow, underline, bold, blueBright } from 'picocolors'
+import fs from 'fs'
+import path from 'path'
 import { parse } from 'path'
+import os from 'os'
 
 function rewriteLine(line: string) {
   // Only do line rewriting if we have an interactive TTY
@@ -20,7 +23,7 @@ import { websocketUrl } from './config'
 import { ChatStorage } from './chat-storage'
 import { Client } from './client'
 import { Message } from 'common/actions'
-import { displayMenu } from './menu'
+import { displayGreeting, displayMenu } from './menu'
 import {
   getChangesSinceLastFileVersion,
   getExistingFiles,
@@ -122,7 +125,8 @@ export class CLI {
       this.onWebSocketReconnect.bind(this),
       this.returnControlToUser.bind(this),
       this.costMode,
-      this.git
+      this.git,
+      this.rl
     )
 
     this.readyPromise = Promise.all([
@@ -234,13 +238,13 @@ export class CLI {
     this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
   }
 
-  public printInitialPrompt(initialInput?: string) {
+  public async printInitialPrompt(initialInput?: string) {
     if (this.client.user) {
-      console.log(
-        `\nWelcome back ${this.client.user.name}! What would you like to do?`
-      )
+      displayGreeting(this.costMode, this.client.user.name)
     } else {
-      console.log(`What would you like to do?\n`)
+      console.log(`Welcome to Codebuff! Let's get your account set up.`)
+      await this.client.login()
+      return
     }
     this.rl.prompt()
     if (initialInput) {

@@ -1,7 +1,9 @@
-import { CREDITS_REFERRAL_BONUS } from 'common/constants'
+import { CostMode, CREDITS_REFERRAL_BONUS } from 'common/constants'
 import { getProjectRoot } from './project-files'
-import picocolors, { blue } from 'picocolors'
+import picocolors, { blue, blueBright, magenta, yellow } from 'picocolors'
 import { bold, green } from 'picocolors'
+import path from 'path'
+import * as fs from 'fs'
 
 const getRandomColors = () => {
   const allColors = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan']
@@ -13,6 +15,32 @@ const getRandomColors = () => {
     }
   }
   return colors
+}
+
+export function displayGreeting(costMode: CostMode, username: string | null) {
+  // Show extra info only for logged in users
+  const costModeDescription = {
+    lite: bold(yellow('Lite mode ✨ enabled')),
+    normal: '',
+    max: bold(blueBright('Max mode️ ⚡ enabled')),
+  }
+  console.log(`${costModeDescription[costMode]}`)
+  console.log(
+    `Codebuff will read and write files in "${getProjectRoot()}". Type "help" for a list of commands.`
+  )
+
+  const gitDir = path.join(getProjectRoot(), '.git')
+  if (!fs.existsSync(gitDir)) {
+    console.info(
+      magenta(
+        "Just fyi, this project doesn't contain a .git directory (are you at the top level of your project?). Codebuff works best with a git repo!"
+      )
+    )
+  }
+
+  console.log(
+    `\nWelcome${username ? ` back ${username}` : ''}! What would you like to do?`
+  )
 }
 
 export function displayMenu() {
