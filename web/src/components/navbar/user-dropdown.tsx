@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
-import { loadStripe } from '@stripe/stripe-js'
 import Image from 'next/image'
 import { Session } from 'next-auth'
 import { signOut } from 'next-auth/react'
+import posthog from 'posthog-js'
+import { useRouter } from 'next/navigation'
+import { env } from '@/env.mjs'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
@@ -16,30 +17,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { env } from '@/env.mjs'
-import Stripe from 'stripe'
 
 export const UserDropdown = ({ session: { user } }: { session: Session }) => {
-  const [isPending, setIsPending] = useState(false)
-
-  const handleCreateCheckoutSession = async () => {
-    setIsPending(true)
-
-    const res = await fetch('/api/stripe/checkout-session')
-    const checkoutSession: Stripe.Response<Stripe.Checkout.Session> = await res
-      .json()
-      .then(
-        ({ session }) => session as Stripe.Response<Stripe.Checkout.Session>
-      )
-    const stripe = await loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-    if (!stripe) {
-      throw new Error('Stripe not loaded')
-    }
-
-    await stripe.redirectToCheckout({
-      sessionId: checkoutSession.id,
-    })
-  }
+  const router = useRouter()
 
   return (
     <DropdownMenu>
@@ -64,25 +44,27 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
             height={100}
           />
           <h2 className="py-2 text-lg font-bold">{user?.name}</h2>
-          <Button
-            onClick={handleCreateCheckoutSession}
-            disabled={user?.subscription_active || isPending}
-            className="w-64"
-          >
-            {user?.subscription_active ? (
-              <p>You are on the pro tier!</p>
-            ) : (
-              <>
-                {isPending && (
-                  <Icons.loader className="mr-2 size-4 animate-spin" />
-                )}
-                Upgrade to pro
-              </>
-            )}
-          </Button>
+          {user?.subscription_active ? (
+            <Button
+              onClick={() => window.location.href = `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(user?.email ?? '')}`}
+              className="w-64"
+            >
+              Manage Billing
+            </Button>
+          ) : (
+            <Button
+              onClick={() => router.push('/pricing')}
+              className="w-64"
+            >
+              Upgrade to pro
+            </Button>
+          )}
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => signOut()}>
+        <DropdownMenuItem onClick={() => {
+          posthog.capture('auth.logout_completed')
+          signOut()
+        }}>
           <Icons.logOut className="mr-2 size-4" /> <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

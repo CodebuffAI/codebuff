@@ -11,7 +11,7 @@ export async function* processStreamWithTags<T extends string>(
   let buffer = ''
   let insideTag: string | null = null
   let currentAttributes: Record<string, string> = {}
-  const bufferSize = 150
+  let streamCompleted = false
 
   const escapeRegExp = (string: string) =>
     string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -23,69 +23,95 @@ export async function* processStreamWithTags<T extends string>(
     `</(${tagNames.map(escapeRegExp).join('|')})>`
   )
 
-  function parseBuffer(bufferSize: number) {
-    let toYield = ''
+  function* parseBuffer(
+    isEOF: boolean = false
+  ): Generator<string, void, unknown> {
+    let didParse = true
 
-    while (buffer.length > bufferSize) {
+    while (!streamCompleted && didParse) {
+      didParse = false
+
       if (insideTag === null) {
-        const match = buffer.match(openTagRegex)
-        if (match && match.index !== undefined) {
-          const [fullMatch, openTag, attributesString] = match
+        // Outside a tag: try to find the next opening tag
+        const openMatch = buffer.match(openTagRegex)
+        if (openMatch && openMatch.index !== undefined) {
+          const [fullMatch, openTag, attributesString] = openMatch
+          const beforeTag = buffer.slice(0, openMatch.index)
+          const afterMatchIndex = openMatch.index + fullMatch.length
 
-          const afterMatchIndex = match.index + fullMatch.length
-          toYield += buffer.slice(0, match.index)
+          // Yield any text before the tag
+          if (beforeTag) {
+            yield beforeTag
+          }
+
+          // Move buffer forward
           buffer = buffer.slice(afterMatchIndex)
 
+          // We are now inside this tag
           insideTag = openTag
           currentAttributes = parseAttributes(
             attributesString,
             tags[openTag].attributeNames
           )
+
+          // Call onTagStart
           const startTagYield = tags[openTag].onTagStart(currentAttributes)
           if (startTagYield) {
-            toYield += startTagYield
+            yield startTagYield
           }
+
+          didParse = true
         } else {
-          toYield += buffer.slice(0, buffer.length - bufferSize)
-          buffer = buffer.slice(buffer.length - bufferSize)
+          // No opening tag found. If it's EOF, yield remaining text.
+          if (isEOF && buffer.length > 0) {
+            yield buffer
+            buffer = ''
+          }
         }
       } else {
+        // Inside a tag: try to find the closing tag
         const closeMatch = buffer.match(closeTagRegex)
         if (closeMatch && closeMatch.index !== undefined) {
           const [fullMatch, closeTag] = closeMatch
-          const closeIndex = closeMatch.index
-          const content = buffer.slice(0, closeIndex)
-          const complete = tags[insideTag].onTagEnd(content, currentAttributes)
+          const content = buffer.slice(0, closeMatch.index)
 
-          buffer = buffer.slice(closeIndex + fullMatch.length)
+          // Move buffer forward
+          buffer = buffer.slice(closeMatch.index + fullMatch.length)
+
+          // Close the tag
+          const complete = tags[insideTag].onTagEnd(content, currentAttributes)
           insideTag = null
           currentAttributes = {}
+
           if (complete) {
-            return { toYield, isComplete: true }
+            // If onTagEnd signals completion, set streamCompleted and return
+            streamCompleted = true
+            return
           }
-        } else {
-          break
+
+          didParse = true
+        } else if (isEOF) {
+          // We reached EOF without finding a closing tag
+          // Depending on your needs, yield what's there or handle as malformed.
+          if (buffer.length > 0) {
+            yield buffer
+            buffer = ''
+          }
         }
       }
     }
-    return { toYield, isComplete: false }
   }
 
   for await (const chunk of stream) {
+    if (streamCompleted) continue
     buffer += chunk
 
-    const { toYield, isComplete } = parseBuffer(bufferSize)
-    if (toYield) {
-      yield toYield
-    }
-    if (isComplete) {
-      return
-    }
+    yield* parseBuffer()
   }
 
-  const { toYield } = parseBuffer(0)
-  if (toYield) {
-    yield toYield
+  if (!streamCompleted) {
+    // After the stream ends, try parsing one last time in case there's leftover text
+    yield* parseBuffer(true)
   }
 }
 

@@ -4,15 +4,16 @@ import os from 'os'
 import * as ignore from 'ignore'
 import { DirectoryNode, FileTreeNode } from './util/file'
 import { sortBy } from 'lodash'
+import { DEFAULT_IGNORED_FILES } from './constants'
 
 export function getProjectFileTree(
   projectRoot: string,
   { maxFiles = 10_000 }: { maxFiles?: number } = {}
 ): FileTreeNode[] {
   const defaultIgnore = ignore.default()
-  defaultIgnore.add('.git')
-  defaultIgnore.add('*.min.*')
-  defaultIgnore.add('node_modules')
+  for (const pattern of DEFAULT_IGNORED_FILES) {
+    defaultIgnore.add(pattern)
+  }
 
   if (projectRoot === os.homedir()) {
     defaultIgnore.add('.*')

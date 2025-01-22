@@ -38,6 +38,7 @@ export const ProjectFileContextSchema = z.object({
   fileTree: z.array(z.custom<FileTreeNode>()),
   fileTokenScores: z.record(z.string(), z.record(z.string(), z.number())),
   knowledgeFiles: z.record(z.string(), z.string()),
+  userKnowledgeFiles: z.record(z.string(), z.string()).optional(),
   gitChanges: z.object({
     status: z.string(),
     diff: z.string(),
@@ -46,6 +47,14 @@ export const ProjectFileContextSchema = z.object({
   }),
   changesSinceLastChat: z.record(z.string(), z.string()),
   shellConfigFiles: z.record(z.string(), z.string()),
+  systemInfo: z.object({
+    platform: z.string(),
+    shell: z.string(),
+    nodeVersion: z.string(),
+    arch: z.string(),
+    homedir: z.string(),
+    cpus: z.number(),
+  }),
   fileVersions: z.array(z.array(FileVersionSchema)),
 })
 
@@ -147,6 +156,9 @@ export function printFileTreeWithTokens(
     }
     path.pop()
   }
+  if (nodes.length === 0) {
+    result = '[No files in this directory.]'
+  }
   return result
 }
 
@@ -154,4 +166,27 @@ export const ensureDirectoryExists = (baseDir: string) => {
   if (!fs.existsSync(baseDir)) {
     fs.mkdirSync(baseDir, { recursive: true })
   }
+}
+
+/**
+ * Removes markdown code block syntax if present, including any language tag
+ */
+export const cleanMarkdownCodeBlock = (content: string): string => {
+  const cleanResponse = content.match(/^```(?:[a-zA-Z]+)?\n([\s\S]*)\n```$/)
+    ? content.replace(/^```(?:[a-zA-Z]+)?\n/, '').replace(/\n```$/, '')
+    : content
+  return cleanResponse
+}
+
+export function isValidFilePath(path: string) {
+  if (!path) return false
+
+  // Check for whitespace
+  if (/\s/.test(path)) return false
+
+  // Check for invalid characters
+  const invalidChars = /[<>:"|?*\x00-\x1F]/g
+  if (invalidChars.test(path)) return false
+
+  return true
 }

@@ -1,19 +1,18 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import path from 'path'
 
-import { promptClaudeStream } from './claude'
-import { openaiModels } from 'common/constants'
-import { promptOpenAI } from './openai-api'
+import { model_types, promptClaudeStream } from './claude'
 import {
-  createFileBlock,
-  FileVersion,
-  ProjectFileContext,
-} from 'common/util/file'
+  TOOL_RESULT_MARKER,
+  STOP_MARKER,
+  getModelForMode,
+  models,
+} from 'common/constants'
+import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
-import { STOP_MARKER, TOOL_RESULT_MARKER } from 'common/constants'
 import { FileChange, FileChanges, Message } from 'common/actions'
+import { type CostMode } from 'common/constants'
 import { ToolCall } from 'common/actions'
 import { requestFile, requestFiles } from './websockets/websocket-action'
 import { processFileBlock } from './process-file-block'
@@ -22,15 +21,18 @@ import {
   warmCacheForRequestRelevantFiles,
 } from './request-files-prompt'
 import { processStreamWithTags } from './process-stream'
-import { generateKnowledgeFiles } from './generate-knowledge-files'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
 import { difference, uniq, zip } from 'lodash'
-import { filterDefined } from 'common/util/array'
+import { buildArray } from 'common/util/array'
+import {
+  checkConversationProgress,
+  checkToAllowUnboundedIteration,
+} from './conversation-progress'
+import { getRelevantFilesForPlanning, planComplexChange } from './planning'
+import { promptDeepseekStream } from './deepseek-api'
+import { messagesWithSystem } from '@/util/messages'
 
-/**
- * Prompt claude, handle tool calls, and generate file changes.
- */
 export async function mainPrompt(
   ws: WebSocket,
   messages: Message[],
@@ -40,7 +42,8 @@ export async function mainPrompt(
   userInputId: string,
   onResponseChunk: (chunk: string) => void,
   userId: string | undefined,
-  changesAlreadyApplied: FileChanges
+  changesAlreadyApplied: FileChanges,
+  costMode: CostMode
 ) {
   const lastUserMessageIndex = messages.findLastIndex(
     (message) =>
@@ -48,96 +51,79 @@ export async function mainPrompt(
       typeof message.content === 'string' &&
       !message.content.includes(TOOL_RESULT_MARKER)
   )
-  const allowUnboundedIterationPromise = checkToAllowUnboundedIteration(
-    messages[lastUserMessageIndex],
-    {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-    }
-  )
+  const assistantReplyMessageIndex = lastUserMessageIndex + 1
+  const assistantReplyMessage = messages[assistantReplyMessageIndex]
+  const assistantIsExecutingPlan =
+    assistantReplyMessage && typeof assistantReplyMessage.content === 'string'
+      ? assistantReplyMessage.content.includes('plan_complex_change')
+      : false
+
+  const allowUnboundedIterationPromise = assistantIsExecutingPlan
+    ? Promise.resolve(true)
+    : checkToAllowUnboundedIteration(messages[lastUserMessageIndex], {
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      }).catch((error) => {
+        logger.error(error, 'Error checking to allow unbounded iteration')
+        return false
+      })
 
   let fullResponse = ''
-  let genKnowledgeFilesPromise: Promise<Promise<FileChange | null>[]> =
-    Promise.resolve([])
   const fileProcessingPromises: Promise<FileChange | null>[] = []
   const lastMessage = messages[messages.length - 1]
   const messagesWithoutLastMessage = messages.slice(0, -1)
 
   let addedFileVersions: FileVersion[] = []
   let resetFileVersions = false
+  const justUsedATool = didClientUseTool(lastMessage)
 
-  if (!didClientUseTool(lastMessage)) {
-    // Step 1: Read more files.
-    const system = getSearchSystemPrompt(fileContext)
-    // If the fileContext.files is empty, use prompts to select files and add them to context.
-    const {
-      newFileVersions,
-      toolCallMessage,
-      addedFiles,
-      clearFileVersions,
-      readFilesMessage,
-    } = await getFileVersionUpdates(
-      ws,
-      fileContext,
-      { messages, system },
-      null,
+  const messagesTokens = countTokensJson(messages)
+  // Step 1: Read more files.
+  const system = getSearchSystemPrompt(fileContext, costMode, messagesTokens)
+  const {
+    newFileVersions,
+    toolCallMessage,
+    addedFiles,
+    clearFileVersions,
+    readFilesMessage,
+  } = await getFileVersionUpdates(ws, messages, system, fileContext, null, {
+    skipRequestingFiles: justUsedATool,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    costMode,
+  })
+  fileContext.fileVersions = newFileVersions
+  if (clearFileVersions) {
+    resetFileVersions = true
+  } else {
+    addedFileVersions.push(...addedFiles)
+  }
+  if (readFilesMessage !== undefined) {
+    onResponseChunk(readFilesMessage)
+    fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}`
+
+    // Prompt cache the new files.
+    const system = getSearchSystemPrompt(fileContext, costMode, messagesTokens)
+    warmCacheForRequestRelevantFiles(
+      system,
+      costMode,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId
     )
-    fileContext.fileVersions = newFileVersions
-    if (clearFileVersions) {
-      resetFileVersions = true
-    } else {
-      addedFileVersions.push(...addedFiles)
-    }
-    if (readFilesMessage !== undefined) {
-      onResponseChunk(readFilesMessage)
-      fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}`
-
-      // Prompt cache the new files.
-      const system = getSearchSystemPrompt(fileContext)
-      warmCacheForRequestRelevantFiles(
-        system,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId
-      )
-    }
   }
 
-  const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
-  if (
-    hasKnowledgeFiles &&
-    messages.length > 1 &&
-    !didClientUseTool(lastMessage)
-  ) {
-    // Already have context from existing chat
-    // If client used tool, we don't want to generate knowledge files because the user isn't really in control
-    genKnowledgeFilesPromise = generateKnowledgeFiles(
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      ws,
-      fullResponse,
-      fileContext,
-      messages,
-      userId
-    ).catch((error) => {
-      logger.error({ error }, 'Error generating knowledge files')
-      return []
-    })
-  }
+  let allowUnboundedIteration = await allowUnboundedIterationPromise
 
   const numAssistantMessages = messages
     .slice(lastUserMessageIndex)
     .filter((message) => message.role === 'assistant').length
-  const shouldPause =
-    !(await allowUnboundedIterationPromise) && numAssistantMessages >= 3
+  const shouldPause = !allowUnboundedIteration && numAssistantMessages >= 6
   if (shouldPause) {
     const response = `\nI'll pause to get more instructions from the user.\n`
     onResponseChunk(response)
@@ -152,7 +138,7 @@ export async function mainPrompt(
 
   let toolCall: ToolCall | null = null
   let continuedMessages: Message[] = fullResponse
-    ? [{ role: 'assistant', content: fullResponse }]
+    ? [{ role: 'assistant', content: fullResponse.trim() }]
     : []
   let isComplete = false
   let iterationCount = 0
@@ -162,25 +148,27 @@ export async function mainPrompt(
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
     newLastMessage = {
       ...lastMessage,
-      content: `${lastMessage.content}
-
-<additional_instruction>
-Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.
-</additional_instruction>
-<additional_instruction>
-Always end your response with the following marker:
-${STOP_MARKER}
-</additional_instruction>`,
+      content:
+        getExtraInstructionForUserPrompt(
+          fileContext,
+          messages,
+          costMode,
+          allowUnboundedIteration,
+          justUsedATool,
+          numAssistantMessages
+        ) +
+        '\n\n' +
+        lastMessage.content,
     }
   }
 
-  while (!isComplete && iterationCount < MAX_ITERATIONS) {
-    const system = getAgentSystemPrompt(fileContext, {
-      checkFiles: false,
-    })
+  while (!isComplete) {
     const messagesWithContinuedMessage = continuedMessages
       ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
       : messages
+
+    const messagesTokens = countTokensJson(messagesWithContinuedMessage)
+    const system = getAgentSystemPrompt(fileContext, costMode, messagesTokens)
 
     logger.debug(
       {
@@ -190,13 +178,28 @@ ${STOP_MARKER}
       'Prompting Claude Main'
     )
 
-    const stream = promptClaudeStream(messagesWithContinuedMessage, {
-      system,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-    })
+    let stream: AsyncGenerator<string, void, unknown>
+    if (costMode === 'lite') {
+      stream = promptDeepseekStream(
+        messagesWithSystem(messagesWithContinuedMessage, system),
+        {
+          model: models.deepseekReasoner,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        }
+      )
+    } else {
+      stream = promptClaudeStream(messagesWithContinuedMessage, {
+        system,
+        model: getModelForMode(costMode, 'agent') as model_types,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      })
+    }
     const streamWithTags = processStreamWithTags(stream, {
       edit_file: {
         attributeNames: ['path'],
@@ -217,6 +220,7 @@ ${STOP_MARKER}
               fullResponse,
               path,
               filePathWithoutStartNewline,
+              costMode,
               userId
             ).catch((error) => {
               logger.error(error, 'Error processing file block')
@@ -237,6 +241,14 @@ ${STOP_MARKER}
             contentAttributes.command = content
           } else if (name === 'scrape_web_page') {
             contentAttributes.url = content
+          } else if (name === 'find_files') {
+            contentAttributes.description = content
+          } else if (name === 'read_files') {
+            contentAttributes.file_paths = content
+          } else if (name === 'code_search') {
+            contentAttributes.pattern = content
+          } else if (name === 'plan_complex_change') {
+            contentAttributes.prompt = content
           }
           fullResponse += `<tool_call name="${attributes.name}">${content}</tool_call>`
           toolCall = {
@@ -250,7 +262,6 @@ ${STOP_MARKER}
     })
 
     let savedForNextChunk = ''
-    let foundEndOfResponse = false
     for await (const chunk of streamWithTags) {
       fullResponse += chunk
       // Don't print [END] to user.
@@ -258,8 +269,9 @@ ${STOP_MARKER}
       savedForNextChunk = ''
 
       if (printedChunk.includes('\n[END]')) {
-        foundEndOfResponse = true
         printedChunk = printedChunk.replace('\n[END]', '')
+      } else if (printedChunk.includes(STOP_MARKER)) {
+        printedChunk = printedChunk.replace(STOP_MARKER, '')
       } else if (
         chunk.endsWith('\n') ||
         chunk.endsWith('\n[') ||
@@ -285,14 +297,80 @@ ${STOP_MARKER}
 
       onResponseChunk(printedChunk)
     }
-    if (foundEndOfResponse) {
-      fullResponse += '\n[END]'
-    }
 
-    const maybeToolCall = toolCall as ToolCall | null
+    const toolCallResult = toolCall as ToolCall | null
 
-    if (maybeToolCall?.name === 'find_files') {
-      logger.debug(maybeToolCall, 'tool call')
+    if (toolCallResult?.name === 'plan_complex_change') {
+      const { prompt } = toolCallResult.input
+
+      onResponseChunk(`\nPrompt: ${prompt}\n`)
+
+      const filePaths = await getRelevantFilesForPlanning(
+        messages,
+        prompt,
+        fileContext,
+        costMode,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId
+      )
+
+      const loadedFiles = await requestFiles(ws, filePaths)
+      const fileContents = Object.fromEntries(
+        Object.entries(loadedFiles).filter(
+          ([_, content]) => content !== null
+        ) as [string, string][]
+      )
+
+      const existingFilePaths = Object.keys(fileContents)
+      onResponseChunk(`\nRelevant files:\n${existingFilePaths.join(' ')}\n`)
+      fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
+
+      onResponseChunk(`\nThinking deeply (can take a few minutes)...\n\n`)
+
+      logger.debug(
+        {
+          prompt,
+          filePaths,
+          existingFilePaths,
+        },
+        'Thinking deeply'
+      )
+
+      const plan = await planComplexChange(
+        prompt,
+        fileContents,
+        onResponseChunk,
+        {
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        }
+      )
+      onResponseChunk(`\n\n`)
+      fullResponse += plan
+      logger.debug(
+        {
+          prompt,
+          file_paths: filePaths,
+          response: plan,
+        },
+        'Generated plan'
+      )
+
+      toolCall = {
+        id: Math.random().toString(36).slice(2),
+        name: 'continue',
+        input: {
+          response: `Please implement the full plan.`,
+        },
+      }
+      isComplete = true
+    } else if (toolCallResult?.name === 'find_files') {
+      logger.debug(toolCallResult, 'tool call')
+      const description = toolCallResult.input.description
       const {
         newFileVersions,
         addedFiles,
@@ -300,13 +378,18 @@ ${STOP_MARKER}
         readFilesMessage,
       } = await getFileVersionUpdates(
         ws,
+        [...messages, { role: 'assistant', content: fullResponse }],
+        getSearchSystemPrompt(fileContext, costMode, messagesTokens),
         fileContext,
-        { messages, system: getSearchSystemPrompt(fileContext) },
-        fullResponse,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId
+        description,
+        {
+          skipRequestingFiles: false,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+          costMode,
+        }
       )
       fileContext.fileVersions = newFileVersions
       if (clearFileVersions) {
@@ -315,8 +398,8 @@ ${STOP_MARKER}
         addedFileVersions.push(...addedFiles)
       }
       if (readFilesMessage !== undefined) {
-        onResponseChunk(`\n\n${readFilesMessage}`)
-        fullResponse += `\n\n${readFilesMessage}`
+        onResponseChunk(`\n${readFilesMessage}`)
+        fullResponse += `\n${readFilesMessage}`
       }
       toolCall = null
       isComplete = false
@@ -326,17 +409,112 @@ ${STOP_MARKER}
           content: fullResponse.trim(),
         },
       ]
-    } else if (maybeToolCall !== null) {
+    } else if (toolCallResult?.name === 'read_files') {
+      logger.debug(toolCallResult, 'tool call')
+      const existingFilePaths = fileContext.fileVersions.flatMap((files) =>
+        files.map((file) => file.path)
+      )
+      const filePaths = ((toolCallResult.input.file_paths as string) ?? '')
+        .trim()
+        .split('\n')
+        .filter((path) => path)
+      const newFilePaths = difference(filePaths, existingFilePaths)
+      logger.debug(
+        {
+          content: toolCallResult.input.file_paths,
+          existingFilePaths,
+          filePaths,
+          newFilePaths,
+        },
+        'read_files tool call'
+      )
+
+      const {
+        newFileVersions,
+        addedFiles,
+        clearFileVersions,
+        readFilesMessage,
+      } = await getFileVersionUpdates(
+        ws,
+        [...messages, { role: 'assistant', content: fullResponse }],
+        getSearchSystemPrompt(fileContext, costMode, messagesTokens),
+        fileContext,
+        null,
+        {
+          skipRequestingFiles: false,
+          requestedFiles: newFilePaths,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+          costMode,
+        }
+      )
+      fileContext.fileVersions = newFileVersions
+      if (clearFileVersions) {
+        resetFileVersions = true
+      } else {
+        addedFileVersions.push(...addedFiles)
+      }
+      if (readFilesMessage !== undefined) {
+        onResponseChunk(`\n${readFilesMessage}`)
+        fullResponse += `\n${readFilesMessage}`
+      }
+      toolCall = null
+      isComplete = false
+      continuedMessages = [
+        {
+          role: 'assistant',
+          content: fullResponse.trim(),
+        },
+      ]
+    } else if (toolCallResult !== null) {
       isComplete = true
-      logger.debug(maybeToolCall, 'tool call')
+      logger.debug(toolCallResult, 'tool call')
     } else if (fullResponse.includes(STOP_MARKER)) {
       isComplete = true
-      fullResponse = fullResponse.replace(STOP_MARKER, '')
-      logger.debug('Reached STOP_MARKER')
+      if (!allowUnboundedIteration) {
+        logger.debug('Reached STOP_MARKER')
+      } else {
+        // Check if we should actually stop or continue via tool call
+        const { shouldStop, response } = await checkConversationProgress(
+          [
+            ...messages.slice(lastUserMessageIndex),
+            {
+              role: 'assistant' as const,
+              content: fullResponse.trim(),
+            },
+          ],
+          fileContext,
+          {
+            costMode,
+            clientSessionId,
+            fingerprintId,
+            userInputId,
+            userId,
+          }
+        )
+
+        onResponseChunk(`\n${response}\n`)
+
+        if (shouldStop) {
+          logger.debug('Reached STOP_MARKER and confirmed should stop')
+        } else {
+          // Signal to client to continue the conversation
+          logger.debug('Reached STOP_MARKER but should continue')
+          toolCall = {
+            id: Math.random().toString(36).slice(2),
+            name: 'continue',
+            input: {
+              response: `Determination on proceeding to complete user request: ${response}`,
+            },
+          }
+        }
+      }
     } else {
-      logger.debug('Continuing to generate')
-      const fullResponseMinusLastLine =
-        fullResponse.split('\n').slice(0, -1).join('\n') + '\n'
+      const lines = fullResponse.split('\n')
+      logger.debug({ lastLine: lines.at(-1) }, 'Continuing to generate')
+      const fullResponseMinusLastLine = lines.slice(0, -1).join('\n') + '\n'
       continuedMessages = [
         {
           role: 'assistant',
@@ -350,32 +528,30 @@ ${STOP_MARKER}
     }
 
     iterationCount++
-  }
-
-  if (iterationCount >= MAX_ITERATIONS) {
-    logger.warn('Reached maximum number of iterations in mainPrompt')
+    if (iterationCount >= MAX_ITERATIONS) {
+      logger.warn('Reached maximum number of iterations in mainPrompt')
+      isComplete = true
+      if (allowUnboundedIteration && toolCall === null) {
+        toolCall = {
+          id: Math.random().toString(36).slice(2),
+          name: 'continue',
+          input: {
+            response: `Continue`,
+          },
+        }
+      }
+    }
   }
 
   if (fileProcessingPromises.length > 0) {
     onResponseChunk('\nApplying file changes. Please wait...\n')
   }
 
-  const knowledgeChangePromises = await genKnowledgeFilesPromise
-  fileProcessingPromises.push(...knowledgeChangePromises)
-
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
   )
-  const knowledgeChanges = filterDefined(
-    await Promise.all(knowledgeChangePromises)
-  )
-  if (knowledgeChanges.length > 0) {
-    const knowledgeFileBlocks = knowledgeChanges.map((change) =>
-      createFileBlock(change.filePath, '[UPDATED_BY_ANOTHER_ASSISTANT]')
-    )
-    fullResponse += `\n\nI also updated the following knowledge files:\n${knowledgeFileBlocks.join(
-      '\n'
-    )}`
+  if (changes.length === 0 && fileProcessingPromises.length > 0) {
+    onResponseChunk('No changes to existing files.\n')
   }
 
   return {
@@ -389,30 +565,91 @@ ${STOP_MARKER}
   }
 }
 
-function getRelevantFileInfoMessage(filePaths: string[]) {
-  const readFilesMessage = `Reading additional files...<files>${filePaths.join(', ')}</files>`
-  const toolCallMessage = `<tool_call name="find_files">Please find the files relevant to the user request</tool_call>`
-  return { readFilesMessage, toolCallMessage }
+function getExtraInstructionForUserPrompt(
+  fileContext: ProjectFileContext,
+  messages: Message[],
+  costMode: CostMode,
+  allowUnboundedIteration: boolean,
+  justUsedATool: boolean,
+  numAssistantMessages: number
+) {
+  const hasKnowledgeFiles =
+    Object.keys(fileContext.knowledgeFiles).length > 0 ||
+    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
+  const isNotFirstUserMessage =
+    messages.filter((m) => m.role === 'user').length > 1
+
+  return buildArray(
+    'Please preserve as much of the existing code, its comments, and its behavior as possible.' +
+      allowUnboundedIteration
+      ? ''
+      : ' Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
+
+    !justUsedATool &&
+      costMode === 'max' &&
+      'If the user request is very complex (e.g. requires changes across multiple files or systems), please consider invoking the plan_complex_change tool to create a plan, although this should be used sparingly.',
+
+    hasKnowledgeFiles &&
+      'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case.',
+
+    hasKnowledgeFiles &&
+      isNotFirstUserMessage &&
+      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
+
+    numAssistantMessages >= 3 &&
+      'Please consider pausing to get more instructions from the user.',
+
+    justUsedATool &&
+      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request.`,
+
+    `Always end your response with the following marker:\n${STOP_MARKER}`
+  )
+    .map((line) => `<system_instruction>${line}</system_instruction>`)
+    .join('\n')
 }
 
-const FILE_TOKEN_BUDGET = 90_000
+function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
+  const readFilesMessage =
+    (isFirstTime ? 'Reading files...\n' : 'Reading additional files...\n') +
+    `${filePaths
+      .slice(0, 3)
+      .map((path) => `- ${path}`)
+      .join(
+        '\n'
+      )}${filePaths.length > 3 ? `\nand ${filePaths.length - 3} more: ` : ''}${filePaths.slice(3).join(', ')}`
+  const toolCallMessage = `<tool_call name="find_files">Please find the files relevant to the user request</tool_call>`
+  return {
+    readFilesMessage: filePaths.length === 0 ? '' : readFilesMessage,
+    toolCallMessage,
+  }
+}
 
 async function getFileVersionUpdates(
   ws: WebSocket,
+  messages: Message[],
+  system: string | Array<TextBlockParam>,
   fileContext: ProjectFileContext,
-  {
-    messages,
-    system,
-  }: {
-    messages: Message[]
-    system: string | Array<TextBlockParam>
-  },
   prompt: string | null,
-  clientSessionId: string,
-  fingerprntId: string,
-  userInputId: string,
-  userId: string | undefined
+  options: {
+    skipRequestingFiles: boolean
+    requestedFiles?: string[]
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    costMode: CostMode
+  }
 ) {
+  const {
+    skipRequestingFiles,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    costMode,
+  } = options
+  const FILE_TOKEN_BUDGET = costMode === 'lite' ? 25_000 : 80_000
+
   const { fileVersions } = fileContext
   const files = fileVersions.flatMap((files) => files)
   const previousFilePaths = uniq(files.map(({ path }) => path))
@@ -436,31 +673,26 @@ async function getFileVersionUpdates(
     )
     .filter((path): path is string => path !== undefined)
 
-  const requestedFiles =
-    (await requestRelevantFiles(
-      { messages, system },
-      fileContext,
-      prompt,
-      clientSessionId,
-      fingerprntId,
-      userInputId,
-      userId
-    )) ?? []
+  const requestedFiles = skipRequestingFiles
+    ? []
+    : options.requestedFiles ??
+      (await requestRelevantFiles(
+        { messages, system },
+        fileContext,
+        prompt,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+        costMode
+      )) ??
+      []
 
   const allFilePaths = uniq([
     ...requestedFiles,
     ...editedFilePaths,
     ...previousFilePaths,
-  ]).filter((p) => {
-    if (path.isAbsolute(p)) return false
-    if (p.includes('..')) return false
-    try {
-      path.normalize(p)
-      return true
-    } catch {
-      return false
-    }
-  })
+  ])
   const loadedFiles = await requestFiles(ws, allFilePaths)
 
   const filteredRequestedFiles = requestedFiles.filter((filePath, i) => {
@@ -521,10 +753,13 @@ async function getFileVersionUpdates(
       }
       i++
     }
-    const newFileVersions = [resetFileVersion]
+    const newFileVersions =
+      resetFileVersion.length > 0 ? [resetFileVersion] : []
 
-    const { readFilesMessage, toolCallMessage } =
-      getRelevantFileInfoMessage(readFilesPaths)
+    const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage(
+      readFilesPaths,
+      true
+    )
 
     logger.debug(
       {
@@ -546,7 +781,9 @@ async function getFileVersionUpdates(
     }
   }
 
-  const newFileVersions = [...fileVersions, addedFiles]
+  const newFileVersions = [...fileVersions, addedFiles].filter(
+    (files) => files.length > 0
+  )
   if (newFiles.length === 0) {
     return {
       newFileVersions,
@@ -556,9 +793,13 @@ async function getFileVersionUpdates(
     }
   }
 
-  const readFilesPaths = addedFiles.map((f) => f.path)
-  const { readFilesMessage, toolCallMessage } =
-    getRelevantFileInfoMessage(readFilesPaths)
+  const existingNewFilePaths = newFiles.filter(
+    (path) => loadedFiles[path] && loadedFiles.content !== null
+  )
+  const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage(
+    existingNewFilePaths,
+    fileVersions.length <= 1
+  )
 
   return {
     newFileVersions,
@@ -566,47 +807,4 @@ async function getFileVersionUpdates(
     readFilesMessage,
     toolCallMessage,
   }
-}
-
-async function checkToAllowUnboundedIteration(
-  message: Message,
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId: string | undefined
-  }
-): Promise<boolean> {
-  if (message.role !== 'user' || typeof message.content !== 'string') {
-    return false
-  }
-
-  const checkInfinitePrompt = `Does this user message indicate they want the assistant to continue until all cases are done or a condition is met? Answer only "yes" or "no", and do not include any other text.
-Message: "${message.content}"
-
-Examples of language indicating "yes":
-- "do all of the cases"
-- "run until condition X is satisfied" 
-- "do the rest of the cases"
-- "keep going until finished"
-- "continue until complete"
-- "build the whole thing"
-- "complete the entire task"
-
-Examples of language indicating "no":
-- "Please continue"
-- "Build feature X for me"
-`
-  const response = await promptOpenAI(
-    [{ role: 'user', content: checkInfinitePrompt }],
-    {
-      model: openaiModels.gpt4omini,
-      ...options,
-    }
-  )
-  logger.debug(
-    { response, userMessage: message.content },
-    'checkToAllowUnboundedIteration'
-  )
-  return response.toLowerCase().includes('yes')
 }

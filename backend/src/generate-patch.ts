@@ -6,7 +6,7 @@ import { EXISTING_CODE_MARKER, openaiModels } from 'common/constants'
 import { replaceNonStandardPlaceholderComments } from 'common/util/string'
 import { logger } from './util/logger'
 import { parseFileBlocks } from 'common/util/file'
-import { sleep } from 'common/util/helpers'
+import { sleep } from 'common/util/promise'
 
 export async function generatePatch(
   clientSessionId: string,

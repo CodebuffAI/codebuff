@@ -7,6 +7,16 @@ export const truncateString = (str: string, maxLength: number) => {
   return str.slice(0, maxLength) + '...'
 }
 
+export const truncateStringWithMessage = (
+  str: string,
+  maxLength: number,
+  message: string = 'TRUNCATED_DUE_TO_LENGTH'
+) => {
+  return str.length > maxLength
+    ? str.slice(0, maxLength) + `\n[...${message}]`
+    : str
+}
+
 export const replaceNonStandardPlaceholderComments = (
   content: string,
   replacement: string
@@ -69,25 +79,74 @@ export const randBoolFromStr = (str: string) => {
 }
 
 export const pluralize = (count: number, word: string) => {
-  if (count === 1) return word
+  if (count === 1) return `${count} ${word}`
 
   // Handle words ending in 'y' (unless preceded by a vowel)
   if (word.endsWith('y') && !word.match(/[aeiou]y$/)) {
-    return word.slice(0, -1) + 'ies'
+    return `${count} ${word.slice(0, -1) + 'ies'}`
   }
 
   // Handle words ending in s, sh, ch, x, z, o
   if (word.match(/[sxz]$/) || word.match(/[cs]h$/) || word.match(/o$/)) {
-    return word + 'es'
+    return `${count} ${word + 'es'}`
   }
 
   // Handle words ending in f/fe
   if (word.endsWith('f')) {
-    return word.slice(0, -1) + 'ves'
+    return `${count} ${word.slice(0, -1) + 'ves'}`
   }
   if (word.endsWith('fe')) {
-    return word.slice(0, -2) + 'ves'
+    return `${count} ${word.slice(0, -2) + 'ves'}`
   }
 
   return `${count} ${word + 's'}`
+}
+
+/**
+ * Safely replaces all occurrences of a search string with a replacement string,
+ * escaping special replacement patterns (like $) in the replacement string.
+ */
+export const capitalize = (str: string): string => {
+  if (!str) return str
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
+}
+
+export const safeReplace = (
+  content: string,
+  searchStr: string,
+  replaceStr: string
+): string => {
+  const escapedReplaceStr = replaceStr.replace(/\$/g, '$$$$')
+  return content.replace(searchStr, escapedReplaceStr)
+}
+
+export const hasLazyEdit = (content: string) => {
+  const cleanedContent = content.toLowerCase().trim()
+
+  return (
+    cleanedContent.includes('// rest of the') ||
+    cleanedContent.includes('# rest of the') ||
+    // Match various comment styles with ellipsis and specific words
+    /\/\/\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
+      cleanedContent
+    ) || // C-style single line
+    /\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\//.test(
+      cleanedContent
+    ) || // C-style multi-line
+    /#\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
+      cleanedContent
+    ) || // Python/Ruby style
+    /<!--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*-->/.test(
+      cleanedContent
+    ) || // HTML style
+    /--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
+      cleanedContent
+    ) || // SQL/Haskell style
+    /%\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
+      cleanedContent
+    ) || // MATLAB style
+    /{\s*\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\/\s*}/.test(
+      cleanedContent
+    ) // JSX style
+  )
 }

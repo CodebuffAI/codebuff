@@ -19,13 +19,13 @@
     "@auth/drizzle-adapter": "^1.5.0",
     "@types/pg": "^8.11.10",
     "dotenv": "^16.4.5",
-    "drizzle-orm": "^0.36.0",
+    "drizzle-kit": "0.28.1",
+    "drizzle-orm": "0.36.4",
     "next": "14.2.11",
     "next-auth": "^4.24.7",
     "pg": "^8.13.0"
   },
   "peerDependencies": {
-    "drizzle-kit": "0.27.1",
     "@types/node": "*",
     "@types/lodash": "*",
     "typescript": "*"

@@ -11,11 +11,14 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
-import { sleep } from 'common/util/helpers'
+import { sleep } from 'common/util/promise'
 import { CopyIcon, CheckIcon, GiftIcon } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import type { ReferralCodeResponse } from '@/app/api/referrals/[code]/route'
 import { Button } from '@/components/ui/button'
+import { env } from '@/env.mjs'
+import CardWithBeams from '@/components/card-with-beams'
+import { sponsees } from '@/lib/constant'
 
 const InputWithCopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
@@ -52,13 +55,19 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
 }
 
 export default function RedeemPage({ params }: { params: { code: string } }) {
+  const sponsee = sponsees.find((e) => e.referralCode === params.code)
+  const code = sponsee ? sponsee.referralCode : params.code
   const { data: session, status } = useSession()
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['referrals'],
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['referrals', code],
     queryFn: async (): Promise<ReferralCodeResponse> => {
-      const res = await fetch(`/api/referrals/${params.code}`)
-      return res.json()
+      const res = await fetch(`/api/referrals/${code}`)
+      const ret = await res.json()
+      if (!res.ok) {
+        throw new Error(`Error fetching referral code: ${ret.error}`)
+      }
+      return ret
     },
   })
 
@@ -77,6 +86,23 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
     )
   }
 
+  if (error) {
+    return CardWithBeams({
+      title: 'Uh-oh, spaghettio!',
+      description: "We couldn't fetch this referral code.",
+      content: (
+        <>
+          <p>
+            Something went wrong. Please reach out to{' '}
+            {env.NEXT_PUBLIC_SUPPORT_EMAIL} for help, and send the following
+            error:
+          </p>
+          <code>{error.message}</code>
+        </>
+      ),
+    })
+  }
+
   return (
     <div className="flex flex-col space-y-6">
       <Card className="bg-violet-100 dark:bg-violet-900">
@@ -93,8 +119,8 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
             <p className="text-red-600 mt-2">{data.status.details.msg}</p>
           ) : (
             <p>
-              Your friend {data?.referrerName} just scored you some sweet sweet
-              credits.
+              {sponsee ? sponsee.name : data?.referrerName} just scored you some
+              sweet sweet credits.
             </p>
           )}
         </CardContent>
@@ -109,7 +135,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
             <ol className="list-decimal list-inside space-y-6">
               <li>
                 Install Codebuff globally:
-                <InputWithCopyButton text={'npm i -g codebuff'} />
+                <InputWithCopyButton text={'npm install -g codebuff'} />
               </li>
               <li>
                 Run Codebuff in Terminal

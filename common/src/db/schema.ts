@@ -10,6 +10,7 @@ import {
   numeric,
   uuid,
   pgEnum,
+  index,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
 import { ReferralStatusValues } from '../types/referral'
@@ -61,11 +62,11 @@ export const account = pgTable(
     id_token: text('id_token'),
     session_state: text('session_state'),
   },
-  (account) => ({
-    compoundKey: primaryKey({
+  (account) => [
+    primaryKey({
       columns: [account.provider, account.providerAccountId],
     }),
-  })
+  ]
 )
 
 export const referral = pgTable(
@@ -84,9 +85,7 @@ export const referral = pgTable(
       .defaultNow(),
     completed_at: timestamp('completed_at', { mode: 'date' }),
   },
-  (table) => ({
-    pk: primaryKey({ columns: [table.referrer_id, table.referred_id] }),
-  })
+  (table) => [primaryKey({ columns: [table.referrer_id, table.referred_id] })]
 )
 export const fingerprint = pgTable('fingerprint', {
   id: text('id').primaryKey(),
@@ -95,34 +94,43 @@ export const fingerprint = pgTable('fingerprint', {
   next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
     sql<Date>`now() + INTERVAL '1 month'`
   ),
+  created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 })
 
-export const message = pgTable('message', {
-  id: text('id').primaryKey(),
-  finished_at: timestamp('finished_at', { mode: 'date' }).notNull(),
-  client_id: text('client_id').notNull(), // TODO: `CHECK` that this starts w/ prefix `mc-client-`
-  client_request_id: text('client_request_id').notNull(), // TODO: `CHECK` that this starts w/ prefix `mc-input-`
-  model: text('model').notNull(),
-  request: jsonb('request').notNull(),
-  lastMessage: jsonb('last_message').generatedAlwaysAs(
-    (): SQL => sql`${message.request} -> -1`
-  ),
-  response: jsonb('response').notNull(),
-  input_tokens: integer('input_tokens').notNull().default(0),
-  cache_creation_input_tokens: integer('cache_creation_input_tokens')
-    .notNull()
-    .default(0),
-  cache_read_input_tokens: integer('cache_read_input_tokens')
-    .notNull()
-    .default(0),
-  output_tokens: integer('output_tokens').notNull(),
-  cost: numeric('cost', { precision: 100, scale: 20 }).notNull(),
-  credits: integer('credits').notNull(),
-  user_id: text('user_id').references(() => user.id),
-  fingerprint_id: text('fingerprint_id')
-    .references(() => fingerprint.id)
-    .notNull(),
-})
+export const message = pgTable(
+  'message',
+  {
+    id: text('id').primaryKey(),
+    finished_at: timestamp('finished_at', { mode: 'date' }).notNull(),
+    client_id: text('client_id').notNull(), // TODO: `CHECK` that this starts w/ prefix `mc-client-`
+    client_request_id: text('client_request_id').notNull(), // TODO: `CHECK` that this starts w/ prefix `mc-input-`
+    model: text('model').notNull(),
+    request: jsonb('request').notNull(),
+    lastMessage: jsonb('last_message').generatedAlwaysAs(
+      (): SQL => sql`${message.request} -> -1`
+    ),
+    response: jsonb('response').notNull(),
+    input_tokens: integer('input_tokens').notNull().default(0),
+    cache_creation_input_tokens: integer('cache_creation_input_tokens')
+      .notNull()
+      .default(0),
+    cache_read_input_tokens: integer('cache_read_input_tokens')
+      .notNull()
+      .default(0),
+    output_tokens: integer('output_tokens').notNull(),
+    cost: numeric('cost', { precision: 100, scale: 20 }).notNull(),
+    credits: integer('credits').notNull(),
+    latency_ms: integer('latency_ms'),
+    user_id: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    fingerprint_id: text('fingerprint_id')
+      .references(() => fingerprint.id, { onDelete: 'cascade' })
+      .notNull(),
+  },
+  (table) => [
+    index('message_fingerprint_id_idx').on(table.fingerprint_id),
+    index('message_user_id_idx').on(table.user_id),
+  ]
+)
 
 export const session = pgTable('session', {
   sessionToken: text('sessionToken').notNull().primaryKey(),
@@ -140,7 +148,5 @@ export const verificationToken = pgTable(
     token: text('token').notNull(),
     expires: timestamp('expires', { mode: 'date' }).notNull(),
   },
-  (vt) => ({
-    compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
-  })
+  (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
 )

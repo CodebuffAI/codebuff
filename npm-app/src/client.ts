@@ -24,6 +24,7 @@ import {
   CREDITS_REFERRAL_BONUS,
   CREDITS_USAGE_LIMITS,
   TOOL_RESULT_MARKER,
+  type CostMode,
 } from 'common/constants'
 
 import { uniq } from 'lodash'
@@ -32,6 +33,8 @@ import * as fs from 'fs'
 import { match, P } from 'ts-pattern'
 import { calculateFingerprint } from './fingerprint'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
+import { stagePatches } from 'common/util/git'
+import { GitCommand } from './types'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -39,23 +42,36 @@ export class Client {
   private currentUserInputId: string | undefined
   private returnControlToUser: () => void
   private fingerprintId: string | undefined
+  private costMode: CostMode
   public fileVersions: FileVersion[][] = []
+  public fileContext: ProjectFileContext | undefined
 
   public user: User | undefined
   public lastWarnedPct: number = 0
   public usage: number = 0
   public limit: number = 0
   public subscription_active: boolean = false
+  public lastRequestCredits: number = 0
   public sessionCreditsUsed: number = 0
   public nextQuotaReset: Date | null = null
+  private git: GitCommand
 
   constructor(
     websocketUrl: string,
     chatStorage: ChatStorage,
     onWebSocketError: () => void,
-    returnControlToUser: () => void
+    onWebSocketReconnect: () => void,
+    returnControlToUser: () => void,
+    costMode: CostMode,
+    git: GitCommand
   ) {
-    this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
+    this.costMode = costMode
+    this.git = git
+    this.webSocket = new APIRealtimeClient(
+      websocketUrl,
+      onWebSocketError,
+      onWebSocketReconnect
+    )
     this.chatStorage = chatStorage
     this.user = this.getUser()
     this.getFingerprintId()
@@ -64,6 +80,7 @@ export class Client {
 
   public initFileVersions(projectFileContext: ProjectFileContext) {
     const { knowledgeFiles } = projectFileContext
+    this.fileContext = projectFileContext
     this.fileVersions = [
       Object.entries(knowledgeFiles).map(([path, content]) => ({
         path,
@@ -178,9 +195,13 @@ export class Client {
     this.subscription_active = subscription_active
     this.nextQuotaReset = next_quota_reset
     if (!!session_credits_used) {
+      this.lastRequestCredits = Math.max(
+        session_credits_used - this.sessionCreditsUsed,
+        0
+      )
       this.sessionCreditsUsed = session_credits_used
     }
-    this.showUsageWarning(referralLink)
+    // this.showUsageWarning(referralLink)
   }
 
   private setupSubscriptions() {
@@ -211,6 +232,14 @@ export class Client {
 
       const filesChanged = uniq(changes.map((change) => change.filePath))
       this.chatStorage.saveFilesChanged(filesChanged)
+
+      // Stage files about to be changed if flag was set
+      if (this.git === 'stage' && changes.length > 0) {
+        const didStage = stagePatches(getProjectRoot(), changes)
+        if (didStage) {
+          console.log(green('\nStaged previous changes'))
+        }
+      }
 
       applyChanges(getProjectRoot(), changes)
 
@@ -319,13 +348,14 @@ export class Client {
         )
         const responseToUser = [
           'Authentication successful!',
-          `Welcome, ${action.user.name}. Your credits have been increased by ${CREDITS_USAGE_LIMITS.FREE / CREDITS_USAGE_LIMITS.ANON}x to ${CREDITS_USAGE_LIMITS.FREE} per month. Happy coding!`,
+          `Welcome, ${action.user.name}. Your credits have been increased by ${CREDITS_USAGE_LIMITS.FREE / CREDITS_USAGE_LIMITS.ANON}x to ${CREDITS_USAGE_LIMITS.FREE.toLocaleString()} per month. Happy coding!`,
           `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month each: ${process.env.NEXT_PUBLIC_APP_URL}/referrals`,
         ]
         console.log(responseToUser.join('\n'))
         this.lastWarnedPct = 0
 
-        this.returnControlToUser()
+        this.getUsage()
+        // this.returnControlToUser()
       } else {
         console.warn(
           `Authentication failed: ${action.message}. Please try again in a few minutes or contact support at ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL}.`
@@ -358,8 +388,6 @@ export class Client {
     const pct: number = match(Math.floor((this.usage / this.limit) * 100))
       .with(P.number.gte(100), () => 100)
       .with(P.number.gte(75), () => 75)
-      // .with(P.number.gte(50), () => 50)
-      // .with(P.number.gte(25), () => 25)
       .otherwise(() => 0)
 
     // User has used all their allotted credits, but they haven't been notified yet
@@ -367,7 +395,7 @@ export class Client {
       if (this.subscription_active) {
         console.warn(
           yellow(
-            `You have exceeded your monthly quota, but feel free to keep using Codebuff! We'll charge you a discounted rate ($0.90/100) credits until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/usage for more details.`
+            `You have exceeded your monthly quota, but feel free to keep using Codebuff! We'll continue to charge you for the overage until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/usage for more details.`
           )
         )
         this.lastWarnedPct = 100
@@ -428,6 +456,7 @@ export class Client {
       currentFileVersion,
       this.fileVersions
     )
+    this.fileContext = fileContext
     this.webSocket.sendAction({
       type: 'user-input',
       userInputId,
@@ -436,6 +465,7 @@ export class Client {
       changesAlreadyApplied: previousChanges,
       fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
+      costMode: this.costMode,
     })
   }
 
@@ -484,7 +514,7 @@ export class Client {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
-      if (!streamStarted) {
+      if (!streamStarted && chunk.trim()) {
         streamStarted = true
         onStreamStart()
       }
@@ -518,9 +548,6 @@ export class Client {
           return
         }
 
-        if (this.usage > 0) {
-          this.sessionCreditsUsed = a.usage - this.usage
-        }
         this.setUsage({
           usage: a.usage,
           limit: a.limit,
@@ -557,31 +584,23 @@ export class Client {
       this.fileVersions
     )
 
-    return new Promise<void>(async (resolve) => {
-      this.webSocket.subscribe('init-response', (a) => {
-        const parsedAction = InitResponseSchema.safeParse(a)
-        if (!parsedAction.success) return
+    // Don't wait for response anymore.
+    this.webSocket.subscribe('init-response', (a) => {
+      const parsedAction = InitResponseSchema.safeParse(a)
+      if (!parsedAction.success) return
 
-        this.setUsage(parsedAction.data)
-        resolve()
-      })
-
-      this.webSocket
-        .sendAction({
-          type: 'init',
-          fingerprintId: await this.getFingerprintId(),
-          authToken: this.user?.authToken,
-          fileContext,
-        })
-        .catch((e) => {
-          // console.error('Error warming context cache', e)
-          resolve()
-        })
-
-      // If it takes too long, resolve the promise to avoid hanging the CLI.
-      setTimeout(() => {
-        resolve()
-      }, 30_000)
+      this.setUsage(parsedAction.data)
     })
+
+    this.webSocket
+      .sendAction({
+        type: 'init',
+        fingerprintId: await this.getFingerprintId(),
+        authToken: this.user?.authToken,
+        fileContext,
+      })
+      .catch((e) => {
+        // console.error('Error warming context cache', e)
+      })
   }
 }

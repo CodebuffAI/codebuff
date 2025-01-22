@@ -1,6 +1,6 @@
 import fs from 'fs'
 import os from 'os'
-import path from 'path'
+import path, { isAbsolute } from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { createPatch } from 'diff'
@@ -19,6 +19,8 @@ import {
   parseGitignore,
 } from 'common/project-file-tree'
 import { getFileTokenScores } from 'code-map/parse'
+import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+import { getSystemInfo } from './utils/system-info'
 
 const execAsync = promisify(exec)
 
@@ -101,16 +103,26 @@ export const getProjectFileContext = async (
       filePath.endsWith('knowledge.md')
     )
     const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
-    const shellConfigFiles = loadShellConfigFiles()
+    const knowledgeFilesWithScrapedContent =
+      await addScrapedContentToFiles(knowledgeFiles)
 
+    // Get knowledge files from user's home directory
+    const homeDir = os.homedir()
+    const userKnowledgeFiles = findKnowledgeFilesInDir(homeDir)
+    const userKnowledgeFilesWithScrapedContent =
+      await addScrapedContentToFiles(userKnowledgeFiles)
+
+    const shellConfigFiles = loadShellConfigFiles()
     const fileTokenScores = await getFileTokenScores(projectRoot, allFilePaths)
 
     cachedProjectFileContext = {
       currentWorkingDirectory: projectRoot,
       fileTree,
       fileTokenScores,
-      knowledgeFiles,
+      knowledgeFiles: knowledgeFilesWithScrapedContent,
+      userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,
       shellConfigFiles,
+      systemInfo: getSystemInfo(),
       ...updatedProps,
     }
   } else {
@@ -178,26 +190,30 @@ export function getFiles(filePaths: string[]) {
   const ig = parseGitignore(projectRoot)
 
   for (const filePath of filePaths) {
-    const fullPath = path.join(projectRoot, filePath)
-    if (!fullPath.startsWith(projectRoot)) {
-      result[filePath] = '[FILE_OUTSIDE_PROJECT]'
+    // Convert absolute paths within project to relative paths
+    const relativePath = filePath.startsWith(projectRoot)
+      ? path.relative(projectRoot, filePath)
+      : filePath
+    const fullPath = path.join(projectRoot, relativePath)
+    if (isAbsolute(relativePath) || !fullPath.startsWith(projectRoot)) {
+      result[relativePath] = '[FILE_OUTSIDE_PROJECT]'
       continue
     }
-    if (ig.ignores(filePath)) {
-      result[filePath] = '[FILE_IGNORED]'
+    if (ig.ignores(relativePath)) {
+      result[relativePath] = '[FILE_IGNORED]'
       continue
     }
     try {
       const stats = fs.statSync(fullPath)
       if (stats.size > MAX_FILE_SIZE) {
-        result[filePath] =
+        result[relativePath] =
           `[FILE_TOO_LARGE: ${(stats.size / (1024 * 1024)).toFixed(2)}MB]`
       } else {
         const content = fs.readFileSync(fullPath, 'utf8')
-        result[filePath] = content
+        result[relativePath] = content
       }
     } catch (error) {
-      result[filePath] = null
+      result[relativePath] = null
     }
   }
   return result
@@ -209,6 +225,45 @@ export function getExistingFiles(filePaths: string[]) {
     string
   >
 }
+export async function addScrapedContentToFiles(files: Record<string, string>) {
+  const newFiles = { ...files }
+  await Promise.all(
+    Object.entries(files).map(async ([filePath, content]) => {
+      const urls = parseUrlsFromContent(content)
+      const scrapedContent = await getScrapedContentBlocks(urls)
+
+      newFiles[filePath] =
+        content +
+        (scrapedContent.length > 0 ? '\n' : '') +
+        scrapedContent.join('\n')
+    })
+  )
+  return newFiles
+}
+
+function findKnowledgeFilesInDir(dir: string): Record<string, string> {
+  const result: Record<string, string> = {}
+  try {
+    const files = fs.readdirSync(dir, { withFileTypes: true })
+    for (const file of files) {
+      if (!file.isDirectory() && file.name.endsWith('knowledge.md')) {
+        const fullPath = path.join(dir, file.name)
+        try {
+          const content = fs.readFileSync(fullPath, 'utf8')
+          result[file.name] = content
+        } catch (error) {
+          // Skip files we can't read
+          console.error(`Error reading knowledge file ${fullPath}:`, error)
+        }
+      }
+    }
+  } catch (error) {
+    // Skip directories we can't read
+    console.error(`Error reading directory ${dir}:`, error)
+  }
+  return result
+}
+
 export function getFilesAbsolutePath(filePaths: string[]) {
   const result: Record<string, string | null> = {}
   for (const filePath of filePaths) {

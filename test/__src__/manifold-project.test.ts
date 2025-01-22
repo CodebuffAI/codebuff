@@ -17,6 +17,7 @@ import { getFileTokenScores } from 'code-map/parse'
 import { EventEmitter } from 'events'
 import { FileChanges } from 'common/actions'
 import { projectTest } from './score-tests'
+import { getSystemInfo } from 'npm-app/utils/system-info'
 
 const DEBUG_MODE = true
 const mockProjectRoot = path.join(__dirname, '../__mock-projects__/manifold')
@@ -237,7 +238,9 @@ async function getProjectFileContext(): Promise<ProjectFileContext> {
       lastCommitMessages: '',
     },
     changesSinceLastChat: {},
-    files: {},
+    fileVersions: [],
+    systemInfo: getSystemInfo(),
+    shellConfigFiles: {},
     knowledgeFiles,
     fileTokenScores,
     fileTree,
@@ -256,12 +259,17 @@ async function runMainPrompt(
     mockWs,
     messages,
     fileContext,
-    'test-user-id',
+    'test-session-id',
+    'test-fingerprint-id',
+    'test-user-input-id',
     (chunk: string) => {
       if (DEBUG_MODE) {
         process.stdout.write(chunk)
       }
-    }
+    },
+    'test-user-id',
+    [],
+    'normal'
   )
 }
 

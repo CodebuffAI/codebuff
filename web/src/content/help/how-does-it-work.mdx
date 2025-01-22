@@ -1,0 +1,18 @@
+---
+title: 'How does Codebuff actually work?'
+section: 'help'
+tags: ['introduction', 'faq']
+order: 3
+---
+
+# How does Codebuff actually work?
+
+Codebuff starts by running through the source files in that directory and subdirectories and parsing out all the function and class names (or equivalents in 11 languages) with the tree-sitter library.
+
+Then, it fires off a request to Claude Haiku 3.5 to cache this codebase context so user inputs can be responded to with lower latency (Prompt caching is OP!).
+
+We have a stateless server that passes messages along to Anthropic or OpenAI and websockets to ferry data back and forth to clients. It effectively acts as a proxy between the client and our LLM providers.
+
+Claude 3.5 Haiku picks the relevant files, and we load them into context and Claude 3.5 Sonnet responds with the right edit.
+
+We also use a combination of Claude 3.5 Sonnet and GPT-4o-mini to rewrite files with an intended edit – combining Sonnet's [string replace tool](https://open.substack.com/pub/swyx/p/claude-sonnet?selection=face7427-d903-425d-86c8-fda6a5845e07) and GPT-4o-mini's [Predicted Outputs API](https://x.com/OpenAIDevs/status/1853564730872607229) lets us efficiently patch the code changes through.

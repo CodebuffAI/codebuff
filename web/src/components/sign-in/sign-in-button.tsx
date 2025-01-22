@@ -2,11 +2,12 @@
 
 import { useTransition } from 'react'
 import { signIn } from 'next-auth/react'
+import { OAuthProviderType } from 'next-auth/providers/oauth-types'
+import posthog from 'posthog-js'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
-import { OAuthProviderType } from 'next-auth/providers/oauth-types'
-import { sleep } from 'common/util/helpers'
+import { sleep } from 'common/util/promise'
 import { toast } from '../ui/use-toast'
 
 export const SignInButton = ({
@@ -20,6 +21,9 @@ export const SignInButton = ({
 
   const handleSignIn = () => {
     startTransition(async () => {
+      posthog.capture('auth.login_started', {
+        provider: providerName,
+      })
       await signIn(providerName)
       await sleep(10000).then(() => {
         toast({

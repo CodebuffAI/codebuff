@@ -12,8 +12,9 @@
       "backend/*": ["../backend/src/*"],
       "common/*": ["../common/src/*"]
     },
-    "types": ["bun-types"]
+    "types": ["bun"]
   },
   "include": ["**/*"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules"],
+  "references": [{ "path": "../backend" }, { "path": "../common" }]
 }

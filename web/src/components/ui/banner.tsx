@@ -2,14 +2,25 @@
 
 import { Button } from './button'
 import { X, Gift } from 'lucide-react'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
+import { useSearchParams } from 'next/navigation'
+import posthog from 'posthog-js'
+import { sponseeConfig } from '@/lib/constant'
 
-export function Banner() {
+function BannerContent() {
   const [isVisible, setIsVisible] = useState(true)
+  const searchParams = useSearchParams()
+  const utmSource = searchParams.get('utm_source')
+  const referrer = searchParams.get('referrer')
+  const { data: session } = useSession()
 
-  if (!isVisible) return <></>
+  if (!isVisible || !session?.user) return null
+
+  const isYouTubeReferral =
+    utmSource === 'youtube' && referrer && referrer in sponseeConfig
 
   return (
     <div className="w-full bg-blue-900 text-white px-4 py-2 md:py-0 relative z-20">
@@ -18,9 +29,31 @@ export function Banner() {
         <div className="flex items-center gap-2 text-center">
           <Gift className="hidden md:block h-4 w-4" />
           <p className="text-sm">
-            Refer a friend, and earn {CREDITS_REFERRAL_BONUS} credits per month
-            for both of you!{' '}
-            <Link href="/referrals" className="underline hover:text-blue-200">
+            {isYouTubeReferral ? (
+              <>
+                {sponseeConfig[referrer as keyof typeof sponseeConfig].name} got
+                you an extra {CREDITS_REFERRAL_BONUS} credits per month!
+              </>
+            ) : (
+              <>
+                Refer a friend, and earn {CREDITS_REFERRAL_BONUS} credits per
+                month for both of you!
+              </>
+            )}{' '}
+            <Link
+              href={
+                isYouTubeReferral
+                  ? `/referrals/${sponseeConfig[referrer as keyof typeof sponseeConfig].referralCode}`
+                  : '/referrals'
+              }
+              className="underline hover:text-blue-200"
+              onClick={() => {
+                posthog.capture('referral_banner.clicked', {
+                  type: isYouTubeReferral ? 'youtube' : 'general',
+                  source: referrer || undefined,
+                })
+              }}
+            >
               Learn more
             </Link>
           </p>
@@ -36,5 +69,13 @@ export function Banner() {
         </Button>
       </div>
     </div>
+  )
+}
+
+export function Banner() {
+  return (
+    <Suspense>
+      <BannerContent />
+    </Suspense>
   )
 }

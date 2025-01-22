@@ -66,8 +66,8 @@ const Onboard = async ({ searchParams }: PageProps) => {
       description: 'Auth code expired.',
       content: (
         <p>
-          Please generate a new code and reach out to support@codebuff.com if the
-          problem persists.
+          Please generate a new code and reach out to support@codebuff.com if
+          the problem persists.
         </p>
       ),
     })
@@ -175,7 +175,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
       content: (
         <div className="flex flex-col space-y-2">
           <Image
-            src="/auth-success.jpg"
+            src="/auth-success.png"
             alt="Successful authentication"
             width={600}
             height={600}

@@ -1,276 +1,369 @@
 'use client'
-import { Button } from '@/components/ui/button'
+
+import { useState, useEffect } from 'react'
+import posthog from 'posthog-js'
+import Image from 'next/image'
+import { useSearchParams } from 'next/navigation'
 import {
   FolderCodeIcon,
   TerminalIcon,
-  Copy,
   ZapIcon,
   Play,
-  ChevronDown,
-  ChevronUp,
+  ExternalLink,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useTheme } from 'next-themes'
+import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { BackgroundBeams } from '@/components/ui/background-beams'
-import { useTheme } from 'next-themes'
-import { useToast } from '@/components/ui/use-toast'
-import { Card, CardContent } from '@/components/ui/card'
 import Marquee from '@/components/ui/marquee'
-import { testimonials } from '@/lib/testimonials'
-import { faqs } from '@/lib/faq'
+import { Testimonial, testimonials } from '@/lib/testimonials'
 import { cn } from '@/lib/utils'
-import { useState } from 'react'
+import { storeSearchParams } from '@/lib/trackConversions'
+import InteractiveTerminalDemo from '@/components/InteractiveTerminalDemo'
+import { CodeDemo } from '@/components/docs/mdx/code-demo'
+
+const ReviewCard = ({
+  t,
+  onTestimonialClick,
+}: {
+  t: Testimonial
+  onTestimonialClick: (author: string, link: string) => void
+}) => {
+  return (
+    <figure
+      className={cn(
+        'relative w-64 lg:w-80 cursor-pointer overflow-hidden rounded-xl p-6',
+        'bg-gradient-to-br from-white to-gray-50 hover:to-gray-100 border border-gray-200/50 shadow-lg hover:shadow-xl',
+        'dark:from-gray-800 dark:to-gray-900 dark:hover:to-gray-800 dark:border-gray-700/50',
+        'transition-all duration-200 hover:-translate-y-1'
+      )}
+      onClick={() => onTestimonialClick(t.author, t.link)}
+    >
+      <div className="flex justify-between">
+        <div className="flex flex-row items-center gap-2">
+          <Image
+            className="rounded-full"
+            width={32}
+            height={32}
+            alt=""
+            src={
+              t.avatar ??
+              `https://avatar.vercel.sh/${t.author.split(' ').join('-').toLowerCase()}?size=32`
+            }
+            priority={false}
+            loading="lazy"
+          />
+          <div className="flex flex-col">
+            <figcaption className="text-sm font-medium dark:text-white">
+              {t.author}
+            </figcaption>
+            <p className="text-xs font-medium dark:text-white/40">{t.title}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <ExternalLink
+            className="h-4 w-4"
+            onClick={() => onTestimonialClick(t.author, t.link)}
+          />
+        </div>
+      </div>
+      <blockquote className="mt-4 text-sm lg:text-base">{t.quote}</blockquote>
+    </figure>
+  )
+}
 
 const Home = () => {
   const { theme } = useTheme()
-  const { toast } = useToast()
   const [isVideoOpen, setIsVideoOpen] = useState(false)
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null)
+  const [isInstallOpen, setIsInstallOpen] = useState(false)
+  const searchParams = useSearchParams()
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText('npm install -g codebuff')
-    toast({
-      title: `Copied to clipboard`,
-      description: "Let's code! 🤖",
+  const handleGetStartedClick = () => {
+    // Track the event with PostHog
+    posthog.capture('home.cta_clicked', {
+      location: 'hero_section',
     })
+    setIsInstallOpen(true)
   }
 
+  const handleVideoOpen = () => {
+    posthog.capture('home.video_opened')
+    setIsVideoOpen(true)
+  }
+
+  const handleTestimonialClick = (author: string, link: string) => {
+    posthog.capture('home.testimonial_clicked', {
+      author,
+      link,
+    })
+    window.open(link)
+  }
+
+  useEffect(() => {
+    storeSearchParams(searchParams)
+  }, [searchParams])
+
   return (
-    <div className="overflow-hidden">
-      <BackgroundBeams />
+    <>
+      <div className="relative overflow-hidden bg-gradient-to-b from-transparent via-blue-500/[0.02] to-blue-500/[0.03] dark:via-blue-900/[0.02] dark:to-blue-900/[0.03]">
+        <BackgroundBeams className="z-0" />
+        <div className="relative z-10 flex flex-col max-w-6xl mx-auto mt-8 mb-16 space-y-24">
+          {/* Hero Section */}
+          <section className="relative px-6 text-center">
+            <h1 className="text-4xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-br from-blue-600 via-blue-800 to-purple-700 dark:from-blue-400 dark:via-blue-600 dark:to-purple-500">
+              <span className="whitespace-nowrap">Code faster</span>{' '}
+              <span className="whitespace-nowrap">with AI</span>
+            </h1>
 
-      <div className="max-w-6xl mx-auto">
-        <main className="px-6 py-20 relative z-10 text-center space-y-8">
-          <h1 className="text-5xl md:text-7xl font-bold -mt-6 mx-auto">
-            Code at the Speed of Thought
-          </h1>
-          <div className="text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            <p className="md:hidden">
-              Edit your codebase and run commands quickly, with natural language
-              in your terminal.
+            <p className="text-lg md:text-xl mb-8 text-muted-foreground max-w-2xl mx-auto">
+              Your AI programming assistant that understands your entire
+              codebase
             </p>
-            <div className="hidden md:block">
-              <p>Edit your codebase and run commands quickly</p>
-              <p>with natural language in your terminal.</p>
-            </div>
-          </div>
-          <section className="relative z-10">
-            <div className="mb-4">Try Codebuff for free:</div>
 
-            <div className="inline-block">
-              <div className="px-4 bg-gray-800 rounded-lg p-4 flex items-center gap-2">
-                <code className="text-white">npm install -g codebuff</code>
-                <Copy
-                  className="h-4 w-4 text-gray-400 hover:text-white cursor-pointer"
-                  onClick={copyToClipboard}
-                />
+            <section className="text-center mb-12">
+              <Button
+                onClick={handleGetStartedClick}
+                className="relative z-10 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white text-lg py-6 px-8 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 transform"
+              >
+                Try For Free
+              </Button>
+            </section>
+
+            <div className="relative w-full flex items-center justify-center rounded-xl">
+              <div className="relative h-full flex rounded-xl overflow-hidden shadow-2xl border border-gray-200/20">
+                <video
+                  className="rounded-lg shadow-lg max-h-full w-auto"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  disableRemotePlayback
+                  preload="auto"
+                >
+                  <source src="/codebuff-intro1.mp4" type="video/mp4" />
+                  <source src="/codebuff-intro1.webm" type="video/webm" />
+                </video>
               </div>
             </div>
           </section>
-        </main>
 
-        <section className="py-10 px-4 relative z-10 space-y-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
-            Watch a Demo
-          </h2>
-          <div className="max-w-3xl mx-auto">
-            <div className="aspect-w-16 aspect-h-full h-96">
-              <Button
-                onClick={() => setIsVideoOpen(true)}
-                className="bg-gray-800 hover:bg-gray-700 rounded-lg shadow-lg p-0 h-full w-full ring-1 ring-gray-400/20"
-              >
-                <div className="relative w-full h-full">
-                  <img
-                    src="/video-thumbnail.jpg"
-                    alt="Video thumbnail"
-                    className="w-full h-full object-cover object-center rounded-lg"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-gray-500 rounded-full p-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500">
-                      <Play className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
+          {/* Features Section */}
+          <section id="features" className="px-4 space-y-8">
+            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
+              Revolutionize Your Coding Workflow
+            </h2>
+            <div className="grid md:grid-cols-3 gap-8">
+              <div className="group bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 p-8 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-1">
+                <div className="bg-blue-100 dark:bg-blue-900/30 rounded-full w-16 h-16 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-200">
+                  <FolderCodeIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                 </div>
-              </Button>
-            </div>
-          </div>
-          <Dialog open={isVideoOpen} onOpenChange={setIsVideoOpen}>
-            <DialogContent className="max-w-3xl bg-transparent border-0 p-0">
-              <div className="aspect-w-16 aspect-h-full h-96">
-                <iframe
-                  src="https://www.youtube.com/embed/dQ0NOMsu0dA"
-                  title="Codebuff Demo"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full rounded-lg shadow-lg"
-                ></iframe>
+                <h3 className="text-xl dark:text-white font-semibold mb-3">
+                  Whole-codebase Understanding
+                </h3>
+                <p className="text-muted-foreground">
+                  Ask for any change and Codebuff will find the relevant
+                  sections out of thousands of files.
+                </p>
               </div>
-            </DialogContent>
-          </Dialog>
+              <div className="group bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 p-8 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-1">
+                <div className="bg-purple-100 dark:bg-purple-900/30 rounded-full w-16 h-16 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-200">
+                  <ZapIcon className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                </div>
+                <h3 className="text-xl dark:text-white font-semibold mb-3">
+                  10x Your Dev Productivity
+                </h3>
+                <p className="text-muted-foreground">
+                  Get more done when using Codebuff to write features, debug
+                  tests, refactor files, and install packages.
+                </p>
+              </div>
+              <div className="group bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 p-8 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-1">
+                <div className="bg-green-100 dark:bg-green-900/30 rounded-full w-16 h-16 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-200">
+                  <TerminalIcon className="h-8 w-8 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="text-xl dark:text-white font-semibold mb-3">
+                  Fully Capable Agent in Your Terminal
+                </h3>
+                <p className="text-muted-foreground">
+                  Codebuff can run terminal commands, create and edit files, and
+                  more.
+                </p>
+              </div>
+            </div>
+          </section>
 
-          <div className="flex justify-center space-x-8 pt-4">
-            <div className="flex flex-col items-center">
-              <p>Backed by</p>
-              <Link
+          {/* Demo Section */}
+          <section className="px-4 space-y-8">
+            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
+              Try It Out
+            </h2>
+            <p className="text-center text-lg text-muted-foreground">
+              Experience the power of Codebuff right in your browser
+            </p>
+            <div className="rounded-xl overflow-hidden shadow-2xl">
+              <InteractiveTerminalDemo />
+            </div>
+          </section>
+
+          {/* Testimonials Section */}
+          <section>
+            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
+              What Developers Are Saying
+            </h2>
+
+            <h6 className="text-center text-gray-700 dark:text-gray-300 text-sm mb-12">
+              (note: some testimonials reference our previous name,
+              &quot;Manicode&quot; – they refer to the same product)
+            </h6>
+            <div className="mt-12 space-y-1">
+              {testimonials.map((row, rowIndex) => (
+                <Marquee
+                  key={rowIndex}
+                  className="py-6"
+                  pauseOnHover
+                  reverse={rowIndex % 2 === 1}
+                >
+                  <div className="flex gap-6">
+                    {row.map((testimonial, i) => (
+                      <ReviewCard
+                        key={i}
+                        t={testimonial}
+                        onTestimonialClick={handleTestimonialClick}
+                      />
+                    ))}
+                  </div>
+                </Marquee>
+              ))}
+            </div>
+
+            <div className="flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-8">
+              <div className="flex flex-col items-center">
+                <p>Backed by</p>
+                <Link
+                  target="_blank"
+                  href="https://www.ycombinator.com/companies/codebuff"
+                >
+                  <img
+                    src="/y-combinator.svg"
+                    alt="y combinator logo"
+                    className="h-8 w-full"
+                  />
+                </Link>
+              </div>
+              <a
+                href="https://www.producthunt.com/posts/codebuff?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-codebuff"
                 target="_blank"
-                href="https://www.ycombinator.com/companies/codebuff"
               >
                 <img
-                  src="/y-combinator.svg"
-                  alt="y combinator logo"
-                  className="h-8 w-full"
+                  src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=${theme ?? 'light'}`}
+                  alt="Codebuff - Better&#0032;code&#0032;generation&#0032;than&#0032;Cursor&#0044;&#0032;from&#0032;your&#0032;CLI | Product Hunt"
+                  width="250"
+                  height="54"
                 />
-              </Link>
+              </a>
             </div>
-            <a
-              href="https://www.producthunt.com/posts/codebuff?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-codebuff"
-              target="_blank"
-            >
-              <img
-                src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=${theme}`}
-                alt="Codebuff - Better&#0032;code&#0032;generation&#0032;than&#0032;Cursor&#0044;&#0032;from&#0032;your&#0032;CLI | Product Hunt"
-                width="250"
-                height="54"
-              />
-            </a>
-          </div>
-        </section>
+          </section>
 
-        <section id="features" className="px-4 py-20 relative z-10 space-y-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center px-4 md:px-0">
-            Revolutionize Your Coding Workflow
-          </h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-gray-900 p-6 rounded-lg">
-              <FolderCodeIcon className="h-12 w-12 text-blue-500 mb-4" />
-              <h3 className="text-xl text-white font-semibold mb-2">
-                Whole-codebase Understanding
-              </h3>
-              <p className="text-gray-400">
-                Ask for any change and Codebuff will find the relevant sections
-                out of thousands of files.
-              </p>
-            </div>
-            <div className="bg-gray-900 p-6 rounded-lg">
-              <ZapIcon className="h-12 w-12 text-blue-500 mb-4" />
-              <h3 className="text-xl text-white font-semibold mb-2">
-                10x Your Dev Productivity
-              </h3>
-              <p className="text-gray-400">
-                Get more done when using Codebuff to write features, debug
-                tests, refactor files, and install packages.
-              </p>
-            </div>
-            <div className="bg-gray-900 p-6 rounded-lg">
-              <TerminalIcon className="h-12 w-12 text-blue-500 mb-4" />
-              <h3 className="text-xl text-white font-semibold mb-2">
-                Fully Capable Agent in Your Terminal
-              </h3>
-              <p className="text-gray-400">
-                Codebuff can run terminal commands, create and edit files, and
-                more.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-20 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0">
-            What Developers Are Saying
-          </h2>
-          <h6 className="text-center text-gray-700 dark:text-gray-300 text-sm mt-2 mb-12">
-            (note: some testimonials reference our previous name,
-            &quot;Manicode&quot; – they refer to the same product)
-          </h6>
-          {testimonials.map((row, rowIndex) => (
-            <Marquee
-              key={rowIndex}
-              className="py-4"
-              pauseOnHover
-              reverse={rowIndex % 2 === 1}
-            >
-              <div className="flex gap-4">
-                {row.map((testimonial, i) => (
-                  <Card
-                    key={i}
-                    className={cn(
-                      'w-[350px] shrink-0',
-                      testimonial.link &&
-                        'cursor-pointer hover:scale-105 transition-transform'
-                    )}
-                    onClick={() =>
-                      testimonial.link &&
-                      window.open(testimonial.link, '_blank')
-                    }
-                  >
-                    <CardContent className="pt-6">
-                      <p className="mb-4">{testimonial.quote}</p>
-                      <div className="flex items-center gap-2">
-                        {testimonial.avatar && (
-                          <img
-                            src={testimonial.avatar}
-                            alt={testimonial.author}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
-                        )}
-                        <p className="font-semibold">
-                          - {testimonial.author}, {testimonial.title}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </Marquee>
-          ))}
-        </section>
-
-        <section className="py-20 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 px-4 md:px-0">
-            FAQ
-          </h2>
-          <div className="max-w-3xl mx-auto space-y-4">
-            {faqs.map((item, index) => (
-              <details key={index} open={openFaqIndex === index}>
-                <summary
-                  className="flex cursor-pointer font-bold w-full text-left p-4 text-gray-700 dark:text-gray-300 justify-between items-center marker:[font-size:0px] [&::-webkit-details-marker]:hidden"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    setOpenFaqIndex(openFaqIndex === index ? null : index)
-                  }}
+          {/* Video Demo Section */}
+          <section className="px-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
+              Watch a Demo
+            </h2>
+            <div className="max-w-3xl mx-auto mt-8">
+              <div className="aspect-w-16 aspect-h-full h-96">
+                <Button
+                  onClick={handleVideoOpen}
+                  className="bg-gray-800 hover:bg-gray-700 rounded-lg shadow-lg p-0 h-full w-full ring-1 ring-gray-400/20"
                 >
-                  {item.question}
-                  {openFaqIndex === index ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </summary>
-                <div className="text-gray-500 dark:text-white px-4 pb-4 items-center">
-                  {item.answer}
-                </div>
-              </details>
-            ))}
-          </div>
-        </section>
+                  <div className="relative w-full h-full">
+                    <img
+                      src="/video-thumbnail.jpg"
+                      alt="Video thumbnail"
+                      className="w-full h-full object-cover object-center rounded-lg"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-red-500 rounded-full p-4">
+                        <Play className="h-6 w-6 text-white" />
+                      </div>
+                    </div>
+                  </div>
+                </Button>
+              </div>
+            </div>
+          </section>
 
-        <section className="py-20 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 px-4 md:px-0">
-            Ready to experience magic?
-          </h2>
-          <div className="text-center">
-            <Button className="bg-blue-900 hover:bg-blue-700 text-white transition-colors">
-              <Link
-                href="https://www.npmjs.com/package/codebuff"
-                target="_blank"
+          {/* CTA Section */}
+          <section className="mb-32">
+            <div className="max-w-4xl mx-auto text-center px-4 py-16">
+              <h2 className="text-3xl md:text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-br from-blue-600 via-blue-800 to-purple-700 dark:from-blue-400 dark:via-blue-600 dark:to-purple-500">
+                Ready to experience magic?
+              </h2>
+              <p className="text-lg md:text-xl mb-8 text-muted-foreground">
+                Join thousands of developers who are coding faster with AI
+              </p>
+              <Button
+                className="relative z-10 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white text-lg py-6 px-8 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 transform"
+                onClick={() => {
+                  posthog.capture('home.cta_clicked', {
+                    location: 'cta_section',
+                  })
+                  setIsInstallOpen(true)
+                }}
               >
                 Start Coding with AI
-              </Link>
-            </Button>
-          </div>
-        </section>
+              </Button>
+            </div>
+          </section>
+        </div>
       </div>
-    </div>
+
+      {/* Dialogs */}
+      <Dialog open={isInstallOpen} onOpenChange={setIsInstallOpen}>
+        <DialogContent>
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold">Get Started with Codebuff</h2>
+            <ol className="list-decimal list-inside space-y-6">
+              <li>Open your favorite terminal.</li>
+              <li>
+                Install Codebuff globally via{' '}
+                <Link
+                  href="https://www.npmjs.com/package/codebuff"
+                  target="_blank"
+                  className="text-blue-500 hover:text-blue-400 underline"
+                >
+                  npm
+                </Link>
+                :
+                <div className="mt-2">
+                  <CodeDemo language="bash">npm install -g codebuff</CodeDemo>
+                </div>
+              </li>
+              <li>
+                Run Codebuff in a project directory:
+                <div className="mt-2">
+                  <CodeDemo language="bash">codebuff</CodeDemo>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isVideoOpen} onOpenChange={setIsVideoOpen}>
+        <DialogContent className="max-w-3xl bg-transparent border-0 p-0">
+          <div className="aspect-w-16 aspect-h-full h-96">
+            <iframe
+              src="https://www.youtube.com/embed/dQ0NOMsu0dA"
+              title="Codebuff Demo"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="w-full h-full rounded-lg shadow-lg"
+            ></iframe>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 

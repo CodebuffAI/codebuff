@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from 'bun:test'
+import { expect, describe, it, mock } from 'bun:test'
 import path from 'path'
 import fs from 'fs'
 
@@ -6,8 +6,31 @@ import { WebSocket } from 'ws'
 import { applyPatch } from 'common/util/patch'
 import { processFileBlock } from 'backend/process-file-block'
 import { TEST_USER_ID } from 'common/constants'
+import { cleanMarkdownCodeBlock } from 'common/util/file'
 
-describe('processFileBlock', () => {
+describe('cleanMarkdownCodeBlock', () => {
+  it('should remove markdown code block syntax with language tag', () => {
+    const input = '```typescript\nconst x = 1;\n```'
+    expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;')
+  })
+
+  it('should remove markdown code block syntax without language tag', () => {
+    const input = '```\nconst x = 1;\n```'
+    expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;')
+  })
+
+  it('should return original content if not a code block', () => {
+    const input = 'const x = 1;'
+    expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;')
+  })
+
+  it('should handle multiline code blocks', () => {
+    const input = '```javascript\nconst x = 1;\nconst y = 2;\n```'
+    expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;\nconst y = 2;')
+  })
+})
+
+describe('parseAndGetDiffBlocksSingleFile', () => {
   it('should handle markdown code blocks when creating new files', async () => {
     const mockWs = {
       send: mock(),
@@ -31,6 +54,7 @@ describe('processFileBlock', () => {
       '',
       'test.ts',
       newContent,
+      'normal',
       'userId'
     )
 
@@ -38,6 +62,7 @@ describe('processFileBlock', () => {
     expect(result?.content).toBe(expectedContent)
     expect(result?.type).toBe('file')
   })
+
   it('should handle Windows line endings with multi-line changes', async () => {
     const mockWs = {
       send: mock(),
@@ -72,6 +97,7 @@ describe('processFileBlock', () => {
       '',
       filePath,
       newContent,
+      'normal',
       'userId'
     )
     expect(result).not.toBeNull()
@@ -84,6 +110,58 @@ describe('processFileBlock', () => {
     expect(updatedFile).toEqual(newContent)
 
     expect(mockRequestFile).toHaveBeenCalledWith(mockWs, filePath)
+  })
+
+  it('should handle non-matching diff blocks by retrying with indentation variations', async () => {
+    const mockWs = {
+      send: mock(),
+    } as unknown as WebSocket
+
+    const oldContent = `function test() {
+    const x = 1;
+    console.log(x);
+    return x;
+}`
+
+    const newContent = `<<<<<<< SEARCH
+function test() {
+  const x = 1;
+  console.log(x);
+  return x;
+}
+=======
+function test() {
+  const x = 1;
+  if (!x) return 0;
+  console.log(x);
+  return x;
+}
+>>>>>>> REPLACE`
+
+    const mockRequestFile = mock().mockResolvedValue(oldContent)
+    mock.module('backend/websockets/websocket-action', () => ({
+      requestFile: mockRequestFile,
+    }))
+
+    const result = await processFileBlock(
+      'clientSessionId',
+      'fingerprintId',
+      'userInputId',
+      mockWs,
+      [],
+      '',
+      'test.ts',
+      newContent,
+      'normal',
+      'userId'
+    )
+
+    expect(result).not.toBeNull()
+    expect(result?.type).toBe('patch')
+    if (result?.type === 'patch') {
+      const updatedContent = applyPatch(oldContent, result.content)
+      expect(updatedContent).toContain('if (!x) return 0;')
+    }
   })
 
   it('applyRemainingChanges handles non-matching diff blocks', async () => {
@@ -146,6 +224,7 @@ describe('processFileBlock', () => {
       '', // No full response needed
       'remaining-changes/test.ts',
       incorrectNewContent,
+      'normal',
       TEST_USER_ID
     )
 
@@ -157,9 +236,139 @@ describe('processFileBlock', () => {
     const updatedContent = applyPatch(oldContent, patch)
     expect(updatedContent).toBe(expectedContent)
   })
-})
 
-// TODO: Add a test to run a terminal command 10 separate times and see that it only runs 3 times.
+  it('should handle empty or whitespace-only changes', async () => {
+    const mockWs = {
+      send: mock(),
+    } as unknown as WebSocket
+
+    const oldContent = 'function test() {\n  return true;\n}\n'
+    const newContent = 'function test() {\n  return true;\n}\n'
+
+    const mockRequestFile = mock().mockResolvedValue(oldContent)
+    mock.module('backend/websockets/websocket-action', () => ({
+      requestFile: mockRequestFile,
+    }))
+
+    const result = await processFileBlock(
+      'clientSessionId',
+      'fingerprintId',
+      'userInputId',
+      mockWs,
+      [],
+      '',
+      'test.ts',
+      newContent,
+      'normal',
+      'userId'
+    )
+
+    expect(result).toBeNull()
+  })
+
+  it('should handle files marked as updated by another assistant', async () => {
+    const mockWs = {
+      send: mock(),
+    } as unknown as WebSocket
+
+    const result = await processFileBlock(
+      'clientSessionId',
+      'fingerprintId',
+      'userInputId',
+      mockWs,
+      [],
+      '',
+      'test.ts',
+      '[UPDATED_BY_ANOTHER_ASSISTANT]',
+      'normal',
+      'userId'
+    )
+
+    expect(result).toBeNull()
+  })
+
+  it('should handle multiple diff blocks in a single file', async () => {
+    const mockWs = {
+      send: mock(),
+    } as unknown as WebSocket
+
+    const oldContent = `
+function add(a: number, b: number) {
+  return a + b;
+}
+
+function multiply(a: number, b: number) {
+  return a * b;
+}
+
+function divide(a: number, b: number) {
+  return a / b;
+}
+`.trim()
+
+    const newContent = `<<<<<<< SEARCH
+function add(a: number, b: number) {
+  return a + b;
+}
+=======
+function add(a: number, b: number) {
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Invalid arguments');
+  }
+  return a + b;
+}
+>>>>>>> REPLACE
+
+<<<<<<< SEARCH
+function multiply(a: number, b: number) {
+  return a * b;
+}
+=======
+function multiply(a: number, b: number) {
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Invalid arguments');
+  }
+  return a * b;
+}
+>>>>>>> REPLACE
+
+function divide(a: number, b: number) {
+  return a / b;
+}`
+
+    const mockRequestFile = mock().mockResolvedValue(oldContent)
+    mock.module('backend/websockets/websocket-action', () => ({
+      requestFile: mockRequestFile,
+    }))
+
+    const result = await processFileBlock(
+      'clientSessionId',
+      'fingerprintId',
+      'userInputId',
+      mockWs,
+      [],
+      '',
+      'test.ts',
+      newContent,
+      'normal',
+      'userId'
+    )
+
+    expect(result).not.toBeNull()
+    expect(result?.type).toBe('patch')
+    if (result?.type === 'patch') {
+      const updatedContent = applyPatch(oldContent, result.content)
+      expect(updatedContent).toContain(
+        "if (typeof a !== 'number' || typeof b !== 'number')"
+      )
+      expect(
+        updatedContent.match(
+          /if \(typeof a !== 'number' \|\| typeof b !== 'number'\)/g
+        )?.length
+      ).toBe(2)
+    }
+  })
+})
 
 const mockDataPath = path.join(__dirname, '..', '__mock-data__')
 function readMockFile(filePath: string) {

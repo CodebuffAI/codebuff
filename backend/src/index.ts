@@ -42,8 +42,36 @@ process.on('SIGINT', () => {
   process.exit()
 })
 
+process.on('unhandledRejection', (reason, promise) => {
+  // Don't rethrow the error, just log it. Keep the server running.
+  const stack = reason instanceof Error ? reason.stack : undefined
+  const message = reason instanceof Error ? reason.message : undefined
+  const name = reason instanceof Error ? reason.name : undefined
+  console.error('unhandledRejection', message, reason, stack)
+  logger.error(
+    {
+      reason,
+      stack,
+      message,
+      name,
+      promise,
+    },
+    `Unhandled promise rejection: ${reason instanceof Error ? reason.message : 'Unknown reason'}`
+  )
+})
+
 process.on('uncaughtException', (err) => {
-  logger.fatal(err, 'uncaught exception detected')
+  console.error('uncaughtException', err.message, err.stack)
+  logger.fatal(
+    {
+      err,
+      stack: err.stack,
+      message: err.message,
+      name: err.name,
+    },
+    'uncaught exception detected'
+  )
+
   server.close(() => {
     process.exit(1)
   })

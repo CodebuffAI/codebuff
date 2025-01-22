@@ -1,13 +1,17 @@
 import { range, shuffle, uniq } from 'lodash'
-import { dirname } from 'path'
+import { dirname, isAbsolute, normalize } from 'path'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
 import { model_types, promptClaude, System } from './claude'
-import { claudeModels } from 'common/constants'
+import { getModelForMode, type CostMode } from 'common/constants'
+import { claudeModels, models } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from './util/logger'
+import { OpenAIMessage, promptOpenAI } from './openai-api'
+import { promptDeepseek } from './deepseek-api'
+import { messagesWithSystem } from '@/util/messages'
 
 export async function requestRelevantFiles(
   {
@@ -22,13 +26,14 @@ export async function requestRelevantFiles(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string
+  userId: string | undefined,
+  costMode: CostMode
 ) {
   const { fileVersions } = fileContext
   const previousFiles = uniq(
     fileVersions.flatMap((files) => files.map(({ path }) => path))
   )
-  const countPerRequest = assistantPrompt ? 8 : 5
+  const countPerRequest = costMode === 'max' ? 9 : costMode === 'lite' ? 7 : 8
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -41,7 +46,7 @@ export async function requestRelevantFiles(
       : ''
 
   const newFilesNecessaryPromise = assistantPrompt
-    ? Promise.resolve({ newFilesNecessary: true, response: 'N/A' })
+    ? Promise.resolve({ newFilesNecessary: true, response: 'N/A', duration: 0 })
     : checkNewFilesNecessary(
         messagesExcludingLastIfByUser,
         system,
@@ -50,10 +55,11 @@ export async function requestRelevantFiles(
         userInputId,
         previousFiles,
         userPrompt,
-        userId
+        userId,
+        costMode
       ).catch((error) => {
         logger.error({ error }, 'Error checking new files necessary')
-        return { newFilesNecessary: true, response: 'N/A' }
+        return { newFilesNecessary: true, response: 'N/A', duration: 0 }
       })
 
   const fileRequestsPromise = generateFileRequests(
@@ -66,17 +72,22 @@ export async function requestRelevantFiles(
     clientSessionId,
     fingerprintId,
     userInputId,
-    userId
+    userId,
+    costMode
   )
 
   const newFilesNecessaryResult = await newFilesNecessaryPromise
-  const { newFilesNecessary, response: newFilesNecessaryResponse } =
-    newFilesNecessaryResult
+  const {
+    newFilesNecessary,
+    response: newFilesNecessaryResponse,
+    duration: newFilesNecessaryDuration,
+  } = newFilesNecessaryResult
   if (!newFilesNecessary) {
     logger.info(
       {
         newFilesNecessary,
-        newFilesNecessaryResponse,
+        response: newFilesNecessaryResponse,
+        duration: newFilesNecessaryDuration,
         previousFiles,
       },
       'requestRelevantFiles: No new files necessary, keeping current files'
@@ -84,24 +95,33 @@ export async function requestRelevantFiles(
     return null
   }
 
-  const { keyResults, nonObviousResults } = await fileRequestsPromise
-  const keyFiles = keyResults.flatMap((result) => result.files)
-  const nonObviousFiles = nonObviousResults.flatMap((result) => result.files)
+  const results = await fileRequestsPromise
+  const files = results.flatMap((result) => result.files)
 
   logger.info(
     {
-      keyFiles,
-      nonObviousFiles,
+      files,
       previousFiles,
-      keyResults,
-      nonObviousResults,
+      results,
       newFilesNecessary,
       newFilesNecessaryResponse,
+      newFilesNecessaryDuration,
     },
     'requestRelevantFiles: Results'
   )
 
-  return uniq([...keyFiles, ...nonObviousFiles])
+  return uniq(files)
+    .filter((p) => {
+      if (isAbsolute(p)) return false
+      if (p.includes('..')) return false
+      try {
+        normalize(p)
+        return true
+      } catch {
+        return false
+      }
+    })
+    .map((p) => (p.startsWith('/') ? p.slice(1) : p))
 }
 
 async function generateFileRequests(
@@ -114,95 +134,113 @@ async function generateFileRequests(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string
+  userId: string | undefined,
+  costMode: CostMode
 ) {
-  const numNonObviousPrompts = assistantPrompt ? 1 : 1
-  const nonObviousPrompts = range(1, numNonObviousPrompts + 1).map((index) =>
-    generateNonObviousRequestFilesPrompt(
-      userPrompt,
-      assistantPrompt,
-      fileContext,
-      countPerRequest,
-      index * 2 - 1
-    )
-  )
-  const nonObviousPromises = nonObviousPrompts.map((nonObviousPrompt, index) =>
-    getRelevantFiles(
-      {
-        messages: messagesExcludingLastIfByUser,
-        system,
-      },
-      nonObviousPrompt,
-      claudeModels.haiku,
-      `Non-obvious ${index + 1}`,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId
-    ).catch((error) => {
-      logger.error({ error }, 'Error requesting non-obvious files')
-      return { files: [], duration: 0 }
-    })
-  )
-
-  const numKeyPrompts = assistantPrompt ? 1 : 2
-  const keyPrompts = range(1, numKeyPrompts + 1).map((index) =>
-    generateKeyRequestFilesPrompt(
-      userPrompt,
-      assistantPrompt,
-      fileContext,
-      index * 2 - 1,
-      countPerRequest
-    )
-  )
-
-  const keyPromises = keyPrompts.map((keyPrompt, index) =>
-    getRelevantFiles(
-      {
-        messages: messagesExcludingLastIfByUser,
-        system,
-      },
-      keyPrompt,
-      claudeModels.haiku,
-      `Key ${index + 1}`,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId
-    ).catch((error) => {
-      logger.error({ error }, 'Error requesting key files')
-      return { files: [], duration: 0 }
-    })
-  )
-
-  const examplePrompt = generateExampleFilesPrompt(
+  const keyPrompt = generateKeyRequestFilesPrompt(
     userPrompt,
     assistantPrompt,
     fileContext,
     countPerRequest
   )
 
-  const examplePromise = getRelevantFiles(
+  const keyPromise = getRelevantFiles(
     {
       messages: messagesExcludingLastIfByUser,
       system,
     },
-    examplePrompt,
-    claudeModels.haiku,
-    'Examples',
+    keyPrompt,
+    'Key',
     clientSessionId,
     fingerprintId,
     userInputId,
-    userId
+    userId,
+    costMode
   ).catch((error) => {
-    logger.error({ error }, 'Error requesting example files')
+    logger.error({ error }, 'Error requesting key files')
     return { files: [], duration: 0 }
   })
 
-  const keyResults = await Promise.all([...keyPromises, examplePromise])
-  const nonObviousResults = await Promise.all(nonObviousPromises)
+  // Only create additional file request promises if not in lite mode
+  let promises = [keyPromise]
+  if (costMode !== 'lite') {
+    // TODO: reenable example files and test files prompts
+    // const examplePrompt = generateExampleFilesPrompt(
+    //   userPrompt,
+    //   assistantPrompt,
+    //   fileContext,
+    //   countPerRequest
+    // )
 
-  return { keyResults, nonObviousResults }
+    // const examplePromise = getRelevantFiles(
+    //   {
+    //     messages: messagesExcludingLastIfByUser,
+    //     system,
+    //   },
+    //   examplePrompt,
+    //   'Examples',
+    //   clientSessionId,
+    //   fingerprintId,
+    //   userInputId,
+    //   userId
+    // ).catch((error) => {
+    //   logger.error({ error }, 'Error requesting example files')
+    //   return { files: [], duration: 0 }
+    // })
+
+    const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
+      userPrompt,
+      assistantPrompt,
+      fileContext,
+      countPerRequest
+    )
+
+    const nonObviousPromise = getRelevantFiles(
+      {
+        messages: messagesExcludingLastIfByUser,
+        system,
+      },
+      nonObviousPrompt,
+      'Non-Obvious',
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId
+    )
+
+    // const testAndConfigPrompt = generateTestAndConfigFilesPrompt(
+    //   userPrompt,
+    //   assistantPrompt,
+    //   fileContext,
+    //   countPerRequest
+    // )
+
+    // const testAndConfigPromise = getRelevantFiles(
+    //   {
+    //     messages: messagesExcludingLastIfByUser,
+    //     system,
+    //   },
+    //   testAndConfigPrompt,
+    //   'Tests and Config',
+    //   clientSessionId,
+    //   fingerprintId,
+    //   userInputId,
+    //   userId
+    // ).catch((error) => {
+    //   logger.error({ error }, 'Error requesting test and config files')
+    //   return { files: [], duration: 0 }
+    // })
+
+    promises = [
+      ...promises,
+      // examplePromise,
+      nonObviousPromise,
+      // testAndConfigPromise,
+    ]
+  }
+
+  const results = await Promise.all(promises)
+  return results
 }
 
 const checkNewFilesNecessary = async (
@@ -213,22 +251,34 @@ const checkNewFilesNecessary = async (
   userInputId: string,
   previousFiles: string[],
   userPrompt: string,
-  userId?: string
+  userId: string | undefined,
+  costMode: CostMode
 ) => {
+  const startTime = Date.now()
   const prompt = `
-Given the user's request and the current context, determine if new files are necessary to fulfill the request.
-Current files: ${previousFiles.length > 0 ? previousFiles.join(', ') : 'None'}
+Considering the conversation history above, and the following user request, determine if new files should be read (YES or NO) to fulfill the request.
+
+Current files read: ${previousFiles.length > 0 ? previousFiles.join(', ') : 'None'}
 User request: ${userPrompt}
 
-We'll need any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad requests may require many files as context.
+We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad user requests may require many files as context.
 
-Answer with just 'YES' if new files are necessary, or 'NO' if the current files are sufficient. Do not write anything else.
-`
-  const response = await promptClaude(
-    [...messages, { role: 'user', content: prompt }],
+If the user is asking something different than before or that would likely benefit from new files being read, you should read new files (YES).
+
+You should not read new files (NO) if:
+- The user is following up on a previous request
+- The user says something like "hi" with no specific request
+- The user asks to edit a file you are already reading
+- You just need to run a terminal command
+
+Lean towards reading new files (YES) if you are not sure as that is a less costly error.
+
+Answer with just 'YES' if reading new files is necessary, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
+`.trim()
+  const response = await promptOpenAI(
+    [...(messages as OpenAIMessage[]), { role: 'user', content: prompt }],
     {
-      model: claudeModels.haiku,
-      system,
+      model: getModelForMode(costMode, 'check-new-files'),
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -236,7 +286,9 @@ Answer with just 'YES' if new files are necessary, or 'NO' if the current files 
     }
   )
   const newFilesNecessary = response.trim().toUpperCase().includes('YES')
-  return { newFilesNecessary, response }
+  const endTime = Date.now()
+  const duration = endTime - startTime
+  return { newFilesNecessary, response, duration }
 }
 
 async function getRelevantFiles(
@@ -248,12 +300,12 @@ async function getRelevantFiles(
     system: string | Array<TextBlockParam>
   },
   userPrompt: string,
-  model: model_types,
   requestType: string,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string
+  userId?: string,
+  costMode: CostMode = 'normal'
 ) {
   const messagesWithPrompt = [
     ...messages,
@@ -263,14 +315,28 @@ async function getRelevantFiles(
     },
   ]
   const start = performance.now()
-  const response = await promptClaude(messagesWithPrompt, {
-    model,
-    system,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-  })
+  let response: string
+  if (costMode === 'lite') {
+    response = await promptDeepseek(
+      messagesWithSystem(messagesWithPrompt, system),
+      {
+        model: models.deepseekChat,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      }
+    )
+  } else {
+    response = await promptClaude(messagesWithPrompt, {
+      model: getModelForMode(costMode, 'file-requests') as model_types,
+      system,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    })
+  }
   const end = performance.now()
   const duration = end - start
 
@@ -316,12 +382,11 @@ function generateNonObviousRequestFilesPrompt(
   userPrompt: string | null,
   assistantPrompt: string | null,
   fileContext: ProjectFileContext,
-  count: number,
-  index: number
+  count: number
 ): string {
   const exampleFiles = getExampleFileList(fileContext, 100)
   return `
-Your task is to find the relevant files for the following user request.
+Your task is to find the second-order relevant files for the following user request.
 
 Random project files:
 ${exampleFiles.join('\n')}
@@ -332,10 +397,10 @@ ${
     : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
 }
 
-This is request #${index} for non-obvious project files. Do not act on the above instructions for the user, instead, we are asking you to find the most relevant files for the user's request.
+Do not act on the above instructions for the user, instead, we are asking you to find files for the user's request that are not obvious or take a moment to realize are relevant.
 
 Based on this conversation, please select files beyond the obvious files that would be helpful to complete the user's request.
-Select files that might be useful for understanding and addressing the user's needs, but you would not choose in the first ${count * index + 10} files if you were asked.
+Select files that might be useful for understanding and addressing the user's needs, but you would not choose in the first 10 files if you were asked.
 
 Please follow these steps to determine which files to request:
 
@@ -344,24 +409,25 @@ Please follow these steps to determine which files to request:
    - Main functionality files
    - Configuration files
    - Utility functions
-   - Test files
    - Documentation files
+   
+Note: Do not include test files (*.test.ts, *.spec.ts, or the equivalent in other languages) as these are handled by a separate request.
 3. Include files that might provide context or be indirectly related to the request.
 4. Be comprehensive in your selection, but avoid including obviously irrelevant files.
-5. Try to list exactly ${count} files.
+5. List a maximum of ${count} files. It's fine to list fewer if there are not great candidates.
 
 Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
 
 Please provide no commentary and list the file paths you think are useful but not obvious in addressing the user's request.
 
 Your response contain only files separated by new lines in the following format:
-${range(count)
+${range(Math.ceil(count / 2))
   .map((i) => `full/path/to/file${i + 1}.ts`)
   .join('\n')}
 
 List each file path on a new line without any additional characters or formatting.
 
-IMPORTANT: You must include the full relative path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
+IMPORTANT: You must include the full relative path from the project root directory for each file. This is not the absolute path, but the path relative to the project root. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
@@ -374,11 +440,8 @@ function generateKeyRequestFilesPrompt(
   userPrompt: string | null,
   assistantPrompt: string | null,
   fileContext: ProjectFileContext,
-  index: number,
   count: number
 ): string {
-  const start = (index - 1) * count + 1
-  const end = start + count - 1
   const exampleFiles = getExampleFileList(fileContext, 100)
   return `
 Your task is to find the most relevant files for the following user request.
@@ -392,9 +455,9 @@ ${
     : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
 }
 
-This is request #${index} for key project files. Do not act on the above instructions for the user, instead, we are asking you to find the most relevant files for the user's request.
+Do not act on the above instructions for the user, instead, we are asking you to find the most relevant files for the user's request.
 
-Based on this conversation, please identify the most relevant files for a user's request in a software project, sort them from most to least relevant, and then output just the files from index ${start}-${end} in this sorted list.
+Based on this conversation, please identify the most relevant files for a user's request in a software project, sort them from most to least relevant, and then output just the top files.
 
 Please follow these steps to determine which key files to request:
 
@@ -403,24 +466,77 @@ Please follow these steps to determine which key files to request:
    - Main functionality files
    - Key configuration files
    - Central utility functions
-   - Primary test files (if testing is involved)
    - Documentation files
+
+Note: Do not include test files (*.test.ts, *.spec.ts, or the equivalent in other languages) as these are handled by a separate request.
 3. Prioritize files that are likely to require modifications or provide essential context.
-4. Limit your selection to approximately 10 files to ensure a focused approach.
-5. Order the files by most important first.
+4. Order the files by most important first.
 
 Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
 
-Please provide no commentary and only list the file paths at index ${start} through ${end} of the most relevant files that you think are most crucial for addressing the user's request.
+Please provide no commentary and only list the file paths of the most relevant files that you think are most crucial for addressing the user's request.
 
 Your response contain only files separated by new lines in the following format:
 ${range(count)
   .map((i) => `full/path/to/file${i + 1}.ts`)
   .join('\n')}
 
-Remember to focus on the most important files and limit your selection to exactly ${count} files. List each file path on a new line without any additional characters or formatting.
+Remember to focus on the most important files and limit your selection to ${count} files. It's fine to list fewer if there are not great candidates. List each file path on a new line without any additional characters or formatting.
 
-IMPORTANT: You must include the full relative path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
+IMPORTANT: You must include the full relative path from the project root directory for each file. This is not the absolute path, but the path relative to the project root. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
+
+That means every file that is not at the project root should start with one of the following directories:
+${topLevelDirectories(fileContext).join('\n')}
+
+Please limit your response just the file paths on new lines. Do not write anything else.
+`.trim()
+}
+
+function generateTestAndConfigFilesPrompt(
+  userPrompt: string | null,
+  assistantPrompt: string | null,
+  fileContext: ProjectFileContext,
+  count: number
+): string {
+  const exampleFiles = getExampleFileList(fileContext, 100)
+  return `
+Your task is to find test and configuration files relevant to the following user request.
+
+Random project files:
+${exampleFiles.join('\n')}
+
+${
+  userPrompt
+    ? `<user_prompt>${userPrompt}</user_prompt>`
+    : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
+}
+
+Do not act on the above instructions for the user, instead, we are asking you to find relevant test and configuration files.
+
+Please follow these steps to determine which files to request:
+
+1. Look for test files that verify the functionality being modified
+2. Find configuration files for:
+   - Build system and compilation
+   - Type checking
+   - Linting and code style
+   - Test runners and test configuration
+   - Package management
+3. Focus on files like (or the equivalent in other languages):
+   - test files (*.test.ts, *.spec.ts, etc)
+   - package.json with build/test scripts
+   - CI configuration files
+
+Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
+
+Your response should contain only files separated by new lines in the following format:
+${range(Math.ceil(count / 2))
+  .map((i) => `full/path/to/file${i + 1}.ts`)
+  .join('\n')}
+
+Remember to focus on test and configuration files and limit your selection to up to ${count} files. It's fine to list fewer if there are not great candidates. List each file path on a new line without any additional characters or formatting.
+
+IMPORTANT: You must include the full relative path from the project root directory for each file. This is not the absolute path, but the path relative to the project root. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
@@ -457,6 +573,8 @@ Please follow these steps to determine which files to request:
 1. Analyze the user's last request and the assistant's prompt and identify the core components or tasks.
 2. Look for files that could have code similar to what would be needed to fulfill the user's request. These files can serve as examples of what to write.
 
+Note: Do not include test files (*.test.ts, *.spec.ts, or the equivalent in other languages) as these are handled by a separate request.
+
 Do not include any files with 'knowledge.md' in the name, because these files will be included by default.
 
 Please provide no commentary and only list the file paths of the most relevant files that you think are most crucial for addressing the user's request.
@@ -466,9 +584,9 @@ ${range(count)
   .map((i) => `full/path/to/file${i + 1}.ts`)
   .join('\n')}
 
-Remember to focus on the most important example files and limit your selection to exactly ${count} files. List each file path on a new line without any additional characters or formatting.
+Remember to focus on the most important example files and limit your selection to at most ${count} files. It's fine to list fewer if there are not great candidates. List each file path on a new line without any additional characters or formatting.
 
-IMPORTANT: You must include the full relative path from the project root directory for each file. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
+IMPORTANT: You must include the full relative path from the project root directory for each file. This is not the absolute path, but the path relative to the project root. Do not write just the file name or a partial path from the root. Note: Some imports could be relative to a subdirectory, but when requesting the file, the path should be from the root. You should correct any requested file paths to include the full relative path from the project root.
 
 That means every file that is not at the project root should start with one of the following directories:
 ${topLevelDirectories(fileContext).join('\n')}
@@ -479,28 +597,39 @@ Please limit your response just the file paths on new lines. Do not write anythi
 
 export const warmCacheForRequestRelevantFiles = async (
   system: System,
+  costMode: CostMode,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined
 ) => {
-  await promptClaude(
-    [
-      {
-        role: 'user' as const,
-        content: 'hi',
-      },
-    ],
-    {
-      model: claudeModels.haiku,
-      system,
-      clientSessionId,
-      fingerprintId,
-      userId,
-      userInputId,
-      maxTokens: 1,
-    }
-  ).catch((error) => {
+  const promise =
+    costMode === 'lite'
+      ? promptDeepseek(messagesWithSystem([], system), {
+          model: models.deepseekChat,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        })
+      : promptClaude(
+          [
+            {
+              role: 'user' as const,
+              content: 'hi',
+            },
+          ],
+          {
+            model: claudeModels.haiku,
+            system,
+            clientSessionId,
+            fingerprintId,
+            userId,
+            userInputId,
+            maxTokens: 1,
+          }
+        )
+  await promise.catch((error) => {
     logger.error(error, 'Error warming cache for requestRelevantFiles')
   })
 }

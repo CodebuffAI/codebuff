@@ -15,6 +15,6 @@
     "dotenv": "^16.4.5"
   },
   "devDependencies": {
-    "bun-types": "^1.1.26"
+    "@types/bun": "^1.1.16"
   }
 }

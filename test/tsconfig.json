@@ -17,9 +17,10 @@
     "paths": {
       "backend/*": ["../backend/src/*"],
       "common/*": ["../common/src/*"],
-      "code-map/*": ["../packages/code-map/*"]
+      "code-map/*": ["../packages/code-map/*"],
+      "npm-app/*": ["../npm-app/src/*"]
     },
-    "types": ["bun-types"],
+    "types": ["bun"],
     "outDir": "./dist"
   },
   "include": ["__src__/**/*"],
@@ -27,6 +28,7 @@
   "references": [
     { "path": "../common" },
     { "path": "../backend" },
-    { "path": "../packages/code-map" }
+    { "path": "../packages/code-map" },
+    { "path": "../npm-app" }
   ]
 }

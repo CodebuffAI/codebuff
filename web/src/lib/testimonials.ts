@@ -10,10 +10,11 @@ export const testimonials: Testimonial[][] = [
   [
     {
       quote:
-        "As a Ruby on Rails dev this was a challenge as client want the solution in Python and Manicode has saved my skin big time as l've never used Python. So kudos.",
-      author: 'Anonymous',
-      title: 'Developer',
-      link: '/testimonials/proof/ruby-on-rails.png',
+        'I was so flabbergasted that it even did the pip install for me haha',
+      author: 'Daniel Hsu',
+      title: 'Founder & CEO',
+      avatar: '/testimonials/daniel-hsu.jpg',
+      link: '/testimonials/proof/daniel-hsu.jpg',
     },
     {
       quote: 'Dude you guys are building something good',
@@ -46,6 +47,15 @@ export const testimonials: Testimonial[][] = [
     },
     {
       quote:
+        "One of my favorite parts of every day is hearing @brett_beatty giggle in awe at @CodebuffAI. We've been using it daily for a couple months now and it's still incredible 🤯",
+      author: 'Dennis Beatty',
+      title: 'Founder & CEO',
+      avatar:
+        'https://pbs.twimg.com/profile_images/943341063502286848/2h_xKTs9_400x400.jpg',
+      link: 'https://x.com/dnsbty/status/1867062230614938034',
+    },
+    {
+      quote:
         'Just did a complete structural refactoring that would have took 4-8 hours by a human in 30 minutes using Claude (Web) to drive Codebuff to finish line. I think research in AI+AI pair programming is a must. ',
       author: 'Omar',
       title: 'Design Engineer',
@@ -54,6 +64,13 @@ export const testimonials: Testimonial[][] = [
     },
   ],
   [
+    {
+      quote:
+        "I played around with Codebuff and added some features to something I was working on. It really does have a different feeling than any other AI tools I've used; feels much more right, and I'm impressed by how you managed to land on that when nobody else did.",
+      author: 'JJ Fliegelman',
+      title: 'Founder',
+      link: '/testimonials/proof/jj-fliegelman.png',
+    },
     {
       quote: "I finally tried composer. It's ass compared to manicode",
       author: 'anonymous',
@@ -86,11 +103,19 @@ export const testimonials: Testimonial[][] = [
     },
     {
       quote:
-        "Im basically hiring an engineer for 100/month, that's how I see it",
+        "Im basically hiring an engineer for $50/month, that's how I see it",
       author: 'Shardool Patel',
       title: 'Founder & CTO',
       avatar: '/testimonials/shardool-patel.jpg',
       link: '/testimonials/proof/shardool-patel.png',
+    },
+    {
+      quote:
+        'when investors ask me about codebuff I tell them i use it 6 days a week',
+      author: 'Dexter Horthy',
+      title: 'Founder & CEO',
+      avatar: '/testimonials/dex.jpg',
+      link: '/testimonials/proof/dex.png',
     },
   ],
 ]

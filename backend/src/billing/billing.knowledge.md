@@ -54,6 +54,113 @@ Key methods:
 - Active subscriptions completely bypass quota exceeded checks
 - Non-subscribed users are blocked when exceeding their quota
 - Quota tracking continues even when checks are bypassed for billing purposes
+
+Important: When handling subscription states:
+
+- Distinguish between immediate cancellation and scheduled cancellation (cancel_at_period_end)
+- Keep subscription active until period end for scheduled cancellations
+- For downgrades, use the new plan's quota immediately - do not look up current subscription quota
+- Always preserve referral credits through plan changes by adding them after determining the new base quota
+- When checking for cancelled subscriptions:
+  - Use subscription.canceled_at timestamp instead of cancellation_details
+  - Consider subscription cancelled if canceled_at is in past or within next 5 minutes
+  - This handles both immediate cancellations and scheduled cancellations that are about to take effect
+
+### Subscription Migrations
+
+Important: When handling multiple subscription tiers:
+
+- Each subscription tier needs both a base price ID and an overage price ID
+- When updating subscriptions, both price IDs must be updated together
+- Never rely on array position to identify subscription items
+- Always check price.recurring.usage_type to identify 'licensed' vs 'metered' items
+- Both licensed (base) and metered (overage) items must exist for valid subscription
+- Verify metered item exists before recording usage or updating subscription
+- When validating current plan, check both licensed and metered price IDs match
+
+Important: When organizing subscription-related code:
+
+- Extract price ID mapping into reusable functions to avoid duplication
+- Check authentication before any other validation
+- Validate plan changes before checking subscription status
+- Validate target plan differs from current plan to prevent unnecessary operations
+- Handle unpaid invoices check as early as possible
+- Keep subscription item order consistent (licensed first, metered second)
+- Capture usage data before any subscription changes
+
+Important: When changing subscription tiers:
+
+- Capture total usage before updating subscription, as usage records may become inaccessible after plan change
+- Record old usage under new plan immediately after upgrade to preserve history
+- Check for unpaid invoices before allowing plan changes
+- Use proration_behavior: 'always_invoice' to generate immediate charges
+
+Important: When migrating subscriptions to new prices:
+
+- Preserve existing usage meter records for 'Credits'
+- Don't reset usage data during price changes
+- Ensure fair billing by carrying forward accumulated usage
+- Usage data should persist across subscription updates
+- Use the dedicated credits meter ID (mtr_test_61RUgv7ouoAAMKoE341KrNS6SjmqWUXA) when tracking usageWhen preserving usage data during migrations:
+- Use billing.meters.event_summaries endpoint to get historical usage
+- Calculate usage from start of current invoice period
+- This ensures accurate billing across subscription changes
+- Important: Record usage before updating subscription items to prevent gaps in billing
+
+Important: When recording usage:
+
+- Use billing.meterEvents.create instead of subscriptionItems.createUsageRecord
+- The legacy usage record system is being deprecated
+- Example:
+  ```typescript
+  await stripeServer.billing.meterEvents.create({
+    event_name: 'credits',
+    timestamp: Math.floor(new Date().getTime() / 1000),
+    payload: {
+      stripe_customer_id: customerId,
+      value: totalUsage.toString(),
+    },
+  })
+  ```
+- When getting usage totals:
+
+  ```typescript
+
+  ```
+
+### Usage Tracking
+
+Important: When tracking usage:
+
+- Use QuotaManager to get usage data instead of querying Stripe directly
+- QuotaManager provides more accurate data as it includes all usage from our database
+- Stripe usage records may lag behind our actual usage data
+- Example:
+
+  ```typescript
+  const quotaManager = new AuthenticatedQuotaManager()
+  const { creditsUsed } = await quotaManager.checkQuota(userId)
+  ```
+
+  ```
+
+  ```
+
+- When preserving usage data during migrations:
+  - Use billing.meters.event_summaries endpoint to get historical usage
+  - Calculate usage from start of current invoice period
+  - This ensures accurate billing across subscription changes
+  - Important: Record usage before updating subscription items to prevent gaps in billing
+
+When preserving usage data during migrations:
+
+- Use billing.meterEvents.create to record usage
+- Required payload fields:
+  - event_name: The meter name (e.g. 'credits')
+  - payload.stripe_customer_id: Customer's ID
+  - payload.value: Usage amount to record
+- This ensures usage history is maintained when moving customers between subscription tiers
+- Important: Record usage before updating subscription items to prevent gaps in billing
 - Subscription and quota status must flow from backend to client via websocket messages:
   - Backend determines subscription status and quota state
   - Communicates via 'usage-response' message type
@@ -77,6 +184,65 @@ Defined in `common/src/constants.ts`:
 - FREE: 2,500 credits
 - PAID: 50,000 credits
 
+## Usage Limit Handling
+
+- The system tracks user usage and compares it against their quota limit.
+- Warning messages are shown at 25%, 50%, and 75% of the usage limit.
+- When a user reaches or exceeds 100% of their usage limit:
+  - An error message MUST ALWAYS be displayed to the user.
+  - This error message should inform the user that they've reached their monthly limit.
+  - For logged-in users, provide a link to the pricing page for upgrades.
+  - For anonymous users, prompt them to log in for more credits.
+  - If available, include a referral link for additional credits.
+
+## Overage Charge Display
+
+When showing billing information to users:
+
+- Lead with immediate charge and explain proration
+- Show monthly estimate with explicit start date
+- Break down charges into base rate and overages
+- Show rate comparisons inline with the charges they affect
+- Use color to highlight savings (green) and costs (amber)
+- Add brief explanatory notes about billing timing
+- Display individual line items from Stripe invoice previews:
+  - Show each line item with description and amount
+  - Use green text for credits (negative amounts)
+  - Group charges and credits separately with visual separation
+  - Show date ranges for each line item when available
+  - Convert all amounts from cents to dollars
+  - Label credits section as "Credits & Adjustments"
+  - Calculate total amount from line items rather than using preview.amount_due
+  - Remove redundant total fields when line items contain the same information
+
+## Savings Presentation
+
+When highlighting cost savings:
+
+- Place savings message between total amount and breakdown
+- Use visual distinction (e.g., colored background) to draw attention
+- Split into "what changed" and "what you save" for clarity
+- Include timeframe context ("monthly at current usage")
+- Use side-by-side layout to show rate change and total savings
+
+## Overage Rate Calculation
+
+Important: When calculating overage rates:
+
+- Use the metered price item, not the base subscription price
+- Compare against overage price IDs (e.g. STRIPE_PRO_OVERAGE_PRICE_ID)
+- Always verify metered item exists before accessing
+
+## Proration Calculations
+
+Important: When calculating prorated charges:
+
+- Always use new Date().getTime() instead of Date.now() for UTC consistency
+- Get unused credits from Stripe's preview.lines.data amounts
+- Sum all line amounts - negative values automatically become credits
+- Convert from cents to dollars by dividing by 100
+- Use licensed item (not array index) for base price calculations
+
 ## Cost Calculation
 
 `MessageCostTracker` in `message-cost-tracker.ts` handles cost calculations:
@@ -92,10 +258,89 @@ Stripe webhooks (`web/src/app/api/stripe/webhook/route.ts`) handle:
 - Subscription creation, updates, and deletions.
 - Invoice payments.
 
+Important: When handling invoice.created events:
+
+- Cannot modify invoice description during checkout sessions
+- Only update invoice descriptions for regular subscription invoices
+- Skip description updates when invoice has subscription or checkout_session fields
+
+Important: When handling invoice.created events:
+
+- Cannot modify invoice description during checkout sessions
+- Only update invoice descriptions for regular subscription invoices
+- Skip description updates when invoice has subscription or checkout_session fields
+
 Key functions:
 
 - `handleSubscriptionChange`: Updates user quota and subscription status.
 - `handleInvoicePaid`: Resets quota and updates subscription status on payment.
+
+### Usage Metering
+
+Important: When sending meter events to Stripe:
+
+- Send events for all users - Stripe automatically filters events outside billing period
+- No need for rate limiting - Stripe's API designed for high volume
+- Events before subscription starts are ignored by Stripe
+- Keep implementation simple - avoid premature optimization like batching or complex helper functions
+- Prefer async operations that don't block the main flow
+- For billing adjustments like referral credits:
+  - Use billing.meterEvents.create with negative values
+  - This is more reliable than modifying invoice descriptions
+  - Credits will appear directly in line items
+  - No need to modify invoice metadata or descriptions
+  - Cannot use Stripe coupons/promotions for usage-based credits:
+    - Coupons only support fixed amounts or percentages
+    - Credits need to scale with usage and tier rates
+    - Stick with negative meter events for usage-based credits
+  - For visibility in invoices:
+    - Add description in meter event payload
+    - Description appears in invoice line items
+    - Example: `description: 'Referral bonus: 500 credits'`
+
+### Subscription Migrations
+
+Important: When migrating subscriptions to new prices:
+
+- Preserve existing usage meter records for 'Credits'
+- Don't reset usage data during price changes
+- Ensure fair billing by carrying forward accumulated usage
+- Usage data should persist across subscription updates
+- Use the dedicated credits meter ID (mtr_test_61RUgv7ouoAAMKoE341KrNS6SjmqWUXA) when tracking usage
+
+### Edge Cases in Plan Changes
+
+Critical considerations when handling subscription updates:
+
+1. Usage Migration Safety:
+
+   - Always capture total usage before updating subscription
+   - Record old usage under new plan immediately after upgrade
+   - Consider implementing rollback mechanism for failed migrations
+
+2. Concurrent Updates:
+
+   - Implement request deduplication or locking
+   - Verify subscription hasn't changed since preview was generated
+   - Use optimistic locking when updating subscriptions
+
+3. Subscription States:
+
+   - Validate subscription is in valid state for upgrade
+   - Check for: canceled, past_due, incomplete states
+   - Handle partial period credits correctly
+
+4. Error Recovery:
+   - Do not retry usage recording failures - these need manual investigation
+   - Log detailed context for failed operations to enable manual fixes:
+     - User context (IDs, customer info)
+     - Subscription context (old/new IDs, plan changes)
+     - Usage context (amounts, billing period dates)
+     - Error details (message, type, raw error)
+   - Show user-friendly messages that:
+     - Acknowledge the error is tracked
+     - Provide support contact information
+     - Assure users the team will handle it
 
 ## Client-Side Integration
 
@@ -104,6 +349,14 @@ The client (`npm-app/src/client.ts`) handles:
 - User authentication and login.
 - Displaying usage warnings to users.
 - Subscription to usage updates from the server.
+- Credit tracking:
+  - Server returns total credits used in session
+  - Client calculates per-request usage by comparing new total with cached value
+  - Important: Use delta between totals to show credits used per request
+- Credit tracking:
+  - Server returns total credits used in session
+  - Client calculates per-request usage by comparing new total with cached value
+  - Important: Use delta between totals to show credits used per request
 
 ## WebSocket Communication
 
@@ -115,7 +368,7 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 ## Best Practices
 
 1. Always use `getQuotaManager` to obtain the correct quota manager instance.
-2. Perform quota checks before processing expensive operations.
+2. Perform quota checks before processing operations.
 3. Update quotas after successful operations that consume credits.
 4. Ensure proper error handling for quota exceeded scenarios.
 5. Regularly review and adjust pricing and quota limits based on usage patterns.
@@ -134,11 +387,11 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
    - Document the reason for state changes (e.g., "endDate is in the past, so we should reset the quota")
    - Prefer explicit if statements with comments over ternaries for complex state changes
    - Document the reason for state changes (e.g., "endDate is in the past, so we should reset the quota")
-6. Combine related database queries into single operations:
+8. Combine related database queries into single operations:
    - Methods should return all necessary data in one query
    - Avoid separate queries for related data (e.g., subscription status with quota info)
    - Example: checkQuota returns quota and subscription status together
-6. Test all billing code paths thoroughly:
+9. Test all billing code paths thoroughly:
    - Test both anonymous and authenticated users
    - Verify subscription status handling
    - Test quota exceeded scenarios
@@ -152,3 +405,65 @@ WebSocket actions (`backend/src/websockets/websocket-action.ts`) manage:
 3. Implement real-time quota updates for improved user experience.
 4. Expand Stripe integration to handle more complex billing scenarios.
 5. Develop a system for usage analytics to inform pricing strategies.
+
+## Revenue Tracking
+
+To calculate MRR and ARR:
+
+```bash
+bun run --cwd scripts mrr
+```
+
+This script:
+
+- Sums base subscription fees from all active subscriptions
+- Excludes usage-based billing and subscriptions scheduled for cancellation
+- Handles pagination for all subscriptions
+- Shows both monthly (MRR) and annualized (ARR) revenue
+
+Important: When calculating MRR:
+
+- Check subscription.cancel_at_period_end to exclude subscriptions scheduled for cancellation
+- Only count the base subscription fee (licensed item), not metered usage
+- Use subscription.status='active' to exclude already-cancelled subscriptions
+
+## Subscription Previews
+
+When previewing subscription changes:
+
+- Use `stripeServer.invoices.retrieveUpcoming()` to preview changes without modifying the subscription
+- Always propagate Stripe error details (code, message, statusCode) to the client
+- Handle both API errors (from Stripe) and request errors (from React Query) in the UI
+- This provides accurate proration calculations directly from Stripe
+- Use `stripeServer.invoices.retrieveUpcoming()` to preview changes without modifying the subscription
+- This provides accurate proration calculations directly from Stripe
+- Include `subscription_proration_date` to ensure consistent calculations between preview and actual update
+- The preview includes credits for unused time and charges for the new plan
+
+## Stripe API Best Practices
+
+### Pagination
+
+- All Stripe list endpoints have a default limit of 100 items
+- Always implement pagination when using list endpoints to ensure processing all records
+- Use has_more and starting_after parameters to paginate through results
+- Example pagination pattern:
+
+  ```typescript
+  let hasMore = true
+  let lastId = undefined
+
+  while (hasMore) {
+    const response = await stripeServer.customers.list({
+      limit: 100,
+      starting_after: lastId,
+    })
+
+    // Process response.data
+
+    hasMore = response.has_more
+    if (hasMore) {
+      lastId = response.data[response.data.length - 1].id
+    }
+  }
+  ```

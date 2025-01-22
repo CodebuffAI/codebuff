@@ -1,9 +1,12 @@
-import { spawn } from 'child_process'
+import { rgPath } from '@vscode/ripgrep'
 import path from 'path'
 import { green } from 'picocolors'
+import { spawn } from 'child_process'
 
 import { scrapeWebPage } from './web-scraper'
-import { getProjectRoot, setProjectRoot } from './project-files'
+import { getProjectRoot } from './project-files'
+import { runTerminalCommand } from './utils/terminal'
+import { truncateStringWithMessage } from 'common/util/string'
 
 export type ToolHandler = (input: any, id: string) => Promise<string>
 
@@ -23,121 +26,68 @@ export const handleRunTerminalCommand = async (
   input: { command: string },
   id: string,
   mode: 'user' | 'assistant'
-): Promise<{ result: string; stdout: string; stderr: string }> => {
+): Promise<{ result: string; stdout: string }> => {
   const { command } = input
+  return runTerminalCommand(command, mode)
+}
+
+export const handleCodeSearch: ToolHandler = async (
+  input: { pattern: string },
+  id: string
+) => {
   return new Promise((resolve) => {
     let stdout = ''
     let stderr = ''
-    const MAX_EXECUTION_TIME = 10_000
 
-    if (mode === 'assistant') {
-      console.log()
-      console.log(green(`> ${command}`))
-    }
+    const dir = getProjectRoot()
+    const basename = path.basename(dir)
+    const pattern = input.pattern.replace(/"/g, '')
+    const command = `${path.resolve(rgPath)} "${pattern}" .`
+    console.log()
+    console.log(green(`Searching ${basename} for "${pattern}":`))
     const childProcess = spawn(command, {
+      cwd: dir,
       shell: true,
-      cwd: getProjectRoot(),
     })
 
-    const timer = setTimeout(() => {
-      if (mode === 'assistant') {
-        childProcess.kill()
-        resolve({
-          result: formatResult(
-            stdout,
-            stderr,
-            `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds. Partial results shown.`
-          ),
-          stdout,
-          stderr,
-        })
-      }
-    }, MAX_EXECUTION_TIME)
-
     childProcess.stdout.on('data', (data) => {
-      process.stdout.write(data.toString())
       stdout += data.toString()
     })
 
     childProcess.stderr.on('data', (data) => {
-      const dataStr = data.toString()
       stderr += data.toString()
-      if (
-        mode === 'user' &&
-        // Mac
-        (dataStr.includes('command not found') ||
-          // Linux
-          dataStr.includes(': not found') ||
-          // Common
-          dataStr.includes('syntax error:') ||
-          // Linux
-          dataStr.includes('Syntax error:') ||
-          // Windows
-          dataStr.includes(
-            'is not recognized as an internal or external command'
-          ))
-      ) {
-        resolve({
-          result: 'command not found',
-          stdout,
-          stderr,
-        })
-      } else {
-        process.stderr.write(data.toString())
-      }
     })
 
     childProcess.on('close', (code) => {
-      if (command.startsWith('cd ') && code === 0 && mode === 'user') {
-        const newWorkingDirectory = command.split(' ')[1]
-        setProjectRoot(path.join(getProjectRoot(), newWorkingDirectory))
+      const lines = stdout.split('\n').filter((line) => line.trim())
+      const maxResults = 3
+      const previewResults = lines.slice(0, maxResults)
+      if (previewResults.length > 0) {
+        console.log(previewResults.join('\n'))
+        if (lines.length > maxResults) {
+          console.log('...')
+        }
       }
+      console.log(green(`Found ${lines.length} results\n`))
 
-      clearTimeout(timer)
-      resolve({
-        result: formatResult(stdout, stderr, 'Command completed', code),
-        stdout,
-        stderr,
-      })
-      if (mode === 'assistant') {
-        console.log(green(`Command finished with exit code: ${code}\n`))
-      }
+      const truncatedStdout = truncateStringWithMessage(stdout, 10000)
+      const truncatedStderr = truncateStringWithMessage(stderr, 1000)
+      resolve(
+        formatResult(
+          truncatedStdout,
+          truncatedStderr,
+          'Code search completed',
+          code
+        )
+      )
     })
 
     childProcess.on('error', (error) => {
-      clearTimeout(timer)
-      resolve({
-        result: `<terminal_command_error>Failed to execute command: ${error.message}</terminal_command_error>`,
-        stdout,
-        stderr,
-      })
+      resolve(
+        `<terminal_command_error>Failed to execute ripgrep: ${error.message}</terminal_command_error>`
+      )
     })
   })
-}
-
-const truncate = (str: string, maxLength: number) => {
-  return str.length > maxLength
-    ? str.slice(0, maxLength) + '\n[...TRUNCATED_DUE_TO_LENGTH]'
-    : str
-}
-
-function formatResult(
-  stdout: string,
-  stderr: string,
-  status?: string,
-  exitCode?: number | null
-): string {
-  let result = '<terminal_command_result>\n'
-  result += `<stdout>${truncate(stdout, 10000)}</stdout>\n`
-  result += `<stderr>${truncate(stderr, 10000)}</stderr>\n`
-  if (status !== undefined) {
-    result += `<status>${status}</status>\n`
-  }
-  if (exitCode !== undefined && exitCode !== null) {
-    result += `<exit_code>${exitCode}</exit_code>\n`
-  }
-  result += '</terminal_command_result>'
-  return result
 }
 
 export const toolHandlers: Record<string, ToolHandler> = {
@@ -146,4 +96,25 @@ export const toolHandlers: Record<string, ToolHandler> = {
     handleRunTerminalCommand(input, id, 'assistant').then(
       (result) => result.result
     )) as ToolHandler,
+  continue: async (input, id) => input.response ?? 'Please continue',
+  code_search: handleCodeSearch,
+}
+
+function formatResult(
+  stdout: string,
+  stderr: string | undefined,
+  status: string,
+  exitCode: number | null
+): string {
+  let result = '<terminal_command_result>\n'
+  result += `<stdout>${stdout}</stdout>\n`
+  if (stderr !== undefined) {
+    result += `<stderr>${stderr}</stderr>\n`
+  }
+  result += `<status>${status}</status>\n`
+  if (exitCode !== null) {
+    result += `<exit_code>${exitCode}</exit_code>\n`
+  }
+  result += '</terminal_command_result>'
+  return result
 }

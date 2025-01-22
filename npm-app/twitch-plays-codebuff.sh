@@ -13,22 +13,26 @@ tmux new-session -d -s codebuff 'codebuff'
 # Track last message to avoid duplicates
 last_message=""
 
-# Run every 60 seconds
+# Run every 15 seconds
 while true; do
-  # Get timestamp from 1 minute ago
-  timestamp=$(($(date +%s) * 1000 - 60000))
+  # Get timestamp from 3 minutes ago
+  timestamp=$(($(date +%s) * 1000 - 180000))
   
-  # Fetch last message from API
-  response=$(curl -s "https://recent-messages.robotty.de/api/v2/recent-messages/codebuff_ai?limit=1&after=$timestamp")
+  # Fetch last 10 messages from API
+  response=$(curl -s "https://recent-messages.robotty.de/api/v2/recent-messages/codebuff_ai?limit=10&after=$timestamp")
   
-  # Extract message using jq and string splitting
+  # Process messages in reverse order and stop after first successful send
   if [ ! -z "$response" ]; then
-    message=$(echo "$response" | jq -r '.messages[0]' | grep -o 'PRIVMSG #codebuff_ai :.*' | sed 's/PRIVMSG #codebuff_ai ://')
-    if [ ! -z "$message" ] && [ "$message" != "$last_message" ]; then
-      send_input "$message"
-      last_message="$message"
-    fi
+    messages=$(echo "$response" | jq -r '.messages | reverse | .[]')
+    while IFS= read -r msg; do
+      message=$(echo "$msg" | grep -o 'PRIVMSG #codebuff_ai :>.*' | sed 's/PRIVMSG #codebuff_ai :>//')
+      if [ ! -z "$message" ] && [ "$message" != "$last_message" ]; then
+        send_input "$message"
+        last_message="$message"
+      fi
+      break
+    done <<< "$messages"
   fi
   
-  sleep 60
+  sleep 15
 done

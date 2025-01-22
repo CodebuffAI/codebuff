@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.110",
+  "version": "1.0.145",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -16,8 +16,9 @@
     "prepublishOnly": "bun run build && bun run clean-package.js",
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "test": "jest",
     "start-js": "bun run with-env -- node dist/index.js ..",
-    "start": "bun run with-env -- ts-node src/index.ts .. --auto-git",
+    "start": "bun run with-env -- ts-node src/index.ts .. --git stage",
     "start-dir": "bun run with-env -- ts-node src/index.ts",
     "with-env": "env-cmd -f ./loadEnv.js",
     "start-manifold": "bun run with-env -- ts-node src/index.ts ../../manifold",
@@ -25,14 +26,20 @@
     "start-jpcsp": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/jpcsp",
     "start-vscode": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/vscode",
     "start-nushell": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/nushell",
-    "start-prod": "bun run with-env -- ts-node src/index.ts"
+    "start-prod": "bun run with-env -- ts-node src/index.ts",
+    "typecheck-this-package": "tsc --noEmit && tsc-alias",
+    "typecheck": "bun run --cwd ../common build && bun run --cwd ../packages/code-map build && bun run typecheck-this-package"
   },
   "files": [
     "dist",
     "README.md"
   ],
+  "engines": {
+    "node": ">=14"
+  },
   "dependencies": {
     "@types/diff": "5.2.1",
+    "@vscode/ripgrep": "1.15.9",
     "axios": "1.7.4",
     "cheerio": "1.0.0",
     "diff": "5.2.0",
@@ -57,5 +64,17 @@
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
     "zod": "3.23.8"
+  },
+  "optionalDependencies": {
+    "@homebridge/node-pty-prebuilt-multiarch": "0.12.0-beta.5"
+  },
+  "trustedDependencies": [
+    "@homebridge/node-pty-prebuilt-multiarch",
+    "@vscode/ripgrep"
+  ],
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5"
   }
 }

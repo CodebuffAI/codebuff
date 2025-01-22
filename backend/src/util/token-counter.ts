@@ -1,11 +1,8 @@
-import { encoding_for_model } from 'tiktoken'
-
-const encoder = encoding_for_model('gpt-4o')
+import { encode } from 'gpt-tokenizer/esm/model/gpt-4o'
 
 export function countTokens(text: string): number {
   try {
-    const tokens = encoder.encode(text)
-    return tokens.length
+    return encode(text).length
   } catch (e) {
     console.error('Error counting tokens', e)
     return Math.ceil(text.length / 3)

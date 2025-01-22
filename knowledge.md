@@ -151,6 +151,21 @@ Buffy can execute terminal commands using the `run_terminal_command` tool. This 
 - `clean-package.js` modifies `package.json` to remove unnecessary information.
 - The `postpublish` script restores the original `package.json`.
 - NODE_ENV is set to 'production' for the published package at runtime.
+- Project uses Bun as the package manager - always use `bun` commands instead of `npm`
+
+## Package Management
+
+- Use Bun for all package management operations
+- Run commands with `bun` instead of `npm` (e.g., `bun install` not `npm install`)
+- Use `bun run` for script execution
+- Project uses Bun as the package manager - always use `bun` commands instead of `npm`
+- Project uses Bun as the package manager - always use `bun` commands instead of `npm`
+
+## Package Management
+
+- Use Bun for all package management operations
+- Run commands with `bun` instead of `npm` (e.g., `bun install` not `npm install`)
+- Use `bun run` for script execution
 
 ## Error Handling and Debugging
 
@@ -226,7 +241,7 @@ Upon start-up, the client checks the npmjs.org registry for the latest version o
 
 # Verifying changes
 
-Use judgment when verifying changes. For complex changes that could affect types or dependencies, run the type checker with `bun run --cwd backend tsc` (or sub "backend" for the appropriate project) and then fix any type errors that resulted from your change. For simple changes like adding console.logs or text updates, type checking is unnecessary.
+Use judgment when verifying changes. For complex changes that could affect types or dependencies, run the type checker with `bun run --cwd backend typecheck` (or sub "backend" for the appropriate project) and then fix any type errors that resulted from your change. For simple changes like adding console.logs or text updates, type checking is unnecessary.
 
 Only run type checking when:
 

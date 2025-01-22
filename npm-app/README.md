@@ -1,12 +1,12 @@
-# The AI coder for serious engineers
+# The most powerful coding agent
 
-Codebuff helps you generate better code from your terminal.
+Codebuff is a CLI tool that writes code for you.
 
 1. Run `codebuff` from your project directory
 2. Tell it what to do
-3. It will read and write to files to produce the code you want
+3. It will read and write to files and run commands to produce the code you want
 
-Note: Codebuff can run commands in your terminal as it deems necessary to fulfill your request.
+Note: Codebuff will run commands in your terminal as it deems necessary to fulfill your request.
 
 ## Installation
 
@@ -15,6 +15,8 @@ To install Codebuff, run:
 ```bash
 npm install -g codebuff
 ```
+
+(Use `sudo` if you get a permission error.)
 
 ## Usage
 
@@ -26,16 +28,23 @@ codebuff [project-directory]
 
 If no project directory is specified, Codebuff will use the current directory.
 
+You can also control the cost/quality tradeoff with these flags:
+
+```bash
+codebuff --lite  # Budget mode for more econonmical responses
+codebuff --max   # Premium mode for higher quality responses (--o1 also works)
+```
+
 After running `codebuff`, simply chat with it to say what coding task you want done.
 
 ## Features
 
-- Interacts with your codebase using natural language
-- Reads and writes files within your project directory
-- Runs commands in your terminal
-- Scrapes the web to gather information for tasks
+- Understands your whole codebase
+- Creates and edits multiple files based on your request
+- Can run your tests or type checker or linter; can install packages
+- It's powerful: ask Codebuff to keep working until it reaches a condition and it will.
 
-Ask Codebuff to implement small features, write unit tests, write scripts, or give advice.
+Our users regularly use Codebuff to implement new features, write unit tests, refactor code,write scripts, or give advice.
 
 ## Knowledge Files
 
@@ -53,9 +62,15 @@ Some have said every change should be paired with a unit test. In 2024, every ch
 
 ## Troubleshooting
 
-If you are getting permission errors when installing globally with '-g', or when running `codebuff`, try [installing node with a version manager](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
+If you are getting permission errors during installation, try using sudo:
 
-#### For OSX or Unix, use [nvm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). Run:
+```
+sudo npm install -g codebuff
+```
+
+Or, we recommend [installing node with a version manager](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). See below.
+
+#### For Mac or Unix, use [nvm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). Run:
 
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash

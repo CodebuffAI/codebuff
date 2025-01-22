@@ -12,13 +12,18 @@
     "target": "esnext",
     "incremental": true,
     "isolatedModules": true,
-    "types": ["node", "bun-types"],
+    "skipLibCheck": true,
+    "types": ["node", "bun"],
     "baseUrl": ".",
     "paths": {
       "common/*": ["./src/common/*", "../common/src/*"],
       "@/*": ["./src/*"]
     },
-    "typeRoots": ["./node_modules/@types", "../node_modules/@types", "../node_modules"],
+    "typeRoots": [
+      "./node_modules/@types",
+      "../node_modules/@types",
+      "../node_modules"
+    ],
     "outDir": "./dist"
   },
   "include": ["src/**/*"],

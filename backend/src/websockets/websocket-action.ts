@@ -18,7 +18,7 @@ import { env } from '../env.mjs'
 import db from 'common/db'
 import { genAuthCode } from 'common/util/credentials'
 import * as schema from 'common/db/schema'
-import { claudeModels, TOOL_RESULT_MARKER } from 'common/constants'
+import { TOOL_RESULT_MARKER } from 'common/constants'
 import { protec } from './middleware'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/src/util/dates'
@@ -154,17 +154,19 @@ export async function genUsageResponse(
 }
 
 const onUserInput = async (
-  {
+  action: Extract<ClientAction, { type: 'user-input' }>,
+  clientSessionId: string,
+  ws: WebSocket
+) => {
+  const {
     fingerprintId,
     authToken,
     userInputId,
     messages,
     fileContext,
     changesAlreadyApplied,
-  }: Extract<ClientAction, { type: 'user-input' }>,
-  clientSessionId: string,
-  ws: WebSocket
-) => {
+    costMode = 'normal',
+  } = action
   await withLoggerContext(
     { fingerprintId, authToken, clientRequestId: userInputId },
     async () => {
@@ -198,10 +200,14 @@ const onUserInput = async (
               chunk,
             }),
           userId,
-          changesAlreadyApplied
+          changesAlreadyApplied,
+          action.costMode
         )
 
-        logger.debug({ response, changes, toolCall }, 'response-complete')
+        logger.debug(
+          { response, changes, changesAlreadyApplied, toolCall },
+          'response-complete'
+        )
 
         if (toolCall) {
           sendAction(ws, {
@@ -242,9 +248,7 @@ const onUserInput = async (
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')
         const response =
-          e && typeof e === 'object' && 'message' in e
-            ? `\n\nError: ${e.message}`
-            : ''
+          e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
         sendAction(ws, {
           type: 'response-chunk',
           userInputId,
@@ -274,7 +278,7 @@ const onClearAuthTokenRequest = async (
   }: Extract<ClientAction, { type: 'clear-auth-token' }>,
   _clientSessionId: string,
   _ws: WebSocket
-) => {
+): Promise<void> => {
   await withLoggerContext(
     { fingerprintId, userId, authToken, fingerprintHash },
     async () => {
@@ -303,15 +307,15 @@ const onClearAuthTokenRequest = async (
   )
 }
 
-const onLoginCodeRequest = (
+const onLoginCodeRequest = async (
   {
     fingerprintId,
     referralCode,
   }: Extract<ClientAction, { type: 'login-code-request' }>,
   _clientSessionId: string,
   ws: WebSocket
-): void => {
-  withLoggerContext({ fingerprintId }, async () => {
+): Promise<void> => {
+  await withLoggerContext({ fingerprintId }, async () => {
     const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes in the future
     const fingerprintHash = genAuthCode(
       fingerprintId,
@@ -413,32 +417,34 @@ const onInit = async (
       })
       .onConflictDoNothing()
 
-    // warm context cache
-    const startTime = Date.now()
-    const system = getSearchSystemPrompt(fileContext)
     const userId = await getUserIdFromAuthToken(authToken)
-    try {
-      await promptClaude(
-        [
-          {
-            role: 'user',
-            content: 'please respond with just a single word "codebuff"',
-          },
-        ],
-        {
-          model: claudeModels.haiku,
-          system,
-          clientSessionId,
-          fingerprintId,
-          userId,
-          userInputId: 'init-cache',
-          maxTokens: 1,
-        }
-      )
-      logger.info(`Warming context cache done in ${Date.now() - startTime}ms`)
-    } catch (e) {
-      logger.error(e, 'Error in init')
-    }
+
+    // DISABLED FOR NOW
+    // warm context cache
+    // const startTime = Date.now()
+    // const system = getSearchSystemPrompt(fileContext)
+    // try {
+    //   await promptClaude(
+    //     [
+    //       {
+    //         role: 'user',
+    //         content: 'please respond with just a single word "codebuff"',
+    //       },
+    //     ],
+    //     {
+    //       model: claudeModels.haiku,
+    //       system,
+    //       clientSessionId,
+    //       fingerprintId,
+    //       userId,
+    //       userInputId: 'init-cache',
+    //       maxTokens: 1,
+    //     }
+    //   )
+    //   logger.info(`Warming context cache done in ${Date.now() - startTime}ms`)
+    // } catch (e) {
+    //   logger.error(e, 'Error in init')
+    // }
 
     const {
       usage,

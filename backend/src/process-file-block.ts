@@ -7,10 +7,14 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { openaiModels } from 'common/constants'
+import { CostMode, openaiModels } from 'common/constants'
 import { promptOpenAI } from './openai-api'
-import { createSearchReplaceBlock } from 'common/util/file'
 import { promptRelaceAI } from './relace-api'
+import {
+  createSearchReplaceBlock,
+  cleanMarkdownCodeBlock,
+} from 'common/util/file'
+import { hasLazyEdit, safeReplace } from 'common/util/string'
 
 export async function processFileBlock(
   clientSessionId: string,
@@ -21,6 +25,7 @@ export async function processFileBlock(
   fullResponse: string,
   filePath: string,
   newContent: string,
+  costMode: CostMode,
   userId: string | undefined
 ): Promise<FileChange | null> {
   if (newContent.trim() === '[UPDATED_BY_ANOTHER_ASSISTANT]') {
@@ -33,9 +38,7 @@ export async function processFileBlock(
 
   if (oldContent === null) {
     // Remove markdown code block syntax if present
-    let cleanContent = newContent
-      .replace(/^```[^\n]*\n/, '')
-      .replace(/\n```$/, '')
+    let cleanContent = cleanMarkdownCodeBlock(newContent)
 
     const { diffBlocks } = parseAndGetDiffBlocksSingleFile(cleanContent, '')
     if (diffBlocks.length > 0) {
@@ -96,20 +99,80 @@ export async function processFileBlock(
   let updatedContent = noDiffBlocks
     ? normalizedNewContent
     : normalizedOldContent
-  // for (const diffBlock of diffBlocks) {
-  //   const { searchContent, replaceContent } = diffBlock
-  //   updatedContent = updatedContent.replace(searchContent, replaceContent)
-  // }
+  for (const diffBlock of diffBlocks) {
+    const { searchContent, replaceContent } = diffBlock
+    updatedContent = safeReplace(updatedContent, searchContent, replaceContent)
+  }
 
-  if (updatedDiffBlocksThatDidntMatch.length > 0) {
+  const outputHasLazyEdit =
+    hasLazyEdit(updatedContent) && !hasLazyEdit(normalizedOldContent)
+
+  const outputHasReplaceBlocks =
+    updatedContent.includes('<<<<<<< SEARCH') ||
+    updatedContent.includes('>>>>>>> REPLACE')
+
+  if (outputHasLazyEdit) {
+    logger.debug(
+      {
+        filePath,
+        newContent,
+        oldContent,
+        diffBlocks,
+      },
+      `processFileBlock: ERROR 6623380: Output has rest of blocks for ${filePath}`
+    )
     updatedContent = await applyRemainingChanges(
-      updatedContent,
-      updatedDiffBlocksThatDidntMatch,
+      oldContent,
+      normalizedNewContent,
+      filePath,
       fullResponse,
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId
+      userId,
+      costMode,
+      true
+    )
+  } else if (outputHasReplaceBlocks) {
+    logger.debug(
+      {
+        filePath,
+        newContent,
+        oldContent,
+        diffBlocks,
+        diffBlocksThatDidntMatch,
+      },
+      `processFileBlock: ERROR 4236481: Included SEARCH/REPLACE blocks for ${filePath}`
+    )
+    updatedContent = await applyRemainingChanges(
+      updatedContent,
+      normalizedNewContent,
+      filePath,
+      fullResponse,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      costMode,
+      false
+    )
+  } else if (updatedDiffBlocksThatDidntMatch.length > 0) {
+    const changes = updatedDiffBlocksThatDidntMatch
+      .map((block) =>
+        createSearchReplaceBlock(block.searchContent, block.replaceContent)
+      )
+      .join('\n')
+    updatedContent = await applyRemainingChanges(
+      updatedContent,
+      changes,
+      filePath,
+      fullResponse,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      costMode,
+      false
     )
   }
 
@@ -148,12 +211,15 @@ export async function processFileBlock(
 
 async function applyRemainingChanges(
   updatedContent: string,
-  diffBlocksThatDidntMatch: { searchContent: string; replaceContent: string }[],
+  changes: string,
+  filePath: string,
   fullResponse: string,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined
+  userId: string | undefined,
+  costMode: CostMode,
+  hasLazyEdit: boolean
 ) {
   const prompt = `
 You will be helping to rewrite a file with changes.
@@ -169,29 +235,30 @@ Here's the current content of the file:
 ${updatedContent}
 \`\`\`
 
-The following changes were intended for this file but could not be applied using exact string matching. Note that the changes are represented as SEARCH strings found in the current file that are intended to be replaced with the REPLACE strings. Often the SEARCH string will contain extra lines of context to help match a location in the file.
+${hasLazyEdit ? 'Please ignore any comments with "..." and preserve the original content of the file.' : 'The following changes were intended for this file but could not be applied using exact string matching. Note that each change is represented as a SEARCH string found in the current file that is intended to be replaced with the REPLACE string. Often the SEARCH string will contain extra lines of context to help match a location in the file.'}
 
-${diffBlocksThatDidntMatch
-  .map(
-    (block, i) => `Change ${i + 1}:
-${createSearchReplaceBlock(block.searchContent, block.replaceContent)}`
-  )
-  .join('\n')}
+${changes}
 
 Please rewrite the file content to include these intended changes while preserving the rest of the file. Only make the minimal changes necessary to incorporate the intended edits. Do not edit any other code. Please preserve all other comments, etc.
 
-Return only the full, complete file content with no additional text or explanation. Do not use \`\`\` markdown code blocks to enclose the file content, instead, start with the first line of the file. Do not excerpt portions of the file, write out the entire updated file.
+Return only the full, complete file content with no additional text or explanation. Do not edit any other code. Please preserve all other comments, etc.
 `.trim()
 
   const startTime = Date.now()
-  // const response = await promptOpenAI([{ role: 'user', content: prompt }], {
-  //   clientSessionId,
-  //   fingerprintId,
-  //   userInputId,
-  //   userId,
-  //   model: openaiModels.gpt4omini,
-  //   predictedContent: updatedContent,
-  // })
+  // const response = await promptOpenAI(
+  //   [
+  //     { role: 'user', content: prompt },
+  //     { role: 'assistant', content: '```' },
+  //   ],
+  //   {
+  //     clientSessionId,
+  //     fingerprintId,
+  //     userInputId,
+  //     userId,
+  //     model: costMode === 'max' ? openaiModels.gpt4o : openaiModels.gpt4omini,
+  //     predictedContent: updatedContent,
+  //   }
+  // )
   const response = await promptRelaceAI([{ role: 'user', content: prompt }], {
     clientSessionId,
     fingerprintId,
@@ -201,14 +268,11 @@ Return only the full, complete file content with no additional text or explanati
   })
   const endTime = Date.now()
   logger.debug(
-    { response, diffBlocksThatDidntMatch, duration: endTime - startTime },
-    `applyRemainingChanges for ${diffBlocksThatDidntMatch.length} blocks`
+    { response, changes, duration: endTime - startTime },
+    `applyRemainingChanges for ${filePath}`
   )
 
-  // Only remove backticks if they wrap the entire response
-  const cleanResponse = response.match(/^```[^\n]*\n([\s\S]*)\n```$/)
-    ? response.replace(/^```[^\n]*\n/, '').replace(/\n```$/, '')
-    : response
+  const cleanResponse = cleanMarkdownCodeBlock(response)
 
   // Add newline to maintain consistency with original file endings
   return cleanResponse + '\n'

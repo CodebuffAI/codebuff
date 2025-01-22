@@ -1,0 +1,161 @@
+/**
+ * Modfied version of [termynal.js](https://github.com/ines/termynal/blob/master/termynal.css).
+ *
+ * @author Ines Montani <ines@ines.io>
+ * @version 0.0.1
+ * @license MIT
+ */
+.react-terminal-wrapper {
+  width: 100%;
+  background: #252a33;
+  color: #eee;
+  font-size: 18px;
+  font-family: 'Fira Mono', Consolas, Menlo, Monaco, 'Courier New', Courier,
+    monospace;
+  border-radius: 4px;
+  position: relative;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+.react-terminal {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0; /* Important: allows flex child to scroll */
+}
+
+.react-terminal-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.react-terminal-wrapper.react-terminal-light {
+  background: #ddd;
+  color: #1a1e24;
+}
+
+.react-terminal-window-buttons {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.react-terminal-window-buttons button {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 0;
+}
+
+.react-terminal-window-buttons button.clickable {
+  cursor: pointer;
+}
+
+.react-terminal-window-buttons button.red-btn {
+  background: #d9515d;
+}
+
+.react-terminal-window-buttons button.yellow-btn {
+  background: #f4c025;
+}
+
+.react-terminal-window-buttons button.green-btn {
+  background: #3ec930;
+}
+
+.react-terminal-wrapper:after {
+  content: attr(data-terminal-name);
+  position: absolute;
+  color: #a2a2a2;
+  top: 5px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  pointer-events: none;
+}
+
+.react-terminal-wrapper.react-terminal-light:after {
+  color: #d76d77;
+}
+
+.react-terminal-line {
+  white-space: pre-wrap;
+  word-break: break-words;
+}
+
+.react-terminal-line:before {
+  /* Set up defaults and ensure empty lines are displayed. */
+  content: '';
+  display: inline-block;
+  vertical-align: middle;
+  color: #a2a2a2;
+}
+
+.react-terminal-light .react-terminal-line:before {
+  color: #d76d77;
+}
+
+.react-terminal-input:before {
+  margin-right: 0.75em;
+  content: '$';
+}
+
+.react-terminal-input[data-terminal-prompt]:before {
+  content: attr(data-terminal-prompt);
+}
+
+.react-terminal-wrapper:focus-within .react-terminal-active-input .cursor {
+  position: relative;
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  top: 0.225em;
+  background: #fff;
+  -webkit-animation: blink 3s infinite;
+  animation: blink 3s infinite;
+}
+
+/* Cursor animation */
+
+@-webkit-keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.terminal-hidden-input {
+  position: fixed;
+  left: -1000px;
+  height: 0;
+  width: 0;
+  padding: 0;
+  border: none;
+  pointer-events: none;
+}
+
+/* .react-terminal-progress {
+    display: flex;
+    margin: .5rem 0;
+  }
+  
+  .react-terminal-progress-bar {
+    background-color: #fff;
+    border-radius: .25rem;
+    width: 25%;
+  }
+  
+  .react-terminal-wrapper.react-terminal-light .react-terminal-progress-bar {
+    background-color: #000;
+  } */

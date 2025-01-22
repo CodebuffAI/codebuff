@@ -10,7 +10,6 @@ import { eq } from 'drizzle-orm'
 import { Adapter } from 'next-auth/adapters'
 import { parse, format } from 'url'
 import { CREDITS_USAGE_LIMITS } from 'common/constants'
-import { getNextQuotaReset } from 'common/src/util/dates'
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {
@@ -77,6 +76,33 @@ export const authOptions: NextAuthOptions = {
             })
             .where(eq(schema.user.id, user.id))
         })
+
+      try {
+        await fetch('https://app.loops.so/api/v1/events/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${env.LOOPS_API_KEY}`,
+          },
+          body: JSON.stringify({
+            email: user.email,
+            userId: user.id,
+            eventName: 'signup',
+            firstName: user.name?.split(' ')[0],
+          }),
+        })
+        // TODO: Log these with logger
+        console.info('Sent signup event to Loops', {
+          email: user.email,
+          userId: user.id,
+        })
+      } catch (error) {
+        console.error('Failed to send Loops event', {
+          error,
+          email: user.email,
+          userId: user.id,
+        })
+      }
     },
   },
 }

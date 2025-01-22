@@ -1,13 +1,22 @@
+'use client'
+
 import { Separator } from '@/components/ui/separator'
 import Link from 'next/link'
 import Image from 'next/image'
 import { siteConfig } from '@/lib/constant'
+import { LinkedInInsightTag } from 'nextjs-linkedin-insight-tag'
+import { usePathname } from 'next/navigation'
 
 export const Footer = () => {
+  const pathname = usePathname()
+  if (pathname.startsWith('/docs')) {
+    return <></>
+  }
+
   return (
     <footer className="w-full border-t z-10">
-      <div className="container mx-auto px-4 py-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div className="container mx-auto flex flex-col gap-4 py-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 py-4">
           {/* Logo and company name */}
           <div className="flex items-center space-x-2">
             <Link href="/" className="flex items-center space-x-2">
@@ -24,13 +33,20 @@ export const Footer = () => {
 
           {/* Site Map */}
           <div>
-            <h3 className="font-semibold mb-4">Site Map</h3>
+            <h3 className="font-semibold mb-4">Site</h3>
             <nav className="flex flex-col space-y-2">
               <Link
                 href="/"
                 className="text-muted-foreground hover:text-primary"
               >
                 Home
+              </Link>
+              <Link
+                href="/docs"
+                target="_blank"
+                className="text-muted-foreground hover:text-primary"
+              >
+                Docs
               </Link>
               <Link
                 href="https://news.codebuff.com"
@@ -88,12 +104,13 @@ export const Footer = () => {
           </div>
         </div>
 
-        <Separator className="my-4" />
+        <Separator />
 
         <div className="text-center text-xs text-muted-foreground">
           © {new Date().getFullYear()} {siteConfig.title}. All rights reserved.
         </div>
       </div>
+      <LinkedInInsightTag />
     </footer>
   )
 }

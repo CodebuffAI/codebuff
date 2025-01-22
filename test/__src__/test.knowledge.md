@@ -21,6 +21,32 @@ When testing diff block parsing:
 
 Remember: The parser should be flexible in accepting search/replace blocks with simplified indentation while preserving the original source formatting.
 
+## Code Block Detection
+
+When detecting truncated code blocks:
+- Check for explicit phrases like "rest of the"
+- Match comment patterns with ellipsis: `// ... code ...`
+- Support multiple comment styles: //, #, /* */
+- Avoid false positives from regular ellipsis usage in comments
+- Only match comments containing specific words: rest, unchanged, keep, file, existing, some
+
+## Code Block Detection
+
+When detecting truncated code blocks:
+- Check for explicit phrases like "rest of the"
+- Match comment patterns with ellipsis: `// ... code`
+- Support multiple comment styles:
+  - C-style single line: `// ... code`
+  - C-style multi-line: `/* ... code */`
+  - Python/Ruby style: `# ... code`
+  - HTML style: `<!-- ... code -->`
+  - SQL/Haskell style: `-- ... code`
+  - MATLAB style: `% ... code`
+  - JSX style: `{/* ... code */}`
+- Avoid false positives from regular ellipsis usage in comments
+- Only match comments containing specific words: rest, unchanged, keep, file, existing, some
+- Second ellipsis is optional in all patterns (e.g. `// ... code` or `// ... code ...`)
+
 ## Database Mocking Guidelines
 
 When mocking database queries:

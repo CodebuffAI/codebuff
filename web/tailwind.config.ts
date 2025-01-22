@@ -56,6 +56,16 @@ const config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        sidebar: {
+          DEFAULT: 'hsl(var(--sidebar-background))',
+          foreground: 'hsl(var(--sidebar-foreground))',
+          primary: 'hsl(var(--sidebar-primary))',
+          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
+          accent: 'hsl(var(--sidebar-accent))',
+          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
+          border: 'hsl(var(--sidebar-border))',
+          ring: 'hsl(var(--sidebar-ring))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -64,36 +74,41 @@ const config = {
       },
       keyframes: {
         'accordion-down': {
-          from: {
-            height: '0',
-          },
-          to: {
-            height: 'var(--radix-accordion-content-height)',
-          },
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
         },
         'accordion-up': {
-          from: {
-            height: 'var(--radix-accordion-content-height)',
-          },
-          to: {
-            height: '0',
-          },
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
         },
         marquee: {
-          from: {
-            transform: 'translateX(0)',
-          },
-          to: {
-            transform: 'translateX(calc(-100% - var(--gap)))',
-          },
+          from: { transform: 'translate3d(0, 0, 0)' },
+          to: { transform: 'translate3d(calc(-100% - var(--gap)), 0, 0)' },
         },
         'marquee-vertical': {
-          from: {
-            transform: 'translateY(0)',
-          },
-          to: {
-            transform: 'translateY(calc(-100% - var(--gap)))',
-          },
+          from: { transform: 'translate3d(0, 0, 0)' },
+          to: { transform: 'translate3d(0, calc(-100% - var(--gap)), 0)' },
+        },
+        'background-position-spin': {
+          '0%': { backgroundPosition: 'top center' },
+          '100%': { backgroundPosition: 'bottom center' },
+        },
+        scanlines: {
+          '0%': { transform: 'translateY(0)' },
+          '100%': { transform: 'translateY(8px)' },
+        },
+        crtflicker: {
+          '0%': { opacity: '0.65' },
+          '33%': { opacity: '0.75' },
+          '66%': { opacity: '0.62' },
+          '100%': { opacity: '0.65' },
+        },
+        textflicker: {
+          '0%': { opacity: '0.95', textShadow: '2px 0 0 rgba(255,176,0,0.6)' },
+          '25%': { opacity: '0.92', textShadow: '-2px 0 0 rgba(255,176,0,0.6)' },
+          '50%': { opacity: '0.94', textShadow: '2px 0 0 rgba(255,176,0,0.6)' },
+          '75%': { opacity: '0.91', textShadow: '-2px 0 0 rgba(255,176,0,0.6)' },
+          '100%': { opacity: '0.95', textShadow: '2px 0 0 rgba(255,176,0,0.6)' },
         },
       },
       animation: {
@@ -101,6 +116,10 @@ const config = {
         'accordion-up': 'accordion-up 0.2s ease-out',
         marquee: 'marquee var(--duration) infinite linear',
         'marquee-vertical': 'marquee-vertical var(--duration) linear infinite',
+        'background-position-spin': 'background-position-spin 3000ms infinite alternate',
+        scanlines: 'scanlines 1s linear infinite',
+        textflicker: 'textflicker 0.1s infinite',
+        crtflicker: 'crtflicker 2s infinite ease-in-out',
       },
     },
   },
