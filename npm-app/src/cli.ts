@@ -2,11 +2,8 @@ import { uniq } from 'lodash'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
-import { green, red, yellow, underline, bold, blueBright } from 'picocolors'
-import fs from 'fs'
-import path from 'path'
+import { green, red, yellow, underline } from 'picocolors'
 import { parse } from 'path'
-import os from 'os'
 
 function rewriteLine(line: string) {
   // Only do line rewriting if we have an interactive TTY
@@ -74,6 +71,12 @@ export class CLI {
     this.git = git
     this.costMode = costMode
     this.chatStorage = new ChatStorage()
+
+    process.on('exit', () => this.restoreCursor())
+    process.on('SIGTERM', () => {
+      this.restoreCursor()
+      process.exit(0)
+    })
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -291,9 +294,16 @@ export class CLI {
       this.stopResponse()
     }
     this.stopLoadingAnimation()
+    this.restoreCursor()
+  }
+
+  private restoreCursor() {
+    // Show cursor ANSI escape code
+    process.stdout.write('\u001B[?25h')
   }
 
   private handleExit() {
+    this.restoreCursor()
     console.log('\n\n')
     console.log(
       `${pluralize(this.client.sessionCreditsUsed, 'credit')} used this session.`
@@ -339,6 +349,8 @@ export class CLI {
   private startLoadingAnimation() {
     const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
     let i = 0
+    // Hide cursor while spinner is active
+    process.stdout.write('\u001B[?25l')
     this.loadingInterval = setInterval(() => {
       rewriteLine(green(`${chars[i]} Thinking...`))
       i = (i + 1) % chars.length
@@ -350,6 +362,7 @@ export class CLI {
       clearInterval(this.loadingInterval)
       this.loadingInterval = null
       rewriteLine('') // Clear the spinner line
+      this.restoreCursor() // Show cursor after spinner stops
     }
   }
 

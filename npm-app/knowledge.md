@@ -19,6 +19,20 @@ NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com
 
 ## Terminal Handling
 
+### Cursor Management
+- Always restore cursor visibility when exiting
+- Hide cursor during loading animations
+- Use ANSI escape codes:
+  - Hide cursor: `\u001B[?25l`
+  - Show cursor: `\u001B[?25h`
+- Ensure cursor is restored:
+  - On normal exit
+  - On SIGTERM
+  - After loading animations
+  - When stopping responses
+  - Via process.exit handler as fallback
+- This prevents terminal from getting stuck without cursor if interrupted
+
 ### Command Execution Rules
 
 - Skip running input as terminal command if it:
@@ -159,4 +173,3 @@ When matching Windows paths in regex patterns:
   - Drive letter: `[A-Z]:`
   - Full path: `[A-Z]:\\\S+`
   - UNC path: `\\\\\S+\\\S+`
-
