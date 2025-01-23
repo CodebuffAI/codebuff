@@ -150,3 +150,33 @@ export const verificationToken = pgTable(
   },
   (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
 )
+
+export const organization = pgTable('organization', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  name: text('name').notNull(),
+  owner_id: text('owner_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  stripe_customer_id: text('stripe_customer_id').unique(),
+  allowed_repos: text('allowed_repos').array(),
+  created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+})
+
+export const organization_member = pgTable(
+  'organization_member',
+  {
+    organization_id: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: text('role').$type<'admin' | 'member'>().notNull().default('member'),
+    joined_at: timestamp('joined_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.organization_id, table.user_id] }),
+  })
+)
