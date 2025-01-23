@@ -172,9 +172,27 @@ export class CLI {
       this.handleExit()
     })
 
-    process.stdin.on('keypress', (_, key) => {
+    process.stdin.on('keypress', (str, key) => {
       if (key.name === 'escape') {
         this.handleEscKey()
+      }
+
+      // Make double spaces into newlines
+      if (
+        str === ' ' &&
+        '_refreshLine' in this.rl &&
+        'line' in this.rl &&
+        'cursor' in this.rl
+      ) {
+        const rl = this.rl as any
+        const { cursor, line } = rl
+
+        const prevTwoChars = cursor > 1 ? line.slice(cursor - 2, cursor) : ''
+
+        if (prevTwoChars === '  ') {
+          rl.line = line.slice(0, cursor - 2) + '\n\n' + line.slice(cursor)
+          rl._refreshLine()
+        }
       }
       this.detectPasting()
     })
