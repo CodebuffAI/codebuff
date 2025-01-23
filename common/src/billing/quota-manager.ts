@@ -2,7 +2,7 @@ import { stripeServer } from '../util/stripe'
 import { CREDITS_USAGE_LIMITS } from '../constants'
 import db from '../db'
 import * as schema from '../db/schema'
-import { and, between, eq, SQL, sql } from 'drizzle-orm'
+import { and, between, eq, SQL, sql, inArray } from 'drizzle-orm'
 import { match } from 'ts-pattern'
 
 type CheckQuotaResult = Promise<{
@@ -248,12 +248,146 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
   }
 }
 
-export type AuthType = 'anonymous' | 'authenticated'
+export class OrgQuotaManager implements IQuotaManager {
+  async getStripeSubscriptionQuota(
+    orgId: string
+  ): Promise<{ quota: number; overageRate: number | null }> {
+    const org = await db.query.organization.findFirst({
+      where: eq(schema.organization.id, orgId),
+      columns: {
+        stripe_customer_id: true,
+      },
+    })
+
+    let overageRate: number | null = null
+    let quota = CREDITS_USAGE_LIMITS.PRO
+
+    if (org?.stripe_customer_id) {
+      const subscriptions = await stripeServer.subscriptions.list({
+        customer: org.stripe_customer_id,
+        status: 'active',
+        limit: 1,
+      })
+
+      if (subscriptions.data[0]?.id) {
+        const subscription = await stripeServer.subscriptions.retrieve(
+          subscriptions.data[0].id,
+          {
+            expand: ['items.data.price.tiers'],
+          }
+        )
+
+        const meteredPrice = subscription.items.data.find(
+          (item) => item.price.recurring?.usage_type === 'metered'
+        )
+
+        if (meteredPrice?.price.tiers) {
+          for (const tier of meteredPrice.price.tiers) {
+            if (tier.up_to) {
+              quota = Math.max(quota, tier.up_to)
+            }
+            if (tier.up_to === null && tier.unit_amount_decimal) {
+              overageRate = parseFloat(tier.unit_amount_decimal)
+              break
+            }
+          }
+        }
+      }
+    }
+
+    return { quota, overageRate }
+  }
+
+  async checkQuota(orgId: string, sessionId?: string): CheckQuotaResult {
+    const startDate: SQL<string> = sql<string>`COALESCE(${schema.organization.created_at}, now()) - INTERVAL '1 month'`
+    const endDate: SQL<string> = sql<string>`now()`
+    let session_credits_used = undefined
+
+    // Get all members of the organization
+    const members = await db
+      .select({
+        user_id: schema.organization_member.user_id,
+      })
+      .from(schema.organization_member)
+      .where(eq(schema.organization_member.organization_id, orgId))
+
+    const memberIds = members.map((m) => m.user_id)
+
+    const result = await db
+      .select({
+        stripe_customer_id: schema.organization.stripe_customer_id,
+        endDate,
+        creditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
+      })
+      .from(schema.organization)
+      .leftJoin(
+        schema.message,
+        and(
+          inArray(schema.message.user_id, memberIds),
+          between(schema.message.finished_at, startDate, endDate)
+        )
+      )
+      .where(eq(schema.organization.id, orgId))
+      .groupBy(schema.organization.stripe_customer_id, schema.organization.created_at)
+      .then((rows) => {
+        if (rows.length > 0) return rows[0]
+        return {
+          stripe_customer_id: null,
+          creditsUsed: '0',
+          endDate: new Date().toDateString(),
+        }
+      })
+
+    if (sessionId) {
+      session_credits_used = await db
+        .select({
+          client_id: schema.message.client_id,
+          sessionCreditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
+        })
+        .from(schema.message)
+        .where(
+          and(
+            eq(schema.message.client_id, sessionId),
+            inArray(schema.message.user_id, memberIds)
+          )
+        )
+        .groupBy(schema.message.client_id)
+        .then((rows) => {
+          if (rows.length > 0) {
+            return parseInt(rows[0].sessionCreditsUsed)
+          }
+          return 0
+        })
+    }
+
+    const { quota } = await this.getStripeSubscriptionQuota(orgId)
+
+    return {
+      creditsUsed: parseInt(result.creditsUsed),
+      quota,
+      endDate: new Date(result.endDate),
+      subscription_active: !!result.stripe_customer_id,
+      session_credits_used,
+    }
+  }
+
+  async setNextQuota(
+    orgId: string,
+    quota_exceeded: boolean,
+    next_quota_reset: Date
+  ): Promise<void> {
+    // For organizations, we don't store quota reset dates since they're based on subscription
+    return
+  }
+}
+
+export type AuthType = 'anonymous' | 'authenticated' | 'organization'
 
 export const getQuotaManager = (authType: AuthType, id: string) => {
   const manager = match(authType)
     .with('anonymous', () => new AnonymousQuotaManager())
     .with('authenticated', () => new AuthenticatedQuotaManager())
+    .with('organization', () => new OrgQuotaManager())
     .exhaustive()
 
   return {

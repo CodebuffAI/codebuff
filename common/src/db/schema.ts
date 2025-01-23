@@ -129,6 +129,7 @@ export const message = pgTable(
   (table) => [
     index('message_fingerprint_id_idx').on(table.fingerprint_id),
     index('message_user_id_idx').on(table.user_id),
+    index('message_finished_at_idx').on(table.finished_at),
   ]
 )
 
@@ -178,5 +179,6 @@ export const organization_member = pgTable(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.organization_id, table.user_id] }),
+    userIdIdx: index('organization_member_user_id_idx').on(table.user_id),
   })
 )
