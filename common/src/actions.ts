@@ -69,6 +69,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     fileContext: ProjectFileContextSchema,
     changesAlreadyApplied: CHANGES,
     costMode: z.enum(costModes).optional().default('normal'),
+    profile: z.string().optional(),
   }),
   z.object({
     type: z.literal('read-files-response'),
@@ -84,11 +85,13 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     authToken: z.string().optional(),
     // userId: z.string().optional(),
     fileContext: ProjectFileContextSchema,
+    profile: z.string().optional(),
   }),
   z.object({
     type: z.literal('usage'),
     fingerprintId: z.string(),
     authToken: z.string().optional(),
+    profile: z.string().optional(),
   }),
   z.object({
     type: z.literal('login-code-request'),

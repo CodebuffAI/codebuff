@@ -52,6 +52,7 @@ export class CLI {
   private readyPromise: Promise<any>
   private git: GitCommand
   private costMode: CostMode
+  private profile?: string
   private rl: readline.Interface
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
@@ -66,10 +67,11 @@ export class CLI {
 
   constructor(
     readyPromise: Promise<[void, ProjectFileContext]>,
-    { git, costMode }: CliOptions
+    { git, costMode, profile }: CliOptions
   ) {
     this.git = git
     this.costMode = costMode
+    this.profile = profile
     this.chatStorage = new ChatStorage()
 
     process.on('exit', () => this.restoreCursor())
@@ -129,7 +131,8 @@ export class CLI {
       this.returnControlToUser.bind(this),
       this.costMode,
       this.git,
-      this.rl
+      this.rl,
+      this.profile
     )
 
     this.readyPromise = Promise.all([

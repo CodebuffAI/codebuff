@@ -16,7 +16,7 @@ import { resetPtyShell } from './utils/terminal'
 
 async function codebuff(
   projectDir: string | undefined,
-  { initialInput, git, costMode }: CliOptions
+  { initialInput, git, costMode, profile }: CliOptions
 ) {
   const dir = setProjectRoot(projectDir)
   resetPtyShell(dir)
@@ -26,7 +26,13 @@ async function codebuff(
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
 
-  const cli = new CLI(readyPromise, { git, costMode })
+  const cli = new CLI(readyPromise, { git, costMode, profile })
+
+  if (profile) {
+    console.log(`Using profile: ${profile}`)
+  } else {
+    console.log('Using default (personal) profile')
+  }
 
   await cli.printInitialPrompt(initialInput)
 }
@@ -41,6 +47,13 @@ if (require.main === module) {
       : undefined
   if (gitArg !== -1) {
     args.splice(gitArg, 2)
+  }
+
+  // Handle profile selection
+  const profileArg = args.indexOf('--profile')
+  const profile = profileArg !== -1 ? args[profileArg + 1] : undefined
+  if (profileArg !== -1) {
+    args.splice(profileArg, 2)
   }
 
   let costMode: CostMode = 'normal'
@@ -90,6 +103,9 @@ if (require.main === module) {
     )
     console.log(
       '  --git stage                     Stage changes from last message'
+    )
+    console.log(
+      '  --profile <name>                Use specified profile (personal or organization name)'
     )
     console.log()
     console.log(

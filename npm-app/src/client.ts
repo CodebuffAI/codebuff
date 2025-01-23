@@ -55,6 +55,7 @@ export class Client {
   private returnControlToUser: () => void
   private fingerprintId: string | undefined
   private costMode: CostMode
+  private profile?: string
   public fileVersions: FileVersion[][] = []
   public fileContext: ProjectFileContext | undefined
 
@@ -77,10 +78,12 @@ export class Client {
     returnControlToUser: () => void,
     costMode: CostMode,
     git: GitCommand,
-    rl: readline.Interface
+    rl: readline.Interface,
+    profile?: string
   ) {
     this.costMode = costMode
     this.git = git
+    this.profile = profile
     this.webSocket = new APIRealtimeClient(
       websocketUrl,
       onWebSocketError,
@@ -500,6 +503,7 @@ export class Client {
       fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
       costMode: this.costMode,
+      profile: this.profile,
     })
   }
 
@@ -608,6 +612,7 @@ export class Client {
       type: 'usage',
       fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
+      profile: this.profile,
     })
   }
 
@@ -632,6 +637,7 @@ export class Client {
         fingerprintId: await this.getFingerprintId(),
         authToken: this.user?.authToken,
         fileContext,
+        profile: this.profile,
       })
       .catch((e) => {
         // console.error('Error warming context cache', e)
