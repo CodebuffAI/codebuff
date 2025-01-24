@@ -74,6 +74,12 @@ export async function createTemplateProject(
     // Clean up temp directory
     fs.rmSync(tempDir, { recursive: true, force: true })
 
+    // Install dependencies
+    if (fs.existsSync(join(projectName, 'package-lock.json'))) {
+      console.log('\nInstalling dependencies...')
+      execSync('npm install', { cwd: projectName, stdio: 'inherit' })
+    }
+
     console.log(green(`\nCreated new project in ./${projectName}\n`))
     console.log('To get started:')
     console.log(green(`>  cd ${projectName}`))
