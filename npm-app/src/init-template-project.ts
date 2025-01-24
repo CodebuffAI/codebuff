@@ -4,7 +4,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import { green } from 'picocolors'
 
-export async function initTemplateProject(
+export async function createTemplateProject(
   template: string,
   projectName: string = template
 ) {

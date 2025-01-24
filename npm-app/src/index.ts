@@ -11,7 +11,7 @@ import {
 import { updateCodebuff } from './update-codebuff'
 import { CliOptions } from './types'
 import { resetPtyShell } from './utils/terminal'
-import { initTemplateProject } from './init-template-project'
+import { createTemplateProject } from './init-template-project'
 
 async function codebuff(
   projectDir: string | undefined,
@@ -34,11 +34,11 @@ if (require.main === module) {
   const args = process.argv.slice(2)
   const help = args.includes('--help') || args.includes('-h')
 
-  // Handle --init flag before other flags
-  const initIndex = args.indexOf('--init')
-  if (initIndex !== -1) {
-    const template = args[initIndex + 1]
-    const projectName = args[initIndex + 2] || template
+  // Handle --create flag before other flags
+  const createIndex = args.indexOf('--create')
+  if (createIndex !== -1) {
+    const template = args[createIndex + 1]
+    const projectName = args[createIndex + 2] || template
 
     if (!template) {
       console.error('Please specify a template name')
@@ -47,7 +47,7 @@ if (require.main === module) {
       process.exit(1)
     }
 
-    initTemplateProject(template, projectName)
+    createTemplateProject(template, projectName)
     process.exit(0)
   }
 
@@ -100,7 +100,7 @@ if (require.main === module) {
     console.log()
     console.log('Options:')
     console.log(
-      '  --init <template> [name]        Create new project from template'
+      '  --create <template> [name]      Create new project from template'
     )
     console.log(
       '  --lite                          Use budget models & fetch fewer files'
