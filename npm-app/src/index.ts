@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 
-import fs from 'fs'
 import { type CostMode } from 'common/constants'
-import path from 'path'
-import { bold, yellow, blueBright, red } from 'picocolors'
+import { red } from 'picocolors'
 
 import { CLI } from './cli'
 import {
@@ -13,6 +11,7 @@ import {
 import { updateCodebuff } from './update-codebuff'
 import { CliOptions } from './types'
 import { resetPtyShell } from './utils/terminal'
+import { createTemplateProject } from './create-template-project'
 
 async function codebuff(
   projectDir: string | undefined,
@@ -34,6 +33,26 @@ async function codebuff(
 if (require.main === module) {
   const args = process.argv.slice(2)
   const help = args.includes('--help') || args.includes('-h')
+
+  // Handle --create flag before other flags
+  const createIndex = args.indexOf('--create')
+  if (createIndex !== -1) {
+    const template = args[createIndex + 1]
+    const projectName = args[createIndex + 2] || template
+
+    if (!template) {
+      console.error('Please specify a template name')
+      console.log('Available templates:')
+      console.log('  nextjs    - Next.js starter template')
+      console.log('\nSee all templates at:')
+      console.log('  https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates')
+      process.exit(1)
+    }
+
+    createTemplateProject(template, projectName)
+    process.exit(0)
+  }
+
   const gitArg = args.indexOf('--git')
   const git =
     gitArg !== -1 && args[gitArg + 1] === 'stage'
@@ -81,16 +100,18 @@ if (require.main === module) {
       'If an initial prompt is provided, it will be sent as the first user input.'
     )
     console.log()
-    console.log('Options:')
-    console.log(
-      '  --lite                          Use budget models & fetch fewer files'
-    )
-    console.log(
-      '  --max, --o1                     Use higher quality models and fetch more files'
-    )
-    console.log(
-      '  --git stage                     Stage changes from last message'
-    )
+    console.log('Project Creation:')
+    console.log('  --create <template> [name]      Create new project from template')
+    console.log('                                  Example: codebuff --create nextjs my-app')
+    console.log('                                  See all templates at:')
+    console.log('                                  https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates')
+    console.log()
+    console.log('Performance Options:')
+    console.log('  --lite                          Use budget models & fetch fewer files')
+    console.log('  --max                           Use higher quality models and fetch more files')
+    console.log()
+    console.log('Git Integration:')
+    console.log('  --git stage                     Stage changes from last message')
     console.log()
     console.log(
       'Codebuff allows you to interact with your codebase using natural language.'

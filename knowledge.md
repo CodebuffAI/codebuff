@@ -18,6 +18,20 @@ This change improves the accuracy and reliability of file modifications, especia
 
 1. **Developer Productivity**: Reduce the time and effort required for common programming tasks, allowing developers to focus on higher-level problem-solving.
 
+## Project Templates
+
+Codebuff provides starter templates that can be used to initialize new projects:
+
+```bash
+codebuff --create <template> [project-name]
+```
+
+Templates are maintained in the [codebuff community repo](https://github.com/CodebuffAI/codebuff-community). Each directory in the starter-templates and showcase directories corresponds to a template that can be used with the --create flag.
+
+Example template:
+
+- nextjs: Next.js starter template
+
 2. **Learning and Adaptation**: Develop a system that learns from user interactions and improves its assistance over time.
 
 3. **Focus on power users**: Make expert software engineers move even faster.
