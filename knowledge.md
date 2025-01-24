@@ -23,12 +23,13 @@ This change improves the accuracy and reliability of file modifications, especia
 Codebuff provides starter templates that can be used to initialize new projects:
 
 ```bash
-codebuff --init <template> [project-name]
+codebuff --create <template> [project-name]
 ```
 
-Templates are maintained in the [starters repo](https://github.com/CodebuffAI/starters). Each directory in the repo corresponds to a template that can be used with the --init flag.
+Templates are maintained in the [codebuff community repo](https://github.com/CodebuffAI/codebuff-community). Each directory in the starter-templates and showcase directories corresponds to a template that can be used with the --create flag.
 
-Available templates:
+Example template:
+
 - nextjs: Next.js starter template
 
 2. **Learning and Adaptation**: Develop a system that learns from user interactions and improves its assistance over time.
