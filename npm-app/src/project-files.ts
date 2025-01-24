@@ -199,8 +199,13 @@ export function getFiles(filePaths: string[]) {
       result[relativePath] = '[FILE_OUTSIDE_PROJECT]'
       continue
     }
-    if (ig.ignores(relativePath)) {
-      result[relativePath] = '[FILE_IGNORED]'
+    try {
+      if (ig.ignores(relativePath)) {
+        result[relativePath] = '[FILE_IGNORED]'
+        continue
+      }
+    } catch (error) {
+      result[relativePath] = '[ERROR_LOADING_FILE]'
       continue
     }
     try {
