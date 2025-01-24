@@ -1,6 +1,37 @@
+# Environment Setup
+
+Before running the app, ensure you have the required environment files:
+
+1. `stack.env` in project root with:
+```
+ENVIRONMENT=local
+NEXT_PUBLIC_ENVIRONMENT=local
+```
+
+2. `.env.local` in project root with:
+```
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_BACKEND_URL=localhost:3001
+NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com
+```
+
 # Testing Infrastructure
 
 ## Terminal Handling
+
+### Cursor Management
+- Always restore cursor visibility when exiting
+- Hide cursor during loading animations
+- Use ANSI escape codes:
+  - Hide cursor: `\u001B[?25l`
+  - Show cursor: `\u001B[?25h`
+- Ensure cursor is restored:
+  - On normal exit
+  - On SIGTERM
+  - After loading animations
+  - When stopping responses
+  - Via process.exit handler as fallback
+- This prevents terminal from getting stuck without cursor if interrupted
 
 ### Command Execution Rules
 
@@ -142,4 +173,3 @@ When matching Windows paths in regex patterns:
   - Drive letter: `[A-Z]:`
   - Full path: `[A-Z]:\\\S+`
   - UNC path: `\\\\\S+\\\S+`
-

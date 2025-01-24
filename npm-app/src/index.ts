@@ -28,26 +28,7 @@ async function codebuff(
 
   const cli = new CLI(readyPromise, { git, costMode })
 
-  const costModeDescription = {
-    lite: bold(yellow('Lite mode ✨ enabled')),
-    normal: '',
-    max: bold(blueBright('Max mode️ ⚡ enabled')),
-  }
-  console.log(`${costModeDescription[costMode]}`)
-  console.log(
-    `Codebuff will read and write files in "${dir}". Type "help" for a list of commands.`
-  )
-
-  const gitDir = path.join(dir, '.git')
-  if (!fs.existsSync(gitDir)) {
-    console.warn(
-      yellow(
-        'Warning: No .git directory found. Make sure you are at the top level of your project.'
-      )
-    )
-  }
-
-  cli.printInitialPrompt(initialInput)
+  await cli.printInitialPrompt(initialInput)
 }
 
 if (require.main === module) {

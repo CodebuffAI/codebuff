@@ -106,6 +106,12 @@ export const getProjectFileContext = async (
     const knowledgeFilesWithScrapedContent =
       await addScrapedContentToFiles(knowledgeFiles)
 
+    // Get knowledge files from user's home directory
+    const homeDir = os.homedir()
+    const userKnowledgeFiles = findKnowledgeFilesInDir(homeDir)
+    const userKnowledgeFilesWithScrapedContent =
+      await addScrapedContentToFiles(userKnowledgeFiles)
+
     const shellConfigFiles = loadShellConfigFiles()
     const fileTokenScores = await getFileTokenScores(projectRoot, allFilePaths)
 
@@ -114,6 +120,7 @@ export const getProjectFileContext = async (
       fileTree,
       fileTokenScores,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
+      userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,
       shellConfigFiles,
       systemInfo: getSystemInfo(),
       ...updatedProps,
@@ -192,8 +199,13 @@ export function getFiles(filePaths: string[]) {
       result[relativePath] = '[FILE_OUTSIDE_PROJECT]'
       continue
     }
-    if (ig.ignores(relativePath)) {
-      result[relativePath] = '[FILE_IGNORED]'
+    try {
+      if (ig.ignores(relativePath)) {
+        result[relativePath] = '[FILE_IGNORED]'
+        continue
+      }
+    } catch (error) {
+      result[relativePath] = '[ERROR_LOADING_FILE]'
       continue
     }
     try {
@@ -232,6 +244,29 @@ export async function addScrapedContentToFiles(files: Record<string, string>) {
     })
   )
   return newFiles
+}
+
+function findKnowledgeFilesInDir(dir: string): Record<string, string> {
+  const result: Record<string, string> = {}
+  try {
+    const files = fs.readdirSync(dir, { withFileTypes: true })
+    for (const file of files) {
+      if (!file.isDirectory() && file.name.endsWith('knowledge.md')) {
+        const fullPath = path.join(dir, file.name)
+        try {
+          const content = fs.readFileSync(fullPath, 'utf8')
+          result[file.name] = content
+        } catch (error) {
+          // Skip files we can't read
+          console.error(`Error reading knowledge file ${fullPath}:`, error)
+        }
+      }
+    }
+  } catch (error) {
+    // Skip directories we can't read
+    console.error(`Error reading directory ${dir}:`, error)
+  }
+  return result
 }
 
 export function getFilesAbsolutePath(filePaths: string[]) {

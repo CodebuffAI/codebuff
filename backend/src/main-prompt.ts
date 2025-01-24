@@ -183,15 +183,13 @@ export async function mainPrompt(
       stream = promptDeepseekStream(
         messagesWithSystem(messagesWithContinuedMessage, system),
         {
-          model: models.deepseekChat,
+          model: models.deepseekReasoner,
           clientSessionId,
           fingerprintId,
           userInputId,
           userId,
         }
       )
-      onResponseChunk('\n\n')
-      fullResponse += '\n\n'
     } else {
       stream = promptClaudeStream(messagesWithContinuedMessage, {
         system,
@@ -575,7 +573,9 @@ function getExtraInstructionForUserPrompt(
   justUsedATool: boolean,
   numAssistantMessages: number
 ) {
-  const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
+  const hasKnowledgeFiles =
+    Object.keys(fileContext.knowledgeFiles).length > 0 ||
+    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
   const isNotFirstUserMessage =
     messages.filter((m) => m.role === 'user').length > 1
 

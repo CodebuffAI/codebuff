@@ -316,7 +316,7 @@ const onLoginCodeRequest = async (
   ws: WebSocket
 ): Promise<void> => {
   await withLoggerContext({ fingerprintId }, async () => {
-    const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes in the future
+    const expiresAt = Date.now() + 60 * 60 * 1000 // 1 hour in the future
     const fingerprintHash = genAuthCode(
       fingerprintId,
       expiresAt.toString(),

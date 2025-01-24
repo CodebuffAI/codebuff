@@ -5,6 +5,8 @@ import { logger } from './util/logger'
 import { OpenAIMessage } from './openai-api'
 import { CompletionUsage } from 'openai/resources/completions'
 import { withRetry } from 'common/util/promise'
+import { models } from 'common/constants'
+import { removeUndefinedProps } from 'common/util/object'
 
 export type DeepseekMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -23,7 +25,9 @@ const getDeepseekClient = (fingerprintId: string) => {
   if (!deepseekClient) {
     deepseekClient = new OpenAI({
       apiKey: env.DEEPSEEK_API_KEY,
-      baseURL: 'https://api.deepseek.com',
+      // Use beta endpoint to enable prefix prompts
+      // baseURL: 'https://api.deepseek.com',
+      baseURL: 'https://api.deepseek.com/beta',
       timeout: DEEPSEEK_TIMEOUT_MS,
       maxRetries: DEEPSEEK_MAX_RETRIES,
       defaultHeaders: {
@@ -60,16 +64,28 @@ export async function* promptDeepseekStream(
   const deepseek = getDeepseekClient(fingerprintId)
   const startTime = Date.now()
 
+  const lastMessage = messages[messages.length - 1]
+  let modifiedMessages = messages
+  if (model === models.deepseekReasoner && lastMessage.role === 'assistant') {
+    modifiedMessages = [
+      ...messages.slice(0, -1),
+      { ...lastMessage, role: 'assistant', prefix: true } as any,
+    ]
+  }
+
   try {
     const stream = await withRetry(
       async () => {
-        const streamPromise = deepseek.chat.completions.create({
-          model,
-          messages,
-          temperature: temperature ?? 0,
-          max_tokens: maxTokens,
-          stream: true,
-        })
+        const streamPromise = deepseek.chat.completions.create(
+          removeUndefinedProps({
+            model,
+            messages: modifiedMessages,
+            max_tokens: maxTokens,
+            stream: true,
+            temperature:
+              model === models.deepseekReasoner ? undefined : temperature ?? 0,
+          })
+        )
 
         return Promise.race([
           streamPromise,

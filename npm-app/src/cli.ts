@@ -20,7 +20,7 @@ import { websocketUrl } from './config'
 import { ChatStorage } from './chat-storage'
 import { Client } from './client'
 import { Message } from 'common/actions'
-import { displayMenu } from './menu'
+import { displayGreeting, displayMenu } from './menu'
 import {
   getChangesSinceLastFileVersion,
   getExistingFiles,
@@ -71,6 +71,12 @@ export class CLI {
     this.git = git
     this.costMode = costMode
     this.chatStorage = new ChatStorage()
+
+    process.on('exit', () => this.restoreCursor())
+    process.on('SIGTERM', () => {
+      this.restoreCursor()
+      process.exit(0)
+    })
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -122,7 +128,8 @@ export class CLI {
       this.onWebSocketReconnect.bind(this),
       this.returnControlToUser.bind(this),
       this.costMode,
-      this.git
+      this.git,
+      this.rl
     )
 
     this.readyPromise = Promise.all([
@@ -165,9 +172,27 @@ export class CLI {
       this.handleExit()
     })
 
-    process.stdin.on('keypress', (_, key) => {
+    process.stdin.on('keypress', (str, key) => {
       if (key.name === 'escape') {
         this.handleEscKey()
+      }
+
+      // Make double spaces into newlines
+      if (
+        str === ' ' &&
+        '_refreshLine' in this.rl &&
+        'line' in this.rl &&
+        'cursor' in this.rl
+      ) {
+        const rl = this.rl as any
+        const { cursor, line } = rl
+
+        const prevTwoChars = cursor > 1 ? line.slice(cursor - 2, cursor) : ''
+
+        if (prevTwoChars === '  ') {
+          rl.line = line.slice(0, cursor - 2) + '\n\n' + line.slice(cursor)
+          rl._refreshLine()
+        }
       }
       this.detectPasting()
     })
@@ -234,13 +259,13 @@ export class CLI {
     this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
   }
 
-  public printInitialPrompt(initialInput?: string) {
+  public async printInitialPrompt(initialInput?: string) {
     if (this.client.user) {
-      console.log(
-        `\nWelcome back ${this.client.user.name}! What would you like to do?`
-      )
+      displayGreeting(this.costMode, this.client.user.name)
     } else {
-      console.log(`What would you like to do?\n`)
+      console.log(`Welcome to Codebuff! Let's get your account set up.`)
+      await this.client.login()
+      return
     }
     this.rl.prompt()
     if (initialInput) {
@@ -287,9 +312,16 @@ export class CLI {
       this.stopResponse()
     }
     this.stopLoadingAnimation()
+    this.restoreCursor()
+  }
+
+  private restoreCursor() {
+    // Show cursor ANSI escape code
+    process.stdout.write('\u001B[?25h')
   }
 
   private handleExit() {
+    this.restoreCursor()
     console.log('\n\n')
     console.log(
       `${pluralize(this.client.sessionCreditsUsed, 'credit')} used this session.`
@@ -335,6 +367,8 @@ export class CLI {
   private startLoadingAnimation() {
     const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
     let i = 0
+    // Hide cursor while spinner is active
+    process.stdout.write('\u001B[?25l')
     this.loadingInterval = setInterval(() => {
       rewriteLine(green(`${chars[i]} Thinking...`))
       i = (i + 1) % chars.length
@@ -346,6 +380,7 @@ export class CLI {
       clearInterval(this.loadingInterval)
       this.loadingInterval = null
       rewriteLine('') // Clear the spinner line
+      this.restoreCursor() // Show cursor after spinner stops
     }
   }
 

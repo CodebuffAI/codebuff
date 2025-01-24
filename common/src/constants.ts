@@ -192,6 +192,7 @@ export const geminiModels = {
 
 export const deepseekModels = {
   deepseekChat: 'deepseek-chat',
+  deepseekReasoner: 'deepseek-reasoner',
 } as const
 
 export const models = {

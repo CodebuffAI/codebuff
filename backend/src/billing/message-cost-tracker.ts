@@ -20,6 +20,7 @@ const TOKENS_COST_PER_M = {
     [models.gpt4omini]: 0.15,
     [models.o1]: 15,
     [models.deepseekChat]: 0.14,
+    [models.deepseekReasoner]: 0.55,
   },
   output: {
     [models.sonnet]: 15,
@@ -28,6 +29,7 @@ const TOKENS_COST_PER_M = {
     [models.gpt4omini]: 0.6,
     [models.o1]: 60,
     [models.deepseekChat]: 0.28,
+    [models.deepseekReasoner]: 2.19,
   },
   cache_creation: {
     [models.sonnet]: 3.75,
@@ -37,6 +39,7 @@ const TOKENS_COST_PER_M = {
     [models.sonnet]: 0.3,
     [models.haiku]: 0.08,
     [models.deepseekChat]: 0.014,
+    [models.deepseekReasoner]: 0.14,
   },
 }
 

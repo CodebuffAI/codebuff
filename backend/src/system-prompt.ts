@@ -274,6 +274,8 @@ Each knowledge file should develop over time into a concise but rich repository 
 
 Make sure you edit knowledge files by using <edit_file> blocks. Do not write out their contents outside of <edit_file> blocks.
 
+There is a special class of user knowledge files that are stored in the user's home directory, e.g. \`~/.knowledge.md\`. These files are available to be read, but you cannot edit them because they are outside of the project directory. Do not try to edit them with <edit_file> blocks or otherwise.
+
 Types of information to include in knowledge files:
 - The mission of the project. Goals, purpose, and a high-level overview of the project.
 - Explanations of how different parts of the codebase work or interact.
@@ -413,11 +415,13 @@ You can write out <tool_call name="run_terminal_command">...</tool_call> to exec
 
 Purpose: Better fulfill the user request by running terminal commands in the user's terminal and reading the standard output.
 
+Warning: Use this tool sparingly. You should only use it when you are sure it is the best way to accomplish the user's request. Do not run more commands than the user has asked for. Especially be careful with commands that could have permanent effects.
+
 Use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors.
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\` or \`rm\`.
-4. Installing dependencies (e.g., "npm install <package-name>"). Be sure to use the right package manager for the project.
+4. Installing dependencies (e.g., "npm install <package-name>"). Be careful with this command -- not everyone wants packages installed without permission. Check the knowledge files for specific instructions, and also be sure to use the right package manager for the project (e.g. it might be \`pnpm\` or \`bun\` or \`yarn\` instead of \`npm\`, or \`pip\` for python, etc.).
 5. Running scripts. Check the package.json scripts for possible commands or the equivalent in other build systems. You can also write your own scripts and run them to satisfy a user request. Be extremely careful about running scripts that have permanent effects -- ask for explicit permission from the user before running them.
 
 Do not use the run_terminal_command tool to create or edit files. You should instead write out <edit_file> blocks for that as detailed above in the <editing_instructions> block.
@@ -506,17 +510,24 @@ const getProjectFilesPromptContent = (
   fileContext: ProjectFileContext,
   shouldDoPromptCaching: boolean
 ) => {
-  const { fileVersions } = fileContext
+  const { fileVersions, userKnowledgeFiles } = fileContext
 
-  const fileBlockSets = fileVersions
-    .filter((files) => files.length > 0)
-    .map((files) =>
-      files
-        .map(({ path, content }) =>
-          createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
-        )
-        .join('\n')
-    )
+  const userKnowledgeFilesSet = Object.entries(userKnowledgeFiles ?? {}).map(
+    ([path, content]) =>
+      createMarkdownFileBlock(`~/${path}`, content ?? '[FILE_DOES_NOT_EXIST]')
+  )
+  const fileBlockSets = [
+    ...userKnowledgeFilesSet,
+    ...fileVersions
+      .filter((files) => files.length > 0)
+      .map((files) =>
+        files
+          .map(({ path, content }) =>
+            createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
+          )
+          .join('\n')
+      ),
+  ]
 
   const intro = `
 # Project files
@@ -584,7 +595,9 @@ const getResponseFormatPrompt = (
   files: string[],
   costMode: CostMode
 ) => {
-  const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
+  const hasKnowledgeFiles =
+    Object.keys(fileContext.knowledgeFiles).length > 0 ||
+    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
   return `
 # Response format
 
