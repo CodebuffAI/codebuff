@@ -1,5 +1,5 @@
 {
-  "name": "codebuff-tests",
+  "name": "codebuff-scripts",
   "version": "1.0.0",
   "description": "Scripts package for Codebuff",
   "scripts": {
@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "backend": "file:../backend",
+    "drizzle-orm": "0.36.4",
     "lodash": "^4.17.21"
   },
   "devDependencies": {

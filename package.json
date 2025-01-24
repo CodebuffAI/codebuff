@@ -9,7 +9,8 @@
     "npm-app",
     "web",
     "test",
-    "packages/*"
+    "packages/*",
+    "scripts"
   ],
   "scripts": {
     "start-db": "bun --cwd common db:start",
