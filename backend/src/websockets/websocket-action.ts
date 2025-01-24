@@ -25,6 +25,7 @@ import { getNextQuotaReset } from 'common/src/util/dates'
 import { logger, withLoggerContext } from '@/util/logger'
 import { generateCommitMessage } from '@/generate-commit-message'
 import { hasMaxedReferrals } from 'common/util/server/referral'
+import { BrowserAction, BrowserActionSchema } from 'common/browser-actions'
 
 export const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -589,4 +590,26 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
 export async function requestFile(ws: WebSocket, filePath: string) {
   const files = await requestFiles(ws, [filePath])
   return files[filePath]
+}
+
+export function sendBrowserInstruction(
+  ws: WebSocket,
+  instruction: BrowserAction
+) {
+  logger.debug({ instruction }, 'Sending browser instruction')
+
+  const result = BrowserActionSchema.safeParse(instruction)
+  if (!result.success) {
+    const error = `Invalid browser instruction: ${result.error.message}`
+    logger.error(
+      { instruction, error },
+      'Browser instruction validation failed'
+    )
+    throw new Error(error)
+  }
+
+  sendAction(ws, {
+    type: 'browser-instruction',
+    instruction: result.data,
+  })
 }

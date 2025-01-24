@@ -1,8 +1,11 @@
+import { parseBrowserActionAttributes } from './browser-debugging'
+import { BrowserActionSchema } from 'common/src/browser-actions'
+
 export async function* processStreamWithTags<T extends string>(
   stream: AsyncGenerator<T>,
   tags: {
     [tagName: string]: {
-      attributeNames: string[]
+      attributeNames: string[],
       onTagStart: (attributes: Record<string, string>) => string
       onTagEnd: (content: string, attributes: Record<string, string>) => boolean
     }

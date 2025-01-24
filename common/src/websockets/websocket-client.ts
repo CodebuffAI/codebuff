@@ -6,6 +6,7 @@ import {
   ClientMessageType,
   ServerMessage,
 } from './websocket-schema'
+import { BrowserAction, BrowserActionSchema } from '../browser-actions'
 
 // mqp: useful for debugging
 const VERBOSE_LOGGING = false
@@ -226,5 +227,18 @@ export class APIRealtimeClient {
       const newSubscribers = currSubscribers.filter((cb) => cb !== callback)
       this.subscribers.set(action, newSubscribers)
     }
+  }
+
+  subscribeToBrowserInstruction(handler: (action: BrowserAction) => void): () => void {
+    return this.subscribe('browser-instruction', (actionMsg) => {
+      if (actionMsg.type === 'browser-instruction') {
+        const result = BrowserActionSchema.safeParse(actionMsg.instruction)
+        if (!result.success) {
+          console.error("Invalid browser-instruction", result.error)
+          return
+        }
+        handler(result.data)
+      }
+    })
   }
 }

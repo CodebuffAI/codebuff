@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
 import { userSchema } from './util/credentials'
 import { costModes } from './constants'
+import { BrowserActionSchema, BrowserResponseSchema } from './browser-actions'
 
 const MessageContentObjectSchema = z.union([
   z.object({
@@ -156,6 +157,14 @@ export const ResponseCompleteSchema = z
   )
 
 export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('browser-instruction'),
+    instruction: BrowserActionSchema,
+  }),
+  z.object({
+    type: z.literal('read-files-response'),
+    files: z.record(z.string(), z.string().nullable()),
+  }),
   z.object({
     type: z.literal('response-chunk'),
     userInputId: z.string(),
