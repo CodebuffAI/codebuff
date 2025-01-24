@@ -11,7 +11,7 @@ import {
 import { updateCodebuff } from './update-codebuff'
 import { CliOptions } from './types'
 import { resetPtyShell } from './utils/terminal'
-import { createTemplateProject } from './init-template-project'
+import { createTemplateProject } from './create-template-project'
 
 async function codebuff(
   projectDir: string | undefined,
