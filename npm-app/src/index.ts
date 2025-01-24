@@ -42,8 +42,10 @@ if (require.main === module) {
 
     if (!template) {
       console.error('Please specify a template name')
-      console.log('Available templates in starter-templates/ and showcase/:')
+      console.log('Available templates:')
       console.log('  nextjs    - Next.js starter template')
+      console.log('\nSee all templates at:')
+      console.log('  https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates')
       process.exit(1)
     }
 
@@ -102,11 +104,14 @@ if (require.main === module) {
     console.log(
       '  --create <template> [name]      Create new project from template'
     )
+    console.log('                                    Example: codebuff --create nextjs my-app')
+    console.log('                                    See all templates at:')
+    console.log('                                    https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates')
     console.log(
       '  --lite                          Use budget models & fetch fewer files'
     )
     console.log(
-      '  --max, --o1                     Use higher quality models and fetch more files'
+      '  --max                           Use higher quality models and fetch more files'
     )
     console.log(
       '  --git stage                     Stage changes from last message'
