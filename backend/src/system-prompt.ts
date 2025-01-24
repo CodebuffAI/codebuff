@@ -415,6 +415,8 @@ You can write out <tool_call name="run_terminal_command">...</tool_call> to exec
 
 Purpose: Better fulfill the user request by running terminal commands in the user's terminal and reading the standard output.
 
+Warning: Use this tool sparingly. You should only use it when you are sure it is the best way to accomplish the user's request. Do not run more commands than the user has asked for. Especially be careful with commands that could have permanent effects.
+
 Use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors.
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
