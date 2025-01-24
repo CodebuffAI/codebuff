@@ -86,3 +86,16 @@ When writing tests for the quota management system:
    - Include all required fields: creditsUsed, quota, endDate, subscription_active
    - For subscription tests, include stripe_customer_id and stripe_price_id
    - Remember: While DB returns strings, tests work with the converted number values
+
+## Test Infrastructure
+
+### Tree-Sitter Test Isolation
+
+When writing tests that don't need tree-sitter functionality:
+- Place tests in a separate directory (e.g., `__tests__/browser/`)
+- Create a jest.mock() for tree-sitter in the test file itself
+- Don't rely on global mocks or setup files which may not be loaded in the right order
+- Mock tree-sitter at the top of each test file that could trigger its load:
+  ```typescript
+  jest.mock('tree-sitter', () => ({}))
+  ```

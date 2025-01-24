@@ -35,6 +35,8 @@
    - Set up all event listeners before first navigation
    - Always clean up resources, even on errors
    - Use try/finally blocks for cleanup
+   - Clear browser references before cleanup to prevent double-close scenarios
+   - Co-locate browser session management with browser runner implementation
 
 2. **Data Collection**
    - Prefer collecting too much over too little

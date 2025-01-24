@@ -15,5 +15,13 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testTimeout: 30000,
   forceExit: true,
-  detectOpenHandles: true
+  detectOpenHandles: true,
+  // Add transformIgnorePatterns to exclude tree-sitter
+  transformIgnorePatterns: [
+    '/node_modules/(?!tree-sitter).+\\.js$'
+  ],
+  // Add modulePathIgnorePatterns to exclude tree-sitter
+  modulePathIgnorePatterns: [
+    '<rootDir>/node_modules/tree-sitter'
+  ]
 }
