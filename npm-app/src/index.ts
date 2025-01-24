@@ -100,22 +100,18 @@ if (require.main === module) {
       'If an initial prompt is provided, it will be sent as the first user input.'
     )
     console.log()
-    console.log('Options:')
-    console.log(
-      '  --create <template> [name]      Create new project from template'
-    )
-    console.log('                                    Example: codebuff --create nextjs my-app')
-    console.log('                                    See all templates at:')
-    console.log('                                    https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates')
-    console.log(
-      '  --lite                          Use budget models & fetch fewer files'
-    )
-    console.log(
-      '  --max                           Use higher quality models and fetch more files'
-    )
-    console.log(
-      '  --git stage                     Stage changes from last message'
-    )
+    console.log('Project Creation:')
+    console.log('  --create <template> [name]      Create new project from template')
+    console.log('                                  Example: codebuff --create nextjs my-app')
+    console.log('                                  See all templates at:')
+    console.log('                                  https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates')
+    console.log()
+    console.log('Performance Options:')
+    console.log('  --lite                          Use budget models & fetch fewer files')
+    console.log('  --max                           Use higher quality models and fetch more files')
+    console.log()
+    console.log('Git Integration:')
+    console.log('  --git stage                     Stage changes from last message')
     console.log()
     console.log(
       'Codebuff allows you to interact with your codebase using natural language.'
