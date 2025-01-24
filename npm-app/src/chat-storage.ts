@@ -23,7 +23,9 @@ export class ChatStorage {
   private currentVersionIndex: number
 
   constructor() {
-    this.baseDir = path.join(getProjectRoot(), MANICODE_DIR, CHATS_DIR)
+    // Only initialize chat storage if we have a project root
+    const projectRoot = getProjectRoot()
+    this.baseDir = projectRoot ? path.join(projectRoot, MANICODE_DIR, CHATS_DIR) : '.'
     this.currentChat = this.createChat()
     this.currentVersionIndex = -1
   }
