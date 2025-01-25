@@ -81,9 +81,12 @@ export async function createTemplateProject(
     }
 
     console.log(green(`\nCreated new project in ./${projectName}\n`))
-    console.log('To get started:')
-    console.log(green(`>  cd ${projectName}`))
-    console.log(green('>  codebuff'))
+
+    // Change into the new project directory and run codebuff
+    process.chdir(projectName)
+    console.log(green('Starting Codebuff in the new project...\n'))
+    console.log('--------------------------------\n')
+    execSync('codebuff', { stdio: 'inherit' })
   } catch (error) {
     console.error('Failed to initialize project:', error)
     process.exit(1)
