@@ -1,6 +1,10 @@
 import { test, expect, beforeEach, mock, describe } from 'bun:test'
 import { BrowserRunner } from '../../npm-app/src/browser-runner'
-import { BrowserAction } from '../../common/src/browser-actions'
+import {
+  BrowserAction,
+  createBrowserActionXML,
+  parseBrowserActionXML,
+} from '../../common/src/browser-actions'
 
 // Mock puppeteer
 mock.module('puppeteer', () => ({
@@ -43,7 +47,9 @@ describe('Browser XML Instructions', () => {
     }
 
     const xml = createBrowserActionXML(action)
-    expect(xml).toContain('selector="button[data-test=&quot;test &amp; demo&quot;]"')
+    expect(xml).toContain(
+      'selector="button[data-test=&quot;test &amp; demo&quot;]"'
+    )
   })
 
   test('parses XML back into browser action', () => {

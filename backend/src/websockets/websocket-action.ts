@@ -598,18 +598,9 @@ export function sendBrowserInstruction(
 ) {
   logger.debug({ instruction }, 'Sending browser instruction')
 
-  const result = BrowserActionSchema.safeParse(instruction)
-  if (!result.success) {
-    const error = `Invalid browser instruction: ${result.error.message}`
-    logger.error(
-      { instruction, error },
-      'Browser instruction validation failed'
-    )
-    throw new Error(error)
-  }
-
+  const result = BrowserActionSchema.parse(instruction)
   sendAction(ws, {
-    type: 'browser-instruction',
-    instruction: result.data,
+    type: 'browser-action',
+    action: result,
   })
 }

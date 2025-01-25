@@ -1,6 +1,10 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import puppeteer, { Page, Browser, HTTPResponse } from 'puppeteer'
-import { BrowserAction } from 'common/src/browser-actions'
+import {
+  BrowserAction,
+  createBrowserActionXML,
+  parseBrowserActionXML,
+} from 'common/browser-actions'
 import { handleBrowserInstruction } from '../tool-handlers'
 import { browserSessions } from '../browser-runner'
 

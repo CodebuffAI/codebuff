@@ -332,3 +332,20 @@ export function parseBrowserActionXML(xmlString: string): BrowserAction {
 
 export type BrowserResponse = z.infer<typeof BrowserResponseSchema>
 export type BrowserAction = z.infer<typeof BrowserActionSchema>
+
+/**
+ * Parse browser action XML attributes into a typed BrowserAction object
+ */
+export function parseBrowserActionAttributes(attributes: Record<string, string>): BrowserAction {
+  const { action, ...rest } = attributes
+  return {
+    type: action,
+    ...Object.entries(rest).reduce((acc, [key, value]) => {
+      // Convert string values to appropriate types
+      if (value === 'true') return { ...acc, [key]: true }
+      if (value === 'false') return { ...acc, [key]: false }
+      if (!isNaN(Number(value))) return { ...acc, [key]: Number(value) }
+      return { ...acc, [key]: value }
+    }, {}),
+  } as BrowserAction
+}

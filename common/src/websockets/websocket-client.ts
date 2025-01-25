@@ -6,8 +6,13 @@ import {
   ClientMessageType,
   ServerMessage,
 } from './websocket-schema'
-import { BrowserAction, BrowserActionSchema, BrowserResponse } from '../browser-actions'
-import { parseBrowserActionXML } from '../../../backend/src/browser-debugging'
+import {
+  BrowserAction,
+  BrowserActionSchema,
+  BrowserResponse,
+} from '../browser-actions'
+import { parseBrowserActionXML } from '../browser-actions'
+import { match, P } from 'ts-pattern'
 
 // mqp: useful for debugging
 const VERBOSE_LOGGING = false
@@ -230,32 +235,33 @@ export class APIRealtimeClient {
     }
   }
 
-  subscribeToBrowserInstruction(handler: (action: BrowserAction) => void): () => void {
-    return this.subscribe('browser-instruction', (actionMsg) => {
-      if (actionMsg.type === 'browser-instruction') {
-        if (actionMsg.xml) {
+  subscribeToBrowserInstruction(
+    handler: (action: BrowserAction) => void
+  ): () => void {
+    const validateAndHandle = (action: unknown) => {
+      const result = BrowserActionSchema.safeParse(action)
+      match(result)
+        .with({ success: true }, ({ data }) => handler(data))
+        .with({ success: false }, ({ error }) =>
+          console.error('Invalid browser-action', error)
+        )
+        .exhaustive()
+    }
+
+    return this.subscribe('browser-action', (actionMsg) => {
+      match(actionMsg)
+        .with({ type: 'browser-action', xml: P.string }, (msg) => {
           try {
-            const validatedAction = parseBrowserActionXML(actionMsg.xml)
-            handler(validatedAction)
+            handler(parseBrowserActionXML(msg.xml))
           } catch (err) {
-            console.error('Error parsing browser-instruction-xml:', err)
-            // Fall back to regular instruction parsing
-            const result = BrowserActionSchema.safeParse(actionMsg.instruction)
-            if (!result.success) {
-              console.error("Invalid browser-instruction", result.error)
-              return
-            }
-            handler(result.data)
+            console.error('Error parsing browser-action-xml:', err)
+            validateAndHandle(msg.action)
           }
-        } else {
-          const result = BrowserActionSchema.safeParse(actionMsg.instruction)
-          if (!result.success) {
-            console.error("Invalid browser-instruction", result.error)
-            return
-          }
-          handler(result.data)
-        }
-      }
+        })
+        .with({ type: 'browser-action', action: P.any }, ({ action }) => {
+          validateAndHandle(action)
+        })
+        .exhaustive()
     })
   }
 }

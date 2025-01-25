@@ -3,12 +3,12 @@ import path from 'path'
 import { green } from 'picocolors'
 import { spawn } from 'child_process'
 import { BrowserAction, BrowserResponse } from 'common/src/browser-actions'
-import { 
-  BrowserRunner, 
-  browserSessions, 
-  canStartNewSession, 
-  MAX_CONCURRENT_SESSIONS 
-} from '../npm-app/src/browser-runner'
+import {
+  BrowserRunner,
+  browserSessions,
+  canStartNewSession,
+  MAX_CONCURRENT_SESSIONS,
+} from './browser-runner'
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './utils/terminal'
@@ -96,10 +96,6 @@ export const handleCodeSearch: ToolHandler = async (
   })
 }
 
-
-// Keep track of browser sessions by client ID
-import { browserSessions } from './browser-runner'
-
 export const handleBrowserInstruction = async (
   action: BrowserAction,
   id: string
@@ -109,12 +105,14 @@ export const handleBrowserInstruction = async (
     return {
       success: false,
       error: `Maximum concurrent sessions (${MAX_CONCURRENT_SESSIONS}) reached. Please try again later.`,
-      logs: [{
-        type: 'error',
-        message: 'Too many active browser sessions',
-        timestamp: Date.now()
-      }],
-      networkEvents: []
+      logs: [
+        {
+          type: 'error',
+          message: 'Too many active browser sessions',
+          timestamp: Date.now(),
+        },
+      ],
+      networkEvents: [],
     }
   }
 
@@ -125,7 +123,7 @@ export const handleBrowserInstruction = async (
   }
 
   const response = await runner.execute(action)
-  
+
   // Clean up session if browser is stopped or on error
   if (action.type === 'stop' || !response.success) {
     browserSessions.delete(id)
@@ -142,7 +140,7 @@ export const toolHandlers: Record<string, ToolHandler> = {
     )) as ToolHandler,
   continue: async (input, id) => input.response ?? 'Please continue',
   code_search: handleCodeSearch,
-  browser_instruction: async (input, id) => {
+  browser_action: async (input, id) => {
     const response = await handleBrowserInstruction(input as BrowserAction, id)
     return JSON.stringify(response)
   },

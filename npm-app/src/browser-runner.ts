@@ -1,6 +1,9 @@
 import puppeteer, { Browser, Page, HTTPRequest, HTTPResponse } from 'puppeteer'
-import { BrowserAction, BrowserResponse, BROWSER_DEFAULTS } from 'common/src/browser-actions'
-import { analyzeBrowserData } from '../../backend/src/advanced-analyzer'
+import {
+  BrowserAction,
+  BrowserResponse,
+  BROWSER_DEFAULTS,
+} from 'common/src/browser-actions'
 
 // Manages browser sessions across the application
 export const browserSessions = new Map<string, BrowserRunner>()
@@ -12,7 +15,8 @@ export const MAX_CONCURRENT_SESSIONS = 10
 export const getActiveSessions = () => browserSessions.size
 
 // Check if we can start a new session
-export const canStartNewSession = () => browserSessions.size < MAX_CONCURRENT_SESSIONS
+export const canStartNewSession = () =>
+  browserSessions.size < MAX_CONCURRENT_SESSIONS
 
 export class BrowserRunner {
   // Add getter methods for diagnostic loop
@@ -29,11 +33,11 @@ export class BrowserRunner {
   private jsErrorCount = 0
   private retryCount = 0
   private startTime: number = 0
-  
+
   // Error tracking
   private consecutiveErrors = 0
   private totalErrors = 0
-  
+
   // Session configuration
   private maxConsecutiveErrors = 3
   private totalErrorThreshold = 10
@@ -53,7 +57,9 @@ export class BrowserRunner {
     timestamp: number
   }> = []
 
-  private async executeWithRetry(action: BrowserAction): Promise<BrowserResponse> {
+  private async executeWithRetry(
+    action: BrowserAction
+  ): Promise<BrowserResponse> {
     // Check session timeout
     if (Date.now() - this.startTime > this.sessionTimeoutMs) {
       const msg = `Session time limit of ${this.sessionTimeoutMs}ms exceeded. Shutting down.`
@@ -70,13 +76,17 @@ export class BrowserRunner {
     const retryOptions = action.retryOptions ?? BROWSER_DEFAULTS.retryOptions
     let lastError: Error | null = null
 
-    for (let attempt = 0; attempt <= (retryOptions.maxRetries ?? 3); attempt++) {
+    for (
+      let attempt = 0;
+      attempt <= (retryOptions.maxRetries ?? 3);
+      attempt++
+    ) {
       if (this.sessionDebug) {
         this.logs.push({
           type: 'debug',
           message: `Executing action: ${JSON.stringify(action)}`,
           timestamp: Date.now(),
-          category: 'debug'
+          category: 'debug',
         })
       }
       try {
@@ -121,12 +131,14 @@ export class BrowserRunner {
         if (!shouldRetry || attempt === retryOptions.maxRetries) {
           throw error
         }
-        await new Promise(resolve => setTimeout(resolve, retryOptions.retryDelay ?? 1000))
+        await new Promise((resolve) =>
+          setTimeout(resolve, retryOptions.retryDelay ?? 1000)
+        )
         this.logs.push({
           type: 'info',
           message: `Retrying action (attempt ${attempt + 1}/${retryOptions.maxRetries})`,
           timestamp: Date.now(),
-          category: 'retry'
+          category: 'retry',
         })
       }
     }
@@ -159,7 +171,9 @@ export class BrowserRunner {
             networkEvents: this.networkEvents,
           }
         default:
-          throw new Error(`Unknown action type: ${(action as BrowserAction).type}`)
+          throw new Error(
+            `Unknown action type: ${(action as BrowserAction).type}`
+          )
       }
 
       const metrics = await this.collectMetrics()
@@ -168,12 +182,6 @@ export class BrowserRunner {
         logs: this.logs,
         metrics,
         networkEvents: this.networkEvents,
-      }
-
-      // Run advanced analysis
-      const analysisResult = analyzeBrowserData(response)
-      if (analysisResult.issues.length > 0) {
-        response.analysis = analysisResult
       }
 
       return response
@@ -194,31 +202,35 @@ export class BrowserRunner {
         type: 'debug',
         message: `Debug: ${error.stack || error.message}`,
         timestamp: Date.now(),
-        category: 'debug'
+        category: 'debug',
       })
     }
 
     // Add helpful hints based on error patterns
     const errorPatterns: Record<string, string> = {
-      'not defined': 'Check for missing script dependencies or undefined variables',
+      'not defined':
+        'Check for missing script dependencies or undefined variables',
       'Failed to fetch': 'Verify endpoint URLs and network connectivity',
       '404': 'Resource not found - verify URLs and paths',
-      'SSL': 'SSL certificate error - check HTTPS configuration',
-      'ERR_NAME_NOT_RESOLVED': 'DNS resolution failed - check domain name',
-      'ERR_CONNECTION_TIMED_OUT': 'Connection timeout - check network or firewall',
-      'ERR_NETWORK_CHANGED': 'Network changed during request - retry operation',
-      'ERR_INTERNET_DISCONNECTED': 'No internet connection',
-      'Navigation timeout': 'Page took too long to load - check performance or timeouts',
-      'WebSocket': 'WebSocket connection issue - check server status',
-      'ERR_TUNNEL_CONNECTION_FAILED': 'Proxy or VPN connection issue',
-      'ERR_CERT_': 'SSL/TLS certificate validation error',
-      'ERR_BLOCKED_BY_CLIENT': 'Request blocked by browser extension or policy',
-      'ERR_TOO_MANY_REDIRECTS': 'Redirect loop detected',
+      SSL: 'SSL certificate error - check HTTPS configuration',
+      ERR_NAME_NOT_RESOLVED: 'DNS resolution failed - check domain name',
+      ERR_CONNECTION_TIMED_OUT:
+        'Connection timeout - check network or firewall',
+      ERR_NETWORK_CHANGED: 'Network changed during request - retry operation',
+      ERR_INTERNET_DISCONNECTED: 'No internet connection',
+      'Navigation timeout':
+        'Page took too long to load - check performance or timeouts',
+      WebSocket: 'WebSocket connection issue - check server status',
+      ERR_TUNNEL_CONNECTION_FAILED: 'Proxy or VPN connection issue',
+      ERR_CERT_: 'SSL/TLS certificate validation error',
+      ERR_BLOCKED_BY_CLIENT: 'Request blocked by browser extension or policy',
+      ERR_TOO_MANY_REDIRECTS: 'Redirect loop detected',
       'Frame detached': 'Target frame or element no longer exists',
       'Node is detached': 'Element was removed from DOM',
-      'ERR_ABORTED': 'Request was aborted - possible navigation or reload',
-      'ERR_CONTENT_LENGTH_MISMATCH': 'Incomplete response - check server stability',
-      'ERR_RESPONSE_HEADERS_TRUNCATED': 'Response headers too large or malformed'
+      ERR_ABORTED: 'Request was aborted - possible navigation or reload',
+      ERR_CONTENT_LENGTH_MISMATCH:
+        'Incomplete response - check server stability',
+      ERR_RESPONSE_HEADERS_TRUNCATED: 'Response headers too large or malformed',
     }
 
     for (const [pattern, hint] of Object.entries(errorPatterns)) {
@@ -227,7 +239,7 @@ export class BrowserRunner {
           type: 'info',
           message: `Hint: ${hint}`,
           timestamp: Date.now(),
-          category: 'hint'
+          category: 'hint',
         })
         break // Stop after first matching pattern
       }
@@ -241,15 +253,20 @@ export class BrowserRunner {
     })
   }
 
-  private async startBrowser(action: Extract<BrowserAction, { type: 'start' }>) {
+  private async startBrowser(
+    action: Extract<BrowserAction, { type: 'start' }>
+  ) {
     if (this.browser) {
       await this.shutdown()
     }
 
     // Update session configuration
-    this.maxConsecutiveErrors = action.maxConsecutiveErrors ?? BROWSER_DEFAULTS.maxConsecutiveErrors
-    this.totalErrorThreshold = action.totalErrorThreshold ?? BROWSER_DEFAULTS.totalErrorThreshold
-    this.sessionTimeoutMs = action.sessionTimeoutMs ?? BROWSER_DEFAULTS.sessionTimeoutMs
+    this.maxConsecutiveErrors =
+      action.maxConsecutiveErrors ?? BROWSER_DEFAULTS.maxConsecutiveErrors
+    this.totalErrorThreshold =
+      action.totalErrorThreshold ?? BROWSER_DEFAULTS.totalErrorThreshold
+    this.sessionTimeoutMs =
+      action.sessionTimeoutMs ?? BROWSER_DEFAULTS.sessionTimeoutMs
     this.sessionDebug = action.debug ?? BROWSER_DEFAULTS.debug
 
     // Reset error counters
@@ -282,7 +299,9 @@ export class BrowserRunner {
 
   private async click(action: Extract<BrowserAction, { type: 'click' }>) {
     if (!this.page) throw new Error('No browser page found; call start first.')
-    await this.page.click(action.selector, { button: action.button ?? BROWSER_DEFAULTS.button })
+    await this.page.click(action.selector, {
+      button: action.button ?? BROWSER_DEFAULTS.button,
+    })
     if (action.waitForNavigation ?? BROWSER_DEFAULTS.waitForNavigation) {
       await this.page.waitForNavigation({
         waitUntil: 'networkidle0',
@@ -293,7 +312,9 @@ export class BrowserRunner {
 
   private async typeText(action: Extract<BrowserAction, { type: 'type' }>) {
     if (!this.page) throw new Error('No browser page found; call start first.')
-    await this.page.type(action.selector, action.text, { delay: action.delay ?? BROWSER_DEFAULTS.delay })
+    await this.page.type(action.selector, action.text, {
+      delay: action.delay ?? BROWSER_DEFAULTS.delay,
+    })
   }
 
   private async takeScreenshot(
@@ -322,7 +343,8 @@ export class BrowserRunner {
 
     // Console messages
     this.page.on('console', (msg) => {
-      const type = msg.type() === 'error' ? 'error' : (msg.type() as 'info' | 'warning')
+      const type =
+        msg.type() === 'error' ? 'error' : (msg.type() as 'info' | 'warning')
       this.logs.push({
         type,
         message: msg.text(),
@@ -356,12 +378,13 @@ export class BrowserRunner {
     // Network responses
     this.page.on('response', async (response: HTTPResponse) => {
       const req = response.request()
-      const index = this.networkEvents.findIndex(evt => 
-        evt.url === req.url() && evt.method === req.method()
+      const index = this.networkEvents.findIndex(
+        (evt) => evt.url === req.url() && evt.method === req.method()
       )
-      
+
       const status = response.status()
-      const errorText = status >= 400 ? await response.text().catch(() => '') : undefined
+      const errorText =
+        status >= 400 ? await response.text().catch(() => '') : undefined
 
       if (index !== -1) {
         this.networkEvents[index].status = status
@@ -395,15 +418,22 @@ export class BrowserRunner {
 
     // Collect Web Vitals and other performance metrics
     const metrics = await this.page.evaluate(() => {
-      const lcpEntry = performance.getEntriesByType('largest-contentful-paint')[0]
-      const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
-      const fcpEntry = performance.getEntriesByType('paint').find(entry => entry.name === 'first-contentful-paint')
-      
+      const lcpEntry = performance.getEntriesByType(
+        'largest-contentful-paint'
+      )[0]
+      const navEntry = performance.getEntriesByType(
+        'navigation'
+      )[0] as PerformanceNavigationTiming
+      const fcpEntry = performance
+        .getEntriesByType('paint')
+        .find((entry) => entry.name === 'first-contentful-paint')
+
       return {
         ttfb: navEntry?.responseStart - navEntry?.requestStart,
         lcp: lcpEntry?.startTime,
         fcp: fcpEntry?.startTime,
-        domContentLoaded: navEntry?.domContentLoadedEventEnd - navEntry?.startTime
+        domContentLoaded:
+          navEntry?.domContentLoadedEventEnd - navEntry?.startTime,
       }
     })
 
@@ -414,7 +444,9 @@ export class BrowserRunner {
     if (!this.page) return undefined
 
     const perfEntries = JSON.parse(
-      await this.page.evaluate(() => JSON.stringify(performance.getEntriesByType('navigation')))
+      await this.page.evaluate(() =>
+        JSON.stringify(performance.getEntriesByType('navigation'))
+      )
     )
 
     let loadTime = 0
@@ -423,7 +455,9 @@ export class BrowserRunner {
       loadTime = navTiming.loadEventEnd - navTiming.startTime
     }
 
-    const memoryUsed = await this.page.metrics().then((m) => m.JSHeapUsedSize || 0)
+    const memoryUsed = await this.page
+      .metrics()
+      .then((m) => m.JSHeapUsedSize || 0)
 
     await this.collectPerformanceMetrics()
 
@@ -431,22 +465,33 @@ export class BrowserRunner {
       loadTime,
       memoryUsage: memoryUsed,
       jsErrors: this.jsErrorCount,
-      networkErrors: this.networkEvents.filter(e => e.status && e.status >= 400).length,
+      networkErrors: this.networkEvents.filter(
+        (e) => e.status && e.status >= 400
+      ).length,
       ttfb: this.performanceMetrics.ttfb,
       lcp: this.performanceMetrics.lcp,
       fcp: this.performanceMetrics.fcp,
       domContentLoaded: this.performanceMetrics.domContentLoaded,
-      sessionDuration: Date.now() - this.startTime
+      sessionDuration: Date.now() - this.startTime,
     }
   }
 
-  private filterLogs(logs: BrowserResponse['logs'], filter?: BrowserResponse['logFilter']): BrowserResponse['logs'] {
+  private filterLogs(
+    logs: BrowserResponse['logs'],
+    filter?: BrowserResponse['logFilter']
+  ): BrowserResponse['logs'] {
     if (!filter) return logs
-    
-    return logs.filter(log => {
+
+    return logs.filter((log) => {
       if (filter.types && !filter.types.includes(log.type)) return false
-      if (filter.minLevel && log.level && log.level < filter.minLevel) return false
-      if (filter.categories && log.category && !filter.categories.includes(log.category)) return false
+      if (filter.minLevel && log.level && log.level < filter.minLevel)
+        return false
+      if (
+        filter.categories &&
+        log.category &&
+        !filter.categories.includes(log.category)
+      )
+        return false
       return true
     })
   }
@@ -458,17 +503,21 @@ export class BrowserRunner {
 
     try {
       const response = await this.executeWithRetry(action)
-      response.logs = this.filterLogs(response.logs, action.logFilter ?? undefined)
+      response.logs = this.filterLogs(
+        response.logs,
+        action.logFilter ?? undefined
+      )
       return response
     } catch (error: any) {
       if (error.name === 'TargetClosedError') {
         this.logs.push({
           type: 'error',
-          message: 'Browser crashed or was closed unexpectedly. Attempting recovery...',
+          message:
+            'Browser crashed or was closed unexpectedly. Attempting recovery...',
           timestamp: Date.now(),
-          category: 'browser'
+          category: 'browser',
         })
-        
+
         // Try to recover by restarting browser
         await this.shutdown()
         if (action.type !== 'stop') {
@@ -476,7 +525,7 @@ export class BrowserRunner {
             type: 'start',
             url: 'about:blank',
             headless: true,
-            timeout: 15000
+            timeout: 15000,
           })
         }
       }
