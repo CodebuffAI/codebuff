@@ -6,13 +6,6 @@ import {
   ClientMessageType,
   ServerMessage,
 } from './websocket-schema'
-import {
-  BrowserAction,
-  BrowserActionSchema,
-  BrowserResponse,
-} from '../browser-actions'
-import { parseBrowserActionXML } from '../browser-actions'
-import { match, P } from 'ts-pattern'
 
 // mqp: useful for debugging
 const VERBOSE_LOGGING = false
@@ -234,6 +227,4 @@ export class APIRealtimeClient {
       this.subscribers.set(action, newSubscribers)
     }
   }
-
-
 }

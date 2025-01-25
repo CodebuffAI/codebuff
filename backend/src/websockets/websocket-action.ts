@@ -5,15 +5,8 @@ import { match, P } from 'ts-pattern'
 
 import { ClientMessage } from 'common/websockets/websocket-schema'
 import { mainPrompt } from '../main-prompt'
-import {
-  ClientAction,
-  ServerAction,
-  UsageReponseSchema,
-  UsageResponse,
-} from 'common/actions'
+import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
 import { sendMessage } from './server'
-import { getSearchSystemPrompt } from '../system-prompt'
-import { promptClaude } from '../claude'
 import { env } from '../env.mjs'
 import db from 'common/db'
 import { genAuthCode } from 'common/util/credentials'
@@ -25,7 +18,6 @@ import { getNextQuotaReset } from 'common/src/util/dates'
 import { logger, withLoggerContext } from '@/util/logger'
 import { generateCommitMessage } from '@/generate-commit-message'
 import { hasMaxedReferrals } from 'common/util/server/referral'
-import { BrowserAction, BrowserActionSchema } from 'common/browser-actions'
 
 export const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -591,5 +583,3 @@ export async function requestFile(ws: WebSocket, filePath: string) {
   const files = await requestFiles(ws, [filePath])
   return files[filePath]
 }
-
-
