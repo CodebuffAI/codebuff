@@ -2,6 +2,7 @@
 
 import { type CostMode } from 'common/constants'
 import { red } from 'picocolors'
+import packageJson from '../package.json'
 
 import { CLI } from './cli'
 import {
@@ -33,6 +34,12 @@ async function codebuff(
 if (require.main === module) {
   const args = process.argv.slice(2)
   const help = args.includes('--help') || args.includes('-h')
+  const version = args.includes('--version') || args.includes('-v')
+
+  if (version) {
+    console.log(`Codebuff v${packageJson.version}`)
+    process.exit(0)
+  }
 
   // Handle --create flag before other flags
   const createIndex = args.indexOf('--create')
@@ -93,6 +100,9 @@ if (require.main === module) {
   if (help) {
     console.log('Usage: codebuff [project-directory] [initial-prompt]')
     console.log('Both arguments are optional.')
+    console.log()
+    console.log('Version:')
+    console.log('  --version, -v               Show version number')
     console.log(
       'If no project directory is specified, Codebuff will use the current directory.'
     )
