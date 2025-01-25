@@ -317,6 +317,7 @@ You have access to the following tools:
 - <tool_call name="plan_complex_change">[PROMPT]</tool_call>: Plan a complex change to the codebase, like implementing a new feature or refactoring some code. Provide a clear, specific problem statement folllowed by additional context that is relevant to the problem in the tool call body. Use this tool to solve a user request that is not immediately obvious or requires more than a few lines of code.
 - <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
 - <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
+- <tool_call name="browser_action">[BROWSER_ACTION]</tool_call>: Execute a browser action and return the result. Use this tool to interact with the user's browser and automate tasks like filling out forms, clicking buttons, and navigating to pages.
 
 Important notes:
 - Immediately after you write out a tool call, you should write ${STOP_MARKER}, and then do not write out any other text. You will automatically be prompted to continue with the result of the tool call.
@@ -441,6 +442,149 @@ When using this tool, please adhere to the following rules:
 ## Web scraping
 
 Scrape any url that could help address the user's request.
+
+## Browser Action
+
+The browser debugging system provides powerful capabilities for interacting with web pages, testing functionality, and diagnosing issues. Through Puppeteer-controlled browser automation, you can launch browsers, navigate pages, interact with elements, and collect comprehensive diagnostic data.
+
+### Key Concepts
+
+1. **Session Management**
+   - Each debugging session starts with a browser launch and ends with browser closure
+   - Sessions are isolated to prevent state interference
+   - Resources are automatically cleaned up on session end
+
+2. **Data Collection**
+   - Console logs (info, warnings, errors)
+   - Network requests and responses
+   - JavaScript errors with stack traces
+   - Performance metrics (load time, memory usage)
+   - Screenshots for visual verification
+
+3. **Flow Control**
+   - Actions are performed one at a time with analysis between steps
+   - Results of each action inform the next step
+   - Sessions can be stopped and restarted as needed
+
+The following actions are available through the browser_action tool:
+
+1. **Launch Browser**
+   - Starts a new browser session at a specified URL
+   - Must be the first action in any debugging sequence
+   - Example: \`<browser_action action="launch" url="http://localhost:3000" headless="true" />\`
+
+2. **Navigate**
+   - Load a new URL in the current browser window
+   - Example: \`<browser_action action="navigate" url="http://localhost:3000/about" waitUntil="networkidle0" />\`
+
+3. **Click**
+   - Click at specific coordinates on the page
+   - Coordinates must be within viewport bounds (this will be given to you)
+   - Example: \`<browser_action action="click" selector="#submit-button" waitForNavigation="true" button="left" />\`
+
+4. **Type**
+   - Input text via keyboard
+   - Useful for form filling
+   - Example: \`<browser_action action="type" selector="#username" text="myUser" delay="50" />\`
+
+5. **Scroll**
+   - Scroll the page up or down by one viewport height
+   - Actions: scroll_up, scroll_down
+   - Example: \`<browser_action action="scroll_down" />\`
+
+6. **Screenshot**
+   - Capture the current page state
+   - Options for full page or viewport
+   - Example: \`<browser_action action="screenshot" fullPage="true" quality="80" />\`
+
+7. **Close**
+   - End the browser session and cleanup resources
+   - Must be the final action in any sequence
+   - Example: \`<browser_action action="close" />\`
+
+### Response Analysis
+
+After each action, you'll receive:
+1. Success/failure status
+2. New console logs since last action
+3. Network requests and responses
+4. JavaScript errors with stack traces
+5. Performance metrics:
+   - Page load time
+   - Memory usage
+   - Error counts (JS, network)
+6. Screenshot (if requested or on error)
+
+Use this data to:
+- Verify expected behavior
+- Debug issues
+- Guide next actions
+- Make informed decisions about fixes
+
+### Best Practices
+
+1. **Session Management**
+   - Always start with launch and end with close
+   - One browser session at a time
+   - Close browser before switching URLs if not navigable from current page
+
+2. **Error Handling**
+   - Monitor console for errors
+   - Check network requests for failed responses
+   - Analyze performance metrics for anomalies
+   - Take screenshots to document issues
+
+3. **Interaction Safety**
+   - Verify elements exist before clicking
+   - Use appropriate waits after navigation
+   - Check viewport bounds for click coordinates
+   - Clean up resources even after errors
+
+4. **Debugging Flow**
+   - Start with minimal reproduction steps
+   - Collect data at each step
+   - Analyze results before next action
+   - Document findings in knowledge files
+
+### Example Workflow
+
+1. Launch browser at local development server:
+\`\`\`
+<browser_action>
+<action>launch</action>
+<url>http://localhost:3000</url>
+</browser_action>
+\`\`\`
+
+2. Click a button (after analyzing screenshot for coordinates):
+\`\`\`
+<browser_action>
+<action>click</action>
+<coordinate>150,300</coordinate>
+</browser_action>
+\`\`\`
+
+3. Type into a form field:
+\`\`\`
+<browser_action>
+<action>type</action>
+<text>Test input</text>
+</browser_action>
+\`\`\`
+
+4. Take screenshot to verify:
+\`\`\`
+<browser_action>
+<action>screenshot</action>
+</browser_action>
+\`\`\`
+
+5. Close the session:
+\`\`\`
+<browser_action>
+<action>close</action>
+</browser_action>
+\`\`\`
 `.trim()
 
 export const getProjectFileTreePrompt = (

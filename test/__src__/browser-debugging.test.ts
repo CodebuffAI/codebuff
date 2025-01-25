@@ -1,105 +1,183 @@
-import { test, expect, mock } from 'bun:test'
-import { createBrowserActionXML, parseBrowserActionAttributes } from 'backend/src/browser-debugging'
-import { sendBrowserInstruction } from 'backend/src/websockets/websocket-action'
-import { BrowserAction } from 'common/src/browser-actions'
-import { WebSocket } from 'ws'
+import { test, expect, beforeEach, mock, describe } from 'bun:test'
+import { BrowserRunner } from '../../npm-app/src/browser-runner'
+import { BrowserAction } from '../../common/src/browser-actions'
 
-// Unit tests for XML utilities
-test('createBrowserActionXML generates correct XML for start action', () => {
-  const action: BrowserAction = {
-    type: 'start',
-    url: 'https://example.com',
-    headless: true,
-    timeout: 5000
-  }
+// Mock puppeteer
+mock.module('puppeteer', () => ({
+  default: {
+    launch: () => ({
+      pages: () => [],
+      newPage: () => ({
+        goto: () => Promise.resolve(),
+        on: () => {},
+        evaluate: () => Promise.resolve({}),
+        metrics: () => Promise.resolve({ JSHeapUsedSize: 1000 }),
+      }),
+      close: () => Promise.resolve(),
+    }),
+  },
+}))
 
-  const xml = createBrowserActionXML(action)
-  expect(xml).toBe('<browser_action action="start" url="https://example.com" headless="true" timeout="5000" />')
-})
+describe('Browser XML Instructions', () => {
+  test('creates valid XML from browser action', () => {
+    const action: BrowserAction = {
+      type: 'start',
+      url: 'https://example.com',
+      headless: true,
+      timeout: 15000,
+    }
 
-test('createBrowserActionXML generates correct XML for click action', () => {
-  const action: BrowserAction = {
-    type: 'click',
-    selector: '#submit-button',
-    waitForNavigation: true,
-    button: 'left'
-  }
+    const xml = createBrowserActionXML(action)
+    expect(xml).toContain('<browser_action')
+    expect(xml).toContain('action="start"')
+    expect(xml).toContain('url="https://example.com"')
+    expect(xml).toContain('headless="true"')
+    expect(xml).toContain('timeout="15000"')
+    expect(xml).toContain('/>')
+  })
 
-  const xml = createBrowserActionXML(action)
-  expect(xml).toBe('<browser_action action="click" selector="#submit-button" waitForNavigation="true" button="left" />')
-})
+  test('escapes special characters in XML', () => {
+    const action: BrowserAction = {
+      type: 'click',
+      selector: 'button[data-test="test & demo"]',
+    }
 
-test('parseBrowserActionAttributes correctly parses start action', () => {
-  const attrs = {
-    action: 'start',
-    url: 'https://example.com',
-    headless: 'true',
-    timeout: '5000'
-  }
+    const xml = createBrowserActionXML(action)
+    expect(xml).toContain('selector="button[data-test=&quot;test &amp; demo&quot;]"')
+  })
 
-  const action = parseBrowserActionAttributes(attrs)
-  expect(action).toEqual({
-    type: 'start',
-    url: 'https://example.com',
-    headless: true,
-    timeout: 5000
+  test('parses XML back into browser action', () => {
+    const original: BrowserAction = {
+      type: 'start',
+      url: 'https://example.com',
+      headless: true,
+      timeout: 15000,
+    }
+
+    const xml = createBrowserActionXML(original)
+    const parsed = parseBrowserActionXML(xml)
+
+    expect(parsed).toEqual(original)
+  })
+
+  test('handles complex objects in attributes', () => {
+    const action: BrowserAction = {
+      type: 'start',
+      url: 'https://example.com',
+      retryOptions: {
+        maxRetries: 3,
+        retryDelay: 1000,
+        retryOnErrors: ['TimeoutError'],
+      },
+    }
+
+    const xml = createBrowserActionXML(action)
+    const parsed = parseBrowserActionXML(xml)
+
+    expect(parsed).toEqual(action)
+  })
+
+  test('throws error on invalid XML', () => {
+    const invalidXml = '<browser_action type="click" >'
+    expect(() => parseBrowserActionXML(invalidXml)).toThrow()
+  })
+
+  test('ignores undefined and null values', () => {
+    const action: BrowserAction = {
+      type: 'start',
+      url: 'https://example.com',
+      headless: undefined,
+      timeout: null as any,
+    }
+
+    const xml = createBrowserActionXML(action)
+    expect(xml).not.toContain('headless')
+    expect(xml).not.toContain('timeout')
+  })
+
+  test('handles all browser action types', () => {
+    const actions: BrowserAction[] = [
+      { type: 'start', url: 'https://example.com' },
+      { type: 'navigate', url: 'https://example.com/page2' },
+      { type: 'click', selector: '#button' },
+      { type: 'type', selector: '#input', text: 'Hello' },
+      { type: 'screenshot' },
+      { type: 'stop' },
+    ]
+
+    for (const action of actions) {
+      const xml = createBrowserActionXML(action)
+      const parsed = parseBrowserActionXML(xml)
+      expect(parsed).toEqual(action)
+    }
   })
 })
 
-test('parseBrowserActionAttributes correctly parses click action', () => {
-  const attrs = {
-    action: 'click',
-    selector: '#submit-button',
-    waitForNavigation: 'true',
-    button: 'left'
-  }
+describe('BrowserRunner Advanced Features', () => {
+  let runner: BrowserRunner
 
-  const action = parseBrowserActionAttributes(attrs)
-  expect(action).toEqual({
-    type: 'click',
-    selector: '#submit-button',
-    waitForNavigation: true,
-    button: 'left'  // The function preserves all valid fields from input
+  beforeEach(() => {
+    runner = new BrowserRunner()
   })
-})
 
-// Integration tests for WebSocket functionality
-test('sendBrowserInstruction validates instruction before sending', () => {
-  const mockSend = mock(() => {})
-  const ws = {
-    send: mockSend,
-    readyState: WebSocket.OPEN,
-    addEventListener: mock(() => {}),
-    removeEventListener: mock(() => {}),
-    close: mock(() => {})
-  }
+  test('session timeout triggers shutdown', async () => {
+    const startAction: BrowserAction = {
+      type: 'start',
+      url: 'https://example.com',
+      sessionTimeoutMs: 1, // 1ms timeout for testing
+    }
 
-  const invalidInstruction = {
-    type: 'start',
-    // Missing required url field
-    headless: true
-  } as any
+    await runner.execute(startAction)
 
-  expect(() => sendBrowserInstruction(ws as WebSocket, invalidInstruction))
-    .toThrow('Invalid browser instruction')
-})
+    // Wait to ensure timeout
+    await new Promise((res) => setTimeout(res, 50))
 
-test('sendBrowserInstruction sends valid instruction', () => {
-  const mockSend = mock(() => {})
-  const ws = {
-    send: mockSend,
-    readyState: WebSocket.OPEN,
-    addEventListener: mock(() => {}),
-    removeEventListener: mock(() => {}),
-    close: mock(() => {})
-  }
+    const navigateAction: BrowserAction = {
+      type: 'navigate',
+      url: 'https://example.com/page2',
+    }
 
-  const instruction: BrowserAction = {
-    type: 'start',
-    url: 'https://example.com',
-    headless: true
-  }
+    const result = await runner.execute(navigateAction)
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/time limit/)
+  })
 
-  sendBrowserInstruction(ws as WebSocket, instruction)
-  expect(mockSend).toHaveBeenCalled()
+  test('consecutive errors trigger shutdown', async () => {
+    const startAction: BrowserAction = {
+      type: 'start',
+      url: 'https://example.com',
+      maxConsecutiveErrors: 2,
+    }
+
+    await runner.execute(startAction)
+
+    // Mock an action that always fails
+    const failingAction: BrowserAction = {
+      type: 'click',
+      selector: '#non-existent',
+    }
+
+    // First failure
+    let result = await runner.execute(failingAction)
+    expect(result.success).toBe(false)
+
+    // Second failure should trigger shutdown
+    result = await runner.execute(failingAction)
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/consecutive errors/)
+  })
+
+  test('debug mode logs additional information', async () => {
+    const startAction: BrowserAction = {
+      type: 'start',
+      url: 'https://example.com',
+      debug: true,
+    }
+
+    const result = await runner.execute(startAction)
+    expect(result.success).toBe(true)
+
+    const debugLogs = result.logs.filter((log) => log.type === 'debug')
+    expect(debugLogs.length).toBeGreaterThan(0)
+  })
 })

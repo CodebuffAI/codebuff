@@ -3,7 +3,12 @@ import path from 'path'
 import { green } from 'picocolors'
 import { spawn } from 'child_process'
 import { BrowserAction, BrowserResponse } from 'common/src/browser-actions'
-import { BrowserRunner } from './browser-runner'
+import { 
+  BrowserRunner, 
+  browserSessions, 
+  canStartNewSession, 
+  MAX_CONCURRENT_SESSIONS 
+} from '../npm-app/src/browser-runner'
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './utils/terminal'
@@ -99,6 +104,20 @@ export const handleBrowserInstruction = async (
   action: BrowserAction,
   id: string
 ): Promise<BrowserResponse> => {
+  // Check if we can start a new session
+  if (action.type === 'start' && !canStartNewSession()) {
+    return {
+      success: false,
+      error: `Maximum concurrent sessions (${MAX_CONCURRENT_SESSIONS}) reached. Please try again later.`,
+      logs: [{
+        type: 'error',
+        message: 'Too many active browser sessions',
+        timestamp: Date.now()
+      }],
+      networkEvents: []
+    }
+  }
+
   let runner = browserSessions.get(id)
   if (!runner) {
     runner = new BrowserRunner()

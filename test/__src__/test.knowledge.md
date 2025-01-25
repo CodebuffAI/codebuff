@@ -99,3 +99,48 @@ When writing tests that don't need tree-sitter functionality:
   ```typescript
   jest.mock('tree-sitter', () => ({}))
   ```
+
+### Zod Schema Best Practices
+
+When using Zod for optional fields:
+- Split schemas into Required and Optional components
+- Use `.merge()` to combine them for the final schema
+- Keep required fields in RequiredXSchema (e.g., RequiredBrowserStartActionSchema)
+- Group optional fields by their purpose (e.g., OptionalBrowserConfigSchema)
+- This pattern makes it clear what fields are required vs optional
+- Allows reuse of optional configurations across different schemas
+- Makes it easier to maintain consistent optional fields across related types
+
+When handling circular references in Zod schemas:
+- Break the cycle by creating a base schema without the circular reference
+- Use the base schema in the circular reference instead of the full schema
+- Then create the full schema that includes both the base and circular parts
+- Example: BaseBrowserActionSchema -> DiagnosticStepSchema -> BrowserActionSchema
+- This prevents TypeScript errors from implicit circular type references
+
+When sharing code between packages:
+- Keep shared utilities in the common package
+- Avoid cross-package imports between backend and npm-app
+- If functionality is needed in multiple packages, move it to common
+- This prevents circular dependencies and typescript path resolution issues
+
+### Module Mocking Best Practices
+
+When mocking modules with default exports:
+  - Mock the module with { default: { ... } }
+  - Example: mock.module('puppeteer', () => ({ default: { launch: mockLaunch } }))
+- Reset mocks in beforeEach:
+  - Use mockFn.mockReset() instead of modifying mock.calls directly
+  - mock.calls is a readonly property in Bun
+  - mockReset() clears both calls and implementation
+  - This prevents test interference
+
+## Testing Event Handlers
+
+When testing code that uses event handlers:
+- Store handlers in mock implementation for later use
+- Example: mockOn.implementation = handler
+- Access stored handler to simulate events
+- Mock event emitters to return this for chaining
+- Remember to reset stored handlers in beforeEach
+- Test both success and error event paths
