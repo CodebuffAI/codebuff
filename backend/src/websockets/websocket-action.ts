@@ -592,15 +592,4 @@ export async function requestFile(ws: WebSocket, filePath: string) {
   return files[filePath]
 }
 
-export function sendBrowserInstruction(
-  ws: WebSocket,
-  instruction: BrowserAction
-) {
-  logger.debug({ instruction }, 'Sending browser instruction')
 
-  const result = BrowserActionSchema.parse(instruction)
-  sendAction(ws, {
-    type: 'browser-action',
-    action: result,
-  })
-}

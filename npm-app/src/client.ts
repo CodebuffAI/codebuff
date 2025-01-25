@@ -9,6 +9,7 @@ import {
   blueBright,
 } from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
+
 import {
   getFiles,
   getProjectFileContext,
@@ -317,6 +318,8 @@ export class Client {
         )
       }
     })
+
+
     let shouldRequestLogin = true
     this.webSocket.subscribe(
       'login-code-response',

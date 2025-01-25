@@ -158,11 +158,6 @@ export const ResponseCompleteSchema = z
 
 export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
-    type: z.literal('browser-action'),
-    action: BrowserActionSchema,
-    xml: z.string().optional(),
-  }),
-  z.object({
     type: z.literal('read-files-response'),
     files: z.record(z.string(), z.string().nullable()),
   }),

@@ -235,33 +235,5 @@ export class APIRealtimeClient {
     }
   }
 
-  subscribeToBrowserInstruction(
-    handler: (action: BrowserAction) => void
-  ): () => void {
-    const validateAndHandle = (action: unknown) => {
-      const result = BrowserActionSchema.safeParse(action)
-      match(result)
-        .with({ success: true }, ({ data }) => handler(data))
-        .with({ success: false }, ({ error }) =>
-          console.error('Invalid browser-action', error)
-        )
-        .exhaustive()
-    }
 
-    return this.subscribe('browser-action', (actionMsg) => {
-      match(actionMsg)
-        .with({ type: 'browser-action', xml: P.string }, (msg) => {
-          try {
-            handler(parseBrowserActionXML(msg.xml))
-          } catch (err) {
-            console.error('Error parsing browser-action-xml:', err)
-            validateAndHandle(msg.action)
-          }
-        })
-        .with({ type: 'browser-action', action: P.any }, ({ action }) => {
-          validateAndHandle(action)
-        })
-        .exhaustive()
-    })
-  }
 }

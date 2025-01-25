@@ -2,7 +2,17 @@
 
 ## Key Design Decisions
 
-1. **XML-First Communication**
+1. **Tool-Based Architecture**
+   - Browser actions are implemented as a tool call ("browser_action")
+   - Uses the standard tool call system rather than custom action types
+   - Follows same pattern as other tools (scrape_web_page, run_terminal_command, etc.)
+   - Results returned through standard tool result format
+   - This ensures consistent patterns across all client-side capabilities
+   - Tool handler uses handleBrowserInstruction for robust session management
+   - Important: Use handleBrowserInstruction rather than direct BrowserRunner calls to ensure proper session limits and error handling
+   - Critical: Always call shutdown() on BrowserRunner instances before removing them from browserSessions to prevent resource leaks
+
+2. **XML-First Communication**
    - Backend generates XML instructions instead of direct JSON
    - Uses key/value pairs in XML attributes (not nested elements)
    - Example: `<browser_action action="click" selector="#button" />`

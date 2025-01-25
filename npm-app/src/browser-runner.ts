@@ -9,7 +9,7 @@ import {
 export const browserSessions = new Map<string, BrowserRunner>()
 
 // Maximum concurrent browser sessions allowed
-export const MAX_CONCURRENT_SESSIONS = 10
+export const MAX_CONCURRENT_SESSIONS = 5
 
 // Get count of active sessions
 export const getActiveSessions = () => browserSessions.size
@@ -41,7 +41,7 @@ export class BrowserRunner {
   // Session configuration
   private maxConsecutiveErrors = 3
   private totalErrorThreshold = 10
-  private sessionTimeoutMs = 300_000 // 5 minutes
+  private sessionTimeoutMs = 15 * 60 * 1000 // 15 minutes
   private sessionDebug = false
   private performanceMetrics: {
     ttfb?: number
@@ -533,7 +533,7 @@ export class BrowserRunner {
     }
   }
 
-  private async shutdown() {
+  public async shutdown() {
     const browser = this.browser
     if (browser) {
       // Clear references first to prevent double shutdown
@@ -546,4 +546,44 @@ export class BrowserRunner {
       }
     }
   }
+}
+
+export const handleBrowserInstruction = async (
+  action: BrowserAction,
+  id: string
+): Promise<BrowserResponse> => {
+  // Check if we can start a new session
+  if (action.type === 'start' && !canStartNewSession()) {
+    return {
+      success: false,
+      error: `Maximum concurrent sessions (${MAX_CONCURRENT_SESSIONS}) reached. Please try again later.`,
+      logs: [
+        {
+          type: 'error',
+          message: 'Too many active browser sessions',
+          timestamp: Date.now(),
+        },
+      ],
+      networkEvents: [],
+    }
+  }
+
+  let runner = browserSessions.get(id)
+  if (!runner) {
+    runner = new BrowserRunner()
+    browserSessions.set(id, runner)
+  }
+
+  const response = await runner.execute(action)
+
+  // Clean up session if browser is stopped or on error
+  if (action.type === 'stop' || !response.success) {
+    const runner = browserSessions.get(id)
+    if (runner) {
+      await runner.shutdown()
+      browserSessions.delete(id)
+    }
+  }
+
+  return response
 }
