@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 export const sections = [
   {
-    title: 'Help & FAQ',
+    title: 'Intro',
     href: '/docs/help',
     subsections: getDocsByCategory('help').map((doc) => ({
       title: doc.title,
@@ -22,6 +22,15 @@ export const sections = [
     subsections: getDocsByCategory('tips').map((doc) => ({
       title: doc.title,
       href: `/docs/tips/${doc.slug}`,
+    })),
+    external: false,
+  },
+  {
+    title: 'Advanced',
+    href: '/docs/advanced',
+    subsections: getDocsByCategory('advanced').map((doc) => ({
+      title: doc.title,
+      href: `/docs/advanced/${doc.slug}`,
     })),
     external: false,
   },

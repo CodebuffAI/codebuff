@@ -17,6 +17,7 @@ src/
    content/            # MDX content files
       help/
       tips/
+      advanced/
       showcase/
       case-studies/
    components/
