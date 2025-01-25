@@ -11,9 +11,6 @@ export const browserSessions = new Map<string, BrowserRunner>()
 // Maximum concurrent browser sessions allowed
 export const MAX_CONCURRENT_SESSIONS = 5
 
-// Get count of active sessions
-export const getActiveSessions = () => browserSessions.size
-
 // Check if we can start a new session
 export const canStartNewSession = () =>
   browserSessions.size < MAX_CONCURRENT_SESSIONS

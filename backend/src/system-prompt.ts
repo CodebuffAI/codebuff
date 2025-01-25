@@ -468,10 +468,10 @@ The browser debugging system provides powerful capabilities for interacting with
 
 The following actions are available through the browser_action tool:
 
-1. **Launch Browser**
+1. **Start Browser**
    - Starts a new browser session at a specified URL
    - Must be the first action in any debugging sequence
-   - Example: \`<browser_action action="launch" url="http://localhost:3000" headless="true" />\`
+   - Example: \`<browser_action action="start" url="http://localhost:3000" headless="true" />\`
 
 2. **Navigate**
    - Load a new URL in the current browser window
@@ -548,42 +548,29 @@ Use this data to:
 
 ### Example Workflow
 
-1. Launch browser at local development server:
+1. Start browser at local development server:
 \`\`\`
-<browser_action>
-<action>launch</action>
-<url>http://localhost:3000</url>
-</browser_action>
+<browser_action action="start" url="http://localhost:3000" headless="true" />
 \`\`\`
 
 2. Click a button (after analyzing screenshot for coordinates):
 \`\`\`
-<browser_action>
-<action>click</action>
-<coordinate>150,300</coordinate>
-</browser_action>
+<browser_action action="click" selector="#submit-button" waitForNavigation="true" button="left" />
 \`\`\`
 
 3. Type into a form field:
 \`\`\`
-<browser_action>
-<action>type</action>
-<text>Test input</text>
-</browser_action>
+<browser_action  action="type" selector="#username" text="myUser" delay="50" />
 \`\`\`
 
 4. Take screenshot to verify:
 \`\`\`
-<browser_action>
-<action>screenshot</action>
-</browser_action>
+<browser_action action="screenshot" fullPage="true" quality="80" />
 \`\`\`
 
 5. Close the session:
 \`\`\`
-<browser_action>
-<action>close</action>
-</browser_action>
+<browser_action action="close" />
 \`\`\`
 `.trim()
 

@@ -223,16 +223,18 @@ export const DiagnosticStepSchema = z.object({
 })
 
 // The 'diagnose' action for multi-step debugging
-export const BrowserDiagnoseActionSchema = z.object({
-  type: z.literal('diagnose'),
-  // Array of steps to run
-  steps: z.array(DiagnosticStepSchema),
-  // Toggle whether to run all steps automatically or step-by-step
-  automated: z.boolean().optional(),
-  // Optional maximum steps/time to run
-  maxSteps: z.number().optional(),
-  sessionTimeoutMs: z.number().optional(),
-}).merge(OptionalBrowserConfigSchema)
+export const BrowserDiagnoseActionSchema = z
+  .object({
+    type: z.literal('diagnose'),
+    // Array of steps to run
+    steps: z.array(DiagnosticStepSchema),
+    // Toggle whether to run all steps automatically or step-by-step
+    automated: z.boolean().optional(),
+    // Optional maximum steps/time to run
+    maxSteps: z.number().optional(),
+    sessionTimeoutMs: z.number().optional(),
+  })
+  .merge(OptionalBrowserConfigSchema)
 
 // Finally, export the complete schema that includes diagnostic actions
 export const BrowserActionSchema = z.discriminatedUnion('type', [
@@ -258,12 +260,18 @@ export function createBrowserActionXML(action: BrowserAction): string {
       // Escape special characters in XML attributes
       const escaped = val.replace(/[<>&'"]/g, (char) => {
         switch (char) {
-          case '<': return '&lt;'
-          case '>': return '&gt;'
-          case '&': return '&amp;'
-          case '"': return '&quot;'
-          case "'": return '&apos;'
-          default: return char
+          case '<':
+            return '&lt;'
+          case '>':
+            return '&gt;'
+          case '&':
+            return '&amp;'
+          case '"':
+            return '&quot;'
+          case "'":
+            return '&apos;'
+          default:
+            return char
         }
       })
       return `${k}="${escaped}"`
@@ -300,30 +308,33 @@ export function parseBrowserActionXML(xmlString: string): BrowserAction {
   delete attrs.action
 
   // Parse special values (booleans, numbers, objects)
-  const parsedAttrs = Object.entries(attrs).reduce((acc, [key, value]) => {
-    try {
-      // Try to parse as JSON for objects
-      if (value.startsWith('{') || value.startsWith('[')) {
-        acc[key] = JSON.parse(value)
-      }
-      // Parse booleans
-      else if (value === 'true' || value === 'false') {
-        acc[key] = value === 'true'
-      }
-      // Parse numbers
-      else if (!isNaN(Number(value))) {
-        acc[key] = Number(value)
-      }
-      // Keep as string
-      else {
+  const parsedAttrs = Object.entries(attrs).reduce(
+    (acc, [key, value]) => {
+      try {
+        // Try to parse as JSON for objects
+        if (value.startsWith('{') || value.startsWith('[')) {
+          acc[key] = JSON.parse(value)
+        }
+        // Parse booleans
+        else if (value === 'true' || value === 'false') {
+          acc[key] = value === 'true'
+        }
+        // Parse numbers
+        else if (!isNaN(Number(value))) {
+          acc[key] = Number(value)
+        }
+        // Keep as string
+        else {
+          acc[key] = value
+        }
+      } catch {
+        // If parsing fails, keep as string
         acc[key] = value
       }
-    } catch {
-      // If parsing fails, keep as string
-      acc[key] = value
-    }
-    return acc
-  }, {} as Record<string, any>)
+      return acc
+    },
+    {} as Record<string, any>
+  )
 
   // Construct and validate the BrowserAction
   const action = { type, ...parsedAttrs } as BrowserAction
@@ -336,7 +347,9 @@ export type BrowserAction = z.infer<typeof BrowserActionSchema>
 /**
  * Parse browser action XML attributes into a typed BrowserAction object
  */
-export function parseBrowserActionAttributes(attributes: Record<string, string>): BrowserAction {
+export function parseBrowserActionAttributes(
+  attributes: Record<string, string>
+): BrowserAction {
   const { action, ...rest } = attributes
   return {
     type: action,

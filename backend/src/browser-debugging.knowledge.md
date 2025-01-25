@@ -11,6 +11,8 @@
    - Tool handler uses handleBrowserInstruction for robust session management
    - Important: Use handleBrowserInstruction rather than direct BrowserRunner calls to ensure proper session limits and error handling
    - Critical: Always call shutdown() on BrowserRunner instances before removing them from browserSessions to prevent resource leaks
+   - Browser session IDs must use clientSessionId from websocket connection to ensure backend and client reference same session
+   - This allows backend to properly manage browser sessions across multiple tool calls
 
 2. **XML-First Communication**
    - Backend generates XML instructions instead of direct JSON
