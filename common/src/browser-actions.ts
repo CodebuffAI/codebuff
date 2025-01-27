@@ -24,10 +24,10 @@ export const BROWSER_DEFAULTS = {
   // Screenshot defaults
   fullPage: false,
   quality: 60,
-  maxScreenshotWidth: 1280 as number,
-  maxScreenshotHeight: 800 as number,
+  maxScreenshotWidth: 400 as number,
+  maxScreenshotHeight: 400 as number,
   screenshotCompression: 'jpeg' as const,
-  screenshotCompressionQuality: 60,
+  screenshotCompressionQuality: 40,
   compressScreenshotData: false,
 
   // Advanced configuration defaults

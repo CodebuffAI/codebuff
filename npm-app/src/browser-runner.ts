@@ -384,21 +384,25 @@ export class BrowserRunner {
 
         // If we're too large, try to reduce further
         if (this.sessionDebug) {
-          this.logs.push({
-            type: 'debug',
-            message: `Screenshot attempt ${attempt} too large: ${lastBase64Screenshot.length} chars. Retrying with smaller scale or lower quality...`,
-            timestamp: Date.now(),
-            category: 'debug',
-          })
+          if (this.sessionDebug) {
+            this.logs.push({
+              type: 'debug',
+              message: `Screenshot attempt ${attempt} too large: ${lastBase64Screenshot.length} chars (${Math.round(lastBase64Screenshot.length / 4)} tokens). Scale: ${deviceScaleFactor}, Quality: ${screenshotQuality}`,
+              timestamp: Date.now(),
+              category: 'debug',
+            })
+          }
         }
 
-        // We'll try reducing deviceScaleFactor first
-        if (deviceScaleFactor > 0.4) {
-          deviceScaleFactor = Math.max(0.4, deviceScaleFactor - 0.25)
+        // More aggressive optimization steps
+        if (deviceScaleFactor > 0.3) {
+          // Reduce scale in smaller steps
+          deviceScaleFactor = Math.max(0.3, deviceScaleFactor - 0.2)
         }
-        // If that's at minimum, reduce quality (for JPEG only)
-        else if (screenshotFormat === 'jpeg' && screenshotQuality > 10) {
-          screenshotQuality = Math.max(10, screenshotQuality - 10)
+        // If scale is at minimum, try reducing quality more aggressively
+        else if (screenshotFormat === 'jpeg' && screenshotQuality > 5) {
+          // Reduce quality in larger steps
+          screenshotQuality = Math.max(5, screenshotQuality - 15)
         } else {
           // We're out of ways to reduce further
           break

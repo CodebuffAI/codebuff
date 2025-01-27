@@ -127,9 +127,9 @@
    - Monitor memory usage and load times
    - Screenshot handling:
      - Multi-step optimization to keep screenshots under 1000 tokens (~4000 base64 chars):
-       1. Start with default settings (1280×800, JPEG 60%)
-       2. If too large, downscale resolution in steps (1.0×, 0.75×, 0.5×, 0.4×)
-       3. If still too large, reduce JPEG quality (60%, 50%, 40%, 30%, 20%, 10%)
+       1. Start with smaller default settings (800×600, JPEG 40%)
+       2. If too large, downscale resolution in steps (1.0×, 0.8×, 0.6×, 0.4×, 0.3×)
+       3. If still too large, reduce JPEG quality aggressively (40%, 25%, 10%, 5%)
        4. For PNG requests, can only reduce resolution since no quality option
      - Screenshots >200KB are still split into chunks for transmission
      - Each optimization step is logged for debugging
