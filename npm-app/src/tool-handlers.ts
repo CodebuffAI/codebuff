@@ -128,7 +128,7 @@ export const toolHandlers: Record<string, ToolHandler> = {
     // Handle chunked screenshots
     if (response.chunks && response.chunks.length > 0) {
       const sortedChunks = response.chunks.sort((a, b) => a.index - b.index)
-      const combinedBase64 = sortedChunks.map(ch => ch.data).join('')
+      const combinedBase64 = sortedChunks.map((ch) => ch.data).join('')
       response.screenshot = combinedBase64
       delete response.chunks // Remove chunks after combining
     }
@@ -155,3 +155,5 @@ function formatResult(
   result += '</terminal_command_result>'
   return result
 }
+
+export { handleBrowserInstruction } from './browser-runner'
