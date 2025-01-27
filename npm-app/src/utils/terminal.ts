@@ -1,10 +1,11 @@
-import { spawn } from 'child_process'
+import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
 import path from 'path'
 import { green } from 'picocolors'
 import * as os from 'os'
 import { detectShell } from './detect-shell'
 import { getProjectRoot, setProjectRoot } from '../project-files'
 import { truncateStringWithMessage } from 'common/util/string'
+import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
 
 let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
 const tempConsoleError = console.error
@@ -18,7 +19,21 @@ try {
 
 const promptIdentifier = '@36261@'
 
-const createPty = (dir: string) => {
+type PersistentProcess =
+  | {
+      type: 'pty'
+      shell: 'pty'
+      pty: IPty
+      timerId: NodeJS.Timeout | null
+    }
+  | {
+      type: 'process'
+      shell: 'bash' | 'cmd.exe' | 'powershell.exe'
+      childProcess: ChildProcessWithoutNullStreams | null
+      timerId: NodeJS.Timeout | null
+    }
+
+const createPersistantProcess = (dir: string): PersistentProcess => {
   if (pty) {
     const isWindows = os.platform() === 'win32'
     const currShell = detectShell()
@@ -85,7 +100,7 @@ const createPty = (dir: string) => {
       persistentPty.write(`PS1='${promptIdentifier}'\n`)
     }
 
-    return { type: 'pty', pty: persistentPty } as const
+    return { type: 'pty', shell: 'pty', pty: persistentPty, timerId: null }
   } else {
     // Fallback to child_process
     const isWindows = os.platform() === 'win32'
@@ -95,27 +110,55 @@ const createPty = (dir: string) => {
         ? 'powershell.exe'
         : 'cmd.exe'
       : 'bash'
-    return { type: 'process', shell } as const
+    const childProcess = null as ChildProcessWithoutNullStreams | null
+    return {
+      type: 'process',
+      shell,
+      childProcess,
+      timerId: null,
+    }
   }
 }
 
-let persistentProcess: ReturnType<typeof createPty> | null = null
+let persistentProcess: ReturnType<typeof createPersistantProcess> | null = null
 
 process.stdout.on('resize', () => {
   if (!persistentProcess) return
-  const { pty } = persistentProcess
-  if (pty) {
-    pty.resize(process.stdout.columns, process.stdout.rows)
+  if (persistentProcess.type === 'pty') {
+    persistentProcess.pty.resize(process.stdout.columns, process.stdout.rows)
   }
 })
 
-export const resetPtyShell = (dir: string) => {
+let commandIsRunning = false
+
+export const isCommandRunning = () => {
+  return commandIsRunning
+}
+
+export const recreateShell = () => {
+  const dir = getProjectRoot()
+  persistentProcess = createPersistantProcess(dir)
+}
+
+export const resetShell = () => {
+  commandIsRunning = false
   if (persistentProcess) {
+    if (persistentProcess.timerId) {
+      clearTimeout(persistentProcess.timerId)
+      persistentProcess.timerId = null
+    }
+
     if (persistentProcess.type === 'pty') {
       persistentProcess.pty.kill()
+      recreateShell()
+    } else {
+      persistentProcess.childProcess?.kill()
+      persistentProcess = {
+        ...persistentProcess,
+        childProcess: null,
+      }
     }
   }
-  persistentProcess = createPty(dir)
 }
 
 function formatResult(stdout: string, status: string): string {
@@ -161,17 +204,30 @@ export const runTerminalCommand = async (
       throw new Error('Shell not initialized')
     }
 
+    if (commandIsRunning) {
+      throw new Error('Command is already running')
+    }
+
+    commandIsRunning = true
+
+    const resolveCommand = (value: { result: string; stdout: string }) => {
+      commandIsRunning = false
+      resolve(value)
+    }
+
     if (persistentProcess.type === 'pty') {
-      runCommandPty(persistentProcess, command, mode, resolve)
+      runCommandPty(persistentProcess, command, mode, resolveCommand)
     } else {
       // Fallback to child_process implementation
-      runCommandChildProcess(persistentProcess, command, mode, resolve)
+      runCommandChildProcess(persistentProcess, command, mode, resolveCommand)
     }
   })
 }
 
 const runCommandPty = (
-  persistentProcess: ReturnType<typeof createPty> & { type: 'pty' },
+  persistentProcess: PersistentProcess & {
+    type: 'pty'
+  },
   command: string,
   mode: 'user' | 'assistant',
   resolve: (value: { result: string; stdout: string }) => void
@@ -189,7 +245,7 @@ const runCommandPty = (
   const timer = setTimeout(() => {
     if (mode === 'assistant') {
       // Kill and recreate PTY
-      resetPtyShell(projectRoot)
+      resetShell()
 
       resolve({
         result: formatResult(
@@ -200,6 +256,8 @@ const runCommandPty = (
       })
     }
   }, MAX_EXECUTION_TIME)
+
+  persistentProcess.timerId = timer
 
   const dataDisposable = ptyProcess.onData((data: string) => {
     // Trim first line if it's the prompt identifier
@@ -270,7 +328,9 @@ const runCommandPty = (
 }
 
 const runCommandChildProcess = (
-  persistentProcess: ReturnType<typeof createPty> & { type: 'process' },
+  persistentProcess: ReturnType<typeof createPersistantProcess> & {
+    type: 'process'
+  },
   command: string,
   mode: 'user' | 'assistant',
   resolve: (value: { result: string; stdout: string }) => void
@@ -298,9 +358,13 @@ const runCommandChildProcess = (
       },
     }
   )
+  persistentProcess = {
+    ...persistentProcess,
+    childProcess,
+  }
 
   const timer = setTimeout(() => {
-    childProcess.kill()
+    resetShell()
     if (mode === 'assistant') {
       resolve({
         result: formatResult(
@@ -311,6 +375,8 @@ const runCommandChildProcess = (
       })
     }
   }, MAX_EXECUTION_TIME)
+
+  persistentProcess.timerId = timer
 
   childProcess.stdout.on('data', (data: Buffer) => {
     const output = data.toString()

@@ -28,6 +28,7 @@ import {
   setFiles,
 } from './project-files'
 import { handleRunTerminalCommand } from './tool-handlers'
+import { isCommandRunning, resetShell } from './utils/terminal'
 import {
   REQUEST_CREDIT_SHOW_THRESHOLD,
   SKIPPED_TERMINAL_COMMANDS,
@@ -37,7 +38,6 @@ import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import { FileChanges } from 'common/actions'
 import {
-  stageAllChanges,
   hasStagedChanges,
   commitChanges,
   getStagedChanges,
@@ -148,12 +148,16 @@ export class CLI {
     })
 
     this.rl.on('SIGINT', () => {
+      // Kill any running terminal command
+      if (isCommandRunning()) {
+        resetShell()
+      }
+
       if (this.isReceivingResponse) {
         this.handleStopResponse()
       } else {
         const now = Date.now()
-        if (now - this.lastSigintTime < 3000) {
-          // 3 second window
+        if (now - this.lastSigintTime < 5000) {
           this.handleExit()
         } else {
           this.lastSigintTime = now

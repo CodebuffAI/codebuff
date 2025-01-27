@@ -11,7 +11,7 @@ import {
 } from './project-files'
 import { updateCodebuff } from './update-codebuff'
 import { CliOptions } from './types'
-import { resetPtyShell } from './utils/terminal'
+import { recreateShell } from './utils/terminal'
 import { createTemplateProject } from './create-template-project'
 
 async function codebuff(
@@ -19,7 +19,7 @@ async function codebuff(
   { initialInput, git, costMode }: CliOptions
 ) {
   const dir = setProjectRoot(projectDir)
-  resetPtyShell(dir)
+  recreateShell()
 
   const updatePromise = updateCodebuff()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
@@ -52,7 +52,9 @@ if (require.main === module) {
       console.log('Available templates:')
       console.log('  nextjs    - Next.js starter template')
       console.log('\nSee all templates at:')
-      console.log('  https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates')
+      console.log(
+        '  https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates'
+      )
       process.exit(1)
     }
 
@@ -111,17 +113,29 @@ if (require.main === module) {
     )
     console.log()
     console.log('Project Creation:')
-    console.log('  --create <template> [name]      Create new project from template')
-    console.log('                                  Example: codebuff --create nextjs my-app')
+    console.log(
+      '  --create <template> [name]      Create new project from template'
+    )
+    console.log(
+      '                                  Example: codebuff --create nextjs my-app'
+    )
     console.log('                                  See all templates at:')
-    console.log('                                  https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates')
+    console.log(
+      '                                  https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates'
+    )
     console.log()
     console.log('Performance Options:')
-    console.log('  --lite                          Use budget models & fetch fewer files')
-    console.log('  --max                           Use higher quality models and fetch more files')
+    console.log(
+      '  --lite                          Use budget models & fetch fewer files'
+    )
+    console.log(
+      '  --max                           Use higher quality models and fetch more files'
+    )
     console.log()
     console.log('Git Integration:')
-    console.log('  --git stage                     Stage changes from last message')
+    console.log(
+      '  --git stage                     Stage changes from last message'
+    )
     console.log()
     console.log(
       'Codebuff allows you to interact with your codebase using natural language.'
