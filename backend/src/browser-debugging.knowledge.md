@@ -13,6 +13,8 @@
    - Critical: Always call shutdown() on BrowserRunner instances before removing them from browserSessions to prevent resource leaks
    - Browser session IDs must use clientSessionId from websocket connection to ensure backend and client reference same session
    - This allows backend to properly manage browser sessions across multiple tool calls
+   - Browser session IDs must use clientSessionId from websocket connection to ensure backend and client reference same session
+   - This allows backend to properly manage browser sessions across multiple tool calls
 
 2. **XML-First Communication**
    - Backend generates XML instructions instead of direct JSON
@@ -56,12 +58,13 @@
 
 5. **Flow Control & Recovery**
    - Session Management:
+     - Single browser instance for the entire application
+     - New browser sessions automatically close previous sessions
      - Configurable session timeout (default: 5 minutes)
      - Auto-shutdown when session time exceeded
      - Proper cleanup of browser resources
-     - Concurrency limits (max 10 concurrent sessions)
-     - Session tracking with Map<string, BrowserRunner>
-     - Graceful rejection when session limit reached
+     - Important: Session timeout must be consistent between BrowserRunner and BROWSER_DEFAULTS
+     - Use BROWSER_DEFAULTS.sessionTimeoutMs as single source of truth
    
    - Error Thresholds:
      - Max consecutive errors (default: 3)
@@ -122,6 +125,17 @@
    - Compress screenshots before sending
    - Track all network requests/responses
    - Monitor memory usage and load times
+   - Screenshot handling:
+     - Multi-step optimization to keep screenshots under 1000 tokens (~4000 base64 chars):
+       1. Start with default settings (1280×800, JPEG 60%)
+       2. If too large, downscale resolution in steps (1.0×, 0.75×, 0.5×, 0.4×)
+       3. If still too large, reduce JPEG quality (60%, 50%, 40%, 30%, 20%, 10%)
+       4. For PNG requests, can only reduce resolution since no quality option
+     - Screenshots >200KB are still split into chunks for transmission
+     - Each optimization step is logged for debugging
+     - Preserves aspect ratio during downscaling
+     - Restores viewport after screenshot to avoid affecting subsequent actions
+     - Omits screenshot with warning if size cannot be reduced enough
    - Enhanced logging categories:
      - error, warning, info, debug, verbose levels
      - Optional category tagging (network, javascript, console)
@@ -136,6 +150,11 @@
    - Clean up resources on any error
    - Report errors to both backend and user
    - Maintain audit trail of actions
+   - Always log browser errors and logs to console with appropriate log levels:
+     - error: Browser action failures and error logs
+     - warn: Warning logs
+     - info: Info logs
+     - log: Default for other log types
    - Categorize errors for better debugging:
      - JavaScript runtime errors
      - Network request failures

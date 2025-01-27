@@ -2,7 +2,6 @@ import { z } from 'zod'
 import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
 import { userSchema } from './util/credentials'
 import { costModes } from './constants'
-import { BrowserActionSchema, BrowserResponseSchema } from './browser-actions'
 
 const MessageContentObjectSchema = z.union([
   z.object({

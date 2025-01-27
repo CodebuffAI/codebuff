@@ -23,12 +23,17 @@ export const BROWSER_DEFAULTS = {
 
   // Screenshot defaults
   fullPage: false,
-  quality: 80,
+  quality: 60,
+  maxScreenshotWidth: 1280 as number,
+  maxScreenshotHeight: 800 as number,
+  screenshotCompression: 'jpeg' as const,
+  screenshotCompressionQuality: 60,
+  compressScreenshotData: false,
 
   // Advanced configuration defaults
   maxConsecutiveErrors: 3,
   totalErrorThreshold: 10,
-  sessionTimeoutMs: 300_000, // 5 minutes
+  sessionTimeoutMs: 5 * 60 * 1000, // 5 minutes
   debug: false,
 } as const
 
@@ -119,6 +124,11 @@ export const OptionalTypeConfigSchema = z.object({
 export const OptionalScreenshotConfigSchema = z.object({
   fullPage: z.boolean().optional(),
   quality: z.number().min(0).max(100).optional(),
+  maxScreenshotWidth: z.number().optional(),
+  maxScreenshotHeight: z.number().optional(),
+  screenshotCompression: z.enum(['jpeg', 'png']).optional(),
+  screenshotCompressionQuality: z.number().min(0).max(100).optional(),
+  compressScreenshotData: z.boolean().optional(),
 })
 
 // Maximum size for a single WebSocket message (10MB)

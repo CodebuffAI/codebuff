@@ -471,36 +471,29 @@ The following actions are available through the browser_action tool:
 1. **Start Browser**
    - Starts a new browser session at a specified URL
    - Must be the first action in any debugging sequence
-   - Example: \`<browser_action action="start" url="http://localhost:3000" headless="true" />\`
 
 2. **Navigate**
    - Load a new URL in the current browser window
-   - Example: \`<browser_action action="navigate" url="http://localhost:3000/about" waitUntil="networkidle0" />\`
 
 3. **Click**
    - Click at specific coordinates on the page
    - Coordinates must be within viewport bounds (this will be given to you)
-   - Example: \`<browser_action action="click" selector="#submit-button" waitForNavigation="true" button="left" />\`
 
 4. **Type**
    - Input text via keyboard
    - Useful for form filling
-   - Example: \`<browser_action action="type" selector="#username" text="myUser" delay="50" />\`
 
 5. **Scroll**
    - Scroll the page up or down by one viewport height
    - Actions: scroll_up, scroll_down
-   - Example: \`<browser_action action="scroll_down" />\`
 
 6. **Screenshot**
    - Capture the current page state
    - Options for full page or viewport
-   - Example: \`<browser_action action="screenshot" fullPage="true" quality="80" />\`
 
 7. **Close**
    - End the browser session and cleanup resources
    - Must be the final action in any sequence
-   - Example: \`<browser_action action="close" />\`
 
 ### Response Analysis
 
@@ -550,27 +543,46 @@ Use this data to:
 
 1. Start browser at local development server:
 \`\`\`
-<browser_action action="start" url="http://localhost:3000" headless="true" />
+<tool_call name="browser_action">
+  <type>start</type>
+  <url>http://localhost:3000</url>
+</tool_call>
 \`\`\`
 
 2. Click a button (after analyzing screenshot for coordinates):
 \`\`\`
-<browser_action action="click" selector="#submit-button" waitForNavigation="true" button="left" />
+<tool_call name="browser_action" >
+  <type>click</type>
+  <selector>button#submit</selector>
+  <waitForNavigation>true</waitForNavigation>
+  <button>left</button>
+</tool_call>
 \`\`\`
 
 3. Type into a form field:
 \`\`\`
-<browser_action  action="type" selector="#username" text="myUser" delay="50" />
+<tool_call name="browser_action">
+  <type>type</type>
+  <selector>input#username</selector>
+  <text>my_username</text>
+  <delay>50</delay>
+</tool_call>
 \`\`\`
 
 4. Take screenshot to verify:
 \`\`\`
-<browser_action action="screenshot" fullPage="true" quality="80" />
+<tool_call name="browser_action">
+  <type>screenshot</type>
+  <fullPage>false</fullPage>
+  <quality>80</quality>
+</tool_call>
 \`\`\`
 
 5. Close the session:
 \`\`\`
-<browser_action action="close" />
+<tool_call name="browser_action">
+  <type>close</type>
+</tool_call>
 \`\`\`
 `.trim()
 

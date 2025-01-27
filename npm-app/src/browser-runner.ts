@@ -5,15 +5,8 @@ import {
   BROWSER_DEFAULTS,
 } from 'common/src/browser-actions'
 
-// Manages browser sessions across the application
-export const browserSessions = new Map<string, BrowserRunner>()
-
-// Maximum concurrent browser sessions allowed
-export const MAX_CONCURRENT_SESSIONS = 5
-
-// Check if we can start a new session
-export const canStartNewSession = () =>
-  browserSessions.size < MAX_CONCURRENT_SESSIONS
+// Single browser instance for the application
+let activeBrowserRunner: BrowserRunner | null = null
 
 export class BrowserRunner {
   // Add getter methods for diagnostic loop
@@ -38,7 +31,7 @@ export class BrowserRunner {
   // Session configuration
   private maxConsecutiveErrors = 3
   private totalErrorThreshold = 10
-  private sessionTimeoutMs = 15 * 60 * 1000 // 15 minutes
+  private sessionTimeoutMs = 5 * 60 * 1000 // 5 minutes
   private sessionDebug = false
   private performanceMetrics: {
     ttfb?: number
@@ -318,18 +311,160 @@ export class BrowserRunner {
     action: Extract<BrowserAction, { type: 'screenshot' }>
   ): Promise<BrowserResponse> {
     if (!this.page) throw new Error('No browser page found; call start first.')
-    const screenshotBuffer = await this.page.screenshot({
-      fullPage: action.fullPage ?? BROWSER_DEFAULTS.fullPage,
-      quality: action.quality ?? BROWSER_DEFAULTS.quality,
-      type: 'jpeg',
-      encoding: 'binary',
+
+    // For convenience, track the originally requested options or defaults
+    let width = BROWSER_DEFAULTS.maxScreenshotWidth
+    let height = BROWSER_DEFAULTS.maxScreenshotHeight
+    if (action.maxScreenshotWidth !== undefined) {
+      width = action.maxScreenshotWidth
+    }
+    if (action.maxScreenshotHeight !== undefined) {
+      height = action.maxScreenshotHeight
+    }
+
+    // Puppeteer's screenshot "quality" option applies only to jpeg
+    let screenshotFormat =
+      action.screenshotCompression ?? BROWSER_DEFAULTS.screenshotCompression
+    let screenshotQuality =
+      action.screenshotCompressionQuality ??
+      BROWSER_DEFAULTS.screenshotCompressionQuality
+
+    const fullPage = action.fullPage ?? BROWSER_DEFAULTS.fullPage
+
+    // We will attempt multiple tries with decreasing scale or quality
+    // so that final base64 screenshot remains under ~ 4,000 chars (≈ 1000 tokens).
+    const MAX_BASE64_LENGTH = 4000
+    let deviceScaleFactor = 1.0
+
+    // We'll do up to 5 attempts at compression/resizing
+    const MAX_ATTEMPTS = 5
+    let lastBase64Screenshot: string | null = null
+
+    // SAVE the current viewport in case user already set a custom one
+    const originalViewport = await this.page.viewport()
+    const originalWidth = originalViewport?.width ?? width
+    const originalHeight = originalViewport?.height ?? height
+    const originalScaleFactor = originalViewport?.deviceScaleFactor ?? 1
+
+    try {
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        // Adjust page viewport temporarily
+        // We'll scale the viewport so that the actual screenshot is scaled down
+        // if deviceScaleFactor < 1.0
+        const scaledWidth = Math.floor(width * deviceScaleFactor)
+        const scaledHeight = Math.floor(height * deviceScaleFactor)
+
+        await this.page.setViewport({
+          width: scaledWidth,
+          height: scaledHeight,
+          deviceScaleFactor: 1, // We'll rely on literal pixel sizes
+        })
+
+        // Attempt the screenshot
+        lastBase64Screenshot = await this.page.screenshot({
+          fullPage,
+          type: screenshotFormat as 'jpeg' | 'png',
+          quality: screenshotFormat === 'jpeg' ? screenshotQuality : undefined,
+          encoding: 'base64',
+        })
+
+        // Check if we are within our ~1000-token limit
+        if (lastBase64Screenshot.length <= MAX_BASE64_LENGTH) {
+          // Great, we're done
+          if (this.sessionDebug) {
+            this.logs.push({
+              type: 'debug',
+              message: `Screenshot success on attempt ${attempt}, scaleFactor=${deviceScaleFactor}, quality=${screenshotQuality}, size=${lastBase64Screenshot.length} chars`,
+              timestamp: Date.now(),
+              category: 'debug',
+            })
+          }
+          break
+        }
+
+        // If we're too large, try to reduce further
+        if (this.sessionDebug) {
+          this.logs.push({
+            type: 'debug',
+            message: `Screenshot attempt ${attempt} too large: ${lastBase64Screenshot.length} chars. Retrying with smaller scale or lower quality...`,
+            timestamp: Date.now(),
+            category: 'debug',
+          })
+        }
+
+        // We'll try reducing deviceScaleFactor first
+        if (deviceScaleFactor > 0.4) {
+          deviceScaleFactor = Math.max(0.4, deviceScaleFactor - 0.25)
+        }
+        // If that's at minimum, reduce quality (for JPEG only)
+        else if (screenshotFormat === 'jpeg' && screenshotQuality > 10) {
+          screenshotQuality = Math.max(10, screenshotQuality - 10)
+        } else {
+          // We're out of ways to reduce further
+          break
+        }
+      }
+    } finally {
+      // Restore the viewport to original
+      // so subsequent actions aren't stuck with a small scaled viewport
+      await this.page.setViewport({
+        width: originalWidth,
+        height: originalHeight,
+        deviceScaleFactor: originalScaleFactor,
+      })
+    }
+
+    if (!lastBase64Screenshot) {
+      this.logs.push({
+        type: 'warning',
+        message:
+          'Unable to compress screenshot sufficiently below 1000 tokens (~4000 base64 chars). Omitted from response.',
+        timestamp: Date.now(),
+      })
+      return {
+        success: true,
+        logs: this.logs,
+        metrics: await this.collectMetrics(),
+        networkEvents: this.networkEvents,
+      }
+    }
+
+    // Now we have a screenshot under the ~1000-token threshold
+    // We can still chunk it if we want to respect the 200 KB chunk approach
+    const CHUNK_SIZE = 200 * 1024 // 200KB
+    if (lastBase64Screenshot.length <= CHUNK_SIZE) {
+      // Single chunk
+      const metrics = await this.collectMetrics()
+      return {
+        success: true,
+        logs: this.logs,
+        screenshot: lastBase64Screenshot,
+        metrics,
+        networkEvents: this.networkEvents,
+      }
+    }
+
+    // If bigger than 200KB, we still chunk it
+    const chunks = []
+    for (let i = 0; i < lastBase64Screenshot.length; i += CHUNK_SIZE) {
+      chunks.push({
+        id: `chunk-${Math.floor(i / CHUNK_SIZE)}`,
+        total: Math.ceil(lastBase64Screenshot.length / CHUNK_SIZE),
+        index: Math.floor(i / CHUNK_SIZE),
+        data: lastBase64Screenshot.slice(i, i + CHUNK_SIZE),
+      })
+    }
+    this.logs.push({
+      type: 'info',
+      message: `Screenshot split into ${chunks.length} chunk(s). Base64 length=${lastBase64Screenshot.length}`,
+      timestamp: Date.now(),
     })
 
     const metrics = await this.collectMetrics()
     return {
       success: true,
       logs: this.logs,
-      screenshot: screenshotBuffer.toString(),
+      chunks,
       metrics,
       networkEvents: this.networkEvents,
     }
@@ -547,17 +682,25 @@ export class BrowserRunner {
 
 export const handleBrowserInstruction = async (
   action: BrowserAction,
-  id: string
+  _id: string // Keep parameter for compatibility but don't use it
 ): Promise<BrowserResponse> => {
-  // Check if we can start a new session
-  if (action.type === 'start' && !canStartNewSession()) {
+  // For start action, create new browser if none exists
+  if (action.type === 'start') {
+    if (activeBrowserRunner) {
+      await activeBrowserRunner.shutdown()
+    }
+    activeBrowserRunner = new BrowserRunner()
+  }
+
+  // Ensure we have an active browser
+  if (!activeBrowserRunner) {
     return {
       success: false,
-      error: `Maximum concurrent sessions (${MAX_CONCURRENT_SESSIONS}) reached. Please try again later.`,
+      error: 'No active browser session. Please start a new session first.',
       logs: [
         {
           type: 'error',
-          message: 'Too many active browser sessions',
+          message: 'No active browser session',
           timestamp: Date.now(),
         },
       ],
@@ -565,21 +708,12 @@ export const handleBrowserInstruction = async (
     }
   }
 
-  let runner = browserSessions.get(id)
-  if (!runner) {
-    runner = new BrowserRunner()
-    browserSessions.set(id, runner)
-  }
-
-  const response = await runner.execute(action)
+  const response = await activeBrowserRunner.execute(action)
 
   // Clean up session if browser is stopped or on error
   if (action.type === 'stop' || !response.success) {
-    const runner = browserSessions.get(id)
-    if (runner) {
-      await runner.shutdown()
-      browserSessions.delete(id)
-    }
+    await activeBrowserRunner.shutdown()
+    activeBrowserRunner = null
   }
 
   return response
