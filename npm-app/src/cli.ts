@@ -153,6 +153,11 @@ export class CLI {
         resetShell()
       }
 
+      // Clear the line buffer if it exists (readline internal API)
+      if ('line' in this.rl) {
+        (this.rl as any).line = ''
+      }
+
       if (this.isReceivingResponse) {
         this.handleStopResponse()
       } else {
