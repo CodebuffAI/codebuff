@@ -92,7 +92,14 @@ export class Client {
     this.getFingerprintId()
     this.returnControlToUser = returnControlToUser
     this.rl = rl
+    async exit() {
+    // Clean up browser before exiting
+    if (this.browserRunner) {
+      await this.browserRunner.shutdown()
+    }
+    process.exit(0)
   }
+}
 
   public initFileVersions(projectFileContext: ProjectFileContext) {
     const { knowledgeFiles } = projectFileContext

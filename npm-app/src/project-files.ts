@@ -1,6 +1,15 @@
 import fs from 'fs'
 import os from 'os'
 import path, { isAbsolute } from 'path'
+import { ensureDirectoryExists } from 'common/util/file'
+
+export const CODEBUFF_DIR = '.codebuff'
+
+export function getDebugDir(...segments: string[]): string {
+  const dir = path.join(getProjectRoot(), CODEBUFF_DIR, ...segments)
+  ensureDirectoryExists(dir)
+  return dir
+}
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { createPatch } from 'diff'

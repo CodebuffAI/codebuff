@@ -1,8 +1,9 @@
 import * as path from 'path'
+import * as fs from 'fs'
 import { Message } from 'common/actions'
-import { getExistingFiles, getProjectRoot } from './project-files'
+import { getExistingFiles, getDebugDir } from './project-files'
+import { ensureDirectoryExists } from 'common/util/file'
 
-const MANICODE_DIR = '.manicode'
 const CHATS_DIR = 'chats'
 
 interface Chat {
@@ -23,9 +24,7 @@ export class ChatStorage {
   private currentVersionIndex: number
 
   constructor() {
-    // Only initialize chat storage if we have a project root
-    const projectRoot = getProjectRoot()
-    this.baseDir = projectRoot ? path.join(projectRoot, MANICODE_DIR, CHATS_DIR) : '.'
+    this.baseDir = getDebugDir(CHATS_DIR)
     this.currentChat = this.createChat()
     this.currentVersionIndex = -1
   }
@@ -42,17 +41,19 @@ export class ChatStorage {
       if (index === lastIndex) {
         return msg // Preserve the most recent message in its entirety
       }
-      if (
-        msg.content &&
-        typeof msg.content === 'string' &&
-        msg.content.includes('base64')
-      ) {
-        return {
-          ...msg,
-          content: msg.content.replace(
-            /data:image\/[^;]+;base64,[^"'\s]+/g,
-            '[SCREENSHOT_PLACEHOLDER]'
-          ),
+      // Handle both base64 data in content string and screenshot in JSON
+      if (msg.content) {
+        if (
+          typeof msg.content === 'string' &&
+          msg.content.includes('"screenshot"')
+        ) {
+          return {
+            ...msg,
+            content: msg.content.replace(
+              /"screenshot"\s*:\s*"[^"]+"/g,
+              '"screenshot":"[SCREENSHOT_PLACEHOLDER]"'
+            ),
+          }
         }
       }
       return msg
@@ -62,6 +63,27 @@ export class ChatStorage {
     chat.messages.push(message)
     chat.updatedAt = new Date().toISOString()
     this.saveChat(chat)
+
+    // Save messages to .codebuff/messages/messages.json
+    this.saveMessagesToFile(chat)
+  }
+
+  private saveMessagesToFile(chat: Chat) {
+    try {
+      const messagesDir = path.join(this.baseDir, 'messages')
+      ensureDirectoryExists(messagesDir)
+
+      const messagesPath = path.join(messagesDir, 'messages.json')
+      const messagesData = {
+        id: chat.id,
+        messages: chat.messages,
+        updatedAt: chat.updatedAt,
+      }
+
+      fs.writeFileSync(messagesPath, JSON.stringify(messagesData, null, 2))
+    } catch (error) {
+      console.error('Failed to save messages to file:', error)
+    }
   }
 
   getCurrentVersion(): FileVersion | null {

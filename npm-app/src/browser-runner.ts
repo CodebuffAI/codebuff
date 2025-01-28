@@ -6,7 +6,7 @@ import {
 } from 'common/src/browser-actions'
 import * as fs from 'fs'
 import * as path from 'path'
-import { getProjectRoot } from './project-files'
+import { getDebugDir } from './project-files'
 import { ensureDirectoryExists } from 'common/util/file'
 
 // Single browser instance for the application
@@ -348,12 +348,7 @@ export class BrowserRunner {
     // If debug mode is enabled, save the screenshot
     if (true) {
       try {
-        const screenshotsDir = path.join(
-          getProjectRoot(),
-          '.codebuff',
-          'screenshots'
-        )
-        ensureDirectoryExists(screenshotsDir)
+        const screenshotsDir = getDebugDir('screenshots')
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
         const filename = `screenshot-${timestamp}.jpg`

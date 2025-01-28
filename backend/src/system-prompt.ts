@@ -480,7 +480,7 @@ The following actions are available through the browser_action tool:
    - optional arguments: waitUntil (boolean)
 
 3. **Click**
-   - Click at specific selectors on the page
+   - Click at specific selectors on the page. Be very general with your selector name patterns, and make sure to reference the codebase for the source of truth. This value is likely to be brittle so we need to cast a wide net to make sure we are clicking the right thing.
    - required arguments: selector (string), button (string)
    - optional arguments: waitForNavigation (boolean), button ('left', 'right', 'middle')
 

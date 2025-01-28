@@ -3,7 +3,22 @@
 Before running the app, ensure you have the required environment files:
 
 1. `stack.env` in project root with:
-```
+## Development Guidelines
+
+1. Use TypeScript for all new code to maintain type safety.
+2. Follow existing code structure and naming conventions.
+3. Ensure alternating user and Buffy messages in conversation history.
+4. Update knowledge files for significant changes or new features.
+5. Write clear, concise comments and documentation for complex logic.
+
+## Debug Output
+
+- All debug files stored in `.codebuff/` directory:
+  - `chats/`: Chat history and file versions
+  - `screenshots/`: Debug screenshots when enabled
+  - `messages/`: Message history in messages.json
+- Directories automatically created if they don't exist
+- Message file continuously updated with each new message
 ENVIRONMENT=local
 NEXT_PUBLIC_ENVIRONMENT=local
 ```

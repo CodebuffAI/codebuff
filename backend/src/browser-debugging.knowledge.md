@@ -131,6 +131,7 @@
          - Screenshot data sent to backend in full
          - When adding new message to chat, screenshots in previous messages are replaced with '[SCREENSHOT_PLACEHOLDER]'
          - Most recent message's screenshot is preserved until processed by backend
+         - Handles both base64 data and JSON screenshot keys in message content
          - This ensures backend gets full data when needed while keeping message history small
      - Debug mode:
        - When enabled, saves screenshots to .codebuff/screenshots/
