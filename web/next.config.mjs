@@ -58,6 +58,11 @@ const nextConfig = {
         permanent: false,
         destination: `${env.NEXT_PUBLIC_APP_URL}/:path*`,
       },
+      {
+        source: '/discord',
+        destination: 'https://discord.gg/mcWTGjgTj3',
+        permanent: false,
+      },
     ]
   },
   images: {
