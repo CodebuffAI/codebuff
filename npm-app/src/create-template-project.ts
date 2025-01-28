@@ -6,8 +6,13 @@ import { green } from 'picocolors'
 
 export async function createTemplateProject(
   template: string,
+  projectDir: string,
   projectName: string = template
 ) {
+  console.log(
+    `Creating project from ${template} template in ${projectDir}/${projectName}`
+  )
+
   // Validate template name contains only alphanumeric chars, dash and underscore
   if (!/^[a-zA-Z0-9-_]+$/.test(template)) {
     console.error(
@@ -24,13 +29,16 @@ export async function createTemplateProject(
     process.exit(1)
   }
 
+  const projectPath = join(projectDir, projectName)
+
   // Check if directory already exists
-  if (fs.existsSync(projectName)) {
-    console.error(`Directory ${projectName} already exists`)
+  if (fs.existsSync(projectPath)) {
+    console.error(`Directory ${projectPath} already exists`)
     process.exit(1)
   }
 
   try {
+    console.log('\nDownloading template...')
     // Clone the community repo to a temp directory
     const tempDir = fs.mkdtempSync(join(os.tmpdir(), 'codebuff-starter-'))
     execSync(
@@ -58,33 +66,39 @@ export async function createTemplateProject(
       process.exit(1)
     }
 
+    // Create parent directory if it doesn't exist
+    if (projectDir) {
+      fs.mkdirSync(projectDir, { recursive: true })
+    }
+
     // Copy template to new directory
-    fs.mkdirSync(projectName)
-    fs.cpSync(templateDir, projectName, { recursive: true })
+    fs.mkdirSync(projectPath)
+    fs.cpSync(templateDir, projectPath, { recursive: true })
 
     // Remove .git directory if it exists
-    const gitDir = join(projectName, '.git')
+    const gitDir = join(projectPath, '.git')
     if (fs.existsSync(gitDir)) {
       fs.rmSync(gitDir, { recursive: true, force: true })
     }
 
     // Initialize new git repo
-    execSync('git init', { cwd: projectName, stdio: 'pipe' })
+    console.log('\nInitializing git repo...')
+    execSync('git init', { cwd: projectPath, stdio: 'pipe' })
 
     // Clean up temp directory
     fs.rmSync(tempDir, { recursive: true, force: true })
 
     // Install dependencies
-    if (fs.existsSync(join(projectName, 'package-lock.json'))) {
+    if (fs.existsSync(join(projectPath, 'package-lock.json'))) {
       console.log('\nInstalling dependencies...')
-      execSync('npm install', { cwd: projectName, stdio: 'inherit' })
+      execSync('npm install', { cwd: projectPath, stdio: 'inherit' })
     }
 
-    console.log(green(`\nCreated new project in ./${projectName}\n`))
+    console.log(green(`\nSuccessfully created new project in ${projectPath}\n`))
 
     // Change into the new project directory and run codebuff
-    process.chdir(projectName)
-    console.log(green('Starting Codebuff in the new project...\n'))
+    process.chdir(projectPath)
+    console.log('Starting Codebuff in the new project...\n')
     console.log('--------------------------------\n')
     execSync('codebuff', { stdio: 'inherit' })
   } catch (error) {
