@@ -24,7 +24,7 @@ export function getSearchSystemPrompt(
   const shouldDoPromptCaching = fileVersions.length > 1
 
   const maxTokens = costMode === 'lite' ? 64_000 : 200_000
-  const miscTokens = 10_000
+  const miscTokens = 20_000
   const systemPromptTokenBudget = maxTokens - messagesTokens - miscTokens
 
   const projectFilesPromptContent = getProjectFilesPromptContent(
