@@ -203,7 +203,8 @@ async function generateFileRequests(
     clientSessionId,
     fingerprintId,
     userInputId,
-    userId
+    userId,
+    costMode
   )
 
   // const testAndConfigPrompt = generateTestAndConfigFilesPrompt(
@@ -301,8 +302,8 @@ async function getRelevantFiles(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string,
-  costMode: CostMode = 'normal'
+  userId: string | undefined,
+  costMode: CostMode
 ) {
   const messagesWithPrompt = [
     ...messages,
@@ -617,7 +618,7 @@ export const warmCacheForRequestRelevantFiles = async (
             },
           ],
           {
-            model: claudeModels.haiku,
+            model: getModelForMode(costMode, 'file-requests') as model_types,
             system,
             clientSessionId,
             fingerprintId,
