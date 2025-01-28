@@ -3,16 +3,18 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { getDocsByCategory } from '@/lib/docs'
+import { getDocsByCategory, getNewsArticles, NewsArticle } from '@/lib/docs'
+import { useEffect, useMemo, useState } from 'react'
 
 export const sections = [
   {
-    title: 'Help & FAQ',
+    title: 'Intro',
     href: '/docs/help',
     subsections: getDocsByCategory('help').map((doc) => ({
       title: doc.title,
       href: `/docs/help/${doc.slug}`,
     })),
+    external: false,
   },
   {
     title: 'Tips & Tricks',
@@ -21,6 +23,16 @@ export const sections = [
       title: doc.title,
       href: `/docs/tips/${doc.slug}`,
     })),
+    external: false,
+  },
+  {
+    title: 'Advanced',
+    href: '/docs/advanced',
+    subsections: getDocsByCategory('advanced').map((doc) => ({
+      title: doc.title,
+      href: `/docs/advanced/${doc.slug}`,
+    })),
+    external: false,
   },
   {
     title: 'Project Showcase',
@@ -29,6 +41,7 @@ export const sections = [
       title: doc.title,
       href: `/docs/showcase/${doc.slug}`,
     })),
+    external: false,
   },
   {
     title: 'Case Studies',
@@ -37,6 +50,7 @@ export const sections = [
       title: doc.title,
       href: `/docs/case-studies/${doc.slug}`,
     })),
+    external: false,
   },
 ]
 
@@ -48,13 +62,37 @@ export function DocSidebar({
   onNavigate: () => void
 }) {
   const pathname = usePathname()
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([])
+
+  const allSections = useMemo(
+    () => [
+      ...sections,
+      {
+        title: 'News',
+        href: 'https://news.codebuff.com',
+        external: true,
+        subsections: newsArticles,
+      },
+    ],
+    [newsArticles]
+  )
+
+  useEffect(() => {
+    async function fetchNews() {
+      const articles = await getNewsArticles()
+      setNewsArticles(articles)
+    }
+
+    fetchNews()
+  }, [])
 
   return (
     <nav className={cn('space-y-4', className)}>
-      {sections.map((section) => (
+      {allSections.map((section) => (
         <div key={section.href}>
           <Link
             href={section.href}
+            target={section.external ? '_blank' : undefined}
             onClick={() => {
               const sheet = document.querySelector('[data-state="open"]')
               if (sheet) sheet.setAttribute('data-state', 'closed')
@@ -67,11 +105,16 @@ export function DocSidebar({
             {section.title}
           </Link>
           {section.subsections && section.subsections.length > 0 && (
-            <div className="ml-4 mt-1 space-y-1">
+            <div className="ml-2 mt-1 space-y-1">
               {section.subsections.map((subsection) => (
                 <Link
                   key={subsection.href}
-                  href={`${section.href}#${subsection.title.toLowerCase().replace(/\s+/g, '-')}`}
+                  href={
+                    section.external
+                      ? subsection.href
+                      : `${section.href}#${subsection.title.toLowerCase().replace(/\s+/g, '-')}`
+                  }
+                  target={section.external ? '_blank' : undefined}
                   onClick={(e) => {
                     onNavigate?.()
                     // If we're on the same page, scroll instead of navigate
@@ -82,7 +125,8 @@ export function DocSidebar({
                         .replace(/\s+/g, '-')
                       document
                         .getElementById(id)
-                        ?.scrollIntoView({ behavior: 'smooth' })
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
                       history.replaceState(null, '', `#${id}`)
                     }
                     // Close sheet after navigation

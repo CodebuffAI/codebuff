@@ -173,48 +173,45 @@ The backend now includes a web scraping tool that allows the AI assistant to ret
 - Prefer to add logging in the calling functions within the `backend/` directory.
 - When investigating issues, focus on adding temporary logging to the relevant backend functions rather than modifying shared utility functions.
 
-
-## Error Handling and Quota Management
-
-### Quota Exceeded Errors
-
-When a user exceeds their quota, the error message returned now includes the current usage information. This helps users understand their current status without requiring an additional API call.
-
-Implementation details:
-
-- The `protec` middleware in `websockets/middleware.ts` handles quota checks.
-- For both authenticated and anonymous users, when quota is exceeded:
-  1. Retrieve current usage: `const { usage, limit } = await quotaManager.checkQuota(id)`
-  2. Include usage in error message: `return getUsageInfo(true, fingerprintId, userId)`
-
-This approach ensures that clients receive immediate feedback about their quota status, improving user experience and reducing unnecessary API calls.
-
-## Tool Handling
-
-The backend implements a tool handling system that allows the AI assistant to perform various actions:
-
-1. **Tool Definition**: Tools are defined in `tools.ts`, specifying their name, description, and input schema.
-2. **Tool Implementation**: All tool handlers must be implemented in `npm-app/src/tool-handlers.ts`. Never implement handlers elsewhere.
-3. **Available Tools**: Current tools include read_files, scrape_web_page, search_manifold_markets, run_terminal_command, and continue.
-4. **Tool Execution**: When the AI makes a tool call, the backend processes it and provides the results back to the AI.
-
-### Change Tracking During Tool Calls
-
-Important: Changes made during tool execution must be properly tracked:
-- Changes made before a tool call are marked as "already applied"
-- Tool handlers must pass their changes back to server as changesAlreadyApplied
-- Final response includes all previously applied changes before tool calls and any changes in the last assistant response.
-- The client shows the diff from all the changes
-
-This ensures changes are properly tracked through the entire system and shown to the user at the end of their request.
-
 ## Error Handling and Debugging
 
-1. **Logging**: The `debug.ts` file provides logging functionality for debugging purposes.
-2. **Error Catching**: WebSocket errors are caught and logged in both server and client code.
-3. **Graceful Degradation**: The system attempts to handle errors gracefully, providing meaningful error messages when possible.
-4. **Change Verification**: Always verify file changes were applied successfully. Changes can fail silently.
-5. **API Error Handling**: Only retry on connection errors (type "APIConnectionError"). Other error types indicate issues that won't be resolved by retrying.
+- Avoid adding logging statements directly to utility functions in the `common/` directory.
+- Prefer to add logging in the calling functions within the `backend/` directory.
+- When investigating issues, focus on adding temporary logging to the relevant backend functions rather than modifying shared utility functions.
+
+## API Error Handling
+
+- Only retry on connection errors (type "APIConnectionError") for most APIs
+- Other error types indicate issues that won't be resolved by retrying
+- Exception: Deepseek API rarely errors but can be very slow
+  - Use timeouts (2min) with retries rather than waiting indefinitely
+  - Only retry on timeout errors, not API errors
+
+## Message Storage
+
+Important: When saving messages from Claude API:
+- Use fire-and-forget pattern for non-critical storage operations
+- Wrap async operations in withLoggerContext to preserve logging context
+- Handle errors without blocking the main flow
+- Log errors but don't re-throw for non-critical operations
+- Example pattern:
+  ```typescript
+  withLoggerContext(
+    { contextData },
+    () => saveOperation().catch(error => {
+      logger.error({ error }, 'Operation failed')
+    })
+  )
+  ```
+
+### Stream Event Handling
+- Message events come in order: message_start → content_block_start → content_block_delta → message_delta
+- Track message state in a single object for consistency
+- Save messages when stream ends AND content was received
+- Don't rely solely on final usage stats - update stats whenever available
+- Always verify messageId exists before saving
+- Usage stats can come in multiple chunks - accumulate throughout stream
+- Content receipt is more important than final usage stats for saving
 
 ## AI Response Handling
 
@@ -315,5 +312,4 @@ Remember to keep the referral system logic consistent between the backend API an
 These changes aim to provide a better user experience by offering more informative error messages, streamlining usage information handling, and improving the overall system consistency.
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
-
 ```

@@ -1,7 +1,6 @@
 import fs from 'fs'
 import os from 'os'
-import path from 'path'
-import { platform } from 'process'
+import path, { isAbsolute } from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { createPatch } from 'diff'
@@ -20,6 +19,8 @@ import {
   parseGitignore,
 } from 'common/project-file-tree'
 import { getFileTokenScores } from 'code-map/parse'
+import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+import { getSystemInfo } from './utils/system-info'
 
 const execAsync = promisify(exec)
 
@@ -102,25 +103,26 @@ export const getProjectFileContext = async (
       filePath.endsWith('knowledge.md')
     )
     const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
-    const shellConfigFiles = loadShellConfigFiles()
-    const shell = process.env.SHELL || process.env.COMSPEC || 'unknown'
+    const knowledgeFilesWithScrapedContent =
+      await addScrapedContentToFiles(knowledgeFiles)
 
+    // Get knowledge files from user's home directory
+    const homeDir = os.homedir()
+    const userKnowledgeFiles = findKnowledgeFilesInDir(homeDir)
+    const userKnowledgeFilesWithScrapedContent =
+      await addScrapedContentToFiles(userKnowledgeFiles)
+
+    const shellConfigFiles = loadShellConfigFiles()
     const fileTokenScores = await getFileTokenScores(projectRoot, allFilePaths)
 
     cachedProjectFileContext = {
       currentWorkingDirectory: projectRoot,
       fileTree,
       fileTokenScores,
-      knowledgeFiles,
+      knowledgeFiles: knowledgeFilesWithScrapedContent,
+      userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,
       shellConfigFiles,
-      systemInfo: {
-        platform: platform,
-        shell: path.basename(shell),
-        nodeVersion: process.version,
-        arch: process.arch,
-        homedir: os.homedir(),
-        cpus: os.cpus().length,
-      },
+      systemInfo: getSystemInfo(),
       ...updatedProps,
     }
   } else {
@@ -193,12 +195,17 @@ export function getFiles(filePaths: string[]) {
       ? path.relative(projectRoot, filePath)
       : filePath
     const fullPath = path.join(projectRoot, relativePath)
-    if (!fullPath.startsWith(projectRoot)) {
+    if (isAbsolute(relativePath) || !fullPath.startsWith(projectRoot)) {
       result[relativePath] = '[FILE_OUTSIDE_PROJECT]'
       continue
     }
-    if (ig.ignores(relativePath)) {
-      result[relativePath] = '[FILE_IGNORED]'
+    try {
+      if (ig.ignores(relativePath)) {
+        result[relativePath] = '[FILE_IGNORED]'
+        continue
+      }
+    } catch (error) {
+      result[relativePath] = '[ERROR_LOADING_FILE]'
       continue
     }
     try {
@@ -223,6 +230,45 @@ export function getExistingFiles(filePaths: string[]) {
     string
   >
 }
+export async function addScrapedContentToFiles(files: Record<string, string>) {
+  const newFiles = { ...files }
+  await Promise.all(
+    Object.entries(files).map(async ([filePath, content]) => {
+      const urls = parseUrlsFromContent(content)
+      const scrapedContent = await getScrapedContentBlocks(urls)
+
+      newFiles[filePath] =
+        content +
+        (scrapedContent.length > 0 ? '\n' : '') +
+        scrapedContent.join('\n')
+    })
+  )
+  return newFiles
+}
+
+function findKnowledgeFilesInDir(dir: string): Record<string, string> {
+  const result: Record<string, string> = {}
+  try {
+    const files = fs.readdirSync(dir, { withFileTypes: true })
+    for (const file of files) {
+      if (!file.isDirectory() && file.name.endsWith('knowledge.md')) {
+        const fullPath = path.join(dir, file.name)
+        try {
+          const content = fs.readFileSync(fullPath, 'utf8')
+          result[file.name] = content
+        } catch (error) {
+          // Skip files we can't read
+          console.error(`Error reading knowledge file ${fullPath}:`, error)
+        }
+      }
+    }
+  } catch (error) {
+    // Skip directories we can't read
+    console.error(`Error reading directory ${dir}:`, error)
+  }
+  return result
+}
+
 export function getFilesAbsolutePath(filePaths: string[]) {
   const result: Record<string, string | null> = {}
   for (const filePath of filePaths) {

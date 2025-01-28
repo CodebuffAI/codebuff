@@ -18,6 +18,20 @@ This change improves the accuracy and reliability of file modifications, especia
 
 1. **Developer Productivity**: Reduce the time and effort required for common programming tasks, allowing developers to focus on higher-level problem-solving.
 
+## Project Templates
+
+Codebuff provides starter templates that can be used to initialize new projects:
+
+```bash
+codebuff --create <template> [project-name]
+```
+
+Templates are maintained in the [codebuff community repo](https://github.com/CodebuffAI/codebuff-community). Each directory in the starter-templates and showcase directories corresponds to a template that can be used with the --create flag.
+
+Example template:
+
+- nextjs: Next.js starter template
+
 2. **Learning and Adaptation**: Develop a system that learns from user interactions and improves its assistance over time.
 
 3. **Focus on power users**: Make expert software engineers move even faster.
@@ -241,7 +255,7 @@ Upon start-up, the client checks the npmjs.org registry for the latest version o
 
 # Verifying changes
 
-Use judgment when verifying changes. For complex changes that could affect types or dependencies, run the type checker with `bun run --cwd backend tsc` (or sub "backend" for the appropriate project) and then fix any type errors that resulted from your change. For simple changes like adding console.logs or text updates, type checking is unnecessary.
+Use judgment when verifying changes. For complex changes that could affect types or dependencies, run the type checker with `bun run --cwd backend typecheck` (or sub "backend" for the appropriate project) and then fix any type errors that resulted from your change. For simple changes like adding console.logs or text updates, type checking is unnecessary.
 
 Only run type checking when:
 

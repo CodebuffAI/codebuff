@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import fs from 'fs'
-import path from 'path'
-import { yellow } from 'picocolors'
+import { type CostMode } from 'common/constants'
+import { red } from 'picocolors'
+import packageJson from '../package.json'
 
 import { CLI } from './cli'
 import {
@@ -10,42 +10,90 @@ import {
   setProjectRoot,
 } from './project-files'
 import { updateCodebuff } from './update-codebuff'
+import { CliOptions } from './types'
+import { recreateShell } from './utils/terminal'
+import { createTemplateProject } from './create-template-project'
 
 async function codebuff(
   projectDir: string | undefined,
-  { initialInput, autoGit }: { initialInput?: string; autoGit: boolean }
+  { initialInput, git, costMode }: CliOptions
 ) {
   const dir = setProjectRoot(projectDir)
+  recreateShell()
 
   const updatePromise = updateCodebuff()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
 
-  const cli = new CLI(readyPromise, { autoGit })
+  const cli = new CLI(readyPromise, { git, costMode })
 
-  console.log(
-    `Codebuff will read and write files in "${dir}". Type "help" for a list of commands.`
-  )
-
-  const gitDir = path.join(dir, '.git')
-  if (!fs.existsSync(gitDir)) {
-    console.warn(
-      yellow(
-        'Warning: No .git directory found. Make sure you are at the top level of your project.'
-      )
-    )
-  }
-
-  cli.printInitialPrompt(initialInput)
+  await cli.printInitialPrompt(initialInput)
 }
 
 if (require.main === module) {
   const args = process.argv.slice(2)
   const help = args.includes('--help') || args.includes('-h')
-  const autoGit = args.includes('--auto-git')
-  if (autoGit) {
-    args.splice(args.indexOf('--auto-git'), 1)
+  const version = args.includes('--version') || args.includes('-v')
+
+  if (version) {
+    console.log(`Codebuff v${packageJson.version}`)
+    process.exit(0)
+  }
+
+  // Handle --create flag before other flags
+  const createIndex = args.indexOf('--create')
+  if (createIndex !== -1) {
+    const template = args[createIndex + 1]
+    const projectName = args[createIndex + 2] || template
+
+    if (!template) {
+      console.error('Please specify a template name')
+      console.log('Available templates:')
+      console.log('  nextjs    - Next.js starter template')
+      console.log('\nSee all templates at:')
+      console.log(
+        '  https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates'
+      )
+      process.exit(1)
+    }
+
+    createTemplateProject(template, projectName)
+    process.exit(0)
+  }
+
+  const gitArg = args.indexOf('--git')
+  const git =
+    gitArg !== -1 && args[gitArg + 1] === 'stage'
+      ? ('stage' as const)
+      : undefined
+  if (gitArg !== -1) {
+    args.splice(gitArg, 2)
+  }
+
+  let costMode: CostMode = 'normal'
+  if (args.includes('--lite')) {
+    costMode = 'lite'
+    args.splice(args.indexOf('--lite'), 1)
+  } else if (
+    args.includes('--pro') ||
+    args.includes('--o1') ||
+    args.includes('--max')
+  ) {
+    costMode = 'max'
+
+    // Remove whichever flag was used
+    if (args.includes('--pro')) {
+      args.splice(args.indexOf('--pro'), 1)
+      console.error(
+        red(
+          'Warning: The --pro flag is deprecated. Please restart codebuff and use the --max option instead.'
+        )
+      )
+      process.exit(1)
+    }
+    if (args.includes('--o1')) args.splice(args.indexOf('--o1'), 1)
+    if (args.includes('--max')) args.splice(args.indexOf('--max'), 1)
   }
 
   const projectPath = args[0]
@@ -54,11 +102,39 @@ if (require.main === module) {
   if (help) {
     console.log('Usage: codebuff [project-directory] [initial-prompt]')
     console.log('Both arguments are optional.')
+    console.log()
+    console.log('Version:')
+    console.log('  --version, -v               Show version number')
     console.log(
       'If no project directory is specified, Codebuff will use the current directory.'
     )
     console.log(
       'If an initial prompt is provided, it will be sent as the first user input.'
+    )
+    console.log()
+    console.log('Project Creation:')
+    console.log(
+      '  --create <template> [name]      Create new project from template'
+    )
+    console.log(
+      '                                  Example: codebuff --create nextjs my-app'
+    )
+    console.log('                                  See all templates at:')
+    console.log(
+      '                                  https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates'
+    )
+    console.log()
+    console.log('Performance Options:')
+    console.log(
+      '  --lite                          Use budget models & fetch fewer files'
+    )
+    console.log(
+      '  --max                           Use higher quality models and fetch more files'
+    )
+    console.log()
+    console.log('Git Integration:')
+    console.log(
+      '  --git stage                     Stage changes from last message'
     )
     console.log()
     console.log(
@@ -67,5 +143,5 @@ if (require.main === module) {
     process.exit(0)
   }
 
-  codebuff(projectPath, { initialInput, autoGit })
+  codebuff(projectPath, { initialInput, git, costMode })
 }

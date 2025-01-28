@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-typecheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      # Common must be built first because other packages reference it
+      - name: Build "common" package
+        run: bun run --cwd common build
+
+      - name: Build "code-map" package
+        run: bun run --cwd packages/code-map build
+
+      - name: Build "backend" package
+        run: bun run --cwd backend typecheck-this-package
+
+      - name: Build "npm-app" package
+        run: bun run --cwd npm-app typecheck-this-package
+
+      - name: Build "web" package
+        run: bun run --cwd web typecheck-this-package

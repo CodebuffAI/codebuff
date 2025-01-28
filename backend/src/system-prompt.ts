@@ -8,16 +8,44 @@ import {
 } from 'common/util/file'
 import { buildArray } from 'common/util/array'
 import { truncateString } from 'common/util/string'
-import { STOP_MARKER } from 'common/constants'
-import { countTokensJson } from './util/token-counter'
+import { CostMode, STOP_MARKER } from 'common/constants'
+import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
 import { sortBy, sum, uniq } from 'lodash'
 import { filterObject, removeUndefinedProps } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 
-export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
+export function getSearchSystemPrompt(
+  fileContext: ProjectFileContext,
+  costMode: CostMode,
+  messagesTokens: number
+) {
   const { fileVersions } = fileContext
   const shouldDoPromptCaching = false // fileVersions.length > 1
+
+  const maxTokens = costMode === 'lite' ? 64_000 : 200_000
+  const miscTokens = 20_000
+  const systemPromptTokenBudget = maxTokens - messagesTokens - miscTokens
+
+  const projectFilesPromptContent = getProjectFilesPromptContent(
+    fileContext,
+    true
+  )
+  const filesTokens = countTokensJson(projectFilesPromptContent)
+
+  const gitChangesPrompt = getGitChangesPrompt(fileContext)
+  const fileTreeTokenBudget =
+    systemPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)
+
+  const projectFileTreePrompt = getProjectFileTreePrompt(
+    fileContext,
+    costMode,
+    fileTreeTokenBudget
+  )
+  const fileTreeTokens = countTokensJson(projectFileTreePrompt)
+
+  const systemInfoPrompt = getSystemInfoPrompt(fileContext)
+  const systemInfoTokens = countTokens(systemInfoPrompt)
 
   const systemPrompt = buildArray(
     {
@@ -25,28 +53,28 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
       cache_control: shouldDoPromptCaching
         ? { type: 'ephemeral' as const }
         : undefined,
-      text: [
-        getProjectFileTreePrompt(fileContext),
-        getSystemInfoPrompt(fileContext),
-      ].join('\n\n'),
+      text: [projectFileTreePrompt, systemInfoPrompt].join('\n\n'),
     },
-    ...getProjectFilesPromptContent(fileContext, shouldDoPromptCaching),
+    ...projectFilesPromptContent,
     {
       type: 'text' as const,
       cache_control: shouldDoPromptCaching
         ? { type: 'ephemeral' as const }
         : undefined,
-      text: [getGitChangesPrompt(fileContext)].join('\n\n'),
+      text: [gitChangesPrompt].join('\n\n'),
     }
   )
 
   logger.debug(
     {
-      fileTokenCounts: countTokensJson(fileContext.fileVersions),
+      filesTokens,
+      fileTreeTokens,
+      systemInfoTokens,
       fileVersions: fileContext.fileVersions.map((files) =>
         files.map((f) => f.path)
       ),
       systemPromptTokens: countTokensJson(systemPrompt),
+      messagesTokens,
     },
     'search system prompt tokens'
   )
@@ -54,11 +82,49 @@ export function getSearchSystemPrompt(fileContext: ProjectFileContext) {
   return systemPrompt
 }
 
-export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
+export const getAgentSystemPrompt = (
+  fileContext: ProjectFileContext,
+  costMode: CostMode,
+  messagesTokens: number
+) => {
   const { fileVersions } = fileContext
   const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
-  const projectFileTreePrompt = getProjectFileTreePrompt(fileContext)
+  const maxTokens = costMode === 'lite' ? 64_000 : 200_000
+  const miscTokens = 15_000
+  const agentPromptTokenBudget = maxTokens - messagesTokens - miscTokens
+  const projectFilesPromptContent = getProjectFilesPromptContent(
+    fileContext,
+    true
+  )
+  const filesTokens = countTokensJson(projectFilesPromptContent)
+
+  const gitChangesPrompt = getGitChangesPrompt(fileContext)
+  const fileTreeTokenBudget =
+    agentPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)
+
+  const projectFileTreePrompt = getProjectFileTreePrompt(
+    fileContext,
+    costMode,
+    fileTreeTokenBudget
+  )
+  const fileTreeTokens = countTokensJson(projectFileTreePrompt)
+  const maybeProjectFileTreePrompt =
+    // For large projects, don't include file tree in agent context.
+    fileTreeTokens < (costMode === 'lite' ? 2_500 : 10_000)
+      ? projectFileTreePrompt
+      : null
+  const maybeFileTreeTokens = maybeProjectFileTreePrompt ? fileTreeTokens : 0
+
+  const systemInfoPrompt = getSystemInfoPrompt(fileContext)
+  const systemInfoTokens = countTokens(systemInfoPrompt)
+
+  const responseFormatPrompt = getResponseFormatPrompt(
+    fileContext,
+    files,
+    costMode
+  )
+  const responseFormatTokens = countTokens(responseFormatPrompt)
 
   const systemPrompt = buildArray(
     {
@@ -69,29 +135,29 @@ export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
         editingFilesPrompt,
         knowledgeFilesPrompt,
         toolsPrompt,
-        // For large projects, don't include file tree in agent context.
-        projectFileTreePrompt.length < 40_000 ? projectFileTreePrompt : null,
-        getSystemInfoPrompt(fileContext)
+        maybeProjectFileTreePrompt,
+        systemInfoPrompt
       ).join('\n\n'),
     },
-    ...getProjectFilesPromptContent(fileContext, true),
+    ...projectFilesPromptContent,
     {
       type: 'text' as const,
       // cache_control: { type: 'ephemeral' as const },
-      text: buildArray(
-        getGitChangesPrompt(fileContext),
-        getResponseFormatPrompt(fileContext, files)
-      ).join('\n\n'),
+      text: buildArray(gitChangesPrompt, responseFormatPrompt).join('\n\n'),
     }
   )
 
   logger.debug(
     {
-      totalFileTokens: countTokensJson(fileContext.fileVersions),
+      filesTokens,
+      fileTreeTokens: maybeFileTreeTokens,
+      systemInfoTokens,
+      responseFormatTokens,
       fileVersions: fileContext.fileVersions.map((files) =>
         files.map((f) => f.path)
       ),
       systemPromptTokens: countTokensJson(systemPrompt),
+      messagesTokens,
     },
     'agent system prompt tokens'
   )
@@ -120,12 +186,14 @@ The user may have edited files since your last change. Please try to notice and 
 You implement edits by writing out <edit_file> blocks. The user does not need to see this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <edit_file> block.
 
 To create a new file, or to overwrite an existing file, simply provide a edit_file block with the file path as an xml attribute and the file contents:
-${createFileBlock('path/to/new/file.tsx', '// Entire file contents here')}
+${createFileBlock('path/to/new/file.tsx', '// Entire file contents here, without any placeholder comments like "# ... rest of the file is the same..."')}
 
-If the file already exists, this will overwrite the file with the new contents. Make sure to write out the entire file in this case. Do not truncate the file with comments like "// Rest of the component stays exactly the same...".
+If the file already exists, this will overwrite the file with the new contents. Make sure to write out the entire file in this case. Do not truncate the file with comments like "// Rest of the component stays exactly the same..." or "# ... Rest of the file is the same...". This format for editing a file is generally not preferred unless the file is short.
 
-Instead of rewriting the entire file, there is a second format that is preferred: use pairs of SEARCH/REPLACE blocks to indicate the specific lines you are changing from the existing file.
+Instead of rewriting the entire file, there is a second format that is preferred most often: use pairs of SEARCH/REPLACE blocks to indicate the specific lines you are changing from the existing file.
 Rather than creating multiple <edit_file> blocks for a single file, you must combine these into a single <edit_file> block that uses multiple SEARCH/REPLACE blocks. Restated: You should try hard to put all the SEARCH/REPLACE blocks for a single file into a single <edit_file> block.
+
+This is the favored editing format for most changes. Please use SEARCH/REPLACE blocks almost all the time to make changes!
 
 Example: the following adds a deleteComment handler to the API
 ${createFileBlock(
@@ -206,6 +274,8 @@ Each knowledge file should develop over time into a concise but rich repository 
 
 Make sure you edit knowledge files by using <edit_file> blocks. Do not write out their contents outside of <edit_file> blocks.
 
+There is a special class of user knowledge files that are stored in the user's home directory, e.g. \`~/.knowledge.md\`. These files are available to be read, but you cannot edit them because they are outside of the project directory. Do not try to edit them with <edit_file> blocks or otherwise.
+
 Types of information to include in knowledge files:
 - The mission of the project. Goals, purpose, and a high-level overview of the project.
 - Explanations of how different parts of the codebase work or interact.
@@ -242,12 +312,15 @@ const toolsPrompt = `
 
 You have access to the following tools:
 - <tool_call name="find_files">[DESCRIPTION_OF_FILES]</tool_call>: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
-- <tool_call name="read_files">[LIST_OF_FILE_PATHS]</tool_call>: Provide a list of file paths to read, separated by newlines. The file paths must be the full path relative to the project root directory. Prefer using this tool over find_files when you know the exact file(s) you want to read.
+- <tool_call name="read_files">[LIST_OF_FILE_PATHS]</tool_call>: Provide a list of file paths to read, separated by newlines. The file paths must be relative to the project root directory. Prefer using this tool over find_files when you know the exact file(s) you want to read.
+- <tool_call name="code_search">[PATTERN]</tool_call>: Search for the given pattern in the project directory. Use this tool to search for code in the project, like function names, class names, variable names, types, where a function is called from, where it is defined, etc.
+- <tool_call name="plan_complex_change">[PROMPT]</tool_call>: Plan a complex change to the codebase, like implementing a new feature or refactoring some code. Provide a clear, specific problem statement folllowed by additional context that is relevant to the problem in the tool call body. Use this tool to solve a user request that is not immediately obvious or requires more than a few lines of code.
 - <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
 - <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
 
 Important notes:
 - Immediately after you write out a tool call, you should write ${STOP_MARKER}, and then do not write out any other text. You will automatically be prompted to continue with the result of the tool call.
+- Do not write out a tool call within another tool call block.
 - Do not write out a tool call within an <edit_file> block. If you want to read a file before editing it, write the <tool_call> first. Similarly, do not write a tool call to run a terminal command within an <edit_file> block.
 - You can freely explain what tools you have available, but do not write out <tool_call name="..." />" unless you are actually intending to call the tool, otherwise you will accidentally be calling the tool when explaining it.
 
@@ -277,44 +350,109 @@ Feel free to use this tool as much as needed to read files that would be relevan
 
 However, do not use this tool to read files that you already have in context. Do not repeat reading calls that you have already read.
 
+Make sure the file paths are relative to the project root directory, not absolute paths like "C:\\Users\\my-project\\example.ts". Also ensure that the path includes all intermediate directories to the file.
+
+## Code search
+
+Use the <tool_call name="code_search">...</tool_call> tool to search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool.
+
+Purpose: Search through code files to find files with specific text patterns, function names, variable names, and more.
+
+Examples:
+<tool_call name="code_search">foo</tool_call>
+<tool_call name="code_search">import.*foo</tool_call>
+
+Note: quotes will be automatically added around your code search pattern. You might need to escape special characters like '-' or '.' or '\' if you want to search for them.
+
+Use cases:
+1. Finding all references to a function, class, or variable name across the codebase
+2. Searching for specific code patterns or implementations
+3. Looking up where certain strings or text appear
+4. Finding files that contain specific imports or dependencies
+5. Locating configuration settings or environment variables
+
+The pattern supports regular expressions and will search recursively through all files in the project by default. Some tips:
+- Be as constraining in the pattern as possible to limit the number of files returned, e.g. if searching for the definition of a function, use "(function foo|const foo)" or "def foo" instead of merely "foo".
+- Use word boundaries (\b) to match whole words only
+- Searches file content and filenames
+- Automatically ignores binary files, hidden files, and files in .gitignore
+- Case-sensitive by default. Use -i to make it case insensitive.
+- Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
+
+Do not use code_search when:
+- You already know the exact file location
+- You want to load the contents of files (use find_files instead)
+- You're inside an <edit_file> block
+
+## Plan complex change
+
+When you need a detailed technical plan for complex changes, use the plan_complex_change tool. This tool leverages O1's deep reasoning capabilities to break down difficult problems into clear implementation steps.
+
+Format:
+- First line must be a clear, specific problem statement
+- Additional lines provide context. Please be generous in providing any context that could help solve the problem.
+
+Example problem statement & context:
+Add rate limiting to all API endpoints
+Current system has no rate limiting. Need to prevent abuse while allowing legitimate traffic. Should use Redis to track request counts.
+
+Use cases:
+1. Implementing features
+2. Planning refactoring operations
+3. Making architectural decisions
+4. Breaking down difficult problems into steps
+5. When you seem to be stuck and need
+
+Best practices:
+- Make problem statement specific and actionable
+- Include relevant constraints in context
+- Use for complex changes that need careful planning
+- Don't use for simple changes or quick decisions
+
 ## Running terminal commands
 
 You can write out <tool_call name="run_terminal_command">...</tool_call> to execute shell commands in the user's terminal. This can be useful for tasks such as:
 
 Purpose: Better fulfill the user request by running terminal commands in the user's terminal and reading the standard output.
 
+Warning: Use this tool sparingly. You should only use it when you are sure it is the best way to accomplish the user's request. Do not run more commands than the user has asked for. Especially be careful with commands that could have permanent effects.
+
 Use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors.
-2. Running test scripts (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
+2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\` or \`rm\`.
-4. Installing dependencies (e.g., "npm install <package-name>"). Be sure to use the right package manager for the project.
-5. Running grep (or equivalent in Windows) or find to search code to find references or token definitions. This will help you locate the right file.
-6. Running scripts. Check the package.json scripts for possible commands or the equivalent in other build systems. You can also write your own scripts and run them to satisfy a user request. Be careful about running scripts that have permanent effects -- ask for explicit permission from the user before running them.
+4. Installing dependencies (e.g., "npm install <package-name>"). Be careful with this command -- not everyone wants packages installed without permission. Check the knowledge files for specific instructions, and also be sure to use the right package manager for the project (e.g. it might be \`pnpm\` or \`bun\` or \`yarn\` instead of \`npm\`, or \`pip\` for python, etc.).
+5. Running scripts. Check the package.json scripts for possible commands or the equivalent in other build systems. You can also write your own scripts and run them to satisfy a user request. Be extremely careful about running scripts that have permanent effects -- ask for explicit permission from the user before running them.
 
 Do not use the run_terminal_command tool to create or edit files. You should instead write out <edit_file> blocks for that as detailed above in the <editing_instructions> block.
 
 The current working directory will always reset to project root directory for each command you run. You can only access files within this directory (or sub-directories).
 
+There is a 30 second timeout for each command you run. Do not run commands that would take longer than 30 seconds to complete. Some commands, like starting a server, would never complete, so do not run them.
+
 When using this tool, keep the following guidelines in mind:
 
-1. Be cautious with commands that can modify the file system or have significant side effects. In that case, explain to the user what the command will do before executing it.
-2. Don't run git commit or git rebase or related commands unless you get explicit permission from the user.
-3. If a command might be dangerous or have unintended consequences, ask for the user's permission first.
-4. Do not run scripts that could run against the production environment or have permanent effects without explicit permission from the user.
-5. Try not to run too many commands in a row without pausing to check in with what the user wants to do next.
-6. Do not modify files outside of the project directory.
-7. Don't run long-running commands, e.g. \`npm run dev\` that starts a server and does not exit. Only run commands that will complete quickly, because you the user will have to wait for the command to finish.
+1. Don't run commands that can modify files outside of the project directory, install packages globally, install virtual environments, or have significant side effects, unless you have explicit permission from the user.
+2. Do not run \`git push\` because it can break production (!) if the user was not expecting it. Don't run \`git commit\`, \`git rebase\`, or related commands unless you get explicit permission. If a user asks to commit changes, you can do so, but you should not invoke any further git commands beyond the git commit command.
+3. Do not run scripts that could run against the production environment or have permanent effects without explicit permission from the user. Don't run scripts with side effects without permission from the user unless they don't have much effect or are simple.
+4. Be careful with any command that has big or irreversible effects. Anything that touches a production environment, servers, the database, or other systems that could be affected by a command should be run with explicit permission from the user.
+4. Don't run too many commands in a row without pausing to check in with what the user wants to do next.
+5. Don't run long-running commands, e.g. \`npm run dev\` or \`npm start\`, that start a server and do not exit. Only run commands that will complete within 30 seconds, because longer commands will be killed. Instead, ask the user to manually run long-running commands.
 
 ## Web scraping
 
 Scrape any url that could help address the user's request.
 `.trim()
 
-export const getProjectFileTreePrompt = (fileContext: ProjectFileContext) => {
+export const getProjectFileTreePrompt = (
+  fileContext: ProjectFileContext,
+  costMode: CostMode,
+  fileTreeTokenBudget: number
+) => {
   const { currentWorkingDirectory } = fileContext
   const { printedTree } = truncateFileTreeBasedOnTokenBudget(
     fileContext,
-    80_000
+    Math.min(Math.max(0, fileTreeTokenBudget), 100_000)
   )
   return `
 # Project file tree
@@ -336,6 +474,11 @@ Note: the project file tree is cached from the start of this conversation.
 `.trim()
 }
 
+const windowsNote = `
+Note: many commands in the terminal are different on Windows.
+For example, the mkdir command is \`mkdir\` instead of \`mkdir -p\`. Instead of grep, use \`findstr\`. Instead of \`ls\` use \`dir\` to list files. Instead of \`mv\` use \`move\`. Instead of \`rm\` use \`del\`. Instead of \`cp\` use \`copy\`. Unless the user is in Powershell, in which case you should use the Powershell commands instead.
+`.trim()
+
 const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
   const { fileTree, shellConfigFiles, systemInfo } = fileContext
   const flattenedNodes = flattenTree(fileTree)
@@ -345,6 +488,7 @@ const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
 # System Info
 
 Operating System: ${systemInfo.platform}
+${systemInfo.platform === 'win32' ? windowsNote + '\n' : ''}
 Shell: ${systemInfo.shell}
 
 <user_shell_config_files>
@@ -364,17 +508,24 @@ const getProjectFilesPromptContent = (
   fileContext: ProjectFileContext,
   shouldDoPromptCaching: boolean
 ) => {
-  const { fileVersions } = fileContext
+  const { fileVersions, userKnowledgeFiles } = fileContext
 
-  const fileBlockSets = fileVersions
-    .filter((files) => files.length > 0)
-    .map((files) =>
-      files
-        .map(({ path, content }) =>
-          createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
-        )
-        .join('\n')
-    )
+  const userKnowledgeFilesSet = Object.entries(userKnowledgeFiles ?? {}).map(
+    ([path, content]) =>
+      createMarkdownFileBlock(`~/${path}`, content ?? '[FILE_DOES_NOT_EXIST]')
+  )
+  const fileBlockSets = [
+    ...userKnowledgeFilesSet,
+    ...fileVersions
+      .filter((files) => files.length > 0)
+      .map((files) =>
+        files
+          .map(({ path, content }) =>
+            createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
+          )
+          .join('\n')
+      ),
+  ]
 
   const intro = `
 # Project files
@@ -439,12 +590,41 @@ ${truncateString(gitChanges.lastCommitMessages, maxLength / 10)}
 
 const getResponseFormatPrompt = (
   fileContext: ProjectFileContext,
-  files: string[]
+  files: string[],
+  costMode: CostMode
 ) => {
-  const hasKnowledgeFiles = Object.keys(fileContext.knowledgeFiles).length > 0
+  const hasKnowledgeFiles =
+    Object.keys(fileContext.knowledgeFiles).length > 0 ||
+    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
   return `
 # Response format
 
+${
+  costMode === 'max'
+    ? `## 0. Invoke the plan_complex_change tool
+
+Consider using the plan_complex_change tool when the user's request meets multiple of these criteria:
+- Requires changes across multiple files or systems
+- Involves complex logic or architectural decisions
+- Would benefit from breaking down into smaller steps
+- Has potential edge cases or risks that need consideration
+- Requires careful coordination of changes
+- Could impact performance or security
+
+Examples of when to use it:
+- Adding a new feature that touches multiple parts of the system
+- Refactoring core functionality used by many components
+- Making architectural changes that affect the system design
+- Implementing complex business logic with many edge cases
+
+Do not use it for simple changes like:
+- Adding a single function or endpoint
+- Updating text or styles
+- Simple bug fixes
+- Configuration changes
+`
+    : ''
+}
 ## 1. Edit files & run terminal commands
 
 Respond to the user's request by editing files and running terminal commands as needed. The goal is to make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more. When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.

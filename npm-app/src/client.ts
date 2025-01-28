@@ -1,4 +1,13 @@
-import { yellow, red, green, bold } from 'picocolors'
+import {
+  yellow,
+  red,
+  green,
+  bold,
+  blue,
+  cyan,
+  underline,
+  blueBright,
+} from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
   getFiles,
@@ -24,7 +33,9 @@ import {
   CREDITS_REFERRAL_BONUS,
   CREDITS_USAGE_LIMITS,
   TOOL_RESULT_MARKER,
+  type CostMode,
 } from 'common/constants'
+import * as readline from 'readline'
 
 import { uniq } from 'lodash'
 import path from 'path'
@@ -32,6 +43,10 @@ import * as fs from 'fs'
 import { match, P } from 'ts-pattern'
 import { calculateFingerprint } from './fingerprint'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
+import { stagePatches } from 'common/util/git'
+import { GitCommand } from './types'
+import { displayGreeting } from './menu'
+import { spawn } from 'child_process'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -39,7 +54,9 @@ export class Client {
   private currentUserInputId: string | undefined
   private returnControlToUser: () => void
   private fingerprintId: string | undefined
+  private costMode: CostMode
   public fileVersions: FileVersion[][] = []
+  public fileContext: ProjectFileContext | undefined
 
   public user: User | undefined
   public lastWarnedPct: number = 0
@@ -49,22 +66,36 @@ export class Client {
   public lastRequestCredits: number = 0
   public sessionCreditsUsed: number = 0
   public nextQuotaReset: Date | null = null
+  private git: GitCommand
+  private rl: readline.Interface
 
   constructor(
     websocketUrl: string,
     chatStorage: ChatStorage,
     onWebSocketError: () => void,
-    returnControlToUser: () => void
+    onWebSocketReconnect: () => void,
+    returnControlToUser: () => void,
+    costMode: CostMode,
+    git: GitCommand,
+    rl: readline.Interface
   ) {
-    this.webSocket = new APIRealtimeClient(websocketUrl, onWebSocketError)
+    this.costMode = costMode
+    this.git = git
+    this.webSocket = new APIRealtimeClient(
+      websocketUrl,
+      onWebSocketError,
+      onWebSocketReconnect
+    )
     this.chatStorage = chatStorage
     this.user = this.getUser()
     this.getFingerprintId()
     this.returnControlToUser = returnControlToUser
+    this.rl = rl
   }
 
   public initFileVersions(projectFileContext: ProjectFileContext) {
     const { knowledgeFiles } = projectFileContext
+    this.fileContext = projectFileContext
     this.fileVersions = [
       Object.entries(knowledgeFiles).map(([path, content]) => ({
         path,
@@ -150,15 +181,16 @@ export class Client {
         fingerprintHash: this.user.fingerprintHash,
       })
 
-      // delete credentials file
-      fs.unlinkSync(CREDENTIALS_PATH)
-      console.log(`Logged you out of your account (${this.user.name})`)
-      this.user = undefined
+      // attempt to delete credentials file
+      try {
+        fs.unlinkSync(CREDENTIALS_PATH)
+        console.log(`Logged you out of your account (${this.user.name})`)
+        this.user = undefined
+      } catch (error) {}
     }
   }
 
   async login(referralCode?: string) {
-    this.logout()
     this.webSocket.sendAction({
       type: 'login-code-request',
       fingerprintId: await this.getFingerprintId(),
@@ -216,6 +248,14 @@ export class Client {
 
       const filesChanged = uniq(changes.map((change) => change.filePath))
       this.chatStorage.saveFilesChanged(filesChanged)
+
+      // Stage files about to be changed if flag was set
+      if (this.git === 'stage' && changes.length > 0) {
+        const didStage = stagePatches(getProjectRoot(), changes)
+        if (didStage) {
+          console.log(green('\nStaged previous changes'))
+        }
+      }
 
       applyChanges(getProjectRoot(), changes)
 
@@ -277,25 +317,38 @@ export class Client {
         )
       }
     })
-    let shouldRequestLogin = false
+    let shouldRequestLogin = true
     this.webSocket.subscribe(
       'login-code-response',
       async ({ loginUrl, fingerprintHash }) => {
         const responseToUser = [
-          'Please visit the following URL to log in:',
           '\n',
-          loginUrl,
-          '\n',
-          'See you back here after you finish logging in 👋',
+          'Press Enter to open the browser or visit:\n',
+          bold(underline(blueBright(loginUrl))),
         ]
+
         console.log(responseToUser.join('\n'))
+        this.rl.on('line', () => {
+          if (shouldRequestLogin) {
+            spawn(`open ${loginUrl}`, {
+              shell: true,
+            })
+          }
+        })
 
         // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
         const initialTime = Date.now()
-        shouldRequestLogin = true
         const handler = setInterval(async () => {
-          if (Date.now() - initialTime > 300000 || !shouldRequestLogin) {
+          if (Date.now() - initialTime > 60 * 1000 && shouldRequestLogin) {
             shouldRequestLogin = false
+            console.log(
+              'Unable to login. Please try again by typing "login" in the terminal.'
+            )
+            clearInterval(handler)
+            return
+          }
+
+          if (!shouldRequestLogin) {
             clearInterval(handler)
             return
           }
@@ -309,10 +362,12 @@ export class Client {
       }
     )
 
-    this.webSocket.subscribe('auth-result', (action) => {
+    this.webSocket.subscribe('auth-result', async (action) => {
       shouldRequestLogin = false
 
       if (action.user) {
+        await this.logout() // remove existing user, if it exists
+
         this.user = action.user
 
         // Store in config file
@@ -322,16 +377,19 @@ export class Client {
           CREDENTIALS_PATH,
           JSON.stringify({ default: action.user })
         )
+        const referralLink = `${process.env.NEXT_PUBLIC_APP_URL}/referrals`
         const responseToUser = [
-          'Authentication successful!',
-          `Welcome, ${action.user.name}. Your credits have been increased by ${CREDITS_USAGE_LIMITS.FREE / CREDITS_USAGE_LIMITS.ANON}x to ${CREDITS_USAGE_LIMITS.FREE.toLocaleString()} per month. Happy coding!`,
-          `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month each: ${process.env.NEXT_PUBLIC_APP_URL}/referrals`,
+          'Authentication successful! 🎉',
+          bold(`Hey there, ${action.user.name}.`),
+          `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month for each of them: ${blueBright(referralLink)}`,
         ]
-        console.log(responseToUser.join('\n'))
+        console.log('\n' + responseToUser.join('\n'))
         this.lastWarnedPct = 0
 
-        this.getUsage()
-        // this.returnControlToUser()
+        displayGreeting(this.costMode, null)
+
+        this.returnControlToUser()
+        // this.getUsage()
       } else {
         console.warn(
           `Authentication failed: ${action.message}. Please try again in a few minutes or contact support at ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL}.`
@@ -371,7 +429,7 @@ export class Client {
       if (this.subscription_active) {
         console.warn(
           yellow(
-            `You have exceeded your monthly quota, but feel free to keep using Codebuff! We'll charge you a discounted rate ($0.90/100) credits until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/usage for more details.`
+            `You have exceeded your monthly quota, but feel free to keep using Codebuff! We'll continue to charge you for the overage until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/usage for more details.`
           )
         )
         this.lastWarnedPct = 100
@@ -432,6 +490,7 @@ export class Client {
       currentFileVersion,
       this.fileVersions
     )
+    this.fileContext = fileContext
     this.webSocket.sendAction({
       type: 'user-input',
       userInputId,
@@ -440,6 +499,7 @@ export class Client {
       changesAlreadyApplied: previousChanges,
       fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
+      costMode: this.costMode,
     })
   }
 
@@ -488,7 +548,7 @@ export class Client {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
-      if (!streamStarted) {
+      if (!streamStarted && chunk.trim()) {
         streamStarted = true
         onStreamStart()
       }

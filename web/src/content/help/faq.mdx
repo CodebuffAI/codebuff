@@ -1,0 +1,54 @@
+---
+title: 'FAQ'
+section: 'help'
+tags: ['faq', 'introduction']
+order: 2
+---
+
+# FAQ
+
+## What can Codebuff be used for?
+
+Our users use Codebuff to write frontend and backend code in every major language across frameworks. It can write features, tests, and scripts, and more.
+
+You can also use Codebuff to run CLI commands, configure your build, review your code, or answer questions on your codebase.
+
+## What should I try first?
+
+Try tinkering with a simple project from one of our [starter templates](https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates) or [community showcase](https://github.com/CodebuffAI/codebuff-community/tree/main/showcase), e.g.:
+
+```bash
+codebuff --create nextjs my-app
+```
+
+Or:
+
+```bash
+codebuff --create minecraft-simple
+```
+
+## Do you store my data?
+
+We don't store your codebase. Mostly our server is a thin client that passes data along to OpenAI and Anthropic. We store logs of your chats temporarily to help us debug. We also store portions of your chat history in our database. Soon, we plan to support a Privacy Mode where no data at all is stored.
+
+## Can I trust Codebuff with full access to my terminal?
+
+None of our users have had significant issues so far. However, if you prefer an extra layer of safety, we made a [Dockerfile](https://github.com/CodebuffAI/codebuff-docker) that you can use. It'll set up Codebuff in an environment that's isolated from your filesystem and only has the code you want to share.
+
+## Can I specify custom instructions for Codebuff?
+
+Yes! We recommend you create knowledge.md files to give Codebuff more context about your codebase, like you're introducing it to another engineer. All file names ending in knowledge.md are loaded into context automatically, and you can use the files to do your own prompt engineering for Codebuff.
+
+If you do not have a knowledge.md file, Codebuff typically will not create one, but it will update existing knowledge.md files autonomously. The Codebuff codebase currently has a knowledge.md in almost every directory.
+
+## Can I tell Codebuff to ignore certain files?
+
+Codebuff by default will not read files that are specified in your .gitignore. You can also create a '.codebuffignore' file to specify additional files or folders to ignore.
+
+## Why does Codebuff cost more?
+
+Compared to alternatives, Codebuff does more LLM calls using more examples from your codebase, leading to better code edits.
+
+## I have more questions!
+
+We're happy to answer! Contact us at [support@codebuff.com](mailto:support@codebuff.com) or [join our Discord](https://discord.gg/mcWTGjgTj3)!

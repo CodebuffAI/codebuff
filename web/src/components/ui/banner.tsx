@@ -3,9 +3,11 @@
 import { Button } from './button'
 import { X, Gift } from 'lucide-react'
 import { Suspense, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 import { useSearchParams } from 'next/navigation'
+import posthog from 'posthog-js'
 import { sponseeConfig } from '@/lib/constant'
 
 function BannerContent() {
@@ -13,8 +15,9 @@ function BannerContent() {
   const searchParams = useSearchParams()
   const utmSource = searchParams.get('utm_source')
   const referrer = searchParams.get('referrer')
+  const { data: session } = useSession()
 
-  if (!isVisible) return null
+  if (!isVisible || !session?.user) return null
 
   const isYouTubeReferral =
     utmSource === 'youtube' && referrer && referrer in sponseeConfig
@@ -44,6 +47,12 @@ function BannerContent() {
                   : '/referrals'
               }
               className="underline hover:text-blue-200"
+              onClick={() => {
+                posthog.capture('referral_banner.clicked', {
+                  type: isYouTubeReferral ? 'youtube' : 'general',
+                  source: referrer || undefined,
+                })
+              }}
             >
               Learn more
             </Link>

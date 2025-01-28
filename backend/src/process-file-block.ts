@@ -7,13 +7,13 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { openaiModels } from 'common/constants'
+import { CostMode, openaiModels } from 'common/constants'
 import { promptOpenAI } from './openai-api'
 import {
   createSearchReplaceBlock,
   cleanMarkdownCodeBlock,
 } from 'common/util/file'
-import { safeReplace } from 'common/util/string'
+import { hasLazyEdit, safeReplace } from 'common/util/string'
 
 export async function processFileBlock(
   clientSessionId: string,
@@ -24,6 +24,7 @@ export async function processFileBlock(
   fullResponse: string,
   filePath: string,
   newContent: string,
+  costMode: CostMode,
   userId: string | undefined
 ): Promise<FileChange | null> {
   if (newContent.trim() === '[UPDATED_BY_ANOTHER_ASSISTANT]') {
@@ -81,6 +82,7 @@ export async function processFileBlock(
       await retryDiffBlocksPrompt(
         filePath,
         normalizedOldContent,
+        costMode,
         clientSessionId,
         fingerprintId,
         userInputId,
@@ -102,10 +104,36 @@ export async function processFileBlock(
     updatedContent = safeReplace(updatedContent, searchContent, replaceContent)
   }
 
+  const outputHasLazyEdit =
+    hasLazyEdit(updatedContent) && !hasLazyEdit(normalizedOldContent)
+
   const outputHasReplaceBlocks =
     updatedContent.includes('<<<<<<< SEARCH') ||
     updatedContent.includes('>>>>>>> REPLACE')
-  if (outputHasReplaceBlocks) {
+
+  if (outputHasLazyEdit) {
+    logger.debug(
+      {
+        filePath,
+        newContent,
+        oldContent,
+        diffBlocks,
+      },
+      `processFileBlock: ERROR 6623380: Output has rest of blocks for ${filePath}`
+    )
+    updatedContent = await applyRemainingChanges(
+      oldContent,
+      normalizedNewContent,
+      filePath,
+      fullResponse,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      costMode,
+      true
+    )
+  } else if (outputHasReplaceBlocks) {
     logger.debug(
       {
         filePath,
@@ -124,7 +152,9 @@ export async function processFileBlock(
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId
+      userId,
+      costMode,
+      false
     )
   } else if (updatedDiffBlocksThatDidntMatch.length > 0) {
     const changes = updatedDiffBlocksThatDidntMatch
@@ -140,7 +170,9 @@ export async function processFileBlock(
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId
+      userId,
+      costMode,
+      false
     )
   }
 
@@ -185,7 +217,9 @@ async function applyRemainingChanges(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined
+  userId: string | undefined,
+  costMode: CostMode,
+  hasLazyEdit: boolean
 ) {
   const prompt = `
 You will be helping to rewrite a file with changes.
@@ -201,7 +235,7 @@ Here's the current content of the file:
 ${updatedContent}
 \`\`\`
 
-The following changes were intended for this file but could not be applied using exact string matching. Note that each change is represented as a SEARCH string found in the current file that is intended to be replaced with the REPLACE string. Often the SEARCH string will contain extra lines of context to help match a location in the file.
+${hasLazyEdit ? 'Please ignore any comments with "..." and preserve the original content of the file.' : 'The following changes were intended for this file but could not be applied using exact string matching. Note that each change is represented as a SEARCH string found in the current file that is intended to be replaced with the REPLACE string. Often the SEARCH string will contain extra lines of context to help match a location in the file.'}
 
 ${changes}
 
@@ -221,7 +255,7 @@ Return only the full, complete file content with no additional text or explanati
       fingerprintId,
       userInputId,
       userId,
-      model: openaiModels.gpt4omini,
+      model: costMode === 'max' ? openaiModels.gpt4o : openaiModels.gpt4omini,
       predictedContent: updatedContent,
     }
   )

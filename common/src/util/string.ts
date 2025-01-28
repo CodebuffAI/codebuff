@@ -7,6 +7,16 @@ export const truncateString = (str: string, maxLength: number) => {
   return str.slice(0, maxLength) + '...'
 }
 
+export const truncateStringWithMessage = (
+  str: string,
+  maxLength: number,
+  message: string = 'TRUNCATED_DUE_TO_LENGTH'
+) => {
+  return str.length > maxLength
+    ? str.slice(0, maxLength) + `\n[...${message}]`
+    : str
+}
+
 export const replaceNonStandardPlaceholderComments = (
   content: string,
   replacement: string
@@ -96,6 +106,11 @@ export const pluralize = (count: number, word: string) => {
  * Safely replaces all occurrences of a search string with a replacement string,
  * escaping special replacement patterns (like $) in the replacement string.
  */
+export const capitalize = (str: string): string => {
+  if (!str) return str
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
+}
+
 export const safeReplace = (
   content: string,
   searchStr: string,
@@ -103,4 +118,35 @@ export const safeReplace = (
 ): string => {
   const escapedReplaceStr = replaceStr.replace(/\$/g, '$$$$')
   return content.replace(searchStr, escapedReplaceStr)
+}
+
+export const hasLazyEdit = (content: string) => {
+  const cleanedContent = content.toLowerCase().trim()
+
+  return (
+    cleanedContent.includes('// rest of the') ||
+    cleanedContent.includes('# rest of the') ||
+    // Match various comment styles with ellipsis and specific words
+    /\/\/\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
+      cleanedContent
+    ) || // C-style single line
+    /\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\//.test(
+      cleanedContent
+    ) || // C-style multi-line
+    /#\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
+      cleanedContent
+    ) || // Python/Ruby style
+    /<!--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*-->/.test(
+      cleanedContent
+    ) || // HTML style
+    /--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
+      cleanedContent
+    ) || // SQL/Haskell style
+    /%\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
+      cleanedContent
+    ) || // MATLAB style
+    /{\s*\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\/\s*}/.test(
+      cleanedContent
+    ) // JSX style
+  )
 }

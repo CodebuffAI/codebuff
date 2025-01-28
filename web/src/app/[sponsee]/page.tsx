@@ -16,7 +16,7 @@ export default function SponseePage({
 }: {
   params: { sponsee: string }
 }) {
-  const sponseeName = params['sponsee']
+  const sponseeName = params['sponsee'].toLowerCase()
 
   const searchParams = useSearchParams()
 

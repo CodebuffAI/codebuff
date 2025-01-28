@@ -68,9 +68,21 @@ If you want to set up Codebuff for local development:
 
 2. Create a new `.env` file in the root directory. Copy the `.env.example` file and fill in the values for your environment.
 
-3. Run `bun install` to install the dependencies. (See [here](https://bun.sh/docs/installation) for instructions on how to install Bun.)
+3. Install dependencies and build packages in order:
+   ```bash
+   # Build common package
+   cd common && bun install && bun run build
 
-4. To start both the server and client, use the provided script:
+   # Build code-map package
+   cd ../packages/code-map && bun install && bun run build
+
+   # Build npm-app
+   cd ../npm-app && bun install && bun run build
+   ```
+
+4. Run `bun install` in the root directory to install remaining dependencies. (See [here](https://bun.sh/docs/installation) for instructions on how to install Bun.)
+
+5. To start both the server and client, use the provided script:
 
    ```
    chmod +x start-dev.sh

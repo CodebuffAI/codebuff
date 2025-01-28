@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
 import Image from 'next/image'
 import { Session } from 'next-auth'
 import { signOut } from 'next-auth/react'
-import { handleCreateCheckoutSession } from '@/lib/stripe'
+import posthog from 'posthog-js'
 import { useRouter } from 'next/navigation'
+import { env } from '@/env.mjs'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 export const UserDropdown = ({ session: { user } }: { session: Session }) => {
-  const [isPending, setIsPending] = useState(false)
   const router = useRouter()
 
   return (
@@ -45,25 +44,27 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
             height={100}
           />
           <h2 className="py-2 text-lg font-bold">{user?.name}</h2>
-          <Button
-            onClick={() => handleCreateCheckoutSession(setIsPending)}
-            disabled={user?.subscription_active || isPending}
-            className="w-64"
-          >
-            {user?.subscription_active ? (
-              <p>You are on the pro tier!</p>
-            ) : (
-              <>
-                {isPending && (
-                  <Icons.loader className="mr-2 size-4 animate-spin" />
-                )}
-                Upgrade to pro
-              </>
-            )}
-          </Button>
+          {user?.subscription_active ? (
+            <Button
+              onClick={() => window.location.href = `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(user?.email ?? '')}`}
+              className="w-64"
+            >
+              Manage Billing
+            </Button>
+          ) : (
+            <Button
+              onClick={() => router.push('/pricing')}
+              className="w-64"
+            >
+              Upgrade to pro
+            </Button>
+          )}
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => signOut()}>
+        <DropdownMenuItem onClick={() => {
+          posthog.capture('auth.logout_completed')
+          signOut()
+        }}>
           <Icons.logOut className="mr-2 size-4" /> <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

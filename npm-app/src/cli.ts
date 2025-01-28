@@ -1,14 +1,26 @@
 import { uniq } from 'lodash'
+import { getAllFilePaths } from 'common/project-file-tree'
 import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
 import { green, red, yellow, underline } from 'picocolors'
 import { parse } from 'path'
 
+function rewriteLine(line: string) {
+  // Only do line rewriting if we have an interactive TTY
+  if (process.stdout.isTTY) {
+    readline.clearLine(process.stdout, 0)
+    readline.cursorTo(process.stdout, 0)
+    process.stdout.write(line)
+  } else {
+    process.stdout.write(line + '\n')
+  }
+}
+
 import { websocketUrl } from './config'
 import { ChatStorage } from './chat-storage'
 import { Client } from './client'
 import { Message } from 'common/actions'
-import { displayMenu } from './menu'
+import { displayGreeting, displayMenu } from './menu'
 import {
   getChangesSinceLastFileVersion,
   getExistingFiles,
@@ -16,26 +28,30 @@ import {
   setFiles,
 } from './project-files'
 import { handleRunTerminalCommand } from './tool-handlers'
+import { isCommandRunning, resetShell } from './utils/terminal'
 import {
   REQUEST_CREDIT_SHOW_THRESHOLD,
   SKIPPED_TERMINAL_COMMANDS,
+  type CostMode,
 } from 'common/constants'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import { FileChanges } from 'common/actions'
 import {
-  stageAllChanges,
   hasStagedChanges,
   commitChanges,
   getStagedChanges,
+  stagePatches,
 } from 'common/util/git'
 import { pluralize } from 'common/util/string'
+import { CliOptions, GitCommand } from './types'
 
 export class CLI {
   private client: Client
   private chatStorage: ChatStorage
   private readyPromise: Promise<any>
-  private autoGit: boolean
+  private git: GitCommand
+  private costMode: CostMode
   private rl: readline.Interface
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
@@ -50,28 +66,70 @@ export class CLI {
 
   constructor(
     readyPromise: Promise<[void, ProjectFileContext]>,
-    { autoGit }: { autoGit: boolean }
+    { git, costMode }: CliOptions
   ) {
-    this.autoGit = autoGit
+    this.git = git
+    this.costMode = costMode
     this.chatStorage = new ChatStorage()
+
+    process.on('exit', () => this.restoreCursor())
+    process.on('SIGTERM', () => {
+      this.restoreCursor()
+      process.exit(0)
+    })
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
       historySize: 1000,
       terminal: true,
+      completer: (line: string) => {
+        if (!this.client.fileContext?.fileTree) return [[], line]
+
+        const tokenNames = Object.values(
+          this.client.fileContext.fileTokenScores
+        ).flatMap((o) => Object.keys(o))
+        const paths = getAllFilePaths(this.client.fileContext.fileTree)
+
+        const lastWord = line.split(' ').pop() || ''
+
+        const matchingTokens = [...tokenNames, ...paths].filter(
+          (token) =>
+            token.startsWith(lastWord) || token.includes('/' + lastWord)
+        )
+        if (matchingTokens.length > 1) {
+          // Find common characters after lastWord
+          const suffixes = matchingTokens.map((token) => {
+            const index = token.indexOf(lastWord)
+            return token.slice(index + lastWord.length)
+          })
+          let commonPrefix = ''
+          const firstSuffix = suffixes[0]
+          for (let i = 0; i < firstSuffix.length; i++) {
+            const char = firstSuffix[i]
+            if (suffixes.every((suffix) => suffix[i] === char)) {
+              commonPrefix += char
+            } else {
+              break
+            }
+          }
+          if (commonPrefix) {
+            // Match the common prefix
+            return [[lastWord + commonPrefix], lastWord]
+          }
+        }
+        return [matchingTokens, lastWord]
+      },
     })
+
     this.client = new Client(
       websocketUrl,
       this.chatStorage,
       this.onWebSocketError.bind(this),
-      () => {
-        this.rl.prompt()
-        this.isReceivingResponse = false
-        if (this.stopResponse) {
-          this.stopResponse()
-        }
-        this.stopLoadingAnimation()
-      }
+      this.onWebSocketReconnect.bind(this),
+      this.returnControlToUser.bind(this),
+      this.costMode,
+      this.git,
+      this.rl
     )
 
     this.readyPromise = Promise.all([
@@ -90,12 +148,21 @@ export class CLI {
     })
 
     this.rl.on('SIGINT', () => {
+      // Kill any running terminal command
+      if (isCommandRunning()) {
+        resetShell()
+      }
+
+      // Clear the line buffer if it exists (readline internal API)
+      if ('line' in this.rl) {
+        (this.rl as any).line = ''
+      }
+
       if (this.isReceivingResponse) {
         this.handleStopResponse()
       } else {
         const now = Date.now()
-        if (now - this.lastSigintTime < 3000) {
-          // 3 second window
+        if (now - this.lastSigintTime < 5000) {
           this.handleExit()
         } else {
           this.lastSigintTime = now
@@ -109,12 +176,44 @@ export class CLI {
       this.handleExit()
     })
 
-    process.stdin.on('keypress', (_, key) => {
+    process.on('SIGTSTP', () => {
+      // Exit on Ctrl+Z
+      this.handleExit()
+    })
+
+    process.stdin.on('keypress', (str, key) => {
       if (key.name === 'escape') {
         this.handleEscKey()
       }
+
+      // Make double spaces into newlines
+      if (
+        str === ' ' &&
+        '_refreshLine' in this.rl &&
+        'line' in this.rl &&
+        'cursor' in this.rl
+      ) {
+        const rl = this.rl as any
+        const { cursor, line } = rl
+
+        const prevTwoChars = cursor > 1 ? line.slice(cursor - 2, cursor) : ''
+
+        if (prevTwoChars === '  ') {
+          rl.line = line.slice(0, cursor - 2) + '\n\n' + line.slice(cursor)
+          rl._refreshLine()
+        }
+      }
       this.detectPasting()
     })
+  }
+
+  private returnControlToUser() {
+    this.rl.prompt()
+    this.isReceivingResponse = false
+    if (this.stopResponse) {
+      this.stopResponse()
+    }
+    this.stopLoadingAnimation()
   }
 
   private onWebSocketError() {
@@ -125,6 +224,11 @@ export class CLI {
       this.stopResponse = null
     }
     console.error(yellow('\nCould not connect. Retrying...'))
+  }
+
+  private onWebSocketReconnect() {
+    console.log(green('\nReconnected!'))
+    this.returnControlToUser()
   }
 
   private detectPasting() {
@@ -164,13 +268,13 @@ export class CLI {
     this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
   }
 
-  public printInitialPrompt(initialInput?: string) {
+  public async printInitialPrompt(initialInput?: string) {
     if (this.client.user) {
-      console.log(
-        `\nWelcome back ${this.client.user.name}! What would you like to do?`
-      )
+      displayGreeting(this.costMode, this.client.user.name)
     } else {
-      console.log(`What would you like to do?\n`)
+      console.log(`Welcome to Codebuff! Let's get your account set up.`)
+      await this.client.login()
+      return
     }
     this.rl.prompt()
     if (initialInput) {
@@ -217,9 +321,16 @@ export class CLI {
       this.stopResponse()
     }
     this.stopLoadingAnimation()
+    this.restoreCursor()
+  }
+
+  private restoreCursor() {
+    // Show cursor ANSI escape code
+    process.stdout.write('\u001B[?25h')
   }
 
   private handleExit() {
+    this.restoreCursor()
     console.log('\n\n')
     console.log(
       `${pluralize(this.client.sessionCreditsUsed, 'credit')} used this session.`
@@ -265,10 +376,10 @@ export class CLI {
   private startLoadingAnimation() {
     const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
     let i = 0
+    // Hide cursor while spinner is active
+    process.stdout.write('\u001B[?25l')
     this.loadingInterval = setInterval(() => {
-      process.stdout.clearLine(0)
-      process.stdout.cursorTo(0)
-      process.stdout.write(green(`${chars[i]} Thinking...`))
+      rewriteLine(green(`${chars[i]} Thinking...`))
       i = (i + 1) % chars.length
     }, 100)
   }
@@ -277,8 +388,8 @@ export class CLI {
     if (this.loadingInterval) {
       clearInterval(this.loadingInterval)
       this.loadingInterval = null
-      process.stdout.clearLine(0)
-      process.stdout.cursorTo(0)
+      rewriteLine('') // Clear the spinner line
+      this.restoreCursor() // Show cursor after spinner stops
     }
   }
 
@@ -375,10 +486,11 @@ export class CLI {
         userInput.toLowerCase().startsWith(command)
       ) &&
         !userInput.includes('error ') &&
+        !userInput.includes("'") &&
         userInput.split(' ').length <= 5)
     ) {
       const withoutRunPrefix = userInput.replace(runPrefix, '')
-      const { result, stdout, stderr } = await handleRunTerminalCommand(
+      const { result, stdout } = await handleRunTerminalCommand(
         { command: withoutRunPrefix },
         'user',
         'user'
@@ -389,7 +501,6 @@ export class CLI {
         return
       } else if (hasRunPrefix) {
         process.stdout.write(stdout)
-        process.stderr.write(stderr)
         this.setPrompt()
         this.rl.prompt()
         return
@@ -398,11 +509,6 @@ export class CLI {
 
     this.startLoadingAnimation()
     await this.readyPromise
-
-    let autoCommitPromise: Promise<string | undefined> | null = null
-    if (this.autoGit) {
-      autoCommitPromise = this.autoCommitChanges()
-    }
 
     const currentChat = this.chatStorage.getCurrentChat()
     const { fileVersions } = currentChat
@@ -441,21 +547,17 @@ export class CLI {
 
     this.stopLoadingAnimation()
 
-    if (this.autoGit) {
-      const commitMessage = await autoCommitPromise
-      if (commitMessage) {
-        console.log(green('\nAutomatically committed changes:'))
-        console.log(`${commitMessage}`)
-      }
-      const changesStaged = stageAllChanges()
-      if (changesStaged) {
-        console.log(green('\nAll previous changes have been staged'))
-      }
-    }
-
     const allChanges = [...changesAlreadyApplied, ...changes]
     const filesChanged = uniq(allChanges.map((change) => change.filePath))
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
+
+    // Stage files about to be changed if flag was set
+    if (this.git === 'stage' && changes.length > 0) {
+      const didStage = stagePatches(getProjectRoot(), changes)
+      if (didStage) {
+        console.log(green('\nStaged previous changes'))
+      }
+    }
 
     const { created, modified } = applyChanges(getProjectRoot(), changes)
     if (created.length > 0 || modified.length > 0) {

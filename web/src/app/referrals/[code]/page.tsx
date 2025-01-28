@@ -11,7 +11,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
-import { sleep } from 'common/util/helpers'
+import { sleep } from 'common/util/promise'
 import { CopyIcon, CheckIcon, GiftIcon } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import type { ReferralCodeResponse } from '@/app/api/referrals/[code]/route'
@@ -135,7 +135,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
             <ol className="list-decimal list-inside space-y-6">
               <li>
                 Install Codebuff globally:
-                <InputWithCopyButton text={'npm i -g codebuff'} />
+                <InputWithCopyButton text={'npm install -g codebuff'} />
               </li>
               <li>
                 Run Codebuff in Terminal

@@ -2,13 +2,16 @@
   "name": "codebuff-tests",
   "version": "1.0.0",
   "description": "Scripts package for Codebuff",
-  "scripts": {},
+  "scripts": {
+    "mrr": "bun calculate-mrr.ts",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "backend": "file:../backend",
     "lodash": "^4.17.21"
   },
   "devDependencies": {
-    "bun-types": "^1.1.26",
+    "@types/bun": "^1.1.16",
     "@types/lodash": "^4.14.195"
   }
 }

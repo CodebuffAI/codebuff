@@ -3,9 +3,10 @@ import {
   createSearchReplaceBlock,
   parseFileBlocks,
 } from 'common/util/file'
-import { models, STOP_MARKER } from 'common/constants'
+import { CostMode, models, STOP_MARKER } from 'common/constants'
 import { promptClaude } from './claude'
 import { logger } from './util/logger'
+import { promptDeepseek } from './deepseek-api'
 
 export const parseAndGetDiffBlocks = (
   response: string,
@@ -177,6 +178,7 @@ const tryToDoStringReplacementWithExtraIndentation = (
 export const retryDiffBlocksPrompt = async (
   filePath: string,
   oldContent: string,
+  costMode: CostMode,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
@@ -196,13 +198,25 @@ ${diffBlocksThatDidntMatch.map((change) => createSearchReplaceBlock(change.searc
 You should:
 1. Use <thinking> blocks to explain what might have gone wrong in these SEARCH/REPLACE blocks that didn't match. The search content needs to match an exact substring of the old file content.
 2. Provide a new set of SEARCH/REPLACE changes to make the intended edit from the old file.`.trim()
-  const response = await promptClaude([{ role: 'user', content: newPrompt }], {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    model: models.sonnet,
-    userId,
-  })
+
+  let response: string
+  if (costMode === 'lite') {
+    response = await promptDeepseek([{ role: 'user', content: newPrompt }], {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: models.deepseekChat,
+      userId,
+    })
+  } else {
+    response = await promptClaude([{ role: 'user', content: newPrompt }], {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: models.sonnet,
+      userId,
+    })
+  }
   const {
     diffBlocks: newDiffBlocks,
     diffBlocksThatDidntMatch: newDiffBlocksThatDidntMatch,

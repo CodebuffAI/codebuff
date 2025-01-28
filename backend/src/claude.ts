@@ -1,6 +1,6 @@
 import { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk'
-import { APIConnectionError } from '@anthropic-ai/sdk'
 import { APIError } from '@anthropic-ai/sdk/error'
+import Anthropic, { APIConnectionError } from '@anthropic-ai/sdk'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from 'common/util/object'
 import { Message } from 'common/actions'
@@ -8,7 +8,7 @@ import { claudeModels, STOP_MARKER } from 'common/constants'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
-import { sleep } from 'common/util/helpers'
+import { sleep } from 'common/util/promise'
 
 const MAX_RETRIES = 3
 const INITIAL_RETRY_DELAY = 1000 // 1 second
@@ -47,9 +47,6 @@ async function* promptClaudeStreamWithoutRetry(
     awsAccessKey: env.AWS_ACCESS_KEY_ID,
     awsSecretKey: env.AWS_SECRET_ACCESS_KEY,
     awsRegion: 'us-west-2',
-    // performanceConfig: {
-    //   latency: 'optimized',
-    // },
     // ...(ignoreDatabaseAndHelicone
     //   ? {}
     //   : {
@@ -69,6 +66,7 @@ async function* promptClaudeStreamWithoutRetry(
   })
 
   const startTime = Date.now()
+
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
       model,
@@ -138,31 +136,34 @@ async function* promptClaudeStreamWithoutRetry(
     }
 
     // End of turn
-    if (type === 'message_delta' && 'usage' in chunk) {
+    if (
+      type === 'message_delta' &&
+      'usage' in chunk &&
+      !ignoreDatabaseAndHelicone
+    ) {
       if (!messageId) {
-        console.error('No messageId found')
+        logger.error('No messageId found')
         break
       }
 
       outputTokens += chunk.usage.output_tokens
-      if (messages.length > 0 && !ignoreDatabaseAndHelicone) {
-        saveMessage({
-          messageId,
-          userId,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          request: messages,
-          model,
-          response: fullResponse,
-          inputTokens,
-          outputTokens,
-          cacheCreationInputTokens,
-          cacheReadInputTokens,
-          finishedAt: new Date(),
-          latencyMs: Date.now() - startTime,
-        })
-      }
+
+      saveMessage({
+        messageId,
+        userId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        request: messages,
+        model,
+        response: fullResponse,
+        inputTokens,
+        outputTokens,
+        cacheCreationInputTokens,
+        cacheReadInputTokens,
+        finishedAt: new Date(),
+        latencyMs: Date.now() - startTime,
+      })
     }
   }
 }
@@ -209,7 +210,7 @@ export const promptClaudeStream = async function* (
   }
 
   throw new Error(
-    `Max retries exceeded. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+    `Sorry, system's a bit overwhelmed. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
   )
 }
 

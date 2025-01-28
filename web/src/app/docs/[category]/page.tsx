@@ -8,6 +8,36 @@ import { useMDXComponent } from 'next-contentlayer/hooks'
 import { Check, Link } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Doc } from '@/types/docs'
+import { sections } from '@/components/docs/doc-sidebar'
+import NextLink from 'next/link'
+
+const DocNavigation = ({ category }: { category: string }) => {
+  const currentIndex = sections.findIndex((s) => s.href === `/docs/${category}`)
+  const prevSection = currentIndex > 0 ? sections[currentIndex - 1] : null
+  const nextSection =
+    currentIndex < sections.length - 1 ? sections[currentIndex + 1] : null
+
+  return (
+    <div className="flex justify-between items-center pt-8 mt-8 border-t">
+      {prevSection && (
+        <NextLink
+          href={prevSection.href}
+          className="flex items-center gap-2 text-muted-foreground hover:text-primary"
+        >
+          ← {prevSection.title}
+        </NextLink>
+      )}
+      {nextSection && (
+        <NextLink
+          href={nextSection.href}
+          className="flex items-center gap-2 text-muted-foreground hover:text-primary ml-auto"
+        >
+          {nextSection.title} →
+        </NextLink>
+      )}
+    </div>
+  )
+}
 
 interface CategoryPageProps {
   params: {
@@ -19,7 +49,7 @@ const DocPage = ({ doc, components }: { doc: Doc; components: any }) => {
   const MDXContent = useMDXComponent(doc.body.code)
 
   return (
-    <article className="prose dark:prose-invert prose-compact">
+    <article className="prose dark:prose-invert prose-compact [&_h1]:scroll-mt-24 [&_h2]:scroll-mt-24 [&_h3]:scroll-mt-24">
       <MDXContent components={components} />
 
       {React.createElement(
@@ -45,6 +75,9 @@ export default function CategoryPage({ params }: CategoryPageProps) {
     CodeDemo: dynamic(() =>
       import('@/components/docs/mdx/code-demo').then((mod) => mod.CodeDemo)
     ),
+    a: dynamic(() =>
+      import('@/components/docs/mdx/custom-link').then((mod) => mod.CustomLink)
+    ),
     h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => {
       // eslint-disable-next-line react-hooks/rules-of-hooks
       const [copied, setCopied] = useState(false)
@@ -63,7 +96,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
       return (
         <div className="group">
           <h1
-            className="inline-block hover:cursor-pointer hover:underline -mb-4"
+            className="inline-block hover:cursor-pointer hover:underline -mb-4 scroll-mt-24"
             onClick={() => {
               if (id) {
                 document
@@ -102,6 +135,8 @@ export default function CategoryPage({ params }: CategoryPageProps) {
       {sortedDocs.map((doc) => (
         <DocPage key={doc.slug} doc={doc} components={components} />
       ))}
+
+      <DocNavigation category={params.category} />
     </div>
   )
 }

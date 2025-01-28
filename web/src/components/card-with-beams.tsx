@@ -20,14 +20,14 @@ const CardWithBeams = ({
     <BackgroundBeams />
 
     <main className="container mx-auto flex flex-col items-center relative z-10">
-      <div className="w-full sm:w-1/2 md:w-1/3">
+      <div className="w-full sm:w-1/2 md:w-2/3">
         <Card>
-          <CardHeader>
+          <CardHeader className="">
             <CardTitle>{title}</CardTitle>
             <CardDescription>{description}</CardDescription>
           </CardHeader>
           {content && (
-            <CardContent className="flex flex-col space-y-2">
+            <CardContent className="flex flex-col items-center space-y-2">
               {content}
             </CardContent>
           )}

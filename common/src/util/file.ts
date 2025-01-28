@@ -38,6 +38,7 @@ export const ProjectFileContextSchema = z.object({
   fileTree: z.array(z.custom<FileTreeNode>()),
   fileTokenScores: z.record(z.string(), z.record(z.string(), z.number())),
   knowledgeFiles: z.record(z.string(), z.string()),
+  userKnowledgeFiles: z.record(z.string(), z.string()).optional(),
   gitChanges: z.object({
     status: z.string(),
     diff: z.string(),
@@ -175,4 +176,17 @@ export const cleanMarkdownCodeBlock = (content: string): string => {
     ? content.replace(/^```(?:[a-zA-Z]+)?\n/, '').replace(/\n```$/, '')
     : content
   return cleanResponse
+}
+
+export function isValidFilePath(path: string) {
+  if (!path) return false
+
+  // Check for whitespace
+  if (/\s/.test(path)) return false
+
+  // Check for invalid characters
+  const invalidChars = /[<>:"|?*\x00-\x1F]/g
+  if (invalidChars.test(path)) return false
+
+  return true
 }
