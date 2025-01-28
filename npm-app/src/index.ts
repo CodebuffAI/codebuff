@@ -45,6 +45,7 @@ if (require.main === module) {
   const createIndex = args.indexOf('--create')
   if (createIndex !== -1) {
     const template = args[createIndex + 1]
+    const projectDir = args[0] !== '--create' ? args[0] : '.'
     const projectName = args[createIndex + 2] || template
 
     if (!template) {
@@ -58,7 +59,7 @@ if (require.main === module) {
       process.exit(1)
     }
 
-    createTemplateProject(template, projectName)
+    createTemplateProject(template, projectDir, projectName)
     process.exit(0)
   }
 
