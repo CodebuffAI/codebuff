@@ -87,7 +87,6 @@ export const RequiredRetryOptionsSchema = z.object({
 
 // Optional configurations that can be added to any action
 export const OptionalBrowserConfigSchema = z.object({
-  headless: z.boolean().optional(),
   timeout: z.number().optional(),
   retryOptions: z
     .object({
@@ -97,14 +96,15 @@ export const OptionalBrowserConfigSchema = z.object({
     })
     .optional(),
   logFilter: LogFilterSchema.optional(),
+  debug: z.boolean().optional(),
 })
 
 // Advanced optional configurations specific to start action
-export const OptionalAdvancedConfigSchema = z.object({
+export const OptionalStartConfigSchema = z.object({
   maxConsecutiveErrors: z.number().optional(),
   totalErrorThreshold: z.number().optional(),
   sessionTimeoutMs: z.number().optional(),
-  debug: z.boolean().optional(),
+  headless: z.boolean().optional(),
 })
 
 // Optional configurations specific to each action type
@@ -162,7 +162,7 @@ export const RequiredBrowserStartActionSchema = z.object({
 // Combined schema
 export const BrowserStartActionSchema = RequiredBrowserStartActionSchema.merge(
   OptionalBrowserConfigSchema
-).merge(OptionalAdvancedConfigSchema)
+).merge(OptionalStartConfigSchema)
 
 export const RequiredBrowserNavigateActionSchema = z.object({
   type: z.literal('navigate'),
@@ -193,6 +193,19 @@ export const BrowserTypeActionSchema = RequiredBrowserTypeActionSchema.merge(
   OptionalBrowserConfigSchema
 ).merge(OptionalTypeConfigSchema)
 
+export const RequiredBrowserScrollActionSchema = z.object({
+  type: z.literal('scroll'),
+})
+
+export const OptionalScrollConfigSchema = z.object({
+  direction: z.enum(['up', 'down']).optional(),
+})
+
+export const BrowserScrollActionSchema =
+  RequiredBrowserScrollActionSchema.merge(OptionalBrowserConfigSchema).merge(
+    OptionalScrollConfigSchema
+  )
+
 export const RequiredBrowserScreenshotActionSchema = z.object({
   type: z.literal('screenshot'),
 })
@@ -216,6 +229,7 @@ const BaseBrowserActionSchema = z.discriminatedUnion('type', [
   BrowserNavigateActionSchema,
   BrowserClickActionSchema,
   BrowserTypeActionSchema,
+  BrowserScrollActionSchema,
   BrowserScreenshotActionSchema,
   BrowserStopActionSchema,
 ])
@@ -233,18 +247,18 @@ export const DiagnosticStepSchema = z.object({
 })
 
 // The 'diagnose' action for multi-step debugging
-export const BrowserDiagnoseActionSchema = z
-  .object({
-    type: z.literal('diagnose'),
-    // Array of steps to run
-    steps: z.array(DiagnosticStepSchema),
-    // Toggle whether to run all steps automatically or step-by-step
-    automated: z.boolean().optional(),
-    // Optional maximum steps/time to run
-    maxSteps: z.number().optional(),
-    sessionTimeoutMs: z.number().optional(),
-  })
-  .merge(OptionalBrowserConfigSchema)
+export const BrowserDiagnoseActionSchema = z.object({
+  type: z.literal('diagnose'),
+  // Array of steps to run
+  steps: z.array(DiagnosticStepSchema),
+  // Toggle whether to run all steps automatically or step-by-step
+  automated: z.boolean().optional(),
+  // Optional maximum steps/time to run
+  maxSteps: z.number().optional(),
+  sessionTimeoutMs: z.number().optional(),
+  // Include optional browser config
+  ...OptionalBrowserConfigSchema.shape,
+})
 
 // Finally, export the complete schema that includes diagnostic actions
 export const BrowserActionSchema = z.discriminatedUnion('type', [
@@ -252,6 +266,7 @@ export const BrowserActionSchema = z.discriminatedUnion('type', [
   BrowserNavigateActionSchema,
   BrowserClickActionSchema,
   BrowserTypeActionSchema,
+  BrowserScrollActionSchema,
   BrowserScreenshotActionSchema,
   BrowserStopActionSchema,
   BrowserDiagnoseActionSchema,
@@ -353,6 +368,8 @@ export function parseBrowserActionXML(xmlString: string): BrowserAction {
 
 export type BrowserResponse = z.infer<typeof BrowserResponseSchema>
 export type BrowserAction = z.infer<typeof BrowserActionSchema>
+
+
 
 /**
  * Parse browser action XML attributes into a typed BrowserAction object

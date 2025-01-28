@@ -471,29 +471,40 @@ The following actions are available through the browser_action tool:
 1. **Start Browser**
    - Starts a new browser session at a specified URL
    - Must be the first action in any debugging sequence
+   - required arguments: url (string)
+   - optional arguments: headless (boolean, defaults to false), maxConsecutiveErrors (number), totalErrorThreshold (number), sessionTimeoutMs (number), debug (boolean)
 
 2. **Navigate**
    - Load a new URL in the current browser window
+   - required arguments: url (string)
+   - optional arguments: waitUntil (boolean)
 
 3. **Click**
-   - Click at specific coordinates on the page
-   - Coordinates must be within viewport bounds (this will be given to you)
+   - Click at specific selectors on the page
+   - required arguments: selector (string), button (string)
+   - optional arguments: waitForNavigation (boolean), button ('left', 'right', 'middle')
 
 4. **Type**
    - Input text via keyboard
    - Useful for form filling
+   - required arguments: selector (string), text (string)
+   - optional arguments: delay (number)
 
 5. **Scroll**
    - Scroll the page up or down by one viewport height
-   - Actions: scroll_up, scroll_down
+   - required arguments: direction ('up', 'down')
 
 6. **Screenshot**
    - Capture the current page state
    - Options for full page or viewport
-
+   - required arguments: none
+   - optional arguments: fullPage (boolean), quality (number), maxScreenshotWidth (number), maxScreenshotHeight (number), screenshotCompression ('jpeg', 'png'), screenshotCompressionQuality (number), compressScreenshotData (boolean)
+   
 7. **Close**
    - End the browser session and cleanup resources
    - Must be the final action in any sequence
+   - required arguments: none
+   - optional arguments: none
 
 ### Response Analysis
 
@@ -502,11 +513,7 @@ After each action, you'll receive:
 2. New console logs since last action
 3. Network requests and responses
 4. JavaScript errors with stack traces
-5. Performance metrics:
-   - Page load time
-   - Memory usage
-   - Error counts (JS, network)
-6. Screenshot (if requested or on error)
+6. Screenshot (if requested)
 
 Use this data to:
 - Verify expected behavior

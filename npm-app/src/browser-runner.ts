@@ -150,6 +150,9 @@ export class BrowserRunner {
         case 'type':
           await this.typeText(action)
           break
+        case 'scroll':
+          await this.scroll(action)
+          break
         case 'screenshot':
           return await this.takeScreenshot(action)
         case 'stop':
@@ -307,6 +310,22 @@ export class BrowserRunner {
     })
   }
 
+  private async scroll(action: Extract<BrowserAction, { type: 'scroll' }>) {
+    if (!this.page) throw new Error('No browser page found; call start first.')
+
+    // Get viewport height
+    const viewport = this.page.viewport()
+    if (!viewport) throw new Error('No viewport found')
+
+    // Default to scrolling down if no direction specified
+    const direction = action.direction ?? 'down'
+    const scrollAmount = direction === 'up' ? -viewport.height : viewport.height
+
+    await this.page.evaluate((amount) => {
+      window.scrollBy(0, amount)
+    }, scrollAmount)
+  }
+
   private async takeScreenshot(
     action: Extract<BrowserAction, { type: 'screenshot' }>
   ): Promise<BrowserResponse> {
@@ -395,14 +414,14 @@ export class BrowserRunner {
         }
 
         // More aggressive optimization steps
-        if (deviceScaleFactor > 0.3) {
+        if (deviceScaleFactor > 0.2) {
           // Reduce scale in smaller steps
-          deviceScaleFactor = Math.max(0.3, deviceScaleFactor - 0.2)
+          deviceScaleFactor = Math.max(0.2, deviceScaleFactor - 0.1)
         }
         // If scale is at minimum, try reducing quality more aggressively
-        else if (screenshotFormat === 'jpeg' && screenshotQuality > 5) {
+        else if (screenshotFormat === 'jpeg' && screenshotQuality > 2) {
           // Reduce quality in larger steps
-          screenshotQuality = Math.max(5, screenshotQuality - 15)
+          screenshotQuality = Math.max(2, screenshotQuality - 20)
         } else {
           // We're out of ways to reduce further
           break
