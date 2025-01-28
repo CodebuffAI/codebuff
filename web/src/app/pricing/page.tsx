@@ -188,21 +188,21 @@ const PricingPage = () => {
           <div className="mt-24 space-y-12">
             {/* Key benefits */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-              <div className="flex flex-col items-center space-y-2 p-6 rounded-xl bg-gray-900/30 border border-gray-800">
+              <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all duration-200">
                 <ZapIcon className="h-8 w-8 text-yellow-500 mb-2" />
-                <h3 className="font-semibold text-lg">Efficient</h3>
-                <p className="text-sm text-muted-foreground text-center">
+                <h3 className="font-semibold text-lg text-gray-900 dark:text-white">Efficient</h3>
+                <p className="text-sm text-gray-600 dark:text-muted-foreground text-center">
                   500 credits = 1 hour coding
                 </p>
               </div>
-              <div className="flex flex-col items-center space-y-2 p-6 rounded-xl bg-gray-900/30 border border-gray-800">
+              <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all duration-200">
                 <SparklesIcon className="h-8 w-8 text-purple-500 mb-2" />
-                <h3 className="font-semibold text-lg">Context-Aware</h3>
-                <p className="text-sm text-muted-foreground text-center">
+                <h3 className="font-semibold text-lg text-gray-900 dark:text-white">Context-Aware</h3>
+                <p className="text-sm text-gray-600 dark:text-muted-foreground text-center">
                   Understands your entire codebase
                 </p>
               </div>
-              <div className="flex flex-col items-center space-y-2 p-6 rounded-xl bg-gray-900/30 border border-gray-800">
+              <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all duration-200">
                 <RefreshCwIcon className="h-8 w-8 text-green-500 mb-2" />
                 <h3 className="font-semibold text-lg">Monthly Reset</h3>
                 <p className="text-sm text-muted-foreground text-center">
