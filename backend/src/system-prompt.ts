@@ -29,7 +29,7 @@ export function getSearchSystemPrompt(
 
   const projectFilesPromptContent = getProjectFilesPromptContent(
     fileContext,
-    true
+    shouldDoPromptCaching
   )
   const filesTokens = countTokensJson(projectFilesPromptContent)
 
@@ -87,6 +87,8 @@ export const getAgentSystemPrompt = (
   costMode: CostMode,
   messagesTokens: number
 ) => {
+  const shouldDoPromptCaching = false
+
   const { fileVersions } = fileContext
   const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
@@ -95,7 +97,7 @@ export const getAgentSystemPrompt = (
   const agentPromptTokenBudget = maxTokens - messagesTokens - miscTokens
   const projectFilesPromptContent = getProjectFilesPromptContent(
     fileContext,
-    true
+    shouldDoPromptCaching
   )
   const filesTokens = countTokensJson(projectFilesPromptContent)
 
