@@ -1,7 +1,10 @@
 import { rgPath } from '@vscode/ripgrep'
 import { green, red, yellow, blue } from 'picocolors'
 import { spawn } from 'child_process'
-import { BrowserActionSchema } from 'common/src/browser-actions'
+import {
+  BrowserActionSchema,
+  BROWSER_DEFAULTS,
+} from 'common/src/browser-actions'
 import { handleBrowserInstruction } from './browser-runner'
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot } from './project-files'
@@ -107,7 +110,11 @@ export const toolHandlers: Record<string, ToolHandler> = {
 
     // Log any browser errors
     if (!response.success && response.error) {
-      console.error(red('browser:error Browser action failed:'), response.error)
+      console.error(
+        red('browser:error'),
+        'Browser action failed:',
+        response.error
+      )
     }
     if (response.logs) {
       response.logs.forEach((log) => {
@@ -135,28 +142,8 @@ export const toolHandlers: Record<string, ToolHandler> = {
       delete response.chunks // Remove chunks after combining
     }
 
-    // If debug mode is enabled and we have a screenshot, save it
-    if (action.debug && response.screenshot) {
-      const screenshotsDir = path.join(getProjectRoot(), '.codebuff', 'screenshots')
-      ensureDirectoryExists(screenshotsDir)
-      
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-      const filename = `screenshot-${timestamp}.jpg`
-      const filepath = path.join(screenshotsDir, filename)
-      
-      fs.writeFileSync(filepath, Buffer.from(response.screenshot, 'base64'))
-      console.log(green(`Saved debug screenshot to ${filepath}`))
-    }
-
-    // Create a clean response without screenshot data to avoid bloating message history
-    const cleanResponse = {
-      ...response,
-      screenshot: response.screenshot
-        ? '[SCREENSHOT_DATA_PREVIOUSLY_VIEWED]'
-        : undefined,
-    }
-
-    return JSON.stringify(cleanResponse)
+    // Send the full response including screenshot
+    return JSON.stringify(response)
   },
 }
 

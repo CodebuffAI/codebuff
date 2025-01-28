@@ -23,9 +23,6 @@ export const BROWSER_DEFAULTS = {
 
   // Screenshot defaults
   fullPage: false,
-  quality: 60,
-  maxScreenshotWidth: 400 as number,
-  maxScreenshotHeight: 400 as number,
   screenshotCompression: 'jpeg' as const,
   screenshotCompressionQuality: 40,
   compressScreenshotData: false,
@@ -123,11 +120,8 @@ export const OptionalTypeConfigSchema = z.object({
 
 export const OptionalScreenshotConfigSchema = z.object({
   fullPage: z.boolean().optional(),
-  quality: z.number().min(0).max(100).optional(),
-  maxScreenshotWidth: z.number().optional(),
-  maxScreenshotHeight: z.number().optional(),
   screenshotCompression: z.enum(['jpeg', 'png']).optional(),
-  screenshotCompressionQuality: z.number().min(0).max(100).optional(),
+  screenshotCompressionQuality: z.number().optional(),
   compressScreenshotData: z.boolean().optional(),
 })
 
@@ -368,8 +362,6 @@ export function parseBrowserActionXML(xmlString: string): BrowserAction {
 
 export type BrowserResponse = z.infer<typeof BrowserResponseSchema>
 export type BrowserAction = z.infer<typeof BrowserActionSchema>
-
-
 
 /**
  * Parse browser action XML attributes into a typed BrowserAction object

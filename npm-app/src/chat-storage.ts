@@ -35,6 +35,30 @@ export class ChatStorage {
   }
 
   addMessage(chat: Chat, message: Message) {
+    // Before adding new message, clean up any screenshots in previous messages
+    // Skip the last message as it may not have been processed by the backend yet
+    const lastIndex = chat.messages.length - 1
+    chat.messages = chat.messages.map((msg, index) => {
+      if (index === lastIndex) {
+        return msg // Preserve the most recent message in its entirety
+      }
+      if (
+        msg.content &&
+        typeof msg.content === 'string' &&
+        msg.content.includes('base64')
+      ) {
+        return {
+          ...msg,
+          content: msg.content.replace(
+            /data:image\/[^;]+;base64,[^"'\s]+/g,
+            '[SCREENSHOT_PLACEHOLDER]'
+          ),
+        }
+      }
+      return msg
+    })
+
+    // Add the new message
     chat.messages.push(message)
     chat.updatedAt = new Date().toISOString()
     this.saveChat(chat)

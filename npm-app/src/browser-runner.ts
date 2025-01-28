@@ -4,6 +4,10 @@ import {
   BrowserResponse,
   BROWSER_DEFAULTS,
 } from 'common/src/browser-actions'
+import * as fs from 'fs'
+import * as path from 'path'
+import { getProjectRoot } from './project-files'
+import { ensureDirectoryExists } from 'common/util/file'
 
 // Single browser instance for the application
 let activeBrowserRunner: BrowserRunner | null = null
@@ -331,163 +335,66 @@ export class BrowserRunner {
   ): Promise<BrowserResponse> {
     if (!this.page) throw new Error('No browser page found; call start first.')
 
-    // For convenience, track the originally requested options or defaults
-    let width = BROWSER_DEFAULTS.maxScreenshotWidth
-    let height = BROWSER_DEFAULTS.maxScreenshotHeight
-    if (action.maxScreenshotWidth !== undefined) {
-      width = action.maxScreenshotWidth
-    }
-    if (action.maxScreenshotHeight !== undefined) {
-      height = action.maxScreenshotHeight
-    }
-
-    // Puppeteer's screenshot "quality" option applies only to jpeg
-    let screenshotFormat =
-      action.screenshotCompression ?? BROWSER_DEFAULTS.screenshotCompression
-    let screenshotQuality =
-      action.screenshotCompressionQuality ??
-      BROWSER_DEFAULTS.screenshotCompressionQuality
-
-    const fullPage = action.fullPage ?? BROWSER_DEFAULTS.fullPage
-
-    // We will attempt multiple tries with decreasing scale or quality
-    // so that final base64 screenshot remains under ~ 4,000 chars (≈ 1000 tokens).
-    const MAX_BASE64_LENGTH = 4000
-    let deviceScaleFactor = 1.0
-
-    // We'll do up to 5 attempts at compression/resizing
-    const MAX_ATTEMPTS = 5
-    let lastBase64Screenshot: string | null = null
-
-    // SAVE the current viewport in case user already set a custom one
-    const originalViewport = await this.page.viewport()
-    const originalWidth = originalViewport?.width ?? width
-    const originalHeight = originalViewport?.height ?? height
-    const originalScaleFactor = originalViewport?.deviceScaleFactor ?? 1
-
-    try {
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        // Adjust page viewport temporarily
-        // We'll scale the viewport so that the actual screenshot is scaled down
-        // if deviceScaleFactor < 1.0
-        const scaledWidth = Math.floor(width * deviceScaleFactor)
-        const scaledHeight = Math.floor(height * deviceScaleFactor)
-
-        await this.page.setViewport({
-          width: scaledWidth,
-          height: scaledHeight,
-          deviceScaleFactor: 1, // We'll rely on literal pixel sizes
-        })
-
-        // Attempt the screenshot
-        lastBase64Screenshot = await this.page.screenshot({
-          fullPage,
-          type: screenshotFormat as 'jpeg' | 'png',
-          quality: screenshotFormat === 'jpeg' ? screenshotQuality : undefined,
-          encoding: 'base64',
-        })
-
-        // Check if we are within our ~1000-token limit
-        if (lastBase64Screenshot.length <= MAX_BASE64_LENGTH) {
-          // Great, we're done
-          if (this.sessionDebug) {
-            this.logs.push({
-              type: 'debug',
-              message: `Screenshot success on attempt ${attempt}, scaleFactor=${deviceScaleFactor}, quality=${screenshotQuality}, size=${lastBase64Screenshot.length} chars`,
-              timestamp: Date.now(),
-              category: 'debug',
-            })
-          }
-          break
-        }
-
-        // If we're too large, try to reduce further
-        if (this.sessionDebug) {
-          if (this.sessionDebug) {
-            this.logs.push({
-              type: 'debug',
-              message: `Screenshot attempt ${attempt} too large: ${lastBase64Screenshot.length} chars (${Math.round(lastBase64Screenshot.length / 4)} tokens). Scale: ${deviceScaleFactor}, Quality: ${screenshotQuality}`,
-              timestamp: Date.now(),
-              category: 'debug',
-            })
-          }
-        }
-
-        // More aggressive optimization steps
-        if (deviceScaleFactor > 0.2) {
-          // Reduce scale in smaller steps
-          deviceScaleFactor = Math.max(0.2, deviceScaleFactor - 0.1)
-        }
-        // If scale is at minimum, try reducing quality more aggressively
-        else if (screenshotFormat === 'jpeg' && screenshotQuality > 2) {
-          // Reduce quality in larger steps
-          screenshotQuality = Math.max(2, screenshotQuality - 20)
-        } else {
-          // We're out of ways to reduce further
-          break
-        }
-      }
-    } finally {
-      // Restore the viewport to original
-      // so subsequent actions aren't stuck with a small scaled viewport
-      await this.page.setViewport({
-        width: originalWidth,
-        height: originalHeight,
-        deviceScaleFactor: originalScaleFactor,
-      })
-    }
-
-    if (!lastBase64Screenshot) {
-      this.logs.push({
-        type: 'warning',
-        message:
-          'Unable to compress screenshot sufficiently below 1000 tokens (~4000 base64 chars). Omitted from response.',
-        timestamp: Date.now(),
-      })
-      return {
-        success: true,
-        logs: this.logs,
-        metrics: await this.collectMetrics(),
-        networkEvents: this.networkEvents,
-      }
-    }
-
-    // Now we have a screenshot under the ~1000-token threshold
-    // We can still chunk it if we want to respect the 200 KB chunk approach
-    const CHUNK_SIZE = 200 * 1024 // 200KB
-    if (lastBase64Screenshot.length <= CHUNK_SIZE) {
-      // Single chunk
-      const metrics = await this.collectMetrics()
-      return {
-        success: true,
-        logs: this.logs,
-        screenshot: lastBase64Screenshot,
-        metrics,
-        networkEvents: this.networkEvents,
-      }
-    }
-
-    // If bigger than 200KB, we still chunk it
-    const chunks = []
-    for (let i = 0; i < lastBase64Screenshot.length; i += CHUNK_SIZE) {
-      chunks.push({
-        id: `chunk-${Math.floor(i / CHUNK_SIZE)}`,
-        total: Math.ceil(lastBase64Screenshot.length / CHUNK_SIZE),
-        index: Math.floor(i / CHUNK_SIZE),
-        data: lastBase64Screenshot.slice(i, i + CHUNK_SIZE),
-      })
-    }
-    this.logs.push({
-      type: 'info',
-      message: `Screenshot split into ${chunks.length} chunk(s). Base64 length=${lastBase64Screenshot.length}`,
-      timestamp: Date.now(),
+    // Take a simple screenshot with fixed settings
+    const screenshot = await this.page.screenshot({
+      fullPage: action.fullPage ?? BROWSER_DEFAULTS.fullPage,
+      type: 'jpeg',
+      quality:
+        action.screenshotCompressionQuality ??
+        BROWSER_DEFAULTS.screenshotCompressionQuality,
+      encoding: 'base64',
     })
+
+    // If debug mode is enabled, save the screenshot
+    if (true) {
+      try {
+        const screenshotsDir = path.join(
+          getProjectRoot(),
+          '.codebuff',
+          'screenshots'
+        )
+        ensureDirectoryExists(screenshotsDir)
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+        const filename = `screenshot-${timestamp}.jpg`
+        const filepath = path.join(screenshotsDir, filename)
+
+        fs.writeFileSync(filepath, Buffer.from(screenshot, 'base64'))
+        this.logs.push({
+          type: 'debug',
+          message: `Saved screenshot to ${filepath}`,
+          timestamp: Date.now(),
+          category: 'debug',
+        })
+
+        // Save metadata
+        const metadataPath = path.join(
+          screenshotsDir,
+          `${timestamp}-metadata.json`
+        )
+        const metadata = {
+          timestamp,
+          format: 'jpeg',
+          quality: 40,
+          fullPage: action.fullPage ?? BROWSER_DEFAULTS.fullPage,
+          metrics: await this.collectMetrics(),
+        }
+        fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2))
+      } catch (error) {
+        this.logs.push({
+          type: 'error',
+          message: `Failed to save screenshot: ${(error as Error).message}`,
+          timestamp: Date.now(),
+          category: 'debug',
+        })
+      }
+    }
 
     const metrics = await this.collectMetrics()
     return {
       success: true,
       logs: this.logs,
-      chunks,
+      screenshot,
       metrics,
       networkEvents: this.networkEvents,
     }

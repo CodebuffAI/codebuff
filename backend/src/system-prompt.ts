@@ -496,7 +496,7 @@ The following actions are available through the browser_action tool:
 
 6. **Screenshot**
    - Capture the current page state
-   - Options for full page or viewport
+   - By default, captures only the visible viewport (fullPage: false)
    - required arguments: none
    - optional arguments: fullPage (boolean), quality (number), maxScreenshotWidth (number), maxScreenshotHeight (number), screenshotCompression ('jpeg', 'png'), screenshotCompressionQuality (number), compressScreenshotData (boolean)
    

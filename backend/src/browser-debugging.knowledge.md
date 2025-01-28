@@ -124,14 +124,18 @@
    - Include stack traces when available
    - Compress screenshots before sending
    - Track all network requests/responses
-   - Monitor memory usage and load times
-   - Screenshot handling:
-     - Multi-step optimization to keep screenshots under 1000 tokens (~4000 base64 chars):
-       1. Start with small default settings (400×400, JPEG 40%)
-       2. If too large, downscale resolution in steps (1.0×, 0.9×, 0.8×, 0.7×, 0.6×, 0.5×, 0.4×, 0.3×, 0.2×)
-       3. If still too large, reduce JPEG quality very aggressively (40%, 20%, 10%, 5%, 2%)
-       4. For PNG requests, can only reduce resolution since no quality option
-       5. After analysis, screenshot data is removed from message history to save tokens
+   - Monitor memory usage and load times     - Screenshot handling:
+       - Simple fixed settings for all screenshots:
+         - JPEG format with 40% quality
+         - Captures only visible viewport by default (fullPage: false)
+         - Screenshot data sent to backend in full
+         - When adding new message to chat, screenshots in previous messages are replaced with '[SCREENSHOT_PLACEHOLDER]'
+         - Most recent message's screenshot is preserved until processed by backend
+         - This ensures backend gets full data when needed while keeping message history small
+     - Debug mode:
+       - When enabled, saves screenshots to .codebuff/screenshots/
+       - Includes metadata JSON with screenshot settings and metrics
+       - Useful for debugging visual issues while keeping message history small
      - Debug mode:
        - When debug flag is enabled, screenshots are saved to .codebuff/screenshots/
        - Filenames include timestamps for easy tracking
@@ -149,6 +153,10 @@
      - Filter by log type/level
      - Filter by category
      - Minimum severity threshold
+   - Log prefixing:
+     - All browser-related logs prefixed with 'browser:' (e.g. 'browser:error', 'browser:debug')
+     - Helps distinguish between browser events and our own debugging output
+     - Color-coded by level: red (error), yellow (warn), blue (info), green (log/debug)
 
 3. **Error Handling**
    - Recover from browser crashes when possible
