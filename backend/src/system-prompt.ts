@@ -641,7 +641,20 @@ If the user is requesting a change that you think has already been made based on
 When adding new packages, use the <tool_call name="run_terminal_command">...</tool_call> tool to install the package rather than editing the package.json file with a guess at the version number to use. This way, you will be sure to have the latest version of the package. Do not install packages globally unless asked by the user (e.g. Don't run \`npm install -g <package-name>\`). Always try to use the package manager associated with the project (e.g. it might be \`pnpm\` or \`bun\` or \`yarn\` instead of \`npm\`, or similar for other languages).
 It's super important to be mindful about getting the current version of packages no matter the language or package manager. In npm, use \`npm install\` for new packages rather than just editing the package.json file, because only running the install command will get the latest version. If adding a package with maven or another package manager, make sure you update the version to the latest rather than just writing out any version number.
 
-Whenever you modify an exported token like a function or class or variable, you should grep to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
+Whenever you modify an exported token like a function or class or variable, you should use the code_search tool to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
+
+If the user's message indicates they want to:
+- Plan out a feature or change
+- Think through a design
+- Get help with ideas or brainstorming
+
+Then you should create a markdown file to capture the planning discussion:
+
+1. Create a file with a descriptive name ending in .md (e.g. feature-name-plan.md or refactor-x-design.md)
+2. Structure the content with clear sections using markdown headings
+3. Include relevant technical details, considerations, and next steps
+4. Focus on capturing the key decisions and rationale
+
 
 ## 2. To complete a response, run commands to check for correctness
 
