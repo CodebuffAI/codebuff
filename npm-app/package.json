@@ -11,7 +11,7 @@
   "scripts": {
     "prebuild": "bun run with-env -- bun clean && cd ../common && bun run build && cd ../packages/code-map && bun run build",
     "build": "tsc && tsc-alias",
-    "postbuild": "mkdir -p dist/common && cp -r ../common/dist/* dist/common && mkdir -p dist/code-map && cp -r ../packages/code-map/dist/* dist/code-map && tsc-alias",
+    "postbuild": "mkdir -p dist/common/src/util && cp -r ../common/dist/* dist/common && mkdir -p dist/code-map && cp -r ../packages/code-map/dist/* dist/code-map && tsc-alias",
     "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
     "prepublishOnly": "bun run build && bun run clean-package.js",
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",

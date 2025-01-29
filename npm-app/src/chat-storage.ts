@@ -35,26 +35,52 @@ export class ChatStorage {
   }
 
   addMessage(chat: Chat, message: Message) {
-    // Before adding new message, clean up any screenshots in previous messages
+    // Before adding new message, clean up any screenshots and logs in previous messages
     // Skip the last message as it may not have been processed by the backend yet
     const lastIndex = chat.messages.length - 1
     chat.messages = chat.messages.map((msg, index) => {
       if (index === lastIndex) {
         return msg // Preserve the most recent message in its entirety
       }
-      // Handle both base64 data in content string and screenshot in JSON
-      if (msg.content) {
-        if (
-          typeof msg.content === 'string' &&
-          msg.content.includes('"screenshot"')
-        ) {
-          return {
-            ...msg,
-            content: msg.content.replace(
-              /"screenshot"\s*:\s*"[^"]+"/g,
-              '"screenshot":"[SCREENSHOT_PLACEHOLDER]"'
-            ),
-          }
+
+      // Helper function to clean up content string
+      const cleanContent = (content: string) => {
+        let result = content
+        if (content.includes('"screenshot"')) {
+          result = result.replace(
+            /"screenshot"\s*:\s*"[^"]+"/g,
+            '"screenshot":"[SCREENSHOT_REMOVED]"'
+          )
+        }
+        if (content.includes('"logs"')) {
+          result = result.replace(
+            /"logs"\s*:\s*\[[^\]]*\]/g,
+            '"logs":[LOGS_REMOVED]'
+          )
+        }
+        return result
+      }
+
+      // Clean up message content
+      if (!msg.content) return msg
+
+      if (Array.isArray(msg.content)) {
+        return {
+          ...msg,
+          content: msg.content.map((contentObj) => {
+            if (contentObj.type === 'tool_result' && contentObj.content) {
+              return {
+                ...contentObj,
+                content: cleanContent(contentObj.content),
+              }
+            }
+            return contentObj
+          }),
+        }
+      } else if (typeof msg.content === 'string') {
+        return {
+          ...msg,
+          content: cleanContent(msg.content),
         }
       }
       return msg

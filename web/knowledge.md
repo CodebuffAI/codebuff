@@ -42,6 +42,12 @@ The authentication system in Codebuff's web application plays a crucial role in 
 
 ## UI Patterns
 
+### HTML Structure in Components
+- Avoid nesting `<p>` tags inside other `<p>` tags - this causes React hydration errors
+- Use `<div>` tags instead of `<p>` tags when nesting is needed
+- This is especially important in card components where content may be nested
+
+
 ### Section Title Gradients
 
 - Use blue-to-purple gradients for hero and call-to-action sections:

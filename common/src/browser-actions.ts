@@ -6,6 +6,7 @@ export const BROWSER_DEFAULTS = {
   headless: true,
   debug: false,
   timeout: 15000, // 15 seconds
+  userDataDir: '.codebuff/browser-profile',
   retryOptions: {
     maxRetries: 3,
     retryDelay: 1000, // 1 second
@@ -178,8 +179,8 @@ const RangeSchema = z.object({
 
 export const RequiredBrowserClickActionSchema = z.object({
   type: z.literal('click'),
-  xRange: RangeSchema,
-  yRange: RangeSchema,
+  // xRange: RangeSchema,
+  // yRange: RangeSchema,
 })
 
 export const BrowserClickActionSchema = RequiredBrowserClickActionSchema.merge(

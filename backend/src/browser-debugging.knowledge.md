@@ -103,11 +103,16 @@
      - Total session duration
      - Memory usage monitoring
 
-5. **Isolation Requirements**
-   - Browser instances must be isolated from user's regular browsing
-   - Each debugging session gets fresh browser instance
-   - Ensures clean state for reproduction attempts
-   - Resources cleaned up after each session
+5. **Profile Management**
+   - Browser profiles stored in `.codebuff/browser-profile`
+   - Persists cookies, local storage and session data
+   - Maintains login state between sessions
+   - Isolated from user's regular browsing
+   - Each debugging session reuses the same profile
+   - Resources cleaned up properly on shutdown
+   - Chrome args prevent restore popup and sandbox issues:
+     - `--restore-last-session=false`: Disables session restore popup
+     - `--no-sandbox`: Prevents permission issues
 
 ## Implementation Guidelines
 
@@ -129,11 +134,15 @@
 
 3. **Browser Selection Strategy**
    - Let Puppeteer handle browser management
-   - If launch fails, run 'npx puppeteer browsers install chrome'
-   - Retry launch after installation
-   - This ensures consistent debugging experience
-   - Avoids complexity of browser detection and compatibility
-   - Uses Puppeteer's built-in Chrome management
+   - If launch fails:
+     1. Run 'npx puppeteer browsers install chrome' to install/update Chrome
+     2. Retry launch after installation
+     3. If retry fails, throw error with details
+   - This ensures:
+     - Chrome stays up to date with Puppeteer version
+     - Consistent debugging experience
+     - Automatic recovery from version mismatches
+     - Uses Puppeteer's built-in Chrome management
 
 4. **Click Action Strategy**
    - AI provides 'targets' string with potential element patterns
@@ -179,8 +188,7 @@
           - Use page.evaluate(() => new Promise(resolve => setTimeout(resolve, ms))) for delays
           - Do not use deprecated page.waitForTimeout()
           - Small delays (100ms) needed after clicks for animations to start
-          - Longer delays (500ms) between retry attempts
-   - Screenshot handling:
+          - Longer delays (500ms) between retry attempts     - Screenshot handling:
        - Simple fixed settings for all screenshots:
          - JPEG format with 40% quality
          - Captures only visible viewport by default (fullPage: false)
@@ -189,6 +197,22 @@
          - Most recent message's screenshot is preserved until processed by backend
          - Handles both base64 data and JSON screenshot keys in message content
          - This ensures backend gets full data when needed while keeping message history small
+     - Debug mode:
+       - When enabled, saves screenshots to .codebuff/screenshots/
+       - Includes metadata JSON with screenshot settings and metrics
+       - Useful for debugging visual issues while keeping message history small
+     - Log handling:
+       - Logs are preserved only in most recent message
+       - Previous messages have their logs replaced with empty arrays
+       - This keeps message sizes small while preserving debugging context
+       - Message content can be either string or array format:
+         - String: Legacy format or simple messages
+         - Array: Structured content like tool calls and results
+       - Use same cleanup logic for both formats to maintain consistency
+       - When cleaning up message content:
+         - Extract shared cleanup logic into helper functions
+         - Apply same transformations to both string and array formats
+         - This prevents bugs from divergent cleanup logic
      - Debug mode:
        - When enabled, saves screenshots to .codebuff/screenshots/
        - Includes metadata JSON with screenshot settings and metrics

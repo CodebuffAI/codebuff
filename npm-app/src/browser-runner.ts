@@ -7,7 +7,7 @@ import {
 } from 'common/src/browser-actions'
 import * as fs from 'fs'
 import * as path from 'path'
-import { getCurrentChatDir } from './project-files'
+import { getCurrentChatDir, getDebugDir } from './project-files'
 import { ensureDirectoryExists } from 'common/util/file'
 
 // Single browser instance for the application
@@ -227,7 +227,6 @@ export class BrowserRunner {
       source: 'tool',
     })
   }
-
   private async startBrowser(
     action: Extract<BrowserAction, { type: 'start' }>
   ) {
@@ -248,13 +247,35 @@ export class BrowserRunner {
     this.consecutiveErrors = 0
     this.totalErrors = 0
 
+    // Set up user data directory for profile persistence
+    const userDataDir = getDebugDir('browser-profile')
+    ensureDirectoryExists(userDataDir)
+
     try {
       this.browser = await puppeteer.launch({
-        defaultViewport: { width: 1080, height: 720 },
+        defaultViewport: { width: 960, height: 720 },
         headless: action.headless ?? BROWSER_DEFAULTS.headless,
+        userDataDir,
+        args: ['--no-sandbox', '--restore-last-session=false']
       })
     } catch (error) {
-      // If launch fails, try installing Chrome and retry
+      // If launch fails, try installing/updating Chrome and retry
+      console.log(
+        'Browser launch failed, attempting to install/update Chrome...'
+      )
+      try {
+        execSync('npx puppeteer browsers install chrome', { stdio: 'inherit' })
+        this.browser = await puppeteer.launch({
+          defaultViewport: { width: 960, height: 720 },
+          headless: action.headless ?? BROWSER_DEFAULTS.headless,
+          userDataDir,
+          args: ['--no-sandbox', '--restore-last-session=false']
+        })
+      } catch (retryError: any) {
+        throw new Error(
+          `Failed to launch browser after install attempt: ${retryError?.message || String(retryError)}`
+        )
+      }
       console.log('Installing Chrome for Puppeteer...')
       execSync('npx puppeteer browsers install chrome', { stdio: 'inherit' })
 

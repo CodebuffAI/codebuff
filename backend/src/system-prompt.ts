@@ -465,7 +465,7 @@ The browser debugging system provides powerful capabilities for interacting with
    - Actions are performed one at a time with analysis between steps
    - Results of each action inform the next step
    - Sessions can be stopped and restarted as needed
-   - IMPORTANT: you are not able to click or interact with the page in real-time, so make sure to ask the user to perform any necessary actions needed in the browser. Clearly describe the actions what you want them to take for you.
+   - IMPORTANT: you are CANNOT click or interact with the page in real-time, so make sure to ask the user to perform any necessary actions needed in the browser. Clearly describe the actions what you want them to take for you.
 
 The following actions are available through the browser_action tool:
 
@@ -473,7 +473,7 @@ The following actions are available through the browser_action tool:
    - Load a new URL in the current browser window
    - IMPORTANT: Unless the user asks to see the webpage themselves or otherwise indicate they need to access it, set the headless mode to true.
    - required arguments: url (string)
-   - optional arguments: waitUntil (boolean), headless (boolean, defaults to true)
+   - optional arguments: waitUntil ('load', 'domcontentloaded', 'networkidle0'), headless (boolean, defaults to true)
 
 2. **Type**
    - Input text via keyboard
