@@ -60,11 +60,12 @@
    - Session Management:
      - Single browser instance for the entire application
      - New browser sessions automatically close previous sessions
-     - Configurable session timeout (default: 5 minutes)
-     - Auto-shutdown when session time exceeded
      - Proper cleanup of browser resources
-     - Important: Session timeout must be consistent between BrowserRunner and BROWSER_DEFAULTS
-     - Use BROWSER_DEFAULTS.sessionTimeoutMs as single source of truth
+     - Important: No session timeouts needed - browser cleanup happens:
+       - When client disconnects
+       - When new browser session starts
+       - On errors via shutdown()
+       - When explicitly requested
    
    - Error Thresholds:
      - Max consecutive errors (default: 3)
@@ -124,7 +125,62 @@
    - Include stack traces when available
    - Compress screenshots before sending
    - Track all network requests/responses
-   - Monitor memory usage and load times     - Screenshot handling:
+   - Monitor memory usage and load times
+
+3. **Browser Selection Strategy**
+   - Let Puppeteer handle browser management
+   - If launch fails, run 'npx puppeteer browsers install chrome'
+   - Retry launch after installation
+   - This ensures consistent debugging experience
+   - Avoids complexity of browser detection and compatibility
+   - Uses Puppeteer's built-in Chrome management
+
+4. **Click Action Strategy**
+   - AI provides 'targets' string with potential element patterns
+   - Browser tries to match elements against these patterns
+   - More resilient than exact selectors
+   - Allows for fuzzy matching and multiple candidates
+   - Better handles dynamic IDs and changing page structure
+   - Uses range-based clicking:
+     1. Takes required xRange and yRange specifying valid click regions
+     2. Automatically chooses click point within specified ranges (currently midpoint)
+     3. Logs chosen coordinates and ranges in debug mode
+     4. Retains helper method getElementCoordinates for reference
+     5. Provides detailed error messages with range information
+     6. Important: When specifying click ranges:
+        - Ranges should be as specific as possible while allowing for UI variations
+        - Consider viewport scaling and responsive layouts when setting ranges
+        - Use debug logging to verify chosen coordinates
+        - Ranges make clicks more resilient to UI changes than exact coordinates
+        - For best reliability:
+          - Prefer smaller ranges when element position is known (e.g. 20px wide)
+          - Use wider ranges for responsive elements that may move (e.g. 100px wide)
+          - Always include some padding around exact coordinates (e.g. ±10px)
+          - Log coordinates in debug mode to verify accuracy
+          - Consider device pixel ratio when specifying ranges
+          - For fixed elements, use narrower ranges (e.g. ±5px)
+          - For dynamic elements, use wider ranges based on how much they move
+        - Important: When passing ranges through XML:
+          - Ranges must be valid JSON strings: '{"min": 100, "max": 120}'
+          - Schema automatically parses JSON strings into objects
+          - This ensures proper serialization through the websocket
+        - Visual verification options:
+          - Set visualVerify: true to enable screenshot comparison
+          - Set visualThreshold (0-1) to control sensitivity (default 0.05)
+          - System will retry clicks up to 3 times if no visual change detected
+          - First click tries center of range, subsequent clicks use random points
+          - Important: Consider performance impact of screenshot comparisons
+          - Threshold guidelines:
+            - 0.05 (5%) works well for most UI changes
+            - Lower (1-2%) for subtle changes like text updates
+            - Higher (10%+) for major layout changes
+            - Consider viewport size when setting threshold
+        - Timing and delays:
+          - Use page.evaluate(() => new Promise(resolve => setTimeout(resolve, ms))) for delays
+          - Do not use deprecated page.waitForTimeout()
+          - Small delays (100ms) needed after clicks for animations to start
+          - Longer delays (500ms) between retry attempts
+   - Screenshot handling:
        - Simple fixed settings for all screenshots:
          - JPEG format with 40% quality
          - Captures only visible viewport by default (fullPage: false)

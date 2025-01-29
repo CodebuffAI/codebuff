@@ -11,10 +11,34 @@ Before running the app, ensure you have the required environment files:
 4. Update knowledge files for significant changes or new features.
 5. Write clear, concise comments and documentation for complex logic.
 
+## Platform-Specific Considerations
+
+Windows developers may encounter different behavior with:
+- TypeScript configuration and type resolution:
+  - Use forward slashes in all paths
+  - Add both local and root node_modules to typeRoots: `["./node_modules/@types", "../node_modules/@types"]`
+  - Node.js types and Bun types may need different resolution strategies
+  - When using __dirname or path.join(), convert Windows backslashes to forward slashes
+  - Do not exclude .mjs files in tsconfig.json - TypeScript needs to process them for proper module resolution
+- Module resolution may require explicit paths in tsconfig.json
+- Some type packages must be installed at both root and package level
+
+## Module Resolution
+
+- Project uses ESM modules (module: "ESNext" in tsconfig.json)
+- Use Bun for running TypeScript files directly
+- Do not use ts-node when ESM modules are involved
+- Important: When importing ES modules:
+  - Use .js extension in imports even for TypeScript files
+  - Set moduleResolution to "bundler" in tsconfig.json
+  - This allows proper resolution of both CommonJS and ESM modules
+
 ## Debug Output
 
 - All debug files stored in `.codebuff/` directory:
   - `chats/`: Chat history and file versions
+    - Chat IDs include timestamp to prevent overwrites
+    - Format: `YYYY-MM-DD_HH-MM-SS_TIMESTAMP_RANDOM`
   - `screenshots/`: Debug screenshots when enabled
   - `messages/`: Message history in messages.json
 - Directories automatically created if they don't exist

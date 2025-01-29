@@ -787,6 +787,13 @@ Pricing information is displayed on the pricing page (`web/src/app/pricing/page.
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
 
+## Testing Protected Routes
+
+Important: When testing protected routes like /usage:
+- Always test both authenticated and unauthenticated states
+- Sign in with GitHub first to see actual data
+- Test with different subscription tiers to verify conditional UI elements
+
 ## Deepseek Integration
 
 When using Deepseek in web API routes:

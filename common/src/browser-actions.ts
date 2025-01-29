@@ -4,6 +4,7 @@ import { z } from 'zod'
 export const BROWSER_DEFAULTS = {
   // Common defaults
   headless: true,
+  debug: false,
   timeout: 15000, // 15 seconds
   retryOptions: {
     maxRetries: 3,
@@ -30,8 +31,6 @@ export const BROWSER_DEFAULTS = {
   // Advanced configuration defaults
   maxConsecutiveErrors: 3,
   totalErrorThreshold: 10,
-  sessionTimeoutMs: 5 * 60 * 1000, // 5 minutes
-  debug: false,
 } as const
 
 /**
@@ -45,6 +44,7 @@ export const LogSchema = z.object({
   stack: z.string().optional(),
   category: z.string().optional(),
   level: z.number().optional(),
+  source: z.enum(['browser', 'tool']).default('tool'),
 })
 
 export const MetricsSchema = z.object({
@@ -100,18 +100,21 @@ export const OptionalBrowserConfigSchema = z.object({
 export const OptionalStartConfigSchema = z.object({
   maxConsecutiveErrors: z.number().optional(),
   totalErrorThreshold: z.number().optional(),
-  sessionTimeoutMs: z.number().optional(),
   headless: z.boolean().optional(),
 })
 
 // Optional configurations specific to each action type
 export const OptionalNavigateConfigSchema = z.object({
   waitUntil: z.enum(['load', 'domcontentloaded', 'networkidle0']).optional(),
+  headless: z.boolean().optional(),
 })
 
 export const OptionalClickConfigSchema = z.object({
   waitForNavigation: z.boolean().optional(),
   button: z.enum(['left', 'right', 'middle']).optional(),
+  // New optional fields for visual verification
+  visualVerify: z.boolean().optional(),
+  visualThreshold: z.number().min(0).max(1).optional(), // fraction from 0..1
 })
 
 export const OptionalTypeConfigSchema = z.object({
@@ -168,9 +171,15 @@ export const BrowserNavigateActionSchema =
     OptionalNavigateConfigSchema
   )
 
+const RangeSchema = z.object({
+  min: z.number(),
+  max: z.number(),
+})
+
 export const RequiredBrowserClickActionSchema = z.object({
   type: z.literal('click'),
-  selector: z.string(),
+  xRange: RangeSchema,
+  yRange: RangeSchema,
 })
 
 export const BrowserClickActionSchema = RequiredBrowserClickActionSchema.merge(
@@ -212,7 +221,6 @@ export const BrowserScreenshotActionSchema =
 export const RequiredBrowserStopActionSchema = z.object({
   type: z.literal('stop'),
 })
-
 export const BrowserStopActionSchema = RequiredBrowserStopActionSchema.merge(
   OptionalBrowserConfigSchema
 )

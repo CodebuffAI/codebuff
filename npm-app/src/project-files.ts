@@ -5,6 +5,16 @@ import { ensureDirectoryExists } from 'common/util/file'
 
 export const CODEBUFF_DIR = '.codebuff'
 
+// Global variables for chat management
+// Initialize chat ID on first import
+export const currentChatId = new Date().toISOString().replace(/:/g, '-')
+
+export function getCurrentChatDir(): string {
+  const dir = path.join(getProjectRoot(), CODEBUFF_DIR, 'chats', currentChatId)
+  ensureDirectoryExists(dir)
+  return dir
+}
+
 export function getDebugDir(...segments: string[]): string {
   const dir = path.join(getProjectRoot(), CODEBUFF_DIR, ...segments)
   ensureDirectoryExists(dir)

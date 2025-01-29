@@ -1,10 +1,12 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import { Message } from 'common/actions'
-import { getExistingFiles, getDebugDir } from './project-files'
+import {
+  getExistingFiles,
+  getCurrentChatDir,
+  currentChatId,
+} from './project-files'
 import { ensureDirectoryExists } from 'common/util/file'
-
-const CHATS_DIR = 'chats'
 
 interface Chat {
   id: string
@@ -12,6 +14,7 @@ interface Chat {
   fileVersions: FileVersion[]
   createdAt: string
   updatedAt: string
+  timestamp: number // Unix timestamp in milliseconds
 }
 
 interface FileVersion {
@@ -19,12 +22,10 @@ interface FileVersion {
 }
 
 export class ChatStorage {
-  private baseDir: string
   private currentChat: Chat
   private currentVersionIndex: number
 
   constructor() {
-    this.baseDir = getDebugDir(CHATS_DIR)
     this.currentChat = this.createChat()
     this.currentVersionIndex = -1
   }
@@ -62,7 +63,6 @@ export class ChatStorage {
     // Add the new message
     chat.messages.push(message)
     chat.updatedAt = new Date().toISOString()
-    this.saveChat(chat)
 
     // Save messages to .codebuff/messages/messages.json
     this.saveMessagesToFile(chat)
@@ -70,10 +70,9 @@ export class ChatStorage {
 
   private saveMessagesToFile(chat: Chat) {
     try {
-      const messagesDir = path.join(this.baseDir, 'messages')
-      ensureDirectoryExists(messagesDir)
+      const chatDir = getCurrentChatDir()
+      const messagesPath = path.join(chatDir, 'messages.json')
 
-      const messagesPath = path.join(messagesDir, 'messages.json')
       const messagesData = {
         id: chat.id,
         messages: chat.messages,
@@ -140,36 +139,15 @@ export class ChatStorage {
   }
 
   private createChat(messages: Message[] = []): Chat {
+    const now = new Date()
     const chat: Chat = {
-      id: this.generateChatId(),
+      id: currentChatId,
       messages,
       fileVersions: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      timestamp: now.getTime(),
     }
-
-    this.saveChat(chat)
     return chat
-  }
-
-  private saveChat(chat: Chat): void {
-    const filePath = this.getFilePath(chat.id)
-    // fs.writeFileSync(filePath, JSON.stringify(chat, null, 2))
-  }
-
-  private generateChatId(): string {
-    const now = new Date()
-    const datePart = now.toISOString().split('T')[0] // YYYY-MM-DD
-    const timePart = now
-      .toISOString()
-      .split('T')[1]
-      .replace(/:/g, '-')
-      .split('.')[0] // HH-MM-SS
-    const randomPart = Math.random().toString(36).substr(2, 5)
-    return `${datePart}_${timePart}_${randomPart}`
-  }
-
-  private getFilePath(chatId: string): string {
-    return path.join(this.baseDir, `${chatId}.json`)
   }
 }

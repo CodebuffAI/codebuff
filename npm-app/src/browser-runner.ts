@@ -1,4 +1,5 @@
 import puppeteer, { Browser, Page, HTTPRequest, HTTPResponse } from 'puppeteer'
+import { execSync } from 'child_process'
 import {
   BrowserAction,
   BrowserResponse,
@@ -6,7 +7,7 @@ import {
 } from 'common/src/browser-actions'
 import * as fs from 'fs'
 import * as path from 'path'
-import { getDebugDir } from './project-files'
+import { getCurrentChatDir } from './project-files'
 import { ensureDirectoryExists } from 'common/util/file'
 
 // Single browser instance for the application
@@ -32,11 +33,11 @@ export class BrowserRunner {
   private consecutiveErrors = 0
   private totalErrors = 0
 
-  // Session configuration
+  constructor() {}
+
+  // Error tracking configuration
   private maxConsecutiveErrors = 3
   private totalErrorThreshold = 10
-  private sessionTimeoutMs = 5 * 60 * 1000 // 5 minutes
-  private sessionDebug = false
   private performanceMetrics: {
     ttfb?: number
     lcp?: number
@@ -54,19 +55,6 @@ export class BrowserRunner {
   private async executeWithRetry(
     action: BrowserAction
   ): Promise<BrowserResponse> {
-    // Check session timeout
-    if (Date.now() - this.startTime > this.sessionTimeoutMs) {
-      const msg = `Session time limit of ${this.sessionTimeoutMs}ms exceeded. Shutting down.`
-      this.logs.push({ type: 'error', message: msg, timestamp: Date.now() })
-      await this.shutdown()
-      return {
-        success: false,
-        error: msg,
-        logs: this.logs,
-        networkEvents: this.networkEvents,
-      }
-    }
-
     const retryOptions = action.retryOptions ?? BROWSER_DEFAULTS.retryOptions
     let lastError: Error | null = null
 
@@ -75,14 +63,6 @@ export class BrowserRunner {
       attempt <= (retryOptions.maxRetries ?? 3);
       attempt++
     ) {
-      if (this.sessionDebug) {
-        this.logs.push({
-          type: 'debug',
-          message: `Executing action: ${JSON.stringify(action)}`,
-          timestamp: Date.now(),
-          category: 'debug',
-        })
-      }
       try {
         const result = await this.executeAction(action)
         // Reset consecutive errors on success
@@ -99,25 +79,33 @@ export class BrowserRunner {
         // Check error thresholds
         if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
           const msg = `Max consecutive errors reached (${this.maxConsecutiveErrors}).`
-          this.logs.push({ type: 'error', message: msg, timestamp: Date.now() })
+          this.logs.push({
+            type: 'error',
+            message: msg,
+            timestamp: Date.now(),
+            source: 'tool',
+          })
           await this.shutdown()
           return {
             success: false,
             error: msg,
             logs: this.logs,
-            networkEvents: this.networkEvents,
           }
         }
 
         if (this.totalErrors >= this.totalErrorThreshold) {
           const msg = `Total error threshold reached (${this.totalErrorThreshold}).`
-          this.logs.push({ type: 'error', message: msg, timestamp: Date.now() })
+          this.logs.push({
+            type: 'error',
+            message: msg,
+            timestamp: Date.now(),
+            source: 'tool',
+          })
           await this.shutdown()
           return {
             success: false,
             error: msg,
             logs: this.logs,
-            networkEvents: this.networkEvents,
           }
         }
         lastError = error
@@ -133,6 +121,7 @@ export class BrowserRunner {
           message: `Retrying action (attempt ${attempt + 1}/${retryOptions.maxRetries})`,
           timestamp: Date.now(),
           category: 'retry',
+          source: 'tool',
         })
       }
     }
@@ -149,7 +138,7 @@ export class BrowserRunner {
           await this.navigate(action)
           break
         case 'click':
-          await this.click(action)
+          console.log('Clicking has not been implemented yet')
           break
         case 'type':
           await this.typeText(action)
@@ -165,7 +154,6 @@ export class BrowserRunner {
             success: true,
             logs: this.logs,
             metrics: await this.collectMetrics(),
-            networkEvents: this.networkEvents,
           }
         default:
           throw new Error(
@@ -178,7 +166,6 @@ export class BrowserRunner {
         success: true,
         logs: this.logs,
         metrics,
-        networkEvents: this.networkEvents,
       }
 
       return response
@@ -188,21 +175,11 @@ export class BrowserRunner {
         success: false,
         error: err?.message ?? String(err),
         logs: this.logs,
-        networkEvents: this.networkEvents,
       }
     }
   }
 
   private logErrorForAnalysis(error: Error) {
-    if (this.sessionDebug) {
-      this.logs.push({
-        type: 'debug',
-        message: `Debug: ${error.stack || error.message}`,
-        timestamp: Date.now(),
-        category: 'debug',
-      })
-    }
-
     // Add helpful hints based on error patterns
     const errorPatterns: Record<string, string> = {
       'not defined':
@@ -237,16 +214,17 @@ export class BrowserRunner {
           message: `Hint: ${hint}`,
           timestamp: Date.now(),
           category: 'hint',
+          source: 'tool',
         })
         break // Stop after first matching pattern
       }
     }
-
     this.logs.push({
       type: 'error',
       message: `Action error: ${error.message}`,
       timestamp: Date.now(),
       stack: error.stack,
+      source: 'tool',
     })
   }
 
@@ -256,54 +234,91 @@ export class BrowserRunner {
     if (this.browser) {
       await this.shutdown()
     }
+    console.log('Starting browser...')
+    // Set start time for session tracking
+    this.startTime = Date.now()
 
     // Update session configuration
     this.maxConsecutiveErrors =
       action.maxConsecutiveErrors ?? BROWSER_DEFAULTS.maxConsecutiveErrors
     this.totalErrorThreshold =
       action.totalErrorThreshold ?? BROWSER_DEFAULTS.totalErrorThreshold
-    this.sessionTimeoutMs =
-      action.sessionTimeoutMs ?? BROWSER_DEFAULTS.sessionTimeoutMs
-    this.sessionDebug = action.debug ?? BROWSER_DEFAULTS.debug
 
     // Reset error counters
     this.consecutiveErrors = 0
     this.totalErrors = 0
 
-    this.browser = await puppeteer.launch({
-      headless: action.headless ?? BROWSER_DEFAULTS.headless,
-      defaultViewport: { width: 1280, height: 800 },
-    })
+    try {
+      this.browser = await puppeteer.launch({
+        defaultViewport: { width: 1080, height: 720 },
+        headless: action.headless ?? BROWSER_DEFAULTS.headless,
+      })
+    } catch (error) {
+      // If launch fails, try installing Chrome and retry
+      console.log('Installing Chrome for Puppeteer...')
+      execSync('npx puppeteer browsers install chrome', { stdio: 'inherit' })
 
+      // Try launching again
+      this.browser = await puppeteer.launch({
+        defaultViewport: { width: 1080, height: 720 },
+        headless: action.headless ?? BROWSER_DEFAULTS.headless,
+      })
+    }
+
+    console.log('Browser started')
     const pages = await this.browser.pages()
     this.page = pages.length > 0 ? pages[0] : await this.browser.newPage()
-
     this.attachPageListeners()
 
     await this.page.goto(action.url, {
       waitUntil: 'networkidle0',
       timeout: action.timeout ?? 15000,
     })
+
+    return {
+      success: true,
+      logs: [
+        {
+          type: 'info',
+          message: `Opened ${action.url} in browser`,
+          timestamp: Date.now(),
+          source: 'tool',
+        },
+      ],
+      networkEvents: [],
+    }
   }
 
   private async navigate(action: Extract<BrowserAction, { type: 'navigate' }>) {
+    if (!this.browser) {
+      await this.startBrowser({
+        ...action,
+        type: 'start',
+      })
+    }
     if (!this.page) throw new Error('No browser page found; call start first.')
     await this.page.goto(action.url, {
       waitUntil: action.waitUntil ?? BROWSER_DEFAULTS.waitUntil,
       timeout: action.timeout ?? BROWSER_DEFAULTS.timeout,
     })
-  }
 
-  private async click(action: Extract<BrowserAction, { type: 'click' }>) {
-    if (!this.page) throw new Error('No browser page found; call start first.')
-    await this.page.click(action.selector, {
-      button: action.button ?? BROWSER_DEFAULTS.button,
+    const screenshotResp = await this.takeScreenshot({
+      ...action,
+      type: 'screenshot',
     })
-    if (action.waitForNavigation ?? BROWSER_DEFAULTS.waitForNavigation) {
-      await this.page.waitForNavigation({
-        waitUntil: 'networkidle0',
-        timeout: action.timeout ?? 15000,
-      })
+
+    return {
+      success: true,
+      logs: [
+        {
+          type: 'info',
+          message: `Navigated to ${action.url}`,
+          timestamp: Date.now(),
+          source: 'tool',
+        },
+        ...screenshotResp.logs,
+      ],
+      networkEvents: [],
     }
   }
 
@@ -328,6 +343,25 @@ export class BrowserRunner {
     await this.page.evaluate((amount) => {
       window.scrollBy(0, amount)
     }, scrollAmount)
+
+    const screenshotResp = await this.takeScreenshot({
+      ...action,
+      type: 'screenshot',
+    })
+
+    return {
+      success: true,
+      logs: [
+        {
+          type: 'info',
+          message: `Scrolled ${direction}`,
+          timestamp: Date.now(),
+          source: 'tool',
+        },
+        ...screenshotResp.logs,
+      ],
+      networkEvents: [],
+    }
   }
 
   private async takeScreenshot(
@@ -346,9 +380,17 @@ export class BrowserRunner {
     })
 
     // If debug mode is enabled, save the screenshot
-    if (true) {
+    if (action.debug) {
+      this.logs.push({
+        type: 'debug',
+        message: `Saving screenshot to disk...`,
+        timestamp: Date.now(),
+        category: 'debug',
+        source: 'tool',
+      })
       try {
-        const screenshotsDir = getDebugDir('screenshots')
+        const screenshotsDir = getCurrentChatDir()
+        ensureDirectoryExists(screenshotsDir)
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
         const filename = `screenshot-${timestamp}.jpg`
@@ -360,6 +402,7 @@ export class BrowserRunner {
           message: `Saved screenshot to ${filepath}`,
           timestamp: Date.now(),
           category: 'debug',
+          source: 'tool',
         })
 
         // Save metadata
@@ -370,7 +413,7 @@ export class BrowserRunner {
         const metadata = {
           timestamp,
           format: 'jpeg',
-          quality: 40,
+          quality: 25,
           fullPage: action.fullPage ?? BROWSER_DEFAULTS.fullPage,
           metrics: await this.collectMetrics(),
         }
@@ -381,6 +424,7 @@ export class BrowserRunner {
           message: `Failed to save screenshot: ${(error as Error).message}`,
           timestamp: Date.now(),
           category: 'debug',
+          source: 'tool',
         })
       }
     }
@@ -391,7 +435,6 @@ export class BrowserRunner {
       logs: this.logs,
       screenshot,
       metrics,
-      networkEvents: this.networkEvents,
     }
   }
 
@@ -406,6 +449,7 @@ export class BrowserRunner {
         type,
         message: msg.text(),
         timestamp: Date.now(),
+        source: 'browser',
       })
     })
 
@@ -416,6 +460,7 @@ export class BrowserRunner {
         message: err.message,
         timestamp: Date.now(),
         stack: err.stack,
+        source: 'browser',
       })
       this.jsErrorCount++
     })
@@ -465,6 +510,7 @@ export class BrowserRunner {
           type: 'error',
           message: `Network error ${status} for ${req.url()}`,
           timestamp: Date.now(),
+          source: 'tool',
         })
       }
     })
@@ -554,10 +600,6 @@ export class BrowserRunner {
   }
 
   async execute(action: BrowserAction): Promise<BrowserResponse> {
-    if (action.type === 'start') {
-      this.startTime = Date.now()
-    }
-
     try {
       const response = await this.executeWithRetry(action)
       response.logs = this.filterLogs(
@@ -573,6 +615,7 @@ export class BrowserRunner {
             'Browser crashed or was closed unexpectedly. Attempting recovery...',
           timestamp: Date.now(),
           category: 'browser',
+          source: 'tool',
         })
 
         // Try to recover by restarting browser
@@ -606,40 +649,13 @@ export class BrowserRunner {
 }
 
 export const handleBrowserInstruction = async (
-  action: BrowserAction,
-  _id: string // Keep parameter for compatibility but don't use it
+  action: BrowserAction
 ): Promise<BrowserResponse> => {
-  // For start action, create new browser if none exists
-  if (action.type === 'start') {
-    if (activeBrowserRunner) {
-      await activeBrowserRunner.shutdown()
-    }
+  // Create new browser if none exists
+  if (!activeBrowserRunner) {
     activeBrowserRunner = new BrowserRunner()
   }
 
-  // Ensure we have an active browser
-  if (!activeBrowserRunner) {
-    return {
-      success: false,
-      error: 'No active browser session. Please start a new session first.',
-      logs: [
-        {
-          type: 'error',
-          message: 'No active browser session',
-          timestamp: Date.now(),
-        },
-      ],
-      networkEvents: [],
-    }
-  }
-
   const response = await activeBrowserRunner.execute(action)
-
-  // Clean up session if browser is stopped or on error
-  if (action.type === 'stop' || !response.success) {
-    await activeBrowserRunner.shutdown()
-    activeBrowserRunner = null
-  }
-
   return response
 }

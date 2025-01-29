@@ -15,6 +15,7 @@ import {
   getProjectFileContext,
   getProjectRoot,
 } from './project-files'
+import { BrowserRunner } from './browser-runner'
 import { applyChanges } from 'common/util/changes'
 import { User } from 'common/util/credentials'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
@@ -67,6 +68,7 @@ export class Client {
   public lastRequestCredits: number = 0
   public sessionCreditsUsed: number = 0
   public nextQuotaReset: Date | null = null
+  private browserRunner: BrowserRunner | null = null
   private git: GitCommand
   private rl: readline.Interface
 
@@ -92,14 +94,16 @@ export class Client {
     this.getFingerprintId()
     this.returnControlToUser = returnControlToUser
     this.rl = rl
-    async exit() {
+    this.browserRunner = new BrowserRunner()
+  }
+
+  async exit() {
     // Clean up browser before exiting
     if (this.browserRunner) {
       await this.browserRunner.shutdown()
     }
     process.exit(0)
   }
-}
 
   public initFileVersions(projectFileContext: ProjectFileContext) {
     const { knowledgeFiles } = projectFileContext
@@ -325,7 +329,6 @@ export class Client {
         )
       }
     })
-
 
     let shouldRequestLogin = true
     this.webSocket.subscribe(

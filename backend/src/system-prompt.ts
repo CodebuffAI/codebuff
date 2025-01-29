@@ -317,7 +317,7 @@ You have access to the following tools:
 - <tool_call name="plan_complex_change">[PROMPT]</tool_call>: Plan a complex change to the codebase, like implementing a new feature or refactoring some code. Provide a clear, specific problem statement folllowed by additional context that is relevant to the problem in the tool call body. Use this tool to solve a user request that is not immediately obvious or requires more than a few lines of code.
 - <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
 - <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
-- <tool_call name="browser_action">[BROWSER_ACTION]</tool_call>: Execute a browser action and return the result. Use this tool to interact with the user's browser and automate tasks like filling out forms, clicking buttons, and navigating to pages.
+- <tool_call name="browser_action">[BROWSER_ACTION]</tool_call>: Execute a browser action and return the result. Use this tool to interact with the user's browser and automate tasks like filling out forms, navigating to pages, and screenshotting for analysis.
 
 Important notes:
 - Immediately after you write out a tool call, you should write ${STOP_MARKER}, and then do not write out any other text. You will automatically be prompted to continue with the result of the tool call.
@@ -465,46 +465,32 @@ The browser debugging system provides powerful capabilities for interacting with
    - Actions are performed one at a time with analysis between steps
    - Results of each action inform the next step
    - Sessions can be stopped and restarted as needed
+   - IMPORTANT: you are not able to click or interact with the page in real-time, so make sure to ask the user to perform any necessary actions needed in the browser. Clearly describe the actions what you want them to take for you.
 
 The following actions are available through the browser_action tool:
 
-1. **Start Browser**
-   - Starts a new browser session at a specified URL
-   - Must be the first action in any debugging sequence
-   - required arguments: url (string)
-   - optional arguments: headless (boolean, defaults to false), maxConsecutiveErrors (number), totalErrorThreshold (number), sessionTimeoutMs (number), debug (boolean)
-
-2. **Navigate**
+1. **Navigate**
    - Load a new URL in the current browser window
+   - IMPORTANT: Unless the user asks to see the webpage themselves or otherwise indicate they need to access it, set the headless mode to true.
    - required arguments: url (string)
-   - optional arguments: waitUntil (boolean)
+   - optional arguments: waitUntil (boolean), headless (boolean, defaults to true)
 
-3. **Click**
-   - Click at specific selectors on the page. Be very general with your selector name patterns, and make sure to reference the codebase for the source of truth. This value is likely to be brittle so we need to cast a wide net to make sure we are clicking the right thing.
-   - required arguments: selector (string), button (string)
-   - optional arguments: waitForNavigation (boolean), button ('left', 'right', 'middle')
-
-4. **Type**
+2. **Type**
    - Input text via keyboard
    - Useful for form filling
    - required arguments: selector (string), text (string)
    - optional arguments: delay (number)
 
-5. **Scroll**
+3. **Scroll**
    - Scroll the page up or down by one viewport height
    - required arguments: direction ('up', 'down')
 
-6. **Screenshot**
+4. **Screenshot**
    - Capture the current page state
    - By default, captures only the visible viewport (fullPage: false)
+   - Each navigation and scroll event will result in a screenshot, so don't ask for one when they occur.
    - required arguments: none
    - optional arguments: fullPage (boolean), quality (number), maxScreenshotWidth (number), maxScreenshotHeight (number), screenshotCompression ('jpeg', 'png'), screenshotCompressionQuality (number), compressScreenshotData (boolean)
-   
-7. **Close**
-   - End the browser session and cleanup resources
-   - Must be the final action in any sequence
-   - required arguments: none
-   - optional arguments: none
 
 ### Response Analysis
 
@@ -523,50 +509,22 @@ Use this data to:
 
 ### Best Practices
 
-1. **Session Management**
-   - Always start with launch and end with close
-   - One browser session at a time
-   - Close browser before switching URLs if not navigable from current page
+**Error Handling**
+  - Monitor console for errors
+  - Check network requests for failed responses
+  - Analyze performance metrics for anomalies
+  - Take screenshots to document issues
 
-2. **Error Handling**
-   - Monitor console for errors
-   - Check network requests for failed responses
-   - Analyze performance metrics for anomalies
-   - Take screenshots to document issues
+**Debugging Flow**
+  - Start with minimal reproduction steps
+  - Collect data at each step
+  - Analyze results before next action
+  - Document findings in knowledge files
+  - Take screenshots to track your changes after each UI change you make
 
-3. **Interaction Safety**
-   - Verify elements exist before clicking
-   - Use appropriate waits after navigation
-   - Check viewport bounds for click coordinates
-   - Clean up resources even after errors
+### Examples
 
-4. **Debugging Flow**
-   - Start with minimal reproduction steps
-   - Collect data at each step
-   - Analyze results before next action
-   - Document findings in knowledge files
-
-### Example Workflow
-
-1. Start browser at local development server:
-\`\`\`
-<tool_call name="browser_action">
-  <type>start</type>
-  <url>http://localhost:3000</url>
-</tool_call>
-\`\`\`
-
-2. Click a button (after analyzing screenshot for coordinates):
-\`\`\`
-<tool_call name="browser_action" >
-  <type>click</type>
-  <selector>button#submit</selector>
-  <waitForNavigation>true</waitForNavigation>
-  <button>left</button>
-</tool_call>
-\`\`\`
-
-3. Type into a form field:
+Type into a form field:
 \`\`\`
 <tool_call name="browser_action">
   <type>type</type>
@@ -576,19 +534,12 @@ Use this data to:
 </tool_call>
 \`\`\`
 
-4. Take screenshot to verify:
+Take screenshot to verify:
 \`\`\`
 <tool_call name="browser_action">
   <type>screenshot</type>
   <fullPage>false</fullPage>
   <quality>80</quality>
-</tool_call>
-\`\`\`
-
-5. Close the session:
-\`\`\`
-<tool_call name="browser_action">
-  <type>close</type>
 </tool_call>
 \`\`\`
 `.trim()

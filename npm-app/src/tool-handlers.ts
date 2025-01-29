@@ -1,17 +1,12 @@
 import { rgPath } from '@vscode/ripgrep'
 import { green, red, yellow, blue } from 'picocolors'
 import { spawn } from 'child_process'
-import {
-  BrowserActionSchema,
-  BROWSER_DEFAULTS,
-} from 'common/src/browser-actions'
+import { BrowserActionSchema } from 'common/src/browser-actions'
 import { handleBrowserInstruction } from './browser-runner'
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './utils/terminal'
 import { truncateStringWithMessage } from 'common/util/string'
-import { ensureDirectoryExists } from 'common/util/file'
-import * as fs from 'fs'
 import * as path from 'path'
 
 export type ToolHandler = (input: any, id: string) => Promise<string>
@@ -106,30 +101,30 @@ export const toolHandlers: Record<string, ToolHandler> = {
   code_search: handleCodeSearch,
   browser_action: async (input, _id) => {
     const action = BrowserActionSchema.parse(input)
-    const response = await handleBrowserInstruction(action, 'singleton')
+    console.log('Executing browser action:', action)
+
+    const response = await handleBrowserInstruction(action)
 
     // Log any browser errors
     if (!response.success && response.error) {
-      console.error(
-        red('browser:error'),
-        'Browser action failed:',
-        response.error
-      )
+      console.error(red(`Browser action failed: ${response.error}`))
     }
     if (response.logs) {
       response.logs.forEach((log) => {
-        switch (log.type) {
-          case 'error':
-            console.error(red('browser:error'), log.message)
-            break
-          case 'warning':
-            console.warn(yellow('browser:warn'), log.message)
-            break
-          case 'info':
-            console.info(blue('browser:info'), log.message)
-            break
-          default:
-            console.log(green('browser:log'), log.message)
+        if (log.source === 'tool') {
+          switch (log.type) {
+            case 'error':
+              console.error(red(log.message))
+              break
+            case 'warning':
+              console.warn(yellow(log.message))
+              break
+            case 'info':
+              console.info(log.message)
+              break
+            default:
+              console.log(log.message)
+          }
         }
       })
     }

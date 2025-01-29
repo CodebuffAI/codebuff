@@ -19,6 +19,56 @@ describe('parseToolCallXml', () => {
     expect(parseToolCallXml('   ')).toEqual({})
   })
 
+  it('should parse coordinate ranges for browser click action', () => {
+    const xml = `
+      <type>click</type>
+      <xRange><min>100</min><max>120</max></xRange>
+      <yRange><min>200</min><max>220</max></yRange>
+      <waitForNavigation>true</waitForNavigation>
+    `
+    const result = parseToolCallXml(xml)
+    expect(result).toEqual({
+      type: 'click',
+      xRange: { min: 100, max: 120 },
+      yRange: { min: 200, max: 220 },
+      waitForNavigation: true
+    })
+  })
+
+  it('should handle nested XML tags in ranges', () => {
+    const xml = `
+      <type>click</type>
+      <xRange>
+        <min>100</min>
+        <max>120</max>
+      </xRange>
+      <yRange>
+        <min>200</min>
+        <max>220</max>
+      </yRange>
+    `
+    const result = parseToolCallXml(xml)
+    expect(result).toEqual({
+      type: 'click',
+      xRange: { min: 100, max: 120 },
+      yRange: { min: 200, max: 220 }
+    })
+  })
+
+  it('should convert numeric values in ranges', () => {
+    const xml = `
+      <type>click</type>
+      <xRange><min>50.5</min><max>75.5</max></xRange>
+      <yRange><min>100</min><max>150</max></yRange>
+    `
+    const result = parseToolCallXml(xml)
+    expect(result).toEqual({
+      type: 'click',
+      xRange: { min: 50.5, max: 75.5 },
+      yRange: { min: 100, max: 150 }
+    })
+  })
+
   it('should convert boolean values', () => {
     const xml = `
       <waitForNavigation>true</waitForNavigation>
