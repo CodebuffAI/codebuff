@@ -1,5 +1,5 @@
 import { BrowserRunner } from '../browser-runner'
-import { BrowserAction } from 'common/src/browser-actions'
+import { BrowserAction } from 'common/browser-actions'
 
 // Add your tests here
 describe('BrowserRunner', () => {

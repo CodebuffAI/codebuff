@@ -4,7 +4,7 @@ import {
   BrowserAction,
   BrowserResponse,
   BROWSER_DEFAULTS,
-} from 'common/src/browser-actions'
+} from 'common/browser-actions'
 import * as fs from 'fs'
 import * as path from 'path'
 import { getCurrentChatDir, getDebugDir } from './project-files'
@@ -256,7 +256,7 @@ export class BrowserRunner {
         defaultViewport: { width: 960, height: 720 },
         headless: action.headless ?? BROWSER_DEFAULTS.headless,
         userDataDir,
-        args: ['--no-sandbox', '--restore-last-session=false']
+        args: ['--no-sandbox', '--restore-last-session=false'],
       })
     } catch (error) {
       // If launch fails, try installing/updating Chrome and retry
@@ -269,7 +269,7 @@ export class BrowserRunner {
           defaultViewport: { width: 960, height: 720 },
           headless: action.headless ?? BROWSER_DEFAULTS.headless,
           userDataDir,
-          args: ['--no-sandbox', '--restore-last-session=false']
+          args: ['--no-sandbox', '--restore-last-session=false'],
         })
       } catch (retryError: any) {
         throw new Error(

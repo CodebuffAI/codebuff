@@ -1,7 +1,7 @@
 import { rgPath } from '@vscode/ripgrep'
 import { green, red, yellow, blue } from 'picocolors'
 import { spawn } from 'child_process'
-import { BrowserActionSchema } from 'common/src/browser-actions'
+import { BrowserActionSchema } from 'common/browser-actions'
 import { handleBrowserInstruction } from './browser-runner'
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot } from './project-files'
