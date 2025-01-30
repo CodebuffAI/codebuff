@@ -92,14 +92,16 @@ export class CLI {
 
         const lastWord = line.split(' ').pop() || ''
 
+        const lastWordLower = lastWord.toLowerCase()
         const matchingTokens = [...tokenNames, ...paths].filter(
           (token) =>
-            token.startsWith(lastWord) || token.includes('/' + lastWord)
+            token.toLowerCase().startsWith(lastWordLower) || 
+            token.toLowerCase().includes('/' + lastWordLower)
         )
         if (matchingTokens.length > 1) {
           // Find common characters after lastWord
           const suffixes = matchingTokens.map((token) => {
-            const index = token.indexOf(lastWord)
+            const index = token.toLowerCase().indexOf(lastWordLower)
             return token.slice(index + lastWord.length)
           })
           let commonPrefix = ''
