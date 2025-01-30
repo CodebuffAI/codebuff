@@ -41,7 +41,6 @@
     "@types/diff": "5.2.1",
     "@vscode/ripgrep": "1.15.9",
     "axios": "1.7.4",
-    "cheerio": "1.0.0",
     "diff": "5.2.0",
     "env-cmd": "^10.1.0",
     "ignore": "5.3.2",

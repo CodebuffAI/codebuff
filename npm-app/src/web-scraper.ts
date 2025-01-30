@@ -1,5 +1,4 @@
 import axios from 'axios'
-import * as cheerio from 'cheerio'
 
 // Global cache for scraped web pages
 const scrapedPagesCache: Record<string, string> = {}
@@ -11,15 +10,14 @@ export async function scrapeWebPage(url: string) {
   }
 
   try {
-    // const response = await axios.get(url)
-    const response = await axios.get(`https://r.jina.ai/${url}`)
-    const content = response.data
-    // const html = response.data
-    // const $ = cheerio.load(html)
-
-    // // Extract the main content (you may need to adjust this selector based on the target websites)
-    // const content = $('body').text()
-
+    let content = ''
+    if (url.startsWith('https://raw.githubusercontent.com/')) {
+      const response = await axios.get(url)
+      content = response.data
+    } else {
+      const response = await axios.get(`https://r.jina.ai/${url}`)
+      content = response.data
+    }
     // Store the scraped content in the cache
     scrapedPagesCache[url] = content
 
