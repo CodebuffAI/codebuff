@@ -445,52 +445,50 @@ Scrape any url that could help address the user's request.
 
 ## Browser Action
 
-The browser debugging system provides powerful capabilities for interacting with web pages, testing functionality, and diagnosing issues. Through Puppeteer-controlled browser automation, you can launch browsers, navigate pages, interact with elements, and collect comprehensive diagnostic data.
+The browser debugging system lets you interact with web pages, testing functionality, and diagnosing issues.
 
-### Key Concepts
+### Use Cases
+- user wants to visually confirm a change in their web-app
+- user is asking about a website's design (e.g. I want the app to look like linear.app)
+- user is debugging their website and there are logs we need to access in the browser console.
 
-1. **Session Management**
-   - Each debugging session starts with a browser launch and ends with browser closure
-   - Sessions are isolated to prevent state interference
-   - Resources are automatically cleaned up on session end
-
-2. **Data Collection**
-   - Console logs (info, warnings, errors)
-   - Network requests and responses
-   - JavaScript errors with stack traces
-   - Performance metrics (load time, memory usage)
-   - Screenshots for visual verification
-
-3. **Flow Control**
-   - Actions are performed one at a time with analysis between steps
-   - Results of each action inform the next step
-   - Sessions can be stopped and restarted as needed
-   - IMPORTANT: you are CANNOT click or interact with the page in real-time, so make sure to ask the user to perform any necessary actions needed in the browser. Clearly describe the actions what you want them to take for you.
+### Data Collection
+- Console logs (info, warnings, errors)
+- Network requests and responses
+- JavaScript errors with stack traces
+- Performance metrics (load time, memory usage)
+- Screenshots for visual verification
 
 The following actions are available through the browser_action tool:
 
 1. **Navigate**
    - Load a new URL in the current browser window
    - IMPORTANT: Unless the user asks to see the webpage themselves or otherwise indicate they need to access it, set the headless mode to true.
-   - required arguments: url (string)
-   - optional arguments: waitUntil ('load', 'domcontentloaded', 'networkidle0'), headless (boolean, defaults to true)
+   - required tags: url (string)
+   - optional tags: waitUntil ('load', 'domcontentloaded', 'networkidle0'), headless (boolean, defaults to true)
+   - example: <tool_call name="browser_action"><type>navigate</type><url>localhost:3000</url><waitUntil>domcontentloaded</waitUntil><headless>true</headless></tool_call>
 
 2. **Type**
    - Input text via keyboard
    - Useful for form filling
-   - required arguments: selector (string), text (string)
-   - optional arguments: delay (number)
+   - required tags: selector (string), text (string)
+   - optional tags: delay (number)
+   - example: <tool_call name="browser_action"><type>type</type><selector>#username</selector><text>admin</text></tool_call>
 
 3. **Scroll**
    - Scroll the page up or down by one viewport height
-   - required arguments: direction ('up', 'down')
+   - required tags: direction ('up', 'down')
+   - example: <tool_call name="browser_action"><type>scroll</type><direction>down</direction></tool_call>
 
 4. **Screenshot**
    - Capture the current page state
    - By default, captures only the visible viewport (fullPage: false)
    - Each navigation and scroll event will result in a screenshot, so don't ask for one when they occur.
-   - required arguments: none
-   - optional arguments: fullPage (boolean), quality (number), maxScreenshotWidth (number), maxScreenshotHeight (number), screenshotCompression ('jpeg', 'png'), screenshotCompressionQuality (number), compressScreenshotData (boolean)
+   - required tags: none
+   - optional tags: fullPage (boolean), quality (number), maxScreenshotWidth (number), maxScreenshotHeight (number), screenshotCompression ('jpeg', 'png'), screenshotCompressionQuality (number), compressScreenshotData (boolean)
+   - example: <tool_call name="browser_action"><type>screenshot</type><fullPage>false</fullPage><quality>80</quality></tool_call>
+
+IMPORTANT: make sure to use the '<tool_call name="browser_action">' xml prefix to match the structure specified in the example as closely as possible.
 
 ### Response Analysis
 
@@ -499,7 +497,7 @@ After each action, you'll receive:
 2. New console logs since last action
 3. Network requests and responses
 4. JavaScript errors with stack traces
-6. Screenshot (if requested)
+6. Screenshot
 
 Use this data to:
 - Verify expected behavior
@@ -509,39 +507,24 @@ Use this data to:
 
 ### Best Practices
 
+**Typical workflow**
+- Navigate to the user's website
+- Scroll to the relevant section
+- Take screenshots and analyze confirm changes
+- Check network requests for anomalies
+
 **Error Handling**
-  - Monitor console for errors
-  - Check network requests for failed responses
-  - Analyze performance metrics for anomalies
-  - Take screenshots to document issues
+- Monitor console for errors
+- Check network requests for failed responses
+- Analyze performance metrics for anomalies
+- Take screenshots to see what's going on
 
 **Debugging Flow**
-  - Start with minimal reproduction steps
-  - Collect data at each step
-  - Analyze results before next action
-  - Document findings in knowledge files
-  - Take screenshots to track your changes after each UI change you make
-
-### Examples
-
-Type into a form field:
-\`\`\`
-<tool_call name="browser_action">
-  <type>type</type>
-  <selector>input#username</selector>
-  <text>my_username</text>
-  <delay>50</delay>
-</tool_call>
-\`\`\`
-
-Take screenshot to verify:
-\`\`\`
-<tool_call name="browser_action">
-  <type>screenshot</type>
-  <fullPage>false</fullPage>
-  <quality>80</quality>
-</tool_call>
-\`\`\`
+- Start with minimal reproduction steps
+- Collect data at each step
+- Analyze results before next action
+- Document findings in knowledge files
+- Take screenshots to track your changes after each UI change you make
 `.trim()
 
 export const getProjectFileTreePrompt = (

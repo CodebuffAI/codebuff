@@ -28,6 +28,7 @@ export class BrowserRunner {
   private jsErrorCount = 0
   private retryCount = 0
   private startTime: number = 0
+  private currentHeadless: boolean = BROWSER_DEFAULTS.headless
 
   // Error tracking
   private consecutiveErrors = 0
@@ -237,6 +238,9 @@ export class BrowserRunner {
     // Set start time for session tracking
     this.startTime = Date.now()
 
+    // Update headless state tracking
+    this.currentHeadless = action.headless ?? BROWSER_DEFAULTS.headless
+
     // Update session configuration
     this.maxConsecutiveErrors =
       action.maxConsecutiveErrors ?? BROWSER_DEFAULTS.maxConsecutiveErrors
@@ -263,26 +267,12 @@ export class BrowserRunner {
       console.log(
         'Browser launch failed, attempting to install/update Chrome...'
       )
-      try {
-        execSync('npx puppeteer browsers install chrome', { stdio: 'inherit' })
-        this.browser = await puppeteer.launch({
-          defaultViewport: { width: 960, height: 720 },
-          headless: action.headless ?? BROWSER_DEFAULTS.headless,
-          userDataDir,
-          args: ['--no-sandbox', '--restore-last-session=false'],
-        })
-      } catch (retryError: any) {
-        throw new Error(
-          `Failed to launch browser after install attempt: ${retryError?.message || String(retryError)}`
-        )
-      }
-      console.log('Installing Chrome for Puppeteer...')
       execSync('npx puppeteer browsers install chrome', { stdio: 'inherit' })
-
-      // Try launching again
       this.browser = await puppeteer.launch({
-        defaultViewport: { width: 1080, height: 720 },
+        defaultViewport: { width: 960, height: 720 },
         headless: action.headless ?? BROWSER_DEFAULTS.headless,
+        userDataDir,
+        args: ['--no-sandbox', '--restore-last-session=false'],
       })
     }
 
@@ -290,11 +280,6 @@ export class BrowserRunner {
     const pages = await this.browser.pages()
     this.page = pages.length > 0 ? pages[0] : await this.browser.newPage()
     this.attachPageListeners()
-
-    await this.page.goto(action.url, {
-      waitUntil: 'networkidle0',
-      timeout: action.timeout ?? 15000,
-    })
 
     return {
       success: true,
@@ -311,12 +296,23 @@ export class BrowserRunner {
   }
 
   private async navigate(action: Extract<BrowserAction, { type: 'navigate' }>) {
-    if (!this.browser) {
+    const requestedHeadless = action.headless ?? BROWSER_DEFAULTS.headless
+
+    // If headless state needs to change, restart browser
+    if (this.browser && requestedHeadless !== this.currentHeadless) {
+      await this.shutdown()
+      await this.startBrowser({
+        ...action,
+        type: 'start',
+        headless: requestedHeadless,
+      })
+    } else if (!this.browser) {
       await this.startBrowser({
         ...action,
         type: 'start',
       })
     }
+
     if (!this.page) throw new Error('No browser page found; call start first.')
     await this.page.goto(action.url, {
       waitUntil: action.waitUntil ?? BROWSER_DEFAULTS.waitUntil,
