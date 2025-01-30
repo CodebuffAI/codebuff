@@ -205,7 +205,7 @@ export const runTerminalCommand = async (
     }
 
     if (commandIsRunning) {
-      throw new Error('Command is already running')
+      resetShell()
     }
 
     commandIsRunning = true

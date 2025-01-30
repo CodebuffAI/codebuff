@@ -155,7 +155,7 @@ export class CLI {
 
       // Clear the line buffer if it exists (readline internal API)
       if ('line' in this.rl) {
-        (this.rl as any).line = ''
+        ;(this.rl as any).line = ''
       }
 
       if (this.isReceivingResponse) {
@@ -188,6 +188,7 @@ export class CLI {
 
       // Make double spaces into newlines
       if (
+        !this.isPasting &&
         str === ' ' &&
         '_refreshLine' in this.rl &&
         'line' in this.rl &&
