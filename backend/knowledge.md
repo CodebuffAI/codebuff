@@ -246,6 +246,11 @@ Important: When saving messages from Claude API:
   - Makes the transformation logic clearer and more focused
   - Easier to test individual cases
   - Use map() to transform arrays of messages when needed
+- Keep transformers simple and focused:
+  - Use const assertions for literal types to ensure type safety
+  - Split complex transformations into smaller, focused functions
+  - Handle edge cases explicitly rather than with complex logic
+  - Prefer immutable transformations that return new objects
 
 ## AI Response Handling
 

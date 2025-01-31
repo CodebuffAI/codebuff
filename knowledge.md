@@ -240,6 +240,11 @@ The referral system is integrated across the web application and the CLI tool, p
 
 - We don't specify return types for functions, since Typescript will infer them. Don't write return types for functions!
 - Always include 'src' in file paths when it's part of the actual directory structure, even though imports automatically remove it.
+- Keep transformations simple and pure:
+  - One clear purpose per function
+  - Handle edge cases with early returns
+  - Use const assertions for better type inference
+  - Prefer small, focused functions over complex abstractions
 
 ## Python Package
 

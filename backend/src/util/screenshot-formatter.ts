@@ -3,112 +3,72 @@ import { TOOL_RESULT_MARKER } from 'common/constants'
 
 export type AIProvider = 'anthropic' | 'openai' | 'deepseek'
 
-/**
- * Parse JSON content from a string, removing TOOL_RESULT_MARKER if present
- */
-function parseToolResultJson(content: string): Record<string, any> | null {
+function parseJson(content: string): Record<string, any> | null {
   try {
-    const jsonContent = content.replace(TOOL_RESULT_MARKER, '').trim()
-    return JSON.parse(jsonContent)
-  } catch (e) {
+    return JSON.parse(content.replace(TOOL_RESULT_MARKER, '').trim())
+  } catch {
     return null
   }
 }
 
-/**
- * Apply provider-specific formatting to image blocks
- */
-function applyProviderFormatting(
-  imageBlock: MessageContentObject & { type: 'image' },
+function createImageBlock(
+  base64Data: string,
   provider: AIProvider
-) {
-  if (provider === 'anthropic') {
-    // Always use ephemeral caching for Anthropic to avoid token overhead
-    imageBlock.cache_control = { type: 'ephemeral' }
-  } else if (provider === 'openai' || provider === 'deepseek') {
-    // Use ephemeral for large images with OpenAI/Deepseek
-    const base64Length = imageBlock.source.data.length
-    if (base64Length > 200000) {
-      imageBlock.cache_control = { type: 'ephemeral' }
-    }
-  }
-}
-
-/**
- * Transform a single message content object to handle screenshots
- */
-function transformMessageContent(
-  contentObj: MessageContentObject,
-  provider: AIProvider
-): MessageContentObject[] {
-  if (contentObj.type !== 'tool_result') {
-    return [contentObj]
-  }
-
-  const parsed = parseToolResultJson(contentObj.content)
-  if (!parsed?.screenshot) {
-    return [contentObj]
-  }
-
-  const imageBlock: MessageContentObject = {
-    type: 'image',
+): MessageContentObject {
+  const imageBlock = {
+    type: 'image' as const,
     source: {
-      type: 'base64',
-      media_type: 'image/jpeg',
-      data: parsed.screenshot,
+      type: 'base64' as const,
+      media_type: 'image/jpeg' as const,
+      data: base64Data,
     },
   }
 
-  applyProviderFormatting(imageBlock, provider)
+  // // Always use ephemeral for Anthropic, or for large images with other providers
+  // if (provider === 'anthropic' || base64Data.length > 200000) {
+  //   return { ...imageBlock, cache_control: { type: 'ephemeral' as const } }
+  // }
 
-  delete parsed.screenshot
-  const updatedToolResult = {
-    ...contentObj,
-    content: JSON.stringify(parsed),
-  }
-
-  return [updatedToolResult, imageBlock]
+  return imageBlock
 }
 
-/**
- * Transform a single message to handle screenshots
- */
 export function transformMessage(
   message: Message,
   provider: AIProvider
 ): Message {
+  // Handle string content
   if (typeof message.content === 'string') {
-    const parsed = parseToolResultJson(message.content)
-    if (!parsed?.screenshot) {
-      return message
-    }
+    const parsed = parseJson(message.content)
+    if (!parsed?.screenshot) return message
 
-    const imageBlock: MessageContentObject = {
-      type: 'image',
-      source: {
-        type: 'base64',
-        media_type: 'image/jpeg',
-        data: parsed.screenshot,
-      },
-    }
-
-    applyProviderFormatting(imageBlock, provider)
-
-    delete parsed.screenshot
     return {
       ...message,
       content: [
         {
           type: 'text',
-          text: JSON.stringify(parsed),
+          text: JSON.stringify({ ...parsed, screenshot: undefined }),
         },
-        imageBlock,
+        createImageBlock(parsed.screenshot, provider),
       ],
     }
   }
 
+  // Handle array content
   return {
     ...message,
-    content: message.content.flatMap(obj => transformMessageContent(obj, provider)),
+    content: message.content.flatMap((obj) => {
+      if (obj.type !== 'tool_result') return [obj]
+
+      const parsed = parseJson(obj.content)
+      if (!parsed?.screenshot) return [obj]
+
+      return [
+        {
+          ...obj,
+          content: JSON.stringify({ ...parsed, screenshot: undefined }),
+        },
+        createImageBlock(parsed.screenshot, provider),
+      ]
+    }),
   }
 }
