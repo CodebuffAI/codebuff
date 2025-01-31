@@ -7,7 +7,7 @@ import {
   ProjectFileContext,
 } from 'common/util/file'
 import { promptClaude } from './claude'
-import { OpenAIMessage, promptOpenAI, promptOpenAIStream } from './openai-api'
+import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { getSearchSystemPrompt } from './system-prompt'
 
 export async function planComplexChange(
@@ -39,6 +39,7 @@ Please plan and create a detailed solution.`,
   let fullResponse = await promptOpenAI(messages, {
     ...options,
     model: models.o3mini,
+    reasoningEffort: 'high',
   })
 
   return fullResponse

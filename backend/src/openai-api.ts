@@ -4,7 +4,8 @@ import { STOP_MARKER, TEST_USER_ID } from 'common/constants'
 import { Stream } from 'openai/streaming'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
-import { logger, withLoggerContext } from './util/logger'
+import { logger } from './util/logger'
+import { ChatCompletionReasoningEffort } from 'openai/resources/chat/completions'
 
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -29,15 +30,7 @@ const getOpenAI = (fingerprintId: string) => {
 
 export async function* promptOpenAIStream(
   messages: OpenAIMessage[],
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    model: string
-    userId: string | undefined
-    predictedContent?: string
-    temperature?: number
-  }
+  options: OpenAIOptions
 ): AsyncGenerator<string, void, unknown> {
   const {
     clientSessionId,
@@ -115,17 +108,20 @@ const timeoutPromise = (ms: number) =>
     setTimeout(() => reject(new Error('OpenAI API request timed out')), ms)
   )
 
+export interface OpenAIOptions {
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  model: string
+  userId: string | undefined
+  predictedContent?: string
+  temperature?: number
+  reasoningEffort?: ChatCompletionReasoningEffort
+}
+
 export async function promptOpenAI(
   messages: OpenAIMessage[],
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    model: string
-    userId: string | undefined
-    predictedContent?: string
-    temperature?: number
-  }
+  options: OpenAIOptions
 ) {
   try {
     // Handle o-series reasoning models differently
@@ -147,7 +143,7 @@ export async function promptOpenAI(
                 }
               : {}),
             stream: false,
-            reasoning_effort: 'high',
+            reasoning_effort: options.reasoningEffort || 'medium',
           }),
           timeoutPromise(1_000_000),
         ])
