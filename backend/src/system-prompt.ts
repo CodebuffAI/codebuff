@@ -485,7 +485,7 @@ The following actions are available through the browser_action tool:
    - By default, captures only the visible viewport (fullPage: false)
    - Each navigation and scroll event will result in a screenshot, so don't ask for one when they occur.
    - required tags: none
-   - optional tags: fullPage (boolean), quality (number), maxScreenshotWidth (number), maxScreenshotHeight (number), screenshotCompression ('jpeg', 'png'), screenshotCompressionQuality (number), compressScreenshotData (boolean)
+   - optional tags: fullPage (boolean), quality (number), maxScreenshotWidth (number), maxScreenshotHeight (number), screenshotCompression ('jpeg', 'png'), screenshotCompressionQuality (number under 30), compressScreenshotData (boolean)
    - example: <tool_call name="browser_action"><type>screenshot</type><fullPage>false</fullPage><quality>80</quality></tool_call>
 
 IMPORTANT: make sure to use the '<tool_call name="browser_action">' xml prefix to match the structure specified in the example as closely as possible.

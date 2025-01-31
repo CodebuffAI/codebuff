@@ -46,6 +46,9 @@
      - JavaScript errors with stack traces
      - Performance metrics
      - Screenshots
+     - Console warnings (including deprecation notices)
+       - Note: Some deprecation warnings about "API for given entry type" are expected and can be ignored
+       - These warnings are from Puppeteer's internal API usage and don't affect functionality
    - Data informs next action decisions
 
 4. **XML Instruction Format**
@@ -90,7 +93,7 @@
        - SSL/TLS certificate problems
        - Resource loading failures
        - Navigation timeouts
-       - Frame/Node detachment
+       - Frame/Node detachment (requires small delay after navigation)
        - Request aborts and redirects
      - Debug logging when enabled
      - Early error detection and graceful degradation
@@ -190,13 +193,16 @@
           - Small delays (100ms) needed after clicks for animations to start
           - Longer delays (500ms) between retry attempts     - Screenshot handling:
        - Simple fixed settings for all screenshots:
-         - JPEG format with 40% quality
+         - JPEG format with 25% quality
          - Captures only visible viewport by default (fullPage: false)
          - Screenshot data sent to backend in full
+         - Only take screenshots when explicitly requested, not after navigation/scroll
+       - Message content handling:
+         - Backend transforms screenshot responses into structured message format
+         - Uses ephemeral cache control to prevent persistence
          - When adding new message to chat, screenshots in previous messages are replaced with '[SCREENSHOT_PLACEHOLDER]'
          - Most recent message's screenshot is preserved until processed by backend
-         - Handles both base64 data and JSON screenshot keys in message content
-         - This ensures backend gets full data when needed while keeping message history small
+         - This ensures screenshots are properly handled through the message pipeline
      - Debug mode:
        - When enabled, saves screenshots to .codebuff/screenshots/
        - Includes metadata JSON with screenshot settings and metrics
@@ -234,6 +240,12 @@
      - Filter by log type/level
      - Filter by category
      - Minimum severity threshold
+   - Logging strategy:
+     - All browser-related logs should go through the logs array
+     - This includes browser events, tool operations, and debugging info
+     - Never write directly to console.log/error
+     - Logs are automatically cleared after each action
+     - This keeps logging consistent and ensures proper cleanup
    - Log prefixing:
      - All browser-related logs prefixed with 'browser:' (e.g. 'browser:error', 'browser:debug')
      - Helps distinguish between browser events and our own debugging output

@@ -26,8 +26,8 @@ export const BROWSER_DEFAULTS = {
   // Screenshot defaults
   fullPage: false,
   screenshotCompression: 'jpeg' as const,
-  screenshotCompressionQuality: 40,
-  compressScreenshotData: false,
+  screenshotCompressionQuality: 25,
+  compressScreenshotData: true,
 
   // Advanced configuration defaults
   maxConsecutiveErrors: 3,

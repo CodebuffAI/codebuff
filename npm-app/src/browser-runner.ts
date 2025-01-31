@@ -1,5 +1,6 @@
 import puppeteer, { Browser, Page, HTTPRequest, HTTPResponse } from 'puppeteer'
 import { execSync } from 'child_process'
+import { sleep } from 'common/util/promise'
 import {
   BrowserAction,
   BrowserResponse,
@@ -234,7 +235,12 @@ export class BrowserRunner {
     if (this.browser) {
       await this.shutdown()
     }
-    console.log('Starting browser...')
+    this.logs.push({
+      type: 'info',
+      message: 'Starting browser...',
+      timestamp: Date.now(),
+      source: 'tool'
+    })
     // Set start time for session tracking
     this.startTime = Date.now()
 
@@ -257,7 +263,7 @@ export class BrowserRunner {
 
     try {
       this.browser = await puppeteer.launch({
-        defaultViewport: { width: 960, height: 720 },
+        defaultViewport: { width: 1280, height: 720 },
         headless: action.headless ?? BROWSER_DEFAULTS.headless,
         userDataDir,
         args: ['--no-sandbox', '--restore-last-session=false'],
@@ -269,14 +275,19 @@ export class BrowserRunner {
       )
       execSync('npx puppeteer browsers install chrome', { stdio: 'inherit' })
       this.browser = await puppeteer.launch({
-        defaultViewport: { width: 960, height: 720 },
+        defaultViewport: { width: 1280, height: 720 },
         headless: action.headless ?? BROWSER_DEFAULTS.headless,
         userDataDir,
         args: ['--no-sandbox', '--restore-last-session=false'],
       })
     }
 
-    console.log('Browser started')
+    this.logs.push({
+      type: 'info',
+      message: 'Browser started',
+      timestamp: Date.now(),
+      source: 'tool'
+    })
     const pages = await this.browser.pages()
     this.page = pages.length > 0 ? pages[0] : await this.browser.newPage()
     this.attachPageListeners()
@@ -314,28 +325,42 @@ export class BrowserRunner {
     }
 
     if (!this.page) throw new Error('No browser page found; call start first.')
-    await this.page.goto(action.url, {
-      waitUntil: action.waitUntil ?? BROWSER_DEFAULTS.waitUntil,
-      timeout: action.timeout ?? BROWSER_DEFAULTS.timeout,
-    })
+    try {
+      await this.page.goto(action.url, {
+        waitUntil: action.waitUntil ?? BROWSER_DEFAULTS.waitUntil,
+        timeout: action.timeout ?? BROWSER_DEFAULTS.timeout,
+      })
 
-    const screenshotResp = await this.takeScreenshot({
-      ...action,
-      type: 'screenshot',
-    })
+      this.logs.push({
+        type: 'info',
+        message: `Navigated to ${action.url}`,
+        timestamp: Date.now(),
+        source: 'tool',
+      })
 
-    return {
-      success: true,
-      logs: [
-        {
-          type: 'info',
-          message: `Navigated to ${action.url}`,
-          timestamp: Date.now(),
-          source: 'tool',
-        },
-        ...screenshotResp.logs,
-      ],
-      networkEvents: [],
+      // Add a small delay after navigation to ensure page is stable
+      await sleep(500)
+
+      return {
+        success: true,
+        logs: [],
+        networkEvents: [],
+      }
+    } catch (error: any) {
+      // Explicitly type as any since we know we want to access .message
+      const errorMessage = error?.message || 'Unknown navigation error'
+      this.logs.push({
+        type: 'error',
+        message: `Navigation failed: ${errorMessage}`,
+        timestamp: Date.now(),
+        source: 'tool',
+      })
+      return {
+        success: false,
+        error: errorMessage,
+        logs: [],
+        networkEvents: [],
+      }
     }
   }
 
@@ -361,22 +386,16 @@ export class BrowserRunner {
       window.scrollBy(0, amount)
     }, scrollAmount)
 
-    const screenshotResp = await this.takeScreenshot({
-      ...action,
-      type: 'screenshot',
+    this.logs.push({
+      type: 'info',
+      message: `Scrolled ${direction}`,
+      timestamp: Date.now(),
+      source: 'tool',
     })
 
     return {
       success: true,
-      logs: [
-        {
-          type: 'info',
-          message: `Scrolled ${direction}`,
-          timestamp: Date.now(),
-          source: 'tool',
-        },
-        ...screenshotResp.logs,
-      ],
+      logs: [],
       networkEvents: [],
     }
   }
@@ -386,7 +405,7 @@ export class BrowserRunner {
   ): Promise<BrowserResponse> {
     if (!this.page) throw new Error('No browser page found; call start first.')
 
-    // Take a simple screenshot with fixed settings
+    // Take a screenshot with aggressive compression settings
     const screenshot = await this.page.screenshot({
       fullPage: action.fullPage ?? BROWSER_DEFAULTS.fullPage,
       type: 'jpeg',
@@ -396,15 +415,27 @@ export class BrowserRunner {
       encoding: 'base64',
     })
 
+    // Log the size for debugging
+    const sizeInKB = Math.round((screenshot.length * 3) / 4 / 1024)
+    this.logs.push({
+      type: 'debug',
+      message: `Screenshot size: ${sizeInKB}KB`,
+      timestamp: Date.now(),
+      category: 'screenshot',
+      source: 'tool',
+    })
+
+
     // If debug mode is enabled, save the screenshot
     if (action.debug) {
       this.logs.push({
         type: 'debug',
-        message: `Saving screenshot to disk...`,
+        message: 'Saving screenshot to disk...',
         timestamp: Date.now(),
         category: 'debug',
         source: 'tool',
       })
+  
       try {
         const screenshotsDir = getCurrentChatDir()
         ensureDirectoryExists(screenshotsDir)
@@ -421,6 +452,7 @@ export class BrowserRunner {
           category: 'debug',
           source: 'tool',
         })
+    
 
         // Save metadata
         const metadataPath = path.join(
@@ -443,6 +475,7 @@ export class BrowserRunner {
           category: 'debug',
           source: 'tool',
         })
+    
       }
     }
 
@@ -623,6 +656,8 @@ export class BrowserRunner {
         response.logs,
         action.logFilter ?? undefined
       )
+      // Clear logs after sending them in response
+      this.logs = []
       return response
     } catch (error: any) {
       if (error.name === 'TargetClosedError') {
