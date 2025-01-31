@@ -58,17 +58,18 @@ export async function mainPrompt(
       ? assistantReplyMessage.content.includes('plan_complex_change')
       : false
 
-  const allowUnboundedIterationPromise = assistantIsExecutingPlan
-    ? Promise.resolve(true)
-    : checkToAllowUnboundedIteration(messages[lastUserMessageIndex], {
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      }).catch((error) => {
-        logger.error(error, 'Error checking to allow unbounded iteration')
-        return false
-      })
+  const allowUnboundedIterationPromise = checkToAllowUnboundedIteration(
+    messages[lastUserMessageIndex],
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    }
+  ).catch((error) => {
+    logger.error(error, 'Error checking to allow unbounded iteration')
+    return false
+  })
 
   let fullResponse = ''
   const fileProcessingPromises: Promise<FileChange | null>[] = []
