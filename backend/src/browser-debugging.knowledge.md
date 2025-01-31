@@ -116,6 +116,11 @@
    - Chrome args prevent restore popup and sandbox issues:
      - `--restore-last-session=false`: Disables session restore popup
      - `--no-sandbox`: Prevents permission issues
+   - Important: When browser process fails to launch:
+     - Check for and remove stale SingletonLock file
+     - Ensure no orphaned browser processes are running
+     - Use unique profile directory per session
+     - Consider using temporary profiles for one-off checks
 
 ## Implementation Guidelines
 

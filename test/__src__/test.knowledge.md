@@ -89,6 +89,12 @@ When writing tests for the quota management system:
 
 ## Test Infrastructure
 
+### Test Command Timeouts
+- When tests hang or timeout, try running with explicit file path
+- If test command still fails, verify changes with type checker
+- Consider running individual test files directly with bun test
+- Test timeouts may indicate infinite loops or hanging promises
+
 ### Tree-Sitter Test Isolation
 
 When writing tests that don't need tree-sitter functionality:

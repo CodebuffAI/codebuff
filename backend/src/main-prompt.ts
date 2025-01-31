@@ -566,6 +566,7 @@ export async function mainPrompt(
       ? fileContext.fileVersions.flat()
       : addedFileVersions,
     resetFileVersions,
+    messages,
   }
 }
 

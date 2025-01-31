@@ -189,6 +189,31 @@ The backend now includes a web scraping tool that allows the AI assistant to ret
 
 ## Message Storage
 
+### Screenshot Handling
+- Screenshots from tool results are converted to image blocks
+- Screenshots can come from two sources:
+  1. Tool result objects with screenshot field
+  2. String content containing JSON with screenshot field
+- Transform messages immediately when receiving user input in websocket-action.ts
+- This ensures consistent handling regardless of later processing steps
+- Different formatting for Anthropic vs OpenAI:
+  - Anthropic: Always use ephemeral caching to avoid token overhead
+  - OpenAI: Use ephemeral for large images (>200KB)
+- Image blocks follow provider-specific formats:
+  ```typescript
+  {
+    type: 'image',
+    source: {
+      type: 'base64',
+      media_type: 'image/jpeg',
+      data: string // base64 data
+    },
+    cache_control?: {
+      type: 'ephemeral'
+    }
+  }
+  ```
+
 Important: When saving messages from Claude API:
 - Use fire-and-forget pattern for non-critical storage operations
 - Wrap async operations in withLoggerContext to preserve logging context
@@ -212,6 +237,15 @@ Important: When saving messages from Claude API:
 - Always verify messageId exists before saving
 - Usage stats can come in multiple chunks - accumulate throughout stream
 - Content receipt is more important than final usage stats for saving
+
+### Message Transformation
+- Transform messages immediately when receiving user input in websocket-action.ts
+- Do not transform messages again in main-prompt.ts or other downstream functions
+- This ensures consistent handling regardless of later processing steps
+- Prefer transforming individual messages over arrays of messages:
+  - Makes the transformation logic clearer and more focused
+  - Easier to test individual cases
+  - Use map() to transform arrays of messages when needed
 
 ## AI Response Handling
 
