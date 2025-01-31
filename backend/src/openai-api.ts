@@ -167,6 +167,9 @@ export async function promptOpenAI(
           usage: z.object({
             prompt_tokens: z.number(),
             completion_tokens: z.number(),
+            prompt_tokens_details: z.object({
+              cached_tokens: z.number(),
+            }),
           }),
         })
 
@@ -181,6 +184,12 @@ export async function promptOpenAI(
 
         // Save message metrics
         if (messages.length > 0 && options.userId !== TEST_USER_ID) {
+          const totalInputTokens = result.data.usage.prompt_tokens
+          const cacheReadInputTokens =
+            result.data.usage.prompt_tokens_details.cached_tokens
+          const inputTokens = totalInputTokens - cacheReadInputTokens
+          const outputTokens = result.data.usage.completion_tokens
+
           saveMessage({
             messageId: result.data.id,
             userId: options.userId,
@@ -190,8 +199,9 @@ export async function promptOpenAI(
             model: options.model,
             request: messages,
             response: content,
-            inputTokens: result.data.usage.prompt_tokens,
-            outputTokens: result.data.usage.completion_tokens,
+            inputTokens,
+            cacheReadInputTokens,
+            outputTokens,
             finishedAt: new Date(),
             latencyMs: Date.now() - startTime,
           })

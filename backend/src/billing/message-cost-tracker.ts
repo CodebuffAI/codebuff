@@ -18,7 +18,7 @@ const TOKENS_COST_PER_M = {
     [models.haiku]: 0.8,
     [models.gpt4o]: 2.5,
     [models.gpt4omini]: 0.15,
-    [models.o1]: 15,
+    [models.o3mini]: 1.1,
     [models.deepseekChat]: 0.14,
     [models.deepseekReasoner]: 0.55,
   },
@@ -27,7 +27,7 @@ const TOKENS_COST_PER_M = {
     [models.haiku]: 4,
     [models.gpt4o]: 10.0,
     [models.gpt4omini]: 0.6,
-    [models.o1]: 60,
+    [models.o3mini]: 4.4,
     [models.deepseekChat]: 0.28,
     [models.deepseekReasoner]: 2.19,
   },
@@ -40,6 +40,9 @@ const TOKENS_COST_PER_M = {
     [models.haiku]: 0.08,
     [models.deepseekChat]: 0.014,
     [models.deepseekReasoner]: 0.14,
+    [models.gpt4o]: 1.25,
+    [models.gpt4omini]: 0.075,
+    [models.o3mini]: 0.55,
   },
 }
 

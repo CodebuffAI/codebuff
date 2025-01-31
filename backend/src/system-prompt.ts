@@ -598,9 +598,7 @@ const getResponseFormatPrompt = (
   return `
 # Response format
 
-${
-  costMode === 'max'
-    ? `## 0. Invoke the plan_complex_change tool
+## 0. Invoke the plan_complex_change tool
 
 Consider using the plan_complex_change tool when the user's request meets multiple of these criteria:
 - Requires changes across multiple files or systems
@@ -621,9 +619,7 @@ Do not use it for simple changes like:
 - Updating text or styles
 - Simple bug fixes
 - Configuration changes
-`
-    : ''
-}
+
 ## 1. Edit files & run terminal commands
 
 Respond to the user's request by editing files and running terminal commands as needed. The goal is to make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more. When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.

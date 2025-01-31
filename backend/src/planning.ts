@@ -38,7 +38,7 @@ Please plan and create a detailed solution.`,
 
   let fullResponse = await promptOpenAI(messages, {
     ...options,
-    model: models.o1,
+    model: models.o3mini,
   })
 
   return fullResponse
@@ -71,7 +71,11 @@ Only output the file paths, one per line, nothing else.`,
     ],
     {
       model: claudeModels.sonnet,
-      system: getSearchSystemPrompt(fileContext, costMode, countTokensJson(messages)),
+      system: getSearchSystemPrompt(
+        fileContext,
+        costMode,
+        countTokensJson(messages)
+      ),
       clientSessionId,
       fingerprintId,
       userInputId,

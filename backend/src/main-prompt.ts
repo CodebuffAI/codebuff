@@ -327,7 +327,7 @@ export async function mainPrompt(
       onResponseChunk(`\nRelevant files:\n${existingFilePaths.join(' ')}\n`)
       fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
 
-      onResponseChunk(`\nThinking deeply (can take a few minutes)...\n\n`)
+      onResponseChunk(`\nThinking deeply (can take a minute)...\n\n`)
 
       logger.debug(
         {
@@ -349,8 +349,9 @@ export async function mainPrompt(
           userId,
         }
       )
-      onResponseChunk(`\n\n`)
-      fullResponse += plan
+      // For now, don't print the plan to the user.
+      // onResponseChunk(`${plan}\n\n`)
+      fullResponse += plan + '\n\n'
       logger.debug(
         {
           prompt,
@@ -586,7 +587,6 @@ function getExtraInstructionForUserPrompt(
       : ' Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
 
     !justUsedATool &&
-      costMode === 'max' &&
       'If the user request is very complex (e.g. requires changes across multiple files or systems), please consider invoking the plan_complex_change tool to create a plan, although this should be used sparingly.',
 
     hasKnowledgeFiles &&
