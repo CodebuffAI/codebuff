@@ -2,7 +2,52 @@ import Anthropic, { APIConnectionError } from '@anthropic-ai/sdk'
 import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
 import { removeUndefinedProps } from 'common/util/object'
 import { Message } from 'common/actions'
-import { claudeModels, STOP_MARKER } from 'common/constants'
+import { claudeModels, STOP_MARKER, AnthropicModel } from 'common/constants'
+import { match, P } from 'ts-pattern'
+
+/**
+ * Transform messages for Anthropic API.
+ * Anthropic's format matches our internal format, but we still want to be explicit
+ * about when we don't send images to certain models.
+ *
+ * @param message The message to transform
+ * @param model The Anthropic model being used
+ * @returns The transformed message
+ */
+function transformedMessage(message: Message, model: AnthropicModel): Message {
+  return match(model)
+    .with(claudeModels.sonnet, () => message) // Sonnet supports images natively
+    .with(claudeModels.haiku, () =>
+      match<Message, Message>(message)
+        .with({ content: P.string }, () => message)
+        .with(
+          {
+            content: P.array({
+              type: P.string,
+            }),
+          },
+          (msg) => {
+            const hasImages = msg.content.some(
+              (obj: { type: string }) => obj.type === 'image'
+            )
+            if (hasImages) {
+              logger.info(
+                'Stripping images from message - Claude Haiku does not support images'
+              )
+              return {
+                ...msg,
+                content: msg.content.filter(
+                  (obj: { type: string }) => obj.type !== 'image'
+                ),
+              }
+            }
+            return msg
+          }
+        )
+        .exhaustive()
+    )
+    .exhaustive()
+}
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
@@ -12,8 +57,6 @@ import { APIError } from '@anthropic-ai/sdk/error'
 const MAX_RETRIES = 3
 const INITIAL_RETRY_DELAY = 1000 // 1 second
 
-export type model_types = (typeof claudeModels)[keyof typeof claudeModels]
-
 export type System = string | Array<TextBlockParam>
 
 async function* promptClaudeStreamWithoutRetry(
@@ -21,7 +64,7 @@ async function* promptClaudeStreamWithoutRetry(
   options: {
     system?: System
     tools?: Tool[]
-    model?: model_types
+    model?: AnthropicModel
     maxTokens?: number
     clientSessionId: string
     fingerprintId: string
@@ -70,12 +113,17 @@ async function* promptClaudeStreamWithoutRetry(
 
   const startTime = Date.now()
 
+  // Transform messages before sending to Anthropic
+  const transformedMessages = messages.map((msg) =>
+    transformedMessage(msg, options.model ?? claudeModels.sonnet)
+  )
+
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
       model,
       max_tokens: maxTokens ?? 8192,
       temperature: 0,
-      messages,
+      messages: transformedMessages,
       system,
       tools,
       stop_sequences: [],
@@ -176,7 +224,7 @@ export const promptClaudeStream = async function* (
   options: {
     system?: System
     tools?: Tool[]
-    model?: model_types
+    model?: AnthropicModel
     maxTokens?: number
     clientSessionId: string
     fingerprintId: string
@@ -226,7 +274,7 @@ export const promptClaude = async (
     userId?: string
     system?: string | Array<TextBlockParam>
     tools?: Tool[]
-    model?: model_types
+    model?: AnthropicModel
     maxTokens?: number
     ignoreDatabaseAndHelicone?: boolean
   }
@@ -246,7 +294,7 @@ export async function promptClaudeWithContinuation(
     userInputId: string
     userId?: string
     system?: string
-    model?: model_types
+    model?: AnthropicModel
     ignoreHelicone?: boolean
   }
 ) {

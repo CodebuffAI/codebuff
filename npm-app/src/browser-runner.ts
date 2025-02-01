@@ -239,7 +239,7 @@ export class BrowserRunner {
       type: 'info',
       message: 'Starting browser...',
       timestamp: Date.now(),
-      source: 'tool'
+      source: 'tool',
     })
     // Set start time for session tracking
     this.startTime = Date.now()
@@ -286,7 +286,7 @@ export class BrowserRunner {
       type: 'info',
       message: 'Browser started',
       timestamp: Date.now(),
-      source: 'tool'
+      source: 'tool',
     })
     const pages = await this.browser.pages()
     this.page = pages.length > 0 ? pages[0] : await this.browser.newPage()
@@ -407,7 +407,7 @@ export class BrowserRunner {
 
     // Take a screenshot with aggressive compression settings
     const screenshot = await this.page.screenshot({
-      fullPage: action.fullPage ?? BROWSER_DEFAULTS.fullPage,
+      fullPage: BROWSER_DEFAULTS.fullPage, // action.fullPage ?? BROWSER_DEFAULTS.fullPage,
       type: 'jpeg',
       quality:
         action.screenshotCompressionQuality ??
@@ -415,27 +415,34 @@ export class BrowserRunner {
       encoding: 'base64',
     })
 
-    // Log the size for debugging
+    // Log screenshot capture and size
     const sizeInKB = Math.round((screenshot.length * 3) / 4 / 1024)
     this.logs.push({
-      type: 'debug',
-      message: `Screenshot size: ${sizeInKB}KB`,
+      type: 'info',
+      message: `Captured screenshot of current page (${sizeInKB}KB)`,
       timestamp: Date.now(),
       category: 'screenshot',
       source: 'tool',
     })
 
+    // Format screenshot in Anthropic's image content format
+    const imageContent = {
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: 'image/jpeg',
+        data: screenshot,
+      },
+    } as const
 
     // If debug mode is enabled, save the screenshot
     if (action.debug) {
-      this.logs.push({
-        type: 'debug',
+      console.debug({
         message: 'Saving screenshot to disk...',
         timestamp: Date.now(),
-        category: 'debug',
         source: 'tool',
       })
-  
+
       try {
         const screenshotsDir = getCurrentChatDir()
         ensureDirectoryExists(screenshotsDir)
@@ -445,14 +452,12 @@ export class BrowserRunner {
         const filepath = path.join(screenshotsDir, filename)
 
         fs.writeFileSync(filepath, Buffer.from(screenshot, 'base64'))
-        this.logs.push({
+        console.debug({
           type: 'debug',
           message: `Saved screenshot to ${filepath}`,
           timestamp: Date.now(),
-          category: 'debug',
           source: 'tool',
         })
-    
 
         // Save metadata
         const metadataPath = path.join(
@@ -468,14 +473,11 @@ export class BrowserRunner {
         }
         fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2))
       } catch (error) {
-        this.logs.push({
-          type: 'error',
+        console.error({
           message: `Failed to save screenshot: ${(error as Error).message}`,
           timestamp: Date.now(),
-          category: 'debug',
           source: 'tool',
         })
-    
       }
     }
 
@@ -483,7 +485,7 @@ export class BrowserRunner {
     return {
       success: true,
       logs: this.logs,
-      screenshot,
+      screenshot: imageContent,
       metrics,
     }
   }

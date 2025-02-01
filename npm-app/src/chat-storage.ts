@@ -46,12 +46,6 @@ export class ChatStorage {
       // Helper function to clean up content string
       const cleanContent = (content: string) => {
         let result = content
-        if (content.includes('"screenshot"')) {
-          result = result.replace(
-            /"screenshot"\s*:\s*"[^"]+"/g,
-            '"screenshot":"[SCREENSHOT_REMOVED]"'
-          )
-        }
         if (content.includes('"logs"')) {
           result = result.replace(
             /"logs"\s*:\s*\[[^\]]*\]/g,
@@ -67,15 +61,17 @@ export class ChatStorage {
       if (Array.isArray(msg.content)) {
         return {
           ...msg,
-          content: msg.content.map((contentObj) => {
-            if (contentObj.type === 'tool_result' && contentObj.content) {
-              return {
-                ...contentObj,
-                content: cleanContent(contentObj.content),
+          content: msg.content
+            .filter(contentObj => contentObj.type !== 'image')
+            .map((contentObj) => {
+              if (contentObj.type === 'tool_result' && contentObj.content) {
+                return {
+                  ...contentObj,
+                  content: cleanContent(contentObj.content),
+                }
               }
-            }
-            return contentObj
-          }),
+              return contentObj
+            }),
         }
       } else if (typeof msg.content === 'string') {
         return {

@@ -6,7 +6,29 @@ import { OpenAIMessage } from './openai-api'
 import { CompletionUsage } from 'openai/resources/completions'
 import { withRetry } from 'common/util/promise'
 import { models } from 'common/constants'
+import { DeepseekModel } from 'common/constants'
 import { removeUndefinedProps } from 'common/util/object'
+
+function transformedMessage(message: any, model: DeepseekModel): OpenAIMessage {
+  // When Deepseek properly adds image support to their models, we can update this to handle images
+  if (typeof message.content === 'object' && Array.isArray(message.content)) {
+    const hasImages = message.content.some(
+      (obj: { type: string }) => obj.type === 'image'
+    )
+    if (hasImages) {
+      logger.info(
+        'Stripping images from message - Deepseek does not support images yet'
+      )
+      return {
+        ...message,
+        content: message.content.filter(
+          (obj: { type: string }) => obj.type !== 'image'
+        ),
+      }
+    }
+  }
+  return message
+}
 
 export type DeepseekMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -46,7 +68,7 @@ export async function* promptDeepseekStream(
     clientSessionId: string
     fingerprintId: string
     userInputId: string
-    model: string
+    model: DeepseekModel
     userId: string | undefined
     maxTokens?: number
     temperature?: number
@@ -63,12 +85,14 @@ export async function* promptDeepseekStream(
   } = options
   const deepseek = getDeepseekClient(fingerprintId)
   const startTime = Date.now()
+  let modifiedMessages = messages.map((msg) =>
+    transformedMessage(msg, options.model)
+  )
 
-  const lastMessage = messages[messages.length - 1]
-  let modifiedMessages = messages
+  const lastMessage = modifiedMessages[modifiedMessages.length - 1]
   if (model === models.deepseekReasoner && lastMessage.role === 'assistant') {
     modifiedMessages = [
-      ...messages.slice(0, -1),
+      ...modifiedMessages.slice(0, -1),
       { ...lastMessage, role: 'assistant', prefix: true } as any,
     ]
   }
@@ -173,7 +197,7 @@ export async function promptDeepseek(
     clientSessionId: string
     fingerprintId: string
     userInputId: string
-    model: string
+    model: DeepseekModel
     userId: string | undefined
     maxTokens?: number
     temperature?: number

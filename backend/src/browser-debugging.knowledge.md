@@ -203,11 +203,143 @@
          - Screenshot data sent to backend in full
          - Only take screenshots when explicitly requested, not after navigation/scroll
        - Message content handling:
-         - Backend transforms screenshot responses into structured message format
-         - Uses ephemeral cache control to prevent persistence
-         - When adding new message to chat, screenshots in previous messages are replaced with '[SCREENSHOT_PLACEHOLDER]'
+         - Screenshots must be formatted as Anthropic image content blocks:
+           ```typescript
+           {
+             type: 'image',
+             source: {
+               type: 'base64',
+               media_type: 'image/jpeg',
+               data: base64String
+             }
+           }
+           ```
+         - Format screenshots immediately when receiving from Puppeteer
+         - Transform before sending through websocket to ensure consistent format
+         - When saving to chat history, replace image data with placeholder
+         - This ensures proper handling through the entire message pipeline
          - Most recent message's screenshot is preserved until processed by backend
-         - This ensures screenshots are properly handled through the message pipeline
+         - When handling browser responses with screenshots:
+           - Return BrowserResponse type directly from tool handlers
+           - Use ts-pattern's match for elegant message content formatting:
+             ```typescript
+             content: match(response)
+               .with({ screenshot: P.not(P.nullish) }, (response) => [
+                 { type: 'text' as const, text: JSON.stringify({ ...response, screenshot: undefined }) },
+                 response.screenshot
+               ])
+               .with(P.string, (str) => str)
+               .otherwise((val) => JSON.stringify(val))
+             ```
+           - Important: Use 'as const' for literal type properties to ensure proper type inference
+           - This provides cleaner pattern matching and better type safety than conditionals
+         - Important: BrowserResponseSchema must use ImageContentSchema for screenshots:
+           ```typescript
+           const ImageContentSchema = z.object({
+             type: z.literal('image'),
+             source: z.object({
+               type: z.literal('base64'),
+               media_type: z.literal('image/jpeg'),
+               data: z.string(),
+             }),
+           })
+           ```
+         - When transforming image content for different model providers:
+           - Each provider needs its own message format transformation at the API boundary
+           - Don't try to make types compatible across providers
+           - Instead, explicitly transform at each API:
+             ```typescript
+             // OpenAI transformation for GPT-4V
+             function transformedMessage(message: any, model: OpenAIModel): OpenAIMessage {
+               return match(model)
+                 .with(openaiModels.gpt4o, openaiModels.gpt4omini, () =>
+                   match(message)
+                     .with(
+                       {
+                         content: {
+                           type: 'image',
+                           source: {
+                             type: 'base64',
+                             media_type: 'image/jpeg',
+                             data: P.string,
+                           },
+                         },
+                       },
+                       (m) => ({
+                         ...message,
+                         content: {
+                           type: 'image_url',
+                           image_url: {
+                             url: `data:image/jpeg;base64,${m.content.source.data}`,
+                           },
+                         },
+                       })
+                     )
+                     .otherwise(() => message)
+                 )
+                 .with(openaiModels.o3mini, () => message)
+                 .exhaustive()
+             }
+             ```
+           - Keep internal message format consistent (Anthropic-style)
+           - Transform only at API boundaries when sending to providers
+           - Each provider has its own image format:
+             - OpenAI: `{ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,...' } }`
+             - Gemini: `{ inlineData: 'base64...', mimeType: 'image/jpeg' }`
+             - Deepseek: No image support yet (noop transform)
+             - Anthropic:
+               - Sonnet: Native format (no transform needed)
+               - Haiku: Filter out image blocks (no image support)
+           - Important: Even when a provider uses our native format (like Anthropic),
+             still implement the transform function to:
+             1. Be explicit about image support in different models
+             2. Make it easy to update when capabilities change
+             3. Keep consistent patterns across all providers
+           - Always log when stripping images from messages:
+             ```typescript
+             const hasImages = message.content.some((obj: { type: string }) => obj.type === 'image')
+             if (hasImages) {
+               logger.info('Stripping images from message - [MODEL] does not support images')
+             }
+             ```
+           - This helps track when image support is needed and provides visibility into message transformations
+           - Use pattern matching for clear, type-safe transformations
+           - Use ts-pattern with array content matching:
+             ```typescript
+             match<Message, Message>(message)
+               .with({ content: P.string }, () => message)
+               .with(
+                 {
+                   content: P.array({
+                     type: P.string,  // Match arrays where each element has a type field
+                   }),
+                   role: P.union('user', 'assistant'),
+                 },
+                 (msg) => {
+                   // msg.content is now typed as Array<{ type: string }>
+                   const hasImages = msg.content.some(obj => obj.type === 'image')
+                   if (hasImages) {
+                     // Handle image case
+                   }
+                   return msg
+                 }
+               )
+               .exhaustive()
+             ```
+           - This provides:
+             1. Type safety through pattern matching
+             2. Proper type inference for array contents
+             3. Exhaustive checking to ensure all cases are handled
+             4. Clean separation between string and array content cases
+           - For providers that may add image support in the future:
+             ```typescript
+             // Add a noop transformer that's easy to update later
+             function transformedMessage(message: OpenAIMessage): OpenAIMessage {
+               // For now, just pass through the message unchanged
+               // When provider adds image support, we can update this to handle images
+               return message
+             }
+             ```
      - Debug mode:
        - When enabled, saves screenshots to .codebuff/screenshots/
        - Includes metadata JSON with screenshot settings and metrics
@@ -241,6 +373,16 @@
      - error, warning, info, debug, verbose levels
      - Optional category tagging (network, javascript, console)
      - Numeric severity levels for fine-grained filtering
+   - Logging strategy:
+     - All browser-related logs should go through the logs array
+     - This includes browser events, tool operations, and debugging info
+     - Never write directly to console.log/error
+     - Logs are automatically cleared after each action
+     - This keeps logging consistent and ensures proper cleanup
+   - Log prefixing:
+     - All browser-related logs prefixed with 'browser:' (e.g. 'browser:error', 'browser:debug')
+     - Helps distinguish between browser events and our own debugging output
+     - Color-coded by level: red (error), yellow (warn), blue (info), green (log/debug)
    - Configurable log filtering:
      - Filter by log type/level
      - Filter by category

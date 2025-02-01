@@ -1,21 +1,13 @@
-import { Message, MessageContentObject } from 'common/actions'
-import { TOOL_RESULT_MARKER } from 'common/constants'
+import { MessageContentObject } from 'common/actions'
+import { Model, models } from 'common/constants'
+import { match, P } from 'ts-pattern'
 
-export type AIProvider = 'anthropic' | 'openai' | 'deepseek'
-
-function parseJson(content: string): Record<string, any> | null {
-  try {
-    return JSON.parse(content.replace(TOOL_RESULT_MARKER, '').trim())
-  } catch {
-    return null
-  }
-}
-
-function createImageBlock(
+export function createImageBlock(
   base64Data: string,
-  provider: AIProvider
+  model: Model
 ): MessageContentObject {
-  const imageBlock = {
+  // Base image block structure
+  const imageBlock: MessageContentObject = {
     type: 'image' as const,
     source: {
       type: 'base64' as const,
@@ -24,51 +16,29 @@ function createImageBlock(
     },
   }
 
-  // // Always use ephemeral for Anthropic, or for large images with other providers
-  // if (provider === 'anthropic' || base64Data.length > 200000) {
-  //   return { ...imageBlock, cache_control: { type: 'ephemeral' as const } }
-  // }
-
-  return imageBlock
-}
-
-export function transformMessage(
-  message: Message,
-  provider: AIProvider
-): Message {
-  // Handle string content
-  if (typeof message.content === 'string') {
-    const parsed = parseJson(message.content)
-    if (!parsed?.screenshot) return message
-
-    return {
-      ...message,
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({ ...parsed, screenshot: undefined }),
-        },
-        createImageBlock(parsed.screenshot, provider),
-      ],
-    }
+  const textBlock: MessageContentObject = {
+    type: 'text' as const,
+    text: base64Data,
   }
 
-  // Handle array content
-  return {
-    ...message,
-    content: message.content.flatMap((obj) => {
-      if (obj.type !== 'tool_result') return [obj]
-
-      const parsed = parseJson(obj.content)
-      if (!parsed?.screenshot) return [obj]
-
-      return [
-        {
-          ...obj,
-          content: JSON.stringify({ ...parsed, screenshot: undefined }),
-        },
-        createImageBlock(parsed.screenshot, provider),
-      ]
-    }),
-  }
+  return match(model)
+    .with(models.sonnet, () => imageBlock)
+    .with(
+      models.gpt4o,
+      models.gpt4omini,
+      models.generatePatch,
+      () =>
+      base64Data.length > 200000
+        ? { ...imageBlock, cache_control: { type: 'ephemeral' as const } }
+        : imageBlock
+    )
+    .with(
+      models.o3mini,
+      models.deepseekReasoner,
+      models.deepseekChat,
+      models.gemini2flash,
+      models.haiku,
+      () => textBlock
+    )
+    .exhaustive()
 }

@@ -139,10 +139,20 @@ export const BrowserResponseChunkSchema = z.object({
   data: z.string(), // Base64 encoded chunk
 })
 
+export const ImageContentSchema = z.object({
+  type: z.literal('image'),
+  source: z.object({
+    type: z.literal('base64'),
+    media_type: z.literal('image/jpeg'),
+    data: z.string(),
+  }),
+})
+export type ImageContent = z.infer<typeof ImageContentSchema>
+
 export const BrowserResponseSchema = z.object({
   success: z.boolean(),
   error: z.string().optional(),
-  screenshot: z.string().optional(), // Base64 encoded
+  screenshot: ImageContentSchema.optional(),
   logs: z.array(LogSchema),
   metrics: MetricsSchema.optional(),
   networkEvents: z.array(NetworkEventSchema).optional(),

@@ -16,7 +16,6 @@ import { protec } from './middleware'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/src/util/dates'
 import { logger, withLoggerContext } from '@/util/logger'
-import { transformMessage } from '@/util/screenshot-formatter'
 import { generateCommitMessage } from '@/generate-commit-message'
 import { hasMaxedReferrals } from 'common/util/server/referral'
 
@@ -156,15 +155,12 @@ const onUserInput = async (
     fingerprintId,
     authToken,
     userInputId,
-    messages: rawMessages,
+    messages,
     fileContext,
     changesAlreadyApplied,
     costMode = 'normal',
   } = action
 
-  // Transform messages to handle screenshots based on the model provider
-  const provider = costMode === 'lite' ? 'deepseek' : 'anthropic'
-  const messages = rawMessages.map(msg => transformMessage(msg, provider))
   await withLoggerContext(
     { fingerprintId, authToken, clientRequestId: userInputId },
     async () => {

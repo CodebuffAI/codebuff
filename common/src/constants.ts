@@ -178,21 +178,27 @@ export const claudeModels = {
   sonnet: 'claude-3-5-sonnet-20241022',
   haiku: 'claude-3-5-haiku-20241022',
 } as const
+export type AnthropicModel = (typeof claudeModels)[keyof typeof claudeModels]
 
 export const openaiModels = {
   gpt4o: 'gpt-4o-2024-08-06',
   gpt4omini: 'gpt-4o-mini-2024-07-18',
   o3mini: 'o3-mini-2025-01-31',
+  generatePatch:
+    'ft:gpt-4o-2024-08-06:manifold-markets:generate-patch-batch2:AKYtDIhk',
 } as const
+export type OpenAIModel = (typeof openaiModels)[keyof typeof openaiModels]
 
 export const geminiModels = {
   gemini2flash: 'gemini-2.0-flash-exp',
 } as const
+export type GeminiModel = (typeof geminiModels)[keyof typeof geminiModels]
 
 export const deepseekModels = {
   deepseekChat: 'deepseek-chat',
   deepseekReasoner: 'deepseek-reasoner',
 } as const
+export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 
 export const models = {
   ...claudeModels,
@@ -200,5 +206,7 @@ export const models = {
   ...geminiModels,
   ...deepseekModels,
 } as const
+
+export type Model = (typeof models)[keyof typeof models]
 
 export const TEST_USER_ID = 'test-user-id'

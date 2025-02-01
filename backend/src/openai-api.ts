@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { z } from 'zod'
-import { STOP_MARKER, TEST_USER_ID } from 'common/constants'
+import { openaiModels, STOP_MARKER, TEST_USER_ID } from 'common/constants'
 import { Stream } from 'openai/streaming'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
@@ -8,6 +8,8 @@ import { logger } from './util/logger'
 import { ChatCompletionReasoningEffort } from 'openai/resources/chat/completions'
 
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
+import { OpenAIModel } from 'common/constants'
+import { match, P } from 'ts-pattern'
 
 let openai: OpenAI | null = null
 
@@ -28,10 +30,65 @@ const getOpenAI = (fingerprintId: string) => {
   return openai
 }
 
+function transformedMessage(message: any, model: OpenAIModel): OpenAIMessage {
+  return match(model)
+    .with(
+      openaiModels.gpt4o,
+      openaiModels.gpt4omini,
+      openaiModels.generatePatch,
+      () =>
+        match(message)
+          .with(
+            {
+              content: {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: 'image/jpeg',
+                  data: P.string,
+                },
+              },
+            },
+            (m) => ({
+              // Convert to OpenAI's image_url format while preserving the base64 data
+              ...message,
+              content: {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${m.content.source.data}`,
+                },
+              },
+            })
+          )
+          .otherwise(() => message)
+    )
+    .with(openaiModels.o3mini, () => {
+      const hasImages = [message.content ?? []].some(
+        (obj: { type: string }) => obj.type === 'image'
+      )
+      if (hasImages) {
+        logger.info(
+          'Stripping images from message - o3mini does not support images'
+        )
+        return {
+          ...message,
+          content: message.content.filter(
+            (obj: { type: string }) => obj.type !== 'image'
+          ),
+        }
+      }
+      return message
+    })
+    .exhaustive()
+}
+
 export async function* promptOpenAIStream(
   messages: OpenAIMessage[],
   options: OpenAIOptions
 ): AsyncGenerator<string, void, unknown> {
+  const transformedMessages = messages.map((msg) =>
+    transformedMessage(msg, options.model)
+  )
   const {
     clientSessionId,
     fingerprintId,
@@ -46,7 +103,7 @@ export async function* promptOpenAIStream(
   try {
     const stream = await openai.chat.completions.create({
       model,
-      messages,
+      messages: transformedMessages,
       temperature: options.temperature ?? 0,
       stream: true,
       ...(predictedContent
@@ -112,7 +169,7 @@ export interface OpenAIOptions {
   clientSessionId: string
   fingerprintId: string
   userInputId: string
-  model: string
+  model: OpenAIModel
   userId: string | undefined
   predictedContent?: string
   temperature?: number

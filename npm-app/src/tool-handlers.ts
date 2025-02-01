@@ -1,7 +1,7 @@
 import { rgPath } from '@vscode/ripgrep'
 import { green, red, yellow, blue } from 'picocolors'
 import { spawn } from 'child_process'
-import { BrowserActionSchema } from 'common/browser-actions'
+import { BrowserActionSchema, BrowserResponse } from 'common/browser-actions'
 import { handleBrowserInstruction } from './browser-runner'
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot } from './project-files'
@@ -9,7 +9,10 @@ import { runTerminalCommand } from './utils/terminal'
 import { truncateStringWithMessage } from 'common/util/string'
 import * as path from 'path'
 
-export type ToolHandler = (input: any, id: string) => Promise<string>
+export type ToolHandler = (
+  input: any,
+  id: string
+) => Promise<string | BrowserResponse>
 
 export const handleScrapeWebPage: ToolHandler = async (
   input: { url: string },
@@ -99,7 +102,7 @@ export const toolHandlers: Record<string, ToolHandler> = {
     )) as ToolHandler,
   continue: async (input, id) => input.response ?? 'Please continue',
   code_search: handleCodeSearch,
-  browser_action: async (input, _id) => {
+  browser_action: async (input, _id): Promise<BrowserResponse> => {
     const action = BrowserActionSchema.parse(input)
     console.log('Executing browser action:', action)
 
@@ -129,16 +132,7 @@ export const toolHandlers: Record<string, ToolHandler> = {
       })
     }
 
-    // Handle chunked screenshots
-    if (response.chunks && response.chunks.length > 0) {
-      const sortedChunks = response.chunks.sort((a, b) => a.index - b.index)
-      const combinedBase64 = sortedChunks.map((ch) => ch.data).join('')
-      response.screenshot = combinedBase64
-      delete response.chunks // Remove chunks after combining
-    }
-
-    // Send the full response including screenshot
-    return JSON.stringify(response)
+    return response
   },
 }
 

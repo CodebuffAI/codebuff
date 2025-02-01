@@ -1,7 +1,8 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
-import { model_types, promptClaudeStream } from './claude'
+import { AnthropicModel } from 'common/constants'
+import { promptClaudeStream } from './claude'
 import { parseToolCallXml } from './util/parse-tool-call-xml'
 import {
   TOOL_RESULT_MARKER,
@@ -176,7 +177,7 @@ export async function mainPrompt(
         lastMessage: messages[messages.length - 1].content,
         messageCount: messages.length,
       },
-      'Prompting Claude Main'
+      'Prompting Main'
     )
 
     let stream: AsyncGenerator<string, void, unknown>
@@ -194,7 +195,7 @@ export async function mainPrompt(
     } else {
       stream = promptClaudeStream(messagesWithContinuedMessage, {
         system,
-        model: getModelForMode(costMode, 'agent') as model_types,
+        model: getModelForMode(costMode, 'agent') as AnthropicModel,
         clientSessionId,
         fingerprintId,
         userInputId,

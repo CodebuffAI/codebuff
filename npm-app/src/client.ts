@@ -42,6 +42,7 @@ import * as readline from 'readline'
 import { uniq } from 'lodash'
 import path from 'path'
 import * as fs from 'fs'
+import { truncateString } from 'common/util/string'
 import { match, P } from 'ts-pattern'
 import { calculateFingerprint } from './fingerprint'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
@@ -294,7 +295,16 @@ export class Client {
         const content = await handler(input, id)
         const toolResultMessage: Message = {
           role: 'user',
-          content: `${TOOL_RESULT_MARKER}\n${content}`,
+          content: match(content)
+            .with({ screenshot: P.not(P.nullish) }, (response) => [
+              {
+                type: 'text' as const,
+                text: JSON.stringify({ ...response, screenshot: undefined }),
+              },
+              response.screenshot,
+            ])
+            .with(P.string, (str) => str)
+            .otherwise((val) => JSON.stringify(val)),
         }
         this.chatStorage.addMessage(
           this.chatStorage.getCurrentChat(),

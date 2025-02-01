@@ -4,7 +4,8 @@ import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
-import { model_types, promptClaude, System } from './claude'
+import { AnthropicModel } from 'common/constants'
+import { promptClaude, System } from './claude'
 import { getModelForMode, type CostMode } from 'common/constants'
 import { claudeModels, models } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
@@ -276,7 +277,7 @@ Answer with just 'YES' if reading new files is necessary, or 'NO' if the current
   const response = await promptOpenAI(
     [...(messages as OpenAIMessage[]), { role: 'user', content: prompt }],
     {
-      model: getModelForMode(costMode, 'check-new-files'),
+      model: costMode === 'lite' ? models.gpt4omini : models.gpt4o, // getModelForMode(costMode, 'check-new-files'),
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -327,7 +328,7 @@ async function getRelevantFiles(
     )
   } else {
     response = await promptClaude(messagesWithPrompt, {
-      model: getModelForMode(costMode, 'file-requests') as model_types,
+      model: getModelForMode(costMode, 'file-requests') as AnthropicModel,
       system,
       clientSessionId,
       fingerprintId,
@@ -618,7 +619,7 @@ export const warmCacheForRequestRelevantFiles = async (
             },
           ],
           {
-            model: getModelForMode(costMode, 'file-requests') as model_types,
+            model: getModelForMode(costMode, 'file-requests') as AnthropicModel,
             system,
             clientSessionId,
             fingerprintId,
