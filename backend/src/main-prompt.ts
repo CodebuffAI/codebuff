@@ -339,25 +339,23 @@ export async function mainPrompt(
         'Thinking deeply'
       )
 
-      const plan = await planComplexChange(
-        prompt,
-        fileContents,
-        onResponseChunk,
-        {
+      const { response, fileProcessingPromises: promises } =
+        await planComplexChange(prompt, fileContents, onResponseChunk, {
           clientSessionId,
           fingerprintId,
           userInputId,
           userId,
-        }
-      )
+          costMode,
+        })
+      fileProcessingPromises.push(...promises)
       // For now, don't print the plan to the user.
       // onResponseChunk(`${plan}\n\n`)
-      fullResponse += plan + '\n\n'
+      fullResponse += response + '\n\n'
       logger.debug(
         {
           prompt,
           file_paths: filePaths,
-          response: plan,
+          response,
         },
         'Generated plan'
       )
@@ -366,7 +364,7 @@ export async function mainPrompt(
         id: Math.random().toString(36).slice(2),
         name: 'continue',
         input: {
-          response: `Please implement the full plan.`,
+          response: `Please review the implementation and make improvements if needed.`,
         },
       }
       isComplete = true

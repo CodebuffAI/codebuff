@@ -1,14 +1,46 @@
-import { Message } from 'common/actions'
+import { Message, FileChange } from 'common/actions'
 import { models, claudeModels, CostMode } from 'common/constants'
 import { countTokensJson } from './util/token-counter'
 import {
+  createFileBlock,
   createMarkdownFileBlock,
   isValidFilePath,
   ProjectFileContext,
+  parseFileBlocks,
 } from 'common/util/file'
 import { promptClaude } from './claude'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { getSearchSystemPrompt } from './system-prompt'
+import { hasLazyEdit } from 'common/util/string'
+import { applyRemainingChanges } from './process-file-block'
+
+const systemPrompt = `
+You are a senior software engineer. You are given a request from a user and a set of files that are relevant to the request.
+
+Use the following syntax to edit a file using xml tags. This example adds a console.log statement to the foo function in the file at path/to/file.ts:
+
+${createFileBlock(
+  'path/to/file.ts',
+  `// ... existing code ...
+function foo() {
+  console.log('foo');
+  // ... existing code ...
+`
+)}
+
+Notes for editing a file:
+- You must specify a file path using the filePath attribute.
+- Do not wrap the file content in markdown code blocks.
+- You can edit multiple files in your response by including multiple edit_file blocks.
+- The content of the file can be abridged by using placeholder comments like: // ... existing code ... or # ... existing code ... (or whichever is appropriate for the language). In this case, the placeholder sections will not be changed. Only the written out code will be updated.
+- If you don't use any placeholder comments (matched by a regex), the entire file will be replaced.
+- Similarly, you can create new files by specifying a new file path and including the entire content of the file.
+
+If you don't want to edit a file, but want to show code to the user, you can use the markdown format for that:
+\`\`\`typescript
+// Some code to show the user...
+\`\`\`
+`.trim()
 
 export async function planComplexChange(
   prompt: string,
@@ -19,9 +51,14 @@ export async function planComplexChange(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
+    costMode: CostMode
   }
 ) {
   const messages: OpenAIMessage[] = [
+    {
+      role: 'system',
+      content: systemPrompt,
+    },
     {
       role: 'user',
       content: `${
@@ -42,7 +79,62 @@ Please plan and create a detailed solution.`,
     reasoningEffort: 'high',
   })
 
-  return fullResponse
+  const fileBlocks = parseFileBlocks(fullResponse)
+
+  const fileProcessingPromises = Object.entries(fileBlocks).map(
+    ([filePath, content]) =>
+      processFileBlock(
+        filePath,
+        content,
+        files[filePath] || null,
+        fullResponse,
+        options.costMode,
+        options.clientSessionId,
+        options.fingerprintId,
+        options.userInputId,
+        options.userId
+      )
+  )
+
+  return {
+    response: fullResponse,
+    fileProcessingPromises,
+  }
+}
+
+async function processFileBlock(
+  filePath: string,
+  newContent: string,
+  oldContent: string | null,
+  fullResponse: string,
+  costMode: CostMode,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined
+): Promise<FileChange | null> {
+  // For new files, just create them directly
+  if (!oldContent) {
+    return { filePath, content: newContent, type: 'file' }
+  }
+
+  if (hasLazyEdit(newContent)) {
+    const updatedContent = await applyRemainingChanges(
+      oldContent,
+      newContent,
+      filePath,
+      fullResponse,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      costMode,
+      true // hasLazyEdit = true
+    )
+    return { filePath, content: updatedContent, type: 'file' }
+  }
+
+  return { filePath, content: newContent, type: 'file' }
 }
 
 /**

@@ -386,7 +386,7 @@ Do not use code_search when:
 
 ## Plan complex change
 
-When you need a detailed technical plan for complex changes, use the plan_complex_change tool. This tool leverages O1's deep reasoning capabilities to break down difficult problems into clear implementation steps.
+When you need a detailed technical plan for complex changes, use the plan_complex_change tool. This tool leverages deep reasoning capabilities to break down difficult problems into clear implementation steps.
 
 Format:
 - First line must be a clear, specific problem statement
@@ -401,7 +401,7 @@ Use cases:
 2. Planning refactoring operations
 3. Making architectural decisions
 4. Breaking down difficult problems into steps
-5. When you seem to be stuck and need
+5. When you seem to be stuck and need to get unstuck
 
 Best practices:
 - Make problem statement specific and actionable
