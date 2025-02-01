@@ -95,7 +95,7 @@ export class CLI {
         const lastWordLower = lastWord.toLowerCase()
         const matchingTokens = [...tokenNames, ...paths].filter(
           (token) =>
-            token.toLowerCase().startsWith(lastWordLower) || 
+            token.toLowerCase().startsWith(lastWordLower) ||
             token.toLowerCase().includes('/' + lastWordLower)
         )
         if (matchingTokens.length > 1) {
@@ -578,7 +578,9 @@ export class CLI {
           `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
         )
       }
-      console.log('Complete! Type "diff" to see the changes made.')
+      console.log(
+        'Complete! Type "diff" to review changes or "undo" to revert.'
+      )
       this.client.showUsageWarning()
     }
     console.log()
