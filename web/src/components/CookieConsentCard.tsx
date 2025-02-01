@@ -50,25 +50,28 @@ export function CookieConsentCard() {
 
   return (
     <div
-      className="fixed bottom-4 left-4 right-4 md:left-8 md:right-auto z-50 transition-opacity duration-200"
+      className="fixed bottom-4 left-4 right-4 md:left-8 md:right-auto md:max-w-[280px] z-50 transition-opacity duration-200"
       style={{ opacity }}
     >
-      <Card className="md:max-w-sm bg-background/80 backdrop-blur-sm">
-        <CardContent className="flex flex-col gap-4 p-4">
+      <Card className="bg-background/80 backdrop-blur-sm">
+        <CardContent className="flex flex-col gap-3 p-4">
           <p className="text-xs text-muted-foreground">
-            We use cookies to enhance your experience. By clicking "Accept", you
-            agree to our use of cookies.
+            We use cookies to enhance your experience. By clicking "Accept", you agree to our use of cookies.
           </p>
           <div className="flex gap-2 justify-end">
             <Button
               variant="outline"
               size="xs"
               onClick={handleDecline}
-              className="text-xs"
+              className="text-xs h-7 px-2"
             >
               Decline
             </Button>
-            <Button size="xs" onClick={handleAccept} className="text-xs">
+            <Button 
+              size="xs" 
+              onClick={handleAccept} 
+              className="text-xs h-7 px-2"
+            >
               Accept
             </Button>
           </div>
