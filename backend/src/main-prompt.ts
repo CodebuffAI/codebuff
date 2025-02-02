@@ -179,7 +179,7 @@ export async function mainPrompt(
       'Prompting Claude Main'
     )
 
-    let stream: AsyncGenerator<string, void, unknown>
+    let stream: ReadableStream<string>
     if (costMode === 'lite') {
       stream = promptDeepseekStream(
         messagesWithSystem(messagesWithContinuedMessage, system),
@@ -306,6 +306,7 @@ export async function mainPrompt(
 
       onResponseChunk(`\nPrompt: ${prompt}\n`)
 
+      const fetchFilesStart = Date.now()
       const filePaths = await getRelevantFilesForPlanning(
         messages,
         prompt,
@@ -316,11 +317,11 @@ export async function mainPrompt(
         userInputId,
         userId
       )
-
+      const fetchFilesDuration = Date.now() - fetchFilesStart
       const loadedFiles = await requestFiles(ws, filePaths)
       const fileContents = Object.fromEntries(
         Object.entries(loadedFiles).filter(
-          ([_, content]) => content !== null
+          ([, content]) => content !== null
         ) as [string, string][]
       )
 
@@ -329,16 +330,8 @@ export async function mainPrompt(
       fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
 
       onResponseChunk(`\nThinking deeply (can take a minute)...\n\n`)
-
-      logger.debug(
-        {
-          prompt,
-          filePaths,
-          existingFilePaths,
-        },
-        'Thinking deeply'
-      )
-
+      logger.debug({ prompt, filePaths, existingFilePaths }, 'Thinking deeply')
+      const planningStart = Date.now()
       const { response, fileProcessingPromises: promises } =
         await planComplexChange(prompt, fileContents, onResponseChunk, {
           clientSessionId,
@@ -356,6 +349,8 @@ export async function mainPrompt(
           prompt,
           file_paths: filePaths,
           response,
+          fetchFilesDuration,
+          planDuration: Date.now() - planningStart,
         },
         'Generated plan'
       )
