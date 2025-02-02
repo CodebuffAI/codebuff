@@ -319,7 +319,7 @@ You have access to the following tools:
 - <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
 
 Important notes:
-- Immediately after you write out a tool call, you should write ${STOP_MARKER}, and then do not write out any other text. You will automatically be prompted to continue with the result of the tool call.
+- Immediately after you write out a tool call, you should write ${STOP_MARKER}, and end your response. Do not write out any other text. A tool call is a delgation -- do not write any other analysis or commentary.
 - Do not write out a tool call within another tool call block.
 - Do not write out a tool call within an <edit_file> block. If you want to read a file before editing it, write the <tool_call> first. Similarly, do not write a tool call to run a terminal command within an <edit_file> block.
 - You can freely explain what tools you have available, but do not write out <tool_call name="..." />" unless you are actually intending to call the tool, otherwise you will accidentally be calling the tool when explaining it.

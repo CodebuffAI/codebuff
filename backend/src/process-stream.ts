@@ -1,5 +1,5 @@
 export async function* processStreamWithTags<T extends string>(
-  stream: AsyncGenerator<T>,
+  stream: AsyncGenerator<T> | ReadableStream<T>,
   tags: {
     [tagName: string]: {
       attributeNames: string[]
@@ -103,10 +103,12 @@ export async function* processStreamWithTags<T extends string>(
   }
 
   for await (const chunk of stream) {
-    if (streamCompleted) continue
     buffer += chunk
 
     yield* parseBuffer()
+    if (streamCompleted) {
+      break
+    }
   }
 
   if (!streamCompleted) {
