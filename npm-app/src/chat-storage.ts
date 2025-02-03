@@ -6,7 +6,9 @@ import {
   getCurrentChatDir,
   currentChatId,
 } from './project-files'
-import { ensureDirectoryExists } from 'common/util/file'
+import { transformJsonInString } from 'common/util/string'
+import { type Log } from 'common/browser-actions'
+import { match, P } from 'ts-pattern'
 
 interface Chat {
   id: string
@@ -43,50 +45,67 @@ export class ChatStorage {
         return msg // Preserve the most recent message in its entirety
       }
 
-      // Helper function to clean up content string
+      // Helper function to clean up message content
       const cleanContent = (content: string) => {
-        let result = content
-        if (content.includes('"logs"')) {
-          result = result.replace(
-            /"logs"\s*:\s*\[[^\]]*\]/g,
-            '"logs":[LOGS_REMOVED]'
-          )
-        }
-        return result
+        // Keep only tool logs
+        content = transformJsonInString<Array<Log>>(
+          content,
+          'logs',
+          (logs) => logs.filter((log) => log.source === 'tool'),
+          '(LOGS_REMOVED)'
+        )
+
+        // Remove metrics
+        content = transformJsonInString(
+          content,
+          'metrics',
+          () => '(METRICS_REMOVED)',
+          '(METRICS_REMOVED)'
+        )
+
+        return content
       }
 
       // Clean up message content
       if (!msg.content) return msg
 
-      if (Array.isArray(msg.content)) {
-        return {
-          ...msg,
-          content: msg.content
-            .filter(contentObj => contentObj.type !== 'image')
-            .map((contentObj) => {
-              if (contentObj.type === 'tool_result' && contentObj.content) {
-                return {
-                  ...contentObj,
-                  content: cleanContent(contentObj.content),
-                }
-              }
-              return contentObj
-            }),
-        }
-      } else if (typeof msg.content === 'string') {
-        return {
-          ...msg,
-          content: cleanContent(msg.content),
-        }
-      }
-      return msg
+      return match(msg)
+        .with({ content: P.array() }, (message) => ({
+          ...message,
+          content: message.content.reduce<typeof message.content>(
+            (acc, contentObj) => [
+              ...acc,
+              ...match(contentObj)
+                .with({ type: 'image' }, () => [])
+                .with({ type: 'tool_result', content: P.string }, (obj) => [
+                  {
+                    ...obj,
+                    content: cleanContent(obj.content),
+                  },
+                ])
+                .with({ type: 'text', text: P.string }, (obj) => [
+                  {
+                    ...obj,
+                    text: cleanContent(obj.text),
+                  },
+                ])
+                .otherwise((obj) => [obj]),
+            ],
+            []
+          ),
+        }))
+        .with({ content: P.string }, (message) => ({
+          ...message,
+          content: cleanContent(message.content),
+        }))
+        .otherwise((message) => message)
     })
 
     // Add the new message
     chat.messages.push(message)
     chat.updatedAt = new Date().toISOString()
 
-    // Save messages to .codebuff/messages/messages.json
+    // Save messages to chat directory
     this.saveMessagesToFile(chat)
   }
 

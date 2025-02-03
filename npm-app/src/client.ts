@@ -15,7 +15,7 @@ import {
   getProjectFileContext,
   getProjectRoot,
 } from './project-files'
-import { BrowserRunner } from './browser-runner'
+import { activeBrowserRunner, BrowserRunner } from './browser-runner'
 import { applyChanges } from 'common/util/changes'
 import { User } from 'common/util/credentials'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
@@ -69,7 +69,6 @@ export class Client {
   public lastRequestCredits: number = 0
   public sessionCreditsUsed: number = 0
   public nextQuotaReset: Date | null = null
-  private browserRunner: BrowserRunner | null = null
   private git: GitCommand
   private rl: readline.Interface
 
@@ -95,13 +94,11 @@ export class Client {
     this.getFingerprintId()
     this.returnControlToUser = returnControlToUser
     this.rl = rl
-    this.browserRunner = new BrowserRunner()
   }
 
   async exit() {
-    // Clean up browser before exiting
-    if (this.browserRunner) {
-      await this.browserRunner.shutdown()
+    if (activeBrowserRunner) {
+      activeBrowserRunner.shutdown()
     }
     process.exit(0)
   }

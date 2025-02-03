@@ -1,4 +1,5 @@
 import puppeteer, { Browser, Page, HTTPRequest, HTTPResponse } from 'puppeteer'
+import { Log } from 'common/browser-actions'
 import { execSync } from 'child_process'
 import { sleep } from 'common/util/promise'
 import {
@@ -8,11 +9,9 @@ import {
 } from 'common/browser-actions'
 import * as fs from 'fs'
 import * as path from 'path'
-import { getCurrentChatDir, getDebugDir } from './project-files'
+import * as os from 'os'
+import { getCurrentChatDir, getProjectDataDir } from './project-files'
 import { ensureDirectoryExists } from 'common/util/file'
-
-// Single browser instance for the application
-let activeBrowserRunner: BrowserRunner | null = null
 
 export class BrowserRunner {
   // Add getter methods for diagnostic loop
@@ -29,7 +28,6 @@ export class BrowserRunner {
   private jsErrorCount = 0
   private retryCount = 0
   private startTime: number = 0
-  private currentHeadless: boolean = BROWSER_DEFAULTS.headless
 
   // Error tracking
   private consecutiveErrors = 0
@@ -235,17 +233,8 @@ export class BrowserRunner {
     if (this.browser) {
       await this.shutdown()
     }
-    this.logs.push({
-      type: 'info',
-      message: 'Starting browser...',
-      timestamp: Date.now(),
-      source: 'tool',
-    })
     // Set start time for session tracking
     this.startTime = Date.now()
-
-    // Update headless state tracking
-    this.currentHeadless = action.headless ?? BROWSER_DEFAULTS.headless
 
     // Update session configuration
     this.maxConsecutiveErrors =
@@ -257,14 +246,17 @@ export class BrowserRunner {
     this.consecutiveErrors = 0
     this.totalErrors = 0
 
-    // Set up user data directory for profile persistence
-    const userDataDir = getDebugDir('browser-profile')
-    ensureDirectoryExists(userDataDir)
+    // Set up user data directory for profile persistence, scoped to current project
+    let userDataDir: string | undefined = undefined
+    try {
+      userDataDir = path.join(getProjectDataDir(), BROWSER_DEFAULTS.userDataDir)
+      ensureDirectoryExists(userDataDir)
+    } catch (error) {}
 
     try {
       this.browser = await puppeteer.launch({
         defaultViewport: { width: 1280, height: 720 },
-        headless: action.headless ?? BROWSER_DEFAULTS.headless,
+        headless: BROWSER_DEFAULTS.headless,
         userDataDir,
         args: ['--no-sandbox', '--restore-last-session=false'],
       })
@@ -276,7 +268,7 @@ export class BrowserRunner {
       execSync('npx puppeteer browsers install chrome', { stdio: 'inherit' })
       this.browser = await puppeteer.launch({
         defaultViewport: { width: 1280, height: 720 },
-        headless: action.headless ?? BROWSER_DEFAULTS.headless,
+        headless: BROWSER_DEFAULTS.headless,
         userDataDir,
         args: ['--no-sandbox', '--restore-last-session=false'],
       })
@@ -307,17 +299,8 @@ export class BrowserRunner {
   }
 
   private async navigate(action: Extract<BrowserAction, { type: 'navigate' }>) {
-    const requestedHeadless = action.headless ?? BROWSER_DEFAULTS.headless
-
     // If headless state needs to change, restart browser
-    if (this.browser && requestedHeadless !== this.currentHeadless) {
-      await this.shutdown()
-      await this.startBrowser({
-        ...action,
-        type: 'start',
-        headless: requestedHeadless,
-      })
-    } else if (!this.browser) {
+    if (!this.browser) {
       await this.startBrowser({
         ...action,
         type: 'start',
@@ -339,11 +322,11 @@ export class BrowserRunner {
       })
 
       // Add a small delay after navigation to ensure page is stable
-      await sleep(500)
+      await sleep(1000)
 
       return {
         success: true,
-        logs: [],
+        logs: this.logs,
         networkEvents: [],
       }
     } catch (error: any) {
@@ -358,7 +341,7 @@ export class BrowserRunner {
       return {
         success: false,
         error: errorMessage,
-        logs: [],
+        logs: this.logs,
         networkEvents: [],
       }
     }
@@ -419,7 +402,7 @@ export class BrowserRunner {
     const sizeInKB = Math.round((screenshot.length * 3) / 4 / 1024)
     this.logs.push({
       type: 'info',
-      message: `Captured screenshot of current page (${sizeInKB}KB)`,
+      message: `Captured screenshot (${sizeInKB}KB)`,
       timestamp: Date.now(),
       category: 'screenshot',
       source: 'tool',
@@ -444,7 +427,8 @@ export class BrowserRunner {
       })
 
       try {
-        const screenshotsDir = getCurrentChatDir()
+        const chatDir = getCurrentChatDir()
+        const screenshotsDir = path.join(chatDir, 'screenshots')
         ensureDirectoryExists(screenshotsDir)
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -635,6 +619,18 @@ export class BrowserRunner {
     logs: BrowserResponse['logs'],
     filter?: BrowserResponse['logFilter']
   ): BrowserResponse['logs'] {
+    // First deduplicate logs
+    const seen = new Set<string>()
+    logs = logs.filter((log) => {
+      const key = `${log.type}|${log.message}|${log.timestamp}|${log.source}`
+      if (seen.has(key)) {
+        return false
+      }
+      seen.add(key)
+      return true
+    })
+
+    // Then apply any filters
     if (!filter) return logs
 
     return logs.filter((log) => {
@@ -654,12 +650,12 @@ export class BrowserRunner {
   async execute(action: BrowserAction): Promise<BrowserResponse> {
     try {
       const response = await this.executeWithRetry(action)
+      // Filter and deduplicate logs
       response.logs = this.filterLogs(
         response.logs,
         action.logFilter ?? undefined
       )
-      // Clear logs after sending them in response
-      this.logs = []
+      this.logs = [] // Clear logs after sending them in response
       return response
     } catch (error: any) {
       if (error.name === 'TargetClosedError') {
@@ -678,7 +674,6 @@ export class BrowserRunner {
           await this.startBrowser({
             type: 'start',
             url: 'about:blank',
-            headless: true,
             timeout: 15000,
           })
         }
@@ -705,11 +700,8 @@ export class BrowserRunner {
 export const handleBrowserInstruction = async (
   action: BrowserAction
 ): Promise<BrowserResponse> => {
-  // Create new browser if none exists
-  if (!activeBrowserRunner) {
-    activeBrowserRunner = new BrowserRunner()
-  }
-
   const response = await activeBrowserRunner.execute(action)
   return response
 }
+
+export const activeBrowserRunner: BrowserRunner = new BrowserRunner()

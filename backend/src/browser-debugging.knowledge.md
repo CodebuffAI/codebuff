@@ -107,7 +107,7 @@
      - Memory usage monitoring
 
 5. **Profile Management**
-   - Browser profiles stored in `.codebuff/browser-profile`
+   - Browser profiles stored in `~/.config/manicode/projects/<project>/browser`
    - Persists cookies, local storage and session data
    - Maintains login state between sessions
    - Isolated from user's regular browsing
@@ -341,14 +341,18 @@
              }
              ```
      - Debug mode:
-       - When enabled, saves screenshots to .codebuff/screenshots/
-       - Includes metadata JSON with screenshot settings and metrics
-       - Useful for debugging visual issues while keeping message history small
+       - Screenshots are saved in chat-specific directories:
+         - Path: ~/.config/manicode/<project>-<hash>/chats/<chat-id>/screenshots/
+         - Each screenshot has an associated metadata.json with settings and metrics
+         - This keeps screenshots with their chat context for better debugging
+         - Prevents mixing screenshots from different chat sessions
      - Log handling:
-       - Logs are preserved only in most recent message
-       - Previous messages have their logs replaced with empty arrays
-       - This keeps message sizes small while preserving debugging context
-       - Message content can be either string or array format:
+       - Only logs with source: 'tool' are preserved in message history
+       - Other logs are removed during message cleanup
+       - Metrics are removed entirely (replaced with null)
+       - Uses shared Log type from browser-actions.ts for consistency
+       - Known issue: Browser action logs may appear duplicated in the response due to message transformation. This is a display artifact and does not affect functionality or actual logging
+       - Handles both string and array message formats:
          - String: Legacy format or simple messages
          - Array: Structured content like tool calls and results
        - Use same cleanup logic for both formats to maintain consistency

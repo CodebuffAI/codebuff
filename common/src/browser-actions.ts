@@ -3,10 +3,10 @@ import { z } from 'zod'
 // Default values for browser actions
 export const BROWSER_DEFAULTS = {
   // Common defaults
-  headless: true,
+  headless: false,
   debug: false,
   timeout: 15000, // 15 seconds
-  userDataDir: '.codebuff/browser-profile',
+  userDataDir: '_browser_profile', // Will be relative to project data dir
   retryOptions: {
     maxRetries: 3,
     retryDelay: 1000, // 1 second
@@ -47,6 +47,8 @@ export const LogSchema = z.object({
   level: z.number().optional(),
   source: z.enum(['browser', 'tool']).default('tool'),
 })
+
+export type Log = z.infer<typeof LogSchema>
 
 export const MetricsSchema = z.object({
   loadTime: z.number(),
@@ -101,13 +103,11 @@ export const OptionalBrowserConfigSchema = z.object({
 export const OptionalStartConfigSchema = z.object({
   maxConsecutiveErrors: z.number().optional(),
   totalErrorThreshold: z.number().optional(),
-  headless: z.boolean().optional(),
 })
 
 // Optional configurations specific to each action type
 export const OptionalNavigateConfigSchema = z.object({
   waitUntil: z.enum(['load', 'domcontentloaded', 'networkidle0']).optional(),
-  headless: z.boolean().optional(),
 })
 
 export const OptionalClickConfigSchema = z.object({

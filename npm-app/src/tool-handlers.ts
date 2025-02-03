@@ -1,5 +1,5 @@
 import { rgPath } from '@vscode/ripgrep'
-import { green, red, yellow, blue } from 'picocolors'
+import { green, red, yellow, blue, cyan } from 'picocolors'
 import { spawn } from 'child_process'
 import { BrowserActionSchema, BrowserResponse } from 'common/browser-actions'
 import { handleBrowserInstruction } from './browser-runner'
@@ -104,7 +104,7 @@ export const toolHandlers: Record<string, ToolHandler> = {
   code_search: handleCodeSearch,
   browser_action: async (input, _id): Promise<BrowserResponse> => {
     const action = BrowserActionSchema.parse(input)
-    console.log('Executing browser action:', action)
+    // console.log('Executing browser action:', action)
 
     const response = await handleBrowserInstruction(action)
 
@@ -123,10 +123,10 @@ export const toolHandlers: Record<string, ToolHandler> = {
               console.warn(yellow(log.message))
               break
             case 'info':
-              console.info(log.message)
+              console.info(cyan(log.message))
               break
             default:
-              console.log(log.message)
+              console.log(cyan(log.message))
           }
         }
       })

@@ -446,11 +446,8 @@ Scrape any url that could help address the user's request.
 ## Browser Action
 
 The browser debugging system lets you interact with web pages, testing functionality, and diagnosing issues.
-
-### Use Cases
-- user wants to visually confirm a change in their web-app
-- user is asking about a website's design (e.g. I want the app to look like linear.app)
-- user is debugging their website and there are logs we need to access in the browser console.
+Don't perform this unless the user explicitly asks for browser-related actions or to verify the changes visually.
+If you're using this tool, you should never spin up the user's server for them. If it looks like the server isn't running, give the user instructions to spin it up themselves in a new tab.
 
 ### Data Collection
 - Console logs (info, warnings, errors)
@@ -463,10 +460,9 @@ The following actions are available through the browser_action tool:
 
 1. **Navigate**
    - Load a new URL in the current browser window
-   - IMPORTANT: Unless the user asks to see the webpage themselves or otherwise indicate they need to access it, set the headless mode to true.
    - required tags: url (string)
-   - optional tags: waitUntil ('load', 'domcontentloaded', 'networkidle0'), headless (boolean, defaults to true)
-   - example: <tool_call name="browser_action"><type>navigate</type><url>localhost:3000</url><waitUntil>domcontentloaded</waitUntil><headless>true</headless></tool_call>
+   - optional tags: waitUntil ('load', 'domcontentloaded', 'networkidle0')
+   - example: <tool_call name="browser_action"><type>navigate</type><url>localhost:3000</url><waitUntil>domcontentloaded</waitUntil></tool_call>
 
 2. **Type**
    - Input text via keyboard
@@ -488,6 +484,7 @@ The following actions are available through the browser_action tool:
    - example: <tool_call name="browser_action"><type>screenshot</type><quality>80</quality></tool_call>
 
 IMPORTANT: make sure to use the '<tool_call name="browser_action">' xml prefix to match the structure specified in the example as closely as possible.
+Please also be aware that you are unable to click on elements or interact with the page in any way. This tool is for debugging purposes only. If you need to interact with the page, please ask the user to do so.
 
 ### Response Analysis
 

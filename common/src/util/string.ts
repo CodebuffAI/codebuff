@@ -150,3 +150,41 @@ export const hasLazyEdit = (content: string) => {
     ) // JSX style
   )
 }
+
+/**
+ * Extracts a JSON field from a string, transforms it, and puts it back.
+ * Handles both array and object JSON values.
+ * @param content The string containing JSON-like content
+ * @param field The field name to find and transform
+ * @param transform Function to transform the parsed JSON value
+ * @param fallback String to use if parsing fails
+ * @returns The content string with the transformed JSON field
+ */
+export const transformJsonInString = <T = unknown>(
+  content: string,
+  field: string,
+  transform: (json: T) => unknown,
+  fallback: string
+): string => {
+  // Use a non-greedy match for objects/arrays to prevent over-matching
+  const pattern = new RegExp(`"${field}"\\s*:\\s*(\\{[^}]*?\\}|\\[[^\\]]*?\\])`)
+  const match = content.match(pattern)
+
+  if (!match) {
+    return content
+  }
+
+  try {
+    const json = JSON.parse(match[1])
+    const transformed = transform(json)
+
+    // Important: Only replace the exact matched portion to prevent duplicates
+    return content.replace(
+      match[0],
+      `"${field}":${JSON.stringify(transformed)}`
+    )
+  } catch (error) {
+    // Only replace the exact matched portion even in error case
+    return content.replace(match[0], `"${field}":${fallback}`)
+  }
+}
