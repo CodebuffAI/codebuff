@@ -305,10 +305,6 @@ const runCommandPty = (
         )
       }
 
-      if (mode === 'assistant') {
-        console.log(green(`Command completed`))
-      }
-
       // Reset the PTY to the project root
       ptyProcess.write(`cd ${projectRoot}\r`)
 
@@ -324,7 +320,8 @@ const runCommandPty = (
   })
 
   // Write the command
-  ptyProcess.write(command + '\r')
+  const commandWithCheck = `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "Command completed. "; else printf "Command failed with exit code $ec. "; fi`
+  ptyProcess.write(commandWithCheck + '\r')
 }
 
 const runCommandChildProcess = (

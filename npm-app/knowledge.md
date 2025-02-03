@@ -48,6 +48,11 @@ NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com
   - Better matches real terminal behavior
   - Command completion detected by shell prompt reappearance
   - Must handle command echo and prompt filtering to avoid duplicate output
+  - For command completion messages:
+    - Use shell conditionals to format output: `ec=$?; if [ $ec -eq 0 ]...`
+    - Let shell handle success/failure messaging
+    - Keeps output formatting close to where it's generated
+    - Use ANSI color codes directly in shell: `\033[32m` for green, `\033[0m` to reset
   - Sources appropriate shell RC file on startup:
     - ~/.zshrc for zsh
     - ~/.config/fish/config.fish for fish
