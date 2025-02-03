@@ -1,10 +1,11 @@
 {
-  "name": "codebuff-tests",
+  "name": "codebuff-scripts",
   "version": "1.0.0",
   "description": "Scripts package for Codebuff",
   "scripts": {
     "mrr": "bun calculate-mrr.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck-this-package": "tsc --noEmit",
+    "typecheck": "cd .. && bun run --cwd common build && bun run --cwd backend build && cd scripts && bun run typecheck-this-package"
   },
   "dependencies": {
     "backend": "file:../backend",
