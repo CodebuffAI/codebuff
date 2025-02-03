@@ -332,12 +332,15 @@ export async function mainPrompt(
       const existingFilePaths = Object.keys(fileContents)
       onResponseChunk(`\nRelevant files:\n${existingFilePaths.join(' ')}\n`)
       fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
-
       onResponseChunk(`\nThinking deeply (can take a minute)...\n\n`)
       logger.debug({ prompt, filePaths, existingFilePaths }, 'Thinking deeply')
       const planningStart = Date.now()
-      const { response, fileProcessingPromises: promises } =
-        await planComplexChange(prompt, fileContents, onResponseChunk, {
+      const { response, fileProcessingPromises: promises } = await planComplexChange(
+        prompt,
+        fileContents,
+        messages,
+        onResponseChunk,
+        {
           clientSessionId,
           fingerprintId,
           userInputId,

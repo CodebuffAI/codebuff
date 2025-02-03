@@ -45,6 +45,7 @@ If you don't want to edit a file, but want to show code to the user, you can use
 export async function planComplexChange(
   prompt: string,
   files: Record<string, string>,
+  messageHistory: Message[],
   onChunk: (chunk: string) => void,
   options: {
     clientSessionId: string
@@ -67,9 +68,11 @@ export async function planComplexChange(
               .map(([path, content]) => createMarkdownFileBlock(path, content))
               .join('\n')}\n\n`
           : ''
-      }${prompt}
+      }Message History:\n\n${messageHistory
+        .map((m) => `${m.role}: ${m.content}`)
+        .join('\n')}\n\nRequest:\n${prompt}
 
-Please plan and create a detailed solution.`,
+Please plan and create a detailed solution for this request.`,
     },
   ]
 
