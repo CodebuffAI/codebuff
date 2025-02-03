@@ -642,7 +642,7 @@ async function getFileVersionUpdates(
     userId,
     costMode,
   } = options
-  const FILE_TOKEN_BUDGET = costMode === 'lite' ? 25_000 : 80_000
+  const FILE_TOKEN_BUDGET = costMode === 'lite' ? 25_000 : 100_000
 
   const { fileVersions } = fileContext
   const files = fileVersions.flatMap((files) => files)

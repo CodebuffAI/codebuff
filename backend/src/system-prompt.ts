@@ -38,8 +38,8 @@ export function getSearchSystemPrompt(
     // but stick to fixed increments so as not to break prompt caching too often.
     Math.floor(
       (systemPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)) /
-        30_000
-    ) * 30_000
+        20_000
+    ) * 20_000
 
   const projectFileTreePrompt = getProjectFileTreePrompt(
     fileContext,
@@ -91,12 +91,16 @@ export const getAgentSystemPrompt = (
   costMode: CostMode,
   messagesTokens: number
 ) => {
+  // Agent token budget:
+  // System prompt stuff, git changes: 25k
+  // Files: 100k (25k for lite)
+  // File tree: 20k (5k for lite)
+  // Messages: Remaining
+  // Total: 200k (64k for lite)
+
   const { fileVersions } = fileContext
   const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
-  const maxTokens = costMode === 'lite' ? 64_000 : 200_000
-  const miscTokens = 15_000
-  const agentPromptTokenBudget = maxTokens - messagesTokens - miscTokens
   const projectFilesPromptContent = getProjectFilesPromptContent(
     fileContext,
     true
@@ -104,20 +108,13 @@ export const getAgentSystemPrompt = (
   const filesTokens = countTokensJson(projectFilesPromptContent)
 
   const gitChangesPrompt = getGitChangesPrompt(fileContext)
-  const fileTreeTokenBudget =
-    agentPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)
+  const fileTreeTokenBudget = costMode === 'lite' ? 5_000 : 20_000
 
   const projectFileTreePrompt = getProjectFileTreePrompt(
     fileContext,
     fileTreeTokenBudget
   )
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)
-  const maybeProjectFileTreePrompt =
-    // For large projects, don't include file tree in agent context.
-    fileTreeTokens < (costMode === 'lite' ? 2_500 : 10_000)
-      ? projectFileTreePrompt
-      : null
-  const maybeFileTreeTokens = maybeProjectFileTreePrompt ? fileTreeTokens : 0
 
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)
   const systemInfoTokens = countTokens(systemInfoPrompt)
@@ -138,7 +135,7 @@ export const getAgentSystemPrompt = (
         editingFilesPrompt,
         knowledgeFilesPrompt,
         toolsPrompt,
-        maybeProjectFileTreePrompt,
+        projectFileTreePrompt,
         systemInfoPrompt
       ).join('\n\n'),
     },
@@ -153,7 +150,7 @@ export const getAgentSystemPrompt = (
   logger.debug(
     {
       filesTokens,
-      fileTreeTokens: maybeFileTreeTokens,
+      fileTreeTokens,
       systemInfoTokens,
       responseFormatTokens,
       fileVersions: fileContext.fileVersions.map((files) =>
