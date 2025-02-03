@@ -1,11 +1,8 @@
 import {
-  FileTreeNode,
   ProjectFileContext,
   createFileBlock,
   createMarkdownFileBlock,
   createSearchReplaceBlock,
-  printFileTree,
-  printFileTreeWithTokens,
 } from 'common/util/file'
 import { buildArray } from 'common/util/array'
 import { truncateString } from 'common/util/string'
@@ -15,7 +12,7 @@ import { logger } from './util/logger'
 import { uniq } from 'lodash'
 import { removeUndefinedProps } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
-import { MinHeap } from 'common/util/min-heap'
+import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 
 export function getSearchSystemPrompt(
   fileContext: ProjectFileContext,
@@ -703,98 +700,4 @@ This marker helps ensure that your entire response has been received and process
 If you don't end with this marker, you will automatically be prompted to continue. However, it is good to stop your response with this token so the user can give further guidence.
 </important_instruction>
 `.trim()
-}
-const truncateFileTreeBasedOnTokenBudget = (
-  fileContext: ProjectFileContext,
-  tokenBudget: number
-) => {
-  const { fileTree, fileTokenScores } = fileContext
-  const treeWithTokens = printFileTreeWithTokens(fileTree, fileTokenScores)
-  const treeWithTokensCount = countTokensJson(treeWithTokens)
-
-  if (treeWithTokensCount <= tokenBudget) {
-    return { printedTree: treeWithTokens, tokenCount: treeWithTokensCount }
-  }
-
-  const prunedTokenScores = pruneFileTokenScores(
-    fileTree,
-    fileTokenScores,
-    tokenBudget
-  )
-  const prunedPrintedTree = printFileTreeWithTokens(fileTree, prunedTokenScores)
-  const prunedTokenCount = countTokensJson(prunedPrintedTree)
-
-  if (prunedTokenCount <= tokenBudget) {
-    return { printedTree: prunedPrintedTree, tokenCount: prunedTokenCount }
-  } else {
-    // Fallback: only include the root directory in the tree.
-    const truncatedTree = fileTree.map((file) =>
-      file.type === 'directory' ? { ...file, children: [] } : file
-    )
-    const printedTree = printFileTree(truncatedTree)
-    const tokenCount = countTokensJson(printedTree)
-    return { printedTree, tokenCount }
-  }
-}
-
-function pruneFileTokenScores(
-  fileTree: FileTreeNode[],
-  fileTokenScores: Record<string, Record<string, number>>,
-  tokenBudget: number
-): Record<string, Record<string, number>> {
-  const startTime = performance.now()
-  // Make a deep copy so we don't modify the original scores
-  const pruned = Object.fromEntries(
-    Object.entries(fileTokenScores).map(([filePath, tokens]) => [
-      filePath,
-      { ...tokens },
-    ])
-  )
-
-  // Initialize priority queue with all tokens
-  const pq = new MinHeap<{ filePath: string; token: string }>()
-  for (const [filePath, tokens] of Object.entries(pruned)) {
-    for (const [token, score] of Object.entries(tokens)) {
-      pq.insert({ filePath, token }, score)
-    }
-  }
-
-  // Compute the printed tree using the pruned tokens
-  let printed = printFileTreeWithTokens(fileTree, pruned)
-  let totalTokens = countTokensJson(printed)
-
-  while (totalTokens > tokenBudget && pq.size > 0) {
-    // Remove batch of lowest scoring tokens
-    const countToRemove = Math.max(5, Math.floor(pq.size * 0.1))
-    for (let i = 0; i < countToRemove && pq.size > 0; i++) {
-      const item = pq.extractMin()
-      if (
-        item &&
-        pruned[item.filePath] &&
-        pruned[item.filePath][item.token] !== undefined
-      ) {
-        delete pruned[item.filePath][item.token]
-      }
-    }
-
-    printed = printFileTreeWithTokens(fileTree, pruned)
-    totalTokens = countTokensJson(printed)
-  }
-
-  const endTime = performance.now()
-  if (endTime - startTime > 300) {
-    logger.debug(
-      {
-        tokenBudget,
-        durationMs: endTime - startTime,
-        finalTokenCount: totalTokens,
-        remainingTokenEntries: Object.values(pruned).reduce(
-          (sum, tokens) => sum + Object.keys(tokens).length,
-          0
-        ),
-      },
-      'pruneFileTokenScores took a while'
-    )
-  }
-  return pruned
 }

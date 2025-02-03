@@ -16,7 +16,7 @@ This document provides an overview of the Codebuff backend architecture, key com
 10. [Security Considerations](#security-considerations)
 11. [TODO List](#todo-list)
 12. [User Quota and Billing](#user-quota-and-billing)
-12. [Automatic URL Detection and Scraping](#automatic-url-detection-and-scraping)
+13. [Automatic URL Detection and Scraping](#automatic-url-detection-and-scraping)
 
 ## Development Workflow
 
