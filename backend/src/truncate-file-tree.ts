@@ -8,40 +8,197 @@ import { countTokensJson } from './util/token-counter'
 import { MinHeap } from 'common/util/min-heap'
 import { logger } from './util/logger'
 
+type TruncationLevel = 'none' | 'unimportant-files' | 'tokens' | 'depth-based'
+
 export const truncateFileTreeBasedOnTokenBudget = (
   fileContext: ProjectFileContext,
   tokenBudget: number
-) => {
+): {
+  printedTree: string
+  tokenCount: number
+  truncationLevel: TruncationLevel
+} => {
   const { fileTree, fileTokenScores } = fileContext
 
   const treeWithTokens = printFileTreeWithTokens(fileTree, fileTokenScores)
   const treeWithTokensCount = countTokensJson(treeWithTokens)
 
   if (treeWithTokensCount <= tokenBudget) {
-    return { printedTree: treeWithTokens, tokenCount: treeWithTokensCount }
+    return {
+      printedTree: treeWithTokens,
+      tokenCount: treeWithTokensCount,
+      truncationLevel: 'none',
+    }
   }
 
   // If it doesn't fit, remove unimportant files
   const filteredTree = removeUnimportantFiles(fileTree)
+  const printedFilteredTree = printFileTree(filteredTree)
+  const filteredTreeNoTokensCount = countTokensJson(printedFilteredTree)
 
-  const prunedTokenScores = pruneFileTokenScores(
-    filteredTree,
-    fileTokenScores,
-    tokenBudget
-  )
-  const prunedPrintedTree = printFileTreeWithTokens(fileTree, prunedTokenScores)
-  const prunedTokenCount = countTokensJson(prunedPrintedTree)
-
-  if (prunedTokenCount <= tokenBudget) {
-    return { printedTree: prunedPrintedTree, tokenCount: prunedTokenCount }
-  } else {
-    // Fallback: only include the root directory in the tree.
-    const truncatedTree = fileTree.map((file) =>
-      file.type === 'directory' ? { ...file, children: [] } : file
+  if (filteredTreeNoTokensCount <= tokenBudget) {
+    const filteredTreeWithTokens = printFileTreeWithTokens(
+      filteredTree,
+      fileTokenScores
     )
-    const printedTree = printFileTree(truncatedTree)
-    const tokenCount = countTokensJson(printedTree)
-    return { printedTree, tokenCount }
+    const filteredTreeWithTokensCount = countTokensJson(filteredTreeWithTokens)
+    if (filteredTreeWithTokensCount <= tokenBudget) {
+      return {
+        printedTree: filteredTreeWithTokens,
+        tokenCount: filteredTreeWithTokensCount,
+        truncationLevel: 'unimportant-files',
+      }
+    }
+    const prunedTokenScores = pruneFileTokenScores(
+      filteredTree,
+      fileTokenScores,
+      tokenBudget
+    )
+    const prunedPrintedTree = printFileTreeWithTokens(
+      fileTree,
+      prunedTokenScores
+    )
+    const prunedTokenCount = countTokensJson(prunedPrintedTree)
+
+    if (prunedTokenCount <= tokenBudget) {
+      return {
+        printedTree: prunedPrintedTree,
+        tokenCount: prunedTokenCount,
+        truncationLevel: 'tokens',
+      }
+    }
+  }
+
+  const start = performance.now()
+  // Remove files starting from the deepest ones until we fit the budget
+  const getDepth = (node: FileTreeNode): number => {
+    if (node.type === 'file') return 0
+    if (!node.children?.length) return 0
+    return 1 + Math.max(...node.children.map(getDepth))
+  }
+
+  let currentTree = [...filteredTree]
+  let currentPrintedTree = printedFilteredTree
+  let currentTokenCount = filteredTreeNoTokensCount
+
+  while (currentTokenCount > tokenBudget) {
+    // Find the deepest files
+    const maxDepth = Math.max(...currentTree.map(getDepth))
+    if (maxDepth === 0) break // Can't remove any more files
+
+    // Count total files in tree
+    const countAllFiles = (nodes: FileTreeNode[]): number => {
+      return nodes.reduce((count, node) => {
+        if (node.type === 'file') return count + 1
+        if (!node.children?.length) return count
+        return count + countAllFiles(node.children)
+      }, 0)
+    }
+
+    // Count files at each depth level
+    const countFilesByDepth = (
+      nodes: FileTreeNode[],
+      depth: number
+    ): number => {
+      return nodes.reduce((count, node) => {
+        if (node.type === 'file') return count
+        if (!node.children?.length) return count
+
+        const nodeDepth = getDepth(node)
+        const filesAtDepth = node.children.filter(
+          (child) => child.type === 'file' && nodeDepth + 1 === depth
+        ).length
+
+        return count + filesAtDepth + countFilesByDepth(node.children, depth)
+      }, 0)
+    }
+
+    // Remove 10% of total files
+    const totalFiles = countAllFiles(currentTree)
+    const targetFilesToRemove = Math.ceil(totalFiles * 0.2)
+
+    // Remove files starting from deepest level, moving up if needed
+    let remainingToRemove = targetFilesToRemove
+    let currentDepth = maxDepth
+
+    while (remainingToRemove > 0 && currentDepth > 0) {
+      const filesAtDepth = countFilesByDepth(currentTree, currentDepth)
+      const removeFromThisDepth = Math.min(filesAtDepth, remainingToRemove)
+
+      if (removeFromThisDepth > 0) {
+        const removeFiles = (
+          nodes: FileTreeNode[],
+          remaining: number,
+          targetDepth: number
+        ): [FileTreeNode[], number] => {
+          return nodes.reduce<[FileTreeNode[], number]>(
+            ([acc, remainingCount], node) => {
+              if (node.type === 'file' || !node.children?.length) {
+                return [[...acc, node], remainingCount]
+              }
+
+              const nodeDepth = getDepth(node)
+              if (nodeDepth + 1 === targetDepth && remainingCount > 0) {
+                // Get all file indices at this level
+                const fileIndices = node.children
+                  .map((child, index) => (child.type === 'file' ? index : -1))
+                  .filter((index) => index !== -1)
+
+                // Calculate how many files to remove from this node
+                const removeCount = Math.min(remainingCount, fileIndices.length)
+                const indicesToRemove = new Set(
+                  fileIndices.slice(0, removeCount)
+                )
+
+                const newChildren = node.children.filter(
+                  (_, index) => !indicesToRemove.has(index)
+                )
+                return [
+                  [...acc, { ...node, children: newChildren }],
+                  remainingCount - removeCount,
+                ]
+              }
+
+              const [newChildren, newRemaining] = removeFiles(
+                node.children,
+                remainingCount,
+                targetDepth
+              )
+              return [
+                [...acc, { ...node, children: newChildren }],
+                newRemaining,
+              ]
+            },
+            [[], remaining]
+          )
+        }
+
+        const [newTree, stillRemaining] = removeFiles(
+          currentTree,
+          removeFromThisDepth,
+          currentDepth
+        )
+        currentTree = newTree
+        remainingToRemove -= removeFromThisDepth - stillRemaining
+      }
+
+      currentDepth--
+    }
+    currentPrintedTree = printFileTree(currentTree)
+    currentTokenCount = countTokensJson(currentPrintedTree)
+  }
+
+  const end = performance.now()
+  if (end - start > 300) {
+    logger.debug(
+      { durationMs: end - start, tokenCount: currentTokenCount },
+      'truncateFileTreeBasedOnTokenBudget took a while'
+    )
+  }
+  return {
+    printedTree: currentPrintedTree,
+    tokenCount: currentTokenCount,
+    truncationLevel: 'depth-based',
   }
 }
 
@@ -177,7 +334,6 @@ const unimportantExtensions = [
   '.swp',
   '.bak',
   '.cache',
-
 
   // Documentation generated files
   '.docx',

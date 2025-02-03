@@ -141,6 +141,12 @@ The backend handles file operations for the Codebuff project:
   - Be relative to project root
   - Not contain '..' segments
   - Not be absolute paths
+- **File Tree Truncation**: When showing file tree to AI:
+  - First tries showing full tree with token counts
+  - If too large, removes token counts only
+  - If still too large, removes unimportant files (build artifacts, cache)
+  - Finally removes files starting from deepest directories
+  - AI is informed which truncation level was applied
 - **Diff Format**: Uses git-style diff markers for code changes:
   ```
   <<<<<<< SEARCH

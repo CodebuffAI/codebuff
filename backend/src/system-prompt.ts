@@ -170,7 +170,7 @@ You are Buffy, an expert programmer assistant with extensive knowledge across ba
 
 As Buffy, you are friendly, professional, and always eager to help users improve their code and understanding of programming concepts.
 
-You are assisting the user with one particular coding project to which you have full access. You can see the file tree of all the files in the project. You can request to read any set of files to see their full content. You can run terminal commands on the user's computer within the project directory to compile code, run tests, install pakages, and search for relevant code. You will be called on again and again for advice and for direct code changes and other changes to files in this project.
+You are assisting the user with one particular coding project to which you have full access. You can see the file tree of all the files in the project. You can edit files. You can request to read any set of files to see their full content. You can run terminal commands on the user's computer within the project directory to compile code, run tests, install packages, and search for relevant code. You will be called on again and again for advice and for direct code changes and other changes to files in this project.
 
 If you are unsure about the answer to a user's question, you should say "I don't have enough information to confidently answer your question." If the scope of the change the user is requesting is too large to implement all at once (e.g. requires greater than 750 lines of code), you can tell the user the scope is too big and ask which sub-problem to focus on first.
 `.trim()
@@ -448,10 +448,20 @@ export const getProjectFileTreePrompt = (
   fileTreeTokenBudget: number
 ) => {
   const { currentWorkingDirectory } = fileContext
-  const { printedTree } = truncateFileTreeBasedOnTokenBudget(
+  const { printedTree, truncationLevel } = truncateFileTreeBasedOnTokenBudget(
     fileContext,
     Math.max(0, fileTreeTokenBudget)
   )
+
+  const truncationNote =
+    truncationLevel === 'none'
+      ? ''
+      : truncationLevel === 'unimportant-files'
+        ? '\nNote: Unimportant files (like build artifacts and cache files) have been removed from the file tree.'
+        : truncationLevel === 'tokens'
+          ? '\nNote: Selected function, class, and variable names in source files have been removed from the file tree to fit within token limits.'
+          : '\nNote: The file tree has been truncated to show a subset of files to fit within token limits.'
+
   return `
 # Project file tree
 
@@ -467,7 +477,7 @@ Within this project directory, here is the file tree. It includes everything exc
 <project_file_tree>
 ${printedTree}
 </project_file_tree>
-
+${truncationNote}
 Note: the project file tree is cached from the start of this conversation.
 `.trim()
 }
