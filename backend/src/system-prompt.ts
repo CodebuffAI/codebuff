@@ -24,7 +24,7 @@ export function getSearchSystemPrompt(
   const shouldDoPromptCaching = fileVersions.length > 1
 
   const maxTokens = costMode === 'lite' ? 64_000 : 200_000
-  const miscTokens = 20_000
+  const miscTokens = 10_000
   const systemPromptTokenBudget = maxTokens - messagesTokens - miscTokens
 
   const projectFilesPromptContent = getProjectFilesPromptContent(
@@ -35,14 +35,19 @@ export function getSearchSystemPrompt(
 
   const gitChangesPrompt = getGitChangesPrompt(fileContext)
   const fileTreeTokenBudget =
-    systemPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)
+    // Give file tree as much token budget as possible,
+    // but stick to fixed increments so as not to break prompt caching too often.
+    Math.floor(
+      (systemPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)) /
+        30_000
+    ) * 30_000
 
   const projectFileTreePrompt = getProjectFileTreePrompt(
     fileContext,
-    costMode,
     fileTreeTokenBudget
   )
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)
+  console.log(projectFileTreePrompt)
 
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)
   const systemInfoTokens = countTokens(systemInfoPrompt)
@@ -69,6 +74,7 @@ export function getSearchSystemPrompt(
     {
       filesTokens,
       fileTreeTokens,
+      fileTreeTokenBudget,
       systemInfoTokens,
       fileVersions: fileContext.fileVersions.map((files) =>
         files.map((f) => f.path)
@@ -105,7 +111,6 @@ export const getAgentSystemPrompt = (
 
   const projectFileTreePrompt = getProjectFileTreePrompt(
     fileContext,
-    costMode,
     fileTreeTokenBudget
   )
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)
@@ -418,7 +423,7 @@ Purpose: Better fulfill the user request by running terminal commands in the use
 Warning: Use this tool sparingly. You should only use it when you are sure it is the best way to accomplish the user's request. Do not run more commands than the user has asked for. Especially be careful with commands that could have permanent effects.
 
 Use cases:
-1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors.
+1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\` or \`rm\`.
 4. Installing dependencies (e.g., "npm install <package-name>"). Be careful with this command -- not everyone wants packages installed without permission. Check the knowledge files for specific instructions, and also be sure to use the right package manager for the project (e.g. it might be \`pnpm\` or \`bun\` or \`yarn\` instead of \`npm\`, or \`pip\` for python, etc.).
@@ -445,13 +450,12 @@ Scrape any url that could help address the user's request.
 
 export const getProjectFileTreePrompt = (
   fileContext: ProjectFileContext,
-  costMode: CostMode,
   fileTreeTokenBudget: number
 ) => {
   const { currentWorkingDirectory } = fileContext
   const { printedTree } = truncateFileTreeBasedOnTokenBudget(
     fileContext,
-    Math.min(Math.max(0, fileTreeTokenBudget), 100_000)
+    Math.max(0, fileTreeTokenBudget)
   )
   return `
 # Project file tree
