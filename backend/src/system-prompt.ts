@@ -1,4 +1,5 @@
 import {
+  FileTreeNode,
   ProjectFileContext,
   createFileBlock,
   createMarkdownFileBlock,
@@ -11,9 +12,10 @@ import { truncateString } from 'common/util/string'
 import { CostMode, STOP_MARKER } from 'common/constants'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
-import { sortBy, sum, uniq } from 'lodash'
-import { filterObject, removeUndefinedProps } from 'common/util/object'
+import { uniq } from 'lodash'
+import { removeUndefinedProps } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
+import { MinHeap } from 'common/util/min-heap'
 
 export function getSearchSystemPrompt(
   fileContext: ProjectFileContext,
@@ -700,38 +702,6 @@ ${STOP_MARKER}
 This marker helps ensure that your entire response has been received and processed correctly.
 If you don't end with this marker, you will automatically be prompted to continue. However, it is good to stop your response with this token so the user can give further guidence.
 </important_instruction>
-
-## Example request and response (on an example typescript project that is unrelated to the user's project)
-
-User:
-
-Add a new function to the api that returns the current time.
-
-Assistant:
-
-<tool_call name=\"find_files\">Please find the files relevant to the user request</tool_call>\n\nReading files...\n- backend/api/src/routes.ts\n- common/src/api/schema.ts\n- backend/api/src/get-me.ts\nand 8 more: backend/shared/src/utils.ts, common/src/util/time.ts, backend/api/src/health.ts, backend/api/src/app.ts, backend/api/src/helpers/endpoint.ts, web/lib/util/time.ts, common/tsconfig.json, .github/workflows/test.yml\n\nI'll add a simple endpoint that returns the current server time. First, I'll add the schema definition:\n\n<edit_file path=\"common/src/api/schema.ts\">\n<<<<<<< SEARCH\n  'get-next-loan-amount': {\n    method: 'GET',\n    visibility: 'undocumented',\n    cache: DEFAULT_CACHE_STRATEGY,\n    authed: false,\n    returns: {} as { amount: number },\n    props: z.object({\n      userId: z.string(),\n    }),\n  },\n} as const)\n=======\n  'get-next-loan-amount': {\n    method: 'GET',\n    visibility: 'undocumented',\n    cache: DEFAULT_CACHE_STRATEGY,\n    authed: false,\n    returns: {} as { amount: number },\n    props: z.object({\n      userId: z.string(),\n    }),\n  },\n  'get-current-time': {\n    method: 'GET',\n    visibility: 'public',\n    authed: false,\n    returns: {} as { currentTime: number },\n    props: z.object({}).strict(),\n  },\n} as const)\n>>>>>>> REPLACE\n</edit_file>\n\nNow I'll create the endpoint handler:\n\n<edit_file path=\"backend/api/src/get-current-time.ts\">\nimport { type APIHandler } from './helpers/endpoint'\n\nexport const getCurrentTime: APIHandler<'get-current-time'> = async () => {\n  return { currentTime: Date.now() }\n}\n</edit_file>\n\nFinally, I'll register the endpoint in routes.ts:\n\n<edit_file path=\"backend/api/src/routes.ts\">\n<<<<<<< SEARCH\nimport { getNextLoanAmount } from './get-next-loan-amount'\n=======\nimport { getNextLoanAmount } from './get-next-loan-amount'\nimport { getCurrentTime } from './get-current-time'\n>>>>>>> REPLACE\n\n<<<<<<< SEARCH\n  'get-next-loan-amount': getNextLoanAmount,\n=======\n  'get-next-loan-amount': getNextLoanAmount,\n  'get-current-time': getCurrentTime,\n>>>>>>> REPLACE\n</edit_file>\n\nThis adds a simple endpoint that:\n1. Is publicly accessible (no auth required)\n2. Returns the current server time in milliseconds since epoch\n3. Takes no parameters\n4. Can be called with GET /get-current-time\n\nThe endpoint can be called like this:\n\`\`\`typescript\nconst response = await api('get-current-time', {})\nconsole.log(response.currentTime)\n\`\`\`\n\n[END]
-
-User:
-
-Don't forget to always add logging to the endpoint.
-
-Assistant:
-
-Of course, I'll update the endpoint to include logging:
-
-<edit_file path=\"backend/api/src/get-current-time.ts\">\nimport { type APIHandler } from './helpers/endpoint'\n\nexport const getCurrentTime: APIHandler<'get-current-time'> = async () => {\n  console.log('getCurrentTime called')\n  return { currentTime: Date.now() }\n}\n</edit_file>\n\nAnd I'll update knowledge files with a reminder to always add logging to new endpoints:
-
-And update the knowledge files to include a reminder to always add logging to new endpoints:
-
-<edit_file path=\"knowledge.md\">
-\<<<<<<< SEARCH
-And that's how you register an endpoint.
-=======
-And that's how you register an endpoint.
-
-Lastly, don't forget to always add logging to new endpoints.
->>>>>>> REPLACE
-</edit_file>
 `.trim()
 }
 const truncateFileTreeBasedOnTokenBudget = (
@@ -746,29 +716,18 @@ const truncateFileTreeBasedOnTokenBudget = (
     return { printedTree: treeWithTokens, tokenCount: treeWithTokensCount }
   }
 
-  const tree = printFileTree(fileTree)
-  const treeTokenCount = countTokensJson(tree)
+  const prunedTokenScores = pruneFileTokenScores(
+    fileTree,
+    fileTokenScores,
+    tokenBudget
+  )
+  const prunedPrintedTree = printFileTreeWithTokens(fileTree, prunedTokenScores)
+  const prunedTokenCount = countTokensJson(prunedPrintedTree)
 
-  if (treeTokenCount <= tokenBudget) {
-    let frac = 1
-    while (frac > 0.02) {
-      frac = 0.9 * (frac - 0.02)
-      const fileTokenScoresSubset = chooseSubsetOfFileTokenScores(
-        fileTokenScores,
-        frac
-      )
-      const printedTree = printFileTreeWithTokens(
-        fileTree,
-        fileTokenScoresSubset
-      )
-      const tokenCount = countTokensJson(printedTree)
-
-      if (tokenCount <= tokenBudget) {
-        return { printedTree, tokenCount }
-      }
-    }
+  if (prunedTokenCount <= tokenBudget) {
+    return { printedTree: prunedPrintedTree, tokenCount: prunedTokenCount }
   } else {
-    // Only include the root directory in the tree.
+    // Fallback: only include the root directory in the tree.
     const truncatedTree = fileTree.map((file) =>
       file.type === 'directory' ? { ...file, children: [] } : file
     )
@@ -776,36 +735,66 @@ const truncateFileTreeBasedOnTokenBudget = (
     const tokenCount = countTokensJson(printedTree)
     return { printedTree, tokenCount }
   }
-
-  return { printedTree: tree, tokenCount: treeTokenCount }
 }
 
-const chooseSubsetOfFileTokenScores = (
+function pruneFileTokenScores(
+  fileTree: FileTreeNode[],
   fileTokenScores: Record<string, Record<string, number>>,
-  frac: number
-) => {
-  const fileToAverageScore = Object.entries(fileTokenScores).map(
-    ([filePath, scores]) => {
-      const values = Object.values(scores)
-      const averageScore = sum(values) / values.length
-      return [filePath, averageScore] as const
+  tokenBudget: number
+): Record<string, Record<string, number>> {
+  const startTime = performance.now()
+  // Make a deep copy so we don't modify the original scores
+  const pruned = Object.fromEntries(
+    Object.entries(fileTokenScores).map(([filePath, tokens]) => [
+      filePath,
+      { ...tokens },
+    ])
+  )
+
+  // Initialize priority queue with all tokens
+  const pq = new MinHeap<{ filePath: string; token: string }>()
+  for (const [filePath, tokens] of Object.entries(pruned)) {
+    for (const [token, score] of Object.entries(tokens)) {
+      pq.insert({ filePath, token }, score)
     }
-  )
+  }
 
-  const sortedFileToAverageScore = sortBy(
-    fileToAverageScore,
-    ([filePath, score]) => score,
-    'desc'
-  )
+  // Compute the printed tree using the pruned tokens
+  let printed = printFileTreeWithTokens(fileTree, pruned)
+  let totalTokens = countTokensJson(printed)
 
-  const numFilesToInclude = Math.floor(
-    Object.keys(fileTokenScores).length * frac
-  )
+  while (totalTokens > tokenBudget && pq.size > 0) {
+    // Remove batch of lowest scoring tokens
+    const countToRemove = Math.max(5, Math.floor(pq.size * 0.1))
+    for (let i = 0; i < countToRemove && pq.size > 0; i++) {
+      const item = pq.extractMin()
+      if (
+        item &&
+        pruned[item.filePath] &&
+        pruned[item.filePath][item.token] !== undefined
+      ) {
+        delete pruned[item.filePath][item.token]
+      }
+    }
 
-  const filesIncluded = new Set(
-    sortedFileToAverageScore
-      .slice(0, numFilesToInclude)
-      .map(([filePath]) => filePath)
-  )
-  return filterObject(fileTokenScores, (_, key) => filesIncluded.has(key))
+    printed = printFileTreeWithTokens(fileTree, pruned)
+    totalTokens = countTokensJson(printed)
+  }
+
+  const endTime = performance.now()
+  if (endTime - startTime > 300) {
+    logger.debug(
+      {
+        tokenBudget,
+        durationMs: endTime - startTime,
+        finalTokenCount: totalTokens,
+        remainingTokenEntries: Object.values(pruned).reduce(
+          (sum, tokens) => sum + Object.keys(tokens).length,
+          0
+        ),
+      },
+      'pruneFileTokenScores took a while'
+    )
+  }
+  return pruned
 }
