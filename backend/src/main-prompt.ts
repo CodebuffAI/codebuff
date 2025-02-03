@@ -335,18 +335,20 @@ export async function mainPrompt(
       onResponseChunk(`\nThinking deeply (can take a minute)...\n\n`)
       logger.debug({ prompt, filePaths, existingFilePaths }, 'Thinking deeply')
       const planningStart = Date.now()
-      const { response, fileProcessingPromises: promises } = await planComplexChange(
-        prompt,
-        fileContents,
-        messages,
-        onResponseChunk,
-        {
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          userId,
-          costMode,
-        })
+      const { response, fileProcessingPromises: promises } =
+        await planComplexChange(
+          prompt,
+          fileContents,
+          messages,
+          onResponseChunk,
+          {
+            clientSessionId,
+            fingerprintId,
+            userInputId,
+            userId,
+            costMode,
+          }
+        )
       fileProcessingPromises.push(...promises)
       // For now, don't print the plan to the user.
       // onResponseChunk(`${plan}\n\n`)
@@ -596,7 +598,7 @@ function getExtraInstructionForUserPrompt(
 
     hasKnowledgeFiles &&
       isNotFirstUserMessage &&
-      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
+      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information. No need to add commentary, or justify why you are updating the file, just make the update.",
 
     numAssistantMessages >= 3 &&
       'Please consider pausing to get more instructions from the user.',
