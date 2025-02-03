@@ -47,7 +47,6 @@ export function getSearchSystemPrompt(
     fileTreeTokenBudget
   )
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)
-  console.log(projectFileTreePrompt)
 
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)
   const systemInfoTokens = countTokens(systemInfoPrompt)
