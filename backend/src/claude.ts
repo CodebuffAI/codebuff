@@ -219,7 +219,7 @@ async function* promptClaudeStreamWithoutRetry(
   }
 }
 
-export const promptClaudeStream = async function* (
+export const promptClaudeStream = (
   messages: Message[],
   options: {
     system?: System
@@ -232,37 +232,53 @@ export const promptClaudeStream = async function* (
     userId?: string
     ignoreDatabaseAndHelicone?: boolean
   }
-): AsyncGenerator<string, void, unknown> {
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      yield* promptClaudeStreamWithoutRetry(messages, options)
-      return
-    } catch (error) {
-      // Only retry on connection errors (e.g. internal server error, overloaded, etc.)
-      if (error instanceof APIConnectionError) {
-        logger.error(
-          { error, attempt },
-          'Claude API connection error, retrying...'
-        )
+): ReadableStream<string> => {
+  // Use a readable stream to prevent base stream from being closed prematurely.
+  return new ReadableStream({
+    async start(controller) {
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          const baseStream = promptClaudeStreamWithoutRetry(messages, options)
 
-        if (attempt < MAX_RETRIES - 1) {
-          // Exponential backoff
-          const delayMs = INITIAL_RETRY_DELAY * Math.pow(2, attempt)
-          await sleep(delayMs)
+          // Stream all chunks from the generator to the controller
+          for await (const chunk of baseStream) {
+            controller.enqueue(chunk)
+          }
+          controller.close()
+          return
+        } catch (error) {
+          // Only retry on connection errors (e.g. internal server error, overloaded, etc.)
+          if (error instanceof APIConnectionError) {
+            logger.error(
+              { error, attempt },
+              'Claude API connection error, retrying...'
+            )
+            if (attempt < MAX_RETRIES - 1) {
+              // Exponential backoff
+              const delayMs = INITIAL_RETRY_DELAY * Math.pow(2, attempt)
+              await sleep(delayMs)
+              continue
+            }
+          }
+
+          // For other types of errors, throw immediately
+          const parsedError = error as APIError
+          controller.error(
+            new Error(
+              `Anthropic API error: ${parsedError.message}. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+            )
+          )
+          return
         }
-      } else {
-        // For other types of errors, throw immediately
-        const parsedError = error as APIError
-        throw new Error(
-          `Anthropic API error: ${parsedError.message}. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
-        )
       }
-    }
-  }
 
-  throw new Error(
-    `Sorry, system's a bit overwhelmed. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
-  )
+      controller.error(
+        new Error(
+          `Sorry, system's a bit overwhelmed. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+        )
+      )
+    },
+  })
 }
 
 export const promptClaude = async (

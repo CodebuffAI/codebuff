@@ -11,7 +11,7 @@
     "typecheck": "bun run --cwd ../common build && bun run typecheck-this-package"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.33.1",
+    "@anthropic-ai/sdk": "^0.36.3",
     "@t3-oss/env-core": "0.11.1",
     "diff": "5.2.0",
     "dotenv": "16.4.5",

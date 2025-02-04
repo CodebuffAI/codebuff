@@ -23,12 +23,12 @@ function BannerContent() {
     utmSource === 'youtube' && referrer && referrer in sponseeConfig
 
   return (
-    <div className="w-full bg-blue-900 text-white px-4 py-2 md:py-0 relative z-20">
+    <div className="w-full bg-blue-900 text-white px-4 relative z-20">
       <div className="md:container mx-auto flex items-center justify-between">
         <div className="w-8" />
-        <div className="flex items-center gap-2 text-center">
-          <Gift className="hidden md:block h-4 w-4" />
-          <p className="text-sm">
+        <div className="flex items-center gap-1.5 text-center">
+          <Gift className="hidden md:block h-3.5 w-3.5" />
+          <p className="text-xs whitespace-nowrap">
             {isYouTubeReferral ? (
               <>
                 {sponseeConfig[referrer as keyof typeof sponseeConfig].name} got

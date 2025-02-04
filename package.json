@@ -9,7 +9,8 @@
     "npm-app",
     "web",
     "test",
-    "packages/*"
+    "packages/*",
+    "scripts"
   ],
   "scripts": {
     "start-db": "bun --cwd common db:start",
@@ -18,6 +19,7 @@
     "start-studio": "bun --cwd common db:studio",
     "start-server": "bun --cwd backend dev",
     "start-manifold": "bun --cwd npm-app start-manifold",
+    "start-codebuff-test": "bun --cwd npm-app start-dir ../../codebuff-test",
     "start-litestar": "bun --cwd npm-app start-litestar",
     "start-jpcsp": "bun --cwd npm-app start-jpcsp",
     "start-vscode": "bun --cwd npm-app start-vscode",

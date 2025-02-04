@@ -3,17 +3,16 @@ import {
   createFileBlock,
   createMarkdownFileBlock,
   createSearchReplaceBlock,
-  printFileTree,
-  printFileTreeWithTokens,
 } from 'common/util/file'
 import { buildArray } from 'common/util/array'
 import { truncateString } from 'common/util/string'
 import { CostMode, STOP_MARKER } from 'common/constants'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
-import { sortBy, sum, uniq } from 'lodash'
-import { filterObject, removeUndefinedProps } from 'common/util/object'
+import { uniq } from 'lodash'
+import { removeUndefinedProps } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
+import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 
 export function getSearchSystemPrompt(
   fileContext: ProjectFileContext,
@@ -24,7 +23,7 @@ export function getSearchSystemPrompt(
   const shouldDoPromptCaching = fileVersions.length > 1
 
   const maxTokens = costMode === 'lite' ? 64_000 : 200_000
-  const miscTokens = 20_000
+  const miscTokens = 10_000
   const systemPromptTokenBudget = maxTokens - messagesTokens - miscTokens
 
   const projectFilesPromptContent = getProjectFilesPromptContent(
@@ -35,11 +34,15 @@ export function getSearchSystemPrompt(
 
   const gitChangesPrompt = getGitChangesPrompt(fileContext)
   const fileTreeTokenBudget =
-    systemPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)
+    // Give file tree as much token budget as possible,
+    // but stick to fixed increments so as not to break prompt caching too often.
+    Math.floor(
+      (systemPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)) /
+        20_000
+    ) * 20_000
 
   const projectFileTreePrompt = getProjectFileTreePrompt(
     fileContext,
-    costMode,
     fileTreeTokenBudget
   )
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)
@@ -69,6 +72,7 @@ export function getSearchSystemPrompt(
     {
       filesTokens,
       fileTreeTokens,
+      fileTreeTokenBudget,
       systemInfoTokens,
       fileVersions: fileContext.fileVersions.map((files) =>
         files.map((f) => f.path)
@@ -87,12 +91,16 @@ export const getAgentSystemPrompt = (
   costMode: CostMode,
   messagesTokens: number
 ) => {
+  // Agent token budget:
+  // System prompt stuff, git changes: 25k
+  // Files: 100k (25k for lite)
+  // File tree: 20k (5k for lite)
+  // Messages: Remaining
+  // Total: 200k (64k for lite)
+
   const { fileVersions } = fileContext
   const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
-  const maxTokens = costMode === 'lite' ? 64_000 : 200_000
-  const miscTokens = 15_000
-  const agentPromptTokenBudget = maxTokens - messagesTokens - miscTokens
   const projectFilesPromptContent = getProjectFilesPromptContent(
     fileContext,
     true
@@ -100,21 +108,13 @@ export const getAgentSystemPrompt = (
   const filesTokens = countTokensJson(projectFilesPromptContent)
 
   const gitChangesPrompt = getGitChangesPrompt(fileContext)
-  const fileTreeTokenBudget =
-    agentPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)
+  const fileTreeTokenBudget = costMode === 'lite' ? 5_000 : 20_000
 
   const projectFileTreePrompt = getProjectFileTreePrompt(
     fileContext,
-    costMode,
     fileTreeTokenBudget
   )
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)
-  const maybeProjectFileTreePrompt =
-    // For large projects, don't include file tree in agent context.
-    fileTreeTokens < (costMode === 'lite' ? 2_500 : 10_000)
-      ? projectFileTreePrompt
-      : null
-  const maybeFileTreeTokens = maybeProjectFileTreePrompt ? fileTreeTokens : 0
 
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)
   const systemInfoTokens = countTokens(systemInfoPrompt)
@@ -135,7 +135,7 @@ export const getAgentSystemPrompt = (
         editingFilesPrompt,
         knowledgeFilesPrompt,
         toolsPrompt,
-        maybeProjectFileTreePrompt,
+        projectFileTreePrompt,
         systemInfoPrompt
       ).join('\n\n'),
     },
@@ -150,7 +150,7 @@ export const getAgentSystemPrompt = (
   logger.debug(
     {
       filesTokens,
-      fileTreeTokens: maybeFileTreeTokens,
+      fileTreeTokens,
       systemInfoTokens,
       responseFormatTokens,
       fileVersions: fileContext.fileVersions.map((files) =>
@@ -170,7 +170,7 @@ You are Buffy, an expert programmer assistant with extensive knowledge across ba
 
 As Buffy, you are friendly, professional, and always eager to help users improve their code and understanding of programming concepts.
 
-You are assisting the user with one particular coding project to which you have full access. You can see the file tree of all the files in the project. You can request to read any set of files to see their full content. You can run terminal commands on the user's computer within the project directory to compile code, run tests, install pakages, and search for relevant code. You will be called on again and again for advice and for direct code changes and other changes to files in this project.
+You are assisting the user with one particular coding project to which you have full access. You can see the file tree of all the files in the project. You can edit files. You can request to read any set of files to see their full content. You can run terminal commands on the user's computer within the project directory to compile code, run tests, install packages, and search for relevant code. You will be called on again and again for advice and for direct code changes and other changes to files in this project.
 
 If you are unsure about the answer to a user's question, you should say "I don't have enough information to confidently answer your question." If the scope of the change the user is requesting is too large to implement all at once (e.g. requires greater than 750 lines of code), you can tell the user the scope is too big and ask which sub-problem to focus on first.
 `.trim()
@@ -320,7 +320,7 @@ You have access to the following tools:
 - <tool_call name="browser_action">[BROWSER_ACTION]</tool_call>: Execute a browser action and return the result. Use this tool to interact with the user's browser and automate tasks like filling out forms, navigating to pages, and screenshotting for analysis.
 
 Important notes:
-- Immediately after you write out a tool call, you should write ${STOP_MARKER}, and then do not write out any other text. You will automatically be prompted to continue with the result of the tool call.
+- Immediately after you write out a tool call, you should write ${STOP_MARKER}, and end your response. Do not write out any other text. A tool call is a delgation -- do not write any other analysis or commentary.
 - Do not write out a tool call within another tool call block.
 - Do not write out a tool call within an <edit_file> block. If you want to read a file before editing it, write the <tool_call> first. Similarly, do not write a tool call to run a terminal command within an <edit_file> block.
 - You can freely explain what tools you have available, but do not write out <tool_call name="..." />" unless you are actually intending to call the tool, otherwise you will accidentally be calling the tool when explaining it.
@@ -387,7 +387,7 @@ Do not use code_search when:
 
 ## Plan complex change
 
-When you need a detailed technical plan for complex changes, use the plan_complex_change tool. This tool leverages O1's deep reasoning capabilities to break down difficult problems into clear implementation steps.
+When you need a detailed technical plan for complex changes, use the plan_complex_change tool. This tool leverages deep reasoning capabilities to break down difficult problems into clear implementation steps.
 
 Format:
 - First line must be a clear, specific problem statement
@@ -402,7 +402,7 @@ Use cases:
 2. Planning refactoring operations
 3. Making architectural decisions
 4. Breaking down difficult problems into steps
-5. When you seem to be stuck and need
+5. When you seem to be stuck and need to get unstuck
 
 Best practices:
 - Make problem statement specific and actionable
@@ -419,7 +419,7 @@ Purpose: Better fulfill the user request by running terminal commands in the use
 Warning: Use this tool sparingly. You should only use it when you are sure it is the best way to accomplish the user's request. Do not run more commands than the user has asked for. Especially be careful with commands that could have permanent effects.
 
 Use cases:
-1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors.
+1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\` or \`rm\`.
 4. Installing dependencies (e.g., "npm install <package-name>"). Be careful with this command -- not everyone wants packages installed without permission. Check the knowledge files for specific instructions, and also be sure to use the right package manager for the project (e.g. it might be \`pnpm\` or \`bun\` or \`yarn\` instead of \`npm\`, or \`pip\` for python, etc.).
@@ -525,14 +525,23 @@ Use this data to:
 
 export const getProjectFileTreePrompt = (
   fileContext: ProjectFileContext,
-  costMode: CostMode,
   fileTreeTokenBudget: number
 ) => {
   const { currentWorkingDirectory } = fileContext
-  const { printedTree } = truncateFileTreeBasedOnTokenBudget(
+  const { printedTree, truncationLevel } = truncateFileTreeBasedOnTokenBudget(
     fileContext,
-    Math.min(Math.max(0, fileTreeTokenBudget), 100_000)
+    Math.max(0, fileTreeTokenBudget)
   )
+
+  const truncationNote =
+    truncationLevel === 'none'
+      ? ''
+      : truncationLevel === 'unimportant-files'
+        ? '\nNote: Unimportant files (like build artifacts and cache files) have been removed from the file tree.'
+        : truncationLevel === 'tokens'
+          ? '\nNote: Selected function, class, and variable names in source files have been removed from the file tree to fit within token limits.'
+          : '\nNote: The file tree has been truncated to show a subset of files to fit within token limits.'
+
   return `
 # Project file tree
 
@@ -548,7 +557,7 @@ Within this project directory, here is the file tree. It includes everything exc
 <project_file_tree>
 ${printedTree}
 </project_file_tree>
-
+${truncationNote}
 Note: the project file tree is cached from the start of this conversation.
 `.trim()
 }
@@ -777,112 +786,5 @@ ${STOP_MARKER}
 This marker helps ensure that your entire response has been received and processed correctly.
 If you don't end with this marker, you will automatically be prompted to continue. However, it is good to stop your response with this token so the user can give further guidence.
 </important_instruction>
-
-## Example request and response (on an example typescript project that is unrelated to the user's project)
-
-User:
-
-Add a new function to the api that returns the current time.
-
-Assistant:
-
-<tool_call name=\"find_files\">Please find the files relevant to the user request</tool_call>\n\nReading files...\n- backend/api/src/routes.ts\n- common/src/api/schema.ts\n- backend/api/src/get-me.ts\nand 8 more: backend/shared/src/utils.ts, common/src/util/time.ts, backend/api/src/health.ts, backend/api/src/app.ts, backend/api/src/helpers/endpoint.ts, web/lib/util/time.ts, common/tsconfig.json, .github/workflows/test.yml\n\nI'll add a simple endpoint that returns the current server time. First, I'll add the schema definition:\n\n<edit_file path=\"common/src/api/schema.ts\">\n<<<<<<< SEARCH\n  'get-next-loan-amount': {\n    method: 'GET',\n    visibility: 'undocumented',\n    cache: DEFAULT_CACHE_STRATEGY,\n    authed: false,\n    returns: {} as { amount: number },\n    props: z.object({\n      userId: z.string(),\n    }),\n  },\n} as const)\n=======\n  'get-next-loan-amount': {\n    method: 'GET',\n    visibility: 'undocumented',\n    cache: DEFAULT_CACHE_STRATEGY,\n    authed: false,\n    returns: {} as { amount: number },\n    props: z.object({\n      userId: z.string(),\n    }),\n  },\n  'get-current-time': {\n    method: 'GET',\n    visibility: 'public',\n    authed: false,\n    returns: {} as { currentTime: number },\n    props: z.object({}).strict(),\n  },\n} as const)\n>>>>>>> REPLACE\n</edit_file>\n\nNow I'll create the endpoint handler:\n\n<edit_file path=\"backend/api/src/get-current-time.ts\">\nimport { type APIHandler } from './helpers/endpoint'\n\nexport const getCurrentTime: APIHandler<'get-current-time'> = async () => {\n  return { currentTime: Date.now() }\n}\n</edit_file>\n\nFinally, I'll register the endpoint in routes.ts:\n\n<edit_file path=\"backend/api/src/routes.ts\">\n<<<<<<< SEARCH\nimport { getNextLoanAmount } from './get-next-loan-amount'\n=======\nimport { getNextLoanAmount } from './get-next-loan-amount'\nimport { getCurrentTime } from './get-current-time'\n>>>>>>> REPLACE\n\n<<<<<<< SEARCH\n  'get-next-loan-amount': getNextLoanAmount,\n=======\n  'get-next-loan-amount': getNextLoanAmount,\n  'get-current-time': getCurrentTime,\n>>>>>>> REPLACE\n</edit_file>\n\nThis adds a simple endpoint that:\n1. Is publicly accessible (no auth required)\n2. Returns the current server time in milliseconds since epoch\n3. Takes no parameters\n4. Can be called with GET /get-current-time\n\nThe endpoint can be called like this:\n\`\`\`typescript\nconst response = await api('get-current-time', {})\nconsole.log(response.currentTime)\n\`\`\`\n\n[END]
-
-User:
-
-Don't forget to always add logging to the endpoint.
-
-Assistant:
-
-Of course, I'll update the endpoint to include logging:
-
-<edit_file path=\"backend/api/src/get-current-time.ts\">\nimport { type APIHandler } from './helpers/endpoint'\n\nexport const getCurrentTime: APIHandler<'get-current-time'> = async () => {\n  console.log('getCurrentTime called')\n  return { currentTime: Date.now() }\n}\n</edit_file>\n\nAnd I'll update knowledge files with a reminder to always add logging to new endpoints:
-
-And update the knowledge files to include a reminder to always add logging to new endpoints:
-
-<edit_file path=\"knowledge.md\">
-\<<<<<<< SEARCH
-And that's how you register an endpoint.
-=======
-And that's how you register an endpoint.
-
-Lastly, don't forget to always add logging to new endpoints.
->>>>>>> REPLACE
-</edit_file>
 `.trim()
-}
-const truncateFileTreeBasedOnTokenBudget = (
-  fileContext: ProjectFileContext,
-  tokenBudget: number
-) => {
-  const { fileTree, fileTokenScores } = fileContext
-  const treeWithTokens = printFileTreeWithTokens(fileTree, fileTokenScores)
-  const treeWithTokensCount = countTokensJson(treeWithTokens)
-
-  if (treeWithTokensCount <= tokenBudget) {
-    return { printedTree: treeWithTokens, tokenCount: treeWithTokensCount }
-  }
-
-  const tree = printFileTree(fileTree)
-  const treeTokenCount = countTokensJson(tree)
-
-  if (treeTokenCount <= tokenBudget) {
-    let frac = 1
-    while (frac > 0.02) {
-      frac = 0.9 * (frac - 0.02)
-      const fileTokenScoresSubset = chooseSubsetOfFileTokenScores(
-        fileTokenScores,
-        frac
-      )
-      const printedTree = printFileTreeWithTokens(
-        fileTree,
-        fileTokenScoresSubset
-      )
-      const tokenCount = countTokensJson(printedTree)
-
-      if (tokenCount <= tokenBudget) {
-        return { printedTree, tokenCount }
-      }
-    }
-  } else {
-    // Only include the root directory in the tree.
-    const truncatedTree = fileTree.map((file) =>
-      file.type === 'directory' ? { ...file, children: [] } : file
-    )
-    const printedTree = printFileTree(truncatedTree)
-    const tokenCount = countTokensJson(printedTree)
-    return { printedTree, tokenCount }
-  }
-
-  return { printedTree: tree, tokenCount: treeTokenCount }
-}
-
-const chooseSubsetOfFileTokenScores = (
-  fileTokenScores: Record<string, Record<string, number>>,
-  frac: number
-) => {
-  const fileToAverageScore = Object.entries(fileTokenScores).map(
-    ([filePath, scores]) => {
-      const values = Object.values(scores)
-      const averageScore = sum(values) / values.length
-      return [filePath, averageScore] as const
-    }
-  )
-
-  const sortedFileToAverageScore = sortBy(
-    fileToAverageScore,
-    ([filePath, score]) => score,
-    'desc'
-  )
-
-  const numFilesToInclude = Math.floor(
-    Object.keys(fileTokenScores).length * frac
-  )
-
-  const filesIncluded = new Set(
-    sortedFileToAverageScore
-      .slice(0, numFilesToInclude)
-      .map(([filePath]) => filePath)
-  )
-  return filterObject(fileTokenScores, (_, key) => filesIncluded.has(key))
 }

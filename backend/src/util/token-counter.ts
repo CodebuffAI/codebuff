@@ -1,8 +1,10 @@
 import { encode } from 'gpt-tokenizer/esm/model/gpt-4o'
 
+const ANTHROPIC_TOKEN_FUDGE_FACTOR = 1.35
+
 export function countTokens(text: string): number {
   try {
-    return encode(text).length
+    return Math.floor(encode(text).length * ANTHROPIC_TOKEN_FUDGE_FACTOR)
   } catch (e) {
     console.error('Error counting tokens', e)
     return Math.ceil(text.length / 3)

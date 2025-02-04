@@ -209,7 +209,7 @@ export async function processFileBlock(
   return { filePath, content: patch, type: 'patch' }
 }
 
-async function applyRemainingChanges(
+export async function applyRemainingChanges(
   updatedContent: string,
   changes: string,
   filePath: string,

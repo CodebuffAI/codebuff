@@ -62,7 +62,7 @@ const getDeepseekClient = (fingerprintId: string) => {
   return deepseekClient
 }
 
-export async function* promptDeepseekStream(
+async function* innerPromptDeepseekStream(
   messages: OpenAIMessage[],
   options: {
     clientSessionId: string
@@ -189,6 +189,41 @@ export async function* promptDeepseekStream(
 
     throw error
   }
+}
+
+export const promptDeepseekStream = (
+  messages: OpenAIMessage[],
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: string
+    userId: string | undefined
+    maxTokens?: number
+    temperature?: number
+  }
+): ReadableStream<string> => {
+  // Use a readable stream to prevent base stream from being closed prematurely.
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        const baseStream = innerPromptDeepseekStream(messages, options)
+
+        // Stream all chunks from the generator to the controller
+        for await (const chunk of baseStream) {
+          controller.enqueue(chunk)
+        }
+        controller.close()
+      } catch (error) {
+        // For errors, send error message to client
+        controller.error(
+          new Error(
+            `Deepseek API error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+          )
+        )
+      }
+    },
+  })
 }
 
 export async function promptDeepseek(

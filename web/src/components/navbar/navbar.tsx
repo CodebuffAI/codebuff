@@ -71,7 +71,7 @@ export const Navbar = async () => {
           </Link>
         )}
       </nav>
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild className="md:hidden">
             <Button variant="ghost" size="icon">

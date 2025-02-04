@@ -140,6 +140,13 @@ export function printFileTreeWithTokens(
   const indentation = indentToken.repeat(depth)
   const indentationWithFile = indentToken.repeat(depth + 1)
   for (const node of nodes) {
+    if (
+      node.type === 'directory' &&
+      (!node.children || node.children.length === 0)
+    ) {
+      // Skip empty directories
+      continue
+    }
     result += `${indentation}${node.name}${node.type === 'directory' ? '/' : ''}`
     path.push(node.name)
     const filePath = path.join('/')
@@ -155,9 +162,6 @@ export function printFileTreeWithTokens(
       result += printFileTreeWithTokens(node.children, fileTokenScores, path)
     }
     path.pop()
-  }
-  if (nodes.length === 0) {
-    result = '[No files in this directory.]'
   }
   return result
 }

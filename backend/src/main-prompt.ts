@@ -60,17 +60,18 @@ export async function mainPrompt(
       ? assistantReplyMessage.content.includes('plan_complex_change')
       : false
 
-  const allowUnboundedIterationPromise = assistantIsExecutingPlan
-    ? Promise.resolve(true)
-    : checkToAllowUnboundedIteration(messages[lastUserMessageIndex], {
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      }).catch((error) => {
-        logger.error(error, 'Error checking to allow unbounded iteration')
-        return false
-      })
+  const allowUnboundedIterationPromise = checkToAllowUnboundedIteration(
+    messages[lastUserMessageIndex],
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    }
+  ).catch((error) => {
+    logger.error(error, 'Error checking to allow unbounded iteration')
+    return false
+  })
 
   let fullResponse = ''
   const fileProcessingPromises: Promise<FileChange | null>[] = []
@@ -180,7 +181,7 @@ export async function mainPrompt(
       'Prompting Main'
     )
 
-    let stream: AsyncGenerator<string, void, unknown>
+    let stream: ReadableStream<string>
     if (costMode === 'lite') {
       stream = promptDeepseekStream(
         messagesWithSystem(messagesWithContinuedMessage, system),
@@ -309,6 +310,7 @@ export async function mainPrompt(
 
       onResponseChunk(`\nPrompt: ${prompt}\n`)
 
+      const fetchFilesStart = Date.now()
       const filePaths = await getRelevantFilesForPlanning(
         messages,
         prompt,
@@ -319,11 +321,11 @@ export async function mainPrompt(
         userInputId,
         userId
       )
-
+      const fetchFilesDuration = Date.now() - fetchFilesStart
       const loadedFiles = await requestFiles(ws, filePaths)
       const fileContents = Object.fromEntries(
         Object.entries(loadedFiles).filter(
-          ([_, content]) => content !== null
+          ([, content]) => content !== null
         ) as [string, string][]
       )
 
@@ -332,35 +334,27 @@ export async function mainPrompt(
       fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
 
       onResponseChunk(`\nThinking deeply (can take a minute)...\n\n`)
-
-      logger.debug(
-        {
-          prompt,
-          filePaths,
-          existingFilePaths,
-        },
-        'Thinking deeply'
-      )
-
-      const plan = await planComplexChange(
-        prompt,
-        fileContents,
-        onResponseChunk,
-        {
+      logger.debug({ prompt, filePaths, existingFilePaths }, 'Thinking deeply')
+      const planningStart = Date.now()
+      const { response, fileProcessingPromises: promises } =
+        await planComplexChange(prompt, fileContents, onResponseChunk, {
           clientSessionId,
           fingerprintId,
           userInputId,
           userId,
-        }
-      )
+          costMode,
+        })
+      fileProcessingPromises.push(...promises)
       // For now, don't print the plan to the user.
       // onResponseChunk(`${plan}\n\n`)
-      fullResponse += plan + '\n\n'
+      fullResponse += response + '\n\n'
       logger.debug(
         {
           prompt,
           file_paths: filePaths,
-          response: plan,
+          response,
+          fetchFilesDuration,
+          planDuration: Date.now() - planningStart,
         },
         'Generated plan'
       )
@@ -369,7 +363,7 @@ export async function mainPrompt(
         id: Math.random().toString(36).slice(2),
         name: 'continue',
         input: {
-          response: `Please implement the full plan.`,
+          response: `Please review the implementation and make improvements if needed.`,
         },
       }
       isComplete = true
@@ -653,7 +647,7 @@ async function getFileVersionUpdates(
     userId,
     costMode,
   } = options
-  const FILE_TOKEN_BUDGET = costMode === 'lite' ? 25_000 : 80_000
+  const FILE_TOKEN_BUDGET = costMode === 'lite' ? 25_000 : 100_000
 
   const { fileVersions } = fileContext
   const files = fileVersions.flatMap((files) => files)
