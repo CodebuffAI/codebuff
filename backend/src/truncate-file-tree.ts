@@ -5,7 +5,6 @@ import {
 } from 'common/util/file'
 import { ProjectFileContext } from 'common/util/file'
 import { countTokensJson } from './util/token-counter'
-import { MinHeap } from 'common/util/min-heap'
 import { logger } from './util/logger'
 
 type TruncationLevel = 'none' | 'unimportant-files' | 'tokens' | 'depth-based'
@@ -49,21 +48,16 @@ export const truncateFileTreeBasedOnTokenBudget = (
         truncationLevel: 'unimportant-files',
       }
     }
-    const prunedTokenScores = pruneFileTokenScores(
+    const { printedTree, tokenCount } = pruneFileTokenScores(
       filteredTree,
       fileTokenScores,
       tokenBudget
     )
-    const prunedPrintedTree = printFileTreeWithTokens(
-      fileTree,
-      prunedTokenScores
-    )
-    const prunedTokenCount = countTokensJson(prunedPrintedTree)
 
-    if (prunedTokenCount <= tokenBudget) {
+    if (tokenCount <= tokenBudget) {
       return {
-        printedTree: prunedPrintedTree,
-        tokenCount: prunedTokenCount,
+        printedTree,
+        tokenCount,
         truncationLevel: 'tokens',
       }
     }
@@ -206,44 +200,64 @@ function pruneFileTokenScores(
   fileTree: FileTreeNode[],
   fileTokenScores: Record<string, Record<string, number>>,
   tokenBudget: number
-): Record<string, Record<string, number>> {
+) {
   const startTime = performance.now()
-  // Make a deep copy so we don't modify the original scores
-  const pruned = Object.fromEntries(
-    Object.entries(fileTokenScores).map(([filePath, tokens]) => [
-      filePath,
-      { ...tokens },
-    ])
-  )
 
-  // Initialize priority queue with all tokens
-  const pq = new MinHeap<{ filePath: string; token: string }>()
-  for (const [filePath, tokens] of Object.entries(pruned)) {
-    for (const [token, score] of Object.entries(tokens)) {
-      pq.insert({ filePath, token }, score)
-    }
+  // Create sorted array of tokens by score
+  const sortedTokens = Object.entries(fileTokenScores)
+    .flatMap(([filePath, tokens]) =>
+      Object.entries(tokens).map(([token, score]) => ({
+        filePath,
+        token,
+        score,
+      }))
+    )
+    .sort((a, b) => a.score - b.score)
+
+  let printedTree = printFileTreeWithTokens(fileTree, fileTokenScores)
+  let totalTokens = countTokensJson(printedTree)
+
+  if (totalTokens <= tokenBudget) {
+    return { pruned: fileTokenScores, printedTree, tokenCount: totalTokens }
   }
 
-  // Compute the printed tree using the pruned tokens
-  let printed = printFileTreeWithTokens(fileTree, pruned)
-  let totalTokens = countTokensJson(printed)
+  // Quick estimate - assume each token name takes 5 tokens
+  const tokensToRemove = totalTokens - tokenBudget
+  const initialKeepIndex = Math.max(0, Math.ceil(tokensToRemove / 5))
 
-  while (totalTokens > tokenBudget && pq.size > 0) {
-    // Remove batch of lowest scoring tokens
-    const countToRemove = Math.max(5, Math.floor(pq.size * 0.1))
-    for (let i = 0; i < countToRemove && pq.size > 0; i++) {
-      const item = pq.extractMin()
-      if (
-        item &&
-        pruned[item.filePath] &&
-        pruned[item.filePath][item.token] !== undefined
-      ) {
-        delete pruned[item.filePath][item.token]
+  // Build initial pruned object from higher-scoring tokens
+  let pruned: Record<string, Record<string, number>> = {}
+  for (let i = initialKeepIndex; i < sortedTokens.length; i++) {
+    const { filePath, token, score } = sortedTokens[i]
+    if (!pruned[filePath]) {
+      pruned[filePath] = {}
+    }
+    pruned[filePath][token] = score
+  }
+
+  let index = initialKeepIndex
+  printedTree = printFileTreeWithTokens(fileTree, pruned)
+  totalTokens = countTokensJson(printedTree)
+
+  while (totalTokens > tokenBudget && index < sortedTokens.length) {
+    const remainingToRemove = totalTokens - tokenBudget
+    const batchSize = Math.ceil(remainingToRemove / 5) + 500
+
+    // Remove batch of tokens from pruned object
+    for (let i = index; i < index + batchSize && i < sortedTokens.length; i++) {
+      const { filePath, token } = sortedTokens[i]
+      if (pruned[filePath]?.[token] !== undefined) {
+        delete pruned[filePath][token]
+        if (Object.keys(pruned[filePath]).length === 0) {
+          delete pruned[filePath]
+        }
       }
     }
 
-    printed = printFileTreeWithTokens(fileTree, pruned)
-    totalTokens = countTokensJson(printed)
+    // Note: The below function can take a while, so we optmized to have few loop iterations.
+    printedTree = printFileTreeWithTokens(fileTree, pruned)
+    totalTokens = countTokensJson(printedTree)
+    index += batchSize
   }
 
   const endTime = performance.now()
@@ -261,7 +275,7 @@ function pruneFileTokenScores(
       'pruneFileTokenScores took a while'
     )
   }
-  return pruned
+  return { pruned, printedTree, tokenCount: totalTokens }
 }
 
 const removeUnimportantFiles = (fileTree: FileTreeNode[]): FileTreeNode[] => {
