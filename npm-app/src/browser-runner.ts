@@ -670,13 +670,6 @@ export class BrowserRunner {
 
         // Try to recover by restarting browser
         await this.shutdown()
-        if (action.type !== 'stop') {
-          await this.startBrowser({
-            type: 'start',
-            url: 'about:blank',
-            timeout: 15000,
-          })
-        }
       }
       throw error
     }
