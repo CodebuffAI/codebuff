@@ -197,7 +197,7 @@ export const promptDeepseekStream = (
     clientSessionId: string
     fingerprintId: string
     userInputId: string
-    model: string
+    model: DeepseekModel
     userId: string | undefined
     maxTokens?: number
     temperature?: number
