@@ -98,6 +98,17 @@ The backend uses WebSockets for real-time, bidirectional communication with clie
 5. Client receives and displays the response in real-time.
 6. Server sends file changes to the client for application.
 
+## Polling Best Practices
+
+- Keep polling logic independent from UI state
+- Only stop polling on definitive end conditions (success, timeout, error)
+- Use clear timeouts rather than boolean flags to control polling lifecycle
+- Prefer unsubscribing over boolean flags for cleanup
+- Handle cleanup in both success and error cases
+- Use NodeJS.Timeout type for interval timers in TypeScript
+- Store interval handle at class level for proper cleanup across handlers
+- Extract cleanup logic into helper functions to handle type checking in one place
+
 ## Conversation Flow Management
 
 The system uses a multi-layered approach to manage conversation flow:

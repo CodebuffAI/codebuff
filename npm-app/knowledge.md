@@ -36,6 +36,12 @@ NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com
   - Via process.exit handler as fallback
 - This prevents terminal from getting stuck without cursor if interrupted
 
+### Event Handler Patterns
+
+- Use .once() instead of .on() when handler should only run one time
+- Prefer EventEmitter's built-in one-time handling over manual flags
+- Keep state variables if they're used for more than just preventing duplicate handlers
+
 ### Command Execution Rules
 
 - Skip running input as terminal command if it:

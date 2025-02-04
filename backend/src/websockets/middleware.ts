@@ -41,13 +41,24 @@ export class WebSocketMiddleware {
   async execute(
     action: ClientAction,
     clientSessionId: string,
-    ws: WebSocket
+    ws: WebSocket,
+    options: { silent?: boolean } = {}
   ): Promise<boolean> {
     for (const middleware of this.middlewares) {
       const actionOrContinue = await middleware(action, clientSessionId, ws)
       if (actionOrContinue) {
-        logger.warn('Middleware execution halted:', actionOrContinue)
-        sendAction(ws, actionOrContinue)
+        logger.warn(
+          {
+            action,
+            middlewareResp: actionOrContinue,
+            clientSessionId,
+            silent: !!options.silent,
+          },
+          'Middleware execution halted.'
+        )
+        if (!options.silent) {
+          sendAction(ws, actionOrContinue)
+        }
         return false
       }
     }
@@ -59,14 +70,20 @@ export class WebSocketMiddleware {
       action: Extract<ClientAction, { type: T }>,
       clientSessionId: string,
       ws: WebSocket
-    ) => void
+    ) => void,
+    options: { silent?: boolean } = {}
   ) {
     return async (
       action: Extract<ClientAction, { type: T }>,
       clientSessionId: string,
       ws: WebSocket
     ) => {
-      const shouldContinue = await this.execute(action, clientSessionId, ws)
+      const shouldContinue = await this.execute(
+        action,
+        clientSessionId,
+        ws,
+        options
+      )
       if (shouldContinue) {
         baseAction(action, clientSessionId, ws)
       }
@@ -75,27 +92,24 @@ export class WebSocketMiddleware {
 }
 
 export const protec = new WebSocketMiddleware()
-protec.use(async (action, _clientSessionId, _) => {
-  logger.debug(`Protecting action of type: '${action.type}'`)
-})
-protec.use(async (action, clientSessionId, ws) => {
-  return match(action)
+
+protec.use(async (action, clientSessionId, ws) =>
+  match(action)
     .with(
-      {
-        authToken: P.string,
-      },
+      { authToken: P.string, fingerprintId: P.string },
       async ({ authToken, fingerprintId }) => {
-        const quotas = await db
+        const quota = await db
           .select({
             userId: schema.user.id,
             quotaExceeded: sql<boolean>`COALESCE(${schema.user.quota_exceeded}, false)`,
-            nextQuotaReset: sql<Date>`COALESCE(${schema.user.next_quota_reset}, now())`,
+            nextQuotaReset: sql<string>`COALESCE(${schema.user.next_quota_reset}, now())`,
           })
           .from(schema.user)
           .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
           .where(eq(schema.session.sessionToken, authToken))
+          .limit(1)
+          .then((rows) => rows[0])
 
-        const quota = quotas[0]
         if (!quota) {
           return {
             type: 'action-error' as const,
@@ -103,75 +117,40 @@ protec.use(async (action, clientSessionId, ws) => {
           }
         }
 
-        const quotaManager = new AuthenticatedQuotaManager()
-        if (quota.nextQuotaReset < new Date()) {
-          // End date is in the past, so we should reset the quota
-          const nextQuotaReset = getNextQuotaReset(quota.nextQuotaReset)
-          await quotaManager.setNextQuota(quota.userId, false, nextQuotaReset)
+        const currentQuotaReset = new Date(quota.nextQuotaReset)
+        if (currentQuotaReset <= new Date()) {
+          const nextQuotaReset = getNextQuotaReset(currentQuotaReset)
+          logger.info(
+            {
+              userId: quota.userId,
+              fingerprintId,
+              currentQuotaReset,
+              nextQuotaReset,
+            },
+            `Setting next quota reset for user ${quota.userId}`
+          )
+          await Promise.all([
+            new AnonymousQuotaManager().setNextQuota(
+              fingerprintId,
+              false,
+              nextQuotaReset
+            ),
+            new AuthenticatedQuotaManager().setNextQuota(
+              quota.userId,
+              false,
+              nextQuotaReset
+            ),
+          ])
           return
-        }
-
-        if (quota.quotaExceeded) {
+        } else if (quota.quotaExceeded) {
           logger.warn(`Quota exceeded for user ${quota.userId}`)
           return genUsageResponse(clientSessionId, fingerprintId, quota.userId)
         }
         return
       }
     )
-    .with(
-      {
-        fingerprintId: P.string,
-      },
-      async ({ fingerprintId }) => {
-        // Create a new fingerprint if it doesn't exist
-        await db
-          .insert(schema.fingerprint)
-          .values({
-            id: fingerprintId,
-          })
-          .onConflictDoNothing()
-
-        const quotas = await db
-          .select({
-            fingerprintId: schema.fingerprint.id,
-            quotaExceeded: sql<boolean>`COALESCE(${schema.fingerprint.quota_exceeded}, false)`,
-            nextQuotaReset: sql<Date>`COALESCE(${schema.fingerprint.next_quota_reset}, now())`,
-          })
-          .from(schema.fingerprint)
-          .where(eq(schema.fingerprint.id, fingerprintId))
-
-        const quota = quotas[0]
-        if (!quota) {
-          return {
-            type: 'action-error' as const,
-            message: `Unable to find fingerprint for given id ${fingerprintId}! Please reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`,
-          }
-        }
-
-        const quotaManager = new AnonymousQuotaManager()
-        if (quota.nextQuotaReset < new Date()) {
-          // End date is in the past, so we should reset the quota
-          const nextQuotaReset = getNextQuotaReset(quota.nextQuotaReset)
-          await quotaManager.setNextQuota(
-            quota.fingerprintId,
-            false,
-            nextQuotaReset
-          )
-          return
-        }
-
-        if (quota.quotaExceeded) {
-          logger.warn(`Quota exceeded for fingerprint ${fingerprintId}`)
-          return genUsageResponse(clientSessionId, fingerprintId)
-        }
-
-        return
-      }
-    )
-    .otherwise(() => {
-      return {
-        type: 'action-error' as const,
-        message: `No authToken or fingerprintId found, cannot check quota. Please reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`,
-      }
-    })
-})
+    .otherwise(() => ({
+      type: 'action-error' as const,
+      message: `Access denied. Missing auth token, please enter "login" to continue.`,
+    }))
+)

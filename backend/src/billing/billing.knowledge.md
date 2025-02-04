@@ -37,6 +37,14 @@ Key fields in the `user` table:
 - When checking quota status, include all relevant user state (subscription status, etc.)
 - Pass complete state through websocket messages to avoid redundant DB calls
 - Example: subscription status flows from quota check → usage response → client display
+- When resetting quotas for authenticated users, update both user and fingerprint records with same reset date
+
+#### Quota Reset Coordination
+
+- User and fingerprint quotas must be reset together to maintain consistency
+- Use same next_quota_reset date for both records
+- Reset both quota_exceeded flags to false simultaneously
+- Use Promise.all for atomic-like updates
 
 Two implementations:
 

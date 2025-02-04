@@ -341,6 +341,7 @@ export class Client {
     this.webSocket.subscribe(
       'login-code-response',
       async ({ loginUrl, fingerprintHash }) => {
+        shouldRequestLogin = true
         const responseToUser = [
           '\n',
           'Press Enter to open the browser or visit:\n',
@@ -348,22 +349,21 @@ export class Client {
         ]
 
         console.log(responseToUser.join('\n'))
-        this.rl.on('line', () => {
-          if (shouldRequestLogin) {
-            spawn(`open ${loginUrl}`, {
-              shell: true,
-            })
-          }
+        this.rl.once('line', () => {
+          spawn(`open ${loginUrl}`, {
+            shell: true,
+          })
         })
 
         // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
         const initialTime = Date.now()
         const handler = setInterval(async () => {
-          if (Date.now() - initialTime > 60 * 1000 && shouldRequestLogin) {
+          if (Date.now() - initialTime > 5 * 60 * 1000 && shouldRequestLogin) {
             shouldRequestLogin = false
             console.log(
               'Unable to login. Please try again by typing "login" in the terminal.'
             )
+            this.returnControlToUser()
             clearInterval(handler)
             return
           }
@@ -421,7 +421,11 @@ export class Client {
       const parsedAction = UsageReponseSchema.safeParse(action)
       if (!parsedAction.success) return
       const a = parsedAction.data
-      console.log(`Usage: ${a.usage} / ${a.limit} credits`)
+      console.log()
+      console.log(
+        green(underline(`Codebuff usage:`)),
+        `${a.usage} / ${a.limit} credits`
+      )
       this.setUsage(a)
       this.returnControlToUser()
     })

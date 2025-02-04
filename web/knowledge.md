@@ -180,6 +180,9 @@ When displaying inline code snippets with copy buttons:
   - Remove decorative elements (icons, illustrations) that don't add functional value
   - Focus on essential content and actions
   - Prefer clean, text-focused layouts over visual embellishments
+  - Allow text to wrap naturally - avoid whitespace-nowrap
+  - Use flex-1 and justify-center for centered content
+  - Add sufficient padding (e.g. py-2) for touch targets
 - For desktop:
   - Can include supplementary visual elements to enhance aesthetics
   - Maintain proper spacing between icons and text
