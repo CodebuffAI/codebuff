@@ -1,7 +1,9 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
-import { model_types, promptClaudeStream } from './claude'
+import { AnthropicModel } from 'common/constants'
+import { promptClaudeStream } from './claude'
+import { parseToolCallXml } from './util/parse-tool-call-xml'
 import {
   TOOL_RESULT_MARKER,
   STOP_MARKER,
@@ -176,7 +178,7 @@ export async function mainPrompt(
         lastMessage: messages[messages.length - 1].content,
         messageCount: messages.length,
       },
-      'Prompting Claude Main'
+      'Prompting Main'
     )
 
     let stream: ReadableStream<string>
@@ -194,7 +196,7 @@ export async function mainPrompt(
     } else {
       stream = promptClaudeStream(messagesWithContinuedMessage, {
         system,
-        model: getModelForMode(costMode, 'agent') as model_types,
+        model: getModelForMode(costMode, 'agent') as AnthropicModel,
         clientSessionId,
         fingerprintId,
         userInputId,
@@ -237,7 +239,7 @@ export async function mainPrompt(
         onTagStart: (attributes) => '',
         onTagEnd: (content, attributes) => {
           const name = attributes.name
-          const contentAttributes: Record<string, string> = {}
+          let contentAttributes: Record<string, string> = {}
           if (name === 'run_terminal_command') {
             contentAttributes.command = content
           } else if (name === 'scrape_web_page') {
@@ -250,6 +252,8 @@ export async function mainPrompt(
             contentAttributes.pattern = content
           } else if (name === 'plan_complex_change') {
             contentAttributes.prompt = content
+          } else if (name === 'browser_action') {
+            contentAttributes = parseToolCallXml(content)
           }
           fullResponse += `<tool_call name="${attributes.name}">${content}</tool_call>`
           toolCall = {
@@ -557,6 +561,7 @@ export async function mainPrompt(
       ? fileContext.fileVersions.flat()
       : addedFileVersions,
     resetFileVersions,
+    messages,
   }
 }
 

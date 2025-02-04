@@ -34,6 +34,19 @@ const MessageContentObjectSchema = z.union([
       })
       .optional(),
   }),
+  z.object({
+    type: z.literal('image'),
+    source: z.object({
+      type: z.literal('base64'),
+      media_type: z.literal('image/jpeg'),
+      data: z.string(),
+    }),
+    cache_control: z
+      .object({
+        type: z.literal('ephemeral'),
+      })
+      .optional(),
+  }),
 ])
 
 const MessageSchema = z.object({
@@ -156,6 +169,10 @@ export const ResponseCompleteSchema = z
   )
 
 export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('read-files-response'),
+    files: z.record(z.string(), z.string().nullable()),
+  }),
   z.object({
     type: z.literal('response-chunk'),
     userInputId: z.string(),

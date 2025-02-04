@@ -81,6 +81,12 @@ The application uses the following event categories for consistent tracking:
 8. Usage Events (`usage.*`)
    - usage.warning_shown
 
+Progress bar color coding:
+- Blue: Normal usage (<90%)
+- Yellow: High usage (90-95%)
+- Red: Critical usage (>95%)
+- Shows warning message when exceeding quota with overage rate details
+
 9. Navigation Events (`navigation.*`)
    - navigation.docs_clicked
    - navigation.pricing_clicked

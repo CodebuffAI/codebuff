@@ -17,6 +17,7 @@
       "common/*": ["../common/src/*"],
       "code-map/*": ["../code-map/*"]
     },
+    "preserveSymlinks": true,
     "outDir": "./dist",
     "rootDir": "./src",
     "resolveJsonModule": true

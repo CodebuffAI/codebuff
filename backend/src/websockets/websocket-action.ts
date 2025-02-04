@@ -5,15 +5,8 @@ import { match, P } from 'ts-pattern'
 
 import { ClientMessage } from 'common/websockets/websocket-schema'
 import { mainPrompt } from '../main-prompt'
-import {
-  ClientAction,
-  ServerAction,
-  UsageReponseSchema,
-  UsageResponse,
-} from 'common/actions'
+import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
 import { sendMessage } from './server'
-import { getSearchSystemPrompt } from '../system-prompt'
-import { promptClaude } from '../claude'
 import { env } from '../env.mjs'
 import db from 'common/db'
 import { genAuthCode } from 'common/util/credentials'
@@ -167,6 +160,7 @@ const onUserInput = async (
     changesAlreadyApplied,
     costMode = 'normal',
   } = action
+
   await withLoggerContext(
     { fingerprintId, authToken, clientRequestId: userInputId },
     async () => {

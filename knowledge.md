@@ -90,6 +90,23 @@ The referral system integrates with the user authentication flow and credit mana
 ## Development Guidelines
 
 1. Use TypeScript for all new code to maintain type safety.
+
+## Backward Compatibility
+
+When replacing old patterns with new ones:
+- Keep support for old patterns during transition (e.g. .manicodeignore → .codebuffignore)
+- Use clear fallback chains (try current pattern first, fall back to legacy)
+- For ignore files specifically: .codebuffignore is standard, .manicodeignore is legacy support
+- Document both old and new patterns in user-facing content
+- Plan to remove old pattern support in a future major version
+
+## Backward Compatibility
+
+When replacing old patterns with new ones:
+- Keep support for old patterns during transition (e.g. .codebuffignore → .manicodeignore)
+- Use clear fallback chains (try new pattern first, fall back to old)
+- Document both old and new patterns in user-facing content
+- Plan to remove old pattern support in a future major version
 2. Follow existing code structure and naming conventions.
 3. Ensure alternating user and Buffy messages in conversation history.
 4. Update knowledge files for significant changes or new features.
@@ -240,6 +257,11 @@ The referral system is integrated across the web application and the CLI tool, p
 
 - We don't specify return types for functions, since Typescript will infer them. Don't write return types for functions!
 - Always include 'src' in file paths when it's part of the actual directory structure, even though imports automatically remove it.
+- Keep transformations simple and pure:
+  - One clear purpose per function
+  - Handle edge cases with early returns
+  - Use const assertions for better type inference
+  - Prefer small, focused functions over complex abstractions
 
 ## Python Package
 

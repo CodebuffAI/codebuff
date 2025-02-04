@@ -4,6 +4,40 @@ import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
 import { OpenAIMessage } from './openai-api'
+import { GeminiModel } from 'common/constants'
+import { match, P } from 'ts-pattern'
+
+/**
+ * Transform messages between our internal format and Gemini's format.
+ * All Gemini models support images in their specific format.
+ *
+ * @param message The message to transform
+ * @param model The Gemini model being used
+ * @returns The transformed message in Gemini's expected format
+ */
+function transformedMessage(message: any, model: GeminiModel): OpenAIMessage {
+  return match(message)
+    .with(
+      {
+        content: {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: 'image/jpeg',
+            data: P.string,
+          },
+        },
+      },
+      (m) => ({
+        ...message,
+        content: {
+          inlineData: m.content.source.data,
+          mimeType: 'image/jpeg',
+        },
+      })
+    )
+    .otherwise(() => message)
+}
 
 export type GeminiMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -32,7 +66,7 @@ export async function promptGemini(
     clientSessionId: string
     fingerprintId: string
     userInputId: string
-    model: string
+    model: GeminiModel
     userId: string | undefined
     maxTokens?: number
     temperature?: number
@@ -50,9 +84,14 @@ export async function promptGemini(
   const gemini = getGeminiClient(fingerprintId)
   const startTime = Date.now()
   try {
+    // Transform messages to Gemini's format
+    const transformedMessages = messages.map((msg) =>
+      transformedMessage(msg, options.model)
+    )
+
     const response = await gemini.chat.completions.create({
       model,
-      messages,
+      messages: transformedMessages,
       temperature: temperature ?? 0,
       max_tokens: maxTokens,
     })

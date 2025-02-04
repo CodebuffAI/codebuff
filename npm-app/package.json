@@ -6,12 +6,12 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "codebuff": "dist/index.js"
+    "codecane": "dist/index.js"
   },
   "scripts": {
     "prebuild": "bun run with-env -- bun clean && cd ../common && bun run build && cd ../packages/code-map && bun run build",
     "build": "tsc && tsc-alias",
-    "postbuild": "mkdir -p dist/common && cp -r ../common/dist/* dist/common && mkdir -p dist/code-map && cp -r ../packages/code-map/dist/* dist/code-map && tsc-alias",
+    "postbuild": "mkdir -p dist/common/src/util && cp -r ../common/dist/* dist/common && mkdir -p dist/code-map && cp -r ../packages/code-map/dist/* dist/code-map && tsc-alias",
     "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
     "prepublishOnly": "bun run build && bun run clean-package.js",
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
@@ -47,6 +47,7 @@
     "lodash": "*",
     "nanoid": "5.0.7",
     "picocolors": "1.1.0",
+    "puppeteer": "^24.1.1",
     "systeminformation": "5.23.4",
     "tree-sitter": "0.21.1",
     "tree-sitter-c": "0.23.0",
@@ -70,10 +71,5 @@
   "trustedDependencies": [
     "@homebridge/node-pty-prebuilt-multiarch",
     "@vscode/ripgrep"
-  ],
-  "devDependencies": {
-    "@types/jest": "^29.5.14",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.2.5"
-  }
+  ]
 }

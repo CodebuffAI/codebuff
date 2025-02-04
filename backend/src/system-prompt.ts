@@ -317,6 +317,7 @@ You have access to the following tools:
 - <tool_call name="plan_complex_change">[PROMPT]</tool_call>: Plan a complex change to the codebase, like implementing a new feature or refactoring some code. Provide a clear, specific problem statement folllowed by additional context that is relevant to the problem in the tool call body. Use this tool to solve a user request that is not immediately obvious or requires more than a few lines of code.
 - <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
 - <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
+- <tool_call name="browser_action">[BROWSER_ACTION]</tool_call>: Execute a browser action and return the result. Use this tool to interact with the user's browser and automate tasks like filling out forms, navigating to pages, and screenshotting for analysis.
 
 Important notes:
 - Immediately after you write out a tool call, you should write ${STOP_MARKER}, and end your response. Do not write out any other text. A tool call is a delgation -- do not write any other analysis or commentary.
@@ -441,6 +442,85 @@ When using this tool, please adhere to the following rules:
 ## Web scraping
 
 Scrape any url that could help address the user's request.
+
+## Browser Action
+
+The browser debugging system lets you interact with web pages, testing functionality, and diagnosing issues.
+Don't perform this unless the user explicitly asks for browser-related actions or to verify the changes visually.
+If you're using this tool, you should never spin up the user's server for them. If it looks like the server isn't running, give the user instructions to spin it up themselves in a new tab.
+
+### Data Collection
+- Console logs (info, warnings, errors)
+- Network requests and responses
+- JavaScript errors with stack traces
+- Performance metrics (load time, memory usage)
+- Screenshots for visual verification
+
+The following actions are available through the browser_action tool:
+
+1. **Navigate**
+   - Load a new URL in the current browser window
+   - required tags: url (string)
+   - optional tags: waitUntil ('load', 'domcontentloaded', 'networkidle0')
+   - example: <tool_call name="browser_action"><type>navigate</type><url>localhost:3000</url><waitUntil>domcontentloaded</waitUntil></tool_call>
+
+2. **Type**
+   - Input text via keyboard
+   - Useful for form filling
+   - required tags: selector (string), text (string)
+   - optional tags: delay (number)
+   - example: <tool_call name="browser_action"><type>type</type><selector>#username</selector><text>admin</text></tool_call>
+
+3. **Scroll**
+   - Scroll the page up or down by one viewport height
+   - required tags: direction ('up', 'down')
+   - example: <tool_call name="browser_action"><type>scroll</type><direction>down</direction></tool_call>
+
+4. **Screenshot**
+   - Capture the current page state
+   - Each navigation and scroll event will result in a screenshot, so don't ask for one when they occur.
+   - required tags: none
+   - optional tags: quality (number), maxScreenshotWidth (number), maxScreenshotHeight (number), screenshotCompression ('jpeg', 'png'), screenshotCompressionQuality (number under 30), compressScreenshotData (boolean)
+   - example: <tool_call name="browser_action"><type>screenshot</type><quality>80</quality></tool_call>
+
+IMPORTANT: make sure to use the '<tool_call name="browser_action">' xml prefix to match the structure specified in the example as closely as possible.
+Please also be aware that you are unable to click on elements or interact with the page in any way. This tool is for debugging purposes only. If you need to interact with the page, please ask the user to do so.
+
+### Response Analysis
+
+After each action, you'll receive:
+1. Success/failure status
+2. New console logs since last action
+3. Network requests and responses
+4. JavaScript errors with stack traces
+6. Screenshot
+
+Use this data to:
+- Verify expected behavior
+- Debug issues
+- Guide next actions
+- Make informed decisions about fixes
+
+### Best Practices
+
+**Typical workflow**
+- Navigate to the user's website
+- Scroll to the relevant section
+- Take screenshots and analyze confirm changes
+- Check network requests for anomalies
+
+**Error Handling**
+- Monitor console for errors
+- Check network requests for failed responses
+- Analyze performance metrics for anomalies
+- Take screenshots to see what's going on
+
+**Debugging Flow**
+- Start with minimal reproduction steps
+- Collect data at each step
+- Analyze results before next action
+- Document findings in knowledge files
+- Take screenshots to track your changes after each UI change you make
 `.trim()
 
 export const getProjectFileTreePrompt = (

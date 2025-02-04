@@ -23,13 +23,18 @@ export const userFromJson = (
   }
 }
 
-export const CREDENTIALS_PATH = path.join(
+import { ensureDirectoryExists } from 'common/util/file'
+
+export const CONFIG_DIR = path.join(
   os.homedir(),
   '.config',
   'manicode' +
     // on a development stack?
     (process.env.ENVIRONMENT && process.env.ENVIRONMENT !== 'production'
       ? `-${process.env.ENVIRONMENT}`
-      : ''),
-  'credentials.json'
+      : '')
 )
+
+// Ensure config directory exists
+ensureDirectoryExists(CONFIG_DIR)
+export const CREDENTIALS_PATH = path.join(CONFIG_DIR, 'credentials.json')
