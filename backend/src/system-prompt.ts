@@ -113,11 +113,11 @@ export const getAgentSystemPrompt = (
   const gitChangesPrompt = getGitChangesPrompt(fileContext)
   const fileTreeTokenBudget = costMode === 'lite' ? 5_000 : 20_000
 
-  const projectFileTreePrompt = getProjectFileTreePrompt(
-    fileContext,
-    fileTreeTokenBudget
-  )
-  const fileTreeTokens = countTokensJson(projectFileTreePrompt)
+  // const projectFileTreePrompt = getProjectFileTreePrompt(
+  //   fileContext,
+  //   fileTreeTokenBudget
+  // )
+  // const fileTreeTokens = countTokensJson(projectFileTreePrompt)
 
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)
   const systemInfoTokens = countTokens(systemInfoPrompt)
@@ -138,7 +138,7 @@ export const getAgentSystemPrompt = (
         editingFilesPrompt,
         knowledgeFilesPrompt,
         toolsPrompt,
-        projectFileTreePrompt,
+        // projectFileTreePrompt,
         systemInfoPrompt
       ).join('\n\n'),
     },
@@ -153,7 +153,7 @@ export const getAgentSystemPrompt = (
   logger.debug(
     {
       filesTokens,
-      fileTreeTokens,
+      // fileTreeTokens,
       fileTreeTokenBudget,
       systemInfoTokens,
       responseFormatTokens,
