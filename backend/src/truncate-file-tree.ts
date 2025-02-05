@@ -4,8 +4,9 @@ import {
   printFileTreeWithTokens,
 } from 'common/util/file'
 import { ProjectFileContext } from 'common/util/file'
-import { countTokensJson } from './util/token-counter'
+import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
+import { sampleSize } from 'lodash'
 
 type TruncationLevel = 'none' | 'unimportant-files' | 'tokens' | 'depth-based'
 
@@ -64,122 +65,76 @@ export const truncateFileTreeBasedOnTokenBudget = (
   }
 
   const start = performance.now()
-  // Remove files starting from the deepest ones until we fit the budget
-  const getDepth = (node: FileTreeNode): number => {
-    if (node.type === 'file') return 0
-    if (!node.children?.length) return 0
-    return 1 + Math.max(...node.children.map(getDepth))
+  
+  // Get all files with their depths
+  const getFilesWithDepths = (
+    nodes: FileTreeNode[],
+    parentDepth = 0
+  ): Array<{ node: FileTreeNode; path: string; depth: number }> => {
+    return nodes.flatMap(node => {
+      if (node.type === 'file') {
+        return [{ node, path: node.filePath, depth: parentDepth }]
+      }
+      return node.children?.flatMap(child => 
+        getFilesWithDepths([child], parentDepth + 1)
+      ) ?? []
+    })
   }
 
-  let currentTree = [...filteredTree]
-  let currentPrintedTree = printedFilteredTree
+  // Get initial state
+  let currentTree = filteredTree
   let currentTokenCount = filteredTreeNoTokensCount
+  let currentPrintedTree = ''
+  
+  // Get all files sorted by depth
+  const allFiles = getFilesWithDepths(currentTree)
+  const sortedFiles = allFiles.sort((a, b) => b.depth - a.depth)
 
-  while (currentTokenCount > tokenBudget) {
-    // Find the deepest files
-    const maxDepth = Math.max(...currentTree.map(getDepth))
-    if (maxDepth === 0) break // Can't remove any more files
+  // Sample 30 random files and count their tokens together
+  const sampleCount = Math.min(30, sortedFiles.length)
+  const sampleFiles = sampleSize(sortedFiles, sampleCount)
+  const sampleText = sampleFiles.map(f => f.node.name).join(' ')
+  const sampleTokens = countTokens(sampleText)
+  
+  // Calculate average tokens per file from sample
+  const avgTokensPerFileName = sampleTokens / sampleCount
+  
+  const tokensToRemove = currentTokenCount - tokenBudget
+  // Calculate how many files to remove to hit token budget
+  // Remove half to account for other tokens like directories that will also be removed.
+  let estimatedFilesToRemove = Math.ceil(0.5 * tokensToRemove / avgTokensPerFileName) + 100
+  
+  while (estimatedFilesToRemove > 0) {
+    // Build a set of files to remove, taking deepest ones first
+    const filesToRemove = new Set(
+      sortedFiles
+        .slice(0, Math.min(estimatedFilesToRemove, sortedFiles.length))
+        .map(f => f.path)
+    )
+    sortedFiles.splice(0, estimatedFilesToRemove)
 
-    // Count total files in tree
-    const countAllFiles = (nodes: FileTreeNode[]): number => {
-      return nodes.reduce((count, node) => {
-        if (node.type === 'file') return count + 1
-        if (!node.children?.length) return count
-        return count + countAllFiles(node.children)
-      }, 0)
-    }
 
-    // Count files at each depth level
-    const countFilesByDepth = (
-      nodes: FileTreeNode[],
-      depth: number
-    ): number => {
-      return nodes.reduce((count, node) => {
-        if (node.type === 'file') return count
-        if (!node.children?.length) return count
-
-        const nodeDepth = getDepth(node)
-        const filesAtDepth = node.children.filter(
-          (child) => child.type === 'file' && nodeDepth + 1 === depth
-        ).length
-
-        return count + filesAtDepth + countFilesByDepth(node.children, depth)
-      }, 0)
-    }
-
-    // Remove 10% of total files
-    const totalFiles = countAllFiles(currentTree)
-    const targetFilesToRemove = Math.ceil(totalFiles * 0.2)
-
-    // Remove files starting from deepest level, moving up if needed
-    let remainingToRemove = targetFilesToRemove
-    let currentDepth = maxDepth
-
-    while (remainingToRemove > 0 && currentDepth > 0) {
-      const filesAtDepth = countFilesByDepth(currentTree, currentDepth)
-      const removeFromThisDepth = Math.min(filesAtDepth, remainingToRemove)
-
-      if (removeFromThisDepth > 0) {
-        const removeFiles = (
-          nodes: FileTreeNode[],
-          remaining: number,
-          targetDepth: number
-        ): [FileTreeNode[], number] => {
-          return nodes.reduce<[FileTreeNode[], number]>(
-            ([acc, remainingCount], node) => {
-              if (node.type === 'file' || !node.children?.length) {
-                return [[...acc, node], remainingCount]
-              }
-
-              const nodeDepth = getDepth(node)
-              if (nodeDepth + 1 === targetDepth && remainingCount > 0) {
-                // Get all file indices at this level
-                const fileIndices = node.children
-                  .map((child, index) => (child.type === 'file' ? index : -1))
-                  .filter((index) => index !== -1)
-
-                // Calculate how many files to remove from this node
-                const removeCount = Math.min(remainingCount, fileIndices.length)
-                const indicesToRemove = new Set(
-                  fileIndices.slice(0, removeCount)
-                )
-
-                const newChildren = node.children.filter(
-                  (_, index) => !indicesToRemove.has(index)
-                )
-                return [
-                  [...acc, { ...node, children: newChildren }],
-                  remainingCount - removeCount,
-                ]
-              }
-
-              const [newChildren, newRemaining] = removeFiles(
-                node.children,
-                remainingCount,
-                targetDepth
-              )
-              return [
-                [...acc, { ...node, children: newChildren }],
-                newRemaining,
-              ]
-            },
-            [[], remaining]
-          )
-        }
-
-        const [newTree, stillRemaining] = removeFiles(
-          currentTree,
-          removeFromThisDepth,
-          currentDepth
-        )
-        currentTree = newTree
-        remainingToRemove -= removeFromThisDepth - stillRemaining
+    // Helper to filter out removed files
+    const filterRemovedFiles = (node: FileTreeNode): FileTreeNode | null => {
+      if (node.type === 'file') {
+        return filesToRemove.has(node.filePath) ? null : node
       }
-
-      currentDepth--
+      
+      const newChildren = node.children
+        ?.map(filterRemovedFiles)
+        .filter((n): n is FileTreeNode => n !== null)
+      
+      return newChildren?.length ? { ...node, children: newChildren } : null
     }
+
+    currentTree = currentTree
+      .map(filterRemovedFiles)
+      .filter((n): n is FileTreeNode => n !== null)
+
     currentPrintedTree = printFileTree(currentTree)
     currentTokenCount = countTokensJson(currentPrintedTree)
+    const tokensToRemove = currentTokenCount - tokenBudget
+    estimatedFilesToRemove = tokensToRemove > 0 ? Math.ceil(0.5 * tokensToRemove / avgTokensPerFileName) + 100 : 0
   }
 
   const end = performance.now()

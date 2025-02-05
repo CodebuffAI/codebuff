@@ -151,6 +151,7 @@ export const getAgentSystemPrompt = (
     {
       filesTokens,
       fileTreeTokens,
+      fileTreeTokenBudget,
       systemInfoTokens,
       responseFormatTokens,
       fileVersions: fileContext.fileVersions.map((files) =>
