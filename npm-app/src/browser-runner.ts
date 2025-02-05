@@ -2,6 +2,7 @@ import puppeteer, { Browser, Page, HTTPRequest, HTTPResponse } from 'puppeteer'
 import { Log } from 'common/browser-actions'
 import { execSync } from 'child_process'
 import { sleep } from 'common/util/promise'
+import { ensureUrlProtocol } from 'common/util/string'
 import {
   BrowserAction,
   BrowserResponse,
@@ -309,14 +310,16 @@ export class BrowserRunner {
 
     if (!this.page) throw new Error('No browser page found; call start first.')
     try {
-      await this.page.goto(action.url, {
+      const url = ensureUrlProtocol(action.url)
+
+      await this.page.goto(url, {
         waitUntil: action.waitUntil ?? BROWSER_DEFAULTS.waitUntil,
         timeout: action.timeout ?? BROWSER_DEFAULTS.timeout,
       })
 
       this.logs.push({
         type: 'info',
-        message: `Navigated to ${action.url}`,
+        message: `Navigated to ${url}`,
         timestamp: Date.now(),
         source: 'tool',
       })

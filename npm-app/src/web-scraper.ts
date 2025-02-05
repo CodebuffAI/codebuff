@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { ensureUrlProtocol } from 'common/util/string'
 
 // Global cache for scraped web pages
 const scrapedPagesCache: Record<string, string> = {}
@@ -11,7 +12,8 @@ export async function scrapeWebPage(url: string) {
 
   try {
     let content = ''
-    if (url.startsWith('https://raw.githubusercontent.com/')) {
+    const fullUrl = ensureUrlProtocol(url)
+    if (fullUrl.startsWith('https://raw.githubusercontent.com/')) {
       const response = await axios.get(url)
       content = response.data
     } else {

@@ -111,6 +111,22 @@ export const capitalize = (str: string): string => {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
 }
 
+/**
+ * Ensures a URL has the appropriate protocol (http:// or https://)
+ * Uses http:// for localhost and local IPs, https:// for all other domains
+ */
+export const ensureUrlProtocol = (url: string): string => {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+
+  if (url.startsWith('localhost') || url.match(/^127\.\d+\.\d+\.\d+/)) {
+    return `http://${url}`
+  }
+
+  return `https://${url}`
+}
+
 export const safeReplace = (
   content: string,
   searchStr: string,
