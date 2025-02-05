@@ -227,6 +227,11 @@ export function getFiles(filePaths: string[]) {
   const ig = parseGitignore(projectRoot)
 
   for (const filePath of filePaths) {
+    if (!filePath) {
+      result[filePath] = '[INVALID_FILE_PATH]'
+      continue
+    }
+
     // Convert absolute paths within project to relative paths
     const relativePath = filePath.startsWith(projectRoot)
       ? path.relative(projectRoot, filePath)
