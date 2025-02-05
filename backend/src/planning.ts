@@ -1,6 +1,7 @@
+import { WebSocket } from 'ws'
 import { Message, FileChange } from 'common/actions'
 import { models, claudeModels, CostMode } from 'common/constants'
-import { countTokensJson } from './util/token-counter'
+import { countTokens, countTokensJson } from './util/token-counter'
 import {
   createFileBlock,
   createMarkdownFileBlock,
@@ -13,6 +14,7 @@ import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { getSearchSystemPrompt } from './system-prompt'
 import { hasLazyEdit } from 'common/util/string'
 import { applyRemainingChanges } from './process-file-block'
+import { requestFiles } from './websockets/websocket-action'
 
 const systemPrompt = `
 You are a senior software engineer. You are given a request from a user and a set of files that are relevant to the request.
@@ -183,4 +185,33 @@ Only output the file paths, one per line, nothing else.`,
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => isValidFilePath(line))
+}
+
+export async function loadFilesForPlanning(ws: WebSocket, filePaths: string[]) {
+  const loadedFiles = await requestFiles(ws, filePaths)
+  const fileContents = Object.fromEntries(
+    Object.entries(loadedFiles).filter(
+      ([, content]) =>
+        content !== null &&
+        content !== '[INVALID_FILE_PATH]' &&
+        countTokens(content) < 40_000
+    ) as [string, string][]
+  )
+
+  const maxFileTokens = 140_000
+
+  let totalTokens = 0
+  const filesToRemove: string[] = []
+  for (const [filePath, content] of Object.entries(fileContents)) {
+    if (totalTokens < maxFileTokens) {
+      totalTokens += countTokens(content)
+    }
+    if (totalTokens >= maxFileTokens) {
+      filesToRemove.push(filePath)
+    }
+  }
+  for (const filePath of filesToRemove) {
+    delete fileContents[filePath]
+  }
+  return fileContents
 }

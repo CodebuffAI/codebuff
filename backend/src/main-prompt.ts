@@ -31,7 +31,11 @@ import {
   checkConversationProgress,
   checkToAllowUnboundedIteration,
 } from './conversation-progress'
-import { getRelevantFilesForPlanning, planComplexChange } from './planning'
+import {
+  getRelevantFilesForPlanning,
+  loadFilesForPlanning,
+  planComplexChange,
+} from './planning'
 import { promptDeepseekStream } from './deepseek-api'
 import { messagesWithSystem } from '@/util/messages'
 
@@ -322,19 +326,16 @@ export async function mainPrompt(
         userId
       )
       const fetchFilesDuration = Date.now() - fetchFilesStart
-      const loadedFiles = await requestFiles(ws, filePaths)
-      const fileContents = Object.fromEntries(
-        Object.entries(loadedFiles).filter(
-          ([, content]) => content !== null
-        ) as [string, string][]
-      )
-
+      const fileContents = await loadFilesForPlanning(ws, filePaths)
       const existingFilePaths = Object.keys(fileContents)
+
       onResponseChunk(`\nRelevant files:\n${existingFilePaths.join(' ')}\n`)
       fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
       onResponseChunk(`\nThinking deeply (can take a minute)...\n\n`)
+
       logger.debug({ prompt, filePaths, existingFilePaths }, 'Thinking deeply')
       const planningStart = Date.now()
+
       const { response, fileProcessingPromises: promises } =
         await planComplexChange(
           prompt,
