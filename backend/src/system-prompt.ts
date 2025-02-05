@@ -19,6 +19,7 @@ export function getSearchSystemPrompt(
   costMode: CostMode,
   messagesTokens: number
 ) {
+  const startTime = Date.now()
   const { fileVersions } = fileContext
   const shouldDoPromptCaching = fileVersions.length > 1
 
@@ -79,6 +80,7 @@ export function getSearchSystemPrompt(
       ),
       systemPromptTokens: countTokensJson(systemPrompt),
       messagesTokens,
+      duration: Date.now() - startTime,
     },
     'search system prompt tokens'
   )
@@ -91,6 +93,7 @@ export const getAgentSystemPrompt = (
   costMode: CostMode,
   messagesTokens: number
 ) => {
+  const startTime = Date.now()
   // Agent token budget:
   // System prompt stuff, git changes: 25k
   // Files: 100k (25k for lite)
@@ -159,6 +162,7 @@ export const getAgentSystemPrompt = (
       ),
       systemPromptTokens: countTokensJson(systemPrompt),
       messagesTokens,
+      duration: Date.now() - startTime,
     },
     'agent system prompt tokens'
   )
