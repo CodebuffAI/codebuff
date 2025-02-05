@@ -368,7 +368,7 @@ export async function mainPrompt(
         id: Math.random().toString(36).slice(2),
         name: 'continue',
         input: {
-          response: `Please review the implementation and make improvements if needed.`,
+          response: `Please summarize and review the implementation and make improvements if needed, but do not call the plan_complex_change tool again for now.`,
         },
       }
       isComplete = true
