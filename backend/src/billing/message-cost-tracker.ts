@@ -12,6 +12,7 @@ const PROFIT_MARGIN = 0.2
 // Pricing details:
 // - https://www.anthropic.com/pricing#anthropic-api
 // - https://openai.com/pricing
+// - https://ai.google.dev/pricing
 const TOKENS_COST_PER_M = {
   input: {
     [models.sonnet]: 3,
@@ -21,6 +22,7 @@ const TOKENS_COST_PER_M = {
     [models.o3mini]: 1.1,
     [models.deepseekChat]: 0.14,
     [models.deepseekReasoner]: 0.55,
+    [models.gemini2flash]: 0.1,
   },
   output: {
     [models.sonnet]: 15,
@@ -30,6 +32,7 @@ const TOKENS_COST_PER_M = {
     [models.o3mini]: 4.4,
     [models.deepseekChat]: 0.28,
     [models.deepseekReasoner]: 2.19,
+    [models.gemini2flash]: 0.4,
   },
   cache_creation: {
     [models.sonnet]: 3.75,
@@ -43,6 +46,7 @@ const TOKENS_COST_PER_M = {
     [models.gpt4o]: 1.25,
     [models.gpt4omini]: 0.075,
     [models.o3mini]: 0.55,
+    [models.gemini2flash]: 0.025,
   },
 }
 

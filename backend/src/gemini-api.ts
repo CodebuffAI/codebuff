@@ -60,6 +60,102 @@ const getGeminiClient = (fingerprintId: string) => {
   return geminiClient
 }
 
+export function promptGeminiStream(
+  messages: OpenAIMessage[],
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: GeminiModel
+    userId: string | undefined
+    maxTokens?: number
+    temperature?: number
+  }
+): ReadableStream<string> {
+  const {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model,
+    userId,
+    maxTokens,
+    temperature,
+  } = options
+
+  return new ReadableStream({
+    async start(controller) {
+      const gemini = getGeminiClient(fingerprintId)
+      const startTime = Date.now()
+      try {
+        // Transform messages to Gemini's format
+        const transformedMessages = messages.map((msg) =>
+          transformedMessage(msg, options.model)
+        )
+
+        const stream = await gemini.chat.completions.create({
+          model,
+          messages: transformedMessages,
+          temperature: temperature ?? 0,
+          max_tokens: maxTokens,
+          stream: true,
+        })
+
+        let content = ''
+        let messageId: string | undefined
+        let inputTokens = 0
+        let outputTokens = 0
+
+        for await (const chunk of stream) {
+          console.log('chunk', chunk)
+          if (chunk.choices[0]?.delta?.content) {
+            const delta = chunk.choices[0].delta.content
+            content += delta
+            controller.enqueue(delta)
+          }
+
+          if (chunk.usage) {
+            messageId = chunk.id
+            inputTokens = chunk.usage.prompt_tokens
+            outputTokens = chunk.usage.completion_tokens
+          }
+        }
+
+        if (messageId && messages.length > 0 && userId !== TEST_USER_ID) {
+          saveMessage({
+            messageId: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            userId,
+            clientSessionId,
+            fingerprintId,
+            userInputId,
+            model,
+            request: messages,
+            response: content,
+            inputTokens: inputTokens || 0,
+            outputTokens: outputTokens || 0,
+            finishedAt: new Date(),
+            latencyMs: Date.now() - startTime,
+          })
+        }
+
+        controller.close()
+      } catch (error) {
+        logger.error(
+          {
+            error:
+              error && typeof error === 'object' && 'message' in error
+                ? error.message
+                : 'Unknown error',
+            messages,
+          },
+          'Error calling Gemini API'
+        )
+
+        controller.error(error)
+      }
+    },
+  })
+}
+
 export async function promptGemini(
   messages: OpenAIMessage[],
   options: {
@@ -100,7 +196,7 @@ export async function promptGemini(
     const { usage } = response
     if (usage) {
       saveMessage({
-        messageId: `gemini-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        messageId: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         userId,
         clientSessionId,
         fingerprintId,

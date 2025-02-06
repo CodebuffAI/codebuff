@@ -22,7 +22,7 @@ export function getSearchSystemPrompt(
   const { fileVersions } = fileContext
   const shouldDoPromptCaching = fileVersions.length > 1
 
-  const maxTokens = costMode === 'lite' ? 64_000 : 200_000
+  const maxTokens = 200_000 // costMode === 'lite' ? 64_000 :
   const miscTokens = 10_000
   const systemPromptTokenBudget = maxTokens - messagesTokens - miscTokens
 
@@ -110,7 +110,7 @@ export const getAgentSystemPrompt = (
   const filesTokens = countTokensJson(projectFilesPromptContent)
 
   const gitChangesPrompt = getGitChangesPrompt(fileContext)
-  const fileTreeTokenBudget = costMode === 'lite' ? 5_000 : 20_000
+  const fileTreeTokenBudget = 20_000 //costMode === 'lite' ? 5_000 :
 
   const projectFileTreePrompt = getProjectFileTreePrompt(
     fileContext,

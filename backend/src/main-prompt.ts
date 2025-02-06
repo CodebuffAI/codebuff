@@ -187,27 +187,27 @@ export async function mainPrompt(
     )
 
     let stream: ReadableStream<string>
-    if (costMode === 'lite') {
-      stream = promptDeepseekStream(
-        messagesWithSystem(messagesWithContinuedMessage, system),
-        {
-          model: models.deepseekReasoner,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          userId,
-        }
-      )
-    } else {
-      stream = promptClaudeStream(messagesWithContinuedMessage, {
-        system,
-        model: getModelForMode(costMode, 'agent') as AnthropicModel,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      })
-    }
+    // if (costMode === 'lite') {
+    //   stream = promptDeepseekStream(
+    //     messagesWithSystem(messagesWithContinuedMessage, system),
+    //     {
+    //       model: models.deepseekReasoner,
+    //       clientSessionId,
+    //       fingerprintId,
+    //       userInputId,
+    //       userId,
+    //     }
+    //   )
+    // } else {
+    stream = promptClaudeStream(messagesWithContinuedMessage, {
+      system,
+      model: getModelForMode(costMode, 'agent') as AnthropicModel,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    })
+    // }
     const streamWithTags = processStreamWithTags(stream, {
       edit_file: {
         attributeNames: ['path'],
@@ -656,7 +656,7 @@ async function getFileVersionUpdates(
     userId,
     costMode,
   } = options
-  const FILE_TOKEN_BUDGET = costMode === 'lite' ? 25_000 : 100_000
+  const FILE_TOKEN_BUDGET = 100_000 // costMode === 'lite' ? 25_000 :
 
   const { fileVersions } = fileContext
   const files = fileVersions.flatMap((files) => files)

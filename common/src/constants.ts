@@ -159,6 +159,7 @@ export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
 export const costModes = ['lite', 'normal', 'max'] as const
 export type CostMode = (typeof costModes)[number]
 
+// NOTE: This function not kept up to date.
 export const getModelForMode = (
   costMode: CostMode,
   operation: 'agent' | 'file-requests' | 'check-new-files'
@@ -191,7 +192,7 @@ export const openaiModels = {
 export type OpenAIModel = (typeof openaiModels)[keyof typeof openaiModels]
 
 export const geminiModels = {
-  gemini2flash: 'gemini-2.0-flash-exp',
+  gemini2flash: 'gemini-2.0-flash-001',
 } as const
 export type GeminiModel = (typeof geminiModels)[keyof typeof geminiModels]
 
