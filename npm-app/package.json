@@ -47,7 +47,7 @@
     "lodash": "*",
     "nanoid": "5.0.7",
     "picocolors": "1.1.0",
-    "puppeteer": "^24.1.1",
+    "puppeteer-core": "^24.2.0",
     "systeminformation": "5.23.4",
     "tree-sitter": "0.21.1",
     "tree-sitter-c": "0.23.0",

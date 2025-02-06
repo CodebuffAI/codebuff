@@ -1,16 +1,19 @@
-import puppeteer, { Browser, Page, HTTPRequest, HTTPResponse } from 'puppeteer'
-import { Log } from 'common/browser-actions'
-import { execSync } from 'child_process'
+import puppeteer, {
+  Browser,
+  Page,
+  HTTPRequest,
+  HTTPResponse,
+} from 'puppeteer-core'
 import { sleep } from 'common/util/promise'
 import { ensureUrlProtocol } from 'common/util/string'
 import {
   BrowserAction,
   BrowserResponse,
   BROWSER_DEFAULTS,
+  BrowserConfig,
 } from 'common/browser-actions'
 import * as fs from 'fs'
 import * as path from 'path'
-import * as os from 'os'
 import { getCurrentChatDir, getProjectDataDir } from './project-files'
 import { ensureDirectoryExists } from 'common/util/file'
 
@@ -225,9 +228,29 @@ export class BrowserRunner {
       source: 'tool',
     })
   }
-  private async startBrowser(
-    action: Extract<BrowserAction, { type: 'start' }>
-  ) {
+  private async getBrowser(config?: BrowserConfig) {
+    // Check if browser exists and is connected
+    if (!this.browser || !this.page) {
+      await this.startBrowser(config)
+    } else {
+      try {
+        // Test if browser is still responsive
+        await this.page.evaluate(() => true)
+      } catch (error) {
+        // Browser is dead or unresponsive, restart it
+        await this.shutdown()
+        await this.startBrowser(config)
+      }
+    }
+
+    if (!this.browser || !this.page) {
+      throw new Error('Failed to initialize browser')
+    }
+
+    return { browser: this.browser, page: this.page }
+  }
+
+  private async startBrowser(config?: BrowserConfig) {
     if (this.browser) {
       await this.shutdown()
     }
@@ -236,9 +259,9 @@ export class BrowserRunner {
 
     // Update session configuration
     this.maxConsecutiveErrors =
-      action.maxConsecutiveErrors ?? BROWSER_DEFAULTS.maxConsecutiveErrors
+      config?.maxConsecutiveErrors ?? BROWSER_DEFAULTS.maxConsecutiveErrors
     this.totalErrorThreshold =
-      action.totalErrorThreshold ?? BROWSER_DEFAULTS.totalErrorThreshold
+      config?.totalErrorThreshold ?? BROWSER_DEFAULTS.totalErrorThreshold
 
     // Reset error counters
     this.consecutiveErrors = 0
@@ -252,26 +275,50 @@ export class BrowserRunner {
     } catch (error) {}
 
     try {
+      // Define helper to find Chrome in standard locations
+      const findChrome = () => {
+        switch (process.platform) {
+          case 'win32':
+            return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+          case 'darwin':
+            return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+          default:
+            return '/usr/bin/google-chrome'
+        }
+      }
+
       this.browser = await puppeteer.launch({
-        defaultViewport: { width: 1280, height: 720 },
+        defaultViewport: { width: 1200, height: 800 },
         headless: BROWSER_DEFAULTS.headless,
         userDataDir,
-        args: ['--no-sandbox', '--restore-last-session=false'],
+        waitForInitialPage: true,
+        args: [
+          '--window-size=1200,800',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-breakpad',
+          '--disable-sync',
+          '--no-sandbox',
+          '--no-first-run',
+          '--disable-session-crashed-bubble',
+          '--disable-restore-session-state',
+          '--hide-crash-restore-bubble',
+          '--noerrdialogs',
+          '--disable-infobars',
+        ],
+        executablePath: findChrome(),
       })
     } catch (error) {
-      // If launch fails, try installing/updating Chrome and retry
+      // If launch fails, guide the user to install Google Chrome
       console.log(
-        "Couldn't launch browser launch, attempting to install/update Chrome..."
+        "Couldn't launch Chrome browser. Please ensure Google Chrome is installed on your system."
       )
-      execSync('npx puppeteer browsers install chrome --yes', {
-        stdio: 'inherit',
-      })
-      this.browser = await puppeteer.launch({
-        defaultViewport: { width: 1280, height: 720 },
-        headless: BROWSER_DEFAULTS.headless,
-        userDataDir,
-        args: ['--no-sandbox', '--restore-last-session=false'],
-      })
+      return {
+        success: false,
+        error:
+          'Chrome browser not found. Please install Google Chrome to use browser features.',
+        logs: this.logs,
+        networkEvents: this.networkEvents,
+      }
     }
 
     this.logs.push({
@@ -280,6 +327,8 @@ export class BrowserRunner {
       timestamp: Date.now(),
       source: 'tool',
     })
+
+    // Pick the first existing page or create a new one
     const pages = await this.browser.pages()
     this.page = pages.length > 0 ? pages[0] : await this.browser.newPage()
     this.attachPageListeners()
@@ -292,19 +341,15 @@ export class BrowserRunner {
     }
   }
 
-  private async navigate(action: Extract<BrowserAction, { type: 'navigate' }>) {
-    if (!this.browser) {
-      await this.startBrowser({
-        ...action,
-        type: 'start',
-      })
-    }
-
-    if (!this.page) throw new Error('No browser page found; call start first.')
+  private async navigate(
+    action: Extract<BrowserAction, { type: 'navigate' }>
+  ): Promise<BrowserResponse> {
     try {
+      const { page } = await this.getBrowser(action)
+
       const url = ensureUrlProtocol(action.url)
 
-      await this.page.goto(url, {
+      await page.goto(url, {
         waitUntil: action.waitUntil ?? BROWSER_DEFAULTS.waitUntil,
         timeout: action.timeout ?? BROWSER_DEFAULTS.timeout,
       })
@@ -331,8 +376,8 @@ export class BrowserRunner {
         screenshot: screenshot,
       }
     } catch (error: any) {
-      // Explicitly type as any since we know we want to access .message
       const errorMessage = error?.message || 'Unknown navigation error'
+
       this.logs.push({
         type: 'error',
         message: `Navigation failed: ${errorMessage}`,
@@ -349,24 +394,24 @@ export class BrowserRunner {
   }
 
   private async typeText(action: Extract<BrowserAction, { type: 'type' }>) {
-    if (!this.page) throw new Error('No browser page found; call start first.')
-    await this.page.type(action.selector, action.text, {
+    const { page } = await this.getBrowser()
+    await page.type(action.selector, action.text, {
       delay: action.delay ?? BROWSER_DEFAULTS.delay,
     })
   }
 
   private async scroll(action: Extract<BrowserAction, { type: 'scroll' }>) {
-    if (!this.page) throw new Error('No browser page found; call start first.')
+    const { page } = await this.getBrowser()
 
     // Get viewport height
-    const viewport = this.page.viewport()
+    const viewport = page.viewport()
     if (!viewport) throw new Error('No viewport found')
 
     // Default to scrolling down if no direction specified
     const direction = action.direction ?? 'down'
     const scrollAmount = direction === 'up' ? -viewport.height : viewport.height
 
-    await this.page.evaluate((amount) => {
+    await page.evaluate((amount) => {
       window.scrollBy(0, amount)
     }, scrollAmount)
 
@@ -387,10 +432,10 @@ export class BrowserRunner {
   private async takeScreenshot(
     action: Extract<BrowserAction, { type: 'screenshot' }>
   ): Promise<BrowserResponse> {
-    if (!this.page) throw new Error('No browser page found; call start first.')
+    const { page } = await this.getBrowser()
 
     // Take a screenshot with aggressive compression settings
-    const screenshot = await this.page.screenshot({
+    const screenshot = await page.screenshot({
       fullPage: BROWSER_DEFAULTS.fullPage, // action.fullPage ?? BROWSER_DEFAULTS.fullPage,
       type: 'jpeg',
       quality:
@@ -659,17 +704,22 @@ export class BrowserRunner {
       this.logs = [] // Clear logs after sending them in response
       return response
     } catch (error: any) {
-      if (error.name === 'TargetClosedError') {
+      if (
+        error.name === 'TargetClosedError' ||
+        (error.message && error.message.includes('detached Frame'))
+      ) {
         this.logs.push({
           type: 'error',
-          message:
-            'Browser crashed or was closed unexpectedly. Please try again.',
+          message: 'Browser was closed or detached. Starting new session...',
           timestamp: Date.now(),
           category: 'browser',
           source: 'tool',
         })
 
         await this.shutdown()
+        if (action.type !== 'stop') {
+          return this.executeWithRetry(action)
+        }
       }
       throw error
     }
