@@ -3,6 +3,7 @@ import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
 import { countTokens } from './util/token-counter'
+import { createHash } from 'crypto'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
@@ -17,13 +18,22 @@ export async function promptRelaceAI(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
+    codebuffId: string
+    userMessage?: string
   }
 ) {
-  const { clientSessionId, fingerprintId, userInputId, userId } = options
+  const {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    userMessage,
+    codebuffId,
+  } = options
   const startTime = Date.now()
+
   try {
     const response = (await Promise.race([
-      // https://instantapply.endpoint.relace.run/v1/code/apply'
       fetch('https://instantapplysmart.endpoint.relace.run/v1/code/apply', {
         method: 'POST',
         headers: {
@@ -34,6 +44,10 @@ export async function promptRelaceAI(
           initialCode,
           editSnippet,
           stream: false,
+          'relace-metadata': {
+            'codebuff-id': codebuffId,
+            'codebuff-user-prompt': userMessage,
+          },
         }),
       }),
       timeoutPromise(100_000),
@@ -78,4 +92,17 @@ export async function promptRelaceAI(
 
     throw error
   }
+}
+
+export function createRelaceCodebuffId(
+  userId: string,
+  initialCode: string,
+  editSnippet: string
+) {
+  const hash = createHash('sha256')
+    .update(initialCode)
+    .update(editSnippet)
+    .digest('hex')
+    .slice(0, 8) // Take first 8 characters for a shorter hash
+  return `codebuff-${userId}-${hash}`
 }

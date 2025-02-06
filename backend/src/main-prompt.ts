@@ -57,6 +57,7 @@ export async function mainPrompt(
       typeof message.content === 'string' &&
       !message.content.includes(TOOL_RESULT_MARKER)
   )
+  const lastUserMessage = messages[lastUserMessageIndex]
   const assistantReplyMessageIndex = lastUserMessageIndex + 1
   const assistantReplyMessage = messages[assistantReplyMessageIndex]
   const assistantIsExecutingPlan =
@@ -225,7 +226,10 @@ export async function mainPrompt(
               ws,
               path,
               filePathWithoutStartNewline,
-              userId
+              userId,
+              typeof lastUserMessage?.content === 'string'
+                ? lastUserMessage.content
+                : undefined
             ).catch((error) => {
               logger.error(error, 'Error processing file block')
               return null
@@ -256,7 +260,7 @@ export async function mainPrompt(
           } else if (name === 'browser_action') {
             contentAttributes = parseToolCallXml(content)
           }
-          fullResponse += `<tool_call name="${attributes.name}">${content}</tool_call>`
+          fullResponse += `<tool_call name="${attributes.name}">${content}</tool_call${'>'}`
           toolCall = {
             id: Math.random().toString(36).slice(2),
             name: attributes.name,

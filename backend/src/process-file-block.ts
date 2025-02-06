@@ -3,7 +3,7 @@ import { createPatch } from 'diff'
 import { FileChange } from 'common/actions'
 import { logger } from './util/logger'
 import { requestFile } from './websockets/websocket-action'
-import { promptRelaceAI } from './relace-api'
+import { createRelaceCodebuffId, promptRelaceAI } from './relace-api'
 import { cleanMarkdownCodeBlock } from 'common/util/file'
 import { hasLazyEdit } from 'common/util/string'
 import { countTokens } from './util/token-counter'
@@ -18,7 +18,8 @@ export async function processFileBlock(
   ws: WebSocket,
   filePath: string,
   newContent: string,
-  userId: string | undefined
+  userId: string | undefined,
+  userMessage: string | undefined
 ): Promise<FileChange | null> {
   if (newContent.trim() === '[UPDATED_BY_ANOTHER_ASSISTANT]') {
     return null
@@ -84,7 +85,8 @@ export async function processFileBlock(
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId
+      userId,
+      userMessage
     )
   }
 
@@ -125,15 +127,23 @@ export async function fastRewrite(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined
+  userId: string | undefined,
+  userMessage: string | undefined
 ) {
   const startTime = Date.now()
 
+  const codebuffId = createRelaceCodebuffId(
+    userId ?? 'hi',
+    initialContent,
+    editSnippet
+  )
   const response = await promptRelaceAI(initialContent, editSnippet, {
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
+    userMessage,
+    codebuffId,
   })
 
   logger.debug(
@@ -141,6 +151,8 @@ export async function fastRewrite(
       initialContent,
       editSnippet,
       response,
+      userMessage,
+      codebuffId,
       duration: Date.now() - startTime,
     },
     `fastRewrite of ${filePath}`
