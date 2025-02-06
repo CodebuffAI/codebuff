@@ -103,10 +103,27 @@ export const toolHandlers: Record<string, ToolHandler> = {
   continue: async (input, id) => input.response ?? 'Please continue',
   code_search: handleCodeSearch,
   browser_action: async (input, _id): Promise<BrowserResponse> => {
-    const action = BrowserActionSchema.parse(input)
-    // console.log('Executing browser action:', action)
-
-    const response = await handleBrowserInstruction(action)
+    let response: BrowserResponse
+    try {
+      const action = BrowserActionSchema.parse(input)
+      response = await handleBrowserInstruction(action)
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      // console.log('Ran into a small hiccup, gimme a sec')
+      return {
+        success: false,
+        error: `Browser action validation failed: ${errorMessage}`,
+        logs: [
+          {
+            type: 'error',
+            message: `Browser action validation failed: ${errorMessage}`,
+            timestamp: Date.now(),
+            source: 'tool',
+          },
+        ],
+      }
+    }
 
     // Log any browser errors
     if (!response.success && response.error) {

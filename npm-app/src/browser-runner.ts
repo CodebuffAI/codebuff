@@ -261,7 +261,7 @@ export class BrowserRunner {
     } catch (error) {
       // If launch fails, try installing/updating Chrome and retry
       console.log(
-        'Browser launch failed, attempting to install/update Chrome...'
+        "Couldn't launch browser launch, attempting to install/update Chrome..."
       )
       execSync('npx puppeteer browsers install chrome --yes', {
         stdio: 'inherit',
@@ -663,13 +663,12 @@ export class BrowserRunner {
         this.logs.push({
           type: 'error',
           message:
-            'Browser crashed or was closed unexpectedly. Attempting recovery...',
+            'Browser crashed or was closed unexpectedly. Please try again.',
           timestamp: Date.now(),
           category: 'browser',
           source: 'tool',
         })
 
-        // Try to recover by restarting browser
         await this.shutdown()
       }
       throw error

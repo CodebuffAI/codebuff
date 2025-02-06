@@ -52,12 +52,28 @@
    - Data informs next action decisions
 
 4. **XML Instruction Format**
-   - Instructions are sent as XML for better structure and validation
-   - Format: `<browser_action action="type" attr1="val1" attr2="val2" />`
-   - Special characters in attributes must be escaped
-   - Complex objects (like retryOptions) are JSON-stringified
-   - Fallback to raw JSON if XML parsing fails
+   - Instructions must be sent as XML, not JSON
+   - Format: 
+     ```xml
+     <type>action_type</type>
+     <attr1>value1</attr1>
+     <attr2>value2</attr2>
+     ```
+   - Do not use attribute format (`action="type"`) - use element format instead
+   - Each parameter should be its own XML element
+   - Required elements vary by action type (e.g., url for navigate/start)
+   - Special characters in values are automatically escaped
    - Client validates parsed XML against Zod schemas
+   - URL validation:
+     - URL is required for start/navigate actions
+     - Empty URLs are rejected
+     - URLs must be properly formatted (e.g., include protocol)
+     - Validation happens before any browser interaction
+   - URL validation:
+     - URL is required for start/navigate actions
+     - Empty URLs are rejected
+     - URLs must be properly formatted (e.g., include protocol)
+     - Validation happens before any browser interaction
 
 5. **Flow Control & Recovery**
    - Session Management:
