@@ -223,50 +223,13 @@ export async function applyRemainingChanges(
   costMode: CostMode,
   hasLazyEdit: boolean
 ) {
-  const prompt = `
-You will be helping to rewrite a file with changes.
-
-Here is the context for the change:
-<assistant_thoughts>
-${fullResponse}
-</assistant_thoughts>
-
-Here's the current content of the file:
-
-\`\`\`
-${updatedContent}
-\`\`\`
-
-${hasLazyEdit ? 'Please ignore any comments with "..." and preserve the original content of the file.' : 'The following changes were intended for this file but could not be applied using exact string matching. Note that each change is represented as a SEARCH string found in the current file that is intended to be replaced with the REPLACE string. Often the SEARCH string will contain extra lines of context to help match a location in the file.'}
-
-${changes}
-
-Please rewrite the file content to include these intended changes while preserving the rest of the file. Only make the minimal changes necessary to incorporate the intended edits. Do not edit any other code. Please preserve all other comments, etc.
-
-Return only the full, complete file content with no additional text or explanation. Do not edit any other code. Please preserve all other comments, etc.
-`.trim()
-
   const startTime = Date.now()
-  // const response = await promptOpenAI(
-  //   [
-  //     { role: 'user', content: prompt },
-  //     { role: 'assistant', content: '```' },
-  //   ],
-  //   {
-  //     clientSessionId,
-  //     fingerprintId,
-  //     userInputId,
-  //     userId,
-  //     model: costMode === 'max' ? openaiModels.gpt4o : openaiModels.gpt4omini,
-  //     predictedContent: updatedContent,
-  //   }
-  // )
-  const response = await promptRelaceAI([{ role: 'user', content: prompt }], {
+
+  const response = await promptRelaceAI(updatedContent, changes, {
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-    model: 'Fast-Apply',
   })
   const endTime = Date.now()
   logger.debug(
