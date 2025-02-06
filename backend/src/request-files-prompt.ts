@@ -13,6 +13,7 @@ import { logger } from './util/logger'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { promptDeepseek } from './deepseek-api'
 import { messagesWithSystem } from '@/util/messages'
+import { promptGemini } from './gemini-api'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 
@@ -318,10 +319,10 @@ async function getRelevantFiles(
   const start = performance.now()
   let response: string
   if (costMode === 'lite') {
-    response = await promptDeepseek(
+    response = await promptGemini(
       messagesWithSystem(messagesWithPrompt, system),
       {
-        model: models.deepseekChat,
+        model: models.gemini2flash,
         clientSessionId,
         fingerprintId,
         userInputId,
