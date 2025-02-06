@@ -3,7 +3,6 @@ import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
 import { countTokens } from './util/token-counter'
-import { createHash } from 'crypto'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
@@ -18,7 +17,7 @@ export async function promptRelaceAI(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
-    codebuffId: string
+    messageId: string
     userMessage?: string
   }
 ) {
@@ -28,7 +27,7 @@ export async function promptRelaceAI(
     userInputId,
     userId,
     userMessage,
-    codebuffId,
+    messageId,
   } = options
   const startTime = Date.now()
 
@@ -45,7 +44,7 @@ export async function promptRelaceAI(
           editSnippet,
           stream: false,
           'relace-metadata': {
-            'codebuff-id': codebuffId,
+            'codebuff-id': messageId,
             'codebuff-user-prompt': userMessage,
           },
         }),
@@ -64,7 +63,7 @@ export async function promptRelaceAI(
 
     if (userId !== TEST_USER_ID) {
       saveMessage({
-        messageId: `msg-${Date.now()}`,
+        messageId,
         userId,
         clientSessionId,
         fingerprintId,
@@ -94,15 +93,11 @@ export async function promptRelaceAI(
   }
 }
 
-export function createRelaceCodebuffId(
-  userId: string,
-  initialCode: string,
-  editSnippet: string
-) {
-  const hash = createHash('sha256')
-    .update(initialCode)
-    .update(editSnippet)
-    .digest('hex')
-    .slice(0, 8) // Take first 8 characters for a shorter hash
-  return `codebuff-${userId}-${hash}`
+export function createRelaceMessageId() {
+  // Take last 24 bits of timestamp (enough for months) and 8 random bits
+  // Encode in base36 for very compact strings (~5-6 chars)
+  const timestamp = Date.now() & 0xffffff
+  const random = Math.floor(Math.random() * 0xff)
+  const str = ((timestamp << 8) | random).toString(36)
+  return `cb-${str}`
 }
