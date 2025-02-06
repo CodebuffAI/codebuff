@@ -93,6 +93,7 @@ Please plan and create a detailed solution for this request.`,
         content,
         files[filePath] || null,
         fullResponse,
+        prompt,
         options.costMode,
         options.clientSessionId,
         options.fingerprintId,
@@ -112,6 +113,7 @@ async function processFileBlock(
   newContent: string,
   oldContent: string | null,
   fullResponse: string,
+  prompt: string,
   costMode: CostMode,
   clientSessionId: string,
   fingerprintId: string,
@@ -131,7 +133,8 @@ async function processFileBlock(
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId
+      userId,
+      prompt
     )
     return { filePath, content: updatedContent, type: 'file' }
   }
