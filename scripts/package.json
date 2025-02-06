@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "backend": "file:../backend",
+    "drizzle-orm": "0.36.4",
     "lodash": "^4.17.21"
   },
   "devDependencies": {

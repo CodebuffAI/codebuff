@@ -188,77 +188,29 @@ The user may have edited files since your last change. Please try to notice and 
 </important_instructions>
 
 <editing_instructions>
-You implement edits by writing out <edit_file> blocks. The user does not need to see this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <edit_file> block.
+You implement edits by writing out <edit_file> xml tags. The user does not need to see this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <edit_file> block.
 
-To create a new file, or to overwrite an existing file, simply provide a edit_file block with the file path as an xml attribute and the file contents:
-${createFileBlock('path/to/new/file.tsx', '// Entire file contents here, without any placeholder comments like "# ... rest of the file is the same..."')}
+Use the following syntax to edit a file. This example adds a console.log statement to the foo function in the file at path/to/file.ts:
 
-If the file already exists, this will overwrite the file with the new contents. Make sure to write out the entire file in this case. Do not truncate the file with comments like "// Rest of the component stays exactly the same..." or "# ... Rest of the file is the same...". This format for editing a file is generally not preferred unless the file is short.
-
-Instead of rewriting the entire file, there is a second format that is preferred most often: use pairs of SEARCH/REPLACE blocks to indicate the specific lines you are changing from the existing file.
-Rather than creating multiple <edit_file> blocks for a single file, you must combine these into a single <edit_file> block that uses multiple SEARCH/REPLACE blocks. Restated: You should try hard to put all the SEARCH/REPLACE blocks for a single file into a single <edit_file> block.
-
-This is the favored editing format for most changes. Please use SEARCH/REPLACE blocks almost all the time to make changes!
-
-Example: the following adds a deleteComment handler to the API
 ${createFileBlock(
-  'backend/src/api.ts',
-  `${createSearchReplaceBlock(
-    `import { hideComment } from './hide-comment'`,
-    `import { hideComment } from './hide-comment'
-import { deleteComment } from './delete-comment'`
-  )}
-${createSearchReplaceBlock(
-  `const handlers: { [k in APIPath]: APIHandler<k> } = {
-  'hide-comment': hideComment,`,
-  `const handlers: { [k in APIPath]: APIHandler<k> } = {
-  'hide-comment': hideComment,
-  'delete-comment': deleteComment,`
-)}`
+  'path/to/file.ts',
+  `// ... existing code ...
+function foo() {
+  console.log('foo');
+  // ... existing code ...
+`
 )}
 
-Example: the following adds a new prop and updates the rendering of a React component
-${createFileBlock(
-  'src/components/UserProfile.tsx',
-  `${createSearchReplaceBlock(
-    `interface UserProfileProps {
-  name: string;
-  email: string;
-}`,
-    `interface UserProfileProps {
-  name: string;
-  email: string;
-  isAdmin: boolean;
-}`
-  )}
-${createSearchReplaceBlock(
-  `const UserProfile: React.FC<UserProfileProps> = ({ name, email }) => {
-  return (
-    <div>
-      <h2>{name}</h2>
-      <p>{email}</p>
-    </div>
-  );
-};`,
-  `const UserProfile: React.FC<UserProfileProps> = ({ name, email, isAdmin }) => {
-  return (
-    <div>
-      <h2>{name}</h2>
-      <p>{email}</p>
-      {isAdmin && <p>Admin User</p>}
-    </div>
-  );
-};`
-)}`
-)}
+Notes for editing a file:
+- You must specify a file path using the filePath attribute.
+- Do not wrap the updated file content in markdown code blocks. The xml tags are sufficient to indicate the file content.
+- You can edit multiple files in your response by including multiple edit_file blocks.
+- The content of the file can be abridged by using placeholder comments like: // ... existing code ... or # ... existing code ... (or whichever is appropriate for the language). In this case, the placeholder sections will not be changed. Only the written out code will be updated. Using placeholder comments for unchanged code is preferred because it is more concise.
+- If you don't use any placeholder comments (matched by a regex), the entire file will be replaced.
+- Similarly, you can create new files by specifying a new file path and including the entire content of the file.
 
-It's good to:
-- Give enough lines of context in the search block so that the search string uniquely matches one location in the file.
-- Be concise. Don't include more lines in the search block than necessary to uniquely identify the section you want to modify. This is likely on the order of 1-3 extra lines of context.
-- Do not add new comments that you wouldn't expect in production code. In particular, do not add comments that explain the current edit, e.g. "// Add this line" or "# Update this check".
-
-If you just want to show the user some code, and don't want to necessarily make a code change, do not use <edit_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in \`\`\` tags:
-\`\`\`ts
+If you just want to show the user some code, and don't want to necessarily make a code change, do not use <edit_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in markdown \`\`\` tags:
+\`\`\`typescript
 // ... code to show the user ...
 \`\`\`
 

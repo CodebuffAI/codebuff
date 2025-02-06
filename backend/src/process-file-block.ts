@@ -1,53 +1,43 @@
 import { WebSocket } from 'ws'
 import { createPatch } from 'diff'
-import { Message, FileChange } from 'common/actions'
+import { FileChange } from 'common/actions'
 import { logger } from './util/logger'
 import { requestFile } from './websockets/websocket-action'
-import {
-  parseAndGetDiffBlocksSingleFile,
-  retryDiffBlocksPrompt,
-} from './generate-diffs-prompt'
-import { CostMode, openaiModels } from 'common/constants'
-import { promptOpenAI } from './openai-api'
-import {
-  createSearchReplaceBlock,
-  cleanMarkdownCodeBlock,
-} from 'common/util/file'
-import { hasLazyEdit, safeReplace } from 'common/util/string'
+import { promptRelaceAI } from './relace-api'
+import { cleanMarkdownCodeBlock } from 'common/util/file'
+import { hasLazyEdit } from 'common/util/string'
+import { countTokens } from './util/token-counter'
+import { promptClaude } from './claude'
+import { claudeModels } from 'common/constants'
+import { parseAndGetDiffBlocksSingleFile } from './generate-diffs-prompt'
 
 export async function processFileBlock(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   ws: WebSocket,
-  messageHistory: Message[],
-  fullResponse: string,
   filePath: string,
   newContent: string,
-  costMode: CostMode,
   userId: string | undefined
 ): Promise<FileChange | null> {
   if (newContent.trim() === '[UPDATED_BY_ANOTHER_ASSISTANT]') {
     return null
-  } else if (newContent.trim().startsWith('@@')) {
-    // Note: Can remove this case in a bit. It stops content that was supposed to be a patch.
-    return null
   }
-  const oldContent = await requestFile(ws, filePath)
 
-  if (oldContent === null) {
+  const initialContent = await requestFile(ws, filePath)
+
+  if (initialContent === null) {
     // Remove markdown code block syntax if present
     let cleanContent = cleanMarkdownCodeBlock(newContent)
 
-    const { diffBlocks } = parseAndGetDiffBlocksSingleFile(cleanContent, '')
-    if (diffBlocks.length > 0) {
-      const content = diffBlocks.map((block) => block.replaceContent).join('\n')
+    if (hasLazyEdit(cleanContent)) {
       logger.debug(
-        { filePath, content },
-        `processFileBlock: Created new file from replace blocks ${filePath}`
+        { filePath, newContent },
+        `processFileBlock: New file contained a lazy edit for ${filePath}. Aborting.`
       )
-      return { filePath, content, type: 'file' }
+      return null
     }
+
     logger.debug(
       { filePath, cleanContent },
       `processFileBlock: Created new file ${filePath}`
@@ -55,7 +45,7 @@ export async function processFileBlock(
     return { filePath, content: cleanContent, type: 'file' }
   }
 
-  if (newContent === oldContent) {
+  if (newContent === initialContent) {
     logger.info(
       { newContent },
       `processFileBlock: New was same as old, skipping ${filePath}`
@@ -63,120 +53,42 @@ export async function processFileBlock(
     return null
   }
 
-  logger.debug({ filePath, newContent }, `processFileBlock: ${filePath}`)
-
-  const lineEnding = oldContent.includes('\r\n') ? '\r\n' : '\n'
+  const lineEnding = initialContent.includes('\r\n') ? '\r\n' : '\n'
   const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
-  const normalizedOldContent = normalizeLineEndings(oldContent)
-  const normalizedNewContent = normalizeLineEndings(newContent)
+  const normalizedInitialContent = normalizeLineEndings(initialContent)
+  const normalizedEditSnippet = normalizeLineEndings(newContent)
 
-  const { diffBlocks, diffBlocksThatDidntMatch } =
-    parseAndGetDiffBlocksSingleFile(normalizedNewContent, normalizedOldContent)
+  let updatedContent: string
+  const tokenCount = countTokens(normalizedInitialContent)
 
-  let updatedDiffBlocksThatDidntMatch: {
-    searchContent: string
-    replaceContent: string
-  }[] = []
-  if (diffBlocksThatDidntMatch.length > 0) {
-    const { newDiffBlocks, newDiffBlocksThatDidntMatch } =
-      await retryDiffBlocksPrompt(
-        filePath,
-        normalizedOldContent,
-        costMode,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-        diffBlocksThatDidntMatch
-      )
-    diffBlocks.push(...newDiffBlocks)
-
-    updatedDiffBlocksThatDidntMatch = newDiffBlocksThatDidntMatch
-  }
-
-  const noDiffBlocks =
-    diffBlocks.length === 0 && diffBlocksThatDidntMatch.length === 0
-  let updatedContent = noDiffBlocks
-    ? normalizedNewContent
-    : normalizedOldContent
-  for (const diffBlock of diffBlocks) {
-    const { searchContent, replaceContent } = diffBlock
-    updatedContent = safeReplace(updatedContent, searchContent, replaceContent)
-  }
-
-  const outputHasLazyEdit =
-    hasLazyEdit(updatedContent) && !hasLazyEdit(normalizedOldContent)
-
-  const outputHasReplaceBlocks =
-    updatedContent.includes('<<<<<<< SEARCH') ||
-    updatedContent.includes('>>>>>>> REPLACE')
-
-  if (outputHasLazyEdit) {
-    logger.debug(
-      {
-        filePath,
-        newContent,
-        oldContent,
-        diffBlocks,
-      },
-      `processFileBlock: ERROR 6623380: Output has rest of blocks for ${filePath}`
-    )
-    updatedContent = await applyRemainingChanges(
-      oldContent,
-      normalizedNewContent,
-      filePath,
-      fullResponse,
+  if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
+    const largeFileContent = await handleLargeFile(
+      normalizedInitialContent,
+      normalizedEditSnippet,
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId,
-      costMode,
-      true
+      userId
     )
-  } else if (outputHasReplaceBlocks) {
-    logger.debug(
-      {
-        filePath,
-        newContent,
-        oldContent,
-        diffBlocks,
-        diffBlocksThatDidntMatch,
-      },
-      `processFileBlock: ERROR 4236481: Included SEARCH/REPLACE blocks for ${filePath}`
-    )
-    updatedContent = await applyRemainingChanges(
-      updatedContent,
-      normalizedNewContent,
+
+    if (!largeFileContent) {
+      return null
+    }
+
+    updatedContent = largeFileContent
+  } else {
+    updatedContent = await fastRewrite(
+      normalizedInitialContent,
+      normalizedEditSnippet,
       filePath,
-      fullResponse,
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId,
-      costMode,
-      false
-    )
-  } else if (updatedDiffBlocksThatDidntMatch.length > 0) {
-    const changes = updatedDiffBlocksThatDidntMatch
-      .map((block) =>
-        createSearchReplaceBlock(block.searchContent, block.replaceContent)
-      )
-      .join('\n')
-    updatedContent = await applyRemainingChanges(
-      updatedContent,
-      changes,
-      filePath,
-      fullResponse,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      costMode,
-      false
+      userId
     )
   }
 
-  let patch = createPatch(filePath, normalizedOldContent, updatedContent)
+  let patch = createPatch(filePath, normalizedInitialContent, updatedContent)
   const lines = patch.split('\n')
   const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
   if (hunkStartIndex !== -1) {
@@ -185,10 +97,9 @@ export async function processFileBlock(
     logger.debug(
       {
         filePath,
-        oldContent,
+        initialContent,
         changes: newContent,
         patch,
-        diffBlocks,
       },
       `processFileBlock: No change to ${filePath}`
     )
@@ -199,74 +110,107 @@ export async function processFileBlock(
   logger.debug(
     {
       filePath,
-      oldContent,
-      changes: newContent,
+      editSnippet: newContent,
       patch,
-      diffBlocks,
     },
     `processFileBlock: Generated patch for ${filePath}`
   )
   return { filePath, content: patch, type: 'patch' }
 }
 
-export async function applyRemainingChanges(
-  updatedContent: string,
-  changes: string,
+export async function fastRewrite(
+  initialContent: string,
+  editSnippet: string,
   filePath: string,
-  fullResponse: string,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined,
-  costMode: CostMode,
-  hasLazyEdit: boolean
+  userId: string | undefined
 ) {
-  const prompt = `
-You will be helping to rewrite a file with changes.
-
-Here is the context for the change:
-<assistant_thoughts>
-${fullResponse}
-</assistant_thoughts>
-
-Here's the current content of the file:
-
-\`\`\`
-${updatedContent}
-\`\`\`
-
-${hasLazyEdit ? 'Please ignore any comments with "..." and preserve the original content of the file.' : 'The following changes were intended for this file but could not be applied using exact string matching. Note that each change is represented as a SEARCH string found in the current file that is intended to be replaced with the REPLACE string. Often the SEARCH string will contain extra lines of context to help match a location in the file.'}
-
-${changes}
-
-Please rewrite the file content to include these intended changes while preserving the rest of the file. Only make the minimal changes necessary to incorporate the intended edits. Do not edit any other code. Please preserve all other comments, etc.
-
-Return only the full, complete file content with no additional text or explanation. Do not edit any other code. Please preserve all other comments, etc.
-`.trim()
-
   const startTime = Date.now()
-  const response = await promptOpenAI(
-    [
-      { role: 'user', content: prompt },
-      { role: 'assistant', content: '```' },
-    ],
-    {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      model: costMode === 'max' ? openaiModels.gpt4o : openaiModels.gpt4omini,
-      predictedContent: updatedContent,
-    }
-  )
-  const endTime = Date.now()
-  logger.debug(
-    { response, changes, duration: endTime - startTime },
-    `applyRemainingChanges for ${filePath}`
-  )
 
-  const cleanResponse = cleanMarkdownCodeBlock(response)
+  const response = await promptRelaceAI(initialContent, editSnippet, {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+  })
+
+  logger.debug(
+    {
+      initialContent,
+      editSnippet,
+      response,
+      duration: Date.now() - startTime,
+    },
+    `fastRewrite of ${filePath}`
+  )
 
   // Add newline to maintain consistency with original file endings
-  return cleanResponse + '\n'
+  return response + '\n'
+}
+
+const LARGE_FILE_TOKEN_LIMIT = 12000
+
+async function handleLargeFile(
+  oldContent: string,
+  editSnippet: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined
+): Promise<string | null> {
+  const prompt = `You are an expert programmer tasked with creating SEARCH/REPLACE blocks to implement a change in a large file. The change should match the intent of the edit snippet while using exact content from the old file.
+
+Old file content:
+\`\`\`
+${oldContent}
+\`\`\`
+
+Edit snippet (the new content to implement):
+\`\`\`
+${editSnippet}
+\`\`\`
+
+Please analyze the edit snippet and create SEARCH/REPLACE blocks that will transform the old content into the intended new content. The SEARCH content must be an exact substring match from the old file.
+
+Important:
+1. The SEARCH content must match exactly - no whitespace differences allowed
+2. Keep the changes minimal and focused
+3. Preserve the original formatting and indentation
+4. Only implement the changes shown in the edit snippet
+
+Format your response with SEARCH/REPLACE blocks like this:
+<<<<<<< SEARCH
+[exact content from old file]
+=======
+[new content that matches edit snippet intent]
+>>>>>>> REPLACE`
+
+  const response = await promptClaude([{ role: 'user', content: prompt }], {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    model: claudeModels.sonnet,
+  })
+
+  const { diffBlocks, diffBlocksThatDidntMatch } =
+    parseAndGetDiffBlocksSingleFile(response, oldContent)
+
+  if (diffBlocksThatDidntMatch.length > 0) {
+    logger.error(
+      { diffBlocksThatDidntMatch },
+      'Failed to create matching diff blocks for large file'
+    )
+    return null
+  }
+
+  // Apply the diff blocks in sequence
+  let updatedContent = oldContent
+  for (const { searchContent, replaceContent } of diffBlocks) {
+    updatedContent = updatedContent.replace(searchContent, replaceContent)
+  }
+
+  return updatedContent
 }

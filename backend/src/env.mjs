@@ -26,6 +26,7 @@ export const env = createEnv({
     GEMINI_API_KEY: z.string().min(1).startsWith('AI'),
     DEEPSEEK_API_KEY: z.string().min(1).startsWith('sk-'),
     OPEN_ROUTER_API_KEY: z.string().min(1).startsWith('sk-or-v1-'),
+    RELACE_API_KEY: z.string().min(1).startsWith('rlc-'),
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
     PORT: z.coerce.number().min(1000),
