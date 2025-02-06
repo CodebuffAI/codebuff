@@ -96,10 +96,23 @@
        - maxRetries: Number of retry attempts (default: 3)
        - retryDelay: Milliseconds between retries (default: 1000)
        - retryOnErrors: List of error types to retry on
+       - Automatically close about:blank pages when checking active pages
+       - This prevents accumulation of empty tabs and reduces resource usage
      - Browser crash recovery:
-       - Detect TargetClosedError
-       - Attempt browser restart if appropriate
-       - Preserve session state during recovery
+       - Use getBrowser pattern to manage browser lifecycle
+       - Centralize browser state checks and recovery
+       - Test browser responsiveness before each action
+       - Automatically restart on any connection issues
+       - Handle both explicit browser close and Chrome process termination
+       - For detached frame errors:
+         - Retry action after browser restart
+         - Let getBrowser handle browser recreation
+         - Keep error handling logic in one place
+     - Browser Configuration:
+       - Use BrowserConfig type for all browser setup methods
+       - Combines OptionalBrowserConfigSchema and OptionalStartConfigSchema
+       - Ensures consistent configuration across browser lifecycle methods
+       - Centralizes browser configuration types in one place
    
    - Error Analysis:
      - Pattern-based error detection with comprehensive error catalog
@@ -111,8 +124,10 @@
        - Navigation timeouts
        - Frame/Node detachment (requires small delay after navigation)
        - Request aborts and redirects
+       - Development server not running (check localhost connections)
      - Debug logging when enabled
      - Early error detection and graceful degradation
+     - IMPORTANT: Never start the user's development server for them. If it looks like the server isn't running, give the user instructions to spin it up themselves in a new tab.
    
    - Performance Tracking:
      - Time to First Byte (TTFB)

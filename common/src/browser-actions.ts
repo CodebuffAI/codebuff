@@ -10,7 +10,7 @@ export const BROWSER_DEFAULTS = {
   retryOptions: {
     maxRetries: 3,
     retryDelay: 1000, // 1 second
-    retryOnErrors: ['TimeoutError', 'TargetClosedError'],
+    retryOnErrors: ['TimeoutError', 'TargetClosedError', 'DetachedFrameError'],
   },
 
   // Navigation defaults
@@ -104,6 +104,9 @@ export const OptionalStartConfigSchema = z.object({
   maxConsecutiveErrors: z.number().optional(),
   totalErrorThreshold: z.number().optional(),
 })
+
+export type BrowserConfig = z.infer<typeof OptionalBrowserConfigSchema> &
+  z.infer<typeof OptionalStartConfigSchema>
 
 // Optional configurations specific to each action type
 export const OptionalNavigateConfigSchema = z.object({

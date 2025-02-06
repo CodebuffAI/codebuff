@@ -110,7 +110,7 @@ export const toolHandlers: Record<string, ToolHandler> = {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
-      // console.log('Ran into a small hiccup, gimme a sec')
+      console.log('Small hiccup, one sec...')
       return {
         success: false,
         error: `Browser action validation failed: ${errorMessage}`,
