@@ -32,6 +32,7 @@ import {
 } from 'common/util/git'
 import { pluralize } from 'common/util/string'
 import { CliOptions, GitCommand } from './types'
+import { Spinner } from './utils/spinner'
 
 export class CLI {
   private client: Client
@@ -42,7 +43,6 @@ export class CLI {
   private rl!: readline.Interface
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
-  private loadingInterval: NodeJS.Timeout | null = null
   private lastChanges: FileChanges = []
   private lastSigintTime: number = 0
   private lastInputTime: number = 0
@@ -50,7 +50,6 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
 
-  // ==================== Initialization Methods ====================
   constructor(
     readyPromise: Promise<[void, ProjectFileContext]>,
     { git, costMode }: CliOptions
@@ -86,9 +85,9 @@ export class CLI {
   }
 
   private setupSignalHandlers() {
-    process.on('exit', () => this.restoreCursor())
+    process.on('exit', () => Spinner.get().restoreCursor())
     process.on('SIGTERM', () => {
-      this.restoreCursor()
+      Spinner.get().restoreCursor()
       process.exit(0)
     })
     process.on('SIGTSTP', () => this.handleExit())
@@ -151,7 +150,6 @@ export class CLI {
     this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
   }
 
-  // ==================== Public Methods ====================
   public async printInitialPrompt(initialInput?: string) {
     if (this.client.user) {
       displayGreeting(this.costMode, this.client.user.name)
@@ -172,7 +170,6 @@ export class CLI {
     this.rl.prompt()
   }
 
-  // ==================== Input Handling Methods ====================
   private async handleLine(line: string) {
     this.detectPasting()
     if (this.isPasting) {
@@ -196,10 +193,6 @@ export class CLI {
     await this.forwardUserInput(userInput)
   }
 
-  /**
-   * Checks if the input matches a built-in command.
-   * Returns true if the command has been handled.
-   */
   private async processCommand(userInput: string): Promise<boolean> {
     if (userInput === 'help' || userInput === 'h') {
       displayMenu()
@@ -272,12 +265,8 @@ export class CLI {
     return false
   }
 
-  /**
-   * Processes regular user input (non-command) by gathering file changes and scraped content,
-   * sending the consolidated user message, and then applying assistant response changes.
-   */
   private async forwardUserInput(userInput: string) {
-    this.startLoadingAnimation()
+    Spinner.get().start()
     await this.readyPromise
 
     const currentChat = this.chatStorage.getCurrentChat()
@@ -315,13 +304,12 @@ export class CLI {
       await this.sendUserInputAndAwaitResponse()
     this.isReceivingResponse = false
 
-    this.stopLoadingAnimation()
+    Spinner.get().stop()
 
     const allChanges = [...changesAlreadyApplied, ...changes]
     const filesChanged = uniq(allChanges.map((change) => change.filePath))
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
 
-    // Stage files about to be changed if flag was set
     if (this.git === 'stage' && changes.length > 0) {
       const didStage = stagePatches(getProjectRoot(), changes)
       if (didStage) {
@@ -368,18 +356,17 @@ export class CLI {
     this.rl.prompt()
   }
 
-  // ==================== WebSocket and Response Handling ====================
   private returnControlToUser() {
     this.rl.prompt()
     this.isReceivingResponse = false
     if (this.stopResponse) {
       this.stopResponse()
     }
-    this.stopLoadingAnimation()
+    Spinner.get().stop()
   }
 
   private onWebSocketError() {
-    this.stopLoadingAnimation()
+    Spinner.get().stop()
     this.isReceivingResponse = false
     if (this.stopResponse) {
       this.stopResponse()
@@ -403,7 +390,7 @@ export class CLI {
       },
       userInputId,
       () => {
-        this.stopLoadingAnimation()
+        Spinner.get().stop()
         process.stdout.write(green(underline('\nCodebuff') + ':') + ' ')
       }
     )
@@ -416,7 +403,6 @@ export class CLI {
     return result
   }
 
-  // ==================== File Version Navigation ====================
   private handleUndo() {
     this.navigateFileVersion('undo')
     this.rl.prompt()
@@ -457,48 +443,11 @@ export class CLI {
     return {}
   }
 
-  // ==================== Terminal Animation and Cursor Management ====================
-  private startLoadingAnimation() {
-    const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-    let i = 0
-    // Hide cursor while spinner is active
-    process.stdout.write('\u001B[?25l')
-    this.loadingInterval = setInterval(() => {
-      this.rewriteLine(green(`${chars[i]} Thinking...`))
-      i = (i + 1) % chars.length
-    }, 100)
-  }
-
-  private stopLoadingAnimation() {
-    if (this.loadingInterval) {
-      clearInterval(this.loadingInterval)
-      this.loadingInterval = null
-      this.rewriteLine('') // Clear the spinner line
-      this.restoreCursor() // Show cursor after spinner stops
-    }
-  }
-
-  private rewriteLine(line: string) {
-    if (process.stdout.isTTY) {
-      readline.clearLine(process.stdout, 0)
-      readline.cursorTo(process.stdout, 0)
-      process.stdout.write(line)
-    } else {
-      process.stdout.write(line + '\n')
-    }
-  }
-
-  private restoreCursor() {
-    process.stdout.write('\u001B[?25h')
-  }
-
-  // ==================== Keyboard and SIGINT Handling ====================
   private handleKeyPress(str: string, key: any) {
     if (key.name === 'escape') {
       this.handleEscKey()
     }
 
-    // Convert double spaces into newlines
     if (
       !this.isPasting &&
       str === ' ' &&
@@ -552,14 +501,13 @@ export class CLI {
     if (this.stopResponse) {
       this.stopResponse()
     }
-    this.stopLoadingAnimation()
-    this.restoreCursor()
+    Spinner.get().stop()
   }
 
-  // ==================== Exit Handling ====================
   private handleExit() {
-    this.restoreCursor()
+    Spinner.get().restoreCursor()
     console.log('\n\n')
+
     console.log(
       `${pluralize(this.client.sessionCreditsUsed, 'credit')} used this session.`
     )
@@ -582,7 +530,6 @@ export class CLI {
     process.exit(0)
   }
 
-  // ==================== Pasting Detection ====================
   private detectPasting() {
     const currentTime = Date.now()
     const timeDiff = currentTime - this.lastInputTime
@@ -600,7 +547,6 @@ export class CLI {
     this.lastInputTime = currentTime
   }
 
-  // ==================== Auto Commit Handling ====================
   private async autoCommitChanges() {
     if (hasStagedChanges()) {
       const stagedChanges = getStagedChanges()
@@ -614,7 +560,6 @@ export class CLI {
     return undefined
   }
 
-  // ==================== Diff Handling ====================
   private handleDiff() {
     if (this.lastChanges.length === 0) {
       console.log(yellow('No changes found in the last assistant response.'))
