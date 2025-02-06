@@ -606,15 +606,16 @@ export const warmCacheForRequestRelevantFiles = async (
   userId: string | undefined
 ) => {
   const promise =
-    costMode === 'lite'
-      ? promptDeepseek(messagesWithSystem([], system), {
-          model: models.deepseekChat,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          userId,
-        })
-      : promptClaude(
+    // costMode === 'lite'
+    //   ? promptDeepseek(messagesWithSystem([], system), {
+    //       model: models.deepseekChat,
+    //       clientSessionId,
+    //       fingerprintId,
+    //       userInputId,
+    //       userId,
+    //     })
+      // :
+      promptClaude(
           [
             {
               role: 'user' as const,
