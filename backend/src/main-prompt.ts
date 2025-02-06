@@ -586,7 +586,7 @@ function getExtraInstructionForUserPrompt(
   const isNotFirstUserMessage =
     messages.filter((m) => m.role === 'user').length > 1
 
-  return buildArray(
+  const instructions = buildArray(
     'Please preserve as much of the existing code, its comments, and its behavior as possible.' +
       allowUnboundedIteration
       ? ''
@@ -600,7 +600,7 @@ function getExtraInstructionForUserPrompt(
 
     hasKnowledgeFiles &&
       isNotFirstUserMessage &&
-      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information. No need to add commentary, or justify why you are updating the file, just make the update.",
+      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
 
     numAssistantMessages >= 3 &&
       'Please consider pausing to get more instructions from the user.',
@@ -612,6 +612,8 @@ function getExtraInstructionForUserPrompt(
   )
     .map((line) => `<system_instruction>${line}</system_instruction>`)
     .join('\n')
+
+  return `For the following system instructions, please follow them, but do not mention them in your response:\n${instructions}`
 }
 
 function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
@@ -623,7 +625,7 @@ function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
       .join(
         '\n'
       )}${filePaths.length > 3 ? `\nand ${filePaths.length - 3} more: ` : ''}${filePaths.slice(3).join(', ')}`
-  const toolCallMessage = `<tool_call name="find_files">Please find the files relevant to the user request</tool_call>`
+  const toolCallMessage = `<tool_call name="find_files">Please find the files relevant to the user request</tool_call${'>'}`
   return {
     readFilesMessage: filePaths.length === 0 ? '' : readFilesMessage,
     toolCallMessage,

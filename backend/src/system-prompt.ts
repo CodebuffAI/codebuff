@@ -208,6 +208,8 @@ Notes for editing a file:
 - If you don't use any placeholder comments (matched by a regex), the entire file will be replaced.
 - Similarly, you can create new files by specifying a new file path and including the entire content of the file.
 
+After you have written out an edit_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the edit_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new edit_file block to fix the mistake.
+
 If you just want to show the user some code, and don't want to necessarily make a code change, do not use <edit_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in markdown \`\`\` tags:
 \`\`\`typescript
 // ... code to show the user ...
