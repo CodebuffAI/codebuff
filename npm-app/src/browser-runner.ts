@@ -1,4 +1,9 @@
-import puppeteer, { Browser, Page, HTTPRequest, HTTPResponse } from 'puppeteer'
+import puppeteer, {
+  Browser,
+  Page,
+  HTTPRequest,
+  HTTPResponse,
+} from 'puppeteer-core'
 import { Log } from 'common/browser-actions'
 import { execSync } from 'child_process'
 import { sleep } from 'common/util/promise'
@@ -252,26 +257,37 @@ export class BrowserRunner {
     } catch (error) {}
 
     try {
+      // Define helper to find Chrome in standard locations
+      const findChrome = () => {
+        switch (process.platform) {
+          case 'win32':
+            return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+          case 'darwin':
+            return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+          default:
+            return '/usr/bin/google-chrome'
+        }
+      }
+
       this.browser = await puppeteer.launch({
         defaultViewport: { width: 1280, height: 720 },
         headless: BROWSER_DEFAULTS.headless,
         userDataDir,
         args: ['--no-sandbox', '--restore-last-session=false'],
+        executablePath: findChrome(),
       })
     } catch (error) {
-      // If launch fails, try installing/updating Chrome and retry
+      // If launch fails, guide the user to install Google Chrome
       console.log(
-        "Couldn't launch browser launch, attempting to install/update Chrome..."
+        "Couldn't launch Chrome browser. Please ensure Google Chrome is installed on your system."
       )
-      execSync('npx puppeteer browsers install chrome --yes', {
-        stdio: 'inherit',
-      })
-      this.browser = await puppeteer.launch({
-        defaultViewport: { width: 1280, height: 720 },
-        headless: BROWSER_DEFAULTS.headless,
-        userDataDir,
-        args: ['--no-sandbox', '--restore-last-session=false'],
-      })
+      return {
+        success: false,
+        error:
+          'Chrome browser not found. Please install Google Chrome to use browser features.',
+        logs: this.logs,
+        networkEvents: this.networkEvents,
+      }
     }
 
     this.logs.push({

@@ -241,6 +241,20 @@ All debug data is stored in `~/.config/manicode/`:
 - All paths are created on demand via `ensureDirectoryExists()`
 - Browser profiles are project-specific for isolation
 
-```
+## Browser Setup
 
-```
+This application uses puppeteer-core instead of puppeteer to reduce the installation size. Key points:
+
+- No bundled browser - users must have Chrome installed
+- Standard Chrome locations:
+  - Windows: C:\Program Files\Google\Chrome\Application\chrome.exe
+  - macOS: /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+  - Linux: /usr/bin/google-chrome
+- Browser launch configuration:
+  - Use executablePath to specify Chrome location
+  - Do not combine executablePath with channel option - they are mutually exclusive
+  - Fallback to default launch options if Chrome not found
+- Benefits:
+  - Smaller package size
+  - Faster installation
+  - Uses system Chrome instead of duplicate install

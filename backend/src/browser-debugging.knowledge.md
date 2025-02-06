@@ -157,16 +157,22 @@
    - Monitor memory usage and load times
 
 3. **Browser Selection Strategy**
-   - Let Puppeteer handle browser management
-   - If launch fails:
-     1. Run 'npx puppeteer browsers install chrome' to install/update Chrome
-     2. Retry launch after installation
-     3. If retry fails, throw error with details
+   - Use puppeteer-core instead of puppeteer to reduce package size
+   - Look for Chrome in standard system locations:
+     - Windows: C:\Program Files\Google\Chrome\Application\chrome.exe
+     - macOS: /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+     - Linux: /usr/bin/google-chrome
+   - If Chrome is not found, guide user to install it:
+     - Windows/macOS: Direct users to https://www.google.com/chrome/
+     - Linux: Provide apt/yum commands for their distribution
+     - Never attempt to install Chrome programmatically
+     - Let users manage their own browser installations
    - This ensures:
-     - Chrome stays up to date with Puppeteer version
+     - Smaller package size (no bundled browser)
+     - Users can use their system Chrome
+     - Clear guidance when Chrome is missing
      - Consistent debugging experience
-     - Automatic recovery from version mismatches
-     - Uses Puppeteer's built-in Chrome management
+     - Proper security and permissions handling
 
 4. **Click Action Strategy**
    - AI provides 'targets' string with potential element patterns
