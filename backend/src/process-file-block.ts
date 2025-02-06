@@ -3,7 +3,7 @@ import { createPatch } from 'diff'
 import { FileChange } from 'common/actions'
 import { logger } from './util/logger'
 import { requestFile } from './websockets/websocket-action'
-import { createRelaceCodebuffId, promptRelaceAI } from './relace-api'
+import { createRelaceMessageId, promptRelaceAI } from './relace-api'
 import { cleanMarkdownCodeBlock } from 'common/util/file'
 import { hasLazyEdit } from 'common/util/string'
 import { countTokens } from './util/token-counter'
@@ -132,18 +132,14 @@ export async function fastRewrite(
 ) {
   const startTime = Date.now()
 
-  const codebuffId = createRelaceCodebuffId(
-    userId ?? 'hi',
-    initialContent,
-    editSnippet
-  )
+  const messageId = createRelaceMessageId()
   const response = await promptRelaceAI(initialContent, editSnippet, {
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
     userMessage,
-    codebuffId,
+    messageId,
   })
 
   logger.debug(
@@ -152,7 +148,7 @@ export async function fastRewrite(
       editSnippet,
       response,
       userMessage,
-      codebuffId,
+      messageId,
       duration: Date.now() - startTime,
     },
     `fastRewrite of ${filePath}`
