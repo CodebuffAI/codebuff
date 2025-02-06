@@ -295,6 +295,55 @@
              1. Be explicit about image support in different models
              2. Make it easy to update when capabilities change
              3. Keep consistent patterns across all providers
+
+### Loading State Pattern
+
+When showing loading states for browser actions:
+- Add `category: 'loading'` to log messages that should trigger loading UI
+- Use skeleton loaders instead of simple spinners for better UX
+- Listen for loading messages in UI components using MessageEvent handler
+- Reset loading state when receiving non-loading messages
+- Example implementation:
+  ```typescript
+  // In browser-runner.ts
+  this.logs.push({
+    type: 'info',
+    message: 'Loading...',
+    timestamp: Date.now(),
+    source: 'tool',
+    category: 'loading'
+  })
+
+  // In React component
+  const [isLoading, setIsLoading] = React.useState(false)
+  
+  React.useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data?.logs?.some(log => 
+          log.type === 'info' && 
+          log.source === 'tool' && 
+          log.category === 'loading'
+        )) {
+          setIsLoading(true)
+        } else {
+          setIsLoading(false)
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [])
+  ```
+
+### Message Content Pattern
+When transforming message content:
+- Filter out unwanted content types before transformation
+- Use ts-pattern's match for type-safe content handling
+- Avoid producing null values that would need filtering
            - Always log when stripping images from messages:
              ```typescript
              const hasImages = message.content.some((obj: { type: string }) => obj.type === 'image')

@@ -24,11 +24,11 @@ function BannerContent() {
 
   return (
     <div className="w-full bg-blue-900 text-white relative z-20">
-      <div className="container mx-auto flex items-center justify-between px-4 py-2">
+      <div className="container mx-auto flex items-center justify-between px-4 py-0.5">
         <div className="w-8" />
         <div className="flex items-center gap-1.5 text-center flex-1 justify-center">
           <Gift className="hidden md:block h-3.5 w-3.5 flex-shrink-0" />
-          <p className="text-xs md:whitespace-nowrap">
+          <p className="text-sm md:whitespace-nowrap">
             {isYouTubeReferral ? (
               <>
                 {sponseeConfig[referrer as keyof typeof sponseeConfig].name} got

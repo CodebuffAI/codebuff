@@ -133,11 +133,8 @@ export class BrowserRunner {
     try {
       switch (action.type) {
         case 'start':
-          await this.startBrowser(action)
-          break
         case 'navigate':
-          await this.navigate(action)
-          break
+          return await this.navigate({ ...action, type: 'navigate' })
         case 'click':
           console.log('Clicking has not been implemented yet')
           break
@@ -266,7 +263,9 @@ export class BrowserRunner {
       console.log(
         'Browser launch failed, attempting to install/update Chrome...'
       )
-      execSync('npx puppeteer browsers install chrome', { stdio: 'inherit' })
+      execSync('npx puppeteer browsers install chrome --yes', {
+        stdio: 'inherit',
+      })
       this.browser = await puppeteer.launch({
         defaultViewport: { width: 1280, height: 720 },
         headless: BROWSER_DEFAULTS.headless,
@@ -284,23 +283,16 @@ export class BrowserRunner {
     const pages = await this.browser.pages()
     this.page = pages.length > 0 ? pages[0] : await this.browser.newPage()
     this.attachPageListeners()
+    await sleep(500)
 
     return {
       success: true,
-      logs: [
-        {
-          type: 'info',
-          message: `Opened ${action.url} in browser`,
-          timestamp: Date.now(),
-          source: 'tool',
-        },
-      ],
+      logs: this.logs,
       networkEvents: [],
     }
   }
 
   private async navigate(action: Extract<BrowserAction, { type: 'navigate' }>) {
-    // If headless state needs to change, restart browser
     if (!this.browser) {
       await this.startBrowser({
         ...action,
@@ -324,13 +316,19 @@ export class BrowserRunner {
         source: 'tool',
       })
 
-      // Add a small delay after navigation to ensure page is stable
-      await sleep(1000)
+      // Take a screenshot after navigation
+      const { screenshot, logs } = await this.takeScreenshot({
+        type: 'screenshot',
+        screenshotCompressionQuality:
+          BROWSER_DEFAULTS.screenshotCompressionQuality,
+      })
+      this.logs.push(...logs)
 
       return {
         success: true,
         logs: this.logs,
         networkEvents: [],
+        screenshot: screenshot,
       }
     } catch (error: any) {
       // Explicitly type as any since we know we want to access .message
