@@ -1,5 +1,6 @@
 import { stripeServer } from 'common/src/util/stripe'
 import type Stripe from 'stripe'
+import { P } from 'ts-pattern'
 
 async function calculateAverageSpend() {
   console.log('Calculating spend per subscriber...')
@@ -22,12 +23,12 @@ async function calculateAverageSpend() {
 
       const invoices: Stripe.Response<Stripe.ApiList<Stripe.Invoice>> =
         await stripeServer.invoices.list({
-          limit: 100,
           starting_after: startingAfter,
           created: {
             gte: Math.floor(twoMonthsAgo / 1000),
           },
-          status: 'paid',
+          status: 'paid' as Stripe.Invoice.Status,
+          limit: 100,
         })
 
       // Process each invoice
@@ -40,9 +41,13 @@ async function calculateAverageSpend() {
             : invoice.customer.id
 
         // Track customer's first invoice date
-        const currentFirstDate = customerFirstInvoiceDates.get(customerId) || Infinity
+        const currentFirstDate =
+          customerFirstInvoiceDates.get(customerId) || Infinity
         const invoiceDate = invoice.created
-        customerFirstInvoiceDates.set(customerId, Math.min(currentFirstDate, invoiceDate))
+        customerFirstInvoiceDates.set(
+          customerId,
+          Math.min(currentFirstDate, invoiceDate)
+        )
 
         const currentSpend = customerSpends.get(customerId) || 0
         // Only count spend from last month
@@ -67,7 +72,10 @@ async function calculateAverageSpend() {
     for (const [customerId, spend] of customerSpends.entries()) {
       totalSpend += spend
       const firstInvoiceDate = customerFirstInvoiceDates.get(customerId)
-      if (firstInvoiceDate && firstInvoiceDate >= Math.floor(oneMonthAgo / 1000)) {
+      if (
+        firstInvoiceDate &&
+        firstInvoiceDate >= Math.floor(oneMonthAgo / 1000)
+      ) {
         newCustomerSpend += spend
         newCustomers++
       } else {
@@ -78,12 +86,19 @@ async function calculateAverageSpend() {
 
     // Convert from cents to dollars
     const totalCustomers = customerSpends.size
-    console.log(`Total unique customers found: ${totalCustomers} (${newCustomers} new, ${existingCustomers} existing)`)
+    console.log(
+      `Total unique customers found: ${totalCustomers} (${newCustomers} new, ${existingCustomers} existing)`
+    )
     console.log(`Total monthly spend: $${(totalSpend / 100).toFixed(2)}`)
     console.log(`  New customers: $${(newCustomerSpend / 100).toFixed(2)}`)
-    console.log(`  Existing customers: $${(existingCustomerSpend / 100).toFixed(2)}`)
+    console.log(
+      `  Existing customers: $${(existingCustomerSpend / 100).toFixed(2)}`
+    )
+    console.log(`Note: Only includes paid invoices`)
     if (existingCustomers > 0) {
-      console.log(`Average spend per existing customer: $${(existingCustomerSpend / (existingCustomers * 100)).toFixed(2)}`)
+      console.log(
+        `Average spend per existing customer: $${(existingCustomerSpend / (existingCustomers * 100)).toFixed(2)}`
+      )
     }
 
     // Print distribution of spend

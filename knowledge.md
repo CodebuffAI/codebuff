@@ -18,6 +18,20 @@ This change improves the accuracy and reliability of file modifications, especia
 
 1. **Developer Productivity**: Reduce the time and effort required for common programming tasks, allowing developers to focus on higher-level problem-solving.
 
+## Project Templates
+
+Codebuff provides starter templates that can be used to initialize new projects:
+
+```bash
+codebuff --create <template> [project-name]
+```
+
+Templates are maintained in the [codebuff community repo](https://github.com/CodebuffAI/codebuff-community). Each directory in the starter-templates and showcase directories corresponds to a template that can be used with the --create flag.
+
+Example template:
+
+- nextjs: Next.js starter template
+
 2. **Learning and Adaptation**: Develop a system that learns from user interactions and improves its assistance over time.
 
 3. **Focus on power users**: Make expert software engineers move even faster.
@@ -76,6 +90,23 @@ The referral system integrates with the user authentication flow and credit mana
 ## Development Guidelines
 
 1. Use TypeScript for all new code to maintain type safety.
+
+## Backward Compatibility
+
+When replacing old patterns with new ones:
+- Keep support for old patterns during transition (e.g. .manicodeignore → .codebuffignore)
+- Use clear fallback chains (try current pattern first, fall back to legacy)
+- For ignore files specifically: .codebuffignore is standard, .manicodeignore is legacy support
+- Document both old and new patterns in user-facing content
+- Plan to remove old pattern support in a future major version
+
+## Backward Compatibility
+
+When replacing old patterns with new ones:
+- Keep support for old patterns during transition (e.g. .codebuffignore → .manicodeignore)
+- Use clear fallback chains (try new pattern first, fall back to old)
+- Document both old and new patterns in user-facing content
+- Plan to remove old pattern support in a future major version
 2. Follow existing code structure and naming conventions.
 3. Ensure alternating user and Buffy messages in conversation history.
 4. Update knowledge files for significant changes or new features.
@@ -226,6 +257,11 @@ The referral system is integrated across the web application and the CLI tool, p
 
 - We don't specify return types for functions, since Typescript will infer them. Don't write return types for functions!
 - Always include 'src' in file paths when it's part of the actual directory structure, even though imports automatically remove it.
+- Keep transformations simple and pure:
+  - One clear purpose per function
+  - Handle edge cases with early returns
+  - Use const assertions for better type inference
+  - Prefer small, focused functions over complex abstractions
 
 ## Python Package
 

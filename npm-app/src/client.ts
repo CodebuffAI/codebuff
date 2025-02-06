@@ -9,11 +9,13 @@ import {
   blueBright,
 } from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
+
 import {
   getFiles,
   getProjectFileContext,
   getProjectRoot,
 } from './project-files'
+import { activeBrowserRunner, BrowserRunner } from './browser-runner'
 import { applyChanges } from 'common/util/changes'
 import { User } from 'common/util/credentials'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
@@ -40,6 +42,7 @@ import * as readline from 'readline'
 import { uniq } from 'lodash'
 import path from 'path'
 import * as fs from 'fs'
+import { truncateString } from 'common/util/string'
 import { match, P } from 'ts-pattern'
 import { calculateFingerprint } from './fingerprint'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
@@ -91,6 +94,13 @@ export class Client {
     this.getFingerprintId()
     this.returnControlToUser = returnControlToUser
     this.rl = rl
+  }
+
+  async exit() {
+    if (activeBrowserRunner) {
+      activeBrowserRunner.shutdown()
+    }
+    process.exit(0)
   }
 
   public initFileVersions(projectFileContext: ProjectFileContext) {
@@ -282,7 +292,16 @@ export class Client {
         const content = await handler(input, id)
         const toolResultMessage: Message = {
           role: 'user',
-          content: `${TOOL_RESULT_MARKER}\n${content}`,
+          content: match(content)
+            .with({ screenshot: P.not(P.nullish) }, (response) => [
+              {
+                type: 'text' as const,
+                text: JSON.stringify({ ...response, screenshot: undefined }),
+              },
+              response.screenshot,
+            ])
+            .with(P.string, (str) => str)
+            .otherwise((val) => JSON.stringify(val)),
         }
         this.chatStorage.addMessage(
           this.chatStorage.getCurrentChat(),
@@ -317,10 +336,12 @@ export class Client {
         )
       }
     })
+
     let shouldRequestLogin = true
     this.webSocket.subscribe(
       'login-code-response',
       async ({ loginUrl, fingerprintHash }) => {
+        shouldRequestLogin = true
         const responseToUser = [
           '\n',
           'Press Enter to open the browser or visit:\n',
@@ -328,22 +349,21 @@ export class Client {
         ]
 
         console.log(responseToUser.join('\n'))
-        this.rl.on('line', () => {
-          if (shouldRequestLogin) {
-            spawn(`open ${loginUrl}`, {
-              shell: true,
-            })
-          }
+        this.rl.once('line', () => {
+          spawn(`open ${loginUrl}`, {
+            shell: true,
+          })
         })
 
         // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
         const initialTime = Date.now()
         const handler = setInterval(async () => {
-          if (Date.now() - initialTime > 60 * 1000 && shouldRequestLogin) {
+          if (Date.now() - initialTime > 5 * 60 * 1000 && shouldRequestLogin) {
             shouldRequestLogin = false
             console.log(
               'Unable to login. Please try again by typing "login" in the terminal.'
             )
+            this.returnControlToUser()
             clearInterval(handler)
             return
           }
@@ -401,7 +421,11 @@ export class Client {
       const parsedAction = UsageReponseSchema.safeParse(action)
       if (!parsedAction.success) return
       const a = parsedAction.data
-      console.log(`Usage: ${a.usage} / ${a.limit} credits`)
+      console.log()
+      console.log(
+        green(underline(`Codebuff usage:`)),
+        `${a.usage} / ${a.limit} credits`
+      )
       this.setUsage(a)
       this.returnControlToUser()
     })

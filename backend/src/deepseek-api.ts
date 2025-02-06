@@ -6,7 +6,29 @@ import { OpenAIMessage } from './openai-api'
 import { CompletionUsage } from 'openai/resources/completions'
 import { withRetry } from 'common/util/promise'
 import { models } from 'common/constants'
+import { DeepseekModel } from 'common/constants'
 import { removeUndefinedProps } from 'common/util/object'
+
+function transformedMessage(message: any, model: DeepseekModel): OpenAIMessage {
+  // When Deepseek properly adds image support to their models, we can update this to handle images
+  if (typeof message.content === 'object' && Array.isArray(message.content)) {
+    const hasImages = message.content.some(
+      (obj: { type: string }) => obj.type === 'image'
+    )
+    if (hasImages) {
+      logger.info(
+        'Stripping images from message - Deepseek does not support images yet'
+      )
+      return {
+        ...message,
+        content: message.content.filter(
+          (obj: { type: string }) => obj.type !== 'image'
+        ),
+      }
+    }
+  }
+  return message
+}
 
 export type DeepseekMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -40,13 +62,13 @@ const getDeepseekClient = (fingerprintId: string) => {
   return deepseekClient
 }
 
-export async function* promptDeepseekStream(
+async function* innerPromptDeepseekStream(
   messages: OpenAIMessage[],
   options: {
     clientSessionId: string
     fingerprintId: string
     userInputId: string
-    model: string
+    model: DeepseekModel
     userId: string | undefined
     maxTokens?: number
     temperature?: number
@@ -63,12 +85,14 @@ export async function* promptDeepseekStream(
   } = options
   const deepseek = getDeepseekClient(fingerprintId)
   const startTime = Date.now()
+  let modifiedMessages = messages.map((msg) =>
+    transformedMessage(msg, options.model)
+  )
 
-  const lastMessage = messages[messages.length - 1]
-  let modifiedMessages = messages
+  const lastMessage = modifiedMessages[modifiedMessages.length - 1]
   if (model === models.deepseekReasoner && lastMessage.role === 'assistant') {
     modifiedMessages = [
-      ...messages.slice(0, -1),
+      ...modifiedMessages.slice(0, -1),
       { ...lastMessage, role: 'assistant', prefix: true } as any,
     ]
   }
@@ -167,13 +191,48 @@ export async function* promptDeepseekStream(
   }
 }
 
+export const promptDeepseekStream = (
+  messages: OpenAIMessage[],
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: DeepseekModel
+    userId: string | undefined
+    maxTokens?: number
+    temperature?: number
+  }
+): ReadableStream<string> => {
+  // Use a readable stream to prevent base stream from being closed prematurely.
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        const baseStream = innerPromptDeepseekStream(messages, options)
+
+        // Stream all chunks from the generator to the controller
+        for await (const chunk of baseStream) {
+          controller.enqueue(chunk)
+        }
+        controller.close()
+      } catch (error) {
+        // For errors, send error message to client
+        controller.error(
+          new Error(
+            `Deepseek API error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+          )
+        )
+      }
+    },
+  })
+}
+
 export async function promptDeepseek(
   messages: OpenAIMessage[],
   options: {
     clientSessionId: string
     fingerprintId: string
     userInputId: string
-    model: string
+    model: DeepseekModel
     userId: string | undefined
     maxTokens?: number
     temperature?: number

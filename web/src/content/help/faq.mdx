@@ -1,19 +1,39 @@
 ---
-title: 'Frequently Asked Questions'
+title: 'FAQ'
 section: 'help'
-tags: ['faq', 'help']
-order: 4
+tags: ['faq', 'introduction']
+order: 2
 ---
 
-# Frequently Asked Questions
+# FAQ
+
+## What can Codebuff be used for?
+
+Our users use Codebuff to write frontend and backend code in every major language and framework. It can write features, tests, and scripts, and more.
+
+You can also use Codebuff to run CLI commands, configure your build, review your code, or answer questions on your codebase.
+
+## What should I try first?
+
+Try tinkering with a simple project from one of our [starter templates](https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates) or [community showcase](https://github.com/CodebuffAI/codebuff-community/tree/main/showcase), e.g.:
+
+```bash
+codebuff --create nextjs my-app
+```
+
+Or:
+
+```bash
+codebuff --create minecraft-simple
+```
 
 ## Do you store my data?
 
-We don't store your codebase. Mostly our server is a thin client that passes data along to OpenAI and Anthropic. We store logs of your chats temporarily to help us debug. We also store portions of your chat history in our database. Soon, we plan to support a Privacy Mode where no data at all is stored.
+We don't store your codebase. Our server is a thin client that passes data along to OpenAI and Anthropic. We store portions of your chats to help us debug. Soon, we plan to support a Privacy Mode where none of your data at all is stored.
 
-## What if I don't trust you with access to my filesystem?
+## Can I trust Codebuff with full access to my terminal?
 
-No problem! We made a [Dockerfile](https://github.com/CodebuffAI/codebuff-docker) that you can use. It'll set up Codebuff in an environment that's isolated from your filesystem and only has the code you want to share.
+None of our users have had significant issues so far. However, if you prefer an extra layer of safety, we made a [Dockerfile](https://github.com/CodebuffAI/codebuff-docker) that you can use. It'll set up Codebuff in an environment that's isolated from your filesystem and only has the code you want to share.
 
 ## Can I specify custom instructions for Codebuff?
 
@@ -25,9 +45,9 @@ If you do not have a knowledge.md file, Codebuff typically will not create one, 
 
 Codebuff by default will not read files that are specified in your .gitignore. You can also create a '.codebuffignore' file to specify additional files or folders to ignore.
 
-## Why is Codebuff so expensive?
+## Why does Codebuff cost more?
 
-We realize it costs a bit more than alternatives, but in exchange, Codebuff does more LLM calls using more examples from your codebase, leading to better code edits.
+Compared to alternatives, Codebuff does more LLM calls using more examples from your codebase, leading to better code edits.
 
 ## I have more questions!
 

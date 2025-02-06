@@ -16,7 +16,7 @@ This document provides an overview of the Codebuff backend architecture, key com
 10. [Security Considerations](#security-considerations)
 11. [TODO List](#todo-list)
 12. [User Quota and Billing](#user-quota-and-billing)
-12. [Automatic URL Detection and Scraping](#automatic-url-detection-and-scraping)
+13. [Automatic URL Detection and Scraping](#automatic-url-detection-and-scraping)
 
 ## Development Workflow
 
@@ -98,6 +98,17 @@ The backend uses WebSockets for real-time, bidirectional communication with clie
 5. Client receives and displays the response in real-time.
 6. Server sends file changes to the client for application.
 
+## Polling Best Practices
+
+- Keep polling logic independent from UI state
+- Only stop polling on definitive end conditions (success, timeout, error)
+- Use clear timeouts rather than boolean flags to control polling lifecycle
+- Prefer unsubscribing over boolean flags for cleanup
+- Handle cleanup in both success and error cases
+- Use NodeJS.Timeout type for interval timers in TypeScript
+- Store interval handle at class level for proper cleanup across handlers
+- Extract cleanup logic into helper functions to handle type checking in one place
+
 ## Conversation Flow Management
 
 The system uses a multi-layered approach to manage conversation flow:
@@ -141,6 +152,12 @@ The backend handles file operations for the Codebuff project:
   - Be relative to project root
   - Not contain '..' segments
   - Not be absolute paths
+- **File Tree Truncation**: When showing file tree to AI:
+  - First tries showing full tree with token counts
+  - If too large, removes token counts only
+  - If still too large, removes unimportant files (build artifacts, cache)
+  - Finally removes files starting from deepest directories
+  - AI is informed which truncation level was applied
 - **Diff Format**: Uses git-style diff markers for code changes:
   ```
   <<<<<<< SEARCH
@@ -189,6 +206,31 @@ The backend now includes a web scraping tool that allows the AI assistant to ret
 
 ## Message Storage
 
+### Screenshot Handling
+- Screenshots from tool results are converted to image blocks
+- Screenshots can come from two sources:
+  1. Tool result objects with screenshot field
+  2. String content containing JSON with screenshot field
+- Transform messages immediately when receiving user input in websocket-action.ts
+- This ensures consistent handling regardless of later processing steps
+- Different formatting for Anthropic vs OpenAI:
+  - Anthropic: Always use ephemeral caching to avoid token overhead
+  - OpenAI: Use ephemeral for large images (>200KB)
+- Image blocks follow provider-specific formats:
+  ```typescript
+  {
+    type: 'image',
+    source: {
+      type: 'base64',
+      media_type: 'image/jpeg',
+      data: string // base64 data
+    },
+    cache_control?: {
+      type: 'ephemeral'
+    }
+  }
+  ```
+
 Important: When saving messages from Claude API:
 - Use fire-and-forget pattern for non-critical storage operations
 - Wrap async operations in withLoggerContext to preserve logging context
@@ -212,6 +254,20 @@ Important: When saving messages from Claude API:
 - Always verify messageId exists before saving
 - Usage stats can come in multiple chunks - accumulate throughout stream
 - Content receipt is more important than final usage stats for saving
+
+### Message Transformation
+- Transform messages immediately when receiving user input in websocket-action.ts
+- Do not transform messages again in main-prompt.ts or other downstream functions
+- This ensures consistent handling regardless of later processing steps
+- Prefer transforming individual messages over arrays of messages:
+  - Makes the transformation logic clearer and more focused
+  - Easier to test individual cases
+  - Use map() to transform arrays of messages when needed
+- Keep transformers simple and focused:
+  - Use const assertions for literal types to ensure type safety
+  - Split complex transformations into smaller, focused functions
+  - Handle edge cases explicitly rather than with complex logic
+  - Prefer immutable transformations that return new objects
 
 ## AI Response Handling
 

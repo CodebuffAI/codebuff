@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.146",
+  "version": "1.0.154",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -41,13 +41,13 @@
     "@types/diff": "5.2.1",
     "@vscode/ripgrep": "1.15.9",
     "axios": "1.7.4",
-    "cheerio": "1.0.0",
     "diff": "5.2.0",
     "env-cmd": "^10.1.0",
     "ignore": "5.3.2",
     "lodash": "*",
     "nanoid": "5.0.7",
     "picocolors": "1.1.0",
+    "puppeteer": "^24.1.1",
     "systeminformation": "5.23.4",
     "tree-sitter": "0.21.1",
     "tree-sitter-c": "0.23.0",
@@ -71,10 +71,5 @@
   "trustedDependencies": [
     "@homebridge/node-pty-prebuilt-multiarch",
     "@vscode/ripgrep"
-  ],
-  "devDependencies": {
-    "@types/jest": "^29.5.14",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.2.5"
-  }
+  ]
 }

@@ -5,15 +5,8 @@ import { match, P } from 'ts-pattern'
 
 import { ClientMessage } from 'common/websockets/websocket-schema'
 import { mainPrompt } from '../main-prompt'
-import {
-  ClientAction,
-  ServerAction,
-  UsageReponseSchema,
-  UsageResponse,
-} from 'common/actions'
+import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
 import { sendMessage } from './server'
-import { getSearchSystemPrompt } from '../system-prompt'
-import { promptClaude } from '../claude'
 import { env } from '../env.mjs'
 import db from 'common/db'
 import { genAuthCode } from 'common/util/credentials'
@@ -167,6 +160,7 @@ const onUserInput = async (
     changesAlreadyApplied,
     costMode = 'normal',
   } = action
+
   await withLoggerContext(
     { fingerprintId, authToken, clientRequestId: userInputId },
     async () => {
@@ -316,6 +310,14 @@ const onLoginCodeRequest = async (
   ws: WebSocket
 ): Promise<void> => {
   await withLoggerContext({ fingerprintId }, async () => {
+    // Create a new fingerprint if it doesn't exist
+    await db
+      .insert(schema.fingerprint)
+      .values({
+        id: fingerprintId,
+      })
+      .onConflictDoNothing()
+
     const expiresAt = Date.now() + 60 * 60 * 1000 // 1 hour in the future
     const fingerprintHash = genAuthCode(
       fingerprintId,
@@ -557,7 +559,7 @@ export const onWebsocketAction = async (
 }
 
 subscribeToAction('user-input', protec.run(onUserInput))
-subscribeToAction('init', protec.run(onInit))
+subscribeToAction('init', protec.run(onInit, { silent: true }))
 
 subscribeToAction('clear-auth-token', onClearAuthTokenRequest)
 subscribeToAction('login-code-request', onLoginCodeRequest)

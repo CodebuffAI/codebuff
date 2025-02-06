@@ -1,10 +1,11 @@
-import { spawn } from 'child_process'
+import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
 import path from 'path'
 import { green } from 'picocolors'
 import * as os from 'os'
 import { detectShell } from './detect-shell'
 import { getProjectRoot, setProjectRoot } from '../project-files'
 import { truncateStringWithMessage } from 'common/util/string'
+import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
 
 let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
 const tempConsoleError = console.error
@@ -18,7 +19,21 @@ try {
 
 const promptIdentifier = '@36261@'
 
-const createPty = (dir: string) => {
+type PersistentProcess =
+  | {
+      type: 'pty'
+      shell: 'pty'
+      pty: IPty
+      timerId: NodeJS.Timeout | null
+    }
+  | {
+      type: 'process'
+      shell: 'bash' | 'cmd.exe' | 'powershell.exe'
+      childProcess: ChildProcessWithoutNullStreams | null
+      timerId: NodeJS.Timeout | null
+    }
+
+const createPersistantProcess = (dir: string): PersistentProcess => {
   if (pty) {
     const isWindows = os.platform() === 'win32'
     const currShell = detectShell()
@@ -85,7 +100,7 @@ const createPty = (dir: string) => {
       persistentPty.write(`PS1='${promptIdentifier}'\n`)
     }
 
-    return { type: 'pty', pty: persistentPty } as const
+    return { type: 'pty', shell: 'pty', pty: persistentPty, timerId: null }
   } else {
     // Fallback to child_process
     const isWindows = os.platform() === 'win32'
@@ -95,27 +110,55 @@ const createPty = (dir: string) => {
         ? 'powershell.exe'
         : 'cmd.exe'
       : 'bash'
-    return { type: 'process', shell } as const
+    const childProcess = null as ChildProcessWithoutNullStreams | null
+    return {
+      type: 'process',
+      shell,
+      childProcess,
+      timerId: null,
+    }
   }
 }
 
-let persistentProcess: ReturnType<typeof createPty> | null = null
+let persistentProcess: ReturnType<typeof createPersistantProcess> | null = null
 
 process.stdout.on('resize', () => {
   if (!persistentProcess) return
-  const { pty } = persistentProcess
-  if (pty) {
-    pty.resize(process.stdout.columns, process.stdout.rows)
+  if (persistentProcess.type === 'pty') {
+    persistentProcess.pty.resize(process.stdout.columns, process.stdout.rows)
   }
 })
 
-export const resetPtyShell = (dir: string) => {
+let commandIsRunning = false
+
+export const isCommandRunning = () => {
+  return commandIsRunning
+}
+
+export const recreateShell = () => {
+  const dir = getProjectRoot()
+  persistentProcess = createPersistantProcess(dir)
+}
+
+export const resetShell = () => {
+  commandIsRunning = false
   if (persistentProcess) {
+    if (persistentProcess.timerId) {
+      clearTimeout(persistentProcess.timerId)
+      persistentProcess.timerId = null
+    }
+
     if (persistentProcess.type === 'pty') {
       persistentProcess.pty.kill()
+      recreateShell()
+    } else {
+      persistentProcess.childProcess?.kill()
+      persistentProcess = {
+        ...persistentProcess,
+        childProcess: null,
+      }
     }
   }
-  persistentProcess = createPty(dir)
 }
 
 function formatResult(stdout: string, status: string): string {
@@ -150,190 +193,227 @@ const isNotACommand = (output: string) => {
   )
 }
 
+const MAX_EXECUTION_TIME = 30_000
+
 export const runTerminalCommand = async (
   command: string,
   mode: 'user' | 'assistant'
 ): Promise<{ result: string; stdout: string }> => {
-  const MAX_EXECUTION_TIME = 30_000
-
-  let projectRoot = getProjectRoot()
-
   return new Promise((resolve) => {
     if (!persistentProcess) {
       throw new Error('Shell not initialized')
     }
 
+    if (commandIsRunning) {
+      resetShell()
+    }
+
+    commandIsRunning = true
+
+    const resolveCommand = (value: { result: string; stdout: string }) => {
+      commandIsRunning = false
+      resolve(value)
+    }
+
     if (persistentProcess.type === 'pty') {
-      // Use PTY implementation
-      const ptyProcess = persistentProcess.pty
-      let commandOutput = ''
-      let foundFirstNewLine = false
-
-      if (mode === 'assistant') {
-        console.log()
-        console.log(green(`> ${command}`))
-      }
-
-      const timer = setTimeout(() => {
-        if (mode === 'assistant') {
-          // Kill and recreate PTY
-          resetPtyShell(projectRoot)
-
-          resolve({
-            result: formatResult(
-              commandOutput,
-              `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
-            ),
-            stdout: commandOutput,
-          })
-        }
-      }, MAX_EXECUTION_TIME)
-
-      const dataDisposable = ptyProcess.onData((data: string) => {
-        // Trim first line if it's the prompt identifier
-        if (
-          commandOutput.trim() === '' &&
-          data.trimStart().startsWith(promptIdentifier)
-        ) {
-          data = data.trimStart().slice(promptIdentifier.length)
-        }
-
-        const prefix = commandOutput + data
-
-        // Skip the first line of the output, because it's the command being printed.
-        if (!foundFirstNewLine) {
-          if (!prefix.includes('\n')) {
-            return
-          }
-
-          foundFirstNewLine = true
-          const newLineIndex = prefix.indexOf('\n')
-          data = prefix.slice(newLineIndex + 1)
-        }
-
-        // Try to detect error messages in the output
-        if (mode === 'user' && isNotACommand(data)) {
-          clearTimeout(timer)
-          dataDisposable.dispose()
-          resolve({
-            result: 'command not found',
-            stdout: commandOutput,
-          })
-          return
-        }
-
-        const promptDetected = prefix.includes(promptIdentifier)
-
-        if (promptDetected) {
-          clearTimeout(timer)
-          dataDisposable.dispose()
-
-          if (command.startsWith('cd ') && mode === 'user') {
-            const newWorkingDirectory = command.split(' ')[1]
-            projectRoot = setProjectRoot(
-              path.join(projectRoot, newWorkingDirectory)
-            )
-          }
-
-          if (mode === 'assistant') {
-            console.log(green(`Command completed`))
-          }
-
-          // Reset the PTY to the project root
-          ptyProcess.write(`cd ${projectRoot}\r`)
-
-          resolve({
-            result: formatResult(commandOutput, 'Command completed'),
-            stdout: commandOutput,
-          })
-          return
-        }
-
-        process.stdout.write(data)
-        commandOutput += data
-      })
-
-      // Write the command
-      ptyProcess.write(command + '\r')
+      runCommandPty(persistentProcess, command, mode, resolveCommand)
     } else {
       // Fallback to child_process implementation
-      const isWindows = os.platform() === 'win32'
-      let commandOutput = ''
+      runCommandChildProcess(persistentProcess, command, mode, resolveCommand)
+    }
+  })
+}
 
-      if (mode === 'assistant') {
-        console.log()
-        console.log(green(`> ${command}`))
-      }
+const runCommandPty = (
+  persistentProcess: PersistentProcess & {
+    type: 'pty'
+  },
+  command: string,
+  mode: 'user' | 'assistant',
+  resolve: (value: { result: string; stdout: string }) => void
+) => {
+  let projectRoot = getProjectRoot()
+  const ptyProcess = persistentProcess.pty
+  let commandOutput = ''
+  let foundFirstNewLine = false
 
-      const childProcess = spawn(
-        persistentProcess.shell,
-        [isWindows ? '/c' : '-c', command],
-        {
-          cwd: projectRoot,
-          env: {
-            ...process.env,
-            PAGER: 'cat',
-            GIT_PAGER: 'cat',
-            GIT_TERMINAL_PROMPT: '0',
-            LESS: '-FRX',
-          },
-        }
-      )
+  if (mode === 'assistant') {
+    console.log()
+    console.log(green(`> ${command}`))
+  }
 
-      const timer = setTimeout(() => {
-        childProcess.kill()
-        if (mode === 'assistant') {
-          resolve({
-            result: formatResult(
-              commandOutput,
-              `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated.`
-            ),
-            stdout: commandOutput,
-          })
-        }
-      }, MAX_EXECUTION_TIME)
+  const timer = setTimeout(() => {
+    if (mode === 'assistant') {
+      // Kill and recreate PTY
+      resetShell()
 
-      childProcess.stdout.on('data', (data: Buffer) => {
-        const output = data.toString()
-        process.stdout.write(output)
-        commandOutput += output
-      })
-
-      childProcess.stderr.on('data', (data: Buffer) => {
-        const output = data.toString()
-
-        // Try to detect error messages in the output
-        if (mode === 'user' && isNotACommand(output)) {
-          clearTimeout(timer)
-          childProcess.kill()
-          resolve({
-            result: 'command not found',
-            stdout: commandOutput,
-          })
-          return
-        }
-
-        process.stdout.write(output)
-        commandOutput += output
-      })
-
-      childProcess.on('close', (code) => {
-        clearTimeout(timer)
-
-        if (command.startsWith('cd ') && mode === 'user') {
-          const newWorkingDirectory = command.split(' ')[1]
-          setProjectRoot(path.join(projectRoot, newWorkingDirectory))
-        }
-
-        if (mode === 'assistant') {
-          console.log(green(`Command completed`))
-        }
-
-        resolve({
-          result: formatResult(commandOutput, `Command completed`),
-          stdout: commandOutput,
-        })
+      resolve({
+        result: formatResult(
+          commandOutput,
+          `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
+        ),
+        stdout: commandOutput,
       })
     }
+  }, MAX_EXECUTION_TIME)
+
+  persistentProcess.timerId = timer
+
+  const dataDisposable = ptyProcess.onData((data: string) => {
+    // Trim first line if it's the prompt identifier
+    if (
+      commandOutput.trim() === '' &&
+      data.trimStart().startsWith(promptIdentifier)
+    ) {
+      data = data.trimStart().slice(promptIdentifier.length)
+    }
+
+    const prefix = commandOutput + data
+
+    // Skip the first line of the output, because it's the command being printed.
+    if (!foundFirstNewLine) {
+      if (!prefix.includes('\n')) {
+        return
+      }
+
+      foundFirstNewLine = true
+      const newLineIndex = prefix.indexOf('\n')
+      data = prefix.slice(newLineIndex + 1)
+    }
+
+    // Try to detect error messages in the output
+    if (mode === 'user' && isNotACommand(data)) {
+      clearTimeout(timer)
+      dataDisposable.dispose()
+      resolve({
+        result: 'command not found',
+        stdout: commandOutput,
+      })
+      return
+    }
+
+    const promptDetected = prefix.includes(promptIdentifier)
+
+    if (promptDetected) {
+      clearTimeout(timer)
+      dataDisposable.dispose()
+
+      if (command.startsWith('cd ') && mode === 'user') {
+        const newWorkingDirectory = command.split(' ')[1]
+        projectRoot = setProjectRoot(
+          path.join(projectRoot, newWorkingDirectory)
+        )
+      }
+
+      // Reset the PTY to the project root
+      ptyProcess.write(`cd ${projectRoot}\r`)
+
+      resolve({
+        result: formatResult(commandOutput, 'Command completed'),
+        stdout: commandOutput,
+      })
+      return
+    }
+
+    process.stdout.write(data)
+    commandOutput += data
+  })
+
+  // Write the command
+  const commandWithCheck = `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "Command completed. "; else printf "Command failed with exit code $ec. "; fi`
+  ptyProcess.write(commandWithCheck + '\r')
+}
+
+const runCommandChildProcess = (
+  persistentProcess: ReturnType<typeof createPersistantProcess> & {
+    type: 'process'
+  },
+  command: string,
+  mode: 'user' | 'assistant',
+  resolve: (value: { result: string; stdout: string }) => void
+) => {
+  let projectRoot = getProjectRoot()
+  const isWindows = os.platform() === 'win32'
+  let commandOutput = ''
+
+  if (mode === 'assistant') {
+    console.log()
+    console.log(green(`> ${command}`))
+  }
+
+  const childProcess = spawn(
+    persistentProcess.shell,
+    [isWindows ? '/c' : '-c', command],
+    {
+      cwd: projectRoot,
+      env: {
+        ...process.env,
+        PAGER: 'cat',
+        GIT_PAGER: 'cat',
+        GIT_TERMINAL_PROMPT: '0',
+        LESS: '-FRX',
+      },
+    }
+  )
+  persistentProcess = {
+    ...persistentProcess,
+    childProcess,
+  }
+
+  const timer = setTimeout(() => {
+    resetShell()
+    if (mode === 'assistant') {
+      resolve({
+        result: formatResult(
+          commandOutput,
+          `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated.`
+        ),
+        stdout: commandOutput,
+      })
+    }
+  }, MAX_EXECUTION_TIME)
+
+  persistentProcess.timerId = timer
+
+  childProcess.stdout.on('data', (data: Buffer) => {
+    const output = data.toString()
+    process.stdout.write(output)
+    commandOutput += output
+  })
+
+  childProcess.stderr.on('data', (data: Buffer) => {
+    const output = data.toString()
+
+    // Try to detect error messages in the output
+    if (mode === 'user' && isNotACommand(output)) {
+      clearTimeout(timer)
+      childProcess.kill()
+      resolve({
+        result: 'command not found',
+        stdout: commandOutput,
+      })
+      return
+    }
+
+    process.stdout.write(output)
+    commandOutput += output
+  })
+
+  childProcess.on('close', (code) => {
+    clearTimeout(timer)
+
+    if (command.startsWith('cd ') && mode === 'user') {
+      const newWorkingDirectory = command.split(' ')[1]
+      setProjectRoot(path.join(projectRoot, newWorkingDirectory))
+    }
+
+    if (mode === 'assistant') {
+      console.log(green(`Command completed`))
+    }
+
+    resolve({
+      result: formatResult(commandOutput, `Command completed`),
+      stdout: commandOutput,
+    })
   })
 }

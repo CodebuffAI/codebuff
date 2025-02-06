@@ -1,8 +1,23 @@
 import { encode } from 'gpt-tokenizer/esm/model/gpt-4o'
+import { LRUCache } from 'common/util/lru-cache'
+
+const ANTHROPIC_TOKEN_FUDGE_FACTOR = 1.35
+
+const TOKEN_COUNT_CACHE = new LRUCache<string, number>(5000) // Cache up to 5k strings
 
 export function countTokens(text: string): number {
   try {
-    return encode(text).length
+    const cached = TOKEN_COUNT_CACHE.get(text)
+    if (cached !== undefined) {
+      return cached
+    }
+    const count = Math.floor(encode(text).length * ANTHROPIC_TOKEN_FUDGE_FACTOR)
+
+    if (text.length > 100) {
+      // Cache only if the text is long enough to be worth it.
+      TOKEN_COUNT_CACHE.set(text, count)
+    }
+    return count
   } catch (e) {
     console.error('Error counting tokens', e)
     return Math.ceil(text.length / 3)

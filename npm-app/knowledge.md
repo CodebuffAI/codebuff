@@ -3,12 +3,14 @@
 Before running the app, ensure you have the required environment files:
 
 1. `stack.env` in project root with:
+
 ```
 ENVIRONMENT=local
 NEXT_PUBLIC_ENVIRONMENT=local
 ```
 
 2. `.env.local` in project root with:
+
 ```
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_BACKEND_URL=localhost:3001
@@ -20,6 +22,7 @@ NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com
 ## Terminal Handling
 
 ### Cursor Management
+
 - Always restore cursor visibility when exiting
 - Hide cursor during loading animations
 - Use ANSI escape codes:
@@ -33,9 +36,16 @@ NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com
   - Via process.exit handler as fallback
 - This prevents terminal from getting stuck without cursor if interrupted
 
+### Event Handler Patterns
+
+- Use .once() instead of .on() when handler should only run one time
+- Prefer EventEmitter's built-in one-time handling over manual flags
+- Keep state variables if they're used for more than just preventing duplicate handlers
+
 ### Command Execution Rules
 
 - Skip running input as terminal command if it:
+
   - Starts with a skipped command (like 'help', 'find', etc.)
   - Contains 'error'
   - Contains single quotes (to avoid shell interpretation issues)
@@ -43,11 +53,17 @@ NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com
   - Unless explicitly prefixed with '/run'
 
 - Primary: Using node-pty for terminal emulation
+
   - PTY combines stdout and stderr into single data stream
   - All terminal output comes through onData event
   - Better matches real terminal behavior
   - Command completion detected by shell prompt reappearance
   - Must handle command echo and prompt filtering to avoid duplicate output
+  - For command completion messages:
+    - Use shell conditionals to format output: `ec=$?; if [ $ec -eq 0 ]...`
+    - Let shell handle success/failure messaging
+    - Keeps output formatting close to where it's generated
+    - Use ANSI color codes directly in shell: `\033[32m` for green, `\033[0m` to reset
   - Sources appropriate shell RC file on startup:
     - ~/.zshrc for zsh
     - ~/.config/fish/config.fish for fish
@@ -59,8 +75,8 @@ NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com
     - Windows shells don't use --login flag
     - For Unix shells, set PS1 prompt after sourcing RC files
     - Windows uses PROMPT env var, Unix uses PS1 command
-  
   - Sets environment variables for optimal experience:
+
     - TERM='xterm-256color' for color support
     - PAGER='cat' to prevent paging
     - LESS='-FRX' for better output display
@@ -72,7 +88,6 @@ NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com
       - Respects NO_COLOR standard
       - Forces colors with FORCE_COLOR='1'
       - Preserves CI environment settings
-    
     - Environment setup:
       - History configuration:
         - HISTSIZE=10000 and HISTFILESIZE=20000 for extensive history
@@ -90,6 +105,7 @@ NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com
 ### Windows-Specific Handling
 
 Important: Windows terminal handling requires special care:
+
 - Avoid process.stdout.clearLine() and cursorTo() - use ANSI escape sequences instead
 - Write to new lines rather than clearing existing ones
 - Use '\x1b[1A\x1b[2K' for reliable line clearing (move up + clear)
@@ -98,6 +114,7 @@ Important: Windows terminal handling requires special care:
 - Detect shell type using multiple fallback methods
 
 - Fallback: Using child_process when node-pty is unavailable
+
   - Handles cases where node-pty prebuilds aren't available
   - Provides basic terminal functionality without PTY features
   - Maintains core command execution capabilities
@@ -156,6 +173,7 @@ Important: Windows terminal handling requires special care:
 ## Native Dependencies
 
 When using native dependencies that require compilation:
+
 - Make them optional dependencies to prevent installation failures
 - Implement fallbacks using pure JavaScript/Node.js alternatives
 - Test both the primary and fallback implementations
@@ -165,6 +183,7 @@ When using native dependencies that require compilation:
 ## Windows Path Handling
 
 When matching Windows paths in regex patterns:
+
 - To match a literal backslash, use 3 backslashes in the regex:
   - One backslash to escape in JavaScript string
   - Two backslashes to create literal backslash in regex
@@ -173,3 +192,55 @@ When matching Windows paths in regex patterns:
   - Drive letter: `[A-Z]:`
   - Full path: `[A-Z]:\\\S+`
   - UNC path: `\\\\\S+\\\S+`
+
+# Debug Data Storage
+
+## Directory Structure
+
+All debug data is stored in `~/.config/manicode/`:
+
+```
+~/.config/manicode/
+  credentials.json
+  projects/                         # Separate user project data
+    my-app/                         # Simple name by default
+      browser/                      # Browser profile
+      chats/
+        <chat-id>/                  # datetime when the chat was created
+          messages.json
+          screenshots/              # Screenshots with chat context
+    my-app-a1b2c3d4/                # Add hash based on full path only if name collides
+```
+
+## Key Design Decisions
+
+1. **Project Isolation**
+
+   - Each project gets its own directory under `projects/`
+   - Project directories use simple name by default (e.g. my-app)
+   - Hash suffix only added if name collides with existing project
+   - This keeps paths readable while handling conflicts
+
+2. **Chat Organization**
+
+   - Chat IDs include timestamp to prevent overwrites
+   - Format: `YYYY-MM-DD_HH-MM-SS_TIMESTAMP_RANDOM`
+   - Screenshots stored with their chat context
+   - Each chat is self-contained with its own data
+
+3. **Standard Locations**
+   - Uses ~/.config for user-specific data (XDG standard)
+   - Keeps debug data out of project directory
+   - Separates app config from project data
+   - Directories automatically created as needed
+
+## Implementation Notes
+
+- Use `getProjectDataDir()` to get project-specific directory
+- Use `getCurrentChatDir()` to get current chat directory
+- All paths are created on demand via `ensureDirectoryExists()`
+- Browser profiles are project-specific for isolation
+
+```
+
+```

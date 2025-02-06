@@ -4,14 +4,17 @@ import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
-import { model_types, promptClaude, System } from './claude'
+import { AnthropicModel } from 'common/constants'
+import { promptClaude, System } from './claude'
 import { getModelForMode, type CostMode } from 'common/constants'
-import { claudeModels, models } from 'common/constants'
+import { models } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from './util/logger'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { promptDeepseek } from './deepseek-api'
 import { messagesWithSystem } from '@/util/messages'
+
+const NUMBER_OF_EXAMPLE_FILES = 100
 
 export async function requestRelevantFiles(
   {
@@ -203,7 +206,8 @@ async function generateFileRequests(
     clientSessionId,
     fingerprintId,
     userInputId,
-    userId
+    userId,
+    costMode
   )
 
   // const testAndConfigPrompt = generateTestAndConfigFilesPrompt(
@@ -275,7 +279,7 @@ Answer with just 'YES' if reading new files is necessary, or 'NO' if the current
   const response = await promptOpenAI(
     [...(messages as OpenAIMessage[]), { role: 'user', content: prompt }],
     {
-      model: getModelForMode(costMode, 'check-new-files'),
+      model: costMode === 'lite' ? models.gpt4omini : models.gpt4o, // getModelForMode(costMode, 'check-new-files'),
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -301,8 +305,8 @@ async function getRelevantFiles(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId?: string,
-  costMode: CostMode = 'normal'
+  userId: string | undefined,
+  costMode: CostMode
 ) {
   const messagesWithPrompt = [
     ...messages,
@@ -326,7 +330,7 @@ async function getRelevantFiles(
     )
   } else {
     response = await promptClaude(messagesWithPrompt, {
-      model: getModelForMode(costMode, 'file-requests') as model_types,
+      model: getModelForMode(costMode, 'file-requests') as AnthropicModel,
       system,
       clientSessionId,
       fingerprintId,
@@ -381,7 +385,7 @@ function generateNonObviousRequestFilesPrompt(
   fileContext: ProjectFileContext,
   count: number
 ): string {
-  const exampleFiles = getExampleFileList(fileContext, 100)
+  const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
   return `
 Your task is to find the second-order relevant files for the following user request.
 
@@ -439,7 +443,7 @@ function generateKeyRequestFilesPrompt(
   fileContext: ProjectFileContext,
   count: number
 ): string {
-  const exampleFiles = getExampleFileList(fileContext, 100)
+  const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
   return `
 Your task is to find the most relevant files for the following user request.
 
@@ -495,7 +499,7 @@ function generateTestAndConfigFilesPrompt(
   fileContext: ProjectFileContext,
   count: number
 ): string {
-  const exampleFiles = getExampleFileList(fileContext, 100)
+  const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
   return `
 Your task is to find test and configuration files relevant to the following user request.
 
@@ -548,7 +552,7 @@ function generateExampleFilesPrompt(
   fileContext: ProjectFileContext,
   count: number
 ): string {
-  const exampleFiles = getExampleFileList(fileContext, 100)
+  const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
   return `
 Your task is to find the best example files for the following user request.
 
@@ -617,7 +621,7 @@ export const warmCacheForRequestRelevantFiles = async (
             },
           ],
           {
-            model: claudeModels.haiku,
+            model: getModelForMode(costMode, 'file-requests') as AnthropicModel,
             system,
             clientSessionId,
             fingerprintId,

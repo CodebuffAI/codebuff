@@ -1,7 +1,9 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
-import { model_types, promptClaudeStream } from './claude'
+import { AnthropicModel } from 'common/constants'
+import { promptClaudeStream } from './claude'
+import { parseToolCallXml } from './util/parse-tool-call-xml'
 import {
   TOOL_RESULT_MARKER,
   STOP_MARKER,
@@ -29,7 +31,11 @@ import {
   checkConversationProgress,
   checkToAllowUnboundedIteration,
 } from './conversation-progress'
-import { getRelevantFilesForPlanning, planComplexChange } from './planning'
+import {
+  getRelevantFilesForPlanning,
+  loadFilesForPlanning,
+  planComplexChange,
+} from './planning'
 import { promptDeepseekStream } from './deepseek-api'
 import { messagesWithSystem } from '@/util/messages'
 
@@ -58,17 +64,18 @@ export async function mainPrompt(
       ? assistantReplyMessage.content.includes('plan_complex_change')
       : false
 
-  const allowUnboundedIterationPromise = assistantIsExecutingPlan
-    ? Promise.resolve(true)
-    : checkToAllowUnboundedIteration(messages[lastUserMessageIndex], {
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      }).catch((error) => {
-        logger.error(error, 'Error checking to allow unbounded iteration')
-        return false
-      })
+  const allowUnboundedIterationPromise = checkToAllowUnboundedIteration(
+    messages[lastUserMessageIndex],
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    }
+  ).catch((error) => {
+    logger.error(error, 'Error checking to allow unbounded iteration')
+    return false
+  })
 
   let fullResponse = ''
   const fileProcessingPromises: Promise<FileChange | null>[] = []
@@ -175,10 +182,10 @@ export async function mainPrompt(
         lastMessage: messages[messages.length - 1].content,
         messageCount: messages.length,
       },
-      'Prompting Claude Main'
+      'Prompting Main'
     )
 
-    let stream: AsyncGenerator<string, void, unknown>
+    let stream: ReadableStream<string>
     if (costMode === 'lite') {
       stream = promptDeepseekStream(
         messagesWithSystem(messagesWithContinuedMessage, system),
@@ -193,7 +200,7 @@ export async function mainPrompt(
     } else {
       stream = promptClaudeStream(messagesWithContinuedMessage, {
         system,
-        model: getModelForMode(costMode, 'agent') as model_types,
+        model: getModelForMode(costMode, 'agent') as AnthropicModel,
         clientSessionId,
         fingerprintId,
         userInputId,
@@ -236,7 +243,7 @@ export async function mainPrompt(
         onTagStart: (attributes) => '',
         onTagEnd: (content, attributes) => {
           const name = attributes.name
-          const contentAttributes: Record<string, string> = {}
+          let contentAttributes: Record<string, string> = {}
           if (name === 'run_terminal_command') {
             contentAttributes.command = content
           } else if (name === 'scrape_web_page') {
@@ -249,6 +256,8 @@ export async function mainPrompt(
             contentAttributes.pattern = content
           } else if (name === 'plan_complex_change') {
             contentAttributes.prompt = content
+          } else if (name === 'browser_action') {
+            contentAttributes = parseToolCallXml(content)
           }
           fullResponse += `<tool_call name="${attributes.name}">${content}</tool_call>`
           toolCall = {
@@ -305,6 +314,7 @@ export async function mainPrompt(
 
       onResponseChunk(`\nPrompt: ${prompt}\n`)
 
+      const fetchFilesStart = Date.now()
       const filePaths = await getRelevantFilesForPlanning(
         messages,
         prompt,
@@ -315,47 +325,42 @@ export async function mainPrompt(
         userInputId,
         userId
       )
-
-      const loadedFiles = await requestFiles(ws, filePaths)
-      const fileContents = Object.fromEntries(
-        Object.entries(loadedFiles).filter(
-          ([_, content]) => content !== null
-        ) as [string, string][]
-      )
-
+      const fetchFilesDuration = Date.now() - fetchFilesStart
+      const fileContents = await loadFilesForPlanning(ws, filePaths)
       const existingFilePaths = Object.keys(fileContents)
+
       onResponseChunk(`\nRelevant files:\n${existingFilePaths.join(' ')}\n`)
       fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
+      onResponseChunk(`\nThinking deeply (can take a minute)...\n\n`)
 
-      onResponseChunk(`\nThinking deeply (can take a few minutes)...\n\n`)
+      logger.debug({ prompt, filePaths, existingFilePaths }, 'Thinking deeply')
+      const planningStart = Date.now()
 
-      logger.debug(
-        {
+      const { response, fileProcessingPromises: promises } =
+        await planComplexChange(
           prompt,
-          filePaths,
-          existingFilePaths,
-        },
-        'Thinking deeply'
-      )
-
-      const plan = await planComplexChange(
-        prompt,
-        fileContents,
-        onResponseChunk,
-        {
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          userId,
-        }
-      )
-      onResponseChunk(`\n\n`)
-      fullResponse += plan
+          fileContents,
+          messages,
+          onResponseChunk,
+          {
+            clientSessionId,
+            fingerprintId,
+            userInputId,
+            userId,
+            costMode,
+          }
+        )
+      fileProcessingPromises.push(...promises)
+      // For now, don't print the plan to the user.
+      // onResponseChunk(`${plan}\n\n`)
+      fullResponse += response + '\n\n'
       logger.debug(
         {
           prompt,
           file_paths: filePaths,
-          response: plan,
+          response,
+          fetchFilesDuration,
+          planDuration: Date.now() - planningStart,
         },
         'Generated plan'
       )
@@ -364,7 +369,7 @@ export async function mainPrompt(
         id: Math.random().toString(36).slice(2),
         name: 'continue',
         input: {
-          response: `Please implement the full plan.`,
+          response: `Please summarize and review the implementation and make improvements if needed, but do not call the plan_complex_change tool again for now.`,
         },
       }
       isComplete = true
@@ -562,6 +567,7 @@ export async function mainPrompt(
       ? fileContext.fileVersions.flat()
       : addedFileVersions,
     resetFileVersions,
+    messages,
   }
 }
 
@@ -586,7 +592,6 @@ function getExtraInstructionForUserPrompt(
       : ' Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
 
     !justUsedATool &&
-      costMode === 'max' &&
       'If the user request is very complex (e.g. requires changes across multiple files or systems), please consider invoking the plan_complex_change tool to create a plan, although this should be used sparingly.',
 
     hasKnowledgeFiles &&
@@ -594,7 +599,7 @@ function getExtraInstructionForUserPrompt(
 
     hasKnowledgeFiles &&
       isNotFirstUserMessage &&
-      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
+      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information. No need to add commentary, or justify why you are updating the file, just make the update.",
 
     numAssistantMessages >= 3 &&
       'Please consider pausing to get more instructions from the user.',
@@ -648,7 +653,7 @@ async function getFileVersionUpdates(
     userId,
     costMode,
   } = options
-  const FILE_TOKEN_BUDGET = costMode === 'lite' ? 25_000 : 80_000
+  const FILE_TOKEN_BUDGET = costMode === 'lite' ? 25_000 : 100_000
 
   const { fileVersions } = fileContext
   const files = fileVersions.flatMap((files) => files)

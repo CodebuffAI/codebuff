@@ -1,14 +1,18 @@
 import { rgPath } from '@vscode/ripgrep'
-import path from 'path'
-import { green } from 'picocolors'
+import { green, red, yellow, blue, cyan } from 'picocolors'
 import { spawn } from 'child_process'
-
+import { BrowserActionSchema, BrowserResponse } from 'common/browser-actions'
+import { handleBrowserInstruction } from './browser-runner'
 import { scrapeWebPage } from './web-scraper'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './utils/terminal'
 import { truncateStringWithMessage } from 'common/util/string'
+import * as path from 'path'
 
-export type ToolHandler = (input: any, id: string) => Promise<string>
+export type ToolHandler = (
+  input: any,
+  id: string
+) => Promise<string | BrowserResponse>
 
 export const handleScrapeWebPage: ToolHandler = async (
   input: { url: string },
@@ -98,6 +102,38 @@ export const toolHandlers: Record<string, ToolHandler> = {
     )) as ToolHandler,
   continue: async (input, id) => input.response ?? 'Please continue',
   code_search: handleCodeSearch,
+  browser_action: async (input, _id): Promise<BrowserResponse> => {
+    const action = BrowserActionSchema.parse(input)
+    // console.log('Executing browser action:', action)
+
+    const response = await handleBrowserInstruction(action)
+
+    // Log any browser errors
+    if (!response.success && response.error) {
+      console.error(red(`Browser action failed: ${response.error}`))
+    }
+    if (response.logs) {
+      response.logs.forEach((log) => {
+        if (log.source === 'tool') {
+          switch (log.type) {
+            case 'error':
+              console.error(red(log.message))
+              break
+            case 'warning':
+              console.warn(yellow(log.message))
+              break
+            case 'info':
+              console.info(cyan(log.message))
+              break
+            default:
+              console.log(cyan(log.message))
+          }
+        }
+      })
+    }
+
+    return response
+  },
 }
 
 function formatResult(
@@ -118,3 +154,5 @@ function formatResult(
   result += '</terminal_command_result>'
   return result
 }
+
+export { handleBrowserInstruction } from './browser-runner'

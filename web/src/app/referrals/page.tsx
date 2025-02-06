@@ -119,12 +119,8 @@ const ReferralsPage = () => {
         <CardHeader>
           <CardTitle>Your Referrals</CardTitle>
           <CardDescription>
-            <div className="flex justify-between items-center">
-              <p>
-                Refer a friend and <b>you&apos;ll both</b> earn{' '}
-                {CREDITS_REFERRAL_BONUS} credits per month!{' '}
-              </p>
-            </div>
+            Refer a friend and <b>you&apos;ll both</b> earn{' '}
+            {CREDITS_REFERRAL_BONUS} credits per month!{' '}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -150,70 +146,68 @@ const ReferralsPage = () => {
                 data: P.not(undefined),
               },
               ({ data }) => (
-                <CardContent className="flex flex-col space-y-6">
+                <CardContent>
                   <div className="flex flex-col space-y-4">
-                    <div className="flex flex-col space-y-4">
-                      <p>Share this link with them:</p>
-                      <div className="relative">
-                        {loading ? (
-                          <Skeleton className="h-10 w-full" />
-                        ) : (
-                          <Input
-                            value={link}
-                            placeholder={'Your referral link'}
-                            readOnly
-                            className="bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-                          />
-                        )}
-                        <Button
-                          onClick={() => copyReferral(link)}
-                          disabled={loading || !session?.user}
-                          className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
-                          variant="ghost"
-                        >
-                          <CopyIcon className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <p className="mb-2">
-                    You&apos;ve referred{' '}
-                    <b>
-                      {data.referrals.length}/{data.referralLimit}
-                    </b>{' '}
-                    people.{' '}
-                    <Button
-                      variant="link"
-                      className="p-0 m-0 inline-flex"
-                      asChild
-                    >
-                      <a
-                        href={`https://codebuff.retool.com/form/e6c62a73-03b1-4ef3-8ab1-eba416ce7187?email=${session?.user?.email}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                    <div>Share this link with them:</div>
+                    <div className="relative">
+                      {loading ? (
+                        <Skeleton className="h-10 w-full" />
+                      ) : (
+                        <Input
+                          value={link}
+                          placeholder={'Your referral link'}
+                          readOnly
+                          className="bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                        />
+                      )}
+                      <Button
+                        onClick={() => copyReferral(link)}
+                        disabled={loading || !session?.user}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
+                        variant="ghost"
                       >
-                        (Wanna refer more? 🚀)
-                      </a>
-                    </Button>
-                  </p>
-                  {data.referrals.length !== 0 && (
-                    <ul className="space-y-2">
-                      {data.referrals.map((r) => (
-                        <li
-                          key={r.id}
-                          className="flex justify-between items-center"
+                        <CopyIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      You&apos;ve referred{' '}
+                      <b>
+                        {data.referrals.length}/{data.referralLimit}
+                      </b>{' '}
+                      people.{' '}
+                      <Button
+                        variant="link"
+                        className="p-0 m-0 inline-flex"
+                        asChild
+                      >
+                        <a
+                          href={`https://codebuff.retool.com/form/e6c62a73-03b1-4ef3-8ab1-eba416ce7187?email=${session?.user?.email}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
                         >
-                          <span>
-                            {r.name} ({r.email})
-                          </span>
-                          {CreditsBadge(CREDITS_REFERRAL_BONUS)}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                          (Wanna refer more? 🚀)
+                        </a>
+                      </Button>
+                    </div>
+                    {data.referrals.length !== 0 && (
+                      <ul className="space-y-2">
+                        {data.referrals.map((r) => (
+                          <li
+                            key={r.id}
+                            className="flex justify-between items-center"
+                          >
+                            <span>
+                              {r.name} ({r.email})
+                            </span>
+                            {CreditsBadge(CREDITS_REFERRAL_BONUS)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </CardContent>
               )
             )

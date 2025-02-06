@@ -7,6 +7,43 @@ import { createPatch } from 'diff'
 import { green } from 'picocolors'
 import { Worker } from 'worker_threads'
 
+import { ensureDirectoryExists } from 'common/util/file'
+import { CONFIG_DIR } from './credentials'
+
+// Global variables for chat management
+// Initialize chat ID on first import
+export const currentChatId = new Date().toISOString().replace(/:/g, '-')
+
+// Get the project-specific data directory
+export function getProjectDataDir(): string {
+  const root = getProjectRoot()
+  if (!root) {
+    throw new Error('Project root not set. Call setProjectRoot() first.')
+  }
+
+  const baseName = path.basename(root)
+  const baseDir = path.join(CONFIG_DIR, 'projects', baseName)
+
+  // If directory doesn't exist or matches our path, use simple name
+  if (!fs.existsSync(baseDir) || fs.realpathSync(baseDir) === baseDir) {
+    return baseDir
+  }
+
+  // Only add hash if we have a collision
+  const projectHash = require('crypto')
+    .createHash('sha256')
+    .update(root)
+    .digest('hex')
+    .slice(0, 8)
+  return path.join(CONFIG_DIR, 'projects', `${baseName}-${projectHash}`)
+}
+
+export function getCurrentChatDir(): string {
+  const dir = path.join(getProjectDataDir(), 'chats', currentChatId)
+  ensureDirectoryExists(dir)
+  return dir
+}
+
 import {
   createFileBlock,
   FileVersion,
@@ -190,6 +227,11 @@ export function getFiles(filePaths: string[]) {
   const ig = parseGitignore(projectRoot)
 
   for (const filePath of filePaths) {
+    if (!filePath) {
+      result[filePath] = '[INVALID_FILE_PATH]'
+      continue
+    }
+
     // Convert absolute paths within project to relative paths
     const relativePath = filePath.startsWith(projectRoot)
       ? path.relative(projectRoot, filePath)
