@@ -2,7 +2,6 @@ import {
   ProjectFileContext,
   createFileBlock,
   createMarkdownFileBlock,
-  createSearchReplaceBlock,
 } from 'common/util/file'
 import { buildArray } from 'common/util/array'
 import { truncateString } from 'common/util/string'
@@ -721,8 +720,7 @@ If not all of these questions are a strong yes, don't change any knowledge files
 
 Otherwise, you should update a knowledge file with <edit_file> blocks to capture the new information. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
 
-When you are updating an existing knowledge file, please do not remove previous knowledge file content. Instead, either reproduce the entire file with your additions or use SEARCH/REPLACE edits to insert new lines into the existing file.
-
+When you are updating an existing knowledge file, please do not remove previous knowledge file content. Instead, reproduce the entire file with your additions though it is recommended that you use placeholder comments like "... existing content ..." to indicate sections that haven't changed.
 `
     : ''
 }
