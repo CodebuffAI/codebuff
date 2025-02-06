@@ -288,10 +288,23 @@ export class BrowserRunner {
       }
 
       this.browser = await puppeteer.launch({
-        defaultViewport: { width: 1280, height: 720 },
+        defaultViewport: { width: 1200, height: 800 },
         headless: BROWSER_DEFAULTS.headless,
         userDataDir,
-        args: ['--no-sandbox', '--restore-last-session=false'],
+        waitForInitialPage: true,
+        args: [
+          '--window-size=1200,800',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-breakpad',
+          '--disable-sync',
+          '--no-sandbox',
+          '--no-first-run',
+          '--disable-session-crashed-bubble',
+          '--disable-restore-session-state',
+          '--hide-crash-restore-bubble',
+          '--noerrdialogs',
+          '--disable-infobars',
+        ],
         executablePath: findChrome(),
       })
     } catch (error) {
@@ -315,14 +328,8 @@ export class BrowserRunner {
       source: 'tool',
     })
 
-    // Close all blank pages
-    let pages = await this.browser.pages()
-    await Promise.all(
-      pages.filter((p) => p.url() === 'about:blank').map((p) => p.close())
-    )
-
     // Pick the first existing page or create a new one
-    pages = await this.browser.pages()
+    const pages = await this.browser.pages()
     this.page = pages.length > 0 ? pages[0] : await this.browser.newPage()
     this.attachPageListeners()
     await sleep(500)
