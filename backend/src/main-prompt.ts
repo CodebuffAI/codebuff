@@ -223,11 +223,8 @@ export async function mainPrompt(
               fingerprintId,
               userInputId,
               ws,
-              messages,
-              fullResponse,
               path,
               filePathWithoutStartNewline,
-              costMode,
               userId
             ).catch((error) => {
               logger.error(error, 'Error processing file block')

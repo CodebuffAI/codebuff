@@ -13,7 +13,7 @@ import { promptClaude } from './claude'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { getSearchSystemPrompt } from './system-prompt'
 import { hasLazyEdit } from 'common/util/string'
-import { applyRemainingChanges } from './process-file-block'
+import { fastRewrite } from './process-file-block'
 import { requestFiles } from './websockets/websocket-action'
 
 const systemPrompt = `
@@ -124,17 +124,14 @@ async function processFileBlock(
   }
 
   if (hasLazyEdit(newContent)) {
-    const updatedContent = await applyRemainingChanges(
+    const updatedContent = await fastRewrite(
       oldContent,
       newContent,
       filePath,
-      fullResponse,
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId,
-      costMode,
-      true // hasLazyEdit = true
+      userId
     )
     return { filePath, content: updatedContent, type: 'file' }
   }
