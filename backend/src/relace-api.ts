@@ -23,7 +23,8 @@ export async function promptRelaceAI(
   const startTime = Date.now()
   try {
     const response = (await Promise.race([
-      fetch('https://instantapply.endpoint.relace.run/v1/code/apply', {
+      // https://instantapply.endpoint.relace.run/v1/code/apply'
+      fetch('https://instantapplysmart.endpoint.relace.run/v1/code/apply', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -35,7 +36,7 @@ export async function promptRelaceAI(
           stream: false,
         }),
       }),
-      timeoutPromise(200_000),
+      timeoutPromise(100_000),
     ])) as Response
 
     if (!response.ok) {
