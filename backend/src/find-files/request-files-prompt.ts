@@ -121,7 +121,9 @@ export async function requestRelevantFiles(
 
   // Filter out irrelevant files
   const filteredFiles = await filterIrrelevantFiles(
+    previousFiles,
     files,
+    messagesExcludingLastIfByUser,
     userPrompt,
     clientSessionId,
     fingerprintId,
@@ -336,27 +338,27 @@ async function getRelevantFiles(
   ]
   const start = performance.now()
   let response: string
-  if (costMode === 'lite') {
-    response = await promptGemini(
-      messagesWithSystem(messagesWithPrompt, system),
-      {
-        model: models.gemini2flash,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      }
-    )
-  } else {
-    response = await promptClaude(messagesWithPrompt, {
-      model: getModelForMode(costMode, 'file-requests') as AnthropicModel,
-      system,
+  // if (costMode === 'lite') {
+  response = await promptGemini(
+    messagesWithSystem(messagesWithPrompt, system),
+    {
+      model: models.gemini2flash,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId,
-    })
-  }
+    }
+  )
+  // } else {
+  //   response = await promptClaude(messagesWithPrompt, {
+  //     model: getModelForMode(costMode, 'file-requests') as AnthropicModel,
+  //     system,
+  //     clientSessionId,
+  //     fingerprintId,
+  //     userInputId,
+  //     userId,
+  //   })
+  // }
   const end = performance.now()
   const duration = end - start
 
@@ -656,7 +658,9 @@ export const warmCacheForRequestRelevantFiles = async (
 }
 
 async function filterIrrelevantFiles(
+  previousFiles: string[],
   candidateFiles: string[],
+  messagesExcludingLastIfByUser: Message[],
   userRequest: string,
   clientSessionId: string,
   fingerprintId: string,
@@ -665,7 +669,6 @@ async function filterIrrelevantFiles(
   ws: WebSocket
 ): Promise<string[]> {
   const startTime = performance.now()
-  let fileListString = ''
 
   // Load all files via websocket
   const fileContents = await requestFiles(ws, candidateFiles)
@@ -675,7 +678,7 @@ async function filterIrrelevantFiles(
   for (const [file, content] of Object.entries(fileContents)) {
     if (typeof content === 'string') {
       // Check length first since it's cheaper than counting tokens
-      if (content.length > 160_000) {
+      if (content.length > 200_000) {
         logger.info(
           { file, length: content.length },
           'Skipping large file based on length'
@@ -683,7 +686,6 @@ async function filterIrrelevantFiles(
         continue
       }
 
-      // Only count tokens if length check passes
       const tokens = countTokens(content)
       if (tokens > 40_000) {
         logger.info(
@@ -696,7 +698,6 @@ async function filterIrrelevantFiles(
       filteredContents[file] = content
     }
   }
-
   // If no files passed the size filter, return original list
   if (Object.keys(filteredContents).length === 0) {
     logger.info(
@@ -709,22 +710,43 @@ async function filterIrrelevantFiles(
   }
 
   // Build markdown blocks for each file
+  let prevFilesString = ''
+  for (const [filePath, content] of Object.entries(previousFiles)) {
+    prevFilesString += createMarkdownFileBlock(filePath, content) + '\n\n'
+  }
+
+  let fileListString = ''
   for (const [file, content] of Object.entries(filteredContents)) {
     fileListString += createMarkdownFileBlock(file, content) + '\n\n'
   }
 
   const prompt = `
-Given the following file contents and the user request, list on new lines the file paths of files that are NOT relevant to the user's request. Provide only the file paths, without any commentary.
+<codebase_context>
+${prevFilesString}
+</codebase_context>
 
-You should try to keep any and all files that could help with generating the best possible response. Sometimes you need to understand dependencies or second-order files to generate the best possible response. Only list the files that are not relevant at all to the user's request.
+<message_history>
+${messagesExcludingLastIfByUser.map((m) => `${m.role}: ${m.content}`).join('\n')}
+</message_history>
 
-Files:
+Given the below files to prune and the user request, list on new lines the file paths of files that are NOT relevant to the user's request. Provide only the file paths, without any commentary.
+
+You should try to keep any and all files that could help with generating the best possible response. A file that initially seems not relevant may actually be relevant if it:
+- Contains example code that is similar to what is needed to fulfill the user request
+- Shows codebase patterns that are relevant
+- Contains dependencies, utilities, helpers, or tests that might be needed and where seeing the source code would help
+- Needs to be modified to fulfill the user request. Consider including files that are likely frequently modified
+- Contains information about how the codebase is organized that is relevant
+
+There's a high bar for filtering out files!
+
+<files_to_prune>
 ${fileListString}
+</files_to_prune>
 
-User request:
 <user_request>${userRequest}</user_request>
 
-Only list the file paths that should be filtered out, with new lines between each file path.
+Only list the file paths that are not relevant to the user's request, with new lines between each file path.
   `.trim()
 
   let response: string
