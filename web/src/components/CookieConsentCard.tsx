@@ -12,10 +12,10 @@ export function CookieConsentCard() {
   const { reinitialize } = usePostHog()
 
   useEffect(() => {
-    const consent = localStorage.getItem('cookieConsent')
-    if (!consent) {
-      setVisible(true)
-    }
+    // const consent = localStorage.getItem('cookieConsent')
+    // if (!consent) {
+    //   setVisible(true)
+    // }
 
     const handleScroll = () => {
       const scrollPosition = window.scrollY
@@ -56,7 +56,8 @@ export function CookieConsentCard() {
       <Card className="bg-background/80 backdrop-blur-sm">
         <CardContent className="flex flex-col gap-3 p-4">
           <p className="text-xs text-muted-foreground">
-            We use cookies to enhance your experience. By clicking "Accept", you agree to our use of cookies.
+            We use cookies to enhance your experience. By clicking "Accept", you
+            agree to our use of cookies.
           </p>
           <div className="flex gap-2 justify-end">
             <Button
@@ -67,9 +68,9 @@ export function CookieConsentCard() {
             >
               Decline
             </Button>
-            <Button 
-              size="xs" 
-              onClick={handleAccept} 
+            <Button
+              size="xs"
+              onClick={handleAccept}
               className="text-xs h-7 px-2"
             >
               Accept
