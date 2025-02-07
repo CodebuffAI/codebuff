@@ -207,6 +207,7 @@ Notes for editing a file:
 - You should abridge the content of the file using placeholder comments like: // ... existing code ... or # ... existing code ... (or whichever is appropriate for the language). Placeholder comments signify sections that should not be changed from the existing file. Using placeholder comments for unchanged code is preferred because it is more concise and clearer. Try to minimize the number of lines you write out in edit blocks by relying on placeholder comments.
 - If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
 - Similarly, you can create new files by specifying a new file path and including the entire content of the file.
+- When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
 
 After you have written out an edit_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the edit_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new edit_file block to fix the mistake.
 
