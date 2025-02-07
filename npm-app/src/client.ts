@@ -50,6 +50,7 @@ import { stagePatches } from 'common/util/git'
 import { GitCommand } from './types'
 import { displayGreeting } from './menu'
 import { spawn } from 'child_process'
+import { Spinner } from './utils/spinner'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -287,8 +288,10 @@ export class Client {
         assistantMessage
       )
 
+      Spinner.get().start()
       const handler = toolHandlers[name]
       if (handler) {
+        Spinner.get().stop()
         const content = await handler(input, id)
         const toolResultMessage: Message = {
           role: 'user',
@@ -503,6 +506,7 @@ export class Client {
   }
 
   async sendUserInput(previousChanges: FileChanges, userInputId: string) {
+    Spinner.get().start()
     this.currentUserInputId = userInputId
     const currentChat = this.chatStorage.getCurrentChat()
     const { messages, fileVersions: messageFileVersions } = currentChat

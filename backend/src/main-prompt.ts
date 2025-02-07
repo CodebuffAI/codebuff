@@ -334,7 +334,7 @@ export async function mainPrompt(
 
       onResponseChunk(`\nRelevant files:\n${existingFilePaths.join(' ')}\n`)
       fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
-      onResponseChunk(`\nThinking deeply (can take a minute)...\n\n`)
+      onResponseChunk(`\nThinking deeply (can take a minute!)`)
 
       logger.debug({ prompt, filePaths, existingFilePaths }, 'Thinking deeply')
       const planningStart = Date.now()
@@ -355,7 +355,7 @@ export async function mainPrompt(
         )
       fileProcessingPromises.push(...promises)
       // For now, don't print the plan to the user.
-      // onResponseChunk(`${plan}\n\n`)
+      // onResponseChunk(`${response}\n\n`)
       fullResponse += response + '\n\n'
       logger.debug(
         {
@@ -552,7 +552,7 @@ export async function mainPrompt(
   }
 
   if (fileProcessingPromises.length > 0) {
-    onResponseChunk('\nApplying file changes. Please wait...\n')
+    onResponseChunk('\nApplying file changes, please wait.\n')
   }
 
   const changes = (await Promise.all(fileProcessingPromises)).filter(
@@ -620,7 +620,7 @@ function getExtraInstructionForUserPrompt(
 
 function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
   const readFilesMessage =
-    (isFirstTime ? 'Reading files...\n' : 'Reading additional files...\n') +
+    (isFirstTime ? 'Reading files:\n' : 'Reading additional files:\n') +
     `${filePaths
       .slice(0, 3)
       .map((path) => `- ${path}`)
