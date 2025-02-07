@@ -1,9 +1,10 @@
+import { WebSocket } from 'ws'
 import { range, shuffle, uniq } from 'lodash'
 import { dirname, isAbsolute, normalize, join } from 'path'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { Message } from 'common/actions'
-import { ProjectFileContext } from 'common/util/file'
+import { ProjectFileContext, createMarkdownFileBlock } from 'common/util/file'
 import { AnthropicModel } from 'common/constants'
 import { promptClaude, System } from '../claude'
 import { getModelForMode, type CostMode } from 'common/constants'
@@ -14,6 +15,8 @@ import { OpenAIMessage, promptOpenAI } from '../openai-api'
 import { promptDeepseek } from '../deepseek-api'
 import { messagesWithSystem } from '@/util/messages'
 import { promptGemini } from '../gemini-api'
+import { requestFiles } from '../websockets/websocket-action'
+import { countTokens } from '../util/token-counter'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 
@@ -31,7 +34,8 @@ export async function requestRelevantFiles(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode
+  costMode: CostMode,
+  ws: WebSocket
 ) {
   const { fileVersions } = fileContext
   const previousFiles = uniq(
@@ -100,21 +104,9 @@ export async function requestRelevantFiles(
   }
 
   const results = await fileRequestsPromise
-  const files = results.flatMap((result) => result.files)
+  const candidateFiles = results.flatMap((result) => result.files)
 
-  logger.info(
-    {
-      files,
-      previousFiles,
-      results,
-      newFilesNecessary,
-      newFilesNecessaryResponse,
-      newFilesNecessaryDuration,
-    },
-    'requestRelevantFiles: Results'
-  )
-
-  return uniq(files)
+  const files = uniq(candidateFiles)
     .filter((p) => {
       if (isAbsolute(p)) return false
       if (p.includes('..')) return false
@@ -126,6 +118,32 @@ export async function requestRelevantFiles(
       }
     })
     .map((p) => (p.startsWith('/') ? p.slice(1) : p))
+
+  // Filter out irrelevant files
+  const filteredFiles = await filterIrrelevantFiles(
+    files,
+    userPrompt,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    ws
+  )
+
+  logger.info(
+    {
+      filteredFiles,
+      originalFiles: files,
+      previousFiles,
+      results,
+      newFilesNecessary,
+      newFilesNecessaryResponse,
+      newFilesNecessaryDuration,
+    },
+    'requestRelevantFiles: Results'
+  )
+
+  return filteredFiles
 }
 
 async function generateFileRequests(
@@ -635,4 +653,90 @@ export const warmCacheForRequestRelevantFiles = async (
   await promise.catch((error) => {
     logger.error(error, 'Error warming cache for requestRelevantFiles')
   })
+}
+
+async function filterIrrelevantFiles(
+  candidateFiles: string[],
+  userRequest: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined,
+  ws: WebSocket
+): Promise<string[]> {
+  let fileListString = ''
+
+  // Load all files via websocket
+  const fileContents = await requestFiles(ws, candidateFiles)
+
+  // Filter out large files and build content string
+  const filteredContents: Record<string, string> = {}
+  for (const [file, content] of Object.entries(fileContents)) {
+    if (typeof content === 'string') {
+      // Skip files larger than 160,000 chars or 40,000 tokens
+      if (content.length > 160_000 || countTokens(content) > 40_000) {
+        logger.info(
+          { file, length: content.length, tokens: countTokens(content) },
+          'Skipping large file'
+        )
+        continue
+      }
+      filteredContents[file] = content
+    }
+  }
+
+  // Build markdown blocks for each file
+  for (const [file, content] of Object.entries(filteredContents)) {
+    fileListString += createMarkdownFileBlock(file, content) + '\n\n'
+  }
+
+  const prompt = `
+Given the following file contents and the user request, list on new lines the file paths of files that are NOT relevant to the user's request. Provide only the file paths, without any commentary.
+
+User request:
+<user_request>${userRequest}</user_request>
+
+Files:
+${fileListString}
+
+Only list the file paths that should be filtered out.
+  `.trim()
+
+  let response: string
+  try {
+    response = await promptGemini([{ role: 'user', content: prompt }], {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: models.gemini2flash,
+      userId,
+    })
+  } catch (e) {
+    logger.error(
+      { error: e, candidateCount: candidateFiles.length },
+      'Error filtering files with Gemini'
+    )
+    return candidateFiles
+  }
+
+  const irrelevantFiles = response
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+
+  if (irrelevantFiles.length > 0) {
+    logger.info(
+      {
+        filtered: irrelevantFiles,
+        remaining: candidateFiles.length - irrelevantFiles.length,
+        total: candidateFiles.length,
+      },
+      'Filtered out irrelevant files'
+    )
+  }
+
+  const filtered = candidateFiles.filter(
+    (file) => !irrelevantFiles.includes(file)
+  )
+  return filtered
 }

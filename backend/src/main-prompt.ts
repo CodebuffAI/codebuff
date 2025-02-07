@@ -694,7 +694,8 @@ async function getFileVersionUpdates(
         fingerprintId,
         userInputId,
         userId,
-        costMode
+        costMode,
+        ws as any // Type cast to avoid DOM WebSocket vs ws WebSocket mismatch
       )) ??
       []
 
