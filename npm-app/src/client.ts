@@ -50,6 +50,7 @@ import { stagePatches } from 'common/util/git'
 import { GitCommand } from './types'
 import { displayGreeting } from './menu'
 import { spawn } from 'child_process'
+import { Spinner } from './utils/spinner'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -289,6 +290,7 @@ export class Client {
 
       const handler = toolHandlers[name]
       if (handler) {
+        Spinner.get().stop()
         const content = await handler(input, id)
         const toolResultMessage: Message = {
           role: 'user',
@@ -571,6 +573,7 @@ export class Client {
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
+      Spinner.get().stop()
 
       if (!streamStarted && chunk.trim()) {
         streamStarted = true

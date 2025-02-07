@@ -2,15 +2,19 @@ import { green } from 'picocolors'
 import * as readline from 'readline'
 
 const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+
 export class Spinner {
-  private static instance: Spinner
+  private static instance: Spinner | null = null
   private loadingInterval: NodeJS.Timeout | null = null
 
-  private constructor() {
-    process.on('exit', () => this.restoreCursor())
-  }
+  private constructor() {}
 
-  static get = () => (Spinner.instance ??= new Spinner())
+  public static get(): Spinner {
+    if (!Spinner.instance) {
+      Spinner.instance = new Spinner()
+    }
+    return Spinner.instance
+  }
 
   start() {
     if (this.loadingInterval) {
