@@ -674,15 +674,25 @@ async function filterIrrelevantFiles(
   for (const [file, content] of Object.entries(fileContents)) {
     if (typeof content === 'string') {
       // Skip files larger than 160,000 chars or 40,000 tokens
-      if (content.length > 160_000 || countTokens(content) > 40_000) {
+      const tokens = countTokens(content)
+      if (content.length > 160_000 || tokens > 40_000) {
         logger.info(
-          { file, length: content.length, tokens: countTokens(content) },
+          { file, length: content.length, tokens },
           'Skipping large file'
         )
         continue
       }
       filteredContents[file] = content
     }
+  }
+
+  // If no files passed the size filter, return original list
+  if (Object.keys(filteredContents).length === 0) {
+    logger.info(
+      { candidateCount: candidateFiles.length },
+      'No files passed size filter, returning original list'
+    )
+    return candidateFiles
   }
 
   // Build markdown blocks for each file
