@@ -215,7 +215,7 @@ export async function mainPrompt(
           return `<edit_file path="${path}">`
         },
         onTagEnd: (fileContent, { path }) => {
-          const filePathWithoutStartNewline = fileContent.startsWith('\n')
+          const fileContentWithoutStartNewline = fileContent.startsWith('\n')
             ? fileContent.slice(1)
             : fileContent
           fileProcessingPromises.push(
@@ -225,7 +225,9 @@ export async function mainPrompt(
               userInputId,
               ws,
               path,
-              filePathWithoutStartNewline,
+              fileContentWithoutStartNewline,
+              messages,
+              fullResponse,
               userId,
               typeof lastUserMessage?.content === 'string'
                 ? lastUserMessage.content
