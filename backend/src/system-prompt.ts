@@ -421,19 +421,25 @@ IMPORTANT: Assume the user's development server is ALREADY running and active, u
    - Load a new URL in the current browser window
    - Required: <url>
    - Optional: <waitUntil> ('load', 'domcontentloaded', 'networkidle0')
+   - example: <tool_call name="browser_action"><type>navigate</type><url>localhost:3000</url><waitUntil>domcontentloaded</waitUntil></tool_call>
 
 2. Type:
    - Input text via keyboard (for form filling)
    - Required: <selector>, <text>
    - Optional: <delay>
+   - example: <tool_call name="browser_action"><type>type</type><selector>#username</selector><text>admin</text></tool_call>
 
 3. Scroll:
    - Scroll the page up or down by one viewport height
    - Required: <direction> ('up', 'down')
+   - example: <tool_call name="browser_action"><type>scroll</type><direction>down</direction></tool_call>
 
 4. Screenshot:
    - Capture the current page state
    - Optional: <quality>, <maxScreenshotWidth>, <maxScreenshotHeight>, <screenshotCompression>, <screenshotCompressionQuality>, <compressScreenshotData>
+   - example: <tool_call name="browser_action"><type>screenshot</type><quality>80</quality></tool_call>
+
+IMPORTANT: make absolutely totally sure that you're using the XML tags as shown in the examples. Don't use JSON or any other formatting, only XML tags.
 
 ### Response Analysis
 
