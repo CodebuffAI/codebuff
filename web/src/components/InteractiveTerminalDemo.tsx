@@ -324,7 +324,7 @@ const InteractiveTerminalDemo = () => {
           {data.message}
         </TerminalOutput>,
         <TerminalOutput key={`resp-2-${Date.now()}`}>
-          nApplying file changes, please wait.
+          Applying file changes, please wait.
         </TerminalOutput>,
         <TerminalOutput key={`resp-3-${Date.now()}`}>
           <p className="text-green-400">- Updated web/src/app/page.tsx</p>
@@ -406,7 +406,7 @@ const InteractiveTerminalDemo = () => {
             Sure, let's switch to a more {nextTheme} theme... ✨
           </TerminalOutput>,
           <TerminalOutput key={`fix-1-${Date.now()}`}>
-            <p>nApplying file changes, please wait...</p>
+            <p>Applying file changes, please wait...</p>
             <p className="text-green-400">
               - Updated web/src/components/app.tsx
             </p>
@@ -428,7 +428,7 @@ const InteractiveTerminalDemo = () => {
               I'll add proper punctuation and improve the code style.
             </TerminalOutput>,
             <TerminalOutput key={`fix-3-${Date.now()}`}>
-              <p>nApplying file changes, please wait...</p>
+              <p>Applying file changes, please wait...</p>
               <p className="text-green-400">
                 - Updated web/src/components/app.tsx
               </p>
