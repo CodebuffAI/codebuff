@@ -288,6 +288,7 @@ export class Client {
         assistantMessage
       )
 
+      Spinner.get().start()
       const handler = toolHandlers[name]
       if (handler) {
         Spinner.get().stop()
@@ -505,6 +506,7 @@ export class Client {
   }
 
   async sendUserInput(previousChanges: FileChanges, userInputId: string) {
+    Spinner.get().start()
     this.currentUserInputId = userInputId
     const currentChat = this.chatStorage.getCurrentChat()
     const { messages, fileVersions: messageFileVersions } = currentChat
@@ -573,7 +575,6 @@ export class Client {
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
-      Spinner.get().stop()
 
       if (!streamStarted && chunk.trim()) {
         streamStarted = true

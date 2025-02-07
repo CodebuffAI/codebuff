@@ -618,7 +618,7 @@ function getExtraInstructionForUserPrompt(
 
 function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
   const readFilesMessage =
-    (isFirstTime ? 'Reading files...\n' : 'Reading additional files...\n') +
+    (isFirstTime ? 'Reading files:\n' : 'Reading additional files:\n') +
     `${filePaths
       .slice(0, 3)
       .map((path) => `- ${path}`)

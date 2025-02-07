@@ -386,7 +386,9 @@ export class CLI {
 
     const { responsePromise, stopResponse } = this.client.subscribeToResponse(
       (chunk) => {
+        Spinner.get().stop()
         process.stdout.write(chunk)
+        Spinner.get().start()
       },
       userInputId,
       () => {
