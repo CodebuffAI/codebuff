@@ -324,7 +324,7 @@ const InteractiveTerminalDemo = () => {
           {data.message}
         </TerminalOutput>,
         <TerminalOutput key={`resp-2-${Date.now()}`}>
-          Applying file changes. Please wait...
+          nApplying file changes, please wait.
         </TerminalOutput>,
         <TerminalOutput key={`resp-3-${Date.now()}`}>
           <p className="text-green-400">- Updated web/src/app/page.tsx</p>
@@ -406,7 +406,7 @@ const InteractiveTerminalDemo = () => {
             Sure, let's switch to a more {nextTheme} theme... ✨
           </TerminalOutput>,
           <TerminalOutput key={`fix-1-${Date.now()}`}>
-            <p>Applying file changes. Please wait...</p>
+            <p>nApplying file changes, please wait...</p>
             <p className="text-green-400">
               - Updated web/src/components/app.tsx
             </p>
@@ -428,7 +428,7 @@ const InteractiveTerminalDemo = () => {
               I'll add proper punctuation and improve the code style.
             </TerminalOutput>,
             <TerminalOutput key={`fix-3-${Date.now()}`}>
-              <p>Applying file changes. Please wait...</p>
+              <p>nApplying file changes, please wait...</p>
               <p className="text-green-400">
                 - Updated web/src/components/app.tsx
               </p>
@@ -446,7 +446,8 @@ const InteractiveTerminalDemo = () => {
       })
   }
 
-  return (      <div className="flex flex-col lg:flex-row gap-4">
+  return (
+    <div className="flex flex-col lg:flex-row gap-4">
       <div className="w-full lg:w-1/2 h-full flex">
         <div className="w-full text-sm">
           <div className="h-[200px] md:h-[400px] lg:h-[800px]">
