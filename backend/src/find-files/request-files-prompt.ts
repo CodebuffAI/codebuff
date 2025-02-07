@@ -664,6 +664,7 @@ async function filterIrrelevantFiles(
   userId: string | undefined,
   ws: WebSocket
 ): Promise<string[]> {
+  const startTime = performance.now()
   let fileListString = ''
 
   // Load all files via websocket
@@ -681,7 +682,7 @@ async function filterIrrelevantFiles(
         )
         continue
       }
-      
+
       // Only count tokens if length check passes
       const tokens = countTokens(content)
       if (tokens > 40_000) {
@@ -691,7 +692,7 @@ async function filterIrrelevantFiles(
         )
         continue
       }
-      
+
       filteredContents[file] = content
     }
   }
@@ -699,7 +700,9 @@ async function filterIrrelevantFiles(
   // If no files passed the size filter, return original list
   if (Object.keys(filteredContents).length === 0) {
     logger.info(
-      { candidateCount: candidateFiles.length },
+      {
+        candidateCount: candidateFiles.length,
+      },
       'No files passed size filter, returning original list'
     )
     return candidateFiles
@@ -713,13 +716,15 @@ async function filterIrrelevantFiles(
   const prompt = `
 Given the following file contents and the user request, list on new lines the file paths of files that are NOT relevant to the user's request. Provide only the file paths, without any commentary.
 
-User request:
-<user_request>${userRequest}</user_request>
+You should try to keep any and all files that could help with generating the best possible response. Sometimes you need to understand dependencies or second-order files to generate the best possible response. Only list the files that are not relevant at all to the user's request.
 
 Files:
 ${fileListString}
 
-Only list the file paths that should be filtered out.
+User request:
+<user_request>${userRequest}</user_request>
+
+Only list the file paths that should be filtered out, with new lines between each file path.
   `.trim()
 
   let response: string
@@ -732,8 +737,13 @@ Only list the file paths that should be filtered out.
       userId,
     })
   } catch (e) {
+    const endTime = performance.now()
     logger.error(
-      { error: e, candidateCount: candidateFiles.length },
+      {
+        error: e,
+        candidateCount: candidateFiles.length,
+        duration: endTime - startTime,
+      },
       'Error filtering files with Gemini'
     )
     return candidateFiles
@@ -744,12 +754,14 @@ Only list the file paths that should be filtered out.
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
 
+  const endTime = performance.now()
   if (irrelevantFiles.length > 0) {
     logger.info(
       {
         filtered: irrelevantFiles,
         remaining: candidateFiles.length - irrelevantFiles.length,
         total: candidateFiles.length,
+        duration: endTime - startTime,
       },
       'Filtered out irrelevant files'
     )
