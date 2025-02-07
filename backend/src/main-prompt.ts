@@ -36,8 +36,6 @@ import {
   loadFilesForPlanning,
   planComplexChange,
 } from './planning'
-import { promptDeepseekStream } from './deepseek-api'
-import { messagesWithSystem } from '@/util/messages'
 
 export async function mainPrompt(
   ws: WebSocket,
@@ -711,13 +709,10 @@ async function getFileVersionUpdates(
     if (content === undefined) return false
     if (content === null) return true
     const tokenCount = countTokens(content)
-    if (i === 0) {
-      return tokenCount < 40_000
-    }
     if (i < 5) {
-      return tokenCount < 25_000 - i * 5_000
+      return tokenCount < 50_000 - i * 10_000
     }
-    return tokenCount < 5_000
+    return tokenCount < 10_000
   })
   const newFiles = difference(filteredRequestedFiles, previousFilePaths)
 
