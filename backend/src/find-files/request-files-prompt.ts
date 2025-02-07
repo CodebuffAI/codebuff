@@ -673,15 +673,25 @@ async function filterIrrelevantFiles(
   const filteredContents: Record<string, string> = {}
   for (const [file, content] of Object.entries(fileContents)) {
     if (typeof content === 'string') {
-      // Skip files larger than 160,000 chars or 40,000 tokens
-      const tokens = countTokens(content)
-      if (content.length > 160_000 || tokens > 40_000) {
+      // Check length first since it's cheaper than counting tokens
+      if (content.length > 160_000) {
         logger.info(
-          { file, length: content.length, tokens },
-          'Skipping large file'
+          { file, length: content.length },
+          'Skipping large file based on length'
         )
         continue
       }
+      
+      // Only count tokens if length check passes
+      const tokens = countTokens(content)
+      if (tokens > 40_000) {
+        logger.info(
+          { file, tokens },
+          'Skipping large file based on token count'
+        )
+        continue
+      }
+      
       filteredContents[file] = content
     }
   }
