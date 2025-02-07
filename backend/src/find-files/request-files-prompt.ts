@@ -1,19 +1,19 @@
 import { range, shuffle, uniq } from 'lodash'
-import { dirname, isAbsolute, normalize } from 'path'
+import { dirname, isAbsolute, normalize, join } from 'path'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
 import { Message } from 'common/actions'
 import { ProjectFileContext } from 'common/util/file'
 import { AnthropicModel } from 'common/constants'
-import { promptClaude, System } from './claude'
+import { promptClaude, System } from '../claude'
 import { getModelForMode, type CostMode } from 'common/constants'
 import { models } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
-import { logger } from './util/logger'
-import { OpenAIMessage, promptOpenAI } from './openai-api'
-import { promptDeepseek } from './deepseek-api'
+import { logger } from '../util/logger'
+import { OpenAIMessage, promptOpenAI } from '../openai-api'
+import { promptDeepseek } from '../deepseek-api'
 import { messagesWithSystem } from '@/util/messages'
-import { promptGemini } from './gemini-api'
+import { promptGemini } from '../gemini-api'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 
@@ -614,24 +614,24 @@ export const warmCacheForRequestRelevantFiles = async (
     //       userInputId,
     //       userId,
     //     })
-      // :
-      promptClaude(
-          [
-            {
-              role: 'user' as const,
-              content: 'hi',
-            },
-          ],
-          {
-            model: getModelForMode(costMode, 'file-requests') as AnthropicModel,
-            system,
-            clientSessionId,
-            fingerprintId,
-            userId,
-            userInputId,
-            maxTokens: 1,
-          }
-        )
+    // :
+    promptClaude(
+      [
+        {
+          role: 'user' as const,
+          content: 'hi',
+        },
+      ],
+      {
+        model: getModelForMode(costMode, 'file-requests') as AnthropicModel,
+        system,
+        clientSessionId,
+        fingerprintId,
+        userId,
+        userInputId,
+        maxTokens: 1,
+      }
+    )
   await promise.catch((error) => {
     logger.error(error, 'Error warming cache for requestRelevantFiles')
   })

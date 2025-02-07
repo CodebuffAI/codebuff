@@ -21,7 +21,7 @@ import { processFileBlock } from './process-file-block'
 import {
   requestRelevantFiles,
   warmCacheForRequestRelevantFiles,
-} from './request-files-prompt'
+} from './find-files/request-files-prompt'
 import { processStreamWithTags } from './process-stream'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
