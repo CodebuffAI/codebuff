@@ -204,8 +204,8 @@ Notes for editing a file:
 - You must specify a file path using the filePath attribute.
 - Do not wrap the updated file content in markdown code blocks. The xml tags are sufficient to indicate the file content.
 - You can edit multiple files in your response by including multiple edit_file blocks.
-- The content of the file can be abridged by using placeholder comments like: // ... existing code ... or # ... existing code ... (or whichever is appropriate for the language). In this case, the placeholder sections will not be changed. Only the written out code will be updated. Using placeholder comments for unchanged code is preferred because it is more concise.
-- If you don't use any placeholder comments (matched by a regex), the entire file will be replaced.
+- You should abridge the content of the file using placeholder comments like: // ... existing code ... or # ... existing code ... (or whichever is appropriate for the language). Placeholder comments signify sections that should not be changed from the existing file. Using placeholder comments for unchanged code is preferred because it is more concise and clearer. Try to minimize the number of lines you write out in edit blocks by relying on placeholder comments.
+- If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
 - Similarly, you can create new files by specifying a new file path and including the entire content of the file.
 
 After you have written out an edit_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the edit_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new edit_file block to fix the mistake.
