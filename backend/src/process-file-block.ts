@@ -3,9 +3,9 @@ import { createPatch } from 'diff'
 import { FileChange, Message } from 'common/actions'
 import { logger } from './util/logger'
 import { requestFile } from './websockets/websocket-action'
-import { createRelaceMessageId, promptRelaceAI } from './relace-api'
+import { promptRelaceAI } from './relace-api'
 import { cleanMarkdownCodeBlock, parseFileBlocks } from 'common/util/file'
-import { hasLazyEdit } from 'common/util/string'
+import { generateCompactId, hasLazyEdit } from 'common/util/string'
 import { countTokens } from './util/token-counter'
 import { promptClaude } from './claude'
 import { claudeModels, geminiModels } from 'common/constants'
@@ -250,7 +250,7 @@ export async function fastRewrite(
 ) {
   const startTime = Date.now()
 
-  const messageId = createRelaceMessageId()
+  const messageId = generateCompactId('cb-')
   const response = await promptRelaceAI(initialContent, editSnippet, {
     clientSessionId,
     fingerprintId,

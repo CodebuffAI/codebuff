@@ -92,12 +92,3 @@ export async function promptRelaceAI(
     throw error
   }
 }
-
-export function createRelaceMessageId() {
-  // Take last 24 bits of timestamp (enough for months) and 8 random bits
-  // Encode in base36 for very compact strings (~5-6 chars)
-  const timestamp = Date.now() & 0xffffff 
-  const random = Math.floor(Math.random() * 0xff)
-  const str = ((timestamp << 8) | random).toString(36).replace('-', '')  // Remove any negative sign
-  return `cb-${str}`
-}

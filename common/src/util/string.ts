@@ -204,3 +204,20 @@ export const transformJsonInString = <T = unknown>(
     return content.replace(match[0], `"${field}":${fallback}`)
   }
 }
+
+/**
+ * Generates a compact unique identifier by combining timestamp bits with random bits.
+ * Takes last 24 bits of timestamp (enough for months) and 8 random bits.
+ * Encodes in base36 for very compact strings (~5-6 chars).
+ * @param prefix Optional prefix to add to the ID
+ * @returns A unique string ID
+ * @example
+ * generateCompactId()      // => "1a2b3c"
+ * generateCompactId('msg-') // => "msg-1a2b3c"
+ */
+export const generateCompactId = (prefix?: string): string => {
+  const timestamp = Date.now() & 0xffffff  // Last 24 bits of timestamp
+  const random = Math.floor(Math.random() * 0xff)  // 8 random bits
+  const str = ((timestamp << 8) | random).toString(36).replace(/^-/, '')  // Remove leading dash if present
+  return prefix ? `${prefix}${str}` : str
+}
