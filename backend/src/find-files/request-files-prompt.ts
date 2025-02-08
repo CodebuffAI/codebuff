@@ -329,7 +329,6 @@ Please follow these steps to determine which key files to request:
 4. Order the files by most important first.
 
 Please exclude the following files from your response:
-- Test files (*.test.ts, *.spec.ts, or the equivalent in other languages) as these are handled by a separate request.
 - Knowledge files, i.e. any files with 'knowledge.md' in the file name. These files are selected independently.
 
 Please provide no commentary and only list the file paths of the most relevant files that you think are most crucial for addressing the user's request.
