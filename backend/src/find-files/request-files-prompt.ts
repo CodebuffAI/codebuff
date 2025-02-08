@@ -206,7 +206,7 @@ async function getRelevantFiles(
   } catch (error) {
     logger.error(
       { error },
-      'Error calling Vertex AI Gemini API, falling back to regular Gemini'
+      'Error calling Gemini API, falling back to Vertex Gemini'
     )
     try {
       // Then try Vertex Gemini
@@ -223,7 +223,7 @@ async function getRelevantFiles(
     } catch (error) {
       logger.error(
         { error },
-        'Error calling Gemini API, falling back to Claude Haiku'
+        'Error calling Vertex Gemini API, falling back to Claude Haiku'
       )
       // Finally fall back to Claude
       response = await promptClaude(messagesWithPrompt, {
