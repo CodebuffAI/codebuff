@@ -27,6 +27,7 @@ export const env = createEnv({
     DEEPSEEK_API_KEY: z.string().min(1).startsWith('sk-'),
     OPEN_ROUTER_API_KEY: z.string().min(1).startsWith('sk-or-v1-'),
     RELACE_API_KEY: z.string().min(1).startsWith('rlc-'),
+    GOOGLE_CLOUD_PROJECT_ID: z.string().min(1),
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
     PORT: z.coerce.number().min(1000),

@@ -369,3 +369,23 @@ These changes aim to provide a better user experience by offering more informati
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
 ```
+
+## Message Transformation
+
+When transforming messages for different model providers:
+- Each provider needs its own message format transformation at the API boundary
+- Keep internal message format consistent (Anthropic-style)
+- Transform only at API boundaries when sending to providers
+- Each provider has its own image format:
+  - OpenAI: `{ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,...' } }`
+  - Gemini: `{ inlineData: { data: 'base64...', mimeType: 'image/jpeg' } }`
+  - Deepseek: No image support yet (noop transform)
+  - Anthropic: Native format (no transform needed)
+  - Vertex AI: `{ parts: [{ inlineData: { data: 'base64...', mimeType: 'image/jpeg' } }] }`
+
+### Vertex AI Message Handling
+- System messages must be sent as a separate chat message, not in history or context
+- Each message must have a role ('user', 'model', or 'system')
+- Messages contain an array of parts (text or inlineData)
+- Temperature and other generation config must use camelCase (generationConfig)
+- Only one system message with one text part is allowed per request
