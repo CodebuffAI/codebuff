@@ -40,7 +40,7 @@ Answer with just 'YES' if reading new files is necessary, or 'NO' if the current
 `.trim()
 
   try {
-    // First try Vertex AI's Gemini
+    // First try Gemini
     const response = await promptGemini(
       messagesWithSystem(
         [...messages, { role: 'user', content: prompt }],
@@ -61,7 +61,7 @@ Answer with just 'YES' if reading new files is necessary, or 'NO' if the current
   } catch (error) {
     logger.error(
       { error },
-      'Error calling Gemini API, falling back to GPT-4'
+      'Error calling Gemini API, falling back to GPT-4o'
     )
     const response = await promptOpenAI(
       [...(messages as OpenAIMessage[]), { role: 'user', content: prompt }],
