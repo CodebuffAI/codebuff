@@ -288,10 +288,8 @@ export class Client {
         assistantMessage
       )
 
-      Spinner.get().start()
       const handler = toolHandlers[name]
       if (handler) {
-        Spinner.get().stop()
         const content = await handler(input, id)
         const toolResultMessage: Message = {
           role: 'user',
