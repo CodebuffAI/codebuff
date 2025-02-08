@@ -37,8 +37,7 @@ export async function requestRelevantFiles(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode,
-  ws: WebSocket
+  costMode: CostMode
 ) {
   const { fileVersions } = fileContext
   const previousFiles = uniq(

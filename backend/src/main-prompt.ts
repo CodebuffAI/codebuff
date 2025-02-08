@@ -663,8 +663,7 @@ async function getFileVersionUpdates(
         fingerprintId,
         userInputId,
         userId,
-        costMode,
-        ws
+        costMode
       )) ??
       []
 
