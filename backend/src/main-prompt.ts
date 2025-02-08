@@ -8,7 +8,6 @@ import {
   TOOL_RESULT_MARKER,
   STOP_MARKER,
   getModelForMode,
-  models,
 } from 'common/constants'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
@@ -170,20 +169,7 @@ export async function mainPrompt(
       'Prompting Main'
     )
 
-    let stream: ReadableStream<string>
-    // if (costMode === 'lite') {
-    //   stream = promptDeepseekStream(
-    //     messagesWithSystem(messagesWithContinuedMessage, system),
-    //     {
-    //       model: models.deepseekReasoner,
-    //       clientSessionId,
-    //       fingerprintId,
-    //       userInputId,
-    //       userId,
-    //     }
-    //   )
-    // } else {
-    stream = promptClaudeStream(messagesWithContinuedMessage, {
+    const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
       model: getModelForMode(costMode, 'agent') as AnthropicModel,
       clientSessionId,
@@ -191,7 +177,6 @@ export async function mainPrompt(
       userInputId,
       userId,
     })
-    // }
     const streamWithTags = processStreamWithTags(stream, {
       edit_file: {
         attributeNames: ['path'],
@@ -679,7 +664,7 @@ async function getFileVersionUpdates(
         userInputId,
         userId,
         costMode,
-        ws as any // Type cast to avoid DOM WebSocket vs ws WebSocket mismatch
+        ws
       )) ??
       []
 
