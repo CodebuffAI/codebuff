@@ -2,6 +2,9 @@ import { System } from '@/claude'
 import { promptOpenAI, OpenAIMessage } from '@/openai-api'
 import { Message } from 'common/actions'
 import { CostMode, models } from 'common/constants'
+import { promptGemini } from '@/gemini-api'
+import { messagesWithSystem } from '@/util/messages'
+import { logger } from '@/util/logger'
 
 export const checkNewFilesNecessary = async (
   messages: Message[],
@@ -35,18 +38,44 @@ Lean towards reading new files (YES) if you are not sure as that is a less costl
 
 Answer with just 'YES' if reading new files is necessary, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
-  const response = await promptOpenAI(
-    [...(messages as OpenAIMessage[]), { role: 'user', content: prompt }],
-    {
-      model: costMode === 'lite' ? models.gpt4omini : models.gpt4o, // getModelForMode(costMode, 'check-new-files'),
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-    }
-  )
-  const newFilesNecessary = response.trim().toUpperCase().includes('YES')
-  const endTime = Date.now()
-  const duration = endTime - startTime
-  return { newFilesNecessary, response, duration }
+
+  try {
+    // First try Vertex AI's Gemini
+    const response = await promptGemini(
+      messagesWithSystem(
+        [...messages, { role: 'user', content: prompt }],
+        system
+      ),
+      {
+        model: models.gemini2flash,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      }
+    )
+    const endTime = Date.now()
+    const duration = endTime - startTime
+    const newFilesNecessary = response.trim().toUpperCase().includes('YES')
+    return { newFilesNecessary, response, duration }
+  } catch (error) {
+    logger.error(
+      { error },
+      'Error calling Gemini API, falling back to GPT-4'
+    )
+    const response = await promptOpenAI(
+      [...(messages as OpenAIMessage[]), { role: 'user', content: prompt }],
+      {
+        model: costMode === 'lite' ? models.gpt4omini : models.gpt4o,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      }
+    )
+    const endTime = Date.now()
+    const duration = endTime - startTime
+    const newFilesNecessary = response.trim().toUpperCase().includes('YES')
+    return { newFilesNecessary, response, duration }
+  }
 }
