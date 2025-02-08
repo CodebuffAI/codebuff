@@ -18,10 +18,7 @@ import { type CostMode } from 'common/constants'
 import { ToolCall } from 'common/actions'
 import { requestFile, requestFiles } from './websockets/websocket-action'
 import { processFileBlock } from './process-file-block'
-import {
-  requestRelevantFiles,
-  warmCacheForRequestRelevantFiles,
-} from './find-files/request-files-prompt'
+import { requestRelevantFiles } from './find-files/request-files-prompt'
 import { processStreamWithTags } from './process-stream'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
@@ -111,17 +108,6 @@ export async function mainPrompt(
   if (readFilesMessage !== undefined) {
     onResponseChunk(readFilesMessage)
     fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}`
-
-    // Prompt cache the new files.
-    const system = getSearchSystemPrompt(fileContext, costMode, messagesTokens)
-    warmCacheForRequestRelevantFiles(
-      system,
-      costMode,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId
-    )
   }
 
   let allowUnboundedIteration = await allowUnboundedIterationPromise

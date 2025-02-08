@@ -150,33 +150,11 @@ export async function requestRelevantFiles(
 
   const firstPassFiles = validateFilePaths(uniq(candidateFiles))
 
-  // const secondPassResult =
-  //   costMode === 'max' || costMode === 'normal'
-  //     ? await secondPassFindAdditionalFiles(
-  //         system,
-  //         firstPassFiles,
-  //         messagesExcludingLastIfByUser,
-  //         userPrompt,
-  //         clientSessionId,
-  //         fingerprintId,
-  //         userInputId,
-  //         userId,
-  //         ws,
-  //         7
-  //       )
-  //     : { additionalFiles: [], duration: 0 }
-
-  // const files = validateFilePaths(
-  //   uniq([...firstPassFiles, ...secondPassResult.additionalFiles])
-  // )
-
   logger.info(
     {
       previousFiles,
       files: firstPassFiles,
       firstPassResults: results,
-      // secondPassAdditionalFiles: secondPassResult.additionalFiles,
-      // secondPassDuration: secondPassResult.duration,
       newFilesNecessary,
       newFilesNecessaryResponse,
       newFilesNecessaryDuration,
@@ -488,47 +466,6 @@ ${fileListString}
 List only the file paths of new files, in order of relevance (most relevant first!), with new lines between each file path. Use the project file tree to choose new files.
 Do not write any commentary.
 `.trim()
-}
-
-export const warmCacheForRequestRelevantFiles = async (
-  system: System,
-  costMode: CostMode,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined
-) => {
-  // Disabled while we are using Gemini and waiting for prompt caching release.
-  // const promise =
-  // costMode === 'lite'
-  //   ? promptDeepseek(messagesWithSystem([], system), {
-  //       model: models.deepseekChat,
-  //       clientSessionId,
-  //       fingerprintId,
-  //       userInputId,
-  //       userId,
-  //     })
-  // :
-  //   promptClaude(
-  //     [
-  //       {
-  //         role: 'user' as const,
-  //         content: 'hi',
-  //       },
-  //     ],
-  //     {
-  //       model: getModelForMode(costMode, 'file-requests') as AnthropicModel,
-  //       system,
-  //       clientSessionId,
-  //       fingerprintId,
-  //       userId,
-  //       userInputId,
-  //       maxTokens: 1,
-  //     }
-  //   )
-  // await promise.catch((error) => {
-  //   logger.error(error, 'Error warming cache for requestRelevantFiles')
-  // })
 }
 
 const validateFilePaths = (filePaths: string[]) => {
