@@ -16,6 +16,7 @@ import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from '../util/logger'
 import { messagesWithSystem } from '@/util/messages'
 import { promptGemini } from '../gemini-api'
+import { promptGemini as promptVertexGemini } from '../gemini-vertex-api'
 import { promptClaude } from '../claude'
 import { requestFiles } from '../websockets/websocket-action'
 import { countTokens } from '../util/token-counter'
@@ -191,7 +192,8 @@ async function getRelevantFiles(
   const start = performance.now()
   let response: string
   try {
-    response = await promptGemini(
+    // First try Vertex AI's Gemini
+    response = await promptVertexGemini(
       messagesWithSystem(messagesWithPrompt, system),
       {
         model: models.gemini2flash,
@@ -204,16 +206,35 @@ async function getRelevantFiles(
   } catch (error) {
     logger.error(
       { error },
-      'Error calling Gemini API, falling back to Claude Haiku'
+      'Error calling Vertex AI Gemini API, falling back to regular Gemini'
     )
-    response = await promptClaude(messagesWithPrompt, {
-      model: costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku,
-      system,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-    })
+    try {
+      // Then try regular Gemini
+      response = await promptGemini(
+        messagesWithSystem(messagesWithPrompt, system),
+        {
+          model: models.gemini2flash,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        }
+      )
+    } catch (error) {
+      logger.error(
+        { error },
+        'Error calling Gemini API, falling back to Claude Haiku'
+      )
+      // Finally fall back to Claude
+      response = await promptClaude(messagesWithPrompt, {
+        model: costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku,
+        system,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      })
+    }
   }
   const end = performance.now()
   const duration = end - start
