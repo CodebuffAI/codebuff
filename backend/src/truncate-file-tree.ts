@@ -32,15 +32,6 @@ export const truncateFileTreeBasedOnTokenBudget = (
     }
   }
 
-  logger.debug(
-    {
-      tokenBudget,
-      treeWithTokensCount,
-      duration: performance.now() - startTime,
-    },
-    'truncateFileTreeBasedOnTokenBudget A'
-  )
-
   // If it doesn't fit, remove unimportant files
   const filteredTree = removeUnimportantFiles(fileTree)
   const printedFilteredTree = printFileTree(filteredTree)

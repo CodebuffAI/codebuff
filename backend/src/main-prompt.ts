@@ -8,7 +8,6 @@ import {
   TOOL_RESULT_MARKER,
   STOP_MARKER,
   getModelForMode,
-  models,
 } from 'common/constants'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
@@ -18,10 +17,7 @@ import { type CostMode } from 'common/constants'
 import { ToolCall } from 'common/actions'
 import { requestFile, requestFiles } from './websockets/websocket-action'
 import { processFileBlock } from './process-file-block'
-import {
-  requestRelevantFiles,
-  warmCacheForRequestRelevantFiles,
-} from './request-files-prompt'
+import { requestRelevantFiles } from './find-files/request-files-prompt'
 import { processStreamWithTags } from './process-stream'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
@@ -36,8 +32,6 @@ import {
   loadFilesForPlanning,
   planComplexChange,
 } from './planning'
-import { promptDeepseekStream } from './deepseek-api'
-import { messagesWithSystem } from '@/util/messages'
 
 export async function mainPrompt(
   ws: WebSocket,
@@ -113,17 +107,6 @@ export async function mainPrompt(
   if (readFilesMessage !== undefined) {
     onResponseChunk(readFilesMessage)
     fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}`
-
-    // Prompt cache the new files.
-    const system = getSearchSystemPrompt(fileContext, costMode, messagesTokens)
-    warmCacheForRequestRelevantFiles(
-      system,
-      costMode,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId
-    )
   }
 
   let allowUnboundedIteration = await allowUnboundedIterationPromise
@@ -186,20 +169,7 @@ export async function mainPrompt(
       'Prompting Main'
     )
 
-    let stream: ReadableStream<string>
-    // if (costMode === 'lite') {
-    //   stream = promptDeepseekStream(
-    //     messagesWithSystem(messagesWithContinuedMessage, system),
-    //     {
-    //       model: models.deepseekReasoner,
-    //       clientSessionId,
-    //       fingerprintId,
-    //       userInputId,
-    //       userId,
-    //     }
-    //   )
-    // } else {
-    stream = promptClaudeStream(messagesWithContinuedMessage, {
+    const stream = promptClaudeStream(messagesWithContinuedMessage, {
       system,
       model: getModelForMode(costMode, 'agent') as AnthropicModel,
       clientSessionId,
@@ -207,7 +177,6 @@ export async function mainPrompt(
       userInputId,
       userId,
     })
-    // }
     const streamWithTags = processStreamWithTags(stream, {
       edit_file: {
         attributeNames: ['path'],
@@ -710,13 +679,10 @@ async function getFileVersionUpdates(
     if (content === undefined) return false
     if (content === null) return true
     const tokenCount = countTokens(content)
-    if (i === 0) {
-      return tokenCount < 40_000
-    }
     if (i < 5) {
-      return tokenCount < 25_000 - i * 5_000
+      return tokenCount < 50_000 - i * 10_000
     }
-    return tokenCount < 5_000
+    return tokenCount < 10_000
   })
   const newFiles = difference(filteredRequestedFiles, previousFilePaths)
 
@@ -751,20 +717,18 @@ async function getFileVersionUpdates(
         content: loadedFiles[path]!,
       }))
       .filter((file) => file.content !== null)
-    const resetFileVersion = [...knowledgeFiles, ...requestedLoadedFiles]
-    const readFilesPaths = resetFileVersion
+
+    const files = [...knowledgeFiles, ...requestedLoadedFiles]
+    while (countTokensJson(files) > FILE_TOKEN_BUDGET) {
+      files.pop()
+    }
+    const newFileVersions = [
+      files.filter((f) => knowledgeFiles.some((kf) => kf.path === f.path)),
+      files.filter((f) => !knowledgeFiles.some((kf) => kf.path === f.path)),
+    ]
+    const readFilesPaths = newFileVersions[1]
       .filter((f) => f.content !== null)
       .map((f) => f.path)
-    let i = 0
-    while (countTokensJson(resetFileVersion) > FILE_TOKEN_BUDGET) {
-      const file = resetFileVersion[resetFileVersion.length - 1 - i]
-      if (file.content !== null) {
-        file.content = '[TRUNCATED TO FIT TOKEN BUDGET]'
-      }
-      i++
-    }
-    const newFileVersions =
-      resetFileVersion.length > 0 ? [resetFileVersion] : []
 
     const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage(
       readFilesPaths,
@@ -773,10 +737,13 @@ async function getFileVersionUpdates(
 
     logger.debug(
       {
-        newFileVersions: resetFileVersion.map((f) => f.path),
-        fileVersionTokens,
+        newFileVersions: newFileVersions.map((files) =>
+          files.map((f) => f.path)
+        ),
+        prevFileVersionTokens: fileVersionTokens,
         addedFileTokens,
-        totalTokens: fileVersionTokens + addedFileTokens,
+        beforeTotalTokens: fileVersionTokens + addedFileTokens,
+        newFileVersionTokens: countTokensJson(newFileVersions),
         FILE_TOKEN_BUDGET,
       },
       'resetting file versions b/c of token budget'
