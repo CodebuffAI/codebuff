@@ -11,11 +11,12 @@ import {
 } from 'common/util/file'
 import { System } from '../claude'
 import { type CostMode } from 'common/constants'
-import { models } from 'common/constants'
+import { models, claudeModels } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from '../util/logger'
 import { messagesWithSystem } from '@/util/messages'
 import { promptGemini } from '../gemini-api'
+import { promptClaude } from '../claude'
 import { requestFiles } from '../websockets/websocket-action'
 import { countTokens } from '../util/token-counter'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
@@ -189,16 +190,31 @@ async function getRelevantFiles(
   ]
   const start = performance.now()
   let response: string
-  response = await promptGemini(
-    messagesWithSystem(messagesWithPrompt, system),
-    {
-      model: models.gemini2flash,
+  try {
+    response = await promptGemini(
+      messagesWithSystem(messagesWithPrompt, system),
+      {
+        model: models.gemini2flash,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      }
+    )
+  } catch (error) {
+    logger.error(
+      { error },
+      'Error calling Gemini API, falling back to Claude Haiku'
+    )
+    response = await promptClaude(messagesWithPrompt, {
+      model: costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku,
+      system,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId,
-    }
-  )
+    })
+  }
   const end = performance.now()
   const duration = end - start
 
@@ -273,7 +289,6 @@ Please follow these steps to determine which files to request:
 5. List a maximum of ${count} files. It's fine to list fewer if there are not great candidates.
 
 Please exclude the following files from your response:
-- Test files (*.test.ts, *.spec.ts, or the equivalent in other languages) as these are handled by a separate request.
 - Knowledge files, i.e. any files with 'knowledge.md' in the file name. These files are selected independently.
 
 Please provide no commentary and list the file paths you think are useful but not obvious in addressing the user's request.
