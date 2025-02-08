@@ -192,8 +192,8 @@ async function getRelevantFiles(
   const start = performance.now()
   let response: string
   try {
-    // First try Vertex AI's Gemini
-    response = await promptVertexGemini(
+    // First try Gemini
+    response = await promptGemini(
       messagesWithSystem(messagesWithPrompt, system),
       {
         model: models.gemini2flash,
@@ -209,8 +209,8 @@ async function getRelevantFiles(
       'Error calling Vertex AI Gemini API, falling back to regular Gemini'
     )
     try {
-      // Then try regular Gemini
-      response = await promptGemini(
+      // Then try Vertex Gemini
+      response = await promptVertexGemini(
         messagesWithSystem(messagesWithPrompt, system),
         {
           model: models.gemini2flash,
