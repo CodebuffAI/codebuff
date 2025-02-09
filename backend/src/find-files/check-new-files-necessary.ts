@@ -26,15 +26,15 @@ User request: ${userPrompt}
 
 We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad user requests may require many files as context.
 
-If the user is asking something different than before or that would likely benefit from new files being read, you should read new files (YES).
-
 You should not read new files (NO) if:
 - The user is following up on a previous request
 - The user says something like "hi" with no specific request
 - The user asks to edit a file you are already reading
 - You just need to run a terminal command
 
-Answer with just 'YES' if reading new files is necessary, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
+If the user is asking something new or that would likely benefit from new files being read or if there is a way to provide a better answer by reading more files, you should read new files (YES).
+
+Answer with just 'YES' if reading new files is helpful, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
 
   try {
