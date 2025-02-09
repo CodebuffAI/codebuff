@@ -5,6 +5,7 @@
     "target": "esnext",
     "moduleResolution": "bundler",
     "moduleDetection": "force",
+    "esModuleInterop": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "composite": true,
@@ -16,9 +17,12 @@
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
     "types": ["bun-types"],
+    "baseUrl": ".",
     "paths": {
-      "common/*": ["./src/common/*", "../common/src/*"],
-      "backend/*": ["./src/backend/*", "../backend/src/*"]
+      "common/*": ["../common/src/*"],
+      "backend/*": ["../backend/src/*"]
     }
-  }
+  },
+  "references": [{ "path": "../common" }, { "path": "../backend" }],
+  "exclude": ["node_modules"]
 }

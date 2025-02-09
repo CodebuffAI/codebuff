@@ -13,7 +13,7 @@ import { match, P } from 'ts-pattern'
 
 let openai: OpenAI | null = null
 
-const getOpenAI = (fingerprintId: string) => {
+export const getOpenAI = (fingerprintId: string) => {
   if (!openai) {
     openai = new OpenAI({
       apiKey: env.OPEN_AI_KEY,

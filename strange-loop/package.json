@@ -1,16 +1,20 @@
 {
   "name": "strange-loop",
   "version": "0.0.1",
-  "description": "Strange Loop package for Codebuff",
+  "description": "Self-modifying agent with file operations",
+  "main": "index.ts",
   "type": "module",
-  "module": "index.ts",
   "scripts": {
-    "start": "bun run index.ts",
-    "dev": "bun --watch run index.ts",
-    "typecheck": "tsc --noEmit"
+    "start": "bun index.ts",
+    "typecheck-this-package": "tsc --noEmit",
+    "typecheck": "bun run --cwd ../backend build && bun run --cwd ../common build && bun run typecheck-this-package"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "openai": "^4.24.1"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "bun-types": "latest"
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3"
   }
 }
