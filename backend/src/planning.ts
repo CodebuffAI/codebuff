@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws'
-import { Message, FileChange } from 'common/actions'
+import { Message } from 'common/actions'
 import { models, CostMode, geminiModels } from 'common/constants'
 import { countTokens, countTokensJson } from './util/token-counter'
 import {
@@ -11,8 +11,7 @@ import {
 } from 'common/util/file'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { getSearchSystemPrompt } from './system-prompt'
-import { hasLazyEdit } from 'common/util/string'
-import { fastRewrite } from './process-file-block'
+import { processFileBlock } from './process-file-block'
 import { requestFiles } from './websockets/websocket-action'
 import { promptGemini } from './gemini-api'
 import { messagesWithSystem } from './util/messages'
@@ -50,6 +49,7 @@ export async function planComplexChange(
   files: Record<string, string>,
   messageHistory: Message[],
   onChunk: (chunk: string) => void,
+  ws: WebSocket,
   options: {
     clientSessionId: string
     fingerprintId: string
@@ -92,14 +92,15 @@ Please plan and create a detailed solution for this request.`,
       processFileBlock(
         filePath,
         content,
-        files[filePath] || null,
-        fullResponse,
+        messageHistory,
         prompt,
-        options.costMode,
+        prompt,
         options.clientSessionId,
         options.fingerprintId,
         options.userInputId,
-        options.userId
+        options.userId,
+        ws,
+        options.costMode
       )
   )
 
@@ -107,40 +108,6 @@ Please plan and create a detailed solution for this request.`,
     response: fullResponse,
     fileProcessingPromises,
   }
-}
-
-async function processFileBlock(
-  filePath: string,
-  newContent: string,
-  oldContent: string | null,
-  fullResponse: string,
-  prompt: string,
-  costMode: CostMode,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined
-): Promise<FileChange | null> {
-  // For new files, just create them directly
-  if (!oldContent) {
-    return { filePath, content: newContent, type: 'file' }
-  }
-
-  if (hasLazyEdit(newContent)) {
-    const updatedContent = await fastRewrite(
-      oldContent,
-      newContent,
-      filePath,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      prompt
-    )
-    return { filePath, content: updatedContent, type: 'file' }
-  }
-
-  return { filePath, content: newContent, type: 'file' }
 }
 
 /**

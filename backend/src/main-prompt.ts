@@ -315,6 +315,7 @@ export async function mainPrompt(
           fileContents,
           messages,
           onResponseChunk,
+          ws,
           {
             clientSessionId,
             fingerprintId,
