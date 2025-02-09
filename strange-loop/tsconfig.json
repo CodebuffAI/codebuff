@@ -17,4 +17,8 @@
     "allowJs": true,
     "types": ["bun-types"]
   },
+  "paths": {
+    "common/*": ["./src/common/*", "../common/src/*"],
+    "backend/*": ["./src/backend/*", "../backend/src/*"]
+  }
 }
