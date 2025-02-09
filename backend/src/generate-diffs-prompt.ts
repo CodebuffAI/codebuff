@@ -194,9 +194,9 @@ The assistant generated the following SEARCH/REPLACE blocks where the search con
 
 ${diffBlocksThatDidntMatch.map((change) => createSearchReplaceBlock(change.searchContent, change.replaceContent)).join('\n\n')}
 
-You should:
-1. Use <thinking> blocks to explain what might have gone wrong in these SEARCH/REPLACE blocks that didn't match. The search content needs to match an exact substring of the old file content.
-2. Provide a new set of SEARCH/REPLACE changes to make the intended edit from the old file.`.trim()
+The search content needs to match an exact substring of the old file content, which will be replaced by the replace content. Use the minimal possible search content that matches the intended location in the old file content. Be extra careful when matching whitespace, single quotes, double quotes, and backticks.
+
+Provide a new set of SEARCH/REPLACE changes to make the intended edit from the old file.`.trim()
 
   const response = await promptOpenAI([{ role: 'user', content: newPrompt }], {
     model: models.o3mini,

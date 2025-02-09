@@ -315,15 +315,15 @@ Edit snippet (the new content to implement):
 ${editSnippet}
 \`\`\`
 
-Please analyze the edit snippet and create SEARCH/REPLACE blocks that will transform the old content into the intended new content. The SEARCH content must be an exact substring match from the old file.
+Please analyze the edit snippet and create SEARCH/REPLACE blocks that will transform the old content into the intended new content. The SEARCH content must be an exact substring match from the old file — try to keep the search content as short as possible.
 
 Important:
-1. The SEARCH content must match exactly - no whitespace differences allowed
+1. The SEARCH content must match exactly to a substring of the old file content - make sure you're using the exact same whitespace, single quotes, double quotes, and backticks.
 2. Keep the changes minimal and focused
-3. Preserve the original formatting and indentation
+3. Preserve the original formatting, indentation, and comments
 4. Only implement the changes shown in the edit snippet
 
-Format your response with SEARCH/REPLACE blocks like this:
+Please output just the SEARCH/REPLACE blocks like this:
 <<<<<<< SEARCH
 [exact content from old file]
 =======
@@ -348,7 +348,14 @@ Format your response with SEARCH/REPLACE blocks like this:
 
   if (diffBlocksThatDidntMatch.length > 0) {
     logger.debug(
-      { diffBlocksThatDidntMatch },
+      {
+        duration: Date.now() - startTime,
+        editSnippet,
+        diffBlocks,
+        diffBlocksThatDidntMatch,
+        filePath,
+        oldContent,
+      },
       'Initial diff blocks failed to match, retrying...'
     )
 
@@ -374,6 +381,7 @@ Format your response with SEARCH/REPLACE blocks like this:
           filePath,
           oldContent,
           editSnippet,
+          duration: Date.now() - startTime,
         },
         'Failed to create matching diff blocks for large file after retry'
       )
