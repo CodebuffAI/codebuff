@@ -15,10 +15,10 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
-    "types": ["bun-types"]
-  },
-  "paths": {
-    "common/*": ["./src/common/*", "../common/src/*"],
-    "backend/*": ["./src/backend/*", "../backend/src/*"]
+    "types": ["bun-types"],
+    "paths": {
+      "common/*": ["./src/common/*", "../common/src/*"],
+      "backend/*": ["./src/backend/*", "../backend/src/*"]
+    }
   }
 }
