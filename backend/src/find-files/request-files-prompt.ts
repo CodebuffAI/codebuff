@@ -254,7 +254,9 @@ function topLevelDirectories(fileContext: ProjectFileContext) {
 function getExampleFileList(fileContext: ProjectFileContext, count: number) {
   const { fileTree } = fileContext
 
-  const filePaths = getAllFilePaths(fileTree)
+  const filePaths = getAllFilePaths(fileTree).filter(
+    (p) => !p.includes('knowledge.md')
+  )
   const randomFilePaths = shuffle(filePaths)
   const selectedFiles = new Set()
   const selectedDirectories = new Set()
@@ -309,8 +311,7 @@ Please follow these steps to determine which files to request:
 4. Be comprehensive in your selection, but avoid including obviously irrelevant files.
 5. List a maximum of ${count} files. It's fine to list fewer if there are not great candidates.
 
-Please exclude the following files from your response:
-- Knowledge files, i.e. any files with 'knowledge.md' in the file name. These files are selected independently.
+Please exclude any files with 'knowledge.md' in the file name! These "knowledge" files should not be included in your response.
 
 Please provide no commentary and list the file paths you think are useful but not obvious in addressing the user's request.
 
@@ -364,8 +365,7 @@ Please follow these steps to determine which key files to request:
 3. Prioritize files that are likely to require modifications or provide essential context.
 4. Order the files by most important first.
 
-Please exclude the following files from your response:
-- Knowledge files, i.e. any files with 'knowledge.md' in the file name. These files are selected independently.
+Please exclude any files with 'knowledge.md' in the file name! These "knowledge" files should not be included in your response.
 
 Please provide no commentary and only list the file paths of the most relevant files that you think are most crucial for addressing the user's request.
 
