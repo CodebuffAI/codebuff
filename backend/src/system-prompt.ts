@@ -22,7 +22,7 @@ export function getSearchSystemPrompt(
   const { fileVersions } = fileContext
   const shouldDoPromptCaching = fileVersions.length > 1
 
-  const maxTokens = 200_000 // costMode === 'lite' ? 64_000 :
+  const maxTokens = 500_000 // costMode === 'lite' ? 64_000 :
   const miscTokens = 10_000
   const systemPromptTokenBudget = maxTokens - messagesTokens - miscTokens
 

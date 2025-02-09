@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws'
 import { Message, FileChange } from 'common/actions'
-import { models, claudeModels, CostMode } from 'common/constants'
+import { models, CostMode, geminiModels } from 'common/constants'
 import { countTokens, countTokensJson } from './util/token-counter'
 import {
   createFileBlock,
@@ -9,12 +9,13 @@ import {
   ProjectFileContext,
   parseFileBlocks,
 } from 'common/util/file'
-import { promptClaude } from './claude'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { getSearchSystemPrompt } from './system-prompt'
 import { hasLazyEdit } from 'common/util/string'
 import { fastRewrite } from './process-file-block'
 import { requestFiles } from './websockets/websocket-action'
+import { promptGemini } from './gemini-api'
+import { messagesWithSystem } from './util/messages'
 
 const systemPrompt = `
 You are a senior software engineer. You are given a request from a user and a set of files that are relevant to the request.
@@ -155,25 +156,26 @@ export async function getRelevantFilesForPlanning(
   userInputId: string,
   userId: string | undefined
 ) {
-  const response = await promptClaude(
-    [
-      ...messages,
-      {
-        role: 'user',
-        content: `Do not act on the above instructions for the user, instead, we are asking you to find relevant files for the following request.
+  const planningMessages = [
+    ...messages,
+    {
+      role: 'user' as const,
+      content: `Do not act on the above instructions for the user, instead, we are asking you to find relevant files for the following request.
 
 Request:\n${prompt}\n\nNow, please list up to 20 file paths from the project that would be most relevant for implementing this change. Please do include knowledge.md files that are relevant, files with example code for what is needed, related tests, second-order files that are not immediately obvious but could become relevant, and any other files that would be helpful.
 
 Only output the file paths, one per line, nothing else.`,
-      },
-    ],
+    },
+  ]
+  const systemPrompt = getSearchSystemPrompt(
+    fileContext,
+    costMode,
+    countTokensJson(planningMessages)
+  )
+  const response = await promptGemini(
+    messagesWithSystem(planningMessages, systemPrompt),
     {
-      model: claudeModels.sonnet,
-      system: getSearchSystemPrompt(
-        fileContext,
-        costMode,
-        countTokensJson(messages)
-      ),
+      model: geminiModels.gemini2flash,
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -184,7 +186,7 @@ Only output the file paths, one per line, nothing else.`,
   return response
     .split('\n')
     .map((line) => line.trim())
-    .filter((line) => isValidFilePath(line))
+    .filter(isValidFilePath)
 }
 
 export async function loadFilesForPlanning(ws: WebSocket, filePaths: string[]) {
