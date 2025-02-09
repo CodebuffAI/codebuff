@@ -50,6 +50,8 @@ const TOKENS_COST_PER_M = {
   },
 }
 
+const RELACE_FAST_APPLY_COST = 0.01
+
 const getPerTokenCost = (
   model: string,
   type: keyof typeof TOKENS_COST_PER_M
@@ -65,6 +67,9 @@ const calcCost = (
   cache_creation_input_tokens: number,
   cache_read_input_tokens: number
 ) => {
+  if (model === 'relace-fast-apply') {
+    return RELACE_FAST_APPLY_COST
+  }
   return (
     input_tokens * getPerTokenCost(model, 'input') +
     output_tokens * getPerTokenCost(model, 'output') +

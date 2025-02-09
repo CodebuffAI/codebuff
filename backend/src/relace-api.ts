@@ -3,6 +3,7 @@ import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
 import { countTokens } from './util/token-counter'
+import { createMarkdownFileBlock } from 'common/util/file'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
@@ -62,6 +63,7 @@ export async function promptRelaceAI(
     const content = data.mergedCode
 
     if (userId !== TEST_USER_ID) {
+      const fakeRequestContent = `Initial code:${createMarkdownFileBlock('', initialCode)}\n\nEdit snippet${createMarkdownFileBlock('', editSnippet)}`
       saveMessage({
         messageId,
         userId,
@@ -69,7 +71,12 @@ export async function promptRelaceAI(
         fingerprintId,
         userInputId,
         model: 'relace-fast-apply',
-        request: [],
+        request: [
+          {
+            role: 'user',
+            content: fakeRequestContent,
+          },
+        ],
         response: content,
         inputTokens: countTokens(initialCode + editSnippet),
         outputTokens: countTokens(content),
