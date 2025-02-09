@@ -3,10 +3,9 @@ import {
   createSearchReplaceBlock,
   parseFileBlocks,
 } from 'common/util/file'
-import { CostMode, models, STOP_MARKER } from 'common/constants'
-import { promptClaude } from './claude'
+import { CostMode, models } from 'common/constants'
 import { logger } from './util/logger'
-import { promptDeepseek } from './deepseek-api'
+import { promptOpenAI } from './openai-api'
 
 export const parseAndGetDiffBlocks = (
   response: string,
@@ -175,7 +174,7 @@ const tryToDoStringReplacementWithExtraIndentation = (
   return null
 }
 
-export const retryDiffBlocksPrompt = async (
+export async function retryDiffBlocksPrompt(
   filePath: string,
   oldContent: string,
   costMode: CostMode,
@@ -184,7 +183,7 @@ export const retryDiffBlocksPrompt = async (
   userInputId: string,
   userId: string | undefined,
   diffBlocksThatDidntMatch: { searchContent: string; replaceContent: string }[]
-) => {
+) {
   const newPrompt =
     `The assistant failed to find a match for the following changes. Please help the assistant understand what the changes should be.
 
@@ -199,24 +198,13 @@ You should:
 1. Use <thinking> blocks to explain what might have gone wrong in these SEARCH/REPLACE blocks that didn't match. The search content needs to match an exact substring of the old file content.
 2. Provide a new set of SEARCH/REPLACE changes to make the intended edit from the old file.`.trim()
 
-  let response: string
-  if (costMode === 'lite') {
-    response = await promptDeepseek([{ role: 'user', content: newPrompt }], {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: models.deepseekChat,
-      userId,
-    })
-  } else {
-    response = await promptClaude([{ role: 'user', content: newPrompt }], {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: models.sonnet,
-      userId,
-    })
-  }
+  const response = await promptOpenAI([{ role: 'user', content: newPrompt }], {
+    model: models.o3mini,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+  })
   const {
     diffBlocks: newDiffBlocks,
     diffBlocksThatDidntMatch: newDiffBlocksThatDidntMatch,

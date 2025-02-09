@@ -32,6 +32,7 @@ import {
   loadFilesForPlanning,
   planComplexChange,
 } from './planning'
+import { getMessageText } from './util/messages'
 
 export async function mainPrompt(
   ws: WebSocket,
@@ -52,6 +53,7 @@ export async function mainPrompt(
       !message.content.includes(TOOL_RESULT_MARKER)
   )
   const lastUserMessage = messages[lastUserMessageIndex]
+  const lastUserPrompt = getMessageText(lastUserMessage)
   const assistantReplyMessageIndex = lastUserMessageIndex + 1
   const assistantReplyMessage = messages[assistantReplyMessageIndex]
   const assistantIsExecutingPlan =
@@ -189,18 +191,17 @@ export async function mainPrompt(
             : fileContent
           fileProcessingPromises.push(
             processFileBlock(
-              clientSessionId,
-              fingerprintId,
-              userInputId,
-              ws,
               path,
               fileContentWithoutStartNewline,
               messages,
               fullResponse,
+              lastUserPrompt,
+              clientSessionId,
+              fingerprintId,
+              userInputId,
               userId,
-              typeof lastUserMessage?.content === 'string'
-                ? lastUserMessage.content
-                : undefined
+              ws,
+              costMode
             ).catch((error) => {
               logger.error(error, 'Error processing file block')
               return null

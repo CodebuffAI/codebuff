@@ -7,22 +7,26 @@ import { promptRelaceAI } from './relace-api'
 import { cleanMarkdownCodeBlock, parseFileBlocks } from 'common/util/file'
 import { generateCompactId, hasLazyEdit } from 'common/util/string'
 import { countTokens } from './util/token-counter'
-import { promptClaude } from './claude'
-import { claudeModels, geminiModels } from 'common/constants'
-import { parseAndGetDiffBlocksSingleFile } from './generate-diffs-prompt'
+import { geminiModels, CostMode, models } from 'common/constants'
+import {
+  parseAndGetDiffBlocksSingleFile,
+  retryDiffBlocksPrompt,
+} from './generate-diffs-prompt'
 import { GeminiMessage, promptGemini } from './gemini-api'
+import { promptOpenAI } from './openai-api'
 
 export async function processFileBlock(
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  ws: WebSocket,
   filePath: string,
   newContent: string,
   messages: Message[],
   fullResponse: string,
+  lastUserPrompt: string | undefined,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
   userId: string | undefined,
-  userMessage: string | undefined
+  ws: WebSocket,
+  costMode: CostMode
 ): Promise<FileChange | null> {
   if (newContent.trim() === '[UPDATED_BY_ANOTHER_ASSISTANT]') {
     return null
@@ -31,7 +35,6 @@ export async function processFileBlock(
   const initialContent = await requestFile(ws, filePath)
 
   if (initialContent === null) {
-    // Remove markdown code block syntax if present
     let cleanContent = cleanMarkdownCodeBlock(newContent)
 
     if (hasLazyEdit(cleanContent)) {
@@ -46,7 +49,11 @@ export async function processFileBlock(
       { filePath, cleanContent },
       `processFileBlock: Created new file ${filePath}`
     )
-    return { filePath, content: cleanContent, type: 'file' }
+    return {
+      type: 'file',
+      filePath,
+      content: cleanContent,
+    }
   }
 
   if (newContent === initialContent) {
@@ -72,7 +79,9 @@ export async function processFileBlock(
       clientSessionId,
       fingerprintId,
       userInputId,
-      userId
+      userId,
+      filePath,
+      costMode
     )
 
     if (!largeFileContent) {
@@ -89,7 +98,7 @@ export async function processFileBlock(
       fingerprintId,
       userInputId,
       userId,
-      userMessage
+      lastUserPrompt
     )
     const shouldAddPlaceholders = await shouldAddFilePlaceholders(
       clientSessionId,
@@ -114,7 +123,7 @@ export async function processFileBlock(
         fingerprintId,
         userInputId,
         userId,
-        userMessage
+        lastUserPrompt
       )
     }
   }
@@ -146,7 +155,11 @@ export async function processFileBlock(
     },
     `processFileBlock: Generated patch for ${filePath}`
   )
-  return { filePath, content: patch, type: 'patch' }
+  return {
+    type: 'patch',
+    filePath,
+    content: patch,
+  }
 }
 
 /**
@@ -276,7 +289,7 @@ export async function fastRewrite(
   return response + '\n'
 }
 
-const LARGE_FILE_TOKEN_LIMIT = 12000
+const LARGE_FILE_TOKEN_LIMIT = 10_000
 
 async function handleLargeFile(
   oldContent: string,
@@ -284,8 +297,12 @@ async function handleLargeFile(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined
+  userId: string | undefined,
+  filePath: string,
+  costMode: CostMode
 ): Promise<string | null> {
+  const startTime = Date.now()
+
   const prompt = `You are an expert programmer tasked with creating SEARCH/REPLACE blocks to implement a change in a large file. The change should match the intent of the edit snippet while using exact content from the old file.
 
 Old file content:
@@ -313,30 +330,70 @@ Format your response with SEARCH/REPLACE blocks like this:
 [new content that matches edit snippet intent]
 >>>>>>> REPLACE`
 
-  const response = await promptClaude([{ role: 'user', content: prompt }], {
+  const response = await promptOpenAI([{ role: 'user', content: prompt }], {
+    model: models.o3mini,
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-    model: claudeModels.sonnet,
   })
 
   const { diffBlocks, diffBlocksThatDidntMatch } =
     parseAndGetDiffBlocksSingleFile(response, oldContent)
 
-  if (diffBlocksThatDidntMatch.length > 0) {
-    logger.error(
-      { diffBlocksThatDidntMatch },
-      'Failed to create matching diff blocks for large file'
-    )
-    return null
-  }
-
-  // Apply the diff blocks in sequence
   let updatedContent = oldContent
   for (const { searchContent, replaceContent } of diffBlocks) {
     updatedContent = updatedContent.replace(searchContent, replaceContent)
   }
 
+  if (diffBlocksThatDidntMatch.length > 0) {
+    logger.debug(
+      { diffBlocksThatDidntMatch },
+      'Initial diff blocks failed to match, retrying...'
+    )
+
+    const { newDiffBlocks, newDiffBlocksThatDidntMatch } =
+      await retryDiffBlocksPrompt(
+        filePath,
+        updatedContent,
+        costMode,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+        diffBlocksThatDidntMatch
+      )
+
+    if (newDiffBlocksThatDidntMatch.length > 0) {
+      logger.error(
+        {
+          diffBlocks: newDiffBlocks,
+          diffBlocksThatDidntMatch: newDiffBlocksThatDidntMatch,
+          originalDiffBlocksThatDidntMatch: diffBlocksThatDidntMatch,
+          originalDiffBlocks: diffBlocks,
+          filePath,
+          oldContent,
+          editSnippet,
+        },
+        'Failed to create matching diff blocks for large file after retry'
+      )
+      return null
+    }
+
+    for (const { searchContent, replaceContent } of newDiffBlocks) {
+      updatedContent = updatedContent.replace(searchContent, replaceContent)
+    }
+  }
+
+  logger.debug(
+    {
+      updatedContent,
+      oldContent,
+      editSnippet,
+      filePath,
+      duration: Date.now() - startTime,
+    },
+    'handleLargeFile'
+  )
   return updatedContent
 }
