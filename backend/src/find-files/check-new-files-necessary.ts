@@ -34,8 +34,6 @@ You should not read new files (NO) if:
 - The user asks to edit a file you are already reading
 - You just need to run a terminal command
 
-Lean towards reading new files (YES) if you are not sure as that is a less costly error.
-
 Answer with just 'YES' if reading new files is necessary, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
 
@@ -59,10 +57,7 @@ Answer with just 'YES' if reading new files is necessary, or 'NO' if the current
     const newFilesNecessary = response.trim().toUpperCase().includes('YES')
     return { newFilesNecessary, response, duration }
   } catch (error) {
-    logger.error(
-      { error },
-      'Error calling Gemini API, falling back to GPT-4o'
-    )
+    logger.error({ error }, 'Error calling Gemini API, falling back to GPT-4o')
     const response = await promptOpenAI(
       [...(messages as OpenAIMessage[]), { role: 'user', content: prompt }],
       {
