@@ -1,0 +1,16 @@
+{
+  "name": "strange-loop",
+  "version": "0.0.1",
+  "description": "Strange Loop package for Codebuff",
+  "type": "module",
+  "module": "index.ts",
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun --watch run index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "bun-types": "latest"
+  }
+}
