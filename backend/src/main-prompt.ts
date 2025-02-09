@@ -578,7 +578,7 @@ function getExtraInstructionForUserPrompt(
       'Please consider pausing to get more instructions from the user.',
 
     justUsedATool &&
-      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request.`,
+      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else.`,
 
     `Always end your response with the following marker:\n${STOP_MARKER}`
   )
