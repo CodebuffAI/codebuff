@@ -398,6 +398,11 @@ When using this tool, please adhere to the following rules:
 5. Don't run long-running commands, e.g. \`npm run dev\` or \`npm start\`, that start a server and do not exit. Only run commands that will complete within 30 seconds, because longer commands will be killed. Instead, ask the user to manually run long-running commands.
 6. Do not use the run_terminal_command tool to create or edit files. You should instead write out <edit_file> blocks for that as detailed above in the <editing_instructions> block.
 
+If you just want to show the user a terminal command, but don't want to actually run it, you can write out a markdown \`\`\` command block instead:
+\`\`\`bash
+# ... command to show the user ...
+\`\`\`
+
 ## Web scraping
 
 Scrape any url that could help address the user's request.
