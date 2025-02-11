@@ -256,6 +256,7 @@ export class Client {
       } else {
         this.fileVersions.push(addedFileVersions)
       }
+      Spinner.get().stop()
 
       const filesChanged = uniq(changes.map((change) => change.filePath))
       this.chatStorage.saveFilesChanged(filesChanged)

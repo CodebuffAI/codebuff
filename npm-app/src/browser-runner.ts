@@ -17,6 +17,8 @@ import * as path from 'path'
 import { getCurrentChatDir, getProjectDataDir } from './project-files'
 import { ensureDirectoryExists } from 'common/util/file'
 
+type NonOptional<T, K extends keyof T> = T & { [P in K]-?: T[P] }
+
 export class BrowserRunner {
   // Add getter methods for diagnostic loop
   getLogs(): BrowserResponse['logs'] {
@@ -136,6 +138,10 @@ export class BrowserRunner {
     try {
       switch (action.type) {
         case 'start':
+          await this.getBrowser(action)
+          if (!action.url) {
+            break
+          }
         case 'navigate':
           return await this.navigate({ ...action, type: 'navigate' })
         case 'click':
@@ -288,7 +294,10 @@ export class BrowserRunner {
       }
 
       this.browser = await puppeteer.launch({
-        defaultViewport: { width: 1200, height: 800 },
+        defaultViewport: {
+          width: BROWSER_DEFAULTS.viewportWidth,
+          height: BROWSER_DEFAULTS.viewportHeight,
+        },
         headless: BROWSER_DEFAULTS.headless,
         userDataDir,
         waitForInitialPage: true,
@@ -422,16 +431,25 @@ export class BrowserRunner {
       source: 'tool',
     })
 
+    // Take a screenshot after navigation
+    const { screenshot, logs } = await this.takeScreenshot({
+      type: 'screenshot',
+      screenshotCompressionQuality:
+        BROWSER_DEFAULTS.screenshotCompressionQuality,
+    })
+    this.logs.push(...logs)
+
     return {
       success: true,
-      logs: [],
+      logs: this.logs,
       networkEvents: [],
+      screenshot,
     }
   }
 
   private async takeScreenshot(
     action: Extract<BrowserAction, { type: 'screenshot' }>
-  ): Promise<BrowserResponse> {
+  ): Promise<NonOptional<BrowserResponse, 'screenshot'>> {
     const { page } = await this.getBrowser()
 
     // Take a screenshot with aggressive compression settings

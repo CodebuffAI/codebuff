@@ -8,6 +8,7 @@ import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './utils/terminal'
 import { truncateStringWithMessage } from 'common/util/string'
 import * as path from 'path'
+import { Spinner } from './utils/spinner'
 
 export type ToolHandler = (
   input: any,
@@ -103,6 +104,7 @@ export const toolHandlers: Record<string, ToolHandler> = {
   continue: async (input, id) => input.response ?? 'Please continue',
   code_search: handleCodeSearch,
   browser_action: async (input, _id): Promise<BrowserResponse> => {
+    Spinner.get().start()
     let response: BrowserResponse
     try {
       const action = BrowserActionSchema.parse(input)
@@ -123,6 +125,8 @@ export const toolHandlers: Record<string, ToolHandler> = {
           },
         ],
       }
+    } finally {
+      Spinner.get().stop()
     }
 
     // Log any browser errors

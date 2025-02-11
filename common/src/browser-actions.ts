@@ -13,6 +13,10 @@ export const BROWSER_DEFAULTS = {
     retryOnErrors: ['TimeoutError', 'TargetClosedError', 'DetachedFrameError'],
   },
 
+  // Viewport defaults
+  viewportWidth: 1280,
+  viewportHeight: 720,
+
   // Navigation defaults
   waitUntil: 'networkidle0' as const,
 

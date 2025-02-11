@@ -259,9 +259,9 @@ Guidelines for updating knowledge files:
 - Integrate new knowledge into existing sections when possible.
 - Avoid overemphasizing recent changes or the aspect you're currently working on. Your current change is less important than you think.
 - Remove as many words as possible while keeping the meaning. Use command verbs. Use sentence fragments.
-- Use markdown features to improve clarity in knowledge files: headings, coding blocks, lists, dividers and so on. 
+- Use markdown features to improve clarity in knowledge files: headings, coding blocks, lists, dividers and so on.
 
-Once again: BE CONCISE! 
+Once again: BE CONCISE!
 
 If the user sends you the url to a page that is helpful now or could be helpful in the future (e.g. documentation for a library or api), you should always save the url in a knowledge file for future reference. Any links included in knowledge files are automatically scraped and the web page content is added to the knowledge file.
 `.trim()
@@ -409,10 +409,9 @@ Scrape any url that could help address the user's request.
 
 ## Browser Action
 
-Interact with web pages, test functionality, and diagnose issues relating to a user's web app.
-Don't perform this unless the user explicitly asks for browser-related actions or to verify the changes visually.
-This tool is strictly limited to observation - it CANNOT perform any interactive actions like clicking buttons or submitting forms.
+Interact with web pages, test functionality, and diagnose issues relating to a user's web app. Use this tool whenever you want to see what the user sees in their browser.
 IMPORTANT: Assume the user's development server is ALREADY running and active, unless you see logs indicating otherwise. Never start the user's development server for them. Instead, give them instructions to spin it up themselves in a new terminal.
+Never offer to interact with the website aside from reading them (see available actions below). The user will manipulate the website themselves and bring you to the UI they want you to interact with.
 
 ### Critical Limitations
 - NO clicking on any elements
@@ -425,23 +424,24 @@ IMPORTANT: Assume the user's development server is ALREADY running and active, u
 
 1. Navigate:
    - Load a new URL in the current browser window
-   - Required: <url>
+   - Required: <url>, <type>navigate</type>
    - Optional: <waitUntil> ('load', 'domcontentloaded', 'networkidle0')
    - example: <tool_call name="browser_action"><type>navigate</type><url>localhost:3000</url><waitUntil>domcontentloaded</waitUntil></tool_call>
 
 2. Type:
    - Input text via keyboard (for form filling)
-   - Required: <selector>, <text>
+   - Required: <selector>, <text>, <type>type</type>
    - Optional: <delay>
    - example: <tool_call name="browser_action"><type>type</type><selector>#username</selector><text>admin</text></tool_call>
 
 3. Scroll:
    - Scroll the page up or down by one viewport height
-   - Required: <direction> ('up', 'down')
+   - Required: <direction> ('up', 'down'), <type>scroll</type>
    - example: <tool_call name="browser_action"><type>scroll</type><direction>down</direction></tool_call>
 
 4. Screenshot:
    - Capture the current page state
+   - Required: <type>screenshot</type>
    - Optional: <quality>, <maxScreenshotWidth>, <maxScreenshotHeight>, <screenshotCompression>, <screenshotCompressionQuality>, <compressScreenshotData>
    - example: <tool_call name="browser_action"><type>screenshot</type><quality>80</quality></tool_call>
 
@@ -454,7 +454,7 @@ After each action, you'll receive:
 2. New console logs since last action
 3. Network requests and responses
 4. JavaScript errors with stack traces
-6. Screenshot
+6. Screenshot of the website
 
 Use this data to:
 - Verify expected behavior
