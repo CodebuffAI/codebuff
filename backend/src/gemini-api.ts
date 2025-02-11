@@ -11,8 +11,11 @@ import { match, P } from 'ts-pattern'
  * Transform messages between our internal format and Gemini's format.
  * All Gemini models support images in their specific format.
  */
-function transformMessages(messages: OpenAIMessage[], model: GeminiModel): OpenAIMessage[] {
-  return messages.map(msg => 
+function transformMessages(
+  messages: OpenAIMessage[],
+  model: GeminiModel
+): OpenAIMessage[] {
+  return messages.map((msg) =>
     match(msg as any)
       .with(
         {
@@ -68,18 +71,27 @@ export function promptGeminiStream(
     temperature?: number
   }
 ): ReadableStream<string> {
+  const {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    temperature,
+    userId,
+    model,
+    maxTokens,
+  } = options
   return new ReadableStream({
     async start(controller) {
-      const gemini = getGeminiClient(options.fingerprintId)
+      const gemini = getGeminiClient(fingerprintId)
       const startTime = Date.now()
       try {
-        const transformedMessages = transformMessages(messages, options.model)
+        const transformedMessages = transformMessages(messages, model)
 
         const stream = await gemini.chat.completions.create({
-          model: options.model,
+          model: model,
           messages: transformedMessages,
-          temperature: options.temperature ?? 0,
-          max_tokens: options.maxTokens,
+          temperature: temperature ?? 0,
+          max_tokens: maxTokens,
           stream: true,
         })
 
@@ -102,14 +114,14 @@ export function promptGeminiStream(
           }
         }
 
-        if (messageId && messages.length > 0 && options.userId !== TEST_USER_ID) {
+        if (messageId && messages.length > 0 && userId !== TEST_USER_ID) {
           saveMessage({
             messageId: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            userId: options.userId,
-            clientSessionId: options.clientSessionId,
-            fingerprintId: options.fingerprintId,
-            userInputId: options.userInputId,
-            model: options.model,
+            userId,
+            clientSessionId,
+            fingerprintId,
+            userInputId,
+            model,
             request: messages,
             response: content,
             inputTokens: inputTokens || 0,

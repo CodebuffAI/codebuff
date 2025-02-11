@@ -85,7 +85,6 @@ async function* promptClaudeStreamWithoutRetry(
         : {
             'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
             'Helicone-User-Id': fingerprintId,
-            // 'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
             'Helicone-LLM-Security-Enabled': 'true',
           }),
     },
@@ -94,10 +93,17 @@ async function* promptClaudeStreamWithoutRetry(
   const startTime = Date.now()
 
   // Transform messages before sending to Anthropic
-  const transformedMsgs = transformMessages(
-    messages,
-    options.model ?? claudeModels.sonnet
-  )
+  const transformedMsgs = transformMessages(messages, model)
+
+  let content = ''
+  let usage: {
+    input_tokens: number
+    output_tokens: number
+    cache_read_input_tokens: number | undefined
+    cache_creation_input_tokens: number | undefined
+  } | null = null
+  let cacheCreationInputTokens = 0
+  let cacheReadInputTokens = 0
 
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
@@ -111,55 +117,47 @@ async function* promptClaudeStreamWithoutRetry(
     })
   )
 
-  let content = ''
-  let usage: { input_tokens: number; output_tokens: number } | null = null
-  let cacheCreationInputTokens = 0
-  let cacheReadInputTokens = 0
-
-  try {
-    for await (const chunk of stream) {
-      if (chunk.type === 'content_block_delta') {
-        // make sure we only read chunks that include text
-        if ('text' in chunk.delta) {
-          content += chunk.delta.text
-          yield chunk.delta.text
-        }
-      } else if (chunk.type === 'message_delta' && 'usage' in chunk.delta) {
-        usage = chunk.delta.usage as {
-          input_tokens: number
-          output_tokens: number
-        }
-        // @ts-ignore
-        cacheReadInputTokens = chunk.message.usage.cache_read_input_tokens ?? 0
-        cacheCreationInputTokens =
-          // @ts-ignore
-          chunk.message.usage.cache_creation_input_tokens ?? 0
+  for await (const chunk of stream) {
+    if (chunk.type === 'content_block_delta') {
+      // make sure we only read chunks that include text
+      if ('text' in chunk.delta) {
+        content += chunk.delta.text
+        yield chunk.delta.text
       }
+    } else if (chunk.type === 'message_delta' && 'usage' in chunk.delta) {
+      usage = chunk.delta.usage as {
+        input_tokens: number
+        output_tokens: number
+        cache_read_input_tokens: number | undefined
+        cache_creation_input_tokens: number | undefined
+      }
+      cacheReadInputTokens = usage.cache_read_input_tokens ?? 0
+      cacheCreationInputTokens = usage.cache_creation_input_tokens ?? 0
     }
-  } finally {
-    if (content && !options.ignoreDatabaseAndHelicone) {
-      const latencyMs = Date.now() - startTime
-      const inputTokens = usage?.input_tokens ?? 0
-      const outputTokens = usage?.output_tokens ?? 0
-      saveMessage({
-        messageId: userInputId,
-        userId,
-        fingerprintId,
-        clientSessionId,
-        userInputId,
-        model,
-        request: messages,
-        response: content,
-        inputTokens,
-        outputTokens,
-        cacheCreationInputTokens,
-        cacheReadInputTokens,
-        finishedAt: new Date(),
-        latencyMs,
-      }).catch((error) => {
-        logger.error({ error }, 'Failed to save message')
-      })
-    }
+  }
+
+  if (content && !options.ignoreDatabaseAndHelicone) {
+    const latencyMs = Date.now() - startTime
+    const inputTokens = usage?.input_tokens ?? 0
+    const outputTokens = usage?.output_tokens ?? 0
+    saveMessage({
+      messageId: userInputId,
+      userId,
+      fingerprintId,
+      clientSessionId,
+      userInputId,
+      model,
+      request: messages,
+      response: content,
+      inputTokens,
+      outputTokens,
+      cacheCreationInputTokens,
+      cacheReadInputTokens,
+      finishedAt: new Date(),
+      latencyMs,
+    }).catch((error) => {
+      logger.error({ error }, 'Failed to save message')
+    })
   }
 }
 

@@ -448,6 +448,15 @@ When previewing subscription changes:
 - Include `subscription_proration_date` to ensure consistent calculations between preview and actual update
 - The preview includes credits for unused time and charges for the new plan
 
+## Cache Cost Analysis
+
+Cache behavior significantly impacts costs:
+- Initial cache creation is expensive ($[redacted]/1M tokens)
+- Subsequent cache reads are much cheaper ($[redacted]/1M tokens)
+- Large cache creations (80k+ tokens) can dominate the cost of a request
+- Cache reads of 50k-70k tokens are common for subsequent similar requests
+- Cache creation and reading can happen in the same request
+
 ## Stripe API Best Practices
 
 ### Pagination
@@ -475,3 +484,26 @@ When previewing subscription changes:
     }
   }
   ```
+
+### API Error Handling
+
+- Only retry on connection errors (type "APIConnectionError") for most APIs
+- Other error types indicate issues that won't be resolved by retrying
+- Exception: Deepseek API rarely errors but can be very slow
+  - Use timeouts (2min) with retries rather than waiting indefinitely
+  - Only retry on timeout errors, not API errors
+- In stream handlers:
+  - Store errors in a variable instead of throwing immediately
+  - Complete cleanup in finally block (e.g. saving partial content)
+  - Throw stored error after cleanup if needed
+  - This ensures cleanup runs even for retryable errors
+
+- Only retry on connection errors (type "APIConnectionError") for most APIs
+- Other error types indicate issues that won't be resolved by retrying
+- Exception: Deepseek API rarely errors but can be very slow
+  - Use timeouts (2min) with retries rather than waiting indefinitely
+  - Only retry on timeout errors, not API errors
+- In stream handlers:
+  - Only throw APIConnectionError instances
+  - Log but swallow other errors
+  - This allows partial content to be processed even if stream ends early
