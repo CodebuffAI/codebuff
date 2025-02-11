@@ -295,12 +295,13 @@ export class Client {
         const toolResultMessage: Message = {
           role: 'user',
           content: match(content)
-            .with({ screenshot: P.not(P.nullish) }, (response) => [
+            .with({ screenshots: P.not(P.nullish) }, (response) => [
+              ...(response.screenshots.pre ? [response.screenshots.pre] : []),
               {
                 type: 'text' as const,
-                text: JSON.stringify({ ...response, screenshot: undefined }),
+                text: JSON.stringify({ ...response, screenshots: undefined }),
               },
-              response.screenshot,
+              response.screenshots.post,
             ])
             .with(P.string, (str) => str)
             .otherwise((val) => JSON.stringify(val)),

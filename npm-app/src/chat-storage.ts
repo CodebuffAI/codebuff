@@ -76,7 +76,6 @@ export class ChatStorage {
             (acc, contentObj) => [
               ...acc,
               ...match(contentObj)
-                .with({ type: 'image' }, () => [])
                 .with({ type: 'tool_result', content: P.string }, (obj) => [
                   {
                     ...obj,
