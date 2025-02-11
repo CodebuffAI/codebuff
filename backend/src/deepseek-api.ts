@@ -9,25 +9,27 @@ import { models } from 'common/constants'
 import { DeepseekModel } from 'common/constants'
 import { removeUndefinedProps } from 'common/util/object'
 
-function transformedMessage(message: any, model: DeepseekModel): OpenAIMessage {
-  // When Deepseek properly adds image support to their models, we can update this to handle images
-  if (typeof message.content === 'object' && Array.isArray(message.content)) {
-    const hasImages = message.content.some(
-      (obj: { type: string }) => obj.type === 'image'
-    )
-    if (hasImages) {
-      logger.info(
-        'Stripping images from message - Deepseek does not support images yet'
+function transformMessages(messages: OpenAIMessage[], model: DeepseekModel): OpenAIMessage[] {
+  return messages.map(msg => {
+    // When Deepseek properly adds image support to their models, we can update this to handle images
+    if (typeof msg.content === 'object' && Array.isArray(msg.content)) {
+      const hasImages = msg.content.some(
+        (obj: { type: string }) => obj.type === 'image'
       )
-      return {
-        ...message,
-        content: message.content.filter(
-          (obj: { type: string }) => obj.type !== 'image'
-        ),
+      if (hasImages) {
+        logger.info(
+          'Stripping images from message - Deepseek does not support images yet'
+        )
+        return {
+          ...msg,
+          content: msg.content.filter(
+            (obj: { type: string }) => obj.type !== 'image'
+          ),
+        }
       }
     }
-  }
-  return message
+    return msg
+  })
 }
 
 export type DeepseekMessage = OpenAI.Chat.ChatCompletionMessageParam
@@ -78,19 +80,14 @@ async function* innerPromptDeepseekStream(
     clientSessionId,
     fingerprintId,
     userInputId,
-    model,
-    userId,
-    maxTokens,
     temperature,
   } = options
   const deepseek = getDeepseekClient(fingerprintId)
   const startTime = Date.now()
-  let modifiedMessages = messages.map((msg) =>
-    transformedMessage(msg, options.model)
-  )
+  let modifiedMessages = transformMessages(messages, options.model)
 
   const lastMessage = modifiedMessages[modifiedMessages.length - 1]
-  if (model === models.deepseekReasoner && lastMessage.role === 'assistant') {
+  if (options.model === models.deepseekReasoner && lastMessage.role === 'assistant') {
     modifiedMessages = [
       ...modifiedMessages.slice(0, -1),
       { ...lastMessage, role: 'assistant', prefix: true } as any,
@@ -102,12 +99,12 @@ async function* innerPromptDeepseekStream(
       async () => {
         const streamPromise = deepseek.chat.completions.create(
           removeUndefinedProps({
-            model,
+            model: options.model,
             messages: modifiedMessages,
-            max_tokens: maxTokens,
+            max_tokens: options.maxTokens,
             stream: true,
             temperature:
-              model === models.deepseekReasoner ? undefined : temperature ?? 0,
+              options.model === models.deepseekReasoner ? undefined : temperature ?? 0,
           })
         )
 
@@ -161,11 +158,11 @@ async function* innerPromptDeepseekStream(
     if (messageId && messages.length > 0) {
       saveMessage({
         messageId: `deepseek-${messageId}`,
-        userId,
+        userId: options.userId,
         clientSessionId,
         fingerprintId,
         userInputId,
-        model,
+        model: options.model,
         request: messages,
         response: content,
         inputTokens,

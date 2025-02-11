@@ -576,3 +576,20 @@ When transforming message content:
    - Comprehensive test coverage
    - Error path testing
    - Cleanup verification
+
+### Screenshot Handling
+
+- Screenshots are taken at two points:
+  - Pre-action: Only if browser is already running
+  - Post-action: After action completes
+- Both screenshots are optional in the response
+- Screenshots object only included if at least one screenshot exists
+- Handle screenshot failures gracefully:
+  - Log warning for pre-action failures
+  - Log error for post-action failures
+  - Continue execution even if screenshots fail
+- Screenshots require active browser session:
+  - Only attempt screenshots when page is available
+  - No need to check browser state (page implies browser)
+  - Screenshots are jpeg format with configurable quality
+  - Default compression quality is 25%

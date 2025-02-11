@@ -26,41 +26,43 @@ export type GeminiMessage = OpenAIMessage
  * Transform messages between our internal format and Vertex AI's format.
  * Converts OpenAI message format to Vertex AI Content/Part structure.
  */
-function transformedMessage(message: OpenAIMessage): Content {
-  const role = message.role === 'assistant' ? 'model' : message.role
+function transformMessages(messages: OpenAIMessage[]): Content[] {
+  return messages.map(message => {
+    const role = message.role === 'assistant' ? 'model' : message.role
 
-  // For system messages, we need to handle them specially
-  if (role === 'system') {
+    // For system messages, we need to handle them specially
+    if (role === 'system') {
+      return {
+        role,
+        parts: [{ text: String(message.content) }] as Part[]
+      }
+    }
+
+    if (typeof message.content === 'object' && message.content !== null) {
+      if (Array.isArray(message.content)) {
+        // Handle array content
+        const parts: Part[] = message.content.map(part => {
+          if (typeof part === 'object' && part !== null && 'type' in part && part.type === 'image_url') {
+            const base64Data = part.image_url.url.split(',')[1] || ''
+            return {
+              inlineData: {
+                data: base64Data,
+                mimeType: 'image/jpeg'
+              }
+            } as Part
+          }
+          return { text: String(part) } as Part
+        })
+        return { role, parts }
+      }
+    }
+
+    // Default to text content
     return {
       role,
       parts: [{ text: String(message.content) }] as Part[]
     }
-  }
-
-  if (typeof message.content === 'object' && message.content !== null) {
-    if (Array.isArray(message.content)) {
-      // Handle array content
-      const parts: Part[] = message.content.map(part => {
-        if (typeof part === 'object' && part !== null && 'type' in part && part.type === 'image_url') {
-          const base64Data = part.image_url.url.split(',')[1] || ''
-          return {
-            inlineData: {
-              data: base64Data,
-              mimeType: 'image/jpeg'
-            }
-          } as Part
-        }
-        return { text: String(part) } as Part
-      })
-      return { role, parts }
-    }
-  }
-
-  // Default to text content
-  return {
-    role,
-    parts: [{ text: String(message.content) }] as Part[]
-  }
+  })
 }
 
 export async function promptGemini(
@@ -88,13 +90,14 @@ export async function promptGemini(
 
   try {
     const vertex = getVertexAI()
-
-    // Find system message if it exists
     const systemMessage = messages.find(m => m.role === 'system')
     const nonSystemMessages = messages.filter(m => m.role !== 'system')
 
     // Transform messages to Vertex AI's format
-    const transformedMessages = nonSystemMessages.map(transformedMessage)
+    const transformedMessages = transformMessages(nonSystemMessages)
+    // Find system message if it exists
+
+    const transformedMessages = transformMessages(nonSystemMessages)
 
     const generativeModel = vertex.getGenerativeModel({
       model,

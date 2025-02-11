@@ -1,58 +1,41 @@
-import Anthropic, { APIConnectionError } from '@anthropic-ai/sdk'
-import { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
+import { Anthropic, APIConnectionError } from '@anthropic-ai/sdk'
 import { removeUndefinedProps } from 'common/util/object'
 import { Message } from 'common/actions'
 import { claudeModels, STOP_MARKER, AnthropicModel } from 'common/constants'
 import { match, P } from 'ts-pattern'
+import { logger } from './util/logger'
+import { limitScreenshots } from 'common/util/messages'
+import { env } from './env.mjs'
+import { saveMessage } from './billing/message-cost-tracker'
+import { sleep } from 'common/util/promise'
+import { APIError } from '@anthropic-ai/sdk/error'
+import type { Tool, TextBlockParam } from '@anthropic-ai/sdk/resources'
+
+const MAX_SCREENSHOTS = 2
 
 /**
  * Transform messages for Anthropic API.
  * Anthropic's format matches our internal format, but we still want to be explicit
  * about when we don't send images to certain models.
- *
- * @param message The message to transform
- * @param model The Anthropic model being used
- * @returns The transformed message
  */
-function transformedMessage(message: Message, model: AnthropicModel): Message {
+function transformMessages(
+  messages: Message[],
+  model: AnthropicModel
+): Message[] {
   return match(model)
-    .with(claudeModels.sonnet, () => message) // Sonnet supports images natively
+    .with(claudeModels.sonnet, () =>
+      limitScreenshots(messages, MAX_SCREENSHOTS)
+    )
     .with(claudeModels.haiku, () =>
-      match<Message, Message>(message)
-        .with({ content: P.string }, () => message)
-        .with(
-          {
-            content: P.array({
-              type: P.string,
-            }),
-          },
-          (msg) => {
-            const hasImages = msg.content.some(
-              (obj: { type: string }) => obj.type === 'image'
-            )
-            if (hasImages) {
-              logger.info(
-                'Stripping images from message - Claude Haiku does not support images'
-              )
-              return {
-                ...msg,
-                content: msg.content.filter(
-                  (obj: { type: string }) => obj.type !== 'image'
-                ),
-              }
-            }
-            return msg
-          }
-        )
-        .exhaustive()
+      messages.map((msg) => ({
+        ...msg,
+        content: Array.isArray(msg.content)
+          ? msg.content.filter((item) => item.type !== 'image')
+          : msg.content,
+      }))
     )
     .exhaustive()
 }
-import { env } from './env.mjs'
-import { saveMessage } from './billing/message-cost-tracker'
-import { logger } from './util/logger'
-import { sleep } from 'common/util/promise'
-import { APIError } from '@anthropic-ai/sdk/error'
 
 const MAX_RETRIES = 3
 const INITIAL_RETRY_DELAY = 1000 // 1 second
@@ -73,49 +56,20 @@ async function* promptClaudeStreamWithoutRetry(
     ignoreDatabaseAndHelicone?: boolean
   }
 ): AsyncGenerator<string, void, unknown> {
-  const {
-    model = claudeModels.sonnet,
-    system,
-    tools,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    maxTokens,
-    ignoreDatabaseAndHelicone = false,
-  } = options
-
-  const apiKey = env.ANTHROPIC_API_KEY2
-
-  if (!apiKey) {
-    throw new Error('Missing ANTHROPIC_API_KEY')
-  }
-
   const anthropic = new Anthropic({
-    apiKey,
-    ...(ignoreDatabaseAndHelicone
-      ? {}
-      : {
-          baseURL: 'https://anthropic.helicone.ai/',
-        }),
-    defaultHeaders: {
-      'anthropic-beta': 'prompt-caching-2024-07-31',
-      ...(ignoreDatabaseAndHelicone
-        ? {}
-        : {
-            'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
-            'Helicone-User-Id': fingerprintId,
-            // 'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
-            'Helicone-LLM-Security-Enabled': 'true',
-          }),
-    },
+    apiKey: env.ANTHROPIC_API_KEY,
   })
+
+  const model = options.model ?? claudeModels.sonnet
+  const maxTokens = options.maxTokens ?? 8192
+  const { system, tools } = options
 
   const startTime = Date.now()
 
   // Transform messages before sending to Anthropic
-  const transformedMessages = messages.map((msg) =>
-    transformedMessage(msg, options.model ?? claudeModels.sonnet)
+  const transformedMsgs = transformMessages(
+    messages,
+    options.model ?? claudeModels.sonnet
   )
 
   const stream = anthropic.messages.stream(
@@ -123,103 +77,52 @@ async function* promptClaudeStreamWithoutRetry(
       model,
       max_tokens: maxTokens ?? 8192,
       temperature: 0,
-      messages: transformedMessages,
+      messages: transformedMsgs,
       system,
       tools,
       stop_sequences: [],
     })
   )
 
-  let toolInfo = {
-    name: '',
-    id: '',
-    json: '',
-  }
-  let messageId: string | undefined
-  let inputTokens = 0
-  let outputTokens = 0
-  let cacheCreationInputTokens = 0
-  let cacheReadInputTokens = 0
-  let fullResponse = ''
-  for await (const chunk of stream) {
-    const { type } = chunk
+  let content = ''
+  let usage = null
 
-    // Start of turn
-    if (type === 'message_start') {
-      messageId = chunk.message.id
-      inputTokens = chunk.message.usage.input_tokens
-      outputTokens = chunk.message.usage.output_tokens
-      // @ts-ignore
-      cacheReadInputTokens = chunk.message.usage.cache_read_input_tokens ?? 0
-      cacheCreationInputTokens =
-        // @ts-ignore
-        chunk.message.usage.cache_creation_input_tokens ?? 0
-    }
-
-    // Text (most common case)
-    if (type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-      fullResponse += chunk.delta.text
-      yield chunk.delta.text
-    }
-
-    // Tool use!
-    if (
-      type === 'content_block_start' &&
-      chunk.content_block.type === 'tool_use'
-    ) {
-      const { name, id } = chunk.content_block
-      toolInfo = {
-        name,
-        id,
-        json: '',
+  try {
+    for await (const chunk of stream) {
+      if (chunk.type === 'content_block_delta') {
+        content += chunk.delta.text
+        yield chunk.delta.text
+      } else if (chunk.type === 'message_delta') {
+        if (chunk.delta.usage) {
+          usage = chunk.delta.usage
+        }
       }
     }
-    if (
-      type === 'content_block_delta' &&
-      chunk.delta.type === 'input_json_delta'
-    ) {
-      toolInfo.json += chunk.delta.partial_json
-    }
-    if (type === 'message_delta' && chunk.delta.stop_reason === 'tool_use') {
-      const { name, id, json } = toolInfo
-      const input = JSON.parse(json)
-      logger.error({ name, id, input }, 'Tried to yield tool call')
-    }
-
-    // End of turn
-    if (
-      type === 'message_delta' &&
-      'usage' in chunk &&
-      !ignoreDatabaseAndHelicone
-    ) {
-      if (!messageId) {
-        logger.error('No messageId found')
-        break
-      }
-
-      outputTokens += chunk.usage.output_tokens
-
+  } finally {
+    if (content && !options.ignoreDatabaseAndHelicone) {
+      const latencyMs = Date.now() - startTime
       saveMessage({
-        messageId,
-        userId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        request: messages,
+        id: options.userInputId,
+        user_id: options.userId,
+        fingerprint_id: options.fingerprintId,
+        client_id: options.clientSessionId,
+        client_request_id: options.userInputId,
         model,
-        response: fullResponse,
-        inputTokens,
-        outputTokens,
-        cacheCreationInputTokens,
-        cacheReadInputTokens,
-        finishedAt: new Date(),
-        latencyMs: Date.now() - startTime,
+        request: messages,
+        response: content,
+        input_tokens: usage?.input_tokens,
+        output_tokens: usage?.output_tokens,
+        credits_used: usage?.input_tokens + usage?.output_tokens,
+        finished_at: new Date(),
+        latency_ms: latencyMs,
+      }).catch((error) => {
+        logger.error({ error }, 'Failed to save message')
       })
     }
   }
 }
 
-export const promptClaudeStream = (
+export async function* promptClaudeStream(
   messages: Message[],
   options: {
     system?: System
@@ -232,127 +135,81 @@ export const promptClaudeStream = (
     userId?: string
     ignoreDatabaseAndHelicone?: boolean
   }
-): ReadableStream<string> => {
-  // Use a readable stream to prevent base stream from being closed prematurely.
-  return new ReadableStream({
-    async start(controller) {
-      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-        try {
-          const baseStream = promptClaudeStreamWithoutRetry(messages, options)
+): AsyncGenerator<string, void, unknown> {
+  let retryCount = 0
+  let retryDelay = INITIAL_RETRY_DELAY
 
-          // Stream all chunks from the generator to the controller
-          for await (const chunk of baseStream) {
-            controller.enqueue(chunk)
-          }
-          controller.close()
-          return
-        } catch (error) {
-          // Only retry on connection errors (e.g. internal server error, overloaded, etc.)
-          if (error instanceof APIConnectionError) {
-            logger.error(
-              { error, attempt },
-              'Claude API connection error, retrying...'
-            )
-            if (attempt < MAX_RETRIES - 1) {
-              // Exponential backoff
-              const delayMs = INITIAL_RETRY_DELAY * Math.pow(2, attempt)
-              await sleep(delayMs)
-              continue
-            }
-          }
-
-          // For other types of errors, throw immediately
-          const parsedError = error as APIError
-          controller.error(
-            new Error(
-              `Anthropic API error: ${parsedError.message}. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
-            )
+  while (true) {
+    try {
+      yield* promptClaudeStreamWithoutRetry(messages, options)
+      return
+    } catch (error) {
+      if (error instanceof APIConnectionError) {
+        if (retryCount < MAX_RETRIES) {
+          logger.warn(
+            { error, retryCount, retryDelay },
+            'Connection error in Claude API call, retrying...'
           )
-          return
+          await sleep(retryDelay)
+          retryCount++
+          retryDelay *= 2
+          continue
         }
       }
-
-      controller.error(
-        new Error(
-          `Sorry, system's a bit overwhelmed. Please try again later or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
-        )
-      )
-    },
-  })
+      throw error
+    }
+  }
 }
 
-export const promptClaude = async (
+export async function promptClaude(
   messages: Message[],
   options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId?: string
     system?: string | Array<TextBlockParam>
     tools?: Tool[]
     model?: AnthropicModel
     maxTokens?: number
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId?: string
     ignoreDatabaseAndHelicone?: boolean
   }
-) => {
-  let fullResponse = ''
+): Promise<string> {
+  let result = ''
   for await (const chunk of promptClaudeStream(messages, options)) {
-    fullResponse += chunk
+    result += chunk
   }
-  return fullResponse
+  return result
 }
 
 export async function promptClaudeWithContinuation(
   messages: Message[],
   options: {
+    system?: string | Array<TextBlockParam>
+    tools?: Tool[]
+    model?: AnthropicModel
+    maxTokens?: number
     clientSessionId: string
     fingerprintId: string
     userInputId: string
     userId?: string
-    system?: string
-    model?: AnthropicModel
-    ignoreHelicone?: boolean
+    ignoreDatabaseAndHelicone?: boolean
   }
-) {
-  let fullResponse = ''
-  let continuedMessage: Message | null = null
-  let isComplete = false
-
-  // Add the instruction to end with the stop market to the system prompt
-  if (options.system) {
-    options.system += `\n\nAlways end your response with "${STOP_MARKER}".`
-  } else {
-    options.system = `Always end your response with "${STOP_MARKER}".`
-  }
-
-  while (!isComplete) {
-    const messagesWithContinuedMessage = continuedMessage
-      ? [...messages, continuedMessage]
-      : messages
-    logger.debug(
-      { messagesLength: messagesWithContinuedMessage.length },
-      'Prompt claude with continuation'
-    )
-    const stream = promptClaudeStream(messagesWithContinuedMessage, options)
-
-    for await (const chunk of stream) {
-      fullResponse += chunk
-    }
-
-    if (continuedMessage) {
-      logger.debug({ fullResponse }, 'Got continuation response')
-    }
-
-    if (fullResponse.includes(STOP_MARKER)) {
-      isComplete = true
-      fullResponse = fullResponse.replace(STOP_MARKER, '')
-    } else {
-      continuedMessage = {
-        role: 'assistant',
-        content: fullResponse,
-      }
+): Promise<string> {
+  let result = ''
+  for await (const chunk of promptClaudeStream(messages, options)) {
+    result += chunk
+    if (result.includes(STOP_MARKER)) {
+      break
     }
   }
+  return result
+}
 
-  return { response: fullResponse }
+export function start() {
+  return {
+    promptClaude,
+    promptClaudeWithContinuation,
+    promptClaudeStream,
+  }
 }

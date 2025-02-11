@@ -30,14 +30,18 @@ const getOpenAI = (fingerprintId: string) => {
   return openai
 }
 
-function transformedMessage(message: any, model: OpenAIModel): OpenAIMessage {
-  return match(model)
+/**
+ * Transform messages between our internal format and OpenAI's format.
+ * Each model has different image support capabilities.
+ */
+function transformMessages(messages: OpenAIMessage[], model: OpenAIModel): OpenAIMessage[] {
+  return messages.map(msg => match(model)
     .with(
       openaiModels.gpt4o,
       openaiModels.gpt4omini,
       openaiModels.generatePatch,
       () =>
-        match(message)
+        match(msg)
           .with(
             {
               content: {
@@ -51,7 +55,7 @@ function transformedMessage(message: any, model: OpenAIModel): OpenAIMessage {
             },
             (m) => ({
               // Convert to OpenAI's image_url format while preserving the base64 data
-              ...message,
+              ...msg,
               content: {
                 type: 'image_url',
                 image_url: {
@@ -60,10 +64,10 @@ function transformedMessage(message: any, model: OpenAIModel): OpenAIMessage {
               },
             })
           )
-          .otherwise(() => message)
+          .otherwise(() => msg)
     )
     .with(openaiModels.o3mini, () => {
-      const hasImages = [message.content ?? []].some(
+      const hasImages = Array.isArray(msg.content) && msg.content.some(
         (obj: { type: string }) => obj.type === 'image'
       )
       if (hasImages) {
@@ -71,24 +75,31 @@ function transformedMessage(message: any, model: OpenAIModel): OpenAIMessage {
           'Stripping images from message - o3mini does not support images'
         )
         return {
-          ...message,
-          content: message.content.filter(
-            (obj: { type: string }) => obj.type !== 'image'
-          ),
+          ...msg,
+          content: Array.isArray(msg.content) 
+            ? msg.content.filter((obj: { type: string }) => obj.type !== 'image')
+            : msg.content
         }
       }
-      return message
+      return msg
     })
     .exhaustive()
+  )
 }
 
 export async function* promptOpenAIStream(
   messages: OpenAIMessage[],
-  options: OpenAIOptions
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: OpenAIModel
+    userId: string | undefined
+    predictedContent?: string
+    temperature?: number
+  }
 ): AsyncGenerator<string, void, unknown> {
-  const transformedMessages = messages.map((msg) =>
-    transformedMessage(msg, options.model)
-  )
+  const transformedMessages = transformMessages(messages, options.model)
   const {
     clientSessionId,
     fingerprintId,
