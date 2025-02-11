@@ -56,13 +56,40 @@ async function* promptClaudeStreamWithoutRetry(
     ignoreDatabaseAndHelicone?: boolean
   }
 ): AsyncGenerator<string, void, unknown> {
+  const {
+    model = claudeModels.sonnet,
+    system,
+    tools,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    maxTokens,
+    ignoreDatabaseAndHelicone = false,
+  } = options
+  const apiKey = env.ANTHROPIC_API_KEY2
+  if (!apiKey) {
+    throw new Error('Missing ANTHROPIC_API_KEY')
+  }
   const anthropic = new Anthropic({
-    apiKey: env.ANTHROPIC_API_KEY,
+    apiKey,
+    ...(ignoreDatabaseAndHelicone
+      ? {}
+      : {
+          baseURL: 'https://anthropic.helicone.ai/',
+        }),
+    defaultHeaders: {
+      'anthropic-beta': 'prompt-caching-2024-07-31',
+      ...(ignoreDatabaseAndHelicone
+        ? {}
+        : {
+            'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
+            'Helicone-User-Id': fingerprintId,
+            // 'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
+            'Helicone-LLM-Security-Enabled': 'true',
+          }),
+    },
   })
-
-  const model = options.model ?? claudeModels.sonnet
-  const maxTokens = options.maxTokens ?? 8192
-  const { system, tools } = options
 
   const startTime = Date.now()
 
@@ -86,6 +113,8 @@ async function* promptClaudeStreamWithoutRetry(
 
   let content = ''
   let usage: { input_tokens: number; output_tokens: number } | null = null
+  let cacheCreationInputTokens = 0
+  let cacheReadInputTokens = 0
 
   try {
     for await (const chunk of stream) {
@@ -96,7 +125,15 @@ async function* promptClaudeStreamWithoutRetry(
           yield chunk.delta.text
         }
       } else if (chunk.type === 'message_delta' && 'usage' in chunk.delta) {
-        usage = chunk.delta.usage as { input_tokens: number; output_tokens: number }
+        usage = chunk.delta.usage as {
+          input_tokens: number
+          output_tokens: number
+        }
+        // @ts-ignore
+        cacheReadInputTokens = chunk.message.usage.cache_read_input_tokens ?? 0
+        cacheCreationInputTokens =
+          // @ts-ignore
+          chunk.message.usage.cache_creation_input_tokens ?? 0
       }
     }
   } finally {
@@ -104,18 +141,19 @@ async function* promptClaudeStreamWithoutRetry(
       const latencyMs = Date.now() - startTime
       const inputTokens = usage?.input_tokens ?? 0
       const outputTokens = usage?.output_tokens ?? 0
-      
       saveMessage({
-        messageId: options.userInputId,
-        userId: options.userId,
-        fingerprintId: options.fingerprintId,
-        clientSessionId: options.clientSessionId,
-        userInputId: options.userInputId,
+        messageId: userInputId,
+        userId,
+        fingerprintId,
+        clientSessionId,
+        userInputId,
         model,
         request: messages,
         response: content,
         inputTokens,
         outputTokens,
+        cacheCreationInputTokens,
+        cacheReadInputTokens,
         finishedAt: new Date(),
         latencyMs,
       }).catch((error) => {
