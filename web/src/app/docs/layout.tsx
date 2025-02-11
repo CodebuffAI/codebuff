@@ -15,21 +15,20 @@ export default function DocsLayout({
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   return (
-    <div className="pt-6">
-      <div className="container flex md:space-x-4">
+    <div className="pt-8">
+      <div className="container flex md:space-x-8">
         <DocSidebar
-          className="hidden lg:block w-64 shrink-0 sticky top-[24px] h-[calc(100vh-24px)] overflow-y-auto"
+          className="hidden lg:block w-64 shrink-0 sticky top-[24px] h-[calc(100vh-24px)] overflow-y-auto pr-4"
           onNavigate={() => setOpen(false)}
         />
-        <main className="flex-1 mx-auto pb-36">{children}</main>
+        <main className="flex-1 mx-auto pb-36 md:px-8">{children}</main>
       </div>
-      <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-muted container p-4 rounded-t-lg">
+      <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-background/80 backdrop-blur-sm container p-4 rounded-t-lg border-t">
         <Sheet
           open={open}
           onOpenChange={(isOpen) => {
             setOpen(isOpen)
             if (!open) {
-              // Preserve scroll position by preventing body scroll reset
               document.body.style.position = ''
               document.body.style.overflow = ''
               document.body.style.top = ''
@@ -37,19 +36,19 @@ export default function DocsLayout({
           }}
         >
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Menu className="h-6 w-6" />
+            <Button variant="ghost" size="icon" className="mr-4">
+              <Menu className="h-5 w-5" />
               <span className="sr-only">Toggle menu</span>
             </Button>
           </SheetTrigger>
           <SheetContent
             side="bottom"
-            className="h-1/2 p-6 pt-12 overflow-y-auto"
+            className="h-[80vh] p-6 pt-12 overflow-y-auto"
           >
             <DocSidebar onNavigate={() => setOpen(false)} />
           </SheetContent>
           <SheetTrigger asChild>
-            <h1 className="text-2xl font-bold w-full">
+            <h1 className="text-xl font-semibold w-full">
               {sections.find((section) => pathname.startsWith(section.href))
                 ?.title || 'Documentation'}
             </h1>

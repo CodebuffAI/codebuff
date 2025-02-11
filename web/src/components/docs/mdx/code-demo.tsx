@@ -42,23 +42,26 @@ export function CodeDemo({ children, language }: CodeDemoProps) {
   const childrenContent = useMemo(() => getContent(children), [children])
 
   return (
-    <div className="rounded-lg border px-2 w-80 md:w-full">
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-muted-foreground pl-1 py-2 font-mono">
-          {language}
+    <div className="rounded-lg border bg-muted/30 px-3 w-80 md:w-full my-2 transition-all group hover:bg-muted/40">
+      <div className="flex items-center justify-between h-6 mt-0.5 mb-0.5">
+        <div className="text-[10px] text-muted-foreground/40 font-mono tracking-wide">
+          {language.toLowerCase()}
         </div>
-        {copied ? (
-          <Check className="h-4 w-4 text-green-500" />
-        ) : (
-          <Copy
-            className="h-4 w-4 text-gray-400 hover:text-foreground cursor-pointer"
-            onClick={() => copyToClipboard(childrenContent)}
-          />
-        )}
+        <button
+          onClick={() => copyToClipboard(childrenContent)}
+          className="p-1 hover:bg-muted rounded-md transition-all md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none"
+          aria-label={copied ? 'Copied!' : 'Copy code'}
+        >
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-green-500" />
+          ) : (
+            <Copy className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-foreground md:text-muted-foreground" />
+          )}
+        </button>
       </div>
-      {language && <Separator />}
-      <pre className="text-sm my-2 bg-background text-foreground rounded-lg overflow-x-auto">
-        <code>{childrenContent}</code>
+      {language && <Separator className="bg-border/20 mb-0.5" />}
+      <pre className="text-[13px] leading-relaxed py-1 bg-transparent text-foreground/90 rounded-lg overflow-x-auto scrollbar-thin scrollbar-thumb-muted-foreground/10 scrollbar-track-transparent">
+        <code className="font-mono">{childrenContent}</code>
       </pre>
     </div>
   )
