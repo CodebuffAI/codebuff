@@ -29,21 +29,18 @@ export type GeminiMessage = OpenAIMessage
 function transformMessages(messages: OpenAIMessage[]): Content[] {
   return messages.map(message => {
     const role = message.role === 'assistant' ? 'model' : message.role
-
-    // For system messages, we need to handle them specially
     if (role === 'system') {
       return {
         role,
         parts: [{ text: String(message.content) }] as Part[]
       }
     }
-
     if (typeof message.content === 'object' && message.content !== null) {
       if (Array.isArray(message.content)) {
-        // Handle array content
         const parts: Part[] = message.content.map(part => {
           if (typeof part === 'object' && part !== null && 'type' in part && part.type === 'image_url') {
-            const base64Data = part.image_url.url.split(',')[1] || ''
+            // handle image URL: extract base64 data if needed
+            const base64Data = (part as any).image_url.url.split(',')[1] || ''
             return {
               inlineData: {
                 data: base64Data,
@@ -56,8 +53,6 @@ function transformMessages(messages: OpenAIMessage[]): Content[] {
         return { role, parts }
       }
     }
-
-    // Default to text content
     return {
       role,
       parts: [{ text: String(message.content) }] as Part[]
@@ -95,9 +90,6 @@ export async function promptGemini(
 
     // Transform messages to Vertex AI's format
     const transformedMessages = transformMessages(nonSystemMessages)
-    // Find system message if it exists
-
-    const transformedMessages = transformMessages(nonSystemMessages)
 
     const generativeModel = vertex.getGenerativeModel({
       model,
@@ -110,7 +102,6 @@ export async function promptGemini(
       history: transformedMessages.slice(0, -1),
     })
 
-    // If there's a system message, send it first
     if (systemMessage) {
       await chat.sendMessage([{ text: String(systemMessage.content) }] as Part[])
     }
@@ -120,7 +111,6 @@ export async function promptGemini(
 
     const content = response.response.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 
-    // Estimate token counts since Vertex AI doesn't provide them directly
     const inputTokens = countTokensJson(transformedMessages)
     const outputTokens = countTokens(content)
 

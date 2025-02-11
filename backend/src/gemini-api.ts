@@ -12,28 +12,29 @@ import { match, P } from 'ts-pattern'
  * All Gemini models support images in their specific format.
  */
 function transformMessages(messages: OpenAIMessage[], model: GeminiModel): OpenAIMessage[] {
-  return messages.map(msg => match(msg)
-    .with(
-      {
-        content: {
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: 'image/jpeg',
-            data: P.string,
+  return messages.map(msg => 
+    match(msg as any)
+      .with(
+        {
+          content: {
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: 'image/jpeg',
+              data: P.string,
+            },
           },
         },
-      },
-      (m) => ({
-        ...msg,
-        content: {
-          inlineData: m.content.source.data,
-          mimeType: 'image/jpeg',
-        },
-      })
-    )
-    .otherwise(() => msg)
-  )
+        (m) => ({
+          ...msg,
+          content: {
+            inlineData: m.content.source.data,
+            mimeType: 'image/jpeg',
+          },
+        })
+      )
+      .otherwise(() => msg)
+  ) as OpenAIMessage[]
 }
 
 export type GeminiMessage = OpenAI.Chat.ChatCompletionMessageParam

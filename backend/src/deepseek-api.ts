@@ -24,12 +24,12 @@ function transformMessages(messages: OpenAIMessage[], model: DeepseekModel): Ope
           ...msg,
           content: msg.content.filter(
             (obj: { type: string }) => obj.type !== 'image'
-          ),
-        }
+          ).map(obj => ({ type: 'text', text: String(obj) })),
+        } as OpenAIMessage
       }
     }
     return msg
-  })
+  }) as OpenAIMessage[]
 }
 
 export type DeepseekMessage = OpenAI.Chat.ChatCompletionMessageParam
@@ -84,7 +84,7 @@ async function* innerPromptDeepseekStream(
   } = options
   const deepseek = getDeepseekClient(fingerprintId)
   const startTime = Date.now()
-  let modifiedMessages = transformMessages(messages, options.model)
+  let modifiedMessages = transformMessages(messages, options.model) as OpenAIMessage[]
 
   const lastMessage = modifiedMessages[modifiedMessages.length - 1]
   if (options.model === models.deepseekReasoner && lastMessage.role === 'assistant') {

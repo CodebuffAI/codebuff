@@ -32,59 +32,61 @@ const getOpenAI = (fingerprintId: string) => {
 
 /**
  * Transform messages between our internal format and OpenAI's format.
- * Each model has different image support capabilities.
  */
-function transformMessages(messages: OpenAIMessage[], model: OpenAIModel): OpenAIMessage[] {
-  return messages.map(msg => match(model)
-    .with(
-      openaiModels.gpt4o,
-      openaiModels.gpt4omini,
-      openaiModels.generatePatch,
-      () =>
-        match(msg)
-          .with(
-            {
-              content: {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: 'image/jpeg',
-                  data: P.string,
+function transformMessages(
+  messages: OpenAIMessage[],
+  model: OpenAIModel
+): OpenAIMessage[] {
+  return messages.map((msg) =>
+    match(model)
+      .with(
+        openaiModels.gpt4o,
+        openaiModels.gpt4omini,
+        openaiModels.generatePatch,
+        () =>
+          match(msg as any)
+            .with(
+              {
+                content: {
+                  type: 'image',
+                  source: {
+                    type: 'base64',
+                    media_type: 'image/jpeg',
+                    data: P.string,
+                  },
                 },
               },
-            },
-            (m) => ({
-              // Convert to OpenAI's image_url format while preserving the base64 data
-              ...msg,
-              content: {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${m.content.source.data}`,
-                },
-              },
-            })
-          )
-          .otherwise(() => msg)
-    )
-    .with(openaiModels.o3mini, () => {
-      const hasImages = Array.isArray(msg.content) && msg.content.some(
-        (obj: { type: string }) => obj.type === 'image'
+              (m) => ({
+                ...msg,
+                content: {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/jpeg;base64,${m.content.source.data}`,
+                  },
+                } as any,
+              })
+            )
+            .otherwise(() => msg)
       )
-      if (hasImages) {
-        logger.info(
-          'Stripping images from message - o3mini does not support images'
-        )
-        return {
-          ...msg,
-          content: Array.isArray(msg.content) 
-            ? msg.content.filter((obj: { type: string }) => obj.type !== 'image')
-            : msg.content
+      .with(openaiModels.o3mini, () => {
+        if (
+          Array.isArray(msg.content) &&
+          msg.content.some((obj: any) => obj.type === 'image')
+        ) {
+          logger.info(
+            'Stripping images from message - o3mini does not support images'
+          )
+          return {
+            ...msg,
+            content: Array.isArray(msg.content)
+              ? msg.content.filter((obj: any) => obj.type !== 'image')
+              : msg.content,
+          }
         }
-      }
-      return msg
-    })
-    .exhaustive()
-  )
+        return msg
+      })
+      .exhaustive()
+  ) as OpenAIMessage[]
 }
 
 export async function* promptOpenAIStream(

@@ -85,36 +85,39 @@ async function* promptClaudeStreamWithoutRetry(
   )
 
   let content = ''
-  let usage = null
+  let usage: { input_tokens: number; output_tokens: number } | null = null
 
   try {
     for await (const chunk of stream) {
       if (chunk.type === 'content_block_delta') {
-        content += chunk.delta.text
-        yield chunk.delta.text
-      } else if (chunk.type === 'message_delta') {
-        if (chunk.delta.usage) {
-          usage = chunk.delta.usage
+        // make sure we only read chunks that include text
+        if ('text' in chunk.delta) {
+          content += chunk.delta.text
+          yield chunk.delta.text
         }
+      } else if (chunk.type === 'message_delta' && 'usage' in chunk.delta) {
+        usage = chunk.delta.usage as { input_tokens: number; output_tokens: number }
       }
     }
   } finally {
     if (content && !options.ignoreDatabaseAndHelicone) {
       const latencyMs = Date.now() - startTime
+      const inputTokens = usage?.input_tokens ?? 0
+      const outputTokens = usage?.output_tokens ?? 0
+      
       saveMessage({
-        id: options.userInputId,
-        user_id: options.userId,
-        fingerprint_id: options.fingerprintId,
-        client_id: options.clientSessionId,
-        client_request_id: options.userInputId,
+        messageId: options.userInputId,
+        userId: options.userId,
+        fingerprintId: options.fingerprintId,
+        clientSessionId: options.clientSessionId,
+        userInputId: options.userInputId,
         model,
         request: messages,
         response: content,
-        input_tokens: usage?.input_tokens,
-        output_tokens: usage?.output_tokens,
-        credits_used: usage?.input_tokens + usage?.output_tokens,
-        finished_at: new Date(),
-        latency_ms: latencyMs,
+        inputTokens,
+        outputTokens,
+        finishedAt: new Date(),
+        latencyMs,
       }).catch((error) => {
         logger.error({ error }, 'Failed to save message')
       })
