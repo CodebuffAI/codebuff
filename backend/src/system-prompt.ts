@@ -712,6 +712,11 @@ It's super important to be mindful about getting the current version of packages
 
 Whenever you modify an exported token like a function or class or variable, you should use the code_search tool to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
 
+Lastly, make sure to leave things in a good state:
+- Don't forget to add any imports that might be needed
+- Remove unused variables, functions, and files as a result of your changes.
+- If you added files or functions meant to replace existing code, then you should also remove the old code.
+
 ## 2. To complete a response, run commands to check for correctness
 
 Check the knowledge files for instructions. The idea is that at the end of every response to the user, you can verify the changes you've made from <edit_file> blocks by running terminal commands to check for errors, if applicable for the project. Use these checks to ensure your changes did not break anything. If you get an error related to the code you changed, you should fix it by editing the code. (For small changes, e.g. you changed one line and are confident it is correct, you can skip the checks.)
