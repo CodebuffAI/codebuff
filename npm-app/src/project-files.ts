@@ -228,7 +228,6 @@ export function getFiles(filePaths: string[]) {
 
   for (const filePath of filePaths) {
     if (!filePath) {
-      result[filePath] = '[INVALID_FILE_PATH]'
       continue
     }
 
@@ -243,11 +242,11 @@ export function getFiles(filePaths: string[]) {
     }
     try {
       if (ig.ignores(relativePath)) {
-        result[relativePath] = '[FILE_IGNORED]'
+        result[relativePath] = null
         continue
       }
     } catch (error) {
-      result[relativePath] = '[ERROR_LOADING_FILE]'
+      result[relativePath] = null
       continue
     }
     try {

@@ -162,7 +162,7 @@ export async function loadFilesForPlanning(ws: WebSocket, filePaths: string[]) {
     Object.entries(loadedFiles).filter(
       ([, content]) =>
         content !== null &&
-        content !== '[INVALID_FILE_PATH]' &&
+        content.length < 400_000 &&
         countTokens(content) < 40_000
     ) as [string, string][]
   )

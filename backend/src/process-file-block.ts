@@ -101,15 +101,15 @@ export async function processFileBlock(
       lastUserPrompt
     )
     const shouldAddPlaceholders = await shouldAddFilePlaceholders(
-      clientSessionId,
-      fingerprintId,
-      userInputId,
       filePath,
       normalizedInitialContent,
       updatedContent,
       messages,
       fullResponse,
-      userId
+      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
     )
 
     if (shouldAddPlaceholders) {
@@ -168,15 +168,15 @@ export async function processFileBlock(
  * above and below the function.
  */
 const shouldAddFilePlaceholders = async (
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
   filePath: string,
   oldContent: string,
   rewrittenNewContent: string,
   messageHistory: Message[],
   fullResponse: string,
-  userId: string | undefined
+  userId: string | undefined,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
 ) => {
   const fileBlocks = parseFileBlocks(
     messageHistory
@@ -245,7 +245,7 @@ Do not write anything else.
       filePath,
       duration: Date.now() - startTime,
     },
-    'shouldAddFilePlaceholders response'
+    `shouldAddFilePlaceholders response for ${filePath}`
   )
 
   return shouldAddPlaceholderComments
