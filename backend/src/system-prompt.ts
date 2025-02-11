@@ -43,7 +43,8 @@ export function getSearchSystemPrompt(
 
   const projectFileTreePrompt = getProjectFileTreePrompt(
     fileContext,
-    fileTreeTokenBudget
+    fileTreeTokenBudget,
+    'search'
   )
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)
 
@@ -114,7 +115,8 @@ export const getAgentSystemPrompt = (
 
   const projectFileTreePrompt = getProjectFileTreePrompt(
     fileContext,
-    fileTreeTokenBudget
+    fileTreeTokenBudget,
+    'agent'
   )
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)
 
@@ -480,7 +482,8 @@ Use this data to:
 
 export const getProjectFileTreePrompt = (
   fileContext: ProjectFileContext,
-  fileTreeTokenBudget: number
+  fileTreeTokenBudget: number,
+  mode: 'search' | 'agent'
 ) => {
   const { currentWorkingDirectory } = fileContext
   const { printedTree, truncationLevel } = truncateFileTreeBasedOnTokenBudget(
@@ -507,13 +510,19 @@ The following is the path to the project on the user's computer. It is also the 
 ${currentWorkingDirectory}
 </project_path>
 
-Within this project directory, here is the file tree. It includes everything except files that are .gitignored.
-
+Within this project directory, here is the file tree. 
+Note that the file tree:
+- Is cached from the start of this conversation. Files created after the start of this conversation will not appear.
+- Excludes files that are .gitignored.
+${
+  mode === 'agent'
+    ? `\nThe project file tree below can be ignored unless you need to know what files are in the project.\n`
+    : ''
+}
 <project_file_tree>
 ${printedTree}
 </project_file_tree>
 ${truncationNote}
-Note: the project file tree is cached from the start of this conversation.
 `.trim()
 }
 
