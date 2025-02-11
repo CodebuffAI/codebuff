@@ -1,11 +1,13 @@
 {
   "name": "common",
   "version": "1.0.0",
+  "description": "Common utilities for Codebuff",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "license": "UNLICENSED",
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist && rm tsconfig.tsbuildinfo",
     "db:generate": "drizzle-kit generate --config=./src/db/drizzle.config.ts",
     "db:migrate": "drizzle-kit push --config=./src/db/drizzle.config.ts",
