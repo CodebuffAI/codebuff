@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws'
 import { Message } from 'common/actions'
-import { models, CostMode, geminiModels } from 'common/constants'
+import { models, CostMode, geminiModels, claudeModels } from 'common/constants'
 import { countTokens, countTokensJson } from './util/token-counter'
 import {
   createFileBlock,
@@ -15,6 +15,8 @@ import { processFileBlock } from './process-file-block'
 import { requestFiles } from './websockets/websocket-action'
 import { promptGemini } from './gemini-api'
 import { messagesWithSystem } from './util/messages'
+import { promptClaude } from './claude'
+import { logger } from './util/logger'
 
 const systemPrompt = `
 You are a senior software engineer. You are given a request from a user and a set of files that are relevant to the request.
@@ -139,16 +141,36 @@ Only output the file paths, one per line, nothing else.`,
     costMode,
     countTokensJson(planningMessages)
   )
-  const response = await promptGemini(
-    messagesWithSystem(planningMessages, systemPrompt),
-    {
-      model: geminiModels.gemini2flash,
+
+  let response = ''
+  try {
+    response = await promptGemini(
+      messagesWithSystem(planningMessages, systemPrompt),
+      {
+        model: geminiModels.gemini2flash,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      }
+    )
+  } catch (error) {
+    logger.warn(
+      { error },
+      'Gemini failed to get relevant files, falling back to Claude'
+    )
+
+    const fallbackModel =
+      costMode === 'lite' ? claudeModels.haiku : claudeModels.sonnet
+    response = await promptClaude(planningMessages, {
+      model: fallbackModel,
+      system: systemPrompt,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId,
-    }
-  )
+    })
+  }
 
   return response
     .split('\n')
