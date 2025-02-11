@@ -384,7 +384,6 @@ Use cases:
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\` or \`rm\`.
 4. Installing dependencies (e.g., "npm install <package-name>"). Be careful with this command -- not everyone wants packages installed without permission. Check the knowledge files for specific instructions, and also be sure to use the right package manager for the project (e.g. it might be \`pnpm\` or \`bun\` or \`yarn\` instead of \`npm\`, or \`pip\` for python, etc.).
-5. Running scripts. Check the package.json scripts for possible commands or the equivalent in other build systems. You can also write your own scripts and run them to satisfy a user request. Be extremely careful about running scripts that have permanent effects -- ask for explicit permission from the user before running them.
 
 The current working directory will always reset to project root directory for each command you run. You can only access files within this directory (or sub-directories).
 
