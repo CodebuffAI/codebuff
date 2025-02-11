@@ -102,8 +102,13 @@ async function* promptClaudeStreamWithoutRetry(
     cache_read_input_tokens: number | undefined
     cache_creation_input_tokens: number | undefined
   } | null = null
+
+  let messageId: string | undefined
+  let inputTokens = 0
+  let outputTokens = 0
   let cacheCreationInputTokens = 0
   let cacheReadInputTokens = 0
+  let fullResponse = ''
 
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
@@ -118,46 +123,80 @@ async function* promptClaudeStreamWithoutRetry(
   )
 
   for await (const chunk of stream) {
-    if (chunk.type === 'content_block_delta') {
-      // make sure we only read chunks that include text
-      if ('text' in chunk.delta) {
-        content += chunk.delta.text
-        yield chunk.delta.text
-      }
-    } else if (chunk.type === 'message_delta' && 'usage' in chunk.delta) {
-      usage = chunk.delta.usage as {
-        input_tokens: number
-        output_tokens: number
-        cache_read_input_tokens: number | undefined
-        cache_creation_input_tokens: number | undefined
-      }
-      cacheReadInputTokens = usage.cache_read_input_tokens ?? 0
-      cacheCreationInputTokens = usage.cache_creation_input_tokens ?? 0
+    if (chunk.type === 'message_start') {
+      messageId = chunk.message.id
+      inputTokens = chunk.message.usage.input_tokens
+      outputTokens = chunk.message.usage.output_tokens
+      // @ts-ignore
+      cacheReadInputTokens = chunk.message.usage.cache_read_input_tokens ?? 0
+      cacheCreationInputTokens =
+        // @ts-ignore
+        chunk.message.usage.cache_creation_input_tokens ?? 0
     }
-  }
+    // Text (most common case)
+    if (
+      chunk.type === 'content_block_delta' &&
+      chunk.delta.type === 'text_delta'
+    ) {
+      fullResponse += chunk.delta.text
+      yield chunk.delta.text
+    }
 
-  if (content && !options.ignoreDatabaseAndHelicone) {
-    const latencyMs = Date.now() - startTime
-    const inputTokens = usage?.input_tokens ?? 0
-    const outputTokens = usage?.output_tokens ?? 0
-    saveMessage({
-      messageId: userInputId,
-      userId,
-      fingerprintId,
-      clientSessionId,
-      userInputId,
-      model,
-      request: messages,
-      response: content,
-      inputTokens,
-      outputTokens,
-      cacheCreationInputTokens,
-      cacheReadInputTokens,
-      finishedAt: new Date(),
-      latencyMs,
-    }).catch((error) => {
-      logger.error({ error }, 'Failed to save message')
-    })
+    // // Tool use!
+    // if (
+    //   type === 'content_block_start' &&
+    //   chunk.content_block.type === 'tool_use'
+    // ) {
+    //   const { name, id } = chunk.content_block
+    //   toolInfo = {
+    //     name,
+    //     id,
+    //     json: '',
+    //   }
+    // }
+    // if (
+    //   type === 'content_block_delta' &&
+    //   chunk.delta.type === 'input_json_delta'
+    // ) {
+    //   toolInfo.json += chunk.delta.partial_json
+    // }
+    // if (type === 'message_delta' && chunk.delta.stop_reason === 'tool_use') {
+    //   const { name, id, json } = toolInfo
+    //   const input = JSON.parse(json)
+    //   logger.error({ name, id, input }, 'Tried to yield tool call')
+    // }
+
+    if (
+      chunk.type === 'message_delta' &&
+      'usage' in chunk &&
+      !ignoreDatabaseAndHelicone
+    ) {
+      if (!messageId) {
+        logger.error('No messageId found')
+        break
+      }
+      outputTokens += chunk.usage.output_tokens
+
+      const latencyMs = Date.now() - startTime
+      saveMessage({
+        messageId,
+        userId,
+        fingerprintId,
+        clientSessionId,
+        userInputId,
+        model,
+        request: messages,
+        response: content,
+        inputTokens,
+        outputTokens,
+        cacheCreationInputTokens,
+        cacheReadInputTokens,
+        finishedAt: new Date(),
+        latencyMs,
+      }).catch((error) => {
+        logger.error({ error }, 'Failed to save message')
+      })
+    }
   }
 }
 
