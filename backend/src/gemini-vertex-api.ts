@@ -6,20 +6,29 @@ import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { generateCompactId } from 'common/util/string'
-import { Content, Part } from '@google-cloud/vertexai/build/src/types/content'
+import {
+  Content,
+  Part,
+  RequestOptions,
+} from '@google-cloud/vertexai/build/src/types/content'
 
 let vertexAI: VertexAI | null = null
+let customHeaders: Headers | null = null
 
 const getVertexAI = () => {
   if (!vertexAI) {
     vertexAI = new VertexAI({
       project: env.GOOGLE_CLOUD_PROJECT_ID,
       location: 'us-central1',
+      apiEndpoint: 'gateway.helicone.ai',
+    })
+    customHeaders = new Headers({
+      'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
+      'Helicone-Target-URL': `https://us-central1-aiplatform.googleapis.com`,
     })
   }
   return vertexAI
 }
-
 export type GeminiMessage = OpenAIMessage
 
 /**
@@ -27,25 +36,30 @@ export type GeminiMessage = OpenAIMessage
  * Converts OpenAI message format to Vertex AI Content/Part structure.
  */
 function transformMessages(messages: OpenAIMessage[]): Content[] {
-  return messages.map(message => {
+  return messages.map((message) => {
     const role = message.role === 'assistant' ? 'model' : message.role
     if (role === 'system') {
       return {
         role,
-        parts: [{ text: String(message.content) }] as Part[]
+        parts: [{ text: String(message.content) }] as Part[],
       }
     }
     if (typeof message.content === 'object' && message.content !== null) {
       if (Array.isArray(message.content)) {
-        const parts: Part[] = message.content.map(part => {
-          if (typeof part === 'object' && part !== null && 'type' in part && part.type === 'image_url') {
+        const parts: Part[] = message.content.map((part) => {
+          if (
+            typeof part === 'object' &&
+            part !== null &&
+            'type' in part &&
+            part.type === 'image_url'
+          ) {
             // handle image URL: extract base64 data if needed
             const base64Data = (part as any).image_url.url.split(',')[1] || ''
             return {
               inlineData: {
                 data: base64Data,
-                mimeType: 'image/jpeg'
-              }
+                mimeType: 'image/jpeg',
+              },
             } as Part
           }
           return { text: String(part) } as Part
@@ -55,7 +69,7 @@ function transformMessages(messages: OpenAIMessage[]): Content[] {
     }
     return {
       role,
-      parts: [{ text: String(message.content) }] as Part[]
+      parts: [{ text: String(message.content) }] as Part[],
     }
   })
 }
@@ -85,31 +99,41 @@ export async function promptGemini(
 
   try {
     const vertex = getVertexAI()
-    const systemMessage = messages.find(m => m.role === 'system')
-    const nonSystemMessages = messages.filter(m => m.role !== 'system')
+    const requestOptions: RequestOptions = {
+      customHeaders,
+    } as RequestOptions
+
+    const systemMessage = messages.find((m) => m.role === 'system')
+    const nonSystemMessages = messages.filter((m) => m.role !== 'system')
 
     // Transform messages to Vertex AI's format
     const transformedMessages = transformMessages(nonSystemMessages)
 
-    const generativeModel = vertex.getGenerativeModel({
-      model,
-      generationConfig: {
-        temperature: temperature,
-      }
-    })
+    const generativeModel = vertex.getGenerativeModel(
+      {
+        model,
+        generationConfig: {
+          temperature: temperature,
+        },
+      },
+      requestOptions
+    )
 
     const chat = generativeModel.startChat({
       history: transformedMessages.slice(0, -1),
     })
 
     if (systemMessage) {
-      await chat.sendMessage([{ text: String(systemMessage.content) }] as Part[])
+      await chat.sendMessage([
+        { text: String(systemMessage.content) },
+      ] as Part[])
     }
 
     const lastMessage = transformedMessages[transformedMessages.length - 1]
     const response = await chat.sendMessage(lastMessage.parts)
 
-    const content = response.response.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+    const content =
+      response.response.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 
     const inputTokens = countTokensJson(transformedMessages)
     const outputTokens = countTokens(content)
