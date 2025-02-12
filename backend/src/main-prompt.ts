@@ -54,13 +54,6 @@ export async function mainPrompt(
   )
   const lastUserMessage = messages[lastUserMessageIndex]
   const lastUserPrompt = getMessageText(lastUserMessage)
-  const assistantReplyMessageIndex = lastUserMessageIndex + 1
-  const assistantReplyMessage = messages[assistantReplyMessageIndex]
-  const assistantIsExecutingPlan =
-    assistantReplyMessage && typeof assistantReplyMessage.content === 'string'
-      ? assistantReplyMessage.content.includes('plan_complex_change')
-      : false
-
   const allowUnboundedIterationPromise = checkToAllowUnboundedIteration(
     messages[lastUserMessageIndex],
     {
@@ -82,6 +75,10 @@ export async function mainPrompt(
   let addedFileVersions: FileVersion[] = []
   let resetFileVersions = false
   const justUsedATool = didClientUseTool(lastMessage)
+  const userMessages = messages.filter((m) => m.role === 'user')
+  const recentlyDidThinking = userMessages
+    .slice(-3)
+    .some((m) => JSON.stringify(m.content).includes('think_deeply'))
 
   const messagesTokens = countTokensJson(messages)
   // Step 1: Read more files.
@@ -148,6 +145,7 @@ export async function mainPrompt(
           costMode,
           allowUnboundedIteration,
           justUsedATool,
+          recentlyDidThinking,
           numAssistantMessages
         ) +
         '\n\n' +
@@ -227,7 +225,7 @@ export async function mainPrompt(
             contentAttributes.file_paths = content
           } else if (name === 'code_search') {
             contentAttributes.pattern = content
-          } else if (name === 'plan_complex_change') {
+          } else if (name === 'think_deeply') {
             contentAttributes.prompt = content
           } else if (name === 'browser_action') {
             contentAttributes = parseToolCallXml(content)
@@ -282,7 +280,7 @@ export async function mainPrompt(
 
     const toolCallResult = toolCall as ToolCall | null
 
-    if (toolCallResult?.name === 'plan_complex_change') {
+    if (toolCallResult?.name === 'think_deeply') {
       const { prompt } = toolCallResult.input
 
       onResponseChunk(`\nPrompt: ${prompt}\n`)
@@ -343,7 +341,7 @@ export async function mainPrompt(
         id: Math.random().toString(36).slice(2),
         name: 'continue',
         input: {
-          response: `Please summarize briefly the action taken, but do not call the plan_complex_change tool again for now.`,
+          response: `Please summarize briefly the action taken, but do not call the think_deeply tool again for now.`,
         },
       }
       isComplete = true
@@ -551,6 +549,7 @@ function getExtraInstructionForUserPrompt(
   costMode: CostMode,
   allowUnboundedIteration: boolean,
   justUsedATool: boolean,
+  recentlyDidThinking: boolean,
   numAssistantMessages: number
 ) {
   const hasKnowledgeFiles =
@@ -566,7 +565,8 @@ function getExtraInstructionForUserPrompt(
       : ' Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
 
     !justUsedATool &&
-      'If the user request is very complex (e.g. requires changes across multiple files or systems), please consider invoking the plan_complex_change tool to create a plan, although this should be used sparingly.',
+      !recentlyDidThinking &&
+      'If the user request is very complex (e.g. requires changes across multiple files or systems) and you have not recently used the think_deeply tool, consider invoking the think_deeply tool, although this should be used sparingly.',
 
     hasKnowledgeFiles &&
       'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case.',
