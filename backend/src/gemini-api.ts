@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { TEST_USER_ID } from 'common/constants'
+import { geminiModels, TEST_USER_ID } from 'common/constants'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
@@ -58,6 +58,11 @@ const getGeminiClient = (fingerprintId: string) => {
 
   return geminiClient
 }
+
+const timeoutPromise = (ms: number) =>
+  new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Gemini API request timed out')), ms)
+  )
 
 export function promptGeminiStream(
   messages: OpenAIMessage[],
@@ -164,9 +169,16 @@ export async function promptGemini(
   const stream = promptGeminiStream(messages, options)
   try {
     let content = ''
-    for await (const chunk of stream) {
-      content += chunk
-    }
+    await Promise.race([
+      (async () => {
+        for await (const chunk of stream) {
+          content += chunk
+        }
+      })(),
+      timeoutPromise(
+        options.model === geminiModels.gemini2flash ? 30_000 : 200_000
+      ),
+    ])
     return content
   } catch (error) {
     logger.error(
