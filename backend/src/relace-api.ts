@@ -4,6 +4,8 @@ import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
 import { countTokens } from './util/token-counter'
 import { createMarkdownFileBlock } from 'common/util/file'
+import { promptGemini } from './gemini-api'
+import { geminiModels } from 'common/constants'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
@@ -84,7 +86,7 @@ export async function promptRelaceAI(
         latencyMs: Date.now() - startTime,
       })
     }
-    return content
+    return content + '\n'
   } catch (error) {
     logger.error(
       {
@@ -93,9 +95,38 @@ export async function promptRelaceAI(
             ? error.message
             : 'Unknown error',
       },
-      'Error calling Relace AI'
+      'Error calling Relace AI, falling back to Gemini Flash'
     )
 
-    throw error
+    // Fall back to Gemini
+    const prompt = `You are an expert programmer. Please rewrite this code file to implement the edit snippet while preserving as much of the original code and behavior as possible.
+
+Initial code:
+\`\`\`
+${initialCode}
+\`\`\`
+
+Edit snippet (the new content to implement):
+\`\`\`
+${editSnippet}
+\`\`\`
+
+Important:
+1. Keep the changes minimal and focused
+2. Preserve the original formatting, indentation, and comments
+3. Only implement the changes shown in the edit snippet
+4. Return only the code, no explanation needed
+
+Please output just the complete updated file content, do not include markdown backticks or other formatting:`
+
+    const content = await promptGemini([{ role: 'user', content: prompt }], {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: geminiModels.gemini2flash,
+      userId,
+    })
+
+    return content
   }
 }

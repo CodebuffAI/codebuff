@@ -286,7 +286,7 @@ export async function fastRewrite(
   )
 
   // Add newline to maintain consistency with original file endings
-  return response + '\n'
+  return response
 }
 
 const LARGE_FILE_TOKEN_LIMIT = 10_000
