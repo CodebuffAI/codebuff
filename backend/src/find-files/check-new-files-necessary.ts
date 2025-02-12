@@ -24,7 +24,9 @@ Considering the conversation history above, and the following user request, dete
 Current files read: ${previousFiles.length > 0 ? previousFiles.join(', ') : 'None'}
 User request: ${userPrompt}
 
-We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad user requests may require many files as context.
+We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request.
+- Broad user requests may require many files as context.
+- If there are not many files read (e.g. only knowledge files), lean towards reading more files.
 
 You should not read new files (NO) if:
 - The user is following up on a previous request
