@@ -37,7 +37,7 @@ export async function processFileBlock(
   if (initialContent === null) {
     let cleanContent = cleanMarkdownCodeBlock(newContent)
 
-    if (hasLazyEdit(cleanContent)) {
+    if (hasLazyEdit(cleanContent) && !filePath.endsWith('.md')) {
       logger.debug(
         { filePath, newContent },
         `processFileBlock: New file contained a lazy edit for ${filePath}. Aborting.`
@@ -109,7 +109,7 @@ export async function processFileBlock(
       userId,
       clientSessionId,
       fingerprintId,
-      userInputId,
+      userInputId
     )
 
     if (shouldAddPlaceholders) {
@@ -176,7 +176,7 @@ const shouldAddFilePlaceholders = async (
   userId: string | undefined,
   clientSessionId: string,
   fingerprintId: string,
-  userInputId: string,
+  userInputId: string
 ) => {
   const fileBlocks = parseFileBlocks(
     messageHistory
