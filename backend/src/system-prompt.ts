@@ -441,6 +441,12 @@ Notes:
 
 Scrape any url that could help address the user's request.
 
+You will receive the content transformed into a simplified markdown file that contains the main content of the page.
+
+Use this tool to:
+- Read the content of documentation pages
+- Read the content of other web pages that are helpful to the user's request
+
 ## Browser Action
 
 Load and view web pages to test functionality, diagnose issues, or improve visual design of a user's web app.
