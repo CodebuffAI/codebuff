@@ -412,30 +412,30 @@ Purpose: Better fulfill the user request by running terminal commands in the use
 
 Warning: Use this tool sparingly. You should only use it when you are sure it is the best way to accomplish the user's request. Do not run more commands than the user has asked for. Especially be careful with commands that could have permanent effects.
 
-Use cases:
-1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
-2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
-3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\` or \`rm\`.
-4. Installing dependencies (e.g., "npm install <package-name>"). Be careful with this command -- not everyone wants packages installed without permission. Check the knowledge files for specific instructions, and also be sure to use the right package manager for the project (e.g. it might be \`pnpm\` or \`bun\` or \`yarn\` instead of \`npm\`, or \`pip\` for python, etc.).
-
-The current working directory will always reset to project root directory for each command you run. You can only access files within this directory (or sub-directories).
-
-Note: Commands can succeed without giving any output, e.g. if no type errors were found. So you may not always see output for successful executions.
-
-When using this tool, please adhere to the following rules:
-
-1. Don't run commands that can modify files outside of the project directory, install packages globally, install virtual environments, or have significant side effects, unless you have explicit permission from the user.
-2. Do not run \`git push\` because it can break production (!) if the user was not expecting it. Don't run \`git commit\`, \`git rebase\`, or related commands unless you get explicit permission. If a user asks to commit changes, you can do so, but you should not invoke any further git commands beyond the git commit command.
-3. Do not run scripts that could run against the production environment or have permanent effects without explicit permission from the user. Don't run scripts with side effects without permission from the user unless they don't have much effect or are simple.
-4. Be careful with any command that has big or irreversible effects. Anything that touches a production environment, servers, the database, or other systems that could be affected by a command should be run with explicit permission from the user.
-4. Don't run too many commands in a row without pausing to check in with what the user wants to do next.
-5. Don't run long-running commands, e.g. \`npm run dev\` or \`npm start\`, that start a server and do not exit. Only run commands that will complete within 30 seconds, because longer commands will be killed. Instead, ask the user to manually run long-running commands.
-6. Do not use the run_terminal_command tool to create or edit files. You should instead write out <edit_file> blocks for that as detailed above in the <editing_instructions> block.
-
-If you just want to show the user a terminal command, but don't want to actually run it, you can write out a markdown \`\`\` command block instead:
+If you just want to show the user a terminal command without immediately running it, you can write out a markdown \`\`\` command block instead:
 \`\`\`bash
 # ... command to show the user ...
 \`\`\`
+
+Stick to these use cases:
+1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
+2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
+3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\` or \`rm\`.
+
+When using this tool, please adhere to the following rules:
+
+1. Do not run commands that can modify files outside of the project directory, install packages globally, install virtual environments, or have significant side effects, unless you have explicit permission from the user.
+2. Do not run \`git push\` because it can break production (!) if the user was not expecting it. Don't run \`git commit\`, \`git rebase\`, or related commands unless you get explicit permission. If a user asks to commit changes, you can do so, but you should not invoke any further git commands beyond the git commit command.
+3. Do not run scripts without asking. Especially don't run scripts that could run against the production environment or have permanent effects without explicit permission from the user. Don't run scripts with side effects without permission from the user unless they don't have much effect or are simple.
+4. Be careful with any command that has big or irreversible effects. Anything that touches a production environment, servers, the database, or other systems that could be affected by a command should be run with explicit permission from the user.
+4. Don't run too many commands in a row without pausing to check in with what the user wants to do next.
+5. Don't run long-running commands, e.g. \`npm run dev\` or \`npm start\`, that start a server and do not exit. Only run commands that will complete within 30 seconds, because longer commands will be killed. Instead, ask the user to manually run long-running commands.
+6. Do not use the run_terminal_command tool to create or edit files. Do not use \`cat\` or \`echo\` to create or edit files. You should instead write out <edit_file> blocks for for editing or creating files as detailed above in the <editing_instructions> block.
+7. Do not use the wrong package manager for the project. For example, if the project uses \`pnpm\` or \`bun\` or \`yarn\`, you should not use \`npm\`. Similarly not everyone uses \`pip\` for python, etc.
+
+Notes:
+- The current working directory will always reset to project root directory for each command you run. You can only access files within this directory (or sub-directories).
+- Commands can succeed without giving any output, e.g. if no type errors were found. So you may not always see output for successful executions.
 
 ## Web scraping
 
