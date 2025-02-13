@@ -6,6 +6,7 @@ import { logger } from './util/logger'
 import { OpenAIMessage } from './openai-api'
 import { GeminiModel } from 'common/constants'
 import { match, P } from 'ts-pattern'
+import { generateCompactId } from 'common/util/string'
 
 /**
  * Transform messages between our internal format and Gemini's format.
@@ -119,9 +120,9 @@ export function promptGeminiStream(
           }
         }
 
-        if (messageId && messages.length > 0 && userId !== TEST_USER_ID) {
+        if (messages.length > 0 && userId !== TEST_USER_ID) {
           saveMessage({
-            messageId: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            messageId: generateCompactId(),
             userId,
             clientSessionId,
             fingerprintId,
