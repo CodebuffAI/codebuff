@@ -108,7 +108,6 @@ async function* promptClaudeStreamWithoutRetry(
   let outputTokens = 0
   let cacheCreationInputTokens = 0
   let cacheReadInputTokens = 0
-  let fullResponse = ''
 
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
@@ -138,7 +137,7 @@ async function* promptClaudeStreamWithoutRetry(
       chunk.type === 'content_block_delta' &&
       chunk.delta.type === 'text_delta'
     ) {
-      fullResponse += chunk.delta.text
+      content += chunk.delta.text
       yield chunk.delta.text
     }
 
