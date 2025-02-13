@@ -278,7 +278,7 @@ You have access to the following tools:
 - <tool_call name="think_deeply">[PROMPT]</tool_call>: Think through a complex change to the codebase, like implementing a new feature or refactoring some code. Provide a clear, specific problem statement folllowed by additional context that is relevant to the problem in the tool call body. Use this tool to solve a user request that is not immediately obvious or requires more than a few lines of code.
 - <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
 - <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
-- <tool_call name="browser_action">[BROWSER_ACTION]</tool_call>: Execute a browser action and return the result. Use this tool to interact with the user's browser and automate tasks like filling out forms, navigating to pages, and screenshotting for analysis.
+- <tool_call name="browser_action">[BROWSER_ACTION_XML_HERE]</tool_call>: Navigate to a url, take screenshots, and view console.log output or errors for a web page. Use this tool to debug a web app or improve its visual style.
 
 Important notes:
 - Immediately after you finish writing the closing tag of a tool call, you should write ${STOP_MARKER}, and end your response. Do not write out any other text. A tool call is a delgation -- do not write any other analysis or commentary.
@@ -406,7 +406,7 @@ It's a good idea to ask the user to suggest modifications to the plan, which you
 
 ## Running terminal commands
 
-You can write out <tool_call name="run_terminal_command">...</tool_call> to execute shell commands in the user's terminal. This can be useful for tasks such as:
+You can write out <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call> to execute shell commands in the user's terminal.
 
 Purpose: Better fulfill the user request by running terminal commands in the user's terminal and reading the standard output.
 
@@ -443,7 +443,10 @@ Scrape any url that could help address the user's request.
 
 ## Browser Action
 
-Interact with web pages, test functionality, and diagnose issues relating to a user's web app. Use this tool whenever you want to see what the user sees in their browser.
+Load and view web pages to test functionality, diagnose issues, or improve visual design of a user's web app.
+
+Purpose: Use this tool to navigate to a web page, take screenshots, and check the output of console.log or errors.
+
 IMPORTANT: Assume the user's development server is ALREADY running and active, unless you see logs indicating otherwise. Never start the user's development server for them. Instead, give them instructions to spin it up themselves in a new terminal.
 Never offer to interact with the website aside from reading them (see available actions below). The user will manipulate the website themselves and bring you to the UI they want you to interact with.
 
@@ -457,23 +460,17 @@ Never offer to interact with the website aside from reading them (see available 
 ### Available Actions (Read Only):
 
 1. Navigate:
-   - Load a new URL in the current browser window
+   - Load a new URL in the current browser window and get the logs after page load.
    - Required: <url>, <type>navigate</type>
    - Optional: <waitUntil> ('load', 'domcontentloaded', 'networkidle0')
    - example: <tool_call name="browser_action"><type>navigate</type><url>localhost:3000</url><waitUntil>domcontentloaded</waitUntil></tool_call>
 
-2. Type:
-   - Input text via keyboard (for form filling)
-   - Required: <selector>, <text>, <type>type</type>
-   - Optional: <delay>
-   - example: <tool_call name="browser_action"><type>type</type><selector>#username</selector><text>admin</text></tool_call>
-
-3. Scroll:
+2. Scroll:
    - Scroll the page up or down by one viewport height
    - Required: <direction> ('up', 'down'), <type>scroll</type>
    - example: <tool_call name="browser_action"><type>scroll</type><direction>down</direction></tool_call>
 
-4. Screenshot:
+3. Screenshot:
    - Capture the current page state
    - Required: <type>screenshot</type>
    - Optional: <quality>, <maxScreenshotWidth>, <maxScreenshotHeight>, <screenshotCompression>, <screenshotCompressionQuality>, <compressScreenshotData>
@@ -495,11 +492,12 @@ Use this data to:
 - Debug issues
 - Guide next actions
 - Make informed decisions about fixes
+- Improve visual design 
 
 ### Best Practices
 
 **Workflow**
-- Navigate to the user's website
+- Navigate to the user's website, probably on localhost, but you can compare with the production site if you want.
 - Scroll to the relevant section
 - Take screenshots and analyze confirm changes
 - Check network requests for anomalies
@@ -508,7 +506,6 @@ Use this data to:
 - Start with minimal reproduction steps
 - Collect data at each step
 - Analyze results before next action
-- Document findings in knowledge files
 - Take screenshots to track your changes after each UI change you make
 `.trim()
 
