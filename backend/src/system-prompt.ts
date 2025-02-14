@@ -203,7 +203,7 @@ function foo() {
 )}
 
 Notes for editing a file:
-- You must specify a file path using the filePath attribute.
+- You must specify a file path using the path attribute.
 - Do not wrap the updated file content in markdown code blocks. The xml tags are sufficient to indicate the file content.
 - You can edit multiple files in your response by including multiple edit_file blocks.
 - You should abridge the content of the file using placeholder comments like: // ... existing code ... or # ... existing code ... (or whichever is appropriate for the language). Placeholder comments signify sections that should not be changed from the existing file. Using placeholder comments for unchanged code is preferred because it is more concise and clearer. Try to minimize the number of lines you write out in edit blocks by relying on placeholder comments.
@@ -426,7 +426,7 @@ Most likely, you should ask for permission for any other type of command you wan
 
 When using this tool, please adhere to the following rules:
 
-1. Do not run commands that can modify files outside of the project directory, install packages globally, install virtual environments, or have significant side effects, unless you have explicit permission from the user.
+1. Do not run commands that can modify files outside of the project directory, install packages globally, install virtual environments, or have significant side effects outside of the project directory, unless you have explicit permission from the user. Treat anything outside of the project directory as read-only.
 2. Do not run \`git push\` because it can break production (!) if the user was not expecting it. Don't run \`git commit\`, \`git rebase\`, or related commands unless you get explicit permission. If a user asks to commit changes, you can do so, but you should not invoke any further git commands beyond the git commit command.
 3. Do not run scripts without asking. Especially don't run scripts that could run against the production environment or have permanent effects without explicit permission from the user. Don't run scripts with side effects without permission from the user unless they don't have much effect or are simple.
 4. Be careful with any command that has big or irreversible effects. Anything that touches a production environment, servers, the database, or other systems that could be affected by a command should be run with explicit permission from the user.
