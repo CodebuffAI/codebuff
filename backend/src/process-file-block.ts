@@ -251,6 +251,57 @@ Do not write anything else.
   return shouldAddPlaceholderComments
 }
 
+async function preserveCommentsInEditSnippet(
+  initialContent: string,
+  editSnippet: string,
+  filePath: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined
+) {
+  const prompt = `You are an expert programmer. Modify the edit snippet to preserve comments from the original file.
+
+Original file:
+\`\`\`
+${initialContent}
+\`\`\`
+
+Edit snippet:
+\`\`\`
+${editSnippet}
+\`\`\`
+
+Guidelines for adding back comments:
+1. Look for comments in the original file that were ommitted from the edit snippet.
+2. Add those comments to the edit snippet in their exact original positions.
+3. Return only the modified edit snippet with no markdown formatting.
+4. Do not change any code, only add comments from the original.
+5. Keep the edit snippet's structure exactly the same, just with comments added.
+
+Guidlines for removing new comments:
+1. Look for comments in the edit snippet that were not in the original file.
+2. If the new comment is about the code being edited, remove it. For example, if the comment is "// Add this function" then remove it. Otherwise, you should keep the new comment!
+
+Return only the modified edit snippet with no markdown formatting after applying these guidelines.
+`
+
+  const response = await promptGeminiWithFallbacks(
+    [{ role: 'user', content: prompt }],
+    undefined,
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: geminiModels.gemini2flash,
+      userId,
+      useGPT4oInsteadOfClaude: true,
+    }
+  )
+
+  return response
+}
+
 export async function fastRewrite(
   initialContent: string,
   editSnippet: string,
@@ -261,10 +312,23 @@ export async function fastRewrite(
   userId: string | undefined,
   userMessage: string | undefined
 ) {
-  const startTime = Date.now()
+  const commentPreservationStartTime = Date.now()
 
+  // First, preserve any comments from the original file in the edit snippet
+  const editSnippetWithComments = await preserveCommentsInEditSnippet(
+    initialContent,
+    editSnippet,
+    filePath,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId
+  )
+  const commentPreservationDuration = Date.now() - commentPreservationStartTime
+
+  const relaceStartTime = Date.now()
   const messageId = generateCompactId('cb-')
-  const response = await promptRelaceAI(initialContent, editSnippet, {
+  const response = await promptRelaceAI(initialContent, editSnippetWithComments, {
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -272,15 +336,19 @@ export async function fastRewrite(
     userMessage,
     messageId,
   })
+  const relaceDuration = Date.now() - relaceStartTime
 
   logger.debug(
     {
       initialContent,
       editSnippet,
+      editSnippetWithComments,
       response,
       userMessage,
       messageId,
-      duration: Date.now() - startTime,
+      commentPreservationDuration,
+      relaceDuration,
+      totalDuration: commentPreservationDuration + relaceDuration,
     },
     `fastRewrite of ${filePath}`
   )

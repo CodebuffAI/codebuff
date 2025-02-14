@@ -182,7 +182,9 @@ Only output the file paths, one per line, nothing else.`,
 }
 
 export async function loadFilesForPlanning(ws: WebSocket, filePaths: string[]) {
+  console.log('Loading files for planning', filePaths)
   const loadedFiles = await requestFiles(ws, filePaths)
+  console.log('Loaded files for planning', filePaths)
   const fileContents = Object.fromEntries(
     Object.entries(loadedFiles).filter(
       ([, content]) =>

@@ -21,13 +21,12 @@ async function codebuff(
   const dir = setProjectRoot(projectDir)
   recreateShell()
 
-  const updatePromise = updateCodebuff()
-  const initFileContextPromise = initProjectFileContextWithWorker(dir)
+  const [_, fileContext] = await Promise.all([
+    updateCodebuff(),
+    initProjectFileContextWithWorker(dir)
+  ])
 
-  const readyPromise = Promise.all([updatePromise, initFileContextPromise])
-
-  const cli = new CLI(readyPromise, { git, costMode })
-
+  const cli = new CLI(Promise.resolve([undefined, fileContext]), { git, costMode })
   await cli.printInitialPrompt(initialInput)
 }
 
@@ -64,10 +63,9 @@ if (require.main === module) {
   }
 
   const gitArg = args.indexOf('--git')
-  const git =
-    gitArg !== -1 && args[gitArg + 1] === 'stage'
-      ? ('stage' as const)
-      : undefined
+  const git = gitArg !== -1 && args[gitArg + 1] === 'stage' 
+    ? ('stage' as const) 
+    : undefined
   if (gitArg !== -1) {
     args.splice(gitArg, 2)
   }
@@ -76,11 +74,7 @@ if (require.main === module) {
   if (args.includes('--lite')) {
     costMode = 'lite'
     args.splice(args.indexOf('--lite'), 1)
-  } else if (
-    args.includes('--pro') ||
-    args.includes('--o1') ||
-    args.includes('--max')
-  ) {
+  } else if (args.some(arg => ['--pro', '--o1', '--max'].includes(arg))) {
     costMode = 'max'
 
     // Remove whichever flag was used
@@ -93,12 +87,13 @@ if (require.main === module) {
       )
       process.exit(1)
     }
-    if (args.includes('--o1')) args.splice(args.indexOf('--o1'), 1)
-    if (args.includes('--max')) args.splice(args.indexOf('--max'), 1)
+    
+    // Remove whichever flag was used
+    for (const flag of ['--o1', '--max']) {
+      const index = args.indexOf(flag)
+      if (index !== -1) args.splice(index, 1)
+    }
   }
-
-  const projectPath = args[0]
-  const initialInput = args.slice(1).join(' ')
 
   if (help) {
     console.log('Usage: codebuff [project-directory] [initial-prompt]')
@@ -143,6 +138,9 @@ if (require.main === module) {
     )
     process.exit(0)
   }
+
+  const projectPath = args[0]
+  const initialInput = args.slice(1).join(' ')
 
   codebuff(projectPath, { initialInput, git, costMode })
 }
