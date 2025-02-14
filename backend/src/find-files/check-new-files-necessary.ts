@@ -1,10 +1,7 @@
 import { System } from '@/claude'
-import { promptOpenAI, OpenAIMessage } from '@/openai-api'
 import { Message } from 'common/actions'
 import { CostMode, models } from 'common/constants'
-import { promptGemini } from '@/gemini-api'
-import { messagesWithSystem } from '@/util/messages'
-import { logger } from '@/util/logger'
+import { promptGeminiWithFallbacks } from '@/gemini-with-fallbacks'
 
 export const checkNewFilesNecessary = async (
   messages: Message[],
@@ -39,40 +36,21 @@ If the user is asking something new or that would likely benefit from new files 
 Answer with just 'YES' if reading new files is helpful, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
 
-  try {
-    // First try Gemini
-    const response = await promptGemini(
-      messagesWithSystem(
-        [...messages, { role: 'user', content: prompt }],
-        system
-      ),
-      {
-        model: models.gemini2flash,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      }
-    )
-    const endTime = Date.now()
-    const duration = endTime - startTime
-    const newFilesNecessary = response.trim().toUpperCase().includes('YES')
-    return { newFilesNecessary, response, duration }
-  } catch (error) {
-    logger.error({ error }, 'Error calling Gemini API, falling back to GPT-4o')
-    const response = await promptOpenAI(
-      [...(messages as OpenAIMessage[]), { role: 'user', content: prompt }],
-      {
-        model: costMode === 'lite' ? models.gpt4omini : models.gpt4o,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      }
-    )
-    const endTime = Date.now()
-    const duration = endTime - startTime
-    const newFilesNecessary = response.trim().toUpperCase().includes('YES')
-    return { newFilesNecessary, response, duration }
-  }
+  const response = await promptGeminiWithFallbacks(
+    [...messages, { role: 'user', content: prompt }],
+    system,
+    {
+      model: models.gemini2flash,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      costMode,
+      useGPT4oInsteadOfClaude: true,
+    }
+  )
+  const endTime = Date.now()
+  const duration = endTime - startTime
+  const newFilesNecessary = response.trim().toUpperCase().includes('YES')
+  return { newFilesNecessary, response, duration }
 }

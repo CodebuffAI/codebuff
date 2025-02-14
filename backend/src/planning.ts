@@ -13,10 +13,7 @@ import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { getSearchSystemPrompt } from './system-prompt'
 import { processFileBlock } from './process-file-block'
 import { requestFiles } from './websockets/websocket-action'
-import { promptGemini } from './gemini-api'
-import { messagesWithSystem } from './util/messages'
-import { promptClaude } from './claude'
-import { logger } from './util/logger'
+import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
 
 const systemPrompt = `
 You are a senior software engineer. You are given a request from a user and a set of files that are relevant to the request.
@@ -165,35 +162,18 @@ Only output the file paths, one per line, nothing else.`,
     countTokensJson(planningMessages)
   )
 
-  let response = ''
-  try {
-    response = await promptGemini(
-      messagesWithSystem(planningMessages, systemPrompt),
-      {
-        model: geminiModels.gemini2flash,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      }
-    )
-  } catch (error) {
-    logger.warn(
-      { error },
-      'Gemini failed to get relevant files, falling back to Claude'
-    )
-
-    const fallbackModel =
-      costMode === 'lite' ? claudeModels.haiku : claudeModels.sonnet
-    response = await promptClaude(planningMessages, {
-      model: fallbackModel,
-      system: systemPrompt,
+  const response = await promptGeminiWithFallbacks(
+    planningMessages,
+    systemPrompt,
+    {
+      model: geminiModels.gemini2flash,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId,
-    })
-  }
+      costMode,
+    }
+  )
 
   return response
     .split('\n')

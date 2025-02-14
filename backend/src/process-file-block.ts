@@ -12,8 +12,8 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { GeminiMessage, promptGemini } from './gemini-api'
 import { promptOpenAI } from './openai-api'
+import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
 
 export async function processFileBlock(
   filePath: string,
@@ -228,7 +228,7 @@ Do not write anything else.
       content: prompt,
     },
   ]
-  const response = await promptGemini(messages as GeminiMessage[], {
+  const response = await promptGeminiWithFallbacks(messages, undefined, {
     clientSessionId,
     fingerprintId,
     userInputId,

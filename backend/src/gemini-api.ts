@@ -177,7 +177,7 @@ export async function promptGemini(
         }
       })(),
       timeoutPromise(
-        options.model === geminiModels.gemini2flash ? 30_000 : 200_000
+        options.model === geminiModels.gemini2flash ? 60_000 : 200_000
       ),
     ])
     return content

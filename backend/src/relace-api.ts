@@ -4,8 +4,8 @@ import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
 import { countTokens } from './util/token-counter'
 import { createMarkdownFileBlock } from 'common/util/file'
-import { promptGemini } from './gemini-api'
 import { geminiModels } from 'common/constants'
+import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
@@ -119,13 +119,18 @@ Important:
 
 Please output just the complete updated file content, do not include markdown backticks or other formatting:`
 
-    const content = await promptGemini([{ role: 'user', content: prompt }], {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: geminiModels.gemini2flash,
-      userId,
-    })
+    const content = await promptGeminiWithFallbacks(
+      [{ role: 'user', content: prompt }],
+      undefined,
+      {
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        model: geminiModels.gemini2flash,
+        userId,
+        useGPT4oInsteadOfClaude: true,
+      }
+    )
 
     return content
   }

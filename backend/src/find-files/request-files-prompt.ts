@@ -11,17 +11,14 @@ import {
 } from 'common/util/file'
 import { System } from '../claude'
 import { type CostMode } from 'common/constants'
-import { models, claudeModels } from 'common/constants'
+import { models} from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from '../util/logger'
-import { messagesWithSystem } from '@/util/messages'
-import { promptGemini } from '../gemini-api'
-import { promptGemini as promptVertexGemini } from '../gemini-vertex-api'
-import { promptClaude } from '../claude'
 import { requestFiles } from '../websockets/websocket-action'
 import { countTokens } from '../util/token-counter'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 import { filterDefined } from 'common/util/array'
+import { promptGeminiWithFallbacks } from '@/gemini-with-fallbacks'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 
@@ -190,52 +187,14 @@ async function getRelevantFiles(
     },
   ]
   const start = performance.now()
-  let response: string
-  try {
-    // First try Gemini
-    response = await promptGemini(
-      messagesWithSystem(messagesWithPrompt, system),
-      {
-        model: models.gemini2flash,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      }
-    )
-  } catch (error) {
-    logger.error(
-      { error },
-      'Error calling Gemini API, falling back to Vertex Gemini'
-    )
-    try {
-      // Then try Vertex Gemini
-      response = await promptVertexGemini(
-        messagesWithSystem(messagesWithPrompt, system),
-        {
-          model: models.gemini2flash,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          userId,
-        }
-      )
-    } catch (error) {
-      logger.error(
-        { error },
-        'Error calling Vertex Gemini API, falling back to Claude Haiku'
-      )
-      // Finally fall back to Claude
-      response = await promptClaude(messagesWithPrompt, {
-        model: costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku,
-        system,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      })
-    }
-  }
+  let response = await promptGeminiWithFallbacks(messagesWithPrompt, system, {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model: models.gemini2flash,
+    userId,
+    costMode,
+  })
   const end = performance.now()
   const duration = end - start
 
@@ -443,14 +402,16 @@ async function secondPassFindAdditionalFiles(
       ),
     },
   ]
-  const additionalFilesResponse = await promptGemini(
-    messagesWithSystem(messages, system),
+  const additionalFilesResponse = await promptGeminiWithFallbacks(
+    messages,
+    system,
     {
       clientSessionId,
       fingerprintId,
       userInputId,
       model: models.gemini2flash,
       userId,
+      costMode: 'max',
     }
   ).catch((error) => {
     logger.error(error, 'Error filtering files with Gemini')
