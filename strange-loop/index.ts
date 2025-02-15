@@ -72,13 +72,22 @@ async function readFiles(
   return results
 }
 
+async function appendToLog(logEntry: any) {
+  const logPath = path.join(process.cwd(), 'strange-loop.log')
+  await fs.promises.appendFile(logPath, JSON.stringify(logEntry) + '\n')
+}
+
 async function main() {
+  const instruction =
+    'In this life, you are thinking hard about how to improve the American government. It is 2025.'
+
   const files = await readFiles(['context.md'])
   let context = files['context.md']
 
   if (!context) {
     throw new Error('No context.md found')
   }
+  context += `\n${instruction}\n\n`
 
   let iteration = 0
 
@@ -116,7 +125,15 @@ async function main() {
       }
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await appendToLog({
+      msg: `Iteration ${iteration}`,
+      level: 'info',
+      iteration,
+      timestamp: new Date().toISOString(),
+      context,
+      contextLength: context.length,
+      toolCalls: message.choices[0].message.tool_calls,
+    })
   }
 }
 
