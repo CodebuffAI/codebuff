@@ -70,7 +70,8 @@ export async function processFileBlock(
   const normalizedEditSnippet = normalizeLineEndings(newContent)
 
   let updatedContent: string
-  const tokenCount = countTokens(normalizedInitialContent)
+  const tokenCount =
+    countTokens(normalizedInitialContent) + countTokens(normalizedEditSnippet)
 
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
     const largeFileContent = await handleLargeFile(
@@ -289,7 +290,7 @@ export async function fastRewrite(
   return response
 }
 
-const LARGE_FILE_TOKEN_LIMIT = 10_000
+const LARGE_FILE_TOKEN_LIMIT = 11_000
 
 async function handleLargeFile(
   oldContent: string,
