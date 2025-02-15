@@ -1,4 +1,0 @@
-# Agent Context
-Overall Goal: Create a test file and write "Hello World" to it
-Progress: Starting task
-Next Steps: Create test file

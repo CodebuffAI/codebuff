@@ -7,66 +7,46 @@ import { ChatCompletionTool } from 'openai/resources/chat/completions'
 import { models } from 'common/constants'
 
 const openai = getOpenAI('strange-loop')
-// Tool definitions
+
 const tools: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
-      name: 'readFile',
+      name: 'appendContext',
       description:
-        'Read contents of files given their paths relative to current directory',
+        'Append text to your context for the next iteration. Be concise. But also be strategic in what you add as it will continue to be part of future iterations unless replaced.',
       parameters: {
         type: 'object',
         properties: {
-          paths: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'List of file paths relative to current directory',
+          content: {
+            type: 'string',
+            description: 'Content to append to context',
           },
         },
-        required: ['paths'],
+        required: ['content'],
       },
     },
   },
   {
     type: 'function',
     function: {
-      name: 'writeFile',
-      description: 'Write content to a file at the given path',
+      name: 'searchReplaceContext',
+      description:
+        'Search and replace text in your context. Use this to change your prompt for the next iteration. Be strategic in what you replace.',
       parameters: {
         type: 'object',
         properties: {
-          path: {
+          search: {
             type: 'string',
-            description: 'File path relative to current directory',
+            description:
+              'Text to search for. Must be an exact substring of your context.',
           },
-          content: {
+          replace: {
             type: 'string',
-            description: 'Content to write to file',
-          },
-        },
-        required: ['path', 'content'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'appendFile',
-      description: 'Append content to the end of a file',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: {
-            type: 'string',
-            description: 'File path relative to current directory',
-          },
-          content: {
-            type: 'string',
-            description: 'Content to append to file',
+            description: 'Text to replace with.',
           },
         },
-        required: ['path', 'content'],
+        required: ['search', 'replace'],
       },
     },
   },
@@ -92,53 +72,25 @@ async function readFiles(
   return results
 }
 
-async function writeFile(filePath: string, content: string) {
-  const fullPath = path.join(process.cwd(), filePath)
-  if (!fullPath.startsWith(process.cwd())) {
-    throw new Error('Cannot write files outside current directory')
-  }
-  await fs.promises.writeFile(fullPath, content, 'utf-8')
-}
-
-async function appendFile(filePath: string, content: string) {
-  const fullPath = path.join(process.cwd(), filePath)
-  if (!fullPath.startsWith(process.cwd())) {
-    throw new Error('Cannot append to files outside current directory')
-  }
-  await fs.promises.appendFile(fullPath, content, 'utf-8')
-}
-
-// Main loop
 async function main() {
-  // Initialize by reading context
-  const context = await readFiles(['context.txt'])
+  const files = await readFiles(['context.md'])
+  let context = files['context.md']
 
-  if (!context['context.txt']) {
-    // Create initial context if it doesn't exist
-    await writeFile(
-      'context.txt',
-      `# Agent Context
-Overall Goal: Create a test file and write "Hello World" to it
-Progress: Starting task
-Next Steps: Create test file`
-    )
+  if (!context) {
+    throw new Error('No context.md found')
   }
+
+  let iteration = 0
 
   while (true) {
-    // Read current context
-    const currentContext = await readFiles(['context.txt'])
+    iteration++
+    console.log(`Iteration ${iteration}`)
 
-    // Get next action from model
     const message = await openai.chat.completions.create({
       messages: [
         {
-          role: 'system',
-          content:
-            'You are an agent working to accomplish goals. You have access to file operations and can update your own context. Work step by step to achieve the goal in context.txt.',
-        },
-        {
-          role: 'user',
-          content: `Current context:\n${currentContext['context.txt']}\n\nWhat action should I take next?`,
+          role: 'assistant',
+          content: context,
         },
       ],
       model: models.o3mini,
@@ -152,20 +104,18 @@ Next Steps: Create test file`
         const params = JSON.parse(toolCall.function.arguments)
 
         switch (toolCall.function.name) {
-          case 'readFile':
-            await readFiles(params.paths)
+          case 'appendContext':
+            console.log(`Appending to context: ${params.content}`)
+            context += params.content
             break
-          case 'writeFile':
-            await writeFile(params.path, params.content)
-            break
-          case 'appendFile':
-            await appendFile(params.path, params.content)
+          case 'searchReplaceContext':
+            console.log(`Replacing ${params.search} with ${params.replace}`)
+            context = context.replace(params.search, params.replace)
             break
         }
       }
     }
 
-    // Small delay between iterations
     await new Promise((resolve) => setTimeout(resolve, 1000))
   }
 }
