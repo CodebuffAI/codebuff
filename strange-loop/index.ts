@@ -4,7 +4,8 @@ import fs from 'fs'
 import path from 'path'
 import { getOpenAI } from 'backend/openai-api'
 import { ChatCompletionTool } from 'openai/resources/chat/completions'
-import { models } from 'common/constants'
+import { models, TEST_USER_ID } from 'common/constants'
+import { promptGemini } from 'backend/gemini-api'
 
 const openai = getOpenAI('strange-loop')
 
@@ -12,47 +13,69 @@ const tools: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
-      name: 'appendContext',
+      name: 'updateContext',
       description:
-        'Append text to your context for the next iteration. Be concise. But also be strategic in what you add as it will continue to be part of future iterations unless replaced.',
+        'Describe how to update your context for the next iteration. It will be rewritten using your instructions.',
       parameters: {
         type: 'object',
         properties: {
-          content: {
+          prompt: {
             type: 'string',
-            description: 'Content to append to context',
+            description:
+              'Describe in natural language how to update your context for the next iteration. Make sure you are clear on what sections to update to what.',
           },
         },
-        required: ['content'],
+        required: ['prompt'],
       },
     },
   },
   {
-    type: 'function',
+    type: 'function', 
     function: {
-      name: 'searchReplaceContext',
-      description:
-        'Search and replace text in your context. Use this to change your prompt for the next iteration. Be strategic in what you replace.',
+      name: 'complete',
+      description: 'Complete the current task and end the loop. Do not use this unless you have accomplished your goal. Your goal is only accomplished when your context tells you that you have accomplished it. If you are unsure, do not use this tool.',
       parameters: {
         type: 'object',
         properties: {
-          search: {
+          summary: {
             type: 'string',
-            description:
-              'Text to search for. Must be an exact substring of your context.',
-          },
-          replace: {
-            type: 'string',
-            description: 'Text to replace with.',
+            description: 'A brief summary of what was accomplished',
           },
         },
-        required: ['search', 'replace'],
+        required: ['summary'],
       },
     },
   },
 ]
 
-// Tool implementations
+async function updateContext(context: string, updateInstructions: string) {
+  const prompt = `Here is the initial context:
+<initial_context>
+${context}
+</initial_context>
+
+Here are the update instructions:
+<update_instructions>
+${updateInstructions}
+</update_instructions>
+
+Please rewrite the entire context using the update instructions. Try to perserve the original context as much as possible, subject to the update instructions. Return the new context only — do not include any other text or markdown formatting.`
+  const messages = [
+    {
+      role: 'user' as const,
+      content: prompt,
+    },
+  ]
+  const response = await promptGemini(messages, {
+    model: models.gemini2flash,
+    clientSessionId: 'strange-loop',
+    fingerprintId: 'strange-loop',
+    userInputId: 'strange-loop',
+    userId: TEST_USER_ID,
+  })
+  return response
+}
+
 async function readFiles(
   paths: string[]
 ): Promise<Record<string, string | null>> {
@@ -72,31 +95,38 @@ async function readFiles(
   return results
 }
 
-async function appendToLog(logEntry: any) {
+async function appendToLog(
+  logEntry: any
+) {
   const logPath = path.join(process.cwd(), 'strange-loop.log')
   await fs.promises.appendFile(logPath, JSON.stringify(logEntry) + '\n')
 }
 
 async function main() {
-  const instruction =
-    'In this life, you are thinking hard about how to improve the American government. It is 2025.'
+  const initialInstruction =
+    'Specify a complete node console game in a single file. Your goal is to make a game that is fun and interesting.'
+  let context = initialInstruction
 
-  const files = await readFiles(['context.md'])
-  let context = files['context.md']
+  const files = await readFiles(['system-prompt.md'])
+  const systemPrompt = files['system-prompt.md']
 
-  if (!context) {
-    throw new Error('No context.md found')
+  if (!systemPrompt) {
+    throw new Error('No system-prompt.md found')
   }
-  context += `\n${instruction}\n\n`
 
   let iteration = 0
 
   while (true) {
     iteration++
     console.log(`Iteration ${iteration}`)
+    const previousContext = context
 
     const message = await openai.chat.completions.create({
       messages: [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
         {
           role: 'assistant',
           content: context,
@@ -117,10 +147,21 @@ async function main() {
             console.log(`Appending to context: ${params.content}`)
             context += params.content
             break
-          case 'searchReplaceContext':
-            console.log(`Replacing ${params.search} with ${params.replace}`)
-            context = context.replace(params.search, params.replace)
+          case 'updateContext':
+            console.log(`Updating context: ${params.prompt}`)
+            context = await updateContext(context, params.prompt)
             break
+          case 'complete':
+            console.log(`Task completed: ${params.summary}`)
+            await appendToLog({
+              msg: `Task completed`,
+              level: 'info',
+              iteration,
+              timestamp: new Date().toISOString(),
+              summary: params.summary,
+              finalContext: context,
+            })
+            return // End the loop
         }
       }
     }
@@ -130,6 +171,7 @@ async function main() {
       level: 'info',
       iteration,
       timestamp: new Date().toISOString(),
+      previousContext,
       context,
       contextLength: context.length,
       toolCalls: message.choices[0].message.tool_calls,

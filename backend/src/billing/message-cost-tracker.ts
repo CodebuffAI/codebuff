@@ -1,4 +1,4 @@
-import { models } from 'common/constants'
+import { models, TEST_USER_ID } from 'common/constants'
 import { OpenAIMessage } from '@/openai-api'
 import { Message } from 'common/actions'
 import db from 'common/db'
@@ -75,7 +75,7 @@ const calcCost = (
 
 export const saveMessage = async (value: {
   messageId: string
-  userId?: string
+  userId: string | undefined
   clientSessionId: string
   fingerprintId: string
   userInputId: string
@@ -106,6 +106,12 @@ export const saveMessage = async (value: {
 
       const creditsUsed = Math.round(cost * 100 * (1 + PROFIT_MARGIN))
 
+      // Report usage to Stripe asynchronously after saving to db
+      if (!value.userId || value.userId === TEST_USER_ID) {
+        // logger.debug('No userId provided, skipping usage reporting')
+        return null
+      }
+
       const savedMessage = await db.insert(schema.message).values({
         id: value.messageId,
         user_id: value.userId,
@@ -124,12 +130,6 @@ export const saveMessage = async (value: {
         finished_at: value.finishedAt,
         latency_ms: value.latencyMs,
       })
-
-      // Report usage to Stripe asynchronously after saving to db
-      if (!value.userId) {
-        // logger.debug('No userId provided, skipping usage reporting')
-        return savedMessage
-      }
 
       try {
         const user = await db.query.user.findFirst({
