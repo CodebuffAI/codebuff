@@ -15,7 +15,7 @@ const tools: ChatCompletionTool[] = [
     function: {
       name: 'updateContext',
       description:
-        'Describe how to update your context for the next iteration. It will be rewritten using your instructions.',
+        'Describe how to update your context for the next iteration. It will be rewritten using your instructions. This is not a place to narrate your thoughts -- give explicit instructions for what in your context to update.',
       parameters: {
         type: 'object',
         properties: {
@@ -30,10 +30,11 @@ const tools: ChatCompletionTool[] = [
     },
   },
   {
-    type: 'function', 
+    type: 'function',
     function: {
       name: 'complete',
-      description: 'Complete the current task and end the loop. Do not use this unless you have accomplished your goal. Your goal is only accomplished when your context tells you that you have accomplished it. If you are unsure, do not use this tool.',
+      description:
+        'Complete the current task and end the loop. Do not use this unless you have accomplished your goal. Your goal is only accomplished when your context tells you that you have accomplished it. If you are unsure, do not use this tool.',
       parameters: {
         type: 'object',
         properties: {
@@ -95,16 +96,14 @@ async function readFiles(
   return results
 }
 
-async function appendToLog(
-  logEntry: any
-) {
+async function appendToLog(logEntry: any) {
   const logPath = path.join(process.cwd(), 'strange-loop.log')
   await fs.promises.appendFile(logPath, JSON.stringify(logEntry) + '\n')
 }
 
 async function main() {
   const initialInstruction =
-    'Specify a complete node console game in a single file. Your goal is to make a game that is fun and interesting.'
+    'Specify a complete node console game in a single file. Your goal is to make a game that is fun and interesting. You should put a lot of work into making it polished. It is not complete yet.'
   let context = initialInstruction
 
   const files = await readFiles(['system-prompt.md'])

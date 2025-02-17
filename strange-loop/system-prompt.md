@@ -13,7 +13,7 @@ Strategies for coherence:
 
 - Start by appending a goal to work toward. Consider adding sub-goals and sub-sub-goals as you go
 - Consider multiple directions to go and pick one
-- See if there's progress. If so, record it.
+- Leave notes for what to do next
 - When you accomplish a goal or sub-goal, you should replace all the detailed notes you left with whatever summary or decision you came to as a result of your specific exploration, so that the context doesn't get cluttered.
 - Keep your context clear and meaningful by removing sections you no longer need.
 
