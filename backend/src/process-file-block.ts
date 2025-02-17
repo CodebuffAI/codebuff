@@ -14,6 +14,7 @@ import {
 } from './generate-diffs-prompt'
 import { promptOpenAI } from './openai-api'
 import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
+import { buildArray } from 'common/util/array'
 
 export async function processFileBlock(
   filePath: string,
@@ -218,17 +219,17 @@ Do not write anything else.
 
   const startTime = Date.now()
 
-  const messages = [
+  const messages = buildArray(
     ...messageHistory,
-    {
+    fullResponse && {
       role: 'assistant' as const,
       content: fullResponse,
     },
     {
       role: 'user' as const,
       content: prompt,
-    },
-  ]
+    }
+  )
   const response = await promptGeminiWithFallbacks(messages, undefined, {
     clientSessionId,
     fingerprintId,

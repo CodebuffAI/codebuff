@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws'
 import { Message } from 'common/actions'
-import { models, CostMode, geminiModels, claudeModels } from 'common/constants'
+import { models, CostMode, geminiModels } from 'common/constants'
 import { countTokens, countTokensJson } from './util/token-counter'
 import {
   createFileBlock,
@@ -44,10 +44,9 @@ If you don't want to edit a file, but want to show code to the user, you can use
 `.trim()
 
 export async function planComplexChange(
-  prompt: string,
   files: Record<string, string>,
   messageHistory: Message[],
-  onChunk: (chunk: string) => void,
+  lastUserPrompt: string,
   ws: WebSocket,
   options: {
     clientSessionId: string
@@ -97,7 +96,7 @@ Do not include any of the following sections:
 - benefits/key improvements
 - next steps
 
-Request:\n${prompt}`,
+Request:\n${lastUserPrompt}`,
     },
   ]
 
@@ -115,8 +114,8 @@ Request:\n${prompt}`,
         filePath,
         content,
         messageHistory,
-        prompt,
-        prompt,
+        '',
+        lastUserPrompt,
         options.clientSessionId,
         options.fingerprintId,
         options.userInputId,
@@ -136,8 +135,8 @@ Request:\n${prompt}`,
  * Prompt claude, handle tool calls, and generate file changes.
  */
 export async function getRelevantFilesForPlanning(
-  messages: Message[],
-  prompt: string,
+  messageHistory: Message[],
+  lastUserPrompt: string,
   fileContext: ProjectFileContext,
   costMode: CostMode,
   clientSessionId: string,
@@ -146,12 +145,16 @@ export async function getRelevantFilesForPlanning(
   userId: string | undefined
 ) {
   const planningMessages = [
-    ...messages,
+    ...messageHistory,
     {
       role: 'user' as const,
-      content: `Do not act on the above instructions for the user, instead, we are asking you to find relevant files for the following request.
+      content: `Do not act on the above instructions for the user, instead, we are asking you to find relevant files for the last user message:
 
-Request:\n${prompt}\n\nNow, please list up to 20 file paths from the project that would be most relevant for implementing this change. Please do include knowledge.md files that are relevant, files with example code for what is needed, related tests, second-order files that are not immediately obvious but could become relevant, and any other files that would be helpful.
+<user_prompt>
+${lastUserPrompt}
+</user_prompt>
+
+Please list up to 20 file paths from the project that would be most relevant for implementing this change. Please do include knowledge.md files that are relevant, files with example code for what is needed, related tests, second-order files that are not immediately obvious but could become relevant, and any other files that would be helpful.
 
 Only output the file paths, one per line, nothing else.`,
     },

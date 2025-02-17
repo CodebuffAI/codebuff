@@ -53,7 +53,7 @@ export async function mainPrompt(
       !message.content.includes(TOOL_RESULT_MARKER)
   )
   const lastUserMessage = messages[lastUserMessageIndex]
-  const lastUserPrompt = getMessageText(lastUserMessage)
+  const lastUserPrompt = getMessageText(lastUserMessage) as string
   const allowUnboundedIterationPromise = checkToAllowUnboundedIteration(
     messages[lastUserMessageIndex],
     {
@@ -226,7 +226,6 @@ export async function mainPrompt(
           } else if (name === 'code_search') {
             contentAttributes.pattern = content
           } else if (name === 'think_deeply') {
-            contentAttributes.prompt = content
           } else if (name === 'browser_action') {
             contentAttributes = parseToolCallXml(content)
           }
@@ -281,14 +280,10 @@ export async function mainPrompt(
     const toolCallResult = toolCall as ToolCall | null
 
     if (toolCallResult?.name === 'think_deeply') {
-      const { prompt } = toolCallResult.input
-
-      onResponseChunk(`\nPrompt: ${prompt}\n`)
-
       const fetchFilesStart = Date.now()
       const filePaths = await getRelevantFilesForPlanning(
-        messages,
-        prompt,
+        messagesWithoutLastMessage,
+        lastUserPrompt,
         fileContext,
         costMode,
         clientSessionId,
@@ -297,22 +292,30 @@ export async function mainPrompt(
         userId
       )
       const fetchFilesDuration = Date.now() - fetchFilesStart
+      logger.debug(
+        { lastUserPrompt, filePaths, fetchFilesDuration },
+        'Got file paths for thinking deeply'
+      )
       const fileContents = await loadFilesForPlanning(ws, filePaths)
       const existingFilePaths = Object.keys(fileContents)
 
-      onResponseChunk(`\nRelevant files:\n${existingFilePaths.join(' ')}\n`)
-      fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
+      onResponseChunk(
+        `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
+      )
+      fullResponse += `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
       onResponseChunk(`\nThinking deeply (can take a minute!)`)
 
-      logger.debug({ prompt, filePaths, existingFilePaths }, 'Thinking deeply')
+      logger.debug(
+        { lastUserPrompt, filePaths, existingFilePaths },
+        'Thinking deeply'
+      )
       const planningStart = Date.now()
 
       const { response, fileProcessingPromises: promises } =
         await planComplexChange(
-          prompt,
           fileContents,
-          messages,
-          onResponseChunk,
+          messagesWithoutLastMessage,
+          lastUserPrompt,
           ws,
           {
             clientSessionId,
@@ -328,7 +331,7 @@ export async function mainPrompt(
       fullResponse += response + '\n\n'
       logger.debug(
         {
-          prompt,
+          lastUserPrompt,
           file_paths: filePaths,
           response,
           fetchFilesDuration,
