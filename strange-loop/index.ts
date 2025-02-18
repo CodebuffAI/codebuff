@@ -128,11 +128,14 @@ async function writeFile(filePath: string, content: string) {
   if (!fullPath.startsWith(process.cwd())) {
     throw new Error('Cannot write files outside current directory')
   }
+  // Create directories if they don't exist
+  const dirPath = path.dirname(fullPath)
+  await fs.promises.mkdir(dirPath, { recursive: true })
   await fs.promises.writeFile(fullPath, content, 'utf-8')
 }
 
 export async function runStrangeLoop(initialInstruction: string) {
-  let context = initialInstruction
+  let context = `<goal>${initialInstruction}</goal>`
 
   const files = await readFiles(['system-prompt.md'])
   const systemPrompt = files['system-prompt.md']
@@ -148,17 +151,24 @@ export async function runStrangeLoop(initialInstruction: string) {
     console.log(`Iteration ${iteration}`)
     const previousContext = context
 
+    const messages = [
+      {
+        role: 'system' as const,
+        content: systemPrompt + '\n\n' + context,
+      },
+      {
+        role: 'user' as const,
+        content: `
+Proceed toward the goal and subgoals.
+You must use the updateContext tool call to record your progress.
+Use the complete tool only when you are confident the goal has been acheived.
+`.trim(),
+      },
+    ]
+    console.log(messages)
+
     const message = await openai.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt,
-        },
-        {
-          role: 'assistant',
-          content: context,
-        },
-      ],
+      messages,
       model: models.o3mini,
       tools,
       tool_choice: 'auto',

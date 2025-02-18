@@ -14,10 +14,13 @@ const getInstruction = (i: number) => {
 }
 
 const prompts = [
-  'Specify a complete node console game in a single file. Your goal is to make a game that is fun and interesting. You should put a lot of work into making it polished.',
-  'Design a command-line tool that helps developers manage their git workflow more efficiently. Consider common git operations and how to simplify them.',
-  'Create a markdown parser that converts markdown to HTML, focusing on the most commonly used markdown features. Make it simple but robust.',
-  'Build a simple HTTP server that serves static files and implements basic caching. Focus on performance and proper HTTP header handling.',
+  `Specify a complete node console game in a single file.
+  Your goal is to make a game that is fun and interesting.
+  You should put a lot of work into making it polished.
+  After creating it, you should try to make it even better.`,
+  // 'Design a command-line tool that helps developers manage their git workflow more efficiently. Consider common git operations and how to simplify them.',
+  // 'Create a markdown parser that converts markdown to HTML, focusing on the most commonly used markdown features. Make it simple but robust.',
+  // 'Build a simple HTTP server that serves static files and implements basic caching. Focus on performance and proper HTTP header handling.',
 ].map((prompt, i) => `${getInstruction(i)}\n\n${prompt}`)
 
 async function checkTaskFile(taskNumber: number) {
@@ -30,12 +33,14 @@ async function checkTaskFile(taskNumber: number) {
   const filepath = path.join(TEST_OUTPUT_DIR, filename)
   try {
     await fs.promises.access(filepath)
-    console.log(`✅ Task ${taskNumber}: File ${filepath} was created successfully`)
-    
+    console.log(
+      `✅ Task ${taskNumber}: File ${filepath} was created successfully`
+    )
+
     // Run TypeScript compiler to check if file is valid
     try {
       const tsc = spawn('bun', ['--cwd', '.', 'tsc', '--noEmit', filepath])
-      
+
       let stderr = ''
       tsc.stderr.on('data', (data) => {
         stderr += data.toString()
@@ -44,10 +49,14 @@ async function checkTaskFile(taskNumber: number) {
       await new Promise((resolve, reject) => {
         tsc.on('close', (code) => {
           if (code === 0) {
-            console.log(`✅ Task ${taskNumber}: File ${filepath} is valid TypeScript`)
+            console.log(
+              `✅ Task ${taskNumber}: File ${filepath} is valid TypeScript`
+            )
             resolve(null)
           } else {
-            console.error(`❌ Task ${taskNumber}: File ${filepath} has TypeScript errors:`)
+            console.error(
+              `❌ Task ${taskNumber}: File ${filepath} has TypeScript errors:`
+            )
             console.error(stderr)
             reject(new Error('TypeScript validation failed'))
           }
