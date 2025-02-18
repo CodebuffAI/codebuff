@@ -101,9 +101,7 @@ async function appendToLog(logEntry: any) {
   await fs.promises.appendFile(logPath, JSON.stringify(logEntry) + '\n')
 }
 
-async function main() {
-  const initialInstruction =
-    'Specify a complete node console game in a single file. Your goal is to make a game that is fun and interesting. You should put a lot of work into making it polished. It is not complete yet.'
+export async function runStrangeLoop(initialInstruction: string) {
   let context = initialInstruction
 
   const files = await readFiles(['system-prompt.md'])
@@ -178,5 +176,9 @@ async function main() {
   }
 }
 
-// Start the agent
-main().catch(console.error)
+// Only run if this is the main module
+if (import.meta.url === import.meta.resolve('./index.ts')) {
+  const initialInstruction =
+    'Specify a complete node console game in a single file. Your goal is to make a game that is fun and interesting. You should put a lot of work into making it polished. It is not complete yet.'
+  runStrangeLoop(initialInstruction).catch(console.error)
+}
