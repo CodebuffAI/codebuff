@@ -1,6 +1,6 @@
-import { checkTaskFile, runStrangeLoop } from './index.js'
+import { runStrangeLoop } from './index'
+import { checkTaskFile } from './tools'
 import fs from 'fs'
-import { spawn } from 'child_process'
 import path from 'path'
 
 const TEST_OUTPUT_DIR = 'test-outputs'
