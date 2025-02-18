@@ -180,10 +180,6 @@ Use the complete tool only when you are confident the goal has been acheived.
         const params = JSON.parse(toolCall.function.arguments)
 
         switch (toolCall.function.name) {
-          case 'appendContext':
-            console.log(`Appending to context: ${params.content}`)
-            context += params.content
-            break
           case 'updateContext':
             console.log(`Updating context: ${params.prompt}`)
             context = await updateContext(context, params.prompt)
@@ -218,11 +214,4 @@ Use the complete tool only when you are confident the goal has been acheived.
       toolCalls: message.choices[0].message.tool_calls,
     })
   }
-}
-
-// Only run if this is the main module
-if (import.meta.url === import.meta.resolve('./index.ts')) {
-  const initialInstruction =
-    'Specify a complete node console game in a single file. Your goal is to make a game that is fun and interesting. You should put a lot of work into making it polished. It is not complete yet.'
-  runStrangeLoop(initialInstruction).catch(console.error)
 }
