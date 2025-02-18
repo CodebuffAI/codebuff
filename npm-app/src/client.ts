@@ -195,13 +195,21 @@ export class Client {
       // attempt to delete credentials file
       try {
         fs.unlinkSync(CREDENTIALS_PATH)
-        console.log(`Logged you out of your account (${this.user.name})`)
+        console.log(`You (${this.user.name}) have been logged out.`)
         this.user = undefined
       } catch (error) {}
     }
   }
 
   async login(referralCode?: string) {
+    if (this.user) {
+      console.log(
+        `You are currently logged in as ${this.user.name}. Please enter "logout" first if you want to login as a different user.`
+      )
+      this.returnControlToUser()
+      return
+    }
+
     this.webSocket.sendAction({
       type: 'login-code-request',
       fingerprintId: await this.getFingerprintId(),
@@ -353,9 +361,11 @@ export class Client {
 
         console.log(responseToUser.join('\n'))
         this.rl.once('line', () => {
-          spawn(`open ${loginUrl}`, {
-            shell: true,
-          })
+          if (shouldRequestLogin) {
+            spawn(`open ${loginUrl}`, {
+              shell: true,
+            })
+          }
         })
 
         // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
@@ -389,8 +399,6 @@ export class Client {
       shouldRequestLogin = false
 
       if (action.user) {
-        await this.logout() // remove existing user, if it exists
-
         this.user = action.user
 
         // Store in config file
@@ -412,7 +420,6 @@ export class Client {
         displayGreeting(this.costMode, null)
 
         this.returnControlToUser()
-        // this.getUsage()
       } else {
         console.warn(
           `Authentication failed: ${action.message}. Please try again in a few minutes or contact support at ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL}.`
