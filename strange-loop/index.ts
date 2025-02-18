@@ -2,10 +2,11 @@ console.log('Strange Loop initialized!')
 
 import fs from 'fs'
 import path from 'path'
-import { getOpenAI } from 'backend/openai-api'
+import { getOpenAI, promptOpenAI } from 'backend/openai-api'
 import { ChatCompletionTool } from 'openai/resources/chat/completions'
 import { models, TEST_USER_ID } from 'common/constants'
 import { promptGemini } from 'backend/gemini-api'
+import { spawn } from 'child_process'
 
 const openai = getOpenAI('strange-loop')
 
@@ -47,6 +48,24 @@ const tools: ChatCompletionTool[] = [
           },
         },
         required: ['path', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'checkFile',
+      description:
+        'Check if a TypeScript file exists and validate it with the TypeScript compiler.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Path to the TypeScript file to check',
+          },
+        },
+        required: ['path'],
       },
     },
   },
@@ -104,7 +123,6 @@ async function readFiles(
   const results: Record<string, string | null> = {}
   for (const filePath of paths) {
     const fullPath = path.join(process.cwd(), filePath)
-    // Validate path is within current directory
     if (!fullPath.startsWith(process.cwd())) {
       throw new Error('Cannot access files outside current directory')
     }
@@ -124,7 +142,6 @@ async function appendToLog(logEntry: any) {
 
 async function writeFile(filePath: string, content: string) {
   const fullPath = path.join(process.cwd(), filePath)
-  // Validate path is within current directory
   if (!fullPath.startsWith(process.cwd())) {
     throw new Error('Cannot write files outside current directory')
   }
@@ -132,6 +149,48 @@ async function writeFile(filePath: string, content: string) {
   const dirPath = path.dirname(fullPath)
   await fs.promises.mkdir(dirPath, { recursive: true })
   await fs.promises.writeFile(fullPath, content, 'utf-8')
+}
+
+export async function checkTaskFile(filePath: string): Promise<boolean> {
+  const normalizedPath = path.normalize(filePath)
+  const fullPath = path.resolve(process.cwd(), normalizedPath)
+
+  if (!fullPath.startsWith(process.cwd())) {
+    console.error(
+      `❌ Security Error: Cannot access file outside current directory: ${filePath}`
+    )
+    return false
+  }
+
+  try {
+    await fs.promises.access(fullPath)
+    console.log(`✅ File ${filePath} exists`)
+
+    const tsc = spawn('bun', ['--cwd', '.', 'tsc', '--noEmit', normalizedPath])
+
+    let stderr = ''
+    tsc.stderr.on('data', (data) => {
+      stderr += data.toString()
+    })
+
+    const success = await new Promise<boolean>((resolve) => {
+      tsc.on('close', (code) => {
+        if (code === 0) {
+          console.log(`✅ File ${filePath} is valid TypeScript`)
+          resolve(true)
+        } else {
+          console.error(`❌ File ${filePath} has TypeScript errors:`)
+          console.error(stderr)
+          resolve(false)
+        }
+      })
+    })
+
+    return success
+  } catch (error) {
+    console.error(`❌ File ${filePath} does not exist`)
+    return false
+  }
 }
 
 export async function runStrangeLoop(initialInstruction: string) {
@@ -150,7 +209,6 @@ export async function runStrangeLoop(initialInstruction: string) {
     iteration++
     console.log(`Iteration ${iteration}`)
     const previousContext = context
-
     const messages = [
       {
         role: 'system' as const,
@@ -166,17 +224,16 @@ Use the complete tool only when you are confident the goal has been acheived.
       },
     ]
     console.log(messages)
-
-    const message = await openai.chat.completions.create({
+    const response = await openai.chat.completions.create({
       messages,
       model: models.o3mini,
       tools,
       tool_choice: 'auto',
     })
+    const toolCalls = response.choices[0].message.tool_calls
 
-    // Execute tool calls
-    if (message.choices[0].message.tool_calls) {
-      for (const toolCall of message.choices[0].message.tool_calls) {
+    if (toolCalls) {
+      for (const toolCall of toolCalls) {
         const params = JSON.parse(toolCall.function.arguments)
 
         switch (toolCall.function.name) {
@@ -188,6 +245,13 @@ Use the complete tool only when you are confident the goal has been acheived.
             console.log(`Writing file: ${params.path}`)
             await writeFile(params.path, params.content)
             break
+          case 'checkFile':
+            console.log(`Checking file: ${params.path}`)
+            const success = await checkTaskFile(params.path)
+            if (!success) {
+              console.error(`❌ File ${params.path} validation failed`)
+            }
+            break
           case 'complete':
             console.log(`Task completed: ${params.summary}`)
             await appendToLog({
@@ -196,22 +260,12 @@ Use the complete tool only when you are confident the goal has been acheived.
               iteration,
               timestamp: new Date().toISOString(),
               summary: params.summary,
-              finalContext: context,
             })
-            return // End the loop
+            return
+          default:
+            console.error(`Unknown tool: ${toolCall.function.name}`)
         }
       }
     }
-
-    await appendToLog({
-      msg: `Iteration ${iteration}`,
-      level: 'info',
-      iteration,
-      timestamp: new Date().toISOString(),
-      previousContext,
-      context,
-      contextLength: context.length,
-      toolCalls: message.choices[0].message.tool_calls,
-    })
   }
 }

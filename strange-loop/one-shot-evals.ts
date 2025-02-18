@@ -1,74 +1,46 @@
-import { runStrangeLoop } from './index.js'
+import { checkTaskFile, runStrangeLoop } from './index.js'
 import fs from 'fs'
 import { spawn } from 'child_process'
 import path from 'path'
 
 const TEST_OUTPUT_DIR = 'test-outputs'
 
+// Clear the log file and clean test outputs at the start
+try {
+  // Clear log file
+  fs.writeFileSync('strange-loop.log', '')
+  console.log('Cleared strange-loop.log')
+
+  // Clear test output files
+  if (fs.existsSync(TEST_OUTPUT_DIR)) {
+    const files = fs.readdirSync(TEST_OUTPUT_DIR)
+    for (const file of files) {
+      fs.unlinkSync(path.join(TEST_OUTPUT_DIR, file))
+    }
+    console.log('Cleared test output files')
+  }
+} catch (error) {
+  console.error('Failed to clean up files:', error)
+}
+
 const getInstruction = (i: number) => {
   return `
   This is task ${i + 1}. To complete this task, you must:
   - Create a new file "task-${i + 1}.ts" in the test-outputs directory that contains the entry point of the program to complete the task.
   - The file should be executable with "bun test-outputs/task-${i + 1}.ts" and do what is described in the task.
+  - The file must be created in the test-outputs directory, not in the root directory.
   `.trim()
 }
 
 const prompts = [
-  `Specify a complete node console game in a single file.
-  Your goal is to make a game that is fun and interesting.
-  You should put a lot of work into making it polished.
-  After creating it, you should try to make it even better.`,
-  // 'Design a command-line tool that helps developers manage their git workflow more efficiently. Consider common git operations and how to simplify them.',
+  // `Specify a complete node console game in a single file.
+  // Your goal is to make a game that is fun and interesting.
+  // You should put a lot of work into making it polished.
+  // After creating it, you should try to make it even better.`,
+  'Design a command-line tool that helps developers manage their git workflow more efficiently. Consider common git operations and how to simplify them.',
   // 'Create a markdown parser that converts markdown to HTML, focusing on the most commonly used markdown features. Make it simple but robust.',
   // 'Build a simple HTTP server that serves static files and implements basic caching. Focus on performance and proper HTTP header handling.',
 ].map((prompt, i) => `${getInstruction(i)}\n\n${prompt}`)
-
-async function checkTaskFile(taskNumber: number) {
-  // Create test output directory if it doesn't exist
-  if (!fs.existsSync(TEST_OUTPUT_DIR)) {
-    fs.mkdirSync(TEST_OUTPUT_DIR)
-  }
-
-  const filename = `task-${taskNumber}.ts`
-  const filepath = path.join(TEST_OUTPUT_DIR, filename)
-  try {
-    await fs.promises.access(filepath)
-    console.log(
-      `✅ Task ${taskNumber}: File ${filepath} was created successfully`
-    )
-
-    // Run TypeScript compiler to check if file is valid
-    try {
-      const tsc = spawn('bun', ['--cwd', '.', 'tsc', '--noEmit', filepath])
-
-      let stderr = ''
-      tsc.stderr.on('data', (data) => {
-        stderr += data.toString()
-      })
-
-      await new Promise((resolve, reject) => {
-        tsc.on('close', (code) => {
-          if (code === 0) {
-            console.log(
-              `✅ Task ${taskNumber}: File ${filepath} is valid TypeScript`
-            )
-            resolve(null)
-          } else {
-            console.error(
-              `❌ Task ${taskNumber}: File ${filepath} has TypeScript errors:`
-            )
-            console.error(stderr)
-            reject(new Error('TypeScript validation failed'))
-          }
-        })
-      })
-    } catch (error) {
-      // TypeScript errors are already logged above
-    }
-  } catch {
-    console.error(`❌ Task ${taskNumber}: File ${filepath} was not created`)
-  }
-}
 
 async function runAllPrompts() {
   console.log('Starting all prompts in parallel...')
@@ -78,8 +50,12 @@ async function runAllPrompts() {
       console.log(`Starting prompt ${i + 1}...`)
       return runStrangeLoop(prompt)
         .then(async () => {
-          await checkTaskFile(i + 1)
-          return true
+          const filePath = path.join(TEST_OUTPUT_DIR, `task-${i + 1}.ts`)
+          const success = await checkTaskFile(filePath)
+          if (!success) {
+            console.error(`❌ Task ${i + 1} validation failed`)
+          }
+          return success
         })
         .catch((error) => {
           console.error(`Error in prompt ${i + 1}:`, error)
