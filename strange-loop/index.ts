@@ -10,17 +10,27 @@ import {
   appendToLog,
   readFiles,
 } from './tools'
+import { createMarkdownFileBlock } from 'common/util/file'
 
 const openai = getOpenAI('strange-loop')
 
 export async function runStrangeLoop(initialInstruction: string) {
-  let context = `<goal>${initialInstruction}</goal>`
-
-  const files = await readFiles(['system-prompt.md'])
-  const systemPrompt = files['system-prompt.md']
-
+  const initialFiles = await readFiles(['system-prompt.md'])
+  const systemPrompt = initialFiles['system-prompt.md']
   if (!systemPrompt) {
     throw new Error('No system-prompt.md found')
+  }
+
+  let context = `<goal>${initialInstruction}</goal>`
+  const files: { path: string; content: string }[] = []
+
+  const buildSystemPrompt = () => {
+    const filesSection = `
+<files>
+${files.map((file) => createMarkdownFileBlock(file.path, file.content)).join('\n')}
+</files>
+`.trim()
+    return [systemPrompt, filesSection, context].join('\n\n')
   }
 
   let iteration = 0
@@ -32,13 +42,14 @@ export async function runStrangeLoop(initialInstruction: string) {
     const messages = [
       {
         role: 'system' as const,
-        content: systemPrompt + '\n\n' + context,
+        content: buildSystemPrompt(),
       },
       {
         role: 'user' as const,
         content: `
 Proceed toward the goal and subgoals.
-You must use the updateContext tool call to record your progress.
+You must use the updateContext tool call to record your progress at the end of your response.
+Optionally use other tools to make progress towards the goal.
 Use the complete tool only when you are confident the goal has been acheived.
 `.trim(),
       },
@@ -63,6 +74,7 @@ Use the complete tool only when you are confident the goal has been acheived.
           case 'writeFile':
             console.log(`Writing file: ${params.path}`)
             await writeFile(params.path, params.content)
+            files.push({ path: params.path, content: params.content })
             break
           case 'checkFile':
             console.log(`Checking file: ${params.path}`)

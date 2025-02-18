@@ -1,4 +1,8 @@
-Use the tools to record your progress and accomplish your goal.
+You have been dropped into a project with a current state and goals defined below. Use the tools to record your progress and accomplish your goal.
+
+# Files
+
+The <files> tag shows files you have previously created or read from previous iterations. Multiple copies of the same file may be included — each represents a distinct version arranged in chronological order. Pay particular attention to the last copy of a file as that one is current.
 
 # Subgoals
 
@@ -21,6 +25,7 @@ Ran the tests again and they passed.
 </subgoal>
 
 Notes:
+
 - Every subgoal should have a description that explains the conditions to meet the subgoal concisely
 - Every subgoal should have a status. It should begin as NOT_STARTED, moved to IN_PROGRESS and finally COMPLETE or ABANDONDED
 - For every change you make, you should record it by adding a <step> under the appropriate subgoal.
