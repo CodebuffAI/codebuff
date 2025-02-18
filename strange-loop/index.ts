@@ -32,6 +32,27 @@ const tools: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'writeFile',
+      description: 'Create or replace a file with the given content.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Path to the file relative to the project root',
+          },
+          content: {
+            type: 'string',
+            description: 'Content to write to the file',
+          },
+        },
+        required: ['path', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'complete',
       description:
         'Complete the current task and end the loop. Do not use this unless you have accomplished your goal. Your goal is only accomplished when your context tells you that you have accomplished it. If you are unsure, do not use this tool.',
@@ -101,6 +122,15 @@ async function appendToLog(logEntry: any) {
   await fs.promises.appendFile(logPath, JSON.stringify(logEntry) + '\n')
 }
 
+async function writeFile(filePath: string, content: string) {
+  const fullPath = path.join(process.cwd(), filePath)
+  // Validate path is within current directory
+  if (!fullPath.startsWith(process.cwd())) {
+    throw new Error('Cannot write files outside current directory')
+  }
+  await fs.promises.writeFile(fullPath, content, 'utf-8')
+}
+
 export async function runStrangeLoop(initialInstruction: string) {
   let context = initialInstruction
 
@@ -147,6 +177,10 @@ export async function runStrangeLoop(initialInstruction: string) {
           case 'updateContext':
             console.log(`Updating context: ${params.prompt}`)
             context = await updateContext(context, params.prompt)
+            break
+          case 'writeFile':
+            console.log(`Writing file: ${params.path}`)
+            await writeFile(params.path, params.content)
             break
           case 'complete':
             console.log(`Task completed: ${params.summary}`)
