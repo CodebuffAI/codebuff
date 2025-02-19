@@ -29,6 +29,7 @@ const getInstruction = (i: number) => {
   - Create a new file "task-${i + 1}.ts" in the test-outputs directory that contains the entry point of the program to complete the task.
   - The file should be executable with "bun test-outputs/task-${i + 1}.ts" and do what is described in the task.
   - The file must be created in the test-outputs directory, not in the root directory.
+  - Review and type check the file before finishing.
   `.trim()
 }
 
@@ -43,8 +44,6 @@ const prompts = [
 ].map((prompt, i) => `${getInstruction(i)}\n\n${prompt}`)
 
 async function runAllPrompts() {
-  console.log('Starting all prompts in parallel...')
-
   const results = await Promise.all(
     prompts.map((prompt, i) => {
       console.log(`Starting prompt ${i + 1}...`)

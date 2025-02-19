@@ -16,10 +16,10 @@ import { createMarkdownFileBlock } from 'common/util/file'
 const openai = getOpenAI('strange-loop')
 
 export async function runStrangeLoop(initialInstruction: string) {
-  const initialFiles = await readFiles(['system-prompt.md'])
-  const systemPrompt = initialFiles['system-prompt.md']
+  const initialFiles = await readFiles(['system-instructions.md'])
+  const systemPrompt = initialFiles['system-instructions.md']
   if (!systemPrompt) {
-    throw new Error('No system-prompt.md found')
+    throw new Error('No system-instructions.md found')
   }
 
   let context = `<goal>${initialInstruction}</goal>`

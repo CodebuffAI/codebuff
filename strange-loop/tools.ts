@@ -116,7 +116,7 @@ Here are the update instructions:
 ${updateInstructions}
 </update_instructions>
 
-Please rewrite the entire context using the update instructions. Try to perserve the original context as much as possible, subject to the update instructions. Return the new context only — do not include any other text or markdown formatting.`
+Please rewrite the entire context using the update instructions. Try to perserve the original context as much as possible, subject to the update instructions. Return the new context only — do not include any other text or wrapper xml/markdown formatting e.g. please omit <initial_context> tags.`
   const messages = [
     {
       role: 'user' as const,
