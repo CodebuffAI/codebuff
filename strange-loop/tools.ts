@@ -1,8 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 import { models, TEST_USER_ID } from 'common/constants'
-import { promptGemini } from 'backend/gemini-api'
 import { spawn } from 'child_process'
+import { promptGeminiWithFallbacks } from 'backend/gemini-with-fallbacks'
 
 const tools = [
   {
@@ -123,7 +123,7 @@ Please rewrite the entire context using the update instructions. Try to perserve
       content: prompt,
     },
   ]
-  const response = await promptGemini(messages, {
+  const response = await promptGeminiWithFallbacks(messages, undefined, {
     model: models.gemini2flash,
     clientSessionId: 'strange-loop',
     fingerprintId: 'strange-loop',
@@ -167,7 +167,9 @@ export async function writeFile(filePath: string, content: string) {
   await fs.promises.writeFile(fullPath, content, 'utf-8')
 }
 
-export async function checkTaskFile(filePath: string): Promise<{ success: boolean; error: string }> {
+export async function checkTaskFile(
+  filePath: string
+): Promise<{ success: boolean; error: string }> {
   const normalizedPath = path.normalize(filePath)
   const fullPath = path.resolve(process.cwd(), normalizedPath)
 
@@ -175,7 +177,10 @@ export async function checkTaskFile(filePath: string): Promise<{ success: boolea
     console.error(
       `❌ Security Error: Cannot access file outside current directory: ${filePath}`
     )
-    return { success: false, error: 'Cannot access file outside current directory' }
+    return {
+      success: false,
+      error: 'Cannot access file outside current directory',
+    }
   }
 
   try {
@@ -216,13 +221,16 @@ export interface ToolCall {
 
 export function parseToolCalls(messageContent: string): ToolCall[] {
   const toolCalls: ToolCall[] = []
-  const toolRegex = new RegExp(`<(${TOOL_LIST.join('|')})>([\\s\\S]*?)<\/\\1>`, 'g')
-  
+  const toolRegex = new RegExp(
+    `<(${TOOL_LIST.join('|')})>([\\s\\S]*?)<\/\\1>`,
+    'g'
+  )
+
   let match
   while ((match = toolRegex.exec(messageContent)) !== null) {
     const [_, name, paramsContent] = match
     const parameters: Record<string, string> = {}
-    
+
     // Parse parameters
     const paramRegex = /<(\w+)>([\s\S]*?)<\/\1>/g
     let paramMatch
@@ -230,9 +238,9 @@ export function parseToolCalls(messageContent: string): ToolCall[] {
       const [__, paramName, paramValue] = paramMatch
       parameters[paramName] = paramValue.trim()
     }
-    
+
     toolCalls.push({ name: name as ToolName, parameters })
   }
-  
+
   return toolCalls
 }
