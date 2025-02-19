@@ -34,11 +34,10 @@ const getInstruction = (i: number) => {
 }
 
 const prompts = [
-  // `Specify a complete node console game in a single file.
-  // Your goal is to make a game that is fun and interesting.
-  // You should put a lot of work into making it polished.
-  // After creating it, you should try to make it even better.`,
-  'Design a command-line tool that helps developers manage their git workflow more efficiently. Consider common git operations and how to simplify them.',
+  `Specify a complete node console game. Your goal is to make a game that is fun and interesting.
+You should put a lot of work into making it polished. After creating it, you should try to make it even better.
+Create it with typescript.`,
+  // 'Design a command-line tool that helps developers manage their git workflow more efficiently. Consider common git operations and how to simplify them.',
   // 'Create a markdown parser that converts markdown to HTML, focusing on the most commonly used markdown features. Make it simple but robust.',
   // 'Build a simple HTTP server that serves static files and implements basic caching. Focus on performance and proper HTTP header handling.',
 ].map((prompt, i) => `${getInstruction(i)}\n\n${prompt}`)

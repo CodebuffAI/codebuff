@@ -190,8 +190,12 @@ export async function checkTaskFile(
     const tsc = spawn('bun', ['--cwd', '.', 'tsc', '--noEmit', normalizedPath])
 
     let stderr = ''
+    let stdout = ''
     tsc.stderr.on('data', (data) => {
       stderr += data.toString()
+    })
+    tsc.stdout.on('data', (data) => {
+      stdout += data.toString()
     })
 
     const success = await new Promise<boolean>((resolve) => {
@@ -207,11 +211,41 @@ export async function checkTaskFile(
       })
     })
 
-    return { success, error: stderr }
+    return { success, error: stdout + stderr }
   } catch (error) {
     console.error(`❌ File ${filePath} does not exist`)
     return { success: false, error: 'File does not exist' }
   }
+}
+
+export async function executeCommand(command: string): Promise<{
+  stdout: string
+  stderr: string
+  exitCode: number
+}> {
+  const { spawn } = require('child_process')
+  const cmd = spawn(command, { shell: true })
+
+  let stdout = ''
+  let stderr = ''
+
+  cmd.stdout.on('data', (data: Buffer) => {
+    stdout += data.toString()
+    console.log(data.toString())
+  })
+
+  cmd.stderr.on('data', (data: Buffer) => {
+    stderr += data.toString()
+    console.error(data.toString())
+  })
+
+  const exitCode = await new Promise<number>((resolve, reject) => {
+    cmd.on('close', (code: number) => {
+      resolve(code)
+    })
+  })
+
+  return { stdout, stderr, exitCode }
 }
 
 export interface ToolCall {

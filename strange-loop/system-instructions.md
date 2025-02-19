@@ -12,21 +12,23 @@ Follow the subgoal example schema here:
 <subgoal>
 <description>Fix the tests</description>
 <status>COMPLETE</status>
-<step>
+<log>
 Ran the tests and got these errors:
 [...INSERT_ERROR_MESSAGES_HERE...]
-</step>
-<step>
+</log>
+<log>
 Edited the file `test.ts` to add a missing import.
-</step>
-<step>
+</log>
+<log>
 Ran the tests again and they passed.
-</step>
+</log>
 </subgoal>
 
 Notes:
 
-- Every subgoal should have a description that explains the conditions to meet the subgoal concisely
-- Every subgoal should have a status. It should begin as NOT_STARTED, moved to IN_PROGRESS and finally COMPLETE or ABANDONDED
-- For every change you make, you should record it by adding a <step> under the appropriate subgoal.
-- If you write to a file, must also record that you did so as a step
+- Every subgoal should have a description that explains the conditions to meet the subgoal concisely.
+- Every subgoal should have a status: NOT_STARTED, IN_PROGRESS, COMPLETE or ABANDONDED.
+- Try to phrase subgoal description first in terms of observable behavior rather than how to implement it, if possible. The subgoal is what you are solving, not how you are solving it.
+- For every change you make, you should record it by adding a <log> under the appropriate subgoal.
+- If you write to a file, must also record that you did so as a log.
+- Do not log actions that you have not yet taken.
