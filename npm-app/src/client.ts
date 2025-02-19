@@ -349,10 +349,14 @@ export class Client {
     })
 
     let shouldRequestLogin = true
+    let expectedFingerprintHash: string | undefined
+    
     this.webSocket.subscribe(
       'login-code-response',
       async ({ loginUrl, fingerprintHash }) => {
         shouldRequestLogin = true
+        expectedFingerprintHash = fingerprintHash
+
         const responseToUser = [
           '\n',
           'Press Enter to open the browser or visit:\n',
@@ -398,33 +402,42 @@ export class Client {
     this.webSocket.subscribe('auth-result', async (action) => {
       shouldRequestLogin = false
 
-      if (action.user) {
-        this.user = action.user
-
-        // Store in config file
-        const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
-        fs.mkdirSync(credentialsPathDir, { recursive: true })
-        fs.writeFileSync(
-          CREDENTIALS_PATH,
-          JSON.stringify({ default: action.user })
-        )
-        const referralLink = `${process.env.NEXT_PUBLIC_APP_URL}/referrals`
-        const responseToUser = [
-          'Authentication successful! 🎉',
-          bold(`Hey there, ${action.user.name}.`),
-          `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month for each of them: ${blueBright(referralLink)}`,
-        ]
-        console.log('\n' + responseToUser.join('\n'))
-        this.lastWarnedPct = 0
-
-        displayGreeting(this.costMode, null)
-
-        this.returnControlToUser()
-      } else {
+      // Missing user from result, must be some kind of error on the backend
+      if (!action.user) {
         console.warn(
           `Authentication failed: ${action.message}. Please try again in a few minutes or contact support at ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL}.`
         )
+        return
       }
+
+      // Mismatched fingerprint hash, likely not us trying to login
+      if (action.user.fingerprintHash !== expectedFingerprintHash) {
+        return
+      }
+
+      // Successful login, store user in memory and in config file
+      expectedFingerprintHash = undefined
+      this.user = action.user
+      const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
+      fs.mkdirSync(credentialsPathDir, { recursive: true })
+      fs.writeFileSync(
+        CREDENTIALS_PATH,
+        JSON.stringify({ default: action.user })
+      )
+
+      // Notify user
+      const referralLink = `${process.env.NEXT_PUBLIC_APP_URL}/referrals`
+      const responseToUser = [
+        'Authentication successful! 🎉',
+        bold(`Hey there, ${action.user.name}.`),
+        `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month for each of them: ${blueBright(referralLink)}`,
+      ]
+      console.log('\n' + responseToUser.join('\n'))
+      this.lastWarnedPct = 0
+
+      displayGreeting(this.costMode, null)
+
+      this.returnControlToUser()
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
