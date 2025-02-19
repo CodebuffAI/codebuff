@@ -72,6 +72,20 @@ Usage:
 </execute_command>
     `.trim(),
   },
+  {
+    name: 'read_files',
+    description: `
+## read_files
+Description: Read the multiple files from disk and return their contents.
+Parameters:
+- paths: (required) List of file paths to read, separated by newlines
+Usage:
+<read_files>
+<paths>src/main.ts
+src/utils.ts</paths>
+</read_files>
+    `.trim(),
+  },
 ] as const
 
 export const TOOL_LIST = tools.map((tool) => tool.name)

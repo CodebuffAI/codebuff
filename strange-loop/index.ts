@@ -114,6 +114,20 @@ Use the complete tool only when you are confident the goal has been acheived.
           await writeFile(params.path, params.content)
           files.push({ path: params.path, content: params.content })
           break
+        case 'read_files':
+          console.log(`Reading files: ${params.paths}`)
+          const paths = params.paths.split('\n').filter(Boolean)
+          const fileContents = await readFiles(paths)
+          for (const [path, content] of Object.entries(fileContents)) {
+            if (content !== null) {
+              files.push({ path, content })
+            }
+          }
+          toolResults.push({
+            tool: 'read_files',
+            result: `Read ${Object.values(fileContents).filter(Boolean).length} files successfully`,
+          })
+          break
         case 'check_file':
           console.log(`Checking file: ${params.path}`)
           const { success, error } = await checkTaskFile(params.path)
@@ -127,7 +141,9 @@ Use the complete tool only when you are confident the goal has been acheived.
           break
         case 'execute_command':
           console.log(`Executing command: ${params.command}`)
-          const { stdout, stderr, exitCode } = await executeCommand(params.command)
+          const { stdout, stderr, exitCode } = await executeCommand(
+            params.command
+          )
 
           // Store the command result for the next iteration
           toolResults.push({
