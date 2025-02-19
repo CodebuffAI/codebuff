@@ -24,6 +24,7 @@ export async function runStrangeLoop(initialInstruction: string) {
 
   let context = `<goal>${initialInstruction}</goal>`
   const files: { path: string; content: string }[] = []
+  let toolResults: { tool: string; result: string }[] = []
 
   const buildSystemPrompt = () => {
     const filesSection = `
@@ -31,7 +32,31 @@ export async function runStrangeLoop(initialInstruction: string) {
 ${files.map((file) => createMarkdownFileBlock(file.path, file.content)).join('\n')}
 </files>
 `.trim()
-    return [systemPrompt, toolsInstructionPrompt, filesSection].join('\n\n')
+
+    const toolResultSection =
+      toolResults.length > 0
+        ? `
+<tool_results>
+${toolResults
+  .map(
+    (result) => `<tool_result>
+<tool>${result.tool}</tool>
+<result>${result.result}</result>
+</tool_result>`
+  )
+  .join('\n')}
+</tool_results>
+`.trim()
+        : ''
+
+    return [
+      systemPrompt,
+      toolsInstructionPrompt,
+      filesSection,
+      toolResultSection,
+    ]
+      .filter(Boolean)
+      .join('\n\n')
   }
 
   let iteration = 0
@@ -52,10 +77,12 @@ ${files.map((file) => createMarkdownFileBlock(file.path, file.content)).join('\n
       {
         role: 'user' as const,
         content: `
+${toolResults.length > 0 ? `Tools were just executed. Review the results in the <tool_results> section and update your context with any relevant information.` : ''}
 Proceed toward the goal and subgoals.
-You must use the updateContext tool call to record your progress at the end of your response.
+You must use the updateContext tool call to record your progress and any new information you learned at the end of your response.
 Optionally use other tools to make progress towards the goal.
 Use the complete tool only when you are confident the goal has been acheived.
+
 `.trim(),
       },
     ]
@@ -71,6 +98,7 @@ Use the complete tool only when you are confident the goal has been acheived.
     }
 
     const toolCalls = parseToolCalls(content)
+    toolResults = []
 
     for (const toolCall of toolCalls) {
       const params = toolCall.parameters
@@ -87,10 +115,48 @@ Use the complete tool only when you are confident the goal has been acheived.
           break
         case 'check_file':
           console.log(`Checking file: ${params.path}`)
-          const success = await checkTaskFile(params.path)
+          const { success, error } = await checkTaskFile(params.path)
           if (!success) {
-            console.error(`❌ File ${params.path} validation failed`)
+            console.error(`❌ File ${params.path} validation failed: ${error}`)
           }
+          toolResults.push({
+            tool: 'check_file',
+            result: `Success: ${success}, Error: ${error}`,
+          })
+          break
+        case 'execute_command':
+          console.log(`Executing command: ${params.command}`)
+          const { spawn } = require('child_process')
+          const cmd = spawn(params.command, { shell: true })
+
+          let stdout = ''
+          let stderr = ''
+
+          cmd.stdout.on('data', (data: Buffer) => {
+            stdout += data.toString()
+            console.log(data.toString())
+          })
+
+          cmd.stderr.on('data', (data: Buffer) => {
+            stderr += data.toString()
+            console.error(data.toString())
+          })
+
+          const exitCode = await new Promise<number>((resolve, reject) => {
+            cmd.on('close', (code: number) => {
+              if (code === 0) {
+                resolve(code)
+              } else {
+                reject(new Error(`Command failed with code ${code}\n${stderr}`))
+              }
+            })
+          })
+
+          // Store the command result for the next iteration
+          toolResults.push({
+            tool: 'execute_command',
+            result: `Stdout:\n${stdout}\nStderr:\n${stderr}\nExit Code: ${exitCode}`,
+          })
           break
         case 'complete':
           console.log(`Task completed: ${params.summary}`)
@@ -116,6 +182,7 @@ Use the complete tool only when you are confident the goal has been acheived.
       context,
       contextLength: context.length,
       toolCalls: response.choices[0].message.tool_calls,
+      toolResults,
     })
   }
 }

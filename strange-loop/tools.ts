@@ -9,7 +9,7 @@ const tools = [
     name: 'update_context',
     description: `
 ## update_context
-Description: Update your context for the next iteration. Give explicit instructions for what to update.
+Description: Update your context for the next iteration. Give explicit instructions for what sections to update with what content.
 Parameters:
 - prompt: (required) Clear instructions for what sections to update and how to update them
 Usage:
@@ -57,6 +57,19 @@ Usage:
 <complete>
 <summary>Added user authentication system with email verification</summary>
 </complete>
+    `.trim(),
+  },
+  {
+    name: 'execute_command',
+    description: `
+## execute_command
+Description: Request to execute a CLI command on the system. Use this when you need to perform system operations or run specific commands to accomplish any step in the user's task. You must tailor your command to the user's system and provide a clear explanation of what the command does. For command chaining, use the appropriate chaining syntax for the user's shell. Prefer to execute complex CLI commands over creating executable scripts, as they are more flexible and easier to run. Commands will be executed in the current working directory: ${process.cwd()}
+Parameters:
+- command: (required) The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.
+Usage:
+<execute_command>
+<command>Your command here</command>
+</execute_command>
     `.trim(),
   },
 ] as const
@@ -154,7 +167,7 @@ export async function writeFile(filePath: string, content: string) {
   await fs.promises.writeFile(fullPath, content, 'utf-8')
 }
 
-export async function checkTaskFile(filePath: string): Promise<boolean> {
+export async function checkTaskFile(filePath: string): Promise<{ success: boolean; error: string }> {
   const normalizedPath = path.normalize(filePath)
   const fullPath = path.resolve(process.cwd(), normalizedPath)
 
@@ -162,7 +175,7 @@ export async function checkTaskFile(filePath: string): Promise<boolean> {
     console.error(
       `❌ Security Error: Cannot access file outside current directory: ${filePath}`
     )
-    return false
+    return { success: false, error: 'Cannot access file outside current directory' }
   }
 
   try {
@@ -189,10 +202,10 @@ export async function checkTaskFile(filePath: string): Promise<boolean> {
       })
     })
 
-    return success
+    return { success, error: stderr }
   } catch (error) {
     console.error(`❌ File ${filePath} does not exist`)
-    return false
+    return { success: false, error: 'File does not exist' }
   }
 }
 
