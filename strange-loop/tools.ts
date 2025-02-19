@@ -148,13 +148,14 @@ Please rewrite the entire context using the update instructions. Try to perserve
 }
 
 export async function readFiles(
-  paths: string[]
+  paths: string[],
+  projectPath: string
 ): Promise<Record<string, string | null>> {
   const results: Record<string, string | null> = {}
   for (const filePath of paths) {
-    const fullPath = path.join(process.cwd(), filePath)
-    if (!fullPath.startsWith(process.cwd())) {
-      throw new Error('Cannot access files outside current directory')
+    const fullPath = path.join(projectPath, filePath)
+    if (!fullPath.startsWith(projectPath)) {
+      throw new Error('Cannot access files outside project directory')
     }
     try {
       results[filePath] = await fs.promises.readFile(fullPath, 'utf-8')
@@ -165,15 +166,14 @@ export async function readFiles(
   return results
 }
 
-export async function appendToLog(logEntry: any) {
-  const logPath = path.join(process.cwd(), 'strange-loop.log')
-  await fs.promises.appendFile(logPath, JSON.stringify(logEntry) + '\n')
-}
-
-export async function writeFile(filePath: string, content: string) {
-  const fullPath = path.join(process.cwd(), filePath)
-  if (!fullPath.startsWith(process.cwd())) {
-    throw new Error('Cannot write files outside current directory')
+export async function writeFile(
+  filePath: string,
+  content: string,
+  projectPath: string
+) {
+  const fullPath = path.join(projectPath, filePath)
+  if (!fullPath.startsWith(projectPath)) {
+    throw new Error('Cannot write files outside project directory')
   }
   // Create directories if they don't exist
   const dirPath = path.dirname(fullPath)
@@ -182,18 +182,19 @@ export async function writeFile(filePath: string, content: string) {
 }
 
 export async function checkTaskFile(
-  filePath: string
+  filePath: string,
+  projectPath: string
 ): Promise<{ success: boolean; error: string }> {
   const normalizedPath = path.normalize(filePath)
-  const fullPath = path.resolve(process.cwd(), normalizedPath)
+  const fullPath = path.resolve(projectPath, normalizedPath)
 
-  if (!fullPath.startsWith(process.cwd())) {
+  if (!fullPath.startsWith(projectPath)) {
     console.error(
-      `❌ Security Error: Cannot access file outside current directory: ${filePath}`
+      `❌ Security Error: Cannot access file outside project directory: ${filePath}`
     )
     return {
       success: false,
-      error: 'Cannot access file outside current directory',
+      error: 'Cannot access file outside project directory',
     }
   }
 
@@ -201,7 +202,7 @@ export async function checkTaskFile(
     await fs.promises.access(fullPath)
     console.log(`✅ File ${filePath} exists`)
 
-    const tsc = spawn('bun', ['--cwd', '.', 'tsc', '--noEmit', normalizedPath])
+    const tsc = spawn('bun', ['--cwd', projectPath, 'tsc', '--noEmit', normalizedPath])
 
     let stderr = ''
     let stdout = ''
@@ -232,13 +233,16 @@ export async function checkTaskFile(
   }
 }
 
-export async function executeCommand(command: string): Promise<{
+export async function executeCommand(
+  command: string,
+  projectPath: string
+): Promise<{
   stdout: string
   stderr: string
   exitCode: number
 }> {
   const { spawn } = require('child_process')
-  const cmd = spawn(command, { shell: true })
+  const cmd = spawn(command, { shell: true, cwd: projectPath })
 
   let stdout = ''
   let stderr = ''
@@ -291,4 +295,9 @@ export function parseToolCalls(messageContent: string): ToolCall[] {
   }
 
   return toolCalls
+}
+
+export async function appendToLog(logEntry: any) {
+  const logPath = path.join(process.cwd(), 'strange-loop.log')
+  await fs.promises.appendFile(logPath, JSON.stringify(logEntry) + '\n')
 }

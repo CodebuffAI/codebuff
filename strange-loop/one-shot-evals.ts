@@ -46,10 +46,10 @@ async function runAllPrompts() {
   const results = await Promise.all(
     prompts.map((prompt, i) => {
       console.log(`Starting prompt ${i + 1}...`)
-      return runStrangeLoop(prompt)
+      return runStrangeLoop(prompt, TEST_OUTPUT_DIR)
         .then(async () => {
           const filePath = path.join(TEST_OUTPUT_DIR, `task-${i + 1}.ts`)
-          const success = await checkTaskFile(filePath)
+          const success = await checkTaskFile(filePath, TEST_OUTPUT_DIR)
           if (!success) {
             console.error(`❌ Task ${i + 1} validation failed`)
           }

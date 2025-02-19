@@ -1,23 +1,28 @@
-console.log('Strange Loop initialized!')
-
+import path from 'path'
 import { getOpenAI } from 'backend/openai-api'
 import { models } from 'common/constants'
 import {
   updateContext,
   writeFile,
   checkTaskFile,
-  appendToLog,
   readFiles,
   parseToolCalls,
   toolsInstructionPrompt,
   executeCommand,
+  appendToLog,
 } from './tools'
 import { createMarkdownFileBlock } from 'common/util/file'
 
 const openai = getOpenAI('strange-loop')
 
-export async function runStrangeLoop(initialInstruction: string) {
-  const initialFiles = await readFiles(['system-instructions.md'])
+export async function runStrangeLoop(
+  initialInstruction: string,
+  relativeProjectPath: string = process.cwd()
+) {
+  console.log('Strange Loop initialized!')
+  const projectPath = path.resolve(process.cwd(), relativeProjectPath)
+  const currentDir = process.cwd()
+  const initialFiles = await readFiles(['system-instructions.md'], currentDir)
   const systemPrompt = initialFiles['system-instructions.md']
   if (!systemPrompt) {
     throw new Error('No system-instructions.md found')
@@ -111,13 +116,13 @@ Use the complete tool only when you are confident the goal has been acheived.
           break
         case 'write_file':
           console.log(`Writing file: ${params.path}`)
-          await writeFile(params.path, params.content)
+          await writeFile(params.path, params.content, projectPath)
           files.push({ path: params.path, content: params.content })
           break
         case 'read_files':
           console.log(`Reading files: ${params.paths}`)
           const paths = params.paths.split('\n').filter(Boolean)
-          const fileContents = await readFiles(paths)
+          const fileContents = await readFiles(paths, projectPath)
           for (const [path, content] of Object.entries(fileContents)) {
             if (content !== null) {
               files.push({ path, content })
@@ -130,7 +135,10 @@ Use the complete tool only when you are confident the goal has been acheived.
           break
         case 'check_file':
           console.log(`Checking file: ${params.path}`)
-          const { success, error } = await checkTaskFile(params.path)
+          const { success, error } = await checkTaskFile(
+            params.path,
+            projectPath
+          )
           if (!success) {
             console.error(`❌ File ${params.path} validation failed: ${error}`)
           }
@@ -142,7 +150,8 @@ Use the complete tool only when you are confident the goal has been acheived.
         case 'execute_command':
           console.log(`Executing command: ${params.command}`)
           const { stdout, stderr, exitCode } = await executeCommand(
-            params.command
+            params.command,
+            projectPath
           )
 
           // Store the command result for the next iteration
