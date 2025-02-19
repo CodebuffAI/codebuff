@@ -1,90 +1,98 @@
 import fs from 'fs'
 import path from 'path'
-import { ChatCompletionTool } from 'openai/resources/chat/completions'
 import { models, TEST_USER_ID } from 'common/constants'
 import { promptGemini } from 'backend/gemini-api'
 import { spawn } from 'child_process'
 
-export const tools: ChatCompletionTool[] = [
+const tools = [
   {
-    type: 'function',
-    function: {
-      name: 'updateContext',
-      description:
-        'Describe how to update your context for the next iteration. It will be rewritten using your instructions. This is not a place to narrate your thoughts -- give explicit instructions for what in your context to update.',
-      parameters: {
-        type: 'object',
-        properties: {
-          prompt: {
-            type: 'string',
-            description:
-              'Describe in natural language how to update your context for the next iteration. Make sure you are clear on what sections to update to what.',
-          },
-        },
-        required: ['prompt'],
-      },
-    },
+    name: 'update_context',
+    description: `
+## update_context
+Description: Update your context for the next iteration. Give explicit instructions for what to update.
+Parameters:
+- prompt: (required) Clear instructions for what sections to update and how to update them
+Usage:
+<update_context>
+<prompt>Remove the "migrate database" subgoal and add a new "deploy api" subgoal with status "in progress"</prompt>
+</update_context>
+    `.trim(),
   },
   {
-    type: 'function',
-    function: {
-      name: 'writeFile',
-      description: 'Create or replace a file with the given content.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: {
-            type: 'string',
-            description: 'Path to the file relative to the project root',
-          },
-          content: {
-            type: 'string',
-            description: 'Content to write to the file',
-          },
-        },
-        required: ['path', 'content'],
-      },
-    },
+    name: 'write_file',
+    description: `
+## write_file
+Description: Create or replace a file with the given content.
+Parameters:
+- path: (required) Path to the file relative to the project root
+- content: (required) Content to write to the file
+Usage:
+<write_file>
+<path>src/main.ts</path>
+<content>console.log('Hello, world!');</content>
+</write_file>
+    `.trim(),
   },
   {
-    type: 'function',
-    function: {
-      name: 'checkFile',
-      description:
-        'Check if a TypeScript file exists and validate it with the TypeScript compiler.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: {
-            type: 'string',
-            description: 'Path to the TypeScript file to check',
-          },
-        },
-        required: ['path'],
-      },
-    },
+    name: 'check_file',
+    description: `
+## check_file
+Description: Check if a TypeScript file exists and validate it with the TypeScript compiler.
+Parameters:
+- path: (required) Path to the TypeScript file to check
+Usage:
+<check_file>
+<path>src/main.ts</path>
+</check_file>
+    `.trim(),
   },
   {
-    type: 'function',
-    function: {
-      name: 'complete',
-      description:
-        'Complete the current task and end the loop. Do not use this unless you have accomplished your goal. Your goal is only accomplished when your context tells you that you have accomplished it. If you are unsure, do not use this tool.',
-      parameters: {
-        type: 'object',
-        properties: {
-          summary: {
-            type: 'string',
-            description: 'A brief summary of what was accomplished',
-          },
-        },
-        required: ['summary'],
-      },
-    },
+    name: 'complete',
+    description: `
+## complete
+Description: Complete the current task and end the loop. Only use when your context confirms the goal is accomplished.
+Parameters:
+- summary: (required) A brief summary of what was accomplished
+Usage:
+<complete>
+<summary>Added user authentication system with email verification</summary>
+</complete>
+    `.trim(),
   },
-]
+] as const
 
-export async function updateContext(context: string, updateInstructions: string) {
+export const TOOL_LIST = tools.map((tool) => tool.name)
+export type ToolName = (typeof TOOL_LIST)[number]
+
+export const toolsInstructionPrompt = `
+# Tool Use Formatting
+
+Tool use is formatted using XML-style tags. The tool name is enclosed in opening and closing tags, and each parameter is similarly enclosed within its own set of tags. Here's the structure:
+
+<tool_name>
+<parameter1_name>value1</parameter1_name>
+<parameter2_name>value2</parameter2_name>
+...
+</tool_name>
+
+For example:
+
+<write_file>
+<path>src/main.ts</path>
+<content>console.log('Hello, world!');</content>
+</write_file>
+
+Always adhere to this format for the tool use to ensure proper parsing and execution.
+
+# Tools
+
+${tools.map((tool) => tool.description).join('\n\n')}
+`
+
+export async function updateContext(
+  context: string,
+  updateInstructions: string
+) {
   const prompt = `Here is the initial context:
 <initial_context>
 ${context}
@@ -186,4 +194,32 @@ export async function checkTaskFile(filePath: string): Promise<boolean> {
     console.error(`❌ File ${filePath} does not exist`)
     return false
   }
+}
+
+export interface ToolCall {
+  name: ToolName
+  parameters: Record<string, string>
+}
+
+export function parseToolCalls(messageContent: string): ToolCall[] {
+  const toolCalls: ToolCall[] = []
+  const toolRegex = new RegExp(`<(${TOOL_LIST.join('|')})>([\\s\\S]*?)<\/\\1>`, 'g')
+  
+  let match
+  while ((match = toolRegex.exec(messageContent)) !== null) {
+    const [_, name, paramsContent] = match
+    const parameters: Record<string, string> = {}
+    
+    // Parse parameters
+    const paramRegex = /<(\w+)>([\s\S]*?)<\/\1>/g
+    let paramMatch
+    while ((paramMatch = paramRegex.exec(paramsContent)) !== null) {
+      const [__, paramName, paramValue] = paramMatch
+      parameters[paramName] = paramValue.trim()
+    }
+    
+    toolCalls.push({ name: name as ToolName, parameters })
+  }
+  
+  return toolCalls
 }

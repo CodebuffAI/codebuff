@@ -3,12 +3,13 @@ console.log('Strange Loop initialized!')
 import { getOpenAI } from 'backend/openai-api'
 import { models } from 'common/constants'
 import {
-  tools,
   updateContext,
   writeFile,
   checkTaskFile,
   appendToLog,
   readFiles,
+  parseToolCalls,
+  toolsInstructionPrompt,
 } from './tools'
 import { createMarkdownFileBlock } from 'common/util/file'
 
@@ -30,7 +31,7 @@ export async function runStrangeLoop(initialInstruction: string) {
 ${files.map((file) => createMarkdownFileBlock(file.path, file.content)).join('\n')}
 </files>
 `.trim()
-    return [systemPrompt, filesSection, context].join('\n\n')
+    return [systemPrompt, toolsInstructionPrompt, filesSection].join('\n\n')
   }
 
   let iteration = 0
@@ -45,6 +46,10 @@ ${files.map((file) => createMarkdownFileBlock(file.path, file.content)).join('\n
         content: buildSystemPrompt(),
       },
       {
+        role: 'assistant' as const,
+        content: context,
+      },
+      {
         role: 'user' as const,
         content: `
 Proceed toward the goal and subgoals.
@@ -57,47 +62,51 @@ Use the complete tool only when you are confident the goal has been acheived.
     const response = await openai.chat.completions.create({
       messages,
       model: models.o3mini,
-      tools,
-      tool_choice: 'auto',
     })
-    const toolCalls = response.choices[0].message.tool_calls
 
-    if (toolCalls) {
-      for (const toolCall of toolCalls) {
-        const params = JSON.parse(toolCall.function.arguments)
+    const content = response.choices[0].message.content
+    if (!content) {
+      console.error('No content in response')
+      continue
+    }
 
-        switch (toolCall.function.name) {
-          case 'updateContext':
-            console.log(`Updating context: ${params.prompt}`)
-            context = await updateContext(context, params.prompt)
-            break
-          case 'writeFile':
-            console.log(`Writing file: ${params.path}`)
-            await writeFile(params.path, params.content)
-            files.push({ path: params.path, content: params.content })
-            break
-          case 'checkFile':
-            console.log(`Checking file: ${params.path}`)
-            const success = await checkTaskFile(params.path)
-            if (!success) {
-              console.error(`❌ File ${params.path} validation failed`)
-            }
-            break
-          case 'complete':
-            console.log(`Task completed: ${params.summary}`)
-            await appendToLog({
-              msg: `Task completed`,
-              level: 'info',
-              iteration,
-              timestamp: new Date().toISOString(),
-              summary: params.summary,
-            })
-            return
-          default:
-            console.error(`Unknown tool: ${toolCall.function.name}`)
-        }
+    const toolCalls = parseToolCalls(content)
+
+    for (const toolCall of toolCalls) {
+      const params = toolCall.parameters
+
+      switch (toolCall.name) {
+        case 'update_context':
+          console.log(`Updating context: ${params.prompt}`)
+          context = await updateContext(context, params.prompt)
+          break
+        case 'write_file':
+          console.log(`Writing file: ${params.path}`)
+          await writeFile(params.path, params.content)
+          files.push({ path: params.path, content: params.content })
+          break
+        case 'check_file':
+          console.log(`Checking file: ${params.path}`)
+          const success = await checkTaskFile(params.path)
+          if (!success) {
+            console.error(`❌ File ${params.path} validation failed`)
+          }
+          break
+        case 'complete':
+          console.log(`Task completed: ${params.summary}`)
+          await appendToLog({
+            msg: `Task completed`,
+            level: 'info',
+            iteration,
+            timestamp: new Date().toISOString(),
+            summary: params.summary,
+          })
+          return
+        default:
+          console.error(`Unknown tool: ${toolCall.name}`)
       }
     }
+
     await appendToLog({
       msg: `Iteration ${iteration}`,
       level: 'info',
