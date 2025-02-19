@@ -388,7 +388,6 @@ export class CLI {
       (chunk) => {
         Spinner.get().stop()
         process.stdout.write(chunk)
-        Spinner.get().start()
       },
       userInputId,
       () => {

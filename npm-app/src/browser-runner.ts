@@ -17,6 +17,8 @@ import * as path from 'path'
 import { getCurrentChatDir, getProjectDataDir } from './project-files'
 import { ensureDirectoryExists } from 'common/util/file'
 
+type NonOptional<T, K extends keyof T> = T & { [P in K]-?: T[P] }
+
 export class BrowserRunner {
   // Add getter methods for diagnostic loop
   getLogs(): BrowserResponse['logs'] {
@@ -134,10 +136,27 @@ export class BrowserRunner {
 
   private async executeAction(action: BrowserAction): Promise<BrowserResponse> {
     try {
+      // Only take pre-action screenshot if browser is already running
+      let preActionResult = null
+      if (this.browser && this.page) {
+        preActionResult = await this.takeScreenshot(
+          {
+            type: 'screenshot',
+          },
+          this.page
+        )
+      }
+
+      let response: BrowserResponse
       switch (action.type) {
         case 'start':
+          await this.getBrowser(action)
+          if (!action.url) {
+            break
+          }
         case 'navigate':
-          return await this.navigate({ ...action, type: 'navigate' })
+          response = await this.navigate({ ...action, type: 'navigate' })
+          break
         case 'click':
           console.log('Clicking has not been implemented yet')
           break
@@ -148,7 +167,7 @@ export class BrowserRunner {
           await this.scroll(action)
           break
         case 'screenshot':
-          return await this.takeScreenshot(action)
+          break
         case 'stop':
           await this.shutdown()
           return {
@@ -162,11 +181,44 @@ export class BrowserRunner {
           )
       }
 
+      // Take post-action screenshot
+      let postActionResult = null
+      if (this.page) {
+        postActionResult = await this.takeScreenshot(
+          {
+            type: 'screenshot',
+          },
+          this.page
+        )
+      }
+
       const metrics = await this.collectMetrics()
-      const response: BrowserResponse = {
+      response = {
         success: true,
         logs: this.logs,
         metrics,
+        ...(postActionResult && {
+          screenshots: {
+            ...(preActionResult && {
+              pre: {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: 'image/jpeg',
+                  data: preActionResult.data,
+                },
+              },
+            }),
+            post: {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/jpeg',
+                data: postActionResult.data,
+              },
+            },
+          },
+        }),
       }
 
       return response
@@ -288,7 +340,10 @@ export class BrowserRunner {
       }
 
       this.browser = await puppeteer.launch({
-        defaultViewport: { width: 1200, height: 800 },
+        defaultViewport: {
+          width: BROWSER_DEFAULTS.viewportWidth,
+          height: BROWSER_DEFAULTS.viewportHeight,
+        },
         headless: BROWSER_DEFAULTS.headless,
         userDataDir,
         waitForInitialPage: true,
@@ -346,7 +401,6 @@ export class BrowserRunner {
   ): Promise<BrowserResponse> {
     try {
       const { page } = await this.getBrowser(action)
-
       const url = ensureUrlProtocol(action.url)
 
       await page.goto(url, {
@@ -361,19 +415,10 @@ export class BrowserRunner {
         source: 'tool',
       })
 
-      // Take a screenshot after navigation
-      const { screenshot, logs } = await this.takeScreenshot({
-        type: 'screenshot',
-        screenshotCompressionQuality:
-          BROWSER_DEFAULTS.screenshotCompressionQuality,
-      })
-      this.logs.push(...logs)
-
       return {
         success: true,
         logs: this.logs,
         networkEvents: [],
-        screenshot: screenshot,
       }
     } catch (error: any) {
       const errorMessage = error?.message || 'Unknown navigation error'
@@ -424,19 +469,21 @@ export class BrowserRunner {
 
     return {
       success: true,
-      logs: [],
+      logs: this.logs,
       networkEvents: [],
     }
   }
 
   private async takeScreenshot(
-    action: Extract<BrowserAction, { type: 'screenshot' }>
-  ): Promise<BrowserResponse> {
-    const { page } = await this.getBrowser()
-
+    action: Extract<BrowserAction, { type: 'screenshot' }>,
+    page: Page
+  ): Promise<{
+    data: string
+    logs: BrowserResponse['logs']
+  }> {
     // Take a screenshot with aggressive compression settings
     const screenshot = await page.screenshot({
-      fullPage: BROWSER_DEFAULTS.fullPage, // action.fullPage ?? BROWSER_DEFAULTS.fullPage,
+      fullPage: BROWSER_DEFAULTS.fullPage,
       type: 'jpeg',
       quality:
         action.screenshotCompressionQuality ??
@@ -453,16 +500,6 @@ export class BrowserRunner {
       category: 'screenshot',
       source: 'tool',
     })
-
-    // Format screenshot in Anthropic's image content format
-    const imageContent = {
-      type: 'image',
-      source: {
-        type: 'base64',
-        media_type: 'image/jpeg',
-        data: screenshot,
-      },
-    } as const
 
     // If debug mode is enabled, save the screenshot
     if (action.debug) {
@@ -511,12 +548,9 @@ export class BrowserRunner {
       }
     }
 
-    const metrics = await this.collectMetrics()
     return {
-      success: true,
+      data: screenshot,
       logs: this.logs,
-      screenshot: imageContent,
-      metrics,
     }
   }
 

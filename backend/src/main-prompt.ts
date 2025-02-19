@@ -53,14 +53,7 @@ export async function mainPrompt(
       !message.content.includes(TOOL_RESULT_MARKER)
   )
   const lastUserMessage = messages[lastUserMessageIndex]
-  const lastUserPrompt = getMessageText(lastUserMessage)
-  const assistantReplyMessageIndex = lastUserMessageIndex + 1
-  const assistantReplyMessage = messages[assistantReplyMessageIndex]
-  const assistantIsExecutingPlan =
-    assistantReplyMessage && typeof assistantReplyMessage.content === 'string'
-      ? assistantReplyMessage.content.includes('plan_complex_change')
-      : false
-
+  const lastUserPrompt = getMessageText(lastUserMessage) as string
   const allowUnboundedIterationPromise = checkToAllowUnboundedIteration(
     messages[lastUserMessageIndex],
     {
@@ -82,6 +75,10 @@ export async function mainPrompt(
   let addedFileVersions: FileVersion[] = []
   let resetFileVersions = false
   const justUsedATool = didClientUseTool(lastMessage)
+  const userMessages = messages.filter((m) => m.role === 'user')
+  const recentlyDidThinking = userMessages
+    .slice(-3)
+    .some((m) => JSON.stringify(m.content).includes('think_deeply'))
 
   const messagesTokens = countTokensJson(messages)
   // Step 1: Read more files.
@@ -148,6 +145,7 @@ export async function mainPrompt(
           costMode,
           allowUnboundedIteration,
           justUsedATool,
+          recentlyDidThinking,
           numAssistantMessages
         ) +
         '\n\n' +
@@ -227,8 +225,7 @@ export async function mainPrompt(
             contentAttributes.file_paths = content
           } else if (name === 'code_search') {
             contentAttributes.pattern = content
-          } else if (name === 'plan_complex_change') {
-            contentAttributes.prompt = content
+          } else if (name === 'think_deeply') {
           } else if (name === 'browser_action') {
             contentAttributes = parseToolCallXml(content)
           }
@@ -282,15 +279,11 @@ export async function mainPrompt(
 
     const toolCallResult = toolCall as ToolCall | null
 
-    if (toolCallResult?.name === 'plan_complex_change') {
-      const { prompt } = toolCallResult.input
-
-      onResponseChunk(`\nPrompt: ${prompt}\n`)
-
+    if (toolCallResult?.name === 'think_deeply') {
       const fetchFilesStart = Date.now()
       const filePaths = await getRelevantFilesForPlanning(
-        messages,
-        prompt,
+        messagesWithoutLastMessage,
+        lastUserPrompt,
         fileContext,
         costMode,
         clientSessionId,
@@ -299,22 +292,31 @@ export async function mainPrompt(
         userId
       )
       const fetchFilesDuration = Date.now() - fetchFilesStart
+      logger.debug(
+        { lastUserPrompt, filePaths, fetchFilesDuration },
+        'Got file paths for thinking deeply'
+      )
       const fileContents = await loadFilesForPlanning(ws, filePaths)
       const existingFilePaths = Object.keys(fileContents)
 
-      onResponseChunk(`\nRelevant files:\n${existingFilePaths.join(' ')}\n`)
-      fullResponse += `\nRelevant files:\n${existingFilePaths.join('\n')}\n`
+      onResponseChunk(
+        `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
+      )
+      fullResponse += `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
       onResponseChunk(`\nThinking deeply (can take a minute!)`)
 
-      logger.debug({ prompt, filePaths, existingFilePaths }, 'Thinking deeply')
+      logger.debug(
+        { lastUserPrompt, filePaths, existingFilePaths },
+        'Thinking deeply'
+      )
       const planningStart = Date.now()
 
       const { response, fileProcessingPromises: promises } =
         await planComplexChange(
-          prompt,
           fileContents,
-          messages,
-          onResponseChunk,
+          messagesWithoutLastMessage,
+          lastUserPrompt,
+          ws,
           {
             clientSessionId,
             fingerprintId,
@@ -329,7 +331,7 @@ export async function mainPrompt(
       fullResponse += response + '\n\n'
       logger.debug(
         {
-          prompt,
+          lastUserPrompt,
           file_paths: filePaths,
           response,
           fetchFilesDuration,
@@ -342,7 +344,7 @@ export async function mainPrompt(
         id: Math.random().toString(36).slice(2),
         name: 'continue',
         input: {
-          response: `Please summarize and review the implementation and make improvements if needed, but do not call the plan_complex_change tool again for now.`,
+          response: `Please summarize briefly the action taken, but do not call the think_deeply tool again for now.`,
         },
       }
       isComplete = true
@@ -550,6 +552,7 @@ function getExtraInstructionForUserPrompt(
   costMode: CostMode,
   allowUnboundedIteration: boolean,
   justUsedATool: boolean,
+  recentlyDidThinking: boolean,
   numAssistantMessages: number
 ) {
   const hasKnowledgeFiles =
@@ -565,7 +568,8 @@ function getExtraInstructionForUserPrompt(
       : ' Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
 
     !justUsedATool &&
-      'If the user request is very complex (e.g. requires changes across multiple files or systems), please consider invoking the plan_complex_change tool to create a plan, although this should be used sparingly.',
+      !recentlyDidThinking &&
+      'If the user request is very complex (e.g. requires changes across multiple files or systems) and you have not recently used the think_deeply tool, consider invoking the think_deeply tool, although this should be used sparingly.',
 
     hasKnowledgeFiles &&
       'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case.',
@@ -578,7 +582,7 @@ function getExtraInstructionForUserPrompt(
       'Please consider pausing to get more instructions from the user.',
 
     justUsedATool &&
-      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else to wait for further instructions from the user. Otherwise, please continue to fulfill the user's request.`,
+      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else.`,
 
     `Always end your response with the following marker:\n${STOP_MARKER}`
   )

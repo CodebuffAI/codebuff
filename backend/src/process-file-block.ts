@@ -12,8 +12,9 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { GeminiMessage, promptGemini } from './gemini-api'
 import { promptOpenAI } from './openai-api'
+import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
+import { buildArray } from 'common/util/array'
 
 export async function processFileBlock(
   filePath: string,
@@ -37,7 +38,7 @@ export async function processFileBlock(
   if (initialContent === null) {
     let cleanContent = cleanMarkdownCodeBlock(newContent)
 
-    if (hasLazyEdit(cleanContent)) {
+    if (hasLazyEdit(cleanContent) && !filePath.endsWith('.md')) {
       logger.debug(
         { filePath, newContent },
         `processFileBlock: New file contained a lazy edit for ${filePath}. Aborting.`
@@ -70,7 +71,8 @@ export async function processFileBlock(
   const normalizedEditSnippet = normalizeLineEndings(newContent)
 
   let updatedContent: string
-  const tokenCount = countTokens(normalizedInitialContent)
+  const tokenCount =
+    countTokens(normalizedInitialContent) + countTokens(normalizedEditSnippet)
 
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
     const largeFileContent = await handleLargeFile(
@@ -101,15 +103,15 @@ export async function processFileBlock(
       lastUserPrompt
     )
     const shouldAddPlaceholders = await shouldAddFilePlaceholders(
-      clientSessionId,
-      fingerprintId,
-      userInputId,
       filePath,
       normalizedInitialContent,
       updatedContent,
       messages,
       fullResponse,
-      userId
+      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId
     )
 
     if (shouldAddPlaceholders) {
@@ -168,15 +170,15 @@ export async function processFileBlock(
  * above and below the function.
  */
 const shouldAddFilePlaceholders = async (
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
   filePath: string,
   oldContent: string,
   rewrittenNewContent: string,
   messageHistory: Message[],
   fullResponse: string,
-  userId: string | undefined
+  userId: string | undefined,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string
 ) => {
   const fileBlocks = parseFileBlocks(
     messageHistory
@@ -217,18 +219,18 @@ Do not write anything else.
 
   const startTime = Date.now()
 
-  const messages = [
+  const messages = buildArray(
     ...messageHistory,
-    {
+    fullResponse && {
       role: 'assistant' as const,
       content: fullResponse,
     },
     {
       role: 'user' as const,
       content: prompt,
-    },
-  ]
-  const response = await promptGemini(messages as GeminiMessage[], {
+    }
+  )
+  const response = await promptGeminiWithFallbacks(messages, undefined, {
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -245,7 +247,7 @@ Do not write anything else.
       filePath,
       duration: Date.now() - startTime,
     },
-    'shouldAddFilePlaceholders response'
+    `shouldAddFilePlaceholders response for ${filePath}`
   )
 
   return shouldAddPlaceholderComments
@@ -286,10 +288,10 @@ export async function fastRewrite(
   )
 
   // Add newline to maintain consistency with original file endings
-  return response + '\n'
+  return response
 }
 
-const LARGE_FILE_TOKEN_LIMIT = 10_000
+const LARGE_FILE_TOKEN_LIMIT = 11_000
 
 async function handleLargeFile(
   oldContent: string,
@@ -315,15 +317,15 @@ Edit snippet (the new content to implement):
 ${editSnippet}
 \`\`\`
 
-Please analyze the edit snippet and create SEARCH/REPLACE blocks that will transform the old content into the intended new content. The SEARCH content must be an exact substring match from the old file.
+Please analyze the edit snippet and create SEARCH/REPLACE blocks that will transform the old content into the intended new content. The SEARCH content must be an exact substring match from the old file — try to keep the search content as short as possible.
 
 Important:
-1. The SEARCH content must match exactly - no whitespace differences allowed
+1. The SEARCH content must match exactly to a substring of the old file content - make sure you're using the exact same whitespace, single quotes, double quotes, and backticks.
 2. Keep the changes minimal and focused
-3. Preserve the original formatting and indentation
+3. Preserve the original formatting, indentation, and comments
 4. Only implement the changes shown in the edit snippet
 
-Format your response with SEARCH/REPLACE blocks like this:
+Please output just the SEARCH/REPLACE blocks like this:
 <<<<<<< SEARCH
 [exact content from old file]
 =======
@@ -348,7 +350,14 @@ Format your response with SEARCH/REPLACE blocks like this:
 
   if (diffBlocksThatDidntMatch.length > 0) {
     logger.debug(
-      { diffBlocksThatDidntMatch },
+      {
+        duration: Date.now() - startTime,
+        editSnippet,
+        diffBlocks,
+        diffBlocksThatDidntMatch,
+        filePath,
+        oldContent,
+      },
       'Initial diff blocks failed to match, retrying...'
     )
 
@@ -374,6 +383,7 @@ Format your response with SEARCH/REPLACE blocks like this:
           filePath,
           oldContent,
           editSnippet,
+          duration: Date.now() - startTime,
         },
         'Failed to create matching diff blocks for large file after retry'
       )

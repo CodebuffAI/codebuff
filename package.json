@@ -32,9 +32,9 @@
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.59.16",
-    "@types/bun": "1.1.16",
     "@types/lodash": "4.17.7",
     "@types/node": "^22.9.0",
+    "bun-types": "^1.2.2",
     "ignore": "^6.0.2",
     "lodash": "4.17.21",
     "prettier": "3.3.2",

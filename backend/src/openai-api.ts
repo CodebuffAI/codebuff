@@ -30,65 +30,78 @@ export const getOpenAI = (fingerprintId: string) => {
   return openai
 }
 
-function transformedMessage(message: any, model: OpenAIModel): OpenAIMessage {
-  return match(model)
-    .with(
-      openaiModels.gpt4o,
-      openaiModels.gpt4omini,
-      openaiModels.generatePatch,
-      () =>
-        match(message)
-          .with(
-            {
-              content: {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: 'image/jpeg',
-                  data: P.string,
+/**
+ * Transform messages between our internal format and OpenAI's format.
+ */
+function transformMessages(
+  messages: OpenAIMessage[],
+  model: OpenAIModel
+): OpenAIMessage[] {
+  return messages.map((msg) =>
+    match(model)
+      .with(
+        openaiModels.gpt4o,
+        openaiModels.gpt4omini,
+        openaiModels.generatePatch,
+        () =>
+          match(msg as any)
+            .with(
+              {
+                content: {
+                  type: 'image',
+                  source: {
+                    type: 'base64',
+                    media_type: 'image/jpeg',
+                    data: P.string,
+                  },
                 },
               },
-            },
-            (m) => ({
-              // Convert to OpenAI's image_url format while preserving the base64 data
-              ...message,
-              content: {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${m.content.source.data}`,
-                },
-              },
-            })
-          )
-          .otherwise(() => message)
-    )
-    .with(openaiModels.o3mini, () => {
-      const hasImages = [message.content ?? []].some(
-        (obj: { type: string }) => obj.type === 'image'
+              (m) => ({
+                ...msg,
+                content: {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/jpeg;base64,${m.content.source.data}`,
+                  },
+                } as any,
+              })
+            )
+            .otherwise(() => msg)
       )
-      if (hasImages) {
-        logger.info(
-          'Stripping images from message - o3mini does not support images'
-        )
-        return {
-          ...message,
-          content: message.content.filter(
-            (obj: { type: string }) => obj.type !== 'image'
-          ),
+      .with(openaiModels.o3mini, () => {
+        if (
+          Array.isArray(msg.content) &&
+          msg.content.some((obj: any) => obj.type === 'image')
+        ) {
+          logger.info(
+            'Stripping images from message - o3mini does not support images'
+          )
+          return {
+            ...msg,
+            content: Array.isArray(msg.content)
+              ? msg.content.filter((obj: any) => obj.type !== 'image')
+              : msg.content,
+          }
         }
-      }
-      return message
-    })
-    .exhaustive()
+        return msg
+      })
+      .exhaustive()
+  ) as OpenAIMessage[]
 }
 
 export async function* promptOpenAIStream(
   messages: OpenAIMessage[],
-  options: OpenAIOptions
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: OpenAIModel
+    userId: string | undefined
+    predictedContent?: string
+    temperature?: number
+  }
 ): AsyncGenerator<string, void, unknown> {
-  const transformedMessages = messages.map((msg) =>
-    transformedMessage(msg, options.model)
-  )
+  const transformedMessages = transformMessages(messages, options.model)
   const {
     clientSessionId,
     fingerprintId,

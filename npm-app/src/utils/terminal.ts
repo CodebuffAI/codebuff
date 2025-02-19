@@ -319,8 +319,9 @@ const runCommandPty = (
     commandOutput += data
   })
 
+  const isWindows = os.platform() === 'win32'
   // Write the command
-  const commandWithCheck = `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "Command completed. "; else printf "Command failed with exit code $ec. "; fi`
+  const commandWithCheck = isWindows ? command : `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "Command completed. "; else printf "Command failed with exit code $ec. "; fi`
   ptyProcess.write(commandWithCheck + '\r')
 }
 

@@ -3,7 +3,7 @@ import { LRUCache } from 'common/util/lru-cache'
 
 const ANTHROPIC_TOKEN_FUDGE_FACTOR = 1.35
 
-const TOKEN_COUNT_CACHE = new LRUCache<string, number>(5000) // Cache up to 5k strings
+const TOKEN_COUNT_CACHE = new LRUCache<string, number>(1000)
 
 export function countTokens(text: string): number {
   try {

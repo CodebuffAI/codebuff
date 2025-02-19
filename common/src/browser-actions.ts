@@ -13,6 +13,10 @@ export const BROWSER_DEFAULTS = {
     retryOnErrors: ['TimeoutError', 'TargetClosedError', 'DetachedFrameError'],
   },
 
+  // Viewport defaults
+  viewportWidth: 1280,
+  viewportHeight: 720,
+
   // Navigation defaults
   waitUntil: 'networkidle0' as const,
 
@@ -155,12 +159,16 @@ export type ImageContent = z.infer<typeof ImageContentSchema>
 export const BrowserResponseSchema = z.object({
   success: z.boolean(),
   error: z.string().optional(),
-  screenshot: ImageContentSchema.optional(),
   logs: z.array(LogSchema),
-  metrics: MetricsSchema.optional(),
-  networkEvents: z.array(NetworkEventSchema).optional(),
   logFilter: LogFilterSchema.optional(),
-  chunks: z.array(BrowserResponseChunkSchema).optional(),
+  networkEvents: z.array(NetworkEventSchema).optional(),
+  metrics: MetricsSchema.optional(),
+  screenshots: z
+    .object({
+      pre: ImageContentSchema.optional(),
+      post: ImageContentSchema,
+    })
+    .optional(),
 })
 
 // Update action schemas to include retry options

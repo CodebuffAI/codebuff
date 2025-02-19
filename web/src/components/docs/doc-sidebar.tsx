@@ -87,25 +87,26 @@ export function DocSidebar({
   }, [])
 
   return (
-    <nav className={cn('space-y-4', className)}>
+    <nav className={cn('space-y-6', className)}>
       {allSections.map((section) => (
-        <div key={section.href}>
+        <div key={section.href} className="space-y-2">
           <Link
             href={section.href}
             target={section.external ? '_blank' : undefined}
             onClick={() => {
               const sheet = document.querySelector('[data-state="open"]')
               if (sheet) sheet.setAttribute('data-state', 'closed')
+              onNavigate?.()
             }}
             className={cn(
-              'block px-3 py-2 hover:bg-accent rounded-md transition-colors',
-              pathname === section.href && 'bg-accent'
+              'block px-3 py-2 hover:bg-accent rounded-md transition-all text-sm font-medium',
+              pathname === section.href && 'bg-accent text-accent-foreground'
             )}
           >
             {section.title}
           </Link>
           {section.subsections && section.subsections.length > 0 && (
-            <div className="ml-2 mt-1 space-y-1">
+            <div className="ml-4 space-y-1">
               {section.subsections.map((subsection) => (
                 <Link
                   key={subsection.href}
@@ -117,7 +118,6 @@ export function DocSidebar({
                   target={section.external ? '_blank' : undefined}
                   onClick={(e) => {
                     onNavigate?.()
-                    // If we're on the same page, scroll instead of navigate
                     if (pathname.startsWith(section.href)) {
                       e.preventDefault()
                       const id = subsection.title
@@ -126,17 +126,15 @@ export function DocSidebar({
                       document
                         .getElementById(id)
                         ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-
                       history.replaceState(null, '', `#${id}`)
                     }
-                    // Close sheet after navigation
                     const sheet = document.querySelector('[data-state="open"]')
                     if (sheet) sheet.setAttribute('data-state', 'closed')
                     onNavigate?.()
                   }}
                   className={cn(
-                    'block w-full text-left px-3 py-1 text-sm hover:bg-accent rounded-md transition-colors text-muted-foreground',
-                    pathname === subsection.href && 'bg-accent'
+                    'block w-full text-left px-3 py-1.5 text-sm hover:bg-accent rounded-md transition-all text-muted-foreground hover:text-foreground',
+                    pathname === subsection.href && 'bg-accent text-accent-foreground'
                   )}
                 >
                   {subsection.title}

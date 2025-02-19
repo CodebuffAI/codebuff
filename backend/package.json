@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "1.0.65",
+  "version": "1.0.0",
   "description": "Backend server for Codebuff",
   "main": "dist/index.js",
   "license": "UNLICENSED",
@@ -9,7 +9,8 @@
     "dev": "lsof -t -i:4242 | xargs kill -9 2>/dev/null || true && bun --hot run -r tsconfig-paths/register src/index.ts",
     "build": "tsc",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
-    "typecheck": "bun run --cwd ../common build && bun run typecheck-this-package"
+    "typecheck": "bun run --cwd ../common build && bun run typecheck-this-package",
+    "build": "tsc"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.3",

@@ -328,6 +328,39 @@ When cleaning responses from AI models:
   - For anonymous users, prompt them to log in for more credits.
   - If available, include a referral link for additional credits.
 
+### Quota Management
+
+#### Data Flow Principles
+
+- Propagate data through existing query chains instead of making new DB queries
+- When checking quota status, include all relevant user state (subscription status, etc.)
+- Pass complete state through websocket messages to avoid redundant DB calls
+- Example: subscription status flows from quota check → usage response → client display
+- When resetting quotas for authenticated users, update both user and fingerprint records with same reset date
+
+#### Quota Reset Coordination
+
+- User and fingerprint quotas must be reset together to maintain consistency
+- Use same next_quota_reset date for both records
+- Reset both quota_exceeded flags to false simultaneously
+- Use Promise.all for atomic-like updates
+
+### Subscription Status
+
+- Active subscriptions completely bypass quota exceeded checks
+- Non-subscribed users are blocked when exceeding their quota
+- Quota tracking continues even when checks are bypassed for billing purposes
+
+Important: When handling subscription states:
+
+- Distinguish between immediate cancellation and scheduled cancellation (cancel_at_period_end)
+- Keep subscription active until period end for scheduled cancellations
+- For downgrades, use the new plan's quota immediately - do not look up current subscription quota
+- Always preserve referral credits through plan changes by adding them after determining the new base quota
+- When checking for cancelled subscriptions:
+  - Use subscription.canceled_at timestamp instead of cancellation_details
+  - Consider subscription cancelled if canceled_at is in past or within next 5 minutes
+  - This handles both immediate cancellations and scheduled cancellations that are about to take effect
 
 ## Referral System
 
@@ -368,24 +401,3 @@ Remember to keep the referral system logic consistent between the backend API an
 These changes aim to provide a better user experience by offering more informative error messages, streamlining usage information handling, and improving the overall system consistency.
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
-```
-
-## Message Transformation
-
-When transforming messages for different model providers:
-- Each provider needs its own message format transformation at the API boundary
-- Keep internal message format consistent (Anthropic-style)
-- Transform only at API boundaries when sending to providers
-- Each provider has its own image format:
-  - OpenAI: `{ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,...' } }`
-  - Gemini: `{ inlineData: { data: 'base64...', mimeType: 'image/jpeg' } }`
-  - Deepseek: No image support yet (noop transform)
-  - Anthropic: Native format (no transform needed)
-  - Vertex AI: `{ parts: [{ inlineData: { data: 'base64...', mimeType: 'image/jpeg' } }] }`
-
-### Vertex AI Message Handling
-- System messages must be sent as a separate chat message, not in history or context
-- Each message must have a role ('user', 'model', or 'system')
-- Messages contain an array of parts (text or inlineData)
-- Temperature and other generation config must use camelCase (generationConfig)
-- Only one system message with one text part is allowed per request

@@ -1,3 +1,5 @@
+import { STOP_MARKER } from 'common/constants'
+
 export async function* processStreamWithTags<T extends string>(
   stream: AsyncGenerator<T> | ReadableStream<T>,
   tags: {
@@ -92,10 +94,18 @@ export async function* processStreamWithTags<T extends string>(
           didParse = true
         } else if (isEOF) {
           // We reached EOF without finding a closing tag
-          // Depending on your needs, yield what's there or handle as malformed.
+          // Treat remaining buffer as content and close the tag
           if (buffer.length > 0) {
-            yield buffer
+            // Remove the STOP_MARKER from the buffer.
+            buffer = buffer.replace(STOP_MARKER, '')
+            const complete = tags[insideTag].onTagEnd(buffer, currentAttributes)
             buffer = ''
+            insideTag = null
+            currentAttributes = {}
+            if (complete) {
+              streamCompleted = true
+              return
+            }
           }
         }
       }
@@ -103,12 +113,10 @@ export async function* processStreamWithTags<T extends string>(
   }
 
   for await (const chunk of stream) {
+    if (streamCompleted) continue
     buffer += chunk
 
     yield* parseBuffer()
-    if (streamCompleted) {
-      break
-    }
   }
 
   if (!streamCompleted) {

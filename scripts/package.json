@@ -1,9 +1,8 @@
 {
-  "name": "codebuff-scripts",
+  "name": "scripts",
   "version": "1.0.0",
   "description": "Scripts package for Codebuff",
   "scripts": {
-    "mrr": "bun calculate-mrr.ts",
     "typecheck-this-package": "tsc --noEmit",
     "typecheck": "cd .. && bun run --cwd common build && bun run --cwd backend build && cd scripts && bun run typecheck-this-package"
   },
@@ -15,5 +14,6 @@
   "devDependencies": {
     "@types/bun": "^1.1.16",
     "@types/lodash": "^4.14.195"
-  }
+  },
+  "private": true
 }

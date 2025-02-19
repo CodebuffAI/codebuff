@@ -1,42 +1,44 @@
 import OpenAI from 'openai'
-import { TEST_USER_ID } from 'common/constants'
+import { geminiModels, TEST_USER_ID } from 'common/constants'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { logger } from './util/logger'
 import { OpenAIMessage } from './openai-api'
 import { GeminiModel } from 'common/constants'
 import { match, P } from 'ts-pattern'
+import { generateCompactId } from 'common/util/string'
 
 /**
  * Transform messages between our internal format and Gemini's format.
  * All Gemini models support images in their specific format.
- *
- * @param message The message to transform
- * @param model The Gemini model being used
- * @returns The transformed message in Gemini's expected format
  */
-function transformedMessage(message: any, model: GeminiModel): OpenAIMessage {
-  return match(message)
-    .with(
-      {
-        content: {
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: 'image/jpeg',
-            data: P.string,
+function transformMessages(
+  messages: OpenAIMessage[],
+  model: GeminiModel
+): OpenAIMessage[] {
+  return messages.map((msg) =>
+    match(msg as any)
+      .with(
+        {
+          content: {
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: 'image/jpeg',
+              data: P.string,
+            },
           },
         },
-      },
-      (m) => ({
-        ...message,
-        content: {
-          inlineData: m.content.source.data,
-          mimeType: 'image/jpeg',
-        },
-      })
-    )
-    .otherwise(() => message)
+        (m) => ({
+          ...msg,
+          content: {
+            inlineData: m.content.source.data,
+            mimeType: 'image/jpeg',
+          },
+        })
+      )
+      .otherwise(() => msg)
+  ) as OpenAIMessage[]
 }
 
 export type GeminiMessage = OpenAI.Chat.ChatCompletionMessageParam
@@ -51,14 +53,17 @@ const getGeminiClient = (fingerprintId: string) => {
       defaultHeaders: {
         'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
         'Helicone-User-Id': fingerprintId,
-        // 'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
-        // 'Helicone-LLM-Security-Enabled': 'true',
       },
     })
   }
 
   return geminiClient
 }
+
+const timeoutPromise = (ms: number) =>
+  new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Gemini API request timed out')), ms)
+  )
 
 export function promptGeminiStream(
   messages: OpenAIMessage[],
@@ -76,24 +81,20 @@ export function promptGeminiStream(
     clientSessionId,
     fingerprintId,
     userInputId,
-    model,
-    userId,
-    maxTokens,
     temperature,
+    userId,
+    model,
+    maxTokens,
   } = options
-
   return new ReadableStream({
     async start(controller) {
       const gemini = getGeminiClient(fingerprintId)
       const startTime = Date.now()
       try {
-        // Transform messages to Gemini's format
-        const transformedMessages = messages.map((msg) =>
-          transformedMessage(msg, options.model)
-        )
+        const transformedMessages = transformMessages(messages, model)
 
         const stream = await gemini.chat.completions.create({
-          model,
+          model: model,
           messages: transformedMessages,
           temperature: temperature ?? 0,
           max_tokens: maxTokens,
@@ -106,7 +107,6 @@ export function promptGeminiStream(
         let outputTokens = 0
 
         for await (const chunk of stream) {
-          console.log('chunk', chunk)
           if (chunk.choices[0]?.delta?.content) {
             const delta = chunk.choices[0].delta.content
             content += delta
@@ -120,9 +120,9 @@ export function promptGeminiStream(
           }
         }
 
-        if (messageId && messages.length > 0 && userId !== TEST_USER_ID) {
+        if (messages.length > 0 && userId !== TEST_USER_ID) {
           saveMessage({
-            messageId: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            messageId: generateCompactId(),
             userId,
             clientSessionId,
             fingerprintId,
@@ -149,7 +149,6 @@ export function promptGeminiStream(
           },
           'Error calling Gemini API'
         )
-
         controller.error(error)
       }
     },
@@ -167,50 +166,20 @@ export async function promptGemini(
     maxTokens?: number
     temperature?: number
   }
-) {
-  const {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    model,
-    userId,
-    maxTokens,
-    temperature,
-  } = options
-  const gemini = getGeminiClient(fingerprintId)
-  const startTime = Date.now()
+): Promise<string> {
+  const stream = promptGeminiStream(messages, options)
   try {
-    // Transform messages to Gemini's format
-    const transformedMessages = messages.map((msg) =>
-      transformedMessage(msg, options.model)
-    )
-
-    const response = await gemini.chat.completions.create({
-      model,
-      messages: transformedMessages,
-      temperature: temperature ?? 0,
-      max_tokens: maxTokens,
-    })
-
-    const content = response.choices[0].message.content ?? ''
-    const { usage } = response
-    if (usage) {
-      saveMessage({
-        messageId: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        userId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        model,
-        request: messages,
-        response: content,
-        inputTokens: usage.prompt_tokens,
-        outputTokens: usage.completion_tokens,
-        finishedAt: new Date(),
-        latencyMs: Date.now() - startTime,
-      })
-    }
-
+    let content = ''
+    await Promise.race([
+      (async () => {
+        for await (const chunk of stream) {
+          content += chunk
+        }
+      })(),
+      timeoutPromise(
+        options.model === geminiModels.gemini2flash ? 60_000 : 200_000
+      ),
+    ])
     return content
   } catch (error) {
     logger.error(
@@ -219,11 +188,9 @@ export async function promptGemini(
           error && typeof error === 'object' && 'message' in error
             ? error.message
             : 'Unknown error',
-        messages,
       },
       'Error calling Gemini API'
     )
-
     throw error
   }
 }

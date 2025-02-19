@@ -1,10 +1,7 @@
 import { System } from '@/claude'
-import { promptOpenAI, OpenAIMessage } from '@/openai-api'
 import { Message } from 'common/actions'
 import { CostMode, models } from 'common/constants'
-import { promptGemini } from '@/gemini-api'
-import { messagesWithSystem } from '@/util/messages'
-import { logger } from '@/util/logger'
+import { promptGeminiWithFallbacks } from '@/gemini-with-fallbacks'
 
 export const checkNewFilesNecessary = async (
   messages: Message[],
@@ -24,9 +21,9 @@ Considering the conversation history above, and the following user request, dete
 Current files read: ${previousFiles.length > 0 ? previousFiles.join(', ') : 'None'}
 User request: ${userPrompt}
 
-We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad user requests may require many files as context.
-
-If the user is asking something different than before or that would likely benefit from new files being read, you should read new files (YES).
+We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request.
+- Broad user requests may require many files as context.
+- If there are not many files read (e.g. only knowledge files), lean towards reading more files.
 
 You should not read new files (NO) if:
 - The user is following up on a previous request
@@ -34,48 +31,26 @@ You should not read new files (NO) if:
 - The user asks to edit a file you are already reading
 - You just need to run a terminal command
 
-Lean towards reading new files (YES) if you are not sure as that is a less costly error.
+If the user is asking something new or that would likely benefit from new files being read or if there is a way to provide a better answer by reading more files, you should read new files (YES).
 
-Answer with just 'YES' if reading new files is necessary, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
+Answer with just 'YES' if reading new files is helpful, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
 
-  try {
-    // First try Gemini
-    const response = await promptGemini(
-      messagesWithSystem(
-        [...messages, { role: 'user', content: prompt }],
-        system
-      ),
-      {
-        model: models.gemini2flash,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      }
-    )
-    const endTime = Date.now()
-    const duration = endTime - startTime
-    const newFilesNecessary = response.trim().toUpperCase().includes('YES')
-    return { newFilesNecessary, response, duration }
-  } catch (error) {
-    logger.error(
-      { error },
-      'Error calling Gemini API, falling back to GPT-4o'
-    )
-    const response = await promptOpenAI(
-      [...(messages as OpenAIMessage[]), { role: 'user', content: prompt }],
-      {
-        model: costMode === 'lite' ? models.gpt4omini : models.gpt4o,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-      }
-    )
-    const endTime = Date.now()
-    const duration = endTime - startTime
-    const newFilesNecessary = response.trim().toUpperCase().includes('YES')
-    return { newFilesNecessary, response, duration }
-  }
+  const response = await promptGeminiWithFallbacks(
+    [...messages, { role: 'user', content: prompt }],
+    system,
+    {
+      model: models.gemini2flash,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      costMode,
+      useGPT4oInsteadOfClaude: true,
+    }
+  )
+  const endTime = Date.now()
+  const duration = endTime - startTime
+  const newFilesNecessary = response.trim().toUpperCase().includes('YES')
+  return { newFilesNecessary, response, duration }
 }

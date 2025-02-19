@@ -130,10 +130,10 @@ const Home = () => {
               </Button>
             </section>
 
-            <div className="relative w-full flex items-center justify-center rounded-xl">
-              <div className="relative h-full flex rounded-xl overflow-hidden shadow-2xl border border-gray-200/20">
+            <section className="relative w-full flex items-center justify-center rounded-xl">
+              <div className="relative w-full aspect-[13.5/9] rounded-xl overflow-hidden shadow-2xl border border-gray-200/20">
                 <video
-                  className="rounded-lg shadow-lg max-h-full w-auto"
+                  className="absolute inset-0 w-full h-full object-cover"
                   autoPlay
                   muted
                   loop
@@ -145,7 +145,7 @@ const Home = () => {
                   <source src="/codebuff-intro1.webm" type="video/webm" />
                 </video>
               </div>
-            </div>
+            </section>
           </section>
 
           {/* Features Section */}

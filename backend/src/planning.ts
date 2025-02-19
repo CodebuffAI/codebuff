@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws'
-import { Message, FileChange } from 'common/actions'
-import { models, claudeModels, CostMode } from 'common/constants'
+import { Message } from 'common/actions'
+import { models, CostMode, geminiModels } from 'common/constants'
 import { countTokens, countTokensJson } from './util/token-counter'
 import {
   createFileBlock,
@@ -9,12 +9,11 @@ import {
   ProjectFileContext,
   parseFileBlocks,
 } from 'common/util/file'
-import { promptClaude } from './claude'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { getSearchSystemPrompt } from './system-prompt'
-import { hasLazyEdit } from 'common/util/string'
-import { fastRewrite } from './process-file-block'
+import { processFileBlock } from './process-file-block'
 import { requestFiles } from './websockets/websocket-action'
+import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
 
 const systemPrompt = `
 You are a senior software engineer. You are given a request from a user and a set of files that are relevant to the request.
@@ -36,7 +35,7 @@ Notes for editing a file:
 - You can edit multiple files in your response by including multiple edit_file blocks.
 - The content of the file can be abridged by using placeholder comments like: // ... existing code ... or # ... existing code ... (or whichever is appropriate for the language). In this case, the placeholder sections will not be changed. Only the written out code will be updated.
 - If you don't use any placeholder comments (matched by a regex), the entire file will be replaced.
-- Similarly, you can create new files by specifying a new file path and including the entire content of the file.
+- Similarly, you can create new files with the edit_file tool by specifying a new "path" attribute and including the entire content of the file.
 
 If you don't want to edit a file, but want to show code to the user, you can use the markdown format for that:
 \`\`\`typescript
@@ -45,10 +44,10 @@ If you don't want to edit a file, but want to show code to the user, you can use
 `.trim()
 
 export async function planComplexChange(
-  prompt: string,
   files: Record<string, string>,
   messageHistory: Message[],
-  onChunk: (chunk: string) => void,
+  lastUserPrompt: string,
+  ws: WebSocket,
   options: {
     clientSessionId: string
     fingerprintId: string
@@ -72,9 +71,32 @@ export async function planComplexChange(
           : ''
       }Message History:\n\n${messageHistory
         .map((m) => `${m.role}: ${m.content}`)
-        .join('\n')}\n\nRequest:\n${prompt}
+        .join('\n')}
 
-Please plan and create a detailed solution for this request.`,
+Choose one of the following options which seems most relevant to the user's request. Usually, users prefer to have their request implemented immediately by editing files (option A), but if the user asks you to plan or think through it, or if there's enough uncertainty that the user would likely want to iterate on the plan first, then choose option B.
+
+A. Implement the user's request now
+
+Go ahead and implement the user's request by editing files.
+
+B. Write up a detailed implementation plan for what the user wants in a new markdown file.
+
+1. Create a file with a descriptive name ending in .md (e.g. feature-name-plan.md or refactor-x-design.md) using the <edit_file path="...">...</edit_file> tool. (Or, if a relevant planning file already exists, just edit that! Be careful to only add your changes, or change just the relevant parts.)
+2. Act as an expert architect engineer and provide direction to your editor engineer.
+- Study the change request and the current code.
+- Describe how to modify the code to complete the request. The editor engineer will rely solely on your instructions, so make them unambiguous and complete.
+- Explain all needed code changes clearly and completely, but concisely.
+- Just show the changes needed.
+4. Do not waste time on much background information, focus on the exact steps of the implementation.
+5. Include code, but not full files of it. Write out key snippets of code and use lots of psuedo code. For example, interfaces between modules, function signatures, and other code that is not immediately obvious should be written out explicitly. Function and method bodies could be written out in psuedo code.
+
+Do not include any of the following sections:
+- goals
+- a timeline or schedule
+- benefits/key improvements
+- next steps
+
+Request:\n${lastUserPrompt}`,
     },
   ]
 
@@ -91,14 +113,15 @@ Please plan and create a detailed solution for this request.`,
       processFileBlock(
         filePath,
         content,
-        files[filePath] || null,
-        fullResponse,
-        prompt,
-        options.costMode,
+        messageHistory,
+        '',
+        lastUserPrompt,
         options.clientSessionId,
         options.fingerprintId,
         options.userInputId,
-        options.userId
+        options.userId,
+        ws,
+        options.costMode
       )
   )
 
@@ -108,46 +131,12 @@ Please plan and create a detailed solution for this request.`,
   }
 }
 
-async function processFileBlock(
-  filePath: string,
-  newContent: string,
-  oldContent: string | null,
-  fullResponse: string,
-  prompt: string,
-  costMode: CostMode,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined
-): Promise<FileChange | null> {
-  // For new files, just create them directly
-  if (!oldContent) {
-    return { filePath, content: newContent, type: 'file' }
-  }
-
-  if (hasLazyEdit(newContent)) {
-    const updatedContent = await fastRewrite(
-      oldContent,
-      newContent,
-      filePath,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      prompt
-    )
-    return { filePath, content: updatedContent, type: 'file' }
-  }
-
-  return { filePath, content: newContent, type: 'file' }
-}
-
 /**
  * Prompt claude, handle tool calls, and generate file changes.
  */
 export async function getRelevantFilesForPlanning(
-  messages: Message[],
-  prompt: string,
+  messageHistory: Message[],
+  lastUserPrompt: string,
   fileContext: ProjectFileContext,
   costMode: CostMode,
   clientSessionId: string,
@@ -155,36 +144,44 @@ export async function getRelevantFilesForPlanning(
   userInputId: string,
   userId: string | undefined
 ) {
-  const response = await promptClaude(
-    [
-      ...messages,
-      {
-        role: 'user',
-        content: `Do not act on the above instructions for the user, instead, we are asking you to find relevant files for the following request.
+  const planningMessages = [
+    ...messageHistory,
+    {
+      role: 'user' as const,
+      content: `Do not act on the above instructions for the user, instead, we are asking you to find relevant files for the last user message:
 
-Request:\n${prompt}\n\nNow, please list up to 20 file paths from the project that would be most relevant for implementing this change. Please do include knowledge.md files that are relevant, files with example code for what is needed, related tests, second-order files that are not immediately obvious but could become relevant, and any other files that would be helpful.
+<user_prompt>
+${lastUserPrompt}
+</user_prompt>
+
+Please list up to 20 file paths from the project that would be most relevant for implementing this change. Please do include knowledge.md files that are relevant, files with example code for what is needed, related tests, second-order files that are not immediately obvious but could become relevant, and any other files that would be helpful.
 
 Only output the file paths, one per line, nothing else.`,
-      },
-    ],
+    },
+  ]
+  const systemPrompt = getSearchSystemPrompt(
+    fileContext,
+    costMode,
+    countTokensJson(planningMessages)
+  )
+
+  const response = await promptGeminiWithFallbacks(
+    planningMessages,
+    systemPrompt,
     {
-      model: claudeModels.sonnet,
-      system: getSearchSystemPrompt(
-        fileContext,
-        costMode,
-        countTokensJson(messages)
-      ),
+      model: geminiModels.gemini2flash,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId,
+      costMode,
     }
   )
 
   return response
     .split('\n')
     .map((line) => line.trim())
-    .filter((line) => isValidFilePath(line))
+    .filter(isValidFilePath)
 }
 
 export async function loadFilesForPlanning(ws: WebSocket, filePaths: string[]) {
@@ -193,7 +190,7 @@ export async function loadFilesForPlanning(ws: WebSocket, filePaths: string[]) {
     Object.entries(loadedFiles).filter(
       ([, content]) =>
         content !== null &&
-        content !== '[INVALID_FILE_PATH]' &&
+        content.length < 400_000 &&
         countTokens(content) < 40_000
     ) as [string, string][]
   )
