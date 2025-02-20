@@ -1,7 +1,7 @@
 import { runStrangeLoop } from './index'
-import { checkTaskFile } from './tools'
 import fs from 'fs'
 import path from 'path'
+import { checkTaskFile } from 'tools'
 
 const TEST_OUTPUT_DIR = 'test-outputs'
 
@@ -29,16 +29,16 @@ const getInstruction = (i: number) => {
   - Create a new file "task-${i + 1}.ts" in the test-outputs directory that contains the entry point of the program to complete the task.
   - The file should be executable with "bun test-outputs/task-${i + 1}.ts" and do what is described in the task.
   - The file must be created in the test-outputs directory, not in the root directory.
-  - Review and type check the file before finishing.
   `.trim()
 }
 
 const prompts = [
-  `Specify a complete node console game. Your goal is to make a game that is fun and interesting.
-You should put a lot of work into making it polished. After creating it, you should try to make it even better.
-Create it with typescript.`,
+  // `Specify a complete node console game in a single file.
+  // Your goal is to make a game that is fun and interesting.
+  // You should put a lot of work into making it polished.
+  // After creating it, you should try to make it even better.`,
   // 'Design a command-line tool that helps developers manage their git workflow more efficiently. Consider common git operations and how to simplify them.',
-  // 'Create a markdown parser that converts markdown to HTML, focusing on the most commonly used markdown features. Make it simple but robust.',
+  'Create a markdown parser that converts markdown to HTML, focusing on the most commonly used markdown features. Make it simple but robust.',
   // 'Build a simple HTTP server that serves static files and implements basic caching. Focus on performance and proper HTTP header handling.',
 ].map((prompt, i) => `${getInstruction(i)}\n\n${prompt}`)
 
@@ -46,7 +46,7 @@ async function runAllPrompts() {
   const results = await Promise.all(
     prompts.map((prompt, i) => {
       console.log(`Starting prompt ${i + 1}...`)
-      return runStrangeLoop(prompt, TEST_OUTPUT_DIR)
+      return runStrangeLoop(prompt)
         .then(async () => {
           const filePath = path.join(TEST_OUTPUT_DIR, `task-${i + 1}.ts`)
           const success = await checkTaskFile(filePath, TEST_OUTPUT_DIR)

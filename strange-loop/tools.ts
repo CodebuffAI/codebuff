@@ -47,16 +47,18 @@ Usage:
     `.trim(),
   },
   {
-    name: 'complete',
+    name: 'final_review',
     description: `
-## complete
-Description: Complete the current task and end the loop. Only use when your context confirms the goal is accomplished.
+## final_review
+Description: Perform a final quality assurance check—including running the type checker and any other validations—before marking the task complete. Use this tool when you believe the task is finished but want to double-check its correctness.
 Parameters:
-- summary: (required) A brief summary of what was accomplished
+- path: (optional) Path to the TypeScript file to check, if reviewing a specific file
+- summary: (required) A brief summary of what was accomplished, to be logged once verification passes.
 Usage:
-<complete>
-<summary>Added user authentication system with email verification</summary>
-</complete>
+<final_review>
+<path>src/main.ts</path>
+<summary>Implemented the main function and tested it successfully.</summary>
+</final_review>
     `.trim(),
   },
   {
@@ -152,7 +154,7 @@ Edited the file \`test.ts\` to add a missing import.
 Ran the tests again and they passed.
 </log>
 </subgoal>
-  
+
 Here is the initial context:
 <initial_context>
 ${context}
@@ -217,59 +219,53 @@ export async function writeFile(
 export async function checkTaskFile(
   filePath: string,
   projectPath: string
-): Promise<{ success: boolean; error: string }> {
-  const normalizedPath = path.normalize(filePath)
-  const fullPath = path.resolve(projectPath, normalizedPath)
-
-  if (!fullPath.startsWith(projectPath)) {
+): Promise<{ success: boolean; msg: string }> {
+  if (!filePath.startsWith(projectPath)) {
     console.error(
       `❌ Security Error: Cannot access file outside project directory: ${filePath}`
     )
     return {
       success: false,
-      error: 'Cannot access file outside project directory',
+      msg: 'Cannot access file outside project directory',
     }
   }
 
   try {
-    await fs.promises.access(fullPath)
-    console.log(`✅ File ${filePath} exists`)
+    const normalizedPath = path.normalize(filePath)
+    await fs.promises.access(normalizedPath)
+  } catch (error) {
+    return { success: false, msg: `File ${filePath} does not exist` }
+  }
 
-    const tsc = spawn('bun', [
-      '--cwd',
-      projectPath,
-      'tsc',
-      '--noEmit',
-      normalizedPath,
-    ])
-
-    let stderr = ''
+  return new Promise((resolve) => {
+    const args = ['tsc', '--noEmit', '--isolatedModules', '--skipLibCheck']
+    if (filePath) {
+      const normalizedPath = path.normalize(filePath)
+      const fullPath = path.join(process.cwd(), normalizedPath)
+      args.push(fullPath)
+    }
+    const tsc = spawn('bun', args)
     let stdout = ''
-    tsc.stderr.on('data', (data) => {
-      stderr += data.toString()
-    })
+    let stderr = ''
     tsc.stdout.on('data', (data) => {
       stdout += data.toString()
     })
-
-    const success = await new Promise<boolean>((resolve) => {
-      tsc.on('close', (code) => {
-        if (code === 0) {
-          console.log(`✅ File ${filePath} is valid TypeScript`)
-          resolve(true)
-        } else {
-          console.error(`❌ File ${filePath} has TypeScript errors:`)
-          console.error(stderr)
-          resolve(false)
-        }
-      })
+    tsc.stderr.on('data', (data) => {
+      stderr += data.toString()
     })
-
-    return { success, error: stdout + stderr }
-  } catch (error) {
-    console.error(`❌ File ${filePath} does not exist`)
-    return { success: false, error: 'File does not exist' }
-  }
+    tsc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ success: true, msg: stdout || 'Type check passed' })
+      } else {
+        if (stdout) console.error(stdout)
+        if (stderr) console.error(stderr)
+        resolve({
+          success: false,
+          msg: stderr || stdout || 'Type check failed',
+        })
+      }
+    })
+  })
 }
 
 export async function executeCommand(

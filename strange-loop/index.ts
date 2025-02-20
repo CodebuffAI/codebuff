@@ -71,7 +71,7 @@ ${toolResults
   while (true) {
     iteration++
     console.log(`Iteration ${iteration}`)
-    const previousContext = context
+    const previousContext = `${context}`
     const messages = [
       {
         role: 'system' as const,
@@ -136,16 +136,13 @@ Use the complete tool only when you are confident the goal has been acheived.
           break
         case 'check_file':
           console.log(`Checking file: ${params.path}`)
-          const { success, error } = await checkTaskFile(
-            params.path,
-            projectPath
-          )
+          const { success, msg } = await checkTaskFile(params.path, projectPath)
           if (!success) {
-            console.error(`❌ File ${params.path} validation failed: ${error}`)
+            console.error(`❌ File ${params.path} validation failed: ${msg}`)
           }
           toolResults.push({
             tool: 'check_file',
-            result: `Success: ${success}, Error: ${error}`,
+            result: success ? `Success: ${msg}` : `Failed: ${msg}`,
           })
           break
         case 'execute_command':
@@ -161,7 +158,8 @@ Use the complete tool only when you are confident the goal has been acheived.
             result: `Stdout:\n${stdout}\nStderr:\n${stderr}\nExit Code: ${exitCode}`,
           })
           break
-        case 'complete':
+        case 'final_review':
+          console.log('TODO: run final review (tests, type checker, etc.)')
           console.log(`Task completed: ${params.summary}`)
           await appendToLog({
             msg: `Task completed`,
@@ -194,15 +192,100 @@ Use the complete tool only when you are confident the goal has been acheived.
     }
 
     await appendToLog({
-      msg: `Iteration ${iteration}`,
+      msg: `Iteration ${iteration}: ${toolCalls.map((toolCall) => toolCall.name).join(', ')}`,
       level: 'info',
       iteration,
       timestamp: new Date().toISOString(),
-      previousContext,
-      context,
+      previousContext: xmlToJson(previousContext),
+      context: xmlToJson(context),
       contextLength: context.length,
       toolCalls: response.choices[0].message.tool_calls,
       toolResults,
     })
   }
+}
+
+export function xmlToJson(xml: string): any {
+  xml = xml.replace(/>\s+</g, '><').trim()
+
+  if (!xml.includes('<')) {
+    return xml.trim()
+  }
+
+  const result: any = {}
+
+  let currentIndex = 0
+  while (currentIndex < xml.length) {
+    const tagStart = xml.indexOf('<', currentIndex)
+    if (tagStart === -1) {
+      const remainingText = xml.substring(currentIndex).trim()
+      if (remainingText) {
+        if (result._text) {
+          result._text += ' ' + remainingText
+        } else {
+          result._text = remainingText
+        }
+      }
+      break
+    }
+
+    const textContent = xml.substring(currentIndex, tagStart).trim()
+    if (textContent) {
+      if (result._text) {
+        result._text += ' ' + textContent
+      } else {
+        result._text = textContent
+      }
+    }
+
+    let tagName = xml.substring(tagStart + 1, xml.indexOf('>', tagStart))
+    const isSelfClosing = tagName.endsWith('/')
+    if (isSelfClosing) {
+      tagName = tagName.slice(0, -1)
+      result[tagName] = ''
+      currentIndex = xml.indexOf('>', tagStart) + 1
+      continue
+    }
+
+    if (tagName.startsWith('/')) {
+      currentIndex = xml.indexOf('>', tagStart) + 1
+      continue
+    }
+
+    const closingTag = `</${tagName}>`
+    const contentStart = xml.indexOf('>', tagStart) + 1
+    let contentEnd = xml.indexOf(closingTag, contentStart)
+
+    if (contentEnd === -1) {
+      contentEnd = xml.indexOf('<', contentStart)
+      if (contentEnd === -1) contentEnd = xml.length
+    }
+
+    const content = xml.substring(contentStart, contentEnd)
+
+    const value = content.includes('<') ? xmlToJson(content) : content.trim()
+
+    if (tagName in result) {
+      if (!Array.isArray(result[tagName])) {
+        result[tagName] = [result[tagName]]
+      }
+      result[tagName].push(value)
+    } else {
+      result[tagName] = value
+    }
+
+    currentIndex = contentEnd + closingTag.length
+  }
+
+  if (Object.keys(result).length === 1 && '_text' in result) {
+    return result._text
+  }
+
+  Object.keys(result).forEach((key) => {
+    if (key.trim() === '') {
+      delete result[key]
+    }
+  })
+
+  return result
 }
