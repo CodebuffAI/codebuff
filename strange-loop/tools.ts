@@ -86,6 +86,19 @@ src/utils.ts</paths>
 </read_files>
     `.trim(),
   },
+  {
+    name: 'list_directory',
+    description: `
+## list_directory
+Description: List files and directories within a given path.
+Parameters:
+- path: (required) Path to the directory to list, relative to the project root
+Usage:
+<list_directory>
+<path>src</path>
+</list_directory>
+    `.trim(),
+  },
 ] as const
 
 export const TOOL_LIST = tools.map((tool) => tool.name)
@@ -300,4 +313,24 @@ export function parseToolCalls(messageContent: string): ToolCall[] {
 export async function appendToLog(logEntry: any) {
   const logPath = path.join(process.cwd(), 'strange-loop.log')
   await fs.promises.appendFile(logPath, JSON.stringify(logEntry) + '\n')
+}
+
+export async function listDirectory(dirPath: string, projectPath: string) {
+  const fullPath = path.join(projectPath, dirPath)
+  if (!fullPath.startsWith(projectPath)) {
+    throw new Error('Cannot access directories outside project directory')
+  }
+
+  try {
+    const entries = await fs.promises.readdir(fullPath, { withFileTypes: true })
+    const result = entries.map(entry => ({
+      name: entry.name,
+      isDirectory: entry.isDirectory(),
+      type: entry.isDirectory() ? 'directory' : 'file'
+    }))
+    return result
+  } catch (error) {
+    console.error(`Failed to read directory ${dirPath}:`, error)
+    return null
+  }
 }

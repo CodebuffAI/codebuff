@@ -10,6 +10,7 @@ import {
   toolsInstructionPrompt,
   executeCommand,
   appendToLog,
+  listDirectory,
 } from './tools'
 import { createMarkdownFileBlock } from 'common/util/file'
 
@@ -170,6 +171,23 @@ Use the complete tool only when you are confident the goal has been acheived.
             summary: params.summary,
           })
           return
+        case 'list_directory':
+          console.log(`Listing directory: ${params.path}`)
+          const entries = await listDirectory(params.path, projectPath)
+          if (entries === null) {
+            toolResults.push({
+              tool: 'list_directory',
+              result: `Failed to read directory ${params.path}`,
+            })
+          } else {
+            toolResults.push({
+              tool: 'list_directory',
+              result: `Directory contents:\n${entries.map(entry => 
+                `${entry.name} (${entry.type})`
+              ).join('\n')}`,
+            })
+          }
+          break
         default:
           console.error(`Unknown tool: ${toolCall.name}`)
       }
