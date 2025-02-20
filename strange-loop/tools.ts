@@ -133,7 +133,27 @@ export async function updateContext(
   context: string,
   updateInstructions: string
 ) {
-  const prompt = `Here is the initial context:
+  const prompt = `
+We're working on a project. We have one goal. We can have multiple subgoals. Each subgoal can have a status, relevant info, and multiple logs that describe the progress of the subgoal.
+
+Here's a simple subgoal example schema:
+<subgoal>
+<description>Fix the tests</description>
+<status>COMPLETE</status>
+<saved_tool_info>The test is referenced in 3 different files [...]</saved_tool_info>
+<log>
+Ran the tests and got these errors:
+[...INSERT_ERROR_MESSAGES_HERE...]
+</log>
+<log>
+Edited the file \`test.ts\` to add a missing import.
+</log>
+<log>
+Ran the tests again and they passed.
+</log>
+</subgoal>
+  
+Here is the initial context:
 <initial_context>
 ${context}
 </initial_context>
@@ -215,7 +235,13 @@ export async function checkTaskFile(
     await fs.promises.access(fullPath)
     console.log(`✅ File ${filePath} exists`)
 
-    const tsc = spawn('bun', ['--cwd', projectPath, 'tsc', '--noEmit', normalizedPath])
+    const tsc = spawn('bun', [
+      '--cwd',
+      projectPath,
+      'tsc',
+      '--noEmit',
+      normalizedPath,
+    ])
 
     let stderr = ''
     let stdout = ''
@@ -323,10 +349,10 @@ export async function listDirectory(dirPath: string, projectPath: string) {
 
   try {
     const entries = await fs.promises.readdir(fullPath, { withFileTypes: true })
-    const result = entries.map(entry => ({
+    const result = entries.map((entry) => ({
       name: entry.name,
       isDirectory: entry.isDirectory(),
-      type: entry.isDirectory() ? 'directory' : 'file'
+      type: entry.isDirectory() ? 'directory' : 'file',
     }))
     return result
   } catch (error) {

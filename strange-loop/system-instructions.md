@@ -12,6 +12,7 @@ Follow the subgoal example schema here:
 <subgoal>
 <description>Fix the tests</description>
 <status>COMPLETE</status>
+<saved_tool_info>The test is referenced in 3 different files [...]</saved_tool_info>
 <log>
 Ran the tests and got these errors:
 [...INSERT_ERROR_MESSAGES_HERE...]
@@ -32,3 +33,11 @@ Notes:
 - For every change you make, you should record it by adding a <log> under the appropriate subgoal.
 - If you write to a file, must also record that you did so as a log.
 - Do not log actions that you have not yet taken.
+- Do not remove log entries in a subgoal, unless you remove the whole subgoal because it is no longer relevent. Instead, you should accumulate logs of everything that has been tried.
+- If a tool gives you relevant info, you must add it to the saved_tool_info section.
+
+# Plan
+
+Make sure to explore the project to understand how it works before you change any code. Start with a subgoal to gain context on the project, so that your final output can be as good as possible. List files in the directory before you create a file in that directory.
+
+Try to use at least one or more tools besides updateContext in one reponse. You want to make progress quickly, so explore with list_directory and/or read_files and/or edit files with write_file, and then also use updateContext. Do many actions at once!

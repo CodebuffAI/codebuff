@@ -87,7 +87,7 @@ ${toolResults
 ${toolResults.length > 0 ? `Tools were just executed. Review the results in the <tool_results> section and update your context with any relevant information.` : ''}
 Proceed toward the goal and subgoals.
 You must use the updateContext tool call to record your progress and any new information you learned at the end of your response.
-Optionally use other tools to make progress towards the goal.
+Optionally use other tools to make progress towards the goal. Try to use multiple tools in one response to make quick progress.
 Use the complete tool only when you are confident the goal has been acheived.
 
 `.trim(),
@@ -182,9 +182,9 @@ Use the complete tool only when you are confident the goal has been acheived.
           } else {
             toolResults.push({
               tool: 'list_directory',
-              result: `Directory contents:\n${entries.map(entry => 
-                `${entry.name} (${entry.type})`
-              ).join('\n')}`,
+              result: `Directory ${params.path} contents:\n${entries
+                .map((entry) => `${entry.name} (${entry.type})`)
+                .join('\n')}`,
             })
           }
           break
