@@ -142,7 +142,7 @@ async function runAllInteractions() {
   })
 
   console.log('\nAll scripted interactions completed.')
-  return results
+  process.exit(0)
 }
 
 // Only run if this is the main module.

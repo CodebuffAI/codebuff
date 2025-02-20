@@ -262,7 +262,7 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
           // Store the command result for the next iteration
           toolResults.push({
             tool: 'execute_command',
-            result: `Stdout:\n${stdout}\nStderr:\n${stderr}\nExit Code: ${exitCode}`,
+            result: `<command>${params.command}</command><stdout>${stdout}</stdout><stderr>${stderr}</stderr><exit_code>${exitCode}</exit_code>`,
           })
           break
         case 'complete':
