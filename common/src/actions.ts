@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
 import { userSchema } from './util/credentials'
 import { costModes } from './constants'
+import { AgentStateSchema, ToolResultSchema } from './types/agent-state'
 
 const MessageContentObjectSchema = z.union([
   z.object({
@@ -87,6 +88,17 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     type: z.literal('read-files-response'),
     files: z.record(z.string(), z.union([z.string(), z.null()])),
   }),
+
+  // New schema for strange-loop.
+  z.object({
+    type: z.literal('prompt'),
+    promptId: z.string(),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+    costMode: z.enum(costModes).optional().default('normal'),
+    agentState: AgentStateSchema,
+    toolResults: z.array(ToolResultSchema),
+  }),
   // z.object({
   //   type: z.literal('run-terminal-command'),
   //   command: z.string(),
@@ -168,6 +180,21 @@ export const ResponseCompleteSchema = z
     }).partial()
   )
 
+// New schema for strange-loop.
+export const PromptResponseSchema = z
+  .object({
+    type: z.literal('prompt-response'),
+    promptId: z.string(),
+    agentState: AgentStateSchema,
+    toolCalls: z.array(ToolCallSchema),
+  })
+  .merge(
+    UsageReponseSchema.omit({
+      type: true,
+    }).partial()
+  )
+export type PromptResponse = z.infer<typeof PromptResponseSchema>
+
 export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('read-files-response'),
@@ -179,6 +206,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     chunk: z.string(),
   }),
   ResponseCompleteSchema,
+  PromptResponseSchema,
   z.object({
     type: z.literal('read-files'),
     filePaths: z.array(z.string()),
