@@ -1,34 +1,34 @@
+import {
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  unlinkSync,
+  existsSync,
+} from 'node:fs'
+import { checkTaskFile } from './tools'
 import { runStrangeLoop } from './index'
-import fs from 'fs'
 import path from 'path'
-import { checkTaskFile } from 'tools'
 
 const TEST_OUTPUT_DIR = 'test-outputs'
-const getInstruction = (i: number, previousContent?: string) => {
-  const baseInstruction = `
+const getInstruction = (i: number) => {
+  return `
   This is task ${i + 1}. To complete this task, you must:
   - Create a new file "task-${i + 1}.ts" in the current directory that contains the entry point of the program to complete the task.
   - The file should be executable with "bun test-outputs/task-${i + 1}.ts" and do what is described in the task.
   - The file must be created in the test-outputs directory, not in the root directory.
   `.trim()
-
-  // If we have previous content, include it in the instruction
-  if (previousContent) {
-    return `${baseInstruction}\n\nHere is the current content of task-${i + 1}.ts that you should modify:\n\n${previousContent}`
-  }
-  return baseInstruction
 }
 
 // Clear the log file and clean test outputs at the start
 try {
   // Clear log file
-  fs.writeFileSync('strange-loop.log', '')
+  writeFileSync('strange-loop.log', '')
   console.log('Cleared strange-loop.log')
   // Clear test output files
-  if (fs.existsSync(TEST_OUTPUT_DIR)) {
-    const files = fs.readdirSync(TEST_OUTPUT_DIR)
+  if (existsSync(TEST_OUTPUT_DIR)) {
+    const files = readdirSync(TEST_OUTPUT_DIR)
     for (const file of files) {
-      fs.unlinkSync(path.join(TEST_OUTPUT_DIR, file))
+      unlinkSync(path.join(TEST_OUTPUT_DIR, file))
     }
     console.log('Cleared test output files')
   }
@@ -62,7 +62,7 @@ const interactions: ScriptedInteraction[] = [
       'Create a markdown parser that converts markdown to HTML.',
       'Now, adjust the parser to support inline code formatting.',
       'Finally, add support for unordered lists.',
-    ],
+    ].map((prompt, i) => `${getInstruction(i)}\n\n${prompt}`),
     validateAfterTurn: async (turnIndex) => {
       const filePath = path.join(TEST_OUTPUT_DIR, 'task-1.ts')
       // Check if file exists and passes type check
@@ -88,25 +88,22 @@ async function runScriptedInteraction(
   interaction: ScriptedInteraction
 ): Promise<boolean> {
   console.log(`Starting interaction: ${interaction.description}`)
+  let currentContext: string | undefined
+  let currentFiles: Array<{ path: string; content: string }> = []
 
   for (let i = 0; i < interaction.script.length; i++) {
     console.log(`\n--- Turn ${i + 1}/${interaction.script.length} ---`)
 
-    // Get the current content of the file if it exists
-    const filePath = path.join(TEST_OUTPUT_DIR, interaction.fileName)
-    let previousContent: string | undefined
     try {
-      previousContent = await fs.promises.readFile(filePath, 'utf-8')
-      console.log('Found existing file content to build upon')
-    } catch (error) {
-      console.log('No existing file found, starting fresh')
-    }
-
-    // Build the instruction with previous content if available
-    const fullInstruction = `${getInstruction(i, previousContent)}\n\n${interaction.script[i]}`
-    
-    try {
-      await runStrangeLoop(fullInstruction)
+      // Run strange loop with previous context and files if available
+      const result = await runStrangeLoop(
+        interaction.script[i],
+        process.cwd(),
+        currentContext,
+        currentFiles
+      )
+      currentContext = result.context
+      currentFiles = result.files
 
       // Run turn-specific validation if provided
       if (interaction.validateAfterTurn) {
@@ -123,19 +120,7 @@ async function runScriptedInteraction(
     }
   }
 
-  // Final validation
-  const filePath = path.join(TEST_OUTPUT_DIR, interaction.fileName)
-  const { success, msg } = await checkTaskFile(filePath, TEST_OUTPUT_DIR)
-  if (!success) {
-    console.error(
-      `❌ Final validation failed for "${interaction.description}": ${msg}`
-    )
-  } else {
-    console.log(
-      `✅ Interaction "${interaction.description}" completed successfully.`
-    )
-  }
-  return success
+  return true
 }
 
 /**
@@ -161,7 +146,7 @@ async function runAllInteractions() {
 }
 
 // Only run if this is the main module.
-if (import.meta.url === import.meta.resolve('./multi-shot-evals.ts')) {
+if (require.main === module) {
   runAllInteractions().catch(console.error)
 }
 

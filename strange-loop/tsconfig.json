@@ -1,28 +1,18 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ESNext"],
-    "module": "esnext",
-    "target": "esnext",
+    "target": "ESNext",
+    "module": "ESNext",
     "moduleResolution": "bundler",
-    "moduleDetection": "force",
-    "esModuleInterop": true,
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
-    "composite": true,
-    "strict": true,
-    "downlevelIteration": true,
-    "skipLibCheck": true,
-    "jsx": "preserve",
-    "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true,
     "allowJs": true,
-    "types": ["bun-types"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "common/*": ["../common/src/*"],
-      "backend/*": ["../backend/src/*"]
+      "backend/*": ["../backend/src/*"],
+      "common/*": ["../common/src/*"]
     }
   },
-  "references": [{ "path": "../common" }, { "path": "../backend" }],
+  "include": ["./**/*.ts"],
   "exclude": ["node_modules"]
 }

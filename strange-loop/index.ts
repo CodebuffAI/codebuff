@@ -1,4 +1,5 @@
 import path from 'path'
+
 import { getOpenAI } from 'backend/openai-api'
 import { models } from 'common/constants'
 import {
@@ -13,13 +14,85 @@ import {
   listDirectory,
 } from './tools'
 import { createMarkdownFileBlock } from 'common/util/file'
+import { hasSignificantDeepChanges } from 'common/util/object'
 
 const openai = getOpenAI('strange-loop')
 
+function extractTagContent(xml: string, tag: string): string {
+  const startTag = `<${tag}>`
+  const endTag = `</${tag}>`
+  const start = xml.indexOf(startTag)
+  if (start === -1) return ''
+
+  const contentStart = start + startTag.length
+  const end = xml.indexOf(endTag, contentStart)
+  if (end === -1) return ''
+
+  const content = xml.substring(contentStart, end).trim()
+  return content
+}
+
+function extractSubgoals(
+  xml: string
+): Array<{ description: string; status: string }> {
+  const subgoals: Array<{ description: string; status: string }> = []
+  let currentIndex = 0
+
+  while (true) {
+    const subgoalStart = xml.indexOf('<subgoal>', currentIndex)
+    if (subgoalStart === -1) break
+
+    const subgoalEnd = xml.indexOf('</subgoal>', subgoalStart)
+    if (subgoalEnd === -1) break
+
+    const subgoalContent = xml.substring(subgoalStart, subgoalEnd + 9)
+    const description = extractTagContent(subgoalContent, 'description')
+    const status = extractTagContent(subgoalContent, 'status')
+
+    if (description && status) {
+      subgoals.push({ description, status })
+    }
+
+    currentIndex = subgoalEnd + 9
+  }
+
+  return subgoals
+}
+
+function formatStepsTaken(
+  subgoals: Array<{ description: string; status: string }>
+): string {
+  if (subgoals.length === 0) return ''
+
+  return (
+    '\n' + subgoals.map((sg) => `- ${sg.description} (${sg.status})`).join('\n')
+  )
+}
+
+function createBackgroundSection(
+  goal: string,
+  subgoals: Array<{ description: string; status: string }>
+): string {
+  return `<background>
+Previous goal was completed:
+${goal}
+
+Steps taken:${formatStepsTaken(subgoals)}
+</background>`
+}
+
+interface StrangeLoopResult {
+  context: string
+  completed: boolean
+  files: Array<{ path: string; content: string }>
+}
+
 export async function runStrangeLoop(
   initialInstruction: string,
-  relativeProjectPath: string = process.cwd()
-) {
+  relativeProjectPath: string = process.cwd(),
+  previousContext?: string,
+  previousFiles: Array<{ path: string; content: string }> = []
+): Promise<StrangeLoopResult> {
   console.log('Strange Loop initialized!')
   const projectPath = path.resolve(process.cwd(), relativeProjectPath)
   const currentDir = process.cwd()
@@ -29,9 +102,22 @@ export async function runStrangeLoop(
     throw new Error('No system-instructions.md found')
   }
 
-  let context = `<goal>\n${initialInstruction}\n</goal>`
-  const files: { path: string; content: string }[] = []
+  const files: { path: string; content: string }[] = [...previousFiles]
   let toolResults: { tool: string; result: string }[] = []
+
+  let context: string
+  if (previousContext) {
+    const goal = extractTagContent(previousContext, 'goal')
+    const subgoals = extractSubgoals(previousContext)
+    context = createBackgroundSection(goal, subgoals)
+
+    context += `
+<goal>
+${initialInstruction}
+</goal>`
+  } else {
+    context = `<goal>\n${initialInstruction}\n</goal>`
+  }
 
   const buildSystemPrompt = () => {
     const filesSection = `
@@ -71,7 +157,7 @@ ${toolResults
   while (true) {
     iteration++
     console.log(`Iteration ${iteration}`)
-    const previousContext = `${context}`
+    const previousContextJson = xmlToJson(context)
     const messages = [
       {
         role: 'system' as const,
@@ -84,7 +170,7 @@ ${toolResults
       {
         role: 'user' as const,
         content: `
-${toolResults.length > 0 ? `Tools were just executed. Review the results in the <tool_results> section and update your context with any relevant information.` : ''}
+${toolResults.length > 0 ? `I just ran some tools. Review the results in the <tool_results> section and update your context with any relevant information.` : ''}
 Proceed toward the goal and subgoals.
 You must use the updateContext tool call to record your progress and any new information you learned at the end of your response.
 Optionally use other tools to make progress towards the goal. Try to use multiple tools in one response to make quick progress.
@@ -104,16 +190,21 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
     }
 
     const toolCalls = parseToolCalls(content)
+    if (toolCalls.length === 0) {
+      console.error('No tool calls found in response, trying again')
+      continue
+    }
     toolResults = []
 
     for (const toolCall of toolCalls) {
       const params = toolCall.parameters
 
       switch (toolCall.name) {
-        case 'update_context':
+        case 'update_context': {
           console.log(`Updating context: ${params.prompt}`)
           context = await updateContext(context, params.prompt)
           break
+        }
         case 'write_file': {
           const filePath = params.path
           // Ensure file is being written to test-outputs directory
@@ -123,13 +214,17 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
             )
             toolResults.push({
               tool: 'write_file',
-              result: `Error: Must write files to test-outputs/ directory`,
+              result: `Error: Must write files to ${projectPath} directory`,
             })
             continue
           }
           console.log(`Writing file: ${filePath}`)
           await writeFile(filePath, params.content, projectPath)
           files.push({ path: filePath, content: params.content })
+          toolResults.push({
+            tool: 'write_file',
+            result: `Wrote file: ${filePath}`,
+          })
           break
         }
         case 'read_files':
@@ -143,7 +238,7 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
           }
           toolResults.push({
             tool: 'read_files',
-            result: `Read ${Object.values(fileContents).filter(Boolean).length} files successfully`,
+            result: `Read ${Object.values(fileContents).filter(Boolean).length} files`,
           })
           break
         case 'check_file':
@@ -179,7 +274,7 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
             timestamp: new Date().toISOString(),
             summary: params.summary,
           })
-          return
+          return { context, completed: true, files }
         case 'list_directory':
           console.log(`Listing directory: ${params.path}`)
           const entries = await listDirectory(params.path, projectPath)
@@ -216,18 +311,6 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
             }
           }
 
-          // Log the review result
-          await appendToLog({
-            msg: needsChanges
-              ? 'Review indicates changes needed'
-              : 'Review passed',
-            level: needsChanges ? 'warn' : 'info',
-            iteration,
-            timestamp: new Date().toISOString(),
-            summary: params.summary,
-            reviewMsg,
-          })
-
           if (needsChanges) {
             toolResults.push({
               tool: 'review',
@@ -235,23 +318,27 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
             })
             break
           }
-
-          console.log(`Task completed: ${params.summary}`)
-          return
+          return { context, completed: true, files }
         default:
           console.error(`Unknown tool: ${toolCall.name}`)
       }
     }
+
+    const currentContextJson = xmlToJson(context)
+
+    const changes = diffContexts(previousContextJson, currentContextJson)
 
     await appendToLog({
       msg: `Iteration ${iteration}: ${toolCalls.map((toolCall) => toolCall.name).join(', ')}`,
       level: 'info',
       iteration,
       timestamp: new Date().toISOString(),
-      previousContext: xmlToJson(previousContext),
-      context: xmlToJson(context),
+      changes,
+      previousContext: previousContextJson,
+      context: currentContextJson,
       contextLength: context.length,
-      toolCalls: response.choices[0].message.tool_calls,
+      messages,
+      toolCalls,
       toolResults,
     })
   }
@@ -340,4 +427,45 @@ export function xmlToJson(xml: string): any {
   })
 
   return result
+}
+
+function diffContexts(
+  prev: any,
+  curr: any
+): Record<string, { before: any; after: any }> {
+  const changes: Record<string, { before: any; after: any }> = {}
+
+  // Helper to check if values are significantly different
+  const isDifferent = (a: any, b: any): boolean => {
+    if (typeof a !== typeof b) return true
+    if (typeof a === 'object' && a !== null && b !== null) {
+      return hasSignificantDeepChanges(a, b, 0.001)
+    }
+    return a !== b
+  }
+
+  // Recursively compare objects
+  const compareObjects = (prev: any, curr: any, path: string = '') => {
+    if (typeof prev !== 'object' || typeof curr !== 'object') {
+      if (isDifferent(prev, curr)) {
+        changes[path] = { before: prev, after: curr }
+      }
+      return
+    }
+
+    const allKeys = new Set([...Object.keys(prev), ...Object.keys(curr)])
+    for (const key of allKeys) {
+      const currentPath = path ? `${path}.${key}` : key
+      if (!(key in prev)) {
+        changes[currentPath] = { before: null, after: curr[key] }
+      } else if (!(key in curr)) {
+        changes[currentPath] = { before: prev[key], after: null }
+      } else if (isDifferent(prev[key], curr[key])) {
+        compareObjects(prev[key], curr[key], currentPath)
+      }
+    }
+  }
+
+  compareObjects(prev, curr)
+  return changes
 }

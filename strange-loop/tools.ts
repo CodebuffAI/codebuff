@@ -260,11 +260,11 @@ export async function checkTaskFile(
       if (code === 0) {
         resolve({ success: true, msg: stdout || 'Type check passed' })
       } else {
-        if (stdout) console.error(stdout)
-        if (stderr) console.error(stderr)
+        const msg = [stdout, stderr].join('\n')
+        console.error(msg)
         resolve({
           success: false,
-          msg: stderr || stdout || 'Type check failed',
+          msg: msg || 'Type check failed',
         })
       }
     })
