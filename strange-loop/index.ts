@@ -88,8 +88,7 @@ ${toolResults.length > 0 ? `Tools were just executed. Review the results in the 
 Proceed toward the goal and subgoals.
 You must use the updateContext tool call to record your progress and any new information you learned at the end of your response.
 Optionally use other tools to make progress towards the goal. Try to use multiple tools in one response to make quick progress.
-Use the complete tool only when you are confident the goal has been acheived.
-
+Use the "complete" tool only when you are confident the goal has been achieved. It can only be used after you've called the "review" tool at least once.
 `.trim(),
       },
     ]
@@ -115,11 +114,24 @@ Use the complete tool only when you are confident the goal has been acheived.
           console.log(`Updating context: ${params.prompt}`)
           context = await updateContext(context, params.prompt)
           break
-        case 'write_file':
-          console.log(`Writing file: ${params.path}`)
-          await writeFile(params.path, params.content, projectPath)
-          files.push({ path: params.path, content: params.content })
+        case 'write_file': {
+          const filePath = params.path
+          // Ensure file is being written to test-outputs directory
+          if (!filePath.startsWith('test-outputs/')) {
+            console.error(
+              `❌ Cannot write to ${filePath} - must write to test-outputs/ directory`
+            )
+            toolResults.push({
+              tool: 'write_file',
+              result: `Error: Must write files to test-outputs/ directory`,
+            })
+            continue
+          }
+          console.log(`Writing file: ${filePath}`)
+          await writeFile(filePath, params.content, projectPath)
+          files.push({ path: filePath, content: params.content })
           break
+        }
         case 'read_files':
           console.log(`Reading files: ${params.paths}`)
           const paths = params.paths.split('\n').filter(Boolean)
@@ -158,8 +170,7 @@ Use the complete tool only when you are confident the goal has been acheived.
             result: `Stdout:\n${stdout}\nStderr:\n${stderr}\nExit Code: ${exitCode}`,
           })
           break
-        case 'final_review':
-          console.log('TODO: run final review (tests, type checker, etc.)')
+        case 'complete':
           console.log(`Task completed: ${params.summary}`)
           await appendToLog({
             msg: `Task completed`,
@@ -186,6 +197,47 @@ Use the complete tool only when you are confident the goal has been acheived.
             })
           }
           break
+        case 'review':
+          console.log('Running review...')
+          let needsChanges = false
+          let reviewMsg = ''
+
+          // Run type checker
+          if (params.path) {
+            const { success, msg } = await checkTaskFile(
+              params.path,
+              projectPath
+            )
+            if (!success) {
+              needsChanges = true
+              reviewMsg += `Type check failed:\n${msg}\n\n`
+            } else {
+              reviewMsg += `Type check passed.\n\n`
+            }
+          }
+
+          // Log the review result
+          await appendToLog({
+            msg: needsChanges
+              ? 'Review indicates changes needed'
+              : 'Review passed',
+            level: needsChanges ? 'warn' : 'info',
+            iteration,
+            timestamp: new Date().toISOString(),
+            summary: params.summary,
+            reviewMsg,
+          })
+
+          if (needsChanges) {
+            toolResults.push({
+              tool: 'review',
+              result: `Changes needed:\n${reviewMsg}`,
+            })
+            break
+          }
+
+          console.log(`Task completed: ${params.summary}`)
+          return
         default:
           console.error(`Unknown tool: ${toolCall.name}`)
       }

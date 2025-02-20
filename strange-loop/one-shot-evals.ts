@@ -49,9 +49,9 @@ async function runAllPrompts() {
       return runStrangeLoop(prompt)
         .then(async () => {
           const filePath = path.join(TEST_OUTPUT_DIR, `task-${i + 1}.ts`)
-          const success = await checkTaskFile(filePath, TEST_OUTPUT_DIR)
+          const { success, msg } = await checkTaskFile(filePath, TEST_OUTPUT_DIR)
           if (!success) {
-            console.error(`❌ Task ${i + 1} validation failed`)
+            console.error(`❌ Task ${i + 1} validation failed: ${msg}`)
           }
           return success
         })

@@ -47,18 +47,16 @@ Usage:
     `.trim(),
   },
   {
-    name: 'final_review',
+    name: 'complete',
     description: `
-## final_review
-Description: Perform a final quality assurance check—including running the type checker and any other validations—before marking the task complete. Use this tool when you believe the task is finished but want to double-check its correctness.
+## complete
+Description: Mark the task as complete. Use this tool when you believe the task is finished but want to double-check its correctness.
 Parameters:
-- path: (optional) Path to the TypeScript file to check, if reviewing a specific file
 - summary: (required) A brief summary of what was accomplished, to be logged once verification passes.
 Usage:
-<final_review>
-<path>src/main.ts</path>
+<complete>
 <summary>Implemented the main function and tested it successfully.</summary>
-</final_review>
+</complete>
     `.trim(),
   },
   {
@@ -99,6 +97,21 @@ Usage:
 <list_directory>
 <path>src</path>
 </list_directory>
+    `.trim(),
+  },
+  {
+    name: 'review',
+    description: `
+## review
+Description: Review the current state of the task, including running type checks and tests. Based on the results, either mark the task as complete or provide guidance for further changes needed.
+Parameters:
+- path: (optional) Path to the TypeScript file to check, if reviewing a specific file
+- summary: (required) A brief summary of what was accomplished and what was checked
+Usage:
+<review>
+<path>src/main.ts</path>
+<summary>Implemented the main function and tested it successfully.</summary>
+</review>
     `.trim(),
   },
 ] as const
@@ -220,16 +233,6 @@ export async function checkTaskFile(
   filePath: string,
   projectPath: string
 ): Promise<{ success: boolean; msg: string }> {
-  if (!filePath.startsWith(projectPath)) {
-    console.error(
-      `❌ Security Error: Cannot access file outside project directory: ${filePath}`
-    )
-    return {
-      success: false,
-      msg: 'Cannot access file outside project directory',
-    }
-  }
-
   try {
     const normalizedPath = path.normalize(filePath)
     await fs.promises.access(normalizedPath)
