@@ -72,64 +72,6 @@ export const ToolCallSchema = z.object({
 })
 export type ToolCall = z.infer<typeof ToolCallSchema>
 
-export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('user-input'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    userInputId: z.string(),
-    messages: z.array(MessageSchema),
-    fileContext: ProjectFileContextSchema,
-    changesAlreadyApplied: CHANGES,
-    costMode: z.enum(costModes).optional().default('normal'),
-  }),
-  z.object({
-    type: z.literal('read-files-response'),
-    files: z.record(z.string(), z.union([z.string(), z.null()])),
-  }),
-  // z.object({
-  //   type: z.literal('run-terminal-command'),
-  //   command: z.string(),
-  // }),
-  z.object({
-    type: z.literal('init'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    // userId: z.string().optional(),
-    fileContext: ProjectFileContextSchema,
-  }),
-  z.object({
-    type: z.literal('usage'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('login-code-request'),
-    fingerprintId: z.string(),
-    referralCode: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('login-status-request'),
-    fingerprintId: z.string(),
-    fingerprintHash: z.string(),
-  }),
-  z.object({
-    type: z.literal('clear-auth-token'),
-    authToken: z.string(),
-    fingerprintId: z.string(),
-    userId: z.string(),
-    // authToken: z.string().optional(),
-    fingerprintHash: z.string(),
-  }),
-  z.object({
-    type: z.literal('generate-commit-message'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    stagedChanges: z.string(),
-  }),
-])
-export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
-
 export const UsageReponseSchema = z.object({
   type: z.literal('usage-response'),
   usage: z.number(),
@@ -168,6 +110,41 @@ export const ResponseCompleteSchema = z
     }).partial()
   )
 
+export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('user-input'),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+    userInputId: z.string(),
+    messages: z.array(MessageSchema),
+    fileContext: ProjectFileContextSchema,
+    changesAlreadyApplied: CHANGES,
+    costMode: z.enum(costModes).optional().default('normal'),
+  }),
+  z.object({
+    type: z.literal('read-files-response'),
+    files: z.record(z.string(), z.union([z.string(), z.null()])),
+  }),
+  z.object({
+    type: z.literal('init'),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+    fileContext: ProjectFileContextSchema,
+  }),
+  z.object({
+    type: z.literal('usage'),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal('generate-commit-message'),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+    stagedChanges: z.string(),
+  }),
+])
+export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
+
 export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('read-files-response'),
@@ -204,17 +181,6 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     latestVersion: z.string(),
   }),
   InitResponseSchema,
-  z.object({
-    type: z.literal('auth-result'),
-    user: userSchema.optional(),
-    message: z.string(),
-  }),
-  z.object({
-    type: z.literal('login-code-response'),
-    fingerprintId: z.string(),
-    fingerprintHash: z.string(),
-    loginUrl: z.string().url(),
-  }),
   UsageReponseSchema,
   z.object({
     type: z.literal('action-error'),
