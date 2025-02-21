@@ -15,6 +15,7 @@ import {
 } from './tools'
 import { createMarkdownFileBlock } from 'common/util/file'
 import { hasSignificantDeepChanges } from 'common/util/object'
+import { summarizeOutput } from './tools'
 
 const openai = getOpenAI('strange-loop')
 
@@ -201,8 +202,13 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
 
       switch (toolCall.name) {
         case 'update_context': {
-          console.log(`Updating context: ${params.prompt}`)
           context = await updateContext(context, params.prompt)
+          summarizeOutput(
+            `<prompt>${params.prompt}</prompt>
+            <update_context>${context}</update_context>`
+          )
+            .then((summary) => console.log(`🎯 ${summary}`))
+            .catch(() => {}) // Silently handle errors since this is just for display
           break
         }
         case 'write_file': {
@@ -260,9 +266,13 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
           )
 
           // Store the command result for the next iteration
+          const result = `<command>${params.command}</command><stdout>${stdout}</stdout><stderr>${stderr}</stderr><exit_code>${exitCode}</exit_code>`
+          summarizeOutput(result)
+            .then((summary) => console.log(`🎭 ${summary}`))
+            .catch(() => {}) // Silently handle errors since this is just for display
           toolResults.push({
             tool: 'execute_command',
-            result: `<command>${params.command}</command><stdout>${stdout}</stdout><stderr>${stderr}</stderr><exit_code>${exitCode}</exit_code>`,
+            result,
           })
           break
         case 'complete':
@@ -325,8 +335,15 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
     }
 
     const currentContextJson = xmlToJson(context)
-
     const changes = diffContexts(previousContextJson, currentContextJson)
+
+    if (Object.keys(changes).length > 0) {
+      summarizeOutput(
+        `<context_changes>${JSON.stringify(changes)}</context_changes>`
+      )
+        .then((summary) => console.log(`🔄 ${summary}`))
+        .catch(() => {})
+    }
 
     await appendToLog({
       msg: `Iteration ${iteration}: ${toolCalls.map((toolCall) => toolCall.name).join(', ')}`,
@@ -337,7 +354,6 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
       previousContext: previousContextJson,
       context: currentContextJson,
       contextLength: context.length,
-      messages,
       toolCalls,
       toolResults,
     })

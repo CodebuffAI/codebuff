@@ -359,3 +359,28 @@ export async function listDirectory(dirPath: string, projectPath: string) {
     return null
   }
 }
+
+async function summarizeOutput(xml: string): Promise<string> {
+  const messages = [
+    {
+      role: 'assistant' as const,
+      content: `You are summarizing the following XML tag content in plain English, with a more conversational and human-like tone. Imagine you're talking to a friend or a colleague, using natural language and expressions. Please avoid overly formal or robotic language. Keep it simple and relatable, but concise. Start with a verb and keep it to just 1 sentence.`,
+    },
+    {
+      role: 'user' as const,
+      content:
+        xml +
+        '\n\nRemember to start with a verb and keep it to just 1 sentence.',
+    },
+  ]
+
+  return promptGeminiWithFallbacks(messages, undefined, {
+    model: models.gemini2flash,
+    clientSessionId: 'strange-loop',
+    fingerprintId: 'strange-loop',
+    userInputId: 'strange-loop',
+    userId: TEST_USER_ID,
+  })
+}
+
+export { summarizeOutput }
