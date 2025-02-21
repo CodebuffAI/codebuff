@@ -9,6 +9,7 @@ import {
   blueBright,
 } from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
+import { websocketUrl, backendUrl } from './config'
 
 import {
   getFiles,
@@ -183,16 +184,19 @@ export class Client {
   async logout() {
     if (this.user) {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/auth/logout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            authToken: this.user.authToken,
-            userId: this.user.id,
-            fingerprintId: this.user.fingerprintId,
-            fingerprintHash: this.user.fingerprintHash,
-          }),
-        })
+        const response = await fetch(
+          `${backendUrl}/api/auth/logout`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              authToken: this.user.authToken,
+              userId: this.user.id,
+              fingerprintId: this.user.fingerprintId,
+              fingerprintHash: this.user.fingerprintHash,
+            }),
+          }
+        )
 
         if (!response.ok) {
           const error = await response.text()
@@ -222,15 +226,18 @@ export class Client {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/auth/code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fingerprintId: await this.getFingerprintId(),
-          referralCode,
-        }),
-      })
-      
+      const response = await fetch(
+        `${backendUrl}/api/auth/code`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fingerprintId: await this.getFingerprintId(),
+            referralCode,
+          }),
+        }
+      )
+
       if (!response.ok) {
         const error = await response.text()
         console.error(red('Login code request failed: ' + error))
@@ -247,7 +254,7 @@ export class Client {
       ]
 
       console.log(responseToUser.join('\n'))
-      
+
       let shouldRequestLogin = true
       this.rl.once('line', () => {
         if (shouldRequestLogin) {
@@ -274,12 +281,16 @@ export class Client {
 
         try {
           const statusResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}`
+            `${backendUrl}/api/auth/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}`
           )
 
           if (!statusResponse.ok) {
-            if (statusResponse.status !== 401) { // Ignore 401s during polling
-              console.error('Error checking login status:', await statusResponse.text())
+            if (statusResponse.status !== 401) {
+              // Ignore 401s during polling
+              console.error(
+                'Error checking login status:',
+                await statusResponse.text()
+              )
             }
             return
           }

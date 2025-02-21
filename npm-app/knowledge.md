@@ -17,6 +17,15 @@ NEXT_PUBLIC_BACKEND_URL=localhost:3001
 NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com
 ```
 
+# URL Configuration
+
+Important: When constructing URLs for fetch requests:
+- Always include protocol (http/https) in the URL
+- Use config.ts to centralize URL construction
+- Handle both production and local environments
+- For backend URLs: use http:// in local dev, https:// in production
+- For websocket URLs: use ws:// in local dev, wss:// in production
+
 # Testing Infrastructure
 
 ## Terminal Handling
