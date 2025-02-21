@@ -185,7 +185,7 @@ export class Client {
     if (this.user) {
       try {
         const response = await fetch(
-          `${backendUrl}/api/auth/logout`,
+          `${backendUrl}/api/auth/cli/logout`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -227,7 +227,7 @@ export class Client {
 
     try {
       const response = await fetch(
-        `${backendUrl}/api/auth/code`,
+        `${backendUrl}/api/auth/cli/code`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -281,7 +281,7 @@ export class Client {
 
         try {
           const statusResponse = await fetch(
-            `${backendUrl}/api/auth/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}`
+            `${backendUrl}/api/auth/cli/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}`
           )
 
           if (!statusResponse.ok) {

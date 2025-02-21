@@ -25,6 +25,7 @@ Important: When constructing URLs for fetch requests:
 - Handle both production and local environments
 - For backend URLs: use http:// in local dev, https:// in production
 - For websocket URLs: use ws:// in local dev, wss:// in production
+- Important: Don't add protocol in config.ts if env var already includes it (e.g. NEXT_PUBLIC_APP_URL)
 
 # Testing Infrastructure
 

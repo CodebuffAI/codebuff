@@ -3,15 +3,11 @@ import http from 'http'
 import { listen as webSocketListen } from './websockets/server'
 import { env } from './env.mjs'
 import { logger } from './util/logger'
-import authRouter from './api/auth/login'
 
 const app = express()
 const port = env.PORT
 
 app.use(express.json())
-
-// Add auth routes
-app.use('/api/auth', authRouter)
 
 app.get('/', (req, res) => {
   res.send('Codebuff Backend Server')
