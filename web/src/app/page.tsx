@@ -111,14 +111,14 @@ const Home = () => {
         <div className="relative z-10 flex flex-col max-w-6xl mx-auto mt-8 mb-16 space-y-24">
           {/* Hero Section */}
           <section className="relative px-6 text-center">
-            <h1 className="text-4xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-br from-blue-600 via-blue-800 to-purple-700 dark:from-blue-400 dark:via-blue-600 dark:to-purple-500">
-              <span className="whitespace-nowrap">Code faster</span>{' '}
-              <span className="whitespace-nowrap">with AI</span>
+            <h1 className="text-4xl md:text-7xl font-bold mb-6 text-blue-800">
+              <span className="whitespace-nowrap">Upgrade your</span>{' '}
+              <span className="whitespace-nowrap">coding agent</span>
             </h1>
 
             <p className="text-lg md:text-xl mb-8 text-muted-foreground max-w-2xl mx-auto">
-              Your AI programming assistant that understands your entire
-              codebase
+              AI that understands your entire codebase. Run in your terminal or
+              IDE!
             </p>
 
             <section className="text-center mb-12">
