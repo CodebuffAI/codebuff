@@ -307,7 +307,7 @@ export class CLI {
     Spinner.get().stop()
 
     const allChanges = [...changesAlreadyApplied, ...changes]
-    const filesChanged = uniq(allChanges.map((change) => change.filePath))
+    const filesChanged = uniq(allChanges.map((change) => change.path))
     const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
 
     if (this.git === 'stage' && changes.length > 0) {
@@ -568,7 +568,7 @@ export class CLI {
     }
 
     this.lastChanges.forEach((change) => {
-      console.log('-', change.filePath)
+      console.log('-', change.path)
       const lines = change.content
         .split('\n')
         .map((line) => (change.type === 'file' ? '+' + line : line))

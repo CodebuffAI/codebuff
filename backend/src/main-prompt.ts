@@ -1059,9 +1059,13 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
         },
         'Generated plan'
       )
+    } else if (name === 'execute_command') {
+      clientToolCalls.push(toolCall)
+    } else if (name === 'complete') {
+      clientToolCalls.push(toolCall)
+    } else {
+      throw new Error(`Unknown tool: ${name}`)
     }
-
-    // TODO: Handle all tools.
   }
 
   if (fileProcessingPromises.length > 0) {
@@ -1091,7 +1095,7 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
   }
   return {
     agentState: newAgentState,
-    toolCalls,
-    messagesWithUserMessage,
+    toolCalls: clientToolCalls,
+    messageHistory: messagesWithResponse,
   }
 }
