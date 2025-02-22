@@ -411,11 +411,16 @@ export class Client {
               ...(response.screenshots.pre ? [response.screenshots.pre] : []),
               {
                 type: 'text' as const,
-                text: JSON.stringify({ ...response, screenshots: undefined }),
+                text:
+                  `${TOOL_RESULT_MARKER}\n` +
+                  JSON.stringify({
+                    ...response,
+                    screenshots: undefined,
+                  }),
               },
               response.screenshots.post,
             ])
-            .with(P.string, (str) => str)
+            .with(P.string, (str) => `${TOOL_RESULT_MARKER}\n${str}`)
             .otherwise((val) => JSON.stringify(val)),
         }
         this.chatStorage.addMessage(
