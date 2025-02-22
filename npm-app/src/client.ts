@@ -184,19 +184,16 @@ export class Client {
   async logout() {
     if (this.user) {
       try {
-        const response = await fetch(
-          `${backendUrl}/api/auth/cli/logout`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              authToken: this.user.authToken,
-              userId: this.user.id,
-              fingerprintId: this.user.fingerprintId,
-              fingerprintHash: this.user.fingerprintHash,
-            }),
-          }
-        )
+        const response = await fetch(`${backendUrl}/api/auth/cli/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            authToken: this.user.authToken,
+            userId: this.user.id,
+            fingerprintId: this.user.fingerprintId,
+            fingerprintHash: this.user.fingerprintHash,
+          }),
+        })
 
         if (!response.ok) {
           const error = await response.text()
@@ -226,17 +223,14 @@ export class Client {
     }
 
     try {
-      const response = await fetch(
-        `${backendUrl}/api/auth/cli/code`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fingerprintId: await this.getFingerprintId(),
-            referralCode,
-          }),
-        }
-      )
+      const response = await fetch(`${backendUrl}/api/auth/cli/code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fingerprintId: await this.getFingerprintId(),
+          referralCode,
+        }),
+      })
 
       if (!response.ok) {
         const error = await response.text()
@@ -438,12 +432,13 @@ export class Client {
     })
 
     this.webSocket.subscribe('read-files', (a) => {
-      const { filePaths } = a
+      const { filePaths, requestId } = a
       const files = getFiles(filePaths)
 
       this.webSocket.sendAction({
         type: 'read-files-response',
         files,
+        requestId,
       })
     })
 

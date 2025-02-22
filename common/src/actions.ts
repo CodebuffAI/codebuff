@@ -124,6 +124,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('read-files-response'),
     files: z.record(z.string(), z.union([z.string(), z.null()])),
+    requestId: z.string().optional(),
   }),
   z.object({
     type: z.literal('init'),
@@ -147,10 +148,6 @@ export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
 export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
-    type: z.literal('read-files-response'),
-    files: z.record(z.string(), z.string().nullable()),
-  }),
-  z.object({
     type: z.literal('response-chunk'),
     userInputId: z.string(),
     chunk: z.string(),
@@ -159,6 +156,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('read-files'),
     filePaths: z.array(z.string()),
+    requestId: z.string(),
   }),
   z.object({
     type: z.literal('tool-call'),

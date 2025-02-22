@@ -7,7 +7,6 @@ import { ClientMessage } from 'common/websockets/websocket-schema'
 import { mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
 import { sendMessage } from './server'
-import { env } from '../env.mjs'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { TOOL_RESULT_MARKER } from 'common/constants'
@@ -17,6 +16,7 @@ import { getNextQuotaReset } from 'common/src/util/dates'
 import { logger, withLoggerContext } from '@/util/logger'
 import { generateCommitMessage } from '@/generate-commit-message'
 import { hasMaxedReferrals } from 'common/util/server/referral'
+import { generateCompactId } from 'common/util/string'
 
 export const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -424,13 +424,20 @@ subscribeToAction('user-input', protec.run(onUserInput))
 subscribeToAction('init', protec.run(onInit, { silent: true }))
 
 subscribeToAction('usage', onUsageRequest)
-subscribeToAction('generate-commit-message', protec.run(onGenerateCommitMessage))
+subscribeToAction(
+  'generate-commit-message',
+  protec.run(onGenerateCommitMessage)
+)
 
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {
+    const requestId = generateCompactId()
     const unsubscribe = subscribeToAction('read-files-response', (action) => {
       const receivedFilePaths = Object.keys(action.files)
-      if (isEqual(receivedFilePaths, filePaths)) {
+      if (
+        (action.requestId !== undefined && action.requestId === requestId) ||
+        isEqual(receivedFilePaths, filePaths)
+      ) {
         unsubscribe()
         resolve(action.files)
       }
@@ -438,6 +445,7 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
     sendAction(ws, {
       type: 'read-files',
       filePaths,
+      requestId,
     })
   })
 }
