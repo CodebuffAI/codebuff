@@ -7,9 +7,7 @@ import { ClientMessage } from 'common/websockets/websocket-schema'
 import { agentPrompt, mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
 import { sendMessage } from './server'
-import { env } from '../env.mjs'
 import db from 'common/db'
-import { genAuthCode } from 'common/util/credentials'
 import * as schema from 'common/db/schema'
 import { TOOL_RESULT_MARKER } from 'common/constants'
 import { protec } from './middleware'
@@ -18,6 +16,7 @@ import { getNextQuotaReset } from 'common/src/util/dates'
 import { logger, withLoggerContext } from '@/util/logger'
 import { generateCommitMessage } from '@/generate-commit-message'
 import { hasMaxedReferrals } from 'common/util/server/referral'
+import { generateCompactId } from 'common/util/string'
 
 export const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
@@ -346,144 +345,6 @@ const onPrompt = async (
   )
 }
 
-const onClearAuthTokenRequest = async (
-  {
-    authToken,
-    userId,
-    fingerprintId,
-    fingerprintHash,
-  }: Extract<ClientAction, { type: 'clear-auth-token' }>,
-  _clientSessionId: string,
-  _ws: WebSocket
-): Promise<void> => {
-  await withLoggerContext(
-    { fingerprintId, userId, authToken, fingerprintHash },
-    async () => {
-      const validDeletion = await db
-        .delete(schema.session)
-        .where(
-          and(
-            eq(schema.session.sessionToken, authToken), // token exists
-            eq(schema.session.userId, userId), // belongs to user
-            gt(schema.session.expires, new Date()), // active session
-
-            // probably not necessary, but just in case. paranoia > death
-            eq(schema.session.fingerprint_id, fingerprintId)
-          )
-        )
-        .returning({
-          id: schema.session.sessionToken,
-        })
-
-      if (validDeletion.length > 0) {
-        logger.info('Cleared auth token')
-      } else {
-        logger.info('No auth token to clear, possible attack?')
-      }
-    }
-  )
-}
-
-const onLoginCodeRequest = async (
-  {
-    fingerprintId,
-    referralCode,
-  }: Extract<ClientAction, { type: 'login-code-request' }>,
-  _clientSessionId: string,
-  ws: WebSocket
-): Promise<void> => {
-  await withLoggerContext({ fingerprintId }, async () => {
-    // Create a new fingerprint if it doesn't exist
-    await db
-      .insert(schema.fingerprint)
-      .values({
-        id: fingerprintId,
-      })
-      .onConflictDoNothing()
-
-    const expiresAt = Date.now() + 60 * 60 * 1000 // 1 hour in the future
-    const fingerprintHash = genAuthCode(
-      fingerprintId,
-      expiresAt.toString(),
-      env.NEXTAUTH_SECRET
-    )
-    const loginUrl = `${env.NEXT_PUBLIC_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}${referralCode ? `&referral_code=${referralCode}` : ''}`
-
-    sendAction(ws, {
-      type: 'login-code-response',
-      fingerprintId,
-      fingerprintHash,
-      loginUrl,
-    })
-  })
-}
-
-const onLoginStatusRequest = async (
-  {
-    fingerprintId,
-    fingerprintHash,
-  }: Extract<ClientAction, { type: 'login-status-request' }>,
-  _clientSessionId: string,
-  ws: WebSocket
-) => {
-  await withLoggerContext({ fingerprintId, fingerprintHash }, async () => {
-    try {
-      const users = await db
-        .select({
-          id: schema.user.id,
-          email: schema.user.email,
-          name: schema.user.name,
-          authToken: schema.session.sessionToken,
-        })
-        .from(schema.user)
-        .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
-        .leftJoin(
-          schema.fingerprint,
-          eq(schema.session.fingerprint_id, schema.fingerprint.id)
-        )
-        .where(
-          and(
-            eq(schema.session.fingerprint_id, fingerprintId),
-            eq(schema.fingerprint.sig_hash, fingerprintHash)
-          )
-        )
-
-      match(users).with(
-        P.array({
-          id: P.string,
-          name: P.string,
-          email: P.string,
-          authToken: P.string,
-        }),
-        (users) => {
-          const user = users[0]
-          if (!user) return
-          sendAction(ws, {
-            type: 'auth-result',
-            user: {
-              id: user.id,
-              name: user.name,
-              email: user.email,
-              authToken: user.authToken,
-              fingerprintId,
-              fingerprintHash,
-            },
-            message: 'Authentication successful!',
-          })
-        }
-      )
-    } catch (e) {
-      const error = e as Error
-      logger.error(e, 'Error in login status request')
-      sendAction(ws, {
-        type: 'auth-result',
-        user: undefined,
-        message: error.message,
-      })
-    }
-  })
-}
-
 const onInit = async (
   {
     fileContext,
@@ -591,6 +452,7 @@ const onGenerateCommitMessage = async (
     }
   })
 }
+
 const callbacksByAction = {} as Record<
   ClientAction['type'],
   ((action: ClientAction, clientSessionId: string, ws: WebSocket) => void)[]
@@ -645,12 +507,7 @@ subscribeToAction('user-input', protec.run(onUserInput))
 subscribeToAction('prompt', protec.run(onPrompt))
 subscribeToAction('init', protec.run(onInit, { silent: true }))
 
-subscribeToAction('clear-auth-token', onClearAuthTokenRequest)
-subscribeToAction('login-code-request', onLoginCodeRequest)
-
 subscribeToAction('usage', onUsageRequest)
-subscribeToAction('login-status-request', onLoginStatusRequest)
-
 subscribeToAction(
   'generate-commit-message',
   protec.run(onGenerateCommitMessage)
@@ -658,9 +515,13 @@ subscribeToAction(
 
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {
+    const requestId = generateCompactId()
     const unsubscribe = subscribeToAction('read-files-response', (action) => {
       const receivedFilePaths = Object.keys(action.files)
-      if (isEqual(receivedFilePaths, filePaths)) {
+      if (
+        (action.requestId !== undefined && action.requestId === requestId) ||
+        isEqual(receivedFilePaths, filePaths)
+      ) {
         unsubscribe()
         resolve(action.files)
       }
@@ -668,6 +529,7 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
     sendAction(ws, {
       type: 'read-files',
       filePaths,
+      requestId,
     })
   })
 }

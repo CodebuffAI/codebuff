@@ -36,7 +36,7 @@ export async function promptRelaceAI(
 
   try {
     const response = (await Promise.race([
-      fetch('https://instantapply.endpoint.relace.run/v1/code/apply', {
+      fetch('https://codebuff-instantapply.endpoint.relace.run/v1/code/apply', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

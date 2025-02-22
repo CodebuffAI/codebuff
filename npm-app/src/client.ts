@@ -9,6 +9,7 @@ import {
   blueBright,
 } from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
+import { websocketUrl, backendUrl } from './config'
 
 import {
   getFiles,
@@ -141,7 +142,6 @@ export class Client {
 
   async handleReferralCode(referralCode: string) {
     if (this.user) {
-      // User is logged in, so attempt to redeem referral code directly
       try {
         const redeemReferralResp = await fetch(
           `${process.env.NEXT_PUBLIC_APP_URL}/api/referrals`,
@@ -183,30 +183,144 @@ export class Client {
 
   async logout() {
     if (this.user) {
-      // If there was an existing user, clear their existing state
-      this.webSocket.sendAction({
-        type: 'clear-auth-token',
-        authToken: this.user.authToken,
-        userId: this.user.id,
-        fingerprintId: this.user.fingerprintId,
-        fingerprintHash: this.user.fingerprintHash,
-      })
-
-      // attempt to delete credentials file
       try {
-        fs.unlinkSync(CREDENTIALS_PATH)
-        console.log(`Logged you out of your account (${this.user.name})`)
-        this.user = undefined
-      } catch (error) {}
+        const response = await fetch(`${backendUrl}/api/auth/cli/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            authToken: this.user.authToken,
+            userId: this.user.id,
+            fingerprintId: this.user.fingerprintId,
+            fingerprintHash: this.user.fingerprintHash,
+          }),
+        })
+
+        if (!response.ok) {
+          const error = await response.text()
+          console.error(red('Failed to log out: ' + error))
+        }
+
+        try {
+          fs.unlinkSync(CREDENTIALS_PATH)
+          console.log(`You (${this.user.name}) have been logged out.`)
+          this.user = undefined
+        } catch (error) {
+          console.error('Error removing credentials file:', error)
+        }
+      } catch (error) {
+        console.error('Error during logout:', error)
+      }
     }
   }
 
   async login(referralCode?: string) {
-    this.webSocket.sendAction({
-      type: 'login-code-request',
-      fingerprintId: await this.getFingerprintId(),
-      referralCode,
-    })
+    if (this.user) {
+      console.log(
+        `You are currently logged in as ${this.user.name}. Please enter "logout" first if you want to login as a different user.`
+      )
+      this.returnControlToUser()
+      return
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/auth/cli/code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fingerprintId: await this.getFingerprintId(),
+          referralCode,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        console.error(red('Login code request failed: ' + error))
+        this.returnControlToUser()
+        return
+      }
+
+      const { loginUrl, fingerprintHash } = await response.json()
+
+      const responseToUser = [
+        '\n',
+        'Press Enter to open the browser or visit:\n',
+        bold(underline(blueBright(loginUrl))),
+      ]
+
+      console.log(responseToUser.join('\n'))
+
+      let shouldRequestLogin = true
+      this.rl.once('line', () => {
+        if (shouldRequestLogin) {
+          spawn(`open ${loginUrl}`, { shell: true })
+        }
+      })
+
+      const initialTime = Date.now()
+      const pollInterval = setInterval(async () => {
+        if (Date.now() - initialTime > 5 * 60 * 1000 && shouldRequestLogin) {
+          shouldRequestLogin = false
+          console.log(
+            'Unable to login. Please try again by typing "login" in the terminal.'
+          )
+          this.returnControlToUser()
+          clearInterval(pollInterval)
+          return
+        }
+
+        if (!shouldRequestLogin) {
+          clearInterval(pollInterval)
+          return
+        }
+
+        try {
+          const statusResponse = await fetch(
+            `${backendUrl}/api/auth/cli/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}`
+          )
+
+          if (!statusResponse.ok) {
+            if (statusResponse.status !== 401) {
+              // Ignore 401s during polling
+              console.error(
+                'Error checking login status:',
+                await statusResponse.text()
+              )
+            }
+            return
+          }
+
+          const { user, message } = await statusResponse.json()
+          if (user) {
+            shouldRequestLogin = false
+            this.user = user
+            const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
+            fs.mkdirSync(credentialsPathDir, { recursive: true })
+            fs.writeFileSync(
+              CREDENTIALS_PATH,
+              JSON.stringify({ default: user })
+            )
+
+            const referralLink = `${process.env.NEXT_PUBLIC_APP_URL}/referrals`
+            const responseToUser = [
+              'Authentication successful! 🎉',
+              bold(`Hey there, ${user.name}.`),
+              `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month for each of them: ${blueBright(referralLink)}`,
+            ]
+            console.log('\n' + responseToUser.join('\n'))
+            this.lastWarnedPct = 0
+
+            displayGreeting(this.costMode, null)
+            clearInterval(pollInterval)
+            this.returnControlToUser()
+          }
+        } catch (error) {
+          console.error('Error checking login status:', error)
+        }
+      }, 5000)
+    } catch (error) {
+      console.error('Error during login:', error)
+      this.returnControlToUser()
+    }
   }
 
   public setUsage({
@@ -261,7 +375,6 @@ export class Client {
       const filesChanged = uniq(changes.map((change) => change.path))
       this.chatStorage.saveFilesChanged(filesChanged)
 
-      // Stage files about to be changed if flag was set
       if (this.git === 'stage' && changes.length > 0) {
         const didStage = stagePatches(getProjectRoot(), changes)
         if (didStage) {
@@ -276,7 +389,6 @@ export class Client {
       const currentChat = this.chatStorage.getCurrentChat()
       const messages = currentChat.messages
       if (messages[messages.length - 1].role === 'assistant') {
-        // Probably the last response from the assistant was cancelled and added immediately.
         return
       }
 
@@ -299,11 +411,16 @@ export class Client {
               ...(response.screenshots.pre ? [response.screenshots.pre] : []),
               {
                 type: 'text' as const,
-                text: JSON.stringify({ ...response, screenshots: undefined }),
+                text:
+                  `${TOOL_RESULT_MARKER}\n` +
+                  JSON.stringify({
+                    ...response,
+                    screenshots: undefined,
+                  }),
               },
               response.screenshots.post,
             ])
-            .with(P.string, (str) => str)
+            .with(P.string, (str) => `${TOOL_RESULT_MARKER}\n${str}`)
             .otherwise((val) => JSON.stringify(val)),
         }
         this.chatStorage.addMessage(
@@ -320,12 +437,13 @@ export class Client {
     })
 
     this.webSocket.subscribe('read-files', (a) => {
-      const { filePaths } = a
+      const { filePaths, requestId } = a
       const files = getFiles(filePaths)
 
       this.webSocket.sendAction({
         type: 'read-files-response',
         files,
+        requestId,
       })
     })
 
@@ -336,86 +454,6 @@ export class Client {
           yellow(
             `\nThere's a new version of Codebuff! Please update to ensure proper functionality.\nUpdate now by running: npm install -g codebuff`
           )
-        )
-      }
-    })
-
-    let shouldRequestLogin = true
-    this.webSocket.subscribe(
-      'login-code-response',
-      async ({ loginUrl, fingerprintHash }) => {
-        shouldRequestLogin = true
-        const responseToUser = [
-          '\n',
-          'Press Enter to open the browser or visit:\n',
-          bold(underline(blueBright(loginUrl))),
-        ]
-
-        console.log(responseToUser.join('\n'))
-        this.rl.once('line', () => {
-          spawn(`open ${loginUrl}`, {
-            shell: true,
-          })
-        })
-
-        // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
-        const initialTime = Date.now()
-        const handler = setInterval(async () => {
-          if (Date.now() - initialTime > 5 * 60 * 1000 && shouldRequestLogin) {
-            shouldRequestLogin = false
-            console.log(
-              'Unable to login. Please try again by typing "login" in the terminal.'
-            )
-            this.returnControlToUser()
-            clearInterval(handler)
-            return
-          }
-
-          if (!shouldRequestLogin) {
-            clearInterval(handler)
-            return
-          }
-
-          this.webSocket.sendAction({
-            type: 'login-status-request',
-            fingerprintId: await this.getFingerprintId(),
-            fingerprintHash,
-          })
-        }, 5000)
-      }
-    )
-
-    this.webSocket.subscribe('auth-result', async (action) => {
-      shouldRequestLogin = false
-
-      if (action.user) {
-        await this.logout() // remove existing user, if it exists
-
-        this.user = action.user
-
-        // Store in config file
-        const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
-        fs.mkdirSync(credentialsPathDir, { recursive: true })
-        fs.writeFileSync(
-          CREDENTIALS_PATH,
-          JSON.stringify({ default: action.user })
-        )
-        const referralLink = `${process.env.NEXT_PUBLIC_APP_URL}/referrals`
-        const responseToUser = [
-          'Authentication successful! 🎉',
-          bold(`Hey there, ${action.user.name}.`),
-          `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month for each of them: ${blueBright(referralLink)}`,
-        ]
-        console.log('\n' + responseToUser.join('\n'))
-        this.lastWarnedPct = 0
-
-        displayGreeting(this.costMode, null)
-
-        this.returnControlToUser()
-        // this.getUsage()
-      } else {
-        console.warn(
-          `Authentication failed: ${action.message}. Please try again in a few minutes or contact support at ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL}.`
         )
       }
     })
@@ -451,7 +489,6 @@ export class Client {
       .with(P.number.gte(75), () => 75)
       .otherwise(() => 0)
 
-    // User has used all their allotted credits, but they haven't been notified yet
     if (pct >= 100 && this.lastWarnedPct < 100) {
       if (this.subscription_active) {
         console.warn(
@@ -618,7 +655,6 @@ export class Client {
           session_credits_used: a.session_credits_used ?? 0,
         })
 
-        // Indicates a change in the user's plan
         if (this.limit !== a.limit) {
           this.lastWarnedPct = 0
         }
@@ -646,7 +682,6 @@ export class Client {
       this.fileVersions
     )
 
-    // Don't wait for response anymore.
     this.webSocket.subscribe('init-response', (a) => {
       const parsedAction = InitResponseSchema.safeParse(a)
       if (!parsedAction.success) return
