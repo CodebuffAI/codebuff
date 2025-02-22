@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
 import { userSchema } from './util/credentials'
 import { costModes } from './constants'
-import { AgentStateSchema, ToolResultSchema } from './types/agent-state'
+import { AgentStateSchema, ToolResultSchema, ToolCallSchema as NewToolCallSchema } from './types/agent-state'
 
 const MessageContentObjectSchema = z.union([
   z.object({
@@ -50,7 +50,7 @@ const MessageContentObjectSchema = z.union([
   }),
 ])
 
-const MessageSchema = z.object({
+export const MessageSchema = z.object({
   role: z.union([z.literal('user'), z.literal('assistant')]),
   content: z.union([z.string(), z.array(MessageContentObjectSchema)]),
 })
@@ -59,7 +59,7 @@ export type MessageContentObject = z.infer<typeof MessageContentObjectSchema>
 
 export const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
-  filePath: z.string(),
+  path: z.string(),
   content: z.string(),
 })
 export type FileChange = z.infer<typeof FileChangeSchema>
@@ -93,6 +93,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('prompt'),
     promptId: z.string(),
+    prompt: z.string(),
     fingerprintId: z.string(),
     authToken: z.string().optional(),
     costMode: z.enum(costModes).optional().default('normal'),
@@ -186,7 +187,7 @@ export const PromptResponseSchema = z
     type: z.literal('prompt-response'),
     promptId: z.string(),
     agentState: AgentStateSchema,
-    toolCalls: z.array(ToolCallSchema),
+    toolCalls: z.array(NewToolCallSchema),
   })
   .merge(
     UsageReponseSchema.omit({

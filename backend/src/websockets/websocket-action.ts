@@ -4,7 +4,7 @@ import _, { isEqual } from 'lodash'
 import { match, P } from 'ts-pattern'
 
 import { ClientMessage } from 'common/websockets/websocket-schema'
-import { mainPrompt } from '../main-prompt'
+import { agentPrompt, mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
 import { sendMessage } from './server'
 import { env } from '../env.mjs'
@@ -257,6 +257,89 @@ const onUserInput = async (
           changesAlreadyApplied,
           addedFileVersions: [],
           resetFileVersions: false,
+        })
+      }
+    }
+  )
+}
+
+const onPrompt = async (
+  action: Extract<ClientAction, { type: 'prompt' }>,
+  clientSessionId: string,
+  ws: WebSocket
+) => {
+  const {
+    fingerprintId,
+    authToken,
+    promptId,
+    prompt,
+    agentState,
+    toolResults,
+    costMode,
+  } = action
+
+  await withLoggerContext(
+    { fingerprintId, authToken, clientRequestId: promptId },
+    async () => {
+      logger.info(`USER INPUT: ${prompt}`)
+
+      const userId = await getUserIdFromAuthToken(authToken)
+      if (!userId) {
+        throw new Error('User not found')
+      }
+      try {
+        const { agentState, toolCalls } = await agentPrompt(
+          ws,
+          action,
+          userId,
+          clientSessionId,
+          (chunk) =>
+            sendAction(ws, {
+              type: 'response-chunk',
+              userInputId: promptId,
+              chunk,
+            })
+        )
+
+        const messageHistory = agentState.messageHistory
+        const response = messageHistory[messageHistory.length - 1].content
+        logger.debug({ response, toolCalls }, 'response-complete')
+
+        const {
+          usage,
+          limit,
+          referralLink,
+          subscription_active,
+          next_quota_reset,
+          session_credits_used,
+        } = await genUsageResponse(clientSessionId, fingerprintId, userId)
+        sendAction(ws, {
+          type: 'prompt-response',
+          promptId,
+          agentState,
+          toolCalls,
+          usage,
+          limit,
+          subscription_active,
+          referralLink,
+          next_quota_reset,
+          session_credits_used,
+        })
+      } catch (e) {
+        logger.error(e, 'Error in mainPrompt')
+        const response =
+          e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
+        sendAction(ws, {
+          type: 'response-chunk',
+          userInputId: promptId,
+          chunk: response,
+        })
+        // await sleep(1000) // sleeping makes this sendAction not fire. unsure why but remove for now
+        sendAction(ws, {
+          type: 'prompt-response',
+          promptId,
+          agentState,
+          toolCalls: [],
         })
       }
     }
@@ -559,6 +642,7 @@ export const onWebsocketAction = async (
 }
 
 subscribeToAction('user-input', protec.run(onUserInput))
+subscribeToAction('prompt', protec.run(onPrompt))
 subscribeToAction('init', protec.run(onInit, { silent: true }))
 
 subscribeToAction('clear-auth-token', onClearAuthTokenRequest)

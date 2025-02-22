@@ -233,9 +233,7 @@ If a user corrects you or contradicts you or gives broad advice, that is a good 
 
 Each knowledge file should develop over time into a concise but rich repository of knowledge about the files within the directory, subdirectories, or the specific file it's associated with.
 
-Make sure you edit knowledge files by using <edit_file> blocks. Do not write out their contents outside of <edit_file> blocks.
-
-There is a special class of user knowledge files that are stored in the user's home directory, e.g. \`~/.knowledge.md\`. These files are available to be read, but you cannot edit them because they are outside of the project directory. Do not try to edit them with <edit_file> blocks or otherwise.
+There is a special class of user knowledge files that are stored in the user's home directory, e.g. \`~/.knowledge.md\`. These files are available to be read, but you cannot edit them because they are outside of the project directory. Do not try to edit them.
 
 Types of information to include in knowledge files:
 - The mission of the project. Goals, purpose, and a high-level overview of the project.
@@ -532,7 +530,7 @@ Note: many commands in the terminal are different on Windows.
 For example, the mkdir command is \`mkdir\` instead of \`mkdir -p\`. Instead of grep, use \`findstr\`. Instead of \`ls\` use \`dir\` to list files. Instead of \`mv\` use \`move\`. Instead of \`rm\` use \`del\`. Instead of \`cp\` use \`copy\`. Unless the user is in Powershell, in which case you should use the Powershell commands instead.
 `.trim()
 
-const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
+export const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
   const { fileTree, shellConfigFiles, systemInfo } = fileContext
   const flattenedNodes = flattenTree(fileTree)
   const lastReadFilePaths = getLastReadFilePaths(flattenedNodes, 20)
@@ -557,7 +555,7 @@ ${lastReadFilePaths.join('\n')}
 `.trim()
 }
 
-const getProjectFilesPromptContent = (
+export const getProjectFilesPromptContent = (
   fileContext: ProjectFileContext,
   shouldDoPromptCaching: boolean
 ) => {
@@ -615,7 +613,7 @@ If the included set of files is not sufficient to address the user's request, yo
   ])
 }
 
-const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
+export const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
   const { gitChanges } = fileContext
   if (!gitChanges) {
     return ''

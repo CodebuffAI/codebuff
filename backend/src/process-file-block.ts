@@ -17,7 +17,7 @@ import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
 import { buildArray } from 'common/util/array'
 
 export async function processFileBlock(
-  filePath: string,
+  path: string,
   newContent: string,
   messages: Message[],
   fullResponse: string,
@@ -33,26 +33,26 @@ export async function processFileBlock(
     return null
   }
 
-  const initialContent = await requestFile(ws, filePath)
+  const initialContent = await requestFile(ws, path)
 
   if (initialContent === null) {
     let cleanContent = cleanMarkdownCodeBlock(newContent)
 
-    if (hasLazyEdit(cleanContent) && !filePath.endsWith('.md')) {
+    if (hasLazyEdit(cleanContent) && !path.endsWith('.md')) {
       logger.debug(
-        { filePath, newContent },
-        `processFileBlock: New file contained a lazy edit for ${filePath}. Aborting.`
+        { path, newContent },
+        `processFileBlock: New file contained a lazy edit for ${path}. Aborting.`
       )
       return null
     }
 
     logger.debug(
-      { filePath, cleanContent },
-      `processFileBlock: Created new file ${filePath}`
+      { path, cleanContent },
+      `processFileBlock: Created new file ${path}`
     )
     return {
       type: 'file',
-      filePath,
+      path,
       content: cleanContent,
     }
   }
@@ -60,7 +60,7 @@ export async function processFileBlock(
   if (newContent === initialContent) {
     logger.info(
       { newContent },
-      `processFileBlock: New was same as old, skipping ${filePath}`
+      `processFileBlock: New was same as old, skipping ${path}`
     )
     return null
   }
@@ -82,7 +82,7 @@ export async function processFileBlock(
       fingerprintId,
       userInputId,
       userId,
-      filePath,
+      path,
       costMode
     )
 
@@ -95,7 +95,7 @@ export async function processFileBlock(
     updatedContent = await fastRewrite(
       normalizedInitialContent,
       normalizedEditSnippet,
-      filePath,
+      path,
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -103,7 +103,7 @@ export async function processFileBlock(
       lastUserPrompt
     )
     const shouldAddPlaceholders = await shouldAddFilePlaceholders(
-      filePath,
+      path,
       normalizedInitialContent,
       updatedContent,
       messages,
@@ -120,7 +120,7 @@ export async function processFileBlock(
       updatedContent = await fastRewrite(
         normalizedInitialContent,
         updatedEditSnippet,
-        filePath,
+        path,
         clientSessionId,
         fingerprintId,
         userInputId,
@@ -130,7 +130,7 @@ export async function processFileBlock(
     }
   }
 
-  let patch = createPatch(filePath, normalizedInitialContent, updatedContent)
+  let patch = createPatch(path, normalizedInitialContent, updatedContent)
   const lines = patch.split('\n')
   const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
   if (hunkStartIndex !== -1) {
@@ -138,12 +138,12 @@ export async function processFileBlock(
   } else {
     logger.debug(
       {
-        filePath,
+        path,
         initialContent,
         changes: newContent,
         patch,
       },
-      `processFileBlock: No change to ${filePath}`
+      `processFileBlock: No change to ${path}`
     )
     return null
   }
@@ -151,15 +151,15 @@ export async function processFileBlock(
 
   logger.debug(
     {
-      filePath,
+      path,
       editSnippet: newContent,
       patch,
     },
-    `processFileBlock: Generated patch for ${filePath}`
+    `processFileBlock: Generated patch for ${path}`
   )
   return {
     type: 'patch',
-    filePath,
+    path,
     content: patch,
   }
 }

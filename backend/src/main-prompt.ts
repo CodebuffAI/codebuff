@@ -12,7 +12,7 @@ import {
 import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { didClientUseTool } from 'common/util/tools'
 import { getSearchSystemPrompt, getAgentSystemPrompt } from './system-prompt'
-import { FileChange, FileChanges, Message } from 'common/actions'
+import { ClientAction, FileChange, FileChanges, Message } from 'common/actions'
 import { type CostMode } from 'common/constants'
 import { ToolCall } from 'common/actions'
 import { requestFile, requestFiles } from './websockets/websocket-action'
@@ -33,6 +33,9 @@ import {
   planComplexChange,
 } from './planning'
 import { getMessageText } from './util/messages'
+import { buildSystemPrompt } from './build-system-prompt'
+import { parseToolCalls, updateContext } from './tools'
+import { AgentState } from 'common/types/agent-state'
 
 export async function mainPrompt(
   ws: WebSocket,
@@ -788,5 +791,345 @@ async function getFileVersionUpdates(
     addedFiles,
     readFilesMessage,
     toolCallMessage,
+  }
+}
+
+export const agentPrompt = async (
+  ws: WebSocket,
+  action: Extract<ClientAction, { type: 'prompt' }>,
+  userId: string | undefined,
+  clientSessionId: string,
+  onResponseChunk: (chunk: string) => void
+) => {
+  const { prompt, agentState, fingerprintId, costMode, promptId, toolResults } =
+    action
+  const { messageHistory, fileContext } = agentState
+
+  const userMessage = {
+    role: 'user' as const,
+    content: prompt,
+  }
+  const allMessages = [...messageHistory, userMessage]
+
+  let fullResponse = ''
+  const fileProcessingPromises: Promise<FileChange | null>[] = []
+  const messagesWithoutLastMessage = messageHistory
+
+  const justUsedATool = toolResults.length > 0
+  const allMessagesTokens = countTokensJson(allMessages)
+
+  // Step 1: Read more files.
+  const searchSystem = getSearchSystemPrompt(
+    fileContext,
+    costMode,
+    allMessagesTokens
+  )
+  const { newFileVersions, toolCallMessage, readFilesMessage } =
+    await getFileVersionUpdates(
+      ws,
+      allMessages,
+      searchSystem,
+      fileContext,
+      null,
+      {
+        skipRequestingFiles: justUsedATool,
+        clientSessionId,
+        fingerprintId,
+        userInputId: promptId,
+        userId,
+        costMode,
+      }
+    )
+  fileContext.fileVersions = newFileVersions
+  if (readFilesMessage !== undefined) {
+    onResponseChunk(readFilesMessage)
+    fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}`
+  }
+
+  const { agentContext } = agentState
+  const userInstructions = `
+${toolResults.length > 0 ? `I just ran some tools. Review the results in the <tool_results> section and update your context with any relevant information.` : ''}
+Proceed toward the goal and subgoals.
+You must use the updateContext tool call to record your progress and any new information you learned at the end of your response.
+Optionally use other tools to make progress towards the goal. Try to use multiple tools in one response to make quick progress.
+Use the "complete" tool only when you are confident the goal has been achieved. It can only be used after you've called the "review" tool at least once.
+    `.trim()
+  const agentMessages = [
+    { role: 'assistant' as const, content: agentContext },
+    {
+      role: 'user' as const,
+      content: `${userInstructions}\n\nUser request: ${prompt}`,
+    },
+  ]
+  const agentMessagesTokens = countTokensJson(agentMessages)
+  const system = buildSystemPrompt(
+    fileContext,
+    toolResults,
+    agentMessagesTokens
+  )
+
+  logger.debug(
+    {
+      lastMessage: allMessages[allMessages.length - 1].content,
+      messageCount: allMessages.length,
+    },
+    'Prompting Main'
+  )
+
+  const stream = promptClaudeStream(agentMessages, {
+    system,
+    model: getModelForMode(costMode, 'agent') as AnthropicModel,
+    clientSessionId,
+    fingerprintId,
+    userInputId: promptId,
+    userId,
+  })
+  const streamWithTags = processStreamWithTags(stream, {
+    edit_file: {
+      attributeNames: [],
+      onTagStart: () => {
+        return `<edit_file>`
+      },
+      onTagEnd: (body) => {
+        const { path, content } = parseToolCallXml(body)
+        const fileContentWithoutStartNewline = content.startsWith('\n')
+          ? content.slice(1)
+          : content
+
+        fileProcessingPromises.push(
+          processFileBlock(
+            path,
+            fileContentWithoutStartNewline,
+            allMessages,
+            fullResponse,
+            prompt,
+            clientSessionId,
+            fingerprintId,
+            promptId,
+            userId,
+            ws,
+            costMode
+          ).catch((error) => {
+            logger.error(error, 'Error processing file block')
+            return null
+          })
+        )
+        fullResponse += body + '<' + '/edit_file>'
+        return false
+      },
+    },
+  })
+
+  for await (const chunk of streamWithTags) {
+    fullResponse += chunk
+    onResponseChunk(chunk)
+  }
+
+  const toolCalls = parseToolCalls(fullResponse).filter(
+    // Edit files are handled as they are streamed in.
+    (toolCall) => toolCall.name !== 'edit_file'
+  )
+
+  let newAgentContext = agentContext
+
+  for (const toolCall of toolCalls) {
+    const { name, parameters } = toolCall
+    if (name === 'update_context') {
+      newAgentContext = await updateContext(newAgentContext, parameters.prompt)
+    }
+
+    // TODO: Handle all tools.
+
+    // else if (name === 'think_deeply') {
+    //   const fetchFilesStart = Date.now()
+    //   const filePaths = await getRelevantFilesForPlanning(
+    //     messagesWithoutLastMessage,
+    //     lastUserPrompt,
+    //     fileContext,
+    //     costMode,
+    //     clientSessionId,
+    //     fingerprintId,
+    //     userInputId,
+    //     userId
+    //   )
+    //   const fetchFilesDuration = Date.now() - fetchFilesStart
+    //   logger.debug(
+    //     { lastUserPrompt, filePaths, fetchFilesDuration },
+    //     'Got file paths for thinking deeply'
+    //   )
+    //   const fileContents = await loadFilesForPlanning(ws, filePaths)
+    //   const existingFilePaths = Object.keys(fileContents)
+
+    //   onResponseChunk(
+    //     `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
+    //   )
+    //   fullResponse += `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
+    //   onResponseChunk(`\nThinking deeply (can take a minute!)`)
+
+    //   logger.debug(
+    //     { lastUserPrompt, filePaths, existingFilePaths },
+    //     'Thinking deeply'
+    //   )
+    //   const planningStart = Date.now()
+
+    //   const { response, fileProcessingPromises: promises } =
+    //     await planComplexChange(
+    //       fileContents,
+    //       messagesWithoutLastMessage,
+    //       lastUserPrompt,
+    //       ws,
+    //       {
+    //         clientSessionId,
+    //         fingerprintId,
+    //         userInputId,
+    //         userId,
+    //         costMode,
+    //       }
+    //     )
+    //   fileProcessingPromises.push(...promises)
+    //   // For now, don't print the plan to the user.
+    //   // onResponseChunk(`${response}\n\n`)
+    //   fullResponse += response + '\n\n'
+    //   logger.debug(
+    //     {
+    //       lastUserPrompt,
+    //       file_paths: filePaths,
+    //       response,
+    //       fetchFilesDuration,
+    //       planDuration: Date.now() - planningStart,
+    //     },
+    //     'Generated plan'
+    //   )
+
+    //   toolCall = {
+    //     id: Math.random().toString(36).slice(2),
+    //     name: 'continue',
+    //     input: {
+    //       response: `Please summarize briefly the action taken, but do not call the think_deeply tool again for now.`,
+    //     },
+    //   }
+    //   isComplete = true
+    // } else if (toolCallResult?.name === 'find_files') {
+    //   logger.debug(toolCallResult, 'tool call')
+    //   const description = toolCallResult.input.description
+    //   const {
+    //     newFileVersions,
+    //     addedFiles,
+    //     clearFileVersions,
+    //     readFilesMessage,
+    //   } = await getFileVersionUpdates(
+    //     ws,
+    //     [...allMessages, { role: 'assistant', content: fullResponse }],
+    //     getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
+    //     fileContext,
+    //     description,
+    //     {
+    //       skipRequestingFiles: false,
+    //       clientSessionId,
+    //       fingerprintId,
+    //       userInputId: promptId,
+    //       userId,
+    //       costMode,
+    //     }
+    //   )
+    //   fileContext.fileVersions = newFileVersions
+    //   if (readFilesMessage !== undefined) {
+    //     onResponseChunk(`\n${readFilesMessage}`)
+    //     fullResponse += `\n${readFilesMessage}`
+    //   }
+    //   toolCall = null
+    //   isComplete = false
+    //   continuedMessages = [
+    //     {
+    //       role: 'assistant',
+    //       content: fullResponse.trim(),
+    //     },
+    //   ]
+    // } else if (toolCallResult?.name === 'read_files') {
+    //   logger.debug(toolCallResult, 'tool call')
+    //   const existingFilePaths = fileContext.fileVersions.flatMap((files) =>
+    //     files.map((file) => file.path)
+    //   )
+    //   const filePaths = ((toolCallResult.input.file_paths as string) ?? '')
+    //     .trim()
+    //     .split('\n')
+    //     .filter((path) => path)
+    //   const newFilePaths = difference(filePaths, existingFilePaths)
+    //   logger.debug(
+    //     {
+    //       content: toolCallResult.input.file_paths,
+    //       existingFilePaths,
+    //       filePaths,
+    //       newFilePaths,
+    //     },
+    //     'read_files tool call'
+    //   )
+
+    //   const {
+    //     newFileVersions,
+    //     addedFiles,
+    //     clearFileVersions,
+    //     readFilesMessage,
+    //   } = await getFileVersionUpdates(
+    //     ws,
+    //     [...allMessages, { role: 'assistant', content: fullResponse }],
+    //     getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
+    //     fileContext,
+    //     null,
+    //     {
+    //       skipRequestingFiles: false,
+    //       requestedFiles: newFilePaths,
+    //       clientSessionId,
+    //       fingerprintId,
+    //       userInputId: promptId,
+    //       userId,
+    //       costMode,
+    //     }
+    //   )
+    //   fileContext.fileVersions = newFileVersions
+    //   if (readFilesMessage !== undefined) {
+    //     onResponseChunk(`\n${readFilesMessage}`)
+    //     fullResponse += `\n${readFilesMessage}`
+    //   }
+    //   toolCall = null
+    //   isComplete = false
+    //   continuedMessages = [
+    //     {
+    //       role: 'assistant',
+    //       content: fullResponse.trim(),
+    //     },
+    //   ]
+    // }
+  }
+
+  if (fileProcessingPromises.length > 0) {
+    onResponseChunk('\nApplying file changes, please wait.\n')
+  }
+
+  const changes = (await Promise.all(fileProcessingPromises)).filter(
+    (change) => change !== null
+  )
+  if (changes.length === 0 && fileProcessingPromises.length > 0) {
+    onResponseChunk('No changes to existing files.\n')
+  }
+
+  for (const change of changes) {
+    toolCalls.push({
+      name: 'edit_file',
+      parameters: change,
+    })
+  }
+  const newAgentState: AgentState = {
+    ...agentState,
+    messageHistory: [
+      ...allMessages,
+      { role: 'assistant' as const, content: fullResponse },
+    ],
+    agentContext: newAgentContext,
+  }
+  return {
+    agentState: newAgentState,
+    toolCalls,
+    allMessages,
   }
 }

@@ -1,20 +1,21 @@
 import { z } from 'zod'
 import { ProjectFileContextSchema } from '../util/file'
+import { MessageSchema } from 'src/actions'
 
 export const ToolCallSchema = z.object({
-  // TODO: Fill this in
-  type: z.enum(['read-files', 'write-file', 'run-terminal-command']),
-  params: z.record(z.string(), z.string()),
+  name: z.string(),
+  parameters: z.record(z.string(), z.string()),
 })
-
+export type ToolCall = z.infer<typeof ToolCallSchema>
 export const ToolResultSchema = z.object({
-  // TODO: Fill this in
-  type: z.enum(['read-files', 'write-file', 'run-terminal-command']),
+  name: z.string(),
   result: z.string(),
 })
+export type ToolResult = z.infer<typeof ToolResultSchema>
 
 export const AgentStateSchema = z.object({
   agentContext: z.string(),
   fileContext: ProjectFileContextSchema,
+  messageHistory: z.array(MessageSchema),
 })
 export type AgentState = z.infer<typeof AgentStateSchema>
