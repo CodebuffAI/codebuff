@@ -344,7 +344,7 @@ export async function mainPrompt(
         id: Math.random().toString(36).slice(2),
         name: 'continue',
         input: {
-          response: `Please summarize briefly the action taken, but do not call the think_deeply tool again for now.`,
+          response: `Please ask 2-3 clarifying questions on the action taken, to align on the proposed changes. Do not call the think_deeply tool in this response, and end your response with the name of the plan.md file that was created.`,
         },
       }
       isComplete = true

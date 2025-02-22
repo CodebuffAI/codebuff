@@ -154,7 +154,9 @@ export class CLI {
     if (this.client.user) {
       displayGreeting(this.costMode, this.client.user.name)
     } else {
-      console.log(`Welcome to Codebuff! Let's get your account set up.`)
+      console.log(
+        `Welcome to Codebuff! Give us a sec to get your account set up...`
+      )
       await this.client.login()
       return
     }
