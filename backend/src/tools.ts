@@ -69,29 +69,36 @@ function foo() {
     `.trim(),
   },
   {
-    name: 'check_file',
+    name: 'read_files',
     description: `
-## check_file
-Description: Check if a TypeScript file exists and validate it with the TypeScript compiler.
+## read_files
+Description: Read the multiple files from disk and return their contents.
 Parameters:
-- path: (required) Path to the TypeScript file to check
+- paths: (required) List of file paths to read, separated by newlines
 Usage:
-<check_file>
-<path>src/main.ts</path>
-</check_file>
+<read_files>
+<paths>src/main.ts
+src/utils.ts</paths>
+</read_files>
     `.trim(),
   },
   {
-    name: 'complete',
+    name: 'find_files',
     description: `
-## complete
-Description: Mark the task as complete. Use this tool when you believe the task is finished but want to double-check its correctness.
+## find_files
+Description: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
 Parameters:
-- summary: (required) A brief summary of what was accomplished, to be logged once verification passes.
+- description: (required) A brief natural language description of the files or the name of a function or class you are looking for.
 Usage:
-<complete>
-<summary>Implemented the main function and tested it successfully.</summary>
-</complete>
+<find_files>
+<description>The implementation of function foo</description>
+</find_files>
+
+Purpose: Better fulfill the user request by reading files which could contain information relevant to the user's request.
+Use cases:
+- If you are calling a function or creating a class and want to know how it works, use this tool to get the implementation.
+- If you need to understand a section of the codebase, read more files in that directory or subdirectories.
+- Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
     `.trim(),
   },
   {
@@ -108,45 +115,47 @@ Usage:
     `.trim(),
   },
   {
-    name: 'read_files',
+    name: 'think_deeply',
     description: `
-## read_files
-Description: Read the multiple files from disk and return their contents.
-Parameters:
-- paths: (required) List of file paths to read, separated by newlines
+## think_deeply
+Description: Think through a complex change to the codebase, like implementing a new feature or refactoring some code. This tool leverages deep reasoning capabilities to break down difficult problems into clear implementation steps.
+Parameters: None
 Usage:
-<read_files>
-<paths>src/main.ts
-src/utils.ts</paths>
-</read_files>
+<think_deeply></think_deeply>
+
+Use this tool when the user request meets multiple of these criteria:
+- Explicitly asks you to plan or think through something
+- Requires changes across multiple files or systems
+- Involves complex logic or architectural decisions
+- Would benefit from breaking down into smaller steps
+- Has potential edge cases or risks that need consideration
+- Requires careful coordination of changes
+
+Examples of when to use it:
+- Adding a new feature that touches multiple parts of the system
+- Refactoring core functionality used by many components
+- Making architectural changes that affect the system design
+- Implementing complex business logic with many edge cases
+
+Do not use it for simple changes like:
+- Adding a single function or endpoint
+- Updating text or styles
+- Answering a question
+
+Important: Do not use this tool more than once in a conversation, if a plan was already created, or for similar user requests.
     `.trim(),
   },
   {
-    name: 'list_directory',
+    name: 'complete',
     description: `
-## list_directory
-Description: List files and directories within a given path.
+## complete
+Description: Mark the task as complete. Use this tool when you believe the task is finished but want to double-check its correctness.
 Parameters:
-- path: (required) Path to the directory to list, relative to the project root
+- summary: (required) A brief summary of what was accomplished, to be logged once verification passes.
 Usage:
-<list_directory>
-<path>src</path>
-</list_directory>
-    `.trim(),
-  },
-  {
-    name: 'review',
-    description: `
-## review
-Description: Review the current state of the task, including running type checks and tests. Based on the results, either mark the task as complete or provide guidance for further changes needed.
-Parameters:
-- path: (optional) Path to the TypeScript file to check, if reviewing a specific file
-- summary: (required) A brief summary of what was accomplished and what was checked
-Usage:
-<review>
-<path>src/main.ts</path>
+<complete>
 <summary>Implemented the main function and tested it successfully.</summary>
-</review>
+</complete>
     `.trim(),
   },
 ] as const

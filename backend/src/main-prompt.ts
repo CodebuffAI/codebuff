@@ -791,6 +791,7 @@ async function getFileVersionUpdates(
     addedFiles,
     readFilesMessage,
     toolCallMessage,
+    existingNewFilePaths,
   }
 }
 
@@ -809,14 +810,13 @@ export const agentPrompt = async (
     role: 'user' as const,
     content: prompt,
   }
-  const allMessages = [...messageHistory, userMessage]
+  const messagesWithUserMessage = [...messageHistory, userMessage]
 
   let fullResponse = ''
   const fileProcessingPromises: Promise<FileChange | null>[] = []
-  const messagesWithoutLastMessage = messageHistory
 
   const justUsedATool = toolResults.length > 0
-  const allMessagesTokens = countTokensJson(allMessages)
+  const allMessagesTokens = countTokensJson(messagesWithUserMessage)
 
   // Step 1: Read more files.
   const searchSystem = getSearchSystemPrompt(
@@ -827,7 +827,7 @@ export const agentPrompt = async (
   const { newFileVersions, toolCallMessage, readFilesMessage } =
     await getFileVersionUpdates(
       ws,
-      allMessages,
+      messagesWithUserMessage,
       searchSystem,
       fileContext,
       null,
@@ -870,8 +870,9 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
 
   logger.debug(
     {
-      lastMessage: allMessages[allMessages.length - 1].content,
-      messageCount: allMessages.length,
+      lastMessage:
+        messagesWithUserMessage[messagesWithUserMessage.length - 1].content,
+      messageCount: messagesWithUserMessage.length,
     },
     'Prompting Main'
   )
@@ -900,7 +901,7 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
           processFileBlock(
             path,
             fileContentWithoutStartNewline,
-            allMessages,
+            messagesWithUserMessage,
             fullResponse,
             prompt,
             clientSessionId,
@@ -925,181 +926,142 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
     onResponseChunk(chunk)
   }
 
-  const toolCalls = parseToolCalls(fullResponse).filter(
-    // Edit files are handled as they are streamed in.
-    (toolCall) => toolCall.name !== 'edit_file'
-  )
+  const messagesWithResponse = [
+    ...messagesWithUserMessage,
+    { role: 'assistant' as const, content: fullResponse },
+  ]
+  const toolCalls = parseToolCalls(fullResponse)
+  const clientToolCalls = []
 
   let newAgentContext = agentContext
 
   for (const toolCall of toolCalls) {
     const { name, parameters } = toolCall
-    if (name === 'update_context') {
+    if (name === 'edit_file') {
+      // edit_file tool calls are handled as they are streamed in.
+    } else if (name === 'update_context') {
       newAgentContext = await updateContext(newAgentContext, parameters.prompt)
+    } else if (name === 'read_files') {
+      const paths = parameters.paths
+        .split('\n')
+        .map((path) => path.trim())
+        .filter(Boolean)
+      console.log(`Reading files: ${parameters.paths}`)
+
+      logger.debug(toolCall, 'tool call')
+      const existingPaths = fileContext.fileVersions.flatMap((files) =>
+        files.map((file) => file.path)
+      )
+      const newPaths = difference(paths, existingPaths)
+      logger.debug(
+        {
+          content: parameters.paths,
+          existingPaths,
+          paths,
+          newPaths,
+        },
+        'read_files tool call'
+      )
+
+      const { newFileVersions } = await getFileVersionUpdates(
+        ws,
+        messagesWithResponse,
+        getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
+        fileContext,
+        null,
+        {
+          skipRequestingFiles: false,
+          requestedFiles: newPaths,
+          clientSessionId,
+          fingerprintId,
+          userInputId: promptId,
+          userId,
+          costMode,
+        }
+      )
+      fileContext.fileVersions = newFileVersions
+    } else if (name === 'find_files') {
+      const { description } = parameters
+      const { newFileVersions, readFilesMessage } = await getFileVersionUpdates(
+        ws,
+        messagesWithResponse,
+        getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
+        fileContext,
+        description,
+        {
+          skipRequestingFiles: false,
+          clientSessionId,
+          fingerprintId,
+          userInputId: promptId,
+          userId,
+          costMode,
+        }
+      )
+      fileContext.fileVersions = newFileVersions
+      if (readFilesMessage !== undefined) {
+        onResponseChunk(`\n${readFilesMessage}`)
+      }
+    } else if (name === 'think_deeply') {
+      const fetchFilesStart = Date.now()
+      // assistant sets the prompt, get from parameters
+      const filePaths = await getRelevantFilesForPlanning(
+        messagesWithResponse,
+        prompt,
+        fileContext,
+        costMode,
+        clientSessionId,
+        fingerprintId,
+        promptId,
+        userId
+      )
+      const fetchFilesDuration = Date.now() - fetchFilesStart
+      logger.debug(
+        { prompt, filePaths, fetchFilesDuration },
+        'Got file paths for thinking deeply'
+      )
+      const fileContents = await loadFilesForPlanning(ws, filePaths)
+      const existingFilePaths = Object.keys(fileContents)
+
+      onResponseChunk(
+        `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
+      )
+      fullResponse += `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
+      onResponseChunk(`\nThinking deeply (can take a minute!)`)
+
+      logger.debug({ prompt, filePaths, existingFilePaths }, 'Thinking deeply')
+      const planningStart = Date.now()
+
+      const { response, fileProcessingPromises: promises } =
+        await planComplexChange(
+          fileContents,
+          messagesWithResponse,
+          prompt,
+          ws,
+          {
+            clientSessionId,
+            fingerprintId,
+            userInputId: promptId,
+            userId,
+            costMode,
+          }
+        )
+      fileProcessingPromises.push(...promises)
+      // For now, don't print the plan to the user.
+      // onResponseChunk(`${response}\n\n`)
+      fullResponse += response + '\n\n'
+      logger.debug(
+        {
+          prompt,
+          file_paths: filePaths,
+          response,
+          fetchFilesDuration,
+          planDuration: Date.now() - planningStart,
+        },
+        'Generated plan'
+      )
     }
 
     // TODO: Handle all tools.
-
-    // else if (name === 'think_deeply') {
-    //   const fetchFilesStart = Date.now()
-    //   const filePaths = await getRelevantFilesForPlanning(
-    //     messagesWithoutLastMessage,
-    //     lastUserPrompt,
-    //     fileContext,
-    //     costMode,
-    //     clientSessionId,
-    //     fingerprintId,
-    //     userInputId,
-    //     userId
-    //   )
-    //   const fetchFilesDuration = Date.now() - fetchFilesStart
-    //   logger.debug(
-    //     { lastUserPrompt, filePaths, fetchFilesDuration },
-    //     'Got file paths for thinking deeply'
-    //   )
-    //   const fileContents = await loadFilesForPlanning(ws, filePaths)
-    //   const existingFilePaths = Object.keys(fileContents)
-
-    //   onResponseChunk(
-    //     `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
-    //   )
-    //   fullResponse += `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
-    //   onResponseChunk(`\nThinking deeply (can take a minute!)`)
-
-    //   logger.debug(
-    //     { lastUserPrompt, filePaths, existingFilePaths },
-    //     'Thinking deeply'
-    //   )
-    //   const planningStart = Date.now()
-
-    //   const { response, fileProcessingPromises: promises } =
-    //     await planComplexChange(
-    //       fileContents,
-    //       messagesWithoutLastMessage,
-    //       lastUserPrompt,
-    //       ws,
-    //       {
-    //         clientSessionId,
-    //         fingerprintId,
-    //         userInputId,
-    //         userId,
-    //         costMode,
-    //       }
-    //     )
-    //   fileProcessingPromises.push(...promises)
-    //   // For now, don't print the plan to the user.
-    //   // onResponseChunk(`${response}\n\n`)
-    //   fullResponse += response + '\n\n'
-    //   logger.debug(
-    //     {
-    //       lastUserPrompt,
-    //       file_paths: filePaths,
-    //       response,
-    //       fetchFilesDuration,
-    //       planDuration: Date.now() - planningStart,
-    //     },
-    //     'Generated plan'
-    //   )
-
-    //   toolCall = {
-    //     id: Math.random().toString(36).slice(2),
-    //     name: 'continue',
-    //     input: {
-    //       response: `Please summarize briefly the action taken, but do not call the think_deeply tool again for now.`,
-    //     },
-    //   }
-    //   isComplete = true
-    // } else if (toolCallResult?.name === 'find_files') {
-    //   logger.debug(toolCallResult, 'tool call')
-    //   const description = toolCallResult.input.description
-    //   const {
-    //     newFileVersions,
-    //     addedFiles,
-    //     clearFileVersions,
-    //     readFilesMessage,
-    //   } = await getFileVersionUpdates(
-    //     ws,
-    //     [...allMessages, { role: 'assistant', content: fullResponse }],
-    //     getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
-    //     fileContext,
-    //     description,
-    //     {
-    //       skipRequestingFiles: false,
-    //       clientSessionId,
-    //       fingerprintId,
-    //       userInputId: promptId,
-    //       userId,
-    //       costMode,
-    //     }
-    //   )
-    //   fileContext.fileVersions = newFileVersions
-    //   if (readFilesMessage !== undefined) {
-    //     onResponseChunk(`\n${readFilesMessage}`)
-    //     fullResponse += `\n${readFilesMessage}`
-    //   }
-    //   toolCall = null
-    //   isComplete = false
-    //   continuedMessages = [
-    //     {
-    //       role: 'assistant',
-    //       content: fullResponse.trim(),
-    //     },
-    //   ]
-    // } else if (toolCallResult?.name === 'read_files') {
-    //   logger.debug(toolCallResult, 'tool call')
-    //   const existingFilePaths = fileContext.fileVersions.flatMap((files) =>
-    //     files.map((file) => file.path)
-    //   )
-    //   const filePaths = ((toolCallResult.input.file_paths as string) ?? '')
-    //     .trim()
-    //     .split('\n')
-    //     .filter((path) => path)
-    //   const newFilePaths = difference(filePaths, existingFilePaths)
-    //   logger.debug(
-    //     {
-    //       content: toolCallResult.input.file_paths,
-    //       existingFilePaths,
-    //       filePaths,
-    //       newFilePaths,
-    //     },
-    //     'read_files tool call'
-    //   )
-
-    //   const {
-    //     newFileVersions,
-    //     addedFiles,
-    //     clearFileVersions,
-    //     readFilesMessage,
-    //   } = await getFileVersionUpdates(
-    //     ws,
-    //     [...allMessages, { role: 'assistant', content: fullResponse }],
-    //     getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
-    //     fileContext,
-    //     null,
-    //     {
-    //       skipRequestingFiles: false,
-    //       requestedFiles: newFilePaths,
-    //       clientSessionId,
-    //       fingerprintId,
-    //       userInputId: promptId,
-    //       userId,
-    //       costMode,
-    //     }
-    //   )
-    //   fileContext.fileVersions = newFileVersions
-    //   if (readFilesMessage !== undefined) {
-    //     onResponseChunk(`\n${readFilesMessage}`)
-    //     fullResponse += `\n${readFilesMessage}`
-    //   }
-    //   toolCall = null
-    //   isComplete = false
-    //   continuedMessages = [
-    //     {
-    //       role: 'assistant',
-    //       content: fullResponse.trim(),
-    //     },
-    //   ]
-    // }
   }
 
   if (fileProcessingPromises.length > 0) {
@@ -1122,7 +1084,7 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
   const newAgentState: AgentState = {
     ...agentState,
     messageHistory: [
-      ...allMessages,
+      ...messagesWithUserMessage,
       { role: 'assistant' as const, content: fullResponse },
     ],
     agentContext: newAgentContext,
@@ -1130,6 +1092,6 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
   return {
     agentState: newAgentState,
     toolCalls,
-    allMessages,
+    messagesWithUserMessage,
   }
 }

@@ -258,7 +258,7 @@ export class Client {
       }
       Spinner.get().stop()
 
-      const filesChanged = uniq(changes.map((change) => change.filePath))
+      const filesChanged = uniq(changes.map((change) => change.path))
       this.chatStorage.saveFilesChanged(filesChanged)
 
       // Stage files about to be changed if flag was set
