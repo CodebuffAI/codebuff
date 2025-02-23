@@ -9,19 +9,20 @@ import { runTerminalCommand } from './utils/terminal'
 import { truncateStringWithMessage } from 'common/util/string'
 import * as path from 'path'
 import { Spinner } from './utils/spinner'
-import { RawToolCall } from 'common/util/tools'
+import { RawToolCall } from 'common/types/tools'
 import { applyChanges } from 'common/util/changes'
 import { FileChangeSchema } from 'common/actions'
 
-export type ToolHandler = (
-  input: any,
+export type ToolHandler<T extends Record<string, any>> = (
+  parameters: T,
   id: string
 ) => Promise<string | BrowserResponse>
 
-export const handleEditFile: ToolHandler = async (
-  parameters: { path: string; content: string; type: 'patch' | 'file' },
-  id: string
-) => {
+export const handleEditFile: ToolHandler<{
+  path: string
+  content: string
+  type: 'patch' | 'file'
+}> = async (parameters) => {
   const fileChange = FileChangeSchema.parse(parameters)
   const { created, modified } = applyChanges(getProjectRoot(), [fileChange])
   if (created.length > 0 || modified.length > 0) {
@@ -36,11 +37,10 @@ export const handleEditFile: ToolHandler = async (
   return ''
 }
 
-export const handleScrapeWebPage: ToolHandler = async (
-  input: { url: string },
-  id: string
+export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
+  parameters
 ) => {
-  const { url } = input
+  const { url } = parameters
   const content = await scrapeWebPage(url)
   if (!content) {
     return `<web_scraping_error url="${url}">Failed to scrape the web page.</web_scraping_error>`
@@ -49,17 +49,16 @@ export const handleScrapeWebPage: ToolHandler = async (
 }
 
 export const handleRunTerminalCommand = async (
-  input: { command: string },
+  parameters: { command: string },
   id: string,
   mode: 'user' | 'assistant'
 ): Promise<{ result: string; stdout: string }> => {
-  const { command } = input
+  const { command } = parameters
   return runTerminalCommand(command, mode)
 }
 
-export const handleCodeSearch: ToolHandler = async (
-  input: { pattern: string },
-  id: string
+export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
+  parameters
 ) => {
   return new Promise((resolve) => {
     let stdout = ''
@@ -67,7 +66,7 @@ export const handleCodeSearch: ToolHandler = async (
 
     const dir = getProjectRoot()
     const basename = path.basename(dir)
-    const pattern = input.pattern.replace(/"/g, '')
+    const pattern = parameters.pattern.replace(/"/g, '')
     const command = `${path.resolve(rgPath)} "${pattern}" .`
     console.log()
     console.log(green(`Searching ${basename} for "${pattern}":`))
@@ -135,20 +134,20 @@ function formatResult(
   return result
 }
 
-export const toolHandlers: Record<string, ToolHandler> = {
+export const toolHandlers: Record<string, ToolHandler<any>> = {
   edit_file: handleEditFile,
   scrape_web_page: handleScrapeWebPage,
-  run_terminal_command: ((input, id) =>
-    handleRunTerminalCommand(input, id, 'assistant').then(
+  run_terminal_command: ((parameters, id) =>
+    handleRunTerminalCommand(parameters, id, 'assistant').then(
       (result) => result.result
-    )) as ToolHandler,
-  continue: async (input, id) => input.response ?? 'Please continue',
+    )) as ToolHandler<{ command: string }>,
+  continue: async (params, id) => params.response ?? 'Please continue',
   code_search: handleCodeSearch,
-  browser_action: async (input, _id): Promise<BrowserResponse> => {
+  browser_action: async (params, _id): Promise<BrowserResponse> => {
     Spinner.get().start()
     let response: BrowserResponse
     try {
-      const action = BrowserActionSchema.parse(input)
+      const action = BrowserActionSchema.parse(params)
       response = await handleBrowserInstruction(action)
     } catch (error) {
       const errorMessage =

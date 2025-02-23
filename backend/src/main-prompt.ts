@@ -296,8 +296,6 @@ export const agentPrompt = async (
       ]
     : messageHistory
 
-  console.log('messagesWithUserMessage', messagesWithUserMessage)
-
   let fullResponse = ''
   const fileProcessingPromises: Promise<FileChange | null>[] = []
 
@@ -338,7 +336,7 @@ ${toolResults.length > 0 ? `I just ran some tools. Review the results in the <to
 Proceed toward the goal and subgoals.
 You must use the updateContext tool call to record your progress and any new information you learned at the end of your response.
 Optionally use other tools to make progress towards the goal. Try to use multiple tools in one response to make quick progress.
-Use the "complete" tool only when you are confident the goal has been achieved. It can only be used after you've called the "review" tool at least once.
+Use the "complete" tool only when you are confident the goal has been achieved.
     `.trim()
   const agentMessages = [
     {
