@@ -31,14 +31,11 @@ import { handleToolCall } from './tool-handlers'
 import { CREDITS_REFERRAL_BONUS, type CostMode } from 'common/constants'
 import * as readline from 'readline'
 
-import { uniq } from 'lodash'
 import path from 'path'
 import * as fs from 'fs'
-import { truncateString } from 'common/util/string'
 import { match, P } from 'ts-pattern'
 import { calculateFingerprint } from './fingerprint'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
-import { stagePatches } from 'common/util/git'
 import { GitCommand } from './types'
 import { displayGreeting } from './menu'
 import { spawn } from 'child_process'
@@ -67,6 +64,7 @@ export class Client {
   public lastRequestCredits: number = 0
   public sessionCreditsUsed: number = 0
   public nextQuotaReset: Date | null = null
+  private hadFileChanges: boolean = false
   private git: GitCommand
   private rl: readline.Interface
 
@@ -560,6 +558,9 @@ export class Client {
             isComplete = true
             continue
           }
+          if (toolCall.name === 'edit_file') {
+            this.hadFileChanges = true
+          }
           const toolResult = await handleToolCall(toolCall)
           toolResults.push(toolResult)
         }
@@ -577,6 +578,13 @@ export class Client {
             costMode: this.costMode,
           })
           return
+        }
+
+        if (this.hadFileChanges) {
+          console.log(
+            'Complete! Type "diff" to review changes or "undo" to revert.'
+          )
+          this.hadFileChanges = false
         }
 
         unsubscribeChunks()

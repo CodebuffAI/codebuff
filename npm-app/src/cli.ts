@@ -309,7 +309,6 @@ export class CLI {
         `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
       )
     }
-    console.log('Complete! Type "diff" to review changes or "undo" to revert.')
     this.client.showUsageWarning()
     console.log()
 
