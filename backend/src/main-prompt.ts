@@ -329,7 +329,7 @@ export const agentPrompt = async (
   fileContext.fileVersions = newFileVersions
   if (readFilesMessage !== undefined) {
     onResponseChunk(readFilesMessage)
-    fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}`
+    fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}\n`
   }
 
   const { agentContext } = agentState
@@ -405,7 +405,9 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
             return null
           })
         )
-        fullResponse += body + '<' + '/edit_file>'
+        const restOfEdit = body + '<' + '/edit_file>'
+        onResponseChunk(restOfEdit)
+        fullResponse += restOfEdit
         return false
       },
     },
