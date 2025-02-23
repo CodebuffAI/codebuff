@@ -34,8 +34,9 @@ import {
 } from './planning'
 import { getMessageText } from './util/messages'
 import { buildSystemPrompt } from './build-system-prompt'
-import { parseToolCalls, updateContext } from './tools'
+import { ClientToolCall, parseToolCalls, updateContext } from './tools'
 import { AgentState } from 'common/types/agent-state'
+import { generateCompactId } from 'common/util/string'
 
 export async function mainPrompt(
   ws: WebSocket,
@@ -806,11 +807,15 @@ export const agentPrompt = async (
     action
   const { messageHistory, fileContext } = agentState
 
-  const userMessage = {
-    role: 'user' as const,
-    content: prompt,
-  }
-  const messagesWithUserMessage = [...messageHistory, userMessage]
+  const messagesWithUserMessage = prompt
+    ? [
+        ...messageHistory,
+        {
+          role: 'user' as const,
+          content: prompt,
+        },
+      ]
+    : messageHistory
 
   let fullResponse = ''
   const fileProcessingPromises: Promise<FileChange | null>[] = []
@@ -931,7 +936,7 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
     { role: 'assistant' as const, content: fullResponse },
   ]
   const toolCalls = parseToolCalls(fullResponse)
-  const clientToolCalls = []
+  const clientToolCalls: ClientToolCall[] = []
 
   let newAgentContext = agentContext
 
@@ -1006,7 +1011,8 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
       // assistant sets the prompt, get from parameters
       const filePaths = await getRelevantFilesForPlanning(
         messagesWithResponse,
-        prompt,
+        // TODO: Ask assistant to come up with a prompt.
+        prompt ?? '',
         fileContext,
         costMode,
         clientSessionId,
@@ -1035,7 +1041,7 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
         await planComplexChange(
           fileContents,
           messagesWithResponse,
-          prompt,
+          prompt ?? '',
           ws,
           {
             clientSessionId,
@@ -1060,9 +1066,15 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
         'Generated plan'
       )
     } else if (name === 'execute_command') {
-      clientToolCalls.push(toolCall)
+      clientToolCalls.push({
+        ...toolCall,
+        id: generateCompactId(),
+      })
     } else if (name === 'complete') {
-      clientToolCalls.push(toolCall)
+      clientToolCalls.push({
+        ...toolCall,
+        id: generateCompactId(),
+      })
     } else {
       throw new Error(`Unknown tool: ${name}`)
     }
@@ -1080,9 +1092,10 @@ Use the "complete" tool only when you are confident the goal has been achieved. 
   }
 
   for (const change of changes) {
-    toolCalls.push({
+    clientToolCalls.push({
       name: 'edit_file',
       parameters: change,
+      id: generateCompactId(),
     })
   }
   const newAgentState: AgentState = {

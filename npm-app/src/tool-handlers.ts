@@ -1,5 +1,5 @@
 import { rgPath } from '@vscode/ripgrep'
-import { green, red, yellow, blue, cyan } from 'picocolors'
+import { green, red, yellow, cyan } from 'picocolors'
 import { spawn } from 'child_process'
 import { BrowserActionSchema, BrowserResponse } from 'common/browser-actions'
 import { handleBrowserInstruction } from './browser-runner'
@@ -9,11 +9,32 @@ import { runTerminalCommand } from './utils/terminal'
 import { truncateStringWithMessage } from 'common/util/string'
 import * as path from 'path'
 import { Spinner } from './utils/spinner'
+import { RawToolCall } from 'common/util/tools'
+import { applyChanges } from 'common/util/changes'
+import { FileChangeSchema } from 'common/actions'
 
 export type ToolHandler = (
   input: any,
   id: string
 ) => Promise<string | BrowserResponse>
+
+export const handleEditFile: ToolHandler = async (
+  parameters: { path: string; content: string; type: 'patch' | 'file' },
+  id: string
+) => {
+  const fileChange = FileChangeSchema.parse(parameters)
+  const { created, modified } = applyChanges(getProjectRoot(), [fileChange])
+  if (created.length > 0 || modified.length > 0) {
+    console.log()
+  }
+  for (const file of created) {
+    console.log(green(`- Created ${file}`))
+  }
+  for (const file of modified) {
+    console.log(green(`- Updated ${file}`))
+  }
+  return ''
+}
 
 export const handleScrapeWebPage: ToolHandler = async (
   input: { url: string },
@@ -95,7 +116,27 @@ export const handleCodeSearch: ToolHandler = async (
   })
 }
 
+function formatResult(
+  stdout: string,
+  stderr: string | undefined,
+  status: string,
+  exitCode: number | null
+): string {
+  let result = '<terminal_command_result>\n'
+  result += `<stdout>${stdout}</stdout>\n`
+  if (stderr !== undefined) {
+    result += `<stderr>${stderr}</stderr>\n`
+  }
+  result += `<status>${status}</status>\n`
+  if (exitCode !== null) {
+    result += `<exit_code>${exitCode}</exit_code>\n`
+  }
+  result += '</terminal_command_result>'
+  return result
+}
+
 export const toolHandlers: Record<string, ToolHandler> = {
+  edit_file: handleEditFile,
   scrape_web_page: handleScrapeWebPage,
   run_terminal_command: ((input, id) =>
     handleRunTerminalCommand(input, id, 'assistant').then(
@@ -157,23 +198,44 @@ export const toolHandlers: Record<string, ToolHandler> = {
   },
 }
 
-function formatResult(
-  stdout: string,
-  stderr: string | undefined,
-  status: string,
-  exitCode: number | null
-): string {
-  let result = '<terminal_command_result>\n'
-  result += `<stdout>${stdout}</stdout>\n`
-  if (stderr !== undefined) {
-    result += `<stderr>${stderr}</stderr>\n`
+export const handleToolCall = async (toolCall: RawToolCall) => {
+  const { name, parameters } = toolCall
+  const handler = toolHandlers[name]
+  if (!handler) {
+    throw new Error(`No handler found for tool: ${name}`)
   }
-  result += `<status>${status}</status>\n`
-  if (exitCode !== null) {
-    result += `<exit_code>${exitCode}</exit_code>\n`
-  }
-  result += '</terminal_command_result>'
-  return result
-}
 
-export { handleBrowserInstruction } from './browser-runner'
+  const content = await handler(parameters, toolCall.id)
+
+  if (typeof content !== 'string') {
+    throw new Error(
+      `Tool call ${name} not supported. It returned non-string content.`
+    )
+  }
+
+  // TODO: Add support for screenshots.
+  // const toolResultMessage: Message = {
+  //   role: 'user',
+  //   content: match(content)
+  //     .with({ screenshots: P.not(P.nullish) }, (response) => [
+  //       ...(response.screenshots.pre ? [response.screenshots.pre] : []),
+  //       {
+  //         type: 'text' as const,
+  //         text:
+  //           JSON.stringify({
+  //             ...response,
+  //             screenshots: undefined,
+  //           }),
+  //       },
+  //       response.screenshots.post,
+  //     ])
+  //     .with(P.string, (str) => str)
+  //     .otherwise((val) => JSON.stringify(val)),
+  // }
+
+  return {
+    name,
+    result: content,
+    id: toolCall.id,
+  }
+}

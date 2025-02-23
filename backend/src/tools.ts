@@ -355,6 +355,10 @@ export interface RawToolCall {
   parameters: Record<string, string>
 }
 
+export interface ClientToolCall extends RawToolCall {
+  id: string
+}
+
 export function parseToolCalls(messageContent: string): RawToolCall[] {
   const toolCalls: RawToolCall[] = []
   const toolRegex = new RegExp(

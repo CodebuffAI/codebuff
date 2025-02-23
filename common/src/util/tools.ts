@@ -14,3 +14,9 @@ export const didClientUseTool = (message: Message) =>
       () => true
     )
     .otherwise(() => false)
+
+export type RawToolCall = {
+  name: string
+  id: string
+  parameters: Record<string, any>
+}

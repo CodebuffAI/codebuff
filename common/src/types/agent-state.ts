@@ -1,15 +1,17 @@
 import { z } from 'zod'
-import { ProjectFileContextSchema } from '../util/file'
+import { ProjectFileContext, ProjectFileContextSchema } from '../util/file'
 import { MessageSchema } from 'src/actions'
 
 export const ToolCallSchema = z.object({
   name: z.string(),
   parameters: z.record(z.string(), z.string()),
+  id: z.string(),
 })
 export type ToolCall = z.infer<typeof ToolCallSchema>
 export const ToolResultSchema = z.object({
   name: z.string(),
   result: z.string(),
+  id: z.string(),
 })
 export type ToolResult = z.infer<typeof ToolResultSchema>
 
@@ -19,3 +21,13 @@ export const AgentStateSchema = z.object({
   messageHistory: z.array(MessageSchema),
 })
 export type AgentState = z.infer<typeof AgentStateSchema>
+
+export function getInitialAgentState(
+  fileContext: ProjectFileContext
+): AgentState {
+  return {
+    agentContext: '',
+    messageHistory: [],
+    fileContext,
+  }
+}

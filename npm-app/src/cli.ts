@@ -1,8 +1,6 @@
-import { uniq } from 'lodash'
 import { getAllFilePaths } from 'common/project-file-tree'
-import { applyChanges } from 'common/util/changes'
 import * as readline from 'readline'
-import { green, red, yellow, underline } from 'picocolors'
+import { green, red, yellow } from 'picocolors'
 import { parse } from 'path'
 import { websocketUrl } from './config'
 import { ChatStorage } from './chat-storage'
@@ -24,12 +22,6 @@ import {
 } from 'common/constants'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-import {
-  hasStagedChanges,
-  commitChanges,
-  getStagedChanges,
-  stagePatches,
-} from 'common/util/git'
 import { pluralize } from 'common/util/string'
 import { CliOptions, GitCommand } from './types'
 import { Spinner } from './utils/spinner'
@@ -75,7 +67,7 @@ export class CLI {
     this.readyPromise = Promise.all([
       readyPromise.then((results) => {
         const [_, fileContext] = results
-        this.client.initFileVersions(fileContext)
+        this.client.initAgentState(fileContext)
         return this.client.warmContextCache()
       }),
       this.client.connect(),
@@ -300,58 +292,25 @@ export class CLI {
     this.chatStorage.addMessage(currentChat, newMessage)
 
     this.isReceivingResponse = true
-    const { response, changes, changesAlreadyApplied } =
-      await this.sendUserInputAndAwaitResponse()
+    const { responsePromise, stopResponse } =
+      await this.client.sendUserInput(userInput)
+
+    this.stopResponse = stopResponse
+    await responsePromise
+    this.stopResponse = null
+
     this.isReceivingResponse = false
 
     Spinner.get().stop()
 
-    const allChanges = [...changesAlreadyApplied, ...changes]
-    const filesChanged = uniq(allChanges.map((change) => change.path))
-    const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
-
-    if (this.git === 'stage' && changes.length > 0) {
-      const didStage = stagePatches(getProjectRoot(), changes)
-      if (didStage) {
-        console.log(green('\nStaged previous changes'))
-      }
-    }
-
-    const { created, modified } = applyChanges(getProjectRoot(), changes)
-    if (created.length > 0 || modified.length > 0) {
-      console.log()
-    }
-    for (const file of created) {
-      console.log(green(`- Created ${file}`))
-    }
-    for (const file of modified) {
-      console.log(green(`- Updated ${file}`))
-    }
-    if (created.length > 0 || modified.length > 0) {
-      if (this.client.lastRequestCredits > REQUEST_CREDIT_SHOW_THRESHOLD) {
-        console.log(
-          `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
-        )
-      }
+    if (this.client.lastRequestCredits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
       console.log(
-        'Complete! Type "diff" to review changes or "undo" to revert.'
+        `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
       )
-      this.client.showUsageWarning()
     }
+    console.log('Complete! Type "diff" to review changes or "undo" to revert.')
+    this.client.showUsageWarning()
     console.log()
-
-    this.lastChanges = allChanges
-
-    const assistantMessage: Message = {
-      role: 'assistant',
-      content: response,
-    }
-    this.chatStorage.addMessage(
-      this.chatStorage.getCurrentChat(),
-      assistantMessage
-    )
-    const updatedFiles = getExistingFiles(allFilesChanged)
-    this.chatStorage.addNewFileState(updatedFiles)
 
     this.rl.prompt()
   }
@@ -378,30 +337,6 @@ export class CLI {
   private onWebSocketReconnect() {
     console.log(green('\nReconnected!'))
     this.returnControlToUser()
-  }
-
-  private async sendUserInputAndAwaitResponse() {
-    const userInputId =
-      `mc-input-` + Math.random().toString(36).substring(2, 15)
-
-    const { responsePromise, stopResponse } = this.client.subscribeToResponse(
-      (chunk) => {
-        Spinner.get().stop()
-        process.stdout.write(chunk)
-      },
-      userInputId,
-      () => {
-        Spinner.get().stop()
-        process.stdout.write(green(underline('\nCodebuff') + ':') + ' ')
-      }
-    )
-
-    this.stopResponse = stopResponse
-    this.client.sendUserInput([], userInputId)
-
-    const result = await responsePromise
-    this.stopResponse = null
-    return result
   }
 
   private handleUndo() {
@@ -546,19 +481,6 @@ export class CLI {
       }
     }
     this.lastInputTime = currentTime
-  }
-
-  private async autoCommitChanges() {
-    if (hasStagedChanges()) {
-      const stagedChanges = getStagedChanges()
-      if (!stagedChanges) return
-
-      const commitMessage =
-        await this.client.generateCommitMessage(stagedChanges)
-      commitChanges(commitMessage)
-      return commitMessage
-    }
-    return undefined
   }
 
   private handleDiff() {

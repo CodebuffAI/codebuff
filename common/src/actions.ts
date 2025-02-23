@@ -91,7 +91,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('prompt'),
     promptId: z.string(),
-    prompt: z.string(),
+    prompt: z.string().or(z.undefined()),
     fingerprintId: z.string(),
     authToken: z.string().optional(),
     costMode: z.enum(costModes).optional().default('normal'),
