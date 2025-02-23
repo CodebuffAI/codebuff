@@ -1,6 +1,5 @@
 export const STOP_MARKER = '[' + 'END]'
 export const FIND_FILES_MARKER = '[' + 'FIND_FILES_PLEASE]'
-export const TOOL_RESULT_MARKER = '[' + 'TOOL_RESULT]'
 export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'
 
 export const DEFAULT_IGNORED_FILES = [

@@ -1,15 +1,13 @@
 import { WebSocket } from 'ws'
-import { eq, and, gt } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import _, { isEqual } from 'lodash'
-import { match, P } from 'ts-pattern'
 
 import { ClientMessage } from 'common/websockets/websocket-schema'
-import { agentPrompt, mainPrompt } from '../main-prompt'
+import { agentPrompt } from '../main-prompt'
 import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
 import { sendMessage } from './server'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { TOOL_RESULT_MARKER } from 'common/constants'
 import { protec } from './middleware'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/src/util/dates'
@@ -145,142 +143,17 @@ export async function genUsageResponse(
   }
 }
 
-const onUserInput = async (
-  action: Extract<ClientAction, { type: 'user-input' }>,
-  clientSessionId: string,
-  ws: WebSocket
-) => {
-  const {
-    fingerprintId,
-    authToken,
-    userInputId,
-    messages,
-    fileContext,
-    changesAlreadyApplied,
-    costMode = 'normal',
-  } = action
-
-  await withLoggerContext(
-    { fingerprintId, authToken, clientRequestId: userInputId },
-    async () => {
-      const lastMessage = messages[messages.length - 1]
-      if (
-        typeof lastMessage.content === 'string' &&
-        !lastMessage.content.includes(TOOL_RESULT_MARKER)
-      ) {
-        logger.info(`USER INPUT: ${lastMessage.content}`)
-      }
-
-      const userId = await getUserIdFromAuthToken(authToken)
-      try {
-        const {
-          toolCall,
-          response,
-          changes,
-          addedFileVersions,
-          resetFileVersions,
-        } = await mainPrompt(
-          ws,
-          messages,
-          fileContext,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          (chunk) =>
-            sendAction(ws, {
-              type: 'response-chunk',
-              userInputId,
-              chunk,
-            }),
-          userId,
-          changesAlreadyApplied,
-          action.costMode
-        )
-
-        logger.debug(
-          { response, changes, changesAlreadyApplied, toolCall },
-          'response-complete'
-        )
-
-        if (toolCall) {
-          sendAction(ws, {
-            type: 'tool-call',
-            userInputId,
-            response,
-            data: toolCall,
-            changes,
-            changesAlreadyApplied,
-            addedFileVersions,
-            resetFileVersions,
-          })
-        } else {
-          const {
-            usage,
-            limit,
-            referralLink,
-            subscription_active,
-            next_quota_reset,
-            session_credits_used,
-          } = await genUsageResponse(clientSessionId, fingerprintId, userId)
-          sendAction(ws, {
-            type: 'response-complete',
-            userInputId,
-            response,
-            changes,
-            changesAlreadyApplied,
-            usage,
-            limit,
-            subscription_active,
-            referralLink,
-            addedFileVersions,
-            resetFileVersions,
-            next_quota_reset,
-            session_credits_used,
-          })
-        }
-      } catch (e) {
-        logger.error(e, 'Error in mainPrompt')
-        const response =
-          e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
-        sendAction(ws, {
-          type: 'response-chunk',
-          userInputId,
-          chunk: response,
-        })
-        // await sleep(1000) // sleeping makes this sendAction not fire. unsure why but remove for now
-        sendAction(ws, {
-          type: 'response-complete',
-          userInputId,
-          response,
-          changes: [],
-          changesAlreadyApplied,
-          addedFileVersions: [],
-          resetFileVersions: false,
-        })
-      }
-    }
-  )
-}
-
 const onPrompt = async (
   action: Extract<ClientAction, { type: 'prompt' }>,
   clientSessionId: string,
   ws: WebSocket
 ) => {
-  const {
-    fingerprintId,
-    authToken,
-    promptId,
-    prompt,
-    agentState,
-    toolResults,
-    costMode,
-  } = action
+  const { fingerprintId, authToken, promptId, prompt } = action
 
   await withLoggerContext(
     { fingerprintId, authToken, clientRequestId: promptId },
     async () => {
-      logger.info(`USER INPUT: ${prompt}`)
+      if (prompt) logger.info(`USER INPUT: ${prompt}`)
 
       const userId = await getUserIdFromAuthToken(authToken)
       if (!userId) {
@@ -333,11 +206,11 @@ const onPrompt = async (
           userInputId: promptId,
           chunk: response,
         })
-        // await sleep(1000) // sleeping makes this sendAction not fire. unsure why but remove for now
         sendAction(ws, {
           type: 'prompt-response',
           promptId,
-          agentState,
+          // Send back original agentState.
+          agentState: action.agentState,
           toolCalls: [],
         })
       }
@@ -503,7 +376,6 @@ export const onWebsocketAction = async (
   })
 }
 
-subscribeToAction('user-input', protec.run(onUserInput))
 subscribeToAction('prompt', protec.run(onPrompt))
 subscribeToAction('init', protec.run(onInit, { silent: true }))
 
