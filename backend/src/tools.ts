@@ -142,7 +142,7 @@ Do not use it for simple changes like:
 - Updating text or styles
 - Answering a question
 
-Important: Do not use this tool more than once in a conversation, if a plan was already created, or for similar user requests.
+Important: Use this tool sparingly. Do not use this tool more than once in a conversation, if a plan was already created, or for similar user requests.
     `.trim(),
   },
   {

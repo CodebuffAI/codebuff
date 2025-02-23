@@ -334,7 +334,7 @@ export const agentPrompt = async (
   const userInstructions = `
 ${toolResults.length > 0 ? `I just ran some tools. Review the results in the <tool_results> section and update your context with any relevant information.` : ''}
 Proceed toward the goal and subgoals.
-You must use the updateContext tool call to record your progress and any new information you learned at the end of your response.
+You must use the updateContext tool call to record your progress and any new information you learned as you go.
 Optionally use other tools to make progress towards the goal. Try to use multiple tools in one response to make quick progress.
 Use the "complete" tool only when you are confident the goal has been achieved.
     `.trim()
