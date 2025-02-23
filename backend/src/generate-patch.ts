@@ -1,4 +1,4 @@
-import { Message } from 'common/actions'
+import { Message } from 'common/types/message'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { createPatch } from 'diff'
 import { applyPatch } from 'common/util/patch'

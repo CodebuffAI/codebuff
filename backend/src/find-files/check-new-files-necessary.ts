@@ -1,5 +1,5 @@
 import { System } from '@/claude'
-import { Message } from 'common/actions'
+import { Message } from 'common/types/message'
 import { CostMode, models } from 'common/constants'
 import { promptGeminiWithFallbacks } from '@/gemini-with-fallbacks'
 

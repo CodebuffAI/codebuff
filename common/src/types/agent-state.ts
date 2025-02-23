@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { ProjectFileContext, ProjectFileContextSchema } from '../util/file'
-import { MessageSchema } from 'src/actions'
+import { MessageSchema } from './message'
 
 export const ToolCallSchema = z.object({
   name: z.string(),

@@ -1,5 +1,5 @@
 import { CostMode, GeminiModel, openaiModels } from 'common/constants'
-import { Message } from 'common/actions'
+import { Message } from 'common/types/message'
 import { promptGemini } from './gemini-api'
 import { promptGemini as promptVertexGemini } from './gemini-vertex-api'
 import { promptClaude, System } from './claude'

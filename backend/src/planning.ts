@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws'
-import { Message } from 'common/actions'
+import { Message } from 'common/types/message'
 import { models, CostMode, geminiModels } from 'common/constants'
 import { countTokens, countTokensJson } from './util/token-counter'
 import {

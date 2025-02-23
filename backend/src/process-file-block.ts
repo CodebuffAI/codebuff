@@ -1,6 +1,7 @@
 import { WebSocket } from 'ws'
 import { createPatch } from 'diff'
-import { FileChange, Message } from 'common/actions'
+import { FileChange } from 'common/actions'
+import { Message } from 'common/types/message'
 import { logger } from './util/logger'
 import { requestFile } from './websockets/websocket-action'
 import { promptRelaceAI } from './relace-api'

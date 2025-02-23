@@ -1,6 +1,6 @@
-import { Message } from 'src/actions'
+import { Message } from '../types/message'
 import { match, P } from 'ts-pattern'
-import { TOOL_RESULT_MARKER } from 'src/constants'
+import { TOOL_RESULT_MARKER } from '../constants'
 
 export const didClientUseTool = (message: Message) =>
   match(message)

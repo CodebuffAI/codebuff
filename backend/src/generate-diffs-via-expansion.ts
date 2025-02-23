@@ -1,5 +1,5 @@
 import { debugLog } from './util/debug'
-import { Message } from 'common/actions'
+import { Message } from 'common/types/message'
 import { createFileBlock } from 'common/util/file'
 import { promptOpenAI } from './openai-api'
 import { openaiModels } from 'common/constants'

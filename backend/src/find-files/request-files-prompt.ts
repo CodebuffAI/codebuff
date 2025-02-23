@@ -3,7 +3,7 @@ import { range, shuffle, uniq } from 'lodash'
 import { dirname, isAbsolute, normalize } from 'path'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
-import { Message } from 'common/actions'
+import { Message } from 'common/types/message'
 import {
   ProjectFileContext,
   cleanMarkdownCodeBlock,

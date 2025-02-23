@@ -5,7 +5,8 @@ import { parse } from 'path'
 import { websocketUrl } from './config'
 import { ChatStorage } from './chat-storage'
 import { Client } from './client'
-import { Message, FileChanges } from 'common/actions'
+import { Message } from 'common/types/message'
+import { FileChanges } from 'common/actions'
 import { displayGreeting, displayMenu } from './menu'
 import {
   getChangesSinceLastFileVersion,

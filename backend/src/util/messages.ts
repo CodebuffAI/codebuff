@@ -1,4 +1,4 @@
-import { Message } from 'common/actions'
+import { Message } from 'common/types/message'
 import { System } from '../claude'
 import { OpenAIMessage } from '../openai-api'
 

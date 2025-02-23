@@ -1,4 +1,4 @@
-import { Message } from 'common/actions'
+import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import {
   openaiModels,

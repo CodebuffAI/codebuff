@@ -1,6 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import { Message } from 'common/actions'
+import { Message } from 'common/types/message'
 import {
   getExistingFiles,
   getCurrentChatDir,

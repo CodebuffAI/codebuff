@@ -1,6 +1,6 @@
 import { Anthropic, APIConnectionError } from '@anthropic-ai/sdk'
 import { removeUndefinedProps } from 'common/util/object'
-import { Message } from 'common/actions'
+import { Message } from 'common/types/message'
 import { claudeModels, STOP_MARKER, AnthropicModel } from 'common/constants'
 import { match, P } from 'ts-pattern'
 import { logger } from './util/logger'
