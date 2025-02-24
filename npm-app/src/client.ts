@@ -1,13 +1,4 @@
-import {
-  yellow,
-  red,
-  green,
-  bold,
-  blue,
-  cyan,
-  underline,
-  blueBright,
-} from 'picocolors'
+import { yellow, red, green, bold, underline, blueBright } from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import { backendUrl } from './config'
 
@@ -582,7 +573,7 @@ export class Client {
 
         if (this.hadFileChanges) {
           console.log(
-            'Complete! Type "diff" to review changes or "undo" to revert.'
+            '\nComplete! Type "diff" to review changes or "undo" to revert.'
           )
           this.hadFileChanges = false
         }
