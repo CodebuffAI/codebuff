@@ -296,6 +296,9 @@ export const agentPrompt = async (
       ]
     : messageHistory
 
+  const iterationNum = messagesWithUserMessage.length
+  console.log('Iteration', iterationNum)
+
   let fullResponse = ''
   const fileProcessingPromises: Promise<FileChange | null>[] = []
 
@@ -308,26 +311,25 @@ export const agentPrompt = async (
     costMode,
     allMessagesTokens
   )
-  const { newFileVersions, toolCallMessage, readFilesMessage } =
-    await getFileVersionUpdates(
-      ws,
-      messagesWithUserMessage,
-      searchSystem,
-      fileContext,
-      null,
-      {
-        skipRequestingFiles: justUsedATool,
-        clientSessionId,
-        fingerprintId,
-        userInputId: promptId,
-        userId,
-        costMode,
-      }
-    )
+  const { newFileVersions, readFilesMessage } = await getFileVersionUpdates(
+    ws,
+    messagesWithUserMessage,
+    searchSystem,
+    fileContext,
+    null,
+    {
+      skipRequestingFiles: justUsedATool,
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+      costMode,
+    }
+  )
   fileContext.fileVersions = newFileVersions
   if (readFilesMessage !== undefined) {
-    onResponseChunk(readFilesMessage)
-    fullResponse += `\n\n${toolCallMessage}\n\n${readFilesMessage}\n`
+    onResponseChunk(readFilesMessage + '\n')
+    fullResponse += `\n\n${readFilesMessage}\n`
   }
 
   const { agentContext } = agentState
@@ -348,7 +350,6 @@ Use the "complete" tool only when you are confident the goal has been achieved.
       content: `${userInstructions}\n\nUser request: ${prompt}`,
     },
   ]
-  console.log('agentMessages', agentMessages)
   const agentMessagesTokens = countTokensJson(agentMessages)
   const system = buildSystemPrompt(
     fileContext,
@@ -403,9 +404,9 @@ Use the "complete" tool only when you are confident the goal has been achieved.
             return null
           })
         )
-        const restOfEdit = body + '<' + '/edit_file>'
-        onResponseChunk(restOfEdit)
-        fullResponse += restOfEdit
+        const endEditFile = '<' + '/edit_file>'
+        onResponseChunk(`${path}...${endEditFile}`)
+        fullResponse += body + endEditFile
         return false
       },
     },
@@ -431,6 +432,7 @@ Use the "complete" tool only when you are confident the goal has been achieved.
       // edit_file tool calls are handled as they are streamed in.
     } else if (name === 'update_context') {
       newAgentContext = await updateContext(newAgentContext, parameters.prompt)
+      console.log('\n\nUpdated context', newAgentContext)
     } else if (name === 'read_files') {
       const paths = parameters.paths
         .split('\n')
