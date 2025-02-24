@@ -199,6 +199,12 @@ Usage:
 export const TOOL_LIST = tools.map((tool) => tool.name)
 export type ToolName = (typeof TOOL_LIST)[number]
 
+export const TOOLS_WHICH_END_THE_RESPONSE = [
+  'code_search',
+  'run_terminal_command',
+  'think_deeply',
+]
+
 export const toolsInstructions = `
 # Tool Use Formatting
 

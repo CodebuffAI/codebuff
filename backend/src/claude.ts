@@ -8,8 +8,8 @@ import { limitScreenshots } from 'common/util/messages'
 import { env } from './env.mjs'
 import { saveMessage } from './billing/message-cost-tracker'
 import { sleep } from 'common/util/promise'
-import { APIError } from '@anthropic-ai/sdk/error'
 import type { Tool, TextBlockParam } from '@anthropic-ai/sdk/resources'
+import { TOOLS_WHICH_END_THE_RESPONSE } from './tools'
 
 const MAX_SCREENSHOTS = 2
 
@@ -117,7 +117,7 @@ async function* promptClaudeStreamWithoutRetry(
       messages: transformedMsgs,
       system,
       tools,
-      stop_sequences: [],
+      stop_sequences: TOOLS_WHICH_END_THE_RESPONSE.map((tool) => `</${tool}>`),
     })
   )
 

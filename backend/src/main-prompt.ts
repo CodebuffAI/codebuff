@@ -24,7 +24,12 @@ import {
   planComplexChange,
 } from './planning'
 import { buildSystemPrompt } from './build-system-prompt'
-import { ClientToolCall, parseToolCalls, updateContext } from './tools'
+import {
+  ClientToolCall,
+  parseToolCalls,
+  TOOL_LIST,
+  updateContext,
+} from './tools'
 import { AgentState } from 'common/types/agent-state'
 import { generateCompactId } from 'common/util/string'
 
@@ -132,9 +137,7 @@ Use the "complete" tool only when you are confident the user request has been ac
   const streamWithTags = processStreamWithTags(stream, {
     write_file: {
       attributeNames: [],
-      onTagStart: () => {
-        return `<write_file>`
-      },
+      onTagStart: () => {},
       onTagEnd: (body) => {
         const { path, content } = parseToolCallXml(body)
         if (!content) return false
@@ -161,12 +164,25 @@ Use the "complete" tool only when you are confident the user request has been ac
             return null
           })
         )
-        const endWriteFile = '<' + '/write_file>'
-        onResponseChunk(`${path}...${endWriteFile}`)
-        fullResponse += body + endWriteFile
+        onResponseChunk(`${path}...`)
+        fullResponse += body
         return false
       },
     },
+    ...Object.fromEntries(
+      TOOL_LIST.filter((tool) => tool !== 'write_file').map((tool) => [
+        tool,
+        {
+          attributeNames: [],
+          onTagStart: () => {},
+          onTagEnd: (body) => {
+            onResponseChunk(body)
+            fullResponse += body
+            return false
+          },
+        },
+      ])
+    ),
   })
 
   for await (const chunk of streamWithTags) {

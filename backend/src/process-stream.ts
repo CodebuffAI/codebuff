@@ -1,11 +1,9 @@
-import { STOP_MARKER } from 'common/constants'
-
 export async function* processStreamWithTags<T extends string>(
   stream: AsyncGenerator<T> | ReadableStream<T>,
   tags: {
     [tagName: string]: {
       attributeNames: string[]
-      onTagStart: (attributes: Record<string, string>) => string
+      onTagStart: (attributes: Record<string, string>) => void
       onTagEnd: (content: string, attributes: Record<string, string>) => boolean
     }
   }
@@ -57,10 +55,8 @@ export async function* processStreamWithTags<T extends string>(
           )
 
           // Call onTagStart
-          const startTagYield = tags[openTag].onTagStart(currentAttributes)
-          if (startTagYield) {
-            yield startTagYield
-          }
+          tags[openTag].onTagStart(currentAttributes)
+          yield fullMatch
 
           didParse = true
         } else {
@@ -82,6 +78,7 @@ export async function* processStreamWithTags<T extends string>(
 
           // Close the tag
           const complete = tags[insideTag].onTagEnd(content, currentAttributes)
+          yield '</' + insideTag + '>'
           insideTag = null
           currentAttributes = {}
 
@@ -96,9 +93,8 @@ export async function* processStreamWithTags<T extends string>(
           // We reached EOF without finding a closing tag
           // Treat remaining buffer as content and close the tag
           if (buffer.length > 0) {
-            // Remove the STOP_MARKER from the buffer.
-            buffer = buffer.replace(STOP_MARKER, '')
             const complete = tags[insideTag].onTagEnd(buffer, currentAttributes)
+            yield '</' + insideTag + '>'
             buffer = ''
             insideTag = null
             currentAttributes = {}
