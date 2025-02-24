@@ -555,7 +555,7 @@ export class Client {
           const toolResult = await handleToolCall(toolCall)
           toolResults.push(toolResult)
         }
-        if (!isComplete && toolResults.length > 0) {
+        if (!isComplete) {
           Spinner.get().start()
           // Continue the prompt with the tool results.
           this.webSocket.sendAction({
