@@ -435,6 +435,21 @@ Use the "complete" tool only when you are confident the user request has been ac
     const { name, parameters } = toolCall
     if (name === 'write_file') {
       // write_file tool calls are handled as they are streamed in.
+    } else if (name === 'code_search') {
+      clientToolCalls.push({
+        ...toolCall,
+        id: generateCompactId(),
+      })
+    } else if (name === 'run_terminal_command') {
+      clientToolCalls.push({
+        ...toolCall,
+        id: generateCompactId(),
+      })
+    } else if (name === 'complete') {
+      clientToolCalls.push({
+        ...toolCall,
+        id: generateCompactId(),
+      })
     } else if (name === 'update_context') {
       newAgentContext = await updateContext(newAgentContext, parameters.prompt)
       logger.debug(
@@ -562,16 +577,6 @@ Use the "complete" tool only when you are confident the user request has been ac
         },
         'Generated plan'
       )
-    } else if (name === 'run_terminal_command') {
-      clientToolCalls.push({
-        ...toolCall,
-        id: generateCompactId(),
-      })
-    } else if (name === 'complete') {
-      clientToolCalls.push({
-        ...toolCall,
-        id: generateCompactId(),
-      })
     } else {
       throw new Error(`Unknown tool: ${name}`)
     }
@@ -586,6 +591,8 @@ Use the "complete" tool only when you are confident the user request has been ac
   )
   if (changes.length === 0 && fileProcessingPromises.length > 0) {
     onResponseChunk('No changes to existing files.\n')
+  } else if (fileProcessingPromises.length > 0) {
+    onResponseChunk(`\n`)
   }
 
   for (const change of changes) {

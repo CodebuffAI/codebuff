@@ -90,7 +90,7 @@ export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
           console.log('...')
         }
       }
-      console.log(green(`Found ${lines.length} results\n`))
+      console.log(green(`Found ${lines.length} results`))
 
       const truncatedStdout = truncateStringWithMessage(stdout, 10000)
       const truncatedStderr = truncateStringWithMessage(stderr, 1000)
