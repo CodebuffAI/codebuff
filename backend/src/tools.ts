@@ -80,6 +80,8 @@ Usage:
 <paths>src/main.ts
 src/utils.ts</paths>
 </read_files>
+
+Note that there's no need to call this tool if you're already holding the files in your context.
     `.trim(),
   },
   {
@@ -99,6 +101,8 @@ Use cases:
 - If you are calling a function or creating a class and want to know how it works, use this tool to get the implementation.
 - If you need to understand a section of the codebase, read more files in that directory or subdirectories.
 - Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
+
+Note that there's no need to call this tool if you're already reading the files you need in context.
     `.trim(),
   },
   {
@@ -184,6 +188,8 @@ For example:
 Always adhere to this format for the tool use to ensure proper parsing and execution.
 
 You can and should include as many tool calls in the response as you need to complete the task. You can even use the same tool multiple times if needed.
+
+Note that any tools you call will only be executed at the end of your current response. You can stop writing your response at any time to await the tool call results.
 
 # Tools
 

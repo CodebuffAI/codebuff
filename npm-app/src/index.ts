@@ -19,6 +19,7 @@ async function codebuff(
   { initialInput, git, costMode }: CliOptions
 ) {
   const dir = setProjectRoot(projectDir)
+  console.log('Starting Codebuff in directory:', dir)
   recreateShell()
 
   const updatePromise = updateCodebuff()
