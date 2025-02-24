@@ -25,9 +25,6 @@ export const handleWriteFile: ToolHandler<{
 }> = async (parameters) => {
   const fileChange = FileChangeSchema.parse(parameters)
   const { created, modified } = applyChanges(getProjectRoot(), [fileChange])
-  if (created.length > 0 || modified.length > 0) {
-    console.log()
-  }
   for (const file of created) {
     console.log(green(`- Created ${file}`))
   }
@@ -141,7 +138,6 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
     handleRunTerminalCommand(parameters, id, 'assistant').then(
       (result) => result.result
     )) as ToolHandler<{ command: string }>,
-  continue: async (params, id) => params.response ?? 'Please continue',
   code_search: handleCodeSearch,
   browser_action: async (params, _id): Promise<BrowserResponse> => {
     Spinner.get().start()

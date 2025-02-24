@@ -132,7 +132,8 @@ async function getFileVersionUpdates(
   const editedFilePaths = messages
     .map((m) => m.content)
     .filter(
-      (content) => typeof content === 'string' && content.includes('<write_file')
+      (content) =>
+        typeof content === 'string' && content.includes('<write_file')
     )
     .map(
       (content) =>
@@ -275,7 +276,7 @@ async function getFileVersionUpdates(
   }
 }
 
-export const agentPrompt = async (
+export const mainPrompt = async (
   ws: WebSocket,
   action: Extract<ClientAction, { type: 'prompt' }>,
   userId: string | undefined,
@@ -327,8 +328,8 @@ export const agentPrompt = async (
   )
   fileContext.fileVersions = newFileVersions
   if (readFilesMessage !== undefined) {
-    onResponseChunk(readFilesMessage + '\n')
-    fullResponse += `\n\n${readFilesMessage}\n`
+    onResponseChunk(`${readFilesMessage}\n\n`)
+    fullResponse += `${readFilesMessage}\n\n`
   }
 
   const { agentContext } = agentState
@@ -383,6 +384,8 @@ Use the "complete" tool only when you are confident the user request has been ac
       },
       onTagEnd: (body) => {
         const { path, content } = parseToolCallXml(body)
+        if (!content) return false
+
         const fileContentWithoutStartNewline = content.startsWith('\n')
           ? content.slice(1)
           : content

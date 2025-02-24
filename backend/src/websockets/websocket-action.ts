@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import _, { isEqual } from 'lodash'
 
 import { ClientMessage } from 'common/websockets/websocket-schema'
-import { agentPrompt } from '../main-prompt'
+import { mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
 import { sendMessage } from './server'
 import db from 'common/db'
@@ -160,7 +160,7 @@ const onPrompt = async (
         throw new Error('User not found')
       }
       try {
-        const { agentState, toolCalls } = await agentPrompt(
+        const { agentState, toolCalls } = await mainPrompt(
           ws,
           action,
           userId,
