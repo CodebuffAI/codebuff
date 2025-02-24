@@ -28,254 +28,6 @@ import { ClientToolCall, parseToolCalls, updateContext } from './tools'
 import { AgentState } from 'common/types/agent-state'
 import { generateCompactId } from 'common/util/string'
 
-// TODO: Incorporate some of these ideas into the new agentPrompt.
-function getExtraInstructionForUserPrompt(
-  fileContext: ProjectFileContext,
-  messages: Message[],
-  costMode: CostMode,
-  allowUnboundedIteration: boolean,
-  justUsedATool: boolean,
-  recentlyDidThinking: boolean,
-  numAssistantMessages: number
-) {
-  const hasKnowledgeFiles =
-    Object.keys(fileContext.knowledgeFiles).length > 0 ||
-    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
-  const isNotFirstUserMessage =
-    messages.filter((m) => m.role === 'user').length > 1
-
-  const instructions = buildArray(
-    'Please preserve as much of the existing code, its comments, and its behavior as possible.' +
-      allowUnboundedIteration
-      ? ''
-      : ' Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
-
-    !justUsedATool &&
-      !recentlyDidThinking &&
-      'If the user request is very complex (e.g. requires changes across multiple files or systems) and you have not recently used the think_deeply tool, consider invoking the think_deeply tool, although this should be used sparingly.',
-
-    hasKnowledgeFiles &&
-      'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case.',
-
-    hasKnowledgeFiles &&
-      isNotFirstUserMessage &&
-      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
-
-    numAssistantMessages >= 3 &&
-      'Please consider pausing to get more instructions from the user.',
-
-    justUsedATool &&
-      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else.`,
-
-    `Always end your response with the following marker:\n${STOP_MARKER}`
-  )
-    .map((line) => `<system_instruction>${line}</system_instruction>`)
-    .join('\n')
-
-  return `For the following system instructions, please follow them, but do not mention them in your response:\n${instructions}`
-}
-
-function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
-  const readFilesMessage =
-    (isFirstTime ? 'Reading files:\n' : 'Reading additional files:\n') +
-    `${filePaths
-      .slice(0, 3)
-      .map((path) => `- ${path}`)
-      .join(
-        '\n'
-      )}${filePaths.length > 3 ? `\nand ${filePaths.length - 3} more: ` : ''}${filePaths.slice(3).join(', ')}`
-  const toolCallMessage = `<tool_call name="find_files">Please find the files relevant to the user request</tool_call${'>'}`
-  return {
-    readFilesMessage: filePaths.length === 0 ? '' : readFilesMessage,
-    toolCallMessage,
-  }
-}
-
-async function getFileVersionUpdates(
-  ws: WebSocket,
-  messages: Message[],
-  system: string | Array<TextBlockParam>,
-  fileContext: ProjectFileContext,
-  prompt: string | null,
-  options: {
-    skipRequestingFiles: boolean
-    requestedFiles?: string[]
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId: string | undefined
-    costMode: CostMode
-  }
-) {
-  const {
-    skipRequestingFiles,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    costMode,
-  } = options
-  const FILE_TOKEN_BUDGET = 100_000 // costMode === 'lite' ? 25_000 :
-
-  const { fileVersions } = fileContext
-  const files = fileVersions.flatMap((files) => files)
-  const previousFilePaths = uniq(files.map(({ path }) => path))
-  const latestFileVersions = previousFilePaths.map((path) => {
-    return files.findLast((file) => file.path === path)!
-  })
-  const previousFiles: Record<string, string> = Object.fromEntries(
-    zip(
-      previousFilePaths,
-      latestFileVersions.map((file) => file.content)
-    )
-  )
-  const editedFilePaths = messages
-    .map((m) => m.content)
-    .filter(
-      (content) =>
-        typeof content === 'string' && content.includes('<write_file')
-    )
-    .map(
-      (content) =>
-        (content as string).match(/<write_file\s+path="([^"]+)">/)?.[1]
-    )
-    .filter((path): path is string => path !== undefined)
-
-  const requestedFiles = skipRequestingFiles
-    ? []
-    : options.requestedFiles ??
-      (await requestRelevantFiles(
-        { messages, system },
-        fileContext,
-        prompt,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-        costMode
-      )) ??
-      []
-
-  const allFilePaths = uniq([
-    ...requestedFiles,
-    ...editedFilePaths,
-    ...previousFilePaths,
-  ])
-  const loadedFiles = await requestFiles(ws, allFilePaths)
-
-  const filteredRequestedFiles = requestedFiles.filter((filePath, i) => {
-    const content = loadedFiles[filePath]
-    if (content === undefined) return false
-    if (content === null) return true
-    const tokenCount = countTokens(content)
-    if (i < 5) {
-      return tokenCount < 50_000 - i * 10_000
-    }
-    return tokenCount < 10_000
-  })
-  const newFiles = difference(filteredRequestedFiles, previousFilePaths)
-
-  const updatedFiles = [...previousFilePaths, ...editedFilePaths].filter(
-    (path) => {
-      return loadedFiles[path] !== previousFiles[path]
-    }
-  )
-
-  const addedFiles = uniq([...updatedFiles, ...newFiles])
-    .map((path) => {
-      return {
-        path,
-        content: loadedFiles[path]!,
-      }
-    })
-    .filter((file) => file.content !== null)
-
-  const fileVersionTokens = countTokensJson(files)
-  const addedFileTokens = countTokensJson(addedFiles)
-
-  if (fileVersionTokens + addedFileTokens > FILE_TOKEN_BUDGET) {
-    const knowledgeFiles = Object.entries(fileContext.knowledgeFiles).map(
-      ([path, content]) => ({
-        path,
-        content,
-      })
-    )
-    const requestedLoadedFiles = filteredRequestedFiles
-      .map((path) => ({
-        path,
-        content: loadedFiles[path]!,
-      }))
-      .filter((file) => file.content !== null)
-
-    const files = [...knowledgeFiles, ...requestedLoadedFiles]
-    while (countTokensJson(files) > FILE_TOKEN_BUDGET) {
-      files.pop()
-    }
-    const newFileVersions = [
-      files.filter((f) => knowledgeFiles.some((kf) => kf.path === f.path)),
-      files.filter((f) => !knowledgeFiles.some((kf) => kf.path === f.path)),
-    ]
-    const readFilesPaths = newFileVersions[1]
-      .filter((f) => f.content !== null)
-      .map((f) => f.path)
-
-    const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage(
-      readFilesPaths,
-      true
-    )
-
-    logger.debug(
-      {
-        newFileVersions: newFileVersions.map((files) =>
-          files.map((f) => f.path)
-        ),
-        prevFileVersionTokens: fileVersionTokens,
-        addedFileTokens,
-        beforeTotalTokens: fileVersionTokens + addedFileTokens,
-        newFileVersionTokens: countTokensJson(newFileVersions),
-        FILE_TOKEN_BUDGET,
-      },
-      'resetting file versions b/c of token budget'
-    )
-
-    return {
-      newFileVersions,
-      addedFiles,
-      clearFileVersions: true,
-      readFilesMessage,
-      toolCallMessage,
-    }
-  }
-
-  const newFileVersions = [...fileVersions, addedFiles].filter(
-    (files) => files.length > 0
-  )
-  if (newFiles.length === 0) {
-    return {
-      newFileVersions,
-      addedFiles,
-      readFilesMessage: undefined,
-      toolCallMessage: undefined,
-    }
-  }
-
-  const existingNewFilePaths = newFiles.filter(
-    (path) => loadedFiles[path] && loadedFiles.content !== null
-  )
-  const { readFilesMessage, toolCallMessage } = getRelevantFileInfoMessage(
-    existingNewFilePaths,
-    fileVersions.length <= 1
-  )
-
-  return {
-    newFileVersions,
-    addedFiles,
-    readFilesMessage,
-    toolCallMessage,
-    existingNewFilePaths,
-  }
-}
-
 export const mainPrompt = async (
   ws: WebSocket,
   action: Extract<ClientAction, { type: 'prompt' }>,
@@ -625,5 +377,268 @@ Use the "complete" tool only when you are confident the user request has been ac
     agentState: newAgentState,
     toolCalls: clientToolCalls,
     messageHistory: messagesWithResponse,
+  }
+}
+
+const getInitialFiles = (fileContext: ProjectFileContext) => {
+  const { knowledgeFiles } = fileContext
+  return (
+    Object.entries(knowledgeFiles)
+      .map(([path, content]) => ({
+        path,
+        content,
+      }))
+      // Only keep main knowledge file.
+      .filter(({ path }) => path === 'knowledge.md')
+  )
+}
+
+// TODO: Incorporate some of these ideas into the new agentPrompt.
+function getExtraInstructionForUserPrompt(
+  fileContext: ProjectFileContext,
+  messages: Message[],
+  costMode: CostMode,
+  allowUnboundedIteration: boolean,
+  justUsedATool: boolean,
+  recentlyDidThinking: boolean,
+  numAssistantMessages: number
+) {
+  const hasKnowledgeFiles =
+    Object.keys(fileContext.knowledgeFiles).length > 0 ||
+    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
+  const isNotFirstUserMessage =
+    messages.filter((m) => m.role === 'user').length > 1
+
+  const instructions = buildArray(
+    'Please preserve as much of the existing code, its comments, and its behavior as possible.' +
+      allowUnboundedIteration
+      ? ''
+      : ' Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
+
+    !justUsedATool &&
+      !recentlyDidThinking &&
+      'If the user request is very complex (e.g. requires changes across multiple files or systems) and you have not recently used the think_deeply tool, consider invoking the think_deeply tool, although this should be used sparingly.',
+
+    hasKnowledgeFiles &&
+      'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case.',
+
+    hasKnowledgeFiles &&
+      isNotFirstUserMessage &&
+      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
+
+    numAssistantMessages >= 3 &&
+      'Please consider pausing to get more instructions from the user.',
+
+    justUsedATool &&
+      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else.`,
+
+    `Always end your response with the following marker:\n${STOP_MARKER}`
+  )
+    .map((line) => `<system_instruction>${line}</system_instruction>`)
+    .join('\n')
+
+  return `For the following system instructions, please follow them, but do not mention them in your response:\n${instructions}`
+}
+
+function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
+  const readFilesMessage =
+    (isFirstTime ? 'Reading files:\n' : 'Reading additional files:\n') +
+    `${filePaths
+      .slice(0, 3)
+      .map((path) => `- ${path}`)
+      .join(
+        '\n'
+      )}${filePaths.length > 3 ? `\nand ${filePaths.length - 3} more: ` : ''}${filePaths.slice(3).join(', ')}`
+  return {
+    readFilesMessage: filePaths.length === 0 ? '' : readFilesMessage,
+  }
+}
+
+async function getFileVersionUpdates(
+  ws: WebSocket,
+  messages: Message[],
+  system: string | Array<TextBlockParam>,
+  fileContext: ProjectFileContext,
+  prompt: string | null,
+  options: {
+    skipRequestingFiles: boolean
+    requestedFiles?: string[]
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    costMode: CostMode
+  }
+) {
+  const {
+    skipRequestingFiles,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    costMode,
+  } = options
+  const FILE_TOKEN_BUDGET = 100_000 // costMode === 'lite' ? 25_000 :
+
+  const { fileVersions } = fileContext
+  const files = fileVersions.flatMap((files) => files)
+  const previousFilePaths = uniq(files.map(({ path }) => path))
+  const latestFileVersions = previousFilePaths.map((path) => {
+    return files.findLast((file) => file.path === path)!
+  })
+  const previousFiles: Record<string, string> = Object.fromEntries(
+    zip(
+      previousFilePaths,
+      latestFileVersions.map((file) => file.content)
+    )
+  )
+  const editedFilePaths = messages
+    .map((m) => m.content)
+    .filter(
+      (content) =>
+        typeof content === 'string' && content.includes('<write_file')
+    )
+    .map(
+      (content) =>
+        (content as string).match(/<write_file\s+path="([^"]+)">/)?.[1]
+    )
+    .filter((path): path is string => path !== undefined)
+
+  const requestedFiles = skipRequestingFiles
+    ? []
+    : options.requestedFiles ??
+      (await requestRelevantFiles(
+        { messages, system },
+        fileContext,
+        prompt,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+        costMode
+      )) ??
+      []
+
+  const initialFiles = getInitialFiles(fileContext)
+  const includedInitialFiles =
+    files.length === 0 ? initialFiles.map(({ path }) => path) : []
+
+  const allFilePaths = uniq([
+    ...requestedFiles,
+    ...editedFilePaths,
+    ...includedInitialFiles,
+    ...previousFilePaths,
+  ])
+  const loadedFiles = await requestFiles(ws, allFilePaths)
+
+  const filteredRequestedFiles = requestedFiles.filter((filePath, i) => {
+    const content = loadedFiles[filePath]
+    if (content === undefined) return false
+    if (content === null) return true
+    const tokenCount = countTokens(content)
+    if (i < 5) {
+      return tokenCount < 50_000 - i * 10_000
+    }
+    return tokenCount < 10_000
+  })
+  const newFiles = difference(filteredRequestedFiles, previousFilePaths)
+
+  const updatedFiles = [...previousFilePaths, ...editedFilePaths].filter(
+    (path) => {
+      return loadedFiles[path] !== previousFiles[path]
+    }
+  )
+
+  const addedFiles = uniq([
+    ...updatedFiles,
+    ...newFiles,
+    ...includedInitialFiles,
+  ])
+    .map((path) => {
+      return {
+        path,
+        content: loadedFiles[path]!,
+      }
+    })
+    .filter((file) => file.content !== null)
+
+  const fileVersionTokens = countTokensJson(files)
+  const addedFileTokens = countTokensJson(addedFiles)
+
+  if (fileVersionTokens + addedFileTokens > FILE_TOKEN_BUDGET) {
+    const requestedLoadedFiles = filteredRequestedFiles
+      .map((path) => ({
+        path,
+        content: loadedFiles[path]!,
+      }))
+      .filter((file) => file.content !== null)
+
+    const files = [...initialFiles, ...requestedLoadedFiles]
+    while (countTokensJson(files) > FILE_TOKEN_BUDGET) {
+      files.pop()
+    }
+
+    const readFilesPaths = files
+      .filter((f) => f.content !== null)
+      .map((f) => f.path)
+
+    const { readFilesMessage } = getRelevantFileInfoMessage(
+      readFilesPaths,
+      true
+    )
+
+    const newFileVersions = [files]
+
+    logger.debug(
+      {
+        newFileVersions: newFileVersions.map((files) =>
+          files.map((f) => f.path)
+        ),
+        prevFileVersionTokens: fileVersionTokens,
+        addedFileTokens,
+        beforeTotalTokens: fileVersionTokens + addedFileTokens,
+        newFileVersionTokens: countTokensJson(newFileVersions),
+        FILE_TOKEN_BUDGET,
+      },
+      'resetting file versions b/c of token budget'
+    )
+
+    return {
+      newFileVersions,
+      addedFiles,
+      clearFileVersions: true,
+      readFilesMessage,
+    }
+  }
+
+  const newFileVersions = [...fileVersions, addedFiles].filter(
+    (files) => files.length > 0
+  )
+  if (newFiles.length === 0) {
+    return {
+      newFileVersions,
+      addedFiles,
+      readFilesMessage: undefined,
+      toolCallMessage: undefined,
+    }
+  }
+
+  const isFirstRead = fileVersions.length <= 1
+  const existingNewFilePaths = [
+    ...newFiles.filter(
+      (path) => loadedFiles[path] && loadedFiles.content !== null
+    ),
+    ...(isFirstRead ? includedInitialFiles : []),
+  ]
+  const { readFilesMessage } = getRelevantFileInfoMessage(
+    existingNewFilePaths,
+    isFirstRead
+  )
+
+  return {
+    newFileVersions,
+    addedFiles,
+    readFilesMessage,
+    existingNewFilePaths,
   }
 }
