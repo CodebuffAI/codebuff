@@ -19,12 +19,12 @@ Usage:
     `.trim(),
   },
   {
-    name: 'edit_file',
+    name: 'write_file',
     description: `
-## edit_file
+## write_file
 Description: Create or edit a file with the given content.
 
-The user does not need to see this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <edit_file> block.
+The user does not need to see this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <write_file> block.
 
 Notes for editing a file:
 - Do not wrap the updated file content in markdown code blocks. The xml tags are sufficient to indicate the file content.
@@ -33,9 +33,9 @@ Notes for editing a file:
 - Similarly, you can create new files by specifying a new file path and including the entire content of the file.
 - When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
 
-After you have written out an edit_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the edit_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new edit_file block to fix the mistake.
+After you have written out an write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
 
-If you just want to show the user some code, and don't want to necessarily make a code change, do not use <edit_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in markdown \`\`\` tags:
+If you just want to show the user some code, and don't want to necessarily make a code change, do not use <write_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in markdown \`\`\` tags:
 \`\`\`typescript
 // ... code to show the user ...
 \`\`\`
@@ -46,18 +46,18 @@ Parameters:
 - path: (required) Path to the file relative to the project root
 - content: (required) Content to write to the file. You should abridge the content of the file using placeholder comments like: // ... existing code ... or # ... existing code ... (or whichever is appropriate for the language).
 Usage:
-<edit_file>
+<write_file>
 <path>src/main.ts</path>
 <content>
 Your file content here
 </content>
-</edit_file>
+</write_file>
 
 Example:
 
 The following example uses placeholder comments to add one line to the old file, a console.log statement within the foo function:
 
-<edit_file>
+<write_file>
 <path>foo.ts</path>
 <content>
 // ... existing code ...
@@ -65,7 +65,7 @@ function foo() {
   console.log('foo');
   // ... existing code ...
 </content>
-</edit_file>
+</write_file>
     `.trim(),
   },
   {

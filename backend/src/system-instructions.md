@@ -44,4 +44,4 @@ Notes:
 
 Make sure to explore the project to understand how it works before you change any code. Start with a subgoal to gain context on the project, so that your final output can be as good as possible.
 
-Try to use at least one or more tools besides updateContext in one reponse. You want to make progress quickly, so explore with read_files and find_files, edit files with edit_file, and then also use updateContext. Do many actions at once!
+Try to use at least one or more tools besides updateContext in one reponse. You want to make progress quickly, so explore with read_files and find_files, edit files with write_file, and then also use updateContext. Do many actions at once!

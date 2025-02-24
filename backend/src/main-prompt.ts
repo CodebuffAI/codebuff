@@ -132,11 +132,11 @@ async function getFileVersionUpdates(
   const editedFilePaths = messages
     .map((m) => m.content)
     .filter(
-      (content) => typeof content === 'string' && content.includes('<edit_file')
+      (content) => typeof content === 'string' && content.includes('<write_file')
     )
     .map(
       (content) =>
-        (content as string).match(/<edit_file\s+path="([^"]+)">/)?.[1]
+        (content as string).match(/<write_file\s+path="([^"]+)">/)?.[1]
     )
     .filter((path): path is string => path !== undefined)
 
@@ -376,10 +376,10 @@ Use the "complete" tool only when you are confident the user request has been ac
     userId,
   })
   const streamWithTags = processStreamWithTags(stream, {
-    edit_file: {
+    write_file: {
       attributeNames: [],
       onTagStart: () => {
-        return `<edit_file>`
+        return `<write_file>`
       },
       onTagEnd: (body) => {
         const { path, content } = parseToolCallXml(body)
@@ -405,9 +405,9 @@ Use the "complete" tool only when you are confident the user request has been ac
             return null
           })
         )
-        const endEditFile = '<' + '/edit_file>'
-        onResponseChunk(`${path}...${endEditFile}`)
-        fullResponse += body + endEditFile
+        const endWriteFile = '<' + '/write_file>'
+        onResponseChunk(`${path}...${endWriteFile}`)
+        fullResponse += body + endWriteFile
         return false
       },
     },
@@ -429,8 +429,8 @@ Use the "complete" tool only when you are confident the user request has been ac
 
   for (const toolCall of toolCalls) {
     const { name, parameters } = toolCall
-    if (name === 'edit_file') {
-      // edit_file tool calls are handled as they are streamed in.
+    if (name === 'write_file') {
+      // write_file tool calls are handled as they are streamed in.
     } else if (name === 'update_context') {
       newAgentContext = await updateContext(newAgentContext, parameters.prompt)
       logger.debug(
@@ -586,7 +586,7 @@ Use the "complete" tool only when you are confident the user request has been ac
 
   for (const change of changes) {
     clientToolCalls.push({
-      name: 'edit_file',
+      name: 'write_file',
       parameters: change,
       id: generateCompactId(),
     })

@@ -18,7 +18,7 @@ export type ToolHandler<T extends Record<string, any>> = (
   id: string
 ) => Promise<string | BrowserResponse>
 
-export const handleEditFile: ToolHandler<{
+export const handleWriteFile: ToolHandler<{
   path: string
   content: string
   type: 'patch' | 'file'
@@ -135,7 +135,7 @@ function formatResult(
 }
 
 export const toolHandlers: Record<string, ToolHandler<any>> = {
-  edit_file: handleEditFile,
+  write_file: handleWriteFile,
   scrape_web_page: handleScrapeWebPage,
   run_terminal_command: ((parameters, id) =>
     handleRunTerminalCommand(parameters, id, 'assistant').then(

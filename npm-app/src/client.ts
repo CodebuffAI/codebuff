@@ -549,7 +549,7 @@ export class Client {
             isComplete = true
             continue
           }
-          if (toolCall.name === 'edit_file') {
+          if (toolCall.name === 'write_file') {
             this.hadFileChanges = true
           }
           const toolResult = await handleToolCall(toolCall)

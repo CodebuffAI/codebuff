@@ -63,24 +63,24 @@ export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
 export const createFileBlock = (filePath: string, content: string) => {
   return (
     '<' +
-    `edit_file path="${filePath}">
+    `write_file path="${filePath}">
 ${content}
-</edit_file` +
+</write_file>` +
     '>'
   )
 }
 export const createFileBlockWithoutPath = (content: string) => {
   return (
     '<' +
-    `edit_file>
+    `write_file>
 ${content}
-</edit_file` +
+</write_file>` +
     '>'
   )
 }
 
-export const fileRegex = /<edit_file path="([^"]+)">([\s\S]*?)<\/edit_file>/g
-export const fileWithNoPathRegex = /<edit_file>([\s\S]*?)<\/edit_file>/g
+export const fileRegex = /<write_file path="([^"]+)">([\s\S]*?)<\/write_file>/g
+export const fileWithNoPathRegex = /<write_file>([\s\S]*?)<\/write_file>/g
 
 export const parseFileBlocks = (fileBlocks: string) => {
   let fileMatch

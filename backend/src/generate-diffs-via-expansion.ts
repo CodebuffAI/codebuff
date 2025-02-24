@@ -30,10 +30,10 @@ B. In a <sections-to-expand> block, please list the comments that should be expa
 
 C1. If there are no comments to expand, write: ${createFileBlock(filePath, '[ALREADY_EXPANDED]')}
 
-C2. Otherwise, in a <edit_file> block, please expand each comment listed in <sections-to-expand> with the appropriate code from the old file to create the full expanded content of the new file.
+C2. Otherwise, in a <write_file> block, please expand each comment listed in <sections-to-expand> with the appropriate code from the old file to create the full expanded content of the new file.
 This requires you to compose the resulting file with exact lines from the old file and new file only. You are just copying whole lines character for character. Maintain the exact indentation and formatting of both the old and new content. Do not add any extra comments or explanations.
 
-Output the full content of the new file within a <edit_file> block, using the provided file path as an attribute.
+Output the full content of the new file within a <write_file> block, using the provided file path as an attribute.
 
 If comments are being added that describe the change that is being made, such as "# Add this import" or "// Add this function" or "// Update this log", then please ommit these lines from the new file.
 
@@ -696,9 +696,9 @@ ${createFileBlock(filePath, newContent)}
     expandedContentResponse
   )
 
-  // Extract the content from the <edit_file> block
+  // Extract the content from the <write_file> block
   const fileContentMatch = expandedContentResponse.match(
-    /<edit_file[^>]*>([\s\S]*)<\/edit_file>/
+    /<write_file[^>]*>([\s\S]*)<\/write_file>/
   )
   if (fileContentMatch) {
     const content = fileContentMatch[1].trim()
