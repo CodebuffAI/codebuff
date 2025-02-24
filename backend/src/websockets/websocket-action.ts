@@ -173,10 +173,6 @@ const onPrompt = async (
             })
         )
 
-        const messageHistory = agentState.messageHistory
-        const response = messageHistory[messageHistory.length - 1].content
-        logger.debug({ response, toolCalls }, 'response-complete')
-
         const {
           usage,
           limit,

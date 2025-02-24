@@ -297,7 +297,6 @@ export const agentPrompt = async (
     : messageHistory
 
   const iterationNum = messagesWithUserMessage.length
-  console.log('Iteration', iterationNum)
 
   let fullResponse = ''
   const fileProcessingPromises: Promise<FileChange | null>[] = []
@@ -360,11 +359,12 @@ Use the "complete" tool only when you are confident the user request has been ac
 
   logger.debug(
     {
-      lastMessage:
-        messagesWithUserMessage[messagesWithUserMessage.length - 1].content,
-      messageCount: messagesWithUserMessage.length,
+      prompt,
+      agentContext,
+      iteration: iterationNum,
+      toolResults,
     },
-    'Prompting Main'
+    `Main prompt ${iterationNum}`
   )
 
   const stream = promptClaudeStream(agentMessages, {
@@ -433,7 +433,12 @@ Use the "complete" tool only when you are confident the user request has been ac
       // edit_file tool calls are handled as they are streamed in.
     } else if (name === 'update_context') {
       newAgentContext = await updateContext(newAgentContext, parameters.prompt)
-      console.log('\n\nUpdated context', newAgentContext)
+      logger.debug(
+        {
+          context: newAgentContext,
+        },
+        'Updated context'
+      )
     } else if (name === 'read_files') {
       const paths = parameters.paths
         .split('\n')
@@ -594,6 +599,17 @@ Use the "complete" tool only when you are confident the user request has been ac
     ],
     agentContext: newAgentContext,
   }
+  logger.debug(
+    {
+      iteration: iterationNum,
+      prompt,
+      fullResponse,
+      toolCalls,
+      clientToolCalls,
+      agentContext: newAgentContext,
+    },
+    `Main prompt response ${iterationNum}`
+  )
   return {
     agentState: newAgentState,
     toolCalls: clientToolCalls,

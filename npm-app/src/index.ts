@@ -20,6 +20,8 @@ async function codebuff(
 ) {
   const dir = setProjectRoot(projectDir)
   console.log('Starting Codebuff in directory:', dir)
+  console.log('Codebuff version:', packageJson.version)
+  console.log('Performance mode:', costMode)
   recreateShell()
 
   const updatePromise = updateCodebuff()
