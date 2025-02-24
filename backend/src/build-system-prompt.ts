@@ -16,10 +16,12 @@ import { countTokens } from 'gpt-tokenizer'
 import { buildArray } from 'common/util/array'
 import { logger } from './util/logger'
 import { toolsInstructions } from './tools'
+import { Message } from 'common/types/message'
 
 export const buildSystemPrompt = (
   fileContext: ProjectFileContext,
   toolResults: ToolResult[],
+  messageHistory: Message[],
   messagesTokens: number
 ) => {
   const { fileVersions } = fileContext
@@ -73,6 +75,18 @@ ${toolResults
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)
   const systemInfoTokens = countTokens(systemInfoPrompt)
 
+  const messagesPrompt = `
+<user_message_history_chronological>
+${messageHistory
+  .filter((m) => m.role === 'user')
+  .map((m) => `<message>
+<role>user</role>
+<content>${m.content}</content>
+</message>`)
+  .join('\n\n')}
+</user_message_history_chronological>
+`.trim()
+
   const systemPrompt = buildArray(
     {
       type: 'text' as const,
@@ -89,7 +103,11 @@ ${toolResults
     {
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
-      text: buildArray(gitChangesPrompt, toolResultSection).join('\n\n'),
+      text: buildArray(
+        gitChangesPrompt,
+        messagesPrompt,
+        toolResultSection
+      ).join('\n\n'),
     }
   )
 

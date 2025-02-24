@@ -355,6 +355,7 @@ Use the "complete" tool only when you are confident the user request has been ac
   const system = buildSystemPrompt(
     fileContext,
     toolResults,
+    messageHistory,
     agentMessagesTokens
   )
 
