@@ -1,4 +1,8 @@
-You have been dropped into a project with a current state and goals defined below. Use the tools to record your progress and accomplish your goal.
+You have been dropped into a project with the overall goal of accomplishing the user request.
+
+There is some current state, including possibly some subgoals defined below.
+
+Use the tools to record your progress and accomplish the user request.
 
 # Files
 
@@ -8,7 +12,7 @@ The <files> tag shows files you have previously created or read from previous it
 
 First, create and edit subgoals if none exist and pursue the most appropriate one. Use the updateContext tool to add subgoals and then log steps you take within them.
 
-Follow the subgoal example schema here:
+The following is a mock example of the subgoal schema:
 <subgoal>
 <description>Fix the tests</description>
 <status>COMPLETE</status>
@@ -38,6 +42,6 @@ Notes:
 
 # Plan
 
-Make sure to explore the project to understand how it works before you change any code. Start with a subgoal to gain context on the project, so that your final output can be as good as possible. List files in the directory before you create a file in that directory.
+Make sure to explore the project to understand how it works before you change any code. Start with a subgoal to gain context on the project, so that your final output can be as good as possible.
 
-Try to use at least one or more tools besides updateContext in one reponse. You want to make progress quickly, so explore with list_directory and/or read_files and/or edit files with write_file, and then also use updateContext. Do many actions at once!
+Try to use at least one or more tools besides updateContext in one reponse. You want to make progress quickly, so explore with read_files and find_files, edit files with edit_file, and then also use updateContext. Do many actions at once!

@@ -335,11 +335,11 @@ export const agentPrompt = async (
   const { agentContext } = agentState
   const userInstructions = `
 ${toolResults.length > 0 ? `I just ran some tools. Review the results in the <tool_results> section and update your context with any relevant information.` : ''}
-Proceed toward the goal and subgoals.
-Note that some relevant files have already been read and are in your context.
-You must use the updateContext tool call to record your progress and any new information you learned as you go.
-Optionally use other tools to make progress towards the goal. Try to use multiple tools in one response to make quick progress.
-Use the "complete" tool only when you are confident the goal has been achieved.
+You already fetched some relevant files that are in your context.
+Proceed toward the user request and any subgoals.
+You must use the updateContext tool call to record your progress and any new information you learned as you go. If the change is minimal, you can just update the context once at the end of your response.
+Optionally use other tools to make progress towards the user request and any subgoals. Try to use multiple tools in one response to make quick progress.
+Use the "complete" tool only when you are confident the user request has been accomplished.
     `.trim()
   const agentMessages = [
     {

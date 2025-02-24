@@ -154,12 +154,9 @@ Important: Use this tool sparingly. Do not use this tool more than once in a con
     description: `
 ## complete
 Description: Mark the task as complete. Use this tool when you believe the task is finished but want to double-check its correctness.
-Parameters:
-- summary: (required) A brief summary of what was accomplished, to be logged once verification passes.
+Parameters: None
 Usage:
-<complete>
-<summary>Implemented the main function and tested it successfully.</summary>
-</complete>
+<complete></complete>
     `.trim(),
   },
 ] as const
@@ -189,6 +186,8 @@ Always adhere to this format for the tool use to ensure proper parsing and execu
 
 You can and should include as many tool calls in the response as you need to complete the task. You can even use the same tool multiple times if needed.
 
+No need to narrate your thought process for the tool you are going to use. Just write out the tool call and the parameters you need to use.
+
 Note that any tools you call will only be executed at the end of your current response. You can stop writing your response at any time to await the tool call results.
 
 # Tools
@@ -201,9 +200,10 @@ export async function updateContext(
   updateInstructions: string
 ) {
   const prompt = `
-We're working on a project. We have one goal. We can have multiple subgoals. Each subgoal can have a status, relevant info, and multiple logs that describe the progress of the subgoal.
+We're working on a project. We can have multiple subgoals. Each subgoal can have a status, relevant info, and multiple logs that describe the progress of the subgoal.
 
-Here's a simple subgoal example schema:
+The following is an example of a schema of a subgoal. It is for illistrative purposes and is not relevant otherwise. Use it as a reference to understand how to update the context.
+Example schema:
 <subgoal>
 <description>Fix the tests</description>
 <status>COMPLETE</status>
