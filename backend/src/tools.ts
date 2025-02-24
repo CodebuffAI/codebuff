@@ -81,7 +81,7 @@ Usage:
 src/utils.ts</paths>
 </read_files>
 
-Note that there's no need to call this tool if you're already holding the files in your context.
+Note that there's no need to call this tool if you're already reading the files you need in context.
     `.trim(),
   },
   {
@@ -116,6 +116,8 @@ Usage:
 <run_terminal_command>
 <command>Your command here</command>
 </run_terminal_command>
+
+Note that the terminal command will be executed after you end your response. You can stop writing your response at any time to await the tool call results.
     `.trim(),
   },
   {
@@ -153,7 +155,7 @@ Important: Use this tool sparingly. Do not use this tool more than once in a con
     name: 'complete',
     description: `
 ## complete
-Description: Mark the task as complete. Use this tool when you believe the task is finished but want to double-check its correctness.
+Description: Mark the task as complete. Use this tool when you believe the task is completely finished.
 Parameters: None
 Usage:
 <complete></complete>
