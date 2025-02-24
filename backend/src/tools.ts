@@ -135,8 +135,7 @@ The pattern supports regular expressions and will search recursively through all
 - Case-sensitive by default. Use -i to make it case insensitive.
 - Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
 
-Do not use code_search when:
-- You already know the exact file location
+Note that the code search tool will be executed after you end your response. You can stop writing your response at any time to await the tool call results.
     `.trim(),
   },
   {
