@@ -106,16 +106,16 @@ Note that there's no need to call this tool if you're already reading the files 
     `.trim(),
   },
   {
-    name: 'execute_command',
+    name: 'run_terminal_command',
     description: `
-## execute_command
+## run_terminal_command
 Description: Request to execute a CLI command on the system. Use this when you need to perform system operations or run specific commands to accomplish any step in the user's task. You must tailor your command to the user's system and provide a clear explanation of what the command does. For command chaining, use the appropriate chaining syntax for the user's shell. Prefer to execute complex CLI commands over creating executable scripts, as they are more flexible and easier to run. Commands will be executed in the current working directory: ${process.cwd()}
 Parameters:
 - command: (required) The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.
 Usage:
-<execute_command>
+<run_terminal_command>
 <command>Your command here</command>
-</execute_command>
+</run_terminal_command>
     `.trim(),
   },
   {
@@ -323,7 +323,7 @@ export async function checkTaskFile(
   })
 }
 
-export async function executeCommand(
+export async function runTerminalCommand(
   command: string,
   projectPath: string
 ): Promise<{

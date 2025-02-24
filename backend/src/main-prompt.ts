@@ -558,7 +558,7 @@ Use the "complete" tool only when you are confident the user request has been ac
         },
         'Generated plan'
       )
-    } else if (name === 'execute_command') {
+    } else if (name === 'run_terminal_command') {
       clientToolCalls.push({
         ...toolCall,
         id: generateCompactId(),
