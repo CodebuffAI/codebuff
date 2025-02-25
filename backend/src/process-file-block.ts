@@ -291,7 +291,7 @@ export async function fastRewrite(
   return response
 }
 
-const LARGE_FILE_TOKEN_LIMIT = 11_000
+const LARGE_FILE_TOKEN_LIMIT = 16_000
 
 async function handleLargeFile(
   oldContent: string,
