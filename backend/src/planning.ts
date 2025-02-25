@@ -9,11 +9,11 @@ import {
   ProjectFileContext,
   parseFileBlocks,
 } from 'common/util/file'
-import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { getSearchSystemPrompt } from './system-prompt'
 import { processFileBlock } from './process-file-block'
 import { requestFiles } from './websockets/websocket-action'
 import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
+import { promptClaude } from './claude'
 
 const systemPrompt = `
 You are a senior software engineer. You are given a request from a user and a set of files that are relevant to the request.
@@ -56,13 +56,9 @@ export async function planComplexChange(
     costMode: CostMode
   }
 ) {
-  const messages: OpenAIMessage[] = [
+  const messages = [
     {
-      role: 'system',
-      content: systemPrompt,
-    },
-    {
-      role: 'user',
+      role: 'user' as const,
       content: `${
         Object.keys(files).length > 0
           ? `Relevant Files:\n\n${Object.entries(files)
@@ -100,10 +96,14 @@ Request:\n${lastUserPrompt}`,
     },
   ]
 
-  let fullResponse = await promptOpenAI(messages, {
+  let fullResponse = await promptClaude(messages, {
     ...options,
-    model: models.o3mini,
-    reasoningEffort: 'high',
+    system: systemPrompt,
+    model: models.sonnet,
+    thinking: {
+      type: 'enabled',
+      budget_tokens: options.costMode === 'max' ? 10_000 : 4_000,
+    },
   })
 
   const fileBlocks = parseFileBlocks(fullResponse)
