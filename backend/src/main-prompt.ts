@@ -1,6 +1,5 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-
 import { AnthropicModel } from 'common/constants'
 import { promptClaudeStream } from './claude'
 import { parseToolCallXml } from './util/parse-tool-call-xml'
@@ -106,7 +105,7 @@ Use the "complete" tool only when you are confident the user request has been ac
     },
     {
       role: 'user' as const,
-      content: `${userInstructions}\n\nUser request: ${prompt}`,
+      content: `${userInstructions}${prompt ? `\n\nUser request: ${prompt}` : '\nPlease complete the user request.'}`,
     },
   ]
   const agentMessagesTokens = countTokensJson(agentMessages)
