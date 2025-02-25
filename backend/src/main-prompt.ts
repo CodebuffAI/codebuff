@@ -96,6 +96,7 @@ You already fetched some relevant files that are in your context.
 Proceed toward the user request and any subgoals.
 You must use the updateContext tool call to record your progress and any new information you learned as you go. If the change is minimal, you can just update the context once at the end of your response.
 Optionally use other tools to make progress towards the user request and any subgoals. Try to use multiple tools in one response to make quick progress.
+Use the "continue" tool to see the results of all the tool calls you've made so far.
 Use the "complete" tool only when you are confident the user request has been accomplished.
     `.trim()
   const agentMessages = [
@@ -213,6 +214,7 @@ Use the "complete" tool only when you are confident the user request has been ac
         ...toolCall,
         id: generateCompactId(),
       })
+    } else if (name === 'continue') {
     } else if (name === 'complete') {
       clientToolCalls.push({
         ...toolCall,

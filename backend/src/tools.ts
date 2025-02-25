@@ -185,6 +185,16 @@ Important: Use this tool sparingly. Do not use this tool more than once in a con
     `.trim(),
   },
   {
+    name: 'continue',
+    description: `
+## continue
+Description: Continue to see the results of all the tool calls you've made so far.
+Parameters: None
+Usage:
+<continue></continue>
+    `.trim(),
+  },
+  {
     name: 'complete',
     description: `
 ## complete
@@ -200,9 +210,10 @@ export const TOOL_LIST = tools.map((tool) => tool.name)
 export type ToolName = (typeof TOOL_LIST)[number]
 
 export const TOOLS_WHICH_END_THE_RESPONSE = [
-  'code_search',
-  'run_terminal_command',
-  'think_deeply',
+  // 'code_search',
+  // 'run_terminal_command',
+  // 'think_deeply',
+  'continue',
 ]
 
 export const toolsInstructions = `
