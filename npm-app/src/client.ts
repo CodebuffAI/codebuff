@@ -647,7 +647,7 @@ export class Client {
           return
         }
 
-        if (a.usage >= a.limit) {
+        if (a.usage >= a.limit && !a.subscription_active) {
           console.log(
             blue(
               `\nYou have exceeded your monthly usage limit. Please upgrade your plan at ${process.env.NEXT_PUBLIC_APP_URL}/pricing`
