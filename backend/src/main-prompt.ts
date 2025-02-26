@@ -132,7 +132,7 @@ export async function mainPrompt(
     : []
   let isComplete = false
   let iterationCount = 0
-  const MAX_ITERATIONS = 5
+  const MAX_ITERATIONS = 15
 
   let newLastMessage: Message = lastMessage
   if (lastMessage.role === 'user' && typeof lastMessage.content === 'string') {
@@ -154,6 +154,7 @@ export async function mainPrompt(
   }
 
   while (!isComplete) {
+    console.log('iteration', iterationCount)
     const messagesWithContinuedMessage = continuedMessages
       ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
       : messages
@@ -495,16 +496,20 @@ export async function mainPrompt(
       const lines = fullResponse.split('\n')
       logger.debug({ lastLine: lines.at(-1) }, 'Continuing to generate')
       const fullResponseMinusLastLine = lines.slice(0, -1).join('\n') + '\n'
-      continuedMessages = [
-        {
-          role: 'assistant',
-          content: fullResponseMinusLastLine,
-        },
-        {
-          role: 'user',
-          content: `You got cut off, but please continue from the very next line of your response. Do not repeat anything you have just said. Just continue as if there were no interruption from the very last character of your last response. (Alternatively, just end your response with the following marker if you were done generating and want to allow the user to give further guidance: ${STOP_MARKER})`,
-        },
-      ]
+      if (fullResponseMinusLastLine.trim()) {
+        continuedMessages = [
+          {
+            role: 'assistant',
+            content: fullResponseMinusLastLine,
+          },
+          {
+            role: 'user',
+            content: `You got cut off, but please continue from the very next line of your response. Do not repeat anything you have just said. Just continue as if there were no interruption from the very last character of your last response. (Alternatively, just end your response with the following marker if you were done generating and want to allow the user to give further guidance: ${STOP_MARKER})`,
+          },
+        ]
+      } else {
+        continuedMessages = []
+      }
     }
 
     iterationCount++
