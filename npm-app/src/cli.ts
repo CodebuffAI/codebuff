@@ -245,9 +245,13 @@ export class CLI {
     }
 
     const runPrefix = '/run '
+    const bangPrefix = '!'
     const hasRunPrefix = userInput.startsWith(runPrefix)
+    const hasBangPrefix = userInput.startsWith(bangPrefix)
+    
     if (
       hasRunPrefix ||
+      hasBangPrefix ||
       (!SKIPPED_TERMINAL_COMMANDS.some((cmd) =>
         userInput.toLowerCase().startsWith(cmd)
       ) &&
@@ -255,9 +259,15 @@ export class CLI {
         !userInput.includes("'") &&
         userInput.split(' ').length <= 5)
     ) {
-      const withoutRunPrefix = userInput.replace(runPrefix, '')
+      let commandToRun = userInput
+      if (hasRunPrefix) {
+        commandToRun = userInput.replace(runPrefix, '')
+      } else if (hasBangPrefix) {
+        commandToRun = userInput.replace(bangPrefix, '')
+      }
+      
       const { result, stdout } = await handleRunTerminalCommand(
-        { command: withoutRunPrefix },
+        { command: commandToRun },
         'user',
         'user'
       )
@@ -265,7 +275,7 @@ export class CLI {
         this.setPrompt()
         this.rl.prompt()
         return true
-      } else if (hasRunPrefix) {
+      } else if (hasRunPrefix || hasBangPrefix) {
         process.stdout.write(stdout)
         this.setPrompt()
         this.rl.prompt()

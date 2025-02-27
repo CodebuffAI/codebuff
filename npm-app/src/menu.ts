@@ -97,7 +97,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
 
   console.log('\nCOMMANDS')
   console.log('- Enter terminal commands directly: "cd backend", "npm test"')
-  console.log('- Use "/run <command>" for long terminal commands')
+  console.log('- Use "!command" to run terminal commands (e.g. "!ls -la")')
   console.log('- Press ESC to cancel generation')
   console.log(
     '- Type "undo" or "redo" (abbreviated "u" or "r") to undo or redo the last change'
