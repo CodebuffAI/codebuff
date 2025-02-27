@@ -201,22 +201,16 @@ Use the "complete" tool only when you are confident the user request has been ac
 
   for (const toolCall of toolCalls) {
     const { name, parameters } = toolCall
-    if (name === 'write_file') {
+    if (name === 'continue') {
+    } else if (name === 'write_file') {
       // write_file tool calls are handled as they are streamed in.
-    } else if (name === 'code_search') {
+    } else if (
+      name === 'code_search' ||
+      name === 'run_terminal_command' ||
+      name === 'complete'
+    ) {
       clientToolCalls.push({
-        ...toolCall,
-        id: generateCompactId(),
-      })
-    } else if (name === 'run_terminal_command') {
-      clientToolCalls.push({
-        ...toolCall,
-        id: generateCompactId(),
-      })
-    } else if (name === 'continue') {
-    } else if (name === 'complete') {
-      clientToolCalls.push({
-        ...toolCall,
+        ...(toolCall as ClientToolCall),
         id: generateCompactId(),
       })
     } else if (name === 'update_context') {
