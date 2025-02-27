@@ -3,6 +3,7 @@ import path from 'path'
 import { models, TEST_USER_ID } from 'common/constants'
 import { spawn } from 'child_process'
 import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
+import { z } from 'zod'
 
 const tools = [
   {
@@ -206,8 +207,79 @@ Usage:
   },
 ] as const
 
+// Define Zod schemas for parameter validation
+const updateContextSchema = z.object({
+  prompt: z.string().min(1, 'Prompt cannot be empty'),
+})
+
+const writeFileSchema = z.object({
+  path: z.string().min(1, 'Path cannot be empty'),
+  content: z.string(),
+})
+
+const readFilesSchema = z.object({
+  paths: z.string().min(1, 'Paths cannot be empty'),
+})
+
+const findFilesSchema = z.object({
+  description: z.string().min(1, 'Description cannot be empty'),
+})
+
+const codeSearchSchema = z.object({
+  pattern: z.string().min(1, 'Pattern cannot be empty'),
+})
+
+const runTerminalCommandSchema = z.object({
+  command: z.string().min(1, 'Command cannot be empty'),
+})
+
+const emptySchema = z.object({}).transform(() => ({}))
+
+// Map tool names to their schemas
+const toolSchemas = {
+  update_context: updateContextSchema,
+  write_file: writeFileSchema,
+  read_files: readFilesSchema,
+  find_files: findFilesSchema,
+  code_search: codeSearchSchema,
+  run_terminal_command: runTerminalCommandSchema,
+  think_deeply: emptySchema,
+  continue: emptySchema,
+  complete: emptySchema,
+} as const
+
+export const parseRawToolCall = (rawToolCall: {
+  name: string
+  parameters: Record<string, string>
+}): ToolCall => {
+  const { name, parameters } = rawToolCall
+
+  // Look up the schema for this tool
+  const schema = toolSchemas[name as ToolName]
+  if (!schema) {
+    throw new Error(`Tool ${name} not found`)
+  }
+
+  // Parse and validate the parameters
+  const result = schema.safeParse(parameters)
+  if (!result.success) {
+    throw new Error(`Invalid parameters for ${name}: ${result.error.message}`)
+  }
+
+  // Return the validated and transformed parameters
+  return {
+    name: name as ToolName,
+    parameters: result.data,
+  }
+}
+
 export const TOOL_LIST = tools.map((tool) => tool.name)
 export type ToolName = (typeof TOOL_LIST)[number]
+
+export type ToolCall<T extends ToolName = ToolName> = {
+  name: T
+  parameters: z.infer<(typeof toolSchemas)[T]>
+}
 
 export const TOOLS_WHICH_END_THE_RESPONSE = [
   // 'code_search',
@@ -417,7 +489,8 @@ export interface ClientToolCall extends RawToolCall {
   id: string
 }
 
-export function parseToolCalls(messageContent: string): RawToolCall[] {
+export function parseToolCalls(messageContent: string) {
+  // TODO: Return a typed tool call. Typescript is hard.
   const toolCalls: RawToolCall[] = []
   const toolRegex = new RegExp(
     `<(${TOOL_LIST.join('|')})>([\\s\\S]*?)<\/\\1>`,
@@ -437,6 +510,12 @@ export function parseToolCalls(messageContent: string): RawToolCall[] {
       parameters[paramName] = paramValue.trim()
     }
 
+    // try {
+    //   const parsedToolCall = parseRawToolCall({ name, parameters })
+    //   toolCalls.push(parsedToolCall)
+    // } catch (error) {
+    //   console.error(`Failed to parse tool call ${name}:`, error)
+    // }
     toolCalls.push({ name: name as ToolName, parameters })
   }
 
