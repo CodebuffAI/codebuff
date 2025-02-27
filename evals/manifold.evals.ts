@@ -35,23 +35,23 @@ export const runEvals = async (repoPath: string) => {
       )
       const changes = writeFileCalls.map((call) => call.parameters)
 
-      console.log('changes', changes)
       const filePathToPatch = Object.fromEntries(
         changes.map((change) => [change.path, change.content])
       )
       const filesChanged = Object.keys(filePathToPatch)
 
+      console.log('filesChanged', filesChanged)
       expect(
-        filesChanged.includes('web/components/contract/like-button.tsx'),
+        filesChanged,
         'includes like-button.tsx file'
-      )
+      ).toEqual(['web/components/contract/react-button.tsx'])
 
       const likeButtonFile =
-        filePathToPatch['web/components/contract/like-button.tsx']
+        filePathToPatch['web/components/contract/react-button.tsx']
       expect(
         !!likeButtonFile && likeButtonFile.includes('console.log('),
         'like-button.tsx includes console.log'
-      )
+      ).toBe(true)
     },
     { timeout: 120_000 }
   )
