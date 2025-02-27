@@ -1,0 +1,191 @@
+import { expect, test } from 'bun:test'
+
+import {
+  applyAndRevertChangesSequentially,
+  createFileReadingMock,
+  extractErrorFiles,
+  getProjectFileContext,
+  runMainPrompt,
+  runTerminalCommand,
+} from './scaffolding'
+
+export const runEvals = async (repoPath: string) => {
+  createFileReadingMock(repoPath)
+  const { currentWorkingDirectory } = await getProjectFileContext(repoPath)
+
+  await runTerminalCommand(
+    `cd ${currentWorkingDirectory}/backend/api && yarn compile`
+  )
+
+  test(
+    'test full file path',
+    async () => {
+      const fileContext = await getProjectFileContext(repoPath)
+      const { toolCalls } = await runMainPrompt(fileContext, [
+        {
+          role: 'user',
+          content:
+            'Can you add a console.log statement to components/like-button.ts with all the props?',
+        },
+      ])
+
+      // Extract write_file tool calls
+      const writeFileCalls = toolCalls.filter(
+        (call) => call.name === 'write_file'
+      )
+      const changes = writeFileCalls.map((call) => call.parameters)
+
+      console.log('changes', changes)
+      const filePathToPatch = Object.fromEntries(
+        changes.map((change) => [change.path, change.content])
+      )
+      const filesChanged = Object.keys(filePathToPatch)
+
+      expect(
+        filesChanged.includes('web/components/contract/like-button.tsx'),
+        'includes like-button.tsx file'
+      )
+
+      const likeButtonFile =
+        filePathToPatch['web/components/contract/like-button.tsx']
+      expect(
+        !!likeButtonFile && likeButtonFile.includes('console.log('),
+        'like-button.tsx includes console.log'
+      )
+    },
+    { timeout: 120_000 }
+  )
+}
+
+/*
+const testDeleteComment = async ({
+  expectTrue,
+  incrementScore,
+}: ScoreTestContext) => {
+  const fileContext = await getProjectFileContext()
+  const { toolCalls } = await runMainPrompt(fileContext, [
+    {
+      role: 'user',
+      content: 'Add an endpoint to delete a comment',
+    },
+  ])
+
+  // Extract write_file tool calls
+  const writeFileCalls = toolCalls.filter((call) => call.name === 'write_file')
+  const changes = writeFileCalls.map((call) => ({
+    path: call.parameters.path,
+    content: call.parameters.content,
+  }))
+
+  const filePathToPatch = Object.fromEntries(
+    changes.map((change) => [change.path, change.content])
+  )
+  const filesChanged = Object.keys(filePathToPatch)
+  expectTrue(
+    'includes delete-comment.ts file',
+    filesChanged.includes('backend/api/src/delete-comment.ts')
+  )
+  expectTrue(
+    'includes app.ts file',
+    filesChanged.includes('backend/api/src/app.ts')
+  )
+  expectTrue(
+    'includes schema.ts file',
+    filesChanged.includes('common/src/api/schema.ts')
+  )
+
+  const deleteCommentFile = filePathToPatch['backend/api/src/delete-comment.ts']
+  expectTrue(
+    'delete-comment.ts references comment_id',
+    !!deleteCommentFile && deleteCommentFile.includes('comment_id')
+  )
+  expectTrue(
+    'delete-comment.ts references isAdmin',
+    !!deleteCommentFile && deleteCommentFile.includes('isAdmin')
+  )
+
+  await applyAndRevertChangesSequentially(
+    fileContext.currentWorkingDirectory,
+    changes as any,
+    async () => {
+      const compileResult = await runTerminalCommand(
+        `cd ${fileContext.currentWorkingDirectory}/backend/api && yarn compile`
+      )
+      const errorFiles = extractErrorFiles(compileResult.stdout)
+      const scoreChange = Math.max(3 - errorFiles.length, 0)
+      incrementScore(
+        scoreChange,
+        3,
+        `${errorFiles.join(', ')}: ${errorFiles.length} files with type errors`
+      )
+    }
+  )
+}
+
+const testDeleteCommentWithoutKnowledge = async ({
+  expectTrue,
+  incrementScore,
+}: ScoreTestContext) => {
+  const fileContext = await getProjectFileContext()
+  fileContext.knowledgeFiles = {}
+
+  const { toolCalls } = await runMainPrompt(fileContext, [
+    {
+      role: 'user',
+      content: 'Add an endpoint to delete a comment',
+    },
+  ])
+
+  // Extract write_file tool calls
+  const writeFileCalls = toolCalls.filter((call) => call.name === 'write_file')
+  const changes = writeFileCalls.map((call) => ({
+    path: call.parameters.path,
+    content: call.parameters.content,
+  }))
+
+  const filePathToPatch = Object.fromEntries(
+    changes.map((change) => [change.path, change.content])
+  )
+  const filesChanged = Object.keys(filePathToPatch)
+
+  expectTrue(
+    'includes delete-comment.ts file',
+    filesChanged.includes('backend/api/src/delete-comment.ts')
+  )
+  expectTrue(
+    'includes app.ts file',
+    filesChanged.includes('backend/api/src/app.ts')
+  )
+  expectTrue(
+    'includes schema.ts file',
+    filesChanged.includes('common/src/api/schema.ts')
+  )
+
+  const deleteCommentFile = filePathToPatch['backend/api/src/delete-comment.ts']
+  expectTrue(
+    'delete-comment.ts references comment_id',
+    !!deleteCommentFile && deleteCommentFile.includes('comment_id')
+  )
+  expectTrue(
+    'delete-comment.ts references isAdmin',
+    !!deleteCommentFile && deleteCommentFile.includes('isAdmin')
+  )
+
+  await applyAndRevertChangesSequentially(
+    fileContext.currentWorkingDirectory,
+    changes as any,
+    async () => {
+      const compileResult = await runTerminalCommand(
+        `cd ${fileContext.currentWorkingDirectory}/backend/api && yarn compile`
+      )
+      const errorFiles = extractErrorFiles(compileResult.stdout)
+      const scoreChange = Math.max(3 - errorFiles.length, 0)
+      incrementScore(
+        scoreChange,
+        3,
+        `${errorFiles.join(', ')}: ${errorFiles.length} files with type errors`
+      )
+    }
+  )
+}
+*/

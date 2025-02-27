@@ -4,6 +4,7 @@ import { models, TEST_USER_ID } from 'common/constants'
 import { spawn } from 'child_process'
 import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
 import { z } from 'zod'
+import { FileChange } from 'common/actions'
 
 const tools = [
   {
@@ -485,9 +486,17 @@ export interface RawToolCall {
   parameters: Record<string, string>
 }
 
-export interface ClientToolCall extends RawToolCall {
-  id: string
-}
+export type ClientToolCall =
+  | {
+      id: string
+      name: Exclude<ToolName, 'write_file'>
+      parameters: Record<string, string>
+    }
+  | {
+      id: string
+      name: 'write_file'
+      parameters: FileChange
+    }
 
 export function parseToolCalls(messageContent: string) {
   // TODO: Return a typed tool call. Typescript is hard.

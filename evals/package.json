@@ -1,0 +1,16 @@
+{
+  "name": "evals",
+  "version": "1.0.0",
+  "description": "Evaluation scripts for Codebuff",
+  "scripts": {
+    "test": "bun test src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.16",
+    "@types/lodash": "^4.14.195"
+  }
+}
