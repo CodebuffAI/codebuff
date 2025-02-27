@@ -32,7 +32,7 @@ import {
   loadFilesForPlanning,
   planComplexChange,
 } from './planning'
-import { getMessageText } from './util/messages'
+import { getMessageText, trimMessagesToFitTokenLimit } from './util/messages'
 
 export async function mainPrompt(
   ws: WebSocket,
@@ -160,16 +160,24 @@ export async function mainPrompt(
 
     const messagesTokens = countTokensJson(messagesWithContinuedMessage)
     const system = getAgentSystemPrompt(fileContext, costMode, messagesTokens)
+    const systemTokens = countTokensJson(system)
+
+    const trimmedMessages = trimMessagesToFitTokenLimit(
+      messagesWithContinuedMessage,
+      systemTokens,
+      lastUserMessageIndex
+    )
 
     logger.debug(
       {
         lastMessage: messages[messages.length - 1].content,
         messageCount: messages.length,
+        trimmedMessages,
       },
       'Prompting Main'
     )
 
-    const stream = promptClaudeStream(messagesWithContinuedMessage, {
+    const stream = promptClaudeStream(trimmedMessages, {
       system,
       model: getModelForMode(costMode, 'agent') as AnthropicModel,
       clientSessionId,
