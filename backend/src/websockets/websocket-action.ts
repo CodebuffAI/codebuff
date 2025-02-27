@@ -433,11 +433,7 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {
     const requestId = generateCompactId()
     const unsubscribe = subscribeToAction('read-files-response', (action) => {
-      const receivedFilePaths = Object.keys(action.files)
-      if (
-        (action.requestId !== undefined && action.requestId === requestId) ||
-        isEqual(receivedFilePaths, filePaths)
-      ) {
+      if (action.requestId === requestId) {
         unsubscribe()
         resolve(action.files)
       }
@@ -452,5 +448,5 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
 
 export async function requestFile(ws: WebSocket, filePath: string) {
   const files = await requestFiles(ws, [filePath])
-  return files[filePath]
+  return files[filePath] ?? null
 }

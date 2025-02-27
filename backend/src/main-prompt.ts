@@ -154,7 +154,6 @@ export async function mainPrompt(
   }
 
   while (!isComplete) {
-    console.log('iteration', iterationCount)
     const messagesWithContinuedMessage = continuedMessages
       ? [...messagesWithoutLastMessage, newLastMessage, ...continuedMessages]
       : messages
