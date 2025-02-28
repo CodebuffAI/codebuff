@@ -187,13 +187,13 @@ Important: Use this tool sparingly. Do not use this tool more than once in a con
     `.trim(),
   },
   {
-    name: 'continue',
+    name: 'await_tool_results',
     description: `
-## continue
+## await_tool_results
 Description: Continue to see the results of all the tool calls you've made so far.
 Parameters: None
 Usage:
-<continue></continue>
+<await_tool_results></await_tool_results>
     `.trim(),
   },
   {
@@ -245,7 +245,7 @@ const toolSchemas = {
   code_search: codeSearchSchema,
   run_terminal_command: runTerminalCommandSchema,
   think_deeply: emptySchema,
-  continue: emptySchema,
+  await_tool_results: emptySchema,
   complete: emptySchema,
 } as const
 
@@ -286,7 +286,7 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   // 'code_search',
   // 'run_terminal_command',
   // 'think_deeply',
-  'continue',
+  'await_tool_results',
 ]
 
 export const toolsInstructions = `

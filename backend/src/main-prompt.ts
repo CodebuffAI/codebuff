@@ -211,7 +211,7 @@ Find the files that are relevant to the user request.
 
   for (const toolCall of toolCalls) {
     const { name, parameters } = toolCall
-    if (name === 'continue') {
+    if (name === 'await_tool_results') {
     } else if (name === 'write_file') {
       // write_file tool calls are handled as they are streamed in.
     } else if (
