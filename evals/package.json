@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Evaluation scripts for Codebuff",
   "scripts": {
-    "test": "bun test src/index.ts",
+    "test": "bun test ./index.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

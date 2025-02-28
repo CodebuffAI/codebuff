@@ -52,6 +52,9 @@ export const mainPrompt = async (
         },
       ]
     : messageHistory
+  const lastAssistantMessage = messagesWithUserMessage.findLast(
+    (m) => m.role === 'assistant'
+  )
 
   const iterationNum = messagesWithUserMessage.length
 
@@ -91,14 +94,13 @@ export const mainPrompt = async (
   const { agentContext } = agentState
   const userInstructions = `
 ${toolResults.length > 0 ? `I just ran some tools. Review the results in the <tool_results> section and update your context with any relevant information.` : ''}
-You already fetched some relevant files that are in your context.
 Proceed toward the user request and any subgoals.
 You must use the updateContext tool call to record your progress and any new information you learned as you go. If the change is minimal, you can just update the context once at the end of your response.
 Optionally use other tools to make progress towards the user request and any subgoals. Try to use multiple tools in one response to make quick progress.
 Use the "continue" tool to see the results of all the tool calls you've made so far.
 Use the "complete" tool only when you are confident the user request has been accomplished.
     `.trim()
-  const agentMessages = [
+  const agentMessages = buildArray(
     {
       role: 'assistant' as const,
       content: agentContext || 'No goals created yet.',
@@ -107,7 +109,15 @@ Use the "complete" tool only when you are confident the user request has been ac
       role: 'user' as const,
       content: `${userInstructions}${prompt ? `\n\nUser request: ${prompt}` : '\nPlease complete the user request.'}`,
     },
-  ]
+    lastAssistantMessage ?? {
+      role: 'assistant' as const,
+      content: `<find_files>
+<description>
+Find the files that are relevant to the user request.
+</description>
+</find_files>\n\n`,
+    }
+  )
   const agentMessagesTokens = countTokensJson(agentMessages)
   const system = buildSystemPrompt(
     fileContext,
