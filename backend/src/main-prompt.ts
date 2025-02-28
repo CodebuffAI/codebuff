@@ -113,18 +113,6 @@ export async function mainPrompt(
   const numAssistantMessages = messages
     .slice(lastUserMessageIndex)
     .filter((message) => message.role === 'assistant').length
-  const shouldPause = !allowUnboundedIteration && numAssistantMessages >= 6
-  if (shouldPause) {
-    const response = `\nI'll pause to get more instructions from the user.\n`
-    onResponseChunk(response)
-    return {
-      response,
-      changes: [],
-      toolCall: null,
-      addedFileVersions,
-      resetFileVersions,
-    }
-  }
 
   let toolCall: ToolCall | null = null
   let continuedMessages: Message[] = fullResponse
