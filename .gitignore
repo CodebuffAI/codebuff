@@ -6,6 +6,9 @@
 .env.*
 !.env.example
 
+# ctags
+tags
+
 node_modules
 yarn-error.log
 dev
