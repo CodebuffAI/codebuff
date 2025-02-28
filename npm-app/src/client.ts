@@ -1,4 +1,12 @@
-import { yellow, red, green, bold, underline, blueBright } from 'picocolors'
+import {
+  yellow,
+  red,
+  green,
+  bold,
+  underline,
+  blueBright,
+  blue,
+} from 'picocolors'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import { backendUrl } from './config'
 
@@ -230,8 +238,7 @@ export class Client {
 
       const responseToUser = [
         '\n',
-        'Press Enter to open the browser or visit:\n',
-        bold(underline(blueBright(loginUrl))),
+        `Press ${blue('ENTER')} to open your browser and finish logging in...`,
       ]
 
       console.log(responseToUser.join('\n'))
@@ -240,6 +247,11 @@ export class Client {
       this.rl.once('line', () => {
         if (shouldRequestLogin) {
           spawn(`open ${loginUrl}`, { shell: true })
+          console.log(
+            'Done. If nothing happened, copy and paste this link into your browser:'
+          )
+          console.log()
+          console.log(blue(bold(underline(loginUrl))))
         }
       })
 
