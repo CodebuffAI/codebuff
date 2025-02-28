@@ -35,13 +35,11 @@ export function trimMessagesToFitTokenLimit(
     return messages
   }
 
-  // Always keep the last user message and any subsequent messages
-  const essentialMessages = messages.slice(lastUserMessageIndex)
-  let currentMessages = essentialMessages
+  let currentMessages: Message[] = []
   let currentTokens = countTokensJson(currentMessages)
 
   // Add messages from the end toward the beginning until we approach the limit
-  for (let i = lastUserMessageIndex - 1; i >= 0; i--) {
+  for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i]
     const messageTokens = countTokensJson([message])
 
