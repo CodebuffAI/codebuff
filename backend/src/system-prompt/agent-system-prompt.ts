@@ -26,7 +26,7 @@ export const getAgentSystemPrompt = (
 ) => {
   const { fileVersions } = fileContext
   const systemInstructions = fs.readFileSync(
-    path.join(__dirname, 'system-instructions.md'),
+    path.join(__dirname, 'agent-instructions.md'),
     'utf8'
   )
 
