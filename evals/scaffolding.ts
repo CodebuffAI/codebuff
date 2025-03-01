@@ -1,4 +1,4 @@
-import { mock, test } from 'bun:test'
+import { mock } from 'bun:test'
 import path from 'path'
 import fs from 'fs'
 import { WebSocket } from 'ws'
@@ -6,7 +6,6 @@ import { WebSocket } from 'ws'
 import * as mainPromptModule from 'backend/main-prompt'
 import { ProjectFileContext } from 'common/util/file'
 import { applyAndRevertChanges } from 'common/util/changes'
-import { Message } from 'common/types/message'
 import {
   getAllFilePaths,
   getProjectFileTree,
@@ -16,7 +15,7 @@ import { EventEmitter } from 'events'
 import { FileChanges } from 'common/actions'
 import { getSystemInfo } from 'npm-app/utils/system-info'
 import { TEST_USER_ID } from 'common/constants'
-import { getInitialAgentState } from 'common/src/types/agent-state'
+import { AgentState, ToolResult } from 'common/src/types/agent-state'
 import { generateCompactId } from 'common/util/string'
 
 const DEBUG_MODE = true
@@ -77,31 +76,26 @@ export async function getProjectFileContext(
 }
 
 export async function runMainPrompt(
-  fileContext: ProjectFileContext,
-  messages: Message[]
+  agentState: AgentState,
+  prompt: string | undefined,
+  toolResults: ToolResult[]
 ) {
   const mockWs = new EventEmitter() as WebSocket
   mockWs.send = mock()
   mockWs.close = mock()
 
-  // Create an agent state with the file context and message history
-  const agentState = getInitialAgentState(fileContext)
-  agentState.messageHistory = messages
-
   // Create a prompt action that matches the new structure
   const promptAction = {
     type: 'prompt' as const,
     promptId: generateCompactId(),
-    prompt: messages[messages.length - 1]?.content as string,
+    prompt,
     fingerprintId: 'test-fingerprint-id',
     costMode: 'normal' as const,
     agentState,
-    toolResults: [],
+    toolResults,
   }
 
-  const mainPromptFn = mainPromptModule.mainPrompt
-
-  return await mainPromptFn(
+  return await mainPromptModule.mainPrompt(
     mockWs,
     promptAction,
     TEST_USER_ID,

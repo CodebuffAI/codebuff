@@ -1,13 +1,12 @@
 import { expect, test } from 'bun:test'
 
 import {
-  applyAndRevertChangesSequentially,
   createFileReadingMock,
-  extractErrorFiles,
   getProjectFileContext,
   runMainPrompt,
   runTerminalCommand,
 } from './scaffolding'
+import { getInitialAgentState } from 'common/types/agent-state'
 
 export const runEvals = async (repoPath: string) => {
   createFileReadingMock(repoPath)
@@ -18,40 +17,59 @@ export const runEvals = async (repoPath: string) => {
   )
 
   test(
-    'test full file path',
+    'should find correct file',
     async () => {
       const fileContext = await getProjectFileContext(repoPath)
-      const { toolCalls } = await runMainPrompt(fileContext, [
-        {
-          role: 'user',
-          content:
-            'Can you add a console.log statement to components/like-button.ts with all the props?',
-        },
-      ])
 
-      // Extract write_file tool calls
-      const writeFileCalls = toolCalls.filter(
-        (call) => call.name === 'write_file'
+      // Create an agent state with the file context and message history
+      const agentState = getInitialAgentState(fileContext)
+
+      const prompt =
+        'Can you add a console.log statement to components/like-button.ts with all the props?'
+      const { agentState: newAgentState, toolCalls } = await runMainPrompt(
+        agentState,
+        prompt,
+        []
       )
-      const changes = writeFileCalls.map((call) => call.parameters)
 
-      const filePathToPatch = Object.fromEntries(
-        changes.map((change) => [change.path, change.content])
+      const containsCompleteToolCall = toolCalls.some(
+        (call) => call.name === 'complete'
       )
-      const filesChanged = Object.keys(filePathToPatch)
 
-      console.log('filesChanged', filesChanged)
-      expect(
-        filesChanged,
-        'includes like-button.tsx file'
-      ).toEqual(['web/components/contract/react-button.tsx'])
+      const expectedPath = 'web/components/contract/react-button.tsx'
+      if (!containsCompleteToolCall) {
+        const readFileToolCalls = toolCalls.filter(
+          (call) => call.name === 'read_files'
+        )
+        console.log('readFileToolCalls', readFileToolCalls)
+        expect(
+          readFileToolCalls.find(
+            (call) => call.parameters.path === expectedPath
+          )
+        ).toBeDefined()
+      } else {
+        // Extract write_file tool calls
+        const writeFileCalls = toolCalls.filter(
+          (call) => call.name === 'write_file'
+        )
+        const changes = writeFileCalls.map((call) => call.parameters)
 
-      const likeButtonFile =
-        filePathToPatch['web/components/contract/react-button.tsx']
-      expect(
-        !!likeButtonFile && likeButtonFile.includes('console.log('),
-        'like-button.tsx includes console.log'
-      ).toBe(true)
+        const filePathToPatch = Object.fromEntries(
+          changes.map((change) => [change.path, change.content])
+        )
+        const filesChanged = Object.keys(filePathToPatch)
+
+        console.log('filesChanged', filesChanged)
+        expect(filesChanged, 'includes like-button.tsx file').toEqual([
+          expectedPath,
+        ])
+
+        const likeButtonPatch = filePathToPatch[expectedPath]
+        expect(
+          !!likeButtonPatch && likeButtonPatch.includes('console.log('),
+          'like-button.tsx includes console.log'
+        ).toBe(true)
+      }
     },
     { timeout: 120_000 }
   )
