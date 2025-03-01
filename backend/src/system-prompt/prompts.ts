@@ -1,226 +1,10 @@
-import {
-  ProjectFileContext,
-  createFileBlock,
-  createMarkdownFileBlock,
-} from 'common/util/file'
+import { ProjectFileContext, createMarkdownFileBlock } from 'common/util/file'
 import { buildArray } from 'common/util/array'
 import { truncateString } from 'common/util/string'
 import { CostMode, STOP_MARKER } from 'common/constants'
-import { countTokens, countTokensJson } from './util/token-counter'
-import { logger } from './util/logger'
-import { uniq } from 'lodash'
 import { removeUndefinedProps } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
-import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
-
-export function getSearchSystemPrompt(
-  fileContext: ProjectFileContext,
-  costMode: CostMode,
-  messagesTokens: number
-) {
-  const startTime = Date.now()
-  const { fileVersions } = fileContext
-  const shouldDoPromptCaching = fileVersions.length > 1
-
-  const maxTokens = 500_000 // costMode === 'lite' ? 64_000 :
-  const miscTokens = 10_000
-  const systemPromptTokenBudget = maxTokens - messagesTokens - miscTokens
-
-  const projectFilesPromptContent = getProjectFilesPromptContent(
-    fileContext,
-    true
-  )
-  const filesTokens = countTokensJson(projectFilesPromptContent)
-
-  const gitChangesPrompt = getGitChangesPrompt(fileContext)
-  const fileTreeTokenBudget =
-    // Give file tree as much token budget as possible,
-    // but stick to fixed increments so as not to break prompt caching too often.
-    Math.floor(
-      (systemPromptTokenBudget - filesTokens - countTokens(gitChangesPrompt)) /
-        20_000
-    ) * 20_000
-
-  const projectFileTreePrompt = getProjectFileTreePrompt(
-    fileContext,
-    fileTreeTokenBudget,
-    'search'
-  )
-  const fileTreeTokens = countTokensJson(projectFileTreePrompt)
-
-  const systemInfoPrompt = getSystemInfoPrompt(fileContext)
-  const systemInfoTokens = countTokens(systemInfoPrompt)
-
-  const systemPrompt = buildArray(
-    {
-      type: 'text' as const,
-      cache_control: shouldDoPromptCaching
-        ? { type: 'ephemeral' as const }
-        : undefined,
-      text: [projectFileTreePrompt, systemInfoPrompt].join('\n\n'),
-    },
-    ...projectFilesPromptContent,
-    {
-      type: 'text' as const,
-      cache_control: shouldDoPromptCaching
-        ? { type: 'ephemeral' as const }
-        : undefined,
-      text: [gitChangesPrompt].join('\n\n'),
-    }
-  )
-
-  logger.debug(
-    {
-      filesTokens,
-      fileTreeTokens,
-      fileTreeTokenBudget,
-      systemInfoTokens,
-      fileVersions: fileContext.fileVersions.map((files) =>
-        files.map((f) => f.path)
-      ),
-      systemPromptTokens: countTokensJson(systemPrompt),
-      messagesTokens,
-      duration: Date.now() - startTime,
-    },
-    'search system prompt tokens'
-  )
-
-  return systemPrompt
-}
-
-export const getAgentSystemPrompt = (
-  fileContext: ProjectFileContext,
-  costMode: CostMode,
-  messagesTokens: number
-) => {
-  const startTime = Date.now()
-  // Agent token budget:
-  // System prompt stuff, git changes: 25k
-  // Files: 100k (25k for lite)
-  // File tree: 20k (5k for lite)
-  // Messages: Remaining
-  // Total: 200k (64k for lite)
-
-  const { fileVersions } = fileContext
-  const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
-
-  const projectFilesPromptContent = getProjectFilesPromptContent(
-    fileContext,
-    true
-  )
-  const filesTokens = countTokensJson(projectFilesPromptContent)
-
-  const gitChangesPrompt = getGitChangesPrompt(fileContext)
-  const fileTreeTokenBudget = 20_000 //costMode === 'lite' ? 5_000 :
-
-  const projectFileTreePrompt = getProjectFileTreePrompt(
-    fileContext,
-    fileTreeTokenBudget,
-    'agent'
-  )
-  const fileTreeTokens = countTokensJson(projectFileTreePrompt)
-
-  const systemInfoPrompt = getSystemInfoPrompt(fileContext)
-  const systemInfoTokens = countTokens(systemInfoPrompt)
-
-  const responseFormatPrompt = getResponseFormatPrompt(
-    fileContext,
-    files,
-    costMode
-  )
-  const responseFormatTokens = countTokens(responseFormatPrompt)
-
-  const systemPrompt = buildArray(
-    {
-      type: 'text' as const,
-      cache_control: { type: 'ephemeral' as const },
-      text: buildArray(
-        introPrompt,
-        editingFilesPrompt,
-        knowledgeFilesPrompt,
-        toolsPrompt,
-        projectFileTreePrompt,
-        systemInfoPrompt
-      ).join('\n\n'),
-    },
-    ...projectFilesPromptContent,
-    {
-      type: 'text' as const,
-      cache_control: { type: 'ephemeral' as const },
-      text: buildArray(gitChangesPrompt, responseFormatPrompt).join('\n\n'),
-    }
-  )
-
-  logger.debug(
-    {
-      filesTokens,
-      fileTreeTokens,
-      fileTreeTokenBudget,
-      systemInfoTokens,
-      responseFormatTokens,
-      fileVersions: fileContext.fileVersions.map((files) =>
-        files.map((f) => f.path)
-      ),
-      systemPromptTokens: countTokensJson(systemPrompt),
-      messagesTokens,
-      duration: Date.now() - startTime,
-    },
-    'agent system prompt tokens'
-  )
-
-  return systemPrompt
-}
-
-const introPrompt = `
-You are Buffy, an expert programmer assistant with extensive knowledge across backend and frontend technologies. You are a strong technical writer that communicates with clarity. You are concise. You produce opinions and code that are as simple as possible while accomplishing their purpose.
-
-As Buffy, you are friendly, professional, and always eager to help users improve their code and understanding of programming concepts.
-
-You are assisting the user with one particular coding project to which you have full access. You can see the file tree of all the files in the project. You can edit files. You can request to read any set of files to see their full content. You can run terminal commands on the user's computer within the project directory to compile code, run tests, install packages, and search for relevant code. You will be called on again and again for advice and for direct code changes and other changes to files in this project.
-
-If you are unsure about the answer to a user's question, you should say "I don't have enough information to confidently answer your question." If the scope of the change the user is requesting is too large to implement all at once (e.g. requires greater than 750 lines of code), you can tell the user the scope is too big and ask which sub-problem to focus on first.
-`.trim()
-
-export const editingFilesPrompt = `
-# Editing files
-
-<important_instructions>
-The user may have edited files since your last change. Please try to notice and preserve those changes. Don't overwrite any user edits please!
-</important_instructions>
-
-<editing_instructions>
-You implement edits by writing out <write_file> xml tags. The user does not need to see this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <write_file> block.
-
-Use the following syntax to edit a file. This example adds a console.log statement to the foo function in the file at path/to/file.ts:
-
-${createFileBlock(
-  'path/to/file.ts',
-  `// ... existing code ...
-function foo() {
-  console.log('foo');
-  // ... existing code ...
-`
-)}
-
-Notes for editing a file:
-- You must specify a file path using the path attribute.
-- Do not wrap the updated file content in markdown code blocks. The xml tags are sufficient to indicate the file content.
-- You can edit multiple files in your response by including multiple write_file blocks.
-- You should abridge the content of the file using placeholder comments like: // ... existing code ... or # ... existing code ... (or whichever is appropriate for the language). Placeholder comments signify sections that should not be changed from the existing file. Using placeholder comments for unchanged code is preferred because it is more concise and clearer. Try to minimize the number of lines you write out in edit blocks by relying on placeholder comments.
-- If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
-- Similarly, you can create new files by specifying a new file path and including the entire content of the file.
-- When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
-
-After you have written out an write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
-
-If you just want to show the user some code, and don't want to necessarily make a code change, do not use <write_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in markdown \`\`\` tags:
-\`\`\`typescript
-// ... code to show the user ...
-\`\`\`
-
-If you want to delete or rename a file, run a terminal command to do it. More details below.
-</editing_instructions>
-`.trim()
+import { truncateFileTreeBasedOnTokenBudget } from '../truncate-file-tree'
 
 export const knowledgeFilesPrompt = `
 # Knowledge files
@@ -264,6 +48,178 @@ Guidelines for updating knowledge files:
 Once again: BE CONCISE!
 
 If the user sends you the url to a page that is helpful now or could be helpful in the future (e.g. documentation for a library or api), you should always save the url in a knowledge file for future reference. Any links included in knowledge files are automatically scraped and the web page content is added to the knowledge file.
+`.trim()
+
+export const getProjectFileTreePrompt = (
+  fileContext: ProjectFileContext,
+  fileTreeTokenBudget: number,
+  mode: 'search' | 'agent'
+) => {
+  const { currentWorkingDirectory } = fileContext
+  const { printedTree, truncationLevel } = truncateFileTreeBasedOnTokenBudget(
+    fileContext,
+    Math.max(0, fileTreeTokenBudget)
+  )
+
+  const truncationNote =
+    truncationLevel === 'none'
+      ? ''
+      : truncationLevel === 'unimportant-files'
+        ? '\nNote: Unimportant files (like build artifacts and cache files) have been removed from the file tree.'
+        : truncationLevel === 'tokens'
+          ? '\nNote: Selected function, class, and variable names in source files have been removed from the file tree to fit within token limits.'
+          : '\nNote: The file tree has been truncated to show a subset of files to fit within token limits.'
+
+  return `
+# Project file tree
+
+As Buffy, you have access to all the files in the project.
+
+The following is the path to the project on the user's computer. It is also the current working directory for terminal commands:
+<project_path>
+${currentWorkingDirectory}
+</project_path>
+
+Within this project directory, here is the file tree. 
+Note that the file tree:
+- Is cached from the start of this conversation. Files created after the start of this conversation will not appear.
+- Excludes files that are .gitignored.
+${
+  mode === 'agent'
+    ? `\nThe project file tree below can be ignored unless you need to know what files are in the project.\n`
+    : ''
+}
+<project_file_tree>
+${printedTree}
+</project_file_tree>
+${truncationNote}
+`.trim()
+}
+
+const windowsNote = `
+Note: many commands in the terminal are different on Windows.
+For example, the mkdir command is \`mkdir\` instead of \`mkdir -p\`. Instead of grep, use \`findstr\`. Instead of \`ls\` use \`dir\` to list files. Instead of \`mv\` use \`move\`. Instead of \`rm\` use \`del\`. Instead of \`cp\` use \`copy\`. Unless the user is in Powershell, in which case you should use the Powershell commands instead.
+`.trim()
+
+export const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
+  const { fileTree, shellConfigFiles, systemInfo } = fileContext
+  const flattenedNodes = flattenTree(fileTree)
+  const lastReadFilePaths = getLastReadFilePaths(flattenedNodes, 20)
+
+  return `
+# System Info
+
+Operating System: ${systemInfo.platform}
+${systemInfo.platform === 'win32' ? windowsNote + '\n' : ''}
+Shell: ${systemInfo.shell}
+
+<user_shell_config_files>
+${Object.entries(shellConfigFiles)
+  .map(([path, content]) => createMarkdownFileBlock(path, content))
+  .join('\n')}
+</user_shell_config_files>
+
+The following are the most recently read files according to the OS atime. This is cached from the start of this conversation:
+<recently_read_file_paths_most_recent_first>
+${lastReadFilePaths.join('\n')}
+</recently_read_file_paths_most_recent_first>
+`.trim()
+}
+
+export const getProjectFilesPromptContent = (
+  fileContext: ProjectFileContext,
+  shouldDoPromptCaching: boolean
+) => {
+  const { fileVersions, userKnowledgeFiles } = fileContext
+
+  const userKnowledgeFilesSet = Object.entries(userKnowledgeFiles ?? {}).map(
+    ([path, content]) =>
+      createMarkdownFileBlock(`~/${path}`, content ?? '[FILE_DOES_NOT_EXIST]')
+  )
+  const fileBlockSets = [
+    ...userKnowledgeFilesSet,
+    ...fileVersions
+      .filter((files) => files.length > 0)
+      .map((files) =>
+        files
+          .map(({ path, content }) =>
+            createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
+          )
+          .join('\n')
+      ),
+  ]
+
+  const intro = `
+# Project files
+
+Below are some files that were selected to aid in the user request or were modified in this conversation.
+
+There can be multiple versions of the same file listed below, showing how it changed over the course of the conversation between you and the user. For example, the user may have asked to make some changes, so both the before and after versions of the files are listed. If the user had follow up requests, there would be even more versions of the same file listed further down.
+
+IMPORTANT: Please be aware that only the last copy of the file is up to date, and that is the one you should pay the most attention to. If you are modifying a file, you should make changes based off just the last copy of the file.
+
+If the included set of files is not sufficient to address the user's request, you can call the find_files tool to add more files for you to read to this set.
+`.trim()
+
+  return buildArray([
+    {
+      type: 'text' as const,
+      text: intro,
+    } as const,
+    ...fileBlockSets.map((fileBlockSet, i) =>
+      removeUndefinedProps({
+        type: 'text' as const,
+        text: fileBlockSet,
+        cache_control:
+          shouldDoPromptCaching &&
+          (i === fileBlockSets.length - 1 || i === fileBlockSets.length - 2)
+            ? { type: 'ephemeral' as const }
+            : undefined,
+      } as const)
+    ),
+    fileBlockSets.length === 0 && {
+      type: 'text' as const,
+      text: 'There are no files selected yet.',
+    },
+  ])
+}
+
+export const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
+  const { gitChanges } = fileContext
+  if (!gitChanges) {
+    return ''
+  }
+  const maxLength = 30_000
+  return `
+Current Git Changes:
+<git_status>
+${truncateString(gitChanges.status, maxLength / 10)}
+</git_status>
+
+<git_diff>
+${truncateString(gitChanges.diff, maxLength)}
+</git_diff>
+
+<git_diff_cached>
+${truncateString(gitChanges.diffCached, maxLength)}
+</git_diff_cached>
+
+<git_commit_messages_most_recent_first>
+${truncateString(gitChanges.lastCommitMessages, maxLength / 10)}
+</git_commit_messages_most_recent_first>
+`.trim()
+}
+
+// NOTE: Deprecated prompts below.
+
+const introPrompt = `
+You are Buffy, an expert programmer assistant with extensive knowledge across backend and frontend technologies. You are a strong technical writer that communicates with clarity. You are concise. You produce opinions and code that are as simple as possible while accomplishing their purpose.
+
+As Buffy, you are friendly, professional, and always eager to help users improve their code and understanding of programming concepts.
+
+You are assisting the user with one particular coding project to which you have full access. You can see the file tree of all the files in the project. You can edit files. You can request to read any set of files to see their full content. You can run terminal commands on the user's computer within the project directory to compile code, run tests, install packages, and search for relevant code. You will be called on again and again for advice and for direct code changes and other changes to files in this project.
+
+If you are unsure about the answer to a user's question, you should say "I don't have enough information to confidently answer your question." If the scope of the change the user is requesting is too large to implement all at once (e.g. requires greater than 750 lines of code), you can tell the user the scope is too big and ask which sub-problem to focus on first.
 `.trim()
 
 const toolsPrompt = `
@@ -478,166 +434,6 @@ Use this data to:
 - Analyze results before next action
 - Take screenshots to track your changes after each UI change you make
 `.trim()
-
-export const getProjectFileTreePrompt = (
-  fileContext: ProjectFileContext,
-  fileTreeTokenBudget: number,
-  mode: 'search' | 'agent'
-) => {
-  const { currentWorkingDirectory } = fileContext
-  const { printedTree, truncationLevel } = truncateFileTreeBasedOnTokenBudget(
-    fileContext,
-    Math.max(0, fileTreeTokenBudget)
-  )
-
-  const truncationNote =
-    truncationLevel === 'none'
-      ? ''
-      : truncationLevel === 'unimportant-files'
-        ? '\nNote: Unimportant files (like build artifacts and cache files) have been removed from the file tree.'
-        : truncationLevel === 'tokens'
-          ? '\nNote: Selected function, class, and variable names in source files have been removed from the file tree to fit within token limits.'
-          : '\nNote: The file tree has been truncated to show a subset of files to fit within token limits.'
-
-  return `
-# Project file tree
-
-As Buffy, you have access to all the files in the project.
-
-The following is the path to the project on the user's computer. It is also the current working directory for terminal commands:
-<project_path>
-${currentWorkingDirectory}
-</project_path>
-
-Within this project directory, here is the file tree. 
-Note that the file tree:
-- Is cached from the start of this conversation. Files created after the start of this conversation will not appear.
-- Excludes files that are .gitignored.
-${
-  mode === 'agent'
-    ? `\nThe project file tree below can be ignored unless you need to know what files are in the project.\n`
-    : ''
-}
-<project_file_tree>
-${printedTree}
-</project_file_tree>
-${truncationNote}
-`.trim()
-}
-
-const windowsNote = `
-Note: many commands in the terminal are different on Windows.
-For example, the mkdir command is \`mkdir\` instead of \`mkdir -p\`. Instead of grep, use \`findstr\`. Instead of \`ls\` use \`dir\` to list files. Instead of \`mv\` use \`move\`. Instead of \`rm\` use \`del\`. Instead of \`cp\` use \`copy\`. Unless the user is in Powershell, in which case you should use the Powershell commands instead.
-`.trim()
-
-export const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
-  const { fileTree, shellConfigFiles, systemInfo } = fileContext
-  const flattenedNodes = flattenTree(fileTree)
-  const lastReadFilePaths = getLastReadFilePaths(flattenedNodes, 20)
-
-  return `
-# System Info
-
-Operating System: ${systemInfo.platform}
-${systemInfo.platform === 'win32' ? windowsNote + '\n' : ''}
-Shell: ${systemInfo.shell}
-
-<user_shell_config_files>
-${Object.entries(shellConfigFiles)
-  .map(([path, content]) => createMarkdownFileBlock(path, content))
-  .join('\n')}
-</user_shell_config_files>
-
-The following are the most recently read files according to the OS atime. This is cached from the start of this conversation:
-<recently_read_file_paths_most_recent_first>
-${lastReadFilePaths.join('\n')}
-</recently_read_file_paths_most_recent_first>
-`.trim()
-}
-
-export const getProjectFilesPromptContent = (
-  fileContext: ProjectFileContext,
-  shouldDoPromptCaching: boolean
-) => {
-  const { fileVersions, userKnowledgeFiles } = fileContext
-
-  const userKnowledgeFilesSet = Object.entries(userKnowledgeFiles ?? {}).map(
-    ([path, content]) =>
-      createMarkdownFileBlock(`~/${path}`, content ?? '[FILE_DOES_NOT_EXIST]')
-  )
-  const fileBlockSets = [
-    ...userKnowledgeFilesSet,
-    ...fileVersions
-      .filter((files) => files.length > 0)
-      .map((files) =>
-        files
-          .map(({ path, content }) =>
-            createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
-          )
-          .join('\n')
-      ),
-  ]
-
-  const intro = `
-# Project files
-
-Below are some files that were selected to aid in the user request or were modified in this conversation.
-
-There can be multiple versions of the same file listed below, showing how it changed over the course of the conversation between you and the user. For example, the user may have asked to make some changes, so both the before and after versions of the files are listed. If the user had follow up requests, there would be even more versions of the same file listed further down.
-
-IMPORTANT: Please be aware that only the last copy of the file is up to date, and that is the one you should pay the most attention to. If you are modifying a file, you should make changes based off just the last copy of the file.
-
-If the included set of files is not sufficient to address the user's request, you can call the find_files tool to add more files for you to read to this set.
-`.trim()
-
-  return buildArray([
-    {
-      type: 'text' as const,
-      text: intro,
-    } as const,
-    ...fileBlockSets.map((fileBlockSet, i) =>
-      removeUndefinedProps({
-        type: 'text' as const,
-        text: fileBlockSet,
-        cache_control:
-          shouldDoPromptCaching &&
-          (i === fileBlockSets.length - 1 || i === fileBlockSets.length - 2)
-            ? { type: 'ephemeral' as const }
-            : undefined,
-      } as const)
-    ),
-    fileBlockSets.length === 0 && {
-      type: 'text' as const,
-      text: 'There are no files selected yet.',
-    },
-  ])
-}
-
-export const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
-  const { gitChanges } = fileContext
-  if (!gitChanges) {
-    return ''
-  }
-  const maxLength = 30_000
-  return `
-Current Git Changes:
-<git_status>
-${truncateString(gitChanges.status, maxLength / 10)}
-</git_status>
-
-<git_diff>
-${truncateString(gitChanges.diff, maxLength)}
-</git_diff>
-
-<git_diff_cached>
-${truncateString(gitChanges.diffCached, maxLength)}
-</git_diff_cached>
-
-<git_commit_messages_most_recent_first>
-${truncateString(gitChanges.lastCommitMessages, maxLength / 10)}
-</git_commit_messages_most_recent_first>
-`.trim()
-}
 
 const getResponseFormatPrompt = (
   fileContext: ProjectFileContext,

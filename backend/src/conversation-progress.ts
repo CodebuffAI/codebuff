@@ -8,7 +8,7 @@ import {
 } from 'common/constants'
 import { promptOpenAI } from './openai-api'
 import { promptClaude } from './claude'
-import { getAgentSystemPrompt } from './system-prompt'
+import { getAgentSystemPrompt } from './system-prompt/search-system-prompt'
 import { logger } from './util/logger'
 import { countTokensJson } from './util/token-counter'
 

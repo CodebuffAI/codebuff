@@ -4,21 +4,21 @@ import { uniq } from 'lodash'
 
 import { ProjectFileContext } from 'common/util/file'
 import { ToolResult } from 'common/types/agent-state'
-import { countTokensJson } from './util/token-counter'
+import { countTokensJson } from '../util/token-counter'
 import {
   getGitChangesPrompt,
   getProjectFilesPromptContent,
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
   knowledgeFilesPrompt,
-} from './system-prompt'
+} from './prompts'
 import { countTokens } from 'gpt-tokenizer'
 import { buildArray } from 'common/util/array'
-import { logger } from './util/logger'
-import { toolsInstructions } from './tools'
+import { logger } from '../util/logger'
+import { toolsInstructions } from '../tools'
 import { Message } from 'common/types/message'
 
-export const buildSystemPrompt = (
+export const getAgentSystemPrompt = (
   fileContext: ProjectFileContext,
   toolResults: ToolResult[],
   messageHistory: Message[],

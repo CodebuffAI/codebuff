@@ -5,7 +5,7 @@ import { promptClaudeStream } from './claude'
 import { parseToolCallXml } from './util/parse-tool-call-xml'
 import { STOP_MARKER, getModelForMode } from 'common/constants'
 import { ProjectFileContext } from 'common/util/file'
-import { getSearchSystemPrompt } from './system-prompt'
+import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { Message } from 'common/types/message'
 import { ClientAction, FileChange } from 'common/actions'
 import { type CostMode } from 'common/constants'
@@ -22,7 +22,7 @@ import {
   loadFilesForPlanning,
   planComplexChange,
 } from './planning'
-import { buildSystemPrompt } from './build-system-prompt'
+import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import {
   ClientToolCall,
   parseToolCalls,
@@ -143,7 +143,7 @@ ${toolResults
     }
   )
   const agentMessagesTokens = countTokensJson(agentMessages)
-  const system = buildSystemPrompt(
+  const system = getAgentSystemPrompt(
     fileContext,
     toolResults,
     messageHistory,

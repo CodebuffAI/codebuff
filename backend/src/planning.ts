@@ -10,7 +10,7 @@ import {
   parseFileBlocks,
 } from 'common/util/file'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
-import { getSearchSystemPrompt } from './system-prompt'
+import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { processFileBlock } from './process-file-block'
 import { requestFiles } from './websockets/websocket-action'
 import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
