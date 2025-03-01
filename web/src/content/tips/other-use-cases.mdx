@@ -14,13 +14,13 @@ Here are some example commands beyond the normal coding you can use with Codebuf
 Get feedback on your changes:
 ```bash
 # Review current changes
-codebuff "Please review my current changes"
+codebuff <project-path> "Please review my current changes"
 
 # Review branch
-codebuff "Review the differences between this branch and main"
+codebuff <project-path> "Review the differences between this branch and main"
 
 # Review specific files
-codebuff "Review the changes in src/components/auth/*"
+codebuff <project-path> "Review the changes in src/components/auth/*"
 ```
 
 ## Git Workflow Commands
@@ -28,10 +28,10 @@ codebuff "Review the changes in src/components/auth/*"
 Manage your git workflow:
 ```bash
 # Create commit message
-codebuff "Generate a commit message for these changes"
+codebuff <project-path> "Generate a commit message for these changes"
 
 # Clean up commits
-codebuff "Help me squash the last 3 commits into one"
+codebuff <project-path> "Help me squash the last 3 commits into one"
 ```
 
 ## Codebase Questions
@@ -39,10 +39,10 @@ codebuff "Help me squash the last 3 commits into one"
 Understand your codebase:
 ```bash
 # Architecture questions
-codebuff "Explain how our authentication system works"
+codebuff <project-path> "Explain how our authentication system works"
 
 # Find examples
-codebuff "Show me examples of error handling in our codebase"
+codebuff <project-path> "Show me examples of error handling in our codebase"
 ```
 
 ## Script Generation
@@ -50,10 +50,10 @@ codebuff "Show me examples of error handling in our codebase"
 Create scripts for common tasks:
 ```bash
 # Data processing
-codebuff "Write a script to calculate our churn this month"
+codebuff <project-path> "Write a script to calculate our churn this month"
 
 # Build automation
-codebuff "Create a script to automate our release process"
+codebuff <project-path> "Create a script to automate our release process"
 ```
 
 ## Documentation Commands
@@ -61,13 +61,13 @@ codebuff "Create a script to automate our release process"
 Generate and update documentation:
 ```bash
 # API docs
-codebuff "Document this new API endpoint"
+codebuff <project-path> "Document this new API endpoint"
 
 # Component docs
-codebuff "Add JSDoc comments to this React component"
+codebuff <project-path> "Add JSDoc comments to this React component"
 
 # README updates
-codebuff "Update the README with the new environment variables"
+codebuff <project-path> "Update the README with the new environment variables"
 ```
 
 ## Configuration Commands
@@ -75,10 +75,10 @@ codebuff "Update the README with the new environment variables"
 Handle configuration tasks:
 ```bash
 # Tool setup
-codebuff "Help me configure ESLint for this project"
+codebuff <project-path> "Help me configure ESLint for this project"
 
 # Build config
-codebuff "Update webpack to handle .mdx files"
+codebuff <project-path> "Update webpack to handle .mdx files"
 ```
 
 ## SQL Commands
@@ -86,16 +86,16 @@ codebuff "Update webpack to handle .mdx files"
 Get help with database operations:
 ```bash
 # Query writing
-codebuff "Help me write a query to find users who haven't logged in for 30 days"
+codebuff <project-path> "Help me write a query to find users who haven't logged in for 30 days"
 
 # Query optimization
-codebuff "How can I make this query faster?"
+codebuff <project-path> "How can I make this query faster?"
 
 # Index suggestions
-codebuff "What indexes should I add for this query?"
+codebuff <project-path> "What indexes should I add for this query?"
 
 # Schema changes
-codebuff "Help me write a migration to add a status column"
+codebuff <project-path> "Help me write a migration to add a status column"
 ```
 
 Remember that Codebuff understands natural language, so you don't need to use exact commands. Describe what you want to do in your own words, and Codebuff will help you accomplish it.

@@ -75,6 +75,9 @@ export default function CategoryPage({ params }: CategoryPageProps) {
     CodeDemo: dynamic(() =>
       import('@/components/docs/mdx/code-demo').then((mod) => mod.CodeDemo)
     ),
+    MarkdownTable: dynamic(() =>
+      import('@/components/docs/mdx/markdown-table').then((mod) => mod.MarkdownTable)
+    ),
     a: dynamic(() =>
       import('@/components/docs/mdx/custom-link').then((mod) => mod.CustomLink)
     ),

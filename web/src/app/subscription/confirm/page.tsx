@@ -73,27 +73,28 @@ const useUpgradeSubscription = (
       const modification = changeOrUpgrade(currentPlan, targetPlan)
       router.push('/payment-change?modification=' + modification)
     },
-    onError: async (error: any) => {
-      console.error('Error upgrading subscription:', error)
+    onError: async (err: string) => {
+      console.error('Error upgrading subscription:', err)
 
-      // Try to get the error message from the API response
-      let errorMessage = error.message
-      if (error instanceof Error && 'cause' in error) {
-        try {
-          const response = error.cause as Response
-          if (response?.json) {
-            const data = await response.json()
-            errorMessage = data.error?.message || errorMessage
-          }
-        } catch (e) {
-          console.error('Failed to parse error response:', e)
-        }
+      let error: JSX.Element = <p>err</p>
+      if (err.includes('unpaid invoices')) {
+        // rewrite the error message to be more user-friendly and link to the invoices page
+        error = (
+          <p>
+            You have unpaid invoices. Please{' '}
+            <a href={env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}>
+              <a>pay your invoices</a>
+            </a>{' '}
+            before upgrading.
+          </p>
+        )
       }
 
       toast({
         variant: 'destructive',
         title: `Error updating subscription`,
-        description: errorMessage,
+        description: <p>error</p>,
+        onClick: () => router.push(env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL),
       })
     },
   })

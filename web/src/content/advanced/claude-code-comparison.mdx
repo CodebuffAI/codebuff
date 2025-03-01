@@ -1,0 +1,56 @@
+---
+title: 'Codebuff vs Claude Code'
+section: 'advanced'
+tags: ['comparison', 'claude code']
+order: 5
+---
+
+# Codebuff vs Claude Code
+
+Anthropic recently released Claude Code, their own AI coding assistant.
+
+Both Codebuff and Claude Code:
+
+- Run in your terminal for a seamless coding experience
+- Understand your entire codebase context
+- Can edit files and execute terminal commands
+- Use Claude 3.7 Sonnet as their primary model
+- Help with code generation, bug fixing, and understanding code
+
+## When to Choose Codebuff
+
+Codebuff might be a better choice if you value:
+
+- Speed and Cost: Codebuff is [nearly 4 times faster](https://x.com/jahooma/status/1894224663817195599) and half the cost of  than Claude Code for equivalent tasks
+- Resource Usage: [Lower CPU utilization](https://x.com/brandonkachen/status/1894108912279752979), no constant console clearing
+- Holistic Codebase Analysis: Codebuff pulls more context from scanning your entire codebase, rather than file-by-file. Codebuff also [blends different models](/docs/advanced#what-models-do-you-use?) based on their strengths to provide more accurate results.
+- Edit Precision: Makes targeted edits instead of [complete file rewrites](https://x.com/skcd42/status/1894158600513155297)
+- Staying in Flow: Codebuff requires fewer confirmation prompts for file edits and command execution.
+
+## When to Choose Claude Code
+
+Claude Code might be a better choice if you:
+
+- Can't use an intermediary provider, need to use the API directly from Anthropic
+- Prefer usage-based pricing for occasional use
+
+## Feature Comparison
+
+<MarkdownTable>
+| Feature | Codebuff | Claude Code |
+| --- | --- | --- |
+| CLI-based interaction | ✅ | ✅ |
+| Natural language commands | ✅ | ✅ |
+| Autonomous test execution | ✅ | ✅ |
+| Deep, targeted context awareness | ✅ | ❌ |
+| Large context window | ✅ (200k - 1M) | ✅ (200k) |
+| Fast diff edits (no full rewrites) | ✅ | ❌ |
+| Accuracy at scale | ✅ | ❌ |
+| Cost | $ | $$$ |
+| Polished UI | ❌ | ✅ |
+| Minimal interruptions | ✅ | ❌ |
+</MarkdownTable>
+
+## Summary
+
+Both Codebuff and Claude Code are powerful AI coding assistants that can significantly boost your productivity. Codebuff offers more flexible pricing and performance options, while Claude Code provides direct integration with Anthropic's ecosystem.
