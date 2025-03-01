@@ -3,7 +3,7 @@ import path from 'path'
 import { green } from 'picocolors'
 import * as os from 'os'
 import { detectShell } from './detect-shell'
-import { getProjectRoot, setProjectRoot } from '../project-files'
+import { setProjectRoot } from '../project-files'
 import { truncateStringWithMessage } from 'common/util/string'
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
 
@@ -135,12 +135,11 @@ export const isCommandRunning = () => {
   return commandIsRunning
 }
 
-export const recreateShell = () => {
-  const dir = getProjectRoot()
-  persistentProcess = createPersistantProcess(dir)
+export const recreateShell = (projectPath: string) => {
+  persistentProcess = createPersistantProcess(projectPath)
 }
 
-export const resetShell = () => {
+export const resetShell = (projectPath: string) => {
   commandIsRunning = false
   if (persistentProcess) {
     if (persistentProcess.timerId) {
@@ -150,7 +149,7 @@ export const resetShell = () => {
 
     if (persistentProcess.type === 'pty') {
       persistentProcess.pty.kill()
-      recreateShell()
+      recreateShell(projectPath)
     } else {
       persistentProcess.childProcess?.kill()
       persistentProcess = {
@@ -197,7 +196,8 @@ const MAX_EXECUTION_TIME = 30_000
 
 export const runTerminalCommand = async (
   command: string,
-  mode: 'user' | 'assistant'
+  mode: 'user' | 'assistant',
+  projectPath: string
 ): Promise<{ result: string; stdout: string }> => {
   return new Promise((resolve) => {
     if (!persistentProcess) {
@@ -205,7 +205,7 @@ export const runTerminalCommand = async (
     }
 
     if (commandIsRunning) {
-      resetShell()
+      resetShell(projectPath)
     }
 
     commandIsRunning = true
@@ -216,10 +216,22 @@ export const runTerminalCommand = async (
     }
 
     if (persistentProcess.type === 'pty') {
-      runCommandPty(persistentProcess, command, mode, resolveCommand)
+      runCommandPty(
+        persistentProcess,
+        command,
+        mode,
+        resolveCommand,
+        projectPath
+      )
     } else {
       // Fallback to child_process implementation
-      runCommandChildProcess(persistentProcess, command, mode, resolveCommand)
+      runCommandChildProcess(
+        persistentProcess,
+        command,
+        mode,
+        resolveCommand,
+        projectPath
+      )
     }
   })
 }
@@ -230,9 +242,9 @@ const runCommandPty = (
   },
   command: string,
   mode: 'user' | 'assistant',
-  resolve: (value: { result: string; stdout: string }) => void
+  resolve: (value: { result: string; stdout: string }) => void,
+  projectPath: string
 ) => {
-  let projectRoot = getProjectRoot()
   const ptyProcess = persistentProcess.pty
   let commandOutput = ''
   let foundFirstNewLine = false
@@ -245,7 +257,7 @@ const runCommandPty = (
   const timer = setTimeout(() => {
     if (mode === 'assistant') {
       // Kill and recreate PTY
-      resetShell()
+      resetShell(projectPath)
 
       resolve({
         result: formatResult(
@@ -300,13 +312,13 @@ const runCommandPty = (
 
       if (command.startsWith('cd ') && mode === 'user') {
         const newWorkingDirectory = command.split(' ')[1]
-        projectRoot = setProjectRoot(
-          path.join(projectRoot, newWorkingDirectory)
+        projectPath = setProjectRoot(
+          path.join(projectPath, newWorkingDirectory)
         )
       }
 
       // Reset the PTY to the project root
-      ptyProcess.write(`cd ${projectRoot}\r`)
+      ptyProcess.write(`cd ${projectPath}\r`)
 
       resolve({
         result: formatResult(commandOutput, 'Command completed'),
@@ -321,7 +333,9 @@ const runCommandPty = (
 
   const isWindows = os.platform() === 'win32'
   // Write the command
-  const commandWithCheck = isWindows ? command : `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "Command completed. "; else printf "Command failed with exit code $ec. "; fi`
+  const commandWithCheck = isWindows
+    ? command
+    : `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "Command completed. "; else printf "Command failed with exit code $ec. "; fi`
   ptyProcess.write(commandWithCheck + '\r')
 }
 
@@ -331,9 +345,9 @@ const runCommandChildProcess = (
   },
   command: string,
   mode: 'user' | 'assistant',
-  resolve: (value: { result: string; stdout: string }) => void
+  resolve: (value: { result: string; stdout: string }) => void,
+  projectPath: string
 ) => {
-  let projectRoot = getProjectRoot()
   const isWindows = os.platform() === 'win32'
   let commandOutput = ''
 
@@ -346,7 +360,7 @@ const runCommandChildProcess = (
     persistentProcess.shell,
     [isWindows ? '/c' : '-c', command],
     {
-      cwd: projectRoot,
+      cwd: projectPath,
       env: {
         ...process.env,
         PAGER: 'cat',
@@ -362,7 +376,7 @@ const runCommandChildProcess = (
   }
 
   const timer = setTimeout(() => {
-    resetShell()
+    resetShell(projectPath)
     if (mode === 'assistant') {
       resolve({
         result: formatResult(
@@ -405,7 +419,7 @@ const runCommandChildProcess = (
 
     if (command.startsWith('cd ') && mode === 'user') {
       const newWorkingDirectory = command.split(' ')[1]
-      setProjectRoot(path.join(projectRoot, newWorkingDirectory))
+      projectPath = setProjectRoot(path.join(projectPath, newWorkingDirectory))
     }
 
     if (mode === 'assistant') {

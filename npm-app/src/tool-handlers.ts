@@ -4,7 +4,6 @@ import { spawn } from 'child_process'
 import { BrowserActionSchema, BrowserResponse } from 'common/browser-actions'
 import { handleBrowserInstruction } from './browser-runner'
 import { scrapeWebPage } from './web-scraper'
-import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './utils/terminal'
 import { truncateStringWithMessage } from 'common/util/string'
 import * as path from 'path'
@@ -15,16 +14,17 @@ import { FileChangeSchema } from 'common/actions'
 
 export type ToolHandler<T extends Record<string, any>> = (
   parameters: T,
-  id: string
+  id: string,
+  projectPath: string
 ) => Promise<string | BrowserResponse>
 
 export const handleWriteFile: ToolHandler<{
   path: string
   content: string
   type: 'patch' | 'file'
-}> = async (parameters) => {
+}> = async (parameters, _id, projectPath) => {
   const fileChange = FileChangeSchema.parse(parameters)
-  const { created, modified } = applyChanges(getProjectRoot(), [fileChange])
+  const { created, modified } = applyChanges(projectPath, [fileChange])
   for (const file of created) {
     console.log(green(`- Created ${file}`))
   }
@@ -48,27 +48,29 @@ export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
 export const handleRunTerminalCommand = async (
   parameters: { command: string },
   id: string,
-  mode: 'user' | 'assistant'
+  mode: 'user' | 'assistant',
+  projectPath: string
 ): Promise<{ result: string; stdout: string }> => {
   const { command } = parameters
-  return runTerminalCommand(command, mode)
+  return runTerminalCommand(command, mode, projectPath)
 }
 
 export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
-  parameters
+  parameters,
+  _id,
+  projectPath
 ) => {
   return new Promise((resolve) => {
     let stdout = ''
     let stderr = ''
 
-    const dir = getProjectRoot()
-    const basename = path.basename(dir)
+    const basename = path.basename(projectPath)
     const pattern = parameters.pattern.replace(/"/g, '')
     const command = `${path.resolve(rgPath)} "${pattern}" .`
     console.log()
     console.log(green(`Searching ${basename} for "${pattern}":`))
     const childProcess = spawn(command, {
-      cwd: dir,
+      cwd: projectPath,
       shell: true,
     })
 
@@ -134,8 +136,8 @@ function formatResult(
 export const toolHandlers: Record<string, ToolHandler<any>> = {
   write_file: handleWriteFile,
   scrape_web_page: handleScrapeWebPage,
-  run_terminal_command: ((parameters, id) =>
-    handleRunTerminalCommand(parameters, id, 'assistant').then(
+  run_terminal_command: ((parameters, id, projectPath) =>
+    handleRunTerminalCommand(parameters, id, 'assistant', projectPath).then(
       (result) => result.result
     )) as ToolHandler<{ command: string }>,
   code_search: handleCodeSearch,
@@ -193,14 +195,17 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   },
 }
 
-export const handleToolCall = async (toolCall: RawToolCall) => {
+export const handleToolCall = async (
+  toolCall: RawToolCall,
+  projectPath: string
+) => {
   const { name, parameters } = toolCall
   const handler = toolHandlers[name]
   if (!handler) {
     throw new Error(`No handler found for tool: ${name}`)
   }
 
-  const content = await handler(parameters, toolCall.id)
+  const content = await handler(parameters, toolCall.id, projectPath)
 
   if (typeof content !== 'string') {
     throw new Error(

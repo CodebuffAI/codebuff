@@ -19,7 +19,7 @@ async function codebuff(
   { initialInput, git, costMode }: CliOptions
 ) {
   const dir = setProjectRoot(projectDir)
-  recreateShell()
+  recreateShell(dir)
 
   const updatePromise = updateCodebuff()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)

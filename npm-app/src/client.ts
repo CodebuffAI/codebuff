@@ -564,7 +564,7 @@ export class Client {
           if (toolCall.name === 'write_file') {
             this.hadFileChanges = true
           }
-          const toolResult = await handleToolCall(toolCall)
+          const toolResult = await handleToolCall(toolCall, getProjectRoot())
           toolResults.push(toolResult)
         }
         if (!isComplete) {

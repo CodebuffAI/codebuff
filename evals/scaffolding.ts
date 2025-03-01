@@ -17,6 +17,8 @@ import { getSystemInfo } from 'npm-app/utils/system-info'
 import { TEST_USER_ID } from 'common/constants'
 import { AgentState, ToolResult } from 'common/src/types/agent-state'
 import { generateCompactId } from 'common/util/string'
+import { handleToolCall } from 'npm-app/tool-handlers'
+import { ClientToolCall } from 'backend/tools'
 
 const DEBUG_MODE = true
 
@@ -108,26 +110,23 @@ export async function runMainPrompt(
   )
 }
 
+export async function runToolCalls(
+  toolCalls: ClientToolCall[],
+  projectPath: string
+) {
+  const toolResults: ToolResult[] = []
+  for (const toolCall of toolCalls) {
+    const toolResult = await handleToolCall(toolCall, projectPath)
+    toolResults.push(toolResult)
+  }
+  return toolResults
+}
+
 export function extractErrorFiles(output: string): string[] {
   const lines = output.split('\n')
   return lines
     .filter((line) => line.includes(': error TS'))
     .map((line) => line.split('(')[0].trim())
-}
-
-export async function runTerminalCommand(command: string) {
-  return new Promise<{ stdout: string; stderr: string; exitCode: number }>(
-    (resolve) => {
-      const { exec } = require('child_process')
-      exec(command, (error: Error | null, stdout: string, stderr: string) => {
-        resolve({
-          stdout,
-          stderr,
-          exitCode: error && 'code' in error ? (error.code as number) : 0,
-        })
-      })
-    }
-  )
 }
 
 export const applyAndRevertChangesSequentially = (() => {
