@@ -1,56 +1,10 @@
 import {
   createMarkdownFileBlock,
   createSearchReplaceBlock,
-  parseFileBlocks,
 } from 'common/util/file'
 import { CostMode, models } from 'common/constants'
 import { logger } from './util/logger'
 import { promptOpenAI } from './openai-api'
-
-export const parseAndGetDiffBlocks = (
-  response: string,
-  filePath: string,
-  oldFileContent: string
-) => {
-  const diffBlocksThatDidntMatch: {
-    searchContent: string
-    replaceContent: string
-  }[] = []
-  const diffBlocks: { searchContent: string; replaceContent: string }[] = []
-  const files = parseFileBlocks(response)
-  for (const fileContent of Object.values(files)) {
-    const blockRegex =
-      /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g
-    let blockMatch
-
-    while ((blockMatch = blockRegex.exec(fileContent)) !== null) {
-      const change = {
-        searchContent: blockMatch[1],
-        replaceContent: blockMatch[2],
-      }
-
-      if (oldFileContent.includes(change.searchContent)) {
-        diffBlocks.push(change)
-      } else {
-        const newChange = tryToDoStringReplacementWithExtraIndentation(
-          oldFileContent,
-          change.searchContent,
-          change.replaceContent
-        )
-        if (newChange) {
-          console.log('Matched with indentation modification')
-          diffBlocks.push(newChange)
-        } else {
-          diffBlocksThatDidntMatch.push(change)
-        }
-      }
-    }
-  }
-  return {
-    diffBlocks,
-    diffBlocksThatDidntMatch,
-  }
-}
 
 export const parseAndGetDiffBlocksSingleFile = (
   newContent: string,
