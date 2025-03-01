@@ -9,11 +9,11 @@ import {
   ProjectFileContext,
   parseFileBlocks,
 } from 'common/util/file'
-import { OpenAIMessage, promptOpenAI } from './openai-api'
+import { OpenAIMessage, promptOpenAI } from './llm-apis/openai-api'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { processFileBlock } from './process-file-block'
 import { requestFiles } from './websockets/websocket-action'
-import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
+import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 
 const systemPrompt = `
 You are a senior software engineer. You are given a request from a user and a set of files that are relevant to the request.

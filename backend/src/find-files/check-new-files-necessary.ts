@@ -1,7 +1,7 @@
-import { System } from '@/claude'
+import { System } from '@/llm-apis/claude'
 import { Message } from 'common/types/message'
 import { CostMode, models } from 'common/constants'
-import { promptGeminiWithFallbacks } from '@/gemini-with-fallbacks'
+import { promptGeminiWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
 
 export const checkNewFilesNecessary = async (
   messages: Message[],

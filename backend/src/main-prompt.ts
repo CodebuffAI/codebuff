@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { AnthropicModel } from 'common/constants'
-import { promptClaudeStream } from './claude'
+import { promptClaudeStream } from './llm-apis/claude'
 import { parseToolCallXml } from './util/parse-tool-call-xml'
 import { STOP_MARKER, getModelForMode } from 'common/constants'
 import { ProjectFileContext } from 'common/util/file'

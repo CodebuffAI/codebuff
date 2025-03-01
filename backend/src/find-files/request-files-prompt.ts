@@ -9,7 +9,7 @@ import {
   cleanMarkdownCodeBlock,
   createMarkdownFileBlock,
 } from 'common/util/file'
-import { System } from '../claude'
+import { System } from '../llm-apis/claude'
 import { type CostMode } from 'common/constants'
 import { models } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
@@ -18,7 +18,7 @@ import { requestFiles } from '../websockets/websocket-action'
 import { countTokens } from '../util/token-counter'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 import { filterDefined } from 'common/util/array'
-import { promptGeminiWithFallbacks } from '@/gemini-with-fallbacks'
+import { promptGeminiWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 

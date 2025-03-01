@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { models, TEST_USER_ID } from 'common/constants'
 import { spawn } from 'child_process'
-import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
+import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { z } from 'zod'
 import { FileChange } from 'common/actions'
 

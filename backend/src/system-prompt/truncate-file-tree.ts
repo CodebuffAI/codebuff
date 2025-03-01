@@ -4,8 +4,8 @@ import {
   printFileTreeWithTokens,
 } from 'common/util/file'
 import { ProjectFileContext } from 'common/util/file'
-import { countTokens, countTokensJson } from './util/token-counter'
-import { logger } from './util/logger'
+import { countTokens, countTokensJson } from '../util/token-counter'
+import { logger } from '../util/logger'
 import { sampleSize } from 'lodash'
 
 type TruncationLevel = 'none' | 'unimportant-files' | 'tokens' | 'depth-based'

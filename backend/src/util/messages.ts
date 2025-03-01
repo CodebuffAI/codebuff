@@ -1,6 +1,6 @@
 import { Message } from 'common/types/message'
-import { System } from '../claude'
-import { OpenAIMessage } from '../openai-api'
+import { System } from '../llm-apis/claude'
+import { OpenAIMessage } from '../llm-apis/openai-api'
 
 export const messagesWithSystem = (messages: Message[], system: System) =>
   [{ role: 'system', content: system }, ...messages] as OpenAIMessage[]

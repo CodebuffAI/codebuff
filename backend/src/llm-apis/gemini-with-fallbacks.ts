@@ -3,9 +3,9 @@ import { Message } from 'common/types/message'
 import { promptGemini } from './gemini-api'
 import { promptGemini as promptVertexGemini } from './gemini-vertex-api'
 import { promptClaude, System } from './claude'
-import { logger } from './util/logger'
+import { logger } from '../util/logger'
 import { claudeModels } from 'common/constants'
-import { messagesWithSystem } from './util/messages'
+import { messagesWithSystem } from '../util/messages'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 
 export async function promptGeminiWithFallbacks(

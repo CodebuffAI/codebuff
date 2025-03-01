@@ -4,7 +4,6 @@ import { FileChange } from 'common/actions'
 import { Message } from 'common/types/message'
 import { logger } from './util/logger'
 import { requestFile } from './websockets/websocket-action'
-import { promptRelaceAI } from './relace-api'
 import { cleanMarkdownCodeBlock, parseFileBlocks } from 'common/util/file'
 import { generateCompactId, hasLazyEdit } from 'common/util/string'
 import { countTokens } from './util/token-counter'
@@ -13,8 +12,9 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { promptOpenAI } from './openai-api'
-import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
+import { promptOpenAI } from './llm-apis/openai-api'
+import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { promptRelaceAI } from './llm-apis/relace-api'
 import { buildArray } from 'common/util/array'
 
 export async function processFileBlock(

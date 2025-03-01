@@ -4,7 +4,7 @@ import {
 } from 'common/util/file'
 import { CostMode, models } from 'common/constants'
 import { logger } from './util/logger'
-import { promptOpenAI } from './openai-api'
+import { promptOpenAI } from './llm-apis/openai-api'
 
 export const parseAndGetDiffBlocksSingleFile = (
   newContent: string,

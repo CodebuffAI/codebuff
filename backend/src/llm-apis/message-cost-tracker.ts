@@ -1,5 +1,5 @@
 import { models, TEST_USER_ID } from 'common/constants'
-import { OpenAIMessage } from '@/openai-api'
+import { OpenAIMessage } from '@/llm-apis/openai-api'
 import { Message } from 'common/types/message'
 import db from 'common/db'
 import { stripeServer } from 'common/util/stripe'

@@ -12,7 +12,6 @@ import { protec } from './middleware'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/src/util/dates'
 import { logger, withLoggerContext } from '@/util/logger'
-import { generateCommitMessage } from '@/generate-commit-message'
 import { hasMaxedReferrals } from 'common/util/server/referral'
 import { generateCompactId } from 'common/util/string'
 
@@ -289,39 +288,6 @@ export const onUsageRequest = async (
   sendAction(ws, action)
 }
 
-const onGenerateCommitMessage = async (
-  {
-    fingerprintId,
-    authToken,
-    stagedChanges,
-  }: Extract<ClientAction, { type: 'generate-commit-message' }>,
-  clientSessionId: string,
-  ws: WebSocket
-) => {
-  await withLoggerContext({ fingerprintId, authToken }, async () => {
-    const userId = await getUserIdFromAuthToken(authToken)
-    try {
-      const commitMessage = await generateCommitMessage(
-        stagedChanges,
-        clientSessionId,
-        fingerprintId,
-        userId
-      )
-      logger.info(`Generated commit message: ${commitMessage}`)
-      sendAction(ws, {
-        type: 'commit-message-response',
-        commitMessage,
-      })
-    } catch (e) {
-      logger.error(e, 'Error generating commit message')
-      sendAction(ws, {
-        type: 'commit-message-response',
-        commitMessage: 'Error generating commit message',
-      })
-    }
-  })
-}
-
 const callbacksByAction = {} as Record<
   ClientAction['type'],
   ((action: ClientAction, clientSessionId: string, ws: WebSocket) => void)[]
@@ -376,10 +342,6 @@ subscribeToAction('prompt', protec.run(onPrompt))
 subscribeToAction('init', protec.run(onInit, { silent: true }))
 
 subscribeToAction('usage', onUsageRequest)
-subscribeToAction(
-  'generate-commit-message',
-  protec.run(onGenerateCommitMessage)
-)
 
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {
