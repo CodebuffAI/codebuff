@@ -1,4 +1,0 @@
-.env
-node_modules/
-*.log
-test-outputs/
