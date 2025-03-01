@@ -30,22 +30,6 @@ export const buildSystemPrompt = (
     'utf8'
   )
 
-  const toolResultSection =
-    toolResults.length > 0
-      ? `
-<tool_results>
-${toolResults
-  .map(
-    (result) => `<tool_result>
-<tool>${result.name}</tool>
-<result>${result.result}</result>
-</tool_result>`
-  )
-  .join('\n')}
-</tool_results>
-`.trim()
-      : ''
-
   const startTime = Date.now()
   // Agent token budget:
   // System prompt stuff, git changes: 25k
@@ -79,10 +63,12 @@ ${toolResults
 <user_message_history_chronological>
 ${messageHistory
   .filter((m) => m.role === 'user')
-  .map((m) => `<message>
+  .map(
+    (m) => `<message>
 <role>user</role>
 <content>${m.content}</content>
-</message>`)
+</message>`
+  )
   .join('\n\n')}
 </user_message_history_chronological>
 `.trim()
@@ -103,11 +89,7 @@ ${messageHistory
     {
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
-      text: buildArray(
-        gitChangesPrompt,
-        messagesPrompt,
-        toolResultSection
-      ).join('\n\n'),
+      text: buildArray(gitChangesPrompt, messagesPrompt).join('\n\n'),
     }
   )
 

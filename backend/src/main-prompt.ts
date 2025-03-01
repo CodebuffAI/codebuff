@@ -55,6 +55,9 @@ export const mainPrompt = async (
   const lastAssistantMessage = messagesWithUserMessage.findLast(
     (m) => m.role === 'assistant'
   )
+  if (typeof lastAssistantMessage?.content === 'string') {
+    lastAssistantMessage.content = lastAssistantMessage.content.trim()
+  }
 
   const iterationNum = messagesWithUserMessage.length
 
@@ -89,6 +92,12 @@ export const mainPrompt = async (
   if (readFilesMessage !== undefined) {
     onResponseChunk(`${readFilesMessage}\n\n`)
     fullResponse += `${readFilesMessage}\n\n`
+
+    toolResults.push({
+      id: generateCompactId(),
+      name: 'find_files',
+      result: readFilesMessage,
+    })
   }
 
   const { agentContext } = agentState
@@ -115,7 +124,22 @@ Use the "complete" tool only when you are confident the user request has been ac
 <description>
 Find the files that are relevant to the user request.
 </description>
-</find_files>\n\n`,
+</find_files>`,
+    },
+    toolResults.length > 0 && {
+      role: 'user' as const,
+      content: `
+<tool_results>
+${toolResults
+  .map(
+    (result) => `<tool_result>
+<tool>${result.name}</tool>
+<result>${result.result}</result>
+</tool_result>`
+  )
+  .join('\n')}
+</tool_results>
+`.trim(),
     }
   )
   const agentMessagesTokens = countTokensJson(agentMessages)
