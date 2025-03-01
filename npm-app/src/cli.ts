@@ -242,7 +242,8 @@ export class CLI {
       const { result, stdout } = await handleRunTerminalCommand(
         { command: withoutRunPrefix },
         'user',
-        'user'
+        'user',
+        getProjectRoot()
       )
       if (result !== 'command not found') {
         this.setPrompt()
@@ -404,7 +405,7 @@ export class CLI {
 
   private handleSigint() {
     if (isCommandRunning()) {
-      resetShell()
+      resetShell(getProjectRoot())
     }
 
     if ('line' in this.rl) {
