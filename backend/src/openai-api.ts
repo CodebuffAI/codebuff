@@ -21,7 +21,6 @@ export const getOpenAI = (fingerprintId: string) => {
       defaultHeaders: {
         'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
         'Helicone-User-Id': fingerprintId,
-        // 'Helicone-RateLimit-Policy': RATE_LIMIT_POLICY,
         // 'Helicone-LLM-Security-Enabled': 'true',
       },
     })

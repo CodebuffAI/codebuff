@@ -4,7 +4,7 @@ import { truncateString } from 'common/util/string'
 import { CostMode, STOP_MARKER } from 'common/constants'
 import { removeUndefinedProps } from 'common/util/object'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
-import { truncateFileTreeBasedOnTokenBudget } from '../truncate-file-tree'
+import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 
 export const knowledgeFilesPrompt = `
 # Knowledge files
