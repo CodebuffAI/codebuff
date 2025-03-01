@@ -28,7 +28,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "bump": "bun run scripts/bump-version.ts",
     "deploy:npm-app": "bun run bump && cd npm-app && npm publish",
-    "test:patch": "bun test test/__src__/patch.test.ts"
+    "test:patch": "bun test test/__src__/patch.test.ts",
+    "typecheck": "bun run --cwd common build && bun run --cwd packages/code-map build && bun run --cwd backend typecheck-this-package && bun run --cwd npm-app typecheck-this-package && bun run --cwd web typecheck-this-package"
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.59.16",
