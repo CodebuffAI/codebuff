@@ -2,6 +2,7 @@ import { mock } from 'bun:test'
 import path from 'path'
 import fs from 'fs'
 import { WebSocket } from 'ws'
+import { execSync } from 'child_process'
 
 import * as mainPromptModule from 'backend/main-prompt'
 import { ProjectFileContext } from 'common/util/file'
@@ -142,9 +143,9 @@ export async function loopMainPrompt({
   let currentAgentState = agentState
   let toolResults: ToolResult[] = []
   let toolCalls: ClientToolCall[] = []
-  let iterations = 0
+  let iterations = 1
   for (; iterations < maxIterations; iterations++) {
-    console.log('Iteration', iterations)
+    console.log('\nIteration', iterations)
     let { agentState: newAgentState, toolCalls: newToolCalls } =
       await runMainPrompt(currentAgentState, prompt, toolResults)
     currentAgentState = newAgentState
@@ -176,7 +177,7 @@ export async function loopMainPrompt({
     agentState: currentAgentState,
     toolCalls,
     toolResults,
-    iterations,
+    iterations: iterations - 1,
     duration: Date.now() - startTime,
   }
 }
@@ -221,3 +222,19 @@ export const applyAndRevertChangesSequentially = (() => {
     })
   }
 })()
+
+export function resetRepoToCommit(projectPath: string, commit: string) {
+  console.log(`Resetting repository at ${projectPath} to commit ${commit}...`)
+  try {
+    execSync(
+      `cd ${projectPath} && git reset --hard ${commit} && git clean -fd`,
+      {
+        timeout: 30_000,
+      }
+    )
+    console.log('Repository reset successful')
+  } catch (error) {
+    console.error('Error resetting repository:', error)
+    throw error
+  }
+}

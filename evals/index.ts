@@ -1,7 +1,8 @@
 import path from 'path'
 import fs from 'fs'
 import { execSync } from 'child_process'
-import { describe } from 'bun:test'
+import { describe, beforeEach } from 'bun:test'
+import { resetRepoToCommit } from './scaffolding'
 
 const TEST_REPOS_DIR = path.join(__dirname, 'test-repos')
 const TEST_PROJECTS_CONFIG = path.join(__dirname, 'test-repos.json')
@@ -45,9 +46,14 @@ async function ensureTestRepos() {
 describe('evals', async () => {
   await ensureTestRepos()
 
-  const config = JSON.parse(fs.readFileSync(TEST_PROJECTS_CONFIG, 'utf-8'))
+  const config: {
+    [projectName: string]: {
+      repo: string
+      commit: string
+    }
+  } = JSON.parse(fs.readFileSync(TEST_PROJECTS_CONFIG, 'utf-8'))
 
-  for (const [projectName, _] of Object.entries(config)) {
+  for (const [projectName, project] of Object.entries(config)) {
     const evalFile = path.join(__dirname, `${projectName}.evals.ts`)
     if (!fs.existsSync(evalFile)) {
       console.log(`No eval file found for ${projectName}, skipping...`)
@@ -57,6 +63,12 @@ describe('evals', async () => {
     describe(projectName, async () => {
       const { runEvals } = await import(evalFile)
       const repoPath = path.join(TEST_REPOS_DIR, projectName)
+      const { commit } = project
+
+      beforeEach(() => {
+        resetRepoToCommit(repoPath, commit)
+      })
+
       await runEvals(repoPath)
     })
   }
