@@ -144,6 +144,7 @@ export async function loopMainPrompt({
   let toolCalls: ClientToolCall[] = []
   let iterations = 0
   for (; iterations < maxIterations; iterations++) {
+    console.log('Iteration', iterations)
     let { agentState: newAgentState, toolCalls: newToolCalls } =
       await runMainPrompt(currentAgentState, prompt, toolResults)
     currentAgentState = newAgentState

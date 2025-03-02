@@ -84,6 +84,7 @@ src/utils.ts</paths>
 </read_files>
 
 Note that there's no need to call this tool if you're already reading the files you need in context. Feel free to make multiple read_files calls in a single response.
+Note that the read_files tool will be executed after you end your response or if you invoke the await_tool_results tool. You will not have access to the tool results until then. You can stop writing your response at any time or invoke the await_tool_results tool at any time to see the results.
     `.trim(),
   },
   {
@@ -105,6 +106,8 @@ Use cases:
 - Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
 
 Note that there's no need to call this tool if you're already reading the files you need in context.
+
+Note that the find_files tool will be executed after you end your response or if you invoke the await_tool_results tool. You will not have access to the tool results until then. You can stop writing your response at any time or invoke the await_tool_results tool at any time to see the results.
     `.trim(),
   },
   {
@@ -137,7 +140,9 @@ The pattern supports regular expressions and will search recursively through all
 - Case-sensitive by default. Use -i to make it case insensitive.
 - Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
 
-Note that the code search tool will be executed after you end your response. You can stop writing your response at any time to await the tool call results. Feel free to make multiple code search calls in a single response.
+Note that the code_search tool will be executed after you end your response or if you invoke the await_tool_results tool. You will not have access to the tool results until then. You can stop writing your response at any time or invoke the await_tool_results tool at any time to see the results.
+
+Feel free to make multiple code search calls in a single response.
     `.trim(),
   },
   {
