@@ -2,7 +2,8 @@ import path from 'path'
 import fs from 'fs'
 import { execSync } from 'child_process'
 import { describe, beforeEach } from 'bun:test'
-import { resetRepoToCommit } from './scaffolding'
+import { createFileReadingMock, resetRepoToCommit } from './scaffolding'
+import { recreateShell } from 'npm-app/utils/terminal'
 
 const TEST_REPOS_DIR = path.join(__dirname, 'test-repos')
 const TEST_PROJECTS_CONFIG = path.join(__dirname, 'test-repos.json')
@@ -64,6 +65,9 @@ describe('evals', async () => {
       const { runEvals } = await import(evalFile)
       const repoPath = path.join(TEST_REPOS_DIR, projectName)
       const { commit } = project
+
+      createFileReadingMock(repoPath)
+      recreateShell(repoPath)
 
       beforeEach(() => {
         resetRepoToCommit(repoPath, commit)

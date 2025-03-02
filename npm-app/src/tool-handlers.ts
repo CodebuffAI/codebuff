@@ -141,6 +141,9 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
       (result) => result.result
     )) as ToolHandler<{ command: string }>,
   code_search: handleCodeSearch,
+  complete: async () => {
+    return ''
+  },
   browser_action: async (params, _id): Promise<BrowserResponse> => {
     Spinner.get().start()
     let response: BrowserResponse
