@@ -83,7 +83,7 @@ Usage:
 src/utils.ts</paths>
 </read_files>
 
-Note that there's no need to call this tool if you're already reading the files you need in context.
+Note that there's no need to call this tool if you're already reading the files you need in context. Feel free to make multiple read_files calls in a single response.
     `.trim(),
   },
   {
@@ -137,7 +137,7 @@ The pattern supports regular expressions and will search recursively through all
 - Case-sensitive by default. Use -i to make it case insensitive.
 - Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
 
-Note that the code search tool will be executed after you end your response. You can stop writing your response at any time to await the tool call results.
+Note that the code search tool will be executed after you end your response. You can stop writing your response at any time to await the tool call results. Feel free to make multiple code search calls in a single response.
     `.trim(),
   },
   {
@@ -190,7 +190,7 @@ Important: Use this tool sparingly. Do not use this tool more than once in a con
     name: 'await_tool_results',
     description: `
 ## await_tool_results
-Description: Continue to see the results of all the tool calls you've made so far.
+Description: Continue to see the results of all the tool calls you've made so far. Invoking this tool is the same as ending your response.
 Parameters: None
 Usage:
 <await_tool_results></await_tool_results>

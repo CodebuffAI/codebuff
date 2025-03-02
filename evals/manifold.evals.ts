@@ -3,26 +3,14 @@ import { expect, test } from 'bun:test'
 import {
   createFileReadingMock,
   getProjectFileContext,
-  runMainPrompt,
-  runToolCalls,
+  loopMainPrompt,
 } from './scaffolding'
 import { getInitialAgentState } from 'common/types/agent-state'
-import { handleToolCall } from 'npm-app/tool-handlers'
 import { recreateShell } from 'npm-app/utils/terminal'
 
 export const runEvals = async (repoPath: string) => {
   createFileReadingMock(repoPath)
   recreateShell(repoPath)
-
-  // Compile the api.
-  await handleToolCall(
-    {
-      name: 'run_terminal_command',
-      parameters: { command: 'cd backend/api && yarn compile' },
-      id: '1',
-    },
-    repoPath
-  )
 
   const fileContext = await getProjectFileContext(repoPath)
   const initialAgentState = getInitialAgentState(fileContext)
@@ -32,25 +20,16 @@ export const runEvals = async (repoPath: string) => {
     async () => {
       const prompt =
         'Can you add a console.log statement to components/like-button.ts with all the props?'
-      let { agentState, toolCalls } = await runMainPrompt(
-        initialAgentState,
+      let { toolCalls } = await loopMainPrompt({
+        agentState: initialAgentState,
         prompt,
-        []
-      )
+        projectPath: repoPath,
+        maxIterations: 20,
+        stopCondition: (_, toolCalls) => {
+          return toolCalls.some((call) => call.name === 'write_file')
+        },
+      })
 
-      const containsCompleteToolCall = toolCalls.some(
-        (call) => call.name === 'complete'
-      )
-
-      if (!containsCompleteToolCall) {
-        const toolResults = await runToolCalls(toolCalls, repoPath)
-        console.log('toolResults', toolResults)
-        ;({ agentState, toolCalls } = await runMainPrompt(
-          agentState,
-          undefined,
-          toolResults
-        ))
-      }
       // Extract write_file tool calls
       const writeFileCalls = toolCalls.filter(
         (call) => call.name === 'write_file'
@@ -61,8 +40,6 @@ export const runEvals = async (repoPath: string) => {
         changes.map((change) => [change.path, change.content])
       )
       const filesChanged = Object.keys(filePathToPatch)
-
-      console.log('filesChanged', filesChanged)
 
       const expectedPath = 'web/components/contract/react-button.tsx'
       expect(filesChanged, 'includes like-button.tsx file').toEqual([

@@ -122,6 +122,64 @@ export async function runToolCalls(
   return toolResults
 }
 
+export async function loopMainPrompt({
+  agentState,
+  prompt,
+  projectPath,
+  maxIterations,
+  stopCondition,
+}: {
+  agentState: AgentState
+  prompt: string
+  projectPath: string
+  maxIterations: number
+  stopCondition?: (
+    agentState: AgentState,
+    toolCalls: ClientToolCall[]
+  ) => boolean
+}) {
+  const startTime = Date.now()
+  let currentAgentState = agentState
+  let toolResults: ToolResult[] = []
+  let toolCalls: ClientToolCall[] = []
+  let iterations = 0
+  for (; iterations < maxIterations; iterations++) {
+    let { agentState: newAgentState, toolCalls: newToolCalls } =
+      await runMainPrompt(currentAgentState, prompt, toolResults)
+    currentAgentState = newAgentState
+    toolCalls = newToolCalls
+
+    const stop = stopCondition && stopCondition(currentAgentState, toolCalls)
+    if (stop) break
+
+    toolResults = await runToolCalls(toolCalls, projectPath)
+
+    const containsCompleteToolCall = toolCalls.some(
+      (call) => call.name === 'complete'
+    )
+
+    if (containsCompleteToolCall || stop) {
+      break
+    }
+  }
+
+  console.log('Main loop finished!')
+  console.log('  - iterations', iterations)
+  console.log(
+    '  - took',
+    ((Date.now() - startTime) / 1000).toFixed(2),
+    'seconds'
+  )
+
+  return {
+    agentState: currentAgentState,
+    toolCalls,
+    toolResults,
+    iterations,
+    duration: Date.now() - startTime,
+  }
+}
+
 export function extractErrorFiles(output: string): string[] {
   const lines = output.split('\n')
   return lines
