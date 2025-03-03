@@ -10,8 +10,7 @@
     "web",
     "test",
     "packages/*",
-    "scripts",
-    "strange-loop"
+    "scripts"
   ],
   "scripts": {
     "start-db": "bun --cwd common db:start",
