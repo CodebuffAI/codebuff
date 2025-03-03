@@ -26,6 +26,7 @@ import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import {
   ClientToolCall,
   parseToolCalls,
+  RawToolCall,
   TOOL_LIST,
   updateContext,
 } from './tools'
@@ -231,13 +232,18 @@ ${toolResults
   const toolCalls = parseToolCalls(fullResponse)
   const clientToolCalls: ClientToolCall[] = []
 
-  let newAgentContext = agentContext
+  const agentContextPromise =
+    toolCalls.length > 0
+      ? updateContextFromToolCalls(agentContext, toolCalls)
+      : Promise.resolve(agentContext)
 
   for (const toolCall of toolCalls) {
     const { name, parameters } = toolCall
     if (name === 'await_tool_results') {
     } else if (name === 'write_file') {
       // write_file tool calls are handled as they are streamed in.
+    } else if (name === 'update_context') {
+      // update_context tool calls are handled above
     } else if (
       name === 'code_search' ||
       name === 'run_terminal_command' ||
@@ -247,14 +253,6 @@ ${toolResults
         ...(toolCall as ClientToolCall),
         id: generateCompactId(),
       })
-    } else if (name === 'update_context') {
-      newAgentContext = await updateContext(newAgentContext, parameters.prompt)
-      logger.debug(
-        {
-          context: newAgentContext,
-        },
-        'Updated context'
-      )
     } else if (name === 'read_files') {
       const paths = parameters.paths
         .split('\n')
@@ -399,6 +397,16 @@ ${toolResults
       id: generateCompactId(),
     })
   }
+
+  const newAgentContext = await agentContextPromise
+  logger.debug(
+    {
+      agentContext: newAgentContext,
+      previousAgentContext: agentContext,
+    },
+    'Updated agent context'
+  )
+
   const newAgentState: AgentState = {
     ...agentState,
     messageHistory: [
@@ -686,4 +694,24 @@ async function getFileVersionUpdates(
     readFilesMessage,
     existingNewFilePaths,
   }
+}
+
+const updateContextFromToolCalls = async (
+  agentContext: string,
+  toolCalls: RawToolCall[]
+) => {
+  let prompt =
+    'Log the following tools used, and also act on any other instructions:\n'
+  for (const toolCall of toolCalls) {
+    const { name, parameters } = toolCall
+    if (name === 'update_context') {
+      prompt += `\n<instructions>\n${parameters.prompt}\n</instructions>\n\n`
+    } else {
+      const keys = Object.keys(parameters)
+      prompt += `<${name}>
+${keys.map((key) => `<${key}>${parameters[key]}</key>`).join('\n')}
+</${name}>\n`
+    }
+  }
+  return await updateContext(agentContext, prompt)
 }

@@ -12,6 +12,7 @@ import {
   RequestOptions,
 } from '@google-cloud/vertexai/build/src/types/content'
 import { System } from './claude'
+import { removeUndefinedProps } from 'common/util/object'
 
 let vertexAI: VertexAI | null = null
 let customHeaders: Headers | null = null
@@ -135,10 +136,12 @@ export async function promptGemini(
 
     const transformedMessages = transformMessages(messages)
 
-    const response = await generativeModel.generateContent({
-      contents: transformedMessages,
-      systemInstruction: transformSystem(system),
-    })
+    const response = await generativeModel.generateContent(
+      removeUndefinedProps({
+        contents: transformedMessages,
+        systemInstruction: transformSystem(system),
+      })
+    )
 
     const content =
       response.response.candidates?.[0]?.content?.parts?.[0]?.text ?? ''

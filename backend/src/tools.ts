@@ -5,6 +5,7 @@ import { spawn } from 'child_process'
 import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { z } from 'zod'
 import { FileChange } from 'common/actions'
+import { logger } from './util/logger'
 
 const tools = [
   {
@@ -360,11 +361,15 @@ Here are the update instructions:
 ${updateInstructions}
 </update_instructions>
 
-Please rewrite the entire context using the update instructions. Try to perserve the original context as much as possible, subject to the update instructions. Return the new context only — do not include any other text or wrapper xml/markdown formatting e.g. please omit <initial_context> tags.`
+Please rewrite the entire context using the update instructions in a <new_context> tag. Try to perserve the original context as much as possible, subject to the update instructions. Return the new context only — do not include any other text or wrapper xml/markdown formatting e.g. please omit <initial_context> tags.`
   const messages = [
     {
       role: 'user' as const,
       content: prompt,
+    },
+    {
+      role: 'assistant' as const,
+      content: '<new_context>',
     },
   ]
   const response = await promptGeminiWithFallbacks(messages, undefined, {
@@ -374,7 +379,9 @@ Please rewrite the entire context using the update instructions. Try to perserve
     userInputId: 'strange-loop',
     userId: TEST_USER_ID,
   })
-  return response
+  logger.debug({ prompt, response }, 'Updated context')
+  const newContext = response.split('</new_context>')[0]
+  return newContext.trim()
 }
 
 export async function readFiles(
