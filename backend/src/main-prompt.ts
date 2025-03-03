@@ -227,7 +227,7 @@ ${toolResults
 
   const messagesWithResponse = [
     ...messagesWithUserMessage,
-    { role: 'assistant' as const, content: fullResponse },
+    { role: 'assistant' as const, content: fullResponse || 'No response.' },
   ]
   const toolCalls = parseToolCalls(fullResponse)
   const clientToolCalls: ClientToolCall[] = []
@@ -245,7 +245,7 @@ ${toolResults
     } else if (name === 'update_context') {
       // update_context tool calls are handled above
     } else if (
-      name === 'code_search' ||
+      // name === 'code_search' ||
       name === 'run_terminal_command' ||
       name === 'complete'
     ) {
@@ -713,5 +713,6 @@ ${keys.map((key) => `<${key}>${parameters[key]}</key>`).join('\n')}
 </${name}>\n`
     }
   }
+  console.log('updateContextFromToolCalls', prompt)
   return await updateContext(agentContext, prompt)
 }
