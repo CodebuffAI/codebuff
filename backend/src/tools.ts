@@ -94,7 +94,7 @@ Note that the read_files tool will be executed after you end your response or if
 ## find_files
 Description: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
 Parameters:
-- description: (required) A brief natural language description of the files or the name of a function or class you are looking for.
+- description: (required) A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.
 Usage:
 <find_files>
 <description>The implementation of function foo</description>
