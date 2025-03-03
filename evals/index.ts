@@ -54,7 +54,20 @@ describe('evals', async () => {
     }
   } = JSON.parse(fs.readFileSync(TEST_PROJECTS_CONFIG, 'utf-8'))
 
+  // Get the filter pattern from environment variable
+  const filterPattern = process.env.TEST_FILTER
+
+  if (filterPattern) {
+    console.log(`Running tests only for projects matching: ${filterPattern}`)
+  }
+
   for (const [projectName, project] of Object.entries(config)) {
+    // Skip projects that don't match the filter pattern if one is provided
+    if (filterPattern && !projectName.includes(filterPattern)) {
+      console.log(`Skipping ${projectName} as it doesn't match filter pattern: ${filterPattern}`)
+      continue
+    }
+
     const evalFile = path.join(__dirname, `${projectName}.evals.ts`)
     if (!fs.existsSync(evalFile)) {
       console.log(`No eval file found for ${projectName}, skipping...`)
@@ -67,7 +80,7 @@ describe('evals', async () => {
       const { commit } = project
 
       createFileReadingMock(repoPath)
-      recreateShell(repoPath)
+      recreateShell()
 
       beforeEach(() => {
         resetRepoToCommit(repoPath, commit)
