@@ -119,14 +119,6 @@ Use the "complete" tool only when you are confident the user request has been ac
       role: 'user' as const,
       content: `${userInstructions}${prompt ? `\n\nUser request: ${prompt}` : '\nPlease complete the user request.'}`,
     },
-    lastAssistantMessage ?? {
-      role: 'assistant' as const,
-      content: `<find_files>
-<description>
-Find the files that are relevant to the user request.
-</description>
-</find_files>`,
-    },
     toolResults.length > 0 && {
       role: 'user' as const,
       content: `
@@ -698,7 +690,7 @@ const updateContextFromToolCalls = async (
   toolCalls: RawToolCall[]
 ) => {
   let prompt =
-    'Log the following tools used, and also act on any other instructions:\n'
+    'Log the following tools used, but do not write out the contents of the write_file tool calls, and also act on any other instructions:\n'
   for (const toolCall of toolCalls) {
     const { name, parameters } = toolCall
     if (name === 'update_context') {
