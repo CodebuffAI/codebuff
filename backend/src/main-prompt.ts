@@ -227,7 +227,7 @@ ${toolResults
 
   const messagesWithResponse = [
     ...messagesWithUserMessage,
-    { role: 'assistant' as const, content: fullResponse || 'No response.' },
+    { role: 'assistant' as const, content: fullResponse || "I'll continue." },
   ]
   const toolCalls = parseToolCalls(fullResponse)
   const clientToolCalls: ClientToolCall[] = []
@@ -409,10 +409,7 @@ ${toolResults
 
   const newAgentState: AgentState = {
     ...agentState,
-    messageHistory: [
-      ...messagesWithUserMessage,
-      { role: 'assistant' as const, content: fullResponse },
-    ],
+    messageHistory: messagesWithResponse,
     agentContext: newAgentContext,
   }
   logger.debug(
