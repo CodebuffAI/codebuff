@@ -34,7 +34,7 @@ type PersistentProcess =
     }
 
 const createPersistantProcess = (dir: string): PersistentProcess => {
-  if (pty) {
+  if (pty && process.env.NODE_ENV !== 'test') {
     const isWindows = os.platform() === 'win32'
     const currShell = detectShell()
     const shell = isWindows
