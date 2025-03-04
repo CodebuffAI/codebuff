@@ -74,6 +74,7 @@ export const mainPrompt = async (
     costMode,
     allMessagesTokens
   )
+  const messagesWithOptionalReadFiles = [...messagesWithUserMessage]
   const { newFileVersions, readFilesMessage, existingNewFilePaths } =
     await getFileVersionUpdates(
       ws,
@@ -94,6 +95,17 @@ export const mainPrompt = async (
   if (readFilesMessage !== undefined) {
     onResponseChunk(`${readFilesMessage}\n\n`)
     fullResponse += `${readFilesMessage}\n\n`
+
+    if (existingNewFilePaths?.length) {
+      messagesWithOptionalReadFiles.push({
+        role: 'assistant' as const,
+        content: `<read_files>
+<paths>
+${existingNewFilePaths.join('\n')}
+</paths>
+</read_files>`,
+      })
+    }
 
     toolResults.push({
       id: generateCompactId(),
@@ -120,6 +132,7 @@ Use the "complete" tool only when you are confident the user request has been ac
       role: 'user' as const,
       content: `${userInstructions}${prompt ? `\n\nUser request: ${prompt}` : '\nPlease complete the user request.'}`,
     },
+    ...getAssistantMessagesSubset(messagesWithOptionalReadFiles),
     toolResults.length > 0 && {
       role: 'user' as const,
       content: `
@@ -139,13 +152,13 @@ ${toolResults
   const agentMessagesTokens = countTokensJson(agentMessages)
   const system = getAgentSystemPrompt(
     fileContext,
-    toolResults,
-    messageHistory,
+    agentMessages,
     agentMessagesTokens
   )
 
   logger.debug(
     {
+      agentMessages,
       prompt,
       agentContext,
       iteration: iterationNum,
@@ -178,7 +191,7 @@ ${toolResults
           processFileBlock(
             path,
             fileContentWithoutStartNewline,
-            messagesWithUserMessage,
+            messagesWithOptionalReadFiles,
             fullResponse,
             prompt,
             clientSessionId,
@@ -219,7 +232,7 @@ ${toolResults
   }
 
   const messagesWithResponse = [
-    ...messagesWithUserMessage,
+    ...messagesWithOptionalReadFiles,
     { role: 'assistant' as const, content: fullResponse || "I'll continue." },
   ]
   const toolCalls = parseToolCalls(fullResponse)
@@ -269,24 +282,28 @@ ${toolResults
         'read_files tool call'
       )
 
-      const { newFileVersions, existingNewFilePaths } = await getFileVersionUpdates(
-        ws,
-        messagesWithResponse,
-        getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
-        fileContext,
-        null,
-        {
-          skipRequestingFiles: false,
-          requestedFiles: newPaths,
-          clientSessionId,
-          fingerprintId,
-          userInputId: promptId,
-          userId,
-          costMode,
-        }
-      )
+      const { newFileVersions, existingNewFilePaths } =
+        await getFileVersionUpdates(
+          ws,
+          messagesWithResponse,
+          getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
+          fileContext,
+          null,
+          {
+            skipRequestingFiles: false,
+            requestedFiles: newPaths,
+            clientSessionId,
+            fingerprintId,
+            userInputId: promptId,
+            userId,
+            costMode,
+          }
+        )
       fileContext.fileVersions = newFileVersions
-      const didNotExistOrAreHidden = difference(newPaths, existingNewFilePaths ?? [])
+      const didNotExistOrAreHidden = difference(
+        newPaths,
+        existingNewFilePaths ?? []
+      )
       serverToolResults.push({
         id: generateCompactId(),
         name: 'read_files',
@@ -710,18 +727,31 @@ const updateContextFromToolCalls = async (
   agentContext: string,
   toolCalls: RawToolCall[]
 ) => {
-  let prompt =
-    'Log the following tools used and their parameters, and also act on any other instructions:\n'
+  let prompt = '' // 'Log the following tools used and their parameters, and also act on any other instructions:\n'
+
   for (const toolCall of toolCalls) {
     const { name, parameters } = toolCall
     if (name === 'update_context') {
       prompt += `\n<instructions>\n${parameters.prompt}\n</instructions>\n\n`
     } else {
-      const keys = Object.keys(parameters)
-      prompt += `<${name}>
-${keys.map((key) => `<${key}>${parameters[key]}</key>`).join('\n')}
-</${name}>\n`
+      //       const keys = Object.keys(parameters)
+      //       prompt += `<${name}>
+      // ${keys.map((key) => `<${key}>${parameters[key]}</key>`).join('\n')}
+      // </${name}>\n`
     }
   }
   return await updateContext(agentContext, prompt)
+}
+
+const getAssistantMessagesSubset = (messages: Message[]) => {
+  const assistantMessages = messages.filter((m) => m.role === 'assistant')
+  const indexLastSubgoalComplete = assistantMessages.findLastIndex(
+    ({ content }) => {
+      JSON.stringify(content).includes('COMPLETE')
+    }
+  )
+  if (indexLastSubgoalComplete === -1) {
+    return assistantMessages
+  }
+  return assistantMessages.slice(indexLastSubgoalComplete)
 }

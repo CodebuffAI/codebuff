@@ -3,7 +3,6 @@ import fs from 'fs'
 import { uniq } from 'lodash'
 
 import { ProjectFileContext } from 'common/util/file'
-import { ToolResult } from 'common/types/agent-state'
 import { countTokensJson } from '../util/token-counter'
 import {
   getGitChangesPrompt,
@@ -20,7 +19,6 @@ import { Message } from 'common/types/message'
 
 export const getAgentSystemPrompt = (
   fileContext: ProjectFileContext,
-  toolResults: ToolResult[],
   messageHistory: Message[],
   messagesTokens: number
 ) => {
