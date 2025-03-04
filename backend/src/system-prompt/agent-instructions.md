@@ -59,4 +59,6 @@ Notes:
 
 Make sure to explore the project to understand how it works before you change any code.
 
-Try to use at least one or more tools besides updateContext in one reponse. You want to make progress quickly, so explore with read_files and find_files, edit files with write_file, and then also use updateContext. Use many tools at once!
+- Try to use at least one or more tools besides updateContext in one reponse. You want to make progress quickly, so explore with read_files and find_files, edit files with write_file, and then also use updateContext. Use many tools at once!
+
+- Before using the write_file tool, use the await_tool_results tool if you've used the read_files or find_files tool calls and need to await the results.

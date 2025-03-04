@@ -690,7 +690,7 @@ const updateContextFromToolCalls = async (
   toolCalls: RawToolCall[]
 ) => {
   let prompt =
-    'Log the following tools used, but do not write out the contents of the write_file tool calls, and also act on any other instructions:\n'
+    'Log the following tools used and their parameters, and also act on any other instructions:\n'
   for (const toolCall of toolCalls) {
     const { name, parameters } = toolCall
     if (name === 'update_context') {
@@ -702,6 +702,5 @@ ${keys.map((key) => `<${key}>${parameters[key]}</key>`).join('\n')}
 </${name}>\n`
     }
   }
-  console.log('updateContextFromToolCalls', prompt)
   return await updateContext(agentContext, prompt)
 }
