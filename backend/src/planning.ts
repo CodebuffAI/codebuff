@@ -102,7 +102,7 @@ Request:\n${lastUserPrompt}`,
     model: models.sonnet,
     thinking: {
       type: 'enabled',
-      budget_tokens: options.costMode === 'max' ? 10_000 : 4_000,
+      budget_tokens: options.costMode === 'max' ? 4_096 : 1_024,
     },
   })
 
