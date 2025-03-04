@@ -88,29 +88,29 @@ Note that there's no need to call this tool if you're already reading the files 
 Note that the read_files tool will be executed after you end your response or if you invoke the await_tool_results tool. You will not have access to the tool results until then. You can stop writing your response at any time or invoke the await_tool_results tool at any time to see the results.
     `.trim(),
   },
-  {
-    name: 'find_files',
-    description: `
-## find_files
-Description: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
-Parameters:
-- description: (required) A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.
-Usage:
-<find_files>
-<description>The implementation of function foo</description>
-</find_files>
+//   {
+//     name: 'find_files',
+//     description: `
+// ## find_files
+// Description: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
+// Parameters:
+// - description: (required) A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.
+// Usage:
+// <find_files>
+// <description>The implementation of function foo</description>
+// </find_files>
 
-Purpose: Better fulfill the user request by reading files which could contain information relevant to the user's request.
-Use cases:
-- If you are calling a function or creating a class and want to know how it works, use this tool to get the implementation.
-- If you need to understand a section of the codebase, read more files in that directory or subdirectories.
-- Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
+// Purpose: Better fulfill the user request by reading files which could contain information relevant to the user's request.
+// Use cases:
+// - If you are calling a function or creating a class and want to know how it works, use this tool to get the implementation.
+// - If you need to understand a section of the codebase, read more files in that directory or subdirectories.
+// - Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
 
-Note that there's no need to call this tool if you're already reading the files you need in context.
+// Note that there's no need to call this tool if you're already reading the files you need in context.
 
-Note that the find_files tool will be executed after you end your response or if you invoke the await_tool_results tool. You will not have access to the tool results until then. You can stop writing your response at any time or invoke the await_tool_results tool at any time to see the results.
-    `.trim(),
-  },
+// Note that the find_files tool will be executed after you end your response or if you invoke the await_tool_results tool. You will not have access to the tool results until then. You can stop writing your response at any time or invoke the await_tool_results tool at any time to see the results.
+//     `.trim(),
+//   },
 //   {
 //     name: 'code_search',
 //     description: `

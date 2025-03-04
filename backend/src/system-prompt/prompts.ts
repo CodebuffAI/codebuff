@@ -152,7 +152,7 @@ export const getProjectFilesPromptContent = (
   const intro = `
 # Project files
 
-You have used the find_files or read_files tool in previous iterations to read the following files.
+You have used the read_files tool in previous iterations to read the following files.
 
 If a file was modified by you with the write_file tool or if the user has made changes to the file, then copies of the file with the changes are also listed below.
 
@@ -160,7 +160,7 @@ The multiple versions of each file show how it changed over the course of the co
 
 IMPORTANT: Please be aware that only the last copy of the file is up to date, and that is the one you should pay the most attention to. If you are modifying a file, you should make changes based off just the last copy of the file.
 
-If the included set of files is not sufficient to address the user's request, you can call the read_files or find_files tool to add more files for you to read to this set.
+If the included set of files is not sufficient to address the user's request, you can call the read_files tool to add more files for you to read to this set.
 `.trim()
 
   return buildArray([

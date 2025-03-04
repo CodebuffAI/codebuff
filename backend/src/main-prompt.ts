@@ -74,21 +74,22 @@ export const mainPrompt = async (
     costMode,
     allMessagesTokens
   )
-  const { newFileVersions, readFilesMessage } = await getFileVersionUpdates(
-    ws,
-    messagesWithUserMessage,
-    searchSystem,
-    fileContext,
-    null,
-    {
-      skipRequestingFiles: justUsedATool,
-      clientSessionId,
-      fingerprintId,
-      userInputId: promptId,
-      userId,
-      costMode,
-    }
-  )
+  const { newFileVersions, readFilesMessage, existingNewFilePaths } =
+    await getFileVersionUpdates(
+      ws,
+      messagesWithUserMessage,
+      searchSystem,
+      fileContext,
+      null,
+      {
+        skipRequestingFiles: justUsedATool,
+        clientSessionId,
+        fingerprintId,
+        userInputId: promptId,
+        userId,
+        costMode,
+      }
+    )
   fileContext.fileVersions = newFileVersions
   if (readFilesMessage !== undefined) {
     onResponseChunk(`${readFilesMessage}\n\n`)
@@ -96,8 +97,8 @@ export const mainPrompt = async (
 
     toolResults.push({
       id: generateCompactId(),
-      name: 'find_files',
-      result: readFilesMessage,
+      name: 'read_files',
+      result: `Read the following files: ${(existingNewFilePaths ?? ['None']).join('\n')}`,
     })
   }
 
@@ -268,7 +269,7 @@ ${toolResults
         'read_files tool call'
       )
 
-      const { newFileVersions } = await getFileVersionUpdates(
+      const { newFileVersions, existingNewFilePaths } = await getFileVersionUpdates(
         ws,
         messagesWithResponse,
         getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
@@ -285,38 +286,39 @@ ${toolResults
         }
       )
       fileContext.fileVersions = newFileVersions
+      const didNotExistOrAreHidden = difference(newPaths, existingNewFilePaths ?? [])
       serverToolResults.push({
         id: generateCompactId(),
         name: 'read_files',
-        result: `Read the following files: ${parameters.paths}`,
+        result: `Read the following files: ${parameters.paths}. ${didNotExistOrAreHidden.length > 0 ? `The following files did not exist or were hidden: ${didNotExistOrAreHidden.join('\n')}` : ''}`,
       })
-    } else if (name === 'find_files') {
-      const { description } = parameters
-      const { newFileVersions, readFilesMessage, existingNewFilePaths } =
-        await getFileVersionUpdates(
-          ws,
-          messagesWithResponse,
-          getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
-          fileContext,
-          description,
-          {
-            skipRequestingFiles: false,
-            clientSessionId,
-            fingerprintId,
-            userInputId: promptId,
-            userId,
-            costMode,
-          }
-        )
-      fileContext.fileVersions = newFileVersions
-      if (readFilesMessage !== undefined) {
-        onResponseChunk(`\n${readFilesMessage}`)
-      }
-      serverToolResults.push({
-        id: generateCompactId(),
-        name: 'find_files',
-        result: `For the following request "${description}", the following files were found: ${existingNewFilePaths?.join('\n') ?? 'None'}`,
-      })
+      // } else if (name === 'find_files') {
+      //   const { description } = parameters
+      //   const { newFileVersions, readFilesMessage, existingNewFilePaths } =
+      //     await getFileVersionUpdates(
+      //       ws,
+      //       messagesWithResponse,
+      //       getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
+      //       fileContext,
+      //       description,
+      //       {
+      //         skipRequestingFiles: false,
+      //         clientSessionId,
+      //         fingerprintId,
+      //         userInputId: promptId,
+      //         userId,
+      //         costMode,
+      //       }
+      //     )
+      //   fileContext.fileVersions = newFileVersions
+      //   if (readFilesMessage !== undefined) {
+      //     onResponseChunk(`\n${readFilesMessage}`)
+      //   }
+      //   serverToolResults.push({
+      //     id: generateCompactId(),
+      //     name: 'find_files',
+      //     result: `For the following request "${description}", the following files were found: ${existingNewFilePaths?.join('\n') ?? 'None'}`,
+      //   })
     } else if (name === 'think_deeply') {
       const fetchFilesStart = Date.now()
       // assistant sets the prompt, get from parameters

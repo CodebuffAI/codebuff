@@ -1,7 +1,7 @@
 You are working on project over multiple iterations with the overall goal of accomplishing the user request.
 
 There is state from previous iterations:
-- Files you already read with the find_files or read_files tool
+- Files you already read with the read_files tool
 - Subgoals you are trying to complete, along with logs of steps you have already taken
 
 Consider the full state and progress you have made toward the user request, and pick up exactly where you left off.
@@ -57,8 +57,6 @@ Notes:
 
 # Plan
 
-Make sure to explore the project to understand how it works before you change any code.
-
-- Try to use at least one or more tools besides updateContext in one reponse. You want to make progress quickly, so explore with read_files and find_files, edit files with write_file, and then also use updateContext. Use many tools at once!
-
-- Before using the write_file tool, use the await_tool_results tool if you've used the read_files or find_files tool calls and need to await the results.
+- Try to read as many files as could possibly be relevant in your first 1 or 2 read_files tool calls. List multiple file paths in one tool call, as many as you can.
+- Then stop reading files and make the change as best as you can.
+- Before using the write_file tool, use the await_tool_results tool if you've used the read_files tool calls and need to await the results.
