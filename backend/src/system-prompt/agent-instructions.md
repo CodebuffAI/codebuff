@@ -2,7 +2,7 @@ You are working on project over multiple iterations with the overall goal of acc
 
 There is state from previous iterations:
 - Files you already read with the read_files tool
-- Subgoals you are trying to complete, along with logs of steps you have already taken
+- Subgoals you are trying to complete, along with an optional plan and updates.
 
 Consider the full state and progress you have made toward the user request, and pick up exactly where you left off.
 Use the tools to work toward accomplishing the user request, and do not forget to record your progress and subgoals with update_context.
@@ -25,35 +25,22 @@ The <files> tag shows files you have previously created or read from previous it
 
 # Subgoals
 
-First, create and edit subgoals if none exist and pursue the most appropriate one. Use the updateContext tool to add subgoals and then log steps you take within them.
+First, create and edit subgoals if none exist and pursue the most appropriate one. Use the updateContext tool to add subgoals and later update them.
 
 The following is a mock example of the subgoal schema:
 <subgoal>
-<description>Fix the tests</description>
+<objective>Fix the tests</objective>
 <status>COMPLETE</status>
-<saved_tool_info>The test is referenced in 3 different files [...]</saved_tool_info>
-<log>
-Ran the tests and got these errors:
-[...INSERT_ERROR_MESSAGES_HERE...]
-</log>
-<log>
-Edited the file `test.ts` to add a missing import.
-</log>
-<log>
-Ran the tests again and they passed.
-</log>
+<plan>Run them, find the error, fix it</plan>
+<update>Ran the tests and traced the error to component foo.</update>
 </subgoal>
 
 Notes:
 
-- Every subgoal should have a description that explains the conditions to meet the subgoal concisely.
+- Every subgoal should have an objective that explains the conditions to meet the subgoal concisely.
 - Every subgoal should have a status: NOT_STARTED, IN_PROGRESS, COMPLETE or ABANDONDED.
-- Try to phrase subgoal description first in terms of observable behavior rather than how to implement it, if possible. The subgoal is what you are solving, not how you are solving it.
-- For every change you make, you should record it by adding a <log> under the appropriate subgoal.
-- If you write to a file, must also record that you did so as a log.
-- Do not log actions that you have not yet taken.
-- Do not remove log entries in a subgoal, unless you remove the whole subgoal because it is no longer relevent. Instead, you should accumulate logs of everything that has been tried.
-- If a tool gives you relevant info, you must add it to the saved_tool_info section.
+- Try to phrase subgoal objective  first in terms of observable behavior rather than how to implement it, if possible. The subgoal is what you are solving, not how you are solving it.
+- The <plan> and <update> entries are optional. You should not include these for straightforward tasks. If it's a hard task, you should write out a concise plan. When you make progress feel free to add update tags. You can add multiple updates.
 
 # Plan
 

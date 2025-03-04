@@ -265,7 +265,6 @@ ${toolResults
         .split('\n')
         .map((path) => path.trim())
         .filter(Boolean)
-      console.log(`Reading files: ${parameters.paths}`)
 
       logger.debug(toolCall, 'tool call')
       const existingPaths = fileContext.fileVersions.flatMap((files) =>
