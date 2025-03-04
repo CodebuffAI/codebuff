@@ -299,7 +299,7 @@ export async function mainPrompt(
         `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
       )
       fullResponse += `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
-      onResponseChunk(`\nThinking deeply (can take a minute!)`)
+      onResponseChunk(`\nThinking deeply (can take a minute!)\n`)
 
       logger.debug(
         { lastUserPrompt, filePaths, existingFilePaths },
