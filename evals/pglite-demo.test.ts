@@ -1,13 +1,17 @@
-import { expect, test } from 'bun:test'
+import { expect, test, describe, beforeEach } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { getProjectFileContext, loopMainPrompt } from './scaffolding'
-import { getInitialAgentState } from 'common/types/agent-state'
+import { loopMainPrompt } from './scaffolding'
+import { setupTestEnvironment, createInitialAgentState } from './test-setup'
 
-export const runEvals = async (repoPath: string) => {
-  const fileContext = await getProjectFileContext(repoPath)
-  const initialAgentState = getInitialAgentState(fileContext)
+describe('pglite-demo', async () => {
+  // Set up the test environment once for all tests
+  const { repoPath, resetRepo } = await setupTestEnvironment('pglite-demo')
+  const initialAgentState = await createInitialAgentState(repoPath)
+
+  // Reset repo before each test
+  beforeEach(resetRepo)
 
   test(
     'should find correct file',
@@ -45,4 +49,4 @@ export const runEvals = async (repoPath: string) => {
     },
     { timeout: 2 * 60_000 }
   )
-}
+})

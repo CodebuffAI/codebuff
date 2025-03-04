@@ -1,14 +1,23 @@
 import path from 'path'
 import fs from 'fs'
 import { execSync } from 'child_process'
-import { describe, beforeEach } from 'bun:test'
 import { createFileReadingMock, resetRepoToCommit } from './scaffolding'
 import { recreateShell } from 'npm-app/utils/terminal'
+import { getProjectFileContext } from './scaffolding'
+import { getInitialAgentState } from 'common/types/agent-state'
 
 const TEST_REPOS_DIR = path.join(__dirname, 'test-repos')
 const TEST_PROJECTS_CONFIG = path.join(__dirname, 'test-repos.json')
 
-async function ensureTestRepos() {
+// Mock required environment variables for tests
+function setupTestEnvironmentVariables() {
+  // Set up mock environment variables needed for tests
+  process.env.GOOGLE_CLOUD_PROJECT_ID = 'mock-project-id'
+  // Add other required environment variables as needed
+}
+
+// Ensures test repositories are cloned and at the right commit
+export async function ensureTestRepos() {
   // Create test-repos directory if it doesn't exist
   if (!fs.existsSync(TEST_REPOS_DIR)) {
     fs.mkdirSync(TEST_REPOS_DIR, { recursive: true })
@@ -44,49 +53,44 @@ async function ensureTestRepos() {
   }
 }
 
-describe('evals', async () => {
-  await ensureTestRepos()
-
-  const config: {
+// Gets the config from test-repos.json
+export function getTestReposConfig() {
+  return JSON.parse(fs.readFileSync(TEST_PROJECTS_CONFIG, 'utf-8')) as {
     [projectName: string]: {
       repo: string
       commit: string
     }
-  } = JSON.parse(fs.readFileSync(TEST_PROJECTS_CONFIG, 'utf-8'))
+  }
+}
 
-  // Get the filter pattern from environment variable
-  const filterPattern = process.env.TEST_FILTER
+// Sets up the test environment for a specific project
+export async function setupTestEnvironment(projectName: string) {
+  // Set up mock environment variables
+  setupTestEnvironmentVariables()
 
-  if (filterPattern) {
-    console.log(`Running tests only for projects matching: ${filterPattern}`)
+  const config = getTestReposConfig()
+  const project = config[projectName]
+
+  if (!project) {
+    throw new Error(`Project "${projectName}" not found in test-repos.json`)
   }
 
-  for (const [projectName, project] of Object.entries(config)) {
-    // Skip projects that don't match the filter pattern if one is provided
-    if (filterPattern && !projectName.includes(filterPattern)) {
-      console.log(`Skipping ${projectName} as it doesn't match filter pattern: ${filterPattern}`)
-      continue
-    }
+  await ensureTestRepos()
 
-    const evalFile = path.join(__dirname, `${projectName}.evals.ts`)
-    if (!fs.existsSync(evalFile)) {
-      console.log(`No eval file found for ${projectName}, skipping...`)
-      continue
-    }
+  const repoPath = path.join(TEST_REPOS_DIR, projectName)
+  createFileReadingMock(repoPath)
+  recreateShell(repoPath)
 
-    describe(projectName, async () => {
-      const { runEvals } = await import(evalFile)
-      const repoPath = path.join(TEST_REPOS_DIR, projectName)
-      const { commit } = project
-
-      createFileReadingMock(repoPath)
-      recreateShell()
-
-      beforeEach(() => {
-        resetRepoToCommit(repoPath, commit)
-      })
-
-      await runEvals(repoPath)
-    })
+  // Return project info for use in tests
+  return {
+    repoPath,
+    commit: project.commit,
+    resetRepo: () => resetRepoToCommit(repoPath, project.commit),
   }
-})
+}
+
+// Creates an initial agent state for testing
+export async function createInitialAgentState(repoPath: string) {
+  const fileContext = await getProjectFileContext(repoPath)
+  return getInitialAgentState(fileContext)
+}

@@ -1,13 +1,17 @@
-import { expect, test } from 'bun:test'
+import { expect, test, describe, beforeEach } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { getProjectFileContext, loopMainPrompt } from './scaffolding'
-import { getInitialAgentState } from 'common/types/agent-state'
+import { loopMainPrompt } from './scaffolding'
+import { setupTestEnvironment, createInitialAgentState } from './test-setup'
 
-export const runEvals = async (repoPath: string) => {
-  const fileContext = await getProjectFileContext(repoPath)
-  const initialAgentState = getInitialAgentState(fileContext)
+describe('manifold', async () => {
+  // Set up the test environment once for all tests
+  const { repoPath, resetRepo } = await setupTestEnvironment('manifold')
+  const initialAgentState = await createInitialAgentState(repoPath)
+
+  // Reset repo before each test
+  beforeEach(resetRepo)
 
   test(
     'should find correct file',
@@ -102,73 +106,4 @@ export const runEvals = async (repoPath: string) => {
     },
     { timeout: 10 * 60_000 }
   )
-}
-
-/*
-const testDeleteCommentWithoutKnowledge = async ({
-  expectTrue,
-  incrementScore,
-}: ScoreTestContext) => {
-  const fileContext = await getProjectFileContext()
-  fileContext.knowledgeFiles = {}
-
-  const { toolCalls } = await runMainPrompt(fileContext, [
-    {
-      role: 'user',
-      content: 'Add an endpoint to delete a comment',
-    },
-  ])
-
-  // Extract write_file tool calls
-  const writeFileCalls = toolCalls.filter((call) => call.name === 'write_file')
-  const changes = writeFileCalls.map((call) => ({
-    path: call.parameters.path,
-    content: call.parameters.content,
-  }))
-
-  const filePathToPatch = Object.fromEntries(
-    changes.map((change) => [change.path, change.content])
-  )
-  const filesChanged = Object.keys(filePathToPatch)
-
-  expectTrue(
-    'includes delete-comment.ts file',
-    filesChanged.includes('backend/api/src/delete-comment.ts')
-  )
-  expectTrue(
-    'includes app.ts file',
-    filesChanged.includes('backend/api/src/app.ts')
-  )
-  expectTrue(
-    'includes schema.ts file',
-    filesChanged.includes('common/src/api/schema.ts')
-  )
-
-  const deleteCommentFile = filePathToPatch['backend/api/src/delete-comment.ts']
-  expectTrue(
-    'delete-comment.ts references comment_id',
-    !!deleteCommentFile && deleteCommentFile.includes('comment_id')
-  )
-  expectTrue(
-    'delete-comment.ts references isAdmin',
-    !!deleteCommentFile && deleteCommentFile.includes('isAdmin')
-  )
-
-  await applyAndRevertChangesSequentially(
-    fileContext.currentWorkingDirectory,
-    changes as any,
-    async () => {
-      const compileResult = await runTerminalCommand(
-        `cd ${fileContext.currentWorkingDirectory}/backend/api && yarn compile`
-      )
-      const errorFiles = extractErrorFiles(compileResult.stdout)
-      const scoreChange = Math.max(3 - errorFiles.length, 0)
-      incrementScore(
-        scoreChange,
-        3,
-        `${errorFiles.join(', ')}: ${errorFiles.length} files with type errors`
-      )
-    }
-  )
-}
-*/
+})

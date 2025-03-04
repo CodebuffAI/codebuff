@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Evaluation scripts for Codebuff",
   "scripts": {
-    "test": "bun test ./index.ts",
-    "test:manifold": "TEST_FILTER=manifold bun test ./index.ts",
-    "test:pglite": "TEST_FILTER=pglite bun test ./index.ts",
+    "test": "bun test",
+    "test:manifold": "bun test manifold.test.ts",
+    "test:pglite": "bun test pglite.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
