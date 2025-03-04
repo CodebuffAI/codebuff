@@ -527,6 +527,7 @@ export class Client {
         promptId: userInputId,
         agentState: this.agentState!,
         toolCalls: [],
+        toolResults: [],
         wasStoppedByUser: true,
       })
     }
@@ -554,7 +555,7 @@ export class Client {
 
         Spinner.get().stop()
         let isComplete = false
-        const toolResults: ToolResult[] = []
+        const toolResults: ToolResult[] = [...a.toolResults]
 
         for (const toolCall of a.toolCalls) {
           if (toolCall.name === 'complete') {

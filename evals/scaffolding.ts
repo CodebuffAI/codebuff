@@ -146,19 +146,25 @@ export async function loopMainPrompt({
   let iterations = 1
   for (; iterations < maxIterations; iterations++) {
     console.log('\nIteration', iterations)
-    let { agentState: newAgentState, toolCalls: newToolCalls } =
-      await runMainPrompt(
-        currentAgentState,
-        iterations === 1 ? prompt : undefined,
-        toolResults
-      )
+    let {
+      agentState: newAgentState,
+      toolCalls: newToolCalls,
+      toolResults: newToolResults,
+    } = await runMainPrompt(
+      currentAgentState,
+      iterations === 1 ? prompt : undefined,
+      toolResults
+    )
     currentAgentState = newAgentState
     toolCalls = newToolCalls
 
     const stop = stopCondition && stopCondition(currentAgentState, toolCalls)
     if (stop) break
 
-    toolResults = await runToolCalls(toolCalls, projectPath)
+    toolResults = [
+      ...newToolResults,
+      ...(await runToolCalls(toolCalls, projectPath)),
+    ]
 
     const containsCompleteToolCall = toolCalls.some(
       (call) => call.name === 'complete'

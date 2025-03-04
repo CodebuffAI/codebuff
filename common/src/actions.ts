@@ -116,6 +116,7 @@ export const PromptResponseSchema = z
     promptId: z.string(),
     agentState: AgentStateSchema,
     toolCalls: z.array(NewToolCallSchema),
+    toolResults: z.array(ToolResultSchema),
   })
   .merge(
     UsageReponseSchema.omit({

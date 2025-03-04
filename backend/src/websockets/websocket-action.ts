@@ -159,7 +159,7 @@ const onPrompt = async (
         throw new Error('User not found')
       }
       try {
-        const { agentState, toolCalls } = await mainPrompt(
+        const { agentState, toolCalls, toolResults } = await mainPrompt(
           ws,
           action,
           userId,
@@ -185,6 +185,7 @@ const onPrompt = async (
           promptId,
           agentState,
           toolCalls,
+          toolResults,
           usage,
           limit,
           subscription_active,
@@ -207,6 +208,7 @@ const onPrompt = async (
           // Send back original agentState.
           agentState: action.agentState,
           toolCalls: [],
+          toolResults: [],
         })
       }
     }

@@ -30,7 +30,7 @@ import {
   TOOL_LIST,
   updateContext,
 } from './tools'
-import { AgentState } from 'common/types/agent-state'
+import { AgentState, ToolResult } from 'common/types/agent-state'
 import { generateCompactId } from 'common/util/string'
 
 export const mainPrompt = async (
@@ -223,6 +223,7 @@ ${toolResults
   ]
   const toolCalls = parseToolCalls(fullResponse)
   const clientToolCalls: ClientToolCall[] = []
+  const serverToolResults: ToolResult[] = []
 
   const agentContextPromise =
     toolCalls.length > 0
@@ -284,27 +285,38 @@ ${toolResults
         }
       )
       fileContext.fileVersions = newFileVersions
+      serverToolResults.push({
+        id: generateCompactId(),
+        name: 'read_files',
+        result: `Read the following files: ${parameters.paths}`,
+      })
     } else if (name === 'find_files') {
       const { description } = parameters
-      const { newFileVersions, readFilesMessage } = await getFileVersionUpdates(
-        ws,
-        messagesWithResponse,
-        getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
-        fileContext,
-        description,
-        {
-          skipRequestingFiles: false,
-          clientSessionId,
-          fingerprintId,
-          userInputId: promptId,
-          userId,
-          costMode,
-        }
-      )
+      const { newFileVersions, readFilesMessage, existingNewFilePaths } =
+        await getFileVersionUpdates(
+          ws,
+          messagesWithResponse,
+          getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
+          fileContext,
+          description,
+          {
+            skipRequestingFiles: false,
+            clientSessionId,
+            fingerprintId,
+            userInputId: promptId,
+            userId,
+            costMode,
+          }
+        )
       fileContext.fileVersions = newFileVersions
       if (readFilesMessage !== undefined) {
         onResponseChunk(`\n${readFilesMessage}`)
       }
+      serverToolResults.push({
+        id: generateCompactId(),
+        name: 'find_files',
+        result: `For the following request "${description}", the following files were found: ${existingNewFilePaths?.join('\n') ?? 'None'}`,
+      })
     } else if (name === 'think_deeply') {
       const fetchFilesStart = Date.now()
       // assistant sets the prompt, get from parameters
@@ -364,6 +376,11 @@ ${toolResults
         },
         'Generated plan'
       )
+      serverToolResults.push({
+        id: generateCompactId(),
+        name: 'think_deeply',
+        result: `Read the following files: ${filePaths.join('\n')}, thought deeply about the user request, and generated the following plan: ${response}`,
+      })
     } else {
       throw new Error(`Unknown tool: ${name}`)
     }
@@ -411,6 +428,7 @@ ${toolResults
       fullResponse,
       toolCalls,
       clientToolCalls,
+      serverToolResults,
       agentContext: newAgentContext,
     },
     `Main prompt response ${iterationNum}`
@@ -418,6 +436,7 @@ ${toolResults
   return {
     agentState: newAgentState,
     toolCalls: clientToolCalls,
+    toolResults: serverToolResults,
     messageHistory: messagesWithResponse,
   }
 }
