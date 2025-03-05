@@ -61,21 +61,15 @@ export const ProjectFileContextSchema = z.object({
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
 
 export const createFileBlock = (filePath: string, content: string) => {
+  const tagName = 'write_file'
   return (
     '<' +
-    `write_file path="${filePath}">
+    `${tagName}>
+<path>${filePath}</path>
+<content>
 ${content}
-</write_file>` +
-    '>'
-  )
-}
-export const createFileBlockWithoutPath = (content: string) => {
-  return (
-    '<' +
-    `write_file>
-${content}
-</write_file>` +
-    '>'
+</content>
+</${tagName}>`
   )
 }
 
