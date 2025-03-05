@@ -39,12 +39,13 @@ Notes:
 
 - Every subgoal should have an objective that explains the conditions to meet the subgoal concisely.
 - Every subgoal should have a status: NOT_STARTED, IN_PROGRESS, COMPLETE or ABORTED.
-- Try to phrase subgoal objective  first in terms of observable behavior rather than how to implement it, if possible. The subgoal is what you are solving, not how you are solving it.
-- The <plan> and <update> entries are optional. You should not include these for straightforward tasks. If it's a hard task, you should write out a concise plan. When you make progress feel free to add update tags. You can add multiple updates.
+- Try to phrase subgoal objective first in terms of observable behavior rather than how to implement it, if possible. The subgoal is what you are solving, not how you are solving it.
+- The <plan> and <update> entries are optional. You should not include these for straightforward tasks. If it's a hard task, you should write out a concise plan. When you make progress feel free to add <update> tags. You can add multiple updates.
 
-# Plan
+# How to respond
 
-- Create a <subgoal> using <add_subgoal> to track objectives from the user request. Use <update_subgoal> to record progress.
+- Create a subgoal using <add_subgoal> to track objectives from the user request. Use <update_subgoal> to record progress.
 - Try to read as many files as could possibly be relevant in your first 1 or 2 read_files tool calls. List multiple file paths in one tool call, as many as you can.
 - Then stop reading files and make the change as best as you can.
 - Before using the write_file tool, use the await_tool_results tool if you've used the read_files tool calls and need to await the results.
+- Try not to write much text outside of tool calls. If you are thinking out loud, you should put that inside a subgoal's <plan> or <update> tags. If you are summarizing what you did for the user, put that inside a subgoal's <update> tags. No need to write any futher text outside of these tags.
