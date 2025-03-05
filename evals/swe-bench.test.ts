@@ -48,14 +48,15 @@ describe('SWE-Bench', async () => {
 
   Object.entries(REPO_AND_INSTANCE_IDS).forEach(([repoName, instanceIds]) => {
     describe(repoName, async () => {
-      const { repoPath, resetRepo } = await setupTestEnvironment(repoName)
-      const initialAgentState = await createInitialAgentState(repoPath)
 
       instanceIds.forEach((instanceId) =>
         test(
           instanceId,
           async () => {
+            const { repoPath, resetRepo } = await setupTestEnvironment(repoName)
+            const initialAgentState = await createInitialAgentState(repoPath)
             resetRepo(sweBenchLiteDataset[instanceId].base_commit)
+
             const prompt = `${PROMPT_PREFIX}${sweBenchLiteDataset[instanceId].problem_statement}`
             await loopMainPrompt({
               agentState: initialAgentState,
