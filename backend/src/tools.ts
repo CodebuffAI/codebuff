@@ -6,19 +6,42 @@ import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { z } from 'zod'
 import { FileChange } from 'common/actions'
 import { logger } from './util/logger'
+import { buildArray } from 'common/util/array'
 
 const tools = [
   {
-    name: 'update_context',
+    name: 'add_subgoal',
     description: `
-## update_context
-Description: Update your context for the next iteration. Give explicit instructions for what sections to update with what content.
+## add_subgoal
+Description: Add a new subgoal to the context.
 Parameters:
-- prompt: (required) Clear instructions for what sections to update and how to update them
+- objective: (required) Clear instructions for what sections to update and how to update them
+- status: (required) The status of the subgoal. Can be "NOT_STARTED", "IN_PROGRESS", "COMPLETE", or "FAILED".
+- plan: (optional) A plan for the subgoal.
 Usage:
-<update_context>
-<prompt>Remove the "migrate database" subgoal and add a new "deploy api" subgoal with status "in progress"</prompt>
-</update_context>
+<add_subgoal>
+<objective>Add a new "deploy api" subgoal</objective>
+<status>IN_PROGRESS</status>
+</add_subgoal>
+    `.trim(),
+  },
+  {
+    name: 'update_subgoal',
+    description: `
+## update_subgoal
+Description: Update a subgoal in the context.
+Parameters:
+- objective: (required) Clear instructions for what sections to update and how to update them
+- status: (required) The status of the subgoal. Can be "NOT_STARTED", "IN_PROGRESS", "COMPLETE", or "FAILED".
+- plan: (optional) A plan for the subgoal.
+- update: (optional) An update for the subgoal.
+Usage:
+<update_subgoal>
+<objective>Add a new endpoint to fetch user data</objective>
+<status>IN_PROGRESS</status>
+<plan>Create a file for the endpoint in the api, and register it in the router</plan>
+<update>Created the endpoint file</update>
+</update_subgoal>
     `.trim(),
   },
   {
@@ -215,8 +238,17 @@ Usage:
 ] as const
 
 // Define Zod schemas for parameter validation
-const updateContextSchema = z.object({
-  prompt: z.string().min(1, 'Prompt cannot be empty'),
+const addSubgoalSchema = z.object({
+  objective: z.string().min(1, 'Objective cannot be empty'),
+  status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED']),
+  plan: z.string().optional(),
+})
+
+const updateSubgoalSchema = z.object({
+  objective: z.string().min(1, 'Objective cannot be empty'),
+  status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED']),
+  plan: z.string().optional(),
+  update: z.string().optional(),
 })
 
 const writeFileSchema = z.object({
@@ -244,7 +276,8 @@ const emptySchema = z.object({}).transform(() => ({}))
 
 // Map tool names to their schemas
 const toolSchemas = {
-  update_context: updateContextSchema,
+  add_subgoal: addSubgoalSchema,
+  update_subgoal: updateSubgoalSchema,
   write_file: writeFileSchema,
   read_files: readFilesSchema,
   find_files: findFilesSchema,
@@ -373,6 +406,27 @@ Please rewrite the entire context using the update instructions in a <new_contex
   logger.debug({ prompt, response }, 'Updated context')
   const newContext = response.split('</new_context>')[0]
   return newContext.trim()
+}
+
+export async function updateContextFromToolCalls(
+  agentContext: string,
+  toolCalls: RawToolCall[]
+) {
+  let prompt = '' // 'Log the following tools used and their parameters, and also act on any other instructions:\n'
+
+  for (const toolCall of toolCalls) {
+    const { name, parameters } = toolCall
+    if (name === 'add_subgoal') {
+      prompt += `\nPlease add the following subgoal:\n${renderSubgoal(
+        parameters as any
+      )}`
+    } else if (name === 'update_subgoal') {
+      prompt += `\nPlease update the following subgoal. If there are already <update> tags, preserve them and add the new update to the end:\n${renderSubgoal(
+        parameters as any
+      )}`
+    }
+  }
+  return await updateContext(agentContext, prompt)
 }
 
 export async function readFiles(
@@ -580,4 +634,24 @@ export async function summarizeOutput(xml: string): Promise<string> {
     userInputId: 'strange-loop',
     userId: TEST_USER_ID,
   })
+}
+
+function renderSubgoal(subgoal: {
+  objective: string
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE' | 'ABORTED'
+  plan?: string
+  update?: string
+}) {
+  const { objective, status, plan, update } = subgoal
+  const lines = buildArray(
+    `<objective>${objective}</objective>`,
+    `<status>${status}</status>`,
+    plan && `<plan>${plan}</plan>`,
+    update && `<update>${update}</update>`
+  )
+  return `
+<subgoal>
+${lines.join('\n')}
+</subgoal>
+`.trim()
 }

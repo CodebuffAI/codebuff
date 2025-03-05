@@ -26,9 +26,8 @@ import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import {
   ClientToolCall,
   parseToolCalls,
-  RawToolCall,
   TOOL_LIST,
-  updateContext,
+  updateContextFromToolCalls,
 } from './tools'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { generateCompactId } from 'common/util/string'
@@ -119,8 +118,7 @@ ${existingNewFilePaths.join('\n')}
   const { agentContext } = agentState
   const userInstructions = `
 Proceed toward the user request and any subgoals.
-You must use the updateContext tool call to record your progress and any new information you learned as you go. If the change is minimal, you can just update the context once at the end of your response.
-Optionally use other tools to make progress towards the user request and any subgoals. Try to use multiple tools in one response to make quick progress.
+You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is minimal, you can just update subgoals once at the end of your response.
 Use the "await_tool_results" tool to see the results of the tool calls you've made.
 Use the "complete" tool only when you are confident the user request has been accomplished.
     `.trim()
@@ -251,8 +249,8 @@ ${toolResults
     if (name === 'await_tool_results') {
     } else if (name === 'write_file') {
       // write_file tool calls are handled as they are streamed in.
-    } else if (name === 'update_context') {
-      // update_context tool calls are handled above
+    } else if (name === 'add_subgoal' || name === 'update_subgoal') {
+      // add_subgoal and update_subgoal tool calls are handled above
     } else if (
       // name === 'code_search' ||
       name === 'run_terminal_command' ||
@@ -722,26 +720,6 @@ async function getFileVersionUpdates(
     readFilesMessage,
     existingNewFilePaths,
   }
-}
-
-const updateContextFromToolCalls = async (
-  agentContext: string,
-  toolCalls: RawToolCall[]
-) => {
-  let prompt = '' // 'Log the following tools used and their parameters, and also act on any other instructions:\n'
-
-  for (const toolCall of toolCalls) {
-    const { name, parameters } = toolCall
-    if (name === 'update_context') {
-      prompt += `\n<instructions>\n${parameters.prompt}\n</instructions>\n\n`
-    } else {
-      //       const keys = Object.keys(parameters)
-      //       prompt += `<${name}>
-      // ${keys.map((key) => `<${key}>${parameters[key]}</key>`).join('\n')}
-      // </${name}>\n`
-    }
-  }
-  return await updateContext(agentContext, prompt)
 }
 
 const getAssistantMessagesSubset = (messages: Message[]) => {
