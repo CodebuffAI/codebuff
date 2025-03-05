@@ -53,6 +53,9 @@ export const mainPrompt = async (
         },
       ]
     : messageHistory
+  const lastUserMessage = messagesWithUserMessage.findLast(
+    (m) => m.role === 'user'
+  )
   const lastAssistantMessage = messagesWithUserMessage.findLast(
     (m) => m.role === 'assistant'
   )
@@ -94,7 +97,6 @@ export const mainPrompt = async (
   fileContext.fileVersions = newFileVersions
   if (readFilesMessage !== undefined) {
     onResponseChunk(`${readFilesMessage}\n\n`)
-    fullResponse += `${readFilesMessage}\n\n`
 
     if (existingNewFilePaths?.length) {
       messagesWithOptionalReadFiles.push({
@@ -116,22 +118,22 @@ ${existingNewFilePaths.join('\n')}
 
   const { agentContext } = agentState
   const userInstructions = `
-${toolResults.length > 0 ? `I just ran some tools. Review the results in the <tool_results> section and update your context with any relevant information.` : ''}
 Proceed toward the user request and any subgoals.
 You must use the updateContext tool call to record your progress and any new information you learned as you go. If the change is minimal, you can just update the context once at the end of your response.
 Optionally use other tools to make progress towards the user request and any subgoals. Try to use multiple tools in one response to make quick progress.
-Use the "continue" tool to see the results of all the tool calls you've made so far.
+Use the "await_tool_results" tool to see the results of the tool calls you've made.
 Use the "complete" tool only when you are confident the user request has been accomplished.
     `.trim()
   const agentMessages = buildArray(
-    {
+    agentContext && {
       role: 'assistant' as const,
-      content: agentContext || 'No goals created yet.',
+      content: agentContext,
     },
     {
       role: 'user' as const,
       content: `${userInstructions}${prompt ? `\n\nUser request: ${prompt}` : '\nPlease complete the user request.'}`,
     },
+    lastUserMessage,
     ...getAssistantMessagesSubset(messagesWithOptionalReadFiles),
     toolResults.length > 0 && {
       role: 'user' as const,

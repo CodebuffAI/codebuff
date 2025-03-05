@@ -44,6 +44,7 @@ Notes:
 
 # Plan
 
+- Create a <subgoal> using <update_context> to track objectives from the user request.
 - Try to read as many files as could possibly be relevant in your first 1 or 2 read_files tool calls. List multiple file paths in one tool call, as many as you can.
 - Then stop reading files and make the change as best as you can.
 - Before using the write_file tool, use the await_tool_results tool if you've used the read_files tool calls and need to await the results.
