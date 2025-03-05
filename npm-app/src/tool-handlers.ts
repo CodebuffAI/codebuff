@@ -25,13 +25,16 @@ export const handleWriteFile: ToolHandler<{
 }> = async (parameters, _id, projectPath) => {
   const fileChange = FileChangeSchema.parse(parameters)
   const { created, modified } = applyChanges(projectPath, [fileChange])
+  let result = ''
   for (const file of created) {
+    result += `Wrote to ${file} successfully.\n`
     console.log(green(`- Created ${file}`))
   }
   for (const file of modified) {
+    result += `Wrote to ${file} successfully.\n`
     console.log(green(`- Updated ${file}`))
   }
-  return ''
+  return result
 }
 
 export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
