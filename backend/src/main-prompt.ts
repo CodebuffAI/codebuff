@@ -119,7 +119,6 @@ ${existingNewFilePaths.join('\n')}
   const userInstructions = `
 Proceed toward the user request and any subgoals.
 You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is minimal, you can just update subgoals once at the end of your response.
-Use the "await_tool_results" tool to see the results of the tool calls you've made.
 Use the "complete" tool only when you are confident the user request has been accomplished.
     `.trim()
   const agentMessages = buildArray(
@@ -246,8 +245,7 @@ ${toolResults
 
   for (const toolCall of toolCalls) {
     const { name, parameters } = toolCall
-    if (name === 'await_tool_results') {
-    } else if (name === 'write_file') {
+    if (name === 'write_file') {
       // write_file tool calls are handled as they are streamed in.
     } else if (name === 'add_subgoal' || name === 'update_subgoal') {
       // add_subgoal and update_subgoal tool calls are handled above

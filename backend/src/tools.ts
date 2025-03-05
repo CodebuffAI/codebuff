@@ -107,9 +107,7 @@ Usage:
 src/utils.ts</paths>
 </read_files>
 
-Note that there's no need to call this tool if you're already reading the files you need in context. Feel free to make multiple read_files calls in a single response.
-Note that the read_files tool will be executed after you end your response or if you invoke the await_tool_results tool. You will not have access to the tool results until then. You can stop writing your response at any time or invoke the await_tool_results tool at any time to see the results.
-    `.trim(),
+Note that there's no need to call this tool if you're already reading the files you need in context.`.trim(),
   },
   //   {
   //     name: 'find_files',
@@ -130,8 +128,6 @@ Note that the read_files tool will be executed after you end your response or if
   // - Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
 
   // Note that there's no need to call this tool if you're already reading the files you need in context.
-
-  // Note that the find_files tool will be executed after you end your response or if you invoke the await_tool_results tool. You will not have access to the tool results until then. You can stop writing your response at any time or invoke the await_tool_results tool at any time to see the results.
   //     `.trim(),
   //   },
   //   {
@@ -164,8 +160,6 @@ Note that the read_files tool will be executed after you end your response or if
   // - Case-sensitive by default. Use -i to make it case insensitive.
   // - Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
 
-  // Note that the code_search tool will be executed after you end your response or if you invoke the await_tool_results tool. You will not have access to the tool results until then. You can stop writing your response at any time or invoke the await_tool_results tool at any time to see the results.
-
   // Feel free to make multiple code search calls in a single response.
   //     `.trim(),
   //   },
@@ -180,8 +174,6 @@ Usage:
 <run_terminal_command>
 <command>Your command here</command>
 </run_terminal_command>
-
-Note that the terminal command will be executed after you end your response. You can stop writing your response at any time to await the tool call results.
     `.trim(),
   },
   {
@@ -213,16 +205,6 @@ Do not use it for simple changes like:
 - Answering a question
 
 Important: Use this tool sparingly. Do not use this tool more than once in a conversation, if a plan was already created, or for similar user requests.
-    `.trim(),
-  },
-  {
-    name: 'await_tool_results',
-    description: `
-## await_tool_results
-Description: Continue to see the results of all the tool calls you've made so far. Invoking this tool is the same as ending your response.
-Parameters: None
-Usage:
-<await_tool_results></await_tool_results>
     `.trim(),
   },
   {
@@ -284,7 +266,6 @@ const toolSchemas = {
   code_search: codeSearchSchema,
   run_terminal_command: runTerminalCommandSchema,
   think_deeply: emptySchema,
-  await_tool_results: emptySchema,
   complete: emptySchema,
 } as const
 
@@ -322,10 +303,11 @@ export type ToolCall<T extends ToolName = ToolName> = {
 }
 
 export const TOOLS_WHICH_END_THE_RESPONSE = [
-  // 'code_search',
-  // 'run_terminal_command',
-  // 'think_deeply',
-  'await_tool_results',
+  'read_files',
+  'find_files',
+  'code_search',
+  'run_terminal_command',
+  'think_deeply',
 ]
 
 export const toolsInstructions = `
@@ -351,8 +333,6 @@ Always adhere to this format for the tool use to ensure proper parsing and execu
 You can and should include as many tool calls in the response as you need to complete the task. You can even use the same tool multiple times if needed.
 
 No need to narrate your thought process for the tool you are going to use. Just write out the tool call and the parameters you need to use.
-
-Note that any tools you call will only be executed at the end of your current response. You can stop writing your response at any time to await the tool call results.
 
 # Tools
 

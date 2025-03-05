@@ -167,7 +167,6 @@ Buffy can execute terminal commands using the `run_terminal_command` tool. This 
 - Available tools: read_files, scrape_web_page, search_manifold_markets, run_terminal_command.
 - The backend uses tool calls to request additional information or perform actions.
 - The client-side handles tool calls and sends results back to the server.
-- The `await_tool_results` tool (formerly "continue") allows the assistant to see the results of all tool calls made so far.
 
 ## CLI Interface Features
 
