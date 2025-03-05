@@ -14,6 +14,8 @@ import { processFileBlock } from './process-file-block'
 import { requestFiles } from './websockets/websocket-action'
 import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
 import { promptClaude } from './claude'
+import { withTimeout } from 'common/util/promise'
+import { logger } from './util/logger'
 
 const systemPrompt = `
 You are a senior software engineer. You are given a request from a user and a set of files that are relevant to the request.
@@ -90,15 +92,31 @@ Request:\n${lastUserPrompt}`,
     },
   ]
 
-  let fullResponse = await promptClaude(messages, {
-    ...options,
-    system: systemPrompt,
-    model: models.sonnet,
-    thinking: {
-      type: 'enabled',
-      budget_tokens: options.costMode === 'max' ? 4_096 : 1_024,
-    },
-  })
+  let fullResponse
+
+  try {
+    fullResponse = await withTimeout(
+      promptClaude(messages, {
+        ...options,
+        system: systemPrompt,
+        model: models.sonnet,
+        thinking: {
+          type: 'enabled',
+          budget_tokens: options.costMode === 'max' ? 4_096 : 1_024,
+        },
+      }),
+      options.costMode === 'max' ? 4 * 60_000 : 100_000,
+      'Timed out waiting for plan from Claude'
+    )
+  } catch (e) {
+    logger.error({ error: e }, 'Timed out waiting for plan from Claude')
+    // Fallback to Claude without thinking
+    fullResponse = await promptClaude(messages, {
+      ...options,
+      system: systemPrompt,
+      model: models.sonnet,
+    })
+  }
 
   const fileBlocks = parseFileBlocks(fullResponse)
 

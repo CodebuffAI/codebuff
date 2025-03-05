@@ -13,26 +13,26 @@ export async function withRetry<T>(
     maxRetries = 3,
     shouldRetry = (error) => error?.type === 'APIConnectionError',
     onRetry = () => {},
-    retryDelayMs = INITIAL_RETRY_DELAY
+    retryDelayMs = INITIAL_RETRY_DELAY,
   } = options
 
   let lastError: any = null
-  
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await operation()
     } catch (error) {
       lastError = error
-      
+
       if (!shouldRetry(error) || attempt === maxRetries - 1) {
         throw error
       }
 
       onRetry(error, attempt + 1)
-      
+
       // Exponential backoff
       const delayMs = retryDelayMs * Math.pow(2, attempt)
-      await new Promise(resolve => setTimeout(resolve, delayMs))
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
     }
   }
 
@@ -72,3 +72,32 @@ export const mapAsync = <T, U>(
 }
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Wraps a promise with a timeout
+ * @param promise The promise to wrap
+ * @param timeoutMs Timeout in milliseconds
+ * @param timeoutMessage Optional message for the timeout error
+ * @returns A promise that resolves with the result of the original promise or rejects with a timeout error
+ */
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string = 'Operation timed out'
+): Promise<T> {
+  let timeoutId: NodeJS.Timeout
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(timeoutMessage))
+    }, timeoutMs)
+  })
+
+  return Promise.race([
+    promise.then((result) => {
+      clearTimeout(timeoutId)
+      return result
+    }),
+    timeoutPromise,
+  ])
+}
