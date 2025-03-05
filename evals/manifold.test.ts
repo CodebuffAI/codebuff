@@ -7,11 +7,11 @@ import { setupTestEnvironment, createInitialAgentState } from './test-setup'
 
 describe('manifold', async () => {
   // Set up the test environment once for all tests
-  const { repoPath, resetRepo } = await setupTestEnvironment('manifold')
+  const { repoPath, commit, resetRepo } = await setupTestEnvironment('manifold')
   const initialAgentState = await createInitialAgentState(repoPath)
 
   // Reset repo before each test
-  beforeEach(resetRepo)
+  beforeEach(() => resetRepo(commit))
 
   test(
     'should find correct file',

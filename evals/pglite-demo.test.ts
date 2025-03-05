@@ -7,11 +7,11 @@ import { setupTestEnvironment, createInitialAgentState } from './test-setup'
 
 describe('pglite-demo', async () => {
   // Set up the test environment once for all tests
-  const { repoPath, resetRepo } = await setupTestEnvironment('pglite-demo')
+  const { repoPath, commit, resetRepo } = await setupTestEnvironment('pglite-demo')
   const initialAgentState = await createInitialAgentState(repoPath)
 
   // Reset repo before each test
-  beforeEach(resetRepo)
+  beforeEach(() => resetRepo(commit))
 
   test(
     'should find correct file',

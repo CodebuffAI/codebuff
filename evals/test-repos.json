@@ -1,12 +1,15 @@
 {
+  "codebuff-swe-bench": {
+    "repo": "https://github.com/CodebuffAI/codebuff-swe-bench",
+    "commit": "faed23d00ce682a1dd8b02bb25af7eff7d956b79"
+  },
   "manifold": {
     "repo": "https://github.com/manifoldmarkets/manifold",
     "commit": "f004179916e609bf64b5db47e3ace4f6988591b1"
   },
   "matplotlib": {
-    "repo": "https://github.com/matplotlib/matplotlib",
-    "commit": "73394f2b11321e03a5df199ec0196f27a728b0b0",
-    "usesSweBench": true
+    "repo": "https://github.com/matplotlib/matplotlib.git",
+    "commit": "HEAD"
   },
   "pglite-demo": {
     "repo": "https://github.com/brandonkachen/pglite-demo",

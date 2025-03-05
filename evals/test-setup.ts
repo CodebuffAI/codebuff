@@ -11,7 +11,11 @@ const TEST_PROJECTS_CONFIG = path.join(__dirname, 'test-repos.json')
 export const SWE_BENCH_REPO_PATH = path.join(TEST_REPOS_DIR, 'swe-bench-docker')
 const SWE_BENCH_VENV_PATH = path.join(SWE_BENCH_REPO_PATH, 'swebench_venv')
 const SWE_BENCH_PIP_PATH = path.join(SWE_BENCH_VENV_PATH, 'bin', 'pip')
-export const SWE_BENCH_PYTHON_PATH = path.join(SWE_BENCH_VENV_PATH, 'bin', 'python')
+export const SWE_BENCH_PYTHON_PATH = path.join(
+  SWE_BENCH_VENV_PATH,
+  'bin',
+  'python'
+)
 
 // Mock required environment variables for tests
 function setupTestEnvironmentVariables() {
@@ -38,21 +42,32 @@ export async function ensureTestRepos() {
     if (!fs.existsSync(projectDir)) {
       // Do a shallow clone of just the specific commit
       console.log(`Cloning ${projectName} from ${repo} at commit ${commit}...`)
-      execSync(
-        `git clone --depth 1 --branch main ${repo} ${projectDir} && cd ${projectDir} && git fetch --depth 1 origin ${commit} && git checkout ${commit}`,
-        {
-          timeout: 60_000, // 1 minute timeout for git operations
-        }
-      )
+      if (commit !== 'HEAD') {
+        execSync(
+          `git clone --depth 1 --branch main ${repo} ${projectDir} && cd ${projectDir} && git fetch --depth 1 origin ${commit} && git checkout ${commit}`,
+          {
+            timeout: 60_000, // 1 minute timeout for git operations
+          }
+        )
+      } else {
+        execSync(
+          `git clone --branch main ${repo} ${projectDir} && cd ${projectDir}`,
+          {
+            timeout: 60_000, // 1 minute timeout for git operations
+          }
+        )
+      }
     } else {
       // For existing repos, fetch and checkout the commit
       // console.log(`Checking out ${commit} for ${projectName}...`)
-      execSync(
-        `cd ${projectDir} && git fetch --depth 1 origin ${commit} && git checkout ${commit}`,
-        {
-          timeout: 60_000, // 1 minute timeout for git operations
-        }
-      )
+      if (commit !== 'HEAD') {
+        execSync(
+          `cd ${projectDir} && git fetch --depth 1 origin ${commit} && git checkout ${commit}`,
+          {
+            timeout: 60_000, // 1 minute timeout for git operations
+          }
+        )
+      }
     }
   }
 }
@@ -98,7 +113,7 @@ export async function setupTestEnvironment(projectName: string) {
   return {
     repoPath,
     commit: project.commit,
-    resetRepo: () => resetRepoToCommit(repoPath, project.commit),
+    resetRepo: (commit) => resetRepoToCommit(repoPath, commit),
   }
 }
 

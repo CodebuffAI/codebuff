@@ -1,0 +1,75 @@
+import { expect, test, describe, beforeEach } from 'bun:test'
+import { execSync } from 'child_process'
+import * as fs from 'fs'
+import * as path from 'path'
+
+import { loopMainPrompt } from './scaffolding'
+import {
+  setupTestEnvironment,
+  createInitialAgentState,
+  ensureTestRepos,
+  TEST_REPOS_DIR,
+} from './test-setup'
+import { passesSweBenchTests } from './swe-bench-eval'
+
+const PROMPT_PREFIX =
+  'Fix the following issue. Only use the <complete> tool once you believe ' +
+  'the issue has been fully fixed. Do not ask follow-up questions, do your ' +
+  'best to interpret the intent of the issue.\n\n-----\n\n'
+const LITE_DATASET_PATH = path.join(
+  TEST_REPOS_DIR,
+  'codebuff-swe-bench',
+  'princeton-nlp--SWE-bench_Lite.json'
+)
+
+describe('SWE-Bench', async () => {
+  await ensureTestRepos()
+  const sweBenchLiteList = JSON.parse(
+    fs.readFileSync(LITE_DATASET_PATH, 'utf-8')
+  )
+  const sweBenchLiteDataset = sweBenchLiteList.reduce(
+    (accumulator, instance) => {
+      accumulator[instance['instance_id']] = instance
+      return accumulator
+    },
+    {} as Record<
+      string,
+      {
+        instance_id: string
+        base_commit: string
+        problem_statement: string
+      }
+    >
+  )
+
+  describe('matplotlib', async () => {
+    const { repoPath, resetRepo } = await setupTestEnvironment('matplotlib')
+    const initialAgentState = await createInitialAgentState(repoPath)
+
+    const instanceIds = [
+      'matplotlib__matplotlib-25442',
+      'matplotlib__matplotlib-23299',
+    ]
+
+    instanceIds.map((instanceId) =>
+      test(
+        instanceId,
+        async () => {
+          resetRepo(sweBenchLiteDataset[instanceId].base_commit)
+          const prompt = `${PROMPT_PREFIX}${sweBenchLiteDataset[instanceId].problem_statement}`
+          await loopMainPrompt({
+            agentState: initialAgentState,
+            prompt,
+            projectPath: repoPath,
+            maxIterations: 100,
+            stopCondition: (_, toolCalls) => {
+              return toolCalls.some((call) => call.name === 'complete')
+            },
+          })
+          expect(passesSweBenchTests(instanceId, repoPath)).toBeTruthy()
+        },
+        { timeout: 10 * 60 * 60 * 1000 } // 10 hours
+      )
+    )
+  })
+})
