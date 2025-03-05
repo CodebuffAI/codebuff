@@ -5,7 +5,7 @@ import {
 } from 'common/util/file'
 import { CostMode, models } from 'common/constants'
 import { logger } from './util/logger'
-import { promptOpenAI } from './openai-api'
+import { promptClaude } from './claude'
 
 export const parseAndGetDiffBlocks = (
   response: string,
@@ -62,7 +62,7 @@ export const parseAndGetDiffBlocksSingleFile = (
   }[] = []
   const diffBlocks: { searchContent: string; replaceContent: string }[] = []
   const blockRegex =
-    /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g
+    /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n{0,1}>>>>>>> REPLACE/g
   let blockMatch
 
   while ((blockMatch = blockRegex.exec(newContent)) !== null) {
@@ -198,8 +198,8 @@ The search content needs to match an exact substring of the old file content, wh
 
 Provide a new set of SEARCH/REPLACE changes to make the intended edit from the old file.`.trim()
 
-  const response = await promptOpenAI([{ role: 'user', content: newPrompt }], {
-    model: models.o3mini,
+  const response = await promptClaude([{ role: 'user', content: newPrompt }], {
+    model: models.sonnet,
     clientSessionId,
     fingerprintId,
     userInputId,
