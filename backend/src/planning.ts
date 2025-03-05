@@ -69,13 +69,7 @@ export async function planComplexChange(
         .map((m) => `${m.role}: ${m.content}`)
         .join('\n')}
 
-Choose one of the following options which seems most relevant to the user's request. Usually, users prefer to have their request implemented immediately by editing files (option A), but if the user asks you to plan or think through it, or if there's enough uncertainty that the user would likely want to iterate on the plan first, then choose option B.
-
-A. Implement the user's request now
-
-Go ahead and implement the user's request by editing files.
-
-B. Write up a detailed implementation plan for what the user wants in a new markdown file.
+Write up a detailed implementation plan for what the user wants in a new markdown file.
 
 1. Create a file with a descriptive name ending in .md (e.g. feature-name-plan.md or refactor-x-design.md) using the <edit_file path="...">...</edit_file> tool. (Or, if a relevant planning file already exists, just edit that! Be careful to only add your changes, or change just the relevant parts.)
 2. Act as an expert architect engineer and provide direction to your editor engineer.

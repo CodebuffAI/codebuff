@@ -569,7 +569,7 @@ function getExtraInstructionForUserPrompt(
 
     !justUsedATool &&
       !recentlyDidThinking &&
-      'If the user request is very complex (e.g. requires changes across multiple files or systems) and you have not recently used the think_deeply tool, consider invoking the think_deeply tool, although this should be used sparingly.',
+      'If the user request asks you to plan something (e.g. a new feature or refactoring) and you have not recently used the think_deeply tool, consider invoking the think_deeply tool, although this should be used sparingly.',
 
     hasKnowledgeFiles &&
       'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case.',
