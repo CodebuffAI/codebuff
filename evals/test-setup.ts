@@ -6,8 +6,12 @@ import { recreateShell } from 'npm-app/utils/terminal'
 import { getProjectFileContext } from './scaffolding'
 import { getInitialAgentState } from 'common/types/agent-state'
 
-const TEST_REPOS_DIR = path.join(__dirname, 'test-repos')
+export const TEST_REPOS_DIR = path.join(__dirname, 'test-repos')
 const TEST_PROJECTS_CONFIG = path.join(__dirname, 'test-repos.json')
+export const SWE_BENCH_REPO_PATH = path.join(TEST_REPOS_DIR, 'swe-bench-docker')
+const SWE_BENCH_VENV_PATH = path.join(SWE_BENCH_REPO_PATH, 'swebench_venv')
+const SWE_BENCH_PIP_PATH = path.join(SWE_BENCH_VENV_PATH, 'bin', 'pip')
+export const SWE_BENCH_PYTHON_PATH = path.join(SWE_BENCH_VENV_PATH, 'bin', 'python')
 
 // Mock required environment variables for tests
 function setupTestEnvironmentVariables() {
@@ -63,6 +67,11 @@ export function getTestReposConfig() {
   }
 }
 
+async function setupSweBenchEnvironment() {
+  execSync(`python -m venv ${SWE_BENCH_VENV_PATH}`)
+  execSync(`${SWE_BENCH_PIP_PATH} install swebench==1.1.5`)
+}
+
 // Sets up the test environment for a specific project
 export async function setupTestEnvironment(projectName: string) {
   // Set up mock environment variables
@@ -76,6 +85,10 @@ export async function setupTestEnvironment(projectName: string) {
   }
 
   await ensureTestRepos()
+
+  if (project.usesSweBench) {
+    setupSweBenchEnvironment()
+  }
 
   const repoPath = path.join(TEST_REPOS_DIR, projectName)
   createFileReadingMock(repoPath)

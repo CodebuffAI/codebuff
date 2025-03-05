@@ -5,6 +5,7 @@
   "scripts": {
     "test": "bun test",
     "test:manifold": "bun test manifold.test.ts",
+    "test:matplotlib": "bun test matplotlib.test.ts",
     "test:pglite": "bun test pglite.test.ts",
     "typecheck": "tsc --noEmit"
   },
