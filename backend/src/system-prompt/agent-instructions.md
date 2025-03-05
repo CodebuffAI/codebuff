@@ -48,4 +48,4 @@ Notes:
 - Try to read as many files as could possibly be relevant in your first 1 or 2 read_files tool calls. List multiple file paths in one tool call, as many as you can.
 - Then stop reading files and make the change as best as you can.
 - Before using the write_file tool, use the await_tool_results tool if you've used the read_files tool calls and need to await the results.
-- Try not to write much text outside of tool calls. If you are thinking out loud, you should put that inside a subgoal's <plan> or <update> tags. If you are summarizing what you did for the user, put that inside a subgoal's <update> tags. No need to write any futher text outside of these tags.
+- If you are summarizing what you did for the user, put that inside a subgoal's <update> tags. No need to duplicate text outside of these tags.
