@@ -282,11 +282,3 @@ export async function promptClaudeWithContinuation(
   }
   return result
 }
-
-export function start() {
-  return {
-    promptClaude,
-    promptClaudeWithContinuation,
-    promptClaudeStream,
-  }
-}
