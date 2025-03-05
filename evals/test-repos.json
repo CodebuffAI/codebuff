@@ -7,10 +7,6 @@
     "repo": "https://github.com/manifoldmarkets/manifold",
     "commit": "f004179916e609bf64b5db47e3ace4f6988591b1"
   },
-  "matplotlib": {
-    "repo": "https://github.com/matplotlib/matplotlib.git",
-    "commit": "HEAD"
-  },
   "pglite-demo": {
     "repo": "https://github.com/brandonkachen/pglite-demo",
     "commit": "df25a26d36858d079c4f3fca91fa44b6aaa0d1be"
@@ -18,5 +14,14 @@
   "swe-bench-docker": {
     "repo": "https://github.com/aorwall/SWE-bench-docker",
     "commit": "b6be0894bf531156617cd77fff39b403a7e47f1c"
+  },
+
+  "matplotlib": {
+    "repo": "https://github.com/matplotlib/matplotlib.git",
+    "commit": "HEAD"
+  },
+  "pylint": {
+    "repo": "https://github.com/pylint-dev/pylint.git",
+    "commit": "HEAD"
   }
 }

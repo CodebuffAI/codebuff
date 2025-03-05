@@ -12,6 +12,10 @@ import {
 } from './test-setup'
 import { passesSweBenchTests } from './swe-bench-eval'
 
+const REPO_AND_INSTANCE_IDS = {
+  matplotlib: ['matplotlib__matplotlib-25442', 'matplotlib__matplotlib-23299'],
+  pylint: ['pylint-dev__pylint-7080'],
+}
 const PROMPT_PREFIX =
   'Fix the following issue. Only use the <complete> tool once you believe ' +
   'the issue has been fully fixed. Do not ask follow-up questions, do your ' +
@@ -42,34 +46,31 @@ describe('SWE-Bench', async () => {
     >
   )
 
-  describe('matplotlib', async () => {
-    const { repoPath, resetRepo } = await setupTestEnvironment('matplotlib')
-    const initialAgentState = await createInitialAgentState(repoPath)
+  Object.entries(REPO_AND_INSTANCE_IDS).forEach(([repoName, instanceIds]) => {
+    describe(repoName, async () => {
+      const { repoPath, resetRepo } = await setupTestEnvironment(repoName)
+      const initialAgentState = await createInitialAgentState(repoPath)
 
-    const instanceIds = [
-      'matplotlib__matplotlib-25442',
-      'matplotlib__matplotlib-23299',
-    ]
-
-    instanceIds.map((instanceId) =>
-      test(
-        instanceId,
-        async () => {
-          resetRepo(sweBenchLiteDataset[instanceId].base_commit)
-          const prompt = `${PROMPT_PREFIX}${sweBenchLiteDataset[instanceId].problem_statement}`
-          await loopMainPrompt({
-            agentState: initialAgentState,
-            prompt,
-            projectPath: repoPath,
-            maxIterations: 100,
-            stopCondition: (_, toolCalls) => {
-              return toolCalls.some((call) => call.name === 'complete')
-            },
-          })
-          expect(passesSweBenchTests(instanceId, repoPath)).toBeTruthy()
-        },
-        { timeout: 10 * 60 * 60 * 1000 } // 10 hours
+      instanceIds.forEach((instanceId) =>
+        test(
+          instanceId,
+          async () => {
+            resetRepo(sweBenchLiteDataset[instanceId].base_commit)
+            const prompt = `${PROMPT_PREFIX}${sweBenchLiteDataset[instanceId].problem_statement}`
+            await loopMainPrompt({
+              agentState: initialAgentState,
+              prompt,
+              projectPath: repoPath,
+              maxIterations: 100,
+              stopCondition: (_, toolCalls) => {
+                return toolCalls.some((call) => call.name === 'complete')
+              },
+            })
+            expect(passesSweBenchTests(instanceId, repoPath)).toBeTruthy()
+          },
+          { timeout: 10 * 60 * 60 * 1000 } // 10 hours
+        )
       )
-    )
+    })
   })
 })
