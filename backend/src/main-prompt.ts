@@ -269,7 +269,7 @@ ${toolResults
     } else if (name === 'add_subgoal' || name === 'update_subgoal') {
       // add_subgoal and update_subgoal tool calls are handled above
     } else if (
-      // name === 'code_search' ||
+      name === 'code_search' ||
       name === 'run_terminal_command' ||
       name === 'end_turn'
     ) {

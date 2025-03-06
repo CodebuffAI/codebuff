@@ -151,39 +151,39 @@ Note that there's no need to call this tool if you're already reading the files 
   // Note that there's no need to call this tool if you're already reading the files you need in context.
   //     `.trim(),
   //   },
-  //   {
-  //     name: 'code_search',
-  //     description: `
-  // ## code_search
-  // Description: Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool.
-  // Parameters:
-  // - pattern: (required) The pattern to search for.
-  // Usage:
-  // <code_search><pattern>foo</pattern></code_search>
-  // <code_search><pattern>import.*foo</pattern></code_search>
+  {
+    name: 'code_search',
+    description: `
+  ## code_search
+  Description: Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.
+  Parameters:
+  - pattern: (required) The pattern to search for.
+  Usage:
+  <code_search><pattern>foo</pattern></code_search>
+  <code_search><pattern>import.*foo</pattern></code_search>
 
-  // Purpose: Search through code files to find files with specific text patterns, function names, variable names, and more.
+  Purpose: Search through code files to find files with specific text patterns, function names, variable names, and more.
 
-  // Note: quotes will be automatically added around your code search pattern. You might need to escape special characters like '-' or '.' or '\\' if you want to search for them.
+  Note: quotes will be automatically added around your code search pattern. You might need to escape special characters like '-' or '.' or '\\' if you want to search for them.
 
-  // Use cases:
-  // 1. Finding all references to a function, class, or variable name across the codebase
-  // 2. Searching for specific code patterns or implementations
-  // 3. Looking up where certain strings or text appear
-  // 4. Finding files that contain specific imports or dependencies
-  // 5. Locating configuration settings or environment variables
+  Prefer to use read_files instead of code_search unless you need to search for a specific pattern in multiple files.
 
-  // The pattern supports regular expressions and will search recursively through all files in the project by default. Some tips:
-  // - Be as constraining in the pattern as possible to limit the number of files returned, e.g. if searching for the definition of a function, use "(function foo|const foo)" or "def foo" instead of merely "foo".
-  // - Use word boundaries (\\b) to match whole words only
-  // - Searches file content and filenames
-  // - Automatically ignores binary files, hidden files, and files in .gitignore
-  // - Case-sensitive by default. Use -i to make it case insensitive.
-  // - Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
+  Use cases:
+  1. Finding all references to a function, class, or variable name across the codebase
+  2. Searching for specific code patterns or implementations
+  3. Looking up where certain strings or text appear
+  4. Finding files that contain specific imports or dependencies
+  5. Locating configuration settings or environment variables
 
-  // Feel free to make multiple code search calls in a single response.
-  //     `.trim(),
-  //   },
+  The pattern supports regular expressions and will search recursively through all files in the project by default. Some tips:
+  - Be as constraining in the pattern as possible to limit the number of files returned, e.g. if searching for the definition of a function, use "(function foo|const foo)" or "def foo" instead of merely "foo".
+  - Use word boundaries (\\b) to match whole words only
+  - Searches file content and filenames
+  - Automatically ignores binary files, hidden files, and files in .gitignore
+  - Case-sensitive by default. Use -i to make it case insensitive.
+  - Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
+      `.trim(),
+  },
   {
     name: 'run_terminal_command',
     description: `
