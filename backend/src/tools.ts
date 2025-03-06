@@ -15,11 +15,13 @@ const tools = [
 ## add_subgoal
 Description: Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step.
 Parameters:
+- id: (required) A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use.
 - objective: (required) The objective of the subgoal, concisely and clearly stated.
 - status: (required) The status of the subgoal. Can be "NOT_STARTED", "IN_PROGRESS", "COMPLETE", or "ABORTED".
 - plan: (optional) A plan for the subgoal.
 Usage:
 <add_subgoal>
+<id>1</id>
 <objective>Add a new "deploy api" subgoal</objective>
 <status>IN_PROGRESS</status>
 </add_subgoal>
@@ -29,18 +31,35 @@ Usage:
     name: 'update_subgoal',
     description: `
 ## update_subgoal
-Description: Update a subgoal in the context.
+Description: Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.
 Parameters:
-- objective: (required) Clear instructions for what sections to update and how to update them
-- status: (required) The status of the subgoal. Can be "NOT_STARTED", "IN_PROGRESS", "COMPLETE", or "FAILED".
-- plan: (optional) A plan for the subgoal.
-- update: (optional) An update for the subgoal.
-Usage:
+- id: (required) The id of the subgoal to update.
+- status: (optional) Change the status of the subgoal. Can be "NOT_STARTED", "IN_PROGRESS", "COMPLETE", or "FAILED".
+- plan: (optional) Change the plan for the subgoal.
+- log: (optional) Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go.
+Usage 1 (update status):
 <update_subgoal>
-<objective>Add a new endpoint to fetch user data</objective>
-<status>IN_PROGRESS</status>
+<id>1</id>
+<status>COMPLETE</status>
+</update_subgoal>
+
+Usage 2 (update plan):
+<update_subgoal>
+<id>3</id>
 <plan>Create a file for the endpoint in the api, and register it in the router</plan>
-<update>Created the endpoint file</update>
+</update_subgoal>
+
+Usage 3 (add log):
+<update_subgoal>
+<id>1</id>
+<log>I found the error in the tests, it's in the foo function.</log>
+</update_subgoal>
+
+Usage 4 (update status and add log):
+<update_subgoal>
+<id>1</id>
+<status>COMPLETE</status>
+<log>I reran the tests and they passed.</log>
 </update_subgoal>
     `.trim(),
   },
@@ -351,10 +370,13 @@ We're working on a project. We can have multiple subgoals. Each subgoal can have
 The following is an example of a schema of a subgoal. It is for illistrative purposes and is not relevant otherwise. Use it as a reference to understand how to update the context.
 Example schema:
 <subgoal>
+<id>1</id>
 <objective>Fix the tests</objective>
 <status>COMPLETE</status>
 <plan>Run them, find the error, fix it</plan>
-<update>Ran the tests and traced the error to component foo.</update>
+<log>Ran the tests and traced the error to component foo.</log>
+<log>Modified the foo component to fix the error</log>
+<log>Reran the tests and they passed.</log>
 </subgoal>
 
 Here is the initial context:
@@ -399,11 +421,11 @@ export async function updateContextFromToolCalls(
   for (const toolCall of toolCalls) {
     const { name, parameters } = toolCall
     if (name === 'add_subgoal') {
-      prompt += `\nPlease add the following subgoal:\n${renderSubgoal(
+      prompt += `\nPlease add the following subgoal:\n${renderSubgoalUpdate(
         parameters as any
       )}`
     } else if (name === 'update_subgoal') {
-      prompt += `\nPlease update the following subgoal. If there are already <update> tags, preserve them and add the new update to the end:\n${renderSubgoal(
+      prompt += `\nPlease update the subgoal with the matching id. For <status> and <plan>, if there are already tags, update them to the new values, keeping only one. For <log>, please keep all the existing logs and append a new <log> entry at the end of the subgoal. Finally, for any unmentioned parameters, do not change them in the existing subgoal:\n${renderSubgoalUpdate(
         parameters as any
       )}`
     }
@@ -618,18 +640,20 @@ export async function summarizeOutput(xml: string): Promise<string> {
   })
 }
 
-function renderSubgoal(subgoal: {
-  objective: string
-  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE' | 'ABORTED'
+function renderSubgoalUpdate(subgoal: {
+  id: number
+  objective?: string
+  status?: string
   plan?: string
-  update?: string
+  log?: string
 }) {
-  const { objective, status, plan, update } = subgoal
+  const { id, objective, status, plan, log } = subgoal
   const lines = buildArray(
-    `<objective>${objective}</objective>`,
-    `<status>${status}</status>`,
+    `<id>${id}</id>`,
+    objective && `<objective>${objective}</objective>`,
+    status && `<status>${status}</status>`,
     plan && `<plan>${plan}</plan>`,
-    update && `<update>${update}</update>`
+    log && `<log>${log}</log>`
   )
   return `
 <subgoal>

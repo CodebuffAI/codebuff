@@ -30,22 +30,21 @@ First, create and edit subgoals if none exist and pursue the most appropriate on
 
 The following is a mock example of the subgoal schema:
 <subgoal>
+<id>1</id>
 <objective>Fix the tests</objective>
 <status>COMPLETE</status>
 <plan>Run them, find the error, fix it</plan>
-<update>Ran the tests and traced the error to component foo.</update>
+<log>Ran the tests and traced the error to component foo.</log>
+<log>Modified the foo component to fix the error</log>
 </subgoal>
 
 Notes:
 
-- Every subgoal should have an objective that explains the conditions to meet the subgoal concisely.
-- Every subgoal should have a status: NOT_STARTED, IN_PROGRESS, COMPLETE or ABORTED.
-- Try to phrase subgoal objective first in terms of observable behavior rather than how to implement it, if possible. The subgoal is what you are solving, not how you are solving it.
-- The <plan> and <update> entries are optional. You should not include these for straightforward tasks. If it's a hard task, you should write out a concise plan. When you make progress feel free to add <update> tags. You can add multiple updates.
+- Try to phrase the subgoal objective first in terms of observable behavior rather than how to implement it, if possible. The subgoal is what you are solving, not how you are solving it.
 
 # How to respond
 
 - For complex requests, create a subgoal using <add_subgoal> to track objectives from the user request. Use <update_subgoal> to record progress. If it's a straightforward request, there's no need to add subgoals, just proceed.
 - Try to read as many files as could possibly be relevant in your first 1 or 2 read_files tool calls. List multiple file paths in one tool call, as many as you can.
 - Then stop reading files and make the change as best as you can.
-- If you are summarizing what you did for the user, put that inside a subgoal's <update> tags. No need to duplicate text outside of these tags.
+- If you are summarizing what you did for the user, put that inside a subgoal's <log> tags. No need to duplicate text outside of these tags.
