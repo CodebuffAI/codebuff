@@ -30,6 +30,7 @@ import {
 } from 'common/types/agent-state'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
+import type { CostMode } from 'common/constants'
 
 import { activeBrowserRunner, BrowserRunner } from './browser-runner'
 import { ChatStorage } from './chat-storage'
@@ -46,8 +47,10 @@ import {
 import { handleToolCall } from './tool-handlers'
 import { GitCommand } from './types'
 import { Spinner } from './utils/spinner'
-
-import type { CostMode } from 'common/constants'
+import {
+  XmlStreamProcessor,
+  defaultTagHandlers,
+} from './utils/process-xml-chunks'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -506,6 +509,7 @@ export class Client {
     onStreamStart: () => void
   ) {
     let responseBuffer = ''
+    let streamStarted = false
     let resolveResponse: (
       value: ServerAction & { type: 'prompt-response' } & {
         wasStoppedByUser: boolean
@@ -514,7 +518,9 @@ export class Client {
     let rejectResponse: (reason?: any) => void
     let unsubscribeChunks: () => void
     let unsubscribeComplete: () => void
-    let streamStarted = false
+
+    // Initialize XML processor with default handlers
+    const xmlProcessor = new XmlStreamProcessor(defaultTagHandlers)
 
     const responsePromise = new Promise<
       ServerAction & { type: 'prompt-response' } & {
@@ -542,13 +548,20 @@ export class Client {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
-      if (!streamStarted && chunk.trim()) {
-        streamStarted = true
-        onStreamStart()
-      }
-
+      // Always add the original chunk to the response buffer
       responseBuffer += chunk
-      onChunk(chunk)
+
+      // Process the chunk through our XML processor
+      const output = xmlProcessor.process(chunk)
+
+      if (output && output.trim()) {
+        if (!streamStarted && chunk.trim()) {
+          streamStarted = true
+          onStreamStart()
+        }
+
+        onChunk(output)
+      }
     })
 
     unsubscribeComplete = this.webSocket.subscribe(

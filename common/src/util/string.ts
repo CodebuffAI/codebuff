@@ -112,6 +112,17 @@ export const capitalize = (str: string): string => {
 }
 
 /**
+ * Converts a snake_case string to Title Case
+ * Example: "add_subgoal" -> "Add Subgoal"
+ */
+export const snakeToTitleCase = (str: string): string => {
+  return str
+    .split('_')
+    .map(word => capitalize(word))
+    .join(' ')
+}
+
+/**
  * Ensures a URL has the appropriate protocol (http:// or https://)
  * Uses http:// for localhost and local IPs, https:// for all other domains
  */
