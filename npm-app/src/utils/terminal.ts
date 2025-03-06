@@ -173,6 +173,7 @@ const isNotACommand = (output: string) => {
     output.includes('command not found') ||
     // Linux
     output.includes(': not found') ||
+    output.includes('\' not found') ||
     // Common
     output.includes('syntax error:') ||
     output.includes('syntax error near unexpected token') ||

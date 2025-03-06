@@ -419,11 +419,7 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
       for (const [filename, contents] of Object.entries(action.files)) {
         action.files[filename] = ensureEndsWithNewline(contents)
       }
-      const receivedFilePaths = Object.keys(action.files)
-      if (
-        (action.requestId !== undefined && action.requestId === requestId) ||
-        isEqual(receivedFilePaths, filePaths)
-      ) {
+      if (action.requestId === requestId) {
         unsubscribe()
         resolve(action.files)
       }
@@ -444,5 +440,5 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
  */
 export async function requestFile(ws: WebSocket, filePath: string) {
   const files = await requestFiles(ws, [filePath])
-  return files[filePath]
+  return files[filePath] ?? null
 }

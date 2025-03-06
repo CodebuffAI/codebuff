@@ -2,7 +2,7 @@ import { Anthropic, APIConnectionError } from '@anthropic-ai/sdk'
 import { removeUndefinedProps } from 'common/util/object'
 import { Message } from 'common/types/message'
 import { claudeModels, STOP_MARKER, AnthropicModel } from 'common/constants'
-import { match, P } from 'ts-pattern'
+import { match } from 'ts-pattern'
 import { logger } from '../util/logger'
 import { limitScreenshots } from 'common/util/messages'
 import { env } from '../env.mjs'
@@ -42,6 +42,12 @@ const INITIAL_RETRY_DELAY = 1000 // 1 second
 
 export type System = string | Array<TextBlockParam>
 
+// Matches Anthropic's API
+export type Thinking = {
+  type: 'enabled'
+  budget_tokens: number
+}
+
 async function* promptClaudeStreamWithoutRetry(
   messages: Message[],
   options: {
@@ -49,6 +55,7 @@ async function* promptClaudeStreamWithoutRetry(
     tools?: Tool[]
     model?: AnthropicModel
     maxTokens?: number
+    thinking?: Thinking
     clientSessionId: string
     fingerprintId: string
     userInputId: string
@@ -60,6 +67,7 @@ async function* promptClaudeStreamWithoutRetry(
     model = claudeModels.sonnet,
     system,
     tools,
+    thinking,
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -112,11 +120,12 @@ async function* promptClaudeStreamWithoutRetry(
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
       model,
-      max_tokens: maxTokens ?? 20_000,
-      temperature: 0,
+      max_tokens: maxTokens ?? (model === claudeModels.sonnet ? 20_000 : 8096),
+      temperature: thinking?.type === 'enabled' ? 1 : 0,
       messages: transformedMsgs,
       system,
       tools,
+      thinking,
       stop_sequences: TOOLS_WHICH_END_THE_RESPONSE.map((tool) => `</${tool}>`),
     })
   )
@@ -206,6 +215,7 @@ export async function* promptClaudeStream(
     tools?: Tool[]
     model?: AnthropicModel
     maxTokens?: number
+    thinking?: Thinking
     clientSessionId: string
     fingerprintId: string
     userInputId: string
@@ -245,6 +255,7 @@ export async function promptClaude(
     tools?: Tool[]
     model?: AnthropicModel
     maxTokens?: number
+    thinking?: Thinking
     clientSessionId: string
     fingerprintId: string
     userInputId: string
@@ -266,6 +277,7 @@ export async function promptClaudeWithContinuation(
     tools?: Tool[]
     model?: AnthropicModel
     maxTokens?: number
+    thinking?: Thinking
     clientSessionId: string
     fingerprintId: string
     userInputId: string

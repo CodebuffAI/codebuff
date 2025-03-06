@@ -292,9 +292,9 @@ export async function fastRewrite(
   return response
 }
 
-const LARGE_FILE_TOKEN_LIMIT = 11_000
+const LARGE_FILE_TOKEN_LIMIT = 16_000
 
-async function handleLargeFile(
+export async function handleLargeFile(
   oldContent: string,
   editSnippet: string,
   clientSessionId: string,
@@ -359,6 +359,7 @@ Please output just the SEARCH/REPLACE blocks like this:
       {
         duration: Date.now() - startTime,
         editSnippet,
+        response,
         diffBlocks,
         diffBlocksThatDidntMatch,
         filePath,

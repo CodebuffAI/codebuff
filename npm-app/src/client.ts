@@ -374,6 +374,7 @@ export class Client {
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
+      this.returnControlToUser()
       const parsedAction = UsageReponseSchema.safeParse(action)
       if (!parsedAction.success) return
       const a = parsedAction.data
@@ -383,20 +384,15 @@ export class Client {
         `${a.usage} / ${a.limit} credits`
       )
       this.setUsage(a)
-      this.returnControlToUser()
+      this.showUsageWarning(a.referralLink)
     })
   }
 
   public showUsageWarning(referralLink?: string) {
     const errorCopy = [
       this.user
-        ? green(`Visit ${process.env.NEXT_PUBLIC_APP_URL}/pricing to upgrade.`)
+        ? `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))} to upgrade – or refer a new user and earn ${CREDITS_REFERRAL_BONUS} credits per month: ${blue(bold(referralLink))}`
         : green('Type "login" below to sign up and get more credits!'),
-      referralLink
-        ? green(
-            `Refer friends by sharing this link and you'll ${bold(`each earn ${CREDITS_REFERRAL_BONUS} credits per month`)}: ${referralLink}`
-          )
-        : '',
     ].join('\n')
 
     const pct: number = match(Math.floor((this.usage / this.limit) * 100))
@@ -404,24 +400,25 @@ export class Client {
       .with(P.number.gte(75), () => 75)
       .otherwise(() => 0)
 
-    if (pct >= 100 && this.lastWarnedPct < 100) {
-      if (this.subscription_active) {
+    if (pct >= 100) {
+      this.lastWarnedPct = 100
+      if (!this.subscription_active) {
+        console.error(
+          [red('You have reached your monthly usage limit.'), errorCopy].join(
+            '\n'
+          )
+        )
+        return
+      }
+
+      if (this.subscription_active && this.lastWarnedPct < 100) {
         console.warn(
           yellow(
             `You have exceeded your monthly quota, but feel free to keep using Codebuff! We'll continue to charge you for the overage until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/usage for more details.`
           )
         )
-        this.lastWarnedPct = 100
         return
       }
-      console.error(
-        [red('You have reached your monthly usage limit.'), errorCopy].join(
-          '\n'
-        )
-      )
-      this.returnControlToUser()
-      this.lastWarnedPct = 100
-      return
     }
 
     if (pct > 0 && pct > this.lastWarnedPct) {
@@ -611,6 +608,8 @@ export class Client {
           next_quota_reset: a.next_quota_reset,
           session_credits_used: a.session_credits_used ?? 0,
         })
+
+        this.showUsageWarning(a.referralLink)
 
         if (this.limit !== a.limit) {
           this.lastWarnedPct = 0

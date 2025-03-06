@@ -105,7 +105,7 @@ export async function* processStreamWithTags<T extends string>(
   }
 
   for await (const chunk of stream) {
-    if (streamCompleted) continue
+    if (streamCompleted) break
     buffer += chunk
     yield* parseBuffer(chunk)
   }

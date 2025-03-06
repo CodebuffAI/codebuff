@@ -22,15 +22,10 @@ import {
   loadFilesForPlanning,
   planComplexChange,
 } from './planning'
-import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
-import {
-  ClientToolCall,
-  parseToolCalls,
-  TOOL_LIST,
-  updateContextFromToolCalls,
-} from './tools'
-import { AgentState, ToolResult } from 'common/types/agent-state'
 import { generateCompactId } from 'common/util/string'
+import { ToolResult, AgentState } from 'common/types/agent-state'
+import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
+import { TOOL_LIST, parseToolCalls, ClientToolCall, updateContextFromToolCalls } from './tools'
 
 export const mainPrompt = async (
   ws: WebSocket,
@@ -383,7 +378,7 @@ ${toolResults
         `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
       )
       fullResponse += `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
-      onResponseChunk(`\nThinking deeply (can take a minute!)`)
+      onResponseChunk(`\nThinking deeply (can take a minute!)\n`)
 
       logger.debug({ prompt, filePaths, existingFilePaths }, 'Thinking deeply')
       const planningStart = Date.now()

@@ -9,11 +9,13 @@ import {
   ProjectFileContext,
   parseFileBlocks,
 } from 'common/util/file'
-import { OpenAIMessage, promptOpenAI } from './llm-apis/openai-api'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { processFileBlock } from './process-file-block'
 import { requestFiles } from './websockets/websocket-action'
 import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { withTimeout } from 'common/util/promise'
+import { promptClaude } from './llm-apis/claude'
+import { logger } from './util/logger'
 
 const systemPrompt = `
 You are a senior software engineer. You are given a request from a user and a set of files that are relevant to the request.
@@ -56,13 +58,9 @@ export async function planComplexChange(
     costMode: CostMode
   }
 ) {
-  const messages: OpenAIMessage[] = [
+  const messages = [
     {
-      role: 'system',
-      content: systemPrompt,
-    },
-    {
-      role: 'user',
+      role: 'user' as const,
       content: `${
         Object.keys(files).length > 0
           ? `Relevant Files:\n\n${Object.entries(files)
@@ -73,13 +71,7 @@ export async function planComplexChange(
         .map((m) => `${m.role}: ${m.content}`)
         .join('\n')}
 
-Choose one of the following options which seems most relevant to the user's request. Usually, users prefer to have their request implemented immediately by editing files (option A), but if the user asks you to plan or think through it, or if there's enough uncertainty that the user would likely want to iterate on the plan first, then choose option B.
-
-A. Implement the user's request now
-
-Go ahead and implement the user's request by editing files.
-
-B. Write up a detailed implementation plan for what the user wants in a new markdown file.
+Write up a detailed implementation plan for what the user wants in a new markdown file.
 
 1. Create a file with a descriptive name ending in .md (e.g. feature-name-plan.md or refactor-x-design.md) using the <write_file path="...">...</write_file> tool. (Or, if a relevant planning file already exists, just edit that! Be careful to only add your changes, or change just the relevant parts.)
 2. Act as an expert architect engineer and provide direction to your editor engineer.
@@ -100,11 +92,31 @@ Request:\n${lastUserPrompt}`,
     },
   ]
 
-  let fullResponse = await promptOpenAI(messages, {
-    ...options,
-    model: models.o3mini,
-    reasoningEffort: 'high',
-  })
+  let fullResponse
+
+  try {
+    fullResponse = await withTimeout(
+      promptClaude(messages, {
+        ...options,
+        system: systemPrompt,
+        model: models.sonnet,
+        thinking: {
+          type: 'enabled',
+          budget_tokens: options.costMode === 'max' ? 4_096 : 1_024,
+        },
+      }),
+      options.costMode === 'max' ? 4 * 60_000 : 100_000,
+      'Timed out waiting for plan from Claude'
+    )
+  } catch (e) {
+    logger.error({ error: e }, 'Timed out waiting for plan from Claude')
+    // Fallback to Claude without thinking
+    fullResponse = await promptClaude(messages, {
+      ...options,
+      system: systemPrompt,
+      model: models.sonnet,
+    })
+  }
 
   const fileBlocks = parseFileBlocks(fullResponse)
 
