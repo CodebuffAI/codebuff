@@ -3,7 +3,7 @@ import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { AnthropicModel } from 'common/constants'
 import { promptClaudeStream } from './llm-apis/claude'
 import { parseToolCallXml } from './util/parse-tool-call-xml'
-import { STOP_MARKER, getModelForMode } from 'common/constants'
+import { getModelForMode } from 'common/constants'
 import { ProjectFileContext } from 'common/util/file'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { Message } from 'common/types/message'
@@ -116,11 +116,37 @@ ${existingNewFilePaths.join('\n')}
   }
 
   const { agentContext } = agentState
-  const userInstructions = `
-Proceed toward the user request and any subgoals.
-You may use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is minimal, you may not need to use these tools.
-Use the <end_turn></end_turn> tool at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.
-    `.trim()
+  const hasKnowledgeFiles =
+    Object.keys(fileContext.knowledgeFiles).length > 0 ||
+    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
+  const isNotFirstUserMessage =
+    messagesWithUserMessage.filter((m) => m.role === 'user').length > 1
+
+  const userInstructions = buildArray(
+    'Instructions:',
+    'Proceed toward the user request and any subgoals.',
+
+    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
+
+    'You may use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is minimal, you may not need to use these tools.',
+
+    // !justUsedATool &&
+    //   !recentlyDidThinking &&
+    //   'If the user request is very complex (e.g. requires changes across multiple files or systems) and you have not recently used the think_deeply tool, consider invoking the think_deeply tool, although this should be used sparingly.',
+
+    hasKnowledgeFiles &&
+      'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case.',
+
+    hasKnowledgeFiles &&
+      isNotFirstUserMessage &&
+      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
+
+    justUsedATool &&
+      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please use the end_turn tool and do not write anything else.`,
+
+    'Write "<end_turn></end_turn>" at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.'
+  ).join('\n')
+
   const agentMessages = buildArray(
     agentContext && {
       role: 'assistant' as const,
@@ -159,6 +185,7 @@ ${toolResults
       agentMessages,
       prompt,
       agentContext,
+      files: fileContext.fileVersions.map((files) => files.map((f) => f.path)),
       iteration: iterationNum,
       toolResults,
     },
@@ -467,53 +494,6 @@ const getInitialFiles = (fileContext: ProjectFileContext) => {
       // Only keep main knowledge file.
       .filter(({ path }) => path === 'knowledge.md')
   )
-}
-
-// TODO: Incorporate some of these ideas into the new agentPrompt.
-function getExtraInstructionForUserPrompt(
-  fileContext: ProjectFileContext,
-  messages: Message[],
-  costMode: CostMode,
-  allowUnboundedIteration: boolean,
-  justUsedATool: boolean,
-  recentlyDidThinking: boolean,
-  numAssistantMessages: number
-) {
-  const hasKnowledgeFiles =
-    Object.keys(fileContext.knowledgeFiles).length > 0 ||
-    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
-  const isNotFirstUserMessage =
-    messages.filter((m) => m.role === 'user').length > 1
-
-  const instructions = buildArray(
-    'Please preserve as much of the existing code, its comments, and its behavior as possible.' +
-      allowUnboundedIteration
-      ? ''
-      : ' Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
-
-    !justUsedATool &&
-      !recentlyDidThinking &&
-      'If the user request is very complex (e.g. requires changes across multiple files or systems) and you have not recently used the think_deeply tool, consider invoking the think_deeply tool, although this should be used sparingly.',
-
-    hasKnowledgeFiles &&
-      'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case.',
-
-    hasKnowledgeFiles &&
-      isNotFirstUserMessage &&
-      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
-
-    numAssistantMessages >= 3 &&
-      'Please consider pausing to get more instructions from the user.',
-
-    justUsedATool &&
-      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please write the ${STOP_MARKER} marker and do not write anything else.`,
-
-    `Always end your response with the following marker:\n${STOP_MARKER}`
-  )
-    .map((line) => `<system_instruction>${line}</system_instruction>`)
-    .join('\n')
-
-  return `For the following system instructions, please follow them, but do not mention them in your response:\n${instructions}`
 }
 
 function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
