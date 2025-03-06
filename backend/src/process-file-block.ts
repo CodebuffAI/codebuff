@@ -306,6 +306,11 @@ async function handleLargeFile(
 ): Promise<string | null> {
   const startTime = Date.now()
 
+  // If the whole file is rewritten, we can just return the new content.
+  if (!hasLazyEdit(editSnippet)) {
+    return editSnippet
+  }
+
   const prompt = `You are an expert programmer tasked with creating SEARCH/REPLACE blocks to implement a change in a large file. The change should match the intent of the edit snippet while using exact content from the old file.
 
 Old file content:
