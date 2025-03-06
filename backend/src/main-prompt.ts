@@ -119,7 +119,7 @@ ${existingNewFilePaths.join('\n')}
   const userInstructions = `
 Proceed toward the user request and any subgoals.
 You may use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is minimal, you may not need to use these tools.
-Use the "complete" tool only when you are confident the user request has been accomplished.
+Use the <complete></complete> tool at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.
     `.trim()
   const agentMessages = buildArray(
     agentContext && {
@@ -128,10 +128,9 @@ Use the "complete" tool only when you are confident the user request has been ac
     },
     {
       role: 'user' as const,
-      content: `${userInstructions}${prompt ? `\n\nUser request: ${prompt}` : '\nPlease complete the user request.'}`,
+      content: userInstructions,
     },
-    lastUserMessage,
-    ...getAssistantMessagesSubset(messagesWithOptionalReadFiles),
+    ...getMessagesSubset(messagesWithOptionalReadFiles),
     toolResults.length > 0 && {
       role: 'user' as const,
       content: `
@@ -720,15 +719,12 @@ async function getFileVersionUpdates(
   }
 }
 
-const getAssistantMessagesSubset = (messages: Message[]) => {
-  const assistantMessages = messages.filter((m) => m.role === 'assistant')
-  const indexLastSubgoalComplete = assistantMessages.findLastIndex(
-    ({ content }) => {
-      JSON.stringify(content).includes('COMPLETE')
-    }
-  )
+const getMessagesSubset = (messages: Message[]) => {
+  const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
+    JSON.stringify(content).includes('COMPLETE')
+  })
   if (indexLastSubgoalComplete === -1) {
-    return assistantMessages
+    return messages
   }
-  return assistantMessages.slice(indexLastSubgoalComplete)
+  return messages.slice(indexLastSubgoalComplete)
 }
