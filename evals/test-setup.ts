@@ -101,7 +101,7 @@ export async function setupTestEnvironment(projectName: string) {
 
   await ensureTestRepos()
 
-  if (project.usesSweBench) {
+  if (project.commit === 'HEAD') {
     setupSweBenchEnvironment()
   }
 

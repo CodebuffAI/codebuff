@@ -16,9 +16,9 @@ const REPO_AND_INSTANCE_IDS = {
   pylint: ['pylint-dev__pylint-7080'],
 }
 const PROMPT_PREFIX =
-  'Fix the following issue. Only use the <end_turn> tool once you believe ' +
-  'the issue has been fully fixed. Do not ask follow-up questions, do your ' +
-  'best to interpret the intent of the issue.\n\n-----\n\n'
+  'Fix the following issue. Keep going until you have completely fixed the ' +
+  'issue. Do not ask me any follow-up questions, just do your best to ' +
+  'interpret the intent of the issue.\n\n-----\n\n'
 const LITE_DATASET_PATH = path.join(
   TEST_REPOS_DIR,
   'codebuff-swe-bench',

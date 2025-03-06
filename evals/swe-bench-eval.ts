@@ -37,9 +37,12 @@ export function passesSweBenchTests(
     )
   )
 
+  console.log(`Running SWE-Bench tests on ${instanceId}...`)
   try {
     execSync(
-      `${SWE_BENCH_PYTHON_PATH} ${SWE_BENCH_RUN_SINGLE_INSTANCE_PATH} --instance_id \"${instanceId}\" --predictions_path \"${predictionsPath}\" 2>&1 | grep \"All Tests Passed\"`
+      `${SWE_BENCH_PYTHON_PATH} ${SWE_BENCH_RUN_SINGLE_INSTANCE_PATH} ` +
+        `--instance_id ${instanceId} --predictions_path ${predictionsPath} ` +
+        `2>&1 | grep \"All Tests Passed\"`
     )
     return true
   } catch (error) {
