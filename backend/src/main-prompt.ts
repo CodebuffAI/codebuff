@@ -260,7 +260,7 @@ ${toolResults
       })
     } else if (name === 'read_files') {
       const paths = parameters.paths
-        .split('\n')
+        .split(/\s+/)
         .map((path) => path.trim())
         .filter(Boolean)
 

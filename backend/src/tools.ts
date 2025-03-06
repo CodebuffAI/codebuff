@@ -103,8 +103,10 @@ Parameters:
 - paths: (required) List of file paths to read, separated by newlines
 Usage:
 <read_files>
-<paths>src/main.ts
-src/utils.ts</paths>
+<paths>
+src/main.ts
+src/utils.ts
+</paths>
 </read_files>
 
 Note that there's no need to call this tool if you're already reading the files you need in context.`.trim(),
