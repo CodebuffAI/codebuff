@@ -11,10 +11,16 @@ import * as schema from 'common/db/schema'
 import { protec } from './middleware'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/src/util/dates'
+import { ensureEndsWithNewline } from 'common/src/util/file'
 import { logger, withLoggerContext } from '@/util/logger'
 import { hasMaxedReferrals } from 'common/util/server/referral'
 import { generateCompactId } from 'common/util/string'
 
+/**
+ * Sends an action to the client via WebSocket
+ * @param ws - The WebSocket connection to send the action to
+ * @param action - The server action to send
+ */
 export const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
     type: 'action',
@@ -22,6 +28,11 @@ export const sendAction = (ws: WebSocket, action: ServerAction) => {
   })
 }
 
+/**
+ * Retrieves a user ID from an authentication token
+ * @param authToken - The authentication token to validate
+ * @returns The user ID if found, undefined otherwise
+ */
 export const getUserIdFromAuthToken = async (
   authToken?: string
 ): Promise<string | undefined> => {
@@ -42,6 +53,13 @@ export const getUserIdFromAuthToken = async (
   return userId
 }
 
+/**
+ * Calculates usage metrics for a user or anonymous session
+ * @param fingerprintId - The fingerprint ID for anonymous users
+ * @param userId - The user ID for authenticated users
+ * @param sessionId - The current session ID
+ * @returns Object containing usage metrics including credits used, quota limits, and subscription status
+ */
 async function calculateUsage(
   fingerprintId: string,
   userId: string | undefined,
@@ -91,6 +109,13 @@ async function calculateUsage(
   }
 }
 
+/**
+ * Generates a usage response object for the client
+ * @param sessionId - The current session ID
+ * @param fingerprintId - The fingerprint ID for the user/device
+ * @param userId - Optional user ID for authenticated users
+ * @returns A UsageResponse object containing usage metrics and referral information
+ */
 export async function genUsageResponse(
   sessionId: string,
   fingerprintId: string,
@@ -142,6 +167,12 @@ export async function genUsageResponse(
   }
 }
 
+/**
+ * Handles prompt actions from the client
+ * @param action - The prompt action from the client
+ * @param clientSessionId - The client's session ID
+ * @param ws - The WebSocket connection
+ */
 const onPrompt = async (
   action: Extract<ClientAction, { type: 'prompt' }>,
   clientSessionId: string,
@@ -215,6 +246,14 @@ const onPrompt = async (
   )
 }
 
+/**
+ * Handles initialization actions from the client
+ * @param fileContext - The file context information
+ * @param fingerprintId - The fingerprint ID for the user/device
+ * @param authToken - The authentication token
+ * @param clientSessionId - The client's session ID
+ * @param ws - The WebSocket connection
+ */
 const onInit = async (
   {
     fileContext,
@@ -280,6 +319,13 @@ const onInit = async (
   })
 }
 
+/**
+ * Handles usage request actions from the client
+ * @param fingerprintId - The fingerprint ID for the user/device
+ * @param authToken - The authentication token
+ * @param clientSessionId - The client's session ID
+ * @param ws - The WebSocket connection
+ */
 export const onUsageRequest = async (
   { fingerprintId, authToken }: Extract<ClientAction, { type: 'usage' }>,
   clientSessionId: string,
@@ -290,11 +336,20 @@ export const onUsageRequest = async (
   sendAction(ws, action)
 }
 
+/**
+ * Storage for action callbacks organized by action type
+ */
 const callbacksByAction = {} as Record<
   ClientAction['type'],
   ((action: ClientAction, clientSessionId: string, ws: WebSocket) => void)[]
 >
 
+/**
+ * Subscribes a callback function to a specific action type
+ * @param type - The action type to subscribe to
+ * @param callback - The callback function to execute when the action is received
+ * @returns A function to unsubscribe the callback
+ */
 export const subscribeToAction = <T extends ClientAction['type']>(
   type: T,
   callback: (
@@ -317,6 +372,12 @@ export const subscribeToAction = <T extends ClientAction['type']>(
   }
 }
 
+/**
+ * Handles WebSocket action messages from clients
+ * @param ws - The WebSocket connection
+ * @param clientSessionId - The client's session ID
+ * @param msg - The action message from the client
+ */
 export const onWebsocketAction = async (
   ws: WebSocket,
   clientSessionId: string,
@@ -340,15 +401,24 @@ export const onWebsocketAction = async (
   })
 }
 
+// Register action handlers
 subscribeToAction('prompt', protec.run(onPrompt))
 subscribeToAction('init', protec.run(onInit, { silent: true }))
-
 subscribeToAction('usage', onUsageRequest)
 
+/**
+ * Requests multiple files from the client
+ * @param ws - The WebSocket connection
+ * @param filePaths - Array of file paths to request
+ * @returns Promise resolving to an object mapping file paths to their contents
+ */
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {
     const requestId = generateCompactId()
     const unsubscribe = subscribeToAction('read-files-response', (action) => {
+      for (const [filename, contents] of Object.entries(action.files)) {
+        action.files[filename] = ensureEndsWithNewline(contents)
+      }
       const receivedFilePaths = Object.keys(action.files)
       if (
         (action.requestId !== undefined && action.requestId === requestId) ||
@@ -366,6 +436,12 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   })
 }
 
+/**
+ * Requests a single file from the client
+ * @param ws - The WebSocket connection
+ * @param filePath - The path of the file to request
+ * @returns Promise resolving to the file contents or null if not found
+ */
 export async function requestFile(ws: WebSocket, filePath: string) {
   const files = await requestFiles(ws, [filePath])
   return files[filePath]

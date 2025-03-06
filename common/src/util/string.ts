@@ -138,7 +138,6 @@ export const safeReplace = (
 
 export const hasLazyEdit = (content: string) => {
   const cleanedContent = content.toLowerCase().trim()
-
   return (
     cleanedContent.includes('// rest of the') ||
     cleanedContent.includes('# rest of the') ||
@@ -221,3 +220,4 @@ export const generateCompactId = (prefix?: string): string => {
   const str = ((timestamp << 8) | random).toString(36).replace(/^-/, '')  // Remove leading dash if present
   return prefix ? `${prefix}${str}` : str
 }
+

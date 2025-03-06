@@ -160,6 +160,22 @@ export function printFileTreeWithTokens(
   return result
 }
 
+/**
+ * Ensures the given file contents ends with a newline character.
+ * @param contents - The file contents
+ * @returns the file contents with a newline character.
+ */
+export const ensureEndsWithNewline = (contents: string | null): string | null => {
+  if (contents === null || contents === '') {
+    // Leave empty file as is
+    return contents
+  }
+  if (contents.endsWith('\n')) {
+    return contents
+  }
+  return contents + '\n'
+}
+
 export const ensureDirectoryExists = (baseDir: string) => {
   if (!fs.existsSync(baseDir)) {
     fs.mkdirSync(baseDir, { recursive: true })
@@ -188,3 +204,4 @@ export function isValidFilePath(path: string) {
 
   return true
 }
+

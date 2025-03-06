@@ -16,7 +16,7 @@ export const parseAndGetDiffBlocksSingleFile = (
   }[] = []
   const diffBlocks: { searchContent: string; replaceContent: string }[] = []
   const blockRegex =
-    /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g
+    /<<<<<<< SEARCH\n([\s\S]*?)=======\n([\s\S]*?)>>>>>>> REPLACE/g
   let blockMatch
 
   while ((blockMatch = blockRegex.exec(newContent)) !== null) {
