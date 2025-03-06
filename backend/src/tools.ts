@@ -229,13 +229,13 @@ Important: Use this tool sparingly. Do not use this tool more than once in a con
     `.trim(),
   },
   {
-    name: 'complete',
+    name: 'end_turn',
     description: `
-## complete
-Description: Mark the task as complete. Use this tool when you believe the task is completely finished.
+## end_turn
+Description: End your response. Use this tool when you've completed the user's request, or need more information from the user, or feel like you are not making progress and want help from the user.
 Parameters: None
 Usage:
-<complete></complete>
+<end_turn></end_turn>
     `.trim(),
   },
 ] as const
@@ -287,7 +287,7 @@ const toolSchemas = {
   code_search: codeSearchSchema,
   run_terminal_command: runTerminalCommandSchema,
   think_deeply: emptySchema,
-  complete: emptySchema,
+  end_turn: emptySchema,
 } as const
 
 export const parseRawToolCall = (rawToolCall: {

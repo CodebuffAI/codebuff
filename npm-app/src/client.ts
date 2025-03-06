@@ -558,7 +558,7 @@ export class Client {
         const toolResults: ToolResult[] = [...a.toolResults]
 
         for (const toolCall of a.toolCalls) {
-          if (toolCall.name === 'complete') {
+          if (toolCall.name === 'end_turn') {
             isComplete = true
             continue
           }

@@ -1,4 +1,4 @@
-import { expect, test, describe, beforeEach } from 'bun:test'
+import { expect, test, describe } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -16,7 +16,7 @@ const REPO_AND_INSTANCE_IDS = {
   pylint: ['pylint-dev__pylint-7080'],
 }
 const PROMPT_PREFIX =
-  'Fix the following issue. Only use the <complete> tool once you believe ' +
+  'Fix the following issue. Only use the <end_turn> tool once you believe ' +
   'the issue has been fully fixed. Do not ask follow-up questions, do your ' +
   'best to interpret the intent of the issue.\n\n-----\n\n'
 const LITE_DATASET_PATH = path.join(
@@ -29,7 +29,8 @@ describe('SWE-Bench', async () => {
   await ensureTestRepos()
   const sweBenchLiteList = JSON.parse(
     fs.readFileSync(LITE_DATASET_PATH, 'utf-8')
-  )
+  ) as Record<string, any>[]
+
   const sweBenchLiteDataset = sweBenchLiteList.reduce(
     (accumulator, instance) => {
       accumulator[instance['instance_id']] = instance
@@ -47,7 +48,6 @@ describe('SWE-Bench', async () => {
 
   Object.entries(REPO_AND_INSTANCE_IDS).forEach(([repoName, instanceIds]) => {
     describe(repoName, async () => {
-
       instanceIds.forEach((instanceId) =>
         test(
           instanceId,

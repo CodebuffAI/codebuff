@@ -119,7 +119,7 @@ ${existingNewFilePaths.join('\n')}
   const userInstructions = `
 Proceed toward the user request and any subgoals.
 You may use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is minimal, you may not need to use these tools.
-Use the <complete></complete> tool at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.
+Use the <end_turn></end_turn> tool at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.
     `.trim()
   const agentMessages = buildArray(
     agentContext && {
@@ -251,7 +251,7 @@ ${toolResults
     } else if (
       // name === 'code_search' ||
       name === 'run_terminal_command' ||
-      name === 'complete'
+      name === 'end_turn'
     ) {
       clientToolCalls.push({
         ...(toolCall as ClientToolCall),
