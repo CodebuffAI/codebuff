@@ -230,7 +230,6 @@ ${toolResults
             return null
           })
         )
-        onResponseChunk(`${path}...`)
         fullResponse += body
         return false
       },
@@ -242,7 +241,6 @@ ${toolResults
           attributeNames: [],
           onTagStart: () => {},
           onTagEnd: (body) => {
-            onResponseChunk(body)
             fullResponse += body
             return false
           },

@@ -24,8 +24,12 @@ export async function* processStreamWithTags<T extends string>(
   )
 
   function* parseBuffer(
-    isEOF: boolean = false
+    chunk: string | undefined
   ): Generator<string, void, unknown> {
+    const isEOF = chunk === undefined
+    if (chunk) {
+      yield chunk
+    }
     let didParse = true
 
     while (!streamCompleted && didParse) {
@@ -39,11 +43,6 @@ export async function* processStreamWithTags<T extends string>(
           const beforeTag = buffer.slice(0, openMatch.index)
           const afterMatchIndex = openMatch.index + fullMatch.length
 
-          // Yield any text before the tag
-          if (beforeTag) {
-            yield beforeTag
-          }
-
           // Move buffer forward
           buffer = buffer.slice(afterMatchIndex)
 
@@ -56,13 +55,11 @@ export async function* processStreamWithTags<T extends string>(
 
           // Call onTagStart
           tags[openTag].onTagStart(currentAttributes)
-          yield fullMatch
 
           didParse = true
         } else {
           // No opening tag found. If it's EOF, yield remaining text.
           if (isEOF && buffer.length > 0) {
-            yield buffer
             buffer = ''
           }
         }
@@ -78,7 +75,6 @@ export async function* processStreamWithTags<T extends string>(
 
           // Close the tag
           const complete = tags[insideTag].onTagEnd(content, currentAttributes)
-          yield '</' + insideTag + '>'
           insideTag = null
           currentAttributes = {}
 
@@ -111,13 +107,12 @@ export async function* processStreamWithTags<T extends string>(
   for await (const chunk of stream) {
     if (streamCompleted) continue
     buffer += chunk
-
-    yield* parseBuffer()
+    yield* parseBuffer(chunk)
   }
 
   if (!streamCompleted) {
     // After the stream ends, try parsing one last time in case there's leftover text
-    yield* parseBuffer(true)
+    yield* parseBuffer(undefined)
   }
 }
 
