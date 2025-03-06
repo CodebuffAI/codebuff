@@ -44,6 +44,7 @@ import {
   ToolResult,
   getInitialAgentState,
 } from 'common/types/agent-state'
+import { checkpointManager } from './checkpoints'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -460,6 +461,11 @@ export class Client {
     }
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
+
+    // Create a checkpoint of the agent state before sending user input
+    if (this.agentState) {
+      checkpointManager.addCheckpoint(this.agentState, prompt);
+    }
 
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
