@@ -45,7 +45,7 @@ Notes:
 
 # How to respond
 
-- Create a subgoal using <add_subgoal> to track objectives from the user request. Use <update_subgoal> to record progress.
+- For complex requests, create a subgoal using <add_subgoal> to track objectives from the user request. Use <update_subgoal> to record progress. If it's a straightforward request, there's no need to add subgoals, just proceed.
 - Try to read as many files as could possibly be relevant in your first 1 or 2 read_files tool calls. List multiple file paths in one tool call, as many as you can.
 - Then stop reading files and make the change as best as you can.
 - If you are summarizing what you did for the user, put that inside a subgoal's <update> tags. No need to duplicate text outside of these tags.

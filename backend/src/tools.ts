@@ -13,10 +13,10 @@ const tools = [
     name: 'add_subgoal',
     description: `
 ## add_subgoal
-Description: Add a new subgoal to the context.
+Description: Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step.
 Parameters:
-- objective: (required) Clear instructions for what sections to update and how to update them
-- status: (required) The status of the subgoal. Can be "NOT_STARTED", "IN_PROGRESS", "COMPLETE", or "FAILED".
+- objective: (required) The objective of the subgoal, concisely and clearly stated.
+- status: (required) The status of the subgoal. Can be "NOT_STARTED", "IN_PROGRESS", "COMPLETE", or "ABORTED".
 - plan: (optional) A plan for the subgoal.
 Usage:
 <add_subgoal>

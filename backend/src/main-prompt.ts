@@ -118,7 +118,7 @@ ${existingNewFilePaths.join('\n')}
   const { agentContext } = agentState
   const userInstructions = `
 Proceed toward the user request and any subgoals.
-You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is minimal, you can just update subgoals once at the end of your response.
+You may use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is minimal, you may not need to use these tools.
 Use the "complete" tool only when you are confident the user request has been accomplished.
     `.trim()
   const agentMessages = buildArray(

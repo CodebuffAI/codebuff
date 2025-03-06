@@ -5,7 +5,7 @@
   "scripts": {
     "test": "bun test",
     "test:manifold": "bun test manifold.test.ts",
-    "test:pglite": "bun test pglite.test.ts",
+    "test:pglite": "bun test pglite-demo.test.ts",
     "test:swe-bench": "bun test swe-bench.test.ts",
     "typecheck": "tsc --noEmit"
   },
