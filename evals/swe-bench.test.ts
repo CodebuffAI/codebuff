@@ -1,5 +1,4 @@
 import { expect, test, describe, beforeEach } from 'bun:test'
-import { execSync } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -63,9 +62,6 @@ describe('SWE-Bench', async () => {
               prompt,
               projectPath: repoPath,
               maxIterations: 100,
-              stopCondition: (_, toolCalls) => {
-                return toolCalls.some((call) => call.name === 'complete')
-              },
             })
             expect(passesSweBenchTests(instanceId, repoPath)).toBeTruthy()
           },
