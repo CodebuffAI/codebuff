@@ -1,3 +1,7 @@
+import { spawn } from 'child_process'
+import * as fs from 'fs'
+import path from 'path'
+
 import {
   yellow,
   red,
@@ -7,18 +11,9 @@ import {
   blueBright,
   blue,
 } from 'picocolors'
-import { APIRealtimeClient } from 'common/websockets/websocket-client'
-import { backendUrl } from './config'
+import * as readline from 'readline'
+import { match, P } from 'ts-pattern'
 
-import {
-  getFiles,
-  getProjectFileContext,
-  getProjectRoot,
-} from './project-files'
-import { activeBrowserRunner, BrowserRunner } from './browser-runner'
-import { User } from 'common/util/credentials'
-import { userFromJson, CREDENTIALS_PATH } from './credentials'
-import { ChatStorage } from './chat-storage'
 import {
   InitResponseSchema,
   PromptResponseSchema,
@@ -26,25 +21,33 @@ import {
   UsageReponseSchema,
   UsageResponse,
 } from 'common/actions'
-import { handleToolCall } from './tool-handlers'
-import { CREDITS_REFERRAL_BONUS, type CostMode } from 'common/constants'
-import * as readline from 'readline'
-
-import path from 'path'
-import * as fs from 'fs'
-import { match, P } from 'ts-pattern'
-import { calculateFingerprint } from './fingerprint'
-import { FileVersion, ProjectFileContext } from 'common/util/file'
-import { GitCommand } from './types'
-import { displayGreeting } from './menu'
-import { spawn } from 'child_process'
-import { Spinner } from './utils/spinner'
+import { User } from 'common/util/credentials'
+import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 import {
   AgentState,
   ToolResult,
   getInitialAgentState,
 } from 'common/types/agent-state'
+import { FileVersion, ProjectFileContext } from 'common/util/file'
+import { APIRealtimeClient } from 'common/websockets/websocket-client'
+
+import { activeBrowserRunner, BrowserRunner } from './browser-runner'
+import { ChatStorage } from './chat-storage'
 import { checkpointManager } from './checkpoints'
+import { backendUrl } from './config'
+import { userFromJson, CREDENTIALS_PATH } from './credentials'
+import { calculateFingerprint } from './fingerprint'
+import { displayGreeting } from './menu'
+import {
+  getFiles,
+  getProjectFileContext,
+  getProjectRoot,
+} from './project-files'
+import { handleToolCall } from './tool-handlers'
+import { GitCommand } from './types'
+import { Spinner } from './utils/spinner'
+
+import type { CostMode } from 'common/constants'
 
 export class Client {
   private webSocket: APIRealtimeClient

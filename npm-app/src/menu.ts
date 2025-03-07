@@ -1,9 +1,10 @@
-import { CostMode, CREDITS_REFERRAL_BONUS } from 'common/constants'
-import { getProjectRoot } from './project-files'
-import picocolors, { blue, blueBright, magenta, yellow } from 'picocolors'
-import { bold, green } from 'picocolors'
 import path from 'path'
 import * as fs from 'fs'
+
+import picocolors, { blue, blueBright, bold, green, magenta, underline, yellow } from 'picocolors'
+
+import { CostMode, CREDITS_REFERRAL_BONUS } from 'common/constants'
+import { getProjectRoot } from './project-files'
 
 const getRandomColors = () => {
   const allColors = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan']
@@ -110,7 +111,14 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
   console.log(
     '- Start codebuff with --lite for efficient, budget responses or --max for higher quality responses'
   )
-  console.log(`- Redeem a referral code by simply pasting it here.`)
+
+  console.log(bold(underline('\nCheckpoint Commands:')))
+  console.log('- Type "checkpoints" or "cp" to list all available checkpoints')
+  console.log('- Type "checkpoint <id>" or "cp <id>" to show details about a specific checkpoint')
+  console.log('- Type "restore <id>" or "cp-restore <id>" to restore to a specific checkpoint')
+  console.log('- Type "cp-clear" to clear all checkpoints')
+
+  console.log(`\n- Redeem a referral code by simply pasting it here.`)
   console.log(
     '-',
     bold(

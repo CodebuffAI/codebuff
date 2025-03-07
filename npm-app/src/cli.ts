@@ -1,12 +1,22 @@
-import { getAllFilePaths } from 'common/project-file-tree'
-import * as readline from 'readline'
-import { green, red, yellow, blue, cyan, magenta } from 'picocolors'
 import { parse } from 'path'
-import { websocketUrl } from './config'
-import { ChatStorage } from './chat-storage'
-import { Client } from './client'
-import { Message } from 'common/types/message'
+
+import { green, red, yellow, blue, cyan, magenta } from 'picocolors'
+import * as readline from 'readline'
+
 import { FileChanges } from 'common/actions'
+import {
+  REQUEST_CREDIT_SHOW_THRESHOLD,
+  SKIPPED_TERMINAL_COMMANDS,
+} from 'common/constants'
+import { getAllFilePaths } from 'common/project-file-tree'
+import { Message } from 'common/types/message'
+import { createFileBlock, ProjectFileContext } from 'common/util/file'
+import { pluralize } from 'common/util/string'
+
+import { ChatStorage } from './chat-storage'
+import { checkpointManager } from './checkpoints'
+import { Client } from './client'
+import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
 import {
   getChangesSinceLastFileVersion,
@@ -15,17 +25,12 @@ import {
   setFiles,
 } from './project-files'
 import { handleRunTerminalCommand } from './tool-handlers'
-import { isCommandRunning, resetShell } from './utils/terminal'
-import {
-  REQUEST_CREDIT_SHOW_THRESHOLD,
-  SKIPPED_TERMINAL_COMMANDS,
-  type CostMode,
-} from 'common/constants'
-import { createFileBlock, ProjectFileContext } from 'common/util/file'
-import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-import { pluralize } from 'common/util/string'
 import { CliOptions, GitCommand } from './types'
 import { Spinner } from './utils/spinner'
+import { isCommandRunning, resetShell } from './utils/terminal'
+import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+
+import type { CostMode } from 'common/constants'
 
 export class CLI {
   private client: Client
@@ -188,6 +193,22 @@ export class CLI {
     await this.forwardUserInput(userInput)
   }
 
+  private async getConfirmation(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      })
+
+      process.stdout.write(yellow('Confirm (y/N): '))
+
+      rl.once('line', (answer) => {
+        rl.close()
+        resolve(answer.trim().toLowerCase() === 'y')
+      })
+    })
+  }
+
   private async processCommand(userInput: string): Promise<boolean> {
     if (userInput === 'help' || userInput === 'h') {
       displayMenu()
@@ -234,6 +255,31 @@ export class CLI {
       userInput === 'codebuffy'
     ) {
       this.showEasterEgg()
+      return true
+    }
+
+    // Checkpoint commands
+    if (userInput === 'checkpoint list' || userInput === 'checkpoints') {
+      this.handleCheckpoints()
+      return true
+    }
+
+    const checkpointDetailMatch = userInput.match(/^checkpoint\s+(\d+)$/)
+    if (checkpointDetailMatch) {
+      const id = parseInt(checkpointDetailMatch[1], 10)
+      this.handleCheckpointDetail(id)
+      return true
+    }
+
+    const restoreMatch = userInput.match(/^restore\s+(\d+)$/)
+    if (restoreMatch) {
+      const id = parseInt(restoreMatch[1], 10)
+      this.handleRestoreCheckpoint(id)
+      return true
+    }
+
+    if (userInput === 'checkpoint clear') {
+      this.handleClearCheckpoints()
       return true
     }
 
@@ -697,5 +743,91 @@ export class CLI {
         }
       })
     })
+  }
+
+  // Checkpoint command handlers
+  private handleCheckpoints(): void {
+    console.log(checkpointManager.getCheckpointsAsString())
+    this.rl.prompt()
+  }
+
+  private handleCheckpointDetail(id: number): void {
+    const checkpoint = checkpointManager.getCheckpoint(id)
+    if (!checkpoint) {
+      console.log(red(`Checkpoint #${id} not found.`))
+    } else {
+      // Display detailed information about the specific checkpoint
+      console.log(cyan(`\nDetailed information for checkpoint #${id}:`))
+      const date = new Date(checkpoint.timestamp)
+      const formattedDate = date.toLocaleString()
+      console.log(`${blue('Created at')}: ${formattedDate}`)
+
+      if (checkpoint.userInput) {
+        console.log(`${blue('User input')}: ${checkpoint.userInput}`)
+      }
+
+      // Display more detailed information about the agent state
+      const messageCount = checkpoint.historyLength
+      console.log(`${blue('Message history')}: ${messageCount} messages`)
+
+      // You could add more detailed information here as needed
+    }
+    this.rl.prompt()
+  }
+
+  private async handleRestoreCheckpoint(id: number): Promise<void> {
+    const checkpoint = checkpointManager.getCheckpoint(id)
+    if (!checkpoint) {
+      console.log(red(`Checkpoint #${id} not found.`))
+      this.rl.prompt()
+      return
+    }
+
+    // Confirm before restoring
+    console.log(
+      yellow(
+        `Are you sure you want to restore to checkpoint #${id}? This will reset the current conversation state.`
+      )
+    )
+
+    console.log('asdf')
+    const confirmed = await this.getConfirmation()
+    console.log('asdf2')
+
+    if (confirmed) {
+      // Restore the agent state
+      this.client.agentState = JSON.parse(checkpoint.agentStateString)
+      console.log(green(`Restored to checkpoint #${id}.`))
+
+      // Optionally, display the original user input that created this checkpoint
+      if (checkpoint.userInput) {
+        console.log(blue(`Original input: ${checkpoint.userInput}`))
+      }
+    } else {
+      console.log('Restore cancelled.')
+    }
+
+    console.log('asdf3')
+    this.rl.prompt()
+    console.log('asdf4')
+  }
+
+  private async handleClearCheckpoints(): Promise<void> {
+    console.log(
+      yellow(
+        'Are you sure you want to clear all checkpoints? This cannot be undone.'
+      )
+    )
+
+    const confirmed = await this.getConfirmation()
+
+    if (confirmed) {
+      checkpointManager.clearCheckpoints()
+      console.log(green('All checkpoints cleared.'))
+    } else {
+      console.log('Clear operation cancelled.')
+    }
+
+    this.rl.prompt()
   }
 }

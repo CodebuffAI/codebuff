@@ -1,15 +1,6 @@
+import { yellow, bold, underline, blue, gray, cyan } from 'picocolors'
+
 import { AgentState } from 'common/types/agent-state'
-import {
-  yellow,
-  red,
-  green,
-  bold,
-  underline,
-  blueBright,
-  blue,
-  gray,
-  cyan,
-} from 'picocolors'
 
 /**
  * Interface representing a checkpoint of agent state
@@ -18,7 +9,8 @@ export interface Checkpoint {
   id: number
   timestamp: number
   userInput: string
-  agentState: AgentState
+  agentStateString: string
+  historyLength: number
 }
 
 /**
@@ -47,7 +39,8 @@ export class CheckpointManager {
       id,
       timestamp: Date.now(),
       userInput,
-      agentState: JSON.parse(JSON.stringify(agentState)), // Deep clone to prevent reference issues
+      agentStateString: JSON.stringify(agentState), // Deep clone to prevent reference issues
+      historyLength: agentState.messageHistory.length,
     }
 
     // Add to map
@@ -121,7 +114,8 @@ export class CheckpointManager {
       const formattedDate = date.toLocaleString()
 
       const userInputOneLine = checkpoint.userInput.replaceAll('\n', ' ')
-      const userInput = userInputOneLine.length > 50
+      const userInput =
+        userInputOneLine.length > 50
           ? userInputOneLine.substring(0, 47) + '...'
           : userInputOneLine
 
@@ -133,7 +127,7 @@ export class CheckpointManager {
 
       if (detailed) {
         // Add more details about the agent state if needed
-        const messageCount = checkpoint.agentState.messageHistory.length
+        const messageCount = checkpoint.historyLength
         lines.push(`  ${blue('Messages')}: ${messageCount}`)
 
         // You can add more detailed information here as needed
