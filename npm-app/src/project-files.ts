@@ -139,7 +139,8 @@ export function initProjectFileContextWithWorker(dir: string) {
 export const getProjectFileContext = async (
   projectRoot: string,
   lastFileVersion: Record<string, string>,
-  fileVersions: FileVersion[][]
+  fileVersions: FileVersion[][],
+  prevFileVersions: Record<string, string | null>,
 ) => {
   const gitChanges = await getGitChanges()
   const changesSinceLastChat = getChangesSinceLastFileVersion(lastFileVersion)
@@ -179,9 +180,10 @@ export const getProjectFileContext = async (
       fileTree,
       fileTokenScores,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
-      userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,
+      prevFileVersions,
       shellConfigFiles,
       systemInfo: getSystemInfo(),
+      userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,
       ...updatedProps,
     }
   } else {

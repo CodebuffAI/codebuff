@@ -467,7 +467,7 @@ export class Client {
 
     // Create a checkpoint of the agent state before sending user input
     if (this.agentState) {
-      checkpointManager.addCheckpoint(this.agentState, prompt);
+      checkpointManager.addCheckpoint(this.agentState, prompt)
     }
 
     const { responsePromise, stopResponse } = this.subscribeToResponse(
@@ -569,6 +569,15 @@ export class Client {
             continue
           }
           if (toolCall.name === 'write_file') {
+            const { path: filePath } = toolCall.parameters
+            if (filePath !== undefined) {
+              const fullPath = path.join(getProjectRoot(), filePath)
+              const fileContents = fs.existsSync(fullPath)
+                ? fs.readFileSync(fullPath, 'utf8')
+                : null
+              this.agentState.fileContext.prevFileVersions[fullPath] =
+                fileContents
+            }
             this.hadFileChanges = true
           }
           const toolResult = await handleToolCall(toolCall, getProjectRoot())
@@ -644,7 +653,8 @@ export class Client {
     const fileContext = await getProjectFileContext(
       getProjectRoot(),
       {},
-      this.fileVersions
+      this.fileVersions,
+      {}
     )
 
     this.webSocket.subscribe('init-response', (a) => {

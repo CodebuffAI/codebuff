@@ -6,11 +6,12 @@ import { AgentState } from 'common/types/agent-state'
  * Interface representing a checkpoint of agent state
  */
 export interface Checkpoint {
-  id: number
-  timestamp: number
-  userInput: string
   agentStateString: string
   historyLength: number
+  id: number
+  parentId: number
+  timestamp: number
+  userInput: string
 }
 
 /**
@@ -20,6 +21,7 @@ export class CheckpointManager {
   private checkpoints: Map<number, Checkpoint> = new Map()
   private maxCheckpoints: number
   private nextId: number = 1
+  private oldestId: number = 1
 
   constructor(maxCheckpoints: number = 100) {
     this.maxCheckpoints = maxCheckpoints
@@ -31,16 +33,18 @@ export class CheckpointManager {
    * @param userInput - The user input associated with this checkpoint
    * @returns The ID of the created checkpoint
    */
-  addCheckpoint(agentState: AgentState, userInput: string): number {
+  addCheckpoint(agentState: AgentState, userInput: string, restoreRef: Checkpoint | null = null): number {
     // Use incremental ID starting at 1
     const id = this.nextId++
+    const parentId = restoreRef === null ? id - 1 : restoreRef.parentId
 
     const checkpoint: Checkpoint = {
-      id,
-      timestamp: Date.now(),
-      userInput,
       agentStateString: JSON.stringify(agentState), // Deep clone to prevent reference issues
       historyLength: agentState.messageHistory.length,
+      id,
+      parentId,
+      timestamp: Date.now(),
+      userInput,
     }
 
     // Add to map
@@ -48,10 +52,8 @@ export class CheckpointManager {
 
     // If we exceed the maximum number of checkpoints, remove the oldest one
     if (this.checkpoints.size > this.maxCheckpoints) {
-      const oldestKey = this.getOldestCheckpointId()
-      if (oldestKey !== undefined) {
-        this.checkpoints.delete(oldestKey)
-      }
+      this.checkpoints.delete(this.oldestId)
+      this.oldestId++
     }
 
     return id
@@ -80,11 +82,7 @@ export class CheckpointManager {
    * @returns The most recent checkpoint or null if none exist
    */
   getLatestCheckpoint(): Checkpoint | null {
-    if (this.checkpoints.size === 0) {
-      return null
-    }
-
-    return this.getAllCheckpoints().sort((a, b) => b.timestamp - a.timestamp)[0]
+    return this.checkpoints.get(this.nextId - 1) || null
   }
 
   /**
@@ -93,6 +91,7 @@ export class CheckpointManager {
   clearCheckpoints(): void {
     this.checkpoints.clear()
     this.nextId = 1 // Reset the ID counter when clearing
+    this.oldestId = 1
   }
 
   /**
@@ -152,7 +151,7 @@ export class CheckpointManager {
     }
 
     const lines: string[] = [
-      cyan(`\nDetailed information for checkpoint #${id}:`),
+      cyan(`Detailed information for checkpoint #${id}:`),
     ]
 
     const date = new Date(checkpoint.timestamp)
@@ -170,22 +169,6 @@ export class CheckpointManager {
     // You could add more detailed information here as needed
 
     return lines.join('\n')
-  }
-
-  /**
-   * Get the ID of the oldest checkpoint
-   * @returns The ID of the oldest checkpoint or undefined if none exist
-   */
-  private getOldestCheckpointId(): number | undefined {
-    if (this.checkpoints.size === 0) {
-      return undefined
-    }
-
-    const oldest = this.getAllCheckpoints().sort(
-      (a, b) => a.timestamp - b.timestamp
-    )[0]
-
-    return oldest.id
   }
 }
 

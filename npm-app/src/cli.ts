@@ -754,7 +754,7 @@ export class CLI {
 
     if (this.client.agentState) {
       // Save the current agent state
-      checkpointManager.addCheckpoint(this.client.agentState, `restore ${id}`)
+      checkpointManager.addCheckpoint(this.client.agentState, `restore ${id}`, checkpoint)
     }
 
     // Restore the agent state
