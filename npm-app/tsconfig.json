@@ -10,7 +10,7 @@
     "target": "esnext",
     "incremental": true,
     "isolatedModules": true,
-    "types": ["node", "jest", "bun-types"],
+    "types": ["node", "jest"],
     "typeRoots": ["./node_modules/@types", "../node_modules/@types"],
     "baseUrl": ".",
     "paths": {
@@ -22,7 +22,7 @@
     "rootDir": "./src",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "__tests__/**/*", "package.json"],
+  "include": ["src/**/*", "package.json"],
   "references": [
     { "path": "../common" },
     { "path": "../packages/code-map" }

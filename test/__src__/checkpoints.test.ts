@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
-import { CheckpointManager, Checkpoint } from '../src/checkpoints'
+import { describe, it, expect, beforeEach } from 'jest'
+import { CheckpointManager, Checkpoint } from '../checkpoints'
 import { AgentState, getInitialAgentState } from 'common/types/agent-state'
 import { ProjectFileContext } from 'common/util/file'
 
@@ -26,6 +26,7 @@ const mockFileContext: ProjectFileContext = {
     cpus: 1,
   },
   fileVersions: [],
+  prevFileVersions: {},
 }
 
 // Create a mock agent state for testing
