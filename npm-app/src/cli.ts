@@ -756,21 +756,7 @@ export class CLI {
     if (!checkpoint) {
       console.log(red(`Checkpoint #${id} not found.`))
     } else {
-      // Display detailed information about the specific checkpoint
-      console.log(cyan(`\nDetailed information for checkpoint #${id}:`))
-      const date = new Date(checkpoint.timestamp)
-      const formattedDate = date.toLocaleString()
-      console.log(`${blue('Created at')}: ${formattedDate}`)
-
-      if (checkpoint.userInput) {
-        console.log(`${blue('User input')}: ${checkpoint.userInput}`)
-      }
-
-      // Display more detailed information about the agent state
-      const messageCount = checkpoint.historyLength
-      console.log(`${blue('Message history')}: ${messageCount} messages`)
-
-      // You could add more detailed information here as needed
+      console.log(checkpointManager.getCheckpointDetails(id))
     }
     this.rl.prompt()
   }

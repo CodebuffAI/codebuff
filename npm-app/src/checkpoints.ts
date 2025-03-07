@@ -141,6 +141,38 @@ export class CheckpointManager {
   }
 
   /**
+   * Get detailed information about a specific checkpoint
+   * @param id The checkpoint ID
+   * @returns A formatted string with detailed information about the checkpoint, or an error message if not found
+   */
+  getCheckpointDetails(id: number): string {
+    const checkpoint = this.getCheckpoint(id)
+    if (!checkpoint) {
+      return cyan(`\nCheckpoint #${id} not found.`)
+    }
+
+    const lines: string[] = [
+      cyan(`\nDetailed information for checkpoint #${id}:`),
+    ]
+
+    const date = new Date(checkpoint.timestamp)
+    const formattedDate = date.toLocaleString()
+    lines.push(`${blue('Created at')}: ${formattedDate}`)
+
+    if (checkpoint.userInput) {
+      lines.push(`${blue('User input')}: ${checkpoint.userInput}`)
+    }
+
+    // Display more detailed information about the agent state
+    const messageCount = checkpoint.historyLength
+    lines.push(`${blue('Message history')}: ${messageCount} messages`)
+
+    // You could add more detailed information here as needed
+
+    return lines.join('\n')
+  }
+
+  /**
    * Get the ID of the oldest checkpoint
    * @returns The ID of the oldest checkpoint or undefined if none exist
    */
