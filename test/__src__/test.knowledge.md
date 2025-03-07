@@ -150,3 +150,16 @@ When testing code that uses event handlers:
 - Mock event emitters to return this for chaining
 - Remember to reset stored handlers in beforeEach
 - Test both success and error event paths
+
+## Testing XML Tag Handling
+
+When testing XML tag processing:
+- Create custom handlers for specific test cases rather than using default handlers
+- Use string concatenation to avoid issues with XML tags in test strings
+- For nested tags, test both parent and child tag handling
+- For tags that should be hidden, verify empty output
+- For tags with custom formatting, verify both tag name and content appear correctly
+- When testing tags split across multiple chunks, ensure each chunk is processed correctly
+- Use includes() instead of exact matching when testing formatted output
+- Test both standard tags and special tags with custom handling
+- For complex XML structures, test each tag type individually

@@ -47,10 +47,7 @@ import {
 import { handleToolCall } from './tool-handlers'
 import { GitCommand } from './types'
 import { Spinner } from './utils/spinner'
-import {
-  XmlStreamProcessor,
-  defaultTagHandlers,
-} from './utils/process-xml-chunks'
+import { XmlStreamProcessor, defaultTagHandlers } from './utils/process-xml-chunks'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -548,11 +545,16 @@ export class Client {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
-      // Always add the original chunk to the response buffer
+      // Add the chunk to the response buffer
       responseBuffer += chunk
 
+<<<<<<< HEAD
       // Process the chunk through our XML processor
       const output = xmlProcessor.process(chunk)
+=======
+      // Process the entire responseBuffer through our XML processor
+      const output = xmlProcessor.process(responseBuffer)
+>>>>>>> a79fa3b (fix: make tags bold and handle them more flexibly)
 
       if (output && output.trim()) {
         if (!streamStarted && chunk.trim()) {

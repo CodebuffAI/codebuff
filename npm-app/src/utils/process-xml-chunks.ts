@@ -1,261 +1,285 @@
-import { bold } from 'picocolors'
+import { TOOL_LIST, type ToolName } from 'common/constants/tools'
 import { snakeToTitleCase } from 'common/util/string'
+import { bold } from 'picocolors'
 
-// Define handler types
-export type TagStartHandler = (attributes: Record<string, string>) => string | null
-export type TagContentHandler = (content: string, attributes: Record<string, string>) => string | null
-export type TagEndHandler = (attributes: Record<string, string>) => string | null
+/**
+ * Formats a tag name for display in the terminal
+ * @param tagName The name of the tag to format
+ * @returns Formatted tag name with proper styling
+ */
+const formatTagName = (tagName: string): string => {
+  return `\n[${bold(snakeToTitleCase(tagName))}] `
+}
 
+/**
+ * Handler interface for XML tags
+ * Allows controlling both tag display and content handling
+ */
 export interface TagHandler {
-  onStart?: TagStartHandler
-  onContent?: TagContentHandler
-  onEnd?: TagEndHandler
-  attributeNames?: string[] // Names of attributes to extract
+  // Called when an opening tag is encountered
+  // Return null to hide the tag, or a string to replace it
+  onTagStart?: (tagName: string) => string | null
+
+  // Called when a nested tag is completed
+  // Return null to hide the content, or a string to replace it
+  onTagEnd: (tagName: string, content: string) => string | null
 }
 
-export interface TagHandlers {
-  [tagName: string]: TagHandler
-}
-
-export interface XmlProcessorState {
-  buffer: string
-  tagStack: Array<{
-    name: string
-    attributes: Record<string, string>
-    content: string
-  }>
-  currentAttributes: Record<string, string>
-  parsingAttributes: boolean
-  attributeName: string
-  attributeValue: string
-  inQuotes: boolean
-  quoteChar: string | null
-}
-
+/**
+ * XmlStreamProcessor handles XML tags that may be split across multiple chunks.
+ * It processes tool-related XML tags and executes callbacks when nested tags are completed.
+ */
 export class XmlStreamProcessor {
-  private state: XmlProcessorState
-  private handlers: TagHandlers
+  private tagStack: string[] = []
+  private currentContent: string = ''
+  private tagHandlers: Record<string, TagHandler>
+  private processedLength: number = 0
+  private lastOutput: string = ''
 
-  constructor(handlers: TagHandlers) {
-    this.handlers = handlers
-    this.state = this.getInitialState()
+  constructor(tagHandlers: Record<string, TagHandler>) {
+    this.tagHandlers = tagHandlers
   }
 
-  private getInitialState(): XmlProcessorState {
-    return {
-      buffer: '',
-      tagStack: [],
-      currentAttributes: {},
-      parsingAttributes: false,
-      attributeName: '',
-      attributeValue: '',
-      inQuotes: false,
-      quoteChar: null
+  /**
+   * Process a buffer of text that may contain XML tags
+   * @param buffer The complete buffer to process
+   * @returns Processed text with XML tags handled according to the tag handlers
+   */
+  process(buffer: string): string {
+    // Only process new content since last call
+    const newContent = buffer.slice(this.processedLength)
+    if (!newContent) {
+      return ''
     }
-  }
 
-  process(chunk: string): string {
-    this.state.buffer += chunk
-    let output = ''
-    let position = 0
+    // Process the entire buffer
+    let output = this.lastOutput
+    let position = this.processedLength
 
-    // Process the buffer character by character
-    while (position < this.state.buffer.length) {
-      const char = this.state.buffer[position]
-      const nextChar = position + 1 < this.state.buffer.length ? this.state.buffer[position + 1] : ''
+    // Look for opening and closing tags in the buffer
+    while (position < buffer.length) {
+      // Look for opening tag
+      const openTagMatch = buffer.slice(position).match(/<([a-zA-Z_]+)>/)
 
-      // Opening tag
-      if (char === '<' && nextChar !== '/') {
-        // Process text before the tag
-        const textBeforeTag = this.state.buffer.substring(0, position).trim()
-        if (textBeforeTag) {
-          output += this.processText(textBeforeTag)
-          this.state.buffer = this.state.buffer.substring(position)
-          position = 0
-          continue
-        }
+      // Look for closing tag
+      const closeTagMatch = buffer.slice(position).match(/<\/([a-zA-Z_]+)>/)
 
-        // Find the end of the tag
-        const tagEndPos = this.state.buffer.indexOf('>', position)
-        if (tagEndPos === -1) {
-          // Incomplete tag, wait for more data
-          break
-        }
+      if (this.tagStack.length === 0) {
+        // Not inside any tag - look for opening tag or add text to output
+        if (openTagMatch && openTagMatch.index !== undefined) {
+          // Add text before the tag to output
+          output += buffer.slice(position, position + openTagMatch.index)
 
-        // Extract tag name and attributes
-        const tagContent = this.state.buffer.substring(position + 1, tagEndPos)
-        const parts = tagContent.split(/\s+/)
-        const tagName = parts[0]
-        
-        // Parse attributes
-        const attributes: Record<string, string> = {}
-        let attrStr = tagContent.substring(tagName.length).trim()
-        
-        // Simple attribute parsing - can be improved for complex cases
-        const attrRegex = /([a-z_][a-z0-9_-]*)="([^"]*)"/g
-        let match
-        while ((match = attrRegex.exec(attrStr)) !== null) {
-          attributes[match[1]] = match[2]
-        }
+          // Get tag name
+          const tagName = openTagMatch[1]
 
-        // Process tag start
-        this.state.tagStack.push({
-          name: tagName,
-          attributes,
-          content: ''
-        })
-        
-        const handler = this.handlers[tagName]
-        if (handler?.onStart) {
-          const startOutput = handler.onStart(attributes)
-          if (startOutput !== null) {
-            output += startOutput
-          }
-        } else if (!this.isSpecialTag(tagName)) {
-          // Default handling for unknown tags
-          output += `${bold(snakeToTitleCase(tagName))}: `
-        }
+          // Handle opening tag display
+          const handler = this.tagHandlers[tagName]
 
-        // Remove processed content from buffer
-        this.state.buffer = this.state.buffer.substring(tagEndPos + 1)
-        position = 0
-        continue
-      }
-
-      // Closing tag
-      if (char === '<' && nextChar === '/') {
-        // Process text before the closing tag
-        const textBeforeTag = this.state.buffer.substring(0, position).trim()
-        if (textBeforeTag && this.state.tagStack.length > 0) {
-          const currentTag = this.state.tagStack[this.state.tagStack.length - 1]
-          currentTag.content += textBeforeTag
-        }
-
-        // Find the end of the closing tag
-        const tagEndPos = this.state.buffer.indexOf('>', position)
-        if (tagEndPos === -1) {
-          // Incomplete tag, wait for more data
-          break
-        }
-
-        // Extract tag name
-        const tagName = this.state.buffer.substring(position + 2, tagEndPos).trim()
-        
-        // Process tag content and end
-        if (this.state.tagStack.length > 0) {
-          const currentTag = this.state.tagStack.pop()!
-          
-          if (currentTag.name === tagName) {
-            const handler = this.handlers[tagName]
-            
-            // Process content
-            if (handler?.onContent && currentTag.content) {
-              const contentOutput = handler.onContent(currentTag.content, currentTag.attributes)
-              if (contentOutput !== null) {
-                output += contentOutput
-              }
-            }
-            
-            // Process tag end
-            if (handler?.onEnd) {
-              const endOutput = handler.onEnd(currentTag.attributes)
-              if (endOutput !== null) {
-                output += endOutput
-              }
+          if (handler && handler.onTagStart) {
+            const tagDisplay = handler.onTagStart(tagName)
+            if (tagDisplay !== null) {
+              output += tagDisplay
             }
           }
-        }
 
-        // Remove processed content from buffer
-        this.state.buffer = this.state.buffer.substring(tagEndPos + 1)
-        position = 0
-        continue
-      }
+          // Move position to after the opening tag
+          position += openTagMatch.index + openTagMatch[0].length
 
-      // Accumulate content for the current tag
-      if (this.state.tagStack.length > 0) {
-        position++
-      } else {
-        // Not inside any tag, process as regular text
-        const nextTagPos = this.state.buffer.indexOf('<', position)
-        if (nextTagPos === -1) {
-          // No more tags in this chunk
-          output += this.processText(this.state.buffer)
-          this.state.buffer = ''
-          break
+          // Push tag name to stack
+          this.tagStack.push(tagName)
+          this.currentContent = ''
         } else {
-          // Process text up to the next tag
-          output += this.processText(this.state.buffer.substring(0, nextTagPos))
-          this.state.buffer = this.state.buffer.substring(nextTagPos)
-          position = 0
+          // No opening tag found, add remaining text to output
+          output += buffer.slice(position)
+          position = buffer.length
+        }
+      } else {
+        // Inside a tag - look for nested opening tag or closing tag
+        if (
+          openTagMatch &&
+          closeTagMatch &&
+          openTagMatch.index !== undefined &&
+          closeTagMatch.index !== undefined
+        ) {
+          // Both opening and closing tags found, check which comes first
+          if (openTagMatch.index < closeTagMatch.index) {
+            // Opening tag comes first
+            this.currentContent += buffer.slice(
+              position,
+              position + openTagMatch.index
+            )
+            position += openTagMatch.index + openTagMatch[0].length
+            this.tagStack.push(openTagMatch[1])
+          } else {
+            // Closing tag comes first
+            this.currentContent += buffer.slice(
+              position,
+              position + closeTagMatch.index
+            )
+            position += closeTagMatch.index + closeTagMatch[0].length
+            const result = this.handleClosingTag(closeTagMatch[1])
+            if (result !== null) {
+              output += result
+            }
+          }
+        } else if (closeTagMatch && closeTagMatch.index !== undefined) {
+          // Only closing tag found
+          this.currentContent += buffer.slice(
+            position,
+            position + closeTagMatch.index
+          )
+          position += closeTagMatch.index + closeTagMatch[0].length
+          const result = this.handleClosingTag(closeTagMatch[1])
+          if (result !== null) {
+            output += result
+          }
+        } else if (openTagMatch && openTagMatch.index !== undefined) {
+          // Only opening tag found
+          this.currentContent += buffer.slice(
+            position,
+            position + openTagMatch.index
+          )
+          position += openTagMatch.index + openTagMatch[0].length
+          this.tagStack.push(openTagMatch[1])
+        } else {
+          // No tags found, add everything to current content
+          this.currentContent += buffer.slice(position)
+          position = buffer.length
         }
       }
     }
 
-    return output
+    // Update processed length and last output
+    this.processedLength = position
+
+    // Calculate new output since last call
+    const newOutput = output.slice(this.lastOutput.length)
+    this.lastOutput = output
+
+    return newOutput
   }
 
-  private processText(text: string): string {
-    if (this.state.tagStack.length === 0) {
-      // Not inside any tag, return as is
-      return text
+  private handleClosingTag(tagName: string): string | null {
+    // Check if this closing tag matches the current tag on the stack
+    if (this.tagStack.length > 0) {
+      const currentTag = this.tagStack.pop()
+
+      // If tag names don't match, attempt to recover by ignoring this closing tag
+      if (currentTag !== tagName) {
+        // Push the popped tag back onto the stack
+        if (currentTag) {
+          this.tagStack.push(currentTag)
+        }
+        return null
+      }
+
+      // If we're closing a nested tag
+      if (this.tagStack.length === 1) {
+        const parentTag = this.tagStack[0]
+        const handler = this.tagHandlers[parentTag]
+
+        if (handler) {
+          const result = handler.onTagEnd(tagName, this.currentContent)
+          return result
+        }
+      }
+
+      // If we're closing the main tag, reset content
+      if (this.tagStack.length === 0) {
+        this.currentContent = ''
+      }
     }
-    
-    // Inside a tag, accumulate content
-    const currentTag = this.state.tagStack[this.state.tagStack.length - 1]
-    currentTag.content += text
-    return ''
-  }
 
-  private isSpecialTag(tagName: string): boolean {
-    // List of tags that have special handling
-    return tagName === 'write_file' || tagName === 'path'
-  }
-
-  // Reset the processor state
-  reset(): void {
-    this.state = this.getInitialState()
+    return null
   }
 }
 
-// Default handlers for common tags
-export const defaultTagHandlers: TagHandlers = {
-  'write_file': {
-    onStart: () => null, // Hide the tag opening
-    onContent: () => null, // Hide the content
-    onEnd: () => null, // Hide the tag closing
+/**
+ * Default tag handlers for common XML tags
+ */
+export const defaultTagHandlers: Record<string, TagHandler> = {
+  // Create handlers for each tool in TOOL_LIST
+  ...Object.fromEntries(
+    TOOL_LIST.map((tool) => [
+      tool,
+      {
+        onTagStart: (tagName) => formatTagName(tagName),
+        onTagEnd: (_tagName, _content) => null, // Hide all nested tags by default
+      },
+    ])
+  ),
+
+  add_subgoal: {
+    onTagStart: (tagName) => formatTagName(tagName),
+    onTagEnd: (tagName, content) => {
+      if (tagName === 'objective') {
+        return content
+      }
+      return null
+    },
   },
-  'path': {
-    onStart: () => null,
-    onContent: (content) => `${bold('Writing File')}: ${content.trim()}\n`,
-    onEnd: () => null,
-  }
-}
 
-// Helper function to process regular text with XML-like tags
-export function processRegularText(text: string): string {
-  let processedText = text
+  update_subgoal: {
+    onTagStart: (tagName) => formatTagName(tagName),
+    onTagEnd: (tagName, content) => {
+      if (tagName === 'objective') {
+        return content
+      }
+      return null
+    },
+  },
 
-  // Handle empty tags: <tag></tag>
-  processedText = processedText.replace(
-    /<([a-z_][a-z0-9_-]*)(\s+[^>]*)?><\/\1(\s+[^>]*)?>/g,
-    ''
-  )
+  end_turn: {
+    onTagStart: () => null,
+    onTagEnd: () => null,
+  },
 
-  // Handle opening tags
-  processedText = processedText.replace(
-    /<([a-z_][a-z0-9_-]*)(\s+[^>]*)?>/g,
-    (match, tagName) => {
-      const readableTagName = snakeToTitleCase(tagName)
-      return `${bold(readableTagName)}: `
-    }
-  )
+  // Override with specific handlers for tools that need special handling
+  write_file: {
+    onTagStart: (tagName) => formatTagName(tagName),
+    onTagEnd: (tagName, content) => {
+      // hide content tags
+      if (tagName === 'path') {
+        return content
+      }
+      return null
+    },
+  },
 
-  // Handle closing tags
-  processedText = processedText.replace(
-    /<\/([a-z_][a-z0-9_-]*)(\s+[^>]*)?>/g,
-    ''
-  )
+  run_terminal_command: {
+    onTagStart: (tagName) => formatTagName(tagName),
+    onTagEnd: (tagName, content) => {
+      return content
+    },
+  },
 
-  return processedText
+  read_files: {
+    onTagStart: (tagName) => formatTagName(tagName),
+    onTagEnd: (tagName, content) => {
+      // Hide paths tag
+      if (tagName === 'paths') {
+        return content.split('\n').join(',')
+      }
+      return content
+    },
+  },
+
+  find_files: {
+    onTagStart: (tagName) => formatTagName(tagName),
+    onTagEnd: (tagName, content) => {
+      return content
+    },
+  },
+
+  code_search: {
+    onTagStart: (tagName) => formatTagName(tagName),
+    onTagEnd: (tagName, content) => {
+      // Hide pattern tag
+      if (tagName === 'pattern') {
+        return null
+      }
+      return content
+    },
+  },
 }

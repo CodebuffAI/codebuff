@@ -268,3 +268,21 @@ This application uses puppeteer-core instead of puppeteer to reduce the installa
   - Smaller package size
   - Faster installation
   - Uses system Chrome instead of duplicate install
+
+## XML Processing
+
+When processing XML tags in streaming content:
+
+- Use a tag stack to track nested tags
+- Process tags as they are encountered, even across multiple chunks
+- For tags that should be hidden (like content, end_turn), return null from handlers
+- Only format known tags, ignore unknown tags completely
+- Use a consistent pattern for tag handlers:
+  - onStart: Format and display the tag name
+  - onContent: Process and format the content
+  - onEnd: Add any closing formatting
+- For reusable patterns, create shared handlers (like hideHandler)
+- When testing XML processing:
+  - Test both complete and split tags
+  - Use string concatenation to avoid issues with XML tags in test strings
+  - Test nested tags to ensure proper handling
