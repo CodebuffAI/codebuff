@@ -16,7 +16,7 @@ import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 
 import { ChatStorage } from './chat-storage'
-import { checkpointManager } from './checkpoints'
+import { Checkpoint, checkpointManager } from './checkpoints'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
@@ -207,7 +207,10 @@ export class CLI {
   private async processCommand(userInput: string): Promise<boolean> {
     await this.readyPromise
     // Save the current agent state
-    checkpointManager.addCheckpoint(this.client.agentState as AgentState, userInput)
+    checkpointManager.addCheckpoint(
+      this.client.agentState as AgentState,
+      userInput
+    )
     if (userInput === 'help' || userInput === 'h') {
       displayMenu()
       this.promptWithCheckpointNumber()
@@ -232,10 +235,6 @@ export class CLI {
     }
     if (userInput === 'undo' || userInput === 'u') {
       this.handleUndo()
-      return true
-    }
-    if (userInput === 'redo' || userInput === 'r') {
-      this.handleRedo()
       return true
     }
     if (userInput === 'quit' || userInput === 'exit' || userInput === 'q') {
@@ -403,43 +402,19 @@ export class CLI {
   }
 
   private handleUndo() {
-    this.navigateFileVersion('undo')
-    this.promptWithCheckpointNumber()
-  }
-
-  private handleRedo() {
-    this.navigateFileVersion('redo')
-    this.promptWithCheckpointNumber()
-  }
-
-  private navigateFileVersion(direction: 'undo' | 'redo') {
-    const currentVersion = this.chatStorage.getCurrentVersion()
-    const filePaths = Object.keys(currentVersion ? currentVersion.files : {})
-    const currentFiles = getExistingFiles(filePaths)
-    this.chatStorage.saveCurrentFileState(currentFiles)
-
-    const navigated = this.chatStorage.navigateVersion(direction)
-
-    if (navigated) {
-      console.log(
-        direction === 'undo'
-          ? green('Undo last change')
-          : green('Redo last change')
-      )
-      const files = this.applyAndDisplayCurrentFileVersion()
-      console.log(green('Loaded files:'), green(Object.keys(files).join(', ')))
-    } else {
-      console.log(green(`No more ${direction === 'undo' ? 'undo' : 'redo'}s`))
+    // Get previous checkpoint number (not including undo command)
+    const checkpointId =
+      (checkpointManager.getLatestCheckpoint() as Checkpoint).id - 1
+    if (checkpointId < 1) {
+      console.log(red('Nothing to undo.'))
+      return
     }
-  }
-
-  private applyAndDisplayCurrentFileVersion() {
-    const currentVersion = this.chatStorage.getCurrentVersion()
-    if (currentVersion) {
-      setFiles(currentVersion.files)
-      return currentVersion.files
-    }
-    return {}
+    this.restoreAgentStateAndFiles(
+      checkpointManager.getCheckpoint(checkpointId) as Checkpoint
+    )
+    console.log(green(`Restored to checkpoint #${checkpointId}.`))
+    
+    this.promptWithCheckpointNumber()
   }
 
   private handleKeyPress(str: string, key: any) {
@@ -764,6 +739,16 @@ export class CLI {
       return
     }
 
+    this.restoreAgentStateAndFiles(checkpoint)
+
+    console.log(green(`Restored to checkpoint #${id}.`))
+
+    // Insert the original user input that created this checkpoint
+    this.promptWithCheckpointNumber()
+    this.rl.write(checkpoint.userInput)
+  }
+
+  private restoreAgentStateAndFiles(checkpoint: Checkpoint): void {
     // Restore the agentState
     this.client.agentState = JSON.parse(checkpoint.agentStateString)
 
@@ -780,12 +765,6 @@ export class CLI {
         fs.writeFileSync(filePath, fileContents)
       }
     }
-
-    console.log(green(`Restored to checkpoint #${id}.`))
-
-    // Insert the original user input that created this checkpoint
-    this.promptWithCheckpointNumber()
-    this.rl.write(checkpoint.userInput)
   }
 
   private async handleClearCheckpoints(): Promise<void> {
