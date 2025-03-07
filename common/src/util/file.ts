@@ -73,7 +73,8 @@ ${content}
   )
 }
 
-export const fileRegex = /<write_file path="([^"]+)">([\s\S]*?)<\/write_file>/g
+export const fileRegex =
+  /<write_file>\s*<path>([^<]+)<\/path>\s*<content>([\s\S]*?)<\/content>\s*<\/write_file>/g
 export const fileWithNoPathRegex = /<write_file>([\s\S]*?)<\/write_file>/g
 
 export const parseFileBlocks = (fileBlocks: string) => {
@@ -84,18 +85,6 @@ export const parseFileBlocks = (fileBlocks: string) => {
     files[filePath] = fileContent.startsWith('\n')
       ? fileContent.slice(1)
       : fileContent
-  }
-  return files
-}
-
-export const parseFileBlocksWithoutPath = (fileBlocks: string) => {
-  let fileMatch
-  const files: string[] = []
-  while ((fileMatch = fileWithNoPathRegex.exec(fileBlocks)) !== null) {
-    const [, fileContent] = fileMatch
-    files.push(
-      fileContent.startsWith('\n') ? fileContent.slice(1) : fileContent
-    )
   }
   return files
 }
@@ -165,7 +154,9 @@ export function printFileTreeWithTokens(
  * @param contents - The file contents
  * @returns the file contents with a newline character.
  */
-export const ensureEndsWithNewline = (contents: string | null): string | null => {
+export const ensureEndsWithNewline = (
+  contents: string | null
+): string | null => {
   if (contents === null || contents === '') {
     // Leave empty file as is
     return contents
@@ -204,4 +195,3 @@ export function isValidFilePath(path: string) {
 
   return true
 }
-

@@ -32,12 +32,11 @@ function foo() {
 )}
 
 Notes for editing a file:
-- You must specify a file path using the filePath attribute.
+- You must specify a file path using the path attribute.
 - Do not wrap the file content in markdown code blocks.
 - You can edit multiple files in your response by including multiple write_file blocks.
 - The content of the file can be abridged by using placeholder comments like: // ... existing code ... or # ... existing code ... (or whichever is appropriate for the language). In this case, the placeholder sections will not be changed. Only the written out code will be updated.
 - If you don't use any placeholder comments (matched by a regex), the entire file will be replaced.
-- Similarly, you can create new files with the write_file tool by specifying a new "path" attribute and including the entire content of the file.
 
 If you don't want to edit a file, but want to show code to the user, you can use the markdown format for that:
 \`\`\`typescript

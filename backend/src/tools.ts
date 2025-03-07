@@ -206,6 +206,8 @@ Parameters: None
 Usage:
 <think_deeply></think_deeply>
 
+Note: This tool has no parameters. Do not include any text between the think_deeply opening and closing tags.
+
 Use this tool when the user request meets multiple of these criteria:
 - Explicitly asks you to plan or think through something
 - Requires changes across multiple files or systems

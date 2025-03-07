@@ -88,16 +88,14 @@ export async function* processStreamWithTags<T extends string>(
         } else if (isEOF) {
           // We reached EOF without finding a closing tag
           // Treat remaining buffer as content and close the tag
-          if (buffer.length > 0) {
-            const complete = tags[insideTag].onTagEnd(buffer, currentAttributes)
-            yield '</' + insideTag + '>'
-            buffer = ''
-            insideTag = null
-            currentAttributes = {}
-            if (complete) {
-              streamCompleted = true
-              return
-            }
+          const complete = tags[insideTag].onTagEnd(buffer, currentAttributes)
+          yield '</' + insideTag + '>'
+          buffer = ''
+          insideTag = null
+          currentAttributes = {}
+          if (complete) {
+            streamCompleted = true
+            return
           }
         }
       }

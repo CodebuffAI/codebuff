@@ -25,7 +25,12 @@ import {
 import { generateCompactId } from 'common/util/string'
 import { ToolResult, AgentState } from 'common/types/agent-state'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
-import { TOOL_LIST, parseToolCalls, ClientToolCall, updateContextFromToolCalls } from './tools'
+import {
+  TOOL_LIST,
+  parseToolCalls,
+  ClientToolCall,
+  updateContextFromToolCalls,
+} from './tools'
 
 export const mainPrompt = async (
   ws: WebSocket,
@@ -116,6 +121,7 @@ ${existingNewFilePaths.join('\n')}
     Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
   const isNotFirstUserMessage =
     messagesWithUserMessage.filter((m) => m.role === 'user').length > 1
+  const recentlyDidThinking = toolResults.some((t) => t.name === 'think_deeply')
 
   const userInstructions = buildArray(
     'Instructions:',
@@ -125,9 +131,11 @@ ${existingNewFilePaths.join('\n')}
 
     'You may use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is minimal, you may not need to use these tools.',
 
-    // !justUsedATool &&
-    //   !recentlyDidThinking &&
-    //   'If the user request is very complex (e.g. requires changes across multiple files or systems) and you have not recently used the think_deeply tool, consider invoking the think_deeply tool, although this should be used sparingly.',
+    !justUsedATool &&
+      !recentlyDidThinking &&
+      'If the user request is very complex or asks you to plan, and you have not recently used the think_deeply tool, consider invoking "<think_deeply></think_deeply>", although this should be used sparingly.',
+    recentlyDidThinking &&
+      'Don\'t act on the plan created by the think_deeply tool. Instead, wait for the user to review it.',
 
     hasKnowledgeFiles &&
       'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case.',
