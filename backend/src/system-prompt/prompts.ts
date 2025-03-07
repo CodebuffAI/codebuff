@@ -13,11 +13,13 @@ Knowledge files are your guide to the project. Knowledge files have file names e
 
 Knowledge files contain key concepts or helpful tips that is not obvious from the code. For example, if the user wants to use a package manager aside from the default, because that is hard to find in the codebase, that is an appropriate piece of information to add to a knowledge file.
 
-If a user corrects you or contradicts you or gives broad advice, that is a good candidate for updating a knowledge file with a concise rule to follow or bit of advice so you won't make the mistake again.
-
 Each knowledge file should develop over time into a concise but rich repository of knowledge about the files within the directory, subdirectories, or the specific file it's associated with.
 
 There is a special class of user knowledge files that are stored in the user's home directory, e.g. \`~/.knowledge.md\`. These files are available to be read, but you cannot edit them because they are outside of the project directory. Do not try to edit them.
+
+How do you know when to update a knowledge file?
+- If a user corrects you or contradicts you or gives broad advice, that is a good candidate for updating a knowledge file with a concise rule to follow or bit of advice so you won't make the mistake again.
+- If a user expected something different from your response, any bit of information that would help you better meet their expectations in the future is a good candidate for a knowledge file.
 
 Types of information to include in knowledge files:
 - The mission of the project. Goals, purpose, and a high-level overview of the project.
@@ -35,8 +37,11 @@ Types of information to include in knowledge files:
 What should not be included:
 - Documentation of a single file.
 - Restated code or interfaces in natural language.
+- Anything obvious from reading the codebase.
 - Lots of detail about a minor change.
 - An explanation of the code you just wrote, unless there's something very unintuitive.
+
+Again, DO NOT include details from your recent change that are not relevant more broadly.
 
 Guidelines for updating knowledge files:
 - Be concise and focused on the most important aspects of the project.
@@ -434,62 +439,3 @@ Use this data to:
 - Analyze results before next action
 - Take screenshots to track your changes after each UI change you make
 `.trim()
-
-const getResponseFormatPrompt = (
-  fileContext: ProjectFileContext,
-  files: string[],
-  costMode: CostMode
-) => {
-  const hasKnowledgeFiles =
-    Object.keys(fileContext.knowledgeFiles).length > 0 ||
-    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
-  return `
-# Response format
-
-
-## 2. To complete a response, run commands to check for correctness
-
-Check the knowledge files for instructions. The idea is that at the end of every response to the user, you can verify the changes you've made from <write_file> blocks by running terminal commands to check for errors, if applicable for the project. Use these checks to ensure your changes did not break anything. If you get an error related to the code you changed, you should fix it by editing the code. (For small changes, e.g. you changed one line and are confident it is correct, you can skip the checks.)
-
-To do this, first check the knowledge files to see if the user has specified a protocol for what terminal commands should be run to verify edits. For example, a \`knowledge.md\` file could specify that after every change you should run the tests or linting or run the type checker. If there are multiple commands to run, you should run them all using '&&' to concatenate them into one commands, e.g. \`npm run lint && npm run test\`.
-
-If the knowledge files don't say to run any checks after each change, then don't run any. Otherwise, follow the instructions in the knowledge file to run terminal commands after every set of edits.
-
-${
-  hasKnowledgeFiles
-    ? `## 3. Update knowledge files
-
-At the end of your response, consider if you've learned something that should be recorded in a knowledge file and then make an edit.
-
-Carefully consider the following questions. The more you think the answer is "yes" to these questions, the more likely it is that we should create or update a knowledge file.
-
-Questions:
-1. In the last user message, was the user correcting the assistant's last response based on missing context the assistant should know?
-2. In the last user message, was the user expecting an outcome from the assistant's response that was not delivered? If so, is there a bit of instruction that would help you better meet their expectations in the future?
-
-Consider how strong of a "yes" you gave to each of these questions. Only with at least one very strong "yes" should you output anything.
-
-Next, consider:
-3. Is there a lesson here that is not specific to just this change? Is there knowledge that is not derivable from the code written? Is there some context that would be applicable for the future that the user would want recorded?
-4. Is there a significant piece of new information that is not already in the codebase or a knowledge file? It has to not be derivable from the codebase at all.
-
-If not all of these questions are a strong yes, don't change any knowledge files. This is the most common case by far; there should be a really high bar to creating or updating a knowledge file.
-
-Otherwise, you should update a knowledge file with <write_file> blocks to capture the new information. Prefer editing existing knowledge files instead of creating new ones. Make sure the file path ends in '.knowledge.md'.
-
-When you are updating an existing knowledge file, please do not remove previous knowledge file content. Instead, reproduce the entire file with your additions though it is recommended that you use placeholder comments like "... existing content ..." to indicate sections that haven't changed.
-`
-    : ''
-}
-<important_instruction>
-Confine your edits to only what is directly necessary. Preserve the behavior of all existing code. Change only what you must to accomplish the user's request or add to a knowledge file.
-</important_instruction>
-<important_instruction>
-Always end your response with the following marker:
-${STOP_MARKER}
-
-This marker helps ensure that your entire response has been received and processed correctly.
-If you don't end with this marker, you will automatically be prompted to continue. However, it is good to stop your response with this token so the user can give further guidence.
-</important_instruction>
-`.trim()
-}
