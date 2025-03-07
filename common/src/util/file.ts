@@ -56,7 +56,6 @@ export const ProjectFileContextSchema = z.object({
     cpus: z.number(),
   }),
   fileVersions: z.array(z.array(FileVersionSchema)),
-  prevFileVersions: z.record(z.string(), z.string().nullable()),
 })
 
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>

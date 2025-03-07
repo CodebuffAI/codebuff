@@ -7,9 +7,9 @@ import { AgentState } from 'common/types/agent-state'
  */
 export interface Checkpoint {
   agentStateString: string
+  fileVersions: Record<string, string>
   historyLength: number
   id: number
-  parentId: number
   timestamp: number
   userInput: string
 }
@@ -29,20 +29,35 @@ export class CheckpointManager {
 
   /**
    * Add a new checkpoint
+   * TODO update this jsdoc and add comments to this function
    * @param agentState - The agent state to checkpoint
    * @param userInput - The user input associated with this checkpoint
    * @returns The ID of the created checkpoint
    */
-  addCheckpoint(agentState: AgentState, userInput: string, restoreRef: Checkpoint | null = null): number {
+  addCheckpoint(
+    agentState: AgentState,
+    userInput: string,
+    parentId: number | null = null
+  ): number {
     // Use incremental ID starting at 1
     const id = this.nextId++
-    const parentId = restoreRef === null ? id - 1 : restoreRef.parentId
+    const parentFileVersions = this.getCheckpoint(parentId)?.fileVersions || {}
+
+    const currentFileVersions = agentState.fileContext.fileVersions
+      .flat()
+      .reduce(
+        (acc, { path, content }) => {
+          acc[path] = content
+          return acc
+        },
+        {} as Record<string, string>
+      )
 
     const checkpoint: Checkpoint = {
       agentStateString: JSON.stringify(agentState), // Deep clone to prevent reference issues
+      fileVersions: { ...parentFileVersions, ...currentFileVersions },
       historyLength: agentState.messageHistory.length,
       id,
-      parentId,
       timestamp: Date.now(),
       userInput,
     }
@@ -64,7 +79,10 @@ export class CheckpointManager {
    * @param id The checkpoint ID
    * @returns The checkpoint or null if not found
    */
-  getCheckpoint(id: number): Checkpoint | null {
+  getCheckpoint(id: number | null): Checkpoint | null {
+    if (id === null) {
+      return null
+    }
     const checkpoint = this.checkpoints.get(id)
     return checkpoint || null
   }

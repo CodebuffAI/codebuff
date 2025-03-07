@@ -140,7 +140,6 @@ export const getProjectFileContext = async (
   projectRoot: string,
   lastFileVersion: Record<string, string>,
   fileVersions: FileVersion[][],
-  prevFileVersions: Record<string, string | null>,
 ) => {
   const gitChanges = await getGitChanges()
   const changesSinceLastChat = getChangesSinceLastFileVersion(lastFileVersion)
@@ -180,7 +179,6 @@ export const getProjectFileContext = async (
       fileTree,
       fileTokenScores,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
-      prevFileVersions,
       shellConfigFiles,
       systemInfo: getSystemInfo(),
       userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,

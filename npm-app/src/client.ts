@@ -61,6 +61,7 @@ export class Client {
   public fileVersions: FileVersion[][] = []
   public fileContext: ProjectFileContext | undefined
   public agentState: AgentState | undefined
+  public originalFileVersions: Record<string, string | null> = {}
 
   public user: User | undefined
   public lastWarnedPct: number = 0
@@ -582,15 +583,17 @@ export class Client {
             continue
           }
           if (toolCall.name === 'write_file') {
+            // Save the file contents before writing
             const { path: filePath } = toolCall.parameters
             if (filePath !== undefined) {
               const fullPath = path.join(getProjectRoot(), filePath)
-              const fileContents = fs.existsSync(fullPath)
-                ? fs.readFileSync(fullPath, 'utf8')
-                : null
-              this.agentState.fileContext.prevFileVersions[fullPath] =
-                fileContents
+              if (!(fullPath in this.originalFileVersions)) {
+                this.originalFileVersions[fullPath] = fs.existsSync(fullPath)
+                  ? fs.readFileSync(fullPath, 'utf8')
+                  : null
+              }
             }
+
             this.hadFileChanges = true
           }
           const toolResult = await handleToolCall(toolCall, getProjectRoot())
@@ -667,7 +670,6 @@ export class Client {
       getProjectRoot(),
       {},
       this.fileVersions,
-      {}
     )
 
     this.webSocket.subscribe('init-response', (a) => {

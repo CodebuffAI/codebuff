@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import { parse } from 'path'
 
 import { green, red, yellow, blue, cyan, magenta } from 'picocolors'
@@ -9,12 +10,13 @@ import {
   SKIPPED_TERMINAL_COMMANDS,
 } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
+import { AgentState } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 
 import { ChatStorage } from './chat-storage'
-import { checkpointManager } from './checkpoints'
+import { checkpointManager, Checkpoint } from './checkpoints'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
@@ -754,13 +756,30 @@ export class CLI {
 
     if (this.client.agentState) {
       // Save the current agent state
-      checkpointManager.addCheckpoint(this.client.agentState, `restore ${id}`, checkpoint)
+      checkpointManager.addCheckpoint(
+        this.client.agentState,
+        `restore ${id}`,
+        id
+      )
     }
 
-    // Restore the agent state
+    // Restore the agentState
     this.client.agentState = JSON.parse(checkpoint.agentStateString)
 
-    // TODO restore all file states from the agentState
+    // Restore file state
+    const toChange = {
+      ...this.client.originalFileVersions,
+      ...checkpoint.fileVersions,
+    }
+    for (const [filePath, fileContents] of Object.entries(toChange)) {
+      if (fileContents === null) {
+        // delete file
+        fs.unlinkSync(filePath)
+      } else {
+        fs.writeFileSync(filePath, fileContents)
+      }
+    }
+
     console.log(green(`Restored to checkpoint #${id}.`))
 
     // Insert the original user input that created this checkpoint
