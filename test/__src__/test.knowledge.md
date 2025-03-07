@@ -163,3 +163,9 @@ When testing XML tag processing:
 - Use includes() instead of exact matching when testing formatted output
 - Test both standard tags and special tags with custom handling
 - For complex XML structures, test each tag type individually
+- When testing incremental processing, be flexible with expectations:
+  - The processor may return partial content in each chunk
+  - Some chunks may return empty strings
+  - Focus on testing the overall behavior rather than exact output
+  - Use length checks or contains() for more resilient tests
+  - Avoid strict equality checks for multi-chunk processing
