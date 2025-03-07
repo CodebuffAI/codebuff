@@ -193,22 +193,6 @@ export class CLI {
     await this.forwardUserInput(userInput)
   }
 
-  private async getConfirmation(): Promise<boolean> {
-    return new Promise((resolve) => {
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      })
-
-      process.stdout.write(yellow('Confirm (y/N): '))
-
-      rl.once('line', (answer) => {
-        rl.close()
-        resolve(answer.trim().toLowerCase() === 'y')
-      })
-    })
-  }
-
   private async processCommand(userInput: string): Promise<boolean> {
     if (userInput === 'help' || userInput === 'h') {
       displayMenu()
@@ -758,6 +742,7 @@ export class CLI {
     } else {
       console.log(checkpointManager.getCheckpointDetails(id))
     }
+    this.rl.prompt()
   }
 
   private async handleRestoreCheckpoint(id: number): Promise<void> {
@@ -767,42 +752,19 @@ export class CLI {
       return
     }
 
-    // Confirm before restoring
-    console.log(
-      yellow(
-        `Are you sure you want to restore to checkpoint #${id}? This will reset the current conversation state.`
-      )
-    )
+    // Restore the agent state
+    this.client.agentState = JSON.parse(checkpoint.agentStateString)
 
-    const confirmed = await this.getConfirmation()
+    // TODO restore all file states from the agentState
+    console.log(green(`Restored to checkpoint #${id}.`))
 
-    if (confirmed) {
-      // Restore the agent state
-      this.client.agentState = JSON.parse(checkpoint.agentStateString)
-      console.log(green(`Restored to checkpoint #${id}.`))
-
-      // Insert the original user input that created this checkpoint
-      this.rl.write(checkpoint.userInput)
-    } else {
-      console.log('Restore cancelled.')
-    }
-
+    // Insert the original user input that created this checkpoint
+    this.rl.prompt()
+    this.rl.write(checkpoint.userInput)
   }
 
   private async handleClearCheckpoints(): Promise<void> {
-    console.log(
-      yellow(
-        'Are you sure you want to clear all checkpoints? This cannot be undone.'
-      )
-    )
-
-    const confirmed = await this.getConfirmation()
-
-    if (confirmed) {
-      checkpointManager.clearCheckpoints()
-      console.log(green('All checkpoints cleared.'))
-    } else {
-      console.log('Clear operation cancelled.')
-    }
+    checkpointManager.clearCheckpoints()
+    this.rl.prompt()
   }
 }
