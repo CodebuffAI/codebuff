@@ -127,7 +127,9 @@ ${existingNewFilePaths.join('\n')}
     'Instructions:',
     'Proceed toward the user request and any subgoals.',
 
-    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Then pause to get more instructions from the user.',
+    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested.',
+
+    'If unsure about what to do, ask the user for clarification, and use the end_turn tool.',
 
     'You may use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is minimal, you may not need to use these tools.',
 
@@ -135,7 +137,7 @@ ${existingNewFilePaths.join('\n')}
       !recentlyDidThinking &&
       'If the user request is very complex or asks you to plan, and you have not recently used the think_deeply tool, consider invoking "<think_deeply></think_deeply>", although this should be used sparingly.',
     recentlyDidThinking &&
-      'Don\'t act on the plan created by the think_deeply tool. Instead, wait for the user to review it.',
+      "Don't act on the plan created by the think_deeply tool. Instead, wait for the user to review it.",
 
     hasKnowledgeFiles &&
       'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case.',
@@ -143,6 +145,8 @@ ${existingNewFilePaths.join('\n')}
     hasKnowledgeFiles &&
       isNotFirstUserMessage &&
       "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
+
+    "Don't run git commands or scripts without being specifically instructed to do so.",
 
     justUsedATool &&
       `If the tool result above is of a terminal command succeeding and you have completed the user's request, please use the end_turn tool and do not write anything else.`,
