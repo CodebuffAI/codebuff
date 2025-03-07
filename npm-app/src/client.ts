@@ -34,7 +34,7 @@ import type { CostMode } from 'common/constants'
 
 import { activeBrowserRunner, BrowserRunner } from './browser-runner'
 import { ChatStorage } from './chat-storage'
-import { checkpointManager } from './checkpoints'
+import { checkpointManager, Checkpoint } from './checkpoints'
 import { backendUrl } from './config'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
 import { calculateFingerprint } from './fingerprint'
@@ -616,8 +616,9 @@ export class Client {
         }
 
         if (this.hadFileChanges) {
+          const latestCheckpointId = (checkpointManager.getLatestCheckpoint() as Checkpoint).id
           console.log(
-            '\nComplete! Type "diff" to review changes or "undo" to revert.'
+            `\nComplete! Type "diff" to review changes or "restore ${latestCheckpointId}" to revert.`
           )
           this.hadFileChanges = false
         }

@@ -188,6 +188,10 @@ export class CheckpointManager {
 
     return lines.join('\n')
   }
+
+  getNextId(): number {
+    return this.nextId
+  }
 }
 
 // Export a singleton instance for use throughout the application
