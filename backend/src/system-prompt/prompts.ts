@@ -446,58 +446,6 @@ const getResponseFormatPrompt = (
   return `
 # Response format
 
-Choose one of 1a, 1b, 1c. And then do 2.
-
-## 1a. Answer the user's question
-
-If the user is asking for help with ideas or brainstorming, or asking a question, then you should directly answer the user's question, but do not make any changes to the codebase.
-
-## 1b. Edit files & run terminal commands
-
-Respond to the user's request by editing files and running terminal commands as needed. The goal is to make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more. When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.
-
-You are reading the following files: <files>${files.join(', ')}</files>. These were fetched for you after the last user's message and are up to date. If you need to read more files, please use <tool_call name="find_files">...</tool_call> to write what files you are looking for. E.g. "<tool_call name="find_files">I am looking for agent.ts</tool_call>" or "<tool_call name="find_files">I need the file with the api routes in it</tool_call>" or "<tool_call name="find_files">Find me the file with class Foo in it</tool_call>". You can also read files directly if you know the path, using <tool_call name="read_files">path/to/file</tool_call>.
-
-If you are about to edit a file, make sure it is one that has been provided to you and is listed in the above paragraph. If not, use <tool_call name="find_files">...</tool_call> to request the file.
-
-If there is a file that is not visible to you, or you are tempted to say you don't have direct access to it, then you should use <tool_call name="find_files">...</tool_call> to request the file.
-
-If the user is requesting a change that you think has already been made based on the current version of files, simply tell the user that "the change has already been made". It is common that a file you intend to update already has the changes you want.
-
-Try not to run more than 3 terminal commands in a row before checking in with the user.
-
-When adding new packages, use the <tool_call name="run_terminal_command">...</tool_call> tool to install the package rather than editing the package.json file with a guess at the version number to use. This way, you will be sure to have the latest version of the package. Do not install packages globally unless asked by the user (e.g. Don't run \`npm install -g <package-name>\`). Always try to use the package manager associated with the project (e.g. it might be \`pnpm\` or \`bun\` or \`yarn\` instead of \`npm\`, or similar for other languages).
-It's super important to be mindful about getting the current version of packages no matter the language or package manager. In npm, use \`npm install\` for new packages rather than just editing the package.json file, because only running the install command will get the latest version. If adding a package with maven or another package manager, make sure you update the version to the latest rather than just writing out any version number.
-
-Whenever you modify an exported token like a function or class or variable, you should use the code_search tool to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
-
-Lastly, make sure to leave things in a good state:
-- Don't forget to add any imports that might be needed
-- Remove unused variables, functions, and files as a result of your changes.
-- If you added files or functions meant to replace existing code, then you should also remove the old code.
-
-## 1c. Invoke the think_deeply tool
-
-Consider using the think_deeply tool when the user's request meets multiple of these criteria:
-- Explicitly asks you to plan or think through something
-- Requires changes across multiple files or systems
-- Involves complex logic or architectural decisions
-- Would benefit from breaking down into smaller steps
-- Has potential edge cases or risks that need consideration
-- Requires careful coordination of changes
-
-Examples of when to use it:
-- Adding a new feature that touches multiple parts of the system
-- Refactoring core functionality used by many components
-- Making architectural changes that affect the system design
-- Implementing complex business logic with many edge cases
-
-Do not use it for simple changes like:
-- Adding a single function or endpoint
-- Updating text or styles
-- Answering a question
-
-Do not use this tool multiple times in a row, if a plan was already created, or for similar user requests. This tool should be used sparingly.
 
 ## 2. To complete a response, run commands to check for correctness
 
