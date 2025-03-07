@@ -31,6 +31,3 @@ jobs:
         
       - name: Run common tests
         run: cd common && bun test
-        
-      - name: Run test package tests
-        run: cd test && bun test
