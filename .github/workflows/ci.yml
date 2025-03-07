@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build-and-typecheck:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,3 +22,15 @@ jobs:
 
       - name: Typecheck all packages
         run: bun run typecheck
+
+      - name: Run npm-app tests
+        run: cd npm-app && bun test
+        
+      - name: Run backend tests
+        run: cd backend && bun test
+        
+      - name: Run common tests
+        run: cd common && bun test
+        
+      - name: Run test package tests
+        run: cd test && bun test
