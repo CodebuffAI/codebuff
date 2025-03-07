@@ -758,14 +758,12 @@ export class CLI {
     } else {
       console.log(checkpointManager.getCheckpointDetails(id))
     }
-    this.rl.prompt()
   }
 
   private async handleRestoreCheckpoint(id: number): Promise<void> {
     const checkpoint = checkpointManager.getCheckpoint(id)
     if (!checkpoint) {
       console.log(red(`Checkpoint #${id} not found.`))
-      this.rl.prompt()
       return
     }
 
@@ -776,26 +774,19 @@ export class CLI {
       )
     )
 
-    console.log('asdf')
     const confirmed = await this.getConfirmation()
-    console.log('asdf2')
 
     if (confirmed) {
       // Restore the agent state
       this.client.agentState = JSON.parse(checkpoint.agentStateString)
       console.log(green(`Restored to checkpoint #${id}.`))
 
-      // Optionally, display the original user input that created this checkpoint
-      if (checkpoint.userInput) {
-        console.log(blue(`Original input: ${checkpoint.userInput}`))
-      }
+      // Insert the original user input that created this checkpoint
+      this.rl.write(checkpoint.userInput)
     } else {
       console.log('Restore cancelled.')
     }
 
-    console.log('asdf3')
-    this.rl.prompt()
-    console.log('asdf4')
   }
 
   private async handleClearCheckpoints(): Promise<void> {
@@ -813,7 +804,5 @@ export class CLI {
     } else {
       console.log('Clear operation cancelled.')
     }
-
-    this.rl.prompt()
   }
 }

@@ -96,7 +96,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
     '- "Create knowledge files for your codebase" to help Codebuff understand your project'
   )
 
-  console.log('\nCOMMANDS')
+  console.log('\nCommands:')
   console.log('- Enter terminal commands directly: "cd backend", "npm test"')
   console.log('- Use "!command" to run terminal commands (e.g. "!ls -la")')
   console.log('- Press ESC to cancel generation')
@@ -112,11 +112,11 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
     '- Start codebuff with --lite for efficient, budget responses or --max for higher quality responses'
   )
 
-  console.log(bold(underline('\nCheckpoint Commands:')))
-  console.log('- Type "checkpoints" or "cp" to list all available checkpoints')
-  console.log('- Type "checkpoint <id>" or "cp <id>" to show details about a specific checkpoint')
-  console.log('- Type "restore <id>" or "cp-restore <id>" to restore to a specific checkpoint')
-  console.log('- Type "cp-clear" to clear all checkpoints')
+  console.log('\nCheckpoint Commands:')
+  console.log('- Type "checkpoint list" or "checkpoints" to list all available checkpoints')
+  console.log('- Type "checkpoint <id>" to show details about a specific checkpoint')
+  console.log('- Type "restore <id>" to restore to a specific checkpoint')
+  console.log('- Type "checkpoint clear" to clear all checkpoints')
 
   console.log(`\n- Redeem a referral code by simply pasting it here.`)
   console.log(
