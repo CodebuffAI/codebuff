@@ -446,13 +446,12 @@ ${toolResults
     onResponseChunk(`\n`)
   }
 
-  for (const change of changes) {
-    clientToolCalls.push({
-      name: 'write_file',
-      parameters: change,
-      id: generateCompactId(),
-    })
-  }
+  const changeToolCalls = changes.map((change) => ({
+    name: 'write_file' as const,
+    parameters: change,
+    id: generateCompactId(),
+  }))
+  clientToolCalls.unshift(...changeToolCalls)
 
   const newAgentContext = await agentContextPromise
   logger.debug(
