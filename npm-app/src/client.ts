@@ -483,7 +483,8 @@ export class Client {
       () => {
         Spinner.get().stop()
         process.stdout.write(green(underline('\nCodebuff') + ':') + ' ')
-      }
+      },
+      prompt
     )
 
     Spinner.get().start()
@@ -507,7 +508,8 @@ export class Client {
   subscribeToResponse(
     onChunk: (chunk: string) => void,
     userInputId: string,
-    onStreamStart: () => void
+    onStreamStart: () => void,
+    prompt: string
   ) {
     let responseBuffer = ''
     let streamStarted = false
@@ -535,6 +537,21 @@ export class Client {
     const stopResponse = () => {
       unsubscribeChunks()
       unsubscribeComplete()
+
+      // Update the agent state with your prompt and partial response.
+      const { messageHistory } = this.agentState!
+      this.agentState = {
+        ...this.agentState!,
+        messageHistory: [
+          ...messageHistory,
+          { role: 'user' as const, content: prompt },
+          {
+            role: 'assistant' as const,
+            content: responseBuffer + '[RESPONSE_CANCELED_BY_USER]',
+          },
+        ],
+      }
+
       resolveResponse({
         type: 'prompt-response',
         promptId: userInputId,
