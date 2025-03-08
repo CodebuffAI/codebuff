@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import { parse } from 'path'
 
-import { green, red, yellow, blue, cyan, magenta } from 'picocolors'
+import { green, red, yellow, blue, cyan, magenta, bold } from 'picocolors'
 import * as readline from 'readline'
 
 import { FileChanges } from 'common/actions'
@@ -43,7 +43,6 @@ export class CLI {
   private rl!: readline.Interface
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
-  private lastChanges: FileChanges = []
   private lastSigintTime: number = 0
   private lastInputTime: number = 0
   private consecutiveFastInputs: number = 0
@@ -204,13 +203,18 @@ export class CLI {
     await this.forwardUserInput(userInput)
   }
 
-  private async processCommand(userInput: string): Promise<boolean> {
+  private async beforeProcessCommand(userInput: string): Promise<void> {
     await this.readyPromise
     // Save the current agent state
     checkpointManager.addCheckpoint(
       this.client.agentState as AgentState,
       userInput
     )
+  }
+
+  private async processCommand(userInput: string): Promise<boolean> {
+    await this.beforeProcessCommand(userInput)
+
     if (userInput === 'help' || userInput === 'h') {
       displayMenu()
       this.promptWithCheckpointNumber()
@@ -322,7 +326,8 @@ export class CLI {
 
   private async forwardUserInput(userInput: string) {
     Spinner.get().start()
-    await this.readyPromise
+
+    this.client.lastChanges = []
 
     const currentChat = this.chatStorage.getCurrentChat()
     const { fileVersions } = currentChat
@@ -693,13 +698,13 @@ export class CLI {
   }
 
   private handleDiff() {
-    if (this.lastChanges.length === 0) {
+    if (this.client.lastChanges.length === 0) {
       console.log(yellow('No changes found in the last assistant response.'))
       return
     }
 
-    this.lastChanges.forEach((change) => {
-      console.log('-', change.path)
+    this.client.lastChanges.forEach((change) => {
+      console.log(bold(`___${change.path}___`))
       const lines = change.content
         .split('\n')
         .map((line) => (change.type === 'file' ? '+' + line : line))
@@ -709,6 +714,8 @@ export class CLI {
           console.log(green(line))
         } else if (line.startsWith('-')) {
           console.log(red(line))
+        } else if (line.startsWith('@@')) {
+          console.log(cyan(line))
         } else {
           console.log(line)
         }
