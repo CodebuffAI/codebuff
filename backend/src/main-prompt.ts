@@ -4,7 +4,7 @@ import { AnthropicModel } from 'common/constants'
 import { promptClaudeStream } from './llm-apis/claude'
 import { parseToolCallXml } from './util/parse-tool-call-xml'
 import { getModelForMode } from 'common/constants'
-import { ProjectFileContext } from 'common/util/file'
+import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { Message } from 'common/types/message'
 import { ClientAction, FileChange } from 'common/actions'
@@ -558,11 +558,8 @@ async function getFileVersionUpdates(
       (content) =>
         typeof content === 'string' && content.includes('<write_file')
     )
-    .map(
-      (content) =>
-        (content as string).match(/<write_file\s+path="([^"]+)">/)?.[1]
-    )
-    .filter((path): path is string => path !== undefined)
+    .flatMap((content) => Object.keys(parseFileBlocks(content as string)))
+    .filter((path) => path !== undefined)
 
   const requestedFiles = skipRequestingFiles
     ? []
