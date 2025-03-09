@@ -767,7 +767,9 @@ export class CLI {
     for (const [filePath, fileContents] of Object.entries(toChange)) {
       if (fileContents === null) {
         // delete file
-        fs.unlinkSync(filePath)
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath)
+        }
       } else {
         fs.writeFileSync(filePath, fileContents)
       }
