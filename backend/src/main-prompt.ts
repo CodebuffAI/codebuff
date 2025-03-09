@@ -17,11 +17,6 @@ import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
 import { difference, uniq, zip } from 'lodash'
 import { buildArray } from 'common/util/array'
-import {
-  getRelevantFilesForPlanning,
-  loadFilesForPlanning,
-  planComplexChange,
-} from './planning'
 import { generateCompactId } from 'common/util/string'
 import { ToolResult, AgentState } from 'common/types/agent-state'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
@@ -248,7 +243,6 @@ ${toolResults
           attributeNames: [],
           onTagStart: () => {},
           onTagEnd: (body) => {
-            fullResponse += body
             return false
           },
         },
@@ -365,69 +359,29 @@ ${toolResults
       //     result: `For the following request "${description}", the following files were found: ${existingNewFilePaths?.join('\n') ?? 'None'}`,
       //   })
     } else if (name === 'think_deeply') {
-      const fetchFilesStart = Date.now()
-      // assistant sets the prompt, get from parameters
-      const filePaths = await getRelevantFilesForPlanning(
-        messagesWithResponse,
-        // TODO: Ask assistant to come up with a prompt.
-        prompt ?? '',
-        fileContext,
-        costMode,
-        clientSessionId,
-        fingerprintId,
-        promptId,
-        userId
-      )
-      const fetchFilesDuration = Date.now() - fetchFilesStart
-      logger.debug(
-        { prompt, filePaths, fetchFilesDuration },
-        'Got file paths for thinking deeply'
-      )
-      const fileContents = await loadFilesForPlanning(ws, filePaths)
-      const existingFilePaths = Object.keys(fileContents)
-
-      onResponseChunk(
-        `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
-      )
-      fullResponse += `\nConsidering the following relevant files:\n${existingFilePaths.join('\n')}\n`
-      onResponseChunk(`\nThinking deeply (can take a minute!)\n`)
-
-      logger.debug({ prompt, filePaths, existingFilePaths }, 'Thinking deeply')
-      const planningStart = Date.now()
-
-      const { response, fileProcessingPromises: promises } =
-        await planComplexChange(
-          fileContents,
-          messagesWithResponse,
-          prompt ?? '',
-          ws,
-          {
-            clientSessionId,
-            fingerprintId,
-            userInputId: promptId,
-            userId,
-            costMode,
-          }
-        )
-      fileProcessingPromises.push(...promises)
-      // For now, don't print the plan to the user.
-      // onResponseChunk(`${response}\n\n`)
-      fullResponse += response + '\n\n'
+      const { thought } = parameters
       logger.debug(
         {
-          prompt,
-          file_paths: filePaths,
-          response,
-          fetchFilesDuration,
-          planDuration: Date.now() - planningStart,
+          thought,
         },
-        'Generated plan'
+        'Thought deeply'
       )
-      serverToolResults.push({
-        id: generateCompactId(),
-        name: 'think_deeply',
-        result: `Read the following files: ${filePaths.join('\n')}, thought deeply about the user request, and generated the following plan: ${response}`,
-      })
+    } else if (name === 'create_plan') {
+      const { path, plan } = parameters
+      logger.debug(
+        {
+          path,
+          plan,
+        },
+        'Create plan'
+      )
+      fileProcessingPromises.push(
+        Promise.resolve({
+          path,
+          type: 'file',
+          content: plan,
+        })
+      )
     } else {
       throw new Error(`Unknown tool: ${name}`)
     }

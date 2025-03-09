@@ -224,12 +224,56 @@ Notes:
     name: 'think_deeply',
     description: `
 ## think_deeply
-Description: Think through a complex change to the codebase, like implementing a new feature or refactoring some code. This tool leverages deep reasoning capabilities to break down difficult problems into clear implementation steps.
-Parameters: None
+Description: Think through a complex change to the codebase, like implementing a new feature or refactoring some code. Brainstorm. Go deep on alternative approaches and consider the tradeoffs.
+Parameters: thought: (required) Your detailed thoughts.
 Usage:
-<think_deeply></think_deeply>
+<think_deeply>
+<thought>
+Let's consider the following approaches:
+1. Approach 1: ...
+2. Approach 2: ...
+3. Approach 3: ...
 
-Note: This tool has no parameters. Do not include any text between the think_deeply opening and closing tags.
+We should consider approach 2 because ...
+</thought>
+</think_deeply>
+
+Use this tool when the user request meets multiple of these criteria:
+- Explicitly asks you to plan or think through something.
+- Always use this tool right before using the create_plan tool.
+- Requires changes across multiple files or systems
+- Involves complex logic or architectural decisions
+- Would benefit from breaking down into smaller steps
+- Has potential edge cases or risks that need consideration
+- Requires careful coordination of changes
+
+Examples of when to use it:
+- Adding a new feature that touches multiple parts of the system
+- Refactoring core functionality used by many components
+- Making architectural changes that affect the system design
+- Implementing complex business logic with many edge cases
+
+Do not use it for simple changes like:
+- Adding a single function or endpoint
+- Updating text or styles
+    `.trim(),
+  },
+  {
+    name: 'create_plan',
+    description: `
+## create_plan
+Description: Create a plan for a complex change to the codebase, like implementing a new feature or refactoring some code.
+Parameters:
+- path: (required) The path including the filename of a markdown file that will be overwritten with the plan.
+- plan: (required) A detailed plan to solve the user's request.
+
+Usage:
+<create_plan>
+<path>feature-name-plan.md</path>
+<plan>
+[Insert long detailed plan here]
+</plan>
+</create_plan>
 
 Use this tool when the user request meets multiple of these criteria:
 - Explicitly asks you to plan or think through something
@@ -248,7 +292,23 @@ Examples of when to use it:
 Do not use it for simple changes like:
 - Adding a single function or endpoint
 - Updating text or styles
-- Answering a question
+
+For a technical plan, act as an expert architect engineer and provide direction to your editor engineer.
+- Study the change request and the current code.
+- Describe how to modify the code to complete the request. The editor engineer will rely solely on your instructions, so make them unambiguous and complete.
+- Explain all needed code changes clearly and completely, but concisely.
+- Just show the changes needed.
+
+What to include in the plan:
+- Include code, but not full files of it. Write out key snippets of code and use lots of psuedo code. For example, interfaces between modules, function signatures, and other code that is not immediately obvious should be written out explicitly. Function and method bodies could be written out in psuedo code.
+- Do not waste time on much background information, focus on the exact steps of the implementation.
+- Do not wrap the path content in markdown code blocks, e.g. \`\`\`.
+
+Do not include any of the following sections in the plan:
+- goals
+- a timeline or schedule
+- benefits/key improvements
+- next steps
 
 Important: Use this tool sparingly. Do not use this tool more than once in a conversation, if a plan was already created, or for similar user requests.
     `.trim(),
@@ -300,6 +360,15 @@ const runTerminalCommandSchema = z.object({
   command: z.string().min(1, 'Command cannot be empty'),
 })
 
+const thinkDeeplySchema = z.object({
+  thought: z.string().min(1, 'Thought cannot be empty'),
+})
+
+const createPlanSchema = z.object({
+  path: z.string().min(1, 'Path cannot be empty'),
+  plan: z.string().min(1, 'Plan cannot be empty'),
+})
+
 const emptySchema = z.object({}).transform(() => ({}))
 
 // Map tool names to their schemas
@@ -311,7 +380,8 @@ const toolSchemas = {
   find_files: findFilesSchema,
   code_search: codeSearchSchema,
   run_terminal_command: runTerminalCommandSchema,
-  think_deeply: emptySchema,
+  think_deeply: thinkDeeplySchema,
+  create_plan: createPlanSchema,
   end_turn: emptySchema,
 } as const
 
@@ -353,7 +423,6 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'find_files',
   'code_search',
   'run_terminal_command',
-  'think_deeply',
 ]
 
 export const toolsInstructions = `
