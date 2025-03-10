@@ -20,7 +20,7 @@ async function codebuff(
 ) {
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
-  
+
   const updatePromise = updateCodebuff()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
 
@@ -35,7 +35,7 @@ if (require.main === module) {
   const args = process.argv.slice(2)
   const help = args.includes('--help') || args.includes('-h')
   const version = args.includes('--version') || args.includes('-v')
-  
+
   if (version) {
     console.log(`Codebuff v${packageJson.version}`)
     process.exit(0)

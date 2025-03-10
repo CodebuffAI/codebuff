@@ -1,6 +1,6 @@
 import { bold } from 'picocolors'
 import { capitalize, snakeToTitleCase } from 'common/util/string'
-import { TOOL_LIST } from 'common/constants/tools'
+import { CLIENT_TOOL_LIST, ClientTool } from 'common/constants/tools'
 import { Saxy } from 'common/util/saxy'
 
 /**
@@ -54,17 +54,7 @@ export const defaultToolCallRenderer: ToolCallRenderer = {
   onToolEnd: () => null,
 }
 
-export const toolRenderers: Record<string, ToolCallRenderer> = {
-  ...Object.fromEntries(
-    TOOL_LIST.map((tool) => {
-      return [
-        tool,
-        {
-          ...defaultToolCallRenderer,
-        },
-      ]
-    })
-  ),
+export const toolRenderers: Record<ClientTool, ToolCallRenderer> = {
   run_terminal_command: {
     // Don't render anything
   },
@@ -77,6 +67,9 @@ export const toolRenderers: Record<string, ToolCallRenderer> = {
   end_turn: {
     // Don't render anything
   },
+  think_deeply: {
+    ...defaultToolCallRenderer,
+  },
   write_file: {
     ...defaultToolCallRenderer,
     onParamChunk: (content, paramName, toolName) => {
@@ -85,6 +78,7 @@ export const toolRenderers: Record<string, ToolCallRenderer> = {
       }
       return null
     },
+    onParamEnd: (paramName) => (paramName === 'path' ? '...' : null),
   },
   add_subgoal: {
     ...defaultToolCallRenderer,
@@ -159,7 +153,7 @@ export function createXMLStreamParser(
     const { name } = tag
 
     // Check if this is a tool tag
-    if (TOOL_LIST.includes(name as any)) {
+    if (CLIENT_TOOL_LIST.includes(name as ClientTool)) {
       currentTool = name
       params = {}
 
