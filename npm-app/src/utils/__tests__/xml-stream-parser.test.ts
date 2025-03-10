@@ -1,9 +1,6 @@
 // @ts-ignore
 import { describe, test, expect } from 'bun:test'
-import {
-  createXMLStreamParser,
-  defaultToolCallRenderer,
-} from '../xml-stream-parser'
+import { createXMLStreamParser, toolRenderers } from '../xml-stream-parser'
 import { Writable } from 'stream'
 
 describe('Saxy Stream Processor', () => {
@@ -12,7 +9,7 @@ describe('Saxy Stream Processor', () => {
       '<run_terminal_command><command>echo hello</command></run_terminal_command>'
     let result = ''
 
-    const processor = createXMLStreamParser(defaultToolCallRenderer)
+    const processor = createXMLStreamParser(toolRenderers)
 
     const writable = new Writable({
       write(chunk, encoding, callback) {
@@ -39,7 +36,7 @@ describe('Saxy Stream Processor', () => {
       '<run_terminal_command><command>ls</command></run_terminal_command><read_files><paths>file.txt</paths></read_files>'
     let result = ''
 
-    const processor = createXMLStreamParser(defaultToolCallRenderer)
+    const processor = createXMLStreamParser(toolRenderers)
 
     const writable = new Writable({
       write(chunk, encoding, callback) {
@@ -68,7 +65,7 @@ describe('Saxy Stream Processor', () => {
       '<run_terminal_command><command>ls</command></run_terminal_command>Some text between tool calls<read_files><paths>file.txt</paths></read_files>'
     let result = ''
 
-    const processor = createXMLStreamParser(defaultToolCallRenderer)
+    const processor = createXMLStreamParser(toolRenderers)
 
     const writable = new Writable({
       write(chunk, encoding, callback) {
@@ -118,7 +115,7 @@ describe('Saxy Stream Processor', () => {
     })
 
     // Create the processor
-    const processor = createXMLStreamParser(defaultToolCallRenderer)
+    const processor = createXMLStreamParser(toolRenderers)
     processor.pipe(writable)
 
     // Process each chunk with a small delay between them
@@ -168,7 +165,7 @@ describe('Saxy Stream Processor', () => {
     })
 
     // Create the processor
-    const processor = createXMLStreamParser(defaultToolCallRenderer)
+    const processor = createXMLStreamParser(toolRenderers)
     processor.pipe(writable)
 
     // Process each chunk with a small delay between them
