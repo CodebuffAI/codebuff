@@ -49,10 +49,7 @@ import {
 import { handleToolCall } from './tool-handlers'
 import { GitCommand } from './types'
 import { Spinner } from './utils/spinner'
-import {
-  createXMLStreamParser,
-  defaultToolCallRenderer,
-} from './utils/xml-stream-parser'
+import { createXMLStreamParser, toolRenderers } from './utils/xml-stream-parser'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -557,13 +554,10 @@ export class Client {
       })
     }
 
-    const xmlStreamParser = createXMLStreamParser(
-      defaultToolCallRenderer,
-      (chunk) => {
-        onChunk(chunk)
-        responseBuffer += chunk
-      }
-    )
+    const xmlStreamParser = createXMLStreamParser(toolRenderers, (chunk) => {
+      onChunk(chunk)
+      responseBuffer += chunk
+    })
 
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return

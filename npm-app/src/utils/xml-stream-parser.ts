@@ -1,5 +1,5 @@
 import { bold } from 'picocolors'
-import { snakeToTitleCase } from 'common/util/string'
+import { capitalize, snakeToTitleCase } from 'common/util/string'
 import { TOOL_LIST } from 'common/constants/tools'
 import { Saxy } from 'common/util/saxy'
 
@@ -17,7 +17,7 @@ export interface ToolCallRenderer {
   onParamStart?: (paramName: string, toolName: string) => string | null
 
   // Called when parameter content is received
-  onParamContent?: (
+  onParamChunk?: (
     content: string,
     paramName: string,
     toolName: string
@@ -40,44 +40,83 @@ export interface ToolCallRenderer {
 /**
  * Default renderer for tool calls that formats them nicely for the console
  */
-export const defaultToolCallRenderer: ToolCallRenderer = {
+const defaultToolCallRenderer: ToolCallRenderer = {
   onToolStart: (toolName) => {
     return `[${bold(snakeToTitleCase(toolName))}]`
   },
 
-  onParamContent: (content, paramName, toolName) => {
-    // For run_terminal_command, we want to show the command
-    if (toolName === 'run_terminal_command' && paramName === 'command') {
-      return content
-    }
-
-    // For code_search, we want to show the pattern
-    if (toolName === 'code_search' && paramName === 'pattern') {
-      return content
-    }
-
-    // For read_files, we want to show the paths
-    if (toolName === 'read_files' && paramName === 'paths') {
-      return content.split('\n').join(',')
-    }
-
-    // For other tools, we might not want to show all parameters
-    return null
+  onParamChunk: (content, paramName, toolName) => {
+    return content
   },
 
-  onParamEnd: () => null,
+  onParamEnd: () => '\n',
 
   onToolEnd: () => null,
 }
 
+export const toolRenderers: Record<string, ToolCallRenderer> = {
+  ...Object.fromEntries(
+    TOOL_LIST.map((tool) => {
+      return [
+        tool,
+        {
+          ...defaultToolCallRenderer,
+        },
+      ]
+    })
+  ),
+  run_terminal_command: {
+    // Don't render anything
+  },
+  code_search: {
+    // Don't render anything
+  },
+  read_files: {
+    // Don't render anything
+  },
+  write_file: {
+    ...defaultToolCallRenderer,
+    onParamChunk: (content, paramName, toolName) => {
+      if (paramName === 'path') {
+        return content
+      }
+      return null
+    },
+  },
+  add_subgoal: {
+    ...defaultToolCallRenderer,
+    onParamChunk: (content, paramName, toolName) => {
+      if (paramName === 'id') {
+        return null
+      }
+      return content
+    },
+  },
+  update_subgoal: {
+    ...defaultToolCallRenderer,
+    onParamStart: (paramName, toolName) => {
+      if (paramName === 'id') {
+        return null
+      }
+      return capitalize(paramName) + ': '
+    },
+    onParamChunk: (content, paramName, toolName) => {
+      if (paramName === 'id') {
+        return null
+      }
+      return content
+    },
+  },
+}
+
 /**
  * Creates a transform stream that processes XML tool calls
- * @param renderer Custom renderer for tool calls
+ * @param renderer Custom renderer for tool calls or a map of renderers per tool
  * @param callback Optional callback function to receive processed chunks
  * @returns Transform stream
  */
 export function createXMLStreamParser(
-  renderer: ToolCallRenderer,
+  renderer: Record<string, ToolCallRenderer>,
   callback?: (chunk: string) => void
 ) {
   const parser = new Saxy()
@@ -87,6 +126,22 @@ export function createXMLStreamParser(
   let currentParam: string | null = null
   let params: Record<string, string> = {}
   let paramContent = ''
+
+  // Helper to get the appropriate renderer for the current tool
+  const getRenderer = (toolName: string): ToolCallRenderer => {
+    if (!renderer) return defaultToolCallRenderer
+
+    // If renderer is a map of tool-specific renderers
+    if (typeof renderer === 'object' && !('onToolStart' in renderer)) {
+      return (
+        (renderer as Record<string, ToolCallRenderer>)[toolName] ||
+        defaultToolCallRenderer
+      )
+    }
+
+    // If renderer is a single renderer
+    return renderer as ToolCallRenderer
+  }
 
   // Set up event handlers
   parser.on('tagopen', (tag) => {
@@ -98,8 +153,9 @@ export function createXMLStreamParser(
       params = {}
 
       // Call renderer if available
-      if (renderer.onToolStart) {
-        const output = renderer.onToolStart(
+      const toolRenderer = getRenderer(name)
+      if (toolRenderer.onToolStart) {
+        const output = toolRenderer.onToolStart(
           name,
           Saxy.parseAttrs(tag.attrs) as Record<string, string>
         )
@@ -115,8 +171,9 @@ export function createXMLStreamParser(
       paramContent = ''
 
       // Call renderer if available
-      if (renderer.onParamStart) {
-        const output = renderer.onParamStart(name, currentTool)
+      const toolRenderer = getRenderer(currentTool)
+      if (toolRenderer.onParamStart) {
+        const output = toolRenderer.onParamStart(name, currentTool)
         if (output !== null) {
           parser.push(output)
           if (callback) callback(output)
@@ -130,8 +187,9 @@ export function createXMLStreamParser(
       paramContent += data.contents
 
       // Call renderer if available
-      if (renderer.onParamContent) {
-        const output = renderer.onParamContent(
+      const toolRenderer = getRenderer(currentTool)
+      if (toolRenderer.onParamChunk) {
+        const output = toolRenderer.onParamChunk(
           data.contents,
           currentParam,
           currentTool
@@ -157,8 +215,9 @@ export function createXMLStreamParser(
       params[currentParam] = paramContent
 
       // Call renderer if available
-      if (renderer.onParamEnd) {
-        const output = renderer.onParamEnd(
+      const toolRenderer = getRenderer(currentTool)
+      if (toolRenderer.onParamEnd) {
+        const output = toolRenderer.onParamEnd(
           currentParam,
           currentTool,
           paramContent
@@ -175,8 +234,9 @@ export function createXMLStreamParser(
     // Check if this is a tool tag closing
     else if (currentTool && name === currentTool) {
       // Call renderer if available
-      if (renderer.onToolEnd) {
-        const output = renderer.onToolEnd(currentTool, params)
+      const toolRenderer = getRenderer(currentTool)
+      if (toolRenderer.onToolEnd) {
+        const output = toolRenderer.onToolEnd(currentTool, params)
         if (output !== null) {
           parser.push(output)
           if (callback) callback(output)
