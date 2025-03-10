@@ -74,6 +74,9 @@ export const toolRenderers: Record<string, ToolCallRenderer> = {
   read_files: {
     // Don't render anything
   },
+  end_turn: {
+    // Don't render anything
+  },
   write_file: {
     ...defaultToolCallRenderer,
     onParamChunk: (content, paramName, toolName) => {
