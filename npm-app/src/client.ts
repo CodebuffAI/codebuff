@@ -530,6 +530,11 @@ export class Client {
       unsubscribeChunks()
       unsubscribeComplete()
 
+      const assistantMessage = {
+        role: 'assistant' as const,
+        content: responseBuffer + '[RESPONSE_CANCELED_BY_USER]',
+      }
+
       // Update the agent state with your prompt and partial response.
       const { messageHistory } = this.agentState!
       this.agentState = {
@@ -537,12 +542,13 @@ export class Client {
         messageHistory: [
           ...messageHistory,
           { role: 'user' as const, content: prompt },
-          {
-            role: 'assistant' as const,
-            content: responseBuffer + '[RESPONSE_CANCELED_BY_USER]',
-          },
+          assistantMessage,
         ],
       }
+
+      // Add the incomplete response to chat storage
+      const currentChat = this.chatStorage.getCurrentChat()
+      this.chatStorage.addMessage(currentChat, assistantMessage)
 
       resolveResponse({
         type: 'prompt-response',
@@ -630,6 +636,13 @@ export class Client {
         }
 
         xmlStreamParser.end()
+
+        // Add the complete response to chat storage
+        const currentChat = this.chatStorage.getCurrentChat()
+        this.chatStorage.addMessage(currentChat, {
+          role: 'assistant',
+          content: responseBuffer,
+        })
 
         if (this.hadFileChanges) {
           const latestCheckpointId = (

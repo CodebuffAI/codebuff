@@ -317,15 +317,6 @@ export class CLI {
     return false
   }
 
-  private addAssistantMessageToChat(content: string | MessageContentObject[]) {
-    const currentChat = this.chatStorage.getCurrentChat()
-    const assistantMessage: Message = {
-      role: 'assistant',
-      content,
-    }
-    this.chatStorage.addMessage(currentChat, assistantMessage)
-  }
-
   private async forwardUserInput(userInput: string) {
     Spinner.get().start()
 
@@ -369,15 +360,6 @@ export class CLI {
     const response = await responsePromise
     this.stopResponse = null
 
-    // Add completed response to chat history if not stopped by user
-    if (!response.wasStoppedByUser) {
-      const lastMessage =
-        response.agentState.messageHistory[
-          response.agentState.messageHistory.length - 1
-        ]
-      this.addAssistantMessageToChat(lastMessage.content)
-    }
-
     this.isReceivingResponse = false
 
     Spinner.get().stop()
@@ -399,8 +381,6 @@ export class CLI {
     if (this.stopResponse) {
       this.stopResponse()
     }
-
-    this.addAssistantMessageToChat('[RESPONSE_CANCELED_BY_USER]')
 
     Spinner.get().stop()
   }
