@@ -387,7 +387,7 @@ ${toolResults
   }
 
   if (fileProcessingPromises.length > 0) {
-    onResponseChunk('\nApplying file changes, please wait.\n')
+    onResponseChunk('Applying file changes, please wait.\n')
   }
 
   const changes = (await Promise.all(fileProcessingPromises)).filter(
