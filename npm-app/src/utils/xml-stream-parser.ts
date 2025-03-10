@@ -42,7 +42,7 @@ export interface ToolCallRenderer {
  */
 const defaultToolCallRenderer: ToolCallRenderer = {
   onToolStart: (toolName) => {
-    return `[${bold(snakeToTitleCase(toolName))}]`
+    return `[${bold(snakeToTitleCase(toolName))}]\n`
   },
 
   onParamChunk: (content, paramName, toolName) => {
@@ -85,12 +85,19 @@ export const toolRenderers: Record<string, ToolCallRenderer> = {
   },
   add_subgoal: {
     ...defaultToolCallRenderer,
+    onParamStart: (paramName, toolName) => {
+      if (paramName === 'id') {
+        return null
+      }
+      return capitalize(paramName) + ': '
+    },
     onParamChunk: (content, paramName, toolName) => {
       if (paramName === 'id') {
         return null
       }
       return content
     },
+    onParamEnd: (paramName) => (paramName === 'id' ? null : '\n'),
   },
   update_subgoal: {
     ...defaultToolCallRenderer,
@@ -106,6 +113,7 @@ export const toolRenderers: Record<string, ToolCallRenderer> = {
       }
       return content
     },
+    onParamEnd: (paramName) => (paramName === 'id' ? null : '\n'),
   },
 }
 

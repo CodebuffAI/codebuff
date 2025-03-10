@@ -450,18 +450,33 @@ export class Saxy extends Transform {
         if (nextTag === -1) {
           // this._wait(Node.text, input.slice(chunkPos))
           let chunk = input.slice(chunkPos)
+
           if (this._tagStack.length === 1) {
+            // Trim whitespace for text within top level tags
             chunk = chunk.trim()
           }
-          // NOTE (James): We changed this to emit the partial text node immediately
-          this.emit(Node.text, { contents: chunk })
+
+          if (chunk.length > 0) {
+            // NOTE (James): We changed this to emit the partial text node immediately
+            this.emit(Node.text, { contents: chunk })
+          }
+
           chunkPos = end
           break
         }
 
         // A tag follows, so we can be confident that
         // we have all the data needed for the TEXT node
-        this.emit(Node.text, { contents: input.slice(chunkPos, nextTag) })
+        let chunk = input.slice(chunkPos, nextTag)
+          if (this._tagStack.length === 1) {
+            // Trim whitespace for text within top level tags
+            chunk = chunk.trim()
+          }
+
+        // Only emit non-whitespace text or text within a single tag (not between tags)
+        if (chunk.length > 0) {
+          this.emit(Node.text, { contents: chunk })
+        }
 
         chunkPos = nextTag
       }
@@ -603,8 +618,8 @@ export class Saxy extends Transform {
           isSelfClosing,
         })
       } else if (whitespace === 0) {
-          // console.log('Tag names may not start with whitespace:', input)
-          // callback(new Error('Tag names may not start with whitespace'))
+        // console.log('Tag names may not start with whitespace:', input)
+        // callback(new Error('Tag names may not start with whitespace'))
         // return
       } else {
         // Tag with attributes
