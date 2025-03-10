@@ -50,9 +50,9 @@ import { handleToolCall } from './tool-handlers'
 import { GitCommand } from './types'
 import { Spinner } from './utils/spinner'
 import {
-  XmlStreamProcessor,
-  defaultTagHandlers,
-} from './utils/process-xml-chunks'
+  createXMLStreamParser,
+  defaultToolCallRenderer,
+} from './utils/xml-stream-parser'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -520,9 +520,6 @@ export class Client {
     let unsubscribeChunks: () => void
     let unsubscribeComplete: () => void
 
-    // Initialize XML processor with default handlers
-    const xmlProcessor = new XmlStreamProcessor(defaultTagHandlers)
-
     const responsePromise = new Promise<
       ServerAction & { type: 'prompt-response' } & {
         wasStoppedByUser: boolean
@@ -560,23 +557,29 @@ export class Client {
       })
     }
 
+    const xmlStreamParser = createXMLStreamParser(
+      defaultToolCallRenderer,
+      (chunk) => {
+        onChunk(chunk)
+        responseBuffer += chunk
+      }
+    )
+
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
-      // Add the chunk to the response buffer
-      responseBuffer += chunk
-
-      // Process the entire responseBuffer through our XML processor
-      const output = xmlProcessor.process(responseBuffer)
-
-      if (output && output.trim()) {
+      if (chunk && chunk.trim()) {
         if (!streamStarted && chunk.trim()) {
           streamStarted = true
           onStreamStart()
         }
+      }
 
-        onChunk(output)
+      try {
+        xmlStreamParser.write(chunk, 'utf8')
+      } catch (e) {
+        // console.error('Error writing chunk', e)
       }
     })
 
@@ -632,8 +635,12 @@ export class Client {
           return
         }
 
+        xmlStreamParser.end()
+
         if (this.hadFileChanges) {
-          const latestCheckpointId = (checkpointManager.getLatestCheckpoint() as Checkpoint).id
+          const latestCheckpointId = (
+            checkpointManager.getLatestCheckpoint() as Checkpoint
+          ).id
           console.log(
             `\nComplete! Type "diff" to review changes or "restore ${latestCheckpointId}" to revert.`
           )
@@ -687,7 +694,7 @@ export class Client {
     const fileContext = await getProjectFileContext(
       getProjectRoot(),
       {},
-      this.fileVersions,
+      this.fileVersions
     )
 
     this.webSocket.subscribe('init-response', (a) => {

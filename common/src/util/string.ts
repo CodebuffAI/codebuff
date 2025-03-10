@@ -17,6 +17,15 @@ export const truncateStringWithMessage = (
     : str
 }
 
+/**
+ * Check if a character is a whitespace character according
+ * to the XML spec (space, carriage return, line feed or tab)
+ *
+ * @param character Character to check
+ * @return Whether the character is whitespace or not
+ */
+export const isWhitespace = (character: string) => /\s/.test(character)
+
 export const replaceNonStandardPlaceholderComments = (
   content: string,
   replacement: string
@@ -118,7 +127,7 @@ export const capitalize = (str: string): string => {
 export const snakeToTitleCase = (str: string): string => {
   return str
     .split('_')
-    .map(word => capitalize(word))
+    .map((word) => capitalize(word))
     .join(' ')
 }
 
@@ -226,9 +235,8 @@ export const transformJsonInString = <T = unknown>(
  * generateCompactId('msg-') // => "msg-1a2b3c"
  */
 export const generateCompactId = (prefix?: string): string => {
-  const timestamp = Date.now() & 0xffffff  // Last 24 bits of timestamp
-  const random = Math.floor(Math.random() * 0xff)  // 8 random bits
-  const str = ((timestamp << 8) | random).toString(36).replace(/^-/, '')  // Remove leading dash if present
+  const timestamp = Date.now() & 0xffffff // Last 24 bits of timestamp
+  const random = Math.floor(Math.random() * 0xff) // 8 random bits
+  const str = ((timestamp << 8) | random).toString(36).replace(/^-/, '') // Remove leading dash if present
   return prefix ? `${prefix}${str}` : str
 }
-

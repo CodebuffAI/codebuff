@@ -232,7 +232,6 @@ ${toolResults
             return null
           })
         )
-        fullResponse += body
         return false
       },
     },
