@@ -1,6 +1,6 @@
 {
   "name": "codecane",
-  "version": "1.0.171",
+  "version": "1.0.172",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
