@@ -14,16 +14,12 @@ import { CliOptions } from './types'
 import { recreateShell } from './utils/terminal'
 import { createTemplateProject } from './create-template-project'
 
-console.log(`Starting Codebuff v${packageJson.version}...`)
-
 async function codebuff(
   projectDir: string | undefined,
   { initialInput, git, costMode }: CliOptions
 ) {
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
-
-  console.log(`Initializing project context for directory: ${dir}`)
   
   const updatePromise = updateCodebuff()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
@@ -39,8 +35,6 @@ if (require.main === module) {
   const args = process.argv.slice(2)
   const help = args.includes('--help') || args.includes('-h')
   const version = args.includes('--version') || args.includes('-v')
-
-  console.log(`Processing command line arguments: ${args.join(' ')}`)
   
   if (version) {
     console.log(`Codebuff v${packageJson.version}`)
