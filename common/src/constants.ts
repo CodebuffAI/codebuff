@@ -121,7 +121,7 @@ export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {
     overageRate: null,
   },
   FREE: {
-    limit: 1_000,
+    limit: 500,
     planName: UsageLimits.FREE,
     displayName: 'Free',
     monthlyPrice: 0,
