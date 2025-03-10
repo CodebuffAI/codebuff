@@ -98,7 +98,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
 
   console.log('\nCommands:')
   console.log('- Enter terminal commands directly: "cd backend", "npm test"')
-  console.log('- Use "!command" to run terminal commands (e.g. "!ls -la")')
+  console.log('- Use "!command" to explicitly run a terminal command (e.g. "!ls -la")')
   console.log('- Press ESC to cancel generation')
   console.log(
     '- Type "undo" or "redo" (abbreviated "u" or "r") to undo or redo the last change'
@@ -113,10 +113,8 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
   )
 
   console.log('\nCheckpoint Commands:')
+  console.log('- Type "checkpoint <id>" to restore a specific checkpoint')
   console.log('- Type "checkpoint list" or "checkpoints" to list all available checkpoints')
-  console.log('- Type "checkpoint <id>" to show details about a specific checkpoint')
-  console.log('- Type "restore <id>" to restore to a specific checkpoint')
-  console.log('- Type "checkpoint clear" to clear all checkpoints')
 
   console.log(`\n- Redeem a referral code by simply pasting it here.`)
   console.log(
