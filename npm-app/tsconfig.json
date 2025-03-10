@@ -10,6 +10,7 @@
     "target": "esnext",
     "incremental": true,
     "isolatedModules": true,
+    "skipLibCheck": true,
     "types": ["node", "jest"],
     "typeRoots": ["./node_modules/@types", "../node_modules/@types"],
     "baseUrl": ".",
