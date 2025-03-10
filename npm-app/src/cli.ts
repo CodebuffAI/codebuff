@@ -265,14 +265,7 @@ export class CLI {
       return true
     }
 
-    const checkpointDetailMatch = userInput.match(/^checkpoint\s+(\d+)$/)
-    if (checkpointDetailMatch) {
-      const id = parseInt(checkpointDetailMatch[1], 10)
-      this.handleCheckpointDetail(id)
-      return true
-    }
-
-    const restoreMatch = userInput.match(/^restore\s+(\d+)$/)
+    const restoreMatch = userInput.match(/^checkpoint\s+(\d+)$/)
     if (restoreMatch) {
       const id = parseInt(restoreMatch[1], 10)
       this.handleRestoreCheckpoint(id)
@@ -726,16 +719,6 @@ export class CLI {
   // Checkpoint command handlers
   private handleCheckpoints(): void {
     console.log(checkpointManager.getCheckpointsAsString())
-    this.promptWithCheckpointNumber()
-  }
-
-  private handleCheckpointDetail(id: number): void {
-    const checkpoint = checkpointManager.getCheckpoint(id)
-    if (!checkpoint) {
-      console.log(red(`Checkpoint #${id} not found.`))
-    } else {
-      console.log(checkpointManager.getCheckpointDetails(id))
-    }
     this.promptWithCheckpointNumber()
   }
 

@@ -636,7 +636,7 @@ export class Client {
             checkpointManager.getLatestCheckpoint() as Checkpoint
           ).id
           console.log(
-            `\nComplete! Type "diff" to review changes or "restore ${latestCheckpointId}" to revert.`
+            `\nComplete! Type "diff" to review changes or "checkpoint ${latestCheckpointId}" to revert.`
           )
           this.hadFileChanges = false
         }
