@@ -11,7 +11,7 @@ import {
 } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
-import { Message } from 'common/types/message'
+import { Message, MessageContentObject } from 'common/types/message'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 
@@ -317,6 +317,15 @@ export class CLI {
     return false
   }
 
+  private addAssistantMessageToChat(content: string | MessageContentObject[]) {
+    const currentChat = this.chatStorage.getCurrentChat()
+    const assistantMessage: Message = {
+      role: 'assistant',
+      content,
+    }
+    this.chatStorage.addMessage(currentChat, assistantMessage)
+  }
+
   private async forwardUserInput(userInput: string) {
     Spinner.get().start()
 
@@ -357,8 +366,17 @@ export class CLI {
       await this.client.sendUserInput(userInput)
 
     this.stopResponse = stopResponse
-    await responsePromise
+    const response = await responsePromise
     this.stopResponse = null
+
+    // Add completed response to chat history if not stopped by user
+    if (!response.wasStoppedByUser) {
+      const lastMessage =
+        response.agentState.messageHistory[
+          response.agentState.messageHistory.length - 1
+        ]
+      this.addAssistantMessageToChat(lastMessage.content)
+    }
 
     this.isReceivingResponse = false
 
@@ -381,6 +399,9 @@ export class CLI {
     if (this.stopResponse) {
       this.stopResponse()
     }
+
+    this.addAssistantMessageToChat('[RESPONSE_CANCELED_BY_USER]')
+
     Spinner.get().stop()
   }
 
@@ -411,7 +432,7 @@ export class CLI {
       checkpointManager.getCheckpoint(checkpointId) as Checkpoint
     )
     console.log(green(`Restored to checkpoint #${checkpointId}.`))
-    
+
     this.promptWithCheckpointNumber()
   }
 
