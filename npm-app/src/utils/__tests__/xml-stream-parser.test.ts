@@ -1,7 +1,15 @@
 // @ts-ignore
 import { describe, test, expect } from 'bun:test'
-import { createXMLStreamParser, toolRenderers } from '../xml-stream-parser'
+import { createXMLStreamParser, defaultToolCallRenderer } from '../xml-stream-parser'
 import { Writable } from 'stream'
+
+const toolRenderers = {
+  run_terminal_command: defaultToolCallRenderer,
+  read_files: defaultToolCallRenderer,
+  code_search: defaultToolCallRenderer,
+  add_subgoal: defaultToolCallRenderer,
+  update_subgoal: defaultToolCallRenderer,
+}
 
 describe('Saxy Stream Processor', () => {
   test('pipes output to writable stream', async () => {

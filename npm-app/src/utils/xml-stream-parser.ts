@@ -40,7 +40,7 @@ export interface ToolCallRenderer {
 /**
  * Default renderer for tool calls that formats them nicely for the console
  */
-const defaultToolCallRenderer: ToolCallRenderer = {
+export const defaultToolCallRenderer: ToolCallRenderer = {
   onToolStart: (toolName) => {
     return `[${bold(snakeToTitleCase(toolName))}]\n`
   },
