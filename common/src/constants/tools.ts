@@ -1,5 +1,5 @@
 // List of all available tools
-export const CLIENT_TOOL_LIST = [
+export const TOOL_LIST = [
   'add_subgoal',
   'update_subgoal',
   'write_file',
@@ -7,7 +7,8 @@ export const CLIENT_TOOL_LIST = [
   'code_search',
   'run_terminal_command',
   'think_deeply',
+  'create_plan',
   'end_turn',
 ] as const
 
-export type ClientTool = (typeof CLIENT_TOOL_LIST)[number]
+export type ToolName = (typeof TOOL_LIST)[number]

@@ -1,6 +1,6 @@
 import { bold } from 'picocolors'
 import { capitalize, snakeToTitleCase } from 'common/util/string'
-import { CLIENT_TOOL_LIST, ClientTool } from 'common/constants/tools'
+import { TOOL_LIST, ToolName } from 'common/constants/tools'
 import { Saxy } from 'common/util/saxy'
 
 /**
@@ -49,12 +49,12 @@ export const defaultToolCallRenderer: ToolCallRenderer = {
     return content
   },
 
-  onParamEnd: () => '\n',
+  onParamEnd: () => null,
 
   onToolEnd: () => null,
 }
 
-export const toolRenderers: Record<ClientTool, ToolCallRenderer> = {
+export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   run_terminal_command: {
     // Don't render anything
   },
@@ -70,8 +70,35 @@ export const toolRenderers: Record<ClientTool, ToolCallRenderer> = {
   think_deeply: {
     ...defaultToolCallRenderer,
   },
+  create_plan: {
+    ...defaultToolCallRenderer,
+    onParamStart: (paramName) => {
+      if (paramName === 'path') {
+        return 'Editing plan at '
+      }
+      return null
+    },
+    onParamChunk: (content, paramName) => {
+      if (paramName === 'path') {
+        return content
+      }
+      return null
+    },
+    onParamEnd: (paramName) => {
+      if (paramName === 'path') {
+        return '...\n'
+      }
+      return null
+    },
+  },
   write_file: {
     ...defaultToolCallRenderer,
+    onParamStart: (paramName) => {
+      if (paramName === 'path') {
+        return 'Editing file at '
+      }
+      return null
+    },
     onParamChunk: (content, paramName, toolName) => {
       if (paramName === 'path') {
         return content
@@ -153,7 +180,7 @@ export function createXMLStreamParser(
     const { name } = tag
 
     // Check if this is a tool tag
-    if (CLIENT_TOOL_LIST.includes(name as ClientTool)) {
+    if (TOOL_LIST.includes(name as ToolName)) {
       currentTool = name
       params = {}
 
