@@ -1,10 +1,8 @@
-import * as fs from 'fs'
 import { parse } from 'path'
 
 import { green, red, yellow, blue, cyan, magenta, bold } from 'picocolors'
 import * as readline from 'readline'
 
-import { FileChanges } from 'common/actions'
 import {
   REQUEST_CREDIT_SHOW_THRESHOLD,
   SKIPPED_TERMINAL_COMMANDS,
@@ -28,6 +26,7 @@ import { isCommandRunning, resetShell } from './utils/terminal'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 import type { CostMode } from 'common/constants'
+import { AssertionError } from 'assert'
 
 export class CLI {
   private client: Client
@@ -44,7 +43,7 @@ export class CLI {
   private isPasting: boolean = false
 
   constructor(
-    readyPromise: Promise<[void, ProjectFileContext]>,
+    readyPromise: Promise<[void, ProjectFileContext, void]>,
     { git, costMode }: CliOptions
   ) {
     this.git = git
@@ -65,7 +64,7 @@ export class CLI {
 
     this.readyPromise = Promise.all([
       readyPromise.then((results) => {
-        const [_, fileContext] = results
+        const [_, fileContext, __] = results
         this.client.initAgentState(fileContext)
         return this.client.warmContextCache()
       }),
@@ -198,7 +197,7 @@ export class CLI {
   private async beforeProcessCommand(userInput: string): Promise<void> {
     await this.readyPromise
     // Save the current agent state
-    checkpointManager.addCheckpoint(
+    await checkpointManager.addCheckpoint(
       this.client.agentState as AgentState,
       userInput
     )
@@ -260,7 +259,7 @@ export class CLI {
     const restoreMatch = userInput.match(/^checkpoint\s+(\d+)$/)
     if (restoreMatch) {
       const id = parseInt(restoreMatch[1], 10)
-      this.handleRestoreCheckpoint(id)
+      await this.handleRestoreCheckpoint(id)
       return true
     }
 
@@ -375,7 +374,7 @@ export class CLI {
     this.returnControlToUser()
   }
 
-  private handleUndo() {
+  private async handleUndo(): Promise<void> {
     // Get previous checkpoint number (not including undo command)
     const checkpointId =
       (checkpointManager.getLatestCheckpoint() as Checkpoint).id - 1
@@ -383,7 +382,7 @@ export class CLI {
       console.log(red('Nothing to undo.'))
       return
     }
-    this.restoreAgentStateAndFiles(
+    await this.restoreAgentStateAndFiles(
       checkpointManager.getCheckpoint(checkpointId) as Checkpoint
     )
     console.log(green(`Restored to checkpoint #${checkpointId}.`))
@@ -693,7 +692,7 @@ export class CLI {
   }
 
   // Checkpoint command handlers
-  private handleCheckpoints(): void {
+  private async handleCheckpoints(): Promise<void> {
     console.log(checkpointManager.getCheckpointsAsString())
     this.promptWithCheckpointNumber()
   }
@@ -705,7 +704,7 @@ export class CLI {
       return
     }
 
-    this.restoreAgentStateAndFiles(checkpoint)
+    await this.restoreAgentStateAndFiles(checkpoint)
 
     console.log(green(`Restored to checkpoint #${id}.`))
 
@@ -714,25 +713,17 @@ export class CLI {
     this.rl.write(checkpoint.userInput)
   }
 
-  private restoreAgentStateAndFiles(checkpoint: Checkpoint): void {
+  private async restoreAgentStateAndFiles(checkpoint: Checkpoint): Promise<void> {
     // Restore the agentState
     this.client.agentState = JSON.parse(checkpoint.agentStateString)
 
     // Restore file state
-    const toChange = {
-      ...this.client.originalFileVersions,
-      ...checkpoint.fileVersions,
+    if (!(await checkpointManager.restoreFileState(checkpoint.id))) {
+      throw new AssertionError({
+        message: `Internal error: checkpoint ${checkpoint.id} not found`,
+      })
     }
-    for (const [filePath, fileContents] of Object.entries(toChange)) {
-      if (fileContents === null) {
-        // delete file
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath)
-        }
-      } else {
-        fs.writeFileSync(filePath, fileContents)
-      }
-    }
+
   }
 
   private async handleClearCheckpoints(): Promise<void> {

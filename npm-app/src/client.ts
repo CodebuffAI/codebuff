@@ -594,20 +594,9 @@ export class Client {
             continue
           }
           if (toolCall.name === 'write_file') {
-            // Save the file contents before writing
-            const { path: filePath, content } = toolCall.parameters
-            if (filePath !== undefined) {
-              const fullPath = path.join(getProjectRoot(), filePath)
-              if (!(fullPath in this.originalFileVersions)) {
-                this.originalFileVersions[fullPath] = fs.existsSync(fullPath)
-                  ? fs.readFileSync(fullPath, 'utf8')
-                  : null
-              }
-              // Track the new file version
-              fileChanges.push({ path: filePath, content })
-            }
-
+            // Save lastChanges for `diff` command
             this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
+
             this.hadFileChanges = true
           }
           const toolResult = await handleToolCall(toolCall, getProjectRoot())

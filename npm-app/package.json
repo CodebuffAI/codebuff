@@ -44,6 +44,7 @@
     "diff": "5.2.0",
     "env-cmd": "^10.1.0",
     "ignore": "5.3.2",
+    "isomorphic-git": "^1.29.0",
     "lodash": "*",
     "nanoid": "5.0.7",
     "picocolors": "1.1.0",

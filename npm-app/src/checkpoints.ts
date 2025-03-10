@@ -1,13 +1,23 @@
-import { yellow, bold, underline, blue, gray, cyan } from 'picocolors'
+import {
+  blue,
+  bold,
+  cyan,
+  gray,
+  green,
+  red,
+  underline,
+  yellow,
+} from 'picocolors'
 
 import { AgentState } from 'common/types/agent-state'
+import * as checkpointFileManager from './checkpoint-file-manager'
 
 /**
  * Interface representing a checkpoint of agent state
  */
 export interface Checkpoint {
   agentStateString: string
-  fileVersions: Record<string, string>
+  fileStateId: string
   historyLength: number
   id: number
   timestamp: number
@@ -19,43 +29,28 @@ export interface Checkpoint {
  */
 export class CheckpointManager {
   private checkpoints: Map<number, Checkpoint> = new Map()
-  private maxCheckpoints: number
   private nextId: number = 1
-  private oldestId: number = 1
-
-  constructor(maxCheckpoints: number = 100) {
-    this.maxCheckpoints = maxCheckpoints
-  }
 
   /**
    * Add a new checkpoint
-   * TODO update this jsdoc and add comments to this function
    * @param agentState - The agent state to checkpoint
    * @param userInput - The user input associated with this checkpoint
    * @returns The ID of the created checkpoint
    */
-  addCheckpoint(
+  async addCheckpoint(
     agentState: AgentState,
-    userInput: string,
-    parentId: number | null = null
-  ): number {
+    userInput: string
+  ): Promise<number> {
     // Use incremental ID starting at 1
     const id = this.nextId++
-    const parentFileVersions = this.getCheckpoint(parentId)?.fileVersions || {}
 
-    const currentFileVersions = agentState.fileContext.fileVersions
-      .flat()
-      .reduce(
-        (acc, { path, content }) => {
-          acc[path] = content
-          return acc
-        },
-        {} as Record<string, string>
-      )
+    const fileStateId = await checkpointFileManager.storeFileState(
+      `Checkpoint ${id}`
+    )
 
     const checkpoint: Checkpoint = {
       agentStateString: JSON.stringify(agentState), // Deep clone to prevent reference issues
-      fileVersions: { ...parentFileVersions, ...currentFileVersions },
+      fileStateId,
       historyLength: agentState.messageHistory.length,
       id,
       timestamp: Date.now(),
@@ -64,12 +59,6 @@ export class CheckpointManager {
 
     // Add to map
     this.checkpoints.set(id, checkpoint)
-
-    // If we exceed the maximum number of checkpoints, remove the oldest one
-    if (this.checkpoints.size > this.maxCheckpoints) {
-      this.checkpoints.delete(this.oldestId)
-      this.oldestId++
-    }
 
     return id
   }
@@ -103,13 +92,22 @@ export class CheckpointManager {
     return this.checkpoints.get(this.nextId - 1) || null
   }
 
+  async restoreFileState(id: number): Promise<boolean> {
+    const checkpoint = this.getCheckpoint(id)
+    if (!checkpoint) {
+      return false
+    }
+
+    checkpointFileManager.checkoutFileState(checkpoint.fileStateId)
+    return true
+  }
+
   /**
    * Clear all checkpoints
    */
   clearCheckpoints(): void {
     this.checkpoints.clear()
     this.nextId = 1 // Reset the ID counter when clearing
-    this.oldestId = 1
   }
 
   /**

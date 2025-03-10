@@ -12,6 +12,7 @@ import {
 import { updateCodebuff } from './update-codebuff'
 import { CliOptions } from './types'
 import { recreateShell } from './utils/terminal'
+import { initializeCheckpointFileManager } from './checkpoint-file-manager'
 import { createTemplateProject } from './create-template-project'
 
 async function codebuff(
@@ -23,8 +24,9 @@ async function codebuff(
 
   const updatePromise = updateCodebuff()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
+  const initCpfm = initializeCheckpointFileManager()
 
-  const readyPromise = Promise.all([updatePromise, initFileContextPromise])
+  const readyPromise = Promise.all([updatePromise, initFileContextPromise, initCpfm])
 
   const cli = new CLI(readyPromise, { git, costMode })
 
