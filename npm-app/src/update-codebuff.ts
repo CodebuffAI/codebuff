@@ -7,35 +7,35 @@ import { isProduction } from './config'
 export async function updateCodebuff() {
   if (!isProduction) return
 
-  const latestVersion = await getCodebuffNpmVersion()
+  const latestVersion = await getCodecaneNpmVersion()
   const isUpToDate = isNpmUpToDate(packageJson.version, latestVersion)
   if (!isUpToDate) {
     const installerInfo = detectInstaller()
     if (!installerInfo) {
       console.log(
         yellow(
-          "There's a new version available! Please update Codebuff to prevent errors (run `npm install -g codebuff` to update)."
+          "There's a new version available! Please update Codecane to prevent errors (run `npm install -g codecane` to update)."
         )
       )
       return
     }
-    console.log(green(`Updating Codebuff using ${installerInfo.installer}...`))
+    console.log(green(`Updating Codecane using ${installerInfo.installer}...`))
     try {
-      runUpdateCodebuff(installerInfo)
-      console.log(green('Codebuff updated successfully.'))
+      runUpdateCodecane(installerInfo)
+      console.log(green('Codecane updated successfully.'))
       console.log(
-        green('Please restart by running `codebuff` to use the new version.')
+        green('Please restart by running `codecane` to use the new version.')
       )
       process.exit(0)
     } catch (error) {
-      console.error('Failed to update Codebuff.')
+      console.error('Failed to update Codecane.')
     }
   }
 }
 
-async function getCodebuffNpmVersion() {
+async function getCodecaneNpmVersion() {
   try {
-    const result = execSync('npm view codebuff version', {
+    const result = execSync('npm view codecane version', {
       encoding: 'utf-8',
       stdio: 'pipe', // Suppress all output
     })
@@ -45,7 +45,7 @@ async function getCodebuffNpmVersion() {
     }
   } catch (error) {}
   // Fallback to web scraping if npm command fails
-  const url = 'https://www.npmjs.com/package/codebuff'
+  const url = 'https://www.npmjs.com/package/codecane'
   const content = await scrapeWebPage(url)
 
   const latestVersionRegex = /"latest":"(\d+\.\d+\.\d+)"/
@@ -71,18 +71,18 @@ type InstallerInfo = {
 }
 
 function detectInstaller(): InstallerInfo | undefined {
-  let codebuffLocation = ''
+  let codecaneLocation = ''
   try {
     if (process.platform === 'win32') {
-      codebuffLocation = execSync('where codebuff').toString().trim()
+      codecaneLocation = execSync('where codecane').toString().trim()
     } else {
-      codebuffLocation = execSync('which codebuff').toString().trim()
+      codecaneLocation = execSync('which codecane').toString().trim()
     }
   } catch (error) {
     // Continue with empty location - could be a local installation
   }
 
-  const binPath = (codebuffLocation.split('\n')[0] ?? '').replace(/\\/g, '/')
+  const binPath = (codecaneLocation.split('\n')[0] ?? '').replace(/\\/g, '/')
   const npmUserAgent = process.env.npm_config_user_agent ?? ''
 
   // Check for package manager script environments
@@ -93,7 +93,7 @@ function detectInstaller(): InstallerInfo | undefined {
     process.env.npm_execpath?.endsWith('npm-cli.js') ||
     npmUserAgent.includes('npm')
 
-  // Mac: /Users/jahooma/.yarn/bin/codebuff
+  // Mac: /Users/jahooma/.yarn/bin/codecane
   if (isYarnScript || binPath.includes('.yarn')) {
     return {
       installer: 'yarn',
@@ -120,10 +120,10 @@ function detectInstaller(): InstallerInfo | undefined {
   }
 
   // /usr/local/lib/node_modules on macOS/Linux or %AppData%\npm/node_modules on Windows
-  // OR: .nvm/versions/node/v18.17.0/bin/codebuff on mac
-  // OR /Users/stefan/Library/Application Support/Herd/config/nvm/versions/node/v22.9.0/bin/codebuff
-  // OR ~/.config/nvm/versions/node/v22.11.0/bin/codebuff
-  // OR /opt/homebrew/bin/codebuff
+  // OR: .nvm/versions/node/v18.17.0/bin/codecane on mac
+  // OR /Users/stefan/Library/Application Support/Herd/config/nvm/versions/node/v22.9.0/bin/codecane
+  // OR ~/.config/nvm/versions/node/v22.11.0/bin/codecane
+  // OR /opt/homebrew/bin/codecane
   const isGlobalNpmPath =
     binPath.includes('npm') ||
     binPath.startsWith('/usr/') ||
@@ -139,22 +139,22 @@ function detectInstaller(): InstallerInfo | undefined {
   return undefined
 }
 
-function runUpdateCodebuff(installerInfo: InstallerInfo) {
+function runUpdateCodecane(installerInfo: InstallerInfo) {
   let command: string
   const isGlobal = installerInfo.scope === 'global'
 
   switch (installerInfo.installer) {
     case 'npm':
-      command = `npm ${isGlobal ? 'install -g' : 'install'} codebuff@latest`
+      command = `npm ${isGlobal ? 'install -g' : 'install'} codecane@latest`
       break
     case 'yarn':
-      command = `yarn ${isGlobal ? 'global add' : 'add'} codebuff@latest`
+      command = `yarn ${isGlobal ? 'global add' : 'add'} codecane@latest`
       break
     case 'pnpm':
-      command = `pnpm add ${isGlobal ? '-g' : ''} codebuff@latest`
+      command = `pnpm add ${isGlobal ? '-g' : ''} codecane@latest`
       break
     case 'bun':
-      command = `bun add ${isGlobal ? '-g' : ''} codebuff@latest`
+      command = `bun add ${isGlobal ? '-g' : ''} codecane@latest`
       break
     default:
       throw new Error(
@@ -165,8 +165,8 @@ function runUpdateCodebuff(installerInfo: InstallerInfo) {
   execSync(command, { stdio: 'inherit' })
 }
 
-function restartCodebuff() {
-  const child = spawn('codebuff', [...process.argv.slice(2), '--post-update'], {
+function restartCodecane() {
+  const child = spawn('codecane', [...process.argv.slice(2), '--post-update'], {
     detached: false,
     stdio: 'inherit',
   })

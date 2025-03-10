@@ -1,6 +1,6 @@
 const fs = require('fs')
 const path = require('path')
-process.env.ENVIRONMENT = 'production'
+process.env.ENVIRONMENT = 'strange-loop'
 const loadedEnv = await require('./loadEnv.js')
 
 const packageJsonPath = path.join(__dirname, 'package.json')
