@@ -23,6 +23,9 @@ jobs:
       - name: Typecheck all packages
         run: bun run typecheck
 
+      - name: Get Credentials
+        run: echo "${{ secrets.ENV_LOCAL }}" > .env.local
+
       - name: Run npm-app tests
         run: cd npm-app && bun test
         
