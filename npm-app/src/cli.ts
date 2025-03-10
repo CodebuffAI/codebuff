@@ -148,7 +148,7 @@ export class CLI {
   private setPrompt() {
     this.rl.setPrompt(
       green(
-        `${parse(getProjectRoot()).base} ${checkpointManager.getNextId()} > `
+        `${parse(getProjectRoot()).base} (checkpoint ${checkpointManager.getNextId()}) > `
       )
     )
   }
