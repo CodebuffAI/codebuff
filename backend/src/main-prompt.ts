@@ -149,7 +149,8 @@ ${toolResults
     'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
     // For Sonnet 3.6.
-    'Before you use write_file to edit an existing file, make sure to use the read_files tool on the file to read it.',
+    // 'Before you use write_file to edit an existing file, make sure to use the read_files tool on the file to read it.',
+    'When editing a file, just highlight the parts of the file that have changed. Use "// ... existing code ..." comments surrounding your edits.',
 
     !justUsedATool &&
       !recentlyDidThinking &&

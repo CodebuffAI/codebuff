@@ -69,22 +69,11 @@ Usage 4 (update status and add log):
 ## write_file
 Description: Create or edit a file with the given content.
 
-The user does not need to see this code to make the edit, the file change is done automatically and immediately by another assistant as soon as you finish writing the <write_file> block.
+When editing a file, please use this tool to output a simplified version of the code block that highlights the changes necessary and adds comments to indicate where unchanged code has been skipped.
 
-Notes for editing a file:
-- Do not wrap the updated file content in markdown code blocks. The xml tags are sufficient to indicate the file content.
-- DO NOT output the entire file when editing an existing file. You should write just the section you are changing and use placeholder comments to indicate the rest of the file. Placeholder comments such as, “// ... existing code …” or “# ... existing code …” (or whichever is appropriate for the language), signify sections that should not be changed from the existing file. Using placeholder comments for unchanged code is preferred because it is more concise and clearer. Try to minimize the number of lines you write out in write_file blocks by using on placeholder comments.
-- If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
-- Similarly, you can create new files by specifying a new file path and including the entire content of the file.
-- When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
-- Make sure to read the file before you write to it (if you haven't already read it).
+The user can see the entire file, so they prefer to only read the updates to the code. Often this will mean that the start/end of the file will be skipped, but that's okay! Rewrite the entire file only if specifically requested. Always provide a brief explanation of the updates, unless the user specifically requests only the code.
 
-After you have written out an write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
-
-If you just want to show the user some code, and don't want to necessarily make a code change, do not use <write_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in markdown \`\`\` tags:
-\`\`\`typescript
-// ... code to show the user ...
-\`\`\`
+These edit codeblocks are also read by a less intelligent language model, colloquially called the apply model, to update the file. To help specify the edit to the apply model, you will be very careful when generating the codeblock to not introduce ambiguity. You will specify all unchanged regions (code and comments) of the file with "// ... existing code ..." comment markers. This will ensure the apply model will not delete existing unchanged code or comments when editing the file. You will not mention the apply model.
 
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
@@ -101,17 +90,34 @@ Your file content here
 
 Example:
 
-The following example uses placeholder comments to add one line to the old file, a console.log statement within the foo function:
+The following example shows how the foo function is being updated, with appropriate "// ... existing code ..." comments to indicate where the code has not changed:
 
 <write_file>
 <path>foo.ts</path>
 <content>
 // ... existing code ...
+
 function foo() {
   console.log('foo');
-  // ... existing code ...
+  for (let i = 0; i < 10; i++) {
+    console.log(i);
+  }
+}
+
+// ... existing code ...
 </content>
 </write_file>
+
+Notes for editing a file:
+- If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
+- When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
+- You can also use this tool to create new files.
+- After you have written out a write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
+
+If you just want to show the user some code, and don't want to necessarily make a code change, do not use <write_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in markdown \`\`\` tags:
+\`\`\`typescript
+// ... code to show the user ...
+\`\`\`
     `.trim(),
   },
   {

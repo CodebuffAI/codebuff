@@ -22,7 +22,7 @@ export const getAgentSystemPrompt = (
   messageHistory: Message[]
 ) => {
   const { fileVersions } = fileContext
-  const systemInstructions = fs.readFileSync(
+  const agentInstructions = fs.readFileSync(
     path.join(__dirname, 'agent-instructions.md'),
     'utf8'
   )
@@ -75,7 +75,7 @@ ${messageHistory
       type: 'text' as const,
       cache_control: { type: 'ephemeral' as const },
       text: buildArray(
-        systemInstructions,
+        agentInstructions,
         toolsInstructions,
         knowledgeFilesPrompt,
         projectFileTreePrompt,
