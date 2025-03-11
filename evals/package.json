@@ -1,0 +1,19 @@
+{
+  "name": "evals",
+  "version": "1.0.0",
+  "description": "Evaluation scripts for Codebuff",
+  "scripts": {
+    "test": "bun test",
+    "test:manifold": "bun test manifold.test.ts",
+    "test:pglite": "bun test pglite-demo.test.ts",
+    "test:swe-bench": "bun test swe-bench.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.16",
+    "@types/lodash": "^4.14.195"
+  }
+}

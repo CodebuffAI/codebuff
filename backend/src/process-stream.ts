@@ -1,11 +1,9 @@
-import { STOP_MARKER } from 'common/constants'
-
 export async function* processStreamWithTags<T extends string>(
   stream: AsyncGenerator<T> | ReadableStream<T>,
   tags: {
     [tagName: string]: {
       attributeNames: string[]
-      onTagStart: (attributes: Record<string, string>) => string
+      onTagStart: (attributes: Record<string, string>) => void
       onTagEnd: (content: string, attributes: Record<string, string>) => boolean
     }
   }
@@ -26,8 +24,12 @@ export async function* processStreamWithTags<T extends string>(
   )
 
   function* parseBuffer(
-    isEOF: boolean = false
+    chunk: string | undefined
   ): Generator<string, void, unknown> {
+    const isEOF = chunk === undefined
+    if (chunk) {
+      yield chunk
+    }
     let didParse = true
 
     while (!streamCompleted && didParse) {
@@ -41,11 +43,6 @@ export async function* processStreamWithTags<T extends string>(
           const beforeTag = buffer.slice(0, openMatch.index)
           const afterMatchIndex = openMatch.index + fullMatch.length
 
-          // Yield any text before the tag
-          if (beforeTag) {
-            yield beforeTag
-          }
-
           // Move buffer forward
           buffer = buffer.slice(afterMatchIndex)
 
@@ -57,16 +54,12 @@ export async function* processStreamWithTags<T extends string>(
           )
 
           // Call onTagStart
-          const startTagYield = tags[openTag].onTagStart(currentAttributes)
-          if (startTagYield) {
-            yield startTagYield
-          }
+          tags[openTag].onTagStart(currentAttributes)
 
           didParse = true
         } else {
           // No opening tag found. If it's EOF, yield remaining text.
           if (isEOF && buffer.length > 0) {
-            yield buffer
             buffer = ''
           }
         }
@@ -95,17 +88,14 @@ export async function* processStreamWithTags<T extends string>(
         } else if (isEOF) {
           // We reached EOF without finding a closing tag
           // Treat remaining buffer as content and close the tag
-          if (buffer.length > 0) {
-            // Remove the STOP_MARKER from the buffer.
-            buffer = buffer.replace(STOP_MARKER, '')
-            const complete = tags[insideTag].onTagEnd(buffer, currentAttributes)
-            buffer = ''
-            insideTag = null
-            currentAttributes = {}
-            if (complete) {
-              streamCompleted = true
-              return
-            }
+          const complete = tags[insideTag].onTagEnd(buffer, currentAttributes)
+          yield '</' + insideTag + '>'
+          buffer = ''
+          insideTag = null
+          currentAttributes = {}
+          if (complete) {
+            streamCompleted = true
+            return
           }
         }
       }
@@ -115,13 +105,12 @@ export async function* processStreamWithTags<T extends string>(
   for await (const chunk of stream) {
     if (streamCompleted) break
     buffer += chunk
-
-    yield* parseBuffer()
+    yield* parseBuffer(chunk)
   }
 
   if (!streamCompleted) {
     // After the stream ends, try parsing one last time in case there's leftover text
-    yield* parseBuffer(true)
+    yield* parseBuffer(undefined)
   }
 }
 

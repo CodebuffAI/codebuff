@@ -8,7 +8,7 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
   const modified: string[] = []
 
   for (const change of changes) {
-    const { filePath, content, type } = change
+    const { path: filePath, content, type } = change
     const fullPath = path.join(projectRoot, filePath)
     try {
       const fileExists = fs.existsSync(fullPath)
@@ -31,7 +31,7 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
         created.push(filePath)
       }
     } catch (error) {
-      console.error(`Failed to apply patch to ${filePath}:`, error, content)
+      console.error(`Failed to apply patch to ${path}:`, error, content)
     }
   }
 
@@ -43,7 +43,7 @@ export async function applyAndRevertChanges(
   changes: FileChanges,
   onApply: () => Promise<void>
 ) {
-  const filesChanged = changes.map((change) => change.filePath)
+  const filesChanged = changes.map((change) => change.path)
   const files = Object.fromEntries(
     filesChanged.map((filePath) => {
       const fullPath = path.join(projectRoot, filePath)

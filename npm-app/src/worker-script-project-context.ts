@@ -6,7 +6,7 @@ if (maybeParentPort) {
 
   parentPort.on('message', async ({ dir }) => {
     setProjectRoot(dir)
-    const initFileContext = await getProjectFileContext(dir, {}, [])
+    const initFileContext = await getProjectFileContext(dir, {})
     parentPort.postMessage(initFileContext)
   })
 }

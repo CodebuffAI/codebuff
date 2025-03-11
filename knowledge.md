@@ -211,6 +211,11 @@ Buffy can execute terminal commands using the `run_terminal_command` tool. This 
 - User input is validated and sanitized before processing.
 - File operations are restricted to the project directory to prevent unauthorized access.
 
+## Testing Guidelines
+
+- Prefer specific imports over import * to make dependencies explicit and improve maintainability
+- Exception: When mocking modules that have many internal dependencies (like isomorphic-git), it may be cleaner to use import * to avoid having to list every internal function that might be called
+
 ## TODO
 
 - Implement authentication and authorization for WebSocket connections.

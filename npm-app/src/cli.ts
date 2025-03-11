@@ -1,49 +1,41 @@
-import { uniq } from 'lodash'
-import { getAllFilePaths } from 'common/project-file-tree'
-import { applyChanges } from 'common/util/changes'
-import * as readline from 'readline'
-import { green, red, yellow, underline, blue, cyan, magenta } from 'picocolors'
 import { parse } from 'path'
-import { websocketUrl } from './config'
-import { ChatStorage } from './chat-storage'
-import { Client } from './client'
-import { Message, FileChanges } from 'common/actions'
-import { displayGreeting, displayMenu } from './menu'
-import {
-  getChangesSinceLastFileVersion,
-  getExistingFiles,
-  getProjectRoot,
-  setFiles,
-} from './project-files'
-import { handleRunTerminalCommand } from './tool-handlers'
-import { isCommandRunning, resetShell } from './utils/terminal'
+
+import { green, red, yellow, blue, cyan, magenta, bold } from 'picocolors'
+import * as readline from 'readline'
+
 import {
   REQUEST_CREDIT_SHOW_THRESHOLD,
   SKIPPED_TERMINAL_COMMANDS,
-  type CostMode,
 } from 'common/constants'
+import { getAllFilePaths } from 'common/project-file-tree'
+import { AgentState } from 'common/types/agent-state'
+import { Message } from 'common/types/message'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
-import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-import {
-  hasStagedChanges,
-  commitChanges,
-  getStagedChanges,
-  stagePatches,
-} from 'common/util/git'
 import { pluralize } from 'common/util/string'
+
+import { setMessages } from './chat-storage'
+import { Checkpoint, checkpointManager } from './checkpoints'
+import { Client } from './client'
+import { websocketUrl } from './config'
+import { displayGreeting, displayMenu } from './menu'
+import { getChangesSinceLastFileVersion, getProjectRoot } from './project-files'
+import { handleRunTerminalCommand } from './tool-handlers'
 import { CliOptions, GitCommand } from './types'
 import { Spinner } from './utils/spinner'
+import { isCommandRunning, resetShell } from './utils/terminal'
+import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+
+import type { CostMode } from 'common/constants'
+import { AssertionError } from 'assert'
 
 export class CLI {
   private client: Client
-  private chatStorage: ChatStorage
   private readyPromise: Promise<any>
   private git: GitCommand
   private costMode: CostMode
   private rl!: readline.Interface
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
-  private lastChanges: FileChanges = []
   private lastSigintTime: number = 0
   private lastInputTime: number = 0
   private consecutiveFastInputs: number = 0
@@ -51,19 +43,17 @@ export class CLI {
   private isPasting: boolean = false
 
   constructor(
-    readyPromise: Promise<[void, ProjectFileContext]>,
+    readyPromise: Promise<[void, ProjectFileContext, void]>,
     { git, costMode }: CliOptions
   ) {
     this.git = git
     this.costMode = costMode
-    this.chatStorage = new ChatStorage()
 
     this.setupSignalHandlers()
     this.initReadlineInterface()
 
     this.client = new Client(
       websocketUrl,
-      this.chatStorage,
       this.onWebSocketError.bind(this),
       this.onWebSocketReconnect.bind(this),
       this.returnControlToUser.bind(this),
@@ -74,8 +64,8 @@ export class CLI {
 
     this.readyPromise = Promise.all([
       readyPromise.then((results) => {
-        const [_, fileContext] = results
-        this.client.initFileVersions(fileContext)
+        const [_, fileContext, __] = results
+        this.client.initAgentState(fileContext)
         return this.client.warmContextCache()
       }),
       this.client.connect(),
@@ -147,7 +137,16 @@ export class CLI {
   }
 
   private setPrompt() {
-    this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
+    this.rl.setPrompt(
+      green(
+        `${parse(getProjectRoot()).base} (checkpoint ${checkpointManager.getNextId()}) > `
+      )
+    )
+  }
+
+  private promptWithCheckpointNumber() {
+    this.setPrompt()
+    this.rl.prompt()
   }
 
   public async printInitialPrompt(initialInput?: string) {
@@ -160,7 +159,7 @@ export class CLI {
       await this.client.login()
       return
     }
-    this.rl.prompt()
+    this.promptWithCheckpointNumber()
     if (initialInput) {
       process.stdout.write(initialInput + '\n')
       this.handleUserInput(initialInput)
@@ -169,7 +168,7 @@ export class CLI {
 
   public async printDiff() {
     this.handleDiff()
-    this.rl.prompt()
+    this.promptWithCheckpointNumber()
   }
 
   private async handleLine(line: string) {
@@ -195,10 +194,23 @@ export class CLI {
     await this.forwardUserInput(userInput)
   }
 
+  private async beforeProcessCommand(userInput: string): Promise<void> {
+    Spinner.get().start()
+    await this.readyPromise
+    Spinner.get().stop()
+    // Save the current agent state
+    await checkpointManager.addCheckpoint(
+      this.client.agentState as AgentState,
+      userInput
+    )
+  }
+
   private async processCommand(userInput: string): Promise<boolean> {
+    await this.beforeProcessCommand(userInput)
+
     if (userInput === 'help' || userInput === 'h') {
       displayMenu()
-      this.rl.prompt()
+      this.promptWithCheckpointNumber()
       return true
     }
     if (userInput === 'login' || userInput === 'signin') {
@@ -207,7 +219,7 @@ export class CLI {
     }
     if (userInput === 'logout' || userInput === 'signout') {
       await this.client.logout()
-      this.rl.prompt()
+      this.promptWithCheckpointNumber()
       return true
     }
     if (userInput.startsWith('ref-')) {
@@ -222,17 +234,13 @@ export class CLI {
       this.handleUndo()
       return true
     }
-    if (userInput === 'redo' || userInput === 'r') {
-      this.handleRedo()
-      return true
-    }
     if (userInput === 'quit' || userInput === 'exit' || userInput === 'q') {
       this.handleExit()
       return true
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(userInput)) {
       this.handleDiff()
-      this.rl.prompt()
+      this.promptWithCheckpointNumber()
       return true
     }
     if (
@@ -244,11 +252,29 @@ export class CLI {
       return true
     }
 
+    // Checkpoint commands
+    if (userInput === 'checkpoint list' || userInput === 'checkpoints') {
+      this.handleCheckpoints()
+      return true
+    }
+
+    const restoreMatch = userInput.match(/^checkpoint\s+(\d+)$/)
+    if (restoreMatch) {
+      const id = parseInt(restoreMatch[1], 10)
+      await this.handleRestoreCheckpoint(id)
+      return true
+    }
+
+    if (userInput === 'checkpoint clear') {
+      this.handleClearCheckpoints()
+      return true
+    }
+
     const runPrefix = '/run '
     const bangPrefix = '!'
     const hasRunPrefix = userInput.startsWith(runPrefix)
     const hasBangPrefix = userInput.startsWith(bangPrefix)
-    
+
     if (
       hasRunPrefix ||
       hasBangPrefix ||
@@ -265,20 +291,19 @@ export class CLI {
       } else if (hasBangPrefix) {
         commandToRun = userInput.replace(bangPrefix, '')
       }
-      
+
       const { result, stdout } = await handleRunTerminalCommand(
         { command: commandToRun },
         'user',
-        'user'
+        'user',
+        getProjectRoot()
       )
       if (result !== 'command not found') {
-        this.setPrompt()
-        this.rl.prompt()
+        this.promptWithCheckpointNumber()
         return true
       } else if (hasRunPrefix || hasBangPrefix) {
         process.stdout.write(stdout)
-        this.setPrompt()
-        this.rl.prompt()
+        this.promptWithCheckpointNumber()
         return true
       }
     }
@@ -287,101 +312,52 @@ export class CLI {
 
   private async forwardUserInput(userInput: string) {
     Spinner.get().start()
-    await this.readyPromise
 
-    const currentChat = this.chatStorage.getCurrentChat()
-    const { fileVersions } = currentChat
-    const currentFileVersion =
-      fileVersions[fileVersions.length - 1]?.files ?? {}
-    const changesSinceLastFileVersion =
-      getChangesSinceLastFileVersion(currentFileVersion)
-    const changesFileBlocks = Object.entries(changesSinceLastFileVersion)
-      .map(([filePath, patch]) => [
-        filePath,
-        patch.length < 8_000
-          ? patch
-          : '[LARGE_FILE_CHANGE_TOO_LONG_TO_REPRODUCE]',
-      ])
-      .map(([filePath, patch]) => createFileBlock(filePath, patch))
-    const changesMessage =
-      changesFileBlocks.length > 0
-        ? `<user_edits_since_last_chat>\n${changesFileBlocks.join('\n')}\n</user_edits_since_last_chat>\n\n`
-        : ''
+    this.client.lastChanges = []
 
     const urls = parseUrlsFromContent(userInput)
     const scrapedBlocks = await getScrapedContentBlocks(urls)
     const scrapedContent =
       scrapedBlocks.length > 0 ? scrapedBlocks.join('\n\n') + '\n\n' : ''
-
     const newMessage: Message = {
       role: 'user',
-      content: `${changesMessage}${scrapedContent}${userInput}`,
+      content: `${scrapedContent}${userInput}`,
     }
-    this.chatStorage.addMessage(currentChat, newMessage)
+
+    if (this.client.agentState) {
+      setMessages([...this.client.agentState.messageHistory, newMessage])
+    }
 
     this.isReceivingResponse = true
-    const { response, changes, changesAlreadyApplied } =
-      await this.sendUserInputAndAwaitResponse()
+    const { responsePromise, stopResponse } =
+      await this.client.sendUserInput(userInput)
+
+    this.stopResponse = stopResponse
+    const response = await responsePromise
+    this.stopResponse = null
+
     this.isReceivingResponse = false
 
     Spinner.get().stop()
 
-    const allChanges = [...changesAlreadyApplied, ...changes]
-    const filesChanged = uniq(allChanges.map((change) => change.filePath))
-    const allFilesChanged = this.chatStorage.saveFilesChanged(filesChanged)
-
-    if (this.git === 'stage' && changes.length > 0) {
-      const didStage = stagePatches(getProjectRoot(), changes)
-      if (didStage) {
-        console.log(green('\nStaged previous changes'))
-      }
-    }
-
-    const { created, modified } = applyChanges(getProjectRoot(), changes)
-    if (created.length > 0 || modified.length > 0) {
-      console.log()
-    }
-    for (const file of created) {
-      console.log(green(`- Created ${file}`))
-    }
-    for (const file of modified) {
-      console.log(green(`- Updated ${file}`))
-    }
-    if (created.length > 0 || modified.length > 0) {
-      if (this.client.lastRequestCredits > REQUEST_CREDIT_SHOW_THRESHOLD) {
-        console.log(
-          `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
-        )
-      }
+    if (this.client.lastRequestCredits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
       console.log(
-        'Complete! Type "diff" to review changes or "undo" to revert.'
+        `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
       )
-      this.client.showUsageWarning()
     }
+    this.client.showUsageWarning()
     console.log()
 
-    this.lastChanges = allChanges
-
-    const assistantMessage: Message = {
-      role: 'assistant',
-      content: response,
-    }
-    this.chatStorage.addMessage(
-      this.chatStorage.getCurrentChat(),
-      assistantMessage
-    )
-    const updatedFiles = getExistingFiles(allFilesChanged)
-    this.chatStorage.addNewFileState(updatedFiles)
-
-    this.rl.prompt()
+    this.promptWithCheckpointNumber()
   }
 
   private returnControlToUser() {
-    this.rl.prompt()
+    this.promptWithCheckpointNumber()
     this.isReceivingResponse = false
     if (this.stopResponse) {
       this.stopResponse()
     }
+
     Spinner.get().stop()
   }
 
@@ -400,68 +376,16 @@ export class CLI {
     this.returnControlToUser()
   }
 
-  private async sendUserInputAndAwaitResponse() {
-    const userInputId =
-      `mc-input-` + Math.random().toString(36).substring(2, 15)
-
-    const { responsePromise, stopResponse } = this.client.subscribeToResponse(
-      (chunk) => {
-        Spinner.get().stop()
-        process.stdout.write(chunk)
-      },
-      userInputId,
-      () => {
-        Spinner.get().stop()
-        process.stdout.write(green(underline('\nCodebuff') + ':') + ' ')
-      }
-    )
-
-    this.stopResponse = stopResponse
-    this.client.sendUserInput([], userInputId)
-
-    const result = await responsePromise
-    this.stopResponse = null
-    return result
-  }
-
-  private handleUndo() {
-    this.navigateFileVersion('undo')
-    this.rl.prompt()
-  }
-
-  private handleRedo() {
-    this.navigateFileVersion('redo')
-    this.rl.prompt()
-  }
-
-  private navigateFileVersion(direction: 'undo' | 'redo') {
-    const currentVersion = this.chatStorage.getCurrentVersion()
-    const filePaths = Object.keys(currentVersion ? currentVersion.files : {})
-    const currentFiles = getExistingFiles(filePaths)
-    this.chatStorage.saveCurrentFileState(currentFiles)
-
-    const navigated = this.chatStorage.navigateVersion(direction)
-
-    if (navigated) {
-      console.log(
-        direction === 'undo'
-          ? green('Undo last change')
-          : green('Redo last change')
-      )
-      const files = this.applyAndDisplayCurrentFileVersion()
-      console.log(green('Loaded files:'), green(Object.keys(files).join(', ')))
-    } else {
-      console.log(green(`No more ${direction === 'undo' ? 'undo' : 'redo'}s`))
+  private async handleUndo(): Promise<void> {
+    // Get previous checkpoint number (not including undo command)
+    const checkpointId =
+      (checkpointManager.getLatestCheckpoint() as Checkpoint).id - 1
+    if (checkpointId < 1) {
+      console.log(red('Nothing to undo.'))
+      this.promptWithCheckpointNumber()
+      return
     }
-  }
-
-  private applyAndDisplayCurrentFileVersion() {
-    const currentVersion = this.chatStorage.getCurrentVersion()
-    if (currentVersion) {
-      setFiles(currentVersion.files)
-      return currentVersion.files
-    }
-    return {}
+    await this.handleRestoreCheckpoint(checkpointId)
   }
 
   private handleKeyPress(str: string, key: any) {
@@ -489,7 +413,7 @@ export class CLI {
 
   private handleSigint() {
     if (isCommandRunning()) {
-      resetShell()
+      resetShell(getProjectRoot())
     }
 
     if ('line' in this.rl) {
@@ -505,7 +429,7 @@ export class CLI {
       } else {
         this.lastSigintTime = now
         console.log('\nPress Ctrl-C again to exit')
-        this.rl.prompt()
+        this.promptWithCheckpointNumber()
       }
     }
   }
@@ -739,27 +663,14 @@ export class CLI {
     this.lastInputTime = currentTime
   }
 
-  private async autoCommitChanges() {
-    if (hasStagedChanges()) {
-      const stagedChanges = getStagedChanges()
-      if (!stagedChanges) return
-
-      const commitMessage =
-        await this.client.generateCommitMessage(stagedChanges)
-      commitChanges(commitMessage)
-      return commitMessage
-    }
-    return undefined
-  }
-
   private handleDiff() {
-    if (this.lastChanges.length === 0) {
+    if (this.client.lastChanges.length === 0) {
       console.log(yellow('No changes found in the last assistant response.'))
       return
     }
 
-    this.lastChanges.forEach((change) => {
-      console.log('-', change.filePath)
+    this.client.lastChanges.forEach((change) => {
+      console.log(bold(`___${change.path}___`))
       const lines = change.content
         .split('\n')
         .map((line) => (change.type === 'file' ? '+' + line : line))
@@ -769,10 +680,54 @@ export class CLI {
           console.log(green(line))
         } else if (line.startsWith('-')) {
           console.log(red(line))
+        } else if (line.startsWith('@@')) {
+          console.log(cyan(line))
         } else {
           console.log(line)
         }
       })
     })
+  }
+
+  // Checkpoint command handlers
+  private async handleCheckpoints(): Promise<void> {
+    console.log(checkpointManager.getCheckpointsAsString())
+    this.promptWithCheckpointNumber()
+  }
+
+  private async handleRestoreCheckpoint(id: number): Promise<void> {
+    const checkpoint = checkpointManager.getCheckpoint(id)
+    if (!checkpoint) {
+      console.log(red(`Checkpoint #${id} not found.`))
+      this.promptWithCheckpointNumber()
+      return
+    }
+
+    await this.restoreAgentStateAndFiles(checkpoint)
+
+    console.log(green(`Restored to checkpoint #${id}.`))
+
+    // Insert the original user input that created this checkpoint
+    this.promptWithCheckpointNumber()
+    this.rl.write(checkpoint.userInput)
+  }
+
+  private async restoreAgentStateAndFiles(
+    checkpoint: Checkpoint
+  ): Promise<void> {
+    // Restore the agentState
+    this.client.agentState = JSON.parse(checkpoint.agentStateString)
+
+    // Restore file state
+    if (!(await checkpointManager.restoreFileState(checkpoint.id))) {
+      throw new AssertionError({
+        message: `Internal error: checkpoint ${checkpoint.id} not found`,
+      })
+    }
+  }
+
+  private async handleClearCheckpoints(): Promise<void> {
+    checkpointManager.clearCheckpoints()
+    this.promptWithCheckpointNumber()
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { limitScreenshots } from '../messages'
-import { Message } from '../../actions'
+import { Message } from '../../types/message'
 
 describe('limitScreenshots', () => {
   const createImageContent = (id: number) => ({

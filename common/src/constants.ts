@@ -1,6 +1,5 @@
 export const STOP_MARKER = '[' + 'END]'
 export const FIND_FILES_MARKER = '[' + 'FIND_FILES_PLEASE]'
-export const TOOL_RESULT_MARKER = '[' + 'TOOL_RESULT]'
 export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'
 
 export const DEFAULT_IGNORED_FILES = [
@@ -178,6 +177,7 @@ export const getModelForMode = (
 
 export const claudeModels = {
   sonnet: 'claude-3-7-sonnet-20250219',
+  // sonnet: 'claude-3-5-sonnet-20241022',
   haiku: 'claude-3-5-haiku-20241022',
 } as const
 export type AnthropicModel = (typeof claudeModels)[keyof typeof claudeModels]

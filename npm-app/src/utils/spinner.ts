@@ -45,6 +45,18 @@ export class Spinner {
     process.stdout.write('\u001B[?25h')
   }
 
+  log(message: string) {
+    // Temporarily clear the spinner line
+    this.rewriteLine('')
+    // Write the log message
+    console.log(message)
+    // If spinner is active, redraw it on the next line
+    if (this.loadingInterval) {
+      const i = Math.floor(Math.random() * chars.length)
+      this.rewriteLine(green(`${chars[i]} Thinking...`))
+    }
+  }
+
   private rewriteLine(line: string) {
     if (process.stdout.isTTY) {
       readline.clearLine(process.stdout, 0)

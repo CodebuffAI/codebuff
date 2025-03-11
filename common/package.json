@@ -15,17 +15,19 @@
     "db:studio": "drizzle-kit studio --config=./src/db/drizzle.config.ts"
   },
   "dependencies": {
-    "ignore": "5.3.2",
-    "lodash": "*",
-    "zod": "3.23.8",
     "@auth/drizzle-adapter": "^1.5.0",
     "@types/pg": "^8.11.10",
+    "@types/readable-stream": "^4.0.18",
     "dotenv": "^16.4.5",
     "drizzle-kit": "0.28.1",
     "drizzle-orm": "0.36.4",
+    "ignore": "5.3.2",
+    "lodash": "*",
     "next": "14.2.11",
     "next-auth": "^4.24.7",
-    "pg": "^8.13.0"
+    "pg": "^8.13.0",
+    "readable-stream": "^4.7.0",
+    "zod": "3.23.8"
   },
   "peerDependencies": {
     "@types/node": "*",

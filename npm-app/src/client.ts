@@ -1,66 +1,68 @@
+import { spawn } from 'child_process'
+import * as fs from 'fs'
+import path from 'path'
+import fetch from 'node-fetch'
+
 import {
   yellow,
   red,
   green,
   bold,
-  blue,
   underline,
   blueBright,
+  blue,
 } from 'picocolors'
-import { APIRealtimeClient } from 'common/websockets/websocket-client'
-import { websocketUrl, backendUrl } from './config'
+import * as readline from 'readline'
+import { match, P } from 'ts-pattern'
 
+import {
+  FileChanges,
+  FileChangeSchema,
+  InitResponseSchema,
+  PromptResponseSchema,
+  ServerAction,
+  UsageReponseSchema,
+  UsageResponse,
+} from 'common/actions'
+import { User } from 'common/util/credentials'
+import { CREDITS_REFERRAL_BONUS } from 'common/constants'
+import {
+  AgentState,
+  ToolResult,
+  getInitialAgentState,
+} from 'common/types/agent-state'
+import { FileVersion, ProjectFileContext } from 'common/util/file'
+import { APIRealtimeClient } from 'common/websockets/websocket-client'
+import type { CostMode } from 'common/constants'
+import { Message } from 'common/types/message'
+import { setMessages } from './chat-storage'
+
+import { activeBrowserRunner } from './browser-runner'
+import { checkpointManager, Checkpoint } from './checkpoints'
+import { backendUrl } from './config'
+import { userFromJson, CREDENTIALS_PATH } from './credentials'
+import { calculateFingerprint } from './fingerprint'
+import { displayGreeting } from './menu'
 import {
   getFiles,
   getProjectFileContext,
   getProjectRoot,
 } from './project-files'
-import { activeBrowserRunner, BrowserRunner } from './browser-runner'
-import { applyChanges } from 'common/util/changes'
-import { User } from 'common/util/credentials'
-import { userFromJson, CREDENTIALS_PATH } from './credentials'
-import { ChatStorage } from './chat-storage'
-import {
-  FileChanges,
-  InitResponseSchema,
-  Message,
-  ResponseCompleteSchema,
-  SERVER_ACTION_SCHEMA,
-  ServerAction,
-  UsageReponseSchema,
-  UsageResponse,
-} from 'common/actions'
-import { toolHandlers } from './tool-handlers'
-import {
-  CREDITS_REFERRAL_BONUS,
-  CREDITS_USAGE_LIMITS,
-  TOOL_RESULT_MARKER,
-  type CostMode,
-} from 'common/constants'
-import * as readline from 'readline'
-
-import { uniq } from 'lodash'
-import path from 'path'
-import * as fs from 'fs'
-import { truncateString } from 'common/util/string'
-import { match, P } from 'ts-pattern'
-import { calculateFingerprint } from './fingerprint'
-import { FileVersion, ProjectFileContext } from 'common/util/file'
-import { stagePatches } from 'common/util/git'
+import { handleToolCall } from './tool-handlers'
 import { GitCommand } from './types'
-import { displayGreeting } from './menu'
-import { spawn } from 'child_process'
 import { Spinner } from './utils/spinner'
+import { createXMLStreamParser } from './utils/xml-stream-parser'
+import { toolRenderers } from './utils/tool-renderers'
 
 export class Client {
   private webSocket: APIRealtimeClient
-  private chatStorage: ChatStorage
-  private currentUserInputId: string | undefined
   private returnControlToUser: () => void
   private fingerprintId: string | undefined
   private costMode: CostMode
-  public fileVersions: FileVersion[][] = []
   public fileContext: ProjectFileContext | undefined
+  public lastChanges: FileChanges = []
+  public agentState: AgentState | undefined
+  public originalFileVersions: Record<string, string | null> = {}
 
   public user: User | undefined
   public lastWarnedPct: number = 0
@@ -70,12 +72,12 @@ export class Client {
   public lastRequestCredits: number = 0
   public sessionCreditsUsed: number = 0
   public nextQuotaReset: Date | null = null
+  private hadFileChanges: boolean = false
   private git: GitCommand
   private rl: readline.Interface
 
   constructor(
     websocketUrl: string,
-    chatStorage: ChatStorage,
     onWebSocketError: () => void,
     onWebSocketReconnect: () => void,
     returnControlToUser: () => void,
@@ -90,7 +92,6 @@ export class Client {
       onWebSocketError,
       onWebSocketReconnect
     )
-    this.chatStorage = chatStorage
     this.user = this.getUser()
     this.getFingerprintId()
     this.returnControlToUser = returnControlToUser
@@ -104,15 +105,9 @@ export class Client {
     process.exit(0)
   }
 
-  public initFileVersions(projectFileContext: ProjectFileContext) {
-    const { knowledgeFiles } = projectFileContext
+  public initAgentState(projectFileContext: ProjectFileContext) {
+    this.agentState = getInitialAgentState(projectFileContext)
     this.fileContext = projectFileContext
-    this.fileVersions = [
-      Object.entries(knowledgeFiles).map(([path, content]) => ({
-        path,
-        content,
-      })),
-    ]
   }
 
   private async getFingerprintId(): Promise<string> {
@@ -355,90 +350,6 @@ export class Client {
       return
     })
 
-    this.webSocket.subscribe('tool-call', async (a) => {
-      const {
-        response,
-        changes,
-        changesAlreadyApplied,
-        data,
-        userInputId,
-        addedFileVersions,
-        resetFileVersions,
-      } = a
-      if (userInputId !== this.currentUserInputId) {
-        return
-      }
-      if (resetFileVersions) {
-        this.fileVersions = [addedFileVersions]
-      } else {
-        this.fileVersions.push(addedFileVersions)
-      }
-      Spinner.get().stop()
-
-      const filesChanged = uniq(changes.map((change) => change.filePath))
-      this.chatStorage.saveFilesChanged(filesChanged)
-
-      if (this.git === 'stage' && changes.length > 0) {
-        const didStage = stagePatches(getProjectRoot(), changes)
-        if (didStage) {
-          console.log(green('\nStaged previous changes'))
-        }
-      }
-
-      applyChanges(getProjectRoot(), changes)
-
-      const { id, name, input } = data
-
-      const currentChat = this.chatStorage.getCurrentChat()
-      const messages = currentChat.messages
-      if (messages[messages.length - 1].role === 'assistant') {
-        return
-      }
-
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: response,
-      }
-      this.chatStorage.addMessage(
-        this.chatStorage.getCurrentChat(),
-        assistantMessage
-      )
-
-      const handler = toolHandlers[name]
-      if (handler) {
-        const content = await handler(input, id)
-        const toolResultMessage: Message = {
-          role: 'user',
-          content: match(content)
-            .with({ screenshots: P.not(P.nullish) }, (response) => [
-              ...(response.screenshots.pre ? [response.screenshots.pre] : []),
-              {
-                type: 'text' as const,
-                text:
-                  `${TOOL_RESULT_MARKER}\n` +
-                  JSON.stringify({
-                    ...response,
-                    screenshots: undefined,
-                  }),
-              },
-              response.screenshots.post,
-            ])
-            .with(P.string, (str) => `${TOOL_RESULT_MARKER}\n${str}`)
-            .otherwise((val) => JSON.stringify(val)),
-        }
-        this.chatStorage.addMessage(
-          this.chatStorage.getCurrentChat(),
-          toolResultMessage
-        )
-        await this.sendUserInput(
-          [...changesAlreadyApplied, ...changes],
-          userInputId
-        )
-      } else {
-        console.error(`No handler found for tool: ${name}`)
-      }
-    })
-
     this.webSocket.subscribe('read-files', (a) => {
       const { filePaths, requestId } = a
       const files = getFiles(filePaths)
@@ -462,7 +373,6 @@ export class Client {
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
-      this.returnControlToUser()
       const parsedAction = UsageReponseSchema.safeParse(action)
       if (!parsedAction.success) return
       const a = parsedAction.data
@@ -473,6 +383,7 @@ export class Client {
       )
       this.setUsage(a)
       this.showUsageWarning(a.referralLink)
+      this.returnControlToUser()
     })
   }
 
@@ -542,50 +453,63 @@ export class Client {
     })
   }
 
-  async sendUserInput(previousChanges: FileChanges, userInputId: string) {
-    Spinner.get().start()
-    this.currentUserInputId = userInputId
-    const currentChat = this.chatStorage.getCurrentChat()
-    const { messages, fileVersions: messageFileVersions } = currentChat
+  async sendUserInput(prompt: string) {
+    if (!this.agentState) {
+      throw new Error('Agent state not initialized')
+    }
+    const userInputId =
+      `mc-input-` + Math.random().toString(36).substring(2, 15)
 
-    const currentFileVersion =
-      messageFileVersions[messageFileVersions.length - 1]?.files ?? {}
-    const fileContext = await getProjectFileContext(
-      getProjectRoot(),
-      currentFileVersion,
-      this.fileVersions
-    )
-    this.fileContext = fileContext
-    this.webSocket.sendAction({
-      type: 'user-input',
+    const { responsePromise, stopResponse } = this.subscribeToResponse(
+      (chunk) => {
+        Spinner.get().stop()
+        process.stdout.write(chunk)
+      },
       userInputId,
-      messages,
-      fileContext,
-      changesAlreadyApplied: previousChanges,
+      () => {
+        Spinner.get().stop()
+        process.stdout.write(green(underline('\nCodebuff') + ':') + ' ')
+      },
+      prompt
+    )
+
+    Spinner.get().start()
+    this.webSocket.sendAction({
+      type: 'prompt',
+      promptId: userInputId,
+      prompt,
+      agentState: this.agentState,
+      toolResults: [],
       fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
       costMode: this.costMode,
     })
+
+    return {
+      responsePromise,
+      stopResponse,
+    }
   }
 
   subscribeToResponse(
     onChunk: (chunk: string) => void,
     userInputId: string,
-    onStreamStart: () => void
+    onStreamStart: () => void,
+    prompt: string
   ) {
     let responseBuffer = ''
+    let streamStarted = false
     let resolveResponse: (
-      value: ServerAction & { type: 'response-complete' } & {
+      value: ServerAction & { type: 'prompt-response' } & {
         wasStoppedByUser: boolean
       }
     ) => void
     let rejectResponse: (reason?: any) => void
     let unsubscribeChunks: () => void
     let unsubscribeComplete: () => void
-    let streamStarted = false
 
     const responsePromise = new Promise<
-      ServerAction & { type: 'response-complete' } & {
+      ServerAction & { type: 'prompt-response' } & {
         wasStoppedByUser: boolean
       }
     >((resolve, reject) => {
@@ -594,72 +518,133 @@ export class Client {
     })
 
     const stopResponse = () => {
-      this.currentUserInputId = undefined
       unsubscribeChunks()
       unsubscribeComplete()
+
+      const assistantMessage = {
+        role: 'assistant' as const,
+        content: responseBuffer + '[RESPONSE_CANCELED_BY_USER]',
+      }
+
+      // Update the agent state with just the assistant's response
+      const { messageHistory } = this.agentState!
+      const newMessages = [...messageHistory, assistantMessage]
+      this.agentState = {
+        ...this.agentState!,
+        messageHistory: newMessages,
+      }
+      setMessages(newMessages)
+
       resolveResponse({
-        userInputId,
-        response: responseBuffer + '\n[RESPONSE_STOPPED_BY_USER]',
-        changes: [],
-        changesAlreadyApplied: [],
-        addedFileVersions: [],
-        resetFileVersions: false,
-        type: 'response-complete',
+        type: 'prompt-response',
+        promptId: userInputId,
+        agentState: this.agentState!,
+        toolCalls: [],
+        toolResults: [],
         wasStoppedByUser: true,
       })
     }
+
+    const xmlStreamParser = createXMLStreamParser(toolRenderers, (chunk) => {
+      onChunk(chunk)
+      responseBuffer += chunk
+    })
 
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
-      if (!streamStarted && chunk.trim()) {
-        streamStarted = true
-        onStreamStart()
+      if (chunk && chunk.trim()) {
+        if (!streamStarted && chunk.trim()) {
+          streamStarted = true
+          onStreamStart()
+        }
       }
 
-      responseBuffer += chunk
-      onChunk(chunk)
+      try {
+        xmlStreamParser.write(chunk, 'utf8')
+      } catch (e) {
+        // console.error('Error writing chunk', e)
+      }
     })
 
     unsubscribeComplete = this.webSocket.subscribe(
-      'response-complete',
-      (action) => {
-        const parsedAction = ResponseCompleteSchema.safeParse(action)
-        if (!parsedAction.success || action.userInputId !== userInputId) return
+      'prompt-response',
+      async (action) => {
+        const parsedAction = PromptResponseSchema.safeParse(action)
+        if (!parsedAction.success) return
         const a = parsedAction.data
-        unsubscribeChunks()
-        unsubscribeComplete()
-        if (a.resetFileVersions) {
-          this.fileVersions = [a.addedFileVersions]
-        } else {
-          this.fileVersions.push(a.addedFileVersions)
-        }
-        resolveResponse({ ...a, wasStoppedByUser: false })
-        this.currentUserInputId = undefined
 
-        if (
-          !a.usage ||
-          !a.next_quota_reset ||
-          a.subscription_active === undefined ||
-          !a.limit
-        ) {
+        // store cost data
+        const usageData = UsageReponseSchema.omit({ type: true }).safeParse(a)
+
+        if (usageData.success) {
+          this.setUsage(usageData.data)
+          this.showUsageWarning(a.referralLink)
+        }
+
+        if (action.promptId !== userInputId) return
+        this.agentState = a.agentState
+
+        Spinner.get().stop()
+        let isComplete = false
+        const toolResults: ToolResult[] = [...a.toolResults]
+
+        for (const toolCall of a.toolCalls) {
+          if (toolCall.name === 'end_turn') {
+            isComplete = true
+            continue
+          }
+          if (toolCall.name === 'write_file') {
+            // Save lastChanges for `diff` command
+            this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
+
+            this.hadFileChanges = true
+          }
+          const toolResult = await handleToolCall(toolCall, getProjectRoot())
+          toolResults.push(toolResult)
+        }
+
+        // If we had any file changes, update the project context
+        if (this.hadFileChanges) {
+          this.fileContext = await getProjectFileContext(getProjectRoot(), {})
+        }
+
+        if (!isComplete) {
+          Spinner.get().start()
+          // Continue the prompt with the tool results.
+          this.webSocket.sendAction({
+            type: 'prompt',
+            promptId: userInputId,
+            prompt: undefined,
+            agentState: this.agentState,
+            toolResults,
+            fingerprintId: await this.getFingerprintId(),
+            authToken: this.user?.authToken,
+            costMode: this.costMode,
+          })
           return
         }
 
-        this.setUsage({
-          usage: a.usage,
-          limit: a.limit,
-          subscription_active: a.subscription_active,
-          next_quota_reset: a.next_quota_reset,
-          session_credits_used: a.session_credits_used ?? 0,
-        })
+        xmlStreamParser.end()
 
-        this.showUsageWarning(a.referralLink)
-
-        if (this.limit !== a.limit) {
-          this.lastWarnedPct = 0
+        if (this.agentState) {
+          setMessages(this.agentState.messageHistory)
         }
+
+        if (this.hadFileChanges) {
+          const latestCheckpointId = (
+            checkpointManager.getLatestCheckpoint() as Checkpoint
+          ).id
+          console.log(
+            `\nComplete! Type "diff" to review changes or "checkpoint ${latestCheckpointId}" to revert.`
+          )
+          this.hadFileChanges = false
+        }
+
+        unsubscribeChunks()
+        unsubscribeComplete()
+        resolveResponse({ ...a, wasStoppedByUser: false })
       }
     )
 
@@ -678,11 +663,7 @@ export class Client {
   }
 
   public async warmContextCache() {
-    const fileContext = await getProjectFileContext(
-      getProjectRoot(),
-      {},
-      this.fileVersions
-    )
+    const fileContext = await getProjectFileContext(getProjectRoot(), {})
 
     this.webSocket.subscribe('init-response', (a) => {
       const parsedAction = InitResponseSchema.safeParse(a)

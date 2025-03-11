@@ -1,64 +1,16 @@
 import { z } from 'zod'
 import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
-import { userSchema } from './util/credentials'
 import { costModes } from './constants'
-
-const MessageContentObjectSchema = z.union([
-  z.object({
-    type: z.literal('text'),
-    text: z.string(),
-    cache_control: z
-      .object({
-        type: z.literal('ephemeral'),
-      })
-      .optional(),
-  }),
-  z.object({
-    type: z.literal('tool_use'),
-    id: z.string(),
-    name: z.string(),
-    input: z.record(z.string(), z.any()),
-    cache_control: z
-      .object({
-        type: z.literal('ephemeral'),
-      })
-      .optional(),
-  }),
-  z.object({
-    type: z.literal('tool_result'),
-    tool_use_id: z.string(),
-    content: z.string(),
-    cache_control: z
-      .object({
-        type: z.literal('ephemeral'),
-      })
-      .optional(),
-  }),
-  z.object({
-    type: z.literal('image'),
-    source: z.object({
-      type: z.literal('base64'),
-      media_type: z.literal('image/jpeg'),
-      data: z.string(),
-    }),
-    cache_control: z
-      .object({
-        type: z.literal('ephemeral'),
-      })
-      .optional(),
-  }),
-])
-
-const MessageSchema = z.object({
-  role: z.union([z.literal('user'), z.literal('assistant')]),
-  content: z.union([z.string(), z.array(MessageContentObjectSchema)]),
-})
-export type Message = z.infer<typeof MessageSchema>
-export type MessageContentObject = z.infer<typeof MessageContentObjectSchema>
+import {
+  AgentStateSchema,
+  ToolResultSchema,
+  ToolCallSchema as NewToolCallSchema,
+} from './types/agent-state'
+import { MessageSchema } from './types/message'
 
 export const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
-  filePath: z.string(),
+  path: z.string(),
   content: z.string(),
 })
 export type FileChange = z.infer<typeof FileChangeSchema>
@@ -71,6 +23,53 @@ export const ToolCallSchema = z.object({
   input: z.record(z.string(), z.any()),
 })
 export type ToolCall = z.infer<typeof ToolCallSchema>
+
+export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('user-input'),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+    userInputId: z.string(),
+    messages: z.array(MessageSchema),
+    fileContext: ProjectFileContextSchema,
+    changesAlreadyApplied: CHANGES,
+    costMode: z.enum(costModes).optional().default('normal'),
+  }),
+  // New schema for strange-loop.
+  z.object({
+    type: z.literal('prompt'),
+    promptId: z.string(),
+    prompt: z.string().or(z.undefined()),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+    costMode: z.enum(costModes).optional().default('normal'),
+    agentState: AgentStateSchema,
+    toolResults: z.array(ToolResultSchema),
+  }),
+  z.object({
+    type: z.literal('read-files-response'),
+    files: z.record(z.string(), z.union([z.string(), z.null()])),
+    requestId: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal('init'),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+    fileContext: ProjectFileContextSchema,
+  }),
+  z.object({
+    type: z.literal('usage'),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal('generate-commit-message'),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+    stagedChanges: z.string(),
+  }),
+])
+export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
 export const UsageReponseSchema = z.object({
   type: z.literal('usage-response'),
@@ -110,41 +109,21 @@ export const ResponseCompleteSchema = z
     }).partial()
   )
 
-export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('user-input'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    userInputId: z.string(),
-    messages: z.array(MessageSchema),
-    fileContext: ProjectFileContextSchema,
-    changesAlreadyApplied: CHANGES,
-    costMode: z.enum(costModes).optional().default('normal'),
-  }),
-  z.object({
-    type: z.literal('read-files-response'),
-    files: z.record(z.string(), z.union([z.string(), z.null()])),
-    requestId: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('init'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    fileContext: ProjectFileContextSchema,
-  }),
-  z.object({
-    type: z.literal('usage'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('generate-commit-message'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    stagedChanges: z.string(),
-  }),
-])
-export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
+// New schema for strange-loop.
+export const PromptResponseSchema = z
+  .object({
+    type: z.literal('prompt-response'),
+    promptId: z.string(),
+    agentState: AgentStateSchema,
+    toolCalls: z.array(NewToolCallSchema),
+    toolResults: z.array(ToolResultSchema),
+  })
+  .merge(
+    UsageReponseSchema.omit({
+      type: true,
+    }).partial()
+  )
+export type PromptResponse = z.infer<typeof PromptResponseSchema>
 
 export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
@@ -153,6 +132,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     chunk: z.string(),
   }),
   ResponseCompleteSchema,
+  PromptResponseSchema,
   z.object({
     type: z.literal('read-files'),
     filePaths: z.array(z.string()),

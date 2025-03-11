@@ -3,22 +3,22 @@ import { range, shuffle, uniq } from 'lodash'
 import { dirname, isAbsolute, normalize } from 'path'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
-import { Message } from 'common/actions'
+import { Message } from 'common/types/message'
 import {
   ProjectFileContext,
   cleanMarkdownCodeBlock,
   createMarkdownFileBlock,
 } from 'common/util/file'
-import { System } from '../claude'
+import { System } from '../llm-apis/claude'
 import { type CostMode } from 'common/constants'
-import { models} from 'common/constants'
+import { models } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from '../util/logger'
 import { requestFiles } from '../websockets/websocket-action'
 import { countTokens } from '../util/token-counter'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 import { filterDefined } from 'common/util/array'
-import { promptGeminiWithFallbacks } from '@/gemini-with-fallbacks'
+import { promptGeminiWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 
@@ -213,9 +213,7 @@ function topLevelDirectories(fileContext: ProjectFileContext) {
 function getExampleFileList(fileContext: ProjectFileContext, count: number) {
   const { fileTree } = fileContext
 
-  const filePaths = getAllFilePaths(fileTree).filter(
-    (p) => !p.includes('knowledge.md')
-  )
+  const filePaths = getAllFilePaths(fileTree)
   const randomFilePaths = shuffle(filePaths)
   const selectedFiles = new Set()
   const selectedDirectories = new Set()
@@ -266,11 +264,10 @@ Please follow these steps to determine which files to request:
    - Configuration files
    - Utility functions
    - Documentation files
+   - Knowledge files (e.g. 'knowledge.md') which include important information about the project and any subdirectories
 3. Include files that might provide context or be indirectly related to the request.
 4. Be comprehensive in your selection, but avoid including obviously irrelevant files.
 5. List a maximum of ${count} files. It's fine to list fewer if there are not great candidates.
-
-Please exclude any files with 'knowledge.md' in the file name! These "knowledge" files should not be included in your response.
 
 Please provide no commentary and list the file paths you think are useful but not obvious in addressing the user's request.
 
@@ -321,10 +318,11 @@ Please follow these steps to determine which key files to request:
    - Key configuration files
    - Central utility functions
    - Documentation files
+   - Knowledge files (e.g. 'knowledge.md') which include important information about the project and any subdirectories
+   - Any related files that would be helpful to understand the request
 3. Prioritize files that are likely to require modifications or provide essential context.
-4. Order the files by most important first.
-
-Please exclude any files with 'knowledge.md' in the file name! These "knowledge" files should not be included in your response.
+4. But be sure to include example code! I.e. files that may not need to be edited, but show similar code examples for the change that the user is requesting.
+5. Order the files by most important first.
 
 Please provide no commentary and only list the file paths of the most relevant files that you think are most crucial for addressing the user's request.
 
