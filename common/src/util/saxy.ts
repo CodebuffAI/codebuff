@@ -74,8 +74,14 @@ export type SaxyEventArgs =
 export interface Saxy {
   on<U extends SaxyEventNames>(event: U, listener: SaxyEvents[U]): this
   on(event: string | symbol | Event, listener: (...args: any[]) => void): this
-
   once<U extends SaxyEventNames>(event: U, listener: SaxyEvents[U]): this
+}
+
+/**
+ * Schema for defining allowed tags and their children
+ */
+export type TagSchema = {
+  [topLevelTag: string]: string[] // Allowed child tags
 }
 
 /**
@@ -266,6 +272,7 @@ export class Saxy extends Transform {
   private _decoder: StringDecoder
   private _tagStack: string[]
   private _waiting: { token: string; data: unknown } | null
+  private _schema: TagSchema | null
 
   /**
    * Parse a string of XML attributes to a map of attribute names
@@ -289,8 +296,9 @@ export class Saxy extends Transform {
 
   /**
    * Create a new parser instance.
+   * @param schema Optional schema defining allowed top-level tags and their children
    */
-  constructor() {
+  constructor(schema?: TagSchema) {
     super({ decodeStrings: false })
 
     // String decoder instance
@@ -302,6 +310,9 @@ export class Saxy extends Transform {
 
     // Not waiting initially
     this._waiting = null
+
+    // Store schema if provided
+    this._schema = schema || null
   }
 
   /**
@@ -419,6 +430,27 @@ export class Saxy extends Transform {
    * @param node Information about the opened tag.
    */
   private _handleTagOpening(node: TagOpenNode) {
+    const { name } = node
+
+    // If we have a schema, validate against it
+    if (this._schema) {
+      // For top-level tags
+      if (this._tagStack.length === 0) {
+        // Ignore if not in schema
+        if (!this._schema[name]) {
+          return
+        }
+      }
+      // For nested tags
+      else {
+        const parentTag = this._tagStack[this._tagStack.length - 1]
+        // Ignore if parent not in schema or this tag not allowed as child
+        if (!this._schema[parentTag] || !this._schema[parentTag].includes(name)) {
+          return
+        }
+      }
+    }
+
     if (!node.isSelfClosing) {
       this._tagStack.push(node.name)
     }
@@ -484,92 +516,6 @@ export class Saxy extends Transform {
       // Invariant: the cursor now points on the name of a tag,
       // after an opening angled bracket
       chunkPos += 1
-      const nextChar = input[chunkPos]
-
-      // Begin a DOCTYPE, CDATA or comment section
-      if (nextChar === '!') {
-        chunkPos += 1
-        const nextNextChar = input[chunkPos]
-
-        // Unclosed markup declaration section of unknown type,
-        // we need to wait for upcoming data
-        if (nextNextChar === undefined) {
-          this._wait(Node.markupDeclaration, input.slice(chunkPos - 2))
-          break
-        }
-
-        if (
-          nextNextChar === '[' &&
-          'CDATA['.indexOf(input.slice(chunkPos + 1, chunkPos + 7)) > -1
-        ) {
-          chunkPos += 7
-          const cdataClose = input.indexOf(']]>', chunkPos)
-
-          // Incomplete CDATA section, we need to wait for upcoming data
-          if (cdataClose === -1) {
-            this._wait(Node.cdata, input.slice(chunkPos - 9))
-            break
-          }
-
-          this.emit(Node.cdata, {
-            contents: input.slice(chunkPos, cdataClose),
-          })
-
-          chunkPos = cdataClose + 3
-          continue
-        }
-
-        if (
-          nextNextChar === '-' &&
-          (input[chunkPos + 1] === undefined || input[chunkPos + 1] === '-')
-        ) {
-          chunkPos += 2
-          const commentClose = input.indexOf('--', chunkPos)
-
-          // Incomplete comment node, we need to wait for upcoming data
-          if (commentClose === -1 || input[commentClose + 2] === undefined) {
-            this._wait(Node.comment, input.slice(chunkPos - 4))
-            break
-          }
-
-          if (input[commentClose + 2] !== '>') {
-            callback(
-              new Error(`Unexpected -- inside comment: \
-'${input.slice(chunkPos - 4)}'`)
-            )
-            return
-          }
-
-          this.emit(Node.comment, {
-            contents: input.slice(chunkPos, commentClose),
-          })
-
-          chunkPos = commentClose + 3
-          continue
-        }
-
-        // TODO: recognize DOCTYPEs here
-        callback(new Error('Unrecognized sequence: <!' + nextNextChar))
-        return
-      }
-
-      if (nextChar === '?') {
-        chunkPos += 1
-        const piClose = input.indexOf('?>', chunkPos)
-
-        // Unclosed processing instruction, we need to wait for upcoming data
-        if (piClose === -1) {
-          this._wait(Node.processingInstruction, input.slice(chunkPos - 2))
-          break
-        }
-
-        this.emit(Node.processingInstruction, {
-          contents: input.slice(chunkPos, piClose),
-        })
-
-        chunkPos = piClose + 2
-        continue
-      }
 
       // Recognize regular tags (< ... >)
       const tagClose = findIndexOutside(
@@ -587,17 +533,31 @@ export class Saxy extends Transform {
       // Check if the tag is a closing tag
       if (input[chunkPos] === '/') {
         const tagName = input.slice(chunkPos + 1, tagClose)
-        let stackedTagName = this._tagStack.pop()
+        const stackedTagName = this._tagStack.pop()
 
-        while (stackedTagName !== tagName) {
-          stackedTagName = this._tagStack.pop()
-          if (stackedTagName === undefined) {
-            stackedTagName = tagName
-            break
+        // Only emit close tag if it matches schema validation
+        if (this._schema) {
+          // For top-level tags
+          if (this._tagStack.length === 0) {
+            if (!this._schema[tagName]) {
+              chunkPos = tagClose + 1
+              continue
+            }
+          }
+          // For nested tags
+          else {
+            const parentTag = this._tagStack[this._tagStack.length - 1]
+            if (!this._schema[parentTag] || !this._schema[parentTag].includes(tagName)) {
+              chunkPos = tagClose + 1
+              continue
+            }
           }
         }
 
-        this.emit(Node.tagClose, { name: tagName })
+        // Only emit if the tag matches what we expect
+        if (stackedTagName === tagName) {
+          this.emit(Node.tagClose, { name: tagName })
+        }
 
         chunkPos = tagClose + 1
         continue

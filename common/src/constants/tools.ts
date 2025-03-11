@@ -1,14 +1,25 @@
-// List of all available tools
-export const TOOL_LIST = [
-  'add_subgoal',
-  'update_subgoal',
-  'write_file',
-  'read_files',
-  'code_search',
-  'run_terminal_command',
-  'think_deeply',
-  'create_plan',
-  'end_turn',
-] as const
+export const toolSchema = {
+  // Tools that require an id and objective
+  add_subgoal: ['id', 'objective', 'status', 'plan'],
+  update_subgoal: ['id', 'status', 'plan', 'log'],
 
-export type ToolName = (typeof TOOL_LIST)[number]
+  // File operations
+  write_file: ['path', 'content'],
+  read_files: ['paths'],
+
+  // Search and terminal
+  code_search: ['pattern'],
+  run_terminal_command: ['command'],
+
+  // Planning tools
+  think_deeply: ['thought'],
+  create_plan: ['path', 'plan'],
+
+  // Simple tools
+  end_turn: [], // No parameters
+}
+
+export type ToolName = keyof typeof toolSchema
+
+// List of all available tools
+export const TOOL_LIST = Object.keys(toolSchema) as ToolName[]

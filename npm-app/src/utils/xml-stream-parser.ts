@@ -1,6 +1,6 @@
 import { bold } from 'picocolors'
 import { capitalize, snakeToTitleCase } from 'common/util/string'
-import { TOOL_LIST, ToolName } from 'common/constants/tools'
+import { TOOL_LIST, ToolName, toolSchema } from 'common/constants/tools'
 import { Saxy } from 'common/util/saxy'
 
 /**
@@ -151,7 +151,8 @@ export function createXMLStreamParser(
   renderer: Record<string, ToolCallRenderer>,
   callback?: (chunk: string) => void
 ) {
-  const parser = new Saxy()
+  // Create parser with tool schema validation
+  const parser = new Saxy(toolSchema)
 
   // Current state
   let currentTool: string | null = null
