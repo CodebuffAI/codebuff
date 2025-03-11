@@ -173,7 +173,7 @@ const isNotACommand = (output: string) => {
     output.includes('command not found') ||
     // Linux
     output.includes(': not found') ||
-    output.includes('\' not found') ||
+    output.includes("' not found") ||
     // Common
     output.includes('syntax error:') ||
     output.includes('syntax error near unexpected token') ||
@@ -237,7 +237,7 @@ export const runTerminalCommand = async (
   })
 }
 
-const runCommandPty = (
+export const runCommandPty = (
   persistentProcess: PersistentProcess & {
     type: 'pty'
   },
@@ -248,6 +248,7 @@ const runCommandPty = (
 ) => {
   const ptyProcess = persistentProcess.pty
   let commandOutput = ''
+  let pendingOutput = ''
   let foundFirstNewLine = false
 
   if (mode === 'assistant') {
@@ -281,7 +282,7 @@ const runCommandPty = (
       data = data.trimStart().slice(promptIdentifier.length)
     }
 
-    const prefix = commandOutput + data
+    const prefix = commandOutput + pendingOutput + data
 
     // Skip the first line of the output, because it's the command being printed.
     if (!foundFirstNewLine) {
@@ -305,31 +306,40 @@ const runCommandPty = (
       return
     }
 
-    const promptDetected = prefix.includes(promptIdentifier)
+    const dataLines = (pendingOutput + data).split('\r\n')
+    for (const [index, l] of dataLines.entries()) {
+      const isLast = index === dataLines.length - 1
+      const line = isLast ? l : l + '\r\n'
 
-    if (promptDetected) {
-      clearTimeout(timer)
-      dataDisposable.dispose()
+      if (line.includes(promptIdentifier)) {
+        // Last line is the prompt, command is done
+        clearTimeout(timer)
+        dataDisposable.dispose()
 
-      if (command.startsWith('cd ') && mode === 'user') {
-        const newWorkingDirectory = command.split(' ')[1]
-        projectPath = setProjectRoot(
-          path.join(projectPath, newWorkingDirectory)
-        )
+        if (command.startsWith('cd ') && mode === 'user') {
+          const newWorkingDirectory = command.split(' ')[1]
+          projectPath = setProjectRoot(
+            path.join(projectPath, newWorkingDirectory)
+          )
+        }
+
+        // Reset the PTY to the project root
+        ptyProcess.write(`cd ${projectPath}\r`)
+
+        resolve({
+          result: formatResult(commandOutput, 'Command completed'),
+          stdout: commandOutput,
+        })
+        return
+      } else if (isLast) {
+        // Doesn't end in newline character, wait for more data
+        pendingOutput = line
+      } else {
+        // Process the line
+        process.stdout.write(line)
+        commandOutput += line
       }
-
-      // Reset the PTY to the project root
-      ptyProcess.write(`cd ${projectPath}\r`)
-
-      resolve({
-        result: formatResult(commandOutput, 'Command completed'),
-        stdout: commandOutput,
-      })
-      return
     }
-
-    process.stdout.write(data)
-    commandOutput += data
   })
 
   const isWindows = os.platform() === 'win32'
