@@ -61,6 +61,9 @@ export const mainPrompt = async (
   const fileProcessingPromises: Promise<FileChange | null>[] = []
 
   const justUsedATool = toolResults.length > 0
+  const justRanTerminalCommand = toolResults.some(
+    (t) => t.name === 'run_terminal_command'
+  )
   const allMessagesTokens = countTokensJson(messagesWithUserMessage)
 
   // Step 1: Read more files.
@@ -142,7 +145,10 @@ ${toolResults
 
     'If unsure about what to do, ask the user for clarification, and use the end_turn tool.',
 
-    'You may use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is minimal, you may not need to use these tools.',
+    'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
+
+    // For Sonnet 3.6.
+    'Before you use write_file to edit an existing file, make sure to use the read_files tool on the file to read it.',
 
     !justUsedATool &&
       !recentlyDidThinking &&
@@ -151,7 +157,7 @@ ${toolResults
       "Don't act on the plan created by the think_deeply tool. Instead, wait for the user to review it.",
 
     hasKnowledgeFiles &&
-      'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case.',
+      'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
 
     hasKnowledgeFiles &&
       isNotFirstUserMessage &&
@@ -159,7 +165,7 @@ ${toolResults
 
     "Don't run git commands or scripts without being specifically instructed to do so.",
 
-    justUsedATool &&
+    justRanTerminalCommand &&
       `If the tool result above is of a terminal command succeeding and you have completed the user's request, please use the end_turn tool and do not write anything else.`,
 
     'Write "<end_turn></end_turn>" at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.'

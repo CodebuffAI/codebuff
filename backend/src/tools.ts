@@ -77,6 +77,7 @@ Notes for editing a file:
 - If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
 - Similarly, you can create new files by specifying a new file path and including the entire content of the file.
 - When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
+- Make sure to read the file before you write to it (if you haven't already read it).
 
 After you have written out an write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
 
@@ -117,7 +118,7 @@ function foo() {
     name: 'read_files',
     description: `
 ## read_files
-Description: Read the multiple files from disk and return their contents.
+Description: Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request. Make sure to read any files before you write to them with the write_file tool.
 Parameters:
 - paths: (required) List of file paths to read, separated by newlines
 Usage:
@@ -275,13 +276,7 @@ Usage:
 </plan>
 </create_plan>
 
-Use this tool when the user request meets multiple of these criteria:
-- Explicitly asks you to plan or think through something
-- Requires changes across multiple files or systems
-- Involves complex logic or architectural decisions
-- Would benefit from breaking down into smaller steps
-- Has potential edge cases or risks that need consideration
-- Requires careful coordination of changes
+Use this tool when the user you to plan something.
 
 Examples of when to use it:
 - Adding a new feature that touches multiple parts of the system
@@ -309,6 +304,8 @@ Do not include any of the following sections in the plan:
 - a timeline or schedule
 - benefits/key improvements
 - next steps
+
+After creating than plan, you should end turn to let the user review the plan.
 
 Important: Use this tool sparingly. Do not use this tool more than once in a conversation, if a plan was already created, or for similar user requests.
     `.trim(),
