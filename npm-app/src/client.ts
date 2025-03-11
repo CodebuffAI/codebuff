@@ -51,7 +51,8 @@ import {
 import { handleToolCall } from './tool-handlers'
 import { GitCommand } from './types'
 import { Spinner } from './utils/spinner'
-import { createXMLStreamParser, toolRenderers } from './utils/xml-stream-parser'
+import { createXMLStreamParser } from './utils/xml-stream-parser'
+import { toolRenderers } from './utils/tool-renderers'
 
 export class Client {
   private webSocket: APIRealtimeClient

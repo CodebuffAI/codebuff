@@ -1,12 +1,10 @@
 // @ts-ignore
 import { describe, test, expect } from 'bun:test'
-import {
-  createXMLStreamParser,
-  defaultToolCallRenderer,
-} from '../xml-stream-parser'
 import { Writable } from 'stream'
 import fs from 'fs'
 import path from 'path'
+import { createXMLStreamParser } from '../xml-stream-parser'
+import { defaultToolCallRenderer } from '../tool-renderers'
 
 const toolRenderers = {
   run_terminal_command: defaultToolCallRenderer,
