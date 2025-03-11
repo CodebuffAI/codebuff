@@ -63,7 +63,6 @@
     "tree-sitter-rust"
   ],
   "dependencies": {
-    "codebuff": "^1.0.119",
-    "node-fetch": "2"
+    "codebuff": "^1.0.119"
   }
 }
