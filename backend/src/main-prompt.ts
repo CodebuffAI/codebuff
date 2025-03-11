@@ -38,15 +38,13 @@ export const mainPrompt = async (
     action
   const { messageHistory, fileContext } = agentState
 
-  const messagesWithUserMessage = prompt
-    ? [
-        ...messageHistory,
-        {
-          role: 'user' as const,
-          content: prompt,
-        },
-      ]
-    : messageHistory
+  const messagesWithUserMessage = buildArray(
+    ...messageHistory,
+    prompt && {
+      role: 'user' as const,
+      content: prompt,
+    }
+  )
   const lastUserMessage = messagesWithUserMessage.findLast(
     (m) => m.role === 'user'
   )
@@ -110,6 +108,24 @@ ${existingNewFilePaths.join('\n')}
     })
   }
 
+  const messagesWithToolResults = buildArray(
+    ...messagesWithOptionalReadFiles,
+    toolResults.length > 0 && {
+      role: 'user' as const,
+      content: `
+<tool_results>
+${toolResults
+  .map(
+    (result) => `<tool_result>
+<tool>${result.name}</tool>
+<result>${result.result}</result>
+</tool_result>`
+  )
+  .join('\n')}
+</tool_results>
+`.trim(),
+    }
+  )
   const { agentContext } = agentState
   const hasKnowledgeFiles =
     Object.keys(fileContext.knowledgeFiles).length > 0 ||
@@ -158,22 +174,7 @@ ${existingNewFilePaths.join('\n')}
       role: 'user' as const,
       content: userInstructions,
     },
-    ...getMessagesSubset(messagesWithOptionalReadFiles),
-    toolResults.length > 0 && {
-      role: 'user' as const,
-      content: `
-<tool_results>
-${toolResults
-  .map(
-    (result) => `<tool_result>
-<tool>${result.name}</tool>
-<result>${result.result}</result>
-</tool_result>`
-  )
-  .join('\n')}
-</tool_results>
-`.trim(),
-    }
+    ...getMessagesSubset(messagesWithToolResults)
   )
   const agentMessagesTokens = countTokensJson(agentMessages)
   const system = getAgentSystemPrompt(
@@ -255,7 +256,7 @@ ${toolResults
   }
 
   const messagesWithResponse = [
-    ...messagesWithOptionalReadFiles,
+    ...messagesWithToolResults,
     { role: 'assistant' as const, content: fullResponse || "I'll continue." },
   ]
   const toolCalls = parseToolCalls(fullResponse)
