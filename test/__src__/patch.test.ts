@@ -161,4 +161,197 @@ describe('applyPatch', () => {
       expect(result === newContent || result === newContent2).toBe(true)
     })
   })
+
+  it('should handle patches with context lines', () => {
+    const oldContent = 'line1\nline2\nline3\nline4\n'
+    const patch = '@@ -1,4 +1,4 @@\n line1\n-line2\n+newline2\n line3\n line4\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nnewline2\nline3\nline4\n')
+  })
+
+  it('should handle multiple hunks in a patch', () => {
+    const oldContent = 'line1\nline2\nline3\nline4\n'
+    const patch =
+      '@@ -1,2 +1,2 @@\n line1\n-line2\n+newline2\n@@ -4,1 +4,1 @@\n-line4\n+newline4\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nnewline2\nline3\nnewline4\n')
+  })
+
+  it('should handle patches with line additions', () => {
+    const oldContent = 'line1\nline2\nline3\n'
+    const patch = '@@ -2,1 +2,2 @@\n line2\n+newline\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nline2\nnewline\nline3\n')
+  })
+
+  it('should handle patches with line deletions', () => {
+    const oldContent = 'line1\nline2\nline3\n'
+    const patch = '@@ -2,2 +2,1 @@\n line2\n-line3\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nline2\n')
+  })
+
+  it('should handle patches with whitespace changes', () => {
+    const oldContent = 'line1\n  line2\nline3\n'
+    const patch = '@@ -2,1 +2,1 @@\n-  line2\n+    line2\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\n    line2\nline3\n')
+  })
+
+  it('should handle patches with empty lines', () => {
+    const oldContent = 'line1\n\nline3\n'
+    const patch = '@@ -2,1 +2,1 @@\n-\n+newline2\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nnewline2\nline3\n')
+  })
+
+  it('should handle patches with hunk headers containing function names', () => {
+    const oldContent = 'function foo() {\n  return 1;\n}\n'
+    const patch =
+      '@@ -1,3 +1,3 @@ function foo() {\n function foo() {\n-  return 1;\n+  return 2;\n }\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('function foo() {\n  return 2;\n}\n')
+  })
+
+  it('should handle patches with partial line matches', () => {
+    const oldContent = 'line1\n  line2  \nline3\n'
+    const patch = '@@ -2,1 +2,1 @@\n-  line2  \n+  newline2  \n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\n  newline2  \nline3\n')
+  })
+
+  it('should handle patches with no line endings', () => {
+    const oldContent = 'line1\nline2\nline3'
+    const patch = '@@ -3,1 +3,1 @@\n-line3\n+newline3'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nline2\nnewline3')
+  })
+
+  it('should handle patches with Windows line endings', () => {
+    const oldContent = 'line1\r\nline2\r\nline3\r\n'
+    const patch = '@@ -2,1 +2,1 @@\n-line2\r\n+newline2\r\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\r\nnewline2\r\nline3\r\n')
+  })
+
+  it('should handle patches with mixed line endings', () => {
+    const oldContent = 'line1\nline2\r\nline3\n'
+    const patch = '@@ -2,1 +2,1 @@\n-line2\r\n+newline2\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nnewline2\nline3\n')
+  })
+
+  it('should handle patches with indentation variations', () => {
+    const oldContent = '  line1\n    line2\n  line3\n'
+    const patch = '@@ -2,1 +2,1 @@\n-    line2\n+      line2\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('  line1\n      line2\n  line3\n')
+  })
+
+  it('should handle patches with special characters', () => {
+    const oldContent = 'line1\nline2 // comment\nline3\n'
+    const patch =
+      '@@ -2,1 +2,1 @@\n-line2 // comment\n+line2 /* new comment */\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nline2 /* new comment */\nline3\n')
+  })
+
+  it('should handle patches with multiple context matches', () => {
+    const oldContent = 'line1\nline2\nline1\nline2\n'
+    const patch = '@@ -1,2 +1,2 @@\n line1\n-line2\n+newline2\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nnewline2\nline1\nline2\n')
+  })
+
+  it('should handle patches with no context lines', () => {
+    const oldContent = 'line1\nline2\nline3\n'
+    const patch = '@@ -2,1 +2,1 @@\n-line2\n+newline2\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nnewline2\nline3\n')
+  })
+
+  it('should handle patches with context lines that match multiple places', () => {
+    const oldContent = 'line1\nline2\nline1\nline2\nline3\n'
+    const patch = '@@ -1,2 +1,2 @@\n line1\n-line2\n+newline2\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nnewline2\nline1\nline2\nline3\n')
+  })
+
+  it('should handle patches with missing newline at end of file', () => {
+    const oldContent = 'line1\nline2' // No trailing newline
+    const patch = '@@ -2,1 +2,1 @@\n-line2\n+newline2' // No trailing newline in patch
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nnewline2')
+  })
+
+  it('should handle patches with escaped characters', () => {
+    const oldContent = 'line1\nline2\t\nline3\n'
+    const patch = '@@ -2,1 +2,1 @@\n-line2\t\n+line2\\t\\n\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nline2\\t\\n\nline3\n')
+  })
+
+  it('should handle patches with unicode characters', () => {
+    const oldContent = 'line1\n🚀 line2\nline3\n'
+    const patch = '@@ -2,1 +2,1 @@\n-🚀 line2\n+✨ line2\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\n✨ line2\nline3\n')
+  })
+
+  it('should handle patches with very long lines', () => {
+    const longLine = 'x'.repeat(1000)
+    const oldContent = `line1\n${longLine}\nline3\n`
+    const patch = `@@ -2,1 +2,1 @@\n-${longLine}\n+${'y'.repeat(1000)}\n`
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe(`line1\n${'y'.repeat(1000)}\nline3\n`)
+  })
+
+  it('should handle patches with invalid line numbers gracefully', () => {
+    const oldContent = 'line1\nline2\nline3\n'
+    const patch = '@@ -99,1 +99,1 @@\n-line2\n+newline2\n'
+
+    const result = applyPatch(oldContent, patch)
+
+    expect(result).toBe('line1\nnewline2\nline3\n')
+  })
 })
