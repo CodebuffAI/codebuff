@@ -1,7 +1,16 @@
-import { describe, it, expect, beforeEach } from 'jest'
-import { CheckpointManager, Checkpoint } from '../checkpoints'
+import { describe, it, expect, beforeEach, mock } from 'bun:test'
+import { CheckpointManager } from '../../npm-app/src/checkpoints'
 import { AgentState, getInitialAgentState } from 'common/types/agent-state'
 import { ProjectFileContext } from 'common/util/file'
+
+// Mock isomorphic-git to prevent actual file system operations
+mock.module('isomorphic-git', () => ({
+  statusMatrix: () => [],
+  add: () => {},
+  commit: () => 'mock-commit',
+  writeRef: () => {},
+  resolveRef: () => 'HEAD',
+}))
 
 // Mock minimal ProjectFileContext for testing
 const mockFileContext: ProjectFileContext = {
@@ -26,7 +35,6 @@ const mockFileContext: ProjectFileContext = {
     cpus: 1,
   },
   fileVersions: [],
-  prevFileVersions: {},
 }
 
 // Create a mock agent state for testing
@@ -49,14 +57,14 @@ describe('CheckpointManager', () => {
   
   beforeEach(() => {
     // Create a fresh checkpoint manager before each test
-    checkpointManager = new CheckpointManager(5) // Limit to 5 checkpoints for testing
+    checkpointManager = new CheckpointManager()
   })
   
-  it('should add a checkpoint and return its ID', () => {
+  it('should add a checkpoint and return its ID', async () => {
     const agentState = createMockAgentState()
     const userInput = 'Test user input'
     
-    const id = checkpointManager.addCheckpoint(agentState, userInput)
+    const id = await checkpointManager.addCheckpoint(agentState, userInput)
     
     expect(id).toBe(1) // First checkpoint should have ID 1
     
@@ -66,9 +74,9 @@ describe('CheckpointManager', () => {
     expect(checkpoint?.historyLength).toBe(agentState.messageHistory.length)
   })
   
-  it('should retrieve a checkpoint by ID', () => {
+  it('should retrieve a checkpoint by ID', async () => {
     const agentState = createMockAgentState()
-    const id = checkpointManager.addCheckpoint(agentState, 'Test input')
+    const id = await checkpointManager.addCheckpoint(agentState, 'Test input')
     
     const checkpoint = checkpointManager.getCheckpoint(id)
     
@@ -83,10 +91,10 @@ describe('CheckpointManager', () => {
     expect(checkpoint).toBeNull()
   })
   
-  it('should get all checkpoints', () => {
-    checkpointManager.addCheckpoint(createMockAgentState(1), 'Input 1')
-    checkpointManager.addCheckpoint(createMockAgentState(2), 'Input 2')
-    checkpointManager.addCheckpoint(createMockAgentState(3), 'Input 3')
+  it('should get all checkpoints', async () => {
+    await checkpointManager.addCheckpoint(createMockAgentState(1), 'Input 1')
+    await checkpointManager.addCheckpoint(createMockAgentState(2), 'Input 2')
+    await checkpointManager.addCheckpoint(createMockAgentState(3), 'Input 3')
     
     const checkpoints = checkpointManager.getAllCheckpoints()
     
@@ -96,35 +104,16 @@ describe('CheckpointManager', () => {
     expect(checkpoints[2].id).toBe(3)
   })
   
-  it('should get the latest checkpoint', () => {
-    // We need to modify the implementation for testing to control timestamps
-    // Create a subclass of CheckpointManager that allows us to manipulate timestamps
-    class TestCheckpointManager extends CheckpointManager {
-      // Method to directly manipulate a checkpoint's timestamp
-      setCheckpointTimestamp(id: number, timestamp: number): void {
-        const checkpoint = this.getCheckpoint(id);
-        if (checkpoint) {
-          checkpoint.timestamp = timestamp;
-        }
-      }
-    }
-    
-    const testManager = new TestCheckpointManager(5);
-    
+  it('should get the latest checkpoint', async () => {
     // Add checkpoints
-    const id1 = testManager.addCheckpoint(createMockAgentState(1), 'Input 1');
-    const id2 = testManager.addCheckpoint(createMockAgentState(2), 'Input 2');
+    await checkpointManager.addCheckpoint(createMockAgentState(1), 'Input 1')
+    const id2 = await checkpointManager.addCheckpoint(createMockAgentState(2), 'Input 2')
     
-    // Set id1 to have the most recent timestamp
-    const now = Date.now();
-    testManager.setCheckpointTimestamp(id1, now);
-    testManager.setCheckpointTimestamp(id2, now - 1000); // 1 second earlier
+    const latestCheckpoint = checkpointManager.getLatestCheckpoint()
     
-    const latestCheckpoint = testManager.getLatestCheckpoint();
-    
-    expect(latestCheckpoint).not.toBeNull();
-    // The latest checkpoint should be the one with the most recent timestamp (id1)
-    expect(latestCheckpoint?.id).toBe(id1);
+    expect(latestCheckpoint).not.toBeNull()
+    // The latest checkpoint should be the one with the highest ID
+    expect(latestCheckpoint?.id).toBe(id2)
   })
   
   it('should return null for latest checkpoint when no checkpoints exist', () => {
@@ -133,9 +122,9 @@ describe('CheckpointManager', () => {
     expect(latestCheckpoint).toBeNull()
   })
   
-  it('should clear all checkpoints', () => {
-    checkpointManager.addCheckpoint(createMockAgentState(), 'Input 1')
-    checkpointManager.addCheckpoint(createMockAgentState(), 'Input 2')
+  it('should clear all checkpoints', async () => {
+    await checkpointManager.addCheckpoint(createMockAgentState(), 'Input 1')
+    await checkpointManager.addCheckpoint(createMockAgentState(), 'Input 2')
     
     checkpointManager.clearCheckpoints()
     
@@ -143,22 +132,22 @@ describe('CheckpointManager', () => {
     expect(checkpointManager.getLatestCheckpoint()).toBeNull()
   })
   
-  it('should enforce the maximum number of checkpoints', () => {
+  it('should maintain all checkpoints', async () => {
     // Add more checkpoints than the limit (5)
     for (let i = 0; i < 7; i++) {
-      checkpointManager.addCheckpoint(createMockAgentState(), `Input ${i}`)
+      await checkpointManager.addCheckpoint(createMockAgentState(), `Input ${i}`)
     }
     
     const checkpoints = checkpointManager.getAllCheckpoints()
     
-    // Should only keep the 5 most recent checkpoints
-    expect(checkpoints.length).toBe(5)
-    expect(checkpoints[0].id).toBe(3) // Oldest checkpoint should be ID 3
-    expect(checkpoints[4].id).toBe(7) // Newest checkpoint should be ID 7
+    // Should keep all checkpoints
+    expect(checkpoints.length).toBe(7)
+    expect(checkpoints[0].id).toBe(1) // First checkpoint should be ID 1
+    expect(checkpoints[6].id).toBe(7) // Last checkpoint should be ID 7
   })
   
-  it('should format checkpoints as a string', () => {
-    checkpointManager.addCheckpoint(createMockAgentState(), 'Test input')
+  it('should format checkpoints as a string', async () => {
+    await checkpointManager.addCheckpoint(createMockAgentState(), 'Test input')
     
     const formatted = checkpointManager.getCheckpointsAsString()
     
@@ -167,8 +156,8 @@ describe('CheckpointManager', () => {
     expect(formatted).toContain('Test input')
   })
   
-  it('should format detailed checkpoint information', () => {
-    const id = checkpointManager.addCheckpoint(createMockAgentState(3), 'Detailed test')
+  it('should format detailed checkpoint information', async () => {
+    const id = await checkpointManager.addCheckpoint(createMockAgentState(3), 'Detailed test')
     
     const details = checkpointManager.getCheckpointDetails(id)
     
@@ -183,10 +172,10 @@ describe('CheckpointManager', () => {
     expect(details).toContain('not found')
   })
   
-  it('should reset the ID counter when clearing checkpoints', () => {
-    checkpointManager.addCheckpoint(createMockAgentState(), 'First batch')
+  it('should reset the ID counter when clearing checkpoints', async () => {
+    await checkpointManager.addCheckpoint(createMockAgentState(), 'First batch')
     checkpointManager.clearCheckpoints()
-    const newId = checkpointManager.addCheckpoint(createMockAgentState(), 'Second batch')
+    const newId = await checkpointManager.addCheckpoint(createMockAgentState(), 'Second batch')
     
     expect(newId).toBe(1) // ID counter should reset to 1
   })
