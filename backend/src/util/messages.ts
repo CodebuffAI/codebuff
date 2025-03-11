@@ -22,26 +22,18 @@ export function getMessageText(message: Message): string | undefined {
  */
 export function trimMessagesToFitTokenLimit(
   messages: Message[],
-  systemTokens: number,
-  lastUserMessageIndex: number
+  systemTokens: number
 ) {
   const MAX_TOTAL_TOKENS = 200_000
   const MAX_MESSAGE_TOKENS = MAX_TOTAL_TOKENS - systemTokens
 
-  const messagesTokens = countTokensJson(messages)
-
-  // If messages are within limits, return the original array
-  if (messagesTokens <= MAX_MESSAGE_TOKENS) {
-    return messages
-  }
-
   let currentMessages: Message[] = []
-  let currentTokens = countTokensJson(currentMessages)
+  let currentTokens = 0
 
   // Add messages from the end toward the beginning until we approach the limit
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i]
-    const messageTokens = countTokensJson([message])
+    const messageTokens = countTokensJson(message)
 
     if (currentTokens + messageTokens <= MAX_MESSAGE_TOKENS) {
       currentMessages.unshift(message)

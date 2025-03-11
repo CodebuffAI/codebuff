@@ -26,6 +26,7 @@ import {
   ClientToolCall,
   updateContextFromToolCalls,
 } from './tools'
+import { trimMessagesToFitTokenLimit } from './util/messages'
 
 export const mainPrompt = async (
   ws: WebSocket,
@@ -171,6 +172,9 @@ ${toolResults
     'Write "<end_turn></end_turn>" at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.'
   ).join('\n')
 
+  const system = getAgentSystemPrompt(fileContext, messagesWithToolResults)
+  const systemTokens = countTokensJson(system)
+
   const agentMessages = buildArray(
     agentContext && {
       role: 'assistant' as const,
@@ -180,23 +184,23 @@ ${toolResults
       role: 'user' as const,
       content: userInstructions,
     },
-    ...getMessagesSubset(messagesWithToolResults)
-  )
-  const agentMessagesTokens = countTokensJson(agentMessages)
-  const system = getAgentSystemPrompt(
-    fileContext,
-    agentMessages,
-    agentMessagesTokens
+    ...getMessagesSubset(
+      messagesWithToolResults,
+      systemTokens + countTokensJson({ agentContext, userInstructions })
+    )
   )
 
   logger.debug(
     {
       agentMessages,
+      messagesWithToolResults,
+      messageHistory,
       prompt,
       agentContext,
       files: fileContext.fileVersions.map((files) => files.map((f) => f.path)),
       iteration: iterationNum,
       toolResults,
+      systemTokens,
     },
     `Main prompt ${iterationNum}`
   )
@@ -436,6 +440,7 @@ ${toolResults
       clientToolCalls,
       serverToolResults,
       agentContext: newAgentContext,
+      messagesWithResponse,
     },
     `Main prompt response ${iterationNum}`
   )
@@ -443,7 +448,6 @@ ${toolResults
     agentState: newAgentState,
     toolCalls: clientToolCalls,
     toolResults: serverToolResults,
-    messageHistory: messagesWithResponse,
   }
 }
 
@@ -660,12 +664,16 @@ async function getFileVersionUpdates(
   }
 }
 
-const getMessagesSubset = (messages: Message[]) => {
+const getMessagesSubset = (messages: Message[], otherTokens: number) => {
   const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
     JSON.stringify(content).includes('COMPLETE')
   })
   if (indexLastSubgoalComplete === -1) {
     return messages
   }
-  return messages.slice(indexLastSubgoalComplete)
+
+  return trimMessagesToFitTokenLimit(
+    messages.slice(indexLastSubgoalComplete),
+    otherTokens
+  )
 }

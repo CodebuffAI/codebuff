@@ -19,8 +19,7 @@ import { Message } from 'common/types/message'
 
 export const getAgentSystemPrompt = (
   fileContext: ProjectFileContext,
-  messageHistory: Message[],
-  messagesTokens: number
+  messageHistory: Message[]
 ) => {
   const { fileVersions } = fileContext
   const systemInstructions = fs.readFileSync(
@@ -101,7 +100,6 @@ ${messageHistory
         files.map((f) => f.path)
       ),
       systemPromptTokens: countTokensJson(systemPrompt),
-      messagesTokens,
       duration: Date.now() - startTime,
     },
     'agent system prompt tokens'
