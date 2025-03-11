@@ -380,14 +380,10 @@ export class CLI {
       (checkpointManager.getLatestCheckpoint() as Checkpoint).id - 1
     if (checkpointId < 1) {
       console.log(red('Nothing to undo.'))
+      this.promptWithCheckpointNumber()
       return
     }
-    await this.restoreAgentStateAndFiles(
-      checkpointManager.getCheckpoint(checkpointId) as Checkpoint
-    )
-    console.log(green(`Restored to checkpoint #${checkpointId}.`))
-
-    this.promptWithCheckpointNumber()
+    await this.handleRestoreCheckpoint(checkpointId)
   }
 
   private handleKeyPress(str: string, key: any) {
@@ -701,6 +697,7 @@ export class CLI {
     const checkpoint = checkpointManager.getCheckpoint(id)
     if (!checkpoint) {
       console.log(red(`Checkpoint #${id} not found.`))
+      this.promptWithCheckpointNumber()
       return
     }
 
