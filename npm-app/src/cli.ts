@@ -11,21 +11,16 @@ import {
 } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
-import { Message, MessageContentObject } from 'common/types/message'
+import { Message } from 'common/types/message'
 import { createFileBlock, ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 
-import { ChatStorage } from './chat-storage'
+import { setMessages } from './chat-storage'
 import { Checkpoint, checkpointManager } from './checkpoints'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
-import {
-  getChangesSinceLastFileVersion,
-  getExistingFiles,
-  getProjectRoot,
-  setFiles,
-} from './project-files'
+import { getChangesSinceLastFileVersion, getProjectRoot } from './project-files'
 import { handleRunTerminalCommand } from './tool-handlers'
 import { CliOptions, GitCommand } from './types'
 import { Spinner } from './utils/spinner'
@@ -36,7 +31,6 @@ import type { CostMode } from 'common/constants'
 
 export class CLI {
   private client: Client
-  private chatStorage: ChatStorage
   private readyPromise: Promise<any>
   private git: GitCommand
   private costMode: CostMode
@@ -55,14 +49,12 @@ export class CLI {
   ) {
     this.git = git
     this.costMode = costMode
-    this.chatStorage = new ChatStorage()
 
     this.setupSignalHandlers()
     this.initReadlineInterface()
 
     this.client = new Client(
       websocketUrl,
-      this.chatStorage,
       this.onWebSocketError.bind(this),
       this.onWebSocketReconnect.bind(this),
       this.returnControlToUser.bind(this),
@@ -322,35 +314,18 @@ export class CLI {
 
     this.client.lastChanges = []
 
-    const currentChat = this.chatStorage.getCurrentChat()
-    const { fileVersions } = currentChat
-    const currentFileVersion =
-      fileVersions[fileVersions.length - 1]?.files ?? {}
-    const changesSinceLastFileVersion =
-      getChangesSinceLastFileVersion(currentFileVersion)
-    const changesFileBlocks = Object.entries(changesSinceLastFileVersion)
-      .map(([filePath, patch]) => [
-        filePath,
-        patch.length < 8_000
-          ? patch
-          : '[LARGE_FILE_CHANGE_TOO_LONG_TO_REPRODUCE]',
-      ])
-      .map(([filePath, patch]) => createFileBlock(filePath, patch))
-    const changesMessage =
-      changesFileBlocks.length > 0
-        ? `<user_edits_since_last_chat>\n${changesFileBlocks.join('\n')}\n</user_edits_since_last_chat>\n\n`
-        : ''
-
     const urls = parseUrlsFromContent(userInput)
     const scrapedBlocks = await getScrapedContentBlocks(urls)
     const scrapedContent =
       scrapedBlocks.length > 0 ? scrapedBlocks.join('\n\n') + '\n\n' : ''
-
     const newMessage: Message = {
       role: 'user',
-      content: `${changesMessage}${scrapedContent}${userInput}`,
+      content: `${scrapedContent}${userInput}`,
     }
-    this.chatStorage.addMessage(currentChat, newMessage)
+
+    if (this.client.agentState) {
+      setMessages([...this.client.agentState.messageHistory, newMessage])
+    }
 
     this.isReceivingResponse = true
     const { responsePromise, stopResponse } =

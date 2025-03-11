@@ -33,9 +33,10 @@ import {
 import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import type { CostMode } from 'common/constants'
+import { Message } from 'common/types/message'
+import { setMessages } from './chat-storage'
 
-import { activeBrowserRunner, BrowserRunner } from './browser-runner'
-import { ChatStorage } from './chat-storage'
+import { activeBrowserRunner } from './browser-runner'
 import { checkpointManager, Checkpoint } from './checkpoints'
 import { backendUrl } from './config'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
@@ -53,7 +54,6 @@ import { createXMLStreamParser, toolRenderers } from './utils/xml-stream-parser'
 
 export class Client {
   private webSocket: APIRealtimeClient
-  private chatStorage: ChatStorage
   private returnControlToUser: () => void
   private fingerprintId: string | undefined
   private costMode: CostMode
@@ -77,7 +77,6 @@ export class Client {
 
   constructor(
     websocketUrl: string,
-    chatStorage: ChatStorage,
     onWebSocketError: () => void,
     onWebSocketReconnect: () => void,
     returnControlToUser: () => void,
@@ -92,7 +91,6 @@ export class Client {
       onWebSocketError,
       onWebSocketReconnect
     )
-    this.chatStorage = chatStorage
     this.user = this.getUser()
     this.getFingerprintId()
     this.returnControlToUser = returnControlToUser
@@ -535,20 +533,14 @@ export class Client {
         content: responseBuffer + '[RESPONSE_CANCELED_BY_USER]',
       }
 
-      // Update the agent state with your prompt and partial response.
+      // Update the agent state with just the assistant's response
       const { messageHistory } = this.agentState!
+      const newMessages = [...messageHistory, assistantMessage]
       this.agentState = {
         ...this.agentState!,
-        messageHistory: [
-          ...messageHistory,
-          { role: 'user' as const, content: prompt },
-          assistantMessage,
-        ],
+        messageHistory: newMessages,
       }
-
-      // Add the incomplete response to chat storage
-      const currentChat = this.chatStorage.getCurrentChat()
-      this.chatStorage.addMessage(currentChat, assistantMessage)
+      setMessages(newMessages)
 
       resolveResponse({
         type: 'prompt-response',
@@ -594,6 +586,7 @@ export class Client {
         Spinner.get().stop()
         let isComplete = false
         const toolResults: ToolResult[] = [...a.toolResults]
+        const fileChanges: FileVersion[] = []
 
         for (const toolCall of a.toolCalls) {
           if (toolCall.name === 'end_turn') {
@@ -602,7 +595,7 @@ export class Client {
           }
           if (toolCall.name === 'write_file') {
             // Save the file contents before writing
-            const { path: filePath } = toolCall.parameters
+            const { path: filePath, content } = toolCall.parameters
             if (filePath !== undefined) {
               const fullPath = path.join(getProjectRoot(), filePath)
               if (!(fullPath in this.originalFileVersions)) {
@@ -610,15 +603,22 @@ export class Client {
                   ? fs.readFileSync(fullPath, 'utf8')
                   : null
               }
+              // Track the new file version
+              fileChanges.push({ path: filePath, content })
             }
 
             this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
-
             this.hadFileChanges = true
           }
           const toolResult = await handleToolCall(toolCall, getProjectRoot())
           toolResults.push(toolResult)
         }
+
+        // If we had any file changes, add them to our version history
+        if (fileChanges.length > 0) {
+          this.fileVersions.push(fileChanges)
+        }
+
         if (!isComplete) {
           Spinner.get().start()
           // Continue the prompt with the tool results.
@@ -637,12 +637,15 @@ export class Client {
 
         xmlStreamParser.end()
 
-        // Add the complete response to chat storage
-        const currentChat = this.chatStorage.getCurrentChat()
-        this.chatStorage.addMessage(currentChat, {
-          role: 'assistant',
+        // Add just the assistant's response to chat storage
+        const assistantMessage = {
+          role: 'assistant' as const,
           content: responseBuffer,
-        })
+        }
+        if (this.agentState) {
+          this.agentState.messageHistory.push(assistantMessage)
+          setMessages(this.agentState.messageHistory)
+        }
 
         if (this.hadFileChanges) {
           const latestCheckpointId = (
