@@ -616,13 +616,7 @@ export class Client {
 
         xmlStreamParser.end()
 
-        // Add just the assistant's response to chat storage
-        const assistantMessage = {
-          role: 'assistant' as const,
-          content: responseBuffer,
-        }
         if (this.agentState) {
-          this.agentState.messageHistory.push(assistantMessage)
           setMessages(this.agentState.messageHistory)
         }
 
