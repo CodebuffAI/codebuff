@@ -455,7 +455,6 @@ export class Saxy extends Transform {
     }
 
     if (!node.isSelfClosing) {
-      console.log('pushing tag', node.name)
       this._tagStack.push(node.name)
     }
 
