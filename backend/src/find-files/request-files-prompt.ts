@@ -319,8 +319,10 @@ Please follow these steps to determine which key files to request:
    - Central utility functions
    - Documentation files
    - Knowledge files (e.g. 'knowledge.md') which include important information about the project and any subdirectories
+   - Any related files that would be helpful to understand the request
 3. Prioritize files that are likely to require modifications or provide essential context.
-4. Order the files by most important first.
+4. But be sure to include example code! I.e. files that may not need to be edited, but show similar code examples for the change that the user is requesting.
+5. Order the files by most important first.
 
 Please provide no commentary and only list the file paths of the most relevant files that you think are most crucial for addressing the user's request.
 
