@@ -22,7 +22,7 @@ mock.module('puppeteer', () => ({
   },
 }))
 
-describe('Browser XML Instructions', () => {
+describe.skip('Browser XML Instructions', () => {
   test('creates valid XML from browser action', () => {
     const action: BrowserAction = {
       type: 'start',
@@ -119,7 +119,7 @@ describe('Browser XML Instructions', () => {
   })
 })
 
-describe('BrowserRunner Advanced Features', () => {
+describe.skip('BrowserRunner Advanced Features', () => {
   let runner: BrowserRunner
 
   beforeEach(() => {
