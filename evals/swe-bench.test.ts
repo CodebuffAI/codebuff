@@ -10,15 +10,12 @@ import {
   TEST_REPOS_DIR,
 } from './test-setup'
 import { passesSweBenchTests } from './swe-bench-eval'
+import { PROMPT_PREFIX } from './constants'
 
 const REPO_AND_INSTANCE_IDS = {
   matplotlib: ['matplotlib__matplotlib-25442', 'matplotlib__matplotlib-23299'],
   pylint: ['pylint-dev__pylint-7080'],
 }
-const PROMPT_PREFIX =
-  'Fix the following issue. Keep going until you have completely fixed the ' +
-  'issue. Do not ask me any follow-up questions, just do your best to ' +
-  'interpret the intent of the issue.\n\n-----\n\n'
 const LITE_DATASET_PATH = path.join(
   TEST_REPOS_DIR,
   'codebuff-swe-bench',
@@ -56,7 +53,8 @@ describe('SWE-Bench', async () => {
             const initialAgentState = await createInitialAgentState(repoPath)
             resetRepo(sweBenchLiteDataset[instanceId].base_commit)
 
-            const prompt = `${PROMPT_PREFIX}${sweBenchLiteDataset[instanceId].problem_statement}`
+            const prompt =
+              PROMPT_PREFIX + sweBenchLiteDataset[instanceId].problem_statement
             await loopMainPrompt({
               agentState: initialAgentState,
               prompt,

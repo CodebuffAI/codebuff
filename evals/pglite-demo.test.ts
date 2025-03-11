@@ -2,12 +2,14 @@ import { expect, test, describe, beforeEach } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 
+import { PROMPT_PREFIX } from './constants'
 import { loopMainPrompt } from './scaffolding'
 import { setupTestEnvironment, createInitialAgentState } from './test-setup'
 
 describe('pglite-demo', async () => {
   // Set up the test environment once for all tests
-  const { repoPath, commit, resetRepo } = await setupTestEnvironment('pglite-demo')
+  const { repoPath, commit, resetRepo } =
+    await setupTestEnvironment('pglite-demo')
   const initialAgentState = await createInitialAgentState(repoPath)
 
   // Reset repo before each test
@@ -16,7 +18,8 @@ describe('pglite-demo', async () => {
   test(
     'should find correct file',
     async () => {
-      const prompt = 'Can you add a console.log statement to the main page?'
+      const prompt =
+        PROMPT_PREFIX + 'Can you add a console.log statement to the main page?'
       let { toolCalls } = await loopMainPrompt({
         agentState: initialAgentState,
         prompt,

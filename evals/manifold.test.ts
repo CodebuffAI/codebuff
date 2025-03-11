@@ -2,6 +2,7 @@ import { expect, test, describe, beforeEach } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 
+import { PROMPT_PREFIX } from './constants'
 import { loopMainPrompt } from './scaffolding'
 import { setupTestEnvironment, createInitialAgentState } from './test-setup'
 
@@ -17,6 +18,7 @@ describe('manifold', async () => {
     'should find correct file',
     async () => {
       const prompt =
+        PROMPT_PREFIX +
         'Can you add a console.log statement to components/like-button.ts with all the props?'
       let { toolCalls } = await loopMainPrompt({
         agentState: initialAgentState,
@@ -56,7 +58,7 @@ describe('manifold', async () => {
   test(
     'should add delete comment endpoint',
     async () => {
-      const prompt = 'Add an endpoint to delete a comment'
+      const prompt = PROMPT_PREFIX + 'Add an endpoint to delete a comment'
       await loopMainPrompt({
         agentState: initialAgentState,
         prompt,
