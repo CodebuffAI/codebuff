@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.171",
+  "version": "1.0.172",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -35,7 +35,7 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=14"
+    "node": ">=16"
   },
   "dependencies": {
     "@types/diff": "5.2.1",
@@ -49,6 +49,7 @@
     "nanoid": "5.0.7",
     "picocolors": "1.1.0",
     "puppeteer-core": "^24.2.0",
+    "node-fetch": "2",
     "systeminformation": "5.23.4",
     "tree-sitter": "0.21.1",
     "tree-sitter-c": "0.23.0",
