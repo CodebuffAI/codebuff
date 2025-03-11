@@ -57,7 +57,6 @@ export class Client {
   private returnControlToUser: () => void
   private fingerprintId: string | undefined
   private costMode: CostMode
-  public fileVersions: FileVersion[][] = []
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
   public agentState: AgentState | undefined
@@ -106,15 +105,7 @@ export class Client {
 
   public initAgentState(projectFileContext: ProjectFileContext) {
     this.agentState = getInitialAgentState(projectFileContext)
-
-    const { knowledgeFiles } = projectFileContext
     this.fileContext = projectFileContext
-    this.fileVersions = [
-      Object.entries(knowledgeFiles).map(([path, content]) => ({
-        path,
-        content,
-      })),
-    ]
   }
 
   private async getFingerprintId(): Promise<string> {
@@ -586,7 +577,6 @@ export class Client {
         Spinner.get().stop()
         let isComplete = false
         const toolResults: ToolResult[] = [...a.toolResults]
-        const fileChanges: FileVersion[] = []
 
         for (const toolCall of a.toolCalls) {
           if (toolCall.name === 'end_turn') {
@@ -603,9 +593,9 @@ export class Client {
           toolResults.push(toolResult)
         }
 
-        // If we had any file changes, add them to our version history
-        if (fileChanges.length > 0) {
-          this.fileVersions.push(fileChanges)
+        // If we had any file changes, update the project context
+        if (this.hadFileChanges) {
+          this.fileContext = await getProjectFileContext(getProjectRoot(), {})
         }
 
         if (!isComplete) {
@@ -690,11 +680,7 @@ export class Client {
   }
 
   public async warmContextCache() {
-    const fileContext = await getProjectFileContext(
-      getProjectRoot(),
-      {},
-      this.fileVersions
-    )
+    const fileContext = await getProjectFileContext(getProjectRoot(), {})
 
     this.webSocket.subscribe('init-response', (a) => {
       const parsedAction = InitResponseSchema.safeParse(a)

@@ -133,21 +133,15 @@ export function initProjectFileContextWithWorker(dir: string) {
  *
  * @param {string} projectRoot - The root directory path of the project
  * @param {Record<string, string>} lastFileVersion - Record of the last known file versions
- * @param {FileVersion[][]} fileVersions - Array of file version arrays, representing the history of file changes
+ * @param {FileVersion[][]} newFileVersions - Array of file version arrays, representing the history of file changes
  * @returns {Promise<ProjectFileContext>} A promise that resolves to the project file context object
  */
 export const getProjectFileContext = async (
   projectRoot: string,
-  lastFileVersion: Record<string, string>,
-  fileVersions: FileVersion[][],
+  lastFileVersion: Record<string, string>
 ) => {
   const gitChanges = await getGitChanges()
   const changesSinceLastChat = getChangesSinceLastFileVersion(lastFileVersion)
-  const updatedProps = {
-    gitChanges,
-    changesSinceLastChat,
-    fileVersions,
-  }
 
   if (
     !cachedProjectFileContext ||
@@ -161,13 +155,21 @@ export const getProjectFileContext = async (
     const knowledgeFilePaths = allFilePaths.filter((filePath) =>
       filePath.endsWith('knowledge.md')
     )
-    const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
+    const knowledgeFiles = await getExistingFiles(knowledgeFilePaths)
     const knowledgeFilesWithScrapedContent =
       await addScrapedContentToFiles(knowledgeFiles)
 
+    // Calculate file versions from the cached context if it exists
+    const fileVersions = [
+      Object.entries(knowledgeFiles).map(([path, content]) => ({
+        path,
+        content,
+      })),
+    ]
+
     // Get knowledge files from user's home directory
     const homeDir = os.homedir()
-    const userKnowledgeFiles = findKnowledgeFilesInDir(homeDir)
+    const userKnowledgeFiles = await findKnowledgeFilesInDir(homeDir)
     const userKnowledgeFilesWithScrapedContent =
       await addScrapedContentToFiles(userKnowledgeFiles)
 
@@ -182,12 +184,9 @@ export const getProjectFileContext = async (
       shellConfigFiles,
       systemInfo: getSystemInfo(),
       userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,
-      ...updatedProps,
-    }
-  } else {
-    cachedProjectFileContext = {
-      ...cachedProjectFileContext,
-      ...updatedProps,
+      gitChanges,
+      changesSinceLastChat,
+      fileVersions,
     }
   }
 
