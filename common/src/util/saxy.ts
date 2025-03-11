@@ -445,13 +445,17 @@ export class Saxy extends Transform {
       else {
         const parentTag = this._tagStack[this._tagStack.length - 1]
         // Ignore if parent not in schema or this tag not allowed as child
-        if (!this._schema[parentTag] || !this._schema[parentTag].includes(name)) {
+        if (
+          !this._schema[parentTag] ||
+          !this._schema[parentTag].includes(name)
+        ) {
           return
         }
       }
     }
 
     if (!node.isSelfClosing) {
+      console.log('pushing tag', node.name)
       this._tagStack.push(node.name)
     }
 
@@ -500,10 +504,10 @@ export class Saxy extends Transform {
         // A tag follows, so we can be confident that
         // we have all the data needed for the TEXT node
         let chunk = input.slice(chunkPos, nextTag)
-          if (this._tagStack.length === 1) {
-            // Trim whitespace for text within top level tags
-            chunk = chunk.trim()
-          }
+        if (this._tagStack.length === 1) {
+          // Trim whitespace for text within top level tags
+          chunk = chunk.trim()
+        }
 
         // Only emit non-whitespace text or text within a single tag (not between tags)
         if (chunk.length > 0) {
@@ -533,12 +537,12 @@ export class Saxy extends Transform {
       // Check if the tag is a closing tag
       if (input[chunkPos] === '/') {
         const tagName = input.slice(chunkPos + 1, tagClose)
-        const stackedTagName = this._tagStack.pop()
+        const stackedTagName = this._tagStack[this._tagStack.length - 1]
 
         // Only emit close tag if it matches schema validation
         if (this._schema) {
           // For top-level tags
-          if (this._tagStack.length === 0) {
+          if (this._tagStack.length === 1) {
             if (!this._schema[tagName]) {
               chunkPos = tagClose + 1
               continue
@@ -546,13 +550,18 @@ export class Saxy extends Transform {
           }
           // For nested tags
           else {
-            const parentTag = this._tagStack[this._tagStack.length - 1]
-            if (!this._schema[parentTag] || !this._schema[parentTag].includes(tagName)) {
+            const parentTag = this._tagStack[this._tagStack.length - 2]
+            if (
+              !this._schema[parentTag] ||
+              !this._schema[parentTag].includes(tagName)
+            ) {
               chunkPos = tagClose + 1
               continue
             }
           }
         }
+
+        this._tagStack.pop()
 
         // Only emit if the tag matches what we expect
         if (stackedTagName === tagName) {

@@ -1,14 +1,17 @@
 // @ts-ignore
 import { describe, test, expect } from 'bun:test'
-import { createXMLStreamParser, defaultToolCallRenderer } from '../xml-stream-parser'
+import {
+  createXMLStreamParser,
+  defaultToolCallRenderer,
+} from '../xml-stream-parser'
 import { Writable } from 'stream'
+import fs from 'fs'
+import path from 'path'
 
 const toolRenderers = {
   run_terminal_command: defaultToolCallRenderer,
+  write_file: defaultToolCallRenderer,
   read_files: defaultToolCallRenderer,
-  code_search: defaultToolCallRenderer,
-  add_subgoal: defaultToolCallRenderer,
-  update_subgoal: defaultToolCallRenderer,
 }
 
 describe('Saxy Stream Processor', () => {
@@ -194,5 +197,71 @@ describe('Saxy Stream Processor', () => {
     expect(fullOutput).toEqual('hihi2hi3 yo')
 
     expect(outputChunks.length).toBeGreaterThan(3)
+  })
+
+  test('real world example write to 4 files', async () => {
+    // Read the file content directly - no need for complex unescaping
+    const response = fs.readFileSync(
+      path.join(__dirname, './response-example-4-files.txt'),
+      'utf-8'
+    )
+
+    // Array to store output chunks as they're produced
+    const outputChunks: string[] = []
+
+    // Create a writable stream that captures each output chunk
+    const writable = new Writable({
+      write(chunk, encoding, callback) {
+        const chunkStr = chunk.toString()
+        outputChunks.push(chunkStr)
+        callback()
+      },
+    })
+
+    let writeFileStartCount = 0
+    let writeFileEndCount = 0
+    const testToolRenderers = {
+      ...toolRenderers,
+      write_file: {
+        ...defaultToolCallRenderer,
+        onToolStart: (toolName: string) => {
+          console.log('write_file start')
+          writeFileStartCount++
+          return 'Write File'
+        },
+        onParamStart: (paramName: string, toolName: string) => {
+          console.log('write_file param start', paramName)
+          return null
+        },
+        onParamEnd: (paramName: string, toolName: string, content: string) => {
+          console.log('write_file param end', paramName, content)
+          return null
+        },
+        onToolEnd: (toolName: string, params: Record<string, string>) => {
+          console.log('write_file end', params)
+          writeFileEndCount++
+          return null
+        },
+      },
+    }
+
+    // Create the processor
+    const processor = createXMLStreamParser(testToolRenderers)
+    processor.pipe(writable)
+
+    processor.write(response)
+    processor.end()
+
+    // Wait for the stream to finish
+    await new Promise<void>((resolve) => {
+      writable.on('finish', resolve)
+    })
+
+    // Verify the complete output
+    const fullOutput = outputChunks.join('')
+    expect(fullOutput).toContain('Write File') // Check for expected output without worrying about formatting
+    expect(writeFileEndCount).toBe(4)
+    // We expect multiple chunks for a large response
+    expect(outputChunks.length).toBeGreaterThan(1)
   })
 })
