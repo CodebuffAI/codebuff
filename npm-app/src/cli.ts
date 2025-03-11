@@ -195,7 +195,9 @@ export class CLI {
   }
 
   private async beforeProcessCommand(userInput: string): Promise<void> {
+    Spinner.get().start()
     await this.readyPromise
+    Spinner.get().stop()
     // Save the current agent state
     await checkpointManager.addCheckpoint(
       this.client.agentState as AgentState,
