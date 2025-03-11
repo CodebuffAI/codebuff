@@ -14,7 +14,14 @@ import { PROMPT_PREFIX } from './constants'
 
 const REPO_AND_INSTANCE_IDS = {
   matplotlib: ['matplotlib__matplotlib-25442', 'matplotlib__matplotlib-23299'],
-  pylint: ['pylint-dev__pylint-7080'],
+  pylint: [
+    'pylint-dev__pylint-5859',
+    'pylint-dev__pylint-6506',
+    'pylint-dev__pylint-7080',
+    'pylint-dev__pylint-7114',
+    'pylint-dev__pylint-7228',
+    'pylint-dev__pylint-7993',
+  ],
 }
 const LITE_DATASET_PATH = path.join(
   TEST_REPOS_DIR,
