@@ -24,18 +24,9 @@ export function getProjectDataDir(): string {
   const baseName = path.basename(root)
   const baseDir = path.join(CONFIG_DIR, 'projects', baseName)
 
-  // If directory doesn't exist or matches our path, use simple name
-  if (!fs.existsSync(baseDir) || fs.realpathSync(baseDir) === baseDir) {
-    return baseDir
-  }
-
-  // Only add hash if we have a collision
-  const projectHash = require('crypto')
-    .createHash('sha256')
-    .update(root)
-    .digest('hex')
-    .slice(0, 8)
-  return path.join(CONFIG_DIR, 'projects', `${baseName}-${projectHash}`)
+  // TODO: Need to handle duplicate project directories after adding automatic
+  // feedback feature
+  return baseDir
 }
 
 export function getCurrentChatDir(): string {
