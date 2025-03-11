@@ -327,12 +327,13 @@ Please analyze the edit snippet and create SEARCH/REPLACE blocks that will trans
 
 Important:
 1. The SEARCH content must match exactly to a substring of the old file content - make sure you're using the exact same whitespace, single quotes, double quotes, and backticks.
-2. Keep the changes minimal and focused
+2. Keep the changes minimal and focused. Do not include any "placeholder comments" (including but not limited to \`// ... existing code ...\`) unless you think it should be included in the final output.
 3. Preserve the original formatting, indentation, and comments
 4. Only implement the changes shown in the edit snippet
 
 Please output just the SEARCH/REPLACE blocks like this:
-<<<<<<< SEARCH
+
+` + `<<<<<<< SEARCH
 [exact content from old file]
 =======
 [new content that matches edit snippet intent]

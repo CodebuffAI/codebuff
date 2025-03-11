@@ -13,7 +13,7 @@ const tools = [
     name: 'add_subgoal',
     description: `
 ## add_subgoal
-Description: Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step.
+Description: Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!
 Parameters:
 - id: (required) A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use.
 - objective: (required) The objective of the subgoal, concisely and clearly stated.
@@ -71,15 +71,17 @@ Description: Create or edit a file with the given content.
 
 When editing a file, please use this tool to output a simplified version of the code block that highlights the changes necessary and adds comments to indicate where unchanged code has been skipped.
 
-The user can see the entire file, so they prefer to only read the updates to the code. Often this will mean that the start/end of the file will be skipped, but that's okay! Rewrite the entire file only if specifically requested. Always provide a brief explanation of the updates, unless the user specifically requests only the code.
+--- IMPORTANT OPTIMIZATION DETAIL ---
+Use "placeholder comments", i.e. "... existing code ..." in comments as often as you can. The write_file backend is very expensive, so try to write as little \`content\` as possible to accomplish the task. Often this will mean that the start/end of the file will be skipped, but that's okay! Rewrite the entire file only if specifically requested.
+--- IMPORTANT OPTIMIZATION DETAIL ---
 
-These edit codeblocks are also read by a less intelligent language model, colloquially called the apply model, to update the file. To help specify the edit to the apply model, you will be very careful when generating the codeblock to not introduce ambiguity. You will specify all unchanged regions (code and comments) of the file with "// ... existing code ..." comment markers. This will ensure the apply model will not delete existing unchanged code or comments when editing the file. You will not mention the apply model.
+These edit codeblocks will be read by a less intelligent "apply" language model to update the file. To help specify the edit to the apply model, be very careful to include a few lines of context when generating the codeblock to not introduce ambiguity. Specify all unchanged regions (code and comments) of the file with "... existing code ..." markets (in comments). This will ensure the apply model will not delete existing unchanged code or comments when editing the file. This is just an abstraction for your understanding, you should not mention the apply model to the user.
 
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
 Parameters:
 - path: (required) Path to the file relative to the project root
-- content: (required) Content to write to the file. You should abridge the content of the file using placeholder comments like: // ... existing code ... or # ... existing code ... (or whichever is appropriate for the language).
+- content: (required) Content to write to the file. You should abridge the content of the file using placeholder comments like: \`// ... existing code ...\` or \`# ... existing code ...\` (or whichever is appropriate for the language).
 Usage:
 <write_file>
 <path>src/main.ts</path>
@@ -90,7 +92,7 @@ Your file content here
 
 Example:
 
-The following example shows how the foo function is being updated, with appropriate "// ... existing code ..." comments to indicate where the code has not changed:
+The following example shows how the foo function is being updated, with appropriate "... existing code ..." in placeholder comments to indicate where the code has not changed:
 
 <write_file>
 <path>foo.ts</path>
@@ -102,11 +104,13 @@ function foo() {
   for (let i = 0; i < 10; i++) {
     console.log(i);
   }
+  doSomething();
 }
 
 // ... existing code ...
 </content>
 </write_file>
+
 
 Notes for editing a file:
 - If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
