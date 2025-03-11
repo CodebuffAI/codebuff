@@ -83,7 +83,7 @@ export function getTestReposConfig() {
 }
 
 async function setupSweBenchEnvironment() {
-  execSync(`python -m venv ${SWE_BENCH_VENV_PATH}`)
+  execSync(`python3 -m venv ${SWE_BENCH_VENV_PATH}`)
   execSync(`${SWE_BENCH_PIP_PATH} install swebench==1.1.5`)
 }
 
@@ -102,7 +102,7 @@ export async function setupTestEnvironment(projectName: string) {
   await ensureTestRepos()
 
   if (project.commit === 'HEAD') {
-    setupSweBenchEnvironment()
+    await setupSweBenchEnvironment()
   }
 
   const repoPath = path.join(TEST_REPOS_DIR, projectName)
@@ -113,7 +113,7 @@ export async function setupTestEnvironment(projectName: string) {
   return {
     repoPath,
     commit: project.commit,
-    resetRepo: (commit) => resetRepoToCommit(repoPath, commit),
+    resetRepo: (commit: string) => resetRepoToCommit(repoPath, commit),
   }
 }
 
