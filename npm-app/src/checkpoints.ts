@@ -17,7 +17,7 @@ import * as checkpointFileManager from './checkpoint-file-manager'
  */
 export interface Checkpoint {
   agentStateString: string
-  fileStateId: string
+  fileStateIdPromise: Promise<string>
   historyLength: number
   id: number
   timestamp: number
@@ -44,13 +44,13 @@ export class CheckpointManager {
     // Use incremental ID starting at 1
     const id = this.nextId++
 
-    const fileStateId = await checkpointFileManager.storeFileState(
+    const fileStateIdPromise = checkpointFileManager.storeFileState(
       `Checkpoint ${id}`
     )
 
     const checkpoint: Checkpoint = {
       agentStateString: JSON.stringify(agentState), // Deep clone to prevent reference issues
-      fileStateId,
+      fileStateIdPromise,
       historyLength: agentState.messageHistory.length,
       id,
       timestamp: Date.now(),
@@ -98,7 +98,7 @@ export class CheckpointManager {
       return false
     }
 
-    checkpointFileManager.checkoutFileState(checkpoint.fileStateId)
+    checkpointFileManager.checkoutFileState(await checkpoint.fileStateIdPromise)
     return true
   }
 
