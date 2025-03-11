@@ -712,7 +712,9 @@ export class CLI {
     this.rl.write(checkpoint.userInput)
   }
 
-  private async restoreAgentStateAndFiles(checkpoint: Checkpoint): Promise<void> {
+  private async restoreAgentStateAndFiles(
+    checkpoint: Checkpoint
+  ): Promise<void> {
     // Restore the agentState
     this.client.agentState = JSON.parse(checkpoint.agentStateString)
 
@@ -722,7 +724,6 @@ export class CLI {
         message: `Internal error: checkpoint ${checkpoint.id} not found`,
       })
     }
-
   }
 
   private async handleClearCheckpoints(): Promise<void> {

@@ -373,7 +373,6 @@ export class Client {
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
-      this.returnControlToUser()
       const parsedAction = UsageReponseSchema.safeParse(action)
       if (!parsedAction.success) return
       const a = parsedAction.data
@@ -384,6 +383,7 @@ export class Client {
       )
       this.setUsage(a)
       this.showUsageWarning(a.referralLink)
+      this.returnControlToUser()
     })
   }
 
@@ -572,8 +572,18 @@ export class Client {
       'prompt-response',
       async (action) => {
         const parsedAction = PromptResponseSchema.safeParse(action)
-        if (!parsedAction.success || action.promptId !== userInputId) return
+        if (!parsedAction.success) return
         const a = parsedAction.data
+
+        // store cost data
+        const usageData = UsageReponseSchema.omit({ type: true }).safeParse(a)
+
+        if (usageData.success) {
+          this.setUsage(usageData.data)
+          this.showUsageWarning(a.referralLink)
+        }
+
+        if (action.promptId !== userInputId) return
         this.agentState = a.agentState
 
         Spinner.get().stop()
@@ -635,29 +645,6 @@ export class Client {
         unsubscribeChunks()
         unsubscribeComplete()
         resolveResponse({ ...a, wasStoppedByUser: false })
-
-        if (
-          !a.usage ||
-          !a.next_quota_reset ||
-          a.subscription_active === undefined ||
-          !a.limit
-        ) {
-          return
-        }
-
-        this.setUsage({
-          usage: a.usage,
-          limit: a.limit,
-          subscription_active: a.subscription_active,
-          next_quota_reset: a.next_quota_reset,
-          session_credits_used: a.session_credits_used ?? 0,
-        })
-
-        this.showUsageWarning(a.referralLink)
-
-        if (this.limit !== a.limit) {
-          this.lastWarnedPct = 0
-        }
       }
     )
 
