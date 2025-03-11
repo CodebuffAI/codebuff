@@ -35,18 +35,49 @@ export async function initializeCheckpointFileManager(): Promise<void> {
   await storeFileState('Initial Commit')
 }
 
+async function addFilesIndividually(): Promise<void> {
+  // Get status of all files in the project directory
+  const statusMatrix = await git.statusMatrix({
+    fs,
+    dir: projectDir,
+    gitdir: bareRepoPath,
+  })
+
+  try {
+    for (const [
+      filepath,
+      headStatus,
+      workdirStatus,
+      stageStatus,
+    ] of statusMatrix) {
+      await git.add({
+        fs,
+        dir: projectDir,
+        gitdir: bareRepoPath,
+        filepath,
+      })
+    }
+  } catch (error) {
+    // Could not add file
+  }
+}
+
 /**
  * Stores the current state of all files in the project as a git commit
  * @param message The commit message to use for this file state
  * @returns A promise that resolves to the id hash that can be used to restore this file state
  */
 export async function storeFileState(message: string): Promise<string> {
-  await git.add({
-    fs,
-    dir: projectDir,
-    gitdir: bareRepoPath,
-    filepath: '.',
-  })
+  try {
+    await git.add({
+      fs,
+      dir: projectDir,
+      gitdir: bareRepoPath,
+      filepath: '.',
+    })
+  } catch (error) {
+    await addFilesIndividually()
+  }
 
   const commitHash = await git.commit({
     fs,
