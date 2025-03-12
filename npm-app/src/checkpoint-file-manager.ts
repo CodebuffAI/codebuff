@@ -17,14 +17,11 @@ export async function initializeCheckpointFileManager(dir: string) {
 
   try {
     // Check if it's already a valid Git repo
-    await git.resolveRef({ fs, dir: bareRepoPath, ref: 'HEAD' })
-    return // Exit if the repository exists
+    console.log(await git.resolveRef({ fs, dir: bareRepoPath, ref: 'HEAD' }))
   } catch (error) {
     // Bare repo doesn't exist yet
+    await git.init({ fs, dir: bareRepoPath, bare: true })
   }
-
-  // Initialize a bare repository
-  await git.init({ fs, dir: bareRepoPath, bare: true })
 
   // Commit the files in the bare repo
   await storeFileState(dir, bareRepoPath, 'Initial Commit')
@@ -44,7 +41,8 @@ async function stageFilesIndividually(
   await Promise.all(
     statusMatrix
       .filter(([, , workdirStatus, stageStatus]) => {
-        workdirStatus !== stageStatus && workdirStatus in [0, 2]
+        workdirStatus !== stageStatus &&
+          (workdirStatus === 0 || workdirStatus === 2)
       })
       .map(async ([filepath, , workdirStatus]) => {
         if (workdirStatus === 2) {
