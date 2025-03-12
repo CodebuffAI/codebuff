@@ -101,11 +101,11 @@ export class CheckpointManager {
       return false
     }
 
-    checkpointFileManager.checkoutFileState(
-      getProjectRoot(),
-      this.getBareRepoPath(),
-      await checkpoint.fileStateIdPromise
-    )
+    await checkpointFileManager.gitResetHard({
+      dir: getProjectRoot(),
+      gitdir: this.getBareRepoPath(),
+      commit: await checkpoint.fileStateIdPromise,
+  })
     return true
   }
 

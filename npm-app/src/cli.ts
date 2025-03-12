@@ -198,6 +198,10 @@ export class CLI {
     Spinner.get().start()
     await this.readyPromise
     Spinner.get().stop()
+
+    // Make sure the previous checkpoint is done
+    await checkpointManager.getLatestCheckpoint()?.fileStateIdPromise
+
     // Save the current agent state
     await checkpointManager.addCheckpoint(
       this.client.agentState as AgentState,
@@ -702,6 +706,10 @@ export class CLI {
       this.promptWithCheckpointNumber()
       return
     }
+
+    // Wait for save before trying to restore checkpoint
+    const latestCheckpoint = checkpointManager.getLatestCheckpoint()
+    await latestCheckpoint?.fileStateIdPromise
 
     await this.restoreAgentStateAndFiles(checkpoint)
 
