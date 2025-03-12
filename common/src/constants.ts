@@ -77,12 +77,10 @@ export const OVERAGE_RATE_PRO = 0.99
 export const OVERAGE_RATE_MOAR_PRO = 0.9
 export const CREDITS_REFERRAL_BONUS = 500
 
-// Helper to convert from UsageLimits to display names
 export const getPlanDisplayName = (limit: UsageLimits): string => {
   return PLAN_CONFIGS[limit].displayName
 }
 
-// Helper to convert from display name to UsageLimits
 export const getUsageLimitFromPlanName = (planName: string): UsageLimits => {
   const entry = Object.entries(PLAN_CONFIGS).find(
     ([_, config]) => config.planName === planName
@@ -98,7 +96,7 @@ export type PlanConfig = {
   planName: UsageLimits
   displayName: string
   monthlyPrice: number
-  overageRate: number | null // null if no overage allowed
+  overageRate: number | null
 }
 
 export const UsageLimits = {
@@ -110,7 +108,6 @@ export const UsageLimits = {
 
 export type UsageLimits = (typeof UsageLimits)[keyof typeof UsageLimits]
 
-// Define base configs with production values
 export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {
   ANON: {
     limit: 250,
@@ -142,14 +139,12 @@ export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {
   },
 }
 
-// Increase limits by 1000 in local environment to make testing easier
 if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'local') {
   Object.values(PLAN_CONFIGS).forEach((config) => {
     config.limit *= 1000
   })
 }
 
-// Helper to get credits limit from a plan config
 export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
   Object.fromEntries(
     Object.entries(PLAN_CONFIGS).map(([key, config]) => [key, config.limit])
@@ -158,7 +153,6 @@ export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
 export const costModes = ['lite', 'normal', 'max'] as const
 export type CostMode = (typeof costModes)[number]
 
-// NOTE: This function not kept up to date.
 export const getModelForMode = (
   costMode: CostMode,
   operation: 'agent' | 'file-requests' | 'check-new-files'
@@ -176,8 +170,7 @@ export const getModelForMode = (
 }
 
 export const claudeModels = {
-  sonnet: 'claude-3-7-sonnet-20250219',
-  // sonnet: 'claude-3-5-sonnet-20241022',
+  sonnet: 'claude-3-5-sonnet-20241022',
   haiku: 'claude-3-5-haiku-20241022',
 } as const
 export type AnthropicModel = (typeof claudeModels)[keyof typeof claudeModels]
