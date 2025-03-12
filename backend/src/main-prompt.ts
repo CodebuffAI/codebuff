@@ -144,7 +144,7 @@ ${toolResults
 
     'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested.',
 
-    'If unsure about what to do, ask the user for clarification, and use the end_turn tool.',
+    "If there is ANY ambiguity in the user's request (i.e. multiple ways their command could be interpreted), ask 3 questions that will help you understand what the user is really asking for. Format as a numbered list. Then use the end_turn tool.",
 
     'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
