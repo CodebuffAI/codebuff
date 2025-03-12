@@ -727,7 +727,7 @@ export class CLI {
     this.client.agentState = JSON.parse(checkpoint.agentStateString)
 
     // Restore file state
-    if (!(await checkpointManager.restoreFileState(checkpoint.id))) {
+    if (!(await checkpointManager.restoreCheckointFileState(checkpoint.id))) {
       throw new AssertionError({
         message: `Internal error: checkpoint ${checkpoint.id} not found`,
       })

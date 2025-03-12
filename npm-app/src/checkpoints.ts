@@ -1,7 +1,12 @@
 import { blue, bold, cyan, gray, underline, yellow } from 'picocolors'
 
+import { getAllFilePaths } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
-import * as checkpointFileManager from './checkpoint-file-manager'
+import {
+  getBareRepoPath,
+  storeFileState,
+  restoreFileState,
+} from './checkpoint-file-manager'
 import { getProjectRoot } from './project-files'
 
 /**
@@ -26,8 +31,7 @@ export class CheckpointManager {
 
   getBareRepoPath(): string {
     if (!this.bareRepoPath) {
-      this.bareRepoPath =
-        checkpointFileManager.getBareRepoPath(getProjectRoot())
+      this.bareRepoPath = getBareRepoPath(getProjectRoot())
     }
     return this.bareRepoPath
   }
@@ -45,11 +49,14 @@ export class CheckpointManager {
     // Use incremental ID starting at 1
     const id = this.nextId++
 
-    const fileStateIdPromise = checkpointFileManager.storeFileState(
-      getProjectRoot(),
-      this.getBareRepoPath(),
-      `Checkpoint ${id}`
-    )
+    const fileStateIdPromise = storeFileState({
+      projectDir: getProjectRoot(),
+      bareRepoPath: this.getBareRepoPath(),
+      message: `Checkpoint ${id}`,
+      relativeFilepaths: getAllFilePaths(
+        agentState.fileContext.fileTree
+      ),
+    })
 
     const checkpoint: Checkpoint = {
       agentStateString: JSON.stringify(agentState), // Deep clone to prevent reference issues
@@ -95,17 +102,23 @@ export class CheckpointManager {
     return this.checkpoints.get(this.nextId - 1) || null
   }
 
-  async restoreFileState(id: number): Promise<boolean> {
+  async restoreCheckointFileState(id: number): Promise<boolean> {
     const checkpoint = this.getCheckpoint(id)
     if (!checkpoint) {
       return false
     }
 
-    await checkpointFileManager.gitResetHard({
+    const relativeFilepaths = getAllFilePaths(
+      (JSON.parse(checkpoint.agentStateString) as AgentState).fileContext
+        .fileTree
+    )
+
+    await restoreFileState({
       dir: getProjectRoot(),
       gitdir: this.getBareRepoPath(),
       commit: await checkpoint.fileStateIdPromise,
-  })
+      relativeFilepaths,
+    })
     return true
   }
 
