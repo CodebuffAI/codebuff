@@ -98,7 +98,7 @@ export class CheckpointManager {
       return false
     }
 
-    checkpointFileManager.checkoutFileState(await checkpoint.fileStateIdPromise)
+    await checkpointFileManager.checkoutFileState(await checkpoint.fileStateIdPromise)
     return true
   }
 
