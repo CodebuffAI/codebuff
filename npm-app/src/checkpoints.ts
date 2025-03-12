@@ -53,9 +53,7 @@ export class CheckpointManager {
       projectDir: getProjectRoot(),
       bareRepoPath: this.getBareRepoPath(),
       message: `Checkpoint ${id}`,
-      relativeFilepaths: getAllFilePaths(
-        agentState.fileContext.fileTree
-      ),
+      relativeFilepaths: getAllFilePaths(agentState.fileContext.fileTree),
     })
 
     const checkpoint: Checkpoint = {
@@ -114,8 +112,8 @@ export class CheckpointManager {
     )
 
     await restoreFileState({
-      dir: getProjectRoot(),
-      gitdir: this.getBareRepoPath(),
+      projectDir: getProjectRoot(),
+      bareRepoPath: this.getBareRepoPath(),
       commit: await checkpoint.fileStateIdPromise,
       relativeFilepaths,
     })
