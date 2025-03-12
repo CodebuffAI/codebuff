@@ -42,37 +42,37 @@ async function stageFilesIndividually(
   })
 
   await Promise.all(
-    statusMatrix.map(async ([filepath, , workdirStatus, stageStatus]) => {
-      if (workdirStatus === stageStatus) {
-        return
-      }
-
-      if (workdirStatus === 2) {
-        // existing file different from HEAD
-        try {
-          return git.add({
-            fs,
-            dir: projectDir,
-            gitdir: bareRepoPath,
-            filepath,
-          })
-        } catch (error) {
-          // error adding file
+    statusMatrix
+      .filter(([, , workdirStatus, stageStatus]) => {
+        workdirStatus !== stageStatus && workdirStatus in [0, 2]
+      })
+      .map(async ([filepath, , workdirStatus]) => {
+        if (workdirStatus === 2) {
+          // existing file different from HEAD
+          try {
+            return git.add({
+              fs,
+              dir: projectDir,
+              gitdir: bareRepoPath,
+              filepath,
+            })
+          } catch (error) {
+            // error adding file
+          }
+        } else if (workdirStatus === 0) {
+          // deleted file
+          try {
+            git.remove({
+              fs,
+              dir: projectDir,
+              gitdir: bareRepoPath,
+              filepath,
+            })
+          } catch (error) {
+            // error adding file
+          }
         }
-      } else if (workdirStatus === 0) {
-        // deleted file
-        try {
-          git.remove({
-            fs,
-            dir: projectDir,
-            gitdir: bareRepoPath,
-            filepath,
-          })
-        } catch (error) {
-          // error adding file
-        }
-      }
-    })
+      })
   )
 }
 
