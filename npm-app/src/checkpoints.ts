@@ -1,16 +1,8 @@
-import {
-  blue,
-  bold,
-  cyan,
-  gray,
-  green,
-  red,
-  underline,
-  yellow,
-} from 'picocolors'
+import { blue, bold, cyan, gray, underline, yellow } from 'picocolors'
 
 import { AgentState } from 'common/types/agent-state'
 import * as checkpointFileManager from './checkpoint-file-manager'
+import { getProjectRoot } from './project-files'
 
 /**
  * Interface representing a checkpoint of agent state
@@ -30,6 +22,15 @@ export interface Checkpoint {
 export class CheckpointManager {
   private checkpoints: Map<number, Checkpoint> = new Map()
   private nextId: number = 1
+  private bareRepoPath: string | null = null
+
+  getBareRepoPath(): string {
+    if (!this.bareRepoPath) {
+      this.bareRepoPath =
+        checkpointFileManager.getBareRepoPath(getProjectRoot())
+    }
+    return this.bareRepoPath
+  }
 
   /**
    * Add a new checkpoint
@@ -45,6 +46,8 @@ export class CheckpointManager {
     const id = this.nextId++
 
     const fileStateIdPromise = checkpointFileManager.storeFileState(
+      getProjectRoot(),
+      this.getBareRepoPath(),
       `Checkpoint ${id}`
     )
 
@@ -98,7 +101,11 @@ export class CheckpointManager {
       return false
     }
 
-    checkpointFileManager.checkoutFileState(await checkpoint.fileStateIdPromise)
+    checkpointFileManager.checkoutFileState(
+      getProjectRoot(),
+      this.getBareRepoPath(),
+      await checkpoint.fileStateIdPromise
+    )
     return true
   }
 

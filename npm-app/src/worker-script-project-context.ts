@@ -9,7 +9,7 @@ if (maybeParentPort) {
     setProjectRoot(dir)
     const [initFileContext, _] = await Promise.all([
       getProjectFileContext(dir, {}),
-      initializeCheckpointFileManager(),
+      initializeCheckpointFileManager(dir),
     ])
     parentPort.postMessage(initFileContext)
   })

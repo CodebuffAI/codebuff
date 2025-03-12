@@ -2,20 +2,18 @@ import * as crypto from 'crypto'
 import * as fs from 'fs'
 import * as git from 'isomorphic-git'
 import * as path from 'path'
+import { getProjectDataDir } from './project-files'
 
-import { getProjectRoot, getProjectDataDir } from './project-files'
-
-let projectDir: string
-let bareRepoPath: string
-
-export async function initializeCheckpointFileManager(): Promise<void> {
-  projectDir = getProjectRoot()
-
+export function getBareRepoPath(dir: string) {
   const bareRepoName = crypto
     .createHash('sha256')
-    .update(projectDir)
+    .update(dir)
     .digest('hex')
-  bareRepoPath = path.join(getProjectDataDir(), bareRepoName)
+  return path.join(getProjectDataDir(), bareRepoName)
+}
+
+export async function initializeCheckpointFileManager(dir: string) {
+  const bareRepoPath = getBareRepoPath(dir)
 
   // Create the bare repo directory if it doesn't exist
   fs.mkdirSync(bareRepoPath, { recursive: true })
@@ -32,14 +30,17 @@ export async function initializeCheckpointFileManager(): Promise<void> {
   await git.init({ fs, dir: bareRepoPath, bare: true })
 
   // Commit the files in the bare repo
-  await storeFileState('Initial Commit')
+  await storeFileState(dir, bareRepoPath, 'Initial Commit')
 }
 
-async function addFilesIndividually(): Promise<void> {
+async function addFilesIndividually(
+  dir: string,
+  bareRepoPath: string
+): Promise<void> {
   // Get status of all files in the project directory
   const statusMatrix = await git.statusMatrix({
     fs,
-    dir: projectDir,
+    dir,
     gitdir: bareRepoPath,
   })
 
@@ -52,7 +53,7 @@ async function addFilesIndividually(): Promise<void> {
     ] of statusMatrix) {
       await git.add({
         fs,
-        dir: projectDir,
+        dir,
         gitdir: bareRepoPath,
         filepath,
       })
@@ -67,21 +68,25 @@ async function addFilesIndividually(): Promise<void> {
  * @param message The commit message to use for this file state
  * @returns A promise that resolves to the id hash that can be used to restore this file state
  */
-export async function storeFileState(message: string): Promise<string> {
+export async function storeFileState(
+  dir: string,
+  bareRepoPath: string,
+  message: string
+): Promise<string> {
   try {
     await git.add({
       fs,
-      dir: projectDir,
+      dir,
       gitdir: bareRepoPath,
       filepath: '.',
     })
   } catch (error) {
-    await addFilesIndividually()
+    await addFilesIndividually(dir, bareRepoPath)
   }
 
   const commitHash = await git.commit({
     fs,
-    dir: projectDir,
+    dir,
     gitdir: bareRepoPath,
     author: { name: 'codebuff' },
     message,
@@ -90,11 +95,15 @@ export async function storeFileState(message: string): Promise<string> {
   return commitHash
 }
 
-export async function checkoutFileState(fileStateId: string): Promise<void> {
+export async function checkoutFileState(
+  dir: string,
+  bareRepoPath: string,
+  fileStateId: string
+): Promise<void> {
   // Checkout the given hash
   await git.checkout({
     fs,
-    dir: projectDir,
+    dir,
     gitdir: bareRepoPath,
     ref: fileStateId,
     force: true,

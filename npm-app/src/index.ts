@@ -12,7 +12,6 @@ import {
 import { updateCodebuff } from './update-codebuff'
 import { CliOptions } from './types'
 import { recreateShell } from './utils/terminal'
-import { initializeCheckpointFileManager } from './checkpoint-file-manager'
 import { createTemplateProject } from './create-template-project'
 
 async function codebuff(
