@@ -144,7 +144,7 @@ ${toolResults
 
     'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested.',
 
-    "Unless the user specifies that you don't ask questions, if there is ANY ambiguity in the user's request (i.e. multiple ways their command could be interpreted), ask 3 questions that will help you understand what the user is really asking for. Format as a numbered list. Then use the end_turn tool. Again, if the user specifies that you don't ask questions, make your best assumption and skip this step.",
+    "Unless the user specifies that you don't ask questions, if there is any ambiguity in the user's request that is preventing you from making progress (i.e. multiple ways their command could be interpreted), ask questions that will help you understand what the user is really asking for. If there is more than one question, format as a numbered list. Then use the end_turn tool. Again, if the user specifies that you don't ask questions, make your best assumption and skip this step.",
     
     'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
