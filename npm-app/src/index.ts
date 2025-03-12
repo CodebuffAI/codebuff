@@ -24,9 +24,8 @@ async function codebuff(
 
   const updatePromise = updateCodebuff()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
-  const initCpfm = initializeCheckpointFileManager()
 
-  const readyPromise = Promise.all([updatePromise, initFileContextPromise, initCpfm])
+  const readyPromise = Promise.all([updatePromise, initFileContextPromise])
 
   const cli = new CLI(readyPromise, { git, costMode })
 

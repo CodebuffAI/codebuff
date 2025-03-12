@@ -10,7 +10,7 @@ import {
 import { getAllFilePaths } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
-import { createFileBlock, ProjectFileContext } from 'common/util/file'
+import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 
 import { setMessages } from './chat-storage'
@@ -43,7 +43,7 @@ export class CLI {
   private isPasting: boolean = false
 
   constructor(
-    readyPromise: Promise<[void, ProjectFileContext, void]>,
+    readyPromise: Promise<[void, ProjectFileContext]>,
     { git, costMode }: CliOptions
   ) {
     this.git = git
@@ -64,7 +64,7 @@ export class CLI {
 
     this.readyPromise = Promise.all([
       readyPromise.then((results) => {
-        const [_, fileContext, __] = results
+        const [_, fileContext] = results
         this.client.initAgentState(fileContext)
         return this.client.warmContextCache()
       }),
