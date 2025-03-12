@@ -10,7 +10,7 @@ import {
 import { getAllFilePaths } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
-import { createFileBlock, ProjectFileContext } from 'common/util/file'
+import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 
 import { setMessages } from './chat-storage'
@@ -43,7 +43,7 @@ export class CLI {
   private isPasting: boolean = false
 
   constructor(
-    readyPromise: Promise<[void, ProjectFileContext, void]>,
+    readyPromise: Promise<[void, ProjectFileContext]>,
     { git, costMode }: CliOptions
   ) {
     this.git = git
@@ -64,7 +64,7 @@ export class CLI {
 
     this.readyPromise = Promise.all([
       readyPromise.then((results) => {
-        const [_, fileContext, __] = results
+        const [_, fileContext] = results
         this.client.initAgentState(fileContext)
         return this.client.warmContextCache()
       }),
@@ -198,6 +198,10 @@ export class CLI {
     Spinner.get().start()
     await this.readyPromise
     Spinner.get().stop()
+
+    // Make sure the previous checkpoint is done
+    await checkpointManager.getLatestCheckpoint()?.fileStateIdPromise
+
     // Save the current agent state
     await checkpointManager.addCheckpoint(
       this.client.agentState as AgentState,
@@ -702,6 +706,10 @@ export class CLI {
       this.promptWithCheckpointNumber()
       return
     }
+
+    // Wait for save before trying to restore checkpoint
+    const latestCheckpoint = checkpointManager.getLatestCheckpoint()
+    await latestCheckpoint?.fileStateIdPromise
 
     await this.restoreAgentStateAndFiles(checkpoint)
 

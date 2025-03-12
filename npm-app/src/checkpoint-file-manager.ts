@@ -2,20 +2,15 @@ import * as crypto from 'crypto'
 import * as fs from 'fs'
 import * as git from 'isomorphic-git'
 import * as path from 'path'
+import { getProjectDataDir } from './project-files'
 
-import { getProjectRoot, getProjectDataDir } from './project-files'
+export function getBareRepoPath(dir: string) {
+  const bareRepoName = crypto.createHash('sha256').update(dir).digest('hex')
+  return path.join(getProjectDataDir(), bareRepoName)
+}
 
-let projectDir: string
-let bareRepoPath: string
-
-export async function initializeCheckpointFileManager(): Promise<void> {
-  projectDir = getProjectRoot()
-
-  const bareRepoName = crypto
-    .createHash('sha256')
-    .update(projectDir)
-    .digest('hex')
-  bareRepoPath = path.join(getProjectDataDir(), bareRepoName)
+export async function initializeCheckpointFileManager(dir: string) {
+  const bareRepoPath = getBareRepoPath(dir)
 
   // Create the bare repo directory if it doesn't exist
   fs.mkdirSync(bareRepoPath, { recursive: true })
@@ -32,10 +27,13 @@ export async function initializeCheckpointFileManager(): Promise<void> {
   await git.init({ fs, dir: bareRepoPath, bare: true })
 
   // Commit the files in the bare repo
-  await storeFileState('Initial Commit')
+  await storeFileState(dir, bareRepoPath, 'Initial Commit')
 }
 
-async function addFilesIndividually(): Promise<void> {
+async function stageFilesIndividually(
+  projectDir: string,
+  bareRepoPath: string
+): Promise<void> {
   // Get status of all files in the project directory
   const statusMatrix = await git.statusMatrix({
     fs,
@@ -43,23 +41,39 @@ async function addFilesIndividually(): Promise<void> {
     gitdir: bareRepoPath,
   })
 
-  try {
-    for (const [
-      filepath,
-      headStatus,
-      workdirStatus,
-      stageStatus,
-    ] of statusMatrix) {
-      await git.add({
-        fs,
-        dir: projectDir,
-        gitdir: bareRepoPath,
-        filepath,
-      })
-    }
-  } catch (error) {
-    // Could not add file
-  }
+  await Promise.all(
+    statusMatrix.map(async ([filepath, , workdirStatus, stageStatus]) => {
+      if (workdirStatus === stageStatus) {
+        return
+      }
+
+      if (workdirStatus === 2) {
+        // existing file different from HEAD
+        try {
+          return git.add({
+            fs,
+            dir: projectDir,
+            gitdir: bareRepoPath,
+            filepath,
+          })
+        } catch (error) {
+          // error adding file
+        }
+      } else if (workdirStatus === 0) {
+        // deleted file
+        try {
+          git.remove({
+            fs,
+            dir: projectDir,
+            gitdir: bareRepoPath,
+            filepath,
+          })
+        } catch (error) {
+          // error adding file
+        }
+      }
+    })
+  )
 }
 
 /**
@@ -67,36 +81,61 @@ async function addFilesIndividually(): Promise<void> {
  * @param message The commit message to use for this file state
  * @returns A promise that resolves to the id hash that can be used to restore this file state
  */
-export async function storeFileState(message: string): Promise<string> {
-  try {
-    await git.add({
-      fs,
-      dir: projectDir,
-      gitdir: bareRepoPath,
-      filepath: '.',
-    })
-  } catch (error) {
-    await addFilesIndividually()
-  }
+export async function storeFileState(
+  projectDir: string,
+  bareRepoPath: string,
+  message: string
+): Promise<string> {
+  await stageFilesIndividually(projectDir, bareRepoPath)
 
   const commitHash = await git.commit({
     fs,
     dir: projectDir,
     gitdir: bareRepoPath,
     author: { name: 'codebuff' },
+    ref: 'refs/heads/master',
     message,
+  })
+
+  await git.checkout({
+    fs,
+    dir: projectDir,
+    gitdir: bareRepoPath,
+    ref: commitHash,
   })
 
   return commitHash
 }
 
-export async function checkoutFileState(fileStateId: string): Promise<void> {
-  // Checkout the given hash
+/**
+ * Resets the index and working directory to the specified commit.
+ * @param dir - The working tree directory path.
+ * @param gitdir - The git directory path (typically the .git folder).
+ * @param commit - The commit hash to reset to.
+ */
+export async function gitResetHard({
+  dir,
+  gitdir,
+  commit,
+}: {
+  dir: string
+  gitdir: string
+  commit: string
+}): Promise<void> {
+  // Update the working directory to reflect the specified commit
   await git.checkout({
     fs,
-    dir: projectDir,
-    gitdir: bareRepoPath,
-    ref: fileStateId,
+    dir,
+    gitdir,
+    ref: commit,
     force: true,
   })
+
+  // Reset the index to match the specified commit
+  const files = await git.listFiles({ fs, dir, gitdir })
+  await Promise.all(
+    files.map((filepath) =>
+      git.resetIndex({ fs, dir, gitdir, filepath, ref: commit })
+    )
+  )
 }
