@@ -1,7 +1,6 @@
 import { spawn } from 'child_process'
 import * as fs from 'fs'
 import path from 'path'
-import fetch from 'node-fetch'
 
 import {
   yellow,
