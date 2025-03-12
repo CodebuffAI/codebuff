@@ -254,6 +254,55 @@ Do not write anything else.
   return shouldAddPlaceholderComments
 }
 
+async function rewriteWithGemini(
+  oldContent: string,
+  editSnippet: string,
+  filePath: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined,
+  userMessage: string | undefined
+): Promise<string> {
+  const prompt = `You are an expert programmer tasked with implementing changes to a file. Please rewrite the file to implement the changes shown in the edit snippet, while preserving the original formatting and behavior of unchanged parts.
+
+Old file content:
+\`\`\`
+${oldContent}
+\`\`\`
+
+Edit snippet (the new content to implement):
+\`\`\`
+${editSnippet}
+\`\`\`
+
+Important:
+1. Preserve the original formatting, indentation, and comments
+2. Only implement the changes shown in the edit snippet
+3. Do not use any placeholder comments (like "... existing code ...")
+4. Return the complete file content
+
+Please output just the complete file content with no additional text or formatting inside a \`\`\` block.`
+
+  const response = await promptGeminiWithFallbacks(
+    [
+      { role: 'user', content: prompt },
+      { role: 'assistant', content: '```\n' },
+    ],
+    undefined,
+    {
+      model: geminiModels.gemini2flash,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    }
+  )
+
+  // Remove the last \n``` if present
+  return response.replace(/\n```\s*$/, '')
+}
+
 export async function fastRewrite(
   initialContent: string,
   editSnippet: string,
@@ -267,7 +316,7 @@ export async function fastRewrite(
   const startTime = Date.now()
 
   const messageId = generateCompactId('cb-')
-  const response = await promptRelaceAI(initialContent, editSnippet, {
+  let response = await promptRelaceAI(initialContent, editSnippet, {
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -275,6 +324,25 @@ export async function fastRewrite(
     userMessage,
     messageId,
   })
+
+  // Check if response still contains lazy edits
+  if (hasLazyEdit(response)) {
+    const relaceResponse = response
+    response = await rewriteWithGemini(
+      initialContent,
+      editSnippet,
+      filePath,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      userMessage
+    )
+    logger.debug(
+      { filePath, relaceResponse, geminiResponse: response, messageId },
+      'Relace output contained lazy edits, trying Gemini'
+    )
+  }
 
   logger.debug(
     {
@@ -311,7 +379,8 @@ export async function handleLargeFile(
     return editSnippet
   }
 
-  const prompt = `You are an expert programmer tasked with creating SEARCH/REPLACE blocks to implement a change in a large file. The change should match the intent of the edit snippet while using exact content from the old file.
+  const prompt =
+    `You are an expert programmer tasked with creating SEARCH/REPLACE blocks to implement a change in a large file. The change should match the intent of the edit snippet while using exact content from the old file.
 
 Old file content:
 \`\`\`
@@ -333,7 +402,8 @@ Important:
 
 Please output just the SEARCH/REPLACE blocks like this:
 
-` + `<<<<<<< SEARCH
+` +
+    `<<<<<<< SEARCH
 [exact content from old file]
 =======
 [new content that matches edit snippet intent]
