@@ -186,17 +186,19 @@ export class CLI {
     await this.readyPromise
     Spinner.get().stop()
 
-    // Make sure the previous checkpoint is done
-    await checkpointManager.getLatestCheckpoint()?.fileStateIdPromise
+    if (checkpointManager.enabled) {
+      // Make sure the previous checkpoint is done
+      await checkpointManager.getLatestCheckpoint()?.fileStateIdPromise
 
-    // Save the current agent state
-    const checkpoint = await checkpointManager.addCheckpoint(
-      this.client.agentState as AgentState,
-      userInput
-    )
+      // Save the current agent state
+      const checkpoint = await checkpointManager.addCheckpoint(
+        this.client.agentState as AgentState,
+        userInput
+      )
 
-    if (checkpoint.enabled) {
-      console.log(green(`Checkpoint #${checkpoint.id} saved!`))
+      if (checkpoint) {
+        console.log(green(`Checkpoint #${checkpoint.id} saved!`))
+      }
     }
   }
 
@@ -654,7 +656,13 @@ export class CLI {
   }
 
   private async handleRestoreCheckpoint(id: number): Promise<void> {
-    const checkpoint = checkpointManager.getCheckpoint(id)
+    if (!checkpointManager.enabled) {
+      console.log(red(`Checkpoints not enabled: project too large`))
+      this.rl.prompt()
+      return
+    }
+
+    const checkpoint = checkpointManager.checkpoints[id - 1]
     if (!checkpoint) {
       console.log(red(`Checkpoint #${id} not found.`))
       this.rl.prompt()
@@ -664,12 +672,6 @@ export class CLI {
     // Wait for save before trying to restore checkpoint
     const latestCheckpoint = checkpointManager.getLatestCheckpoint()
     await latestCheckpoint?.fileStateIdPromise
-
-    if (!latestCheckpoint?.enabled) {
-      console.log(red(`Checkpoints not enabled: project too large`))
-      this.rl.prompt()
-      return
-    }
 
     await this.restoreAgentStateAndFiles(checkpoint)
 

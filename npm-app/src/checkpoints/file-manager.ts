@@ -15,18 +15,87 @@ import { execFileSync } from 'child_process'
 
 import { getProjectDataDir } from '../project-files'
 
+let cachedGitAvailable: boolean | null = null
 function gitCommandIsAvailable(): boolean {
-  try {
-    execFileSync('git', ['--version'])
-    return true
-  } catch (error) {
-    return false
+  if (cachedGitAvailable === null) {
+    try {
+      execFileSync('git', ['--version'])
+      cachedGitAvailable = true
+    } catch (error) {
+      cachedGitAvailable = false
+    }
   }
+
+  return cachedGitAvailable
 }
 
 export function getBareRepoPath(dir: string): string {
   const bareRepoName = createHash('sha256').update(dir).digest('hex')
   return join(getProjectDataDir(), bareRepoName)
+}
+
+export async function hasUnsavedChanges({
+  projectDir,
+  bareRepoPath,
+  relativeFilepaths,
+}: {
+  projectDir: string
+  bareRepoPath: string
+  relativeFilepaths: Array<string>
+}): Promise<boolean> {
+  if (gitCommandIsAvailable()) {
+    try {
+      const output = execFileSync('git', [
+        '--git-dir',
+        bareRepoPath,
+        '--work-tree',
+        projectDir,
+        'status',
+        '--porcelain',
+      ]).toString()
+      return output.trim().length > 0
+    } catch (error) {
+      // error running git
+    }
+  }
+
+  for (const [, , workdirStatus, stageStatus] of await statusMatrix({
+    fs,
+    dir: projectDir,
+    gitdir: bareRepoPath,
+    filepaths: relativeFilepaths,
+  })) {
+    if (workdirStatus !== stageStatus) {
+      return true
+    }
+  }
+  return false
+}
+
+export async function getLatestCommit({
+  bareRepoPath,
+}: {
+  bareRepoPath: string
+}): Promise<string> {
+  if (gitCommandIsAvailable()) {
+    try {
+      return execFileSync('git', [
+        '--git-dir',
+        bareRepoPath,
+        'rev-parse',
+        'HEAD',
+      ])
+        .toString()
+        .trim()
+    } catch (error) {
+      // unable to get head
+    }
+  }
+  return await resolveRef({
+    fs,
+    dir: bareRepoPath,
+    ref: 'HEAD',
+  })
 }
 
 export async function initializeCheckpointFileManager({
@@ -58,7 +127,7 @@ export async function initializeCheckpointFileManager({
   })
 }
 
-async function stageFilesIndividually({
+async function stageFiles({
   projectDir,
   bareRepoPath,
   relativeFilepaths,
@@ -67,6 +136,26 @@ async function stageFilesIndividually({
   bareRepoPath: string
   relativeFilepaths: Array<string>
 }): Promise<void> {
+  if (gitCommandIsAvailable()) {
+    try {
+      execFileSync('git', [
+        '--git-dir',
+        bareRepoPath,
+        '--work-tree',
+        projectDir,
+        '-C',
+        projectDir,
+        'add',
+        '.',
+      ])
+      return
+    } catch (error) {
+      // Failed to add .
+    }
+  }
+
+  // Stage files with isomorphic-git
+
   // Get status of all files in the project directory
   const currStatusMatrix = await statusMatrix({
     fs,
@@ -115,32 +204,11 @@ export async function storeFileState({
   message: string
   relativeFilepaths: Array<string>
 }): Promise<string> {
-  let added = false
-  if (gitCommandIsAvailable()) {
-    try {
-      execFileSync('git', [
-        '--git-dir',
-        bareRepoPath,
-        '--work-tree',
-        projectDir,
-        '-C',
-        projectDir,
-        'add',
-        '.',
-      ])
-      added = true
-    } catch (error) {
-      // Failed to add .
-    }
-  }
-
-  if (!added) {
-    await stageFilesIndividually({
-      projectDir,
-      bareRepoPath,
-      relativeFilepaths,
-    })
-  }
+  await stageFiles({
+    projectDir,
+    bareRepoPath,
+    relativeFilepaths,
+  })
 
   const commitHash = await commit({
     fs,

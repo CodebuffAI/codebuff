@@ -6,6 +6,8 @@ import {
   getBareRepoPath,
   storeFileState,
   restoreFileState,
+  hasUnsavedChanges,
+  getLatestCommit,
 } from './file-manager'
 import { getProjectRoot } from '../project-files'
 
@@ -14,7 +16,6 @@ import { getProjectRoot } from '../project-files'
  */
 export interface Checkpoint {
   agentStateString: string
-  enabled: boolean
   fileStateIdPromise: Promise<string>
   historyLength: number
   id: number
@@ -26,9 +27,9 @@ export interface Checkpoint {
  * Simple in-memory checkpoint manager for agent states
  */
 export class CheckpointManager {
-  private checkpoints: Map<number, Checkpoint> = new Map()
-  private nextId: number = 1
+  checkpoints: Array<Checkpoint> = []
   private bareRepoPath: string | null = null
+  enabled: boolean = true
 
   getBareRepoPath(): string {
     if (!this.bareRepoPath) {
@@ -46,23 +47,42 @@ export class CheckpointManager {
   async addCheckpoint(
     agentState: AgentState,
     userInput: string
-  ): Promise<Checkpoint> {
+  ): Promise<Checkpoint | null> {
+    if (!this.enabled) {
+      return null
+    }
     // Use incremental ID starting at 1
-    const id = this.nextId++
+    const id = this.checkpoints.length + 1
 
+    const projectDir = getProjectRoot()
+    const bareRepoPath = this.getBareRepoPath()
     const relativeFilepaths = getAllFilePaths(agentState.fileContext.fileTree)
-    const enabled = relativeFilepaths.length < DEFAULT_MAX_FILES
 
-    const fileStateIdPromise = enabled ? storeFileState({
-        projectDir: getProjectRoot(),
-        bareRepoPath: this.getBareRepoPath(),
-        message: `Checkpoint ${id}`,
-        relativeFilepaths: getAllFilePaths(agentState.fileContext.fileTree),
-      }) : Promise.resolve('')
+    if (relativeFilepaths.length >= DEFAULT_MAX_FILES) {
+      this.enabled = false
+      return null
+    }
+
+    const needToStage = await hasUnsavedChanges({
+      projectDir,
+      bareRepoPath,
+      relativeFilepaths,
+    })
+    if (!needToStage && this.checkpoints.length > 0) {
+      return null
+    }
+
+    const fileStateIdPromise = needToStage
+      ? storeFileState({
+          projectDir,
+          bareRepoPath,
+          message: `Checkpoint ${id}`,
+          relativeFilepaths,
+        })
+      : getLatestCommit({ bareRepoPath })
 
     const checkpoint: Checkpoint = {
       agentStateString: JSON.stringify(agentState), // Deep clone to prevent reference issues
-      enabled,
       fileStateIdPromise,
       historyLength: agentState.messageHistory.length,
       id,
@@ -71,30 +91,9 @@ export class CheckpointManager {
     }
 
     // Add to map
-    this.checkpoints.set(id, checkpoint)
+    this.checkpoints.push(checkpoint)
 
     return checkpoint
-  }
-
-  /**
-   * Get a checkpoint by ID
-   * @param id The checkpoint ID
-   * @returns The checkpoint or null if not found
-   */
-  getCheckpoint(id: number | null): Checkpoint | null {
-    if (id === null) {
-      return null
-    }
-    const checkpoint = this.checkpoints.get(id)
-    return checkpoint || null
-  }
-
-  /**
-   * Get all checkpoints
-   * @returns Array of all checkpoints
-   */
-  getAllCheckpoints(): Checkpoint[] {
-    return Array.from(this.checkpoints.values())
   }
 
   /**
@@ -102,11 +101,13 @@ export class CheckpointManager {
    * @returns The most recent checkpoint or null if none exist
    */
   getLatestCheckpoint(): Checkpoint | null {
-    return this.checkpoints.get(this.nextId - 1) || null
+    return this.checkpoints.length === 0
+      ? null
+      : this.checkpoints[this.checkpoints.length - 1]
   }
 
   async restoreCheckointFileState(id: number): Promise<boolean> {
-    const checkpoint = this.getCheckpoint(id)
+    const checkpoint = this.checkpoints[id - 1]
     if (!checkpoint) {
       return false
     }
@@ -129,8 +130,7 @@ export class CheckpointManager {
    * Clear all checkpoints
    */
   clearCheckpoints(): void {
-    this.checkpoints.clear()
-    this.nextId = 1 // Reset the ID counter when clearing
+    this.checkpoints = []
   }
 
   /**
@@ -139,15 +139,13 @@ export class CheckpointManager {
    * @returns A formatted string representation of all checkpoints
    */
   getCheckpointsAsString(detailed: boolean = false): string {
-    const checkpoints = this.getAllCheckpoints().sort((a, b) => a.id - b.id)
-
-    if (checkpoints.length === 0) {
+    if (this.checkpoints.length === 0) {
       return yellow('No checkpoints available.')
     }
 
     const lines: string[] = [bold(underline('Agent State Checkpoints:')), '']
 
-    checkpoints.forEach((checkpoint) => {
+    this.checkpoints.forEach((checkpoint) => {
       const date = new Date(checkpoint.timestamp)
       const formattedDate = date.toLocaleString()
 
@@ -184,7 +182,7 @@ export class CheckpointManager {
    * @returns A formatted string with detailed information about the checkpoint, or an error message if not found
    */
   getCheckpointDetails(id: number): string {
-    const checkpoint = this.getCheckpoint(id)
+    const checkpoint = this.checkpoints[id - 1]
     if (!checkpoint) {
       return cyan(`\nCheckpoint #${id} not found.`)
     }
@@ -208,10 +206,6 @@ export class CheckpointManager {
     // You could add more detailed information here as needed
 
     return lines.join('\n')
-  }
-
-  getNextId(): number {
-    return this.nextId
   }
 }
 
