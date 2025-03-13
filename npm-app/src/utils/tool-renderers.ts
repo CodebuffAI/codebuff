@@ -120,7 +120,13 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       }
       return content
     },
-    onParamEnd: (paramName) => (paramName === 'id' ? null : '\n'),
+    onParamEnd: (paramName) => {
+      const paramsWithNewLine = ['objective', 'status']
+      if (paramsWithNewLine.includes(paramName)) {
+        return '\n'
+      }
+      return null
+    },
   },
   update_subgoal: {
     ...defaultToolCallRenderer,
@@ -136,6 +142,12 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       }
       return content
     },
-    onParamEnd: (paramName) => (paramName === 'id' ? null : '\n'),
+    onParamEnd: (paramName) => {
+      const paramsWithNewLine = ['status']
+      if (paramsWithNewLine.includes(paramName)) {
+        return '\n'
+      }
+      return null
+    },
   },
 }
