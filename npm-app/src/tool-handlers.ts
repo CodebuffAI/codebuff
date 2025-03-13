@@ -49,12 +49,11 @@ export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
 }
 
 export const handleRunTerminalCommand = async (
-  parameters: { command: string },
+  parameters: { command: string; mode?: 'user' | 'assistant' },
   id: string,
-  mode: 'user' | 'assistant',
   projectPath: string
 ): Promise<{ result: string; stdout: string }> => {
-  const { command } = parameters
+  const { command, mode = 'assistant' } = parameters
   return runTerminalCommand(command, mode, projectPath)
 }
 
@@ -140,7 +139,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   write_file: handleWriteFile,
   scrape_web_page: handleScrapeWebPage,
   run_terminal_command: ((parameters, id, projectPath) =>
-    handleRunTerminalCommand(parameters, id, 'assistant', projectPath).then(
+    handleRunTerminalCommand(parameters, id, projectPath).then(
       (result) => result.result
     )) as ToolHandler<{ command: string }>,
   code_search: handleCodeSearch,

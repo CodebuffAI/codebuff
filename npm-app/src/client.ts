@@ -74,6 +74,7 @@ export class Client {
   private hadFileChanges: boolean = false
   private git: GitCommand
   private rl: readline.Interface
+  private lastToolResults: ToolResult[] = []
 
   constructor(
     websocketUrl: string,
@@ -478,7 +479,7 @@ export class Client {
       promptId: userInputId,
       prompt,
       agentState: this.agentState,
-      toolResults: [],
+      toolResults: this.lastToolResults,
       fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
       costMode: this.costMode,
@@ -600,6 +601,13 @@ export class Client {
 
             this.hadFileChanges = true
           }
+          if (
+            toolCall.name === 'run_terminal_command' &&
+            toolCall.parameters.mode === 'user'
+          ) {
+            // Special case: when terminal command is run it as a user command, then no need to reprompt assistant.
+            isComplete = true
+          }
           const toolResult = await handleToolCall(toolCall, getProjectRoot())
           toolResults.push(toolResult)
         }
@@ -624,6 +632,8 @@ export class Client {
           })
           return
         }
+
+        this.lastToolResults = toolResults
 
         xmlStreamParser.end()
 

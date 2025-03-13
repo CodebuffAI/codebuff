@@ -3,10 +3,7 @@ import { parse } from 'path'
 import { green, red, yellow, blue, cyan, magenta, bold } from 'picocolors'
 import * as readline from 'readline'
 
-import {
-  REQUEST_CREDIT_SHOW_THRESHOLD,
-  SKIPPED_TERMINAL_COMMANDS,
-} from 'common/constants'
+import { REQUEST_CREDIT_SHOW_THRESHOLD } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
@@ -18,8 +15,7 @@ import { Checkpoint, checkpointManager } from './checkpoints'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
-import { getChangesSinceLastFileVersion, getProjectRoot } from './project-files'
-import { handleRunTerminalCommand } from './tool-handlers'
+import { getProjectRoot } from './project-files'
 import { CliOptions, GitCommand } from './types'
 import { Spinner } from './utils/spinner'
 import { isCommandRunning, resetShell } from './utils/terminal'
@@ -269,43 +265,6 @@ export class CLI {
       return true
     }
 
-    const runPrefix = '/run '
-    const bangPrefix = '!'
-    const hasRunPrefix = userInput.startsWith(runPrefix)
-    const hasBangPrefix = userInput.startsWith(bangPrefix)
-
-    if (
-      hasRunPrefix ||
-      hasBangPrefix ||
-      (!SKIPPED_TERMINAL_COMMANDS.some((cmd) =>
-        userInput.toLowerCase().startsWith(cmd)
-      ) &&
-        !userInput.includes('error ') &&
-        !userInput.includes("'") &&
-        userInput.split(' ').length <= 5)
-    ) {
-      let commandToRun = userInput
-      if (hasRunPrefix) {
-        commandToRun = userInput.replace(runPrefix, '')
-      } else if (hasBangPrefix) {
-        commandToRun = userInput.replace(bangPrefix, '')
-      }
-
-      const { result, stdout } = await handleRunTerminalCommand(
-        { command: commandToRun },
-        'user',
-        'user',
-        getProjectRoot()
-      )
-      if (result !== 'command not found') {
-        this.rl.prompt()
-        return true
-      } else if (hasRunPrefix || hasBangPrefix) {
-        process.stdout.write(stdout)
-        this.rl.prompt()
-        return true
-      }
-    }
     return false
   }
 

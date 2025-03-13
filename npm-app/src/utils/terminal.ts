@@ -168,31 +168,6 @@ function formatResult(stdout: string, status: string): string {
   return result
 }
 
-const isNotACommand = (output: string) => {
-  return (
-    output.includes('command not found') ||
-    // Linux
-    output.includes(': not found') ||
-    output.includes("' not found") ||
-    // Common
-    output.includes('syntax error:') ||
-    output.includes('syntax error near unexpected token') ||
-    // Linux
-    output.includes('Syntax error:') ||
-    // Windows
-    output.includes('is not recognized as an internal or external command') ||
-    output.includes('/bin/sh: -c: line') ||
-    output.includes('/bin/sh: line') ||
-    output.startsWith('fatal:') ||
-    output.startsWith('error:') ||
-    output.startsWith('Der Befehl') ||
-    output.includes('konnte nicht gefunden werden') ||
-    output.includes(
-      'wurde nicht als Name eines Cmdlet, einer Funktion, einer Skriptdatei oder eines ausführbaren'
-    )
-  )
-}
-
 const MAX_EXECUTION_TIME = 30_000
 
 export const runTerminalCommand = async (
@@ -293,17 +268,6 @@ export const runCommandPty = (
       foundFirstNewLine = true
       const newLineIndex = prefix.indexOf('\n')
       data = prefix.slice(newLineIndex + 1)
-    }
-
-    // Try to detect error messages in the output
-    if (mode === 'user' && isNotACommand(data)) {
-      clearTimeout(timer)
-      dataDisposable.dispose()
-      resolve({
-        result: 'command not found',
-        stdout: commandOutput,
-      })
-      return
     }
 
     const dataLines = (pendingOutput + data).split('\r\n')
@@ -409,17 +373,6 @@ const runCommandChildProcess = (
 
   childProcess.stderr.on('data', (data: Buffer) => {
     const output = data.toString()
-
-    // Try to detect error messages in the output
-    if (mode === 'user' && isNotACommand(output)) {
-      clearTimeout(timer)
-      childProcess.kill()
-      resolve({
-        result: 'command not found',
-        stdout: commandOutput,
-      })
-      return
-    }
 
     process.stdout.write(output)
     commandOutput += output
