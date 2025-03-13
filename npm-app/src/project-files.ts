@@ -90,8 +90,8 @@ export function initProjectFileContextWithWorker(dir: string) {
   // NOTE: Uses the built worker-script-project-context.js within dist.
   // So you need to run `bun run build` before running locally.
   const workerPath = __filename.endsWith('.ts')
-    ? path.join(__dirname, '..', 'dist', 'worker-script-project-context.js')
-    : path.join(__dirname, 'worker-script-project-context.js')
+    ? path.join(__dirname, '..', 'dist', 'workers/project-context.js')
+    : path.join(__dirname, 'workers/project-context.js')
   const worker = new Worker(workerPath as any)
 
   worker.postMessage({ dir })
