@@ -137,16 +137,7 @@ export class CLI {
   }
 
   private setPrompt() {
-    this.rl.setPrompt(
-      green(
-        `${parse(getProjectRoot()).base} (checkpoint ${checkpointManager.getNextId()}) > `
-      )
-    )
-  }
-
-  private promptWithCheckpointNumber() {
-    this.setPrompt()
-    this.rl.prompt()
+    this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
   }
 
   public async printInitialPrompt(initialInput?: string) {
@@ -159,7 +150,7 @@ export class CLI {
       await this.client.login()
       return
     }
-    this.promptWithCheckpointNumber()
+    this.rl.prompt()
     if (initialInput) {
       process.stdout.write(initialInput + '\n')
       this.handleUserInput(initialInput)
@@ -168,7 +159,7 @@ export class CLI {
 
   public async printDiff() {
     this.handleDiff()
-    this.promptWithCheckpointNumber()
+    this.rl.prompt()
   }
 
   private async handleLine(line: string) {
@@ -203,10 +194,14 @@ export class CLI {
     await checkpointManager.getLatestCheckpoint()?.fileStateIdPromise
 
     // Save the current agent state
-    await checkpointManager.addCheckpoint(
+    const checkpoint = await checkpointManager.addCheckpoint(
       this.client.agentState as AgentState,
       userInput
     )
+
+    if (checkpoint.enabled) {
+      console.log(green(`Checkpoint #${checkpoint.id} saved!`))
+    }
   }
 
   private async processCommand(userInput: string): Promise<boolean> {
@@ -214,7 +209,7 @@ export class CLI {
 
     if (userInput === 'help' || userInput === 'h') {
       displayMenu()
-      this.promptWithCheckpointNumber()
+      this.rl.prompt()
       return true
     }
     if (userInput === 'login' || userInput === 'signin') {
@@ -223,7 +218,7 @@ export class CLI {
     }
     if (userInput === 'logout' || userInput === 'signout') {
       await this.client.logout()
-      this.promptWithCheckpointNumber()
+      this.rl.prompt()
       return true
     }
     if (userInput.startsWith('ref-')) {
@@ -244,7 +239,7 @@ export class CLI {
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(userInput)) {
       this.handleDiff()
-      this.promptWithCheckpointNumber()
+      this.rl.prompt()
       return true
     }
     if (
@@ -303,11 +298,11 @@ export class CLI {
         getProjectRoot()
       )
       if (result !== 'command not found') {
-        this.promptWithCheckpointNumber()
+        this.rl.prompt()
         return true
       } else if (hasRunPrefix || hasBangPrefix) {
         process.stdout.write(stdout)
-        this.promptWithCheckpointNumber()
+        this.rl.prompt()
         return true
       }
     }
@@ -352,11 +347,11 @@ export class CLI {
     this.client.showUsageWarning()
     console.log()
 
-    this.promptWithCheckpointNumber()
+    this.rl.prompt()
   }
 
   private returnControlToUser() {
-    this.promptWithCheckpointNumber()
+    this.rl.prompt()
     this.isReceivingResponse = false
     if (this.stopResponse) {
       this.stopResponse()
@@ -386,7 +381,7 @@ export class CLI {
       (checkpointManager.getLatestCheckpoint() as Checkpoint).id - 1
     if (checkpointId < 1) {
       console.log(red('Nothing to undo.'))
-      this.promptWithCheckpointNumber()
+      this.rl.prompt()
       return
     }
     await this.handleRestoreCheckpoint(checkpointId)
@@ -433,7 +428,7 @@ export class CLI {
       } else {
         this.lastSigintTime = now
         console.log('\nPress Ctrl-C again to exit')
-        this.promptWithCheckpointNumber()
+        this.rl.prompt()
       }
     }
   }
@@ -696,14 +691,14 @@ export class CLI {
   // Checkpoint command handlers
   private async handleCheckpoints(): Promise<void> {
     console.log(checkpointManager.getCheckpointsAsString())
-    this.promptWithCheckpointNumber()
+    this.rl.prompt()
   }
 
   private async handleRestoreCheckpoint(id: number): Promise<void> {
     const checkpoint = checkpointManager.getCheckpoint(id)
     if (!checkpoint) {
       console.log(red(`Checkpoint #${id} not found.`))
-      this.promptWithCheckpointNumber()
+      this.rl.prompt()
       return
     }
 
@@ -711,12 +706,18 @@ export class CLI {
     const latestCheckpoint = checkpointManager.getLatestCheckpoint()
     await latestCheckpoint?.fileStateIdPromise
 
+    if (!latestCheckpoint?.enabled) {
+      console.log(red(`Checkpoints not enabled: project too large`))
+      this.rl.prompt()
+      return
+    }
+
     await this.restoreAgentStateAndFiles(checkpoint)
 
     console.log(green(`Restored to checkpoint #${id}.`))
 
     // Insert the original user input that created this checkpoint
-    this.promptWithCheckpointNumber()
+    this.rl.prompt()
     this.rl.write(checkpoint.userInput)
   }
 
@@ -736,6 +737,6 @@ export class CLI {
 
   private async handleClearCheckpoints(): Promise<void> {
     checkpointManager.clearCheckpoints()
-    this.promptWithCheckpointNumber()
+    this.rl.prompt()
   }
 }

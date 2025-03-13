@@ -1,6 +1,6 @@
 import { blue, bold, cyan, gray, underline, yellow } from 'picocolors'
 
-import { getAllFilePaths } from 'common/project-file-tree'
+import { getAllFilePaths, DEFAULT_MAX_FILES } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
 import {
   getBareRepoPath,
@@ -14,6 +14,7 @@ import { getProjectRoot } from './project-files'
  */
 export interface Checkpoint {
   agentStateString: string
+  enabled: boolean
   fileStateIdPromise: Promise<string>
   historyLength: number
   id: number
@@ -45,19 +46,23 @@ export class CheckpointManager {
   async addCheckpoint(
     agentState: AgentState,
     userInput: string
-  ): Promise<number> {
+  ): Promise<Checkpoint> {
     // Use incremental ID starting at 1
     const id = this.nextId++
 
-    const fileStateIdPromise = storeFileState({
-      projectDir: getProjectRoot(),
-      bareRepoPath: this.getBareRepoPath(),
-      message: `Checkpoint ${id}`,
-      relativeFilepaths: getAllFilePaths(agentState.fileContext.fileTree),
-    })
+    const relativeFilepaths = getAllFilePaths(agentState.fileContext.fileTree)
+    const enabled = relativeFilepaths.length < DEFAULT_MAX_FILES
+
+    const fileStateIdPromise = enabled ? storeFileState({
+        projectDir: getProjectRoot(),
+        bareRepoPath: this.getBareRepoPath(),
+        message: `Checkpoint ${id}`,
+        relativeFilepaths: getAllFilePaths(agentState.fileContext.fileTree),
+      }) : Promise.resolve('')
 
     const checkpoint: Checkpoint = {
       agentStateString: JSON.stringify(agentState), // Deep clone to prevent reference issues
+      enabled,
       fileStateIdPromise,
       historyLength: agentState.messageHistory.length,
       id,
@@ -68,7 +73,7 @@ export class CheckpointManager {
     // Add to map
     this.checkpoints.set(id, checkpoint)
 
-    return id
+    return checkpoint
   }
 
   /**
