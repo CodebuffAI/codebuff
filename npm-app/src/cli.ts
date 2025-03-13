@@ -11,7 +11,7 @@ import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 
 import { setMessages } from './chat-storage'
-import { Checkpoint, checkpointManager } from './checkpoints'
+import { Checkpoint, checkpointManager } from './checkpoints/checkpoint-manager'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'

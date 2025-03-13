@@ -37,7 +37,7 @@ import { Message } from 'common/types/message'
 import { setMessages } from './chat-storage'
 
 import { activeBrowserRunner } from './browser-runner'
-import { checkpointManager, Checkpoint } from './checkpoints'
+import { checkpointManager, Checkpoint } from './checkpoints/checkpoint-manager'
 import { backendUrl } from './config'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
 import { calculateFingerprint } from './fingerprint'

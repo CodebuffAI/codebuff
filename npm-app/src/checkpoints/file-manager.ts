@@ -13,11 +13,11 @@ import {
 import { join } from 'path'
 import { execFileSync } from 'child_process'
 
-import { getProjectDataDir } from './project-files'
+import { getProjectDataDir } from '../project-files'
 
 function gitCommandIsAvailable(): boolean {
   try {
-    execFileSync('which', ['git'])
+    execFileSync('git', ['--version'])
     return true
   } catch (error) {
     return false

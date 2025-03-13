@@ -6,8 +6,8 @@ import {
   getBareRepoPath,
   storeFileState,
   restoreFileState,
-} from './checkpoint-file-manager'
-import { getProjectRoot } from './project-files'
+} from './file-manager'
+import { getProjectRoot } from '../project-files'
 
 /**
  * Interface representing a checkpoint of agent state
