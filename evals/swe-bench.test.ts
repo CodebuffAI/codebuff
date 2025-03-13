@@ -40,7 +40,7 @@ describe('SWE-Bench', async () => {
     >
   )
 
-  Object.entries(REPO_AND_INSTANCE_IDS).forEach(([repoName, instanceIds]) => {
+  Object.entries(SWE_BENCH_IDS).forEach(([repoName, instanceIds]) => {
     describe(repoName, async () => {
       instanceIds.forEach((instanceId) =>
         test(

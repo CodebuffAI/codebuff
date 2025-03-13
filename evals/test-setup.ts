@@ -50,12 +50,22 @@ export async function ensureTestRepos() {
           }
         )
       } else {
-        execSync(
-          `git clone --branch main ${repo} ${projectDir} && cd ${projectDir}`,
-          {
-            timeout: 60_000, // 1 minute timeout for git operations
-          }
-        )
+        try {
+          execSync(
+            `git clone --branch main ${repo} ${projectDir} && cd ${projectDir}`,
+            {
+              timeout: 60_000, // 1 minute timeout for git operations
+            }
+          )
+        } catch (error) {
+          // Maybe main doesn't exist? try master
+          execSync(
+            `git clone --branch master ${repo} ${projectDir} && cd ${projectDir}`,
+            {
+              timeout: 60_000, // 1 minute timeout for git operations
+            }
+          )
+        }
       }
     } else {
       // For existing repos, fetch and checkout the commit
