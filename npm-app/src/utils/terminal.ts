@@ -1,4 +1,4 @@
-import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
+import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
 import path from 'path'
 import { green } from 'picocolors'
 import * as os from 'os'
@@ -307,6 +307,12 @@ export const runCommandPty = (
   })
 
   const isWindows = os.platform() === 'win32'
+
+  if (command.trim() === 'clear') {
+    // NOTE: node-pty doesn't seem to clear the terminal. This is a workaround.
+    execSync('clear', { stdio: 'inherit' })
+  }
+
   // Write the command
   const commandWithCheck = isWindows
     ? command
