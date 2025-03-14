@@ -711,12 +711,9 @@ const getMessagesSubset = (messages: Message[], otherTokens: number) => {
   const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
     JSON.stringify(content).includes('COMPLETE')
   })
-  if (indexLastSubgoalComplete === -1) {
-    return messages
-  }
 
   return trimMessagesToFitTokenLimit(
-    messages.slice(indexLastSubgoalComplete),
+    indexLastSubgoalComplete === -1 ? messages : messages.slice(indexLastSubgoalComplete),
     otherTokens
   )
 }
