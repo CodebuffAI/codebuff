@@ -382,7 +382,6 @@ export class Client {
         `${a.usage} / ${a.limit} credits`
       )
       this.setUsage(a)
-      this.showUsageWarning()
       this.returnControlToUser()
     })
   }
