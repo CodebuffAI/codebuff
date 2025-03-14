@@ -75,6 +75,7 @@ export class Client {
   private git: GitCommand
   private rl: readline.Interface
   private lastToolResults: ToolResult[] = []
+  private pendingRequestId: string | null = null
 
   constructor(
     websocketUrl: string,
@@ -332,7 +333,8 @@ export class Client {
     this.limit = limit
     this.subscription_active = subscription_active
     this.nextQuotaReset = next_quota_reset
-    if (!!session_credits_used) {
+
+    if (!!session_credits_used && !this.pendingRequestId) {
       this.lastRequestCredits = Math.max(
         session_credits_used - this.sessionCreditsUsed,
         0
@@ -458,6 +460,8 @@ export class Client {
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
 
+    this.pendingRequestId = userInputId
+
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
         Spinner.get().stop()
@@ -516,8 +520,8 @@ export class Client {
     })
 
     const stopResponse = () => {
+      // Only unsubscribe from chunks, keep listening for final credits
       unsubscribeChunks()
-      unsubscribeComplete()
 
       const assistantMessage = {
         role: 'assistant' as const,
@@ -573,12 +577,16 @@ export class Client {
         if (!parsedAction.success) return
         const a = parsedAction.data
 
-        // store cost data
-        const usageData = UsageReponseSchema.omit({ type: true }).safeParse(a)
-
-        if (usageData.success) {
-          this.setUsage(usageData.data)
-          this.showUsageWarning()
+        // Only process usage data if this is our pending request
+        if (action.promptId === this.pendingRequestId) {
+          const usageData = UsageReponseSchema.omit({ type: true }).safeParse(a)
+          if (usageData.success) {
+            this.pendingRequestId = null
+            this.setUsage(usageData.data)
+            this.showUsageWarning()
+            // Now that we have credits, we can fully unsubscribe
+            unsubscribeComplete()
+          }
         }
 
         if (action.promptId !== userInputId) return
