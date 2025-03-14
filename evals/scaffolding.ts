@@ -4,6 +4,8 @@ import fs from 'fs'
 import { WebSocket } from 'ws'
 import { execSync } from 'child_process'
 
+import { blue } from 'picocolors'
+
 import * as mainPromptModule from 'backend/main-prompt'
 import { ProjectFileContext } from 'common/util/file'
 import { applyAndRevertChanges } from 'common/util/changes'
@@ -139,6 +141,8 @@ export async function loopMainPrompt({
     toolCalls: ClientToolCall[]
   ) => boolean
 }) {
+  console.log(blue(prompt))
+
   const startTime = Date.now()
   let currentAgentState = agentState
   let toolResults: ToolResult[] = []
