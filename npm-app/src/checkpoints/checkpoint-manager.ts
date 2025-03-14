@@ -1,4 +1,4 @@
-import {join} from 'path'
+import { join } from 'path'
 import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 import { Worker } from 'worker_threads'
 
@@ -9,7 +9,7 @@ import {
   hasUnsavedChanges,
   getLatestCommit,
 } from './file-manager'
-import { getProjectRoot } from 'src/project-files'
+import { getProjectRoot } from '../project-files'
 
 /**
  * Message format for worker thread operations
@@ -90,10 +90,10 @@ export class CheckpointManager {
    */
   private async runWorkerOperation<T>(message: WorkerMessage): Promise<T> {
     const worker = this.initWorker()
-    
+
     return new Promise<T>((resolve, reject) => {
       const timeoutMs = 30000 // 30 seconds timeout
-      
+
       const handler = (response: WorkerResponse) => {
         if (response.success) {
           resolve(response.result as T)
