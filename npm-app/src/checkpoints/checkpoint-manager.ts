@@ -1,5 +1,5 @@
 import {join} from 'path'
-import { blue, bold, cyan, gray, underline, yellow } from 'picocolors'
+import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 import { Worker } from 'worker_threads'
 
 import { getAllFilePaths, DEFAULT_MAX_FILES } from 'common/project-file-tree'
@@ -118,7 +118,7 @@ export class CheckpointManager {
    * Get the path to the bare git repository used for storing file states
    * @returns The bare repo path
    */
-  getBareRepoPath(): string {
+  private getBareRepoPath(): string {
     if (!this.bareRepoPath) {
       this.bareRepoPath = getBareRepoPath(getProjectRoot())
     }
@@ -186,6 +186,9 @@ export class CheckpointManager {
    * @returns The most recent checkpoint or null if none exist
    */
   getLatestCheckpoint(): Checkpoint | null {
+    if (!this.enabled) {
+      return null
+    }
     return this.checkpoints.length === 0
       ? null
       : this.checkpoints[this.checkpoints.length - 1]
@@ -230,6 +233,10 @@ export class CheckpointManager {
    * @returns A formatted string representation of all checkpoints
    */
   getCheckpointsAsString(detailed: boolean = false): string {
+    if (!this.enabled) {
+      return red('Checkpoints not enabled: project too large.')
+    }
+
     if (this.checkpoints.length === 0) {
       return yellow('No checkpoints available.')
     }
@@ -259,35 +266,6 @@ export class CheckpointManager {
 
       lines.push('') // Empty line between checkpoints
     })
-
-    return lines.join('\n')
-  }
-
-  /**
-   * Get detailed information about a specific checkpoint
-   * @param id The checkpoint ID
-   * @returns A formatted string with detailed information about the checkpoint, or an error message if not found
-   */
-  getCheckpointDetails(id: number): string {
-    const checkpoint = this.checkpoints[id - 1]
-    if (!checkpoint) {
-      return cyan(`\nCheckpoint #${id} not found.`)
-    }
-
-    const lines: string[] = [
-      cyan(`Detailed information for checkpoint #${id}:`),
-    ]
-
-    const date = new Date(checkpoint.timestamp)
-    const formattedDate = date.toLocaleString()
-    lines.push(`${blue('Created at')}: ${formattedDate}`)
-
-    if (checkpoint.userInput) {
-      lines.push(`${blue('User input')}: ${checkpoint.userInput}`)
-    }
-
-    const messageCount = checkpoint.historyLength
-    lines.push(`${blue('Message history')}: ${messageCount} messages`)
 
     return lines.join('\n')
   }
