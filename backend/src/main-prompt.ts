@@ -309,7 +309,8 @@ ${toolResults
 
   const messagesWithResponse = [
     ...messagesWithToolResults,
-    { role: 'assistant' as const, content: fullResponse || "I'll continue." },
+    // (hacky) ends turn if LLM did not give a response.
+    { role: 'assistant' as const, content: fullResponse || "<end_turn></end_turn>" },
   ]
   const toolCalls = parseToolCalls(fullResponse)
   const clientToolCalls: ClientToolCall[] = []
