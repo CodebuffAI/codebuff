@@ -1,36 +1,123 @@
+import {join} from 'path'
 import { blue, bold, cyan, gray, underline, yellow } from 'picocolors'
+import { Worker } from 'worker_threads'
 
 import { getAllFilePaths, DEFAULT_MAX_FILES } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
 import {
   getBareRepoPath,
-  storeFileState,
-  restoreFileState,
   hasUnsavedChanges,
   getLatestCommit,
 } from './file-manager'
-import { getProjectRoot } from '../project-files'
+import { getProjectRoot } from 'src/project-files'
+
+/**
+ * Message format for worker thread operations
+ */
+interface WorkerMessage {
+  /** Operation type - either storing or restoring checkpoint state */
+  type: 'store' | 'restore'
+  projectDir: string
+  bareRepoPath: string
+  relativeFilepaths: string[]
+
+  /** Git commit hash for restore operations */
+  commit?: string
+  /** Commit message for store operations */
+  message?: string
+}
+
+/**
+ * Response format from worker thread operations
+ */
+interface WorkerResponse {
+  /** Whether the operation succeeded */
+  success: boolean
+  /** Operation result - commit hash for store operations */
+  result?: unknown
+  /** Error message if operation failed */
+  error?: string
+}
 
 /**
  * Interface representing a checkpoint of agent state
  */
 export interface Checkpoint {
   agentStateString: string
+  /** Promise resolving to the git commit hash for this checkpoint */
   fileStateIdPromise: Promise<string>
+  /** Number of messages in the agent's history at checkpoint time */
   historyLength: number
   id: number
   timestamp: number
+  /** User input that triggered this checkpoint */
   userInput: string
 }
 
 /**
- * Simple in-memory checkpoint manager for agent states
+ * Manages checkpoints of agent state and file state using git operations in a worker thread.
+ * Each checkpoint contains both the agent's conversation state and a git commit
+ * representing the state of all tracked files at that point.
  */
 export class CheckpointManager {
   checkpoints: Array<Checkpoint> = []
   private bareRepoPath: string | null = null
   enabled: boolean = true
+  /** Worker thread for git operations */
+  private worker: Worker | null = null
 
+  /**
+   * Initialize or return the existing worker thread
+   * @returns The worker thread instance
+   */
+  private initWorker(): Worker {
+    if (!this.worker) {
+      // NOTE: Uses the built worker-script-project-context.js within dist.
+      // So you need to run `bun run build` before running locally.
+      const workerPath = __filename.endsWith('.ts')
+        ? join(__dirname, '../../dist', 'workers/checkpoint-worker.js')
+        : join(__dirname, '../workers/checkpoint-worker.js')
+      this.worker = new Worker(workerPath)
+    }
+    return this.worker
+  }
+
+  /**
+   * Execute an operation in the worker thread with timeout handling
+   * @param message - The message describing the operation to perform
+   * @returns A promise that resolves with the operation result
+   * @throws Error if the operation fails or times out
+   */
+  private async runWorkerOperation<T>(message: WorkerMessage): Promise<T> {
+    const worker = this.initWorker()
+    
+    return new Promise<T>((resolve, reject) => {
+      const timeoutMs = 30000 // 30 seconds timeout
+      
+      const handler = (response: WorkerResponse) => {
+        if (response.success) {
+          resolve(response.result as T)
+        } else {
+          reject(new Error(response.error))
+        }
+        worker.off('message', handler)
+      }
+
+      worker.on('message', handler)
+      worker.postMessage(message)
+
+      // Add timeout
+      setTimeout(() => {
+        worker.off('message', handler)
+        reject(new Error('Worker operation timed out'))
+      }, timeoutMs)
+    })
+  }
+
+  /**
+   * Get the path to the bare git repository used for storing file states
+   * @returns The bare repo path
+   */
   getBareRepoPath(): string {
     if (!this.bareRepoPath) {
       this.bareRepoPath = getBareRepoPath(getProjectRoot())
@@ -39,10 +126,10 @@ export class CheckpointManager {
   }
 
   /**
-   * Add a new checkpoint
-   * @param agentState - The agent state to checkpoint
-   * @param userInput - The user input associated with this checkpoint
-   * @returns The ID of the created checkpoint
+   * Add a new checkpoint of the current agent and file state
+   * @param agentState - The current agent state to checkpoint
+   * @param userInput - The user input that triggered this checkpoint
+   * @returns The created checkpoint, or null if checkpointing is disabled
    */
   async addCheckpoint(
     agentState: AgentState,
@@ -51,9 +138,8 @@ export class CheckpointManager {
     if (!this.enabled) {
       return null
     }
-    // Use incremental ID starting at 1
-    const id = this.checkpoints.length + 1
 
+    const id = this.checkpoints.length + 1
     const projectDir = getProjectRoot()
     const bareRepoPath = this.getBareRepoPath()
     const relativeFilepaths = getAllFilePaths(agentState.fileContext.fileTree)
@@ -73,7 +159,8 @@ export class CheckpointManager {
     }
 
     const fileStateIdPromise = needToStage
-      ? storeFileState({
+      ? this.runWorkerOperation<string>({
+          type: 'store',
           projectDir,
           bareRepoPath,
           message: `Checkpoint ${id}`,
@@ -82,7 +169,7 @@ export class CheckpointManager {
       : getLatestCommit({ bareRepoPath })
 
     const checkpoint: Checkpoint = {
-      agentStateString: JSON.stringify(agentState), // Deep clone to prevent reference issues
+      agentStateString: JSON.stringify(agentState),
       fileStateIdPromise,
       historyLength: agentState.messageHistory.length,
       id,
@@ -90,9 +177,7 @@ export class CheckpointManager {
       userInput,
     }
 
-    // Add to map
     this.checkpoints.push(checkpoint)
-
     return checkpoint
   }
 
@@ -106,6 +191,11 @@ export class CheckpointManager {
       : this.checkpoints[this.checkpoints.length - 1]
   }
 
+  /**
+   * Restore the file state from a specific checkpoint
+   * @param id - The ID of the checkpoint to restore
+   * @returns True if restoration succeeded, false if checkpoint not found
+   */
   async restoreCheckointFileState(id: number): Promise<boolean> {
     const checkpoint = this.checkpoints[id - 1]
     if (!checkpoint) {
@@ -117,7 +207,8 @@ export class CheckpointManager {
         .fileTree
     )
 
-    await restoreFileState({
+    await this.runWorkerOperation({
+      type: 'restore',
       projectDir: getProjectRoot(),
       bareRepoPath: this.getBareRepoPath(),
       commit: await checkpoint.fileStateIdPromise,
@@ -162,12 +253,8 @@ export class CheckpointManager {
       lines.push(`  ${blue('Input')}: ${userInput}`)
 
       if (detailed) {
-        // Add more details about the agent state if needed
         const messageCount = checkpoint.historyLength
         lines.push(`  ${blue('Messages')}: ${messageCount}`)
-
-        // You can add more detailed information here as needed
-        // For example, file context information, etc.
       }
 
       lines.push('') // Empty line between checkpoints
@@ -199,11 +286,8 @@ export class CheckpointManager {
       lines.push(`${blue('User input')}: ${checkpoint.userInput}`)
     }
 
-    // Display more detailed information about the agent state
     const messageCount = checkpoint.historyLength
     lines.push(`${blue('Message history')}: ${messageCount} messages`)
-
-    // You could add more detailed information here as needed
 
     return lines.join('\n')
   }
