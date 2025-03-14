@@ -291,3 +291,6 @@ export async function restoreFileState({
     )
   }
 }
+
+// Export fs for testing
+export { fs };

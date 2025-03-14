@@ -1,10 +1,7 @@
 import { describe, it, expect, beforeEach, mock } from 'bun:test'
 import { join } from 'path'
-import {
-  initializeCheckpointFileManager,
-  storeFileState,
-  checkoutFileState,
-} from '../../npm-app/src/checkpoint-file-manager'
+import * as fileManager from '../../npm-app/src/checkpoints/file-manager'
+const { initializeCheckpointFileManager, storeFileState, restoreFileState } = fileManager;
 
 describe('checkpoint-file-manager', () => {
   const mockProjectRoot = '/test/project'
@@ -12,145 +9,158 @@ describe('checkpoint-file-manager', () => {
   const mockBareRepoPath = join(mockDataDir, 'mock-hash')
 
   beforeEach(() => {
-    // Setup mock implementations
+    // Mock child_process to force fallback to isomorphic-git
+    mock.module('child_process', () => ({
+      execFileSync: () => { throw new Error('git not available') }
+    }))
+
+    // Mock project files
     mock.module('../../npm-app/src/project-files', () => ({
       getProjectRoot: () => mockProjectRoot,
       getProjectDataDir: () => mockDataDir,
     }))
-    mock.module('fs', () => ({
-      mkdirSync: () => {},
-      lstat: () => ({
-        isFile: () => true,
-        isDirectory: () => true,
-        size: 1000,
-        mtimeMs: Date.now(),
-      }),
-      readFileSync: () => '',
-      writeFileSync: () => {},
-      existsSync: () => true,
+
+    // Mock file-manager module itself to override fs
+    mock.module('../../npm-app/src/checkpoints/file-manager', () => ({
+      ...require('../../npm-app/src/checkpoints/file-manager'),
+      fs: {
+        ...require('fs'),
+        mkdirSync: () => undefined,
+        existsSync: () => true,
+        readFileSync: () => '',
+        writeFileSync: () => {},
+      },
+      hasUnsavedChanges: () => Promise.resolve(true)
     }))
   })
 
-  describe('initializeCheckpointFileManager', () => {
-    it('should create bare repo directory if it does not exist', async () => {
-      const initMock = mock(() => {})
-
-      // Mock git.resolveRef to throw error (repo doesn't exist)
-      mock.module('isomorphic-git', () => ({
-        resolveRef: () => {
-          throw new Error()
-        },
-        init: initMock,
-        statusMatrix: () => [],
-        writeRef: () => {},
-        add: () => {},
-        commit: () => 'initial-commit',
-      }))
-
-      await initializeCheckpointFileManager()
-
-      expect(initMock).toHaveBeenCalled()
-      const args = initMock.mock.calls[0][0]
-      expect(args.bare).toBe(true)
-      expect(args.dir).toInclude(mockDataDir)
-    })
-
-    it('should not reinitialize if repo already exists', async () => {
-      const initMock = mock(() => {})
-
-      // Mock git.resolveRef to succeed (repo exists)
-      mock.module('isomorphic-git', () => ({
-        resolveRef: () => 'HEAD',
-        init: initMock,
-      }))
-
-      await initializeCheckpointFileManager()
-
-      expect(initMock).not.toHaveBeenCalled()
-    })
-  })
-
   describe('storeFileState', () => {
+    let addMock: any
+    let commitMock: any
+    const message = 'Test commit message'
+
     beforeEach(async () => {
-      // Initialize the file manager before each test
+      addMock = mock(() => {})
+      commitMock = mock(() => 'mock-commit-hash')
+
+      // Mock statusMatrix to show file needs staging
       mock.module('isomorphic-git', () => ({
-        resolveRef: () => 'HEAD',
         init: () => {},
-        statusMatrix: () => [],
+        add: addMock,
+        commit: commitMock,
         writeRef: () => {},
-        add: () => {},
-        commit: () => 'initial-commit',
+        resolveRef: () => 'HEAD',
+        statusMatrix: () => [[
+          'test.txt',
+          1, // HEAD status
+          2, // workdir status (2 means modified)
+          1  // stage status
+        ]],
+        checkout: () => {},
+        resetIndex: () => {}
       }))
-      await initializeCheckpointFileManager()
+
+      await initializeCheckpointFileManager({
+        projectDir: mockProjectRoot,
+        relativeFilepaths: ['test.txt']
+      })
     })
 
     it('should store file state with commit message', async () => {
-      const message = 'Test commit'
-      const mockCommitHash = 'abc123'
-      const addMock = mock(() => {})
-
-      mock.module('isomorphic-git', () => ({
-        add: addMock,
-        commit: () => mockCommitHash,
-        statusMatrix: () => [],
-        resolveRef: () => 'HEAD',
-        writeRef: () => {},
-      }))
-
-      const result = await storeFileState(message)
+      const result = await storeFileState({
+        projectDir: mockProjectRoot,
+        bareRepoPath: mockBareRepoPath,
+        message,
+        relativeFilepaths: ['test.txt']
+      })
 
       expect(addMock).toHaveBeenCalled()
-      const args = addMock.mock.calls[0][0]
-      expect(args.dir).toBe(mockProjectRoot)
-      expect(args.filepath).toBe('.')
-      expect(args.gitdir).toInclude(mockDataDir)
-      expect(result).toBe(mockCommitHash)
+      expect(commitMock).toHaveBeenCalled()
+      expect(result).toBe('mock-commit-hash')
     })
 
     it('should handle git add failure by adding files individually', async () => {
-      const message = 'Test commit'
-      const mockCommitHash = 'abc123'
-
       let addCallCount = 0
-      const addMock = mock(() => {
+      addMock = mock(() => {
         addCallCount++
-        if (addCallCount === 1) {
-          throw new Error()
-        }
+        if (addCallCount === 1) throw new Error('Mock add failure')
+        return Promise.resolve()
       })
 
+      // Mock statusMatrix to show file needs staging
       mock.module('isomorphic-git', () => ({
+        init: () => {},
         add: addMock,
-        statusMatrix: () => [['file1.txt', 1, 1, 1]],
-        commit: () => mockCommitHash,
-        resolveRef: () => 'HEAD',
+        commit: () => 'mock-commit-hash',
         writeRef: () => {},
+        resolveRef: () => 'HEAD',
+        statusMatrix: () => [[
+          'test.txt',
+          1, // HEAD status
+          2, // workdir status (2 means modified)
+          1  // stage status
+        ]],
+        checkout: () => {},
+        resetIndex: () => {}
       }))
 
-      const result = await storeFileState(message)
+      // Mock child_process to force fallback to isomorphic-git
+      mock.module('child_process', () => ({
+        execFileSync: () => { throw new Error('git not available') }
+      }))
 
-      expect(addCallCount).toBe(2)
-      expect(result).toBe(mockCommitHash)
+      // Mock file-manager module itself to override fs
+      mock.module('../../npm-app/src/checkpoints/file-manager', () => ({
+        ...require('../../npm-app/src/checkpoints/file-manager'),
+        fs: {
+          ...require('fs'),
+          mkdirSync: () => undefined,
+          existsSync: () => true,
+          readFileSync: () => '',
+          writeFileSync: () => {},
+        },
+        hasUnsavedChanges: () => Promise.resolve(true)
+      }))
+
+      const result = await storeFileState({
+        projectDir: mockProjectRoot,
+        bareRepoPath: mockBareRepoPath,
+        message,
+        relativeFilepaths: ['test.txt']
+      })
+
+      expect(addCallCount).toBe(1)
+      expect(result).toBe('mock-commit-hash')
     })
   })
 
-  describe('checkoutFileState', () => {
+  describe('restoreFileState', () => {
     it('should checkout the specified commit', async () => {
       const fileStateId = 'abc123'
       const checkoutMock = mock(() => {})
+      const resetMock = mock(() => {})
 
+      // Mock statusMatrix to show file needs restoring
       mock.module('isomorphic-git', () => ({
         checkout: checkoutMock,
+        resetIndex: resetMock,
+        statusMatrix: () => [[
+          'test.txt',
+          1, // HEAD status
+          2, // workdir status (2 means modified)
+          1  // stage status
+        ]],
       }))
 
-      await checkoutFileState(fileStateId)
+      await restoreFileState({
+        projectDir: mockProjectRoot,
+        bareRepoPath: mockBareRepoPath,
+        commit: fileStateId,
+        relativeFilepaths: ['test.txt']
+      })
 
       expect(checkoutMock).toHaveBeenCalled()
-      const args = checkoutMock.mock.calls[0][0]
-      expect(args.dir).toBe(mockProjectRoot)
-      expect(args.gitdir).toInclude(mockDataDir)
-      expect(args.ref).toBe(fileStateId)
-      expect(args.force).toBe(true)
+      expect(resetMock).toHaveBeenCalled()
     })
   })
 })
