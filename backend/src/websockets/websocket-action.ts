@@ -15,6 +15,8 @@ import { ensureEndsWithNewline } from 'common/src/util/file'
 import { logger, withLoggerContext } from '@/util/logger'
 import { hasMaxedReferrals } from 'common/util/server/referral'
 import { generateCompactId } from 'common/util/string'
+import { renderToolResults } from '@/util/parse-tool-call-xml'
+import { buildArray } from 'common/util/array'
 
 /**
  * Sends an action to the client via WebSocket
@@ -174,7 +176,7 @@ const onPrompt = async (
   clientSessionId: string,
   ws: WebSocket
 ) => {
-  const { fingerprintId, authToken, promptId, prompt } = action
+  const { fingerprintId, authToken, promptId, prompt, toolResults } = action
 
   await withLoggerContext(
     { fingerprintId, authToken, clientRequestId: promptId },
@@ -222,21 +224,50 @@ const onPrompt = async (
         })
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')
-        const response =
+        let response =
           e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
+        response += '\n\n<end_turn></end_turn>'
+
+        const newMessages = buildArray(
+          ...action.agentState.messageHistory,
+          prompt && {
+            role: 'user' as const,
+            content: prompt,
+          },
+          toolResults.length > 0 && {
+            role: 'user' as const,
+            content: renderToolResults(toolResults),
+          },
+          {
+            role: 'assistant' as const,
+            content: response,
+          }
+        )
+
+        const endTurnToolCall = {
+          name: 'end_turn' as const,
+          parameters: {},
+          id: generateCompactId(),
+        }
+
         sendAction(ws, {
           type: 'response-chunk',
           userInputId: promptId,
           chunk: response,
         })
-        sendAction(ws, {
-          type: 'prompt-response',
-          promptId,
-          // Send back original agentState.
-          agentState: action.agentState,
-          toolCalls: [],
-          toolResults: [],
-        })
+        setTimeout(() => {
+          sendAction(ws, {
+            type: 'prompt-response',
+            promptId,
+            // Send back original agentState.
+            agentState: {
+              ...action.agentState,
+              messageHistory: newMessages,
+            },
+            toolCalls: [endTurnToolCall],
+            toolResults: [],
+          })
+        }, 100)
       }
     }
   )

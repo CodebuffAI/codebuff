@@ -2,7 +2,7 @@ import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { AnthropicModel } from 'common/constants'
 import { promptClaudeStream } from './llm-apis/claude'
-import { parseToolCallXml } from './util/parse-tool-call-xml'
+import { parseToolCallXml, renderToolResults } from './util/parse-tool-call-xml'
 import { getModelForMode } from 'common/constants'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
@@ -157,18 +157,7 @@ ${existingNewFilePaths.join('\n')}
     ...messagesWithOptionalReadFiles,
     toolResults.length > 0 && {
       role: 'user' as const,
-      content: `
-<tool_results>
-${toolResults
-  .map(
-    (result) => `<tool_result>
-<tool>${result.name}</tool>
-<result>${result.result}</result>
-</tool_result>`
-  )
-  .join('\n')}
-</tool_results>
-`.trim(),
+      content: renderToolResults(toolResults),
     }
   )
   const { agentContext } = agentState
@@ -310,7 +299,10 @@ ${toolResults
   const messagesWithResponse = [
     ...messagesWithToolResults,
     // (hacky) ends turn if LLM did not give a response.
-    { role: 'assistant' as const, content: fullResponse || "<end_turn></end_turn>" },
+    {
+      role: 'assistant' as const,
+      content: fullResponse || '<end_turn></end_turn>',
+    },
   ]
   const toolCalls = parseToolCalls(fullResponse)
   const clientToolCalls: ClientToolCall[] = []
@@ -713,7 +705,9 @@ const getMessagesSubset = (messages: Message[], otherTokens: number) => {
   })
 
   return trimMessagesToFitTokenLimit(
-    indexLastSubgoalComplete === -1 ? messages : messages.slice(indexLastSubgoalComplete),
+    indexLastSubgoalComplete === -1
+      ? messages
+      : messages.slice(indexLastSubgoalComplete),
     otherTokens
   )
 }
