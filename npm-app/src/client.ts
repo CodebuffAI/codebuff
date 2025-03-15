@@ -521,6 +521,7 @@ export class Client {
     const stopResponse = () => {
       // Only unsubscribe from chunks, keep listening for final credits
       unsubscribeChunks()
+      unsubscribeComplete()
 
       const assistantMessage = {
         role: 'assistant' as const,
@@ -577,18 +578,18 @@ export class Client {
         const a = parsedAction.data
 
         // Only process usage data if this is our pending request
-        if (action.promptId === this.pendingRequestId) {
-          const usageData = UsageReponseSchema.omit({ type: true }).safeParse(a)
-          if (usageData.success) {
-            this.pendingRequestId = null
-            this.setUsage(usageData.data)
-            this.showUsageWarning()
-            // Now that we have credits, we can fully unsubscribe
-            unsubscribeComplete()
-          }
+        const usageData = UsageReponseSchema.omit({ type: true }).safeParse(a)
+        if (usageData.success) {
+          this.pendingRequestId = null
+          this.setUsage(usageData.data)
         }
 
-        if (action.promptId !== userInputId) return
+        if (action.promptId !== userInputId) {
+          // TODO: figure out when to unsubscribe
+          // unsubscribeComplete()
+          return
+        }
+
         this.agentState = a.agentState
 
         Spinner.get().stop()
@@ -645,6 +646,8 @@ export class Client {
         if (this.agentState) {
           setMessages(this.agentState.messageHistory)
         }
+
+        this.showUsageWarning()
 
         if (this.hadFileChanges) {
           const latestCheckpointId = (
