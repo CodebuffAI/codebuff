@@ -12,12 +12,12 @@ const tools = [
   {
     name: 'add_subgoal',
     description: `
-## add_subgoal
+### add_subgoal
 Description: Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!
 Parameters:
 - id: (required) A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use.
 - objective: (required) The objective of the subgoal, concisely and clearly stated.
-- status: (required) The status of the subgoal. Can be "NOT_STARTED", "IN_PROGRESS", "COMPLETE", or "ABORTED".
+- status: (required) The status of the subgoal. One of ["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "ABORTED"]
 - plan: (optional) A plan for the subgoal.
 Usage:
 <add_subgoal>
@@ -30,11 +30,11 @@ Usage:
   {
     name: 'update_subgoal',
     description: `
-## update_subgoal
+### update_subgoal
 Description: Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.
 Parameters:
 - id: (required) The id of the subgoal to update.
-- status: (optional) Change the status of the subgoal. Can be "NOT_STARTED", "IN_PROGRESS", "COMPLETE", or "FAILED".
+- status: (optional) Change the status of the subgoal. One of ["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "FAILED"]
 - plan: (optional) Change the plan for the subgoal.
 - log: (optional) Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go.
 Usage 1 (update status):
@@ -66,16 +66,17 @@ Usage 4 (update status and add log):
   {
     name: 'write_file',
     description: `
-## write_file
+### write_file
 Description: Create or edit a file with the given content.
 
 When editing a file, please use this tool to output a simplified version of the code block that highlights the changes necessary and adds comments to indicate where unchanged code has been skipped.
 
 --- IMPORTANT OPTIMIZATION DETAIL ---
-Use "placeholder comments", i.e. "... existing code ..." in comments as often as you can. The write_file backend is very expensive, so try to write as little \`content\` as possible to accomplish the task. Often this will mean that the start/end of the file will be skipped, but that's okay! Rewrite the entire file only if specifically requested.
+Use "placeholder comments" i.e. "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->"  or however comments are written for other languages) in comments as often as you can, signifying unchanged regions of the file.
+The write_file tool is very expensive for each line of code you write, so try to write as little \`content\` as possible to accomplish the task. Often this will mean that the start/end of the file will be skipped, but that's okay! Rewrite the entire file only if specifically requested.
 --- IMPORTANT OPTIMIZATION DETAIL ---
 
-These edit codeblocks will be read by a less intelligent "apply" language model to update the file. To help specify the edit to the apply model, be very careful to include a few lines of context when generating the codeblock to not introduce ambiguity. Specify all unchanged regions (code and comments) of the file with "... existing code ..." markets (in comments). This will ensure the apply model will not delete existing unchanged code or comments when editing the file. This is just an abstraction for your understanding, you should not mention the apply model to the user.
+These edit codeblocks will be read by a less intelligent "apply" language model to update the file. To help specify the edit to the apply model, be very careful to include a few lines of context when generating the codeblock to not introduce ambiguity. Specify all unchanged regions (code and comments) of the file with "// ... existing code ..." markers (in comments). This will ensure the apply model will not delete existing unchanged code or comments when editing the file. This is just an abstraction for your understanding, you should not mention the apply model to the user.
 
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
@@ -84,7 +85,7 @@ Parameters:
 - content: (required) Content to write to the file. You should abridge the content of the file using placeholder comments like: \`// ... existing code ...\` or \`# ... existing code ...\` (or whichever is appropriate for the language).
 Usage:
 <write_file>
-<path>src/main.ts</path>
+<path>path/to/file</path>
 <content>
 Your file content here
 </content>
@@ -92,7 +93,7 @@ Your file content here
 
 Example:
 
-The following example shows how the foo function is being updated, with appropriate "... existing code ..." in placeholder comments to indicate where the code has not changed:
+The following example shows how the foo function is being updated, with appropriate "//... existing code ..." in placeholder comments to indicate where the code has not changed:
 
 <write_file>
 <path>foo.ts</path>
@@ -127,15 +128,15 @@ If you just want to show the user some code, and don't want to necessarily make 
   {
     name: 'read_files',
     description: `
-## read_files
+### read_files
 Description: Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request. Make sure to read any files before you write to them with the write_file tool.
 Parameters:
 - paths: (required) List of file paths to read, separated by newlines
 Usage:
 <read_files>
 <paths>
-src/main.ts
-src/utils.ts
+path/to/file1.ts
+path/to/file2.ts
 </paths>
 </read_files>
 
@@ -144,7 +145,7 @@ Note that there's no need to call this tool if you're already reading the files 
   //   {
   //     name: 'find_files',
   //     description: `
-  // ## find_files
+  // ### find_files
   // Description: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
   // Parameters:
   // - description: (required) A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.
@@ -165,7 +166,7 @@ Note that there's no need to call this tool if you're already reading the files 
   {
     name: 'code_search',
     description: `
-  ## code_search
+  ### code_search
   Description: Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.
   Parameters:
   - pattern: (required) The pattern to search for.
@@ -198,7 +199,7 @@ Note that there's no need to call this tool if you're already reading the files 
   {
     name: 'run_terminal_command',
     description: `
-## run_terminal_command
+### run_terminal_command
 Description: Request to execute a CLI command on the system. Use this when you need to perform system operations or run specific commands to accomplish any step in the user's task. You must tailor your command to the user's system and provide a clear explanation of what the command does. For command chaining, use the appropriate chaining syntax for the user's shell. Prefer to execute complex CLI commands over creating executable scripts, as they are more flexible and easier to run. Commands will be executed in the current working directory: ${process.cwd()}
 Parameters:
 - command: (required) The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.
@@ -234,7 +235,7 @@ Notes:
   {
     name: 'think_deeply',
     description: `
-## think_deeply
+### think_deeply
 Description: Think through a complex change to the codebase, like implementing a new feature or refactoring some code. Brainstorm. Go deep on alternative approaches and consider the tradeoffs.
 Parameters: thought: (required) Your detailed thoughts.
 Usage:
@@ -272,7 +273,7 @@ Do not use it for simple changes like:
   {
     name: 'create_plan',
     description: `
-## create_plan
+### create_plan
 Description: Create a plan for a complex change to the codebase, like implementing a new feature or refactoring some code.
 Parameters:
 - path: (required) The path including the filename of a markdown file that will be overwritten with the plan.
@@ -323,7 +324,7 @@ Important: Use this tool sparingly. Do not use this tool more than once in a con
   {
     name: 'end_turn',
     description: `
-## end_turn
+### end_turn
 Description: End your response. Use this tool when you've completed the user's request, or need more information from the user, or feel like you are not making progress and want help from the user.
 Parameters: None
 Usage:
@@ -433,9 +434,13 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
 ]
 
 export const toolsInstructions = `
-# Tool Use Formatting
+# Tools
 
-Tool use is formatted using XML-style tags. The tool name is enclosed in opening and closing tags, and each parameter is similarly enclosed within its own set of tags. Here's the structure:
+Tools are available for the assistant (Buffy) to use. Whenever Buffy calls these tools, the user responds with the tool results.
+
+## Formatting
+
+Tool use is formatted using XML-style tags. The tool name is enclosed in opening and closing tags, and each parameter is similarly enclosed within its own set of tags. Structure:
 
 <tool_name>
 <parameter1_name>value1</parameter1_name>
@@ -446,17 +451,19 @@ Tool use is formatted using XML-style tags. The tool name is enclosed in opening
 For example:
 
 <write_file>
-<path>src/main.ts</path>
+<path>path/to/example/file.ts</path>
 <content>console.log('Hello, world!');</content>
 </write_file>
 
-Always adhere to this format for the tool use to ensure proper parsing and execution.
+Buffy always adheres to this format for the tool use to ensure proper parsing and execution by the user.
 
-You can and should include as many tool calls in the response as you need to complete the task. You can even use the same tool multiple times if needed.
+Buffy can and must include as many tool calls in the response as you need to complete the task. They can even use the same tool multiple times if needed.
 
-No need to narrate your thought process for the tool you are going to use. Just write out the tool call and the parameters you need to use.
+Buffy doesn't narrate their thought process for the tool you are going to use. They just write out the tool call and the parameters they need to use.
 
-# Tools
+## List of Tools
+
+These are the tools that the assistant (Buffy) sees. The user cannot see the tool descriptions.
 
 ${tools.map((tool) => tool.description).join('\n\n')}
 `

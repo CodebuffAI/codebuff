@@ -1,6 +1,9 @@
 import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
+
+import { cyan, green, red } from 'picocolors'
+
 import {
   TEST_REPOS_DIR,
   SWE_BENCH_REPO_PATH,
@@ -18,6 +21,19 @@ export function passesSweBenchTests(
   projectDir: string
 ): boolean {
   var patch = execSync(`cd ${projectDir} && git diff`, { encoding: 'utf8' })
+
+  console.log()
+  for (const line of patch.split('\n')) {
+    if (line.startsWith('+')) {
+      console.log(green(line))
+    } else if (line.startsWith('-')) {
+      console.log(red(line))
+    } else if (line.startsWith('@@')) {
+      console.log(cyan(line))
+    } else {
+      console.log(line)
+    }
+  }
 
   fs.mkdirSync(PREDICTIONS_DIR, { recursive: true })
   const predictionsPath = path.join(PREDICTIONS_DIR, `${instanceId}.json`)

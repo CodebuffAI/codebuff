@@ -159,6 +159,7 @@ export const safeReplace = (
 export const hasLazyEdit = (content: string) => {
   const cleanedContent = content.toLowerCase().trim()
   return (
+    cleanedContent.includes('... existing code ...') ||
     cleanedContent.includes('// rest of the') ||
     cleanedContent.includes('# rest of the') ||
     // Match various comment styles with ellipsis and specific words

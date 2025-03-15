@@ -308,7 +308,7 @@ export class Client {
             const responseToUser = [
               'Authentication successful! 🎉',
               bold(`Hey there, ${user.name}.`),
-              `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month for each of them: ${blueBright(referralLink)}`,
+              `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month: ${blueBright(referralLink)}`,
             ]
             console.log('\n' + responseToUser.join('\n'))
             this.lastWarnedPct = 0
@@ -332,7 +332,6 @@ export class Client {
     limit,
     subscription_active,
     next_quota_reset,
-    referralLink,
     session_credits_used,
   }: Omit<UsageResponse, 'type'>) {
     this.usage = usage
@@ -347,7 +346,6 @@ export class Client {
       )
       this.sessionCreditsUsed = session_credits_used
     }
-    // this.showUsageWarning(referralLink)
   }
 
   private processUsageResponse(usageResponse: Omit<UsageResponse, 'type'>) {
@@ -419,10 +417,10 @@ export class Client {
     })
   }
 
-  public showUsageWarning(referralLink?: string) {
+  public showUsageWarning() {
     const errorCopy = [
       this.user
-        ? `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))} to upgrade – or refer a new user and earn ${CREDITS_REFERRAL_BONUS} credits per month: ${blue(bold(referralLink))}`
+        ? `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))} to upgrade – or refer a new user and earn ${CREDITS_REFERRAL_BONUS} credits per month: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/referrals'))}`
         : green('Type "login" below to sign up and get more credits!'),
     ].join('\n')
 
@@ -494,6 +492,8 @@ export class Client {
     this.pendingRequestId = userInputId
     this.usageProcessed = false // Reset usage processed flag
 
+    this.pendingRequestId = userInputId
+
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
         Spinner.get().stop()
@@ -552,8 +552,8 @@ export class Client {
     })
 
     const stopResponse = () => {
+      // Only unsubscribe from chunks, keep listening for final credits
       unsubscribeChunks()
-      unsubscribeComplete()
 
       const assistantMessage = {
         role: 'assistant' as const,
@@ -670,6 +670,8 @@ export class Client {
         if (this.agentState) {
           setMessages(this.agentState.messageHistory)
         }
+
+        this.showUsageWarning()
 
         if (this.hadFileChanges) {
           const latestCheckpointId = (

@@ -135,25 +135,22 @@ export async function genUsageResponse(
         next_quota_reset,
         session_credits_used,
       } = await calculateUsage(fingerprintId, userId, sessionId)
-      logger.info('Sending usage info')
+      logger.info(
+        {
+          fingerprintId,
+          userId,
+          sessionId,
+          limit,
+          subscription_active,
+          next_quota_reset,
+          session_credits_used,
+        },
+        'Sending usage info'
+      )
 
-      let referralLink: string | undefined = undefined
-      if (userId) {
-        const referralStatus = await hasMaxedReferrals(userId)
-        if (referralStatus.reason === undefined) {
-          referralLink = referralStatus.referralLink
-        } else {
-          logger.info(
-            `Not generating referral link for user ${userId}: ${referralStatus.reason}. Details: ${JSON.stringify(referralStatus.details)}`
-          )
-        }
-      } else {
-        logger.info('No userId provided, skipping referral link generation')
-      }
       return {
         usage,
         limit,
-        referralLink,
         subscription_active,
         next_quota_reset,
         session_credits_used,
