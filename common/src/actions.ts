@@ -73,6 +73,7 @@ export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
 export const UsageReponseSchema = z.object({
   type: z.literal('usage-response'),
+  promptId: z.string().optional(),
   usage: z.number(),
   limit: z.number(),
   referralLink: z.string().optional(),

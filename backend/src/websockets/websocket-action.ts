@@ -116,12 +116,14 @@ async function calculateUsage(
  * @param sessionId - The current session ID
  * @param fingerprintId - The fingerprint ID for the user/device
  * @param userId - Optional user ID for authenticated users
+ * @param promptId - Optional prompt ID for the prompt action
  * @returns A UsageResponse object containing usage metrics and referral information
  */
 export async function genUsageResponse(
   sessionId: string,
   fingerprintId: string,
-  userId?: string
+  userId?: string,
+  promptId?: string
 ): Promise<UsageResponse> {
   const params = await withLoggerContext(
     { fingerprintId, userId },
@@ -161,6 +163,7 @@ export async function genUsageResponse(
 
   return {
     type: 'usage-response',
+    promptId,
     ...params,
   }
 }
@@ -201,27 +204,28 @@ const onPrompt = async (
             })
         )
 
-        const {
-          usage,
-          limit,
-          referralLink,
-          subscription_active,
-          next_quota_reset,
-          session_credits_used,
-        } = await genUsageResponse(clientSessionId, fingerprintId, userId)
+        // Send usage response separately
+        const usageResponse = await genUsageResponse(
+          clientSessionId,
+          fingerprintId,
+          userId,
+          promptId
+        )
+
+        // Send prompt & usage data
         sendAction(ws, {
           type: 'prompt-response',
           promptId,
           agentState,
           toolCalls,
           toolResults,
-          usage,
-          limit,
-          subscription_active,
-          referralLink,
-          next_quota_reset,
-          session_credits_used,
+          usage: usageResponse.usage,
+          limit: usageResponse.limit,
+          subscription_active: usageResponse.subscription_active,
+          next_quota_reset: usageResponse.next_quota_reset,
+          session_credits_used: usageResponse.session_credits_used,
         })
+        sendAction(ws, usageResponse)
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')
         let response =

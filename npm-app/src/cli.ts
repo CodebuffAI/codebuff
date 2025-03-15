@@ -299,16 +299,6 @@ export class CLI {
     this.isReceivingResponse = false
 
     Spinner.get().stop()
-
-    if (this.client.lastRequestCredits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
-      console.log(
-        `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
-      )
-    }
-    this.client.showUsageWarning()
-    console.log()
-
-    this.rl.prompt()
   }
 
   private returnControlToUser() {

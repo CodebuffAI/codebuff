@@ -24,7 +24,10 @@ import {
   UsageResponse,
 } from 'common/actions'
 import { User } from 'common/util/credentials'
-import { CREDITS_REFERRAL_BONUS } from 'common/constants'
+import {
+  CREDITS_REFERRAL_BONUS,
+  REQUEST_CREDIT_SHOW_THRESHOLD,
+} from 'common/constants'
 import {
   AgentState,
   ToolResult,
@@ -52,6 +55,7 @@ import { GitCommand } from './types'
 import { Spinner } from './utils/spinner'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { toolRenderers } from './utils/tool-renderers'
+import { pluralize } from 'common/util/string'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -75,6 +79,8 @@ export class Client {
   private git: GitCommand
   private rl: readline.Interface
   private lastToolResults: ToolResult[] = []
+  private pendingRequestId: string | null = null
+  private usageProcessed: boolean = false
 
   constructor(
     websocketUrl: string,
@@ -333,6 +339,7 @@ export class Client {
     this.limit = limit
     this.subscription_active = subscription_active
     this.nextQuotaReset = next_quota_reset
+
     if (!!session_credits_used) {
       this.lastRequestCredits = Math.max(
         session_credits_used - this.sessionCreditsUsed,
@@ -341,6 +348,39 @@ export class Client {
       this.sessionCreditsUsed = session_credits_used
     }
     // this.showUsageWarning(referralLink)
+  }
+
+  private processUsageResponse(usageResponse: Omit<UsageResponse, 'type'>) {
+    // First update internal state
+    this.setUsage(usageResponse)
+
+    // If this is a direct usage request (no promptId), show the info and return
+    if (!usageResponse.promptId) {
+      console.log(
+        green(underline(`Codebuff usage:`)),
+        `${usageResponse.usage} / ${usageResponse.limit} credits`
+      )
+      this.rl.prompt()
+      return
+    }
+
+    // Only process if matches pending request
+    if (usageResponse.promptId === this.pendingRequestId) {
+      if (!this.usageProcessed) {
+        // First time seeing usage for this response
+        this.usageProcessed = true
+
+        if (this.lastRequestCredits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
+          console.log(
+            `\n${pluralize(this.lastRequestCredits, 'credit')} used for this request.`
+          )
+        }
+        this.showUsageWarning()
+      } else {
+        // Already processed usage once, just update silently and reset flag
+        this.usageProcessed = false
+      }
+    }
   }
 
   private setupSubscriptions() {
@@ -375,15 +415,7 @@ export class Client {
     this.webSocket.subscribe('usage-response', (action) => {
       const parsedAction = UsageReponseSchema.safeParse(action)
       if (!parsedAction.success) return
-      const a = parsedAction.data
-      console.log()
-      console.log(
-        green(underline(`Codebuff usage:`)),
-        `${a.usage} / ${a.limit} credits`
-      )
-      this.setUsage(a)
-      this.showUsageWarning(a.referralLink)
-      this.returnControlToUser()
+      this.processUsageResponse(parsedAction.data)
     })
   }
 
@@ -459,6 +491,8 @@ export class Client {
     }
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
+    this.pendingRequestId = userInputId
+    this.usageProcessed = false // Reset usage processed flag
 
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
@@ -491,7 +525,7 @@ export class Client {
     }
   }
 
-  subscribeToResponse(
+  private subscribeToResponse(
     onChunk: (chunk: string) => void,
     userInputId: string,
     onStreamStart: () => void,
@@ -535,6 +569,9 @@ export class Client {
       }
       setMessages(newMessages)
 
+      this.pendingRequestId = null
+      this.rl.prompt()
+
       resolveResponse({
         type: 'prompt-response',
         promptId: userInputId,
@@ -575,18 +612,17 @@ export class Client {
         if (!parsedAction.success) return
         const a = parsedAction.data
 
-        // store cost data
-        const usageData = UsageReponseSchema.omit({ type: true }).safeParse(a)
-
-        if (usageData.success) {
-          this.setUsage(usageData.data)
-          this.showUsageWarning(a.referralLink)
+        if (action.promptId !== userInputId) return
+        
+        // Handle usage data if present
+        if (this.pendingRequestId === userInputId) {
+          const usageData = UsageReponseSchema.omit({ type: true }).safeParse(a)
+          if (usageData.success) {
+            this.processUsageResponse(usageData.data)
+          }
         }
 
-        if (action.promptId !== userInputId) return
         this.agentState = a.agentState
-
-        Spinner.get().stop()
         let isComplete = false
         const toolResults: ToolResult[] = [...a.toolResults]
 
@@ -596,30 +632,25 @@ export class Client {
             continue
           }
           if (toolCall.name === 'write_file') {
-            // Save lastChanges for `diff` command
             this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
-
             this.hadFileChanges = true
           }
           if (
             toolCall.name === 'run_terminal_command' &&
             toolCall.parameters.mode === 'user'
           ) {
-            // Special case: when terminal command is run it as a user command, then no need to reprompt assistant.
             isComplete = true
           }
           const toolResult = await handleToolCall(toolCall, getProjectRoot())
           toolResults.push(toolResult)
         }
 
-        // If we had any file changes, update the project context
         if (this.hadFileChanges) {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
         }
 
         if (!isComplete) {
           Spinner.get().start()
-          // Continue the prompt with the tool results.
           this.webSocket.sendAction({
             type: 'prompt',
             promptId: userInputId,
@@ -634,7 +665,6 @@ export class Client {
         }
 
         this.lastToolResults = toolResults
-
         xmlStreamParser.end()
 
         if (this.agentState) {
@@ -651,6 +681,10 @@ export class Client {
           this.hadFileChanges = false
         }
 
+        // Only clear pendingRequestId on final completion
+        this.pendingRequestId = null
+
+        this.rl.prompt()
         unsubscribeChunks()
         unsubscribeComplete()
         resolveResponse({ ...a, wasStoppedByUser: false })
