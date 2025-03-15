@@ -279,10 +279,10 @@ ${editSnippet}
 Important:
 1. Preserve the original formatting, indentation, and comments
 2. Only implement the changes shown in the edit snippet
-3. Do not use any placeholder comments (like "... existing code ...")
+3. Do not include any placeholder comments (like "// ... existing code ..." or "# ... rest of the file ...")
 4. Return the complete file content
 
-Please output just the complete file content with no additional text or formatting inside a \`\`\` block.`
+Please output just the complete file content with the edit applied, with no additional text or formatting inside a \`\`\` block.`
 
   const response = await promptGeminiWithFallbacks(
     [

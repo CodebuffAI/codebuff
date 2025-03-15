@@ -178,9 +178,9 @@ ${existingNewFilePaths.join('\n')}
 
     'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
-    // For Sonnet 3.6.
-    // 'Before you use write_file to edit an existing file, make sure to use the read_files tool on the file to read it.',
-    'When editing a file, just highlight the parts of the file that have changed. Do not start writing the first line of the file. Instead, use "... existing code ..." comments surrounding your edits.',
+    'Before you use write_file to edit an existing file, make sure to use the read_files tool on the file to read it.',
+
+    'When editing a file, just highlight the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
 
     !justUsedATool &&
       !recentlyDidThinking &&
