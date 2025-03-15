@@ -521,7 +521,6 @@ export class Client {
     const stopResponse = () => {
       // Only unsubscribe from chunks, keep listening for final credits
       unsubscribeChunks()
-      unsubscribeComplete()
 
       const assistantMessage = {
         role: 'assistant' as const,
@@ -586,7 +585,7 @@ export class Client {
 
         if (action.promptId !== userInputId) {
           // TODO: figure out when to unsubscribe
-          // unsubscribeComplete()
+          unsubscribeComplete()
           return
         }
 
