@@ -21,7 +21,7 @@ export const getAgentSystemPrompt = (
   fileContext: ProjectFileContext,
   messageHistory: Message[]
 ) => {
-  const { fileVersions } = fileContext
+  const { baseFiles } = fileContext
   const agentInstructions = fs.readFileSync(
     path.join(__dirname, 'agent-instructions.md'),
     'utf8'
@@ -34,8 +34,6 @@ export const getAgentSystemPrompt = (
   // File tree: 20k (5k for lite)
   // Messages: Remaining
   // Total: 200k (64k for lite)
-
-  const files = uniq(fileVersions.flatMap((files) => files.map((f) => f.path)))
 
   const projectFilesPromptContent = getProjectFilesPromptContent(
     fileContext,

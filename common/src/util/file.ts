@@ -55,7 +55,8 @@ export const ProjectFileContextSchema = z.object({
     homedir: z.string(),
     cpus: z.number(),
   }),
-  fileVersions: z.array(z.array(FileVersionSchema)),
+  baseFiles: z.array(FileVersionSchema),
+  fileVersions: z.array(z.array(FileVersionSchema)), // Keep temporarily for migration
 })
 
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
@@ -194,4 +195,13 @@ export function isValidFilePath(path: string) {
   if (invalidChars.test(path)) return false
 
   return true
+}
+
+export function getInitialBaseFiles(knowledgeFiles: Record<string, string>): FileVersion[] {
+  // Convert knowledge files into FileVersion array
+  return Object.entries(knowledgeFiles)
+    .map(([path, content]) => ({
+      path,
+      content,
+    }))
 }

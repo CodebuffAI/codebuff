@@ -135,23 +135,22 @@ export const getProjectFilesPromptContent = (
   fileContext: ProjectFileContext,
   shouldDoPromptCaching: boolean
 ) => {
-  const { fileVersions, userKnowledgeFiles } = fileContext
+  const { baseFiles, userKnowledgeFiles } = fileContext
 
   const userKnowledgeFilesSet = Object.entries(userKnowledgeFiles ?? {}).map(
     ([path, content]) =>
       createMarkdownFileBlock(`~/${path}`, content ?? '[FILE_DOES_NOT_EXIST]')
   )
+
+  const baseFileBlocks = baseFiles
+    .map(({ path, content }) =>
+      createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
+    )
+    .join('\n')
+
   const fileBlockSets = [
     ...userKnowledgeFilesSet,
-    ...fileVersions
-      .filter((files) => files.length > 0)
-      .map((files) =>
-        files
-          .map(({ path, content }) =>
-            createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
-          )
-          .join('\n')
-      ),
+    baseFileBlocks
   ]
 
   const intro = `

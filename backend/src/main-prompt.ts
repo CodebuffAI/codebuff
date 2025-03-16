@@ -539,18 +539,9 @@ async function getFileVersionUpdates(
   } = options
   const FILE_TOKEN_BUDGET = 100_000 // costMode === 'lite' ? 25_000 :
 
-  const { fileVersions } = fileContext
-  const files = fileVersions.flatMap((files) => files)
-  const previousFilePaths = uniq(files.map(({ path }) => path))
-  const latestFileVersions = previousFilePaths.map((path) => {
-    return files.findLast((file) => file.path === path)!
-  })
-  const previousFiles: Record<string, string> = Object.fromEntries(
-    zip(
-      previousFilePaths,
-      latestFileVersions.map((file) => file.content)
-    )
-  )
+  const { baseFiles } = fileContext
+  const previousFilePaths = uniq(baseFiles.map(({ path }) => path))
+  const toolResultFiles = []  // Initialize empty array
   const editedFilePaths = messages
     .map((m) => m.content)
     .filter(

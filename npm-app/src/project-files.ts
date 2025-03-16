@@ -178,6 +178,7 @@ export const getProjectFileContext = async (
       gitChanges,
       changesSinceLastChat,
       fileVersions,
+      baseFiles: fileVersions[0],
     }
   }
 
