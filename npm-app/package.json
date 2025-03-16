@@ -1,12 +1,12 @@
 {
-  "name": "codebuff",
-  "version": "1.0.179",
+  "name": "codecane",
+  "version": "1.0.203",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "codebuff": "dist/index.js"
+    "codecane": "dist/index.js"
   },
   "scripts": {
     "prebuild": "bun run with-env -- bun clean && cd ../common && bun run build && cd ../packages/code-map && bun run build",
