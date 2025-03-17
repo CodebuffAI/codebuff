@@ -93,7 +93,7 @@ const getIframeContent = (
         100% { opacity: 0.95; text-shadow: 2px 0 0 rgba(255,176,0,0.6); }
       }
       .error { color: #EF4444; }
-      .error-box { 
+      .error-box {
         background: rgba(239,68,68,0.1);
         padding: 16px;
         border-radius: 6px;
@@ -232,7 +232,7 @@ interface DemoResponse {
   message: string
 }
 
-const InteractiveTerminalDemo = () => {
+const TerminalDemo = () => {
   const { theme: colorTheme } = useTheme()
   const [terminalLines, setTerminalLines] = useState<React.ReactNode[]>([
     <TerminalOutput key="welcome">
@@ -487,4 +487,4 @@ const InteractiveTerminalDemo = () => {
   )
 }
 
-export default InteractiveTerminalDemo
+export default TerminalDemo

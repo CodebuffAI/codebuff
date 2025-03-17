@@ -22,8 +22,8 @@ import Marquee from '@/components/ui/marquee'
 import { Testimonial, testimonials } from '@/lib/testimonials'
 import { cn } from '@/lib/utils'
 import { storeSearchParams } from '@/lib/trackConversions'
-import InteractiveTerminalDemo from '@/components/InteractiveTerminalDemo'
 import { CodeDemo } from '@/components/docs/mdx/code-demo'
+import TerminalDemo from '@/components/TerminalDemo'
 
 const ReviewCard = ({
   t,
@@ -160,21 +160,8 @@ const Home = () => {
               </Button>
             </section>
 
-            <section className="relative w-full flex items-center justify-center rounded-xl">
-              <div className="relative w-full aspect-[13.5/9] rounded-xl overflow-hidden shadow-2xl border border-gray-200/20">
-                <video
-                  className="absolute inset-0 w-full h-full object-cover"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  disableRemotePlayback
-                  preload="auto"
-                >
-                  <source src="/codebuff-intro1.mp4" type="video/mp4" />
-                  <source src="/codebuff-intro1.webm" type="video/webm" />
-                </video>
-              </div>
+            <section className="relative w-full flex text-left">
+              <TerminalDemo />
             </section>
           </section>
 
@@ -220,19 +207,6 @@ const Home = () => {
                   more.
                 </p>
               </div>
-            </div>
-          </section>
-
-          {/* Demo Section */}
-          <section className="px-4 space-y-8">
-            <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
-              Try It Out
-            </h2>
-            <p className="text-center text-lg text-muted-foreground">
-              Experience the power of Codebuff right in your browser
-            </p>
-            <div className="rounded-xl overflow-hidden shadow-2xl">
-              <InteractiveTerminalDemo />
             </div>
           </section>
 
