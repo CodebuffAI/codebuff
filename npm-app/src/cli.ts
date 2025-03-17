@@ -143,8 +143,8 @@ export class CLI {
    */
   private freshPrompt() {
     Spinner.get().stop()
-    readline.cursorTo(process.stdout, 0);
-    (this.rl as any).line = ''
+    readline.cursorTo(process.stdout, 0)
+    ;(this.rl as any).line = ''
     this.rl.prompt()
   }
 
@@ -193,30 +193,30 @@ export class CLI {
     await this.forwardUserInput(userInput)
   }
 
-  private async beforeProcessCommand(userInput: string): Promise<void> {
+  private async saveCheckpoint(userInput: string): Promise<void> {
+    if (checkpointManager.disabledReason !== null) {
+      return
+    }
+
     Spinner.get().start()
     await this.readyPromise
     Spinner.get().stop()
 
-    if (checkpointManager.disabledReason === null) {
-      // Make sure the previous checkpoint is done
-      await checkpointManager.getLatestCheckpoint()?.fileStateIdPromise
+    // Make sure the previous checkpoint is done
+    await checkpointManager.getLatestCheckpoint()?.fileStateIdPromise
 
-      // Save the current agent state
-      const checkpoint = await checkpointManager.addCheckpoint(
-        this.client.agentState as AgentState,
-        userInput
-      )
+    // Save the current agent state
+    const checkpoint = await checkpointManager.addCheckpoint(
+      this.client.agentState as AgentState,
+      userInput
+    )
 
-      if (checkpoint) {
-        console.log(green(`Checkpoint #${checkpoint.id} saved!`))
-      }
+    if (checkpoint) {
+      console.log(`[checkpoint #${checkpoint.id} saved]`)
     }
   }
 
   private async processCommand(userInput: string): Promise<boolean> {
-    await this.beforeProcessCommand(userInput)
-
     if (userInput === 'help' || userInput === 'h') {
       displayMenu()
       this.freshPrompt()
@@ -224,6 +224,7 @@ export class CLI {
     }
     if (userInput === 'login' || userInput === 'signin') {
       await this.client.login()
+      checkpointManager.clearCheckpoints()
       return true
     }
     if (userInput === 'logout' || userInput === 'signout') {
@@ -240,6 +241,7 @@ export class CLI {
       return true
     }
     if (userInput === 'undo' || userInput === 'u') {
+      await this.saveCheckpoint(userInput)
       this.handleUndo()
       return true
     }
@@ -263,6 +265,7 @@ export class CLI {
 
     // Checkpoint commands
     if (userInput === 'checkpoint list' || userInput === 'checkpoints') {
+      await this.saveCheckpoint(userInput)
       this.handleCheckpoints()
       return true
     }
@@ -270,6 +273,7 @@ export class CLI {
     const restoreMatch = userInput.match(restoreCheckpointRegex)
     if (restoreMatch) {
       const id = parseInt(restoreMatch[1], 10)
+      await this.saveCheckpoint(userInput)
       await this.handleRestoreCheckpoint(id)
       return true
     }
@@ -283,6 +287,7 @@ export class CLI {
   }
 
   private async forwardUserInput(userInput: string) {
+    await this.saveCheckpoint(userInput)
     Spinner.get().start()
 
     this.client.lastChanges = []
@@ -726,6 +731,7 @@ export class CLI {
 
   private async handleClearCheckpoints(): Promise<void> {
     checkpointManager.clearCheckpoints()
+    console.log('Cleared all checkpoints.')
     this.freshPrompt()
   }
 }
