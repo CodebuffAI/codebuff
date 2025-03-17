@@ -172,21 +172,23 @@ ${existingNewFilePaths.join('\n')}
     'Instructions:',
     'Proceed toward the user request and any subgoals.',
 
-    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested.',
-
     "Unless the user specifies that you don't ask questions, if are multiple ways the user's command could be interpreted, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. Again, if the user specifies that you don't ask questions, make your best assumption and skip this step.",
+
+    'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
 
     'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
-    'Before you use write_file to edit an existing file, make sure to use the read_files tool on the file to read it.',
+    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested.',
 
     'When editing a file, just highlight the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
 
     !justUsedATool &&
       !recentlyDidThinking &&
-      'If the user request is very complex or asks you to plan, and you have not recently used the think_deeply tool, consider invoking "<think_deeply></think_deeply>", although this should be used sparingly.',
+      'If the user request is very complex or asks you to plan, consider invoking "<think_deeply></think_deeply>".',
     recentlyDidThinking &&
-      "Don't act on the plan created by the think_deeply tool. Instead, wait for the user to review it.",
+      "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
+
+    'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
 
     hasKnowledgeFiles &&
       'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
