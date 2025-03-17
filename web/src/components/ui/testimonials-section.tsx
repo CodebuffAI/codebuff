@@ -1,92 +1,71 @@
+'use client'
+
 import Image from 'next/image'
-import { YellowSplash, ColorBar } from './decorative-splash'
-import { Testimonial, testimonials } from '@/lib/testimonials'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { ExternalLink } from 'lucide-react'
-import Marquee from './marquee'
+import { testimonials, type Testimonial } from '@/lib/testimonials'
+import posthog from 'posthog-js'
+import { YellowSplash, ColorBar } from './decorative-splash'
 
-interface TestimonialProps {
-  name: string
-  role: string
-  quote: string
-  avatarUrl: string
-}
-
-function TestimonialCard({ name, role, quote, avatarUrl }: TestimonialProps) {
+const ReviewCard = ({
+  t,
+  onTestimonialClick,
+}: {
+  t: Testimonial
+  onTestimonialClick: (author: string, link: string) => void
+}) => {
   return (
-    <div className="bg-[#ffff33]/70 p-6 rounded-lg transform transition-all duration-300 hover:translate-y-[-5px] hover:shadow-lg relative group">
-      <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg"></div>
-      <div className="flex items-center mb-4 relative z-10">
-        <div className="w-12 h-12 relative mr-3 rounded-full overflow-hidden border-2 border-black/10">
-          <Image src={avatarUrl} alt={name} fill className="object-cover" />
+    <figure
+      className={cn(
+        'relative w-64 lg:w-80 cursor-pointer overflow-hidden rounded-xl p-6',
+        'bg-gradient-to-br from-white to-gray-50 hover:to-gray-100 border border-gray-200/50 shadow-lg hover:shadow-xl',
+        'dark:from-gray-800 dark:to-gray-900 dark:hover:to-gray-800 dark:border-gray-700/50',
+        'transition-all duration-200 hover:-translate-y-1'
+      )}
+      onClick={() => onTestimonialClick(t.author, t.link)}
+    >
+      <div className="flex justify-between">
+        <div className="flex flex-row items-center gap-2">
+          <Image
+            className="rounded-full"
+            width={32}
+            height={32}
+            alt=""
+            src={t.avatar ?? `https://avatar.vercel.sh/${t.author.split(' ').join('-').toLowerCase()}?size=32`}
+            priority={false}
+            loading="lazy"
+          />
+          <div className="flex flex-col">
+            <figcaption className="text-sm font-medium dark:text-white">
+              {t.author}
+            </figcaption>
+            <p className="text-xs font-medium dark:text-white/40">{t.title}</p>
+          </div>
         </div>
-        <div>
-          <h3 className="font-medium text-black">{name}</h3>
-          <p className="text-sm text-black/70">{role}</p>
+        <div className="flex items-center gap-2">
+          <ExternalLink
+            className="h-4 w-4"
+            onClick={() => onTestimonialClick(t.author, t.link)}
+          />
         </div>
       </div>
-      <p className="text-black/80 relative z-10">"{quote}"</p>
-      <div className="absolute bottom-0 right-0 w-8 h-8 bg-[#ffff33] rounded-tl-xl"></div>
-    </div>
+      <blockquote className="mt-4 text-sm lg:text-base">{t.quote}</blockquote>
+    </figure>
   )
 }
 
 export function TestimonialsSection() {
-  const ReviewCard = ({
-    t,
-    onTestimonialClick,
-  }: {
-    t: Testimonial
-    onTestimonialClick: (author: string, link: string) => void
-  }) => {
-    return (
-      <figure
-        className={cn(
-          'relative w-64 lg:w-80 cursor-pointer overflow-hidden rounded-xl p-6',
-          'bg-gradient-to-br from-white to-gray-50 hover:to-gray-100 border border-gray-200/50 shadow-lg hover:shadow-xl',
-          'dark:from-gray-800 dark:to-gray-900 dark:hover:to-gray-800 dark:border-gray-700/50',
-          'transition-all duration-200 hover:-translate-y-1'
-        )}
-        onClick={() => onTestimonialClick(t.author, t.link)}
-      >
-        <div className="flex justify-between">
-          <div className="flex flex-row items-center gap-2">
-            <Image
-              className="rounded-full"
-              width={32}
-              height={32}
-              alt=""
-              src={
-                t.avatar ??
-                `https://avatar.vercel.sh/${t.author.split(' ').join('-').toLowerCase()}?size=32`
-              }
-              priority={false}
-              loading="lazy"
-            />
-            <div className="flex flex-col">
-              <figcaption className="text-sm font-medium dark:text-white">
-                {t.author}
-              </figcaption>
-              <p className="text-xs font-medium dark:text-white/40">
-                {t.title}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <ExternalLink
-              className="h-4 w-4"
-              onClick={() => onTestimonialClick(t.author, t.link)}
-            />
-          </div>
-        </div>
-        <blockquote className="mt-4 text-sm lg:text-base">{t.quote}</blockquote>
-      </figure>
-    )
+  const handleTestimonialClick = (author: string, link: string) => {
+    posthog.capture('home.testimonial_clicked', {
+      author,
+      link,
+    })
+    window.open(link)
   }
 
   return (
     <section className="py-24 bg-[#ffff33] relative overflow-hidden">
-      {/* Decorative elements */}
       <YellowSplash className="top-20 left-20 opacity-70" />
       <YellowSplash className="bottom-20 right-20 opacity-50" />
       <ColorBar
@@ -101,35 +80,57 @@ export function TestimonialsSection() {
       />
 
       <div className="codebuff-container relative z-10">
+        <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
+          What Developers Are Saying
+        </h2>
+
         <h6 className="text-center text-gray-700 dark:text-gray-300 text-sm mb-12">
           (note: some testimonials reference our previous name,
           &quot;Manicode&quot; – they refer to the same product)
         </h6>
         <div className="mt-12 space-y-1">
           {testimonials.map((row, rowIndex) => (
-            <Marquee
-              key={rowIndex}
-              className="py-6"
-              pauseOnHover
-              reverse={rowIndex % 2 === 1}
-            >
+            <div key={rowIndex} className="py-6">
               <div className="flex gap-6">
                 {row.map((testimonial, i) => (
                   <ReviewCard
                     key={i}
                     t={testimonial}
-                    onTestimonialClick={(author: string, link: string) => {
-                      posthog.capture('home.testimonial_clicked', {
-                        author,
-                        link,
-                      })
-                      window.open(link)
-                    }}
+                    onTestimonialClick={handleTestimonialClick}
                   />
                 ))}
               </div>
-            </Marquee>
+            </div>
           ))}
+        </div>
+
+        <div className="flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-8">
+          <div className="flex flex-col items-center">
+            <p>Backed by</p>
+            <Link
+              href="https://www.ycombinator.com/companies/codebuff"
+              target="_blank"
+              className="block"
+            >
+              <img
+                src="/y-combinator.svg"
+                alt="y combinator logo"
+                className="h-8 w-full"
+              />
+            </Link>
+          </div>
+          <a
+            href="https://www.producthunt.com/posts/codebuff?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-codebuff"
+            target="_blank"
+            className="block"
+          >
+            <img
+              src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=dark"
+              alt="Codebuff - Better code generation than Cursor, from your CLI | Product Hunt"
+              width="250"
+              height="54"
+            />
+          </a>
         </div>
       </div>
     </section>
