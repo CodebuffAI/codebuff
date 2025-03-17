@@ -679,11 +679,13 @@ export class Client {
         this.showUsageWarning()
 
         if (this.hadFileChanges) {
-          const latestCheckpointId = (
-            checkpointManager.getLatestCheckpoint() as Checkpoint
-          ).id
+          const latestCheckpoint = checkpointManager.getLatestCheckpoint()
+          const displayedCheckpointString =
+            latestCheckpoint === null
+              ? ''
+              : ` or "checkpoint ${latestCheckpoint.id}" to revert`
           console.log(
-            `\nComplete! Type "diff" to review changes or "checkpoint ${latestCheckpointId}" to revert.`
+            `\nComplete! Type "diff" to review changes${displayedCheckpointString}.`
           )
           this.hadFileChanges = false
         }

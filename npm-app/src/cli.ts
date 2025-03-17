@@ -186,7 +186,7 @@ export class CLI {
     await this.readyPromise
     Spinner.get().stop()
 
-    if (checkpointManager.enabled) {
+    if (checkpointManager.disabledReason === null) {
       // Make sure the previous checkpoint is done
       await checkpointManager.getLatestCheckpoint()?.fileStateIdPromise
 
@@ -327,9 +327,23 @@ export class CLI {
   }
 
   private async handleUndo(): Promise<void> {
+    if (checkpointManager.disabledReason !== null) {
+      console.log(
+        red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
+      )
+      this.rl.prompt()
+      return
+    }
+
+    const checkpoint = checkpointManager.getLatestCheckpoint()
+    if (checkpoint === null) {
+      console.log(red('Unable to undo: internal error: no checkpoints found'))
+      this.rl.prompt()
+      return
+    }
+
     // Get previous checkpoint number (not including undo command)
-    const checkpointId =
-      (checkpointManager.getLatestCheckpoint() as Checkpoint).id - 1
+    const checkpointId = checkpoint.id - 1
     if (checkpointId < 1) {
       console.log(red('Nothing to undo.'))
       this.rl.prompt()
@@ -646,8 +660,10 @@ export class CLI {
   }
 
   private async handleRestoreCheckpoint(id: number): Promise<void> {
-    if (!checkpointManager.enabled) {
-      console.log(red(`Checkpoints not enabled: project too large`))
+    if (checkpointManager.disabledReason !== null) {
+      console.log(
+        red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
+      )
       this.rl.prompt()
       return
     }
