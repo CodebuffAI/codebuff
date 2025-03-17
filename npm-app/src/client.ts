@@ -554,8 +554,8 @@ export class Client {
 
     const stopResponse = () => {
       responseStopped = true
-      // Only unsubscribe from chunks, keep listening for final credits
       unsubscribeChunks()
+      unsubscribeComplete()
 
       const assistantMessage = {
         role: 'assistant' as const,
@@ -635,6 +635,7 @@ export class Client {
             continue
           }
           if (toolCall.name === 'write_file') {
+            // Save lastChanges for `diff` command
             this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
             this.hadFileChanges = true
           }
@@ -642,6 +643,7 @@ export class Client {
             toolCall.name === 'run_terminal_command' &&
             toolCall.parameters.mode === 'user'
           ) {
+            // Special case: when terminal command is run it as a user command, then no need to reprompt assistant.
             isComplete = true
           }
           const toolResult = await handleToolCall(toolCall, getProjectRoot())
