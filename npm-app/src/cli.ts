@@ -337,9 +337,21 @@ export class CLI {
   }
 
   private async handleUndo(): Promise<void> {
+    if (!checkpointManager.enabled) {
+      console.log(red(`Checkpoints not enabled: Project too large`))
+      this.rl.prompt()
+      return
+    }
+
+    const checkpoint = checkpointManager.getLatestCheckpoint()
+    if (checkpoint === null) {
+      console.log(red('Unable to undo: internal error: no checkpoints found'))
+      this.rl.prompt()
+      return
+    }
+
     // Get previous checkpoint number (not including undo command)
-    const checkpointId =
-      (checkpointManager.getLatestCheckpoint() as Checkpoint).id - 1
+    const checkpointId = checkpoint.id - 1
     if (checkpointId < 1) {
       console.log(red('Nothing to undo.'))
       this.rl.prompt()
