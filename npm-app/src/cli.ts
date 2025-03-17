@@ -24,6 +24,8 @@ import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import type { CostMode } from 'common/constants'
 import { AssertionError } from 'assert'
 
+const restoreCheckpointRegex = /^checkpoint\s+(\d+)$/
+
 export class CLI {
   private client: Client
   private readyPromise: Promise<any>
@@ -265,7 +267,7 @@ export class CLI {
       return true
     }
 
-    const restoreMatch = userInput.match(/^checkpoint\s+(\d+)$/)
+    const restoreMatch = userInput.match(restoreCheckpointRegex)
     if (restoreMatch) {
       const id = parseInt(restoreMatch[1], 10)
       await this.handleRestoreCheckpoint(id)
@@ -703,7 +705,9 @@ export class CLI {
 
     // Insert the original user input that created this checkpoint
     this.freshPrompt()
-    this.rl.write(checkpoint.userInput)
+    if (!checkpoint.userInput.match(restoreCheckpointRegex)) {
+      this.rl.write(checkpoint.userInput)
+    }
   }
 
   private async restoreAgentStateAndFiles(
