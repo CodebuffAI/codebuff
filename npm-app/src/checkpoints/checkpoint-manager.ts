@@ -62,7 +62,7 @@ export interface Checkpoint {
 export class CheckpointManager {
   checkpoints: Array<Checkpoint> = []
   private bareRepoPath: string | null = null
-  enabled: boolean = true
+  disabledReason: string | null = null
   /** Worker thread for git operations */
   private worker: Worker | null = null
 
@@ -135,7 +135,7 @@ export class CheckpointManager {
     agentState: AgentState,
     userInput: string
   ): Promise<Checkpoint | null> {
-    if (!this.enabled) {
+    if (this.disabledReason !== null) {
       return null
     }
 
@@ -145,7 +145,7 @@ export class CheckpointManager {
     const relativeFilepaths = getAllFilePaths(agentState.fileContext.fileTree)
 
     if (relativeFilepaths.length >= DEFAULT_MAX_FILES) {
-      this.enabled = false
+      this.disabledReason = 'Project too large'
       return null
     }
 
@@ -186,7 +186,7 @@ export class CheckpointManager {
    * @returns The most recent checkpoint or null if none exist
    */
   getLatestCheckpoint(): Checkpoint | null {
-    if (!this.enabled) {
+    if (this.disabledReason !== null) {
       return null
     }
     return this.checkpoints.length === 0
@@ -233,8 +233,8 @@ export class CheckpointManager {
    * @returns A formatted string representation of all checkpoints
    */
   getCheckpointsAsString(detailed: boolean = false): string {
-    if (!this.enabled) {
-      return red('Checkpoints not enabled: project too large.')
+    if (this.disabledReason !== null) {
+      return red(`Checkpoints not enabled: ${this.disabledReason}`)
     }
 
     if (this.checkpoints.length === 0) {
