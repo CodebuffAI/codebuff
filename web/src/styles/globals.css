@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Serif:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,54 +16,7 @@
   }
 
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
     --background: 240 10% 3.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
     --foreground: 0 0% 98%;
     --card: 240 10% 3.9%;
     --card-foreground: 0 0% 98%;
@@ -98,4 +53,71 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Custom styles for the terminal */
+.terminal {
+  @apply bg-black border border-zinc-800 rounded-md font-mono text-sm p-4;
+  text-shadow: 0 0 4px rgba(170, 255, 51, 0.1);
+}
+
+.terminal-command {
+  @apply flex items-center gap-2 text-white;
+}
+
+/* Codebuff specific styles */
+.codebuff-container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Full-width section styles */
+.full-width-section {
+  @apply w-full;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  padding-left: calc(50vw - 50%);
+  padding-right: calc(50vw - 50%);
+}
+
+.hero-heading {
+  @apply text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight;
+  font-family: 'Roboto Serif', serif;
+  text-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
+}
+
+.hero-subtext {
+  @apply text-lg md:text-xl text-zinc-300 max-w-3xl mx-auto;
+}
+
+/* Glowing effect for primary elements */
+.glow-effect {
+  box-shadow: 0 0 15px rgba(170, 255, 51, 0.5);
+}
+
+/* Code highlighting */
+.highlight-line {
+  @apply relative;
+}
+
+.highlight-line::before {
+  content: '';
+  @apply absolute left-0 top-0 h-full w-1 bg-primary rounded-sm;
+}
+
+/* Custom terminal scrollbar */
+.terminal-code::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.terminal-code::-webkit-scrollbar-track {
+  @apply bg-zinc-900 rounded-md;
+}
+
+.terminal-code::-webkit-scrollbar-thumb {
+  @apply bg-zinc-700 rounded-md;
+}
+
+.terminal-code::-webkit-scrollbar-thumb:hover {
+  @apply bg-zinc-600;
 }
