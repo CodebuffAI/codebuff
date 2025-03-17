@@ -533,6 +533,7 @@ export class Client {
   ) {
     let responseBuffer = ''
     let streamStarted = false
+    let responseStopped = false
     let resolveResponse: (
       value: ServerAction & { type: 'prompt-response' } & {
         wasStoppedByUser: boolean
@@ -552,6 +553,7 @@ export class Client {
     })
 
     const stopResponse = () => {
+      responseStopped = true
       // Only unsubscribe from chunks, keep listening for final credits
       unsubscribeChunks()
 
@@ -610,10 +612,11 @@ export class Client {
       async (action) => {
         const parsedAction = PromptResponseSchema.safeParse(action)
         if (!parsedAction.success) return
+        if (action.promptId !== userInputId) return
         const a = parsedAction.data
 
         if (action.promptId !== userInputId) return
-        
+
         // Handle usage data if present
         if (this.pendingRequestId === userInputId) {
           const usageData = UsageReponseSchema.omit({ type: true }).safeParse(a)

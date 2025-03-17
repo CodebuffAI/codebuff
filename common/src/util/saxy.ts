@@ -369,7 +369,7 @@ export class Saxy extends Transform {
           case Node.tagClose:
             // We do not distinguish between unclosed opening
             // or unclosed closing tags
-            callback(new Error('Unclosed tag'))
+            // callback(new Error('Unclosed tag'))
             return
           default:
           // Pass
