@@ -1,11 +1,15 @@
-import Image from "next/image";
-import { YellowSplash, ColorBar } from "./decorative-splash";
+import Image from 'next/image'
+import { YellowSplash, ColorBar } from './decorative-splash'
+import { Testimonial, testimonials } from '@/lib/testimonials'
+import { cn } from '@/lib/utils'
+import { ExternalLink } from 'lucide-react'
+import Marquee from './marquee'
 
 interface TestimonialProps {
-  name: string;
-  role: string;
-  quote: string;
-  avatarUrl: string;
+  name: string
+  role: string
+  quote: string
+  avatarUrl: string
 }
 
 function TestimonialCard({ name, role, quote, avatarUrl }: TestimonialProps) {
@@ -14,12 +18,7 @@ function TestimonialCard({ name, role, quote, avatarUrl }: TestimonialProps) {
       <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg"></div>
       <div className="flex items-center mb-4 relative z-10">
         <div className="w-12 h-12 relative mr-3 rounded-full overflow-hidden border-2 border-black/10">
-          <Image
-            src={avatarUrl}
-            alt={name}
-            fill
-            className="object-cover"
-          />
+          <Image src={avatarUrl} alt={name} fill className="object-cover" />
         </div>
         <div>
           <h3 className="font-medium text-black">{name}</h3>
@@ -29,36 +28,61 @@ function TestimonialCard({ name, role, quote, avatarUrl }: TestimonialProps) {
       <p className="text-black/80 relative z-10">"{quote}"</p>
       <div className="absolute bottom-0 right-0 w-8 h-8 bg-[#ffff33] rounded-tl-xl"></div>
     </div>
-  );
+  )
 }
 
 export function TestimonialsSection() {
-  const testimonials: TestimonialProps[] = [
-    {
-      name: "Kevin Wang",
-      role: "Technical Pro",
-      quote: "Terminal AI has never been more intuitive!",
-      avatarUrl: "https://web-assets.same.dev/1106086184/3770701448.png"
-    },
-    {
-      name: "Carlos Diaz",
-      role: "Streamlining code efficiency",
-      quote: "Incredible developer experience.",
-      avatarUrl: "https://web-assets.same.dev/3081073322/2576816647.png"
-    },
-    {
-      name: "Alex Ha",
-      role: "A must-have for modern devs",
-      quote: "Literally saving hours every week.",
-      avatarUrl: "https://web-assets.same.dev/2675534277/3763943484.png"
-    },
-    {
-      name: "Sarah Stevens",
-      role: "Our productivity has skyrocketed",
-      quote: "We're shocked!",
-      avatarUrl: "https://web-assets.same.dev/1801376880/4250091479.png"
-    }
-  ];
+  const ReviewCard = ({
+    t,
+    onTestimonialClick,
+  }: {
+    t: Testimonial
+    onTestimonialClick: (author: string, link: string) => void
+  }) => {
+    return (
+      <figure
+        className={cn(
+          'relative w-64 lg:w-80 cursor-pointer overflow-hidden rounded-xl p-6',
+          'bg-gradient-to-br from-white to-gray-50 hover:to-gray-100 border border-gray-200/50 shadow-lg hover:shadow-xl',
+          'dark:from-gray-800 dark:to-gray-900 dark:hover:to-gray-800 dark:border-gray-700/50',
+          'transition-all duration-200 hover:-translate-y-1'
+        )}
+        onClick={() => onTestimonialClick(t.author, t.link)}
+      >
+        <div className="flex justify-between">
+          <div className="flex flex-row items-center gap-2">
+            <Image
+              className="rounded-full"
+              width={32}
+              height={32}
+              alt=""
+              src={
+                t.avatar ??
+                `https://avatar.vercel.sh/${t.author.split(' ').join('-').toLowerCase()}?size=32`
+              }
+              priority={false}
+              loading="lazy"
+            />
+            <div className="flex flex-col">
+              <figcaption className="text-sm font-medium dark:text-white">
+                {t.author}
+              </figcaption>
+              <p className="text-xs font-medium dark:text-white/40">
+                {t.title}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <ExternalLink
+              className="h-4 w-4"
+              onClick={() => onTestimonialClick(t.author, t.link)}
+            />
+          </div>
+        </div>
+        <blockquote className="mt-4 text-sm lg:text-base">{t.quote}</blockquote>
+      </figure>
+    )
+  }
 
   return (
     <section className="py-24 bg-[#ffff33] relative overflow-hidden">
@@ -77,29 +101,37 @@ export function TestimonialsSection() {
       />
 
       <div className="codebuff-container relative z-10">
-        <div className="text-center mb-16">
-          <span className="text-xs font-semibold uppercase tracking-wider text-black/70 inline-block mb-2">Testimonials</span>
-          <h2 className="text-3xl lg:text-4xl font-serif font-medium mb-6 text-black relative inline-block">
-            What Developers Are Saying
-            <span className="absolute -bottom-2 left-0 w-full h-1 bg-black"></span>
-          </h2>
-          <p className="text-lg mb-8 text-black/70 max-w-3xl mx-auto">
-            Join thousands of developers who have already supercharged their workflow.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {testimonials.map((testimonial, index) => (
-            <TestimonialCard
-              key={index}
-              name={testimonial.name}
-              role={testimonial.role}
-              quote={testimonial.quote}
-              avatarUrl={testimonial.avatarUrl}
-            />
+        <h6 className="text-center text-gray-700 dark:text-gray-300 text-sm mb-12">
+          (note: some testimonials reference our previous name,
+          &quot;Manicode&quot; – they refer to the same product)
+        </h6>
+        <div className="mt-12 space-y-1">
+          {testimonials.map((row, rowIndex) => (
+            <Marquee
+              key={rowIndex}
+              className="py-6"
+              pauseOnHover
+              reverse={rowIndex % 2 === 1}
+            >
+              <div className="flex gap-6">
+                {row.map((testimonial, i) => (
+                  <ReviewCard
+                    key={i}
+                    t={testimonial}
+                    onTestimonialClick={(author: string, link: string) => {
+                      posthog.capture('home.testimonial_clicked', {
+                        author,
+                        link,
+                      })
+                      window.open(link)
+                    }}
+                  />
+                ))}
+              </div>
+            </Marquee>
           ))}
         </div>
       </div>
     </section>
-  );
+  )
 }

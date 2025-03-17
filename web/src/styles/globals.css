@@ -89,6 +89,11 @@
   @apply text-lg md:text-xl text-zinc-300 max-w-3xl mx-auto;
 }
 
+/* Terminal demo section */
+.terminal-demo-section {
+  @apply relative w-full flex justify-center text-left mt-12;
+}
+
 /* Glowing effect for primary elements */
 .glow-effect {
   box-shadow: 0 0 15px rgba(170, 255, 51, 0.5);

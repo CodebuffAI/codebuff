@@ -6,12 +6,13 @@ import { useSearchParams } from 'next/navigation'
 import { Hero } from '@/components/ui/hero'
 import { FeatureSection } from '@/components/ui/feature-section'
 import { CompetitionSection } from '@/components/ui/competition-section'
-import { TestimonialsSection } from '@/components/ui/testimonials-section'
 import { CTASection } from '@/components/ui/cta-section'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { CodeDemo } from '@/components/docs/mdx/code-demo'
 import { storeSearchParams } from '@/lib/trackConversions'
 import { BackgroundBeams } from '@/components/ui/background-beams'
+import TerminalDemo from '@/components/TerminalDemo'
+import { TestimonialsSection } from '@/components/ui/testimonials-section'
 
 const Home = () => {
   const [isVideoOpen, setIsVideoOpen] = useState(false)
@@ -73,7 +74,12 @@ const Home = () => {
       <div className="relative z-10">
         {/* Hero Section */}
         <section className="full-width-section">
-          <Hero />
+          <div className="codebuff-container">
+            <Hero />
+            <div className="terminal-demo-section">
+              <TerminalDemo />
+            </div>
+          </div>
         </section>
 
         {/* Feature Section 1: Full Codebase Understanding */}
