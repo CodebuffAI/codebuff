@@ -271,18 +271,19 @@ Old file content:
 ${oldContent}
 \`\`\`
 
-Edit snippet (the new content to implement):
+Edit snippet (the update to implement):
 \`\`\`
 ${editSnippet}
 \`\`\`
 
-Important:
-1. Preserve the original formatting, indentation, and comments
-2. Only implement the changes shown in the edit snippet
-3. Do not include any placeholder comments (like "// ... existing code ..." or "# ... rest of the file ...")
-4. Return the complete file content
+Integrate the edit snippet into the old file content to produce one coherent new file.
 
-Please output just the complete file content with the edit applied, with no additional text or formatting inside a \`\`\` block.`
+Important:
+1. Preserve the original formatting, indentation, and comments of the old file
+2. Only implement the changes shown in the edit snippet
+3. Do not include any placeholder comments in your output (like "// ... existing code ..." or "# ... rest of the file ...")
+
+Please output just the complete updated file content with the edit applied and no additional text.`
 
   const response = await promptGeminiWithFallbacks(
     [
@@ -326,7 +327,7 @@ export async function fastRewrite(
   })
 
   // Check if response still contains lazy edits
-  if (hasLazyEdit(response)) {
+  if (hasLazyEdit(editSnippet) && !hasLazyEdit(initialContent) && hasLazyEdit(response)) {
     const relaceResponse = response
     response = await rewriteWithGemini(
       initialContent,
