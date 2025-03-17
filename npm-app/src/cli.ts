@@ -136,6 +136,16 @@ export class CLI {
     this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
   }
 
+  /**
+   * Prompts the user with a clean prompt state
+   */
+  private freshPrompt() {
+    Spinner.get().stop()
+    readline.cursorTo(process.stdout, 0);
+    (this.rl as any).line = ''
+    this.rl.prompt()
+  }
+
   public async printInitialPrompt(initialInput?: string) {
     if (this.client.user) {
       displayGreeting(this.costMode, this.client.user.name)
@@ -146,7 +156,7 @@ export class CLI {
       await this.client.login()
       return
     }
-    this.rl.prompt()
+    this.freshPrompt()
     if (initialInput) {
       process.stdout.write(initialInput + '\n')
       this.handleUserInput(initialInput)
@@ -155,7 +165,7 @@ export class CLI {
 
   public async printDiff() {
     this.handleDiff()
-    this.rl.prompt()
+    this.freshPrompt()
   }
 
   private async handleLine(line: string) {
@@ -207,7 +217,7 @@ export class CLI {
 
     if (userInput === 'help' || userInput === 'h') {
       displayMenu()
-      this.rl.prompt()
+      this.freshPrompt()
       return true
     }
     if (userInput === 'login' || userInput === 'signin') {
@@ -216,7 +226,7 @@ export class CLI {
     }
     if (userInput === 'logout' || userInput === 'signout') {
       await this.client.logout()
-      this.rl.prompt()
+      this.freshPrompt()
       return true
     }
     if (userInput.startsWith('ref-')) {
@@ -237,7 +247,7 @@ export class CLI {
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(userInput)) {
       this.handleDiff()
-      this.rl.prompt()
+      this.freshPrompt()
       return true
     }
     if (
@@ -308,17 +318,15 @@ export class CLI {
     this.client.showUsageWarning()
     console.log()
 
-    this.rl.prompt()
+    this.freshPrompt()
   }
 
   private returnControlToUser() {
-    this.rl.prompt()
+    this.freshPrompt()
     this.isReceivingResponse = false
     if (this.stopResponse) {
       this.stopResponse()
     }
-
-    Spinner.get().stop()
   }
 
   private onWebSocketError() {
@@ -341,14 +349,14 @@ export class CLI {
       console.log(
         red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
       )
-      this.rl.prompt()
+      this.freshPrompt()
       return
     }
 
     const checkpoint = checkpointManager.getLatestCheckpoint()
     if (checkpoint === null) {
       console.log(red('Unable to undo: internal error: no checkpoints found'))
-      this.rl.prompt()
+      this.freshPrompt()
       return
     }
 
@@ -356,7 +364,7 @@ export class CLI {
     const checkpointId = checkpoint.id - 1
     if (checkpointId < 1) {
       console.log(red('Nothing to undo.'))
-      this.rl.prompt()
+      this.freshPrompt()
       return
     }
     await this.handleRestoreCheckpoint(checkpointId)
@@ -403,7 +411,7 @@ export class CLI {
       } else {
         this.lastSigintTime = now
         console.log('\nPress Ctrl-C again to exit')
-        this.rl.prompt()
+        this.freshPrompt()
       }
     }
   }
@@ -666,7 +674,7 @@ export class CLI {
   // Checkpoint command handlers
   private async handleCheckpoints(): Promise<void> {
     console.log(checkpointManager.getCheckpointsAsString())
-    this.rl.prompt()
+    this.freshPrompt()
   }
 
   private async handleRestoreCheckpoint(id: number): Promise<void> {
@@ -674,14 +682,14 @@ export class CLI {
       console.log(
         red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
       )
-      this.rl.prompt()
+      this.freshPrompt()
       return
     }
 
     const checkpoint = checkpointManager.checkpoints[id - 1]
     if (!checkpoint) {
       console.log(red(`Checkpoint #${id} not found.`))
-      this.rl.prompt()
+      this.freshPrompt()
       return
     }
 
@@ -694,7 +702,7 @@ export class CLI {
     console.log(green(`Restored to checkpoint #${id}.`))
 
     // Insert the original user input that created this checkpoint
-    this.rl.prompt()
+    this.freshPrompt()
     this.rl.write(checkpoint.userInput)
   }
 
@@ -714,6 +722,6 @@ export class CLI {
 
   private async handleClearCheckpoints(): Promise<void> {
     checkpointManager.clearCheckpoints()
-    this.rl.prompt()
+    this.freshPrompt()
   }
 }
