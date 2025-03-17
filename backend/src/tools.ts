@@ -241,14 +241,11 @@ Parameters: thought: (required) Your detailed thoughts.
 Usage:
 <think_deeply>
 <thought>
-Let's consider the following approaches:
-1. Approach 1: ...
-2. Approach 2: ...
-3. Approach 3: ...
-
-We should consider approach 2 because ...
+[Insert detailed thoughts here]
 </thought>
 </think_deeply>
+
+Think step by step. For the first section of your thinking, only keep a minimum draft for each thinking step, with 5 words at most.
 
 Use this tool when the user request meets multiple of these criteria:
 - Explicitly asks you to plan or think through something.
@@ -257,7 +254,6 @@ Use this tool when the user request meets multiple of these criteria:
 - Involves complex logic or architectural decisions
 - Would benefit from breaking down into smaller steps
 - Has potential edge cases or risks that need consideration
-- Requires careful coordination of changes
 
 Examples of when to use it:
 - Adding a new feature that touches multiple parts of the system
