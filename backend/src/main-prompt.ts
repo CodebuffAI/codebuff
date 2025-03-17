@@ -2,7 +2,11 @@ import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { AnthropicModel } from 'common/constants'
 import { promptClaudeStream } from './llm-apis/claude'
-import { parseToolCallXml, renderToolResults } from './util/parse-tool-call-xml'
+import {
+  parseToolCallXml,
+  parseToolResults,
+  renderToolResults,
+} from './util/parse-tool-call-xml'
 import { getModelForMode } from 'common/constants'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
@@ -543,7 +547,16 @@ async function getFileVersionUpdates(
 
   const { baseFiles } = fileContext
   const previousFilePaths = uniq(baseFiles.map(({ path }) => path))
-  const toolResultFiles = []  // Initialize empty array
+  const toolResultFiles = messages
+    .map((m) => m.content)
+    .filter(
+      (content) =>
+        typeof content === 'string' && content.includes('<tool_result')
+    )
+    .flatMap((content) => parseToolResults(content as string))
+    .filter(({ name }) => name === 'read_files')
+    .map(({ result }) => result)
+
   const editedFilePaths = messages
     .map((m) => m.content)
     .filter(
