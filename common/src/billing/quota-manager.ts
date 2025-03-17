@@ -14,7 +14,10 @@ type CheckQuotaResult = Promise<{
 }>
 
 export interface IQuotaManager {
-  checkQuota(id: string): CheckQuotaResult
+  checkQuota(
+    id: string,
+    sessionId?: string
+  ): CheckQuotaResult
   setNextQuota(
     id: string,
     quota_exceeded: boolean,
@@ -257,7 +260,8 @@ export const getQuotaManager = (authType: AuthType, id: string) => {
     .exhaustive()
 
   return {
-    checkQuota: (sessionId?: string) => manager.checkQuota(id, sessionId),
+    checkQuota: (sessionId?: string) => 
+      manager.checkQuota(id, sessionId),
     setNextQuota: (quota_exceeded: boolean, next_quota_reset: Date) =>
       manager.setNextQuota(id, quota_exceeded, next_quota_reset),
   }

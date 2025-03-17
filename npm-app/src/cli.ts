@@ -1,6 +1,15 @@
 import { parse } from 'path'
 
-import { green, red, yellow, blue, cyan, magenta, bold } from 'picocolors'
+import {
+  green,
+  red,
+  yellow,
+  blue,
+  cyan,
+  magenta,
+  bold,
+  underline,
+} from 'picocolors'
 import * as readline from 'readline'
 
 import { REQUEST_CREDIT_SHOW_THRESHOLD } from 'common/constants'
@@ -586,11 +595,8 @@ export class CLI {
 
   private handleExit() {
     Spinner.get().restoreCursor()
-    console.log('\n\n')
+    console.log()
 
-    console.log(
-      `${pluralize(this.client.sessionCreditsUsed, 'credit')} used this session.`
-    )
     if (this.client.limit && this.client.usage && this.client.nextQuotaReset) {
       const daysUntilReset = Math.max(
         0,

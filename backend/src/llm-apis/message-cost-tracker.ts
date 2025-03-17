@@ -6,6 +6,10 @@ import { stripeServer } from 'common/util/stripe'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { logger, withLoggerContext } from '@/util/logger'
+import { SWITCHBOARD } from '@/websockets/server'
+import { sendAction } from '@/websockets/websocket-action'
+import { ClientState } from '@/websockets/switchboard'
+import { WebSocket } from 'ws'
 
 const PROFIT_MARGIN = 0.2
 
@@ -144,6 +148,25 @@ export const saveMessage = async (value: {
             subscription_active: true,
           },
         })
+
+        // Find WebSocket connection using existing clientSessionId
+        const clientEntry = Array.from(SWITCHBOARD.clients.entries())
+          .find(([_, state]: [WebSocket, ClientState]) => state.sessionId === value.clientSessionId)
+
+        if (!clientEntry) {
+          logger.warn({ clientSessionId: value.clientSessionId }, 'No WebSocket connection found')
+          return savedMessage
+        }
+
+        const [ws] = clientEntry
+
+        // Send immediate message cost response
+        sendAction(ws, {
+          type: 'message-cost-response',
+          promptId: value.userInputId,
+          credits: creditsUsed
+        })
+
         if (
           !user ||
           !user.stripe_customer_id ||

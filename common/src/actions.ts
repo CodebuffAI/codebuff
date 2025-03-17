@@ -35,7 +35,6 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     changesAlreadyApplied: CHANGES,
     costMode: z.enum(costModes).optional().default('normal'),
   }),
-  // New schema for strange-loop.
   z.object({
     type: z.literal('prompt'),
     promptId: z.string(),
@@ -110,20 +109,20 @@ export const ResponseCompleteSchema = z
     }).partial()
   )
 
-// New schema for strange-loop.
-export const PromptResponseSchema = z
-  .object({
-    type: z.literal('prompt-response'),
-    promptId: z.string(),
-    agentState: AgentStateSchema,
-    toolCalls: z.array(NewToolCallSchema),
-    toolResults: z.array(ToolResultSchema),
-  })
-  .merge(
-    UsageReponseSchema.omit({
-      type: true,
-    }).partial()
-  )
+export const MessageCostResponseSchema = z.object({
+  type: z.literal('message-cost-response'),
+  promptId: z.string(),
+  credits: z.number(),
+})
+export type MessageCostResponse = z.infer<typeof MessageCostResponseSchema>
+
+export const PromptResponseSchema = z.object({
+  type: z.literal('prompt-response'),
+  promptId: z.string(),
+  agentState: AgentStateSchema,
+  toolCalls: z.array(NewToolCallSchema),
+  toolResults: z.array(ToolResultSchema),
+})
 export type PromptResponse = z.infer<typeof PromptResponseSchema>
 
 export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
@@ -161,6 +160,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   }),
   InitResponseSchema,
   UsageReponseSchema,
+  MessageCostResponseSchema,
   z.object({
     type: z.literal('action-error'),
     message: z.string(),

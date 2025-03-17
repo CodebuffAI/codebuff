@@ -116,14 +116,12 @@ async function calculateUsage(
  * @param sessionId - The current session ID
  * @param fingerprintId - The fingerprint ID for the user/device
  * @param userId - Optional user ID for authenticated users
- * @param promptId - Optional prompt ID for the prompt action
  * @returns A UsageResponse object containing usage metrics and referral information
  */
 export async function genUsageResponse(
   sessionId: string,
   fingerprintId: string,
-  userId?: string,
-  promptId?: string
+  userId?: string
 ): Promise<UsageResponse> {
   const params = await withLoggerContext(
     { fingerprintId, userId },
@@ -160,7 +158,6 @@ export async function genUsageResponse(
 
   return {
     type: 'usage-response',
-    promptId,
     ...params,
   }
 }
@@ -201,14 +198,6 @@ const onPrompt = async (
             })
         )
 
-        // Send usage response separately
-        const usageResponse = await genUsageResponse(
-          clientSessionId,
-          fingerprintId,
-          userId,
-          promptId
-        )
-
         // Send prompt & usage data
         sendAction(ws, {
           type: 'prompt-response',
@@ -216,13 +205,7 @@ const onPrompt = async (
           agentState,
           toolCalls,
           toolResults,
-          usage: usageResponse.usage,
-          limit: usageResponse.limit,
-          subscription_active: usageResponse.subscription_active,
-          next_quota_reset: usageResponse.next_quota_reset,
-          session_credits_used: usageResponse.session_credits_used,
         })
-        sendAction(ws, usageResponse)
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')
         let response =
@@ -349,19 +332,45 @@ const onInit = async (
 
 /**
  * Handles usage request actions from the client
- * @param fingerprintId - The fingerprint ID for the user/device
- * @param authToken - The authentication token
+ * @param action - The usage action from the client
  * @param clientSessionId - The client's session ID
  * @param ws - The WebSocket connection
  */
-export const onUsageRequest = async (
-  { fingerprintId, authToken }: Extract<ClientAction, { type: 'usage' }>,
+export async function onUsageRequest(
+  action: Extract<ClientAction, { type: 'usage' }>,
   clientSessionId: string,
   ws: WebSocket
-) => {
-  const userId = await getUserIdFromAuthToken(authToken)
-  const action = await genUsageResponse(clientSessionId, fingerprintId, userId)
-  sendAction(ws, action)
+) {
+  const userId = await getUserIdFromAuthToken(action.authToken)
+  const {
+    usage,
+    limit,
+    subscription_active,
+    next_quota_reset,
+    session_credits_used,
+  } = await calculateUsage(action.fingerprintId, userId, clientSessionId)
+
+  logger.info(
+    {
+      fingerprintId: action.fingerprintId,
+      userId: await getUserIdFromAuthToken(action.authToken),
+      clientSessionId,
+      limit,
+      subscription_active,
+      next_quota_reset,
+      session_credits_used,
+    },
+    'Sending usage info'
+  )
+
+  sendAction(ws, {
+    type: 'usage-response',
+    usage,
+    limit,
+    subscription_active,
+    next_quota_reset,
+    session_credits_used,
+  })
 }
 
 /**

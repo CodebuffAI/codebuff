@@ -22,6 +22,8 @@ import {
   ServerAction,
   UsageReponseSchema,
   UsageResponse,
+  MessageCostResponse,
+  MessageCostResponseSchema,
 } from 'common/actions'
 import { User } from 'common/util/credentials'
 import {
@@ -72,15 +74,13 @@ export class Client {
   public usage: number = 0
   public limit: number = 0
   public subscription_active: boolean = false
-  public lastRequestCredits: number = 0
-  public sessionCreditsUsed: number = 0
   public nextQuotaReset: Date | null = null
   private hadFileChanges: boolean = false
   private git: GitCommand
   private rl: readline.Interface
   private lastToolResults: ToolResult[] = []
   private pendingRequestId: string | null = null
-  private usageProcessed: boolean = false
+  private creditsByPromptId: Record<string, number[]> = {}
 
   constructor(
     websocketUrl: string,
@@ -332,53 +332,11 @@ export class Client {
     limit,
     subscription_active,
     next_quota_reset,
-    session_credits_used,
   }: Omit<UsageResponse, 'type'>) {
     this.usage = usage
     this.limit = limit
     this.subscription_active = subscription_active
     this.nextQuotaReset = next_quota_reset
-
-    if (!!session_credits_used) {
-      this.lastRequestCredits = Math.max(
-        session_credits_used - this.sessionCreditsUsed,
-        0
-      )
-      this.sessionCreditsUsed = session_credits_used
-    }
-  }
-
-  private processUsageResponse(usageResponse: Omit<UsageResponse, 'type'>) {
-    // First update internal state
-    this.setUsage(usageResponse)
-
-    // If this is a direct usage request (no promptId), show the info and return
-    if (!usageResponse.promptId) {
-      console.log(
-        green(underline(`Codebuff usage:`)),
-        `${usageResponse.usage} / ${usageResponse.limit} credits`
-      )
-      this.rl.prompt()
-      return
-    }
-
-    // Only process if matches pending request
-    if (usageResponse.promptId === this.pendingRequestId) {
-      if (!this.usageProcessed) {
-        // First time seeing usage for this response
-        this.usageProcessed = true
-
-        if (this.lastRequestCredits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
-          console.log(
-            `\n${pluralize(this.lastRequestCredits, 'credit')} used for this request.`
-          )
-        }
-        this.showUsageWarning()
-      } else {
-        // Already processed usage once, just update silently and reset flag
-        this.usageProcessed = false
-      }
-    }
   }
 
   private setupSubscriptions() {
@@ -410,10 +368,34 @@ export class Client {
       }
     })
 
+    this.webSocket.subscribe('message-cost-response', (action) => {
+      const parsedAction = MessageCostResponseSchema.safeParse(action)
+      if (!parsedAction.success) return
+      const response = parsedAction.data
+
+      // Store credits used for this prompt
+      if (!this.creditsByPromptId[response.promptId]) {
+        this.creditsByPromptId[response.promptId] = []
+      }
+      this.creditsByPromptId[response.promptId].push(response.credits)
+    })
+
     this.webSocket.subscribe('usage-response', (action) => {
       const parsedAction = UsageReponseSchema.safeParse(action)
       if (!parsedAction.success) return
-      this.processUsageResponse(parsedAction.data)
+      const response = parsedAction.data
+      this.setUsage(response)
+
+      if (!response.promptId) {
+        console.log(
+          green(underline(`Codebuff usage:`)),
+          `${response.usage} / ${response.limit} credits`
+        )
+        this.rl.prompt()
+        return
+      }
+
+      this.showUsageWarning()
     })
   }
 
@@ -489,10 +471,6 @@ export class Client {
     }
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
-    this.pendingRequestId = userInputId
-    this.usageProcessed = false // Reset usage processed flag
-
-    this.pendingRequestId = userInputId
 
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
@@ -571,7 +549,6 @@ export class Client {
       }
       setMessages(newMessages)
 
-      this.pendingRequestId = null
       this.rl.prompt()
 
       resolveResponse({
@@ -616,14 +593,6 @@ export class Client {
         const a = parsedAction.data
 
         if (action.promptId !== userInputId) return
-
-        // Handle usage data if present
-        if (this.pendingRequestId === userInputId) {
-          const usageData = UsageReponseSchema.omit({ type: true }).safeParse(a)
-          if (usageData.success) {
-            this.processUsageResponse(usageData.data)
-          }
-        }
 
         this.agentState = a.agentState
         let isComplete = false
@@ -676,6 +645,14 @@ export class Client {
           setMessages(this.agentState.messageHistory)
         }
 
+        // Show total credits used for this prompt if significant
+        const credits =
+          this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
+        if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
+          console.log(
+            `\n${pluralize(credits, 'credit')} used for this request.`
+          )
+        }
         this.showUsageWarning()
 
         if (this.hadFileChanges) {
