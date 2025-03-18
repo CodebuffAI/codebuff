@@ -68,6 +68,7 @@ export class Client {
   public lastChanges: FileChanges = []
   public agentState: AgentState | undefined
   public originalFileVersions: Record<string, string | null> = {}
+  public creditsByPromptId: Record<string, number[]> = {}
 
   public user: User | undefined
   public lastWarnedPct: number = 0
@@ -79,8 +80,6 @@ export class Client {
   private git: GitCommand
   private rl: readline.Interface
   private lastToolResults: ToolResult[] = []
-  private pendingRequestId: string | null = null
-  private creditsByPromptId: Record<string, number[]> = {}
 
   constructor(
     websocketUrl: string,
@@ -620,11 +619,13 @@ export class Client {
         }
 
         if (this.hadFileChanges) {
+          // If we had any file changes, update the project context
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
         }
 
         if (!isComplete) {
           Spinner.get().start()
+          // Continue the prompt with the tool results.
           this.webSocket.sendAction({
             type: 'prompt',
             promptId: userInputId,
@@ -667,10 +668,6 @@ export class Client {
           this.hadFileChanges = false
         }
 
-        // Only clear pendingRequestId on final completion
-        this.pendingRequestId = null
-
-        this.rl.prompt()
         unsubscribeChunks()
         unsubscribeComplete()
         resolveResponse({ ...a, wasStoppedByUser: false })

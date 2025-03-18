@@ -198,7 +198,7 @@ const onPrompt = async (
             })
         )
 
-        // Send prompt & usage data
+        // Send prompt data back
         sendAction(ws, {
           type: 'prompt-response',
           promptId,

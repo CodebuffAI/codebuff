@@ -595,8 +595,14 @@ export class CLI {
 
   private handleExit() {
     Spinner.get().restoreCursor()
-    console.log()
+    console.log('\n')
 
+    const logMessages = []
+    const totalCredits = Object.values(this.client.creditsByPromptId)
+      .flat()
+      .reduce((sum, credits) => sum + credits, 0)
+
+    logMessages.push(`${pluralize(totalCredits, 'credit')} used this session.`)
     if (this.client.limit && this.client.usage && this.client.nextQuotaReset) {
       const daysUntilReset = Math.max(
         0,
@@ -605,13 +611,15 @@ export class CLI {
             (1000 * 60 * 60 * 24)
         )
       )
-      console.log(
+      logMessages.push(
         `${Math.max(
           0,
           this.client.limit - this.client.usage
-        )} / ${this.client.limit} credits remaining. Renews in ${pluralize(daysUntilReset, 'day')}.`
+        )} credits remaining. Renews in ${pluralize(daysUntilReset, 'day')}.`
       )
     }
+
+    console.log(logMessages.join(' '))
     console.log(green('Codebuff out!'))
     process.exit(0)
   }
