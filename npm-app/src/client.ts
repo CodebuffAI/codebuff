@@ -384,7 +384,6 @@ export class Client {
       if (!parsedAction.success) return
 
       this.setUsage(parsedAction.data)
-      this.showUsageWarning()
     })
   }
 
@@ -652,6 +651,8 @@ export class Client {
           )
           this.hadFileChanges = false
         }
+
+        this.showUsageWarning()
 
         unsubscribeChunks()
         unsubscribeComplete()
