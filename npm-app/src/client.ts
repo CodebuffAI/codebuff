@@ -57,7 +57,6 @@ import { Spinner } from './utils/spinner'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { toolRenderers } from './utils/tool-renderers'
 import { pluralize } from 'common/util/string'
-import { logger } from './utils/logger'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -729,7 +728,7 @@ export class Client {
         fileContext,
       })
       .catch((e) => {
-        logger.error(e, 'Error sending init action')
+        console.error(e, 'Error sending init action')
       })
   }
 }
