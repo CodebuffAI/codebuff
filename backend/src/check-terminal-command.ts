@@ -29,6 +29,9 @@ export async function checkTerminalCommand(
   if (isWhitelistedTerminalCommand(prompt)) {
     return prompt
   }
+  if (isBlacklistedTerminalCommand(prompt)) {
+    return null
+  }
 
   const messages = [
     {
@@ -113,4 +116,9 @@ const isWhitelistedTerminalCommand = (command: string) => {
   }
 
   return false
+}
+
+const blacklistedSingleWordCommands = ['halt', 'reboot', 'yes']
+const isBlacklistedTerminalCommand = (command: string) => {
+  return blacklistedSingleWordCommands.includes(command)
 }
