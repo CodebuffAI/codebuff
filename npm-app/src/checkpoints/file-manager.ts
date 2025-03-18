@@ -24,7 +24,7 @@ let cachedGitAvailable: boolean | null = null
 function gitCommandIsAvailable(): boolean {
   if (cachedGitAvailable === null) {
     try {
-      execFileSync('git', ['--version'])
+      execFileSync('git', ['--version'], { stdio: 'ignore' })
       cachedGitAvailable = true
     } catch (error) {
       cachedGitAvailable = false
@@ -104,12 +104,11 @@ export async function getLatestCommit({
 }): Promise<string> {
   if (gitCommandIsAvailable()) {
     try {
-      return execFileSync('git', [
-        '--git-dir',
-        bareRepoPath,
-        'rev-parse',
-        'HEAD',
-      ])
+      return execFileSync(
+        'git',
+        ['--git-dir', bareRepoPath, 'rev-parse', 'HEAD'],
+        { stdio: ['ignore', 'pipe', 'ignore'] }
+      )
         .toString()
         .trim()
     } catch (error) {
@@ -183,16 +182,20 @@ async function gitAddAll({
 }): Promise<void> {
   if (gitCommandIsAvailable()) {
     try {
-      execFileSync('git', [
-        '--git-dir',
-        bareRepoPath,
-        '--work-tree',
-        projectDir,
-        '-C',
-        projectDir,
-        'add',
-        '.',
-      ])
+      execFileSync(
+        'git',
+        [
+          '--git-dir',
+          bareRepoPath,
+          '--work-tree',
+          projectDir,
+          '-C',
+          projectDir,
+          'add',
+          '.',
+        ],
+        { stdio: 'ignore' }
+      )
       return
     } catch (error) {
       // Failed to `git add .`
@@ -243,15 +246,19 @@ async function gitCommit({
 }): Promise<string> {
   if (gitCommandIsAvailable()) {
     try {
-      execFileSync('git', [
-        '--git-dir',
-        bareRepoPath,
-        '--work-tree',
-        projectDir,
-        'commit',
-        '-m',
-        message,
-      ])
+      execFileSync(
+        'git',
+        [
+          '--git-dir',
+          bareRepoPath,
+          '--work-tree',
+          projectDir,
+          'commit',
+          '-m',
+          message,
+        ],
+        { stdio: 'ignore' }
+      )
     } catch (error) {
       // Failed to commit, continue to isomorphic-git implementation
     }
@@ -268,14 +275,18 @@ async function gitCommit({
 
   if (gitCommandIsAvailable()) {
     try {
-      execFileSync('git', [
-        '--git-dir',
-        bareRepoPath,
-        '--work-tree',
-        projectDir,
-        'checkout',
-        'master',
-      ])
+      execFileSync(
+        'git',
+        [
+          '--git-dir',
+          bareRepoPath,
+          '--work-tree',
+          projectDir,
+          'checkout',
+          'master',
+        ],
+        { stdio: 'ignore' }
+      )
     } catch (error) {}
   }
 
