@@ -195,7 +195,11 @@ export class CLI {
   }
 
   private async handleUserInput(userInput: string) {
-    if (!userInput) return
+    this.rl.setPrompt('')
+    if (!userInput) {
+      this.freshPrompt()
+      return
+    }
     userInput = userInput.trim()
     if (await this.processCommand(userInput)) {
       return
