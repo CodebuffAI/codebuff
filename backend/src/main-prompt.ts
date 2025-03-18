@@ -187,7 +187,10 @@ ${existingNewFilePaths.join('\n')}
 
     !justUsedATool &&
       !recentlyDidThinking &&
-      'If the user request is very complex or asks you to plan, consider invoking "<think_deeply></think_deeply>".',
+      'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
+
+    'If the user is starting a new feature or refactoring, consider invoking "<create_plan></create_plan>".',
+
     recentlyDidThinking &&
       "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
 
