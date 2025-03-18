@@ -150,6 +150,7 @@ export async function processFileBlock(
     )
     return null
   }
+  patch = patch.replaceAll('\n', lineEnding)
 
   logger.debug(
     {
