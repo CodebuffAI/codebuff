@@ -50,21 +50,58 @@
     "picocolors": "1.1.0",
     "puppeteer-core": "^24.2.0",
     "systeminformation": "5.23.4",
-    "tree-sitter": "0.21.1",
-    "tree-sitter-c": "0.23.0",
-    "tree-sitter-c-sharp": "0.23.0",
-    "tree-sitter-cpp": "0.23.0",
-    "tree-sitter-go": "0.23.1",
-    "tree-sitter-java": "0.23.2",
-    "tree-sitter-javascript": "0.23.0",
-    "tree-sitter-php": "0.23.2",
-    "tree-sitter-python": "0.23.2",
-    "tree-sitter-ruby": "0.23.0",
-    "tree-sitter-rust": "0.23.0",
-    "tree-sitter-typescript": "0.23.0",
+    "tree-sitter": "^0.21.0",
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
     "zod": "3.23.8"
+  },
+  "peerDependencies": {
+    "tree-sitter-c": "^0.23.0",
+    "tree-sitter-c-sharp": "^0.23.0",
+    "tree-sitter-cpp": "^0.23.0",
+    "tree-sitter-go": "^0.23.0",
+    "tree-sitter-java": "^0.23.0",
+    "tree-sitter-javascript": "^0.23.0",
+    "tree-sitter-php": "^0.23.0",
+    "tree-sitter-python": "^0.23.0",
+    "tree-sitter-ruby": "^0.23.0",
+    "tree-sitter-rust": "^0.23.0",
+    "tree-sitter-typescript": "^0.23.0"
+  },
+  "peerDependenciesMeta": {
+    "tree-sitter-c": {
+      "optional": true
+    },
+    "tree-sitter-c-sharp": {
+      "optional": true
+    },
+    "tree-sitter-cpp": {
+      "optional": true
+    },
+    "tree-sitter-go": {
+      "optional": true
+    },
+    "tree-sitter-java": {
+      "optional": true
+    },
+    "tree-sitter-javascript": {
+      "optional": true
+    },
+    "tree-sitter-php": {
+      "optional": true
+    },
+    "tree-sitter-python": {
+      "optional": true
+    },
+    "tree-sitter-ruby": {
+      "optional": true
+    },
+    "tree-sitter-rust": {
+      "optional": true
+    },
+    "tree-sitter-typescript": {
+      "optional": true
+    }
   },
   "optionalDependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "0.12.0-beta.5"
