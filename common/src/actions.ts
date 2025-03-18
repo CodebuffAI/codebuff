@@ -60,6 +60,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     type: z.literal('usage'),
     fingerprintId: z.string(),
     authToken: z.string().optional(),
+    requestedByUser: z.boolean(),
   }),
   z.object({
     type: z.literal('generate-commit-message'),
@@ -72,13 +73,13 @@ export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
 export const UsageReponseSchema = z.object({
   type: z.literal('usage-response'),
-  promptId: z.string().optional(),
   usage: z.number(),
   limit: z.number(),
   referralLink: z.string().optional(),
   subscription_active: z.boolean(),
   next_quota_reset: z.coerce.date(),
   session_credits_used: z.number(),
+  requestedByUser: z.boolean(),
 })
 export type UsageResponse = z.infer<typeof UsageReponseSchema>
 

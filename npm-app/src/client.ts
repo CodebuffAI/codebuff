@@ -58,6 +58,7 @@ import { Spinner } from './utils/spinner'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { toolRenderers } from './utils/tool-renderers'
 import { pluralize } from 'common/util/string'
+import { logger } from './utils/logger'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -166,7 +167,7 @@ export class Client {
               `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${process.env.NEXT_PUBLIC_APP_URL}/referrals)`,
             ].join('\n')
           )
-          this.getUsage()
+          this.getUsage(true)
         } else {
           throw new Error(respJson.error)
         }
@@ -385,7 +386,7 @@ export class Client {
       const response = parsedAction.data
       this.setUsage(response)
 
-      if (!response.promptId) {
+      if (response.requestedByUser) {
         console.log(
           green(underline(`Codebuff usage:`)),
           `${response.usage} / ${response.limit} credits`
@@ -548,8 +549,6 @@ export class Client {
       }
       setMessages(newMessages)
 
-      this.rl.prompt()
-
       resolveResponse({
         type: 'prompt-response',
         promptId: userInputId,
@@ -654,7 +653,6 @@ export class Client {
             `\n${pluralize(credits, 'credit')} used for this request.`
           )
         }
-        this.showUsageWarning()
 
         if (this.hadFileChanges) {
           const latestCheckpoint = checkpointManager.getLatestCheckpoint()
@@ -680,11 +678,12 @@ export class Client {
     }
   }
 
-  public async getUsage() {
+  public async getUsage(requestedByUser: boolean) {
     this.webSocket.sendAction({
       type: 'usage',
       fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
+      requestedByUser,
     })
   }
 
@@ -695,6 +694,7 @@ export class Client {
       const parsedAction = InitResponseSchema.safeParse(a)
       if (!parsedAction.success) return
 
+      // Set initial usage data from the init response
       this.setUsage(parsedAction.data)
     })
 
@@ -706,7 +706,7 @@ export class Client {
         fileContext,
       })
       .catch((e) => {
-        // console.error('Error warming context cache', e)
+        logger.error(e, 'Error sending init action')
       })
   }
 }

@@ -247,7 +247,7 @@ export class CLI {
       return true
     }
     if (userInput === 'usage' || userInput === 'credits') {
-      this.client.getUsage()
+      this.client.getUsage(true)
       return true
     }
     if (userInput === 'undo' || userInput === 'u') {
