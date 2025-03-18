@@ -608,7 +608,6 @@ export class Client {
         }
 
         if (!isComplete) {
-          Spinner.get().start()
           // Continue the prompt with the tool results.
           this.webSocket.sendAction({
             type: 'prompt',
