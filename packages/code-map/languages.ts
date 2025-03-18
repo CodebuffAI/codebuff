@@ -122,6 +122,15 @@ function detectPackageManager(globalDir: string): {
   command: string
   args: string[]
 } {
+  // Add special case for our development environment.
+  // Note (James): It's still not actually installing the package in npm-app/node_modules.
+  // Could be something with workspaces?
+  const isRunningLocally =
+    path.basename(path.join(__dirname, '..', '..')) === 'npm-app'
+  if (isRunningLocally) {
+    return { command: 'bun', args: ['install'] }
+  }
+
   // First check environment variables for scripts running through specific package managers
   const isYarnScript = process.env.npm_lifecycle_script?.includes('yarn')
   const isPnpmScript = process.env.npm_lifecycle_script?.includes('pnpm')

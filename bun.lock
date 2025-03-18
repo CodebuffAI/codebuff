@@ -113,11 +113,11 @@
         "tree-sitter-c": "^0.23.0",
         "tree-sitter-c-sharp": "^0.23.0",
         "tree-sitter-cpp": "^0.23.0",
-        "tree-sitter-go": "^0.23.1",
-        "tree-sitter-java": "^0.23.2",
+        "tree-sitter-go": "^0.23.0",
+        "tree-sitter-java": "^0.23.0",
         "tree-sitter-javascript": "^0.23.0",
-        "tree-sitter-php": "^0.23.2",
-        "tree-sitter-python": "^0.23.2",
+        "tree-sitter-php": "^0.23.0",
+        "tree-sitter-python": "^0.23.0",
         "tree-sitter-ruby": "^0.23.0",
         "tree-sitter-rust": "^0.23.0",
         "tree-sitter-typescript": "^0.23.0",
@@ -3674,6 +3674,8 @@
     "codebuff-web/pino": ["pino@9.6.0", "", { "dependencies": { "atomic-sleep": "^1.0.0", "fast-redact": "^3.1.1", "on-exit-leak-free": "^2.1.0", "pino-abstract-transport": "^2.0.0", "pino-std-serializers": "^7.0.0", "process-warning": "^4.0.0", "quick-format-unescaped": "^4.0.3", "real-require": "^0.2.0", "safe-stable-stringify": "^2.3.1", "sonic-boom": "^4.0.1", "thread-stream": "^3.0.0" }, "bin": { "pino": "bin.js" } }, "sha512-i85pKRCt4qMjZ1+L7sy2Ag4t1atFcdbEt76+7iRJn1g2BvsnRMGu9p8pivl9fs63M2kF/A0OacFZhTub+m/qMg=="],
 
     "codebuff-web/prettier": ["prettier@3.5.3", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-QQtaxnoDJeAkDvDKWCLiwIXkTgRhwYDEQCghU9Z6q03iyek/rxRh/2lC3HB7P8sWT2xC/y5JDctPLBIGzHKbhw=="],
+
+    "codebuff-web/zod": ["zod@3.24.2", "", {}, "sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ=="],
 
     "common/ignore": ["ignore@5.3.2", "", {}, "sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g=="],
 
