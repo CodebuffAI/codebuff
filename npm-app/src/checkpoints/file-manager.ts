@@ -64,14 +64,18 @@ export async function hasUnsavedChanges({
 }): Promise<boolean> {
   if (gitCommandIsAvailable()) {
     try {
-      const output = execFileSync('git', [
-        '--git-dir',
-        bareRepoPath,
-        '--work-tree',
-        projectDir,
-        'status',
-        '--porcelain',
-      ]).toString()
+      const output = execFileSync(
+        'git',
+        [
+          '--git-dir',
+          bareRepoPath,
+          '--work-tree',
+          projectDir,
+          'status',
+          '--porcelain',
+        ],
+        { stdio: ['ignore', 'pipe', 'ignore'] }
+      ).toString()
       return output.trim().length > 0
     } catch (error) {
       // error running git
@@ -259,6 +263,7 @@ async function gitCommit({
         ],
         { stdio: 'ignore' }
       )
+      return await getLatestCommit({ bareRepoPath })
     } catch (error) {
       // Failed to commit, continue to isomorphic-git implementation
     }
@@ -287,7 +292,10 @@ async function gitCommit({
         ],
         { stdio: 'ignore' }
       )
-    } catch (error) {}
+      return commitHash
+    } catch (error) {
+      // Unable to checkout with git
+    }
   }
 
   await checkout({ fs, dir: projectDir, gitdir: bareRepoPath, ref: 'master' })
