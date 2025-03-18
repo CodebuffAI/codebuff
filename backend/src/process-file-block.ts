@@ -1,9 +1,6 @@
-import { WebSocket } from 'ws'
 import { createPatch } from 'diff'
-import { FileChange } from 'common/actions'
 import { Message } from 'common/types/message'
 import { logger } from './util/logger'
-import { requestFile } from './websockets/websocket-action'
 import { cleanMarkdownCodeBlock, parseFileBlocks } from 'common/util/file'
 import { generateCompactId, hasLazyEdit } from 'common/util/string'
 import { countTokens } from './util/token-counter'
@@ -19,6 +16,7 @@ import { buildArray } from 'common/util/array'
 
 export async function processFileBlock(
   path: string,
+  initialContentPromise: Promise<string | null>,
   newContent: string,
   messages: Message[],
   fullResponse: string,
@@ -27,14 +25,13 @@ export async function processFileBlock(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  ws: WebSocket,
   costMode: CostMode
-): Promise<FileChange | null> {
+): Promise<{ path: string; content: string; patch?: string } | null> {
   if (newContent.trim() === '[UPDATED_BY_ANOTHER_ASSISTANT]') {
     return null
   }
 
-  const initialContent = await requestFile(ws, path)
+  const initialContent = await initialContentPromise
 
   if (initialContent === null) {
     let cleanContent = cleanMarkdownCodeBlock(newContent)
@@ -52,7 +49,6 @@ export async function processFileBlock(
       `processFileBlock: Created new file ${path}`
     )
     return {
-      type: 'file',
       path,
       content: cleanContent,
     }
@@ -131,7 +127,13 @@ export async function processFileBlock(
     }
   }
 
-  let patch = createPatch(path, normalizedInitialContent, updatedContent)
+  const normalizedUpdatedContent = updatedContent.replaceAll('\n', lineEnding)
+
+  let patch = createPatch(
+    path,
+    normalizedInitialContent,
+    normalizedUpdatedContent
+  )
   const lines = patch.split('\n')
   const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
   if (hunkStartIndex !== -1) {
@@ -148,20 +150,20 @@ export async function processFileBlock(
     )
     return null
   }
-  patch = patch.replaceAll('\n', lineEnding)
 
   logger.debug(
     {
       path,
       editSnippet: newContent,
+      updatedContent,
       patch,
     },
-    `processFileBlock: Generated patch for ${path}`
+    `processFileBlock: Updated file ${path}`
   )
   return {
-    type: 'patch',
     path,
-    content: patch,
+    content: normalizedUpdatedContent,
+    patch,
   }
 }
 
@@ -327,7 +329,11 @@ export async function fastRewrite(
   })
 
   // Check if response still contains lazy edits
-  if (hasLazyEdit(editSnippet) && !hasLazyEdit(initialContent) && hasLazyEdit(response)) {
+  if (
+    hasLazyEdit(editSnippet) &&
+    !hasLazyEdit(initialContent) &&
+    hasLazyEdit(response)
+  ) {
     const relaceResponse = response
     response = await rewriteWithGemini(
       initialContent,

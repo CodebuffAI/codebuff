@@ -7,9 +7,9 @@ import { getModelForMode } from 'common/constants'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { Message } from 'common/types/message'
-import { ClientAction, FileChange } from 'common/actions'
+import { ClientAction } from 'common/actions'
 import { type CostMode } from 'common/constants'
-import { requestFiles } from './websockets/websocket-action'
+import { requestFile, requestFiles } from './websockets/websocket-action'
 import { processFileBlock } from './process-file-block'
 import { requestRelevantFiles } from './find-files/request-files-prompt'
 import { processStreamWithTags } from './process-stream'
@@ -100,7 +100,10 @@ export const mainPrompt = async (
   }
 
   let fullResponse = ''
-  const fileProcessingPromises: Promise<FileChange | null>[] = []
+  const fileProcessingPromisesByPath: Record<
+    string,
+    Promise<{ path: string; content: string; patch?: string } | null>[]
+  > = {}
 
   const justUsedATool = toolResults.length > 0
   const justRanTerminalCommand = toolResults.some(
@@ -246,6 +249,7 @@ ${existingNewFilePaths.join('\n')}
     userInputId: promptId,
     userId,
   })
+
   const streamWithTags = processStreamWithTags(stream, {
     write_file: {
       attributeNames: [],
@@ -254,28 +258,42 @@ ${existingNewFilePaths.join('\n')}
         const { path, content } = parseToolCallXml(body)
         if (!content) return false
 
+        // Initialize state for this file path if needed
+        if (!fileProcessingPromisesByPath[path]) {
+          fileProcessingPromisesByPath[path] = []
+        }
+        const previousPromises = fileProcessingPromisesByPath[path]
+        const previousEdit = previousPromises[previousPromises.length - 1]
+
+        const latestContentPromise = previousEdit
+          ? previousEdit.then(
+              (maybeResult) => maybeResult?.content ?? requestFile(ws, path)
+            )
+          : requestFile(ws, path)
+
         const fileContentWithoutStartNewline = content.startsWith('\n')
           ? content.slice(1)
           : content
 
-        fileProcessingPromises.push(
-          processFileBlock(
-            path,
-            fileContentWithoutStartNewline,
-            messagesWithOptionalReadFiles,
-            fullResponse,
-            prompt,
-            clientSessionId,
-            fingerprintId,
-            promptId,
-            userId,
-            ws,
-            costMode
-          ).catch((error) => {
-            logger.error(error, 'Error processing file block')
-            return null
-          })
-        )
+        const newPromise = processFileBlock(
+          path,
+          latestContentPromise,
+          fileContentWithoutStartNewline,
+          messagesWithOptionalReadFiles,
+          fullResponse,
+          prompt,
+          clientSessionId,
+          fingerprintId,
+          promptId,
+          userId,
+          costMode
+        ).catch((error) => {
+          logger.error(error, 'Error processing file block')
+          return null
+        })
+
+        fileProcessingPromisesByPath[path].push(newPromise)
+
         return false
       },
     },
@@ -285,9 +303,7 @@ ${existingNewFilePaths.join('\n')}
         {
           attributeNames: [],
           onTagStart: () => {},
-          onTagEnd: (body) => {
-            return false
-          },
+          onTagEnd: () => false,
         },
       ])
     ),
@@ -422,21 +438,28 @@ ${existingNewFilePaths.join('\n')}
         },
         'Create plan'
       )
-      fileProcessingPromises.push(
-        Promise.resolve({
-          path,
-          type: 'file',
-          content: plan,
-        })
-      )
+      // Add the plan file to the processing queue
+      if (!fileProcessingPromisesByPath[path]) {
+        fileProcessingPromisesByPath[path] = []
+      }
+      const change = {
+        path,
+        content: plan,
+      }
+      fileProcessingPromisesByPath[path].push(Promise.resolve(change))
     } else {
       throw new Error(`Unknown tool: ${name}`)
     }
   }
 
-  if (fileProcessingPromises.length > 0) {
+  if (Object.keys(fileProcessingPromisesByPath).length > 0) {
     onResponseChunk('Applying file changes, please wait.\n')
   }
+
+  // Flatten all promises while maintaining order within each file path
+  const fileProcessingPromises = Object.values(
+    fileProcessingPromisesByPath
+  ).flat()
 
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
@@ -447,9 +470,19 @@ ${existingNewFilePaths.join('\n')}
     onResponseChunk(`\n`)
   }
 
-  const changeToolCalls = changes.map((change) => ({
+  const changeToolCalls = changes.map(({ path, content, patch }) => ({
     name: 'write_file' as const,
-    parameters: change,
+    parameters: patch
+      ? {
+          type: 'patch' as const,
+          path,
+          content: patch,
+        }
+      : {
+          type: 'file' as const,
+          path,
+          content,
+        },
     id: generateCompactId(),
   }))
   clientToolCalls.unshift(...changeToolCalls)
@@ -701,7 +734,7 @@ async function getFileVersionUpdates(
   }
 }
 
-const getMessagesSubset = (messages: Message[], otherTokens: number) => {
+function getMessagesSubset(messages: Message[], otherTokens: number) {
   const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
     JSON.stringify(content).includes('COMPLETE')
   })
