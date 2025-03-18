@@ -590,8 +590,6 @@ export class Client {
         if (action.promptId !== userInputId) return
         const a = parsedAction.data
 
-        if (action.promptId !== userInputId) return
-
         this.agentState = a.agentState
         let isComplete = false
         const toolResults: ToolResult[] = [...a.toolResults]
@@ -617,8 +615,8 @@ export class Client {
           toolResults.push(toolResult)
         }
 
+        // If we had any file changes, update the project context
         if (this.hadFileChanges) {
-          // If we had any file changes, update the project context
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
         }
 
