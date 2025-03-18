@@ -49,12 +49,15 @@ import {
 import { getFileTokenScores } from 'code-map/parse'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import { getSystemInfo } from './utils/system-info'
+import { checkpointManager } from './checkpoints/checkpoint-manager'
 
 const execAsync = promisify(exec)
 
 let projectRoot: string
 
 export function setProjectRoot(dir: string | undefined) {
+  checkpointManager.clearCheckpoints()
+
   const newDir = path.resolve(dir || getCurrentDirectory())
   if (fs.existsSync(newDir)) {
     if (projectRoot) {

@@ -15,11 +15,16 @@ import { execFileSync } from 'child_process'
 
 import { getProjectDataDir } from '../project-files'
 
+/**
+ * Checks if the native git command is available on the system.
+ * Caches the result to avoid repeated checks.
+ * @returns boolean indicating if git command is available
+ */
 let cachedGitAvailable: boolean | null = null
 function gitCommandIsAvailable(): boolean {
   if (cachedGitAvailable === null) {
     try {
-      execFileSync('git', ['--version'])
+      execFileSync('git', ['--version'], { stdio: 'ignore' })
       cachedGitAvailable = true
     } catch (error) {
       cachedGitAvailable = false
@@ -29,11 +34,25 @@ function gitCommandIsAvailable(): boolean {
   return cachedGitAvailable
 }
 
+/**
+ * Generates a unique path for storing the bare git repository based on the project directory.
+ * Uses SHA-256 hashing to create a unique identifier.
+ * @param dir - The project directory path to hash
+ * @returns The full path where the bare repo should be stored
+ */
 export function getBareRepoPath(dir: string): string {
   const bareRepoName = createHash('sha256').update(dir).digest('hex')
   return join(getProjectDataDir(), bareRepoName)
 }
 
+/**
+ * Checks if there are any uncommitted changes in the working directory.
+ * First attempts to use native git commands, falling back to isomorphic-git if unavailable.
+ * @param projectDir - The working tree directory path
+ * @param bareRepoPath - The bare git repository path
+ * @param relativeFilepaths - Array of file paths relative to projectDir to check
+ * @returns Promise resolving to true if there are uncommitted changes, false otherwise
+ */
 export async function hasUnsavedChanges({
   projectDir,
   bareRepoPath,
@@ -72,6 +91,12 @@ export async function hasUnsavedChanges({
   return false
 }
 
+/**
+ * Gets the hash of the latest commit in the repository.
+ * First attempts to use native git commands, falling back to isomorphic-git if unavailable.
+ * @param bareRepoPath - The bare git repository path
+ * @returns Promise resolving to the commit hash
+ */
 export async function getLatestCommit({
   bareRepoPath,
 }: {
@@ -79,12 +104,11 @@ export async function getLatestCommit({
 }): Promise<string> {
   if (gitCommandIsAvailable()) {
     try {
-      return execFileSync('git', [
-        '--git-dir',
-        bareRepoPath,
-        'rev-parse',
-        'HEAD',
-      ])
+      return execFileSync(
+        'git',
+        ['--git-dir', bareRepoPath, 'rev-parse', 'HEAD'],
+        { stdio: ['ignore', 'pipe', 'ignore'] }
+      )
         .toString()
         .trim()
     } catch (error) {
@@ -93,11 +117,18 @@ export async function getLatestCommit({
   }
   return await resolveRef({
     fs,
-    dir: bareRepoPath,
+    gitdir: bareRepoPath,
     ref: 'HEAD',
   })
 }
 
+/**
+ * Initializes a bare git repository for tracking file changes.
+ * Creates the repository if it doesn't exist, otherwise uses the existing one.
+ * Makes an initial commit of the current file state.
+ * @param projectDir - The working tree directory path
+ * @param relativeFilepaths - Array of file paths relative to projectDir to track
+ */
 export async function initializeCheckpointFileManager({
   projectDir,
   relativeFilepaths,
@@ -112,10 +143,16 @@ export async function initializeCheckpointFileManager({
 
   try {
     // Check if it's already a valid Git repo
-    await resolveRef({ fs, dir: bareRepoPath, ref: 'HEAD' })
+    await resolveRef({ fs, gitdir: bareRepoPath, ref: 'HEAD' })
   } catch (error) {
     // Bare repo doesn't exist yet
-    await init({ fs, dir: bareRepoPath, bare: true })
+    await init({
+      fs,
+      dir: projectDir,
+      gitdir: bareRepoPath,
+      bare: true,
+      defaultBranch: 'master',
+    })
   }
 
   // Commit the files in the bare repo
@@ -127,7 +164,14 @@ export async function initializeCheckpointFileManager({
   })
 }
 
-async function stageFiles({
+/**
+ * Stages all changes in the working directory.
+ * First attempts to use native git commands, falling back to isomorphic-git if unavailable.
+ * @param projectDir - The working tree directory path
+ * @param bareRepoPath - The bare git repository path
+ * @param relativeFilepaths - Array of file paths relative to projectDir to stage
+ */
+async function gitAddAll({
   projectDir,
   bareRepoPath,
   relativeFilepaths,
@@ -138,19 +182,23 @@ async function stageFiles({
 }): Promise<void> {
   if (gitCommandIsAvailable()) {
     try {
-      execFileSync('git', [
-        '--git-dir',
-        bareRepoPath,
-        '--work-tree',
-        projectDir,
-        '-C',
-        projectDir,
-        'add',
-        '.',
-      ])
+      execFileSync(
+        'git',
+        [
+          '--git-dir',
+          bareRepoPath,
+          '--work-tree',
+          projectDir,
+          '-C',
+          projectDir,
+          'add',
+          '.',
+        ],
+        { stdio: 'ignore' }
+      )
       return
     } catch (error) {
-      // Failed to add .
+      // Failed to `git add .`
     }
   }
 
@@ -187,11 +235,74 @@ async function stageFiles({
   }
 }
 
+async function gitCommit({
+  projectDir,
+  bareRepoPath,
+  message,
+}: {
+  projectDir: string
+  bareRepoPath: string
+  message: string
+}): Promise<string> {
+  if (gitCommandIsAvailable()) {
+    try {
+      execFileSync(
+        'git',
+        [
+          '--git-dir',
+          bareRepoPath,
+          '--work-tree',
+          projectDir,
+          'commit',
+          '-m',
+          message,
+        ],
+        { stdio: 'ignore' }
+      )
+    } catch (error) {
+      // Failed to commit, continue to isomorphic-git implementation
+    }
+  }
+
+  const commitHash: string = await commit({
+    fs,
+    dir: projectDir,
+    gitdir: bareRepoPath,
+    author: { name: 'codebuff' },
+    message,
+    ref: '/refs/heads/master',
+  })
+
+  if (gitCommandIsAvailable()) {
+    try {
+      execFileSync(
+        'git',
+        [
+          '--git-dir',
+          bareRepoPath,
+          '--work-tree',
+          projectDir,
+          'checkout',
+          'master',
+        ],
+        { stdio: 'ignore' }
+      )
+    } catch (error) {}
+  }
+
+  await checkout({ fs, dir: projectDir, gitdir: bareRepoPath, ref: 'master' })
+
+  return commitHash
+}
+
 /**
- * Stores the current state of all files in the project as a git commit
- * (git add . && git commit)
- * @param message The commit message to use for this file state
- * @returns A promise that resolves to the id hash that can be used to restore this file state
+ * Creates a new commit with the current state of all tracked files.
+ * Stages all changes and creates a commit with the specified message.
+ * @param projectDir - The working tree directory path
+ * @param bareRepoPath - The bare git repository path
+ * @param message - The commit message
+ * @param relativeFilepaths - Array of file paths relative to projectDir to commit
+ * @returns Promise resolving to the new commit's hash
  */
 export async function storeFileState({
   projectDir,
@@ -204,38 +315,23 @@ export async function storeFileState({
   message: string
   relativeFilepaths: Array<string>
 }): Promise<string> {
-  await stageFiles({
+  await gitAddAll({
     projectDir,
     bareRepoPath,
     relativeFilepaths,
   })
 
-  const commitHash = await commit({
-    fs,
-    dir: projectDir,
-    gitdir: bareRepoPath,
-    author: { name: 'codebuff' },
-    ref: 'refs/heads/master',
-    message,
-  })
-
-  await checkout({
-    fs,
-    dir: projectDir,
-    gitdir: bareRepoPath,
-    ref: commitHash,
-  })
-
-  return commitHash
+  return await gitCommit({ projectDir, bareRepoPath, message })
 }
 
 /**
- * Resets the index and working directory to the specified commit.
- * (git reset --hard)
- * TODO redo this jsdoc
- * @param dir - The working tree directory path.
- * @param gitdir - The git directory path (typically the .git folder).
- * @param commit - The commit hash to reset to.
+ * Restores the working directory and index to match the specified commit.
+ * Equivalent to `git reset --hard`
+ * First attempts to use native git commands, falling back to isomorphic-git if unavailable.
+ * @param projectDir - The working tree directory path
+ * @param bareRepoPath - The bare git repository path
+ * @param commit - The commit hash to restore to
+ * @param relativeFilepaths - Array of file paths relative to projectDir to restore
  */
 export async function restoreFileState({
   projectDir,
@@ -260,34 +356,35 @@ export async function restoreFileState({
         '--hard',
         commit,
       ])
-      resetDone = true
+      return
     } catch (error) {
       // Failed to use git, continue to isomorphic-git implementation
     }
   }
 
-  if (!resetDone) {
-    // Update the working directory to reflect the specified commit
-    await checkout({
-      fs,
-      dir: projectDir,
-      gitdir: bareRepoPath,
-      ref: commit,
-      filepaths: relativeFilepaths,
-      force: true,
-    })
+  // Update the working directory to reflect the specified commit
+  await checkout({
+    fs,
+    dir: projectDir,
+    gitdir: bareRepoPath,
+    ref: commit,
+    filepaths: relativeFilepaths,
+    force: true,
+  })
 
-    // Reset the index to match the specified commit
-    await Promise.all(
-      relativeFilepaths.map((filepath) =>
-        resetIndex({
-          fs,
-          dir: projectDir,
-          gitdir: bareRepoPath,
-          filepath,
-          ref: commit,
-        })
-      )
+  // Reset the index to match the specified commit
+  await Promise.all(
+    relativeFilepaths.map((filepath) =>
+      resetIndex({
+        fs,
+        dir: projectDir,
+        gitdir: bareRepoPath,
+        filepath,
+        ref: commit,
+      })
     )
-  }
+  )
 }
+
+// Export fs for testing
+export { fs }

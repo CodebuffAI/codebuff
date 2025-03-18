@@ -1,5 +1,5 @@
-import {join} from 'path'
-import { blue, bold, cyan, gray, underline, yellow } from 'picocolors'
+import { join } from 'path'
+import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 import { Worker } from 'worker_threads'
 
 import { getAllFilePaths, DEFAULT_MAX_FILES } from 'common/project-file-tree'
@@ -9,7 +9,7 @@ import {
   hasUnsavedChanges,
   getLatestCommit,
 } from './file-manager'
-import { getProjectRoot } from 'src/project-files'
+import { getProjectRoot } from '../project-files'
 
 /**
  * Message format for worker thread operations
@@ -62,7 +62,7 @@ export interface Checkpoint {
 export class CheckpointManager {
   checkpoints: Array<Checkpoint> = []
   private bareRepoPath: string | null = null
-  enabled: boolean = true
+  disabledReason: string | null = null
   /** Worker thread for git operations */
   private worker: Worker | null = null
 
@@ -90,10 +90,10 @@ export class CheckpointManager {
    */
   private async runWorkerOperation<T>(message: WorkerMessage): Promise<T> {
     const worker = this.initWorker()
-    
+
     return new Promise<T>((resolve, reject) => {
       const timeoutMs = 30000 // 30 seconds timeout
-      
+
       const handler = (response: WorkerResponse) => {
         if (response.success) {
           resolve(response.result as T)
@@ -118,7 +118,7 @@ export class CheckpointManager {
    * Get the path to the bare git repository used for storing file states
    * @returns The bare repo path
    */
-  getBareRepoPath(): string {
+  private getBareRepoPath(): string {
     if (!this.bareRepoPath) {
       this.bareRepoPath = getBareRepoPath(getProjectRoot())
     }
@@ -135,7 +135,7 @@ export class CheckpointManager {
     agentState: AgentState,
     userInput: string
   ): Promise<Checkpoint | null> {
-    if (!this.enabled) {
+    if (this.disabledReason !== null) {
       return null
     }
 
@@ -145,7 +145,7 @@ export class CheckpointManager {
     const relativeFilepaths = getAllFilePaths(agentState.fileContext.fileTree)
 
     if (relativeFilepaths.length >= DEFAULT_MAX_FILES) {
-      this.enabled = false
+      this.disabledReason = 'Project too large'
       return null
     }
 
@@ -186,6 +186,9 @@ export class CheckpointManager {
    * @returns The most recent checkpoint or null if none exist
    */
   getLatestCheckpoint(): Checkpoint | null {
+    if (this.disabledReason !== null) {
+      return null
+    }
     return this.checkpoints.length === 0
       ? null
       : this.checkpoints[this.checkpoints.length - 1]
@@ -230,6 +233,10 @@ export class CheckpointManager {
    * @returns A formatted string representation of all checkpoints
    */
   getCheckpointsAsString(detailed: boolean = false): string {
+    if (this.disabledReason !== null) {
+      return red(`Checkpoints not enabled: ${this.disabledReason}`)
+    }
+
     if (this.checkpoints.length === 0) {
       return yellow('No checkpoints available.')
     }
@@ -259,35 +266,6 @@ export class CheckpointManager {
 
       lines.push('') // Empty line between checkpoints
     })
-
-    return lines.join('\n')
-  }
-
-  /**
-   * Get detailed information about a specific checkpoint
-   * @param id The checkpoint ID
-   * @returns A formatted string with detailed information about the checkpoint, or an error message if not found
-   */
-  getCheckpointDetails(id: number): string {
-    const checkpoint = this.checkpoints[id - 1]
-    if (!checkpoint) {
-      return cyan(`\nCheckpoint #${id} not found.`)
-    }
-
-    const lines: string[] = [
-      cyan(`Detailed information for checkpoint #${id}:`),
-    ]
-
-    const date = new Date(checkpoint.timestamp)
-    const formattedDate = date.toLocaleString()
-    lines.push(`${blue('Created at')}: ${formattedDate}`)
-
-    if (checkpoint.userInput) {
-      lines.push(`${blue('User input')}: ${checkpoint.userInput}`)
-    }
-
-    const messageCount = checkpoint.historyLength
-    lines.push(`${blue('Message history')}: ${messageCount} messages`)
 
     return lines.join('\n')
   }

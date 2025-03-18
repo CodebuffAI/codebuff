@@ -159,6 +159,7 @@ export const safeReplace = (
 export const hasLazyEdit = (content: string) => {
   const cleanedContent = content.toLowerCase().trim()
   return (
+    cleanedContent.includes('... existing code ...') ||
     cleanedContent.includes('// rest of the') ||
     cleanedContent.includes('# rest of the') ||
     // Match various comment styles with ellipsis and specific words
@@ -239,4 +240,11 @@ export const generateCompactId = (prefix?: string): string => {
   const random = Math.floor(Math.random() * 0xff) // 8 random bits
   const str = ((timestamp << 8) | random).toString(36).replace(/^-/, '') // Remove leading dash if present
   return prefix ? `${prefix}${str}` : str
+}
+
+/**
+ * Removes null characters from a string
+ */
+export const stripNullChars = (str: string): string => {
+  return str.replace(/\u0000/g, '')
 }

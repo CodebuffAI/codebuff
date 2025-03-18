@@ -7,9 +7,9 @@ import { getModelForMode } from 'common/constants'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { Message } from 'common/types/message'
-import { ClientAction, FileChange } from 'common/actions'
+import { ClientAction } from 'common/actions'
 import { type CostMode } from 'common/constants'
-import { requestFiles } from './websockets/websocket-action'
+import { requestFile, requestFiles } from './websockets/websocket-action'
 import { processFileBlock } from './process-file-block'
 import { requestRelevantFiles } from './find-files/request-files-prompt'
 import { processStreamWithTags } from './process-stream'
@@ -100,7 +100,10 @@ export const mainPrompt = async (
   }
 
   let fullResponse = ''
-  const fileProcessingPromises: Promise<FileChange | null>[] = []
+  const fileProcessingPromisesByPath: Record<
+    string,
+    Promise<{ path: string; content: string; patch?: string } | null>[]
+  > = {}
 
   const justUsedATool = toolResults.length > 0
   const justRanTerminalCommand = toolResults.some(
@@ -172,21 +175,26 @@ ${existingNewFilePaths.join('\n')}
     'Instructions:',
     'Proceed toward the user request and any subgoals.',
 
-    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested.',
-
     "Unless the user specifies that you don't ask questions, if are multiple ways the user's command could be interpreted, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. Again, if the user specifies that you don't ask questions, make your best assumption and skip this step.",
+
+    'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
 
     'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
-    // For Sonnet 3.6.
-    // 'Before you use write_file to edit an existing file, make sure to use the read_files tool on the file to read it.',
-    'When editing a file, just highlight the parts of the file that have changed. Do not start writing the first line of the file. Instead, use "... existing code ..." comments surrounding your edits.',
+    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested.',
+
+    'When editing a file, just highlight the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
 
     !justUsedATool &&
       !recentlyDidThinking &&
-      'If the user request is very complex or asks you to plan, and you have not recently used the think_deeply tool, consider invoking "<think_deeply></think_deeply>", although this should be used sparingly.',
+      'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
+
+    'If the user is starting a new feature or refactoring, consider invoking "<create_plan></create_plan>".',
+
     recentlyDidThinking &&
-      "Don't act on the plan created by the think_deeply tool. Instead, wait for the user to review it.",
+      "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
+
+    'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
 
     hasKnowledgeFiles &&
       'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
@@ -244,6 +252,7 @@ ${existingNewFilePaths.join('\n')}
     userInputId: promptId,
     userId,
   })
+
   const streamWithTags = processStreamWithTags(stream, {
     write_file: {
       attributeNames: [],
@@ -252,28 +261,42 @@ ${existingNewFilePaths.join('\n')}
         const { path, content } = parseToolCallXml(body)
         if (!content) return false
 
+        // Initialize state for this file path if needed
+        if (!fileProcessingPromisesByPath[path]) {
+          fileProcessingPromisesByPath[path] = []
+        }
+        const previousPromises = fileProcessingPromisesByPath[path]
+        const previousEdit = previousPromises[previousPromises.length - 1]
+
+        const latestContentPromise = previousEdit
+          ? previousEdit.then(
+              (maybeResult) => maybeResult?.content ?? requestFile(ws, path)
+            )
+          : requestFile(ws, path)
+
         const fileContentWithoutStartNewline = content.startsWith('\n')
           ? content.slice(1)
           : content
 
-        fileProcessingPromises.push(
-          processFileBlock(
-            path,
-            fileContentWithoutStartNewline,
-            messagesWithOptionalReadFiles,
-            fullResponse,
-            prompt,
-            clientSessionId,
-            fingerprintId,
-            promptId,
-            userId,
-            ws,
-            costMode
-          ).catch((error) => {
-            logger.error(error, 'Error processing file block')
-            return null
-          })
-        )
+        const newPromise = processFileBlock(
+          path,
+          latestContentPromise,
+          fileContentWithoutStartNewline,
+          messagesWithOptionalReadFiles,
+          fullResponse,
+          prompt,
+          clientSessionId,
+          fingerprintId,
+          promptId,
+          userId,
+          costMode
+        ).catch((error) => {
+          logger.error(error, 'Error processing file block')
+          return null
+        })
+
+        fileProcessingPromisesByPath[path].push(newPromise)
+
         return false
       },
     },
@@ -283,9 +306,7 @@ ${existingNewFilePaths.join('\n')}
         {
           attributeNames: [],
           onTagStart: () => {},
-          onTagEnd: (body) => {
-            return false
-          },
+          onTagEnd: () => false,
         },
       ])
     ),
@@ -420,21 +441,28 @@ ${existingNewFilePaths.join('\n')}
         },
         'Create plan'
       )
-      fileProcessingPromises.push(
-        Promise.resolve({
-          path,
-          type: 'file',
-          content: plan,
-        })
-      )
+      // Add the plan file to the processing queue
+      if (!fileProcessingPromisesByPath[path]) {
+        fileProcessingPromisesByPath[path] = []
+      }
+      const change = {
+        path,
+        content: plan,
+      }
+      fileProcessingPromisesByPath[path].push(Promise.resolve(change))
     } else {
       throw new Error(`Unknown tool: ${name}`)
     }
   }
 
-  if (fileProcessingPromises.length > 0) {
+  if (Object.keys(fileProcessingPromisesByPath).length > 0) {
     onResponseChunk('Applying file changes, please wait.\n')
   }
+
+  // Flatten all promises while maintaining order within each file path
+  const fileProcessingPromises = Object.values(
+    fileProcessingPromisesByPath
+  ).flat()
 
   const changes = (await Promise.all(fileProcessingPromises)).filter(
     (change) => change !== null
@@ -445,9 +473,19 @@ ${existingNewFilePaths.join('\n')}
     onResponseChunk(`\n`)
   }
 
-  const changeToolCalls = changes.map((change) => ({
+  const changeToolCalls = changes.map(({ path, content, patch }) => ({
     name: 'write_file' as const,
-    parameters: change,
+    parameters: patch
+      ? {
+          type: 'patch' as const,
+          path,
+          content: patch,
+        }
+      : {
+          type: 'file' as const,
+          path,
+          content,
+        },
     id: generateCompactId(),
   }))
   clientToolCalls.unshift(...changeToolCalls)
@@ -699,7 +737,7 @@ async function getFileVersionUpdates(
   }
 }
 
-const getMessagesSubset = (messages: Message[], otherTokens: number) => {
+function getMessagesSubset(messages: Message[], otherTokens: number) {
   const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
     JSON.stringify(content).includes('COMPLETE')
   })

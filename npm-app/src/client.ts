@@ -75,6 +75,7 @@ export class Client {
   private git: GitCommand
   private rl: readline.Interface
   private lastToolResults: ToolResult[] = []
+  private pendingRequestId: string | null = null
 
   constructor(
     websocketUrl: string,
@@ -302,7 +303,7 @@ export class Client {
             const responseToUser = [
               'Authentication successful! 🎉',
               bold(`Hey there, ${user.name}.`),
-              `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month for each of them: ${blueBright(referralLink)}`,
+              `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month: ${blueBright(referralLink)}`,
             ]
             console.log('\n' + responseToUser.join('\n'))
             this.lastWarnedPct = 0
@@ -326,21 +327,20 @@ export class Client {
     limit,
     subscription_active,
     next_quota_reset,
-    referralLink,
     session_credits_used,
   }: Omit<UsageResponse, 'type'>) {
     this.usage = usage
     this.limit = limit
     this.subscription_active = subscription_active
     this.nextQuotaReset = next_quota_reset
-    if (!!session_credits_used) {
+
+    if (!!session_credits_used && !this.pendingRequestId) {
       this.lastRequestCredits = Math.max(
         session_credits_used - this.sessionCreditsUsed,
         0
       )
       this.sessionCreditsUsed = session_credits_used
     }
-    // this.showUsageWarning(referralLink)
   }
 
   private setupSubscriptions() {
@@ -382,15 +382,14 @@ export class Client {
         `${a.usage} / ${a.limit} credits`
       )
       this.setUsage(a)
-      this.showUsageWarning(a.referralLink)
       this.returnControlToUser()
     })
   }
 
-  public showUsageWarning(referralLink?: string) {
+  public showUsageWarning() {
     const errorCopy = [
       this.user
-        ? `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))} to upgrade – or refer a new user and earn ${CREDITS_REFERRAL_BONUS} credits per month: ${blue(bold(referralLink))}`
+        ? `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))} to upgrade – or refer a new user and earn ${CREDITS_REFERRAL_BONUS} credits per month: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/referrals'))}`
         : green('Type "login" below to sign up and get more credits!'),
     ].join('\n')
 
@@ -460,6 +459,8 @@ export class Client {
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
 
+    this.pendingRequestId = userInputId
+
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
         Spinner.get().stop()
@@ -499,6 +500,7 @@ export class Client {
   ) {
     let responseBuffer = ''
     let streamStarted = false
+    let responseStopped = false
     let resolveResponse: (
       value: ServerAction & { type: 'prompt-response' } & {
         wasStoppedByUser: boolean
@@ -518,8 +520,9 @@ export class Client {
     })
 
     const stopResponse = () => {
+      responseStopped = true
+      // Only unsubscribe from chunks, keep listening for final credits
       unsubscribeChunks()
-      unsubscribeComplete()
 
       const assistantMessage = {
         role: 'assistant' as const,
@@ -573,17 +576,21 @@ export class Client {
       async (action) => {
         const parsedAction = PromptResponseSchema.safeParse(action)
         if (!parsedAction.success) return
+        if (action.promptId !== userInputId) return
         const a = parsedAction.data
 
-        // store cost data
+        // Only process usage data if this is our pending request
         const usageData = UsageReponseSchema.omit({ type: true }).safeParse(a)
-
         if (usageData.success) {
+          this.pendingRequestId = null
           this.setUsage(usageData.data)
-          this.showUsageWarning(a.referralLink)
+        }
+        if (responseStopped) {
+          unsubscribeComplete()
+          xmlStreamParser.end()
+          return
         }
 
-        if (action.promptId !== userInputId) return
         this.agentState = a.agentState
 
         Spinner.get().stop()
@@ -641,12 +648,16 @@ export class Client {
           setMessages(this.agentState.messageHistory)
         }
 
+        this.showUsageWarning()
+
         if (this.hadFileChanges) {
-          const latestCheckpointId = (
-            checkpointManager.getLatestCheckpoint() as Checkpoint
-          ).id
+          const latestCheckpoint = checkpointManager.getLatestCheckpoint()
+          const displayedCheckpointString =
+            latestCheckpoint === null
+              ? ''
+              : ` or "checkpoint ${latestCheckpoint.id}" to revert`
           console.log(
-            `\nComplete! Type "diff" to review changes or "checkpoint ${latestCheckpointId}" to revert.`
+            `\nComplete! Type "diff" to review changes${displayedCheckpointString}.`
           )
           this.hadFileChanges = false
         }
