@@ -57,12 +57,6 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     fileContext: ProjectFileContextSchema,
   }),
   z.object({
-    type: z.literal('usage'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    requestedByUser: z.boolean(),
-  }),
-  z.object({
     type: z.literal('generate-commit-message'),
     fingerprintId: z.string(),
     authToken: z.string().optional(),
@@ -79,7 +73,6 @@ export const UsageReponseSchema = z.object({
   subscription_active: z.boolean(),
   next_quota_reset: z.coerce.date(),
   session_credits_used: z.number(),
-  requestedByUser: z.boolean(),
 })
 export type UsageResponse = z.infer<typeof UsageReponseSchema>
 

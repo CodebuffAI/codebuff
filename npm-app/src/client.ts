@@ -38,12 +38,11 @@ import {
 import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import type { CostMode } from 'common/constants'
-import { Message } from 'common/types/message'
 import { setMessages } from './chat-storage'
 
 import { activeBrowserRunner } from './browser-runner'
 import { checkpointManager, Checkpoint } from './checkpoints/checkpoint-manager'
-import { backendUrl } from './config'
+import { backendUrl, websiteUrl } from './config'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
 import { calculateFingerprint } from './fingerprint'
 import { displayGreeting } from './menu'
@@ -167,7 +166,7 @@ export class Client {
               `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${process.env.NEXT_PUBLIC_APP_URL}/referrals)`,
             ].join('\n')
           )
-          this.getUsage(true)
+          this.getUsage()
         } else {
           throw new Error(respJson.error)
         }
@@ -184,7 +183,7 @@ export class Client {
   async logout() {
     if (this.user) {
       try {
-        const response = await fetch(`${backendUrl}/api/auth/cli/logout`, {
+        const response = await fetch(`${websiteUrl}/api/auth/cli/logout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -223,7 +222,7 @@ export class Client {
     }
 
     try {
-      const response = await fetch(`${backendUrl}/api/auth/cli/code`, {
+      const response = await fetch(`${websiteUrl}/api/auth/cli/code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -279,7 +278,7 @@ export class Client {
 
         try {
           const statusResponse = await fetch(
-            `${backendUrl}/api/auth/cli/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}`
+            `${websiteUrl}/api/auth/cli/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}`
           )
 
           if (!statusResponse.ok) {
@@ -383,18 +382,8 @@ export class Client {
     this.webSocket.subscribe('usage-response', (action) => {
       const parsedAction = UsageReponseSchema.safeParse(action)
       if (!parsedAction.success) return
-      const response = parsedAction.data
-      this.setUsage(response)
 
-      if (response.requestedByUser) {
-        console.log(
-          green(underline(`Codebuff usage:`)),
-          `${response.usage} / ${response.limit} credits`
-        )
-        this.rl.prompt()
-        return
-      }
-
+      this.setUsage(parsedAction.data)
       this.showUsageWarning()
     })
   }
@@ -676,13 +665,48 @@ export class Client {
     }
   }
 
-  public async getUsage(requestedByUser: boolean) {
-    this.webSocket.sendAction({
-      type: 'usage',
-      fingerprintId: await this.getFingerprintId(),
-      authToken: this.user?.authToken,
-      requestedByUser,
-    })
+  public async getUsage() {
+    try {
+      const response = await fetch(`${backendUrl}/api/usage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fingerprintId: await this.getFingerprintId(),
+          authToken: this.user?.authToken,
+        }),
+      })
+
+      const data = await response.json()
+
+      // Use zod schema to validate response
+      const parsedResponse = UsageReponseSchema.parse(data)
+
+      if (data.type === 'action-error') {
+        console.error(red(data.message))
+        return
+      }
+
+      this.setUsage(parsedResponse)
+
+      console.log(
+        green(underline(`Codebuff usage:`)),
+        `${parsedResponse.usage} / ${parsedResponse.limit} credits`
+      )
+
+      this.showUsageWarning()
+    } catch (error) {
+      console.log({ error })
+
+      console.error(
+        red(
+          `Error checking usage: Please reach out to ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+        )
+      )
+    } finally {
+      this.returnControlToUser()
+    }
   }
 
   public async warmContextCache() {

@@ -142,7 +142,6 @@ export async function genUsageResponse(
   return {
     type: 'usage-response',
     ...params,
-    requestedByUser,
   }
 }
 
@@ -319,27 +318,6 @@ const onInit = async (
 }
 
 /**
- * Handles usage request actions from the client
- * @param action - The usage action from the client
- * @param clientSessionId - The client's session ID
- * @param ws - The WebSocket connection
- */
-export async function onUsageRequest(
-  action: Extract<ClientAction, { type: 'usage' }>,
-  clientSessionId: string,
-  ws: WebSocket
-) {
-  const userId = await getUserIdFromAuthToken(action.authToken)
-  const usageResponse = await genUsageResponse(
-    action.fingerprintId,
-    userId,
-    clientSessionId,
-    action.requestedByUser
-  )
-  sendAction(ws, usageResponse)
-}
-
-/**
  * Storage for action callbacks organized by action type
  */
 const callbacksByAction = {} as Record<
@@ -407,7 +385,6 @@ export const onWebsocketAction = async (
 // Register action handlers
 subscribeToAction('prompt', protec.run(onPrompt))
 subscribeToAction('init', protec.run(onInit, { silent: true }))
-subscribeToAction('usage', onUsageRequest)
 
 /**
  * Requests multiple files from the client
