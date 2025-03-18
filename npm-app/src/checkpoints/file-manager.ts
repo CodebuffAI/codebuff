@@ -24,7 +24,7 @@ let cachedGitAvailable: boolean | null = null
 function gitCommandIsAvailable(): boolean {
   if (cachedGitAvailable === null) {
     try {
-      execFileSync('git', ['--version'])
+      execFileSync('git', ['--version'], { stdio: 'ignore' })
       cachedGitAvailable = true
     } catch (error) {
       cachedGitAvailable = false
@@ -104,12 +104,11 @@ export async function getLatestCommit({
 }): Promise<string> {
   if (gitCommandIsAvailable()) {
     try {
-      return execFileSync('git', [
-        '--git-dir',
-        bareRepoPath,
-        'rev-parse',
-        'HEAD',
-      ])
+      return execFileSync(
+        'git',
+        ['--git-dir', bareRepoPath, 'rev-parse', 'HEAD'],
+        { stdio: ['ignore', 'pipe', 'ignore'] }
+      )
         .toString()
         .trim()
     } catch (error) {
@@ -118,7 +117,7 @@ export async function getLatestCommit({
   }
   return await resolveRef({
     fs,
-    dir: bareRepoPath,
+    gitdir: bareRepoPath,
     ref: 'HEAD',
   })
 }
@@ -144,10 +143,16 @@ export async function initializeCheckpointFileManager({
 
   try {
     // Check if it's already a valid Git repo
-    await resolveRef({ fs, dir: bareRepoPath, ref: 'HEAD' })
+    await resolveRef({ fs, gitdir: bareRepoPath, ref: 'HEAD' })
   } catch (error) {
     // Bare repo doesn't exist yet
-    await init({ fs, dir: bareRepoPath, bare: true })
+    await init({
+      fs,
+      dir: projectDir,
+      gitdir: bareRepoPath,
+      bare: true,
+      defaultBranch: 'master',
+    })
   }
 
   // Commit the files in the bare repo
@@ -177,19 +182,23 @@ async function gitAddAll({
 }): Promise<void> {
   if (gitCommandIsAvailable()) {
     try {
-      execFileSync('git', [
-        '--git-dir',
-        bareRepoPath,
-        '--work-tree',
-        projectDir,
-        '-C',
-        projectDir,
-        'add',
-        '.',
-      ])
+      execFileSync(
+        'git',
+        [
+          '--git-dir',
+          bareRepoPath,
+          '--work-tree',
+          projectDir,
+          '-C',
+          projectDir,
+          'add',
+          '.',
+        ],
+        { stdio: 'ignore' }
+      )
       return
     } catch (error) {
-      // Failed to add .
+      // Failed to `git add .`
     }
   }
 
@@ -226,6 +235,66 @@ async function gitAddAll({
   }
 }
 
+async function gitCommit({
+  projectDir,
+  bareRepoPath,
+  message,
+}: {
+  projectDir: string
+  bareRepoPath: string
+  message: string
+}): Promise<string> {
+  if (gitCommandIsAvailable()) {
+    try {
+      execFileSync(
+        'git',
+        [
+          '--git-dir',
+          bareRepoPath,
+          '--work-tree',
+          projectDir,
+          'commit',
+          '-m',
+          message,
+        ],
+        { stdio: 'ignore' }
+      )
+    } catch (error) {
+      // Failed to commit, continue to isomorphic-git implementation
+    }
+  }
+
+  const commitHash: string = await commit({
+    fs,
+    dir: projectDir,
+    gitdir: bareRepoPath,
+    author: { name: 'codebuff' },
+    message,
+    ref: '/refs/heads/master',
+  })
+
+  if (gitCommandIsAvailable()) {
+    try {
+      execFileSync(
+        'git',
+        [
+          '--git-dir',
+          bareRepoPath,
+          '--work-tree',
+          projectDir,
+          'checkout',
+          'master',
+        ],
+        { stdio: 'ignore' }
+      )
+    } catch (error) {}
+  }
+
+  await checkout({ fs, dir: projectDir, gitdir: bareRepoPath, ref: 'master' })
+
+  return commitHash
+}
+
 /**
  * Creates a new commit with the current state of all tracked files.
  * Stages all changes and creates a commit with the specified message.
@@ -252,16 +321,7 @@ export async function storeFileState({
     relativeFilepaths,
   })
 
-  const commitHash: string = await commit({
-    fs,
-    dir: projectDir,
-    gitdir: bareRepoPath,
-    author: { name: 'codebuff' },
-    ref: 'refs/heads/master',
-    message,
-  })
-
-  return commitHash
+  return await gitCommit({ projectDir, bareRepoPath, message })
 }
 
 /**
@@ -327,4 +387,4 @@ export async function restoreFileState({
 }
 
 // Export fs for testing
-export { fs };
+export { fs }

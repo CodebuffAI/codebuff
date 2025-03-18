@@ -241,3 +241,10 @@ export const generateCompactId = (prefix?: string): string => {
   const str = ((timestamp << 8) | random).toString(36).replace(/^-/, '') // Remove leading dash if present
   return prefix ? `${prefix}${str}` : str
 }
+
+/**
+ * Removes null characters from a string
+ */
+export const stripNullChars = (str: string): string => {
+  return str.replace(/\u0000/g, '')
+}

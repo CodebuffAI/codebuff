@@ -10,6 +10,7 @@ import { SWITCHBOARD } from '@/websockets/server'
 import { sendAction } from '@/websockets/websocket-action'
 import { ClientState } from '@/websockets/switchboard'
 import { WebSocket } from 'ws'
+import { stripNullChars } from 'common/util/string'
 
 const PROFIT_MARGIN = 0.2
 
@@ -60,6 +61,7 @@ const getPerTokenCost = (
   model: string,
   type: keyof typeof TOKENS_COST_PER_M
 ): number => {
+  // @ts-ignore
   // @ts-ignore
   return (TOKENS_COST_PER_M[type][model] ?? 0) / 1_000_000
 }
@@ -115,11 +117,14 @@ export const saveMessage = async (value: {
 
       const creditsUsed = Math.round(cost * 100 * (1 + PROFIT_MARGIN))
 
-      // Report usage to Stripe asynchronously after saving to db
       if (!value.userId || value.userId === TEST_USER_ID) {
-        // logger.debug('No userId provided, skipping usage reporting')
         return null
       }
+
+      // Clean request messages by converting to JSON and back to remove null chars
+      const cleanRequest = JSON.parse(
+        stripNullChars(JSON.stringify(value.request))
+      )
 
       const savedMessage = await db.insert(schema.message).values({
         id: value.messageId,
@@ -128,8 +133,8 @@ export const saveMessage = async (value: {
         client_id: value.clientSessionId,
         client_request_id: value.userInputId,
         model: value.model,
-        request: value.request,
-        response: value.response,
+        request: cleanRequest,
+        response: stripNullChars(value.response),
         input_tokens: value.inputTokens,
         output_tokens: value.outputTokens,
         cache_creation_input_tokens: value.cacheCreationInputTokens,
@@ -150,11 +155,16 @@ export const saveMessage = async (value: {
         })
 
         // Find WebSocket connection using existing clientSessionId
-        const clientEntry = Array.from(SWITCHBOARD.clients.entries())
-          .find(([_, state]: [WebSocket, ClientState]) => state.sessionId === value.clientSessionId)
+        const clientEntry = Array.from(SWITCHBOARD.clients.entries()).find(
+          ([_, state]: [WebSocket, ClientState]) =>
+            state.sessionId === value.clientSessionId
+        )
 
         if (!clientEntry) {
-          logger.warn({ clientSessionId: value.clientSessionId }, 'No WebSocket connection found')
+          logger.warn(
+            { clientSessionId: value.clientSessionId },
+            'No WebSocket connection found'
+          )
           return savedMessage
         }
 
@@ -164,7 +174,7 @@ export const saveMessage = async (value: {
         sendAction(ws, {
           type: 'message-cost-response',
           promptId: value.userInputId,
-          credits: creditsUsed
+          credits: creditsUsed,
         })
 
         if (
@@ -173,7 +183,6 @@ export const saveMessage = async (value: {
           !user.subscription_active ||
           !creditsUsed
         ) {
-          // logger.debug('No user found or no stripe_customer_id or no active subscription, skipping usage reporting')
           return savedMessage
         }
 
