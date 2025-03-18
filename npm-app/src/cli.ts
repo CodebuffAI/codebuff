@@ -145,6 +145,7 @@ export class CLI {
     Spinner.get().stop()
     readline.cursorTo(process.stdout, 0)
     ;(this.rl as any).line = ''
+    this.setPrompt()
     this.rl.prompt()
   }
 
