@@ -1,6 +1,15 @@
 import { parse } from 'path'
 
-import { green, red, yellow, blue, cyan, magenta, bold } from 'picocolors'
+import {
+  green,
+  red,
+  yellow,
+  blue,
+  cyan,
+  magenta,
+  bold,
+  underline,
+} from 'picocolors'
 import * as readline from 'readline'
 
 import { REQUEST_CREDIT_SHOW_THRESHOLD } from 'common/constants'
@@ -238,7 +247,7 @@ export class CLI {
       return true
     }
     if (userInput === 'usage' || userInput === 'credits') {
-      this.client.getUsage()
+      await this.client.getUsage()
       return true
     }
     if (userInput === 'undo' || userInput === 'u') {
@@ -317,14 +326,6 @@ export class CLI {
     this.isReceivingResponse = false
 
     Spinner.get().stop()
-
-    if (this.client.lastRequestCredits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
-      console.log(
-        `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
-      )
-    }
-    this.client.showUsageWarning()
-    console.log()
 
     this.freshPrompt()
   }
@@ -612,11 +613,14 @@ export class CLI {
 
   private handleExit() {
     Spinner.get().restoreCursor()
-    console.log('\n\n')
+    console.log('\n')
 
-    console.log(
-      `${pluralize(this.client.sessionCreditsUsed, 'credit')} used this session.`
-    )
+    const logMessages = []
+    const totalCredits = Object.values(this.client.creditsByPromptId)
+      .flat()
+      .reduce((sum, credits) => sum + credits, 0)
+
+    logMessages.push(`${pluralize(totalCredits, 'credit')} used this session.`)
     if (this.client.limit && this.client.usage && this.client.nextQuotaReset) {
       const daysUntilReset = Math.max(
         0,
@@ -625,13 +629,15 @@ export class CLI {
             (1000 * 60 * 60 * 24)
         )
       )
-      console.log(
+      logMessages.push(
         `${Math.max(
           0,
           this.client.limit - this.client.usage
-        )} / ${this.client.limit} credits remaining. Renews in ${pluralize(daysUntilReset, 'day')}.`
+        )} credits remaining. Renews in ${pluralize(daysUntilReset, 'day')}.`
       )
     }
+
+    console.log(logMessages.join(' '))
     console.log(green('Codebuff out!'))
     process.exit(0)
   }

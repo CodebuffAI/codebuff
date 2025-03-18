@@ -3,6 +3,7 @@ import http from 'http'
 import { listen as webSocketListen } from './websockets/server'
 import { env } from './env.mjs'
 import { logger } from './util/logger'
+import { handler as usageHandler } from './api/usage'
 
 const app = express()
 const port = env.PORT
@@ -16,6 +17,8 @@ app.get('/', (req, res) => {
 app.get('/healthz', (req, res) => {
   res.send('ok')
 })
+
+app.post('/api/usage', usageHandler)
 
 app.use(
   (
