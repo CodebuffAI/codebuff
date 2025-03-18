@@ -577,6 +577,8 @@ export class Client {
         if (action.promptId !== userInputId) return
         const a = parsedAction.data
 
+        Spinner.get().stop()
+
         this.agentState = a.agentState
         let isComplete = false
         const toolResults: ToolResult[] = [...a.toolResults]
