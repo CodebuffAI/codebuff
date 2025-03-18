@@ -50,7 +50,7 @@ if (maybeParentPort) {
         throw new Error(`Unknown operation type: ${type}`)
       }
 
-      parentPort.postMessage({ success: true, result })
+      parentPort.postMessage({ success: true, result, message })
     } catch (error) {
       parentPort.postMessage({ 
         success: false, 

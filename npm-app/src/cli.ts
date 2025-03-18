@@ -255,6 +255,11 @@ export class CLI {
       this.handleUndo()
       return true
     }
+    if (userInput === 'redo') {
+      await this.saveCheckpoint(userInput)
+      this.handleRedo()
+      return true
+    }
     if (userInput === 'quit' || userInput === 'exit' || userInput === 'q') {
       this.handleExit()
       return true
@@ -362,21 +367,29 @@ export class CLI {
       return
     }
 
-    const checkpoint = checkpointManager.getLatestCheckpoint()
-    if (checkpoint === null) {
-      console.log(red('Unable to undo: internal error: no checkpoints found'))
+    if (await checkpointManager.restoreUndoCheckpoint()) {
+      console.log(green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`))
+    } else {
+      console.log(red('Unable to undo'))
+    }
+    this.freshPrompt()
+  }
+
+  private async handleRedo(): Promise<void> {
+    if (checkpointManager.disabledReason !== null) {
+      console.log(
+        red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
+      )
       this.freshPrompt()
       return
     }
 
-    // Get previous checkpoint number (not including undo command)
-    const checkpointId = checkpoint.id - 1
-    if (checkpointId < 1) {
-      console.log(red('Nothing to undo.'))
-      this.freshPrompt()
-      return
+    if (await checkpointManager.restoreRedoCheckpoint()) {
+      console.log(green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`))
+    } else {
+      console.log(red('Unable to redo'))
     }
-    await this.handleRestoreCheckpoint(checkpointId)
+    this.freshPrompt()
   }
 
   private handleKeyPress(str: string, key: any) {
