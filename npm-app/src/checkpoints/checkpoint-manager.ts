@@ -276,7 +276,6 @@ export class CheckpointManager {
       return false
     }
 
-    console.log('asdf', {targetId})
     const restored = await this.restoreCheckointFileState(targetId)
     if (restored) {
       return true
