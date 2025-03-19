@@ -1,6 +1,6 @@
 export const toolSchema = {
   // Tools that require an id and objective
-  add_subgoal: ['id', 'objective', 'status', 'plan'],
+  add_subgoal: ['id', 'objective', 'status', 'plan', 'log'],
   update_subgoal: ['id', 'status', 'plan', 'log'],
 
   // File operations
