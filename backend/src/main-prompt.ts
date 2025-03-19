@@ -126,7 +126,7 @@ export const mainPrompt = async (
       fileContext,
       null,
       {
-        skipRequestingFiles: justUsedATool,
+        skipRequestingFiles: !prompt,
         clientSessionId,
         fingerprintId,
         userInputId: promptId,
