@@ -17,6 +17,8 @@ import {
   X,
   Plus,
   Trash,
+  Files,
+  Package,
 } from 'lucide-react'
 
 interface FileItem {
@@ -34,11 +36,22 @@ const fileStructure: FileItem[] = [
     children: [
       { name: 'index.ts', type: 'file', extension: 'ts', active: true },
       {
+        name: 'api',
+        type: 'folder',
+        children: [
+          { name: 'auth.ts', type: 'file', extension: 'ts' },
+          { name: 'users.ts', type: 'file', extension: 'ts' },
+          { name: 'projects.ts', type: 'file', extension: 'ts' },
+        ],
+      },
+      {
         name: 'utils',
         type: 'folder',
         children: [
           { name: 'helpers.ts', type: 'file', extension: 'ts' },
           { name: 'types.ts', type: 'file', extension: 'ts' },
+          { name: 'constants.ts', type: 'file', extension: 'ts' },
+          { name: 'validation.ts', type: 'file', extension: 'ts' },
         ],
       },
       {
@@ -47,6 +60,16 @@ const fileStructure: FileItem[] = [
         children: [
           { name: 'App.tsx', type: 'file', extension: 'tsx' },
           { name: 'Button.tsx', type: 'file', extension: 'tsx' },
+          { name: 'Card.tsx', type: 'file', extension: 'tsx' },
+          { name: 'Input.tsx', type: 'file', extension: 'tsx' },
+          {
+            name: 'forms',
+            type: 'folder',
+            children: [
+              { name: 'LoginForm.tsx', type: 'file', extension: 'tsx' },
+              { name: 'SignupForm.tsx', type: 'file', extension: 'tsx' },
+            ],
+          },
         ],
       },
     ],
@@ -54,7 +77,20 @@ const fileStructure: FileItem[] = [
   {
     name: 'tests',
     type: 'folder',
-    children: [{ name: 'index.test.ts', type: 'file', extension: 'ts' }],
+    children: [
+      { name: 'index.test.ts', type: 'file', extension: 'ts' },
+      { name: 'auth.test.ts', type: 'file', extension: 'ts' },
+      { name: 'utils.test.ts', type: 'file', extension: 'ts' },
+    ],
+  },
+  {
+    name: 'config',
+    type: 'folder',
+    children: [
+      { name: 'tsconfig.json', type: 'file', extension: 'json' },
+      { name: 'jest.config.js', type: 'file', extension: 'js' },
+      { name: '.env.example', type: 'file', extension: 'env' },
+    ],
   },
 ]
 
@@ -83,7 +119,7 @@ const FileTreeItem = ({
   item: FileItem
   depth?: number
 }) => {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(item.type === 'folder')
 
   return (
     <div>
@@ -129,9 +165,11 @@ export function IDEDemo({ className }: IDEDemoProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showIDE, setShowIDE] = useState(false)
   const [showOriginalTerminal, setShowOriginalTerminal] = useState(true)
+  const [expandTerminal, setExpandTerminal] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(0)
   const [currentLine, setCurrentLine] = useState(1)
   const [currentCol, setCurrentCol] = useState(1)
+  const [terminalLines, setTerminalLines] = useState<string[]>([])
   const editorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -141,71 +179,101 @@ export function IDEDemo({ className }: IDEDemoProps) {
       // Remove original terminal after transition completes
       setTimeout(() => {
         setShowOriginalTerminal(false)
+        // Start terminal expansion after 2 more seconds
+        setTimeout(() => {
+          setExpandTerminal(true)
+        }, 2000)
       }, 1000)
     }, 3000)
 
     return () => clearTimeout(timer)
   }, [])
 
-  // Simulate typing effect
+  // Terminal animation sequence
   useEffect(() => {
-    if (showIDE) {
-      const code = 'console.log("Hello, Codebuff!");'
-      let position = 0
+    if (!showIDE) return
 
-      const interval = setInterval(() => {
-        if (position <= code.length) {
-          setCursorPosition(position)
-          setCurrentCol(position + 1)
-          position++
-        } else {
-          clearInterval(interval)
-        }
-      }, 100)
+    const messages = [
+      "Welcome to Codebuff! Type 'help' for a list of commands.",
+      '> help',
+      'Available commands:',
+      '  analyze   - Analyze current codebase',
+      '  refactor  - Get help with refactoring',
+      '  explain   - Explain selected code',
+      '  test      - Help with testing',
+      '> analyze',
+      'Analyzing project structure...',
+      'Found:',
+      '  • React components with TypeScript',
+      '  • Next.js configuration',
+      '  • API routes in /pages/api',
+      'Ready to help! Ask me anything about the codebase.',
+    ]
 
-      return () => clearInterval(interval)
+    let currentIndex = 0
+    const addMessage = () => {
+      if (currentIndex < messages.length) {
+        setTerminalLines((prev) => [...prev, messages[currentIndex]])
+        currentIndex++
+        setTimeout(addMessage, currentIndex === 1 ? 2000 : 1000) // Longer pause before first command
+      }
     }
+
+    // Start the sequence after a short delay
+    setTimeout(addMessage, 500)
   }, [showIDE])
 
   return (
     <div
       className={cn(
-        'relative w-full transition-all duration-1000 ease-in-out',
-        showIDE ? 'h-[600px]' : 'h-[400px]',
+        'relative w-full transition-all duration-1000 ease-in-out overflow-visible',
+        showIDE ? 'h-[650px]' : 'h-[400px]',
         className
       )}
     >
       <div
         className={cn(
-          'absolute inset-0 bg-black/80 rounded-lg border border-zinc-800 backdrop-blur transition-all duration-1000',
+          'absolute inset-0 bg-black/80 rounded-lg border border-zinc-800 transition-all duration-1000',
           showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         )}
       >
         {/* IDE Layout */}
         <div className="flex h-full">
           {/* Activity Bar */}
-          <div className="w-12 border-r border-zinc-800 flex flex-col items-center py-4 space-y-4">
-            <button className="p-2 text-zinc-400 hover:text-white transition-colors">
-              <Search size={20} />
-            </button>
-            <button className="p-2 text-zinc-400 hover:text-white transition-colors">
-              <GitBranch size={20} />
-            </button>
-            <button className="p-2 text-zinc-400 hover:text-white transition-colors">
-              <Bug size={20} />
-            </button>
-            <button className="p-2 text-zinc-400 hover:text-white transition-colors">
-              <Settings size={20} />
-            </button>
+          <div className="w-12 border-r border-zinc-800 flex flex-col items-center py-2 bg-black/20 relative">
+            {/* Add fade overlay with reduced opacity */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
+
+            {/* Activity buttons above the fade */}
+            <div className="relative z-0 flex flex-col items-center space-y-4">
+              <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                <Files size={20} />
+              </button>
+              <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                <Search size={20} />
+              </button>
+              <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                <GitBranch size={20} />
+              </button>
+              <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                <Bug size={20} />
+              </button>
+              <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                <Package size={20} />
+              </button>
+            </div>
           </div>
 
           {/* Sidebar */}
           <div
             className={cn(
-              'border-r border-zinc-800 transition-all duration-1000 bg-black/20',
+              'border-r border-zinc-800 transition-all duration-1000 bg-black/20 relative',
               showIDE ? 'w-64' : 'w-0'
             )}
           >
+            {/* Add fade overlay with reduced opacity */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
+
             {/* File Explorer */}
             <div className="p-2">
               <div className="text-sm text-zinc-400 mb-2 flex items-center">
@@ -225,55 +293,56 @@ export function IDEDemo({ className }: IDEDemoProps) {
           {/* Main Editor Area */}
           <div className="flex-1 flex flex-col bg-black/30">
             {/* Tabs */}
-            <div className="border-b border-zinc-800 h-9 flex items-center px-2">
-              <div className="flex items-center bg-zinc-800 rounded-t px-3 py-1 text-sm text-zinc-300 group">
-                <FileIcon extension="ts" />
-                <span>index.ts</span>
-                <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <X size={14} />
-                </button>
+            <div className="border-b border-zinc-800 h-9 flex items-center px-2 relative">
+              {/* Add fade overlay with reduced opacity */}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
+
+              {/* Tab content above the fade */}
+              <div className="flex items-center space-x-1 relative z-0">
+                <div className="flex items-center bg-zinc-800 rounded-t px-3 py-1 text-sm text-zinc-300 group cursor-pointer">
+                  <FileIcon extension="ts" />
+                  <span>index.ts</span>
+                  <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
+                  <FileIcon extension="ts" />
+                  <span>auth.ts</span>
+                  <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
+                  <FileIcon extension="tsx" />
+                  <span>App.tsx</span>
+                  <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <X size={14} />
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Editor Content */}
             <div
-              className="flex-1 p-4 font-mono text-sm relative"
+              className={cn(
+                'flex-1 p-4 font-mono text-sm relative transition-all duration-1000',
+                expandTerminal && 'h-[20%]'
+              )}
               ref={editorRef}
             >
-              <div className="flex">
+              {/* Add fade overlay */}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/70 to-black/70 pointer-events-none z-10" />
+
+              <div className="flex relative z-0">
                 <div className="text-zinc-600 mr-4 select-none w-6 text-right">
                   1
                 </div>
-                <div className="text-zinc-300 relative">
-                  {showIDE && (
-                    <>
-                      <span>console.log(</span>
-                      <span className="text-green-400">"Hello, Codebuff!"</span>
-                      <span>);</span>
-                      <div
-                        className="absolute top-0 w-[2px] h-[1.2em] bg-white/70 transition-all duration-75"
-                        style={{ left: `${cursorPosition * 8}px` }}
-                      />
-                    </>
-                  )}
+                <div className="text-zinc-300">
+                  <span>console.log(</span>
+                  <span className="text-green-400">"Hello, Codebuff!"</span>
+                  <span>);</span>
                 </div>
-              </div>
-            </div>
-
-            {/* Status Bar */}
-            <div className="h-6 border-t border-zinc-800 bg-zinc-900/50 flex items-center px-4 text-xs text-zinc-400 justify-between">
-              <div className="flex items-center space-x-4">
-                <span className="flex items-center">
-                  <GitBranch size={12} className="mr-1" /> main
-                </span>
-                <span>TypeScript</span>
-                <span>UTF-8</span>
-              </div>
-              <div className="flex items-center space-x-4">
-                <span>
-                  Ln {currentLine}, Col {currentCol}
-                </span>
-                <span>Spaces: 2</span>
               </div>
             </div>
 
@@ -281,7 +350,11 @@ export function IDEDemo({ className }: IDEDemoProps) {
             <div
               className={cn(
                 'border-t border-zinc-800 transition-all duration-1000 bg-black/40',
-                showIDE ? 'h-[300px]' : 'h-full'
+                showIDE
+                  ? expandTerminal
+                    ? 'h-[80%] text-lg'
+                    : 'h-[300px]'
+                  : 'h-full'
               )}
             >
               <div className="flex items-center border-b border-zinc-800 px-4 py-1">
@@ -303,9 +376,9 @@ export function IDEDemo({ className }: IDEDemoProps) {
                 prompt="> "
                 showWindowButtons={false}
               >
-                <TerminalOutput>
-                  Welcome to Codebuff! Type 'help' for a list of commands.
-                </TerminalOutput>
+                {terminalLines.map((line, index) => (
+                  <TerminalOutput key={index}>{line}</TerminalOutput>
+                ))}
               </Terminal>
             </div>
           </div>
@@ -314,7 +387,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
 
       {/* Original Terminal (fades out) */}
       {showOriginalTerminal && (
-        <div 
+        <div
           className={cn(
             'absolute inset-0 transition-all duration-1000',
             showIDE ? 'opacity-0 scale-95' : 'opacity-100 scale-100'

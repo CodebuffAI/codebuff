@@ -1,5 +1,5 @@
-import Link from "next/link";
-import { Button } from "./button";
+import Link from 'next/link'
+import { Button } from './button'
 
 export function Header() {
   return (
@@ -15,28 +15,49 @@ export function Header() {
               xmlns="http://www.w3.org/2000/svg"
               className="transition-transform duration-300 group-hover:scale-110"
             >
-              <rect width="24" height="24" rx="4" fill="black" stroke="white" strokeWidth="1" />
+              <rect
+                width="24"
+                height="24"
+                rx="4"
+                fill="black"
+                stroke="white"
+                strokeWidth="1"
+              />
               <path d="M6 6H18V9H6V6Z" fill="#AAFF33" />
               <path d="M6 10.5H12V13.5H6V10.5Z" fill="#AAFF33" />
               <path d="M6 15H15V18H6V15Z" fill="#AAFF33" />
             </svg>
-            <span className="text-xl font-medium group-hover:text-primary transition-colors duration-300">codebuff</span>
+            <span className="text-xl font-medium group-hover:text-primary transition-colors duration-300">
+              codebuff
+            </span>
           </Link>
         </div>
 
         <div className="hidden md:flex items-center space-x-8">
           <nav className="flex items-center space-x-8">
-            <Link href="/pricing" className="text-sm text-zinc-400 hover:text-white transition-colors duration-300">
+            <Link
+              href="/pricing"
+              className="text-sm text-zinc-400 hover:text-white transition-colors duration-300"
+            >
               Pricing
             </Link>
-            <Link href="/docs" className="text-sm text-zinc-400 hover:text-white transition-colors duration-300">
+            <Link
+              href="/docs"
+              className="text-sm text-zinc-400 hover:text-white transition-colors duration-300"
+            >
               Docs
             </Link>
-            <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors duration-300">
+            <Link
+              href="/login"
+              className="text-sm text-zinc-400 hover:text-white transition-colors duration-300"
+            >
               Log in
             </Link>
           </nav>
-          <Button asChild className="transition-transform duration-300 hover:scale-105">
+          <Button
+            asChild
+            className="transition-transform duration-300 hover:scale-105"
+          >
             <Link href="/signup" className="text-sm font-medium">
               Try Free
             </Link>
@@ -81,5 +102,5 @@ export function Header() {
         </div>
       </div>
     </header>
-  );
+  )
 }

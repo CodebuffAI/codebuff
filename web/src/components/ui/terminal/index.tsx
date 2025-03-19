@@ -165,7 +165,7 @@ const Terminal = ({
       'react-terminal-wrapper'
     )) {
       const listener = () => {
-        (
+        ;(
           terminalEl?.querySelector('.terminal-hidden-input') as HTMLElement
         )?.focus()
         terminalEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -180,7 +180,7 @@ const Terminal = ({
     }
   }, [onInput])
 
-  const classes = ['react-terminal-wrapper', 'px-6', 'pt-12', 'pb-6']
+  const classes = ['react-terminal-wrapper', 'px-6', 'pt-6', 'pb-16']
   if (colorMode === ColorMode.Light) {
     classes.push('react-terminal-light')
   }
@@ -207,7 +207,12 @@ const Terminal = ({
         </div>
       )}
       <div
-        className={cn('react-terminal', 'flex-1', className)}
+        className={cn(
+          'react-terminal',
+          'flex-1',
+          showWindowButtons && 'mt-6',
+          className
+        )}
         ref={terminalRef}
       >
         {children}

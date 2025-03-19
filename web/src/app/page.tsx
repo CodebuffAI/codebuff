@@ -13,6 +13,7 @@ import { CodeDemo } from '@/components/docs/mdx/code-demo'
 import { storeSearchParams } from '@/lib/trackConversions'
 import { BackgroundBeams } from '@/components/ui/background-beams'
 import IDEDemo from '@/components/IDEDemo'
+import { DecorativeBlocks, BlockColor } from '@/components/ui/decorative-blocks'
 
 const Home = () => {
   const [isVideoOpen, setIsVideoOpen] = useState(false)
@@ -37,48 +38,50 @@ const Home = () => {
 
   // Sample code for the feature sections
   const understandingCode = [
-    "> Planning: analyzing codebase context",
-    "Scanning project structure...",
-    "Identified technology stack: React, TypeScript, Express",
-    "Analyzing dependencies and import structure...",
-    "Found 3 main components with 12 dependent modules",
-    "> Planning complete:",
-    "• Identified pattern in authentication flow",
-    "• Detected potential memory leak in useEffect",
-  ];
+    '> Planning: analyzing codebase context',
+    'Scanning project structure...',
+    'Identified technology stack: React, TypeScript, Express',
+    'Analyzing dependencies and import structure...',
+    'Found 3 main components with 12 dependent modules',
+    '> Planning complete:',
+    '• Identified pattern in authentication flow',
+    '• Detected potential memory leak in useEffect',
+  ]
 
   const rightStuffCode = [
-    "> Planning: project configuration",
-    "Analyzing tech stack and configuration needs",
-    "Recommended setup:",
-    "• TypeScript with strict mode",
-    "• ESLint with airbnb preset",
-    "• Jest for unit testing",
-    "• GitHub Actions CI/CD pipeline",
-    "> Creating config files now..."
-  ];
+    '> Planning: project configuration',
+    'Analyzing tech stack and configuration needs',
+    'Recommended setup:',
+    '• TypeScript with strict mode',
+    '• ESLint with airbnb preset',
+    '• Jest for unit testing',
+    '• GitHub Actions CI/CD pipeline',
+    '> Creating config files now...',
+  ]
 
   const remembersCode = [
-    "> Loading context from previous session",
-    "Found 3 related projects in your workspace",
-    "Last time you were working on:",
-    "• Authentication flow in AuthContext.tsx",
-    "• API integration with the payments service",
-    "• Fixing the dropdown component styles",
-    "> Restoring your workflow context..."
-  ];
+    '> Loading context from previous session',
+    'Found 3 related projects in your workspace',
+    'Last time you were working on:',
+    '• Authentication flow in AuthContext.tsx',
+    '• API integration with the payments service',
+    '• Fixing the dropdown component styles',
+    '> Restoring your workflow context...',
+  ]
 
   return (
     <div className="relative overflow-hidden">
-      <BackgroundBeams className="z-0 opacity-50 animate-pulse" />
       <div className="relative z-10">
         {/* Hero Section */}
         <section className="full-width-section">
           <div className="codebuff-container">
             <Hero />
-            <div className="terminal-demo-section mt-2">
+            <DecorativeBlocks
+              colors={[BlockColor.Primary, BlockColor.Accent]}
+              placement="bottom-left"
+            >
               <IDEDemo />
-            </div>
+            </DecorativeBlocks>
           </div>
         </section>
 

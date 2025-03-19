@@ -1,7 +1,7 @@
-import Link from "next/link";
-import { Button } from "./button";
-import { Terminal } from "lucide-react";
-import { GreenSplash, YellowSplash, ColorBar } from "./decorative-splash";
+import Link from 'next/link'
+import { Button } from './button'
+import { Terminal } from 'lucide-react'
+import { GreenSplash, YellowSplash, ColorBar } from './decorative-splash'
 
 export function CTASection() {
   return (
@@ -40,10 +40,13 @@ export function CTASection() {
 
             <Button
               size="lg"
-              className="w-full md:w-[320px] text-base font-medium h-[42px] transition-all duration-300 hover:scale-105 relative group overflow-hidden"
+              className="w-full md:w-[320px] text-base font-medium py-2.5 transition-all duration-300 hover:scale-105 relative group overflow-hidden"
               asChild
             >
-              <Link href="/signup" className="relative z-10 flex items-center justify-center">
+              <Link
+                href="/signup"
+                className="relative z-10 flex items-center justify-center"
+              >
                 <span className="mr-2">Try Free</span>
                 <svg
                   width="16"
@@ -64,7 +67,7 @@ export function CTASection() {
               </Link>
             </Button>
 
-            <div className="terminal w-full md:w-[320px] flex items-center group relative backdrop-blur-sm bg-black/80 border border-zinc-700">
+            <div className="terminal w-full md:w-[320px] flex items-center py-2.5 group relative backdrop-blur-sm bg-black/80 border border-zinc-700">
               <div className="terminal-command group-hover:opacity-80 transition-opacity duration-300">
                 <Terminal size={16} className="text-primary" />
                 <code className="font-mono">npm install -g codebuff</code>
@@ -105,7 +108,10 @@ export function CTASection() {
           </div>
 
           <div className="flex justify-center space-x-6 relative">
-            <Link href="/docs" className="flex items-center text-white hover:text-primary transition-colors duration-300">
+            <Link
+              href="/docs"
+              className="flex items-center text-white hover:text-primary transition-colors duration-300"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -122,7 +128,10 @@ export function CTASection() {
               </svg>
               <span>Documentation</span>
             </Link>
-            <Link href="https://github.com/CodebuffAI/codebuff" className="flex items-center text-white hover:text-primary transition-colors duration-300">
+            <Link
+              href="https://github.com/CodebuffAI/codebuff"
+              className="flex items-center text-white hover:text-primary transition-colors duration-300"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -143,5 +152,5 @@ export function CTASection() {
         </div>
       </div>
     </section>
-  );
+  )
 }
