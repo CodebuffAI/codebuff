@@ -8,7 +8,11 @@ import {
   renderToolResults,
 } from './util/parse-tool-call-xml'
 import { getModelForMode } from 'common/constants'
-import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
+import {
+  parseFileBlocks,
+  parseMarkdownFileBlocks,
+  ProjectFileContext,
+} from 'common/util/file'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { Message } from 'common/types/message'
 import { ClientAction } from 'common/actions'
@@ -582,7 +586,6 @@ async function getFileVersionUpdates(
   const FILE_TOKEN_BUDGET = 100_000 // costMode === 'lite' ? 25_000 :
 
   const { baseFiles } = fileContext
-  const previousFilePaths = uniq(baseFiles.map(({ path }) => path))
   const toolResultFiles = messages
     .map((m) => m.content)
     .filter(
@@ -591,7 +594,15 @@ async function getFileVersionUpdates(
     )
     .flatMap((content) => parseToolResults(content as string))
     .filter(({ name }) => name === 'read_files')
-    .map(({ result }) => result)
+    .flatMap(({ result }) => parseMarkdownFileBlocks(result))
+
+  const previousFiles = Object.fromEntries(
+    [...baseFiles, ...toolResultFiles].map(({ path, content }) => [
+      path,
+      content,
+    ])
+  )
+  const previousFilePaths = uniq(Object.keys(previousFiles))
 
   const editedFilePaths = messages
     .map((m) => m.content)
@@ -619,7 +630,7 @@ async function getFileVersionUpdates(
 
   const initialFiles = getInitialFiles(fileContext)
   const includedInitialFiles =
-    files.length === 0 ? initialFiles.map(({ path }) => path) : []
+    baseFiles.length === 0 ? initialFiles.map(({ path }) => path) : []
 
   const allFilePaths = uniq([
     ...requestedFiles,
@@ -660,7 +671,7 @@ async function getFileVersionUpdates(
     })
     .filter((file) => file.content !== null)
 
-  const fileVersionTokens = countTokensJson(files)
+  const fileVersionTokens = countTokensJson(previousFiles)
   const addedFileTokens = countTokensJson(addedFiles)
 
   if (fileVersionTokens + addedFileTokens > FILE_TOKEN_BUDGET) {
