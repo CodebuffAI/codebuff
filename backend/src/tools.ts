@@ -283,7 +283,7 @@ Usage:
 </plan>
 </create_plan>
 
-Use this tool when the user you to plan something.
+Use this tool when the user asks you to plan something, or asks you to help with a new feature or refactoring that requires planning.
 
 Examples of when to use it:
 - Adding a new feature that touches multiple parts of the system

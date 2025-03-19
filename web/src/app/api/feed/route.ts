@@ -1,4 +1,17 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
+
+const SubstackPostSchema = z.object({
+  title: z.string(),
+  canonical_url: z.string().url(),
+  subtitle: z.string().optional(),
+  description: z.string().optional(),
+  post_date: z.string(),
+  body_html: z.string().optional(),
+  cover_image: z.string().url().optional(),
+})
+
+const SubstackResponseSchema = z.array(SubstackPostSchema)
 
 export interface Article {
   title: string
@@ -11,20 +24,19 @@ export interface Article {
 
 export async function GET() {
   try {
-    const res = await fetch('https://news.codebuff.com/feed')
-    const text = await res.text()
+    const res = await fetch('https://news.codebuff.com/api/v1/posts')
+    const data = await res.json()
 
-    // Parse XML string directly
-    const items = text.match(/<item>[\s\S]*?<\/item>/g) || []
+    // Validate response data
+    const posts = SubstackResponseSchema.parse(data)
 
-    const articles: Article[] = items.map((item) => ({
-      title: item.match(/<title>\s*<!\[CDATA\[(.*?)\]\]>/)?.[1] || '',
-      href: item.match(/<link>(.*?)<\/link>/)?.[1] || '',
-      description:
-        item.match(/<description>\s*<!\[CDATA\[(.*?)\]\]>/)?.[1] || '',
-      pubDate: item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || '',
-      content: item.match(/<content:encoded>\s*<!\[CDATA\[(.*?)\]\]>/)?.[1] || '',
-      thumbnail: item.match(/<enclosure.*?url="([^"]*)".*?>/)?.[1] || '',
+    const articles: Article[] = posts.map((post) => ({
+      title: post.title,
+      href: post.canonical_url,
+      description: post.subtitle || post.description || '',
+      pubDate: post.post_date,
+      content: post.body_html || '',
+      thumbnail: post.cover_image || '',
     }))
 
     return NextResponse.json({ articles })

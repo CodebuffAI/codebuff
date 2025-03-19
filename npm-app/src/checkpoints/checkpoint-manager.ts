@@ -37,6 +37,7 @@ interface WorkerResponse {
   result?: unknown
   /** Error message if operation failed */
   error?: string
+  message: WorkerMessage
 }
 
 /**
@@ -49,6 +50,7 @@ export interface Checkpoint {
   /** Number of messages in the agent's history at checkpoint time */
   historyLength: number
   id: number
+  parentId: number
   timestamp: number
   /** User input that triggered this checkpoint */
   userInput: string
@@ -61,8 +63,12 @@ export interface Checkpoint {
  */
 export class CheckpointManager {
   checkpoints: Array<Checkpoint> = []
+  currentCheckpointId: number = 0
+  disabledReason: string | null = null
+
   private bareRepoPath: string | null = null
-  enabled: boolean = true
+  /** Stores the undo chain (leaf node first, current node last) */
+  private undoIds: Array<number> = []
   /** Worker thread for git operations */
   private worker: Worker | null = null
 
@@ -95,6 +101,11 @@ export class CheckpointManager {
       const timeoutMs = 30000 // 30 seconds timeout
 
       const handler = (response: WorkerResponse) => {
+        for (const key of ['type', 'commit', 'message'] as const) {
+          if (response.message[key] !== message[key]) {
+            return
+          }
+        }
         if (response.success) {
           resolve(response.result as T)
         } else {
@@ -135,7 +146,7 @@ export class CheckpointManager {
     agentState: AgentState,
     userInput: string
   ): Promise<Checkpoint | null> {
-    if (!this.enabled) {
+    if (this.disabledReason !== null) {
       return null
     }
 
@@ -145,7 +156,7 @@ export class CheckpointManager {
     const relativeFilepaths = getAllFilePaths(agentState.fileContext.fileTree)
 
     if (relativeFilepaths.length >= DEFAULT_MAX_FILES) {
-      this.enabled = false
+      this.disabledReason = 'Project too large'
       return null
     }
 
@@ -173,11 +184,14 @@ export class CheckpointManager {
       fileStateIdPromise,
       historyLength: agentState.messageHistory.length,
       id,
+      parentId: this.currentCheckpointId,
       timestamp: Date.now(),
       userInput,
     }
 
     this.checkpoints.push(checkpoint)
+    this.currentCheckpointId = id
+    this.undoIds = []
     return checkpoint
   }
 
@@ -186,7 +200,7 @@ export class CheckpointManager {
    * @returns The most recent checkpoint or null if none exist
    */
   getLatestCheckpoint(): Checkpoint | null {
-    if (!this.enabled) {
+    if (this.disabledReason !== null) {
       return null
     }
     return this.checkpoints.length === 0
@@ -200,6 +214,10 @@ export class CheckpointManager {
    * @returns True if restoration succeeded, false if checkpoint not found
    */
   async restoreCheckointFileState(id: number): Promise<boolean> {
+    if (this.disabledReason !== null) {
+      return false
+    }
+
     const checkpoint = this.checkpoints[id - 1]
     if (!checkpoint) {
       return false
@@ -217,7 +235,54 @@ export class CheckpointManager {
       commit: await checkpoint.fileStateIdPromise,
       relativeFilepaths,
     })
+    this.currentCheckpointId = id
     return true
+  }
+
+  async restoreUndoCheckpoint(): Promise<boolean> {
+    if (this.disabledReason !== null) {
+      return false
+    }
+
+    const currentCheckpoint = this.checkpoints[this.currentCheckpointId - 1]
+    if (!currentCheckpoint) {
+      return false
+    }
+
+    if (currentCheckpoint.parentId === 0) {
+      return false
+    }
+
+    const restored = await this.restoreCheckointFileState(
+      currentCheckpoint.parentId
+    )
+    if (!restored) {
+      return false
+    }
+
+    this.undoIds.push(currentCheckpoint.id)
+
+    return true
+  }
+
+  async restoreRedoCheckpoint(): Promise<boolean> {
+    if (this.disabledReason !== null) {
+      return false
+    }
+
+    const targetId = this.undoIds.pop()
+    // Check if targetId is either 0 or undefined
+    if (!targetId) {
+      return false
+    }
+
+    const restored = await this.restoreCheckointFileState(targetId)
+    if (restored) {
+      return true
+    }
+
+    this.undoIds.push(targetId)
+    return false
   }
 
   /**
@@ -225,6 +290,8 @@ export class CheckpointManager {
    */
   clearCheckpoints(): void {
     this.checkpoints = []
+    this.currentCheckpointId = 0
+    this.undoIds = []
   }
 
   /**
@@ -233,8 +300,8 @@ export class CheckpointManager {
    * @returns A formatted string representation of all checkpoints
    */
   getCheckpointsAsString(detailed: boolean = false): string {
-    if (!this.enabled) {
-      return red('Checkpoints not enabled: project too large.')
+    if (this.disabledReason !== null) {
+      return red(`Checkpoints not enabled: ${this.disabledReason}`)
     }
 
     if (this.checkpoints.length === 0) {

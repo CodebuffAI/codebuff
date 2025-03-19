@@ -1,6 +1,15 @@
 import { parse } from 'path'
 
-import { green, red, yellow, blue, cyan, magenta, bold } from 'picocolors'
+import {
+  green,
+  red,
+  yellow,
+  blue,
+  cyan,
+  magenta,
+  bold,
+  underline,
+} from 'picocolors'
 import * as readline from 'readline'
 
 import { REQUEST_CREDIT_SHOW_THRESHOLD } from 'common/constants'
@@ -23,6 +32,8 @@ import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 import type { CostMode } from 'common/constants'
 import { AssertionError } from 'assert'
+
+const restoreCheckpointRegex = /^checkpoint\s+(\d+)$/
 
 export class CLI {
   private client: Client
@@ -136,6 +147,17 @@ export class CLI {
     this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
   }
 
+  /**
+   * Prompts the user with a clean prompt state
+   */
+  private freshPrompt() {
+    Spinner.get().stop()
+    readline.cursorTo(process.stdout, 0)
+    ;(this.rl as any).line = ''
+    this.setPrompt()
+    this.rl.prompt()
+  }
+
   public async printInitialPrompt(initialInput?: string) {
     if (this.client.user) {
       displayGreeting(this.costMode, this.client.user.name)
@@ -146,7 +168,7 @@ export class CLI {
       await this.client.login()
       return
     }
-    this.rl.prompt()
+    this.freshPrompt()
     if (initialInput) {
       process.stdout.write(initialInput + '\n')
       this.handleUserInput(initialInput)
@@ -155,7 +177,7 @@ export class CLI {
 
   public async printDiff() {
     this.handleDiff()
-    this.rl.prompt()
+    this.freshPrompt()
   }
 
   private async handleLine(line: string) {
@@ -173,7 +195,11 @@ export class CLI {
   }
 
   private async handleUserInput(userInput: string) {
-    if (!userInput) return
+    this.rl.setPrompt('')
+    if (!userInput) {
+      this.freshPrompt()
+      return
+    }
     userInput = userInput.trim()
     if (await this.processCommand(userInput)) {
       return
@@ -181,42 +207,43 @@ export class CLI {
     await this.forwardUserInput(userInput)
   }
 
-  private async beforeProcessCommand(userInput: string): Promise<void> {
+  private async saveCheckpoint(userInput: string): Promise<void> {
+    if (checkpointManager.disabledReason !== null) {
+      return
+    }
+
     Spinner.get().start()
     await this.readyPromise
     Spinner.get().stop()
 
-    if (checkpointManager.enabled) {
-      // Make sure the previous checkpoint is done
-      await checkpointManager.getLatestCheckpoint()?.fileStateIdPromise
+    // Make sure the previous checkpoint is done
+    await checkpointManager.getLatestCheckpoint()?.fileStateIdPromise
 
-      // Save the current agent state
-      const checkpoint = await checkpointManager.addCheckpoint(
-        this.client.agentState as AgentState,
-        userInput
-      )
+    // Save the current agent state
+    const checkpoint = await checkpointManager.addCheckpoint(
+      this.client.agentState as AgentState,
+      userInput
+    )
 
-      if (checkpoint) {
-        console.log(green(`Checkpoint #${checkpoint.id} saved!`))
-      }
+    if (checkpoint) {
+      console.log(`[checkpoint #${checkpoint.id} saved]`)
     }
   }
 
   private async processCommand(userInput: string): Promise<boolean> {
-    await this.beforeProcessCommand(userInput)
-
     if (userInput === 'help' || userInput === 'h') {
       displayMenu()
-      this.rl.prompt()
+      this.freshPrompt()
       return true
     }
     if (userInput === 'login' || userInput === 'signin') {
       await this.client.login()
+      checkpointManager.clearCheckpoints()
       return true
     }
     if (userInput === 'logout' || userInput === 'signout') {
       await this.client.logout()
-      this.rl.prompt()
+      this.freshPrompt()
       return true
     }
     if (userInput.startsWith('ref-')) {
@@ -224,11 +251,17 @@ export class CLI {
       return true
     }
     if (userInput === 'usage' || userInput === 'credits') {
-      this.client.getUsage()
+      await this.client.getUsage()
       return true
     }
     if (userInput === 'undo' || userInput === 'u') {
+      await this.saveCheckpoint(userInput)
       this.handleUndo()
+      return true
+    }
+    if (userInput === 'redo') {
+      await this.saveCheckpoint(userInput)
+      this.handleRedo()
       return true
     }
     if (userInput === 'quit' || userInput === 'exit' || userInput === 'q') {
@@ -237,7 +270,7 @@ export class CLI {
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(userInput)) {
       this.handleDiff()
-      this.rl.prompt()
+      this.freshPrompt()
       return true
     }
     if (
@@ -251,13 +284,15 @@ export class CLI {
 
     // Checkpoint commands
     if (userInput === 'checkpoint list' || userInput === 'checkpoints') {
+      await this.saveCheckpoint(userInput)
       this.handleCheckpoints()
       return true
     }
 
-    const restoreMatch = userInput.match(/^checkpoint\s+(\d+)$/)
+    const restoreMatch = userInput.match(restoreCheckpointRegex)
     if (restoreMatch) {
       const id = parseInt(restoreMatch[1], 10)
+      await this.saveCheckpoint(userInput)
       await this.handleRestoreCheckpoint(id)
       return true
     }
@@ -271,6 +306,7 @@ export class CLI {
   }
 
   private async forwardUserInput(userInput: string) {
+    await this.saveCheckpoint(userInput)
     Spinner.get().start()
 
     this.client.lastChanges = []
@@ -300,25 +336,15 @@ export class CLI {
 
     Spinner.get().stop()
 
-    if (this.client.lastRequestCredits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
-      console.log(
-        `\n${pluralize(this.client.lastRequestCredits, 'credit')} used for this request.`
-      )
-    }
-    this.client.showUsageWarning()
-    console.log()
-
-    this.rl.prompt()
+    this.freshPrompt()
   }
 
   private returnControlToUser() {
-    this.rl.prompt()
+    this.freshPrompt()
     this.isReceivingResponse = false
     if (this.stopResponse) {
       this.stopResponse()
     }
-
-    Spinner.get().stop()
   }
 
   private onWebSocketError() {
@@ -337,15 +363,37 @@ export class CLI {
   }
 
   private async handleUndo(): Promise<void> {
-    // Get previous checkpoint number (not including undo command)
-    const checkpointId =
-      (checkpointManager.getLatestCheckpoint() as Checkpoint).id - 1
-    if (checkpointId < 1) {
-      console.log(red('Nothing to undo.'))
-      this.rl.prompt()
+    if (checkpointManager.disabledReason !== null) {
+      console.log(
+        red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
+      )
+      this.freshPrompt()
       return
     }
-    await this.handleRestoreCheckpoint(checkpointId)
+
+    if (await checkpointManager.restoreUndoCheckpoint()) {
+      console.log(green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`))
+    } else {
+      console.log(red('Unable to undo'))
+    }
+    this.freshPrompt()
+  }
+
+  private async handleRedo(): Promise<void> {
+    if (checkpointManager.disabledReason !== null) {
+      console.log(
+        red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
+      )
+      this.freshPrompt()
+      return
+    }
+
+    if (await checkpointManager.restoreRedoCheckpoint()) {
+      console.log(green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`))
+    } else {
+      console.log(red('Unable to redo'))
+    }
+    this.freshPrompt()
   }
 
   private handleKeyPress(str: string, key: any) {
@@ -389,7 +437,7 @@ export class CLI {
       } else {
         this.lastSigintTime = now
         console.log('\nPress Ctrl-C again to exit')
-        this.rl.prompt()
+        this.freshPrompt()
       }
     }
   }
@@ -582,11 +630,14 @@ export class CLI {
 
   private handleExit() {
     Spinner.get().restoreCursor()
-    console.log('\n\n')
+    console.log('\n')
 
-    console.log(
-      `${pluralize(this.client.sessionCreditsUsed, 'credit')} used this session.`
-    )
+    const logMessages = []
+    const totalCredits = Object.values(this.client.creditsByPromptId)
+      .flat()
+      .reduce((sum, credits) => sum + credits, 0)
+
+    logMessages.push(`${pluralize(totalCredits, 'credit')} used this session.`)
     if (this.client.limit && this.client.usage && this.client.nextQuotaReset) {
       const daysUntilReset = Math.max(
         0,
@@ -595,13 +646,15 @@ export class CLI {
             (1000 * 60 * 60 * 24)
         )
       )
-      console.log(
+      logMessages.push(
         `${Math.max(
           0,
           this.client.limit - this.client.usage
-        )} / ${this.client.limit} credits remaining. Renews in ${pluralize(daysUntilReset, 'day')}.`
+        )} credits remaining. Renews in ${pluralize(daysUntilReset, 'day')}.`
       )
     }
+
+    console.log(logMessages.join(' '))
     console.log(green('Codebuff out!'))
     process.exit(0)
   }
@@ -652,20 +705,22 @@ export class CLI {
   // Checkpoint command handlers
   private async handleCheckpoints(): Promise<void> {
     console.log(checkpointManager.getCheckpointsAsString())
-    this.rl.prompt()
+    this.freshPrompt()
   }
 
   private async handleRestoreCheckpoint(id: number): Promise<void> {
-    if (!checkpointManager.enabled) {
-      console.log(red(`Checkpoints not enabled: project too large`))
-      this.rl.prompt()
+    if (checkpointManager.disabledReason !== null) {
+      console.log(
+        red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
+      )
+      this.freshPrompt()
       return
     }
 
     const checkpoint = checkpointManager.checkpoints[id - 1]
     if (!checkpoint) {
       console.log(red(`Checkpoint #${id} not found.`))
-      this.rl.prompt()
+      this.freshPrompt()
       return
     }
 
@@ -678,8 +733,10 @@ export class CLI {
     console.log(green(`Restored to checkpoint #${id}.`))
 
     // Insert the original user input that created this checkpoint
-    this.rl.prompt()
-    this.rl.write(checkpoint.userInput)
+    this.freshPrompt()
+    if (!checkpoint.userInput.match(restoreCheckpointRegex)) {
+      this.rl.write(checkpoint.userInput)
+    }
   }
 
   private async restoreAgentStateAndFiles(
@@ -698,6 +755,7 @@ export class CLI {
 
   private async handleClearCheckpoints(): Promise<void> {
     checkpointManager.clearCheckpoints()
-    this.rl.prompt()
+    console.log('Cleared all checkpoints.')
+    this.freshPrompt()
   }
 }

@@ -1,7 +1,15 @@
 import path from 'path'
 import * as fs from 'fs'
 
-import picocolors, { blue, blueBright, bold, green, magenta, underline, yellow } from 'picocolors'
+import picocolors, {
+  blue,
+  blueBright,
+  bold,
+  green,
+  magenta,
+  underline,
+  yellow,
+} from 'picocolors'
 
 import { CostMode, CREDITS_REFERRAL_BONUS } from 'common/constants'
 import { getProjectRoot } from './project-files'
@@ -40,7 +48,7 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
   }
 
   console.log(
-    `\nWelcome${username ? ` back ${username}` : ''}! What would you like to do today? 🥧`
+    `\nWelcome${username ? ` back ${username}` : ''}! What would you like to do?`
   )
 }
 
@@ -98,7 +106,9 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
 
   console.log('\nCommands:')
   console.log('- Enter terminal commands directly: "cd backend", "npm test"')
-  console.log('- Use "!command" to explicitly run a terminal command (e.g. "!ls -la")')
+  console.log(
+    '- Use "!command" to explicitly run a terminal command (e.g. "!ls -la")'
+  )
   console.log('- Press ESC to cancel generation')
   console.log(
     '- Type "undo" or "redo" (abbreviated "u" or "r") to undo or redo the last change'
@@ -114,7 +124,9 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
 
   console.log('\nCheckpoint Commands:')
   console.log('- Type "checkpoint <id>" to restore a specific checkpoint')
-  console.log('- Type "checkpoint list" or "checkpoints" to list all available checkpoints')
+  console.log(
+    '- Type "checkpoint list" or "checkpoints" to list all available checkpoints'
+  )
 
   console.log(`\n- Redeem a referral code by simply pasting it here.`)
   console.log(

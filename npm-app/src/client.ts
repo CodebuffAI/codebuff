@@ -22,9 +22,14 @@ import {
   ServerAction,
   UsageReponseSchema,
   UsageResponse,
+  MessageCostResponse,
+  MessageCostResponseSchema,
 } from 'common/actions'
 import { User } from 'common/util/credentials'
-import { CREDITS_REFERRAL_BONUS } from 'common/constants'
+import {
+  CREDITS_REFERRAL_BONUS,
+  REQUEST_CREDIT_SHOW_THRESHOLD,
+} from 'common/constants'
 import {
   AgentState,
   ToolResult,
@@ -33,12 +38,11 @@ import {
 import { FileVersion, ProjectFileContext } from 'common/util/file'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import type { CostMode } from 'common/constants'
-import { Message } from 'common/types/message'
 import { setMessages } from './chat-storage'
 
 import { activeBrowserRunner } from './browser-runner'
 import { checkpointManager, Checkpoint } from './checkpoints/checkpoint-manager'
-import { backendUrl } from './config'
+import { backendUrl, websiteUrl } from './config'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
 import { calculateFingerprint } from './fingerprint'
 import { displayGreeting } from './menu'
@@ -52,6 +56,7 @@ import { GitCommand } from './types'
 import { Spinner } from './utils/spinner'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { toolRenderers } from './utils/tool-renderers'
+import { pluralize } from 'common/util/string'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -62,20 +67,18 @@ export class Client {
   public lastChanges: FileChanges = []
   public agentState: AgentState | undefined
   public originalFileVersions: Record<string, string | null> = {}
+  public creditsByPromptId: Record<string, number[]> = {}
 
   public user: User | undefined
   public lastWarnedPct: number = 0
   public usage: number = 0
   public limit: number = 0
   public subscription_active: boolean = false
-  public lastRequestCredits: number = 0
-  public sessionCreditsUsed: number = 0
   public nextQuotaReset: Date | null = null
   private hadFileChanges: boolean = false
   private git: GitCommand
   private rl: readline.Interface
   private lastToolResults: ToolResult[] = []
-  private pendingRequestId: string | null = null
 
   constructor(
     websocketUrl: string,
@@ -179,7 +182,7 @@ export class Client {
   async logout() {
     if (this.user) {
       try {
-        const response = await fetch(`${backendUrl}/api/auth/cli/logout`, {
+        const response = await fetch(`${websiteUrl}/api/auth/cli/logout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -218,7 +221,7 @@ export class Client {
     }
 
     try {
-      const response = await fetch(`${backendUrl}/api/auth/cli/code`, {
+      const response = await fetch(`${websiteUrl}/api/auth/cli/code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -274,7 +277,7 @@ export class Client {
 
         try {
           const statusResponse = await fetch(
-            `${backendUrl}/api/auth/cli/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}`
+            `${websiteUrl}/api/auth/cli/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}`
           )
 
           if (!statusResponse.ok) {
@@ -327,20 +330,11 @@ export class Client {
     limit,
     subscription_active,
     next_quota_reset,
-    session_credits_used,
   }: Omit<UsageResponse, 'type'>) {
     this.usage = usage
     this.limit = limit
     this.subscription_active = subscription_active
     this.nextQuotaReset = next_quota_reset
-
-    if (!!session_credits_used && !this.pendingRequestId) {
-      this.lastRequestCredits = Math.max(
-        session_credits_used - this.sessionCreditsUsed,
-        0
-      )
-      this.sessionCreditsUsed = session_credits_used
-    }
   }
 
   private setupSubscriptions() {
@@ -372,17 +366,23 @@ export class Client {
       }
     })
 
+    this.webSocket.subscribe('message-cost-response', (action) => {
+      const parsedAction = MessageCostResponseSchema.safeParse(action)
+      if (!parsedAction.success) return
+      const response = parsedAction.data
+
+      // Store credits used for this prompt
+      if (!this.creditsByPromptId[response.promptId]) {
+        this.creditsByPromptId[response.promptId] = []
+      }
+      this.creditsByPromptId[response.promptId].push(response.credits)
+    })
+
     this.webSocket.subscribe('usage-response', (action) => {
       const parsedAction = UsageReponseSchema.safeParse(action)
       if (!parsedAction.success) return
-      const a = parsedAction.data
-      console.log()
-      console.log(
-        green(underline(`Codebuff usage:`)),
-        `${a.usage} / ${a.limit} credits`
-      )
-      this.setUsage(a)
-      this.returnControlToUser()
+
+      this.setUsage(parsedAction.data)
     })
   }
 
@@ -459,8 +459,6 @@ export class Client {
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
 
-    this.pendingRequestId = userInputId
-
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
         Spinner.get().stop()
@@ -492,7 +490,7 @@ export class Client {
     }
   }
 
-  subscribeToResponse(
+  private subscribeToResponse(
     onChunk: (chunk: string) => void,
     userInputId: string,
     onStreamStart: () => void,
@@ -521,8 +519,8 @@ export class Client {
 
     const stopResponse = () => {
       responseStopped = true
-      // Only unsubscribe from chunks, keep listening for final credits
       unsubscribeChunks()
+      unsubscribeComplete()
 
       const assistantMessage = {
         role: 'assistant' as const,
@@ -579,21 +577,9 @@ export class Client {
         if (action.promptId !== userInputId) return
         const a = parsedAction.data
 
-        // Only process usage data if this is our pending request
-        const usageData = UsageReponseSchema.omit({ type: true }).safeParse(a)
-        if (usageData.success) {
-          this.pendingRequestId = null
-          this.setUsage(usageData.data)
-        }
-        if (responseStopped) {
-          unsubscribeComplete()
-          xmlStreamParser.end()
-          return
-        }
+        Spinner.get().stop()
 
         this.agentState = a.agentState
-
-        Spinner.get().stop()
         let isComplete = false
         const toolResults: ToolResult[] = [...a.toolResults]
 
@@ -605,7 +591,6 @@ export class Client {
           if (toolCall.name === 'write_file') {
             // Save lastChanges for `diff` command
             this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
-
             this.hadFileChanges = true
           }
           if (
@@ -625,7 +610,6 @@ export class Client {
         }
 
         if (!isComplete) {
-          Spinner.get().start()
           // Continue the prompt with the tool results.
           this.webSocket.sendAction({
             type: 'prompt',
@@ -641,24 +625,34 @@ export class Client {
         }
 
         this.lastToolResults = toolResults
-
         xmlStreamParser.end()
 
         if (this.agentState) {
           setMessages(this.agentState.messageHistory)
         }
 
-        this.showUsageWarning()
+        // Show total credits used for this prompt if significant
+        const credits =
+          this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
+        if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
+          console.log(
+            `\n${pluralize(credits, 'credit')} used for this request.`
+          )
+        }
 
         if (this.hadFileChanges) {
-          const latestCheckpointId = (
-            checkpointManager.getLatestCheckpoint() as Checkpoint
-          ).id
+          const latestCheckpoint = checkpointManager.getLatestCheckpoint()
+          const displayedCheckpointString =
+            latestCheckpoint === null
+              ? ''
+              : ` or "checkpoint ${latestCheckpoint.id}" to revert`
           console.log(
-            `\nComplete! Type "diff" to review changes or "checkpoint ${latestCheckpointId}" to revert.`
+            `\nComplete! Type "diff" to review changes${displayedCheckpointString}.`
           )
           this.hadFileChanges = false
         }
+
+        this.showUsageWarning()
 
         unsubscribeChunks()
         unsubscribeComplete()
@@ -673,11 +667,47 @@ export class Client {
   }
 
   public async getUsage() {
-    this.webSocket.sendAction({
-      type: 'usage',
-      fingerprintId: await this.getFingerprintId(),
-      authToken: this.user?.authToken,
-    })
+    try {
+      const response = await fetch(`${backendUrl}/api/usage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fingerprintId: await this.getFingerprintId(),
+          authToken: this.user?.authToken,
+        }),
+      })
+
+      const data = await response.json()
+
+      // Use zod schema to validate response
+      const parsedResponse = UsageReponseSchema.parse(data)
+
+      if (data.type === 'action-error') {
+        console.error(red(data.message))
+        return
+      }
+
+      this.setUsage(parsedResponse)
+
+      console.log(
+        green(underline(`Codebuff usage:`)),
+        `${parsedResponse.usage} / ${parsedResponse.limit} credits`
+      )
+
+      this.showUsageWarning()
+    } catch (error) {
+      console.log({ error })
+
+      console.error(
+        red(
+          `Error checking usage: Please reach out to ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+        )
+      )
+    } finally {
+      this.returnControlToUser()
+    }
   }
 
   public async warmContextCache() {
@@ -687,6 +717,7 @@ export class Client {
       const parsedAction = InitResponseSchema.safeParse(a)
       if (!parsedAction.success) return
 
+      // Set initial usage data from the init response
       this.setUsage(parsedAction.data)
     })
 
@@ -698,7 +729,7 @@ export class Client {
         fileContext,
       })
       .catch((e) => {
-        // console.error('Error warming context cache', e)
+        console.error(e, 'Error sending init action')
       })
   }
 }
