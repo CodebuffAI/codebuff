@@ -7,7 +7,7 @@
  */
 .react-terminal-wrapper {
   width: 100%;
-  background: #252a33;
+  background: #000000;
   color: #eee;
   font-size: 18px;
   font-family: 'Fira Mono', Consolas, Menlo, Monaco, 'Courier New', Courier,
@@ -16,6 +16,23 @@
   position: relative;
   -webkit-box-sizing: border-box;
   box-sizing: border-box;
+  overflow: hidden; /* Add this to contain the shine effect */
+}
+
+.react-terminal-wrapper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--mouse-x, center) var(--mouse-y, center), 
+              rgba(255,255,255,0.08) 0%, /* Reduced from 0.15 */
+              transparent 65%); /* Adjusted from 70% */
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.react-terminal-wrapper:hover::before {
+  opacity: 1;
 }
 
 .react-terminal {
@@ -24,6 +41,8 @@
   flex-direction: column;
   height: 100%;
   min-height: 0; /* Important: allows flex child to scroll */
+  position: relative;
+  z-index: 1; /* Ensure content stays above shine effect */
 }
 
 .react-terminal-wrapper {
@@ -44,6 +63,14 @@
   display: flex;
   flex-direction: row;
   gap: 10px;
+}
+
+/* Hide window control buttons when terminal is in IDE */
+.terminal-no-header .react-terminal-window-buttons {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  pointer-events: none;
 }
 
 .react-terminal-window-buttons button {
@@ -80,6 +107,11 @@
   pointer-events: none;
 }
 
+/* Hide header when terminal is in IDE */
+.terminal-no-header:after {
+  display: none;
+}
+
 .react-terminal-wrapper.react-terminal-light:after {
   color: #d76d77;
 }
@@ -87,14 +119,8 @@
 .react-terminal-line {
   white-space: pre-wrap;
   word-break: break-words;
-}
-
-.react-terminal-line:before {
-  /* Set up defaults and ensure empty lines are displayed. */
-  content: '';
-  display: inline-block;
-  vertical-align: middle;
-  color: #a2a2a2;
+  position: relative;
+  transition: all 0.2s ease;
 }
 
 .react-terminal-light .react-terminal-line:before {
@@ -145,17 +171,10 @@
   pointer-events: none;
 }
 
-/* .react-terminal-progress {
-    display: flex;
-    margin: .5rem 0;
-  }
-  
-  .react-terminal-progress-bar {
-    background-color: #fff;
-    border-radius: .25rem;
-    width: 25%;
-  }
-  
-  .react-terminal-wrapper.react-terminal-light .react-terminal-progress-bar {
-    background-color: #000;
-  } */
+.react-terminal-line:hover {
+  background: rgba(255, 255, 255, 0.03); /* Reduced from 0.05 */
+  box-shadow: 
+    0 0 20px rgba(255, 255, 255, 0.05), /* Reduced from 30px and 0.1 */
+    0 0 40px rgba(255, 255, 255, 0.02); /* Reduced from 60px and 0.05 */
+  z-index: 2;
+}

@@ -76,7 +76,7 @@ const Home = () => {
         <section className="full-width-section">
           <div className="codebuff-container">
             <Hero />
-            <div className="terminal-demo-section">
+            <div className="terminal-demo-section mt-2">
               <IDEDemo />
             </div>
           </div>

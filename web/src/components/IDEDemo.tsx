@@ -5,7 +5,19 @@ import { cn } from '@/lib/utils'
 import Terminal from './ui/terminal'
 import TerminalOutput from './ui/terminal/terminal-output'
 import { ColorMode } from './ui/terminal'
-import { ChevronRight, ChevronDown, GitBranch, Search, Settings, Bug, Play, Split, X, Plus, Trash } from 'lucide-react'
+import {
+  ChevronRight,
+  ChevronDown,
+  GitBranch,
+  Search,
+  Settings,
+  Bug,
+  Play,
+  Split,
+  X,
+  Plus,
+  Trash,
+} from 'lucide-react'
 
 interface FileItem {
   name: string
@@ -21,34 +33,41 @@ const fileStructure: FileItem[] = [
     type: 'folder',
     children: [
       { name: 'index.ts', type: 'file', extension: 'ts', active: true },
-      { name: 'utils', type: 'folder', children: [
-        { name: 'helpers.ts', type: 'file', extension: 'ts' },
-        { name: 'types.ts', type: 'file', extension: 'ts' },
-      ]},
-      { name: 'components', type: 'folder', children: [
-        { name: 'App.tsx', type: 'file', extension: 'tsx' },
-        { name: 'Button.tsx', type: 'file', extension: 'tsx' },
-      ]},
+      {
+        name: 'utils',
+        type: 'folder',
+        children: [
+          { name: 'helpers.ts', type: 'file', extension: 'ts' },
+          { name: 'types.ts', type: 'file', extension: 'ts' },
+        ],
+      },
+      {
+        name: 'components',
+        type: 'folder',
+        children: [
+          { name: 'App.tsx', type: 'file', extension: 'tsx' },
+          { name: 'Button.tsx', type: 'file', extension: 'tsx' },
+        ],
+      },
     ],
   },
   {
     name: 'tests',
     type: 'folder',
-    children: [
-      { name: 'index.test.ts', type: 'file', extension: 'ts' },
-    ],
+    children: [{ name: 'index.test.ts', type: 'file', extension: 'ts' }],
   },
 ]
 
 const FileIcon = ({ extension }: { extension?: string }) => {
-  const iconColor = {
-    ts: 'text-blue-400',
-    tsx: 'text-blue-500',
-    js: 'text-yellow-400',
-    jsx: 'text-yellow-500',
-    json: 'text-yellow-300',
-    md: 'text-white',
-  }[extension || ''] || 'text-zinc-400'
+  const iconColor =
+    {
+      ts: 'text-blue-400',
+      tsx: 'text-blue-500',
+      js: 'text-yellow-400',
+      jsx: 'text-yellow-500',
+      json: 'text-yellow-300',
+      md: 'text-white',
+    }[extension || ''] || 'text-zinc-400'
 
   return (
     <div className={cn('w-4 h-4 mr-2', iconColor)}>
@@ -57,12 +76,18 @@ const FileIcon = ({ extension }: { extension?: string }) => {
   )
 }
 
-const FileTreeItem = ({ item, depth = 0 }: { item: FileItem; depth?: number }) => {
+const FileTreeItem = ({
+  item,
+  depth = 0,
+}: {
+  item: FileItem
+  depth?: number
+}) => {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
     <div>
-      <div 
+      <div
         className={cn(
           'flex items-center text-sm text-zinc-300 hover:bg-zinc-800/50 rounded px-2 py-1 cursor-pointer group transition-colors duration-150',
           item.active && 'bg-zinc-800'
@@ -71,7 +96,10 @@ const FileTreeItem = ({ item, depth = 0 }: { item: FileItem; depth?: number }) =
         onClick={() => setIsOpen(!isOpen)}
       >
         {item.type === 'folder' && (
-          <div className="w-4 h-4 mr-1 transition-transform duration-200" style={{ transform: isOpen ? 'rotate(90deg)' : 'none' }}>
+          <div
+            className="w-4 h-4 mr-1 transition-transform duration-200"
+            style={{ transform: isOpen ? 'rotate(90deg)' : 'none' }}
+          >
             <ChevronRight size={16} />
           </div>
         )}
@@ -81,7 +109,11 @@ const FileTreeItem = ({ item, depth = 0 }: { item: FileItem; depth?: number }) =
       {isOpen && item.children && (
         <div className="animate-slideDown">
           {item.children.map((child, index) => (
-            <FileTreeItem key={child.name + index} item={child} depth={depth + 1} />
+            <FileTreeItem
+              key={child.name + index}
+              item={child}
+              depth={depth + 1}
+            />
           ))}
         </div>
       )}
@@ -96,6 +128,7 @@ interface IDEDemoProps {
 export function IDEDemo({ className }: IDEDemoProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showIDE, setShowIDE] = useState(false)
+  const [showOriginalTerminal, setShowOriginalTerminal] = useState(true)
   const [cursorPosition, setCursorPosition] = useState(0)
   const [currentLine, setCurrentLine] = useState(1)
   const [currentCol, setCurrentCol] = useState(1)
@@ -105,6 +138,10 @@ export function IDEDemo({ className }: IDEDemoProps) {
     // Start transition after 3 seconds
     const timer = setTimeout(() => {
       setShowIDE(true)
+      // Remove original terminal after transition completes
+      setTimeout(() => {
+        setShowOriginalTerminal(false)
+      }, 1000)
     }, 3000)
 
     return () => clearTimeout(timer)
@@ -115,7 +152,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
     if (showIDE) {
       const code = 'console.log("Hello, Codebuff!");'
       let position = 0
-      
+
       const interval = setInterval(() => {
         if (position <= code.length) {
           setCursorPosition(position)
@@ -131,14 +168,14 @@ export function IDEDemo({ className }: IDEDemoProps) {
   }, [showIDE])
 
   return (
-    <div 
+    <div
       className={cn(
         'relative w-full transition-all duration-1000 ease-in-out',
-        showIDE ? 'h-[800px]' : 'h-[400px]',
+        showIDE ? 'h-[600px]' : 'h-[400px]',
         className
       )}
     >
-      <div 
+      <div
         className={cn(
           'absolute inset-0 bg-black/80 rounded-lg border border-zinc-800 backdrop-blur transition-all duration-1000',
           showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
@@ -163,7 +200,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
           </div>
 
           {/* Sidebar */}
-          <div 
+          <div
             className={cn(
               'border-r border-zinc-800 transition-all duration-1000 bg-black/20',
               showIDE ? 'w-64' : 'w-0'
@@ -199,16 +236,21 @@ export function IDEDemo({ className }: IDEDemoProps) {
             </div>
 
             {/* Editor Content */}
-            <div className="flex-1 p-4 font-mono text-sm relative" ref={editorRef}>
+            <div
+              className="flex-1 p-4 font-mono text-sm relative"
+              ref={editorRef}
+            >
               <div className="flex">
-                <div className="text-zinc-600 mr-4 select-none w-6 text-right">1</div>
+                <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                  1
+                </div>
                 <div className="text-zinc-300 relative">
                   {showIDE && (
                     <>
                       <span>console.log(</span>
                       <span className="text-green-400">"Hello, Codebuff!"</span>
                       <span>);</span>
-                      <div 
+                      <div
                         className="absolute top-0 w-[2px] h-[1.2em] bg-white/70 transition-all duration-75"
                         style={{ left: `${cursorPosition * 8}px` }}
                       />
@@ -228,16 +270,18 @@ export function IDEDemo({ className }: IDEDemoProps) {
                 <span>UTF-8</span>
               </div>
               <div className="flex items-center space-x-4">
-                <span>Ln {currentLine}, Col {currentCol}</span>
+                <span>
+                  Ln {currentLine}, Col {currentCol}
+                </span>
                 <span>Spaces: 2</span>
               </div>
             </div>
 
             {/* Terminal Panel */}
-            <div 
+            <div
               className={cn(
                 'border-t border-zinc-800 transition-all duration-1000 bg-black/40',
-                showIDE ? 'h-64' : 'h-full'
+                showIDE ? 'h-[300px]' : 'h-full'
               )}
             >
               <div className="flex items-center border-b border-zinc-800 px-4 py-1">
@@ -255,11 +299,13 @@ export function IDEDemo({ className }: IDEDemoProps) {
                 </div>
               </div>
               <Terminal
-                name="Terminal"
                 colorMode={ColorMode.Dark}
                 prompt="> "
+                showWindowButtons={false}
               >
-                <TerminalOutput>Welcome to Codebuff! Type 'help' for a list of commands.</TerminalOutput>
+                <TerminalOutput>
+                  Welcome to Codebuff! Type 'help' for a list of commands.
+                </TerminalOutput>
               </Terminal>
             </div>
           </div>
@@ -267,20 +313,25 @@ export function IDEDemo({ className }: IDEDemoProps) {
       </div>
 
       {/* Original Terminal (fades out) */}
-      <div 
-        className={cn(
-          'absolute inset-0 transition-all duration-1000',
-          showIDE ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-        )}
-      >
-        <Terminal
-          name="Terminal"
-          colorMode={ColorMode.Dark}
-          prompt="> "
+      {showOriginalTerminal && (
+        <div 
+          className={cn(
+            'absolute inset-0 transition-all duration-1000',
+            showIDE ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+          )}
         >
-          <TerminalOutput>Welcome to Codebuff! Type 'help' for a list of commands.</TerminalOutput>
-        </Terminal>
-      </div>
+          <Terminal
+            name="Terminal"
+            colorMode={ColorMode.Dark}
+            prompt="> "
+            showWindowButtons={true}
+          >
+            <TerminalOutput>
+              Welcome to Codebuff! Type 'help' for a list of commands.
+            </TerminalOutput>
+          </Terminal>
+        </div>
+      )}
     </div>
   )
 }

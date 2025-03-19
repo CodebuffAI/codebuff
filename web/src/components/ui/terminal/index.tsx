@@ -28,6 +28,7 @@ export interface Props {
   greenBtnCallback?: () => void
   scrollToPosition?: boolean
   className?: string
+  showWindowButtons?: boolean
 }
 
 const Terminal = ({
@@ -42,22 +43,36 @@ const Terminal = ({
   greenBtnCallback,
   scrollToPosition = true,
   className,
+  showWindowButtons = true,
 }: Props) => {
   const [currentLineInput, setCurrentLineInput] = useState('')
   const [cursorPos, setCursorPos] = useState(0)
-
   const terminalRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const wrapper = terminalRef.current?.closest('.react-terminal-wrapper')
+    if (!wrapper) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = wrapper.getBoundingClientRect()
+      const x = ((e.clientX - rect.left) / rect.width) * 100
+      const y = ((e.clientY - rect.top) / rect.height) * 100
+      wrapper.style.setProperty('--mouse-x', `${x}%`)
+      wrapper.style.setProperty('--mouse-y', `${y}%`)
+    }
+
+    wrapper.addEventListener('mousemove', handleMouseMove)
+    return () => wrapper.removeEventListener('mousemove', handleMouseMove)
+  }, [])
 
   const updateCurrentLineInput = (event: ChangeEvent<HTMLInputElement>) => {
     setCurrentLineInput(event.target.value)
-    // Scroll to bottom when user types
     terminalRef.current?.scrollTo({
       top: terminalRef.current.scrollHeight,
       behavior: 'smooth',
     })
   }
 
-  // Scroll to bottom when children (terminal lines) change
   useEffect(() => {
     terminalRef.current?.scrollTo({
       top: terminalRef.current.scrollHeight,
@@ -65,8 +80,6 @@ const Terminal = ({
     })
   }, [children])
 
-  // Calculates the total width in pixels of the characters to the right of the cursor.
-  // Create a temporary span element to measure the width of the characters.
   const calculateInputWidth = (
     inputElement: HTMLInputElement,
     chars: string
@@ -80,7 +93,6 @@ const Terminal = ({
     document.body.appendChild(span)
     const width = span.getBoundingClientRect().width
     document.body.removeChild(span)
-    // Return the negative width, since the cursor position is to the left of the input suffix
     return -width
   }
 
@@ -141,12 +153,10 @@ const Terminal = ({
     setCurrentLineInput(startingInputValue.trim())
   }, [startingInputValue])
 
-  // We use a hidden input to capture terminal input; make sure the hidden input is focused when clicking anywhere on the terminal
   useEffect(() => {
     if (onInput == null) {
       return
     }
-    // keep reference to listeners so we can perform cleanup
     const elListeners: {
       terminalEl: Element
       listener: EventListenerOrEventListenerObject
@@ -155,12 +165,9 @@ const Terminal = ({
       'react-terminal-wrapper'
     )) {
       const listener = () => {
-        // Focus the hidden input
         (
           terminalEl?.querySelector('.terminal-hidden-input') as HTMLElement
         )?.focus()
-        
-        // Scroll terminal to top of viewport with some padding
         terminalEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
       terminalEl?.addEventListener('click', listener)
@@ -180,23 +187,25 @@ const Terminal = ({
 
   return (
     <div className={classes.join(' ')} data-terminal-name={name}>
-      <div className="react-terminal-window-buttons flex-none">
-        <button
-          className={`${yellowBtnCallback ? 'clickable' : ''} red-btn`}
-          disabled={!redBtnCallback}
-          onClick={redBtnCallback}
-        />
-        <button
-          className={`${yellowBtnCallback ? 'clickable' : ''} yellow-btn`}
-          disabled={!yellowBtnCallback}
-          onClick={yellowBtnCallback}
-        />
-        <button
-          className={`${greenBtnCallback ? 'clickable' : ''} green-btn`}
-          disabled={!greenBtnCallback}
-          onClick={greenBtnCallback}
-        />
-      </div>
+      {showWindowButtons && (
+        <div className="react-terminal-window-buttons flex-none">
+          <button
+            className={`${yellowBtnCallback ? 'clickable' : ''} red-btn`}
+            disabled={!redBtnCallback}
+            onClick={redBtnCallback}
+          />
+          <button
+            className={`${yellowBtnCallback ? 'clickable' : ''} yellow-btn`}
+            disabled={!yellowBtnCallback}
+            onClick={yellowBtnCallback}
+          />
+          <button
+            className={`${greenBtnCallback ? 'clickable' : ''} green-btn`}
+            disabled={!greenBtnCallback}
+            onClick={greenBtnCallback}
+          />
+        </div>
+      )}
       <div
         className={cn('react-terminal', 'flex-1', className)}
         ref={terminalRef}

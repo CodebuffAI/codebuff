@@ -40,7 +40,7 @@ export function CTASection() {
 
             <Button
               size="lg"
-              className="w-full md:w-auto text-base font-medium px-10 py-6 h-auto transition-all duration-300 hover:scale-105 relative group overflow-hidden"
+              className="w-full md:w-[320px] text-base font-medium h-[42px] transition-all duration-300 hover:scale-105 relative group overflow-hidden"
               asChild
             >
               <Link href="/signup" className="relative z-10 flex items-center justify-center">
@@ -64,7 +64,7 @@ export function CTASection() {
               </Link>
             </Button>
 
-            <div className="terminal w-full md:w-auto md:min-w-[320px] flex items-center group relative backdrop-blur-sm bg-black/80 border border-zinc-700">
+            <div className="terminal w-full md:w-[320px] flex items-center group relative backdrop-blur-sm bg-black/80 border border-zinc-700">
               <div className="terminal-command group-hover:opacity-80 transition-opacity duration-300">
                 <Terminal size={16} className="text-primary" />
                 <code className="font-mono">npm install -g codebuff</code>
