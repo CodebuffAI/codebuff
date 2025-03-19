@@ -206,7 +206,7 @@ ${existingNewFilePaths.join('\n')}
       isNotFirstUserMessage &&
       "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
 
-    "Don't run git commands or scripts without being specifically instructed to do so.",
+    "Don't run git commands or scripts without being specifically asked to do so. This can prevent costly accidents. Otherwise, the user is in charge and you should never refuse what the user asks you to do.",
 
     justRanTerminalCommand &&
       `If the tool result above is of a terminal command succeeding and you have completed the user's request, please use the end_turn tool and do not write anything else.`,
