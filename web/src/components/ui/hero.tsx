@@ -1,6 +1,12 @@
 import Link from 'next/link'
 import { Button } from './button'
 import { Terminal } from 'lucide-react'
+import { BlockColor } from './decorative-blocks'
+import { InputWithCopyButton } from './input-with-copy'
+
+// Pick a random color from BlockColor enum
+const highlightColors = [BlockColor.Primary, BlockColor.Accent]
+const randomHighlightColor = highlightColors[Math.floor(Math.random() * highlightColors.length)]
 
 export function Hero() {
   return (
@@ -14,7 +20,13 @@ export function Hero() {
           Your{' '}
           <span className="relative inline-block">
             <span className="relative z-10">Codeflow</span>
-            <span className="absolute bottom-2 left-0 w-full h-3 bg-primary/20 -z-10 -skew-x-3"></span>
+            <span 
+              className="absolute -inset-2 -z-10 opacity-20"
+              style={{ 
+                background: randomHighlightColor,
+                transform: 'rotate(-2deg) scale(1.05)',
+              }}
+            ></span>
           </span>
         </h1>
 
@@ -37,47 +49,20 @@ export function Hero() {
             </Link>
           </Button>
 
-          <div className="terminal w-full md:w-auto md:min-w-[320px] flex items-center overflow-hidden group relative">
-            <span className="absolute inset-0 bg-black opacity-0 group-hover:opacity-100 transition-opacity duration-500"></span>
-            <span className="absolute inset-0 bg-zinc-900 group-hover:bg-transparent transition-colors duration-500"></span>
+          <InputWithCopyButton 
+            value="npm install -g codebuff"
+            className="w-full md:w-auto md:min-w-[320px] flex items-center overflow-hidden group relative"
+          >
+            <div className="terminal w-full flex items-center overflow-hidden group relative">
+              <span className="absolute inset-0 bg-black opacity-0 group-hover:opacity-100 transition-opacity duration-500"></span>
+              <span className="absolute inset-0 bg-zinc-900 group-hover:bg-transparent transition-colors duration-500"></span>
 
-            <div className="terminal-command group-hover:opacity-80 transition-opacity duration-300 relative z-10">
-              <Terminal size={16} className="text-primary" />
-              <code className="font-mono">npm install -g codebuff</code>
+              <div className="terminal-command group-hover:opacity-80 transition-opacity duration-300 relative z-10">
+                <Terminal size={16} className="text-primary" />
+                <code className="font-mono">npm install -g codebuff</code>
+              </div>
             </div>
-            <button
-              className="ml-auto p-1 text-zinc-400 hover:text-primary transition-colors duration-300 relative z-10"
-              aria-label="Copy to clipboard"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="transition-transform duration-300 hover:scale-110"
-              >
-                <path
-                  d="M5.75 4.75H3.75C3.19772 4.75 2.75 5.19772 2.75 5.75V12.25C2.75 12.8023 3.19772 13.25 3.75 13.25H10.25C10.8023 13.25 11.25 12.8023 11.25 12.25V10.25"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <rect
-                  x="5.75"
-                  y="2.75"
-                  width="7.5"
-                  height="7.5"
-                  rx="1.25"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          </div>
+          </InputWithCopyButton>
         </div>
       </div>
     </section>
