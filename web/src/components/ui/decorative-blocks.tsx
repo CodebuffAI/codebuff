@@ -24,29 +24,40 @@ export enum BlockColor {
   Dark = 'rgba(3, 29, 10, 1)', // #031D0A
 }
 
+const defaultColors = [
+  BlockColor.Primary,
+  BlockColor.Accent,
+  BlockColor.Dark,
+]
+
+const densityMap = {
+  low: 2,
+  medium: 4,
+  high: 6,
+} as const
+
+type Density = keyof typeof densityMap
+
 // Base props that are always allowed
 interface BaseDecorativeBlocksProps {
   className?: string
-  placement?: InitialPlacement
+  initialPlacement?: InitialPlacement
   children: ReactNode
 }
 
 // Props with density
 interface DensityProps extends BaseDecorativeBlocksProps {
-  density: 'low' | 'medium' | 'high'
-  colors?: never // Explicitly disallow colors when density is provided
+  density: Density
+  colors?: never
 }
 
 // Props with colors
 interface ColorsProps extends BaseDecorativeBlocksProps {
   colors: BlockColor[]
-  density?: never // Explicitly disallow density when colors is provided
+  density?: never
 }
 
-// Union type that enforces either density or colors, but not both
 type DecorativeBlocksProps = DensityProps | ColorsProps
-
-const defaultColors = [BlockColor.Primary, BlockColor.Accent, BlockColor.Dark]
 
 export function DecorativeBlocks(props: DecorativeBlocksProps) {
   const [blocks, setBlocks] = useState<Block[]>([])
@@ -55,15 +66,15 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
 
   // Determine the number of blocks and colors to use
   const { blockCount, colorPalette } = useMemo(() => {
-    if ('density' in props) {
-      const count = {
-        low: 2,
-        medium: 4,
-        high: 6,
-      }[props.density]
-      return { blockCount: count, colorPalette: defaultColors }
-    } else {
-      return { blockCount: props.colors.length, colorPalette: props.colors }
+    if ('density' in props && props.density) {
+      return { 
+        blockCount: densityMap[props.density], 
+        colorPalette: defaultColors 
+      }
+    }
+    return { 
+      blockCount: props.colors.length, 
+      colorPalette: props.colors 
     }
   }, [props])
 
@@ -71,7 +82,7 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
     const baseOffset = 20
     const stackOffset = index * 15
 
-    switch (props.placement) {
+    switch (props.initialPlacement) {
       case 'top-right':
         return {
           top: -baseOffset - stackOffset,
@@ -143,7 +154,7 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
       resizeObserver.disconnect()
       window.removeEventListener('resize', updateBlocks)
     }
-  }, [blockCount, colorPalette, props.placement])
+  }, [blockCount, colorPalette, props.initialPlacement])
 
   return (
     <div className="relative" ref={containerRef}>

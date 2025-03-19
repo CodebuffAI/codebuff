@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { YellowSplash, ColorBar } from "./decorative-splash";
+import { YellowSplash, ColorBar } from '@/components/ui/decorative-splash';
 
 interface TestimonialProps {
   name: string;
