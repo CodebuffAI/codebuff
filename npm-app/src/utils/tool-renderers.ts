@@ -70,6 +70,9 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
 
     onParamEnd: (paramName, toolName, content) => content.trim(),
+    onToolEnd: (toolName, params) => {
+      return `\n`
+    },
   },
   think_deeply: {
     ...defaultToolCallRenderer,
