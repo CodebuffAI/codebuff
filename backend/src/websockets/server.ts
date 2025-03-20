@@ -107,14 +107,34 @@ export function listen(server: HttpServer, path: string) {
       const now = Date.now()
       try {
         for (const ws of wss.clients) {
-          const client = SWITCHBOARD.getClient(ws)
-          const lastSeen = client.lastSeen
-          if (lastSeen < now - CONNECTION_TIMEOUT_MS) {
-            ws.terminate()
+          try {
+            const client = SWITCHBOARD.getClient(ws)
+            if (!client) {
+              logger.warn('Client not found in switchboard, terminating connection')
+              ws.terminate()
+              continue
+            }
+            
+            const lastSeen = client.lastSeen
+            if (lastSeen < now - CONNECTION_TIMEOUT_MS) {
+              logger.info(
+                { lastSeen, now, diff: now - lastSeen },
+                'Terminating inactive connection'
+              )
+              ws.terminate()
+            }
+          } catch (err) {
+            logger.error(
+              { error: err },
+              'Error checking individual connection in deadConnectionCleaner'
+            )
           }
         }
       } catch (error) {
-        // logger.error({ error }, 'Error in deadConnectionCleaner')
+        logger.error(
+          { error },
+          'Error in deadConnectionCleaner outer loop'
+        )
       }
     }, CONNECTION_TIMEOUT_MS)
   })

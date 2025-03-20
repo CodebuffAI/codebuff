@@ -169,13 +169,21 @@ export const saveMessage = async (value: {
         }
 
         const [ws] = clientEntry
-
-        // Send immediate message cost response
-        sendAction(ws, {
-          type: 'message-cost-response',
-          promptId: value.userInputId,
-          credits: creditsUsed,
-        })
+        
+        // Check if the WebSocket is still open before sending
+        if (ws.readyState === WebSocket.OPEN) {
+          // Send immediate message cost response
+          sendAction(ws, {
+            type: 'message-cost-response',
+            promptId: value.userInputId,
+            credits: creditsUsed,
+          })
+        } else {
+          logger.warn(
+            { clientSessionId: value.clientSessionId },
+            'WebSocket connection not in OPEN state'
+          )
+        }
 
         if (
           !user ||
