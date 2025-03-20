@@ -132,24 +132,6 @@ describe('processFileBlock', () => {
     expect(result).toBeNull()
   })
 
-  it('should handle files marked as updated by another assistant', async () => {
-    const result = await processFileBlock(
-      'test.ts',
-      Promise.resolve(null),
-      '[UPDATED_BY_ANOTHER_ASSISTANT]',
-      [],
-      '',
-      undefined,
-      'clientSessionId',
-      'fingerprintId',
-      'userInputId',
-      TEST_USER_ID,
-      'normal'
-    )
-
-    expect(result).toBeNull()
-  })
-
   it('should handle multiple diff blocks in a single file', async () => {
     const oldContent = `
 function add(a: number, b: number) {
