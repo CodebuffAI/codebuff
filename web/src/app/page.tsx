@@ -77,7 +77,7 @@ const Home = () => {
           <div className="codebuff-container">
             <Hero />
             <DecorativeBlocks
-              colors={[BlockColor.Dark, BlockColor.Primary, BlockColor.Accent]}
+              colors={[BlockColor.DarkForestGreen, BlockColor.GenerativeGreen, BlockColor.CRTAmber]}
               initialPlacement="bottom-right"
             >
               <IDEDemo />
@@ -90,7 +90,8 @@ const Home = () => {
           <FeatureSection
             title="Full Codebase Understanding"
             description="With AI that deeply understands your entire codebase, Codebuff helps you tackle challenging development problems. Whether you're debugging, developing, or exploring new code, Codebuff is there to provide insights and solutions tailored to your context."
-            bgColor="yellow"
+            backdropColor={BlockColor.TerminalYellow}
+            decorativeColors={[BlockColor.CRTAmber, BlockColor.DarkForestGreen]}
             codeSample={understandingCode}
             featureTag="FEATURE ONE"
           />
@@ -101,7 +102,8 @@ const Home = () => {
           <FeatureSection
             title="Does the Right Stuff for Your Project"
             description="Codebuff intelligently configures & scaffolds new technologies, provides detailed explanations built for you. With its advanced AI algorithms, Codebuff can analyze your projects, understand your workflows, and provide customized solutions."
-            bgColor="dark"
+            backdropColor={BlockColor.GenerativeGreen}
+            decorativeColors={[BlockColor.AcidMatrix, BlockColor.TerminalYellow]}
             imagePosition="left"
             codeSample={rightStuffCode}
             featureTag="FEATURE TWO"
@@ -113,7 +115,8 @@ const Home = () => {
           <FeatureSection
             title="Remembers for Next Time"
             description="With its advanced AI algorithms, Codebuff can analyze your projects, understand your workflows, and provide customized solutions. Whether you're debugging, developing, or exploring new code, Codebuff is there to provide insights and solutions."
-            bgColor="dark"
+            backdropColor={BlockColor.DarkForestGreen}
+            decorativeColors={[BlockColor.GenerativeGreen, BlockColor.CRTAmber]}
             codeSample={remembersCode}
             featureTag="FEATURE THREE"
           />
