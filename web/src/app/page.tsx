@@ -71,8 +71,8 @@ const Home = () => {
   return (
     <div className="relative overflow-hidden">
       <div className="relative z-10">
-        {/* Hero Section */}
-        <section className="full-width-section">
+        {/* Hero Section - Black */}
+        <section className="full-width-section bg-black">
           <div className="codebuff-container">
             <Hero />
             <DecorativeBlocks
@@ -88,7 +88,7 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Feature Section 1: Full Codebase Understanding */}
+        {/* Feature Section 1 - Yellow */}
         <section className="full-width-section">
           <FeatureSection
             title="Full Codebase Understanding"
@@ -96,49 +96,49 @@ const Home = () => {
             backdropColor={BlockColor.TerminalYellow}
             decorativeColors={[BlockColor.CRTAmber, BlockColor.DarkForestGreen]}
             codeSample={understandingCode}
-            featureTag="FEATURE ONE"
+            tagline="DEEP PROJECT ANALYSIS & INSIGHTS"
           />
         </section>
 
-        {/* Feature Section 2: Does the Right Stuff for Your Project */}
+        {/* Feature Section 2 - Black */}
         <section className="full-width-section">
           <FeatureSection
             title="Does the Right Stuff for Your Project"
             description="Codebuff intelligently configures & scaffolds new technologies, provides detailed explanations built for you. With its advanced AI algorithms, Codebuff can analyze your projects, understand your workflows, and provide customized solutions."
-            backdropColor={BlockColor.GenerativeGreen}
+            backdropColor={BlockColor.Black}
             decorativeColors={[
               BlockColor.AcidMatrix,
               BlockColor.TerminalYellow,
             ]}
             imagePosition="left"
             codeSample={rightStuffCode}
-            featureTag="FEATURE TWO"
+            tagline="INTELLIGENT PROJECT CONFIGURATION & SETUP"
           />
         </section>
 
-        {/* Feature Section 3: Remembers for Next Time */}
+        {/* Feature Section 3 - Yellow */}
         <section className="full-width-section">
           <FeatureSection
             title="Remembers for Next Time"
             description="With its advanced AI algorithms, Codebuff can analyze your projects, understand your workflows, and provide customized solutions. Whether you're debugging, developing, or exploring new code, Codebuff is there to provide insights and solutions."
-            backdropColor={BlockColor.DarkForestGreen}
+            backdropColor={BlockColor.TerminalYellow}
             decorativeColors={[BlockColor.GenerativeGreen, BlockColor.CRTAmber]}
             codeSample={remembersCode}
-            featureTag="FEATURE THREE"
+            tagline="CONTINUOUS LEARNING & WORKFLOW OPTIMIZATION"
           />
         </section>
 
-        {/* Competition Section */}
+        {/* Competition Section - Black */}
         <section className="full-width-section">
           <CompetitionSection />
         </section>
 
-        {/* Testimonials Section */}
+        {/* Testimonials Section - Yellow */}
         <section className="full-width-section">
           <TestimonialsSection />
         </section>
 
-        {/* CTA Section */}
+        {/* CTA Section - Black */}
         <section className="full-width-section">
           <CTASection />
         </section>

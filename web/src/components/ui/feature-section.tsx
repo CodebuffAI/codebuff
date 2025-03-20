@@ -9,7 +9,7 @@ interface FeatureSectionProps {
   backdropColor?: BlockColor
   imagePosition?: 'left' | 'right'
   codeSample?: string[]
-  featureTag?: string
+  tagline?: string
   decorativeColors?: BlockColor[]
 }
 
@@ -19,7 +19,7 @@ export function FeatureSection({
   backdropColor = BlockColor.DarkForestGreen,
   imagePosition = 'right',
   codeSample = [],
-  featureTag,
+  tagline,
   decorativeColors = [BlockColor.GenerativeGreen, BlockColor.DarkForestGreen],
 }: FeatureSectionProps) {
   const isLight = backdropColor === BlockColor.CRTAmber || backdropColor === BlockColor.TerminalYellow
@@ -33,7 +33,10 @@ export function FeatureSection({
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
           {imagePosition === 'left' ? (
             <>
-              <Terminal>
+              <DecorativeBlocks
+                colors={decorativeColors}
+                initialPlacement="top-left"
+              >
                 <div className="relative">
                   <Terminal
                     name="Terminal"
@@ -46,22 +49,24 @@ export function FeatureSection({
                     ))}
                   </Terminal>
                 </div>
-              </Terminal>
+              </DecorativeBlocks>
 
               <div className="space-y-8">
                 <div>
-                  <span className={cn('text-xs font-semibold uppercase tracking-wider', {
-                    'text-black/70': isLight,
-                    'text-white/70': !isLight
-                  })}>
-                    {featureTag}
-                  </span>
-                  <h2 className={cn('text-3xl lg:text-4xl mt-2 hero-heading', {
+                  <h2 className={cn('text-3xl lg:text-4xl hero-heading', {
                     'text-black': isLight,
-                    'text-white': !isLight
+                    'text-white': !isLight,
                   })}>
                     {title}
                   </h2>
+                  {tagline && (
+                    <span className={cn('text-xs font-semibold uppercase tracking-wider mt-2 block', {
+                      'text-black/70': isLight,
+                      'text-white/70': !isLight
+                    })}>
+                      {tagline}
+                    </span>
+                  )}
                 </div>
                 <p className={cn('text-lg', {
                   'text-black/70': isLight,
@@ -75,18 +80,20 @@ export function FeatureSection({
             <>
               <div className="space-y-8">
                 <div>
-                  <span className={cn('text-xs font-semibold uppercase tracking-wider', {
-                    'text-black/70': isLight,
-                    'text-white/70': !isLight
-                  })}>
-                    {featureTag}
-                  </span>
-                  <h2 className={cn('text-3xl lg:text-4xl mt-2 hero-heading', {
+                  <h2 className={cn('text-3xl lg:text-4xl hero-heading', {
                     'text-black': isLight,
-                    'text-white': !isLight
+                    'text-white': !isLight,
                   })}>
                     {title}
                   </h2>
+                  {tagline && (
+                    <span className={cn('text-xs font-semibold uppercase tracking-wider mt-2 block', {
+                      'text-black/70': isLight,
+                      'text-white/70': !isLight
+                    })}>
+                      {tagline}
+                    </span>
+                  )}
                 </div>
                 <p className={cn('text-lg', {
                   'text-black/70': isLight,
@@ -98,7 +105,7 @@ export function FeatureSection({
 
               <DecorativeBlocks
                 colors={decorativeColors}
-                initialPlacement="top-right"
+                initialPlacement="bottom-right"
               >
                 <div className="relative">
                   <Terminal

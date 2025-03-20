@@ -19,6 +19,8 @@ type InitialPlacement =
   | 'bottom-right'
 
 export enum BlockColor {
+  White = 'rgb(255, 255, 255)', // #FFFFFF
+  Black = 'rgb(0, 0, 0)', // #000000
   GenerativeGreen = 'rgb(18, 73, 33)', // #124921
   CRTAmber = 'rgb(255, 110, 11)', // #FF6E0B
   DarkForestGreen = 'rgba(3, 29, 10, 1)', // #031D0A
@@ -80,9 +82,9 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
   }, [props])
 
   const getOffsets = (index: number) => {
-    const baseOffset = 8  // Now hardcoded
+    const baseOffset = 8 // Now hardcoded
     const stackOffset = index * 8
-    
+
     switch (props.initialPlacement) {
       case 'top-right':
         return {
@@ -160,10 +162,11 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
     <div className="relative" ref={containerRef}>
       <div className={cn('absolute overflow-visible -z-10', props.className)}>
         {blocks.map((block, index) => {
-          const nextColor = index < blocks.length - 1 
-            ? blocks[index + 1].color 
-            : adjustColorBrightness(block.color, -20)
-          
+          const nextColor =
+            index < blocks.length - 1
+              ? blocks[index + 1].color
+              : adjustColorBrightness(block.color, -20)
+
           return (
             <div
               key={index}

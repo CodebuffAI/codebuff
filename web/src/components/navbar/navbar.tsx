@@ -26,30 +26,27 @@ export const Navbar = async () => {
 
   return (
     <header className="container mx-auto p-4 flex justify-between items-center relative z-10">
-      <Link 
-        href="/" 
+      <Link
+        href="/"
         className="flex items-center space-x-2 transition-transform hover:scale-105"
       >
         <Image
-          src="/favicon/favicon-16x16.ico"
-          alt="Codebuff Logo"
-          width={32}
-          height={32}
+          src="/favicon/logo-and-name.ico"
+          alt="Codebuff"
+          width={200}
+          height={100}
           className="rounded-sm"
         />
-        <span className="font-mono text-2xl font-bold">
-          Codebuff
-        </span>
       </Link>
       <nav className="hidden md:flex space-x-6 ml-auto">
-        <Link 
-          href={`/docs`} 
+        <Link
+          href={`/docs`}
           className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
         >
           Docs
         </Link>
-        <Link 
-          href="/pricing" 
+        <Link
+          href="/pricing"
           className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
         >
           Pricing
@@ -63,8 +60,8 @@ export const Navbar = async () => {
           </Link>
         )}
         {session && (
-          <Link 
-            href="/usage" 
+          <Link
+            href="/usage"
             className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
           >
             Usage

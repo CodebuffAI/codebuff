@@ -4,11 +4,6 @@ import { Terminal } from 'lucide-react'
 import { BlockColor } from './decorative-blocks'
 import { InputWithCopyButton } from './input-with-copy'
 
-// Pick a random color from BlockColor enum
-const highlightColors = [BlockColor.GenerativeGreen, BlockColor.CRTAmber]
-const randomHighlightColor =
-  highlightColors[Math.floor(Math.random() * highlightColors.length)]
-
 export function Hero() {
   return (
     <section className="pt-24 pb-32 text-center relative overflow-hidden">
@@ -16,7 +11,6 @@ export function Hero() {
         <h1 className="hero-heading mb-8 text-white text-balance">
           <span className="relative inline-block">
             <span className="relative z-10">Revolutionize</span>
-            <span className="absolute bottom-2 left-0 w-full h-3 bg-primary/20 -z-10 skew-x-3"></span>
           </span>{' '}
           Your{' '}
           <span className="relative inline-block">
@@ -24,7 +18,7 @@ export function Hero() {
             <span
               className="absolute -inset-2 -z-10 opacity-20"
               style={{
-                background: randomHighlightColor,
+                background: BlockColor.CRTAmber,
                 transform: 'rotate(-2deg) scale(1.05)',
               }}
             ></span>
