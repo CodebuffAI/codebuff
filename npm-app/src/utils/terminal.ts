@@ -231,7 +231,6 @@ export const runCommandPty = (
   let foundFirstNewLine = false
 
   if (mode === 'assistant') {
-    console.log()
     console.log(green(`> ${command}`))
   }
 
@@ -337,7 +336,6 @@ const runCommandChildProcess = (
   let commandOutput = ''
 
   if (mode === 'assistant') {
-    console.log()
     console.log(green(`> ${command}`))
   }
 
