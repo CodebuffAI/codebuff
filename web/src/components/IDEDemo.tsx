@@ -224,187 +224,189 @@ export function IDEDemo({ className }: IDEDemoProps) {
   }, [showIDE])
 
   return (
-    <div
-      className={cn(
-        'relative w-full transition-all duration-1000 ease-in-out overflow-visible',
-        showIDE ? 'h-[650px]' : 'h-[400px]',
-        className
-      )}
-    >
+    <div className="border border-zinc-800 rounded-lg overflow-hidden">
       <div
         className={cn(
-          'absolute inset-0 bg-black/80 rounded-lg border border-zinc-800 transition-all duration-1000',
-          showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+          'relative w-full transition-all duration-1000 ease-in-out overflow-visible',
+          showIDE ? 'h-[650px]' : 'h-[400px]',
+          className
         )}
       >
-        {/* IDE Layout */}
-        <div className="flex h-full">
-          {/* Activity Bar */}
-          <div className="w-12 border-r border-zinc-800 flex flex-col items-center py-2 bg-black/20 relative">
-            {/* Add fade overlay with reduced opacity */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
-
-            {/* Activity buttons above the fade */}
-            <div className="relative z-0 flex flex-col items-center space-y-4">
-              <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                <Files size={20} />
-              </button>
-              <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                <Search size={20} />
-              </button>
-              <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                <GitBranch size={20} />
-              </button>
-              <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                <Bug size={20} />
-              </button>
-              <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                <Package size={20} />
-              </button>
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div
-            className={cn(
-              'border-r border-zinc-800 transition-all duration-1000 bg-black/20 relative',
-              showIDE ? 'w-64' : 'w-0'
-            )}
-          >
-            {/* Add fade overlay with reduced opacity */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
-
-            {/* File Explorer */}
-            <div className="p-2">
-              <div className="text-sm text-zinc-400 mb-2 flex items-center">
-                <span className="flex-1">EXPLORER</span>
-                <button className="p-1 hover:bg-zinc-800 rounded">
-                  <ChevronDown size={16} />
-                </button>
-              </div>
-              <div className="space-y-1">
-                {fileStructure.map((item, index) => (
-                  <FileTreeItem key={item.name + index} item={item} />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Main Editor Area */}
-          <div className="flex-1 flex flex-col bg-black/30">
-            {/* Tabs */}
-            <div className="border-b border-zinc-800 h-9 flex items-center px-2 relative">
+        <div
+          className={cn(
+            'absolute inset-0 bg-black transition-all duration-1000',
+            showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+          )}
+        >
+          {/* IDE Layout */}
+          <div className="flex h-full">
+            {/* Activity Bar */}
+            <div className="w-12 border-r border-zinc-800 flex flex-col items-center py-2 bg-black/20 relative">
               {/* Add fade overlay with reduced opacity */}
               <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
 
-              {/* Tab content above the fade */}
-              <div className="flex items-center space-x-1 relative z-0">
-                <div className="flex items-center bg-zinc-800 rounded-t px-3 py-1 text-sm text-zinc-300 group cursor-pointer">
-                  <FileIcon extension="ts" />
-                  <span>index.ts</span>
-                  <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <X size={14} />
+              {/* Activity buttons above the fade */}
+              <div className="relative z-0 flex flex-col items-center space-y-4">
+                <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                  <Files size={20} />
+                </button>
+                <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                  <Search size={20} />
+                </button>
+                <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                  <GitBranch size={20} />
+                </button>
+                <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                  <Bug size={20} />
+                </button>
+                <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                  <Package size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Sidebar */}
+            <div
+              className={cn(
+                'border-r border-zinc-800 transition-all duration-1000 bg-black/20 relative',
+                showIDE ? 'w-64' : 'w-0'
+              )}
+            >
+              {/* Add fade overlay with reduced opacity */}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
+
+              {/* File Explorer */}
+              <div className="p-2">
+                <div className="text-sm text-zinc-400 mb-2 flex items-center">
+                  <span className="flex-1">EXPLORER</span>
+                  <button className="p-1 hover:bg-zinc-800 rounded">
+                    <ChevronDown size={16} />
                   </button>
                 </div>
-                <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
-                  <FileIcon extension="ts" />
-                  <span>auth.ts</span>
-                  <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <X size={14} />
-                  </button>
-                </div>
-                <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
-                  <FileIcon extension="tsx" />
-                  <span>App.tsx</span>
-                  <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <X size={14} />
-                  </button>
+                <div className="space-y-1">
+                  {fileStructure.map((item, index) => (
+                    <FileTreeItem key={item.name + index} item={item} />
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Editor Content */}
-            <div
-              className={cn(
-                'flex-1 p-4 font-mono text-sm relative transition-all duration-1000',
-                expandTerminal && 'h-[20%]'
-              )}
-              ref={editorRef}
-            >
-              {/* Add fade overlay */}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/70 to-black/70 pointer-events-none z-10" />
+            {/* Main Editor Area */}
+            <div className="flex-1 flex flex-col bg-black/30">
+              {/* Tabs */}
+              <div className="border-b border-zinc-800 h-9 flex items-center px-2 relative">
+                {/* Add fade overlay with reduced opacity */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
 
-              <div className="flex relative z-0">
-                <div className="text-zinc-600 mr-4 select-none w-6 text-right">
-                  1
-                </div>
-                <div className="text-zinc-300">
-                  <span>console.log(</span>
-                  <span className="text-green-400">"Hello, Codebuff!"</span>
-                  <span>);</span>
+                {/* Tab content above the fade */}
+                <div className="flex items-center space-x-1 relative z-0">
+                  <div className="flex items-center bg-zinc-800 rounded-t px-3 py-1 text-sm text-zinc-300 group cursor-pointer">
+                    <FileIcon extension="ts" />
+                    <span>index.ts</span>
+                    <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
+                    <FileIcon extension="ts" />
+                    <span>auth.ts</span>
+                    <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
+                    <FileIcon extension="tsx" />
+                    <span>App.tsx</span>
+                    <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X size={14} />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Terminal Panel */}
-            <div
-              className={cn(
-                'border-t border-zinc-800 transition-all duration-1000 bg-black/40',
-                showIDE
-                  ? expandTerminal
-                    ? 'h-[80%] text-lg'
-                    : 'h-[300px]'
-                  : 'h-full'
-              )}
-            >
-              <div className="flex items-center border-b border-zinc-800 px-4 py-1">
-                <span className="text-xs text-zinc-400">TERMINAL</span>
-                <div className="ml-auto flex items-center space-x-2">
-                  <button className="p-1 hover:bg-zinc-800 rounded">
-                    <Split size={14} className="text-zinc-400" />
-                  </button>
-                  <button className="p-1 hover:bg-zinc-800 rounded">
-                    <Plus size={14} className="text-zinc-400" />
-                  </button>
-                  <button className="p-1 hover:bg-zinc-800 rounded">
-                    <Trash size={14} className="text-zinc-400" />
-                  </button>
-                </div>
-              </div>
-              <Terminal
-                colorMode={ColorMode.Dark}
-                prompt="> "
-                showWindowButtons={false}
+              {/* Editor Content */}
+              <div
+                className={cn(
+                  'flex-1 p-4 font-mono text-sm relative transition-all duration-1000',
+                  expandTerminal && 'h-[20%]'
+                )}
+                ref={editorRef}
               >
-                {terminalLines.map((line, index) => (
-                  <TerminalOutput key={index}>{line}</TerminalOutput>
-                ))}
-              </Terminal>
+                {/* Add fade overlay */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/70 to-black/70 pointer-events-none z-10" />
+
+                <div className="flex relative z-0">
+                  <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                    1
+                  </div>
+                  <div className="text-zinc-300">
+                    <span>console.log(</span>
+                    <span className="text-green-400">"Hello, Codebuff!"</span>
+                    <span>);</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Terminal Panel */}
+              <div
+                className={cn(
+                  'border-t border-zinc-800 transition-all duration-1000 bg-black/40',
+                  showIDE
+                    ? expandTerminal
+                      ? 'h-[80%] text-lg'
+                      : 'h-[300px]'
+                    : 'h-full'
+                )}
+              >
+                <div className="flex items-center border-b border-zinc-800 px-4 py-1">
+                  <span className="text-xs text-zinc-400">TERMINAL</span>
+                  <div className="ml-auto flex items-center space-x-2">
+                    <button className="p-1 hover:bg-zinc-800 rounded">
+                      <Split size={14} className="text-zinc-400" />
+                    </button>
+                    <button className="p-1 hover:bg-zinc-800 rounded">
+                      <Plus size={14} className="text-zinc-400" />
+                    </button>
+                    <button className="p-1 hover:bg-zinc-800 rounded">
+                      <Trash size={14} className="text-zinc-400" />
+                    </button>
+                  </div>
+                </div>
+                <Terminal
+                  colorMode={ColorMode.Dark}
+                  prompt="> "
+                  showWindowButtons={false}
+                >
+                  {terminalLines.map((line, index) => (
+                    <TerminalOutput key={index}>{line}</TerminalOutput>
+                  ))}
+                </Terminal>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Original Terminal (fades out) */}
-      {showOriginalTerminal && (
-        <div
-          className={cn(
-            'absolute inset-0 transition-all duration-1000',
-            showIDE ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-          )}
-        >
-          <Terminal
-            name="Terminal"
-            colorMode={ColorMode.Dark}
-            prompt="> "
-            showWindowButtons={true}
+        {/* Original Terminal (fades out) */}
+        {showOriginalTerminal && (
+          <div
+            className={cn(
+              'absolute inset-0 transition-all duration-1000',
+              showIDE ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+            )}
           >
-            <TerminalOutput>
-              Welcome to Codebuff! Type 'help' for a list of commands.
-            </TerminalOutput>
-          </Terminal>
-        </div>
-      )}
+            <Terminal
+              name="Terminal"
+              colorMode={ColorMode.Dark}
+              prompt="> "
+              showWindowButtons={true}
+            >
+              <TerminalOutput>
+                Welcome to Codebuff! Type 'help' for a list of commands.
+              </TerminalOutput>
+            </Terminal>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

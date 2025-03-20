@@ -71,8 +71,8 @@ const Home = () => {
   return (
     <div className="relative overflow-hidden">
       <div className="relative z-10">
-        {/* Hero Section - Black */}
-        <section className="full-width-section bg-black">
+        {/* Hero Section - Dark Green */}
+        <section className="full-width-section">
           <div className="codebuff-container">
             <Hero />
             <DecorativeBlocks

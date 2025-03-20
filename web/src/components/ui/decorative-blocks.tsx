@@ -159,7 +159,7 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
   }, [blockCount, colorPalette, props.initialPlacement])
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative w-full" ref={containerRef}>
       <div className={cn('absolute overflow-visible -z-10', props.className)}>
         {blocks.map((block, index) => {
           const nextColor =
