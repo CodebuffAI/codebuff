@@ -31,7 +31,6 @@ interface BaseDecorativeBlocksProps {
   className?: string
   initialPlacement?: InitialPlacement
   children: ReactNode
-  baseOffset?: number
 }
 
 // Props with density
@@ -67,7 +66,6 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const childrenRef = useRef<HTMLDivElement>(null)
 
-  // Determine the number of blocks and colors to use
   const { blockCount, colorPalette } = useMemo(() => {
     if ('density' in props && props.density) {
       return {
@@ -82,9 +80,9 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
   }, [props])
 
   const getOffsets = (index: number) => {
-    const baseOffset = props.baseOffset ?? 20
-    const stackOffset = index * 15
-
+    const baseOffset = 8  // Now hardcoded
+    const stackOffset = index * 8
+    
     switch (props.initialPlacement) {
       case 'top-right':
         return {
@@ -114,10 +112,8 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
       if (!childrenRef.current || !containerRef.current) return
 
       const rect = childrenRef.current.getBoundingClientRect()
-
       const newBlocks: Block[] = []
 
-      // Base block that matches component size
       const baseOffsets = getOffsets(0)
       newBlocks.push({
         color: colorPalette[0],
@@ -127,14 +123,15 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
         zIndex: -1,
       })
 
-      // Add stacked blocks
       for (let i = 1; i < blockCount; i++) {
         const offsets = getOffsets(i)
+        const variation = i % 2 === 0 ? 1 : -1
         newBlocks.push({
           color: colorPalette[i],
           width: rect.width,
           height: rect.height,
-          ...offsets,
+          top: offsets.top + variation,
+          left: offsets.left + variation,
           zIndex: -1 - i,
         })
       }
@@ -162,30 +159,43 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
   return (
     <div className="relative" ref={containerRef}>
       <div className={cn('absolute overflow-visible -z-10', props.className)}>
-        {blocks.map((block, index) => (
-          <div
-            key={index}
-            className="absolute bg-[length:100%_100%]"
-            style={{
-              background: block.color,
-              width: `${block.width}px`,
-              height: `${block.height}px`,
-              top: `${block.top}px`,
-              left: `${block.left}px`,
-              transition: 'all 0.5s ease-out',
-              zIndex: block.zIndex || 0,
-              imageRendering: 'pixelated',
-              WebkitFontSmoothing: 'none',
-              MozOsxFontSmoothing: 'grayscale',
-              backfaceVisibility: 'hidden',
-              transform: 'translateZ(0)',
-              filter: 'contrast(1.1)',
-              boxShadow: 'inset 0 0 1px rgba(0,0,0,0.1)',
-            }}
-          />
-        ))}
+        {blocks.map((block, index) => {
+          const nextColor = index < blocks.length - 1 
+            ? blocks[index + 1].color 
+            : adjustColorBrightness(block.color, -20)
+          
+          return (
+            <div
+              key={index}
+              className="absolute"
+              style={{
+                background: `linear-gradient(165deg, ${block.color}, ${nextColor})`,
+                width: `${block.width}px`,
+                height: `${block.height}px`,
+                top: `${block.top}px`,
+                left: `${block.left}px`,
+                opacity: 0.75,
+                zIndex: block.zIndex || 0,
+                backdropFilter: 'blur(4px)',
+                WebkitBackdropFilter: 'blur(4px)',
+                boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.1)',
+                borderRadius: '2px',
+                transition: 'opacity 0.3s ease-out',
+              }}
+            />
+          )
+        })}
       </div>
       <div ref={childrenRef}>{props.children}</div>
     </div>
   )
+}
+
+function adjustColorBrightness(color: string, amount: number): string {
+  if (color.startsWith('rgba')) {
+    const [r, g, b, a] = color.match(/[\d.]+/g)!.map(Number)
+    return `rgba(${Math.max(0, Math.min(255, r + amount))}, ${Math.max(0, Math.min(255, g + amount))}, ${Math.max(0, Math.min(255, b + amount))}, ${a})`
+  }
+  const [r, g, b] = color.match(/\d+/g)!.map(Number)
+  return `rgb(${Math.max(0, Math.min(255, r + amount))}, ${Math.max(0, Math.min(255, g + amount))}, ${Math.max(0, Math.min(255, b + amount))})`
 }

@@ -10,7 +10,6 @@ interface FeatureSectionProps {
   imagePosition?: 'left' | 'right'
   codeSample?: string[]
   featureTag?: string
-  baseOffset?: number
   decorativeColors?: BlockColor[]
 }
 
@@ -21,7 +20,6 @@ export function FeatureSection({
   imagePosition = 'right',
   codeSample = [],
   featureTag,
-  baseOffset,
   decorativeColors = [BlockColor.GenerativeGreen, BlockColor.DarkForestGreen],
 }: FeatureSectionProps) {
   const isLight = backdropColor === BlockColor.CRTAmber || backdropColor === BlockColor.TerminalYellow
@@ -35,11 +33,7 @@ export function FeatureSection({
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
           {imagePosition === 'left' ? (
             <>
-              <DecorativeBlocks
-                colors={decorativeColors}
-                initialPlacement="top-left"
-                baseOffset={baseOffset}
-              >
+              <Terminal>
                 <div className="relative">
                   <Terminal
                     name="Terminal"
@@ -52,7 +46,7 @@ export function FeatureSection({
                     ))}
                   </Terminal>
                 </div>
-              </DecorativeBlocks>
+              </Terminal>
 
               <div className="space-y-8">
                 <div>
@@ -62,7 +56,7 @@ export function FeatureSection({
                   })}>
                     {featureTag}
                   </span>
-                  <h2 className={cn('text-3xl lg:text-4xl font-serif font-medium mt-2', {
+                  <h2 className={cn('text-3xl lg:text-4xl mt-2 hero-heading', {
                     'text-black': isLight,
                     'text-white': !isLight
                   })}>
@@ -87,7 +81,7 @@ export function FeatureSection({
                   })}>
                     {featureTag}
                   </span>
-                  <h2 className={cn('text-3xl lg:text-4xl font-serif font-medium mt-2', {
+                  <h2 className={cn('text-3xl lg:text-4xl mt-2 hero-heading', {
                     'text-black': isLight,
                     'text-white': !isLight
                   })}>
@@ -105,7 +99,6 @@ export function FeatureSection({
               <DecorativeBlocks
                 colors={decorativeColors}
                 initialPlacement="top-right"
-                baseOffset={baseOffset}
               >
                 <div className="relative">
                   <Terminal

@@ -8,15 +8,10 @@ export function CTASection() {
     <section className="py-24 bg-[#003300] relative overflow-hidden">
       <div className="codebuff-container text-center relative z-10">
         <div className="max-w-4xl mx-auto relative">
-          <DecorativeBlocks
-            colors={[BlockColor.GenerativeGreen, BlockColor.DarkForestGreen]}
-            initialPlacement="top-right"
-          >
-            <h2 className="text-4xl md:text-5xl font-serif font-medium mb-6 text-white relative inline-block">
-              Start Buffing Your Code For Free
-              <span className="absolute -bottom-2 left-0 w-full h-1 bg-white"></span>
-            </h2>
-          </DecorativeBlocks>
+          <h2 className="text-4xl md:text-5xl mb-6 text-white relative inline-block hero-heading">
+            Start Buffing Your Code For Free
+            <span className="absolute -bottom-2 left-0 w-full h-1 bg-white"></span>
+          </h2>
           <p className="text-lg mb-10 text-white/80 max-w-2xl mx-auto">
             No card required. Start hacking in 30 seconds. Check out the docs.
           </p>
@@ -127,7 +122,7 @@ export function CTASection() {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z"
+                  d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0-3.09 3.09Z"
                 />
               </svg>
               <span>GitHub Repo</span>
