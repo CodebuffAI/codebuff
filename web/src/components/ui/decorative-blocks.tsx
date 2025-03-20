@@ -19,35 +19,24 @@ type InitialPlacement =
   | 'bottom-right'
 
 export enum BlockColor {
-  Primary = 'rgb(18, 73, 33)', // #124921
-  Accent = 'rgb(255, 110, 11)', // #FF6E0B
-  Dark = 'rgba(3, 29, 10, 1)', // #031D0A
+  GenerativeGreen = 'rgb(18, 73, 33)', // #124921
+  CRTAmber = 'rgb(255, 110, 11)', // #FF6E0B
+  DarkForestGreen = 'rgba(3, 29, 10, 1)', // #031D0A
+  AcidMatrix = 'rgba(124, 255, 63, 1)', // #7CFF3F
+  TerminalYellow = 'rgba(246, 255, 74, 1)', // #F6FF4A
 }
-
-const defaultColors = [
-  BlockColor.Primary,
-  BlockColor.Accent,
-  BlockColor.Dark,
-]
-
-const densityMap = {
-  low: 2,
-  medium: 4,
-  high: 6,
-} as const
-
-type Density = keyof typeof densityMap
 
 // Base props that are always allowed
 interface BaseDecorativeBlocksProps {
   className?: string
   initialPlacement?: InitialPlacement
   children: ReactNode
+  baseOffset?: number
 }
 
 // Props with density
 interface DensityProps extends BaseDecorativeBlocksProps {
-  density: Density
+  density: 'low' | 'medium' | 'high'
   colors?: never
 }
 
@@ -59,6 +48,20 @@ interface ColorsProps extends BaseDecorativeBlocksProps {
 
 type DecorativeBlocksProps = DensityProps | ColorsProps
 
+const defaultColors = [
+  BlockColor.GenerativeGreen,
+  BlockColor.CRTAmber,
+  BlockColor.DarkForestGreen,
+]
+
+const densityMap = {
+  low: 2,
+  medium: 4,
+  high: 6,
+} as const
+
+type Density = keyof typeof densityMap
+
 export function DecorativeBlocks(props: DecorativeBlocksProps) {
   const [blocks, setBlocks] = useState<Block[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
@@ -67,19 +70,19 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
   // Determine the number of blocks and colors to use
   const { blockCount, colorPalette } = useMemo(() => {
     if ('density' in props && props.density) {
-      return { 
-        blockCount: densityMap[props.density], 
-        colorPalette: defaultColors 
+      return {
+        blockCount: densityMap[props.density],
+        colorPalette: defaultColors,
       }
     }
-    return { 
-      blockCount: props.colors.length, 
-      colorPalette: props.colors 
+    return {
+      blockCount: props.colors.length,
+      colorPalette: props.colors,
     }
   }, [props])
 
   const getOffsets = (index: number) => {
-    const baseOffset = 20
+    const baseOffset = props.baseOffset ?? 20
     const stackOffset = index * 15
 
     switch (props.initialPlacement) {

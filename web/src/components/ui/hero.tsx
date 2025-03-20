@@ -5,8 +5,9 @@ import { BlockColor } from './decorative-blocks'
 import { InputWithCopyButton } from './input-with-copy'
 
 // Pick a random color from BlockColor enum
-const highlightColors = [BlockColor.Primary, BlockColor.Accent]
-const randomHighlightColor = highlightColors[Math.floor(Math.random() * highlightColors.length)]
+const highlightColors = [BlockColor.GenerativeGreen, BlockColor.CRTAmber]
+const randomHighlightColor =
+  highlightColors[Math.floor(Math.random() * highlightColors.length)]
 
 export function Hero() {
   return (
@@ -20,9 +21,9 @@ export function Hero() {
           Your{' '}
           <span className="relative inline-block">
             <span className="relative z-10">Codeflow</span>
-            <span 
+            <span
               className="absolute -inset-2 -z-10 opacity-20"
-              style={{ 
+              style={{
                 background: randomHighlightColor,
                 transform: 'rotate(-2deg) scale(1.05)',
               }}
@@ -49,7 +50,7 @@ export function Hero() {
             </Link>
           </Button>
 
-          <InputWithCopyButton 
+          <InputWithCopyButton
             value="npm install -g codebuff"
             className="w-full md:w-auto md:min-w-[320px] flex items-center overflow-hidden group relative"
           >

@@ -1,43 +1,27 @@
 import Link from 'next/link'
 import { Button } from './button'
 import { Terminal } from 'lucide-react'
-import { GreenSplash, YellowSplash, ColorBar } from './decorative-splash'
+import { DecorativeBlocks, BlockColor } from './decorative-blocks'
 
 export function CTASection() {
   return (
-    <section className="py-24 bg-gradient-to-b from-[#003300] to-[#ffff33] relative overflow-hidden">
-      {/* Decorative elements */}
-      <GreenSplash className="top-0 left-1/4 opacity-40" />
-      <YellowSplash className="bottom-0 right-1/4 opacity-60" />
-      <ColorBar
-        color="primary"
-        width={200}
-        className="absolute top-1/4 left-20 rotate-12 hidden md:block"
-      />
-      <ColorBar
-        color="primary"
-        width={150}
-        className="absolute top-1/3 right-10 -rotate-12 hidden md:block"
-      />
-      <ColorBar
-        color="yellow"
-        width={180}
-        className="absolute bottom-1/4 right-1/3 rotate-45 hidden md:block"
-      />
-
+    <section className="py-24 bg-[#003300] relative overflow-hidden">
       <div className="codebuff-container text-center relative z-10">
         <div className="max-w-4xl mx-auto relative">
-          <h2 className="text-4xl md:text-5xl font-serif font-medium mb-6 text-white relative inline-block">
-            Start Buffing Your Code For Free
-            <span className="absolute -bottom-2 left-0 w-full h-1 bg-white"></span>
-          </h2>
+          <DecorativeBlocks
+            colors={[BlockColor.GenerativeGreen, BlockColor.DarkForestGreen]}
+            initialPlacement="top-right"
+          >
+            <h2 className="text-4xl md:text-5xl font-serif font-medium mb-6 text-white relative inline-block">
+              Start Buffing Your Code For Free
+              <span className="absolute -bottom-2 left-0 w-full h-1 bg-white"></span>
+            </h2>
+          </DecorativeBlocks>
           <p className="text-lg mb-10 text-white/80 max-w-2xl mx-auto">
             No card required. Start hacking in 30 seconds. Check out the docs.
           </p>
 
           <div className="flex flex-col md:flex-row items-center justify-center gap-6 max-w-2xl mx-auto mb-12 relative">
-            <div className="absolute w-[350px] h-[350px] rounded-full bg-yellow-300/20 blur-[100px] -z-10"></div>
-
             <Button
               size="lg"
               className="w-full md:w-[320px] text-base font-medium py-2.5 transition-all duration-300 hover:scale-105 relative group overflow-hidden"

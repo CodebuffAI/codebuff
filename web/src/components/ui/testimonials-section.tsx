@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { ExternalLink } from 'lucide-react'
 import { testimonials, type Testimonial } from '@/lib/testimonials'
 import posthog from 'posthog-js'
-import { YellowSplash, ColorBar } from './decorative-splash'
+import { DecorativeBlocks, BlockColor } from './decorative-blocks'
 
 const ReviewCard = ({
   t,
@@ -32,7 +32,10 @@ const ReviewCard = ({
             width={32}
             height={32}
             alt=""
-            src={t.avatar ?? `https://avatar.vercel.sh/${t.author.split(' ').join('-').toLowerCase()}?size=32`}
+            src={
+              t.avatar ??
+              `https://avatar.vercel.sh/${t.author.split(' ').join('-').toLowerCase()}?size=32`
+            }
             priority={false}
             loading="lazy"
           />
@@ -50,7 +53,9 @@ const ReviewCard = ({
           />
         </div>
       </div>
-      <blockquote className="mt-4 text-sm lg:text-base line-clamp-3">{t.quote}</blockquote>
+      <blockquote className="mt-4 text-sm lg:text-base line-clamp-3">
+        {t.quote}
+      </blockquote>
     </figure>
   )
 }
@@ -66,23 +71,15 @@ export function TestimonialsSection() {
 
   return (
     <section className="py-24 bg-[#ffff33] relative overflow-hidden">
-      <YellowSplash className="top-20 left-20 opacity-70" />
-      <YellowSplash className="bottom-20 right-20 opacity-50" />
-      <ColorBar
-        color="yellow"
-        width={150}
-        className="absolute top-12 right-24 opacity-80 rotate-12 hidden md:block"
-      />
-      <ColorBar
-        color="yellow"
-        width={180}
-        className="absolute bottom-16 left-10 opacity-80 -rotate-12 hidden md:block"
-      />
-
       <div className="codebuff-container relative z-10">
-        <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
-          What Developers Are Saying
-        </h2>
+        <DecorativeBlocks
+          colors={[BlockColor.DarkForestGreen, BlockColor.GenerativeGreen]}
+          initialPlacement="top-right"
+        >
+          <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
+            What Developers Are Saying
+          </h2>
+        </DecorativeBlocks>
 
         <h6 className="text-center text-gray-700 dark:text-gray-300 text-sm mb-12">
           (note: some testimonials reference our previous name,
@@ -99,7 +96,10 @@ export function TestimonialsSection() {
                 />
               ))}
             </div>
-            <div className="flex items-center gap-6 animate-marquee" aria-hidden="true">
+            <div
+              className="flex items-center gap-6 animate-marquee"
+              aria-hidden="true"
+            >
               {testimonials[0].map((testimonial, i) => (
                 <ReviewCard
                   key={i}
@@ -119,7 +119,10 @@ export function TestimonialsSection() {
                 />
               ))}
             </div>
-            <div className="flex items-center gap-6 animate-marquee [animation-direction:reverse]" aria-hidden="true">
+            <div
+              className="flex items-center gap-6 animate-marquee [animation-direction:reverse]"
+              aria-hidden="true"
+            >
               {testimonials[1].map((testimonial, i) => (
                 <ReviewCard
                   key={i}
