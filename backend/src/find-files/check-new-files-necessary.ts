@@ -24,6 +24,7 @@ User request: ${userPrompt}
 We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request.
 - Broad user requests may require many files as context.
 - If there are not many files read (e.g. only knowledge files), lean towards reading more files.
+- If the user has only sent one message, we should read files relevant to the user's request.
 
 You should not read new files (NO) if:
 - The user is following up on a previous request
