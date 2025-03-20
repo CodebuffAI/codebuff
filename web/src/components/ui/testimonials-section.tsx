@@ -72,16 +72,10 @@ export function TestimonialsSection() {
   return (
     <section className="py-24 bg-[#ffff33] relative overflow-hidden">
       <div className="codebuff-container relative z-10">
-        <DecorativeBlocks
-          colors={[BlockColor.DarkForestGreen, BlockColor.GenerativeGreen]}
-          initialPlacement="top-right"
-        >
-          <h2 className="text-3xl md:text-4xl font-bold text-center px-4 md:px-0 bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
-            What Developers Are Saying
-          </h2>
-        </DecorativeBlocks>
-
-        <h6 className="text-center text-gray-700 dark:text-gray-300 text-sm mb-12">
+        <h2 className="text-3xl md:text-4xl font-medium mb-2 text-black relative inline-block hero-heading">
+          What Developers Are Saying
+        </h2>
+        <h6 className="text-gray-700 text-sm mb-12">
           (note: some testimonials reference our previous name,
           &quot;Manicode&quot; – they refer to the same product)
         </h6>

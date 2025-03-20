@@ -11,7 +11,6 @@ import { CTASection } from '@/components/ui/cta-section'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { CodeDemo } from '@/components/docs/mdx/code-demo'
 import { storeSearchParams } from '@/lib/trackConversions'
-import { BackgroundBeams } from '@/components/ui/background-beams'
 import IDEDemo from '@/components/IDEDemo'
 import { DecorativeBlocks, BlockColor } from '@/components/ui/decorative-blocks'
 
@@ -77,7 +76,11 @@ const Home = () => {
           <div className="codebuff-container">
             <Hero />
             <DecorativeBlocks
-              colors={[BlockColor.DarkForestGreen, BlockColor.GenerativeGreen, BlockColor.CRTAmber]}
+              colors={[
+                BlockColor.DarkForestGreen,
+                BlockColor.GenerativeGreen,
+                BlockColor.CRTAmber,
+              ]}
               initialPlacement="bottom-right"
             >
               <IDEDemo />
@@ -103,7 +106,10 @@ const Home = () => {
             title="Does the Right Stuff for Your Project"
             description="Codebuff intelligently configures & scaffolds new technologies, provides detailed explanations built for you. With its advanced AI algorithms, Codebuff can analyze your projects, understand your workflows, and provide customized solutions."
             backdropColor={BlockColor.GenerativeGreen}
-            decorativeColors={[BlockColor.AcidMatrix, BlockColor.TerminalYellow]}
+            decorativeColors={[
+              BlockColor.AcidMatrix,
+              BlockColor.TerminalYellow,
+            ]}
             imagePosition="left"
             codeSample={rightStuffCode}
             featureTag="FEATURE TWO"

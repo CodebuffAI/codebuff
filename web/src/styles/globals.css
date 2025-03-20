@@ -82,7 +82,6 @@
 .hero-heading {
   @apply text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight;
   font-family: 'Roboto Serif', serif;
-  text-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
 }
 
 .hero-subtext {
