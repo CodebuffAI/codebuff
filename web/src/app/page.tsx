@@ -76,9 +76,9 @@ const Home = () => {
         <section className="full-width-section">
           <div className="codebuff-container">
             <Hero />
-            <DecorativeBlocks 
+            <DecorativeBlocks
               colors={[BlockColor.Dark, BlockColor.Primary, BlockColor.Accent]}
-              initialPlacement="bottom-left"
+              initialPlacement="bottom-right"
             >
               <IDEDemo />
             </DecorativeBlocks>

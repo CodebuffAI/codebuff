@@ -18,7 +18,7 @@ const ReviewCard = ({
   return (
     <figure
       className={cn(
-        'relative w-64 lg:w-80 cursor-pointer overflow-hidden rounded-xl p-6',
+        'relative w-[320px] h-[180px] shrink-0 cursor-pointer overflow-hidden rounded-xl p-6',
         'bg-gradient-to-br from-white to-gray-50 hover:to-gray-100 border border-gray-200/50 shadow-lg hover:shadow-xl',
         'dark:from-gray-800 dark:to-gray-900 dark:hover:to-gray-800 dark:border-gray-700/50',
         'transition-all duration-200 hover:-translate-y-1'
@@ -50,7 +50,7 @@ const ReviewCard = ({
           />
         </div>
       </div>
-      <blockquote className="mt-4 text-sm lg:text-base">{t.quote}</blockquote>
+      <blockquote className="mt-4 text-sm lg:text-base line-clamp-3">{t.quote}</blockquote>
     </figure>
   )
 }
@@ -88,20 +88,47 @@ export function TestimonialsSection() {
           (note: some testimonials reference our previous name,
           &quot;Manicode&quot; – they refer to the same product)
         </h6>
-        <div className="mt-12 space-y-1">
-          {testimonials.map((row, rowIndex) => (
-            <div key={rowIndex} className="py-6">
-              <div className="flex gap-6">
-                {row.map((testimonial, i) => (
-                  <ReviewCard
-                    key={i}
-                    t={testimonial}
-                    onTestimonialClick={handleTestimonialClick}
-                  />
-                ))}
-              </div>
+        <div className="mt-12 space-y-8">
+          <div className="flex flex-nowrap gap-6 overflow-hidden [--gap:1.5rem] [--duration:40s]">
+            <div className="flex items-center gap-6 animate-marquee">
+              {testimonials[0].map((testimonial, i) => (
+                <ReviewCard
+                  key={i}
+                  t={testimonial}
+                  onTestimonialClick={handleTestimonialClick}
+                />
+              ))}
             </div>
-          ))}
+            <div className="flex items-center gap-6 animate-marquee" aria-hidden="true">
+              {testimonials[0].map((testimonial, i) => (
+                <ReviewCard
+                  key={i}
+                  t={testimonial}
+                  onTestimonialClick={handleTestimonialClick}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-nowrap gap-6 overflow-hidden [--gap:1.5rem] [--duration:35s]">
+            <div className="flex items-center gap-6 animate-marquee [animation-direction:reverse]">
+              {testimonials[1].map((testimonial, i) => (
+                <ReviewCard
+                  key={i}
+                  t={testimonial}
+                  onTestimonialClick={handleTestimonialClick}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-6 animate-marquee [animation-direction:reverse]" aria-hidden="true">
+              {testimonials[1].map((testimonial, i) => (
+                <ReviewCard
+                  key={i}
+                  t={testimonial}
+                  onTestimonialClick={handleTestimonialClick}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-8">
