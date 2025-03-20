@@ -22,12 +22,13 @@ async function codebuff(
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
 
-  const [_, fileContext] = await Promise.all([
-    updateCodebuff(),
-    initProjectFileContextWithWorker(dir)
-  ])
+  const updatePromise = updateCodebuff()
+  const initFileContextPromise = initProjectFileContextWithWorker(dir)
 
-  const cli = new CLI(Promise.resolve([undefined, fileContext]), { git, costMode })
+  const readyPromise = Promise.all([updatePromise, initFileContextPromise])
+
+  const cli = new CLI(readyPromise, { git, costMode })
+
   await cli.printInitialPrompt(initialInput)
 }
 
