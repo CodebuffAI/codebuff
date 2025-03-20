@@ -152,7 +152,7 @@ export const mainPrompt = async (
 <paths>
 ${existingNewFilePaths.join('\n')}
 </paths>
-</read_files>`,
+</read_files>\n`,
       })
     }
     const readFilesToolResult = {
