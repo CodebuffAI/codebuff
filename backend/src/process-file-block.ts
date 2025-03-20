@@ -280,10 +280,11 @@ Please output just the SEARCH/REPLACE blocks like this:
       updatedContent,
       oldContent,
       editSnippet,
+      diffBlocks,
       filePath,
       duration: Date.now() - startTime,
     },
-    'handleLargeFile'
+    `handleLargeFile ${filePath}`
   )
   return updatedContent
 }

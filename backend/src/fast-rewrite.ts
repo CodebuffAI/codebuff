@@ -143,7 +143,7 @@ export async function preserveCommentsInEditSnippet(
   userInputId: string,
   userId: string | undefined
 ) {
-  const prompt = `You are an expert programmer. Modify the edit snippet to preserve comments from the original file.
+  const prompt = `You are an expert programmer. Rewrite the edit snippet to preserve comments from the original file (if any).
 
 Original file:
 \`\`\`
@@ -159,8 +159,10 @@ Guidelines for adding back comments:
 1. Look for comments in the original file that were ommitted from the edit snippet.
 2. Add those comments to the edit snippet in their exact original positions.
 3. Return only the modified edit snippet with no markdown formatting.
-4. Do not change any code, only add comments from the original.
+4. Do not change any code, only add comments from the original file.
 5. Keep the edit snippet's structure exactly the same, just with comments added.
+6. No need to add comments above or below the code being edited in the edit snippet.
+7. It's common for no changes to be needed to the edit snippet, in which case you should print the edit snippet unchanged.
 
 Guidelines for removing new comments:
 1. Look for comments in the edit snippet that were not in the original file.
