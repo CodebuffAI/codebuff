@@ -127,13 +127,7 @@ export async function processFileBlock(
     }
   }
 
-  const normalizedUpdatedContent = updatedContent.replaceAll('\n', lineEnding)
-
-  let patch = createPatch(
-    path,
-    normalizedInitialContent,
-    normalizedUpdatedContent
-  )
+  let patch = createPatch(path, normalizedInitialContent, updatedContent)
   const lines = patch.split('\n')
   const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
   if (hunkStartIndex !== -1) {
@@ -150,8 +144,6 @@ export async function processFileBlock(
     )
     return null
   }
-  patch = patch.replaceAll('\n', lineEnding)
-
   logger.debug(
     {
       path,
@@ -161,10 +153,14 @@ export async function processFileBlock(
     },
     `processFileBlock: Updated file ${path}`
   )
+
+  const patchOriginalLineEndings = patch.replaceAll('\n', lineEnding)
+  const updatedContentOriginalLineEndings = updatedContent.replaceAll('\n', lineEnding)
+
   return {
     path,
-    content: normalizedUpdatedContent,
-    patch,
+    content: updatedContentOriginalLineEndings,
+    patch: patchOriginalLineEndings,
   }
 }
 
