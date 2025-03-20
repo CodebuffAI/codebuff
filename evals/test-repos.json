@@ -1,0 +1,67 @@
+{
+  "codebuff-swe-bench": {
+    "repo": "https://github.com/CodebuffAI/codebuff-swe-bench",
+    "commit": "faed23d00ce682a1dd8b02bb25af7eff7d956b79"
+  },
+  "manifold": {
+    "repo": "https://github.com/manifoldmarkets/manifold",
+    "commit": "f004179916e609bf64b5db47e3ace4f6988591b1"
+  },
+  "pglite-demo": {
+    "repo": "https://github.com/brandonkachen/pglite-demo",
+    "commit": "df25a26d36858d079c4f3fca91fa44b6aaa0d1be"
+  },
+  "swe-bench-docker": {
+    "repo": "https://github.com/aorwall/SWE-bench-docker",
+    "commit": "b6be0894bf531156617cd77fff39b403a7e47f1c"
+  },
+
+  "astropy": {
+    "repo": "https://github.com/astropy/astropy.git",
+    "commit": "HEAD"
+  },
+  "django": {
+    "repo": "https://github.com/django/django.git",
+    "commit": "HEAD"
+  },
+  "flask": {
+    "repo": "https://github.com/pallets/flask.git",
+    "commit": "HEAD"
+  },
+  "matplotlib": {
+    "repo": "https://github.com/matplotlib/matplotlib.git",
+    "commit": "HEAD"
+  },
+  "pylint": {
+    "repo": "https://github.com/pylint-dev/pylint.git",
+    "commit": "HEAD"
+  },
+  "pytest": {
+    "repo": "https://github.com/pytest-dev/pytest.git",
+    "commit": "HEAD"
+  },
+  "requests": {
+    "repo": "https://github.com/psf/requests.git",
+    "commit": "HEAD"
+  },
+  "scikit-learn": {
+    "repo": "https://github.com/scikit-learn/scikit-learn.git",
+    "commit": "HEAD"
+  },
+  "seaborn": {
+    "repo": "https://github.com/mwaskom/seaborn.git",
+    "commit": "HEAD"
+  },
+  "sphinx": {
+    "repo": "https://github.com/sphinx-doc/sphinx.git",
+    "commit": "HEAD"
+  },
+  "sympy": {
+    "repo": "https://github.com/sympy/sympy.git",
+    "commit": "HEAD"
+  },
+  "xarray": {
+    "repo": "https://github.com/pydata/xarray.git",
+    "commit": "HEAD"
+  }
+}

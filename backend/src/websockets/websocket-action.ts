@@ -1,24 +1,28 @@
 import { WebSocket } from 'ws'
-import { eq, and, gt } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import _, { isEqual } from 'lodash'
-import { match, P } from 'ts-pattern'
 
 import { ClientMessage } from 'common/websockets/websocket-schema'
 import { mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
 import { sendMessage } from './server'
-import { env } from '../env.mjs'
 import db from 'common/db'
-import { genAuthCode } from 'common/util/credentials'
 import * as schema from 'common/db/schema'
-import { TOOL_RESULT_MARKER } from 'common/constants'
 import { protec } from './middleware'
 import { getQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/src/util/dates'
+import { ensureEndsWithNewline } from 'common/src/util/file'
 import { logger, withLoggerContext } from '@/util/logger'
-import { generateCommitMessage } from '@/generate-commit-message'
 import { hasMaxedReferrals } from 'common/util/server/referral'
+import { generateCompactId } from 'common/util/string'
+import { renderToolResults } from '@/util/parse-tool-call-xml'
+import { buildArray } from 'common/util/array'
 
+/**
+ * Sends an action to the client via WebSocket
+ * @param ws - The WebSocket connection to send the action to
+ * @param action - The server action to send
+ */
 export const sendAction = (ws: WebSocket, action: ServerAction) => {
   sendMessage(ws, {
     type: 'action',
@@ -26,6 +30,11 @@ export const sendAction = (ws: WebSocket, action: ServerAction) => {
   })
 }
 
+/**
+ * Retrieves a user ID from an authentication token
+ * @param authToken - The authentication token to validate
+ * @returns The user ID if found, undefined otherwise
+ */
 export const getUserIdFromAuthToken = async (
   authToken?: string
 ): Promise<string | undefined> => {
@@ -46,6 +55,13 @@ export const getUserIdFromAuthToken = async (
   return userId
 }
 
+/**
+ * Calculates usage metrics for a user or anonymous session
+ * @param fingerprintId - The fingerprint ID for anonymous users
+ * @param userId - The user ID for authenticated users
+ * @param sessionId - The current session ID
+ * @returns Object containing usage metrics including credits used, quota limits, and subscription status
+ */
 async function calculateUsage(
   fingerprintId: string,
   userId: string | undefined,
@@ -95,49 +111,32 @@ async function calculateUsage(
   }
 }
 
+/**
+ * Generates a usage response object for the client
+ * @param fingerprintId - The fingerprint ID for the user/device
+ * @param userId - Optional user ID for authenticated users
+ * @param clientSessionId - Optional session ID
+ * @param requestedByUser - Whether the request was made by the user
+ * @returns A UsageResponse object containing usage metrics and referral information
+ */
 export async function genUsageResponse(
-  sessionId: string,
   fingerprintId: string,
-  userId?: string
+  userId: string | undefined,
+  clientSessionId: string | undefined,
+  requestedByUser: boolean = false
 ): Promise<UsageResponse> {
-  const params = await withLoggerContext(
-    { fingerprintId, userId },
-    async () => {
-      const {
-        usage,
-        limit,
-        subscription_active,
-        next_quota_reset,
-        session_credits_used,
-      } = await calculateUsage(fingerprintId, userId, sessionId)
-      logger.info('Sending usage info')
-
-      let referralLink: string | undefined = undefined
-      if (userId) {
-        logger.info(`Checking referral status for user ${userId}`)
-        const referralStatus = await hasMaxedReferrals(userId)
-        if (referralStatus.reason === undefined) {
-          referralLink = referralStatus.referralLink
-          logger.info(
-            `Generated referral link for user ${userId}. Referral count: ${referralStatus.details.referralCount}`
-          )
-        } else {
-          logger.info(
-            `Not generating referral link for user ${userId}: ${referralStatus.reason}. Details: ${JSON.stringify(referralStatus.details)}`
-          )
-        }
-      } else {
-        logger.info('No userId provided, skipping referral link generation')
-      }
-      return {
-        usage,
-        limit,
-        referralLink,
-        subscription_active,
-        next_quota_reset,
-        session_credits_used,
-      }
-    }
+  const params = await calculateUsage(fingerprintId, userId, clientSessionId)
+  logger.info(
+    {
+      fingerprintId,
+      userId,
+      sessionId: clientSessionId,
+      limit: params.limit,
+      subscription_active: params.subscription_active,
+      next_quota_reset: params.next_quota_reset,
+      session_credits_used: params.session_credits_used,
+    },
+    'Sending usage info'
   )
 
   return {
@@ -146,261 +145,117 @@ export async function genUsageResponse(
   }
 }
 
-const onUserInput = async (
-  action: Extract<ClientAction, { type: 'user-input' }>,
+/**
+ * Handles prompt actions from the client
+ * @param action - The prompt action from the client
+ * @param clientSessionId - The client's session ID
+ * @param ws - The WebSocket connection
+ */
+const onPrompt = async (
+  action: Extract<ClientAction, { type: 'prompt' }>,
   clientSessionId: string,
   ws: WebSocket
 ) => {
-  const {
-    fingerprintId,
-    authToken,
-    userInputId,
-    messages,
-    fileContext,
-    changesAlreadyApplied,
-    costMode = 'normal',
-  } = action
+  const { fingerprintId, authToken, promptId, prompt, toolResults } = action
 
   await withLoggerContext(
-    { fingerprintId, authToken, clientRequestId: userInputId },
+    { fingerprintId, authToken, clientRequestId: promptId },
     async () => {
-      const lastMessage = messages[messages.length - 1]
-      if (
-        typeof lastMessage.content === 'string' &&
-        !lastMessage.content.includes(TOOL_RESULT_MARKER)
-      ) {
-        logger.info(`USER INPUT: ${lastMessage.content}`)
-      }
+      if (prompt) logger.info(`USER INPUT: ${prompt}`)
 
       const userId = await getUserIdFromAuthToken(authToken)
+      if (!userId) {
+        throw new Error('User not found')
+      }
       try {
-        const {
-          toolCall,
-          response,
-          changes,
-          addedFileVersions,
-          resetFileVersions,
-        } = await mainPrompt(
+        const { agentState, toolCalls, toolResults } = await mainPrompt(
           ws,
-          messages,
-          fileContext,
+          action,
+          userId,
           clientSessionId,
-          fingerprintId,
-          userInputId,
           (chunk) =>
             sendAction(ws, {
               type: 'response-chunk',
-              userInputId,
+              userInputId: promptId,
               chunk,
-            }),
-          userId,
-          changesAlreadyApplied,
-          action.costMode
+            })
         )
 
-        logger.debug(
-          { response, changes, changesAlreadyApplied, toolCall },
-          'response-complete'
-        )
-
-        if (toolCall) {
-          sendAction(ws, {
-            type: 'tool-call',
-            userInputId,
-            response,
-            data: toolCall,
-            changes,
-            changesAlreadyApplied,
-            addedFileVersions,
-            resetFileVersions,
-          })
-        } else {
-          const {
-            usage,
-            limit,
-            referralLink,
-            subscription_active,
-            next_quota_reset,
-            session_credits_used,
-          } = await genUsageResponse(clientSessionId, fingerprintId, userId)
-          sendAction(ws, {
-            type: 'response-complete',
-            userInputId,
-            response,
-            changes,
-            changesAlreadyApplied,
-            usage,
-            limit,
-            subscription_active,
-            referralLink,
-            addedFileVersions,
-            resetFileVersions,
-            next_quota_reset,
-            session_credits_used,
-          })
-        }
+        // Send prompt data back
+        sendAction(ws, {
+          type: 'prompt-response',
+          promptId,
+          agentState,
+          toolCalls,
+          toolResults,
+        })
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')
-        const response =
+        let response =
           e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
+        response += '\n\n<end_turn></end_turn>'
+
+        const newMessages = buildArray(
+          ...action.agentState.messageHistory,
+          prompt && {
+            role: 'user' as const,
+            content: prompt,
+          },
+          toolResults.length > 0 && {
+            role: 'user' as const,
+            content: renderToolResults(toolResults),
+          },
+          {
+            role: 'assistant' as const,
+            content: response,
+          }
+        )
+
+        const endTurnToolCall = {
+          name: 'end_turn' as const,
+          parameters: {},
+          id: generateCompactId(),
+        }
+
         sendAction(ws, {
           type: 'response-chunk',
-          userInputId,
+          userInputId: promptId,
           chunk: response,
         })
-        // await sleep(1000) // sleeping makes this sendAction not fire. unsure why but remove for now
-        sendAction(ws, {
-          type: 'response-complete',
-          userInputId,
-          response,
-          changes: [],
-          changesAlreadyApplied,
-          addedFileVersions: [],
-          resetFileVersions: false,
-        })
-      }
-    }
-  )
-}
-
-const onClearAuthTokenRequest = async (
-  {
-    authToken,
-    userId,
-    fingerprintId,
-    fingerprintHash,
-  }: Extract<ClientAction, { type: 'clear-auth-token' }>,
-  _clientSessionId: string,
-  _ws: WebSocket
-): Promise<void> => {
-  await withLoggerContext(
-    { fingerprintId, userId, authToken, fingerprintHash },
-    async () => {
-      const validDeletion = await db
-        .delete(schema.session)
-        .where(
-          and(
-            eq(schema.session.sessionToken, authToken), // token exists
-            eq(schema.session.userId, userId), // belongs to user
-            gt(schema.session.expires, new Date()), // active session
-
-            // probably not necessary, but just in case. paranoia > death
-            eq(schema.session.fingerprint_id, fingerprintId)
-          )
-        )
-        .returning({
-          id: schema.session.sessionToken,
-        })
-
-      if (validDeletion.length > 0) {
-        logger.info('Cleared auth token')
-      } else {
-        logger.info('No auth token to clear, possible attack?')
-      }
-    }
-  )
-}
-
-const onLoginCodeRequest = async (
-  {
-    fingerprintId,
-    referralCode,
-  }: Extract<ClientAction, { type: 'login-code-request' }>,
-  _clientSessionId: string,
-  ws: WebSocket
-): Promise<void> => {
-  await withLoggerContext({ fingerprintId }, async () => {
-    // Create a new fingerprint if it doesn't exist
-    await db
-      .insert(schema.fingerprint)
-      .values({
-        id: fingerprintId,
-      })
-      .onConflictDoNothing()
-
-    const expiresAt = Date.now() + 60 * 60 * 1000 // 1 hour in the future
-    const fingerprintHash = genAuthCode(
-      fingerprintId,
-      expiresAt.toString(),
-      env.NEXTAUTH_SECRET
-    )
-    const loginUrl = `${env.NEXT_PUBLIC_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}${referralCode ? `&referral_code=${referralCode}` : ''}`
-
-    sendAction(ws, {
-      type: 'login-code-response',
-      fingerprintId,
-      fingerprintHash,
-      loginUrl,
-    })
-  })
-}
-
-const onLoginStatusRequest = async (
-  {
-    fingerprintId,
-    fingerprintHash,
-  }: Extract<ClientAction, { type: 'login-status-request' }>,
-  _clientSessionId: string,
-  ws: WebSocket
-) => {
-  await withLoggerContext({ fingerprintId, fingerprintHash }, async () => {
-    try {
-      const users = await db
-        .select({
-          id: schema.user.id,
-          email: schema.user.email,
-          name: schema.user.name,
-          authToken: schema.session.sessionToken,
-        })
-        .from(schema.user)
-        .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
-        .leftJoin(
-          schema.fingerprint,
-          eq(schema.session.fingerprint_id, schema.fingerprint.id)
-        )
-        .where(
-          and(
-            eq(schema.session.fingerprint_id, fingerprintId),
-            eq(schema.fingerprint.sig_hash, fingerprintHash)
-          )
-        )
-
-      match(users).with(
-        P.array({
-          id: P.string,
-          name: P.string,
-          email: P.string,
-          authToken: P.string,
-        }),
-        (users) => {
-          const user = users[0]
-          if (!user) return
+        setTimeout(() => {
           sendAction(ws, {
-            type: 'auth-result',
-            user: {
-              id: user.id,
-              name: user.name,
-              email: user.email,
-              authToken: user.authToken,
-              fingerprintId,
-              fingerprintHash,
+            type: 'prompt-response',
+            promptId,
+            // Send back original agentState.
+            agentState: {
+              ...action.agentState,
+              messageHistory: newMessages,
             },
-            message: 'Authentication successful!',
+            toolCalls: [endTurnToolCall],
+            toolResults: [],
           })
-        }
-      )
-    } catch (e) {
-      const error = e as Error
-      logger.error(e, 'Error in login status request')
-      sendAction(ws, {
-        type: 'auth-result',
-        user: undefined,
-        message: error.message,
-      })
+        }, 100)
+      } finally {
+        const usageResponse = await genUsageResponse(
+          fingerprintId,
+          userId,
+          undefined,
+          false
+        )
+        sendAction(ws, usageResponse)
+      }
     }
-  })
+  )
 }
 
+/**
+ * Handles initialization actions from the client
+ * @param fileContext - The file context information
+ * @param fingerprintId - The fingerprint ID for the user/device
+ * @param authToken - The authentication token
+ * @param clientSessionId - The client's session ID
+ * @param ws - The WebSocket connection
+ */
 const onInit = async (
   {
     fileContext,
@@ -448,71 +303,34 @@ const onInit = async (
     //   logger.error(e, 'Error in init')
     // }
 
-    const {
-      usage,
-      limit,
-      subscription_active,
-      next_quota_reset,
-      session_credits_used,
-    } = await calculateUsage(fingerprintId, userId, clientSessionId)
+    // Send combined init and usage response
+    const { type, ...params } = await genUsageResponse(
+      fingerprintId,
+      userId,
+      clientSessionId,
+      false
+    )
     sendAction(ws, {
       type: 'init-response',
-      usage,
-      limit,
-      subscription_active,
-      next_quota_reset,
-      session_credits_used,
+      ...params,
     })
   })
 }
 
-export const onUsageRequest = async (
-  { fingerprintId, authToken }: Extract<ClientAction, { type: 'usage' }>,
-  clientSessionId: string,
-  ws: WebSocket
-) => {
-  const userId = await getUserIdFromAuthToken(authToken)
-  const action = await genUsageResponse(clientSessionId, fingerprintId, userId)
-  sendAction(ws, action)
-}
-
-const onGenerateCommitMessage = async (
-  {
-    fingerprintId,
-    authToken,
-    stagedChanges,
-  }: Extract<ClientAction, { type: 'generate-commit-message' }>,
-  clientSessionId: string,
-  ws: WebSocket
-) => {
-  await withLoggerContext({ fingerprintId, authToken }, async () => {
-    const userId = await getUserIdFromAuthToken(authToken)
-    try {
-      const commitMessage = await generateCommitMessage(
-        stagedChanges,
-        clientSessionId,
-        fingerprintId,
-        userId
-      )
-      logger.info(`Generated commit message: ${commitMessage}`)
-      sendAction(ws, {
-        type: 'commit-message-response',
-        commitMessage,
-      })
-    } catch (e) {
-      logger.error(e, 'Error generating commit message')
-      sendAction(ws, {
-        type: 'commit-message-response',
-        commitMessage: 'Error generating commit message',
-      })
-    }
-  })
-}
+/**
+ * Storage for action callbacks organized by action type
+ */
 const callbacksByAction = {} as Record<
   ClientAction['type'],
   ((action: ClientAction, clientSessionId: string, ws: WebSocket) => void)[]
 >
 
+/**
+ * Subscribes a callback function to a specific action type
+ * @param type - The action type to subscribe to
+ * @param callback - The callback function to execute when the action is received
+ * @returns A function to unsubscribe the callback
+ */
 export const subscribeToAction = <T extends ClientAction['type']>(
   type: T,
   callback: (
@@ -535,6 +353,12 @@ export const subscribeToAction = <T extends ClientAction['type']>(
   }
 }
 
+/**
+ * Handles WebSocket action messages from clients
+ * @param ws - The WebSocket connection
+ * @param clientSessionId - The client's session ID
+ * @param msg - The action message from the client
+ */
 export const onWebsocketAction = async (
   ws: WebSocket,
   clientSessionId: string,
@@ -558,25 +382,24 @@ export const onWebsocketAction = async (
   })
 }
 
-subscribeToAction('user-input', protec.run(onUserInput))
+// Register action handlers
+subscribeToAction('prompt', protec.run(onPrompt))
 subscribeToAction('init', protec.run(onInit, { silent: true }))
 
-subscribeToAction('clear-auth-token', onClearAuthTokenRequest)
-subscribeToAction('login-code-request', onLoginCodeRequest)
-
-subscribeToAction('usage', onUsageRequest)
-subscribeToAction('login-status-request', onLoginStatusRequest)
-
-subscribeToAction(
-  'generate-commit-message',
-  protec.run(onGenerateCommitMessage)
-)
-
+/**
+ * Requests multiple files from the client
+ * @param ws - The WebSocket connection
+ * @param filePaths - Array of file paths to request
+ * @returns Promise resolving to an object mapping file paths to their contents
+ */
 export async function requestFiles(ws: WebSocket, filePaths: string[]) {
   return new Promise<Record<string, string | null>>((resolve) => {
+    const requestId = generateCompactId()
     const unsubscribe = subscribeToAction('read-files-response', (action) => {
-      const receivedFilePaths = Object.keys(action.files)
-      if (isEqual(receivedFilePaths, filePaths)) {
+      for (const [filename, contents] of Object.entries(action.files)) {
+        action.files[filename] = ensureEndsWithNewline(contents)
+      }
+      if (action.requestId === requestId) {
         unsubscribe()
         resolve(action.files)
       }
@@ -584,11 +407,18 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
     sendAction(ws, {
       type: 'read-files',
       filePaths,
+      requestId,
     })
   })
 }
 
+/**
+ * Requests a single file from the client
+ * @param ws - The WebSocket connection
+ * @param filePath - The path of the file to request
+ * @returns Promise resolving to the file contents or null if not found
+ */
 export async function requestFile(ws: WebSocket, filePath: string) {
   const files = await requestFiles(ws, [filePath])
-  return files[filePath]
+  return files[filePath] ?? null
 }

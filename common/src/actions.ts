@@ -1,64 +1,16 @@
 import { z } from 'zod'
 import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
-import { userSchema } from './util/credentials'
 import { costModes } from './constants'
-
-const MessageContentObjectSchema = z.union([
-  z.object({
-    type: z.literal('text'),
-    text: z.string(),
-    cache_control: z
-      .object({
-        type: z.literal('ephemeral'),
-      })
-      .optional(),
-  }),
-  z.object({
-    type: z.literal('tool_use'),
-    id: z.string(),
-    name: z.string(),
-    input: z.record(z.string(), z.any()),
-    cache_control: z
-      .object({
-        type: z.literal('ephemeral'),
-      })
-      .optional(),
-  }),
-  z.object({
-    type: z.literal('tool_result'),
-    tool_use_id: z.string(),
-    content: z.string(),
-    cache_control: z
-      .object({
-        type: z.literal('ephemeral'),
-      })
-      .optional(),
-  }),
-  z.object({
-    type: z.literal('image'),
-    source: z.object({
-      type: z.literal('base64'),
-      media_type: z.literal('image/jpeg'),
-      data: z.string(),
-    }),
-    cache_control: z
-      .object({
-        type: z.literal('ephemeral'),
-      })
-      .optional(),
-  }),
-])
-
-const MessageSchema = z.object({
-  role: z.union([z.literal('user'), z.literal('assistant')]),
-  content: z.union([z.string(), z.array(MessageContentObjectSchema)]),
-})
-export type Message = z.infer<typeof MessageSchema>
-export type MessageContentObject = z.infer<typeof MessageContentObjectSchema>
+import {
+  AgentStateSchema,
+  ToolResultSchema,
+  ToolCallSchema as NewToolCallSchema,
+} from './types/agent-state'
+import { MessageSchema } from './types/message'
 
 export const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
-  filePath: z.string(),
+  path: z.string(),
   content: z.string(),
 })
 export type FileChange = z.infer<typeof FileChangeSchema>
@@ -84,42 +36,25 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     costMode: z.enum(costModes).optional().default('normal'),
   }),
   z.object({
+    type: z.literal('prompt'),
+    promptId: z.string(),
+    prompt: z.string().or(z.undefined()),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+    costMode: z.enum(costModes).optional().default('normal'),
+    agentState: AgentStateSchema,
+    toolResults: z.array(ToolResultSchema),
+  }),
+  z.object({
     type: z.literal('read-files-response'),
     files: z.record(z.string(), z.union([z.string(), z.null()])),
+    requestId: z.string().optional(),
   }),
-  // z.object({
-  //   type: z.literal('run-terminal-command'),
-  //   command: z.string(),
-  // }),
   z.object({
     type: z.literal('init'),
     fingerprintId: z.string(),
     authToken: z.string().optional(),
-    // userId: z.string().optional(),
     fileContext: ProjectFileContextSchema,
-  }),
-  z.object({
-    type: z.literal('usage'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('login-code-request'),
-    fingerprintId: z.string(),
-    referralCode: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('login-status-request'),
-    fingerprintId: z.string(),
-    fingerprintHash: z.string(),
-  }),
-  z.object({
-    type: z.literal('clear-auth-token'),
-    authToken: z.string(),
-    fingerprintId: z.string(),
-    userId: z.string(),
-    // authToken: z.string().optional(),
-    fingerprintHash: z.string(),
   }),
   z.object({
     type: z.literal('generate-commit-message'),
@@ -168,20 +103,34 @@ export const ResponseCompleteSchema = z
     }).partial()
   )
 
+export const MessageCostResponseSchema = z.object({
+  type: z.literal('message-cost-response'),
+  promptId: z.string(),
+  credits: z.number(),
+})
+export type MessageCostResponse = z.infer<typeof MessageCostResponseSchema>
+
+export const PromptResponseSchema = z.object({
+  type: z.literal('prompt-response'),
+  promptId: z.string(),
+  agentState: AgentStateSchema,
+  toolCalls: z.array(NewToolCallSchema),
+  toolResults: z.array(ToolResultSchema),
+})
+export type PromptResponse = z.infer<typeof PromptResponseSchema>
+
 export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('read-files-response'),
-    files: z.record(z.string(), z.string().nullable()),
-  }),
   z.object({
     type: z.literal('response-chunk'),
     userInputId: z.string(),
     chunk: z.string(),
   }),
   ResponseCompleteSchema,
+  PromptResponseSchema,
   z.object({
     type: z.literal('read-files'),
     filePaths: z.array(z.string()),
+    requestId: z.string(),
   }),
   z.object({
     type: z.literal('tool-call'),
@@ -204,18 +153,8 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     latestVersion: z.string(),
   }),
   InitResponseSchema,
-  z.object({
-    type: z.literal('auth-result'),
-    user: userSchema.optional(),
-    message: z.string(),
-  }),
-  z.object({
-    type: z.literal('login-code-response'),
-    fingerprintId: z.string(),
-    fingerprintHash: z.string(),
-    loginUrl: z.string().url(),
-  }),
   UsageReponseSchema,
+  MessageCostResponseSchema,
   z.object({
     type: z.literal('action-error'),
     message: z.string(),

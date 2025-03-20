@@ -1,9 +1,9 @@
-import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
+import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
 import path from 'path'
 import { green } from 'picocolors'
 import * as os from 'os'
 import { detectShell } from './detect-shell'
-import { getProjectRoot, setProjectRoot } from '../project-files'
+import { setProjectRoot } from '../project-files'
 import { truncateStringWithMessage } from 'common/util/string'
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
 
@@ -34,7 +34,7 @@ type PersistentProcess =
     }
 
 const createPersistantProcess = (dir: string): PersistentProcess => {
-  if (pty) {
+  if (pty && process.env.NODE_ENV !== 'test') {
     const isWindows = os.platform() === 'win32'
     const currShell = detectShell()
     const shell = isWindows
@@ -135,12 +135,11 @@ export const isCommandRunning = () => {
   return commandIsRunning
 }
 
-export const recreateShell = () => {
-  const dir = getProjectRoot()
-  persistentProcess = createPersistantProcess(dir)
+export const recreateShell = (projectPath: string) => {
+  persistentProcess = createPersistantProcess(projectPath)
 }
 
-export const resetShell = () => {
+export const resetShell = (projectPath: string) => {
   commandIsRunning = false
   if (persistentProcess) {
     if (persistentProcess.timerId) {
@@ -150,7 +149,7 @@ export const resetShell = () => {
 
     if (persistentProcess.type === 'pty') {
       persistentProcess.pty.kill()
-      recreateShell()
+      recreateShell(projectPath)
     } else {
       persistentProcess.childProcess?.kill()
       persistentProcess = {
@@ -169,35 +168,12 @@ function formatResult(stdout: string, status: string): string {
   return result
 }
 
-const isNotACommand = (output: string) => {
-  return (
-    output.includes('command not found') ||
-    // Linux
-    output.includes(': not found') ||
-    // Common
-    output.includes('syntax error:') ||
-    output.includes('syntax error near unexpected token') ||
-    // Linux
-    output.includes('Syntax error:') ||
-    // Windows
-    output.includes('is not recognized as an internal or external command') ||
-    output.includes('/bin/sh: -c: line') ||
-    output.includes('/bin/sh: line') ||
-    output.startsWith('fatal:') ||
-    output.startsWith('error:') ||
-    output.startsWith('Der Befehl') ||
-    output.includes('konnte nicht gefunden werden') ||
-    output.includes(
-      'wurde nicht als Name eines Cmdlet, einer Funktion, einer Skriptdatei oder eines ausführbaren'
-    )
-  )
-}
-
 const MAX_EXECUTION_TIME = 30_000
 
 export const runTerminalCommand = async (
   command: string,
-  mode: 'user' | 'assistant'
+  mode: 'user' | 'assistant',
+  projectPath: string
 ): Promise<{ result: string; stdout: string }> => {
   return new Promise((resolve) => {
     if (!persistentProcess) {
@@ -205,10 +181,14 @@ export const runTerminalCommand = async (
     }
 
     if (commandIsRunning) {
-      resetShell()
+      resetShell(projectPath)
     }
 
     commandIsRunning = true
+
+    // Add special case for git log to limit output
+    const modifiedCommand =
+      command.trim() === 'git log' ? 'git log -n 5' : command
 
     const resolveCommand = (value: { result: string; stdout: string }) => {
       commandIsRunning = false
@@ -216,36 +196,48 @@ export const runTerminalCommand = async (
     }
 
     if (persistentProcess.type === 'pty') {
-      runCommandPty(persistentProcess, command, mode, resolveCommand)
+      runCommandPty(
+        persistentProcess,
+        modifiedCommand,
+        mode,
+        resolveCommand,
+        projectPath
+      )
     } else {
       // Fallback to child_process implementation
-      runCommandChildProcess(persistentProcess, command, mode, resolveCommand)
+      runCommandChildProcess(
+        persistentProcess,
+        modifiedCommand,
+        mode,
+        resolveCommand,
+        projectPath
+      )
     }
   })
 }
 
-const runCommandPty = (
+export const runCommandPty = (
   persistentProcess: PersistentProcess & {
     type: 'pty'
   },
   command: string,
   mode: 'user' | 'assistant',
-  resolve: (value: { result: string; stdout: string }) => void
+  resolve: (value: { result: string; stdout: string }) => void,
+  projectPath: string
 ) => {
-  let projectRoot = getProjectRoot()
   const ptyProcess = persistentProcess.pty
   let commandOutput = ''
+  let pendingOutput = ''
   let foundFirstNewLine = false
 
   if (mode === 'assistant') {
-    console.log()
     console.log(green(`> ${command}`))
   }
 
   const timer = setTimeout(() => {
     if (mode === 'assistant') {
       // Kill and recreate PTY
-      resetShell()
+      resetShell(projectPath)
 
       resolve({
         result: formatResult(
@@ -262,13 +254,13 @@ const runCommandPty = (
   const dataDisposable = ptyProcess.onData((data: string) => {
     // Trim first line if it's the prompt identifier
     if (
-      commandOutput.trim() === '' &&
+      (commandOutput + pendingOutput).trim() === '' &&
       data.trimStart().startsWith(promptIdentifier)
     ) {
       data = data.trimStart().slice(promptIdentifier.length)
     }
 
-    const prefix = commandOutput + data
+    const prefix = commandOutput + pendingOutput + data
 
     // Skip the first line of the output, because it's the command being printed.
     if (!foundFirstNewLine) {
@@ -281,47 +273,53 @@ const runCommandPty = (
       data = prefix.slice(newLineIndex + 1)
     }
 
-    // Try to detect error messages in the output
-    if (mode === 'user' && isNotACommand(data)) {
-      clearTimeout(timer)
-      dataDisposable.dispose()
-      resolve({
-        result: 'command not found',
-        stdout: commandOutput,
-      })
-      return
-    }
+    const dataLines = (pendingOutput + data).split('\r\n')
+    for (const [index, l] of dataLines.entries()) {
+      const isLast = index === dataLines.length - 1
+      const line = isLast ? l : l + '\r\n'
 
-    const promptDetected = prefix.includes(promptIdentifier)
+      if (line.includes(promptIdentifier)) {
+        // Last line is the prompt, command is done
+        clearTimeout(timer)
+        dataDisposable.dispose()
 
-    if (promptDetected) {
-      clearTimeout(timer)
-      dataDisposable.dispose()
+        if (command.startsWith('cd ') && mode === 'user') {
+          const newWorkingDirectory = command.split(' ')[1]
+          projectPath = setProjectRoot(
+            path.join(projectPath, newWorkingDirectory)
+          )
+        }
 
-      if (command.startsWith('cd ') && mode === 'user') {
-        const newWorkingDirectory = command.split(' ')[1]
-        projectRoot = setProjectRoot(
-          path.join(projectRoot, newWorkingDirectory)
-        )
+        // Reset the PTY to the project root
+        ptyProcess.write(`cd ${projectPath}\r`)
+
+        resolve({
+          result: formatResult(commandOutput, 'Command completed'),
+          stdout: commandOutput,
+        })
+        return
+      } else if (isLast) {
+        // Doesn't end in newline character, wait for more data
+        pendingOutput = line
+      } else {
+        // Process the line
+        process.stdout.write(line)
+        commandOutput += line
       }
-
-      // Reset the PTY to the project root
-      ptyProcess.write(`cd ${projectRoot}\r`)
-
-      resolve({
-        result: formatResult(commandOutput, 'Command completed'),
-        stdout: commandOutput,
-      })
-      return
     }
-
-    process.stdout.write(data)
-    commandOutput += data
   })
 
   const isWindows = os.platform() === 'win32'
+
+  if (command.trim() === 'clear') {
+    // NOTE: node-pty doesn't seem to clear the terminal. This is a workaround.
+    execSync('clear', { stdio: 'inherit' })
+  }
+
   // Write the command
-  const commandWithCheck = isWindows ? command : `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "Command completed. "; else printf "Command failed with exit code $ec. "; fi`
+  const commandWithCheck = isWindows
+    ? command
+    : `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "Command completed. "; else printf "Command failed with exit code $ec. "; fi`
   ptyProcess.write(commandWithCheck + '\r')
 }
 
@@ -331,14 +329,13 @@ const runCommandChildProcess = (
   },
   command: string,
   mode: 'user' | 'assistant',
-  resolve: (value: { result: string; stdout: string }) => void
+  resolve: (value: { result: string; stdout: string }) => void,
+  projectPath: string
 ) => {
-  let projectRoot = getProjectRoot()
   const isWindows = os.platform() === 'win32'
   let commandOutput = ''
 
   if (mode === 'assistant') {
-    console.log()
     console.log(green(`> ${command}`))
   }
 
@@ -346,7 +343,7 @@ const runCommandChildProcess = (
     persistentProcess.shell,
     [isWindows ? '/c' : '-c', command],
     {
-      cwd: projectRoot,
+      cwd: projectPath,
       env: {
         ...process.env,
         PAGER: 'cat',
@@ -362,7 +359,7 @@ const runCommandChildProcess = (
   }
 
   const timer = setTimeout(() => {
-    resetShell()
+    resetShell(projectPath)
     if (mode === 'assistant') {
       resolve({
         result: formatResult(
@@ -385,17 +382,6 @@ const runCommandChildProcess = (
   childProcess.stderr.on('data', (data: Buffer) => {
     const output = data.toString()
 
-    // Try to detect error messages in the output
-    if (mode === 'user' && isNotACommand(output)) {
-      clearTimeout(timer)
-      childProcess.kill()
-      resolve({
-        result: 'command not found',
-        stdout: commandOutput,
-      })
-      return
-    }
-
     process.stdout.write(output)
     commandOutput += output
   })
@@ -405,7 +391,7 @@ const runCommandChildProcess = (
 
     if (command.startsWith('cd ') && mode === 'user') {
       const newWorkingDirectory = command.split(' ')[1]
-      setProjectRoot(path.join(projectRoot, newWorkingDirectory))
+      projectPath = setProjectRoot(path.join(projectPath, newWorkingDirectory))
     }
 
     if (mode === 'assistant') {

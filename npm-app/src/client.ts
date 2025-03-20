@@ -1,81 +1,87 @@
+import { spawn } from 'child_process'
+import * as fs from 'fs'
+import path from 'path'
+
 import {
   yellow,
   red,
   green,
   bold,
-  blue,
-  cyan,
   underline,
   blueBright,
+  blue,
 } from 'picocolors'
-import { APIRealtimeClient } from 'common/websockets/websocket-client'
+import * as readline from 'readline'
+import { match, P } from 'ts-pattern'
 
+import {
+  FileChanges,
+  FileChangeSchema,
+  InitResponseSchema,
+  PromptResponseSchema,
+  ServerAction,
+  UsageReponseSchema,
+  UsageResponse,
+  MessageCostResponse,
+  MessageCostResponseSchema,
+} from 'common/actions'
+import { User } from 'common/util/credentials'
+import {
+  CREDITS_REFERRAL_BONUS,
+  REQUEST_CREDIT_SHOW_THRESHOLD,
+} from 'common/constants'
+import {
+  AgentState,
+  ToolResult,
+  getInitialAgentState,
+} from 'common/types/agent-state'
+import { FileVersion, ProjectFileContext } from 'common/util/file'
+import { APIRealtimeClient } from 'common/websockets/websocket-client'
+import type { CostMode } from 'common/constants'
+import { setMessages } from './chat-storage'
+
+import { activeBrowserRunner } from './browser-runner'
+import { checkpointManager, Checkpoint } from './checkpoints/checkpoint-manager'
+import { backendUrl, websiteUrl } from './config'
+import { userFromJson, CREDENTIALS_PATH } from './credentials'
+import { calculateFingerprint } from './fingerprint'
+import { displayGreeting } from './menu'
 import {
   getFiles,
   getProjectFileContext,
   getProjectRoot,
 } from './project-files'
-import { activeBrowserRunner, BrowserRunner } from './browser-runner'
-import { applyChanges } from 'common/util/changes'
-import { User } from 'common/util/credentials'
-import { userFromJson, CREDENTIALS_PATH } from './credentials'
-import { ChatStorage } from './chat-storage'
-import {
-  FileChanges,
-  InitResponseSchema,
-  Message,
-  ResponseCompleteSchema,
-  SERVER_ACTION_SCHEMA,
-  ServerAction,
-  UsageReponseSchema,
-  UsageResponse,
-} from 'common/actions'
-import { toolHandlers } from './tool-handlers'
-import {
-  CREDITS_REFERRAL_BONUS,
-  CREDITS_USAGE_LIMITS,
-  TOOL_RESULT_MARKER,
-  type CostMode,
-} from 'common/constants'
-import * as readline from 'readline'
-
-import { uniq } from 'lodash'
-import path from 'path'
-import * as fs from 'fs'
-import { truncateString } from 'common/util/string'
-import { match, P } from 'ts-pattern'
-import { calculateFingerprint } from './fingerprint'
-import { FileVersion, ProjectFileContext } from 'common/util/file'
-import { stagePatches } from 'common/util/git'
+import { handleToolCall } from './tool-handlers'
 import { GitCommand } from './types'
-import { displayGreeting } from './menu'
-import { spawn } from 'child_process'
 import { Spinner } from './utils/spinner'
+import { createXMLStreamParser } from './utils/xml-stream-parser'
+import { toolRenderers } from './utils/tool-renderers'
+import { pluralize } from 'common/util/string'
 
 export class Client {
   private webSocket: APIRealtimeClient
-  private chatStorage: ChatStorage
-  private currentUserInputId: string | undefined
   private returnControlToUser: () => void
   private fingerprintId: string | undefined
   private costMode: CostMode
-  public fileVersions: FileVersion[][] = []
   public fileContext: ProjectFileContext | undefined
+  public lastChanges: FileChanges = []
+  public agentState: AgentState | undefined
+  public originalFileVersions: Record<string, string | null> = {}
+  public creditsByPromptId: Record<string, number[]> = {}
 
   public user: User | undefined
   public lastWarnedPct: number = 0
   public usage: number = 0
   public limit: number = 0
   public subscription_active: boolean = false
-  public lastRequestCredits: number = 0
-  public sessionCreditsUsed: number = 0
   public nextQuotaReset: Date | null = null
+  private hadFileChanges: boolean = false
   private git: GitCommand
   private rl: readline.Interface
+  private lastToolResults: ToolResult[] = []
 
   constructor(
     websocketUrl: string,
-    chatStorage: ChatStorage,
     onWebSocketError: () => void,
     onWebSocketReconnect: () => void,
     returnControlToUser: () => void,
@@ -90,7 +96,6 @@ export class Client {
       onWebSocketError,
       onWebSocketReconnect
     )
-    this.chatStorage = chatStorage
     this.user = this.getUser()
     this.getFingerprintId()
     this.returnControlToUser = returnControlToUser
@@ -104,15 +109,9 @@ export class Client {
     process.exit(0)
   }
 
-  public initFileVersions(projectFileContext: ProjectFileContext) {
-    const { knowledgeFiles } = projectFileContext
+  public initAgentState(projectFileContext: ProjectFileContext) {
+    this.agentState = getInitialAgentState(projectFileContext)
     this.fileContext = projectFileContext
-    this.fileVersions = [
-      Object.entries(knowledgeFiles).map(([path, content]) => ({
-        path,
-        content,
-      })),
-    ]
   }
 
   private async getFingerprintId(): Promise<string> {
@@ -141,7 +140,6 @@ export class Client {
 
   async handleReferralCode(referralCode: string) {
     if (this.user) {
-      // User is logged in, so attempt to redeem referral code directly
       try {
         const redeemReferralResp = await fetch(
           `${process.env.NEXT_PUBLIC_APP_URL}/api/referrals`,
@@ -183,30 +181,148 @@ export class Client {
 
   async logout() {
     if (this.user) {
-      // If there was an existing user, clear their existing state
-      this.webSocket.sendAction({
-        type: 'clear-auth-token',
-        authToken: this.user.authToken,
-        userId: this.user.id,
-        fingerprintId: this.user.fingerprintId,
-        fingerprintHash: this.user.fingerprintHash,
-      })
-
-      // attempt to delete credentials file
       try {
-        fs.unlinkSync(CREDENTIALS_PATH)
-        console.log(`Logged you out of your account (${this.user.name})`)
-        this.user = undefined
-      } catch (error) {}
+        const response = await fetch(`${websiteUrl}/api/auth/cli/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            authToken: this.user.authToken,
+            userId: this.user.id,
+            fingerprintId: this.user.fingerprintId,
+            fingerprintHash: this.user.fingerprintHash,
+          }),
+        })
+
+        if (!response.ok) {
+          const error = await response.text()
+          console.error(red('Failed to log out: ' + error))
+        }
+
+        try {
+          fs.unlinkSync(CREDENTIALS_PATH)
+          console.log(`You (${this.user.name}) have been logged out.`)
+          this.user = undefined
+        } catch (error) {
+          console.error('Error removing credentials file:', error)
+        }
+      } catch (error) {
+        console.error('Error during logout:', error)
+      }
     }
   }
 
   async login(referralCode?: string) {
-    this.webSocket.sendAction({
-      type: 'login-code-request',
-      fingerprintId: await this.getFingerprintId(),
-      referralCode,
-    })
+    if (this.user) {
+      console.log(
+        `You are currently logged in as ${this.user.name}. Please enter "logout" first if you want to login as a different user.`
+      )
+      this.returnControlToUser()
+      return
+    }
+
+    try {
+      const response = await fetch(`${websiteUrl}/api/auth/cli/code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fingerprintId: await this.getFingerprintId(),
+          referralCode,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        console.error(red('Login code request failed: ' + error))
+        this.returnControlToUser()
+        return
+      }
+
+      const { loginUrl, fingerprintHash } = await response.json()
+
+      const responseToUser = [
+        '\n',
+        `Press ${blue('ENTER')} to open your browser and finish logging in...`,
+      ]
+
+      console.log(responseToUser.join('\n'))
+
+      let shouldRequestLogin = true
+      this.rl.once('line', () => {
+        if (shouldRequestLogin) {
+          spawn(`open ${loginUrl}`, { shell: true })
+          console.log(
+            'Done. If nothing happened, copy and paste this link into your browser:'
+          )
+          console.log()
+          console.log(blue(bold(underline(loginUrl))))
+        }
+      })
+
+      const initialTime = Date.now()
+      const pollInterval = setInterval(async () => {
+        if (Date.now() - initialTime > 5 * 60 * 1000 && shouldRequestLogin) {
+          shouldRequestLogin = false
+          console.log(
+            'Unable to login. Please try again by typing "login" in the terminal.'
+          )
+          this.returnControlToUser()
+          clearInterval(pollInterval)
+          return
+        }
+
+        if (!shouldRequestLogin) {
+          clearInterval(pollInterval)
+          return
+        }
+
+        try {
+          const statusResponse = await fetch(
+            `${websiteUrl}/api/auth/cli/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}`
+          )
+
+          if (!statusResponse.ok) {
+            if (statusResponse.status !== 401) {
+              // Ignore 401s during polling
+              console.error(
+                'Error checking login status:',
+                await statusResponse.text()
+              )
+            }
+            return
+          }
+
+          const { user, message } = await statusResponse.json()
+          if (user) {
+            shouldRequestLogin = false
+            this.user = user
+            const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
+            fs.mkdirSync(credentialsPathDir, { recursive: true })
+            fs.writeFileSync(
+              CREDENTIALS_PATH,
+              JSON.stringify({ default: user })
+            )
+
+            const referralLink = `${process.env.NEXT_PUBLIC_APP_URL}/referrals`
+            const responseToUser = [
+              'Authentication successful! 🎉',
+              bold(`Hey there, ${user.name}.`),
+              `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month: ${blueBright(referralLink)}`,
+            ]
+            console.log('\n' + responseToUser.join('\n'))
+            this.lastWarnedPct = 0
+
+            displayGreeting(this.costMode, null)
+            clearInterval(pollInterval)
+            this.returnControlToUser()
+          }
+        } catch (error) {
+          console.error('Error checking login status:', error)
+        }
+      }, 5000)
+    } catch (error) {
+      console.error('Error during login:', error)
+      this.returnControlToUser()
+    }
   }
 
   public setUsage({
@@ -214,21 +330,11 @@ export class Client {
     limit,
     subscription_active,
     next_quota_reset,
-    referralLink,
-    session_credits_used,
   }: Omit<UsageResponse, 'type'>) {
     this.usage = usage
     this.limit = limit
     this.subscription_active = subscription_active
     this.nextQuotaReset = next_quota_reset
-    if (!!session_credits_used) {
-      this.lastRequestCredits = Math.max(
-        session_credits_used - this.sessionCreditsUsed,
-        0
-      )
-      this.sessionCreditsUsed = session_credits_used
-    }
-    // this.showUsageWarning(referralLink)
   }
 
   private setupSubscriptions() {
@@ -238,94 +344,14 @@ export class Client {
       return
     })
 
-    this.webSocket.subscribe('tool-call', async (a) => {
-      const {
-        response,
-        changes,
-        changesAlreadyApplied,
-        data,
-        userInputId,
-        addedFileVersions,
-        resetFileVersions,
-      } = a
-      if (userInputId !== this.currentUserInputId) {
-        return
-      }
-      if (resetFileVersions) {
-        this.fileVersions = [addedFileVersions]
-      } else {
-        this.fileVersions.push(addedFileVersions)
-      }
-      Spinner.get().stop()
-
-      const filesChanged = uniq(changes.map((change) => change.filePath))
-      this.chatStorage.saveFilesChanged(filesChanged)
-
-      // Stage files about to be changed if flag was set
-      if (this.git === 'stage' && changes.length > 0) {
-        const didStage = stagePatches(getProjectRoot(), changes)
-        if (didStage) {
-          console.log(green('\nStaged previous changes'))
-        }
-      }
-
-      applyChanges(getProjectRoot(), changes)
-
-      const { id, name, input } = data
-
-      const currentChat = this.chatStorage.getCurrentChat()
-      const messages = currentChat.messages
-      if (messages[messages.length - 1].role === 'assistant') {
-        // Probably the last response from the assistant was cancelled and added immediately.
-        return
-      }
-
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: response,
-      }
-      this.chatStorage.addMessage(
-        this.chatStorage.getCurrentChat(),
-        assistantMessage
-      )
-
-      const handler = toolHandlers[name]
-      if (handler) {
-        const content = await handler(input, id)
-        const toolResultMessage: Message = {
-          role: 'user',
-          content: match(content)
-            .with({ screenshots: P.not(P.nullish) }, (response) => [
-              ...(response.screenshots.pre ? [response.screenshots.pre] : []),
-              {
-                type: 'text' as const,
-                text: JSON.stringify({ ...response, screenshots: undefined }),
-              },
-              response.screenshots.post,
-            ])
-            .with(P.string, (str) => str)
-            .otherwise((val) => JSON.stringify(val)),
-        }
-        this.chatStorage.addMessage(
-          this.chatStorage.getCurrentChat(),
-          toolResultMessage
-        )
-        await this.sendUserInput(
-          [...changesAlreadyApplied, ...changes],
-          userInputId
-        )
-      } else {
-        console.error(`No handler found for tool: ${name}`)
-      }
-    })
-
     this.webSocket.subscribe('read-files', (a) => {
-      const { filePaths } = a
+      const { filePaths, requestId } = a
       const files = getFiles(filePaths)
 
       this.webSocket.sendAction({
         type: 'read-files-response',
         files,
+        requestId,
       })
     })
 
@@ -340,110 +366,31 @@ export class Client {
       }
     })
 
-    let shouldRequestLogin = true
-    this.webSocket.subscribe(
-      'login-code-response',
-      async ({ loginUrl, fingerprintHash }) => {
-        shouldRequestLogin = true
-        const responseToUser = [
-          '\n',
-          'Press Enter to open the browser or visit:\n',
-          bold(underline(blueBright(loginUrl))),
-        ]
+    this.webSocket.subscribe('message-cost-response', (action) => {
+      const parsedAction = MessageCostResponseSchema.safeParse(action)
+      if (!parsedAction.success) return
+      const response = parsedAction.data
 
-        console.log(responseToUser.join('\n'))
-        this.rl.once('line', () => {
-          spawn(`open ${loginUrl}`, {
-            shell: true,
-          })
-        })
-
-        // call backend every few seconds to check if user has been created yet, using our fingerprintId, for up to 5 minutes
-        const initialTime = Date.now()
-        const handler = setInterval(async () => {
-          if (Date.now() - initialTime > 5 * 60 * 1000 && shouldRequestLogin) {
-            shouldRequestLogin = false
-            console.log(
-              'Unable to login. Please try again by typing "login" in the terminal.'
-            )
-            this.returnControlToUser()
-            clearInterval(handler)
-            return
-          }
-
-          if (!shouldRequestLogin) {
-            clearInterval(handler)
-            return
-          }
-
-          this.webSocket.sendAction({
-            type: 'login-status-request',
-            fingerprintId: await this.getFingerprintId(),
-            fingerprintHash,
-          })
-        }, 5000)
+      // Store credits used for this prompt
+      if (!this.creditsByPromptId[response.promptId]) {
+        this.creditsByPromptId[response.promptId] = []
       }
-    )
-
-    this.webSocket.subscribe('auth-result', async (action) => {
-      shouldRequestLogin = false
-
-      if (action.user) {
-        await this.logout() // remove existing user, if it exists
-
-        this.user = action.user
-
-        // Store in config file
-        const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
-        fs.mkdirSync(credentialsPathDir, { recursive: true })
-        fs.writeFileSync(
-          CREDENTIALS_PATH,
-          JSON.stringify({ default: action.user })
-        )
-        const referralLink = `${process.env.NEXT_PUBLIC_APP_URL}/referrals`
-        const responseToUser = [
-          'Authentication successful! 🎉',
-          bold(`Hey there, ${action.user.name}.`),
-          `Refer new users and earn ${CREDITS_REFERRAL_BONUS} credits per month for each of them: ${blueBright(referralLink)}`,
-        ]
-        console.log('\n' + responseToUser.join('\n'))
-        this.lastWarnedPct = 0
-
-        displayGreeting(this.costMode, null)
-
-        this.returnControlToUser()
-        // this.getUsage()
-      } else {
-        console.warn(
-          `Authentication failed: ${action.message}. Please try again in a few minutes or contact support at ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL}.`
-        )
-      }
+      this.creditsByPromptId[response.promptId].push(response.credits)
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
       const parsedAction = UsageReponseSchema.safeParse(action)
       if (!parsedAction.success) return
-      const a = parsedAction.data
-      console.log()
-      console.log(
-        green(underline(`Codebuff usage:`)),
-        `${a.usage} / ${a.limit} credits`
-      )
-      this.setUsage(a)
-      this.returnControlToUser()
+
+      this.setUsage(parsedAction.data)
     })
   }
 
-  public showUsageWarning(referralLink?: string) {
+  public showUsageWarning() {
     const errorCopy = [
       this.user
-        ? green(`Visit ${process.env.NEXT_PUBLIC_APP_URL}/pricing to upgrade.`)
+        ? `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))} to upgrade – or refer a new user and earn ${CREDITS_REFERRAL_BONUS} credits per month: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/referrals'))}`
         : green('Type "login" below to sign up and get more credits!'),
-      referralLink
-        ? green(
-            `Refer friends by sharing this link and you'll ${bold(`each earn ${CREDITS_REFERRAL_BONUS} credits per month`)}: ${referralLink}`
-          )
-        : '',
     ].join('\n')
 
     const pct: number = match(Math.floor((this.usage / this.limit) * 100))
@@ -451,25 +398,25 @@ export class Client {
       .with(P.number.gte(75), () => 75)
       .otherwise(() => 0)
 
-    // User has used all their allotted credits, but they haven't been notified yet
-    if (pct >= 100 && this.lastWarnedPct < 100) {
-      if (this.subscription_active) {
+    if (pct >= 100) {
+      this.lastWarnedPct = 100
+      if (!this.subscription_active) {
+        console.error(
+          [red('You have reached your monthly usage limit.'), errorCopy].join(
+            '\n'
+          )
+        )
+        return
+      }
+
+      if (this.subscription_active && this.lastWarnedPct < 100) {
         console.warn(
           yellow(
             `You have exceeded your monthly quota, but feel free to keep using Codebuff! We'll continue to charge you for the overage until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/usage for more details.`
           )
         )
-        this.lastWarnedPct = 100
         return
       }
-      console.error(
-        [red('You have reached your monthly usage limit.'), errorCopy].join(
-          '\n'
-        )
-      )
-      this.returnControlToUser()
-      this.lastWarnedPct = 100
-      return
     }
 
     if (pct > 0 && pct > this.lastWarnedPct) {
@@ -505,50 +452,64 @@ export class Client {
     })
   }
 
-  async sendUserInput(previousChanges: FileChanges, userInputId: string) {
-    Spinner.get().start()
-    this.currentUserInputId = userInputId
-    const currentChat = this.chatStorage.getCurrentChat()
-    const { messages, fileVersions: messageFileVersions } = currentChat
+  async sendUserInput(prompt: string) {
+    if (!this.agentState) {
+      throw new Error('Agent state not initialized')
+    }
+    const userInputId =
+      `mc-input-` + Math.random().toString(36).substring(2, 15)
 
-    const currentFileVersion =
-      messageFileVersions[messageFileVersions.length - 1]?.files ?? {}
-    const fileContext = await getProjectFileContext(
-      getProjectRoot(),
-      currentFileVersion,
-      this.fileVersions
-    )
-    this.fileContext = fileContext
-    this.webSocket.sendAction({
-      type: 'user-input',
+    const { responsePromise, stopResponse } = this.subscribeToResponse(
+      (chunk) => {
+        Spinner.get().stop()
+        process.stdout.write(chunk)
+      },
       userInputId,
-      messages,
-      fileContext,
-      changesAlreadyApplied: previousChanges,
+      () => {
+        Spinner.get().stop()
+        process.stdout.write(green(underline('\nCodebuff') + ':') + ' ')
+      },
+      prompt
+    )
+
+    Spinner.get().start()
+    this.webSocket.sendAction({
+      type: 'prompt',
+      promptId: userInputId,
+      prompt,
+      agentState: this.agentState,
+      toolResults: this.lastToolResults,
       fingerprintId: await this.getFingerprintId(),
       authToken: this.user?.authToken,
       costMode: this.costMode,
     })
+
+    return {
+      responsePromise,
+      stopResponse,
+    }
   }
 
-  subscribeToResponse(
+  private subscribeToResponse(
     onChunk: (chunk: string) => void,
     userInputId: string,
-    onStreamStart: () => void
+    onStreamStart: () => void,
+    prompt: string
   ) {
     let responseBuffer = ''
+    let streamStarted = false
+    let responseStopped = false
     let resolveResponse: (
-      value: ServerAction & { type: 'response-complete' } & {
+      value: ServerAction & { type: 'prompt-response' } & {
         wasStoppedByUser: boolean
       }
     ) => void
     let rejectResponse: (reason?: any) => void
     let unsubscribeChunks: () => void
     let unsubscribeComplete: () => void
-    let streamStarted = false
 
     const responsePromise = new Promise<
-      ServerAction & { type: 'response-complete' } & {
+      ServerAction & { type: 'prompt-response' } & {
         wasStoppedByUser: boolean
       }
     >((resolve, reject) => {
@@ -557,71 +518,145 @@ export class Client {
     })
 
     const stopResponse = () => {
-      this.currentUserInputId = undefined
+      responseStopped = true
       unsubscribeChunks()
       unsubscribeComplete()
+
+      const assistantMessage = {
+        role: 'assistant' as const,
+        content: responseBuffer + '[RESPONSE_CANCELED_BY_USER]',
+      }
+
+      // Update the agent state with just the assistant's response
+      const { messageHistory } = this.agentState!
+      const newMessages = [...messageHistory, assistantMessage]
+      this.agentState = {
+        ...this.agentState!,
+        messageHistory: newMessages,
+      }
+      setMessages(newMessages)
+
       resolveResponse({
-        userInputId,
-        response: responseBuffer + '\n[RESPONSE_STOPPED_BY_USER]',
-        changes: [],
-        changesAlreadyApplied: [],
-        addedFileVersions: [],
-        resetFileVersions: false,
-        type: 'response-complete',
+        type: 'prompt-response',
+        promptId: userInputId,
+        agentState: this.agentState!,
+        toolCalls: [],
+        toolResults: [],
         wasStoppedByUser: true,
       })
     }
+
+    const xmlStreamParser = createXMLStreamParser(toolRenderers, (chunk) => {
+      onChunk(chunk)
+      responseBuffer += chunk
+    })
 
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
-      if (!streamStarted && chunk.trim()) {
-        streamStarted = true
-        onStreamStart()
+      if (chunk && chunk.trim()) {
+        if (!streamStarted && chunk.trim()) {
+          streamStarted = true
+          onStreamStart()
+        }
       }
 
-      responseBuffer += chunk
-      onChunk(chunk)
+      try {
+        xmlStreamParser.write(chunk, 'utf8')
+      } catch (e) {
+        // console.error('Error writing chunk', e)
+      }
     })
 
     unsubscribeComplete = this.webSocket.subscribe(
-      'response-complete',
-      (action) => {
-        const parsedAction = ResponseCompleteSchema.safeParse(action)
-        if (!parsedAction.success || action.userInputId !== userInputId) return
+      'prompt-response',
+      async (action) => {
+        const parsedAction = PromptResponseSchema.safeParse(action)
+        if (!parsedAction.success) return
+        if (action.promptId !== userInputId) return
         const a = parsedAction.data
-        unsubscribeChunks()
-        unsubscribeComplete()
-        if (a.resetFileVersions) {
-          this.fileVersions = [a.addedFileVersions]
-        } else {
-          this.fileVersions.push(a.addedFileVersions)
-        }
-        resolveResponse({ ...a, wasStoppedByUser: false })
-        this.currentUserInputId = undefined
 
-        if (
-          !a.usage ||
-          !a.next_quota_reset ||
-          a.subscription_active === undefined ||
-          !a.limit
-        ) {
+        Spinner.get().stop()
+
+        this.agentState = a.agentState
+        let isComplete = false
+        const toolResults: ToolResult[] = [...a.toolResults]
+
+        for (const toolCall of a.toolCalls) {
+          if (toolCall.name === 'end_turn') {
+            isComplete = true
+            continue
+          }
+          if (toolCall.name === 'write_file') {
+            // Save lastChanges for `diff` command
+            this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
+            this.hadFileChanges = true
+          }
+          if (
+            toolCall.name === 'run_terminal_command' &&
+            toolCall.parameters.mode === 'user'
+          ) {
+            // Special case: when terminal command is run it as a user command, then no need to reprompt assistant.
+            isComplete = true
+          }
+          const toolResult = await handleToolCall(toolCall, getProjectRoot())
+          toolResults.push(toolResult)
+        }
+
+        // If we had any file changes, update the project context
+        if (this.hadFileChanges) {
+          this.fileContext = await getProjectFileContext(getProjectRoot(), {})
+        }
+
+        if (!isComplete) {
+          // Continue the prompt with the tool results.
+          this.webSocket.sendAction({
+            type: 'prompt',
+            promptId: userInputId,
+            prompt: undefined,
+            agentState: this.agentState,
+            toolResults,
+            fingerprintId: await this.getFingerprintId(),
+            authToken: this.user?.authToken,
+            costMode: this.costMode,
+          })
           return
         }
 
-        this.setUsage({
-          usage: a.usage,
-          limit: a.limit,
-          subscription_active: a.subscription_active,
-          next_quota_reset: a.next_quota_reset,
-          session_credits_used: a.session_credits_used ?? 0,
-        })
+        this.lastToolResults = toolResults
+        xmlStreamParser.end()
 
-        // Indicates a change in the user's plan
-        if (this.limit !== a.limit) {
-          this.lastWarnedPct = 0
+        if (this.agentState) {
+          setMessages(this.agentState.messageHistory)
         }
+
+        // Show total credits used for this prompt if significant
+        const credits =
+          this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
+        if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
+          console.log(
+            `\n${pluralize(credits, 'credit')} used for this request.`
+          )
+        }
+
+        if (this.hadFileChanges) {
+          const latestCheckpoint = checkpointManager.getLatestCheckpoint()
+          const displayedCheckpointString =
+            latestCheckpoint === null
+              ? ''
+              : ` or "checkpoint ${latestCheckpoint.id}" to revert`
+          console.log(
+            `\nComplete! Type "diff" to review changes${displayedCheckpointString}.`
+          )
+          this.hadFileChanges = false
+        }
+
+        this.showUsageWarning()
+
+        unsubscribeChunks()
+        unsubscribeComplete()
+        resolveResponse({ ...a, wasStoppedByUser: false })
       }
     )
 
@@ -632,25 +667,57 @@ export class Client {
   }
 
   public async getUsage() {
-    this.webSocket.sendAction({
-      type: 'usage',
-      fingerprintId: await this.getFingerprintId(),
-      authToken: this.user?.authToken,
-    })
+    try {
+      const response = await fetch(`${backendUrl}/api/usage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fingerprintId: await this.getFingerprintId(),
+          authToken: this.user?.authToken,
+        }),
+      })
+
+      const data = await response.json()
+
+      // Use zod schema to validate response
+      const parsedResponse = UsageReponseSchema.parse(data)
+
+      if (data.type === 'action-error') {
+        console.error(red(data.message))
+        return
+      }
+
+      this.setUsage(parsedResponse)
+
+      console.log(
+        green(underline(`Codebuff usage:`)),
+        `${parsedResponse.usage} / ${parsedResponse.limit} credits`
+      )
+
+      this.showUsageWarning()
+    } catch (error) {
+      console.log({ error })
+
+      console.error(
+        red(
+          `Error checking usage: Please reach out to ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+        )
+      )
+    } finally {
+      this.returnControlToUser()
+    }
   }
 
   public async warmContextCache() {
-    const fileContext = await getProjectFileContext(
-      getProjectRoot(),
-      {},
-      this.fileVersions
-    )
+    const fileContext = await getProjectFileContext(getProjectRoot(), {})
 
-    // Don't wait for response anymore.
     this.webSocket.subscribe('init-response', (a) => {
       const parsedAction = InitResponseSchema.safeParse(a)
       if (!parsedAction.success) return
 
+      // Set initial usage data from the init response
       this.setUsage(parsedAction.data)
     })
 
@@ -660,9 +727,6 @@ export class Client {
         fingerprintId: await this.getFingerprintId(),
         authToken: this.user?.authToken,
         fileContext,
-      })
-      .catch((e) => {
-        // console.error('Error warming context cache', e)
       })
   }
 }

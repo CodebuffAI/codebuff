@@ -24,18 +24,9 @@ export function getProjectDataDir(): string {
   const baseName = path.basename(root)
   const baseDir = path.join(CONFIG_DIR, 'projects', baseName)
 
-  // If directory doesn't exist or matches our path, use simple name
-  if (!fs.existsSync(baseDir) || fs.realpathSync(baseDir) === baseDir) {
-    return baseDir
-  }
-
-  // Only add hash if we have a collision
-  const projectHash = require('crypto')
-    .createHash('sha256')
-    .update(root)
-    .digest('hex')
-    .slice(0, 8)
-  return path.join(CONFIG_DIR, 'projects', `${baseName}-${projectHash}`)
+  // TODO: Need to handle duplicate project directories after adding automatic
+  // feedback feature
+  return baseDir
 }
 
 export function getCurrentChatDir(): string {
@@ -58,12 +49,15 @@ import {
 import { getFileTokenScores } from 'code-map/parse'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import { getSystemInfo } from './utils/system-info'
+import { checkpointManager } from './checkpoints/checkpoint-manager'
 
 const execAsync = promisify(exec)
 
 let projectRoot: string
 
 export function setProjectRoot(dir: string | undefined) {
+  checkpointManager.clearCheckpoints()
+
   const newDir = path.resolve(dir || getCurrentDirectory())
   if (fs.existsSync(newDir)) {
     if (projectRoot) {
@@ -99,8 +93,8 @@ export function initProjectFileContextWithWorker(dir: string) {
   // NOTE: Uses the built worker-script-project-context.js within dist.
   // So you need to run `bun run build` before running locally.
   const workerPath = __filename.endsWith('.ts')
-    ? path.join(__dirname, '..', 'dist', 'worker-script-project-context.js')
-    : path.join(__dirname, 'worker-script-project-context.js')
+    ? path.join(__dirname, '..', 'dist', 'workers/project-context.js')
+    : path.join(__dirname, 'workers/project-context.js')
   const worker = new Worker(workerPath as any)
 
   worker.postMessage({ dir })
@@ -114,18 +108,34 @@ export function initProjectFileContextWithWorker(dir: string) {
   })
 }
 
+/**
+ * Retrieves or updates the project file context for a given project.
+ *
+ * This function gathers comprehensive information about the project's files, structure,
+ * and state. It either creates a new context if one doesn't exist for the specified
+ * project root, or updates an existing cached context with new information.
+ *
+ * The context includes:
+ * - File tree structure
+ * - Token scores for code analysis
+ * - Knowledge files (project-specific documentation)
+ * - User knowledge files (from home directory)
+ * - Git changes and status
+ * - Changes since the last file version
+ * - Shell configuration files
+ * - System information
+ *
+ * @param {string} projectRoot - The root directory path of the project
+ * @param {Record<string, string>} lastFileVersion - Record of the last known file versions
+ * @param {FileVersion[][]} newFileVersions - Array of file version arrays, representing the history of file changes
+ * @returns {Promise<ProjectFileContext>} A promise that resolves to the project file context object
+ */
 export const getProjectFileContext = async (
   projectRoot: string,
-  lastFileVersion: Record<string, string>,
-  fileVersions: FileVersion[][]
+  lastFileVersion: Record<string, string>
 ) => {
   const gitChanges = await getGitChanges()
   const changesSinceLastChat = getChangesSinceLastFileVersion(lastFileVersion)
-  const updatedProps = {
-    gitChanges,
-    changesSinceLastChat,
-    fileVersions,
-  }
 
   if (
     !cachedProjectFileContext ||
@@ -139,13 +149,21 @@ export const getProjectFileContext = async (
     const knowledgeFilePaths = allFilePaths.filter((filePath) =>
       filePath.endsWith('knowledge.md')
     )
-    const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
+    const knowledgeFiles = await getExistingFiles(knowledgeFilePaths)
     const knowledgeFilesWithScrapedContent =
       await addScrapedContentToFiles(knowledgeFiles)
 
+    // Calculate file versions from the cached context if it exists
+    const fileVersions = [
+      Object.entries(knowledgeFiles).map(([path, content]) => ({
+        path,
+        content,
+      })),
+    ]
+
     // Get knowledge files from user's home directory
     const homeDir = os.homedir()
-    const userKnowledgeFiles = findKnowledgeFilesInDir(homeDir)
+    const userKnowledgeFiles = await findKnowledgeFilesInDir(homeDir)
     const userKnowledgeFilesWithScrapedContent =
       await addScrapedContentToFiles(userKnowledgeFiles)
 
@@ -157,21 +175,39 @@ export const getProjectFileContext = async (
       fileTree,
       fileTokenScores,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
-      userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,
       shellConfigFiles,
       systemInfo: getSystemInfo(),
-      ...updatedProps,
-    }
-  } else {
-    cachedProjectFileContext = {
-      ...cachedProjectFileContext,
-      ...updatedProps,
+      userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,
+      gitChanges,
+      changesSinceLastChat,
+      fileVersions,
     }
   }
 
   return cachedProjectFileContext
 }
 
+/**
+ * Retrieves information about the current state of the Git repository.
+ *
+ * This asynchronous function executes several Git commands to gather comprehensive
+ * information about the repository's current state, including:
+ * - Current status (modified files, untracked files, etc.)
+ * - Uncommitted changes (diff)
+ * - Staged changes (cached diff)
+ * - Recent commit messages (from the last 10 commits)
+ *
+ * The function uses the global projectRoot variable to determine which repository
+ * to query. If any Git command fails (e.g., if the directory is not a Git repository),
+ * the function gracefully handles the error and returns empty strings for all properties.
+ *
+ * @returns {Promise<{status: string, diff: string, diffCached: string, lastCommitMessages: string}>}
+ *          A promise that resolves to an object containing Git repository information:
+ *          - status: Output of 'git status' command
+ *          - diff: Output of 'git diff' command showing uncommitted changes
+ *          - diffCached: Output of 'git diff --cached' command showing staged changes
+ *          - lastCommitMessages: Recent commit messages, formatted as a newline-separated string
+ */
 async function getGitChanges() {
   try {
     const { stdout: status } = await execAsync('git status', {
@@ -200,6 +236,23 @@ async function getGitChanges() {
   }
 }
 
+/**
+ * Identifies changes between the last known version of files and their current state on disk.
+ *
+ * This function compares each file in the provided lastFileVersion record with its current
+ * content on disk. For files that have changed, it generates a patch using the diff library's
+ * createPatch function. Files that haven't changed or can't be read are filtered out from
+ * the result.
+ *
+ * The function is used to track changes made to files since the last interaction or session,
+ * which helps maintain context about what has changed in the project over time.
+ *
+ * @param {Record<string, string>} lastFileVersion - A record mapping file paths to their
+ *        content as of the last known version
+ * @returns {Record<string, string>} A record mapping file paths to patch strings for files
+ *          that have changed since the last version. Files that haven't changed or couldn't
+ *          be read are not included in the result.
+ */
 export function getChangesSinceLastFileVersion(
   lastFileVersion: Record<string, string>
 ) {

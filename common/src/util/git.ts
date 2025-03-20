@@ -37,7 +37,7 @@ export function stageAllChanges(): boolean {
 
 export function stagePatches(dir: string, changes: FileChanges): boolean {
   try {
-    const fileNames = changes.map((change) => change.filePath)
+    const fileNames = changes.map((change) => change.path)
     const existingFileNames = fileNames.filter((filePath) =>
       fs.existsSync(path.join(dir, filePath))
     )

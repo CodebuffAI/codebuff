@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.161",
+  "version": "1.0.192",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -18,7 +18,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "test": "jest",
     "start-js": "bun run with-env -- node dist/index.js ..",
-    "start": "bun run with-env -- ts-node src/index.ts .. --git stage",
+    "start": "bun run with-env -- ts-node src/index.ts ..",
     "start-dir": "bun run with-env -- ts-node src/index.ts",
     "with-env": "env-cmd -f ./loadEnv.js",
     "start-manifold": "bun run with-env -- ts-node src/index.ts ../../manifold",
@@ -35,15 +35,17 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=14"
+    "node": ">=18"
   },
   "dependencies": {
     "@types/diff": "5.2.1",
     "@vscode/ripgrep": "1.15.9",
     "axios": "1.7.4",
+    "commander": "^13.1.0",
     "diff": "5.2.0",
     "env-cmd": "^10.1.0",
     "ignore": "5.3.2",
+    "isomorphic-git": "^1.29.0",
     "lodash": "*",
     "nanoid": "5.0.7",
     "picocolors": "1.1.0",

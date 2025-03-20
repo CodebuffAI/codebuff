@@ -1,17 +1,8 @@
 import { WebSocket } from 'ws'
 import { ClientAction, ServerAction } from 'common/actions'
-import { match, P } from 'ts-pattern'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
-import {
-  AnonymousQuotaManager,
-  AuthenticatedQuotaManager,
-} from 'common/billing/quota-manager'
-import { sql, eq } from 'drizzle-orm'
-import { genUsageResponse, sendAction } from './websocket-action'
+import { sendAction } from './websocket-action'
+import { checkAuth } from '../util/check-auth'
 import { logger } from '@/util/logger'
-import { env } from '@/env.mjs'
-import { getNextQuotaReset } from 'common/util/dates'
 
 export class WebSocketMiddleware {
   private middlewares: Array<
@@ -94,63 +85,9 @@ export class WebSocketMiddleware {
 export const protec = new WebSocketMiddleware()
 
 protec.use(async (action, clientSessionId, ws) =>
-  match(action)
-    .with(
-      { authToken: P.string, fingerprintId: P.string },
-      async ({ authToken, fingerprintId }) => {
-        const quota = await db
-          .select({
-            userId: schema.user.id,
-            quotaExceeded: sql<boolean>`COALESCE(${schema.user.quota_exceeded}, false)`,
-            nextQuotaReset: sql<string>`COALESCE(${schema.user.next_quota_reset}, now())`,
-          })
-          .from(schema.user)
-          .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
-          .where(eq(schema.session.sessionToken, authToken))
-          .limit(1)
-          .then((rows) => rows[0])
-
-        if (!quota) {
-          return {
-            type: 'action-error' as const,
-            message: `Unable to find user for given token ${authToken}! Please reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`,
-          }
-        }
-
-        const currentQuotaReset = new Date(quota.nextQuotaReset)
-        if (currentQuotaReset <= new Date()) {
-          const nextQuotaReset = getNextQuotaReset(currentQuotaReset)
-          logger.info(
-            {
-              userId: quota.userId,
-              fingerprintId,
-              currentQuotaReset,
-              nextQuotaReset,
-            },
-            `Setting next quota reset for user ${quota.userId}`
-          )
-          await Promise.all([
-            new AnonymousQuotaManager().setNextQuota(
-              fingerprintId,
-              false,
-              nextQuotaReset
-            ),
-            new AuthenticatedQuotaManager().setNextQuota(
-              quota.userId,
-              false,
-              nextQuotaReset
-            ),
-          ])
-          return
-        } else if (quota.quotaExceeded) {
-          logger.warn(`Quota exceeded for user ${quota.userId}`)
-          return genUsageResponse(clientSessionId, fingerprintId, quota.userId)
-        }
-        return
-      }
-    )
-    .otherwise(() => ({
-      type: 'action-error' as const,
-      message: `Access denied. Missing auth token, please enter "login" to continue.`,
-    }))
+  checkAuth({
+    fingerprintId: 'fingerprintId' in action ? action.fingerprintId : undefined,
+    authToken: 'authToken' in action ? action.authToken : undefined,
+    clientSessionId,
+  })
 )

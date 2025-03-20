@@ -61,26 +61,21 @@ export const ProjectFileContextSchema = z.object({
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
 
 export const createFileBlock = (filePath: string, content: string) => {
+  const tagName = 'write_file'
   return (
     '<' +
-    `edit_file path="${filePath}">
+    `${tagName}>
+<path>${filePath}</path>
+<content>
 ${content}
-</edit_file` +
-    '>'
-  )
-}
-export const createFileBlockWithoutPath = (content: string) => {
-  return (
-    '<' +
-    `edit_file>
-${content}
-</edit_file` +
-    '>'
+</content>
+</${tagName}>`
   )
 }
 
-export const fileRegex = /<edit_file path="([^"]+)">([\s\S]*?)<\/edit_file>/g
-export const fileWithNoPathRegex = /<edit_file>([\s\S]*?)<\/edit_file>/g
+export const fileRegex =
+  /<write_file>\s*<path>([^<]+)<\/path>\s*<content>([\s\S]*?)<\/content>\s*<\/write_file>/g
+export const fileWithNoPathRegex = /<write_file>([\s\S]*?)<\/write_file>/g
 
 export const parseFileBlocks = (fileBlocks: string) => {
   let fileMatch
@@ -90,18 +85,6 @@ export const parseFileBlocks = (fileBlocks: string) => {
     files[filePath] = fileContent.startsWith('\n')
       ? fileContent.slice(1)
       : fileContent
-  }
-  return files
-}
-
-export const parseFileBlocksWithoutPath = (fileBlocks: string) => {
-  let fileMatch
-  const files: string[] = []
-  while ((fileMatch = fileWithNoPathRegex.exec(fileBlocks)) !== null) {
-    const [, fileContent] = fileMatch
-    files.push(
-      fileContent.startsWith('\n') ? fileContent.slice(1) : fileContent
-    )
   }
   return files
 }
@@ -164,6 +147,24 @@ export function printFileTreeWithTokens(
     path.pop()
   }
   return result
+}
+
+/**
+ * Ensures the given file contents ends with a newline character.
+ * @param contents - The file contents
+ * @returns the file contents with a newline character.
+ */
+export const ensureEndsWithNewline = (
+  contents: string | null
+): string | null => {
+  if (contents === null || contents === '') {
+    // Leave empty file as is
+    return contents
+  }
+  if (contents.endsWith('\n')) {
+    return contents
+  }
+  return contents + '\n'
 }
 
 export const ensureDirectoryExists = (baseDir: string) => {

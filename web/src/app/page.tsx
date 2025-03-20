@@ -10,6 +10,8 @@ import {
   ZapIcon,
   Play,
   ExternalLink,
+  Copy,
+  Check,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
@@ -73,6 +75,35 @@ const ReviewCard = ({
   )
 }
 
+const InstallCommand = () => {
+  const [copied, setCopied] = useState(false)
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText('npm install -g codebuff')
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="flex items-center gap-3 bg-gradient-to-r from-blue-500/5 to-purple-500/5 hover:from-blue-500/10 hover:to-purple-500/10 rounded-lg border border-blue-200/20 dark:border-blue-800/20 px-6 py-5 transition-all group">
+      <code className="text-xl font-mono flex-1 select-all">
+        npm install -g codebuff
+      </code>
+      <button
+        onClick={copyToClipboard}
+        className="p-2.5 hover:bg-white/10 rounded-md transition-all opacity-60 group-hover:opacity-100"
+        aria-label={copied ? 'Copied!' : 'Copy command'}
+      >
+        {copied ? (
+          <Check className="h-5 w-5 text-green-500" />
+        ) : (
+          <Copy className="h-5 w-5" />
+        )}
+      </button>
+    </div>
+  )
+}
+
 const Home = () => {
   const { theme } = useTheme()
   const [isVideoOpen, setIsVideoOpen] = useState(false)
@@ -80,7 +111,6 @@ const Home = () => {
   const searchParams = useSearchParams()
 
   const handleGetStartedClick = () => {
-    // Track the event with PostHog
     posthog.capture('home.cta_clicked', {
       location: 'hero_section',
     })
@@ -111,14 +141,14 @@ const Home = () => {
         <div className="relative z-10 flex flex-col max-w-6xl mx-auto mt-8 mb-16 space-y-24">
           {/* Hero Section */}
           <section className="relative px-6 text-center">
-            <h1 className="text-4xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-br from-blue-600 via-blue-800 to-purple-700 dark:from-blue-400 dark:via-blue-600 dark:to-purple-500">
-              <span className="whitespace-nowrap">Code faster</span>{' '}
-              <span className="whitespace-nowrap">with AI</span>
+            <h1 className="text-4xl md:text-7xl font-bold mb-6 text-blue-800">
+              <span className="whitespace-nowrap">Upgrade your</span>{' '}
+              <span className="whitespace-nowrap">coding agent</span>
             </h1>
 
             <p className="text-lg md:text-xl mb-8 text-muted-foreground max-w-2xl mx-auto">
-              Your AI programming assistant that understands your entire
-              codebase
+              AI that understands your entire codebase. Run in your terminal or
+              IDE!
             </p>
 
             <section className="text-center mb-12">
@@ -294,25 +324,34 @@ const Home = () => {
           </section>
 
           {/* CTA Section */}
-          <section className="mb-32">
-            <div className="max-w-4xl mx-auto text-center px-4 py-16">
+          <section className="mb-16">
+            <div className="max-w-4xl mx-auto text-center px-4 py-12">
               <h2 className="text-3xl md:text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-br from-blue-600 via-blue-800 to-purple-700 dark:from-blue-400 dark:via-blue-600 dark:to-purple-500">
                 Ready to experience magic?
               </h2>
-              <p className="text-lg md:text-xl mb-8 text-muted-foreground">
-                Join thousands of developers who are coding faster with AI
+              <p className="text-lg md:text-xl mb-12 text-muted-foreground">
+                Start coding in less than a minute
               </p>
-              <Button
-                className="relative z-10 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white text-lg py-6 px-8 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 transform"
-                onClick={() => {
-                  posthog.capture('home.cta_clicked', {
-                    location: 'cta_section',
-                  })
-                  setIsInstallOpen(true)
-                }}
-              >
-                Start Coding with AI
-              </Button>
+
+              <div className="max-w-sm mx-auto space-y-6">
+                <InstallCommand />
+
+                <div className="text-sm text-muted-foreground">
+                  First time? Check out our{' '}
+                  <Button
+                    variant="link"
+                    className="text-sm text-blue-500 hover:text-blue-400 p-0 h-auto"
+                    onClick={() => {
+                      posthog.capture('home.cta_clicked', {
+                        location: 'cta_section',
+                      })
+                      setIsInstallOpen(true)
+                    }}
+                  >
+                    step-by-step guide
+                  </Button>
+                </div>
+              </div>
             </div>
           </section>
         </div>

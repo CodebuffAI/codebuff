@@ -6,9 +6,11 @@ import { DirectoryNode, FileTreeNode } from './util/file'
 import { sortBy } from 'lodash'
 import { DEFAULT_IGNORED_FILES } from './constants'
 
+export const DEFAULT_MAX_FILES = 10_000
+
 export function getProjectFileTree(
   projectRoot: string,
-  { maxFiles = 10_000 }: { maxFiles?: number } = {}
+  { maxFiles = DEFAULT_MAX_FILES }: { maxFiles?: number } = {}
 ): FileTreeNode[] {
   const defaultIgnore = ignore.default()
   for (const pattern of DEFAULT_IGNORED_FILES) {

@@ -1,9 +1,6 @@
-import { WebSocket } from 'ws'
 import { createPatch } from 'diff'
-import { FileChange, Message } from 'common/actions'
+import { Message } from 'common/types/message'
 import { logger } from './util/logger'
-import { requestFile } from './websockets/websocket-action'
-import { promptRelaceAI } from './relace-api'
 import { cleanMarkdownCodeBlock, parseFileBlocks } from 'common/util/file'
 import { generateCompactId, hasLazyEdit } from 'common/util/string'
 import { countTokens } from './util/token-counter'
@@ -12,11 +9,14 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { promptOpenAI } from './openai-api'
-import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
+import { promptOpenAI } from './llm-apis/openai-api'
+import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { promptRelaceAI } from './llm-apis/relace-api'
+import { buildArray } from 'common/util/array'
 
 export async function processFileBlock(
-  filePath: string,
+  path: string,
+  initialContentPromise: Promise<string | null>,
   newContent: string,
   messages: Message[],
   fullResponse: string,
@@ -25,33 +25,31 @@ export async function processFileBlock(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  ws: WebSocket,
   costMode: CostMode
-): Promise<FileChange | null> {
+): Promise<{ path: string; content: string; patch?: string } | null> {
   if (newContent.trim() === '[UPDATED_BY_ANOTHER_ASSISTANT]') {
     return null
   }
 
-  const initialContent = await requestFile(ws, filePath)
+  const initialContent = await initialContentPromise
 
   if (initialContent === null) {
     let cleanContent = cleanMarkdownCodeBlock(newContent)
 
-    if (hasLazyEdit(cleanContent) && !filePath.endsWith('.md')) {
+    if (hasLazyEdit(cleanContent) && !path.endsWith('.md')) {
       logger.debug(
-        { filePath, newContent },
-        `processFileBlock: New file contained a lazy edit for ${filePath}. Aborting.`
+        { path, newContent },
+        `processFileBlock: New file contained a lazy edit for ${path}. Aborting.`
       )
       return null
     }
 
     logger.debug(
-      { filePath, cleanContent },
-      `processFileBlock: Created new file ${filePath}`
+      { path, cleanContent },
+      `processFileBlock: Created new file ${path}`
     )
     return {
-      type: 'file',
-      filePath,
+      path,
       content: cleanContent,
     }
   }
@@ -59,7 +57,7 @@ export async function processFileBlock(
   if (newContent === initialContent) {
     logger.info(
       { newContent },
-      `processFileBlock: New was same as old, skipping ${filePath}`
+      `processFileBlock: New was same as old, skipping ${path}`
     )
     return null
   }
@@ -70,7 +68,8 @@ export async function processFileBlock(
   const normalizedEditSnippet = normalizeLineEndings(newContent)
 
   let updatedContent: string
-  const tokenCount = countTokens(normalizedInitialContent)
+  const tokenCount =
+    countTokens(normalizedInitialContent) + countTokens(normalizedEditSnippet)
 
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
     const largeFileContent = await handleLargeFile(
@@ -80,7 +79,7 @@ export async function processFileBlock(
       fingerprintId,
       userInputId,
       userId,
-      filePath,
+      path,
       costMode
     )
 
@@ -93,7 +92,7 @@ export async function processFileBlock(
     updatedContent = await fastRewrite(
       normalizedInitialContent,
       normalizedEditSnippet,
-      filePath,
+      path,
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -101,7 +100,7 @@ export async function processFileBlock(
       lastUserPrompt
     )
     const shouldAddPlaceholders = await shouldAddFilePlaceholders(
-      filePath,
+      path,
       normalizedInitialContent,
       updatedContent,
       messages,
@@ -118,7 +117,7 @@ export async function processFileBlock(
       updatedContent = await fastRewrite(
         normalizedInitialContent,
         updatedEditSnippet,
-        filePath,
+        path,
         clientSessionId,
         fingerprintId,
         userInputId,
@@ -128,7 +127,7 @@ export async function processFileBlock(
     }
   }
 
-  let patch = createPatch(filePath, normalizedInitialContent, updatedContent)
+  let patch = createPatch(path, normalizedInitialContent, updatedContent)
   const lines = patch.split('\n')
   const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
   if (hunkStartIndex !== -1) {
@@ -136,29 +135,32 @@ export async function processFileBlock(
   } else {
     logger.debug(
       {
-        filePath,
+        path,
         initialContent,
         changes: newContent,
         patch,
       },
-      `processFileBlock: No change to ${filePath}`
+      `processFileBlock: No change to ${path}`
     )
     return null
   }
-  patch = patch.replaceAll('\n', lineEnding)
-
   logger.debug(
     {
-      filePath,
+      path,
       editSnippet: newContent,
+      updatedContent,
       patch,
     },
-    `processFileBlock: Generated patch for ${filePath}`
+    `processFileBlock: Updated file ${path}`
   )
+
+  const patchOriginalLineEndings = patch.replaceAll('\n', lineEnding)
+  const updatedContentOriginalLineEndings = updatedContent.replaceAll('\n', lineEnding)
+
   return {
-    type: 'patch',
-    filePath,
-    content: patch,
+    path,
+    content: updatedContentOriginalLineEndings,
+    patch: patchOriginalLineEndings,
   }
 }
 
@@ -217,17 +219,17 @@ Do not write anything else.
 
   const startTime = Date.now()
 
-  const messages = [
+  const messages = buildArray(
     ...messageHistory,
-    {
+    fullResponse && {
       role: 'assistant' as const,
       content: fullResponse,
     },
     {
       role: 'user' as const,
       content: prompt,
-    },
-  ]
+    }
+  )
   const response = await promptGeminiWithFallbacks(messages, undefined, {
     clientSessionId,
     fingerprintId,
@@ -279,7 +281,7 @@ Guidelines for adding back comments:
 4. Do not change any code, only add comments from the original.
 5. Keep the edit snippet's structure exactly the same, just with comments added.
 
-Guidlines for removing new comments:
+Guidelines for removing new comments:
 1. Look for comments in the edit snippet that were not in the original file.
 2. If the new comment is about the code being edited, remove it. For example, if the comment is "// Add this function" then remove it. Otherwise, you should keep the new comment!
 
@@ -328,7 +330,7 @@ export async function fastRewrite(
 
   const relaceStartTime = Date.now()
   const messageId = generateCompactId('cb-')
-  const response = await promptRelaceAI(initialContent, editSnippetWithComments, {
+  let response = await promptRelaceAI(initialContent, editSnippetWithComments, {
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -337,6 +339,29 @@ export async function fastRewrite(
     messageId,
   })
   const relaceDuration = Date.now() - relaceStartTime
+
+  // Check if response still contains lazy edits
+  if (
+    hasLazyEdit(editSnippet) &&
+    !hasLazyEdit(initialContent) &&
+    hasLazyEdit(response)
+  ) {
+    const relaceResponse = response
+    response = await rewriteWithGemini(
+      initialContent,
+      editSnippet,
+      filePath,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      userMessage
+    )
+    logger.debug(
+      { filePath, relaceResponse, geminiResponse: response, messageId },
+      'Relace output contained lazy edits, trying Gemini'
+    )
+  }
 
   logger.debug(
     {
@@ -357,9 +382,9 @@ export async function fastRewrite(
   return response
 }
 
-const LARGE_FILE_TOKEN_LIMIT = 10_000
+const LARGE_FILE_TOKEN_LIMIT = 16_000
 
-async function handleLargeFile(
+export async function handleLargeFile(
   oldContent: string,
   editSnippet: string,
   clientSessionId: string,
@@ -371,7 +396,13 @@ async function handleLargeFile(
 ): Promise<string | null> {
   const startTime = Date.now()
 
-  const prompt = `You are an expert programmer tasked with creating SEARCH/REPLACE blocks to implement a change in a large file. The change should match the intent of the edit snippet while using exact content from the old file.
+  // If the whole file is rewritten, we can just return the new content.
+  if (!hasLazyEdit(editSnippet)) {
+    return editSnippet
+  }
+
+  const prompt =
+    `You are an expert programmer tasked with creating SEARCH/REPLACE blocks to implement a change in a large file. The change should match the intent of the edit snippet while using exact content from the old file.
 
 Old file content:
 \`\`\`
@@ -387,12 +418,14 @@ Please analyze the edit snippet and create SEARCH/REPLACE blocks that will trans
 
 Important:
 1. The SEARCH content must match exactly to a substring of the old file content - make sure you're using the exact same whitespace, single quotes, double quotes, and backticks.
-2. Keep the changes minimal and focused
+2. Keep the changes minimal and focused. Do not include any "placeholder comments" (including but not limited to \`// ... existing code ...\`) unless you think it should be included in the final output.
 3. Preserve the original formatting, indentation, and comments
 4. Only implement the changes shown in the edit snippet
 
 Please output just the SEARCH/REPLACE blocks like this:
-<<<<<<< SEARCH
+
+` +
+    `<<<<<<< SEARCH
 [exact content from old file]
 =======
 [new content that matches edit snippet intent]
@@ -419,6 +452,7 @@ Please output just the SEARCH/REPLACE blocks like this:
       {
         duration: Date.now() - startTime,
         editSnippet,
+        response,
         diffBlocks,
         diffBlocksThatDidntMatch,
         filePath,

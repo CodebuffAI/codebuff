@@ -7,12 +7,12 @@
   "scripts": {
     "start": "bun run -r tsconfig-paths/register src/index.ts",
     "dev": "lsof -t -i:4242 | xargs kill -9 2>/dev/null || true && bun --hot run -r tsconfig-paths/register src/index.ts",
+    "build": "tsc",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
-    "typecheck": "bun run --cwd ../common build && bun run typecheck-this-package",
-    "build": "tsc"
+    "typecheck": "bun run --cwd ../common build && bun run typecheck-this-package"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.36.3",
+    "@anthropic-ai/sdk": "^0.39.0",
     "@google-cloud/vertexai": "^1.9.3",
     "@t3-oss/env-core": "0.11.1",
     "diff": "5.2.0",

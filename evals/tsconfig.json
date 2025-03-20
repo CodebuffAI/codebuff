@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node", "bun"],
+    "paths": {
+      "common/*": ["../common/src/*"],
+      "backend/*": ["../backend/src/*"],
+      "npm-app/*": ["../npm-app/src/*"]
+    },
+    "typeRoots": ["./node_modules/@types", "../node_modules/@types"]
+  },
+  "references": [
+    { "path": "../common" },
+    { "path": "../backend" },
+    { "path": "../npm-app" }
+  ],
+  "exclude": ["test-repos"]
+}

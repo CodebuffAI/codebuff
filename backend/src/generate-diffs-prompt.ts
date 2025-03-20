@@ -1,56 +1,10 @@
 import {
   createMarkdownFileBlock,
   createSearchReplaceBlock,
-  parseFileBlocks,
 } from 'common/util/file'
 import { CostMode, models } from 'common/constants'
 import { logger } from './util/logger'
-import { promptOpenAI } from './openai-api'
-
-export const parseAndGetDiffBlocks = (
-  response: string,
-  filePath: string,
-  oldFileContent: string
-) => {
-  const diffBlocksThatDidntMatch: {
-    searchContent: string
-    replaceContent: string
-  }[] = []
-  const diffBlocks: { searchContent: string; replaceContent: string }[] = []
-  const files = parseFileBlocks(response)
-  for (const fileContent of Object.values(files)) {
-    const blockRegex =
-      /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g
-    let blockMatch
-
-    while ((blockMatch = blockRegex.exec(fileContent)) !== null) {
-      const change = {
-        searchContent: blockMatch[1],
-        replaceContent: blockMatch[2],
-      }
-
-      if (oldFileContent.includes(change.searchContent)) {
-        diffBlocks.push(change)
-      } else {
-        const newChange = tryToDoStringReplacementWithExtraIndentation(
-          oldFileContent,
-          change.searchContent,
-          change.replaceContent
-        )
-        if (newChange) {
-          console.log('Matched with indentation modification')
-          diffBlocks.push(newChange)
-        } else {
-          diffBlocksThatDidntMatch.push(change)
-        }
-      }
-    }
-  }
-  return {
-    diffBlocks,
-    diffBlocksThatDidntMatch,
-  }
-}
+import { promptClaude } from './llm-apis/claude'
 
 export const parseAndGetDiffBlocksSingleFile = (
   newContent: string,
@@ -62,7 +16,7 @@ export const parseAndGetDiffBlocksSingleFile = (
   }[] = []
   const diffBlocks: { searchContent: string; replaceContent: string }[] = []
   const blockRegex =
-    /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g
+    /<<<<<<< SEARCH\n([\s\S]*?)=======\n([\s\S]*?)>>>>>>> REPLACE/g
   let blockMatch
 
   while ((blockMatch = blockRegex.exec(newContent)) !== null) {
@@ -198,8 +152,8 @@ The search content needs to match an exact substring of the old file content, wh
 
 Provide a new set of SEARCH/REPLACE changes to make the intended edit from the old file.`.trim()
 
-  const response = await promptOpenAI([{ role: 'user', content: newPrompt }], {
-    model: models.o3mini,
+  const response = await promptClaude([{ role: 'user', content: newPrompt }], {
+    model: models.sonnet,
     clientSessionId,
     fingerprintId,
     userInputId,

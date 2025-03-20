@@ -1,4 +1,3 @@
-import axios from 'axios'
 import { ensureUrlProtocol } from 'common/util/string'
 
 // Global cache for scraped web pages
@@ -14,11 +13,11 @@ export async function scrapeWebPage(url: string) {
     let content = ''
     const fullUrl = ensureUrlProtocol(url)
     if (fullUrl.startsWith('https://raw.githubusercontent.com/')) {
-      const response = await axios.get(url)
-      content = response.data
+      const response = await fetch(url)
+      content = await response.text()
     } else {
-      const response = await axios.get(`https://r.jina.ai/${url}`)
-      content = response.data
+      const response = await fetch(`https://r.jina.ai/${url}`)
+      content = await response.text()
     }
     // Store the scraped content in the cache
     scrapedPagesCache[url] = content

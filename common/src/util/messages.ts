@@ -1,4 +1,4 @@
-import { Message } from '../actions'
+import { Message } from '../types/message'
 
 interface ScreenshotRef {
   msgIdx: number
