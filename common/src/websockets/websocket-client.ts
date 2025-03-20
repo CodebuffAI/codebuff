@@ -206,10 +206,18 @@ export class APIRealtimeClient {
     }
   }
 
-  sendAction(action: ClientAction) {
-    return this.sendMessage('action', {
-      data: action,
-    })
+  async sendAction(action: ClientAction) {
+    try {
+      return await this.sendMessage('action', {
+        data: action,
+      })
+    } catch (e) {
+      console.error(
+        'Error sending action:',
+        action,
+        typeof e === 'object' && e !== null && 'message' in e ? e.message : e
+      )
+    }
   }
 
   subscribe<T extends ServerAction['type']>(

@@ -728,8 +728,5 @@ export class Client {
         authToken: this.user?.authToken,
         fileContext,
       })
-      .catch((e) => {
-        console.error(e, 'Error sending init action')
-      })
   }
 }
