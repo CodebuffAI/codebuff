@@ -143,7 +143,7 @@ export async function preserveCommentsInEditSnippet(
   userInputId: string,
   userId: string | undefined
 ) {
-  const prompt = `You are an expert programmer. Rewrite the edit snippet to preserve comments from the original file (if any).
+  const prompt = `You are an expert programmer. Rewrite the edit snippet to add back comments from the original file (if any), while removing newly added comments that describe changes or edits.
 
 Original file:
 \`\`\`
@@ -155,23 +155,403 @@ Edit snippet:
 ${editSnippet}
 \`\`\`
 
-Guidelines for handling comments:
-1. First, remove ALL comments from the edit snippet that are not present in the original file.
-2. Then, add back comments from the original file that match the code structure in the edit snippet.
-3. Return only the modified edit snippet.
-4. Do not change any code, only modify comments.
-5. Keep the edit snippet's structure exactly the same.
-6. No need to add comments above or below the code being edited in the edit snippet.
-7. It's common for no changes to be needed to the edit snippet, in which case you should print the edit snippet unchanged.
-8. Pay special attention to comments inside try/catch blocks and other nested structures.
-9. If a line of code exists in both files but has different comments, use the comment from the original file.
-10. Remove any new comments from the edit snippet that describe changes or edits, such as:
-    - Comments starting with "Add", "Remove", "Change", "Update", "Fix", "Modify"
-    - Comments explaining what changed or why it changed
-    - Comments about new parameters, return values, or functionality
-    - Make sure these comments weren't in the original file, since those should be preserved.
+Guidelines for rewriting the edit snippet:
+1. Prefer to keep the edit snippet text exactly the same. Where the edit snippet differs from the original file, prefer the edit snippet text. The most important thing is to preserve the edit snippet.
 
-Return only the modified edit snippet with no additional text.`
+2. Secondly, add back ALL comments from the original file that match the code structure in the edit snippet. This includes:
+   - JSDoc comments (/** ... */)
+   - Multi-line comments (/* ... */)
+   - Single-line comments (// ...)
+   - Inline comments at the end of lines (// ...)
+   - All other comment styles (# ..., <!-- ... -->, etc)
+
+3. No need to add comments above or below the code being edited in the edit snippet.
+
+4. It's common for no changes to be needed to the edit snippet, in which case you should print the edit snippet unchanged.
+
+5. Pay special attention to comments inside try/catch blocks and other nested structures.
+
+6. You must preserve any edit snippet comments marking placeholder sections of code like:
+   - "// ... existing code ..." 
+   - "# ... rest of the file ..."
+   - "/* ... rest of the function ... */"
+   - "<!-- ... rest of the file ... -->"
+   - "// ... rest of the file ..."
+   These indicate excerpts of code and must be kept.
+
+7. Remove any new comments in the edit snippet that describe changes or edits, such as:
+   - Comments starting with "Add", "Remove", "Change", "Update", "Fix", "Modify"
+   - Comments explaining what changed or why it changed
+   - Comments about new parameters, return values, or functionality
+
+Here are some real examples:
+
+Example 1 - Python class with docstrings and comments:
+Original:
+\`\`\`
+class DataProcessor:
+    """
+    A class for processing data with validation and transformation.
+    """
+    
+    def __init__(self, data_source):
+        # Store the data source for later use
+        self.data_source = data_source
+        self.processed = False  # Track processing state
+        
+    def process(self, validate=True):
+        """Process the data with optional validation."""
+        if validate:
+            # First validate the data
+            self._validate()
+            
+        # Transform the data
+        result = self._transform()
+        self.processed = True
+        return result
+\`\`\`
+
+Edit snippet:
+\`\`\`
+class DataProcessor:
+    def __init__(self, data_source, max_size=1000):
+        self.data_source = data_source
+        self.processed = False
+        # Add size limit parameter
+        self.max_size = max_size
+        
+    def process(self, validate=True, transform_type="basic"):
+        if validate:
+            self._validate()
+            
+        result = self._transform(transform_type)
+        self.processed = True
+        return result
+\`\`\`
+
+Should become:
+\`\`\`
+class DataProcessor:
+    """
+    A class for processing data with validation and transformation.
+    """
+    
+    def __init__(self, data_source, max_size=1000):
+        # Store the data source for later use
+        self.data_source = data_source
+        self.processed = False  # Track processing state
+        self.max_size = max_size
+        
+    def process(self, validate=True, transform_type="basic"):
+        """Process the data with optional validation."""
+        if validate:
+            # First validate the data
+            self._validate()
+            
+        # Transform the data
+        result = self._transform(transform_type)
+        self.processed = True
+        return result
+\`\`\`
+
+Example 2 - HTML template with conditional rendering:
+Original:
+\`\`\`
+<div class="user-profile">
+  <!-- User info section -->
+  <div class="info">
+    <h1>{{user.name}}</h1>
+    <!-- Only show email if verified -->
+    <p v-if="user.emailVerified">
+      {{user.email}}
+    </p>
+  </div>
+  
+  <!-- User stats -->
+  <div class="stats">
+    <span>Posts: {{user.posts}}</span>
+  </div>
+</div>
+\`\`\`
+
+Edit snippet:
+\`\`\`
+<!-- Add new profile layout -->
+<div class="user-profile">
+  <div class="info">
+    <h1>{{user.name}}</h1>
+    <p v-if="user.emailVerified">
+      {{user.email}}
+    </p>
+    <!-- Add phone number display -->
+    <p v-if="user.phoneVerified">
+      {{user.phone}}
+    </p>
+  </div>
+  
+  <div class="stats">
+    <span>Posts: {{user.posts}}</span>
+    <span>Likes: {{user.likes}}</span>
+  </div>
+</div>
+\`\`\`
+
+Should become:
+\`\`\`
+<div class="user-profile">
+  <!-- User info section -->
+  <div class="info">
+    <h1>{{user.name}}</h1>
+    <!-- Only show email if verified -->
+    <p v-if="user.emailVerified">
+      {{user.email}}
+    </p>
+    <p v-if="user.phoneVerified">
+      {{user.phone}}
+    </p>
+  </div>
+  
+  <!-- User stats -->
+  <div class="stats">
+    <span>Posts: {{user.posts}}</span>
+    <span>Likes: {{user.likes}}</span>
+  </div>
+</div>
+\`\`\`
+
+Example 3 - Preserving placeholder comments:
+Original:
+\`\`\`
+const config = {
+  // Database settings
+  database: {
+    host: 'localhost',
+    port: 5432
+  },
+  
+  // Cache configuration
+  cache: {
+    enabled: true,
+    ttl: 3600
+  }
+}
+\`\`\`
+
+Edit snippet:
+\`\`\`
+// ... existing code ...
+
+// Cache configuration
+cache: {
+  enabled: true,
+  ttl: 3600,
+  maxSize: 1000  // Add size limit
+}
+
+// ... rest of the file ...
+\`\`\`
+
+Should stay exactly the same since the placeholder comments should be preserved:
+\`\`\`
+// ... existing code ...
+
+// Cache configuration
+cache: {
+  enabled: true,
+  ttl: 3600,
+  maxSize: 1000
+}
+
+// ... rest of the file ...
+\`\`\`
+
+Example 4 - Full TypeScript file with interfaces and types:
+Original:
+\`\`\`
+import { EventEmitter } from 'events'
+
+/**
+ * Represents a message in the chat system
+ */
+interface Message {
+  id: string
+  content: string
+  timestamp: number
+}
+
+// Different types of notifications that can be sent
+type NotificationType = 'message' | 'presence' | 'typing'
+
+/**
+ * Manages real-time chat functionality
+ */
+class ChatManager extends EventEmitter {
+  private messages: Message[] = []
+  private typingUsers = new Set<string>() // Track who is typing
+
+  constructor() {
+    super()
+    // Initialize with empty state
+    this.resetState()
+  }
+
+  /**
+   * Add a new message to the chat
+   * @returns The message ID
+   */
+  addMessage(content: string): string {
+    const message = {
+      id: Math.random().toString(),
+      content,
+      timestamp: Date.now()
+    }
+    
+    // Add to internal storage
+    this.messages.push(message)
+    
+    // Notify listeners
+    this.emit('message', message)
+    return message.id
+  }
+
+  private resetState() {
+    this.messages = []
+    this.typingUsers.clear()
+  }
+}
+
+export default ChatManager
+\`\`\`
+
+Edit snippet:
+\`\`\`
+// ... existing imports ...
+
+interface Message {
+  id: string
+  content: string
+  timestamp: number
+  reactions: Reaction[]  // Track reactions on messages
+}
+
+interface Reaction {
+  emoji: string
+  userId: string
+}
+
+type NotificationType = 'message' | 'presence' | 'typing' | 'reaction'
+
+class ChatManager extends EventEmitter {
+  private messages: Message[] = []
+  private typingUsers = new Set<string>()
+
+  constructor() {
+    super()
+    this.resetState()
+  }
+
+  addMessage(content: string): string {
+    const message = {
+      id: Math.random().toString(),
+      content,
+      timestamp: Date.now(),
+      reactions: []
+    }
+    
+    this.messages.push(message)
+    this.emit('message', message)
+    return message.id
+  }
+
+  addReaction(messageId: string, emoji: string, userId: string): void {
+    const message = this.messages.find(m => m.id === messageId)
+    if (!message) return
+
+    message.reactions.push({ emoji, userId })
+    this.emit('reaction', { messageId, emoji, userId })
+  }
+
+  private resetState() {
+    this.messages = []
+    this.typingUsers.clear()
+  }
+}
+
+export default ChatManager
+\`\`\`
+
+Should become:
+\`\`\`
+// ... existing imports ...
+
+/**
+ * Represents a message in the chat system
+ */
+interface Message {
+  id: string
+  content: string
+  timestamp: number
+  reactions: Reaction[]
+}
+
+interface Reaction {
+  emoji: string
+  userId: string
+}
+
+// Different types of notifications that can be sent
+type NotificationType = 'message' | 'presence' | 'typing' | 'reaction'
+
+/**
+ * Manages real-time chat functionality
+ */
+class ChatManager extends EventEmitter {
+  private messages: Message[] = []
+  private typingUsers = new Set<string>() // Track who is typing
+
+  constructor() {
+    super()
+    // Initialize with empty state
+    this.resetState()
+  }
+
+  /**
+   * Add a new message to the chat
+   * @returns The message ID
+   */
+  addMessage(content: string): string {
+    const message = {
+      id: Math.random().toString(),
+      content,
+      timestamp: Date.now(),
+      reactions: []
+    }
+    
+    // Add to internal storage
+    this.messages.push(message)
+    
+    // Notify listeners
+    this.emit('message', message)
+    return message.id
+  }
+
+  addReaction(messageId: string, emoji: string, userId: string): void {
+    const message = this.messages.find(m => m.id === messageId)
+    if (!message) return
+
+    message.reactions.push({ emoji, userId })
+    this.emit('reaction', { messageId, emoji, userId })
+  }
+
+  private resetState() {
+    this.messages = []
+    this.typingUsers.clear()
+  }
+}
+
+export default ChatManager
+\`\`\`
+`
 
   const messages = [
     { role: 'user' as const, content: prompt },

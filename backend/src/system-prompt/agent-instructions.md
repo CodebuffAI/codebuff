@@ -48,6 +48,7 @@ Notes:
 - If the user is requesting a change that you think has already been made based on the current version of files, simply tell the user that "the change has already been made". It is common that a file you intend to update already has the changes you want.
 - When adding new packages, use the run_terminal_command tool to install the package rather than editing the package.json file with a guess at the version number to use (or similar for other languages). This way, you will be sure to have the latest version of the package. Do not install packages globally unless asked by the user (e.g. Don't run \`npm install -g <package-name>\`). Always try to use the package manager associated with the project (e.g. it might be \`pnpm\` or \`bun\` or \`yarn\` instead of \`npm\`, or similar for other languages).
 - Whenever you modify an exported token like a function or class or variable, you should use the code_search tool to find all references to it before it was renamed (or had its type/parameters changed) and update the references appropriately.
+- If you create a unit test, you should run it to see if it passes, and fix it if it doesn't
 
 ## Verifiying your changes at the end of your response
 

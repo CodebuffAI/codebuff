@@ -65,9 +65,8 @@ function test() {
 `.trim()
 
     const editSnippet = `
-// New comment
+// Added this comment
 function test() {
-  // Another new comment
   return true;
 }
 `.trim()
@@ -312,6 +311,110 @@ export async function processFileChange(
     throw new Error('Failed to process ' + (isBinary ? 'binary ' : '') + 'file: ' + filePath);
   }
 }`.trim()
+    )
+  })
+
+  it('should preserve placeholder comments in edit snippet', async () => {
+    const initialContent = `
+function test() {
+// This should return true
+return true;
+}
+
+function another() {
+return false;
+}
+`.trim()
+
+    const editSnippet = `
+// ... existing code ...
+
+function another() {
+return true;
+}
+
+// ... rest of the file ...
+`.trim()
+
+    const result = await preserveCommentsInEditSnippet(
+      initialContent,
+      editSnippet,
+      'test.ts',
+      'clientSessionId',
+      'fingerprintId',
+      'userInputId',
+      TEST_USER_ID
+    )
+
+    expect(result).toBe(
+      `
+// ... existing code ...
+
+function another() {
+return true;
+}
+
+// ... rest of the file ...
+`.trim()
+    )
+  })
+
+  it('should handle placeholder comments in complex code', async () => {
+    const initialContent = `
+import { createPatch } from 'diff';
+
+function getLineEnding(content: string) {
+return content.includes('\\r\\n') ? '\\r\\n' : '\\n';
+}
+
+function patch(filePath: string, oldContent: string, newContent: string) {
+const lineEnding = getLineEnding(oldContent);
+const normalizedOld = oldContent.replace(/\\r\\n/g, '\\n');
+const normalizedNew = newContent.replace(/\\r\\n/g, '\\n');
+return createPatch(filePath, normalizedOld, normalizedNew);
+}
+
+function processFile(path: string) {
+return path;
+}
+`.trim()
+
+    const editSnippet = `
+// ... existing code ...
+
+function patch(filePath: string, oldContent: string, newContent: string) {
+const lineEnding = getLineEnding(oldContent);
+const normalizedOld = oldContent.replace(/\\r\\n/g, '\\n');
+const normalizedNew = newContent.replace(/\\r\\n/g, '\\n');
+return createPatch(filePath, normalizedOld, normalizedNew);
+}
+
+// ... rest of the file ...
+`.trim()
+
+    const result = await preserveCommentsInEditSnippet(
+      initialContent,
+      editSnippet,
+      'test.ts',
+      'clientSessionId',
+      'fingerprintId',
+      'userInputId',
+      TEST_USER_ID
+    )
+
+    expect(result).toBe(
+      `
+// ... existing code ...
+
+function patch(filePath: string, oldContent: string, newContent: string) {
+const lineEnding = getLineEnding(oldContent);
+const normalizedOld = oldContent.replace(/\\r\\n/g, '\\n');
+const normalizedNew = newContent.replace(/\\r\\n/g, '\\n');
+return createPatch(filePath, normalizedOld, normalizedNew);
+}
+
+// ... rest of the file ...
+`.trim()
     )
   })
 })
