@@ -122,7 +122,7 @@ export const Navbar = async () => {
             </Button>
           </Link>
         )}
-        <ThemeSwitcher />
+        {/* <ThemeSwitcher /> */}
       </div>
     </header>
   )
