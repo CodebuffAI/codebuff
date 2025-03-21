@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { ExternalLink } from 'lucide-react'
 import { testimonials, type Testimonial } from '@/lib/testimonials'
 import posthog from 'posthog-js'
-import { DecorativeBlocks, BlockColor } from './decorative-blocks'
+import { Section } from './section'
 
 const ReviewCard = ({
   t,
@@ -70,93 +70,91 @@ export function TestimonialsSection() {
   }
 
   return (
-    <section className="py-24 bg-[#ffff33] relative overflow-hidden">
-      <div className="codebuff-container relative z-10">
-        <h2 className="text-3xl md:text-4xl font-medium mb-2 text-black relative inline-block hero-heading">
-          What Developers Are Saying
-        </h2>
-        <h6 className="text-gray-700 text-sm mb-12">
-          (note: some testimonials reference our previous name,
-          &quot;Manicode&quot; – they refer to the same product)
-        </h6>
-        <div className="mt-12 space-y-8">
-          <div className="flex flex-nowrap gap-6 overflow-hidden [--gap:1.5rem] [--duration:40s]">
-            <div className="flex items-center gap-6 animate-marquee">
-              {testimonials[0].map((testimonial, i) => (
-                <ReviewCard
-                  key={i}
-                  t={testimonial}
-                  onTestimonialClick={handleTestimonialClick}
-                />
-              ))}
-            </div>
-            <div
-              className="flex items-center gap-6 animate-marquee"
-              aria-hidden="true"
-            >
-              {testimonials[0].map((testimonial, i) => (
-                <ReviewCard
-                  key={i}
-                  t={testimonial}
-                  onTestimonialClick={handleTestimonialClick}
-                />
-              ))}
-            </div>
+    <Section background="#ffff33">
+      <h2 className="text-3xl md:text-4xl font-medium mb-2 text-black relative inline-block hero-heading">
+        What Developers Are Saying
+      </h2>
+      <h6 className="text-gray-700 text-sm mb-12">
+        (note: some testimonials reference our previous name,
+        &quot;Manicode&quot; – they refer to the same product)
+      </h6>
+      <div className="mt-12 space-y-8">
+        <div className="flex flex-nowrap gap-6 overflow-hidden [--gap:1.5rem] [--duration:40s]">
+          <div className="flex items-center gap-6 animate-marquee">
+            {testimonials[0].map((testimonial, i) => (
+              <ReviewCard
+                key={i}
+                t={testimonial}
+                onTestimonialClick={handleTestimonialClick}
+              />
+            ))}
           </div>
-          <div className="flex flex-nowrap gap-6 overflow-hidden [--gap:1.5rem] [--duration:35s]">
-            <div className="flex items-center gap-6 animate-marquee [animation-direction:reverse]">
-              {testimonials[1].map((testimonial, i) => (
-                <ReviewCard
-                  key={i}
-                  t={testimonial}
-                  onTestimonialClick={handleTestimonialClick}
-                />
-              ))}
-            </div>
-            <div
-              className="flex items-center gap-6 animate-marquee [animation-direction:reverse]"
-              aria-hidden="true"
-            >
-              {testimonials[1].map((testimonial, i) => (
-                <ReviewCard
-                  key={i}
-                  t={testimonial}
-                  onTestimonialClick={handleTestimonialClick}
-                />
-              ))}
-            </div>
+          <div
+            className="flex items-center gap-6 animate-marquee"
+            aria-hidden="true"
+          >
+            {testimonials[0].map((testimonial, i) => (
+              <ReviewCard
+                key={i}
+                t={testimonial}
+                onTestimonialClick={handleTestimonialClick}
+              />
+            ))}
           </div>
         </div>
-
-        <div className="flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-8">
-          <div className="flex flex-col items-center">
-            <p>Backed by</p>
-            <Link
-              href="https://www.ycombinator.com/companies/codebuff"
-              target="_blank"
-              className="block"
-            >
-              <img
-                src="/y-combinator.svg"
-                alt="y combinator logo"
-                className="h-8 w-full"
+        <div className="flex flex-nowrap gap-6 overflow-hidden [--gap:1.5rem] [--duration:35s]">
+          <div className="flex items-center gap-6 animate-marquee [animation-direction:reverse]">
+            {testimonials[1].map((testimonial, i) => (
+              <ReviewCard
+                key={i}
+                t={testimonial}
+                onTestimonialClick={handleTestimonialClick}
               />
-            </Link>
+            ))}
           </div>
-          <a
-            href="https://www.producthunt.com/posts/codebuff?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-codebuff"
+          <div
+            className="flex items-center gap-6 animate-marquee [animation-direction:reverse]"
+            aria-hidden="true"
+          >
+            {testimonials[1].map((testimonial, i) => (
+              <ReviewCard
+                key={i}
+                t={testimonial}
+                onTestimonialClick={handleTestimonialClick}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-8">
+        <div className="flex flex-col items-center">
+          <p>Backed by</p>
+          <Link
+            href="https://www.ycombinator.com/companies/codebuff"
             target="_blank"
             className="block"
           >
             <img
-              src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=dark"
-              alt="Codebuff - Better code generation than Cursor, from your CLI | Product Hunt"
-              width="250"
-              height="54"
+              src="/y-combinator.svg"
+              alt="y combinator logo"
+              className="h-8 w-full"
             />
-          </a>
+          </Link>
         </div>
+        <a
+          href="https://www.producthunt.com/posts/codebuff?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-codebuff"
+          target="_blank"
+          className="block"
+        >
+          <img
+            src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=dark"
+            alt="Codebuff - Better code generation than Cursor, from your CLI | Product Hunt"
+            width="250"
+            height="54"
+          />
+        </a>
       </div>
-    </section>
+    </Section>
   )
 }

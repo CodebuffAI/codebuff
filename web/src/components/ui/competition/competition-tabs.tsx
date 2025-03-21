@@ -3,106 +3,98 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { CompetitorCard, CompetitorType } from './competitor-card'
+import { motion } from 'framer-motion'
 
 const competitors: CompetitorType[] = ['cursor', 'claude-code', 'cline']
+
+const competitorInfo = {
+  cursor: {
+    name: 'Cursor',
+    color: 'text-red-400',
+    description: 'Generic AI suggestions',
+  },
+  'claude-code': {
+    name: 'Claude Code',
+    color: 'text-purple-400',
+    description: 'Slow, multi-step process',
+  },
+  cline: {
+    name: 'Cline',
+    color: 'text-yellow-400',
+    description: 'Limited to specific environments',
+  },
+}
 
 export function CompetitionTabs() {
   const [activeTab, setActiveTab] = useState<CompetitorType>('cursor')
 
   return (
-    <div className="space-y-12">
-      {/* Tabs */}
-      <div className="flex justify-center space-x-4">
-        {competitors.map((competitor) => (
-          <button
-            key={competitor}
-            onClick={() => setActiveTab(competitor)}
-            className={cn(
-              'px-6 py-3 rounded-lg text-sm font-medium transition-all duration-300',
-              'hover:bg-white/10 relative group overflow-hidden',
-              activeTab === competitor
-                ? 'bg-white/10 text-white'
-                : 'text-white/60'
-            )}
-          >
-            <span className="relative z-10">
-              {competitor === 'cursor' && (
-                <>
-                  vs <span className="text-red-400">Cursor</span>
-                </>
-              )}
-              {competitor === 'claude-code' && (
-                <>
-                  vs <span className="text-purple-400">Claude Code</span>
-                </>
-              )}
-              {competitor === 'cline' && (
-                <>
-                  vs <span className="text-yellow-400">Cline</span>
-                </>
-              )}
-            </span>
-            {/* Hover effect */}
-            <div 
+    <div className="flex flex-col md:flex-row h-full">
+      {/* Vertical Tabs */}
+      <div className="md:w-64 md:border-r border-zinc-800/50 bg-black/20">
+        <div className="flex md:flex-col p-4 gap-2 overflow-x-auto md:overflow-visible">
+          {competitors.map((competitor) => (
+            <button
+              key={competitor}
+              onClick={() => setActiveTab(competitor)}
               className={cn(
-                "absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent",
-                "opacity-0 group-hover:opacity-100 transition-opacity duration-300",
-                activeTab === competitor && "opacity-100"
+                'flex-1 md:flex-none text-left p-6 rounded-lg transition-all duration-300',
+                'hover:bg-white/5 relative group',
+                activeTab === competitor
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/60'
               )}
-            />
-            {/* Active indicator */}
-            {activeTab === competitor && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />
-            )}
-            {/* Hover indicator */}
-            <div 
-              className={cn(
-                "absolute bottom-0 left-0 w-full h-0.5 bg-primary/50",
-                "scale-x-0 group-hover:scale-x-100 transition-transform duration-300",
-                activeTab === competitor ? "opacity-0" : "opacity-100"
-              )}
-              style={{ transformOrigin: "left" }}
-            />
-          </button>
-        ))}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className={competitorInfo[competitor].color}>vs</span>
+                  <span className="font-medium">
+                    {competitorInfo[competitor].name}
+                  </span>
+                </div>
+                <p className="text-sm text-white/40 hidden md:block">
+                  {competitorInfo[competitor].description}
+                </p>
+              </div>
+
+              {/* Active indicator */}
+              <div
+                className={cn(
+                  'absolute md:left-0 md:right-auto md:top-0 md:bottom-0 md:w-0.5 md:h-full',
+                  'bottom-0 left-0 right-0 top-auto w-full h-0.5',
+                  'bg-primary transform scale-x-0 transition-transform duration-300',
+                  activeTab === competitor && 'scale-x-100'
+                )}
+                style={{ transformOrigin: 'left' }}
+              />
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Cards */}
-      <div className="relative min-h-[600px]">
-        {competitors.map((competitor) => (
-          <div
-            key={competitor}
-            className={cn(
-              'absolute inset-0 transition-all duration-500',
-              activeTab === competitor ? 'z-10' : 'z-0',
-              activeTab === competitor ? 'translate-x-0 opacity-100' : 
-                competitors.indexOf(competitor) < competitors.indexOf(activeTab) ? 
-                '-translate-x-full opacity-0' : 'translate-x-full opacity-0'
-            )}
-          >
-            <CompetitorCard
-              type={competitor}
-              isActive={activeTab === competitor}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Navigation dots */}
-      <div className="flex justify-center space-x-2">
-        {competitors.map((competitor) => (
-          <button
-            key={competitor}
-            onClick={() => setActiveTab(competitor)}
-            className={cn(
-              'w-2 h-2 rounded-full transition-all duration-300 transform',
-              activeTab === competitor 
-                ? 'bg-primary scale-125' 
-                : 'bg-white/20 hover:bg-white/40'
-            )}
-            aria-label={`Switch to ${competitor} comparison`}
-          />
-        ))}
+      {/* Content Area */}
+      <div className="flex-1 relative bg-black/30">
+        <div className="absolute inset-0">
+          {competitors.map((competitor) => (
+            <motion.div
+              key={competitor}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{
+                opacity: activeTab === competitor ? 1 : 0,
+                x: activeTab === competitor ? 0 : 20,
+              }}
+              transition={{ duration: 0.3 }}
+              className={cn(
+                'absolute inset-0',
+                activeTab === competitor
+                  ? 'pointer-events-auto'
+                  : 'pointer-events-none'
+              )}
+            >
+              <CompetitorCard type={competitor} />
+            </motion.div>
+          ))}
+        </div>
       </div>
     </div>
   )
