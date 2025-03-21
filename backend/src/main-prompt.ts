@@ -50,8 +50,16 @@ export const mainPrompt = async (
     action
   const { messageHistory, fileContext } = agentState
 
-  const messagesWithUserMessage = buildArray(
+  const messagesWithToolResults = buildArray(
     ...messageHistory,
+    toolResults.length > 0 && {
+      role: 'user' as const,
+      content: renderToolResults(toolResults),
+    }
+  )
+
+  const messagesWithUserMessage = buildArray(
+    ...messagesWithToolResults,
     prompt && {
       role: 'user' as const,
       content: prompt,
@@ -127,12 +135,10 @@ export const mainPrompt = async (
     costMode,
     allMessagesTokens
   )
-  const messagesWithOptionalReadFiles = [...messagesWithUserMessage]
   const {
     newBaseFiles,
     newReadFiles,
     readFilesMessage,
-    existingNewFilePaths,
     clearReadFileToolResults,
   } = await getFileVersionUpdates(
     ws,
@@ -141,7 +147,7 @@ export const mainPrompt = async (
     fileContext,
     null,
     {
-      skipRequestingFiles: justUsedATool,
+      skipRequestingFiles: !prompt,
       clientSessionId,
       fingerprintId,
       userInputId: promptId,
@@ -149,6 +155,7 @@ export const mainPrompt = async (
       costMode,
     }
   )
+
   fileContext.baseFiles = newBaseFiles
 
   if (clearReadFileToolResults) {
@@ -164,34 +171,30 @@ export const mainPrompt = async (
 
   if (readFilesMessage !== undefined) {
     onResponseChunk(`${readFilesMessage}\n\n`)
+  }
 
-    if (existingNewFilePaths?.length) {
-      messagesWithOptionalReadFiles.push({
-        role: 'assistant' as const,
-        content: `<read_files>
-<paths>
-${existingNewFilePaths.join('\n')}
-</paths>
-</read_files>`,
-      })
-    }
-
-    toolResults.push({
+  if (newReadFiles.length > 0) {
+    const readFilesToolResult = {
       id: generateCompactId(),
       name: 'read_files',
       result: newReadFiles
         .map((file) => createMarkdownFileBlock(file.path, file.content))
         .join('\n'),
+    }
+    messagesWithUserMessage.push({
+      role: 'assistant' as const,
+      content: `<read_files>
+<paths>
+${newReadFiles.map((file) => file.path).join('\n')}
+</paths>
+</read_files>\n`,
+    })
+    messagesWithUserMessage.push({
+      role: 'user' as const,
+      content: renderToolResults([readFilesToolResult]),
     })
   }
 
-  const messagesWithToolResults = buildArray(
-    ...messagesWithOptionalReadFiles,
-    toolResults.length > 0 && {
-      role: 'user' as const,
-      content: renderToolResults(toolResults),
-    }
-  )
   const { agentContext } = agentState
   const hasKnowledgeFiles =
     Object.keys(fileContext.knowledgeFiles).length > 0 ||
@@ -232,7 +235,7 @@ ${existingNewFilePaths.join('\n')}
       isNotFirstUserMessage &&
       "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
 
-    "Don't run git commands or scripts without being specifically instructed to do so.",
+    "Don't run git commands or scripts without being specifically asked to do so. This can prevent costly accidents. Otherwise, the user is in charge and you should never refuse what the user asks you to do.",
 
     justRanTerminalCommand &&
       `If the tool result above is of a terminal command succeeding and you have completed the user's request, please use the end_turn tool and do not write anything else.`,
@@ -240,7 +243,7 @@ ${existingNewFilePaths.join('\n')}
     'Write "<end_turn></end_turn>" at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.'
   ).join('\n')
 
-  const system = getAgentSystemPrompt(fileContext, messagesWithToolResults)
+  const system = getAgentSystemPrompt(fileContext, messagesWithUserMessage)
   const systemTokens = countTokensJson(system)
 
   const agentMessages = buildArray(
@@ -249,7 +252,7 @@ ${existingNewFilePaths.join('\n')}
       content: userInstructions,
     },
     ...getMessagesSubset(
-      messagesWithToolResults,
+      messagesWithUserMessage,
       systemTokens + countTokensJson({ agentContext, userInstructions })
     ),
     agentContext && {
@@ -261,7 +264,6 @@ ${existingNewFilePaths.join('\n')}
   logger.debug(
     {
       agentMessages,
-      messagesWithToolResults,
       messageHistory,
       prompt,
       agentContext,
@@ -311,7 +313,7 @@ ${existingNewFilePaths.join('\n')}
           path,
           latestContentPromise,
           fileContentWithoutStartNewline,
-          messagesWithOptionalReadFiles,
+          messagesWithUserMessage,
           fullResponse,
           prompt,
           clientSessionId,
@@ -347,7 +349,7 @@ ${existingNewFilePaths.join('\n')}
   }
 
   const messagesWithResponse = [
-    ...messagesWithToolResults,
+    ...messagesWithUserMessage,
     // (hacky) ends turn if LLM did not give a response.
     {
       role: 'assistant' as const,

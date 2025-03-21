@@ -186,6 +186,10 @@ export const runTerminalCommand = async (
 
     commandIsRunning = true
 
+    // Add special case for git log to limit output
+    const modifiedCommand =
+      command.trim() === 'git log' ? 'git log -n 5' : command
+
     const resolveCommand = (value: { result: string; stdout: string }) => {
       commandIsRunning = false
       resolve(value)
@@ -194,7 +198,7 @@ export const runTerminalCommand = async (
     if (persistentProcess.type === 'pty') {
       runCommandPty(
         persistentProcess,
-        command,
+        modifiedCommand,
         mode,
         resolveCommand,
         projectPath
@@ -203,7 +207,7 @@ export const runTerminalCommand = async (
       // Fallback to child_process implementation
       runCommandChildProcess(
         persistentProcess,
-        command,
+        modifiedCommand,
         mode,
         resolveCommand,
         projectPath
@@ -227,7 +231,6 @@ export const runCommandPty = (
   let foundFirstNewLine = false
 
   if (mode === 'assistant') {
-    console.log()
     console.log(green(`> ${command}`))
   }
 
@@ -333,7 +336,6 @@ const runCommandChildProcess = (
   let commandOutput = ''
 
   if (mode === 'assistant') {
-    console.log()
     console.log(green(`> ${command}`))
   }
 

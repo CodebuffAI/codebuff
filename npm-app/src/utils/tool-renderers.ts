@@ -60,11 +60,19 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   code_search: {
     // Don't render anything
   },
-  read_files: {
-    // Don't render anything
-  },
   end_turn: {
     // Don't render anything
+  },
+  read_files: {
+    ...defaultToolCallRenderer,
+    onParamChunk: (content, paramName, toolName) => {
+      return null
+    },
+
+    onParamEnd: (paramName, toolName, content) => content.trim(),
+    onToolEnd: (toolName, params) => {
+      return `\n`
+    },
   },
   think_deeply: {
     ...defaultToolCallRenderer,

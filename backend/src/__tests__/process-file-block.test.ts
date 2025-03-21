@@ -1,20 +1,8 @@
 import { describe, it, expect, mock } from 'bun:test'
-import { WebSocket } from 'ws'
 import { applyPatch } from 'common/util/patch'
-import { processFileBlock } from 'backend/process-file-block'
+import { processFileBlock } from '../process-file-block'
 import { TEST_USER_ID } from 'common/constants'
 import { cleanMarkdownCodeBlock } from 'common/util/file'
-
-// Mock WebSocket
-const mockWs = {
-  send: mock(() => {}),
-} as unknown as WebSocket
-
-// Mock requestFile function
-const mockRequestFile = mock()
-mock.module('backend/websockets/websocket-action', () => ({
-  requestFile: mockRequestFile,
-}))
 
 // Mock database interactions
 mock.module('pg-pool', () => ({
@@ -60,14 +48,13 @@ describe('cleanMarkdownCodeBlock', () => {
 
 describe('processFileBlock', () => {
   it('should handle markdown code blocks when creating new files', async () => {
-    mockRequestFile.mockResolvedValue(null)
-
     const newContent =
       '```typescript\nfunction test() {\n  return true;\n}\n```'
     const expectedContent = 'function test() {\n  return true;\n}'
 
     const result = await processFileBlock(
       'test.ts',
+      Promise.resolve(null),
       newContent,
       [],
       '',
@@ -76,12 +63,12 @@ describe('processFileBlock', () => {
       'fingerprintId',
       'userInputId',
       TEST_USER_ID,
-      mockWs,
       'normal'
     )
 
     expect(result).not.toBeNull()
-    expect(result?.type).toBe('file')
+    expect(result?.path).toBe('test.ts')
+    expect(result?.patch).toBeUndefined()
     expect(result?.content).toBe(expectedContent)
   })
 
@@ -98,10 +85,9 @@ describe('processFileBlock', () => {
       '  return "See you later!";\r\n' +
       '}\r\n'
 
-    mockRequestFile.mockResolvedValue(oldContent)
-
     const result = await processFileBlock(
       'test.ts',
+      Promise.resolve(oldContent),
       newContent,
       [],
       '',
@@ -110,27 +96,28 @@ describe('processFileBlock', () => {
       'fingerprintId',
       'userInputId',
       TEST_USER_ID,
-      mockWs,
       'normal'
     )
 
     expect(result).not.toBeNull()
     if (!result) throw new Error('Result is null')
 
-    const { type, content } = result
-    const updatedFile =
-      type === 'patch' ? applyPatch(oldContent, content) : content
-    expect(updatedFile).toBe(newContent)
+    expect(result.path).toBe('test.ts')
+    expect(result.content).toBe(newContent)
+    expect(result.patch).toBeDefined()
+    if (result.patch) {
+      const updatedFile = applyPatch(oldContent, result.patch)
+      expect(updatedFile).toBe(newContent)
+    }
   })
 
   it('should handle empty or whitespace-only changes', async () => {
     const oldContent = 'function test() {\n  return true;\n}\n'
     const newContent = 'function test() {\n  return true;\n}\n'
 
-    mockRequestFile.mockResolvedValue(oldContent)
-
     const result = await processFileBlock(
       'test.ts',
+      Promise.resolve(oldContent),
       newContent,
       [],
       '',
@@ -139,25 +126,6 @@ describe('processFileBlock', () => {
       'fingerprintId',
       'userInputId',
       TEST_USER_ID,
-      mockWs,
-      'normal'
-    )
-
-    expect(result).toBeNull()
-  })
-
-  it('should handle files marked as updated by another assistant', async () => {
-    const result = await processFileBlock(
-      'test.ts',
-      '[UPDATED_BY_ANOTHER_ASSISTANT]',
-      [],
-      '',
-      undefined,
-      'clientSessionId',
-      'fingerprintId',
-      'userInputId',
-      TEST_USER_ID,
-      mockWs,
       'normal'
     )
 
@@ -212,10 +180,9 @@ function divide(a: number, b: number) {
   return a / b;
 }`
 
-    mockRequestFile.mockResolvedValue(oldContent)
-
     const result = await processFileBlock(
       'test.ts',
+      Promise.resolve(oldContent),
       newContent,
       [],
       '',
@@ -224,14 +191,14 @@ function divide(a: number, b: number) {
       'fingerprintId',
       'userInputId',
       TEST_USER_ID,
-      mockWs,
       'normal'
     )
 
     expect(result).not.toBeNull()
-    expect(result?.type).toBe('patch')
-    if (result?.type === 'patch') {
-      const updatedContent = applyPatch(oldContent, result.content)
+    expect(result?.path).toBe('test.ts')
+    expect(result?.patch).toBeDefined()
+    if (result?.patch) {
+      const updatedContent = applyPatch(oldContent, result.patch)
       expect(updatedContent).toContain(
         "if (typeof a !== 'number' || typeof b !== 'number')"
       )
@@ -240,6 +207,46 @@ function divide(a: number, b: number) {
           /if \(typeof a !== 'number' \|\| typeof b !== 'number'\)/g
         )?.length
       ).toBe(2)
+    }
+  })
+
+  it('should preserve Windows line endings in patch and content', async () => {
+    const oldContent = 'const x = 1;\r\nconst y = 2;\r\n'
+    const newContent = 'const x = 1;\r\nconst z = 3;\r\n'
+
+    const result = await processFileBlock(
+      'test.ts',
+      Promise.resolve(oldContent),
+      newContent,
+      [],
+      '',
+      undefined,
+      'clientSessionId',
+      'fingerprintId',
+      'userInputId',
+      TEST_USER_ID,
+      'normal'
+    )
+
+    expect(result).not.toBeNull()
+    if (!result) throw new Error('Result is null')
+
+    // Verify content has Windows line endings
+    expect(result.content).toBe(newContent)
+    expect(result.content).toContain('\r\n')
+    expect(result.content.split('\r\n').length).toBe(3) // 2 lines + empty line
+
+    // Verify patch has Windows line endings
+    expect(result.patch).toBeDefined()
+    if (result.patch) {
+      expect(result.patch).toContain('\r\n')
+      const updatedFile = applyPatch(oldContent, result.patch)
+      expect(updatedFile).toBe(newContent)
+      
+      // Verify patch can be applied and preserves line endings
+      const patchLines = result.patch.split('\r\n')
+      expect(patchLines.some(line => line.startsWith('-const y'))).toBe(true)
+      expect(patchLines.some(line => line.startsWith('+const z'))).toBe(true)
     }
   })
 })

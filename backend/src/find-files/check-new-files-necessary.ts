@@ -31,7 +31,9 @@ You should not read new files (NO) if:
 - The user asks to edit a file you are already reading
 - You just need to run a terminal command
 
-If the user is asking something new or that would likely benefit from new files being read or if there is a way to provide a better answer by reading more files, you should read new files (YES).
+However:
+- If the user is asking something new or that would likely benefit from new files being read or if there is a way to provide a better answer by reading more files, you should read new files (YES).
+- We should read lots of files at the beginning of a conversation (and not just knowledge files.) If the user has only sent one message, we should definitely read files relevant to the user's request.
 
 Answer with just 'YES' if reading new files is helpful, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
