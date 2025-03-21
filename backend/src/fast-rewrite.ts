@@ -155,24 +155,23 @@ Edit snippet:
 ${editSnippet}
 \`\`\`
 
-Guidelines for adding back comments:
-1. Look for comments in the original file that were ommitted from the edit snippet.
-2. Add those comments to the edit snippet in their exact original positions.
-3. Return only the modified edit snippet with no markdown formatting.
-4. Do not change any code, only add comments from the original file.
-5. Keep the edit snippet's structure exactly the same, just with comments added.
+Guidelines for handling comments:
+1. First, remove ALL comments from the edit snippet that are not present in the original file.
+2. Then, add back comments from the original file that match the code structure in the edit snippet.
+3. Return only the modified edit snippet.
+4. Do not change any code, only modify comments.
+5. Keep the edit snippet's structure exactly the same.
 6. No need to add comments above or below the code being edited in the edit snippet.
 7. It's common for no changes to be needed to the edit snippet, in which case you should print the edit snippet unchanged.
+8. Pay special attention to comments inside try/catch blocks and other nested structures.
+9. If a line of code exists in both files but has different comments, use the comment from the original file.
+10. Remove any new comments from the edit snippet that describe changes or edits, such as:
+    - Comments starting with "Add", "Remove", "Change", "Update", "Fix", "Modify"
+    - Comments explaining what changed or why it changed
+    - Comments about new parameters, return values, or functionality
+    - Make sure these comments weren't in the original file, since those should be preserved.
 
-Guidelines for removing new comments:
-1. Look for comments in the edit snippet that were not in the original file.
-2. Remove any comments that are about the code being edited, such as:
-   - Comments starting with "Add", "Remove", "Change", "Update", "Fix", "Modify"
-   - Comments explaining what changed or why it changed
-   - Comments about new parameters, return values, or functionality
-3. Keep only comments that are part of the actual code documentation.
-
-Return only the modified edit snippet with no markdown formatting or additional text.`
+Return only the modified edit snippet with no additional text.`
 
   const messages = [
     { role: 'user' as const, content: prompt },
