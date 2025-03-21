@@ -110,6 +110,14 @@ const config = {
           '75%': { opacity: '0.91', textShadow: '-2px 0 0 rgba(255,176,0,0.6)' },
           '100%': { opacity: '0.95', textShadow: '2px 0 0 rgba(255,176,0,0.6)' },
         },
+        pathGlow: {
+          '0%, 100%': { filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.3))' },
+          '50%': { filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.6))' }
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-10px)' }
+        }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -120,6 +128,8 @@ const config = {
         scanlines: 'scanlines 1s linear infinite',
         textflicker: 'textflicker 0.1s infinite',
         crtflicker: 'crtflicker 2s infinite ease-in-out',
+        'path-glow': 'pathGlow 2s ease-in-out infinite',
+        'float': 'float 3s ease-in-out infinite'
       },
     },
   },
