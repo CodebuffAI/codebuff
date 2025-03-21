@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Terminal, { ColorMode, TerminalOutput } from './ui/terminal'
 import { cn } from '../lib/utils'
 import { sleep } from 'common/util/promise'
@@ -6,8 +6,9 @@ import { match, P } from 'ts-pattern'
 import posthog from 'posthog-js'
 import { useTheme } from 'next-themes'
 import { useMutation } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
 
-const FIX_BUG_FLAG = false
+const FIX_BUG_FLAG = true
 
 const POSSIBLE_FILES = [
   'web/src/components/ui/dialog.tsx',
@@ -232,29 +233,127 @@ interface DemoResponse {
   message: string
 }
 
+// Sample responses for various coding tasks
+const SAMPLE_RESPONSES = {
+  optimize: {
+    message: "I've analyzed your codebase and found several opportunities for optimization. The main performance bottleneck is in your React component rendering cycle.",
+    filesToUpdate: [
+      "web/src/components/ui/data-table.tsx",
+      "web/src/hooks/use-infinite-scroll.ts",
+      "web/src/lib/performance-utils.ts"
+    ],
+    changes: [
+      "- Added memoization to prevent unnecessary re-renders",
+      "- Implemented virtualized list for large data sets",
+      "- Optimized network request batching",
+      "- Added debounce to expensive calculations"
+    ]
+  },
+  refactor: {
+    message: "I've examined your authentication flow and refactored it for better maintainability and security.",
+    filesToUpdate: [
+      "web/src/lib/auth.ts",
+      "web/src/components/auth/login-form.tsx",
+      "web/src/api/auth-service.ts"
+    ],
+    changes: [
+      "- Separated authentication logic into reusable hooks",
+      "- Improved error handling and user feedback",
+      "- Enhanced security with proper token management",
+      "- Simplified API request structure"
+    ]
+  },
+  feature: {
+    message: "I've implemented the dark mode toggle functionality across your application.",
+    filesToUpdate: [
+      "web/src/components/navbar/theme-switcher.tsx",
+      "web/src/hooks/use-theme.tsx",
+      "web/tailwind.config.ts",
+      "web/src/styles/globals.css"
+    ],
+    changes: [
+      "- Created ThemeSwitcher component with smooth transitions",
+      "- Added local storage persistence for theme preference",
+      "- Updated color scheme in Tailwind configuration",
+      "- Ensured all components respect theme settings"
+    ]
+  },
+  fix: {
+    message: "I found and fixed the memory leak in your React components.",
+    filesToUpdate: [
+      "web/src/components/dashboard/analytics-chart.tsx",
+      "web/src/hooks/use-websocket.ts"
+    ],
+    changes: [
+      "- Added proper cleanup in useEffect for event listeners",
+      "- Fixed WebSocket connection closure on component unmount",
+      "- Refactored expensive computation to avoid redundant work",
+      "- Added safeguards for asynchronous state updates"
+    ]
+  }
+};
+
+// Interactive typing animation component
+const TypingEffect = ({ text, delay = 25, onComplete }: { text: string, delay?: number, onComplete?: () => void }) => {
+  const [displayText, setDisplayText] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  
+  useEffect(() => {
+    if (currentIndex < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayText(prev => prev + text[currentIndex]);
+        setCurrentIndex(prevIndex => prevIndex + 1);
+      }, delay);
+      
+      return () => clearTimeout(timeout);
+    } else if (onComplete) {
+      onComplete();
+    }
+  }, [currentIndex, delay, text, onComplete]);
+  
+  return (
+    <span>
+      {displayText}
+      {currentIndex < text.length && (
+        <span className="animate-pulse">▌</span>
+      )}
+    </span>
+  );
+};
+
 const TerminalDemo = () => {
   const { theme: colorTheme } = useTheme()
   const [terminalLines, setTerminalLines] = useState<React.ReactNode[]>([
     <TerminalOutput key="welcome">
-      Codebuff will read and write files in "/my-demo-project". Type "help" for
-      a list of commands.
+      <span className="text-green-400 font-bold">Codebuff CLI v1.5.0</span>
+      <p>Interactive coding assistant that understands your entire codebase.</p>
+      <p>Working directory: <span className="text-blue-400">/my-demo-project</span></p>
+      <p>Type <span className="text-yellow-400 font-bold">"help"</span> for a list of commands or try a natural language request.</p>
     </TerminalOutput>,
   ])
   const [previewContent, setPreviewContent] =
     useState<string>(`<div style="padding: 16px; border-radius: 8px;">
-      <h1 class="text-xl">👋 Welcome to the Codebuff Demo!</h1>
+      <h1 class="text-xl font-bold">👋 Welcome to the Codebuff Demo!</h1>
       <p class="dim" style="margin-top: 16px;">Try these example prompts in the terminal:</p>
       <div style="margin: 16px 0; padding: 16px; background: rgba(59,130,246,0.1); border-radius: 8px;">
-        <p>🌈 <b>"Add a rainbow gradient"</b> - Make things colorful</p>
-        <p>🎨 <b>"Change the theme"</b> - Try different visual styles</p>
-        <p>🍊 <b>"Draw an orange"</b> - Color or fruit? Let us decide!</p>
+        <p>🚀 <b>"Optimize performance"</b> - Speed up your application</p>
+        <p>🔄 <b>"Refactor auth flow"</b> - Improve code architecture</p>
+        <p>🌙 <b>"Add dark mode"</b> - Implement new feature</p>
+        <p>🐛 <b>"Fix memory leak"</b> - Resolve coding issues</p>
       </div>
-      <p class="dim">Or type <b>"help"</b> to see all available commands!</p>`)
+      <p class="dim">Type <b>"help"</b> to see all available commands!</p>
+      <div style="margin-top: 16px; padding: 8px; background: rgba(74,222,128,0.1); border-radius: 4px; border-left: 3px solid rgba(74,222,128,0.5);">
+        <p style="font-style: italic; font-size: 0.9em;">This is just a demo. Install Codebuff to experience the full capabilities with your own projects!</p>
+      </div>`)
   const [showError, setShowError] = useState(FIX_BUG_FLAG)
 
   const [isRainbow, setIsRainbow] = useState(false)
   const [previewTheme, setPreviewTheme] = useState<PreviewTheme>('default')
   const [messages, setMessages] = useState<string[]>([])
+  const [autoTypeIndex, setAutoTypeIndex] = useState(0);
+  const [isAutoTyping, setIsAutoTyping] = useState(false);
+  const exampleCommands = useRef(['optimize performance', 'fix memory leak', 'refactor auth flow']);
+  const terminalRef = useRef<HTMLDivElement>(null);
 
   const demoMutation = useMutation<DemoResponse, Error, string>({
     mutationFn: async (input: string) => {
@@ -336,127 +435,508 @@ const TerminalDemo = () => {
     },
   })
 
+  // Auto demo typing effect
+  useEffect(() => {
+    if (!isAutoTyping) {
+      const interval = setInterval(() => {
+        if (Math.random() < 0.03) { // 3% chance to start auto-typing
+          setIsAutoTyping(true);
+          setAutoTypeIndex(Math.floor(Math.random() * exampleCommands.current.length));
+        }
+      }, 5000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isAutoTyping]);
+  
+  // Reset auto typing after completion
+  const resetAutoTyping = () => {
+    setTimeout(() => {
+      setIsAutoTyping(false);
+    }, 10000); // Wait 10 seconds before possibly triggering another demo
+  };
+  
+  // Handle various input commands
   const handleInput = async (input: string) => {
-    match(input)
+    const cleanInput = input.trim().toLowerCase();
+    
+    // Add the user's command to the terminal
+    setTerminalLines((prev) => [
+      ...prev,
+      <TerminalOutput key={`user-cmd-${Date.now()}`} className="text-wrap">
+        {'>'} {input}
+      </TerminalOutput>
+    ]);
+    
+    match(cleanInput)
       .with('help', () => {
         posthog.capture('demo_terminal.help_viewed')
         setTerminalLines((prev) => [
           ...prev,
-
-          <TerminalOutput key={`help-${Date.now()}`} className="text-wrap">
-            {'>'} help
-          </TerminalOutput>,
           <TerminalOutput key={`help-${Date.now()}`}>
-            <p>ASK CODEBUFF TO...</p>
-            {FIX_BUG_FLAG && <p>• "fix the bug" - Fix a bug in the code</p>}
-            <p>• "add rainbow" - Add a rainbow gradient to the component</p>
-            <p>• "change theme" - Change the visual theme</p>
-            <p>• "draw an orange" - Color or fruit? Let us decide!</p>
-            <p className="mt-4">
-              <b>
-                Keep in mind that this is just a demo – install the package to
-                get the full experience!
-              </b>
-            </p>
+            <div className="bg-zinc-800/50 p-3 rounded-md border border-zinc-700/50 my-2">
+              <p className="text-yellow-400 font-bold mb-2">CODEBUFF COMMANDS:</p>
+              <p className="mb-1">• <span className="text-blue-400">"optimize performance"</span> - Speed up your application</p>
+              <p className="mb-1">• <span className="text-blue-400">"refactor auth flow"</span> - Improve code organization</p>
+              <p className="mb-1">• <span className="text-blue-400">"add dark mode"</span> - Implement a new feature</p>
+              <p className="mb-1">• <span className="text-blue-400">"fix memory leak"</span> - Resolve coding issues</p>
+              <p className="mb-1">• <span className="text-blue-400">"change theme"</span> - Change the preview theme</p>
+              <p className="mt-3 text-green-400">
+                ℹ️ This is a demo with limited functionality. Install Codebuff for full capabilities:
+              </p>
+              <p className="font-mono bg-black/30 p-2 rounded text-white/90 mt-1">npm install -g codebuff</p>
+            </div>
           </TerminalOutput>,
         ])
       })
-      .with(P.string.includes('rainbow'), () => {
-        posthog.capture('demo_terminal.rainbow_added')
-        setIsRainbow(true)
-        setTerminalLines((prev) => [
-          ...prev,
-          <TerminalOutput key={`rainbow-cmd-${Date.now()}`}>
-            {'>'} please make the hello world background rainbow-colored
-          </TerminalOutput>,
-          <TerminalOutput key={`rainbow-preamble-${Date.now()}`}>
-            <b className="text-green-400">Codebuff:</b> Reading additional
-            files...
-            <p>- web/src/components/app.tsx</p>
-            <p>- web/tailwind.config.ts</p>
-          </TerminalOutput>,
-          <TerminalOutput key={`rainbow-1-${Date.now()}`}>
-            🌈 Added a rainbow gradient to the component!
-          </TerminalOutput>,
-        ])
-      })
+      .with(
+        P.string.includes('optimize'),
+        P.string.includes('performance'),
+        () => {
+          posthog.capture('demo_terminal.optimize_requested')
+          const response = SAMPLE_RESPONSES.optimize;
+          
+          setTerminalLines((prev) => [
+            ...prev,
+            <TerminalOutput key={`analyze-${Date.now()}`}>
+              <p className="text-blue-400">🔍 Analyzing codebase for performance bottlenecks...</p>
+              <div className="text-xs text-white/60 pl-4 mb-3 mt-1">
+                {getRandomFiles(4, 7).map((file, i) => (
+                  <motion.p 
+                    key={file} 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.15 }}
+                  >
+                    Scanning {file}...
+                  </motion.p>
+                ))}
+              </div>
+            </TerminalOutput>,
+            <TerminalOutput key={`optimize-response-${Date.now()}`}>
+              <div className="my-2">
+                <p className="text-green-400 font-bold mb-2">✅ Analysis complete</p>
+                <p className="mb-2">{response.message}</p>
+                
+                <p className="text-yellow-400 mt-4 mb-1">Files to update:</p>
+                {response.filesToUpdate.map(file => (
+                  <p key={file} className="text-white/80 text-sm pl-2">● {file}</p>
+                ))}
+                
+                <p className="text-yellow-400 mt-4 mb-1">Changes to apply:</p>
+                {response.changes.map(change => (
+                  <p key={change} className="text-green-400 text-sm pl-2">{change}</p>
+                ))}
+                
+                <p className="mt-4">Applying changes to 3 files...</p>
+                <p className="text-green-400 mt-1">✓ Performance optimizations applied successfully!</p>
+                <p className="text-white/60 text-sm italic mt-2">
+                  Note: Your application should now be approximately 43% faster.
+                </p>
+              </div>
+            </TerminalOutput>
+          ]);
+          
+          // Update the preview after the "changes"
+          setTimeout(() => {
+            setPreviewContent(`<div style="padding: 16px; border-radius: 8px;">
+              <h1 class="text-xl font-bold">⚡ Performance Optimized!</h1>
+              <div style="padding: 12px; background: rgba(74,222,128,0.1); border-radius: 6px; margin: 16px 0; border-left: 3px solid rgba(74,222,128,0.6);">
+                <p>✅ Memoized component rendering</p>
+                <p>✅ Implemented virtualized lists</p>
+                <p>✅ Optimized API request batching</p>
+                <p>✅ Reduced unnecessary re-renders</p>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-top: 16px;">
+                <div>
+                  <p style="font-weight: bold;">Before:</p>
+                  <p>Loading time: 1200ms</p>
+                  <p>Memory usage: 78MB</p>
+                </div>
+                <div>
+                  <p style="font-weight: bold; color: #10B981;">After:</p>
+                  <p style="color: #10B981;">Loading time: 680ms</p>
+                  <p style="color: #10B981;">Memory usage: 42MB</p>
+                </div>
+              </div>
+            </div>`);
+          }, 2000);
+        }
+      )
+      .with(
+        P.when((s: string) => s.includes('fix') && (s.includes('memory') || s.includes('leak'))),
+        () => {
+          posthog.capture('demo_terminal.fix_memory_leak')
+          setShowError(false)
+          const response = SAMPLE_RESPONSES.fix;
+          
+          setTerminalLines((prev) => [
+            ...prev,
+            <TerminalOutput key={`analyze-${Date.now()}`}>
+              <p className="text-blue-400">🔍 Scanning components for memory leaks...</p>
+              <div className="text-xs text-white/60 pl-4 mb-3 mt-1">
+                {getRandomFiles(3, 5).map((file, i) => (
+                  <motion.p 
+                    key={file} 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.15 }}
+                  >
+                    Analyzing {file}...
+                  </motion.p>
+                ))}
+              </div>
+              <p className="text-red-400">⚠️ Found 3 potential memory leaks in React components</p>
+            </TerminalOutput>,
+            <TerminalOutput key={`fix-response-${Date.now()}`}>
+              <div className="my-2">
+                <p className="mb-2">{response.message}</p>
+                
+                <p className="text-yellow-400 mt-4 mb-1">Problem areas:</p>
+                {response.filesToUpdate.map((file, i) => (
+                  <div key={file} className="pl-2 mb-2">
+                    <p className="text-white/80">● {file}</p>
+                    <p className="text-red-400/80 text-xs pl-4">
+                      {i === 0 ? 'Missing cleanup in useEffect hook' : 'Incomplete resource cleanup'}
+                    </p>
+                  </div>
+                ))}
+                
+                <p className="text-yellow-400 mt-4 mb-1">Applied fixes:</p>
+                {response.changes.map(change => (
+                  <p key={change} className="text-green-400 text-sm pl-2">{change}</p>
+                ))}
+                
+                <p className="mt-4">Applying changes...</p>
+                <p className="text-green-400 mt-1">✓ Memory leaks fixed successfully!</p>
+                <p className="text-white/60 text-sm italic mt-2">
+                  Memory profile before: 156MB, after: 92MB
+                </p>
+              </div>
+            </TerminalOutput>
+          ]);
+          
+          // Update the preview after the "changes"
+          setTimeout(() => {
+            setPreviewContent(`<div style="padding: 16px; border-radius: 8px;">
+              <h1 class="text-xl font-bold">🔧 Memory Leaks Fixed!</h1>
+              <div style="padding: 12px; background: rgba(74,222,128,0.1); border-radius: 6px; margin: 16px 0; border-left: 3px solid rgba(74,222,128,0.6);">
+                <p>✅ Proper useEffect cleanups added</p>
+                <p>✅ WebSocket connections properly closed</p>
+                <p>✅ Event listener memory leaks resolved</p>
+                <p>✅ Async state updates protected</p>
+              </div>
+              <div style="margin-top: 20px; border: 1px dashed #10B981; padding: 12px; border-radius: 6px;">
+                <p style="font-weight: bold;">Memory Usage:</p>
+                <div style="height: 24px; width: 100%; background: #374151; border-radius: 4px; overflow: hidden; margin-top: 8px; position: relative;">
+                  <div style="position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; color: white; font-size: 14px;">
+                    41% Reduction
+                  </div>
+                  <div style="height: 100%; width: 59%; background: linear-gradient(to right, #10B981, #34D399);"></div>
+                </div>
+              </div>
+            </div>`);
+          }, 2000);
+          
+          setPreviewTheme('default');
+        }
+      )
+      .with(
+        P.when((s: string) => s.includes('refactor') && s.includes('auth')),
+        () => {
+          posthog.capture('demo_terminal.refactor_requested')
+          const response = SAMPLE_RESPONSES.refactor;
+          
+          setTerminalLines((prev) => [
+            ...prev,
+            <TerminalOutput key={`analyze-${Date.now()}`}>
+              <p className="text-blue-400">🔍 Analyzing authentication code architecture...</p>
+              <div className="text-xs text-white/60 pl-4 mb-3 mt-1">
+                {getRandomFiles(3, 6).map((file, i) => (
+                  <motion.p 
+                    key={file} 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.15 }}
+                  >
+                    Examining {file}...
+                  </motion.p>
+                ))}
+              </div>
+              <p className="text-yellow-400">⚠️ Found authentication code with high technical debt</p>
+            </TerminalOutput>,
+            <TerminalOutput key={`refactor-response-${Date.now()}`}>
+              <div className="my-2">
+                <p className="mb-2">{response.message}</p>
+                
+                <p className="text-yellow-400 mt-4 mb-1">Files refactored:</p>
+                {response.filesToUpdate.map(file => (
+                  <p key={file} className="text-white/80 text-sm pl-2">● {file}</p>
+                ))}
+                
+                <p className="text-yellow-400 mt-4 mb-1">Architecture improvements:</p>
+                {response.changes.map(change => (
+                  <p key={change} className="text-green-400 text-sm pl-2">{change}</p>
+                ))}
+                
+                <p className="mt-4">Applying refactoring changes...</p>
+                <p className="text-green-400 mt-1">✓ Authentication flow refactored successfully!</p>
+                <p className="text-white/60 text-sm italic mt-2">
+                  Code complexity reduced by 32%
+                </p>
+              </div>
+            </TerminalOutput>
+          ]);
+          
+          // Update the preview after the "changes"
+          setTimeout(() => {
+            setPreviewContent(`<div style="padding: 16px; border-radius: 8px;">
+              <h1 class="text-xl font-bold">🔄 Authentication Flow Refactored</h1>
+              <div style="padding: 12px; background: rgba(59,130,246,0.1); border-radius: 6px; margin: 16px 0; border-left: 3px solid rgba(59,130,246,0.6);">
+                <p>✅ Improved code organization</p>
+                <p>✅ Enhanced error handling</p>
+                <p>✅ Better security practices</p>
+                <p>✅ More maintainable structure</p>
+              </div>
+              <div style="margin-top: 20px; display: flex; justify-content: space-between;">
+                <div style="width: 48%;">
+                  <p style="font-weight: bold; margin-bottom: 8px;">Before:</p>
+                  <div style="background: #1F2937; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 12px;">
+                    <p style="color: #9CA3AF; margin: 0;">// Mixed concerns</p>
+                    <p style="color: #D1D5DB; margin: 0;">function login(user, pass) {</p>
+                    <p style="color: #D1D5DB; margin: 0; padding-left: 12px;">validateUser();</p>
+                    <p style="color: #D1D5DB; margin: 0; padding-left: 12px;">makeAPICall();</p>
+                    <p style="color: #D1D5DB; margin: 0; padding-left: 12px;">handleErrors();</p>
+                    <p style="color: #D1D5DB; margin: 0; padding-left: 12px;">updateUIState();</p>
+                    <p style="color: #D1D5DB; margin: 0;">}</p>
+                  </div>
+                </div>
+                <div style="width: 48%;">
+                  <p style="font-weight: bold; color: #10B981; margin-bottom: 8px;">After:</p>
+                  <div style="background: #1F2937; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 12px;">
+                    <p style="color: #9CA3AF; margin: 0;">// Separated concerns</p>
+                    <p style="color: #D1D5DB; margin: 0;">function useAuth() {</p>
+                    <p style="color: #D1D5DB; margin: 0; padding-left: 12px;">const login = async () => {</p>
+                    <p style="color: #D1D5DB; margin: 0; padding-left: 24px;">try {</p>
+                    <p style="color: #10B981; margin: 0; padding-left: 36px;">// Clean implementation</p>
+                    <p style="color: #D1D5DB; margin: 0; padding-left: 24px;">}</p>
+                    <p style="color: #D1D5DB; margin: 0; padding-left: 12px;">}</p>
+                    <p style="color: #D1D5DB; margin: 0;">}</p>
+                  </div>
+                </div>
+              </div>
+            </div>`);
+          }, 2000);
+        }
+      )
+      .with(
+        P.when((s: string) => (s.includes('dark') || s.includes('light')) && s.includes('mode')),
+        () => {
+          posthog.capture('demo_terminal.feature_requested')
+          const response = SAMPLE_RESPONSES.feature;
+          
+          setTerminalLines((prev) => [
+            ...prev,
+            <TerminalOutput key={`analyze-${Date.now()}`}>
+              <p className="text-blue-400">🔍 Scanning application for theme implementation...</p>
+              <div className="text-xs text-white/60 pl-4 mb-3 mt-1">
+                {getRandomFiles(4, 6).map((file, i) => (
+                  <motion.p 
+                    key={file} 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.15 }}
+                  >
+                    Examining {file}...
+                  </motion.p>
+                ))}
+              </div>
+            </TerminalOutput>,
+            <TerminalOutput key={`feature-response-${Date.now()}`}>
+              <div className="my-2">
+                <p className="mb-2">{response.message}</p>
+                
+                <p className="text-yellow-400 mt-4 mb-1">Files updated:</p>
+                {response.filesToUpdate.map(file => (
+                  <p key={file} className="text-white/80 text-sm pl-2">● {file}</p>
+                ))}
+                
+                <p className="text-yellow-400 mt-4 mb-1">Implementation details:</p>
+                {response.changes.map(change => (
+                  <p key={change} className="text-green-400 text-sm pl-2">{change}</p>
+                ))}
+                
+                <p className="mt-4">Applying feature changes...</p>
+                <p className="text-green-400 mt-1">✓ Dark mode toggle implemented successfully!</p>
+                <p className="text-white/60 text-sm italic mt-2">
+                  Feature is now available across all application pages
+                </p>
+              </div>
+            </TerminalOutput>
+          ]);
+          
+          // Toggle the theme to show the feature
+          const nextTheme = previewTheme === 'default' ? 'retro' : 'default';
+          setPreviewTheme(nextTheme);
+          
+          // Update the preview after the "changes"
+          setTimeout(() => {
+            setPreviewContent(`<div style="padding: 16px; border-radius: 8px;">
+              <h1 class="text-xl font-bold">🌙 Dark Mode Implemented!</h1>
+              <div style="margin: 16px 0; padding: 12px; background: ${previewTheme === 'default' ? 'rgba(59,130,246,0.1)' : 'rgba(234,179,8,0.1)'}; border-radius: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                  <span style="font-weight: bold;">Toggle Theme:</span>
+                  <div style="width: 48px; height: 24px; background: ${previewTheme === 'default' ? '#1F2937' : '#FFB000'}; border-radius: 12px; position: relative; cursor: pointer;">
+                    <div style="position: absolute; width: 20px; height: 20px; border-radius: 50%; background: white; top: 2px; ${previewTheme === 'default' ? 'right: 2px' : 'left: 2px'}; transition: all 0.3s;"></div>
+                  </div>
+                </div>
+                <p>✅ Theme switcher component added</p>
+                <p>✅ User preference persisted</p>
+                <p>✅ System preference detection</p>
+                <p>✅ Smooth theme transitions</p>
+              </div>
+              <div style="margin-top: 16px; font-family: monospace; font-size: 14px; background: #1F2937; color: #D1D5DB; padding: 12px; border-radius: 6px;">
+                <p style="margin: 0;">const [theme, setTheme] = useState('light');</p>
+                <p style="margin: 0;">useEffect(() => {</p>
+                <p style="margin: 0; padding-left: 16px;">document.documentElement.classList.toggle(</p>
+                <p style="margin: 0; padding-left: 32px;">'dark', theme === 'dark'</p>
+                <p style="margin: 0; padding-left: 16px;">);</p>
+                <p style="margin: 0;">}, [theme]);</p>
+              </div>
+            </div>`);
+          }, 2000);
+        }
+      )
       .with('change theme', () => {
         const themes: PreviewTheme[] = ['terminal-y', 'retro', 'light']
         const currentIndex = themes.indexOf(previewTheme)
         const nextTheme = themes[(currentIndex + 1) % themes.length]
 
         posthog.capture('demo_terminal.theme_changed', {
-          from: colorTheme,
+          from: previewTheme,
           to: nextTheme,
         })
         setPreviewTheme(nextTheme)
 
         setTerminalLines((prev) => [
           ...prev,
-          <TerminalOutput key={`theme-cmd-${Date.now()}`}>
-            {'>'} change the theme to be more {nextTheme}
-          </TerminalOutput>,
-          <TerminalOutput key={`rainbow-preamble-${Date.now()}`}>
-            <b className="text-green-400">Codebuff:</b> Reading additional
-            files...
-            <p>- web/src/components/ui/card.tsx</p>
-            <p>- common/src/util/file.ts</p>
-          </TerminalOutput>,
-          <TerminalOutput key={`theme-1-${Date.now()}`}>
-            Sure, let's switch to a more {nextTheme} theme... ✨
-          </TerminalOutput>,
-          <TerminalOutput key={`fix-1-${Date.now()}`}>
-            <p>Applying file changes, please wait...</p>
-            <p className="text-green-400">
-              - Updated web/src/components/app.tsx
-            </p>
+          <TerminalOutput key={`theme-preamble-${Date.now()}`}>
+            <div className="my-2">
+              <p className="text-blue-400">
+                Changing theme to <span className="font-bold">{nextTheme}</span> mode...
+              </p>
+              <p className="text-green-400 mt-2">✓ Theme updated successfully!</p>
+            </div>
           </TerminalOutput>,
         ])
       })
-      .with(
-        P.when((s: string) => s.includes('fix') && s.includes('bug')),
-        () => {
-          posthog.capture('demo_terminal.bug_fixed')
-          setShowError(false)
-          setTerminalLines((prev) => [
-            ...prev,
-            <TerminalOutput key={`fix-1-${Date.now()}`}>
-              <b className="text-green-400">Codebuff:</b> I found a potential
-              bug - the greeting is missing an exclamation mark.
-            </TerminalOutput>,
-            <TerminalOutput key={`fix-2-${Date.now()}`}>
-              I'll add proper punctuation and improve the code style.
-            </TerminalOutput>,
-            <TerminalOutput key={`fix-3-${Date.now()}`}>
-              <p>Applying file changes, please wait...</p>
-              <p className="text-green-400">
-                - Updated web/src/components/app.tsx
-              </p>
-              <p className="text-green-400">- Created web/tailwind.config.ts</p>
-            </TerminalOutput>,
-          ])
-          setPreviewContent('fixed')
-        }
-      )
       .with('clear', () => {
-        setTerminalLines([])
+        setTerminalLines([
+          <TerminalOutput key="welcome-again">
+            <span className="text-green-400 font-bold">Codebuff CLI v1.5.0</span>
+            <p>Terminal cleared. Type <span className="text-yellow-400 font-bold">"help"</span> for available commands.</p>
+          </TerminalOutput>
+        ])
       })
       .otherwise(() => {
-        demoMutation.mutate(input)
+        // For other commands, show a custom response
+        setTerminalLines((prev) => [
+          ...prev,
+          <TerminalOutput key={`analyze-${Date.now()}`}>
+            <p className="text-blue-400">🔍 Analyzing request and searching codebase...</p>
+            <div className="text-xs text-white/60 pl-4 mb-3 mt-1">
+              {getRandomFiles(2, 4).map((file, i) => (
+                <motion.p 
+                  key={file} 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: i * 0.15 }}
+                >
+                  Scanning {file}...
+                </motion.p>
+              ))}
+            </div>
+          </TerminalOutput>,
+          <TerminalOutput key={`generic-response-${Date.now()}`}>
+            <div className="my-2">
+              <p className="text-yellow-400">This is a limited demo.</p>
+              <p className="mb-2">Try one of these sample commands:</p>
+              <ul className="list-disc pl-6 space-y-1 text-blue-400">
+                <li>"optimize performance"</li>
+                <li>"fix memory leak"</li>
+                <li>"refactor auth flow"</li>
+                <li>"add dark mode"</li>
+                <li>"change theme"</li>
+              </ul>
+              <p className="text-white/60 text-sm italic mt-4">
+                Install Codebuff to get the full experience with your own projects!
+              </p>
+              <p className="font-mono bg-black/30 p-2 rounded text-white/90 mt-2">npm install -g codebuff</p>
+            </div>
+          </TerminalOutput>
+        ]);
       })
   }
 
+  // Auto-typing effect to demonstrate commands
+  useEffect(() => {
+    if (isAutoTyping) {
+      const commandToType = exampleCommands.current[autoTypeIndex];
+      
+      // Type the command with a delay
+      const inputEl = document.querySelector('.terminal-input');
+      if (inputEl) {
+        let i = 0;
+        const typeInterval = setInterval(() => {
+          if (i >= commandToType.length) {
+            clearInterval(typeInterval);
+            // Submit the command after typing
+            setTimeout(() => {
+              handleInput(commandToType);
+              resetAutoTyping();
+            }, 1000);
+            return;
+          }
+          
+          // Add characters one by one
+          (inputEl as HTMLElement).innerText = commandToType.substring(0, i + 1);
+          i++;
+        }, 150);
+        
+        return () => clearInterval(typeInterval);
+      }
+    }
+  }, [isAutoTyping, autoTypeIndex]);
+  
   return (
     <div className="flex flex-col lg:flex-row gap-4">
-      <div className="w-full lg:w-1/2 h-full flex">
-        <div className="w-full text-sm">
-          <div className="h-[200px] md:h-[400px] lg:h-[800px]">
+      <div className="w-full lg:w-1/2 h-full flex relative">
+        <motion.div 
+          className="absolute -top-4 -left-4 lg:-left-6 z-10 bg-green-500 text-black text-xs font-bold px-3 py-1 rounded-full"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1 }}
+        >
+          Interactive Demo
+        </motion.div>
+        
+        <div className="w-full text-sm" ref={terminalRef}>
+          <div className="h-[250px] md:h-[400px] lg:h-[800px] relative">
+            {/* Terminal container with custom border glow */}
+            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-green-500/20 to-green-300/20 p-[1px] pointer-events-none">
+              <div className="absolute inset-0 rounded-lg bg-black" />
+            </div>
+            
             <Terminal
-              name="Terminal"
+              name="Codebuff CLI"
               colorMode={ColorMode.Dark}
               onInput={(input) => {
-                const cleanInput = input.trim().toLowerCase()
-                handleInput(cleanInput)
+                const cleanInput = input.trim();
+                // Stop auto typing when user types
+                if (isAutoTyping) {
+                  setIsAutoTyping(false);
+                }
+                handleInput(cleanInput);
               }}
               scrollToPosition={true}
               prompt="> "
@@ -468,20 +948,48 @@ const TerminalDemo = () => {
                 )}
               >
                 {terminalLines}
+                
+                {/* Auto-typing hint */}
+                {!isAutoTyping && terminalLines.length < 3 && (
+                  <motion.div 
+                    className="mt-4 text-xs text-gray-400 italic"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 2 }}
+                  >
+                    Try typing <span className="text-blue-400">"optimize performance"</span> or <span className="text-blue-400">"help"</span>
+                  </motion.div>
+                )}
               </div>
             </Terminal>
           </div>
         </div>
       </div>
 
-      <div className="w-full lg:w-1/2 h-[200px] md:h-[400px] lg:h-[800px] flex">
-        <BrowserPreview
-          content={previewContent}
-          showError={showError}
-          isRainbow={isRainbow}
-          theme={previewTheme}
-          isLoading={demoMutation.isPending}
-        />
+      <div className="w-full lg:w-1/2 h-[250px] md:h-[400px] lg:h-[800px] flex relative">
+        <motion.div 
+          className="absolute -top-4 -right-4 lg:-right-6 z-10 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.2 }}
+        >
+          Live Preview
+        </motion.div>
+        
+        {/* Browser preview with enhanced border */}
+        <div className="relative w-full overflow-hidden">
+          <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-500/20 to-purple-500/20 p-[1px] pointer-events-none">
+            <div className="absolute inset-0 rounded-lg bg-black" />
+          </div>
+          
+          <BrowserPreview
+            content={previewContent}
+            showError={showError}
+            isRainbow={isRainbow}
+            theme={previewTheme}
+            isLoading={demoMutation.isPending}
+          />
+        </div>
       </div>
     </div>
   )

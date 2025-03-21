@@ -4,6 +4,7 @@ export type Testimonial = {
   title: string
   avatar?: string
   link: string
+  verified?: boolean
 }
 
 export const testimonials: Testimonial[][] = [
@@ -15,6 +16,7 @@ export const testimonials: Testimonial[][] = [
       title: 'Founder & CEO',
       avatar: '/testimonials/daniel-hsu.jpg',
       link: '/testimonials/proof/daniel-hsu.jpg',
+      verified: true,
     },
     {
       quote: 'Dude you guys are building something good',
@@ -22,6 +24,7 @@ export const testimonials: Testimonial[][] = [
       title: 'Founder & CEO',
       avatar: '/testimonials/albert-lam.jpg',
       link: '/testimonials/proof/albert-lam.png',
+      verified: true,
     },
     {
       quote: "I'm honestly surprised by how well the product works!",
@@ -61,6 +64,7 @@ export const testimonials: Testimonial[][] = [
       title: 'Design Engineer',
       avatar: '/testimonials/omar.jpg',
       link: '/testimonials/proof/omar.png',
+      verified: true,
     },
   ],
   [

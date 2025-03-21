@@ -170,7 +170,22 @@ export function IDEDemo({ className }: IDEDemoProps) {
   const [currentLine, setCurrentLine] = useState(1)
   const [currentCol, setCurrentCol] = useState(1)
   const [terminalLines, setTerminalLines] = useState<string[]>([])
+  const [isMobile, setIsMobile] = useState(false)
   const editorRef = useRef<HTMLDivElement>(null)
+  
+  // Check for mobile view
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Initial check
+    checkMobile();
+    
+    // Listen for resize events
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     // Start transition after 3 seconds
@@ -224,119 +239,61 @@ export function IDEDemo({ className }: IDEDemoProps) {
   }, [showIDE])
 
   return (
-    <div className="border border-zinc-800 rounded-lg overflow-hidden">
+    <div className="border border-zinc-800 rounded-lg overflow-hidden shadow-lg">
       <div
         className={cn(
           'relative w-full transition-all duration-1000 ease-in-out overflow-visible',
-          showIDE ? 'h-[650px]' : 'h-[400px]',
+          showIDE 
+            ? isMobile ? 'h-[450px]' : 'h-[650px]' 
+            : isMobile ? 'h-[300px]' : 'h-[400px]',
           className
         )}
       >
-        <div
-          className={cn(
-            'absolute inset-0 bg-black transition-all duration-1000',
-            showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-          )}
-        >
-          {/* IDE Layout */}
-          <div className="flex h-full">
-            {/* Activity Bar */}
-            <div className="w-12 border-r border-zinc-800 flex flex-col items-center py-2 bg-black/20 relative">
-              {/* Add fade overlay with reduced opacity */}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
-
-              {/* Activity buttons above the fade */}
-              <div className="relative z-0 flex flex-col items-center space-y-4">
-                <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                  <Files size={20} />
-                </button>
-                <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                  <Search size={20} />
-                </button>
-                <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                  <GitBranch size={20} />
-                </button>
-                <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                  <Bug size={20} />
-                </button>
-                <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                  <Package size={20} />
-                </button>
-              </div>
-            </div>
-
-            {/* Sidebar */}
-            <div
-              className={cn(
-                'border-r border-zinc-800 transition-all duration-1000 bg-black/20 relative',
-                showIDE ? 'w-64' : 'w-0'
-              )}
-            >
-              {/* Add fade overlay with reduced opacity */}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
-
-              {/* File Explorer */}
-              <div className="p-2">
-                <div className="text-sm text-zinc-400 mb-2 flex items-center">
-                  <span className="flex-1">EXPLORER</span>
-                  <button className="p-1 hover:bg-zinc-800 rounded">
-                    <ChevronDown size={16} />
-                  </button>
+        {/* Mobile Simplified View */}
+        {isMobile && (
+          <div
+            className={cn(
+              'absolute inset-0 bg-black transition-all duration-1000 z-20',
+              showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+            )}
+          >
+            <div className="flex flex-col h-full">
+              {/* Mobile Header */}
+              <div className="bg-zinc-900 p-2 flex items-center justify-between border-b border-zinc-800">
+                <div className="flex items-center">
+                  <Files size={16} className="text-green-500 mr-2" />
+                  <span className="text-sm text-white font-medium">Codebuff IDE</span>
                 </div>
-                <div className="space-y-1">
-                  {fileStructure.map((item, index) => (
-                    <FileTreeItem key={item.name + index} item={item} />
-                  ))}
+                <div className="flex items-center space-x-3">
+                  <GitBranch size={14} className="text-zinc-400" />
+                  <Search size={14} className="text-zinc-400" />
+                  <Settings size={14} className="text-zinc-400" />
                 </div>
               </div>
-            </div>
-
-            {/* Main Editor Area */}
-            <div className="flex-1 flex flex-col bg-black/30">
-              {/* Tabs */}
-              <div className="border-b border-zinc-800 h-9 flex items-center px-2 relative">
-                {/* Add fade overlay with reduced opacity */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
-
-                {/* Tab content above the fade */}
-                <div className="flex items-center space-x-1 relative z-0">
-                  <div className="flex items-center bg-zinc-800 rounded-t px-3 py-1 text-sm text-zinc-300 group cursor-pointer">
+              
+              {/* Mobile Editor Tabs */}
+              <div className="border-b border-zinc-800 overflow-x-auto whitespace-nowrap py-1 px-2 bg-black/40">
+                <div className="inline-flex gap-1">
+                  <div className="flex items-center bg-zinc-800 rounded px-2 py-1 text-xs text-zinc-300">
                     <FileIcon extension="ts" />
                     <span>index.ts</span>
-                    <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <X size={14} />
-                    </button>
                   </div>
-                  <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
+                  <div className="flex items-center bg-black/30 rounded px-2 py-1 text-xs text-zinc-400">
                     <FileIcon extension="ts" />
                     <span>auth.ts</span>
-                    <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <X size={14} />
-                    </button>
-                  </div>
-                  <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
-                    <FileIcon extension="tsx" />
-                    <span>App.tsx</span>
-                    <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <X size={14} />
-                    </button>
                   </div>
                 </div>
               </div>
-
-              {/* Editor Content */}
-              <div
+              
+              {/* Mobile Editor Content */}
+              <div 
                 className={cn(
-                  'flex-1 p-4 font-mono text-sm relative transition-all duration-1000',
-                  expandTerminal && 'h-[20%]'
+                  "flex-1 p-3 font-mono text-xs relative bg-black/60 transition-all duration-500",
+                  expandTerminal && "h-[30%]"
                 )}
-                ref={editorRef}
               >
-                {/* Add fade overlay */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/70 to-black/70 pointer-events-none z-10" />
-
                 <div className="flex relative z-0">
-                  <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                  <div className="text-zinc-600 mr-2 select-none w-4 text-right">
                     1
                   </div>
                   <div className="text-zinc-300">
@@ -345,46 +302,215 @@ export function IDEDemo({ className }: IDEDemoProps) {
                     <span>);</span>
                   </div>
                 </div>
-              </div>
-
-              {/* Terminal Panel */}
-              <div
-                className={cn(
-                  'border-t border-zinc-800 transition-all duration-1000 bg-black/40',
-                  showIDE
-                    ? expandTerminal
-                      ? 'h-[80%] text-lg'
-                      : 'h-[300px]'
-                    : 'h-full'
-                )}
-              >
-                <div className="flex items-center border-b border-zinc-800 px-4 py-1">
-                  <span className="text-xs text-zinc-400">TERMINAL</span>
-                  <div className="ml-auto flex items-center space-x-2">
-                    <button className="p-1 hover:bg-zinc-800 rounded">
-                      <Split size={14} className="text-zinc-400" />
-                    </button>
-                    <button className="p-1 hover:bg-zinc-800 rounded">
-                      <Plus size={14} className="text-zinc-400" />
-                    </button>
-                    <button className="p-1 hover:bg-zinc-800 rounded">
-                      <Trash size={14} className="text-zinc-400" />
-                    </button>
+                <div className="flex relative z-0 mt-1">
+                  <div className="text-zinc-600 mr-2 select-none w-4 text-right">
+                    2
+                  </div>
+                  <div className="text-zinc-300">
+                    <span>{`// Mobile-friendly IDE demo`}</span>
                   </div>
                 </div>
-                <Terminal
-                  colorMode={ColorMode.Dark}
-                  prompt="> "
-                  showWindowButtons={false}
-                >
-                  {terminalLines.map((line, index) => (
-                    <TerminalOutput key={index}>{line}</TerminalOutput>
-                  ))}
-                </Terminal>
+              </div>
+              
+              {/* Mobile Terminal */}
+              <div 
+                className={cn(
+                  "border-t border-zinc-800 bg-black/80 transition-all duration-1000",
+                  expandTerminal ? "h-[70%]" : "h-[50%]"
+                )}
+              >
+                <div className="flex items-center border-b border-zinc-800 px-3 py-1 bg-black/40">
+                  <span className="text-xs text-zinc-400">TERMINAL</span>
+                  <button 
+                    className="ml-auto p-1 hover:bg-zinc-800 rounded"
+                    onClick={() => setExpandTerminal(!expandTerminal)}
+                  >
+                    {expandTerminal ? 
+                      <ChevronDown size={14} className="text-zinc-400" /> : 
+                      <ChevronRight size={14} className="text-zinc-400" />
+                    }
+                  </button>
+                </div>
+                
+                <div className="p-3 text-xs">
+                  <div className="text-green-400 font-bold mb-1">Codebuff CLI v1.5.0</div>
+                  {terminalLines.length > 0 ? (
+                    terminalLines.map((line, index) => (
+                      <div key={index} className="text-zinc-300 my-1">
+                        {line.startsWith('>') ? 
+                          <span><span className="text-green-400">{`>`}</span>{line.substring(1)}</span> : 
+                          line
+                        }
+                      </div>
+                    ))
+                  ) : (
+                    <>
+                      <div className="text-zinc-300 mt-1">Type 'help' for commands</div>
+                      <div className="text-green-400 mt-2">{'>'} <span className="animate-pulse">|</span></div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
+        
+        {/* Desktop Full IDE View */}
+        {!isMobile && (
+          <div
+            className={cn(
+              'absolute inset-0 bg-black transition-all duration-1000',
+              showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+            )}
+          >
+            {/* IDE Layout */}
+            <div className="flex h-full">
+              {/* Activity Bar */}
+              <div className="w-12 border-r border-zinc-800 flex flex-col items-center py-2 bg-black/20 relative">
+                {/* Add fade overlay with reduced opacity */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
+
+                {/* Activity buttons above the fade */}
+                <div className="relative z-0 flex flex-col items-center space-y-4">
+                  <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                    <Files size={20} />
+                  </button>
+                  <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                    <Search size={20} />
+                  </button>
+                  <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                    <GitBranch size={20} />
+                  </button>
+                  <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                    <Bug size={20} />
+                  </button>
+                  <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                    <Package size={20} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Sidebar */}
+              <div
+                className={cn(
+                  'border-r border-zinc-800 transition-all duration-1000 bg-black/20 relative',
+                  showIDE ? 'w-64' : 'w-0'
+                )}
+              >
+                {/* Add fade overlay with reduced opacity */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
+
+                {/* File Explorer */}
+                <div className="p-2">
+                  <div className="text-sm text-zinc-400 mb-2 flex items-center">
+                    <span className="flex-1">EXPLORER</span>
+                    <button className="p-1 hover:bg-zinc-800 rounded">
+                      <ChevronDown size={16} />
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    {fileStructure.map((item, index) => (
+                      <FileTreeItem key={item.name + index} item={item} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Editor Area */}
+              <div className="flex-1 flex flex-col bg-black/30">
+                {/* Tabs */}
+                <div className="border-b border-zinc-800 h-9 flex items-center px-2 relative">
+                  {/* Add fade overlay with reduced opacity */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
+
+                  {/* Tab content above the fade */}
+                  <div className="flex items-center space-x-1 relative z-0">
+                    <div className="flex items-center bg-zinc-800 rounded-t px-3 py-1 text-sm text-zinc-300 group cursor-pointer">
+                      <FileIcon extension="ts" />
+                      <span>index.ts</span>
+                      <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
+                      <FileIcon extension="ts" />
+                      <span>auth.ts</span>
+                      <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
+                      <FileIcon extension="tsx" />
+                      <span>App.tsx</span>
+                      <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Editor Content */}
+                <div
+                  className={cn(
+                    'flex-1 p-4 font-mono text-sm relative transition-all duration-1000',
+                    expandTerminal && 'h-[20%]'
+                  )}
+                  ref={editorRef}
+                >
+                  {/* Add fade overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/70 to-black/70 pointer-events-none z-10" />
+
+                  <div className="flex relative z-0">
+                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                      1
+                    </div>
+                    <div className="text-zinc-300">
+                      <span>console.log(</span>
+                      <span className="text-green-400">"Hello, Codebuff!"</span>
+                      <span>);</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Terminal Panel */}
+                <div
+                  className={cn(
+                    'border-t border-zinc-800 transition-all duration-1000 bg-black/40',
+                    showIDE
+                      ? expandTerminal
+                        ? 'h-[80%] text-lg'
+                        : 'h-[300px]'
+                      : 'h-full'
+                  )}
+                >
+                  <div className="flex items-center border-b border-zinc-800 px-4 py-1">
+                    <span className="text-xs text-zinc-400">TERMINAL</span>
+                    <div className="ml-auto flex items-center space-x-2">
+                      <button className="p-1 hover:bg-zinc-800 rounded">
+                        <Split size={14} className="text-zinc-400" />
+                      </button>
+                      <button className="p-1 hover:bg-zinc-800 rounded">
+                        <Plus size={14} className="text-zinc-400" />
+                      </button>
+                      <button className="p-1 hover:bg-zinc-800 rounded">
+                        <Trash size={14} className="text-zinc-400" />
+                      </button>
+                    </div>
+                  </div>
+                  <Terminal
+                    colorMode={ColorMode.Dark}
+                    prompt="> "
+                    showWindowButtons={false}
+                  >
+                    {terminalLines.map((line, index) => (
+                      <TerminalOutput key={index}>{line}</TerminalOutput>
+                    ))}
+                  </Terminal>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Original Terminal (fades out) */}
         {showOriginalTerminal && (
@@ -401,7 +527,23 @@ export function IDEDemo({ className }: IDEDemoProps) {
               showWindowButtons={true}
             >
               <TerminalOutput>Codebuff runs in your terminal!</TerminalOutput>
+              {isMobile && (
+                <TerminalOutput>Tap to see the full IDE experience...</TerminalOutput>
+              )}
             </Terminal>
+          </div>
+        )}
+        
+        {/* Mobile Interactive Hint */}
+        {isMobile && (
+          <div 
+            className={cn(
+              "absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-green-500/80 text-black text-xs px-3 py-1 rounded-full",
+              "flex items-center justify-center transition-opacity duration-500",
+              showIDE ? "opacity-0" : "opacity-100"
+            )}
+          >
+            Tap to expand IDE demo
           </div>
         )}
       </div>
