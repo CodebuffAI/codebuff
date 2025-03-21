@@ -1,5 +1,6 @@
 import { ToolResult } from 'common/types/agent-state'
 import { generateCompactId } from 'common/util/string'
+import { parseMarkdownFileBlocks } from 'common/util/file'
 
 /**
  * Parses XML content for a tool call into a structured object.
@@ -83,4 +84,39 @@ export const parseToolResults = (xmlString: string): ToolResult[] => {
   }
 
   return results
+}
+
+/**
+ * Simplifies read_files tool results to just show file paths while preserving other tool results.
+ * @param messageContent The message content containing tool results
+ * @returns The message content with simplified read_files results
+ */
+export function simplifyReadFileResults(messageContent: string): string {
+  if (!messageContent.includes('<tool_result')) {
+    return messageContent
+  }
+
+  const toolResults = parseToolResults(messageContent)
+  const readFileResults = toolResults.filter(result => result.name === 'read_files')
+  
+  if (readFileResults.length === 0) {
+    return messageContent
+  }
+
+  // Keep non-read_files results unchanged
+  const otherResults = toolResults.filter(result => result.name !== 'read_files')
+  
+  // Create simplified read_files results
+  const simplifiedReadFileResults = readFileResults.map(result => {
+    const fileBlocks = parseMarkdownFileBlocks(result.result)
+    const filePaths = fileBlocks.map(block => block.path)
+    return {
+      id: result.id, // Keep original ID
+      name: 'read_files',
+      result: `Read the following files: ${filePaths.join('\n')}`
+    }
+  })
+
+  // Combine both types of results
+  return renderToolResults([...otherResults, ...simplifiedReadFileResults])
 }
