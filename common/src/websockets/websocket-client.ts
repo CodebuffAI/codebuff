@@ -212,11 +212,12 @@ export class APIRealtimeClient {
         data: action,
       })
     } catch (e) {
-      console.error(
-        'Error sending action:',
-        action,
-        typeof e === 'object' && e !== null && 'message' in e ? e.message : e
-      )
+      // Note (James): seems like swallowing the error is ok in client since we reconnect automatically.
+      // console.error(
+      //   'Error sending action:',
+      //   action,
+      //   typeof e === 'object' && e !== null && 'message' in e ? e.message : e
+      // )
     }
   }
 
