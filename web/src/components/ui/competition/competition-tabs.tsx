@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { CompetitorCard, CompetitorType } from './competitor-card'
 import { motion } from 'framer-motion'
+import { CodebuffPath } from './codebuff-path'
 
 const competitors: CompetitorType[] = ['cursor', 'claude-code', 'cline']
 
@@ -30,6 +31,13 @@ export function CompetitionTabs() {
 
   return (
     <div className="flex flex-col md:flex-row h-full">
+      {/* Codebuff Path */}
+      <div className="hidden md:block md:w-64 md:border-r border-zinc-800/50 bg-black/20">
+        <div className="p-4">
+          <CodebuffPath />
+        </div>
+      </div>
+
       {/* Vertical Tabs */}
       <div className="md:w-64 md:border-r border-zinc-800/50 bg-black/20">
         <div className="flex md:flex-col p-4 gap-2 overflow-x-auto md:overflow-visible">

@@ -1,13 +1,7 @@
 'use client'
 
-import { motion, useAnimation } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useEffect, useState, useRef } from 'react'
-
-interface Point {
-  x: number
-  y: number
-  time: number
-}
 
 interface CommandLog {
   time: number
@@ -16,16 +10,8 @@ interface CommandLog {
   emotion?: string
 }
 
-interface TrailPoint {
-  x: number
-  y: number
-  timestamp: number
-}
-
-const TOTAL_TIME = 20000
+const TOTAL_TIME = 20000 // 20 seconds for the maze path
 const BASE_Y = 150
-const DEAD_END_OFFSET = 50
-const ZIGZAG_OFFSET = 30
 
 const commandLogs: CommandLog[] = [
   { time: 1000, command: 'cmd + L "change the auth endpoint"', emotion: '👨‍💻' },
@@ -52,7 +38,7 @@ const commandLogs: CommandLog[] = [
     response: 'No results found for "AuthController"',
     emotion: '😫',
   },
-  { time: 9000, command: 'cmd + L "show all controllers"', emotion: '😩' },
+  { time: 9000, command: 'cmd + L "show all controllers"', emotion: '😭' },
   {
     time: 10000,
     response: 'Here are all controllers in the project...',
@@ -86,48 +72,10 @@ const commandLogs: CommandLog[] = [
 ]
 
 export function CursorMaze() {
-  const controls = useAnimation()
   const [visibleLogs, setVisibleLogs] = useState<CommandLog[]>([])
   const [currentTime, setCurrentTime] = useState(0)
   const [currentEmotion, setCurrentEmotion] = useState('👨‍💻')
-  const [currentPathIndex, setCurrentPathIndex] = useState(1)
-  const [trailPoints, setTrailPoints] = useState<TrailPoint[]>([])
-  const [currentPosition, setCurrentPosition] = useState({
-    x: 0,
-    y: BASE_Y,
-  })
   const logContainerRef = useRef<HTMLDivElement>(null)
-
-  const path = [
-    { x: 0, y: BASE_Y, time: 0 },
-    { x: 50, y: BASE_Y - DEAD_END_OFFSET, time: 1000 },
-    { x: 50, y: BASE_Y + DEAD_END_OFFSET, time: 2000 },
-    { x: 30, y: BASE_Y, time: 3000 },
-    { x: 100, y: BASE_Y + ZIGZAG_OFFSET, time: 4000 },
-    { x: 120, y: BASE_Y - ZIGZAG_OFFSET, time: 5000 },
-    { x: 140, y: BASE_Y + ZIGZAG_OFFSET, time: 6000 },
-    { x: 160, y: BASE_Y - ZIGZAG_OFFSET, time: 7000 },
-    { x: 180, y: BASE_Y, time: 8000 },
-    { x: 180, y: BASE_Y - DEAD_END_OFFSET * 1.5, time: 9000 },
-    { x: 160, y: BASE_Y - DEAD_END_OFFSET * 1.2, time: 10000 },
-    { x: 140, y: BASE_Y - DEAD_END_OFFSET * 0.8, time: 11000 },
-    { x: 120, y: BASE_Y - DEAD_END_OFFSET * 0.4, time: 12000 },
-    { x: 100, y: BASE_Y, time: 13000 },
-    { x: 150, y: BASE_Y + DEAD_END_OFFSET, time: 14000 },
-    { x: 200, y: BASE_Y + DEAD_END_OFFSET * 1.2, time: 15000 },
-    { x: 180, y: BASE_Y, time: 16000 },
-    { x: 220, y: BASE_Y - ZIGZAG_OFFSET / 2, time: 17000 },
-    { x: 240, y: BASE_Y + ZIGZAG_OFFSET / 2, time: 18000 },
-    { x: 250, y: BASE_Y, time: 19000 },
-    { x: 250, y: BASE_Y + DEAD_END_OFFSET / 3, time: 20000 },
-  ]
-
-  const getCurrentPath = () => {
-    return `M ${path
-      .slice(0, currentPathIndex)
-      .map((p) => `${p.x} ${p.y}`)
-      .join(' L ')}`
-  }
 
   useEffect(() => {
     const newLogs = commandLogs.filter((log) => log.time <= currentTime)
@@ -140,49 +88,18 @@ export function CursorMaze() {
   }, [currentTime])
 
   useEffect(() => {
-    const animate = async () => {
-      for (let i = 0; i < path.length - 1; i++) {
-        const current = path[i]
-        const next = path[i + 1]
-
-        await controls.start({
-          x: next.x - 24,
-          y: next.y - 24,
-          transition: {
-            duration: (next.time - current.time) / 1000,
-            ease: 'easeInOut',
-          },
-          onUpdate: (latest) => {
-            setCurrentPosition(latest as { x: number; y: number })
-          },
-        })
-
-        setCurrentTime(next.time)
-        setCurrentPathIndex(i + 2)
-      }
-    }
-
-    animate()
-  }, [controls])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTrailPoints((prevPoints) => {
-        const now = Date.now()
-        const recentPoints = prevPoints.filter((p) => now - p.timestamp < 1000)
-
-        return [
-          ...recentPoints,
-          {
-            ...currentPosition,
-            timestamp: now,
-          },
-        ]
+    const timer = setInterval(() => {
+      setCurrentTime((time) => {
+        if (time >= TOTAL_TIME) {
+          clearInterval(timer)
+          return time
+        }
+        return time + 1000
       })
-    }, 50)
+    }, 1000)
 
-    return () => clearInterval(interval)
-  }, [currentPosition])
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (logContainerRef.current) {
@@ -191,63 +108,36 @@ export function CursorMaze() {
   }, [visibleLogs])
 
   return (
-    <div className="relative w-[700px] h-[300px] flex gap-8">
-      <div className="relative w-[300px] h-[300px]">
-        <svg className="absolute inset-0" width="300" height="300">
-          <path
-            d={getCurrentPath()}
-            fill="none"
-            stroke="rgba(0,0,0,0.3)"
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeDasharray="2 4"
-          />
-          <path
-            d={getCurrentPath()}
-            fill="none"
-            stroke="rgba(255,255,255,0.1)"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
+    <div className="relative w-[700px] h-full flex gap-8">
+      <div className="flex-1 h-full bg-black rounded-lg p-4 overflow-hidden">
+        <div className="h-full flex flex-col">
+          <div
+            ref={logContainerRef}
+            className="flex-1 overflow-y-auto space-y-2 font-mono text-sm min-h-0"
+          >
+            {visibleLogs.map((log, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="font-mono"
+              >
+                {log.command ? (
+                  <div className="text-amber-400 flex items-center gap-2">
+                    <span className="opacity-50">$</span>
+                    {log.command}
+                  </div>
+                ) : log.response ? (
+                  <div className="text-zinc-400 pl-4 border-l border-zinc-800 flex items-center gap-2">
+                    {log.response}
+                  </div>
+                ) : null}
+              </motion.div>
+            ))}
+          </div>
 
-          {trailPoints.length >= 2 && (
-            <>
-              <path
-                d={`M ${trailPoints.map((p) => `${p.x} ${p.y}`).join(' L ')}`}
-                fill="none"
-                stroke="rgba(255, 0, 0, 0.2)"
-                strokeWidth="8"
-                strokeLinecap="round"
-                filter="url(#glow)"
-              />
-              <path
-                d={`M ${trailPoints.map((p) => `${p.x} ${p.y}`).join(' L ')}`}
-                fill="none"
-                stroke="rgba(255, 0, 0, 0.4)"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-            </>
-          )}
-
-          <defs>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-        </svg>
-
-        <motion.div
-          className="absolute w-12 h-12 flex items-center justify-center"
-          initial={{ x: path[0].x - 24, y: path[0].y - 24 }}
-          animate={controls}
-        >
           <motion.div
-            className="text-3xl"
+            className="text-3xl mt-4 text-center flex-shrink-0"
             animate={{
               scale: [1, 1.2, 1],
             }}
@@ -258,33 +148,6 @@ export function CursorMaze() {
           >
             {currentEmotion}
           </motion.div>
-        </motion.div>
-      </div>
-
-      <div className="flex-1 h-full bg-black rounded-lg p-4 overflow-hidden">
-        <div
-          ref={logContainerRef}
-          className="h-full overflow-y-auto space-y-2 font-mono text-sm"
-        >
-          {visibleLogs.map((log, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="font-mono"
-            >
-              {log.command ? (
-                <div className="text-amber-400 flex items-center gap-2">
-                  <span className="opacity-50">$</span>
-                  {log.command}
-                </div>
-              ) : log.response ? (
-                <div className="text-zinc-400 pl-4 border-l border-zinc-800 flex items-center gap-2">
-                  {log.response}
-                </div>
-              ) : null}
-            </motion.div>
-          ))}
         </div>
       </div>
     </div>

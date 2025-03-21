@@ -400,9 +400,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
               prompt="> "
               showWindowButtons={true}
             >
-              <TerminalOutput>
-                Welcome to Codebuff! Type 'help' for a list of commands.
-              </TerminalOutput>
+              <TerminalOutput>Codebuff runs in your terminal!</TerminalOutput>
             </Terminal>
           </div>
         )}
