@@ -166,25 +166,29 @@ Guidelines for adding back comments:
 
 Guidelines for removing new comments:
 1. Look for comments in the edit snippet that were not in the original file.
-2. If the new comment is about the code being edited, remove it. For example, if the comment is "// Add this function" then remove it. Otherwise, you should keep the new comment!
+2. Remove any comments that are about the code being edited, such as:
+   - Comments starting with "Add", "Remove", "Change", "Update", "Fix", "Modify"
+   - Comments explaining what changed or why it changed
+   - Comments about new parameters, return values, or functionality
+3. Keep only comments that are part of the actual code documentation.
 
-Return only the modified edit snippet with no markdown formatting after applying these guidelines.
-`
+Return only the modified edit snippet with no markdown formatting or additional text.`
 
-  const response = await promptGeminiWithFallbacks(
-    [{ role: 'user', content: prompt }],
-    undefined,
-    {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: geminiModels.gemini2flash,
-      userId,
-      useGPT4oInsteadOfClaude: true,
-    }
-  )
+  const messages = [
+    { role: 'user' as const, content: prompt },
+    { role: 'assistant' as const, content: '```\n' },
+  ]
+  const response = await promptGeminiWithFallbacks(messages, undefined, {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model: geminiModels.gemini2flash,
+    userId,
+    useGPT4oInsteadOfClaude: true,
+  })
 
-  return response
+  // Remove the last \n``` if present
+  return response.replace(/\n```\s*$/, '')
 }
 
 /**
