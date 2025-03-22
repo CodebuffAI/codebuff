@@ -235,22 +235,13 @@ const Home = () => {
               },
             ]}
             illustration={{
-              type: 'comparison',
-              comparisonData: {
-                beforeLabel: 'Other AI Tools',
-                afterLabel: 'Codebuff',
-                beforeMetrics: [
-                  { label: 'CPU Usage', value: '80-90%' },
-                  { label: 'Memory Usage', value: '1.2+ GB' },
-                  { label: 'Environment', value: 'Limited' },
-                  { label: 'Editing Style', value: 'Rewrite Files' },
-                ],
-                afterMetrics: [
-                  { label: 'CPU Usage', value: '30-40%' },
-                  { label: 'Memory Usage', value: '650 MB' },
-                  { label: 'Environment', value: 'Universal' },
-                  { label: 'Editing Style', value: 'Precise Edits' },
-                ],
+              type: 'browserComparison',
+              browserComparisonData: {
+                beforeUrl: 'http://my-app.example/weather',
+                afterUrl: 'http://my-app.example/weather',
+                beforeTitle: 'Before',
+                afterTitle: 'After',
+                transitionDuration: 3000,
               },
             }}
           />
@@ -259,7 +250,7 @@ const Home = () => {
         {/* Feature Section 3 - Yellow */}
         <section className="full-width-section">
           <FeatureSection
-            title="Remembers Everything Between Sessions"
+            title="Learns Between Sessions"
             description="Codebuff maintains knowledge about your projects, preferences, and previous interactions, creating a continuous experience that gets smarter and more efficient over time."
             backdropColor={BlockColor.TerminalYellow}
             decorativeColors={[BlockColor.GenerativeGreen, BlockColor.CRTAmber]}
