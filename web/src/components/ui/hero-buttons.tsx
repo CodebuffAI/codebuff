@@ -33,8 +33,8 @@ export function HeroButtons({
         initialPlacement="bottom-left"
       >
         <motion.div
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ x: 4, y: -4 }}
+          whileTap={{ x: 0, y: 0 }}
           onHoverStart={() => setButtonHovered(true)}
           onHoverEnd={() => setButtonHovered(false)}
         >
@@ -43,7 +43,7 @@ export function HeroButtons({
             className={cn(
               'w-full md:w-[320px] text-base font-medium px-8 py-4 h-auto',
               'transition-all duration-300 relative group overflow-hidden',
-              'border border-white/50 shadow-[0_0_15px_rgba(255,255,255,0.25)] bg-white text-black'
+              'border border-white/50 shadow-[0_0_15px_rgba(255,255,255,0.25)] bg-white text-black hover:bg-white'
             )}
           >
             <Link

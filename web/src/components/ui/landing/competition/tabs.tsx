@@ -5,6 +5,7 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { CursorMazeVisualization } from './cursor'
 import { ClaudeCodeVisualization } from './claude-code'
 import { ClineVisualization } from './cline'
+import { GithubCopilotVisualization } from './github-copilot'
 
 const competitors = [
   'github-copilot',
@@ -20,49 +21,41 @@ const competitorInfo = {
     color: 'text-indigo-400',
     description: 'Endless bugs and hallucinations',
     emoji: '🤖',
+    component: GithubCopilotVisualization,
   },
   cursor: {
     name: 'Cursor',
     color: 'text-red-400',
     description: 'Confusing maze of dead ends',
     emoji: '😫',
+    component: CursorMazeVisualization,
   },
   'claude-code': {
     name: 'Claude Code',
     color: 'text-orange-500',
     description: 'Slow, multi-step process',
     emoji: '⌛',
+    component: ClaudeCodeVisualization,
   },
   cline: {
     name: 'Cline',
     color: 'text-yellow-400',
-    description: 'Limited to specific environments',
-    emoji: '🔒',
+    description: 'Requires constant babysitting',
+    emoji: '👶',
+    component: ClineVisualization,
   },
 }
 
-function CompetitorCard({
-  type,
-  progress,
-  complexity,
-  isActive = false,
-}: {
+interface CompetitorCardProps {
   type: CompetitorType
   progress: number
   complexity: 'simple' | 'full'
   isActive?: boolean
-}) {
-  if (type === 'cursor') {
-    return (
-      <CursorMazeVisualization progress={progress} complexity={complexity} />
-    )
-  } else if (type === 'claude-code') {
-    return (
-      <ClaudeCodeVisualization progress={progress} complexity={complexity} />
-    )
-  } else {
-    return <ClineVisualization progress={progress} complexity={complexity} />
-  }
+}
+
+function CompetitorCard({ type, progress, complexity, isActive }: CompetitorCardProps) {
+  const Component = competitorInfo[type].component
+  return <Component progress={progress} complexity={complexity} isActive={isActive} />
 }
 
 export interface CompetitionTabsProps {

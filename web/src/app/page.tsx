@@ -12,7 +12,11 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useSearchParams } from 'next/navigation'
 import { storeSearchParams } from '@/lib/trackConversions'
 import IDEDemo from '@/components/IDEDemo'
-import { SECTION_THEMES, DEMO_CODE, FEATURE_POINTS } from '@/components/ui/landing/constants'
+import {
+  SECTION_THEMES,
+  DEMO_CODE,
+  FEATURE_POINTS,
+} from '@/components/ui/landing/constants'
 import { WorkflowIllustration } from '@/components/ui/landing/feature/workflow-illustration'
 import { BrowserComparison } from '@/components/ui/landing/feature/browser-comparison'
 import { ChartIllustration } from '@/components/ui/landing/feature/chart-illustration'
@@ -38,24 +42,17 @@ export default function Home() {
   return (
     <div className="relative">
       {/* Hero section always visible */}
-      <Section
-        background={SECTION_THEMES.hero.background}
-        hero
-      >
-        <div
-          className="codebuff-container"
-          style={{ paddingTop: isMobile ? '60px' : '120px' }}
-        >
+      <Section background={SECTION_THEMES.hero.background} hero>
+        <div className="codebuff-container">
           <div className="w-full mb-8 md:mb-12">
             <Hero />
           </div>
 
-          <div className={`w-full ${!demoSwitched ? 'flex items-center' : 'mt-8'}`}>
+          <div
+            className={`w-full ${!demoSwitched ? 'flex items-center' : 'mt-8'}`}
+          >
             <DecorativeBlocks
-              colors={[
-                BlockColor.GenerativeGreen,
-                BlockColor.CRTAmber
-              ]}
+              colors={[BlockColor.GenerativeGreen, BlockColor.CRTAmber]}
               initialPlacement="bottom-right"
             >
               <IDEDemo />
@@ -90,17 +87,20 @@ export default function Home() {
                 {
                   icon: '📁',
                   title: 'Scan Codebase',
-                  description: 'Automatically analyzes all files, dependencies, and imports.',
+                  description:
+                    'Automatically analyzes all files, dependencies, and imports.',
                 },
                 {
                   icon: '🧠',
                   title: 'Apply Intelligence',
-                  description: 'Uses deep understanding to provide context-aware assistance',
+                  description:
+                    'Uses deep understanding to provide context-aware assistance',
                 },
                 {
                   icon: '⚡',
                   title: 'Deliver Results',
-                  description: 'Provides precise, targeted solutions 4x faster than competitors',
+                  description:
+                    'Provides precise, targeted solutions 4x faster than competitors',
                 },
               ]}
             />
@@ -140,9 +140,16 @@ export default function Home() {
           illustration={
             <ChartIllustration
               chartData={{
-                labels: ['Time to Context', 'Assistance Quality', 'Repeat Tasks', 'Project Recall'],
+                labels: [
+                  'Time to Context',
+                  'Assistance Quality',
+                  'Repeat Tasks',
+                  'Project Recall',
+                ],
                 values: [95, 85, 90, 100],
-                colors: Array(4).fill('bg-gradient-to-r from-green-500 to-green-300'),
+                colors: Array(4).fill(
+                  'bg-gradient-to-r from-green-500 to-green-300'
+                ),
               }}
             />
           }

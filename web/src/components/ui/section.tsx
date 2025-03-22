@@ -1,12 +1,11 @@
 'use client'
 
 import { ReactNode, CSSProperties } from 'react'
-import { motion, HTMLMotionProps, MotionProps } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { BlockColor } from './decorative-blocks'
-import { ANIMATION } from './landing/constants'
 
-export interface SectionProps extends HTMLMotionProps<'section'> {
+export interface SectionProps {
   children: ReactNode
   className?: string
   containerClassName?: string
@@ -21,7 +20,7 @@ const defaultAnimationProps = {
   initial: { opacity: 0, y: 20 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true },
-  transition: { duration: ANIMATION.fadeIn.duration, delay: ANIMATION.fadeIn.delay },
+  transition: { duration: 0.5, delay: 0.2 },
 }
 
 export function Section({
@@ -33,50 +32,22 @@ export function Section({
   hero = false,
   animate = true,
   style: customStyle,
-  ...otherProps
+  ...props
 }: SectionProps) {
-  const combinedStyle = {
-    ...(background ? { backgroundColor: background as string } : {}),
+  const style = {
+    backgroundColor: background,
     ...customStyle,
   }
 
-  // Filter out motion-specific props when not animating
-  const { onDrag, onDragStart, onDragEnd, onAnimationStart, onAnimationComplete, ...htmlProps } = otherProps
-
-  if (!animate) {
-    return (
-      <section
-        className={cn(
-          'relative overflow-hidden',
-          hero ? 'py-12' : 'py-40',
-          className
-        )}
-        style={combinedStyle}
-        {...htmlProps}
-      >
-        {contained ? (
-          <div
-            className={cn('codebuff-container relative z-10', containerClassName)}
-          >
-            {children}
-          </div>
-        ) : (
-          children
-        )}
-      </section>
-    )
-  }
-
   return (
-    <motion.section
+    <section
       className={cn(
         'relative overflow-hidden',
-        hero ? 'py-12' : 'py-40',
+        hero ? 'pt-4 md:pt-8 md:pb-16' : 'py-40',
         className
       )}
-      style={combinedStyle}
-      {...defaultAnimationProps}
-      {...otherProps}
+      style={style}
+      {...props}
     >
       {contained ? (
         <div
@@ -87,6 +58,6 @@ export function Section({
       ) : (
         children
       )}
-    </motion.section>
+    </section>
   )
 }
