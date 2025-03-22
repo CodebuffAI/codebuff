@@ -571,11 +571,9 @@ export function IDEDemo({ className }: IDEDemoProps) {
               showWindowButtons={true}
             >
               <TerminalOutput>Codebuff runs in your terminal!</TerminalOutput>
-              {isMobile && (
-                <TerminalOutput>
-                  Tap to see the full IDE experience...
-                </TerminalOutput>
-              )}
+              <TerminalOutput>
+                Wherever you code, you have access to Codebuff!
+              </TerminalOutput>
             </Terminal>
           </div>
         )}
