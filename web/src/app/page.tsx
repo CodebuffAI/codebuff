@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import posthog from 'posthog-js'
 import { useSearchParams } from 'next/navigation'
 import { Hero } from '@/components/ui/hero'
@@ -75,13 +75,50 @@ const Home = () => {
     '> Retrieving context from previous work...',
   ]
 
+  const [demoSwitched, setDemoSwitched] = useState(false)
+  const [scrollEnabled, setScrollEnabled] = useState(false)
+
+  useEffect(() => {
+    // Start listening for IDE demo switch
+    const checkDemoSwitch = () => {
+      // When demo has switched to IDE (3s + 1s according to IDEDemo.tsx timing)
+      setTimeout(() => {
+        setDemoSwitched(true)
+        setScrollEnabled(true)
+      }, 4000)
+    }
+
+    checkDemoSwitch()
+  }, [])
+
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    // Check for mobile viewport
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+
+    checkMobile() // Initial check
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   return (
-    <div className="relative overflow-hidden">
-      <div className="relative z-10">
-        {/* Hero Section - Dark Green */}
-        <section className="full-width-section">
-          <div className="codebuff-container">
+    <div className="relative">
+      {/* Hero section always visible */}
+      <section className="full-width-section min-h-screen">
+        <div
+          className="codebuff-container"
+          style={{ paddingTop: isMobile ? '60px' : '120px' }}
+        >
+          <div className="w-full mb-8 md:mb-12">
             <Hero />
+          </div>
+
+          <div
+            className={`w-full ${!demoSwitched ? 'flex items-center' : 'mt-8'}`}
+          >
             <DecorativeBlocks
               colors={[
                 BlockColor.DarkForestGreen,
@@ -93,8 +130,20 @@ const Home = () => {
               <IDEDemo />
             </DecorativeBlocks>
           </div>
-        </section>
+        </div>
+      </section>
 
+      {/* Remaining sections only visible when scrollEnabled is true */}
+      <div
+        className="transition-opacity duration-500"
+        style={{
+          opacity: scrollEnabled ? 1 : 0,
+          visibility: scrollEnabled ? 'visible' : 'hidden',
+          position: scrollEnabled ? 'relative' : 'absolute',
+          top: scrollEnabled ? 'auto' : '-9999px',
+          pointerEvents: scrollEnabled ? 'auto' : 'none',
+        }}
+      >
         {/* Feature Section 1 - Yellow */}
         <section className="full-width-section">
           <FeatureSection
@@ -107,45 +156,46 @@ const Home = () => {
             highlightText="4x faster than other AI coding assistants with deep codebase comprehension"
             keyPoints={[
               {
-                icon: "🧠",
-                title: "Complete Codebase Context",
-                description: "Analyzes your entire project to understand its architecture and how components interact"
+                icon: '🧠',
+                title: 'Complete Codebase Context',
+                description:
+                  'Analyzes your entire project to understand its architecture and how components interact',
               },
               {
-                icon: "🔍",
-                title: "Precise Problem Identification",
-                description: "Quickly identifies bugs, vulnerabilities, and optimization opportunities"
+                icon: '🔍',
+                title: 'Precise Problem Identification',
+                description:
+                  'Quickly identifies bugs, vulnerabilities, and optimization opportunities',
               },
               {
-                icon: "⚡",
-                title: "Smarter Suggestions",
-                description: "Delivers code recommendations that align with your project's patterns and standards"
-              }
+                icon: '⚡',
+                title: 'Smarter Suggestions',
+                description:
+                  "Delivers code recommendations that align with your project's patterns and standards",
+              },
             ]}
             illustration={{
               type: 'workflow',
               workflowSteps: [
                 {
-                  icon: "📁",
-                  title: "Scan Codebase",
-                  description: "Automatically analyzes all files, dependencies, and imports"
+                  icon: '📁',
+                  title: 'Scan Codebase',
+                  description:
+                    'Automatically analyzes all files, dependencies, and imports to build the right context for your need.',
                 },
                 {
-                  icon: "🔍",
-                  title: "Build Context Map",
-                  description: "Creates a comprehensive project graph with relationships"
+                  icon: '🧠',
+                  title: 'Apply Intelligence',
+                  description:
+                    'Uses deep understanding to provide context-aware assistance',
                 },
                 {
-                  icon: "🧠",
-                  title: "Apply Intelligence",
-                  description: "Uses deep understanding to provide context-aware assistance"
+                  icon: '⚡',
+                  title: 'Deliver Results',
+                  description:
+                    'Provides precise, targeted solutions 4x faster than competitors',
                 },
-                {
-                  icon: "⚡",
-                  title: "Deliver Results",
-                  description: "Provides precise, targeted solutions 4x faster than competitors"
-                }
-              ]
+              ],
             }}
           />
         </section>
@@ -166,39 +216,42 @@ const Home = () => {
             highlightText="Works in any terminal with 50% lower CPU usage than competitors"
             keyPoints={[
               {
-                icon: "🛠️",
-                title: "Intelligent Configuration",
-                description: "Sets up project scaffolding, dependencies, and configurations tailored to your needs"
+                icon: '🛠️',
+                title: 'Intelligent Configuration',
+                description:
+                  'Sets up project scaffolding, dependencies, and configurations tailored to your needs',
               },
               {
-                icon: "✂️",
-                title: "Precise Code Edits",
-                description: "Makes targeted changes instead of rewriting entire files, preserving your code's integrity"
+                icon: '✂️',
+                title: 'Precise Code Edits',
+                description:
+                  "Makes targeted changes instead of rewriting entire files, preserving your code's integrity",
               },
               {
-                icon: "🔄",
-                title: "Seamless Integration",
-                description: "Works with any technology stack or framework without environment restrictions"
-              }
+                icon: '🔄',
+                title: 'Seamless Integration',
+                description:
+                  'Works with any technology stack or framework without environment restrictions',
+              },
             ]}
             illustration={{
               type: 'comparison',
               comparisonData: {
-                beforeLabel: "Other AI Tools",
-                afterLabel: "Codebuff",
+                beforeLabel: 'Other AI Tools',
+                afterLabel: 'Codebuff',
                 beforeMetrics: [
-                  { label: "CPU Usage", value: "80-90%" },
-                  { label: "Memory Usage", value: "1.2+ GB" },
-                  { label: "Environment", value: "Limited" },
-                  { label: "Editing Style", value: "Rewrite Files" }
+                  { label: 'CPU Usage', value: '80-90%' },
+                  { label: 'Memory Usage', value: '1.2+ GB' },
+                  { label: 'Environment', value: 'Limited' },
+                  { label: 'Editing Style', value: 'Rewrite Files' },
                 ],
                 afterMetrics: [
-                  { label: "CPU Usage", value: "30-40%" },
-                  { label: "Memory Usage", value: "650 MB" },
-                  { label: "Environment", value: "Universal" },
-                  { label: "Editing Style", value: "Precise Edits" }
-                ]
-              }
+                  { label: 'CPU Usage', value: '30-40%' },
+                  { label: 'Memory Usage', value: '650 MB' },
+                  { label: 'Environment', value: 'Universal' },
+                  { label: 'Editing Style', value: 'Precise Edits' },
+                ],
+              },
             }}
           />
         </section>
@@ -215,33 +268,41 @@ const Home = () => {
             highlightText="Saves your context in knowledge files that persist between sessions"
             keyPoints={[
               {
-                icon: "🧩",
-                title: "Persistent Context",
-                description: "Maintains project-specific knowledge in knowledge.md files that persists between sessions"
+                icon: '🧩',
+                title: 'Persistent Context',
+                description:
+                  'Maintains project-specific knowledge in knowledge.md files that persists between sessions',
               },
               {
-                icon: "📈",
-                title: "Adaptive Workflows",
-                description: "Learns your coding style and preferences to provide increasingly personalized assistance"
+                icon: '📈',
+                title: 'Adaptive Workflows',
+                description:
+                  'Learns your coding style and preferences to provide increasingly personalized assistance',
               },
               {
-                icon: "⏱️",
-                title: "Time-Saving Recall",
-                description: "Instantly recalls previous solutions and decisions to avoid repetitive explanations"
-              }
+                icon: '⏱️',
+                title: 'Time-Saving Recall',
+                description:
+                  'Instantly recalls previous solutions and decisions to avoid repetitive explanations',
+              },
             ]}
             illustration={{
               type: 'chart',
               chartData: {
-                labels: ["Time to Context", "Assistance Quality", "Repeat Tasks", "Project Recall"],
+                labels: [
+                  'Time to Context',
+                  'Assistance Quality',
+                  'Repeat Tasks',
+                  'Project Recall',
+                ],
                 values: [95, 85, 90, 100],
                 colors: [
-                  "bg-gradient-to-r from-green-500 to-green-300", 
-                  "bg-gradient-to-r from-green-500 to-green-300",
-                  "bg-gradient-to-r from-green-500 to-green-300",
-                  "bg-gradient-to-r from-green-500 to-green-300"
-                ]
-              }
+                  'bg-gradient-to-r from-green-500 to-green-300',
+                  'bg-gradient-to-r from-green-500 to-green-300',
+                  'bg-gradient-to-r from-green-500 to-green-300',
+                  'bg-gradient-to-r from-green-500 to-green-300',
+                ],
+              },
             }}
           />
         </section>

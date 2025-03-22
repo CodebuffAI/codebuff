@@ -25,7 +25,7 @@ export function Section({
     <section
       className={cn(
         'relative overflow-hidden',
-        hero ? 'pt-12 pb-40 md:pt-24 md:pb-32' : 'py-40',
+        hero ? 'py-12' : 'py-40',
         className
       )}
       style={background ? { background } : undefined}

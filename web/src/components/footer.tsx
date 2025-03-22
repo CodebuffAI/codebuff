@@ -21,13 +21,12 @@ export const Footer = () => {
           <div className="flex items-center space-x-2">
             <Link href="/" className="flex items-center space-x-2">
               <Image
-                src="/favicon/apple-touch-icon.png"
+                src="/favicon/logo-and-name.ico"
                 alt="Codebuff Logo"
-                width={32}
-                height={32}
+                width={200}
+                height={100}
                 className="rounded-sm"
               />
-              <span className="font-bold text-xl">Codebuff</span>
             </Link>
           </div>
 
