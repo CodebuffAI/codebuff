@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 
 interface HighlightTextProps {
   text: string
-  isLight: boolean
+  isLight?: boolean
 }
 
 export function HighlightText({ text, isLight }: HighlightTextProps) {
@@ -11,25 +11,17 @@ export function HighlightText({ text, isLight }: HighlightTextProps) {
     <motion.div
       className={cn(
         'p-4 rounded-lg mt-4 text-base font-medium flex items-center',
-        {
-          'bg-black/10 border border-black/20 text-black/80': isLight,
-          'bg-white/5 border border-white/20 text-white/80': !isLight,
-        }
+        isLight
+          ? 'bg-black/10 border border-black/20'
+          : 'bg-white/5 border border-white/20'
       )}
       initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.4, delay: 0.5 }}
     >
-      <div
-        className={cn('mr-3 text-xl', {
-          'text-black': isLight,
-          'text-green-400': !isLight,
-        })}
-      >
-        ⚡
-      </div>
-      <div>{text}</div>
+      <div className="mr-3 text-xl text-green-400">⚡</div>
+      <div className="opacity-80">{text}</div>
     </motion.div>
   )
 }

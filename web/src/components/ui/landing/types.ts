@@ -7,7 +7,7 @@ export interface KeyPoint {
 }
 
 export interface SectionTheme {
-  background: string | BlockColor
+  background: string
   textColor: string
   decorativeColors: BlockColor[]
 }

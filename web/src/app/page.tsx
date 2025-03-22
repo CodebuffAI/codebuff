@@ -7,12 +7,15 @@ import { FeatureSection } from '@/components/ui/landing/feature'
 import { CompetitionSection } from '@/components/ui/landing/competition'
 import { TestimonialsSection } from '@/components/ui/landing/testimonials-section'
 import { CTASection } from '@/components/ui/landing/cta-section'
-import { DecorativeBlocks } from '@/components/ui/decorative-blocks'
+import { DecorativeBlocks, BlockColor } from '@/components/ui/decorative-blocks'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useSearchParams } from 'next/navigation'
 import { storeSearchParams } from '@/lib/trackConversions'
 import IDEDemo from '@/components/IDEDemo'
 import { SECTION_THEMES, DEMO_CODE, FEATURE_POINTS } from '@/components/ui/landing/constants'
+import { WorkflowIllustration } from '@/components/ui/landing/feature/workflow-illustration'
+import { BrowserComparison } from '@/components/ui/landing/feature/browser-comparison'
+import { ChartIllustration } from '@/components/ui/landing/feature/chart-illustration'
 
 export default function Home() {
   const [demoSwitched, setDemoSwitched] = useState(false)
@@ -49,7 +52,10 @@ export default function Home() {
 
           <div className={`w-full ${!demoSwitched ? 'flex items-center' : 'mt-8'}`}>
             <DecorativeBlocks
-              colors={SECTION_THEMES.hero.decorativeColors}
+              colors={[
+                BlockColor.GenerativeGreen,
+                BlockColor.CRTAmber
+              ]}
               initialPlacement="bottom-right"
             >
               <IDEDemo />
@@ -75,30 +81,30 @@ export default function Home() {
           description="Codebuff deeply understands your entire codebase structure, dependencies, and patterns to provide intelligent context-aware assistance that other AI tools can't match."
           backdropColor={SECTION_THEMES.feature1.background}
           decorativeColors={SECTION_THEMES.feature1.decorativeColors}
-          codeSample={DEMO_CODE.understanding}
           tagline="DEEP PROJECT ANALYSIS & INSIGHTS"
           highlightText="4x faster than other AI coding assistants with deep codebase comprehension"
           keyPoints={FEATURE_POINTS.understanding}
-          illustration={{
-            type: 'workflow',
-            workflowSteps: [
-              {
-                icon: '📁',
-                title: 'Scan Codebase',
-                description: 'Automatically analyzes all files, dependencies, and imports.',
-              },
-              {
-                icon: '🧠',
-                title: 'Apply Intelligence',
-                description: 'Uses deep understanding to provide context-aware assistance',
-              },
-              {
-                icon: '⚡',
-                title: 'Deliver Results',
-                description: 'Provides precise, targeted solutions 4x faster than competitors',
-              },
-            ],
-          }}
+          illustration={
+            <WorkflowIllustration
+              steps={[
+                {
+                  icon: '📁',
+                  title: 'Scan Codebase',
+                  description: 'Automatically analyzes all files, dependencies, and imports.',
+                },
+                {
+                  icon: '🧠',
+                  title: 'Apply Intelligence',
+                  description: 'Uses deep understanding to provide context-aware assistance',
+                },
+                {
+                  icon: '⚡',
+                  title: 'Deliver Results',
+                  description: 'Provides precise, targeted solutions 4x faster than competitors',
+                },
+              ]}
+            />
+          }
         />
 
         {/* Feature Section 2 - Black */}
@@ -108,18 +114,18 @@ export default function Home() {
           backdropColor={SECTION_THEMES.feature2.background}
           decorativeColors={SECTION_THEMES.feature2.decorativeColors}
           imagePosition="left"
-          codeSample={DEMO_CODE.rightStuff}
           tagline="INTELLIGENT PROJECT ASSISTANCE"
           highlightText="Works in any terminal with 50% lower CPU usage than competitors"
           keyPoints={FEATURE_POINTS.rightStuff}
-          illustration={{
-            type: 'browserComparison',
-            browserComparisonData: {
-              beforeUrl: 'http://my-app.example/weather',
-              afterUrl: 'http://my-app.example/weather',
-              transitionDuration: 3000,
-            },
-          }}
+          illustration={
+            <BrowserComparison
+              comparisonData={{
+                beforeUrl: 'http://my-app.example/weather',
+                afterUrl: 'http://my-app.example/weather',
+                transitionDuration: 3000,
+              }}
+            />
+          }
         />
 
         {/* Feature Section 3 - Yellow */}
@@ -128,18 +134,18 @@ export default function Home() {
           description="Codebuff maintains knowledge about your projects, preferences, and previous interactions, creating a continuous experience that gets smarter and more efficient over time."
           backdropColor={SECTION_THEMES.feature3.background}
           decorativeColors={SECTION_THEMES.feature3.decorativeColors}
-          codeSample={DEMO_CODE.remembers}
           tagline="CONTINUOUS LEARNING & OPTIMIZATION"
           highlightText="Saves your context in knowledge files that persist between sessions"
           keyPoints={FEATURE_POINTS.remembers}
-          illustration={{
-            type: 'chart',
-            chartData: {
-              labels: ['Time to Context', 'Assistance Quality', 'Repeat Tasks', 'Project Recall'],
-              values: [95, 85, 90, 100],
-              colors: Array(4).fill('bg-gradient-to-r from-green-500 to-green-300'),
-            },
-          }}
+          illustration={
+            <ChartIllustration
+              chartData={{
+                labels: ['Time to Context', 'Assistance Quality', 'Repeat Tasks', 'Project Recall'],
+                values: [95, 85, 90, 100],
+                colors: Array(4).fill('bg-gradient-to-r from-green-500 to-green-300'),
+              }}
+            />
+          }
         />
 
         {/* Competition Section - Black */}

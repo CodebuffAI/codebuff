@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { GitCompare } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import Terminal, { ColorMode } from '@/components/ui/terminal'
 import TerminalOutput from '@/components/ui/terminal/terminal-output'
 import BrowserPreview from '@/components/BrowserPreview'
@@ -13,12 +12,10 @@ interface BrowserComparisonProps {
     afterTitle?: string
     transitionDuration?: number
   }
-  isLight: boolean
 }
 
 export function BrowserComparison({
   comparisonData,
-  isLight,
 }: BrowserComparisonProps) {
   const [sliderPosition, setSliderPosition] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -42,15 +39,12 @@ export function BrowserComparison({
 
   return (
     <div
-      className={cn(
-        'rounded-lg overflow-hidden shadow-xl p-4',
-        isLight ? 'bg-white border border-black/10' : ''
-      )}
+      className="rounded-lg overflow-hidden shadow-xl p-4 bg-black/30 border border-gray-800"
     >
       <div className="mb-3">
         <Terminal
           name="Terminal"
-          colorMode={ColorMode.Light}
+          colorMode={ColorMode.Dark}
           prompt="> "
           showWindowButtons={true}
         >
@@ -63,7 +57,7 @@ export function BrowserComparison({
           </TerminalOutput>
           <TerminalOutput>
             <span className="text-green-400">{'>'} </span>
-            <span className="text-black">
+            <span className="text-white">
               Add an API route on my Flask app to call the OpenWeatherMap API
               and then call it from the web app.
             </span>
