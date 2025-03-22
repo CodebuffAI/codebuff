@@ -6,11 +6,21 @@ import { CursorMazeVisualization } from './cursor'
 import { ClaudeCodeVisualization } from './claude-code'
 import { ClineVisualization } from './cline'
 
-export type CompetitorType = 'cursor' | 'claude-code' | 'cline'
-
-const competitors: CompetitorType[] = ['cursor', 'claude-code', 'cline']
+const competitors = [
+  'github-copilot',
+  'cursor',
+  'claude-code',
+  'cline',
+] as const
+export type CompetitorType = (typeof competitors)[number]
 
 const competitorInfo = {
+  'github-copilot': {
+    name: 'GitHub Copilot',
+    color: 'text-indigo-400',
+    description: 'Endless bugs and hallucinations',
+    emoji: '🤖',
+  },
   cursor: {
     name: 'Cursor',
     color: 'text-red-400',
@@ -19,7 +29,7 @@ const competitorInfo = {
   },
   'claude-code': {
     name: 'Claude Code',
-    color: 'text-orange-500', // Brighter orange for Claude branding
+    color: 'text-orange-500',
     description: 'Slow, multi-step process',
     emoji: '⌛',
   },
@@ -31,17 +41,17 @@ const competitorInfo = {
   },
 }
 
-// Enhanced visualization component
 function CompetitorCard({
   type,
   progress,
   complexity,
+  isActive = false,
 }: {
   type: CompetitorType
   progress: number
   complexity: 'simple' | 'full'
+  isActive?: boolean
 }) {
-  // Render different visualizations based on competitor type
   if (type === 'cursor') {
     return (
       <CursorMazeVisualization progress={progress} complexity={complexity} />
@@ -70,32 +80,24 @@ export function CompetitionTabs({
   activeTab: controlledActiveTab,
   onTabChange,
 }: CompetitionTabsProps) {
-  // Use internal state if no controlled state is provided
   const [internalActiveTab, setInternalActiveTab] =
     useState<CompetitorType>('cursor')
 
-  // Determine which state to use (controlled or uncontrolled)
   const activeTab =
     controlledActiveTab !== undefined ? controlledActiveTab : internalActiveTab
   const isMobile = useIsMobile()
 
-  // Force horizontal layout on mobile, otherwise use the specified layout
   const isVertical = layout === 'vertical' && !isMobile
 
-  // Handler for tab changes
   const handleTabClick = (tab: CompetitorType) => {
     if (onTabChange) {
-      // Controlled mode - notify parent
       onTabChange(tab)
     } else {
-      // Uncontrolled mode - update internal state
       setInternalActiveTab(tab)
     }
   }
 
-  // Change tabs automatically based on progress
   useEffect(() => {
-    // Skip auto-changing if we're in controlled mode
     if (controlledActiveTab !== undefined) return
 
     const tabThreshold = 100 / competitors.length
@@ -104,7 +106,6 @@ export function CompetitionTabs({
       competitors.length - 1
     )
 
-    // Only auto-change if progress is incrementing (not user clicking)
     if (progress > 0) {
       setInternalActiveTab(competitors[tabIndex])
     }
@@ -114,13 +115,12 @@ export function CompetitionTabs({
     <div
       className={cn('h-full', isVertical ? 'flex flex-row' : 'flex flex-col')}
     >
-      {/* Tabs - horizontal or vertical */}
       <div
         className={cn(
           isVertical
             ? 'w-1/4 p-2 flex flex-col border-r border-zinc-800/50 bg-black/10'
             : 'p-2 flex border-b border-zinc-800/50 bg-black/10',
-          'min-h-[60px]' // Ensure minimum height for horizontal tabs
+          'min-h-[60px]'
         )}
       >
         {competitors.map((competitor) => (
@@ -180,7 +180,6 @@ export function CompetitionTabs({
               </p>
             </div>
 
-            {/* Active indicator */}
             <motion.div
               className={cn(
                 isVertical
@@ -212,13 +211,14 @@ export function CompetitionTabs({
                     ? competitor === 'cursor'
                       ? 'linear-gradient(to right, rgba(248, 113, 113, 0.5), rgba(248, 113, 113, 0.3))'
                       : competitor === 'claude-code'
-                        ? 'linear-gradient(to right, rgba(249, 115, 22, 0.5), rgba(249, 115, 22, 0.3))' // Brighter orange for Claude branding
-                        : 'linear-gradient(to right, rgba(251, 191, 36, 0.5), rgba(251, 191, 36, 0.3))'
+                        ? 'linear-gradient(to right, rgba(249, 115, 22, 0.5), rgba(249, 115, 22, 0.3))'
+                        : competitor === 'github-copilot'
+                          ? 'linear-gradient(to right, rgba(129, 140, 248, 0.5), rgba(129, 140, 248, 0.3))'
+                          : 'linear-gradient(to right, rgba(251, 191, 36, 0.5), rgba(251, 191, 36, 0.3))'
                     : 'rgba(255, 255, 255, 0.3)',
               }}
             />
 
-            {/* Hover effect */}
             <motion.div
               className="absolute inset-0 rounded-lg bg-white/0 pointer-events-none"
               initial={false}
@@ -229,7 +229,6 @@ export function CompetitionTabs({
         ))}
       </div>
 
-      {/* Content Area - shown in both layouts */}
       <div
         className={cn(
           'relative flex-1 bg-black/20',
@@ -256,6 +255,7 @@ export function CompetitionTabs({
                 type={competitor}
                 progress={progress}
                 complexity={animationComplexity}
+                isActive={activeTab === competitor}
               />
             </motion.div>
           ))}

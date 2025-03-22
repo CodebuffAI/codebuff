@@ -7,7 +7,9 @@ import { useIsMobile } from '@/hooks/use-mobile'
 export function CompetitionSection() {
   const [progress, setProgress] = useState(0)
   const [activeTab, setActiveTab] = useState<CompetitorType>('cursor')
+  const [isInView, setIsInView] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const sectionRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
 
   // Function to reset and start the timer
@@ -22,12 +24,41 @@ export function CompetitionSection() {
       })
     }, 100)
   }
-
-  // Start the timer on initial render
+  
+  // Set up intersection observer to detect when section is in view
   useEffect(() => {
-    resetTimer()
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries
+        setIsInView(entry.isIntersecting)
+        
+        // Start or pause the timer based on visibility
+        if (entry.isIntersecting) {
+          resetTimer()
+        } else {
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current)
+            intervalRef.current = null
+          }
+        }
+      },
+      {
+        rootMargin: '-10% 0px',
+        threshold: 0.1, // Trigger when at least 10% of the section is visible
+      }
+    )
+    
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current)
+    }
+    
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (sectionRef.current) {
+        observer.unobserve(sectionRef.current)
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
     }
   }, [])
 
@@ -39,7 +70,7 @@ export function CompetitionSection() {
 
   return (
     <Section background="black">
-      <div className="space-y-8">
+      <div ref={sectionRef} className="space-y-8">
         <div>
           <motion.h2
             className="text-3xl md:text-4xl font-medium text-white hero-heading"
@@ -63,7 +94,7 @@ export function CompetitionSection() {
         
         <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-xl overflow-hidden h-[500px]">
           <CompetitionTabs 
-            progress={progress} 
+            progress={isInView ? progress : 0} 
             animationComplexity={isMobile ? 'simple' : 'full'}
             layout="vertical"
             activeTab={activeTab}
