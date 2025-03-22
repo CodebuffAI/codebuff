@@ -1,113 +1,44 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import posthog from 'posthog-js'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { Section } from '@/components/ui/section'
 import { Hero } from '@/components/ui/hero'
 import { FeatureSection } from '@/components/ui/feature-section'
 import { CompetitionSection } from '@/components/ui/competition-section'
 import { TestimonialsSection } from '@/components/ui/testimonials-section'
 import { CTASection } from '@/components/ui/cta-section'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { CodeDemo } from '@/components/docs/mdx/code-demo'
+import { DecorativeBlocks } from '@/components/ui/decorative-blocks'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { useSearchParams } from 'next/navigation'
 import { storeSearchParams } from '@/lib/trackConversions'
 import IDEDemo from '@/components/IDEDemo'
-import { DecorativeBlocks, BlockColor } from '@/components/ui/decorative-blocks'
+import { SECTION_THEMES, DEMO_CODE, FEATURE_POINTS } from '@/components/ui/landing/constants'
 
-const Home = () => {
-  const [isVideoOpen, setIsVideoOpen] = useState(false)
-  const [isInstallOpen, setIsInstallOpen] = useState(false)
+export default function Home() {
+  const [demoSwitched, setDemoSwitched] = useState(false)
+  const [scrollEnabled, setScrollEnabled] = useState(false)
   const searchParams = useSearchParams()
-
-  const handleGetStartedClick = () => {
-    posthog.capture('home.cta_clicked', {
-      location: 'hero_section',
-    })
-    setIsInstallOpen(true)
-  }
-
-  const handleVideoOpen = () => {
-    posthog.capture('home.video_opened')
-    setIsVideoOpen(true)
-  }
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     storeSearchParams(searchParams)
   }, [searchParams])
 
-  // Sample code for the feature sections
-  const understandingCode = [
-    '> codebuff "find memory leaks in our React components"',
-    'Analyzing codebase structure...',
-    'Scanning 246 files and dependencies...',
-    'Found 18 React components with potential issues',
-    'Memory leak detected in UserDashboard.tsx:',
-    '• Line 42: useEffect missing cleanup function',
-    '• Line 87: Event listener not removed on unmount',
-    '> Would you like me to fix these issues?',
-    'Yes, fix all memory leaks',
-    '> Applied precise fixes to 7 components',
-    '• All memory leaks resolved correctly',
-  ]
-
-  const rightStuffCode = [
-    '> codebuff "set up TypeScript with Next.js"',
-    'Analyzing project needs and best practices...',
-    'Creating config files with optimized settings:',
-    '• tsconfig.json with strict type checking',
-    '• ESLint configuration with NextJS ruleset',
-    '• Tailwind CSS with TypeScript types',
-    '• Husky pre-commit hooks for code quality',
-    '> Setup complete. Testing build...',
-    'Build successful - project ready for development',
-  ]
-
-  const remembersCode = [
-    '> codebuff',
-    'Welcome back! Loading your context...',
-    'Found knowledge.md files in 3 projects',
-    'Last session (2 days ago), you were:',
-    '• Implementing authentication with JWT',
-    '• Refactoring the API client for better error handling',
-    '• Working on optimizing database queries',
-    '> How would you like to continue?',
-    'Continue with the API client refactoring',
-    '> Retrieving context from previous work...',
-  ]
-
-  const [demoSwitched, setDemoSwitched] = useState(false)
-  const [scrollEnabled, setScrollEnabled] = useState(false)
-
   useEffect(() => {
-    // Start listening for IDE demo switch
-    const checkDemoSwitch = () => {
-      // When demo has switched to IDE (3s + 1s according to IDEDemo.tsx timing)
-      setTimeout(() => {
-        setDemoSwitched(true)
-        setScrollEnabled(true)
-      }, 4000)
-    }
-
-    checkDemoSwitch()
-  }, [])
-
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    // Check for mobile viewport
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-
-    checkMobile() // Initial check
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
+    const timer = setTimeout(() => {
+      setDemoSwitched(true)
+      setScrollEnabled(true)
+    }, 4000)
+    return () => clearTimeout(timer)
   }, [])
 
   return (
     <div className="relative">
       {/* Hero section always visible */}
-      <section className="full-width-section min-h-screen">
+      <Section
+        background={SECTION_THEMES.hero.background}
+        hero
+      >
         <div
           className="codebuff-container"
           style={{ paddingTop: isMobile ? '60px' : '120px' }}
@@ -116,22 +47,16 @@ const Home = () => {
             <Hero />
           </div>
 
-          <div
-            className={`w-full ${!demoSwitched ? 'flex items-center' : 'mt-8'}`}
-          >
+          <div className={`w-full ${!demoSwitched ? 'flex items-center' : 'mt-8'}`}>
             <DecorativeBlocks
-              colors={[
-                BlockColor.DarkForestGreen,
-                BlockColor.GenerativeGreen,
-                BlockColor.CRTAmber,
-              ]}
+              colors={SECTION_THEMES.hero.decorativeColors}
               initialPlacement="bottom-right"
             >
               <IDEDemo />
             </DecorativeBlocks>
           </div>
         </div>
-      </section>
+      </Section>
 
       {/* Remaining sections only visible when scrollEnabled is true */}
       <div
@@ -145,214 +70,87 @@ const Home = () => {
         }}
       >
         {/* Feature Section 1 - Yellow */}
-        <section className="full-width-section">
-          <FeatureSection
-            title="Full Codebase Understanding"
-            description="Codebuff deeply understands your entire codebase structure, dependencies, and patterns to provide intelligent context-aware assistance that other AI tools can't match."
-            backdropColor={BlockColor.TerminalYellow}
-            decorativeColors={[BlockColor.CRTAmber, BlockColor.DarkForestGreen]}
-            codeSample={understandingCode}
-            tagline="DEEP PROJECT ANALYSIS & INSIGHTS"
-            highlightText="4x faster than other AI coding assistants with deep codebase comprehension"
-            keyPoints={[
+        <FeatureSection
+          title="Full Codebase Understanding"
+          description="Codebuff deeply understands your entire codebase structure, dependencies, and patterns to provide intelligent context-aware assistance that other AI tools can't match."
+          backdropColor={SECTION_THEMES.feature1.background}
+          decorativeColors={SECTION_THEMES.feature1.decorativeColors}
+          codeSample={DEMO_CODE.understanding}
+          tagline="DEEP PROJECT ANALYSIS & INSIGHTS"
+          highlightText="4x faster than other AI coding assistants with deep codebase comprehension"
+          keyPoints={FEATURE_POINTS.understanding}
+          illustration={{
+            type: 'workflow',
+            workflowSteps: [
               {
-                icon: '🧠',
-                title: 'Complete Codebase Context',
-                description:
-                  'Analyzes your entire project to understand its architecture and how components interact',
+                icon: '📁',
+                title: 'Scan Codebase',
+                description: 'Automatically analyzes all files, dependencies, and imports.',
               },
               {
-                icon: '🔍',
-                title: 'Precise Problem Identification',
-                description:
-                  'Quickly identifies bugs, vulnerabilities, and optimization opportunities',
+                icon: '🧠',
+                title: 'Apply Intelligence',
+                description: 'Uses deep understanding to provide context-aware assistance',
               },
               {
                 icon: '⚡',
-                title: 'Smarter Suggestions',
-                description:
-                  "Delivers code recommendations that align with your project's patterns and standards",
+                title: 'Deliver Results',
+                description: 'Provides precise, targeted solutions 4x faster than competitors',
               },
-            ]}
-            illustration={{
-              type: 'workflow',
-              workflowSteps: [
-                {
-                  icon: '📁',
-                  title: 'Scan Codebase',
-                  description:
-                    'Automatically analyzes all files, dependencies, and imports to build the right context for your need.',
-                },
-                {
-                  icon: '🧠',
-                  title: 'Apply Intelligence',
-                  description:
-                    'Uses deep understanding to provide context-aware assistance',
-                },
-                {
-                  icon: '⚡',
-                  title: 'Deliver Results',
-                  description:
-                    'Provides precise, targeted solutions 4x faster than competitors',
-                },
-              ],
-            }}
-          />
-        </section>
+            ],
+          }}
+        />
 
         {/* Feature Section 2 - Black */}
-        <section className="full-width-section">
-          <FeatureSection
-            title="Does the Right Stuff for Your Project"
-            description="Codebuff intelligently handles project configuration, provides precise code edits, and integrates seamlessly with any technology stack without complex setup or environment restrictions."
-            backdropColor={BlockColor.Black}
-            decorativeColors={[
-              BlockColor.AcidMatrix,
-              BlockColor.TerminalYellow,
-            ]}
-            imagePosition="left"
-            codeSample={rightStuffCode}
-            tagline="INTELLIGENT PROJECT ASSISTANCE"
-            highlightText="Works in any terminal with 50% lower CPU usage than competitors"
-            keyPoints={[
-              {
-                icon: '🛠️',
-                title: 'Intelligent Configuration',
-                description:
-                  'Sets up project scaffolding, dependencies, and configurations tailored to your needs',
-              },
-              {
-                icon: '✂️',
-                title: 'Precise Code Edits',
-                description:
-                  "Makes targeted changes instead of rewriting entire files, preserving your code's integrity",
-              },
-              {
-                icon: '🔄',
-                title: 'Seamless Integration',
-                description:
-                  'Works with any technology stack or framework without environment restrictions',
-              },
-            ]}
-            illustration={{
-              type: 'browserComparison',
-              browserComparisonData: {
-                beforeUrl: 'http://my-app.example/weather',
-                afterUrl: 'http://my-app.example/weather',
-                beforeTitle: 'Before',
-                afterTitle: 'After',
-                transitionDuration: 3000,
-              },
-            }}
-          />
-        </section>
+        <FeatureSection
+          title="Does the Right Stuff for Your Project"
+          description="Codebuff intelligently handles project configuration, provides precise code edits, and integrates seamlessly with any technology stack without complex setup or environment restrictions."
+          backdropColor={SECTION_THEMES.feature2.background}
+          decorativeColors={SECTION_THEMES.feature2.decorativeColors}
+          imagePosition="left"
+          codeSample={DEMO_CODE.rightStuff}
+          tagline="INTELLIGENT PROJECT ASSISTANCE"
+          highlightText="Works in any terminal with 50% lower CPU usage than competitors"
+          keyPoints={FEATURE_POINTS.rightStuff}
+          illustration={{
+            type: 'browserComparison',
+            browserComparisonData: {
+              beforeUrl: 'http://my-app.example/weather',
+              afterUrl: 'http://my-app.example/weather',
+              transitionDuration: 3000,
+            },
+          }}
+        />
 
         {/* Feature Section 3 - Yellow */}
-        <section className="full-width-section">
-          <FeatureSection
-            title="Learns Between Sessions"
-            description="Codebuff maintains knowledge about your projects, preferences, and previous interactions, creating a continuous experience that gets smarter and more efficient over time."
-            backdropColor={BlockColor.TerminalYellow}
-            decorativeColors={[BlockColor.GenerativeGreen, BlockColor.CRTAmber]}
-            codeSample={remembersCode}
-            tagline="CONTINUOUS LEARNING & OPTIMIZATION"
-            highlightText="Saves your context in knowledge files that persist between sessions"
-            keyPoints={[
-              {
-                icon: '🧩',
-                title: 'Persistent Context',
-                description:
-                  'Maintains project-specific knowledge in knowledge.md files that persists between sessions',
-              },
-              {
-                icon: '📈',
-                title: 'Adaptive Workflows',
-                description:
-                  'Learns your coding style and preferences to provide increasingly personalized assistance',
-              },
-              {
-                icon: '⏱️',
-                title: 'Time-Saving Recall',
-                description:
-                  'Instantly recalls previous solutions and decisions to avoid repetitive explanations',
-              },
-            ]}
-            illustration={{
-              type: 'chart',
-              chartData: {
-                labels: [
-                  'Time to Context',
-                  'Assistance Quality',
-                  'Repeat Tasks',
-                  'Project Recall',
-                ],
-                values: [95, 85, 90, 100],
-                colors: [
-                  'bg-gradient-to-r from-green-500 to-green-300',
-                  'bg-gradient-to-r from-green-500 to-green-300',
-                  'bg-gradient-to-r from-green-500 to-green-300',
-                  'bg-gradient-to-r from-green-500 to-green-300',
-                ],
-              },
-            }}
-          />
-        </section>
+        <FeatureSection
+          title="Learns Between Sessions"
+          description="Codebuff maintains knowledge about your projects, preferences, and previous interactions, creating a continuous experience that gets smarter and more efficient over time."
+          backdropColor={SECTION_THEMES.feature3.background}
+          decorativeColors={SECTION_THEMES.feature3.decorativeColors}
+          codeSample={DEMO_CODE.remembers}
+          tagline="CONTINUOUS LEARNING & OPTIMIZATION"
+          highlightText="Saves your context in knowledge files that persist between sessions"
+          keyPoints={FEATURE_POINTS.remembers}
+          illustration={{
+            type: 'chart',
+            chartData: {
+              labels: ['Time to Context', 'Assistance Quality', 'Repeat Tasks', 'Project Recall'],
+              values: [95, 85, 90, 100],
+              colors: Array(4).fill('bg-gradient-to-r from-green-500 to-green-300'),
+            },
+          }}
+        />
 
         {/* Competition Section - Black */}
-        <section className="full-width-section">
-          <CompetitionSection />
-        </section>
+        <CompetitionSection />
 
         {/* Testimonials Section - Yellow */}
-        <section className="full-width-section">
-          <TestimonialsSection />
-        </section>
+        <TestimonialsSection />
 
         {/* CTA Section - Black */}
-        <section className="full-width-section">
-          <CTASection />
-        </section>
+        <CTASection />
       </div>
-
-      {/* Dialogs */}
-      <Dialog open={isInstallOpen} onOpenChange={setIsInstallOpen}>
-        <DialogContent>
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Get Started with Codebuff</h2>
-            <ol className="list-decimal list-inside space-y-6">
-              <li>Open your favorite terminal.</li>
-              <li>
-                Install Codebuff globally via npm:
-                <div className="mt-2">
-                  <CodeDemo language="bash">npm install -g codebuff</CodeDemo>
-                </div>
-              </li>
-              <li>
-                Run Codebuff in a project directory:
-                <div className="mt-2">
-                  <CodeDemo language="bash">codebuff</CodeDemo>
-                </div>
-              </li>
-            </ol>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isVideoOpen} onOpenChange={setIsVideoOpen}>
-        <DialogContent className="max-w-3xl bg-transparent border-0 p-0">
-          <div className="aspect-w-16 aspect-h-full h-96">
-            <iframe
-              src="https://www.youtube.com/embed/dQ0NOMsu0dA"
-              title="Codebuff Demo"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="w-full h-full rounded-lg shadow-lg"
-            ></iframe>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
-
-export default Home
