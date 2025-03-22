@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { BlockColor } from './decorative-blocks'
-import { HeroButtons } from './hero-buttons'
+import { BlockColor } from '../decorative-blocks'
+import { HeroButtons } from '../hero-buttons'
 import { useState } from 'react'
-import { Section } from './section'
+import { Section } from '../section'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { TerminalCopyButton } from './enhanced-copy-button'
+import { TerminalCopyButton } from '../enhanced-copy-button'
 
 // Benefit card component for the CTA section
 function BenefitCard({

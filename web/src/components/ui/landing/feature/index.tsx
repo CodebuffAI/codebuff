@@ -2,15 +2,15 @@
 
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { DecorativeBlocks, BlockColor } from './decorative-blocks'
-import { Section } from './section'
+import { DecorativeBlocks, BlockColor } from '../../decorative-blocks'
+import { Section } from '../../section'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { HighlightText } from './landing/feature/highlight-text'
-import { CodeIllustration } from './landing/feature/code-illustration'
-import { ChartIllustration } from './landing/feature/chart-illustration'
-import { WorkflowIllustration } from './landing/feature/workflow-illustration'
-import { BrowserComparison } from './landing/feature/browser-comparison'
-import type { FeatureIllustration, KeyPoint } from './landing/types'
+import { HighlightText } from './highlight-text'
+import { CodeIllustration } from './code-illustration'
+import { ChartIllustration } from './chart-illustration'
+import { WorkflowIllustration } from './workflow-illustration'
+import { BrowserComparison } from './browser-comparison'
+import type { FeatureIllustration, KeyPoint } from '../types'
 
 interface FeatureSectionProps {
   title: string

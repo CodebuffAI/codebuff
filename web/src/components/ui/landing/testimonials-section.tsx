@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { ExternalLink } from 'lucide-react'
 import { testimonials, type Testimonial } from '@/lib/testimonials'
 import posthog from 'posthog-js'
-import { Section } from './section'
+import { Section } from '../section'
 
 const ReviewCard = ({
   t,

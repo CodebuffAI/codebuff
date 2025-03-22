@@ -1,10 +1,7 @@
-'use client'
-
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Section } from './section'
-import { CompetitionTabs } from './competition/competition-tabs'
-import type { CompetitorType } from './competition/competition-tabs'
+import { Section } from '../../section'
+import { CompetitionTabs, type CompetitorType } from './tabs'
 import { useIsMobile } from '@/hooks/use-mobile'
 
 export function CompetitionSection() {
