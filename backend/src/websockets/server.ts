@@ -1,8 +1,7 @@
 import { Server as HttpServer } from 'node:http'
 import { Server as WebSocketServer, RawData, WebSocket } from 'ws'
-import { isError, set } from 'lodash'
+import { isError } from 'lodash'
 import {
-  ClientMessage,
   ServerMessage,
   CLIENT_MESSAGE_SCHEMA,
 } from 'common/websockets/websocket-schema'
@@ -28,7 +27,11 @@ function serializeError(err: unknown) {
   return isError(err) ? err.message : 'Unexpected error.'
 }
 
-function parseMessage(data: RawData): ClientMessage {
+async function processMessage(
+  ws: WebSocket,
+  clientSessionId: string,
+  data: RawData
+): Promise<ServerMessage<'ack'>> {
   let messageObj: any
   try {
     messageObj = JSON.parse(data.toString())
@@ -37,63 +40,41 @@ function parseMessage(data: RawData): ClientMessage {
       { err, data },
       'Error parsing message: not valid UTF-8 encoded JSON.'
     )
-    throw new MessageParseError('Message was not valid UTF-8 encoded JSON.')
+    return { type: 'ack', success: false, error: serializeError(err) }
   }
-  const result = CLIENT_MESSAGE_SCHEMA.safeParse(messageObj)
-  if (!result.success) {
-    const issues = result.error.issues.map((i) => {
-      return {
-        field: i.path.join('.') || null,
-        error: i.message,
-      }
-    })
-    logger.error(
-      { issues, errors: result.error.errors },
-      'Error parsing message'
-    )
-    throw new MessageParseError('Error parsing message.', issues)
-  } else {
-    return result.data
-  }
-}
 
-async function processMessage(
-  ws: WebSocket,
-  clientSessionId: string,
-  data: RawData
-): Promise<ServerMessage<'ack'>> {
   try {
-    const msg = parseMessage(data)
+    const msg = CLIENT_MESSAGE_SCHEMA.parse(messageObj)
     const { type, txid } = msg
-    try {
-      switch (type) {
-        case 'subscribe': {
-          SWITCHBOARD.subscribe(ws, ...msg.topics)
-          break
-        }
-        case 'unsubscribe': {
-          SWITCHBOARD.unsubscribe(ws, ...msg.topics)
-          break
-        }
-        case 'ping': {
-          SWITCHBOARD.markSeen(ws)
-          break
-        }
-        case 'action': {
-          onWebsocketAction(ws, clientSessionId, msg)
-          break
-        }
-        default:
-          throw new Error("Unknown message type; shouldn't be possible here.")
+    switch (type) {
+      case 'subscribe': {
+        SWITCHBOARD.subscribe(ws, ...msg.topics)
+        break
       }
-    } catch (err) {
-      logger.error({ err }, 'Error processing message')
-      return { type: 'ack', txid, success: false, error: serializeError(err) }
+      case 'unsubscribe': {
+        SWITCHBOARD.unsubscribe(ws, ...msg.topics)
+        break
+      }
+      case 'ping': {
+        SWITCHBOARD.markSeen(ws)
+        break
+      }
+      case 'action': {
+        onWebsocketAction(ws, clientSessionId, msg)
+        break
+      }
+      default:
+        throw new Error("Unknown message type; shouldn't be possible here.")
     }
     return { type: 'ack', txid, success: true }
   } catch (err) {
     logger.error({ err }, 'Error processing message')
-    return { type: 'ack', success: false, error: serializeError(err) }
+    return {
+      type: 'ack',
+      txid: messageObj.txid,
+      success: false,
+      error: serializeError(err),
+    }
   }
 }
 
@@ -110,11 +91,13 @@ export function listen(server: HttpServer, path: string) {
           try {
             const client = SWITCHBOARD.getClient(ws)
             if (!client) {
-              logger.warn('Client not found in switchboard, terminating connection')
+              logger.warn(
+                'Client not found in switchboard, terminating connection'
+              )
               ws.terminate()
               continue
             }
-            
+
             const lastSeen = client.lastSeen
             if (lastSeen < now - CONNECTION_TIMEOUT_MS) {
               logger.info(
@@ -131,10 +114,7 @@ export function listen(server: HttpServer, path: string) {
           }
         }
       } catch (error) {
-        logger.error(
-          { error },
-          'Error in deadConnectionCleaner outer loop'
-        )
+        logger.error({ error }, 'Error in deadConnectionCleaner outer loop')
       }
     }, CONNECTION_TIMEOUT_MS)
   })

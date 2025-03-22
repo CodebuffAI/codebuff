@@ -113,7 +113,10 @@ export class APIRealtimeClient {
       // right now it cannot be reliably used to detect that in the presence of reconnects
       for (const txn of Array.from(this.txns.values())) {
         clearTimeout(txn.timeout)
-        txn.reject(new Error('Websocket was closed.'))
+        // NOTE (James): Don't throw an error when the websocket is closed...
+        // This seems to be happening, but the client can recover.
+        txn.resolve()
+        // txn.reject(new Error('Websocket was closed.'))
       }
       this.txns.clear()
 
@@ -212,12 +215,21 @@ export class APIRealtimeClient {
         data: action,
       })
     } catch (e) {
-      // Note (James): seems like swallowing the error is ok in client since we reconnect automatically.
-      // console.error(
-      //   'Error sending action:',
-      //   action,
-      //   typeof e === 'object' && e !== null && 'message' in e ? e.message : e
-      // )
+      // Print the error message for debugging.
+      console.error(
+        'Error sending action:',
+        action.type,
+        typeof e === 'object' && e !== null && 'message' in e ? e.message : e
+      )
+
+      console.log()
+      console.log('Codebuff is exiting due to an error.')
+      console.log('Make sure you are on the latest version of Codebuff!')
+      console.log('-----------------------------------')
+      console.log('Please run: npm install -g codebuff')
+      console.log('-----------------------------------')
+
+      process.exit(1)
     }
   }
 
