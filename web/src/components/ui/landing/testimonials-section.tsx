@@ -2,11 +2,11 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
 import { ExternalLink } from 'lucide-react'
 import { testimonials, type Testimonial } from '@/lib/testimonials'
-import posthog from 'posthog-js'
+import { cn } from '@/lib/utils'
 import { Section } from '../section'
+import posthog from 'posthog-js'
 
 const ReviewCard = ({
   t,
@@ -18,12 +18,11 @@ const ReviewCard = ({
   return (
     <figure
       className={cn(
-        'relative w-[320px] h-[180px] shrink-0 cursor-pointer overflow-hidden rounded-xl p-6',
+        'relative w-[320px] min-h-[220px] shrink-0 overflow-hidden rounded-xl p-6',
         'bg-gradient-to-br from-white to-gray-50 hover:to-gray-100 border border-gray-200/50 shadow-lg hover:shadow-xl',
         'dark:from-gray-800 dark:to-gray-900 dark:hover:to-gray-800 dark:border-gray-700/50',
         'transition-all duration-200 hover:-translate-y-1'
       )}
-      onClick={() => onTestimonialClick(t.author, t.link)}
     >
       <div className="flex justify-between">
         <div className="flex flex-row items-center gap-2">
@@ -46,14 +45,18 @@ const ReviewCard = ({
             <p className="text-xs font-medium dark:text-white/40">{t.title}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <ExternalLink
-            className="h-4 w-4"
-            onClick={() => onTestimonialClick(t.author, t.link)}
-          />
-        </div>
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            onTestimonialClick(t.author, t.link)
+          }}
+          className="flex items-center gap-2 p-1 rounded hover:bg-black/5 dark:hover:bg-white/5"
+          aria-label="View testimonial source"
+        >
+          <ExternalLink className="h-4 w-4" />
+        </button>
       </div>
-      <blockquote className="mt-4 text-sm lg:text-base line-clamp-3">
+      <blockquote className="mt-4 text-sm lg:text-base line-clamp-5 select-text">
         {t.quote}
       </blockquote>
     </figure>
@@ -78,53 +81,38 @@ export function TestimonialsSection() {
         (note: some testimonials reference our previous name,
         &quot;Manicode&quot; – they refer to the same product)
       </h6>
-      <div className="mt-12 space-y-8">
-        <div className="flex flex-nowrap gap-6 overflow-hidden [--gap:1.5rem] [--duration:40s]">
-          <div className="flex items-center gap-6 animate-marquee">
-            {testimonials[0].map((testimonial, i) => (
-              <ReviewCard
-                key={i}
-                t={testimonial}
-                onTestimonialClick={handleTestimonialClick}
-              />
-            ))}
-          </div>
-          <div
-            className="flex items-center gap-6 animate-marquee"
-            aria-hidden="true"
-          >
-            {testimonials[0].map((testimonial, i) => (
-              <ReviewCard
-                key={i}
-                t={testimonial}
-                onTestimonialClick={handleTestimonialClick}
-              />
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-nowrap gap-6 overflow-hidden [--gap:1.5rem] [--duration:35s]">
-          <div className="flex items-center gap-6 animate-marquee [animation-direction:reverse]">
-            {testimonials[1].map((testimonial, i) => (
-              <ReviewCard
-                key={i}
-                t={testimonial}
-                onTestimonialClick={handleTestimonialClick}
-              />
-            ))}
-          </div>
-          <div
-            className="flex items-center gap-6 animate-marquee [animation-direction:reverse]"
-            aria-hidden="true"
-          >
-            {testimonials[1].map((testimonial, i) => (
-              <ReviewCard
-                key={i}
-                t={testimonial}
-                onTestimonialClick={handleTestimonialClick}
-              />
-            ))}
-          </div>
-        </div>
+      <div className="mt-12 gap-2">
+        {testimonials.map((row, rowIndex) => {
+          const renderedRow = (
+            <div
+              className={cn(
+                'flex items-center gap-6 animate-marquee group-hover:[animation-play-state:paused]',
+                rowIndex % 2 === 1 && '[animation-direction:reverse]'
+              )}
+            >
+              {row.map((testimonial, i) => (
+                <ReviewCard
+                  key={i}
+                  t={testimonial}
+                  onTestimonialClick={handleTestimonialClick}
+                />
+              ))}
+            </div>
+          )
+
+          return (
+            <div
+              key={rowIndex}
+              className={cn(
+                'flex flex-nowrap gap-6 overflow-hidden [--gap:1.5rem] hover:pause-animation group py-4',
+                '[--duration:35s]'
+              )}
+            >
+              {renderedRow}
+              {renderedRow}
+            </div>
+          )
+        })}
       </div>
 
       <div className="flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-8">
