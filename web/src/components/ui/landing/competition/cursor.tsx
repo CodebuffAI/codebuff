@@ -208,12 +208,6 @@ export function CursorMazeVisualization({
                 </div>
               </motion.div>
 
-              {/* Random status messages */}
-              <div className="fixed left-1/6 bottom-0 right-0 bg-black/30 py-1 px-4 text-[10px] text-white/40 flex justify-between">
-                <div>Cursor AI: Ready</div>
-                <div>Ln 7, Col 12</div>
-              </div>
-
               {/* Fixed blinking cursor */}
               <motion.div
                 className="absolute left-[120px] top-[127px] w-[2px] h-[14px] bg-red-400"

@@ -12,6 +12,8 @@ const competitors = [
   'cursor',
   'claude-code',
   'cline',
+  // Potential additional competitors to consider:
+  // - Replit Ghostwriter/Agent
 ] as const
 export type CompetitorType = (typeof competitors)[number]
 
@@ -53,9 +55,20 @@ interface CompetitorCardProps {
   isActive?: boolean
 }
 
-function CompetitorCard({ type, progress, complexity, isActive }: CompetitorCardProps) {
+function CompetitorCard({
+  type,
+  progress,
+  complexity,
+  isActive,
+}: CompetitorCardProps) {
   const Component = competitorInfo[type].component
-  return <Component progress={progress} complexity={complexity} isActive={isActive} />
+  return (
+    <Component
+      progress={progress}
+      complexity={complexity}
+      isActive={isActive}
+    />
+  )
 }
 
 export interface CompetitionTabsProps {
