@@ -43,7 +43,7 @@ export function limitScreenshots(
 }
 
 export function toContentString(msg: Message): string {
-  const content = msg.content
+  const { content } = msg
   if (typeof content === 'string') return content
-  return (content[content.length - 1] as any)?.text ?? ''
+  return content.map((item) => (item as any)?.text ?? '').join('\n')
 }

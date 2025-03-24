@@ -396,6 +396,10 @@ ${addedFiles.map((file) => file.path).join('\n')}
             costMode,
           }
         )
+      const filesAlreadyRead = difference(
+        paths,
+        addedFiles.map((f) => f.path)
+      )
       logger.debug(
         {
           content: parameters.paths,
@@ -411,6 +415,9 @@ ${addedFiles.map((file) => file.path).join('\n')}
           addedFiles
             .map((file) => createMarkdownFileBlock(file.path, file.content))
             .join('\n') +
+          (filesAlreadyRead.length > 0
+            ? `\nThe following files were already read earlier in the conversation and are up to date (no changes were made since last read): ${filesAlreadyRead.join('\n')}`
+            : '') +
           (nonExistingNewFilePaths && nonExistingNewFilePaths.length > 0
             ? `\nThe following files did not exist or were hidden: ${nonExistingNewFilePaths.join('\n')}`
             : ''),
