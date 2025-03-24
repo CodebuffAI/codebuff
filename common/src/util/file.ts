@@ -93,6 +93,7 @@ export const createMarkdownFileBlock = (filePath: string, content: string) => {
   return `\`\`\`${filePath}\n${content}\n\`\`\``
 }
 
+// NOTE: Doesn't work well with multiple files if the files contain their own ``` blocks.
 export const parseMarkdownFileBlocks = (str: string) => {
   const matches = str.matchAll(/```(.*)\n([\s\S]*?)\n```/g)
   const files: { path: string; content: string }[] = []

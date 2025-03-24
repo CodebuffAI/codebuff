@@ -51,7 +51,6 @@ export function parseToolCallXml(xmlString: string): Record<string, any> {
 
 export function renderToolResults(toolResults: ToolResult[]): string {
   return `
-<tool_results>
 ${toolResults
   .map(
     (result) => `<tool_result>
@@ -60,7 +59,6 @@ ${toolResults
 </tool_result>`
   )
   .join('\n')}
-</tool_results>
 `.trim()
 }
 
@@ -86,6 +84,31 @@ export const parseToolResults = (xmlString: string): ToolResult[] => {
   }
 
   return results
+}
+
+export function renderReadFilesResult(
+  files: { path: string; content: string }[]
+) {
+  return files
+    .map((file) => `<read_file path="${file.path}">${file.content}</read_file>`)
+    .join('\n')
+}
+
+export function parseReadFilesResult(
+  xmlString: string
+): { path: string; content: string }[] {
+  const files: { path: string; content: string }[] = []
+  const filePattern = /<read_file path="([^"]+)">([\s\S]*?)<\/read_file>/g
+  let match
+
+  while ((match = filePattern.exec(xmlString)) !== null) {
+    const [, filePath, content] = match
+    if (filePath.trim()) {
+      files.push({ path: filePath, content })
+    }
+  }
+
+  return files
 }
 
 /**

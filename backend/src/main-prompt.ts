@@ -4,8 +4,10 @@ import { AnthropicModel } from 'common/constants'
 import { promptClaudeStream } from './llm-apis/claude'
 import {
   isToolResult,
+  parseReadFilesResult,
   parseToolCallXml,
   parseToolResults,
+  renderReadFilesResult,
   renderToolResults,
   simplifyReadFileResults,
 } from './util/parse-tool-call-xml'
@@ -52,16 +54,14 @@ export const mainPrompt = async (
     action
   const { messageHistory, fileContext } = agentState
 
-  const messagesWithToolResults = buildArray(
+  const messagesWithUserMessage = buildArray(
     ...messageHistory,
+
     toolResults.length > 0 && {
       role: 'user' as const,
       content: renderToolResults(toolResults),
-    }
-  )
+    },
 
-  const messagesWithUserMessage = buildArray(
-    ...messagesWithToolResults,
     prompt && {
       role: 'user' as const,
       content: prompt,
@@ -167,9 +167,7 @@ export const mainPrompt = async (
     const readFilesToolResult = {
       id: generateCompactId(),
       name: 'read_files',
-      result: addedFiles
-        .map((file) => createMarkdownFileBlock(file.path, file.content))
-        .join('\n'),
+      result: renderReadFilesResult(addedFiles),
     }
     messagesWithUserMessage.push({
       role: 'assistant' as const,
@@ -412,9 +410,7 @@ ${addedFiles.map((file) => file.path).join('\n')}
         id: generateCompactId(),
         name: 'read_files',
         result:
-          addedFiles
-            .map((file) => createMarkdownFileBlock(file.path, file.content))
-            .join('\n') +
+          renderReadFilesResult(addedFiles) +
           (filesAlreadyRead.length > 0
             ? `\nThe following files were already read earlier in the conversation and are up to date (no changes were made since last read): ${filesAlreadyRead.join('\n')}`
             : '') +
@@ -613,7 +609,7 @@ async function getFileVersionUpdates(
     .flatMap((content) => parseToolResults(toContentString(content)))
   const previousFileList = toolResults
     .filter(({ name }) => name === 'read_files')
-    .flatMap(({ result }) => parseMarkdownFileBlocks(result))
+    .flatMap(({ result }) => parseReadFilesResult(result))
 
   const previousFiles = Object.fromEntries(
     previousFileList.map(({ path, content }) => [path, content])
@@ -626,13 +622,6 @@ async function getFileVersionUpdates(
     .flatMap((content) => Object.keys(parseFileBlocks(content)))
     .filter((path) => path !== undefined)
 
-  logger.debug(
-    {
-      editedFilePaths,
-      previousFilePaths,
-    },
-    'file version updates'
-  )
   const requestedFiles = skipRequestingFiles
     ? []
     : options.requestedFiles ??

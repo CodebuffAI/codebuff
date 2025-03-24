@@ -42,17 +42,17 @@ export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)
   const systemInfoTokens = countTokens(systemInfoPrompt)
 
-  const systemPrompt = buildArray({
+  const systemPrompt = buildArray(
+    agentInstructions,
+    toolsInstructions,
+    knowledgeFilesPrompt,
+    projectFileTreePrompt,
+    systemInfoPrompt,
+    gitChangesPrompt
+  ).map((prompt) => ({
     type: 'text' as const,
-    text: buildArray(
-      agentInstructions,
-      toolsInstructions,
-      knowledgeFilesPrompt,
-      projectFileTreePrompt,
-      systemInfoPrompt,
-      gitChangesPrompt
-    ).join('\n\n'),
-  })
+    text: prompt,
+  }))
 
   logger.debug(
     {
