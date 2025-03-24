@@ -332,23 +332,6 @@ export function GithubCopilotVisualization({
             Constant wrong suggestions and hallucinations
           </p>
         </div>
-
-        {/* Hallucination meter */}
-        <div className="bg-black/30 border border-indigo-700/30 rounded px-2 py-1 flex flex-col">
-          <div className="text-indigo-400 text-xs font-mono mb-1">
-            Hallucination Level
-          </div>
-          <div className="w-32 h-2 bg-black/30 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"
-              style={{ width: `${progress}%` }}
-              animate={{
-                width: `${progress}%`,
-                transition: { duration: 0.5 },
-              }}
-            />
-          </div>
-        </div>
       </div>
 
       {/* Main content area with reality distortion and corruption effects */}
@@ -605,27 +588,6 @@ class ThemeManager extends React.PureComponent {
               </span>
             </span>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="text-xs text-white/30">
-            {progress > 80
-              ? 'Hallucination mode'
-              : progress > 60
-                ? 'Mixing code paradigms'
-                : progress > 40
-                  ? 'Inventing libraries'
-                  : progress > 20
-                    ? 'Suggesting patterns'
-                    : 'Normal operation'}
-          </div>
-          <motion.div className="flex items-center bg-black/20 rounded-full h-1.5 w-20 overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500"
-              style={{
-                width: `${Math.min(progress, 100)}%`,
-              }}
-            />
-          </motion.div>
         </div>
       </div>
     </div>

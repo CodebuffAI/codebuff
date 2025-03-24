@@ -113,7 +113,11 @@ export function CTASection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          COPY_TODO
+          <span className="whitespace-nowrap">
+            Integrates with your existing workflow.
+          </span>{' '}
+          <span className="whitespace-nowrap">Simple install.</span>{' '}
+          <span className="whitespace-nowrap">No hassles.</span>
         </motion.h2>
 
         <motion.div

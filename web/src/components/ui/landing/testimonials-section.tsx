@@ -131,7 +131,7 @@ export function TestimonialsSection() {
 
       <div className="flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-8">
         <div className="flex flex-col items-center">
-          <p className="text-black">Backed by</p>
+          {/* <p className="text-black">Backed by</p> */}
           <Link
             href="https://www.ycombinator.com/companies/codebuff"
             target="_blank"

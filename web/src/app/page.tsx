@@ -85,6 +85,8 @@ export default function Home() {
           decorativeColors={SECTION_THEMES.feature1.decorativeColors}
           tagline="DEEP PROJECT INSIGHTS & ACTIONS"
           highlightText="Indexes your entire codebase in 2 seconds"
+          learnMoreText="See How It Works"
+          learnMoreLink="/docs/advanced"
           keyPoints={FEATURE_POINTS.understanding}
           illustration={
             <WorkflowIllustration
@@ -92,7 +94,8 @@ export default function Home() {
                 {
                   icon: '🧠',
                   title: 'Total Codebase Awareness',
-                  description: 'COPY_TODO',
+                  description:
+                    'Builds a complete map of your project, including hidden dependencies',
                 },
                 {
                   icon: '✂️',
@@ -103,7 +106,8 @@ export default function Home() {
                 {
                   icon: '⚡',
                   title: 'Instant Solutions',
-                  description: 'COPY_TODO',
+                  description:
+                    'Provides specific solutions based on your codebase context, saving time',
                 },
               ]}
             />
@@ -118,12 +122,14 @@ export default function Home() {
               <span className="whitespace-nowrap"> like a movie</span>
             </>
           }
-          description="COPY_TODO"
+          description="Works in your terminal with any tech stack. No special environments needed, no framework restrictions."
           backdropColor={SECTION_THEMES.feature2.background}
           decorativeColors={SECTION_THEMES.feature2.decorativeColors}
           imagePosition="left"
-          tagline="COPY_TODO"
+          tagline="PRECISE CONTROL & FLEXIBILITY"
           highlightText="Zero setup hurdles, infinite control."
+          learnMoreText="View Installation Guide"
+          learnMoreLink="/docs/help"
           keyPoints={FEATURE_POINTS.rightStuff}
           illustration={
             <BrowserComparison
@@ -139,11 +145,13 @@ export default function Home() {
         {/* Feature Section 3 - Yellow */}
         <FeatureSection
           title={<>Better Over Time</>}
-          description="Don't repeat yourself. Codebuff takes notes on your conversations and stores them in human-readable markdown files. Each session makes it smarter about your specific needs and project setup."
+          description="Don't repeat yourself. Codebuff can take notes on your conversations and stores them in human-readable markdown files. Each session makes it smarter about your specific needs and project setup."
           backdropColor={SECTION_THEMES.feature3.background}
           decorativeColors={SECTION_THEMES.feature3.decorativeColors}
           tagline="CONTINUOUS LEARNING & OPTIMIZATION"
           highlightText="Persists project knowledge between sessions"
+          learnMoreText="Learn About Knowledge Files"
+          learnMoreLink="/docs/tips#knowledge-files"
           keyPoints={FEATURE_POINTS.remembers}
           illustration={
             <ChartIllustration

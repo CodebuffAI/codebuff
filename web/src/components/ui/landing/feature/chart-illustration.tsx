@@ -29,7 +29,7 @@ export function ChartIllustration({
   ]
 
   return (
-    <div className="relative w-full h-full min-h-[300px] rounded-xl overflow-hidden bg-white p-5 shadow-lg">
+    <div className="relative w-full h-full min-h-[300px] overflow-hidden bg-white p-5 shadow-lg">
       {/* Main Content */}
       <div className="flex flex-col items-center max-w-lg mx-auto">
         {/* Knowledge File */}

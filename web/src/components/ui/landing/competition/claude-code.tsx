@@ -45,9 +45,6 @@ export function ClaudeCodeVisualization({
           <h3 className="text-xl font-medium flex items-center">
             <span className="text-orange-500 mr-2">⌛</span>
             Claude Code
-            <span className="ml-2 text-xs py-0.5 px-1.5 rounded-full bg-black/30 border border-white/10">
-              <span className="text-orange-500">2x Slower</span>
-            </span>
           </h3>
           <p className="text-white/60 mt-1">
             Painfully slow with endless waiting
