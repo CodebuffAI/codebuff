@@ -1,6 +1,5 @@
 import { ToolResult } from 'common/types/agent-state'
 import { generateCompactId } from 'common/util/string'
-import { parseMarkdownFileBlocks } from 'common/util/file'
 import { Message } from 'common/types/message'
 import { toContentString } from 'common/util/messages'
 

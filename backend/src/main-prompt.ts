@@ -12,12 +12,7 @@ import {
   simplifyReadFileResults,
 } from './util/parse-tool-call-xml'
 import { getModelForMode } from 'common/constants'
-import {
-  createMarkdownFileBlock,
-  parseFileBlocks,
-  parseMarkdownFileBlocks,
-  ProjectFileContext,
-} from 'common/util/file'
+import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { Message } from 'common/types/message'
 import { ClientAction } from 'common/actions'
@@ -245,7 +240,7 @@ ${addedFiles.map((file) => file.path).join('\n')}
     ),
     agentContext && {
       role: 'assistant' as const,
-      content: agentContext,
+      content: agentContext.trim(),
     }
   )
 

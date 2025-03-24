@@ -93,17 +93,6 @@ export const createMarkdownFileBlock = (filePath: string, content: string) => {
   return `\`\`\`${filePath}\n${content}\n\`\`\``
 }
 
-// NOTE: Doesn't work well with multiple files if the files contain their own ``` blocks.
-export const parseMarkdownFileBlocks = (str: string) => {
-  const matches = str.matchAll(/```(.*)\n([\s\S]*?)\n```/g)
-  const files: { path: string; content: string }[] = []
-  for (const match of matches) {
-    const [, filePath, content] = match
-    files.push({ path: filePath, content })
-  }
-  return files
-}
-
 export const createSearchReplaceBlock = (search: string, replace: string) => {
   return `<<<<<<< SEARCH\n${search}\n=======\n${replace}\n>>>>>>> REPLACE`
 }
@@ -205,14 +194,4 @@ export function isValidFilePath(path: string) {
   if (invalidChars.test(path)) return false
 
   return true
-}
-
-export function getInitialBaseFiles(
-  knowledgeFiles: Record<string, string>
-): FileVersion[] {
-  // Convert knowledge files into FileVersion array
-  return Object.entries(knowledgeFiles).map(([path, content]) => ({
-    path,
-    content,
-  }))
 }
