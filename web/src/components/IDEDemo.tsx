@@ -202,20 +202,9 @@ export function IDEDemo({ className }: IDEDemoProps) {
     if (!showIDE) return
 
     const messages = [
-      "Welcome to Codebuff! Type 'help' for a list of commands.",
-      '> help',
-      'Available commands:',
-      '  analyze   - Analyze current codebase',
-      '  refactor  - Get help with refactoring',
-      '  explain   - Explain selected code',
-      '  test      - Help with testing',
-      '> analyze',
-      'Analyzing project structure...',
-      'Found:',
-      '  • React components with TypeScript',
-      '  • Next.js configuration',
-      '  • API routes in /pages/api',
-      'Ready to help! Ask me anything about the codebase.',
+      'Codebuff will read and write files in "/Users/me/projects/my-app". Type "help" for commands.',
+      'Welcome back! What would you like to do?',
+      'my-app > ',
     ]
 
     let currentMessageIndex = 0
@@ -511,19 +500,110 @@ export function IDEDemo({ className }: IDEDemoProps) {
                       1
                     </div>
                     <div className="text-zinc-300">
-                      <span>console.log(</span>
-                      <span className="text-green-400">"Hello, Codebuff!"</span>
-                      <span>);</span>
+                      <span className="text-blue-400">import</span>
+                      <span> {'{'} </span>
+                      <span className="text-amber-300">useEffect</span>
+                      <span>, </span>
+                      <span className="text-amber-300">useState</span>
+                      <span> {'}'} </span>
+                      <span className="text-blue-400">from</span>
+                      <span className="text-green-400"> 'react'</span>
+                    </div>
+                  </div>
+                  <div className="flex relative z-0">
+                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                      2
+                    </div>
+                    <div className="text-zinc-300">
+                      <span className="text-blue-400">import</span>
+                      <span> {'{'} </span>
+                      <span className="text-amber-300">axios</span>
+                      <span> {'}'} </span>
+                      <span className="text-blue-400">from</span>
+                      <span className="text-green-400"> 'axios'</span>
+                    </div>
+                  </div>
+                  <div className="flex relative z-0">
+                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                      3
+                    </div>
+                    <div className="text-zinc-300"></div>
+                  </div>
+                  <div className="flex relative z-0">
+                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                      4
+                    </div>
+                    <div className="text-zinc-300">
+                      <span className="text-blue-400">interface</span>
+                      <span className="text-amber-300"> User</span>
+                      <span> {`{`}</span>
+                    </div>
+                  </div>
+                  <div className="flex relative z-0">
+                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                      5
+                    </div>
+                    <div className="text-zinc-300 pl-8">
+                      <span>id: </span>
+                      <span className="text-amber-300">string</span>
+                    </div>
+                  </div>
+                  <div className="flex relative z-0">
+                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                      6
+                    </div>
+                    <div className="text-zinc-300 pl-8">
+                      <span>email: </span>
+                      <span className="text-amber-300">string</span>
+                    </div>
+                  </div>
+                  <div className="flex relative z-0">
+                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                      7
+                    </div>
+                    <div className="text-zinc-300">
+                      <span>{`}`}</span>
+                    </div>
+                  </div>
+                  <div className="flex relative z-0">
+                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                      8
+                    </div>
+                    <div className="text-zinc-300"></div>
+                  </div>
+                  <div className="flex relative z-0">
+                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                      9
+                    </div>
+                    <div className="text-zinc-300">
+                      <span className="text-purple-400">export</span>
+                      <span className="text-blue-400"> function</span>
+                      <span className="text-amber-300"> UserProfile</span>
+                      <span>() {`{`}</span>
+                    </div>
+                  </div>
+                  <div className="flex relative z-0">
+                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                      10
+                    </div>
+                    <div className="text-zinc-300 pl-4">
+                      <span className="text-blue-400">const</span>
+                      <span> [user, setUser] = </span>
+                      <span className="text-amber-300">useState</span>
+                      <span>{`<`}</span>
+                      <span className="text-amber-300">User</span>
+                      <span>{`>`}</span>
+                      <span>();</span>
                     </div>
                   </div>
                 </div>
 
                 <div
                   className={cn(
-                    'border-t border-zinc-800 transition-all duration-1000 bg-black/40',
+                    'border-t border-zinc-800 transition-all duration-1000 bg-black z-10',
                     showIDE
                       ? expandTerminal
-                        ? 'h-[80%] text-lg'
+                        ? 'h-full text-lg'
                         : 'h-[300px]'
                       : 'h-full'
                   )}
@@ -570,7 +650,9 @@ export function IDEDemo({ className }: IDEDemoProps) {
               prompt="> "
               showWindowButtons={true}
             >
-              <TerminalOutput>Codebuff runs in your terminal!</TerminalOutput>
+              <TerminalOutput>
+                Codebuff: your terminal's superpower
+              </TerminalOutput>
               <TerminalOutput>
                 Wherever you code, you have access to Codebuff!
               </TerminalOutput>

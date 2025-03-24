@@ -12,12 +12,6 @@ interface Block {
   zIndex?: number
 }
 
-type InitialPlacement =
-  | 'top-left'
-  | 'top-right'
-  | 'bottom-left'
-  | 'bottom-right'
-
 export enum BlockColor {
   White = 'rgb(255, 255, 255)', // #FFFFFF
   Black = 'rgb(0, 0, 0)', // #000000
@@ -31,7 +25,7 @@ export enum BlockColor {
 // Base props that are always allowed
 interface BaseDecorativeBlocksProps {
   className?: string
-  initialPlacement?: InitialPlacement
+  placement: 'bottom-left' | 'bottom-right'
   children: ReactNode
 }
 
@@ -54,6 +48,8 @@ const defaultColors = [
   BlockColor.CRTAmber,
   BlockColor.DarkForestGreen,
 ]
+
+const BASE_OFFSET = 6
 
 const densityMap = {
   low: 2,
@@ -82,27 +78,29 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
   }, [props])
 
   const getOffsets = (index: number) => {
-    const baseOffset = 8 // Now hardcoded
-    const stackOffset = index * 8
+    const stackOffset = index * BASE_OFFSET
 
-    switch (props.initialPlacement) {
-      case 'top-right':
-        return {
-          top: -baseOffset - stackOffset,
-          left: baseOffset + stackOffset,
-        }
+    switch (props.placement) {
       case 'bottom-left':
         return {
-          top: baseOffset + stackOffset,
-          left: -baseOffset - stackOffset,
+          top: BASE_OFFSET + stackOffset,
+          left: -BASE_OFFSET - stackOffset,
         }
       case 'bottom-right':
-        return { top: baseOffset + stackOffset, left: baseOffset + stackOffset }
-      case 'top-left':
+        return {
+          top: BASE_OFFSET + stackOffset,
+          left: BASE_OFFSET + stackOffset,
+        }
+      // case 'top-right':
+      //   return {
+      //     top: -BASE_OFFSET - stackOffset,
+      //     left: BASE_OFFSET + stackOffset,
+      //   }
+      // case 'top-left':
       default:
         return {
-          top: -baseOffset - stackOffset,
-          left: -baseOffset - stackOffset,
+          top: BASE_OFFSET + stackOffset,
+          left: BASE_OFFSET + stackOffset,
         }
     }
   }
@@ -156,7 +154,7 @@ export function DecorativeBlocks(props: DecorativeBlocksProps) {
       resizeObserver.disconnect()
       window.removeEventListener('resize', updateBlocks)
     }
-  }, [blockCount, colorPalette, props.initialPlacement])
+  }, [blockCount, colorPalette, props.placement])
 
   return (
     <div className="relative w-full" ref={containerRef}>

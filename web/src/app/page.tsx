@@ -53,7 +53,7 @@ export default function Home() {
           >
             <DecorativeBlocks
               colors={[BlockColor.GenerativeGreen, BlockColor.CRTAmber]}
-              initialPlacement="bottom-right"
+              placement="bottom-right"
             >
               <IDEDemo />
             </DecorativeBlocks>
@@ -74,33 +74,36 @@ export default function Home() {
       >
         {/* Feature Section 1 - Yellow */}
         <FeatureSection
-          title="Full Codebase Understanding"
-          description="Codebuff deeply understands your entire codebase structure, dependencies, and patterns to provide intelligent context-aware assistance that other AI tools can't match."
+          title={
+            <>
+              Your Codebase,{' '}
+              <span className="whitespace-nowrap">Fully Understood</span>
+            </>
+          }
+          description="Codebuff deeply understands your entire codebase structure, dependencies, and patterns to generate code that other AI tools can't match."
           backdropColor={SECTION_THEMES.feature1.background}
           decorativeColors={SECTION_THEMES.feature1.decorativeColors}
-          tagline="DEEP PROJECT ANALYSIS & INSIGHTS"
-          highlightText="4x faster than other AI coding assistants with deep codebase comprehension"
+          tagline="DEEP PROJECT INSIGHTS & ACTIONS"
+          highlightText="Indexes your entire codebase in 2 seconds"
           keyPoints={FEATURE_POINTS.understanding}
           illustration={
             <WorkflowIllustration
               steps={[
                 {
-                  icon: '📁',
-                  title: 'Scan Codebase',
-                  description:
-                    'Automatically analyzes all files, dependencies, and imports.',
+                  icon: '🧠',
+                  title: 'Total Codebase Awareness',
+                  description: 'COPY_TODO',
                 },
                 {
-                  icon: '🧠',
-                  title: 'Apply Intelligence',
+                  icon: '✂️',
+                  title: 'Surgical Code Edits',
                   description:
-                    'Uses deep understanding to provide context-aware assistance',
+                    "Makes pinpoint changes while respecting your codebase's existing structure and style",
                 },
                 {
                   icon: '⚡',
-                  title: 'Deliver Results',
-                  description:
-                    'Provides precise, targeted solutions 4x faster than competitors',
+                  title: 'Instant Solutions',
+                  description: 'COPY_TODO',
                 },
               ]}
             />
@@ -109,13 +112,18 @@ export default function Home() {
 
         {/* Feature Section 2 - Black */}
         <FeatureSection
-          title="Does the Right Stuff for Your Project"
-          description="Codebuff intelligently handles project configuration, provides precise code edits, and integrates seamlessly with any technology stack without complex setup or environment restrictions."
+          title={
+            <>
+              Direct your codebase{' '}
+              <span className="whitespace-nowrap"> like a movie</span>
+            </>
+          }
+          description="COPY_TODO"
           backdropColor={SECTION_THEMES.feature2.background}
           decorativeColors={SECTION_THEMES.feature2.decorativeColors}
           imagePosition="left"
-          tagline="INTELLIGENT PROJECT ASSISTANCE"
-          highlightText="Works in any terminal with 50% lower CPU usage than competitors"
+          tagline="COPY_TODO"
+          highlightText="Zero setup hurdles, infinite control."
           keyPoints={FEATURE_POINTS.rightStuff}
           illustration={
             <BrowserComparison
@@ -130,12 +138,12 @@ export default function Home() {
 
         {/* Feature Section 3 - Yellow */}
         <FeatureSection
-          title="Learns Between Sessions"
-          description="Codebuff maintains knowledge about your projects, preferences, and previous interactions, creating a continuous experience that gets smarter and more efficient over time."
+          title={<>Better Over Time</>}
+          description="Don't repeat yourself. Codebuff takes notes on your conversations and stores them in human-readable markdown files. Each session makes it smarter about your specific needs and project setup."
           backdropColor={SECTION_THEMES.feature3.background}
           decorativeColors={SECTION_THEMES.feature3.decorativeColors}
           tagline="CONTINUOUS LEARNING & OPTIMIZATION"
-          highlightText="Saves your context in knowledge files that persist between sessions"
+          highlightText="Persists project knowledge between sessions"
           keyPoints={FEATURE_POINTS.remembers}
           illustration={
             <ChartIllustration

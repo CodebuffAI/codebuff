@@ -104,61 +104,61 @@ export const FEATURE_POINTS = {
   understanding: [
     {
       icon: '🧠',
-      title: 'Complete Codebase Context',
+      title: 'Total Project Awareness',
       description:
-        'Analyzes your entire project to understand its architecture and how components interact',
+        'Maps your entire codebase to grasp the architecture, dependencies, and coding patterns that make it tick',
     },
     {
       icon: '🔍',
-      title: 'Precise Problem Identification',
+      title: 'Uncanny Problem Detection',
       description:
-        'Quickly identifies bugs, vulnerabilities, and optimization opportunities',
+        'Spots bugs, security issues, and performance bottlenecks that other AI tools completely miss',
     },
     {
       icon: '⚡',
-      title: 'Smarter Suggestions',
+      title: 'Context-Perfect Solutions',
       description:
-        "Delivers code recommendations that align with your project's patterns and standards",
+        'Crafts code that fits your project like a glove - matching your style, patterns, and standards exactly',
     },
   ],
   rightStuff: [
     {
       icon: '🛠️',
-      title: 'Intelligent Configuration',
+      title: 'Zero-Friction Setup',
       description:
-        'Sets up project scaffolding, dependencies, and configurations tailored to your needs',
+        'Handles complex project configuration, dependencies, and scaffolding without making you jump through hoops',
     },
     {
       icon: '✂️',
-      title: 'Precise Code Edits',
+      title: 'Surgical Code Changes',
       description:
-        "Makes targeted changes instead of rewriting entire files, preserving your code's integrity",
+        'Makes precise, targeted edits that respect your codebase instead of ham-fisted rewrites that break things',
     },
     {
       icon: '🔄',
-      title: 'Seamless Integration',
+      title: 'Works Where You Work',
       description:
-        'Works with any technology stack or framework without environment restrictions',
+        'Runs in any terminal with any tech stack - no special environments, no framework limitations, no hassles',
     },
   ],
   remembers: [
     {
       icon: '🧩',
-      title: 'Persistent Context',
+      title: "Your Project's Memory",
       description:
-        'Maintains project-specific knowledge in knowledge.md files that persists between sessions',
+        'Stores knowledge in smart .md files that grow with each session, eliminating those "let me explain again" moments',
     },
     {
       icon: '📈',
-      title: 'Adaptive Workflows',
+      title: 'Learns Your Style',
       description:
-        'Learns your coding style and preferences to provide increasingly personalized assistance',
+        'Adapts to your unique coding patterns and workflow preferences to deliver increasingly personalized help',
     },
     {
       icon: '⏱️',
-      title: 'Time-Saving Recall',
+      title: 'Picks Up Where You Left Off',
       description:
-        'Instantly recalls previous solutions and decisions to avoid repetitive explanations',
+        'Remembers previous conversations, decisions, and context - just like working with a human teammate',
     },
   ],
 }

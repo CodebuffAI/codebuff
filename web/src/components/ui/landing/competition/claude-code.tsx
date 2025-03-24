@@ -53,12 +53,6 @@ export function ClaudeCodeVisualization({
             Painfully slow with endless waiting
           </p>
         </div>
-
-        {/* Timer to emphasize the wasted time */}
-        <div className="bg-black/30 border border-orange-700/30 rounded px-2 py-1 flex items-center">
-          <div className="text-orange-500 text-xs font-mono mr-1">⏱️</div>
-          <div className="text-white/80 text-xs font-mono">{formattedTime}</div>
-        </div>
       </div>
 
       {/* Terminal interface with long waiting periods */}
@@ -251,12 +245,12 @@ export function ClaudeCodeVisualization({
       {/* Status indicators to emphasize slowness */}
       <div className="mt-3 flex justify-between items-center">
         <div className="text-sm text-white/40">
-          <div className="flex items-center">
-            <span className="text-orange-500 mr-1">⏱️</span>
-            <span>
-              Slowsted time:{' '}
-              <span className="text-orange-500">{elapsedSeconds}s</span>
-            </span>
+          {/* Timer to emphasize the wasted time */}
+          <div className="bg-black/30 border border-orange-700/30 rounded px-2 py-1 flex items-center">
+            <div className="text-orange-500 text-xs font-mono mr-1">⏱️</div>
+            <div className="text-white/80 text-xs font-mono">
+              {formattedTime}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">

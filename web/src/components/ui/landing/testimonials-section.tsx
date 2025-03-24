@@ -7,6 +7,7 @@ import { testimonials, type Testimonial } from '@/lib/testimonials'
 import { cn } from '@/lib/utils'
 import { Section } from '../section'
 import posthog from 'posthog-js'
+import { motion } from 'framer-motion'
 
 const ReviewCard = ({
   t,
@@ -74,13 +75,26 @@ export function TestimonialsSection() {
 
   return (
     <Section background="#ffff33">
-      <h2 className="text-3xl md:text-4xl font-medium mb-2 text-black relative inline-block hero-heading">
-        What Developers Are Saying
-      </h2>
-      <h6 className="text-gray-700 text-sm mb-12">
-        (note: some testimonials reference our previous name,
-        &quot;Manicode&quot; – they refer to the same product)
-      </h6>
+      <div>
+        <motion.h2
+          className="text-3xl md:text-4xl font-medium text-black hero-heading"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          What Developers Are Saying
+        </motion.h2>
+        <motion.div
+          className="flex items-center gap-2 mt-2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <span className="text-xs font-semibold uppercase tracking-wider text-black/70 block">
+            See them raving about Codebuff (previously &quot;Manicode&quot;)
+          </span>
+        </motion.div>
+      </div>
       <div className="mt-12 gap-2">
         {testimonials.map((row, rowIndex) => {
           const renderedRow = (

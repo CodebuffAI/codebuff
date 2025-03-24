@@ -10,7 +10,7 @@ export function HighlightText({ text, isLight }: HighlightTextProps) {
   return (
     <motion.div
       className={cn(
-        'p-4 rounded-lg mt-4 text-base font-medium flex items-center',
+        'p-4 rounded-lg mt-4 font-semibold flex items-center',
         isLight
           ? 'bg-black/10 border border-black/20'
           : 'bg-white/5 border border-white/20'

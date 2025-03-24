@@ -31,10 +31,7 @@ export function HeroButtons({
         className
       )}
     >
-      <DecorativeBlocks
-        colors={decorativeColors}
-        initialPlacement="bottom-left"
-      >
+      <DecorativeBlocks colors={decorativeColors} placement="bottom-left">
         <motion.div
           whileHover={{ x: 4, y: -4 }}
           whileTap={{ x: 0, y: 0 }}
@@ -71,7 +68,9 @@ export function HeroButtons({
           <div className="space-y-8">
             <h2 className="text-2xl font-bold">Get Started with Codebuff</h2>
             <ol className="list-decimal list-inside space-y-8">
-              <li className="text-lg leading-relaxed">Open your favorite terminal.</li>
+              <li className="text-lg leading-relaxed">
+                Open your favorite terminal.
+              </li>
               <li className="text-lg leading-relaxed">
                 Install Codebuff globally via{' '}
                 <Link

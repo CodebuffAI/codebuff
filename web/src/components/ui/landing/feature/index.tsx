@@ -10,7 +10,7 @@ import { HighlightText } from './highlight-text'
 import type { KeyPoint } from '../types'
 
 interface FeatureSectionProps {
-  title: string
+  title: ReactNode
   description: string
   backdropColor?: BlockColor
   imagePosition?: 'left' | 'right'
@@ -77,29 +77,11 @@ export function FeatureSection({
                     )}
                   </div>
 
+                  <HighlightText text={highlightText} isLight={isLight} />
+
                   <p className="text-lg leading-relaxed opacity-70">
                     {description}
                   </p>
-
-                  <HighlightText text={highlightText} isLight={isLight} />
-
-                  {keyPoints.length > 0 && (
-                    <div className="mt-6 grid gap-4">
-                      {keyPoints.map((point, idx) => (
-                        <div key={idx} className="flex items-start gap-3">
-                          <div className="text-xl mt-0.5">{point.icon}</div>
-                          <div>
-                            <h3 className="text-base font-semibold">
-                              {point.title}
-                            </h3>
-                            <p className="text-sm mt-1 opacity-70">
-                              {point.description}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </AnimatedContent>
 
@@ -108,7 +90,7 @@ export function FeatureSection({
                 <div className="relative">
                   <DecorativeBlocks
                     colors={decorativeColors}
-                    initialPlacement="bottom-right"
+                    placement="bottom-right"
                   >
                     <div className="relative">{illustration}</div>
                   </DecorativeBlocks>
@@ -122,7 +104,7 @@ export function FeatureSection({
                 <div className="relative">
                   <DecorativeBlocks
                     colors={decorativeColors}
-                    initialPlacement="top-left"
+                    placement="bottom-left"
                   >
                     <div className="relative">{illustration}</div>
                   </DecorativeBlocks>
@@ -142,29 +124,11 @@ export function FeatureSection({
                     )}
                   </div>
 
+                  <HighlightText text={highlightText} isLight={isLight} />
+
                   <p className="text-lg leading-relaxed opacity-70">
                     {description}
                   </p>
-
-                  <HighlightText text={highlightText} isLight={isLight} />
-
-                  {keyPoints.length > 0 && (
-                    <div className="mt-6 grid gap-4">
-                      {keyPoints.map((point, idx) => (
-                        <div key={idx} className="flex items-start gap-3">
-                          <div className="text-xl mt-0.5">{point.icon}</div>
-                          <div>
-                            <h3 className="text-base font-semibold">
-                              {point.title}
-                            </h3>
-                            <p className="text-sm mt-1 opacity-70">
-                              {point.description}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </AnimatedContent>
             </>
@@ -183,29 +147,11 @@ export function FeatureSection({
                     )}
                   </div>
 
+                  <HighlightText text={highlightText} isLight={isLight} />
+
                   <p className="text-lg leading-relaxed opacity-70">
                     {description}
                   </p>
-
-                  <HighlightText text={highlightText} isLight={isLight} />
-
-                  {keyPoints.length > 0 && (
-                    <div className="mt-6 grid gap-4">
-                      {keyPoints.map((point, idx) => (
-                        <div key={idx} className="flex items-start gap-3">
-                          <div className="text-xl mt-0.5">{point.icon}</div>
-                          <div>
-                            <h3 className="text-base font-semibold">
-                              {point.title}
-                            </h3>
-                            <p className="text-sm mt-1 opacity-70">
-                              {point.description}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </AnimatedContent>
 
@@ -213,7 +159,7 @@ export function FeatureSection({
                 <div className="relative">
                   <DecorativeBlocks
                     colors={decorativeColors}
-                    initialPlacement="bottom-right"
+                    placement="bottom-right"
                   >
                     <div className="relative">{illustration}</div>
                   </DecorativeBlocks>

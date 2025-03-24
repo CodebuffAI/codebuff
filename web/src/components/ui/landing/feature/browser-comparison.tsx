@@ -14,9 +14,7 @@ interface BrowserComparisonProps {
   }
 }
 
-export function BrowserComparison({
-  comparisonData,
-}: BrowserComparisonProps) {
+export function BrowserComparison({ comparisonData }: BrowserComparisonProps) {
   const [sliderPosition, setSliderPosition] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const transitionDuration = comparisonData.transitionDuration || 3000
@@ -38,9 +36,7 @@ export function BrowserComparison({
   }, [transitionDuration])
 
   return (
-    <div
-      className="rounded-lg overflow-hidden shadow-xl p-4 bg-black/30 border border-gray-800"
-    >
+    <div className="rounded-lg overflow-hidden shadow-xl">
       <div className="mb-3">
         <Terminal
           name="Terminal"
@@ -49,21 +45,14 @@ export function BrowserComparison({
           showWindowButtons={true}
         >
           <TerminalOutput>
-            <span className="text-green-400">/projects/weather-app {'>'} </span>
-            codebuff
-          </TerminalOutput>
-          <TerminalOutput className="text-gray-500">
-            Welcome to Codebuff! How can I help you today?
-          </TerminalOutput>
-          <TerminalOutput>
             <span className="text-green-400">{'>'} </span>
             <span className="text-white">
-              Add an API route on my Flask app to call the OpenWeatherMap API
-              and then call it from the web app.
+              Add a weather forecast feature to my Flask app by integrating the OpenWeatherMap API
             </span>
           </TerminalOutput>
           <TerminalOutput className="text-gray-500">
-            Working on it! Analyzing your codebase...
+            <span className="text-green-400 underline">{'Codebuff:'}</span>{' '}
+            On it! Scanning your project structure and dependencies...
           </TerminalOutput>
         </Terminal>
       </div>

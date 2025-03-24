@@ -80,7 +80,7 @@ export function Hero() {
               animate={{ y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              <span className="relative z-10">Revolutionize</span>
+              <span className="relative z-10">Supercharge</span>
             </motion.span>{' '}
             Your{' '}
             <motion.span
@@ -100,7 +100,17 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          AI programming that works where you work and knows your entire stack.
+          <span>
+            Codebuff works{' '}
+            {
+              <TypingEffect
+                words={['in your terminal', 'in your IDE', 'where you work']}
+              />
+            }
+          </span>{' '}
+          <span className="whitespace-nowrap">
+            and knows your entire stack.
+          </span>
         </motion.h2>
 
         <motion.div
