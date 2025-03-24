@@ -27,7 +27,6 @@ describe('checkNewFilesNecessary', () => {
       defaultParams.clientSessionId,
       defaultParams.fingerprintId,
       defaultParams.userInputId,
-      previousFiles,
       userPrompt,
       defaultParams.userId,
       defaultParams.costMode
@@ -54,7 +53,6 @@ describe('checkNewFilesNecessary', () => {
       defaultParams.clientSessionId,
       defaultParams.fingerprintId,
       defaultParams.userInputId,
-      previousFiles,
       userPrompt,
       defaultParams.userId,
       defaultParams.costMode
@@ -77,7 +75,6 @@ describe('checkNewFilesNecessary', () => {
       defaultParams.clientSessionId,
       defaultParams.fingerprintId,
       defaultParams.userInputId,
-      previousFiles,
       userPrompt,
       defaultParams.userId,
       defaultParams.costMode
@@ -100,7 +97,6 @@ describe('checkNewFilesNecessary', () => {
       defaultParams.clientSessionId,
       defaultParams.fingerprintId,
       defaultParams.userInputId,
-      previousFiles,
       userPrompt,
       defaultParams.userId,
       defaultParams.costMode
@@ -123,7 +119,6 @@ describe('checkNewFilesNecessary', () => {
       defaultParams.clientSessionId,
       defaultParams.fingerprintId,
       defaultParams.userInputId,
-      previousFiles,
       userPrompt,
       defaultParams.userId,
       defaultParams.costMode
