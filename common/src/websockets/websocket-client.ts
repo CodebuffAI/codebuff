@@ -10,7 +10,7 @@ import {
 // mqp: useful for debugging
 const VERBOSE_LOGGING = false
 
-const TIMEOUT_MS = 30_000
+const TIMEOUT_MS = 120_000
 
 const RECONNECT_WAIT_MS = 5_000
 

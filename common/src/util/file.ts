@@ -55,7 +55,7 @@ export const ProjectFileContextSchema = z.object({
     homedir: z.string(),
     cpus: z.number(),
   }),
-  fileVersions: z.array(z.array(FileVersionSchema)),
+  fileVersions: z.array(z.array(FileVersionSchema)).optional(), // Keep temporarily for migration
 })
 
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>

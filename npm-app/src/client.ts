@@ -603,6 +603,9 @@ export class Client {
           const toolResult = await handleToolCall(toolCall, getProjectRoot())
           toolResults.push(toolResult)
         }
+        if (toolResults.length > 0) {
+          console.log()
+        }
 
         // If we had any file changes, update the project context
         if (this.hadFileChanges) {
@@ -636,7 +639,7 @@ export class Client {
           this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
         if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
           console.log(
-            `\n${pluralize(credits, 'credit')} used for this request.`
+            `${pluralize(credits, 'credit')} used for this request.`
           )
         }
 
