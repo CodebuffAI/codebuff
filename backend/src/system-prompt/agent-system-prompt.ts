@@ -5,7 +5,6 @@ import { ProjectFileContext } from 'common/util/file'
 import { countTokensJson } from '../util/token-counter'
 import {
   getGitChangesPrompt,
-  getProjectFilesPromptContent,
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
   knowledgeFilesPrompt,
@@ -14,13 +13,8 @@ import { countTokens } from 'gpt-tokenizer'
 import { buildArray } from 'common/util/array'
 import { logger } from '../util/logger'
 import { toolsInstructions } from '../tools'
-import { Message } from 'common/types/message'
 
-export const getAgentSystemPrompt = (
-  fileContext: ProjectFileContext,
-  messageHistory: Message[]
-) => {
-  const { baseFiles } = fileContext
+export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
   const agentInstructions = fs.readFileSync(
     path.join(__dirname, 'agent-instructions.md'),
     'utf8'
@@ -34,10 +28,8 @@ export const getAgentSystemPrompt = (
   // Messages: Remaining
   // Total: 200k (64k for lite)
 
-  const projectFilesPromptContent = getProjectFilesPromptContent(fileContext)
-  const filesTokens = countTokensJson(projectFilesPromptContent)
-
   const gitChangesPrompt = getGitChangesPrompt(fileContext)
+  const gitChangesTokens = countTokensJson(gitChangesPrompt)
   const fileTreeTokenBudget = 20_000 //costMode === 'lite' ? 5_000 :
 
   const projectFileTreePrompt = getProjectFileTreePrompt(
@@ -50,49 +42,25 @@ export const getAgentSystemPrompt = (
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)
   const systemInfoTokens = countTokens(systemInfoPrompt)
 
-  const messagesPrompt = `
-<user_message_history_chronological>
-${messageHistory
-  .filter((m) => m.role === 'user')
-  .map(
-    (m) => `<message>
-<role>user</role>
-<content>${m.content}</content>
-</message>`
-  )
-  .join('\n\n')}
-</user_message_history_chronological>
-`.trim()
-
-  const systemPrompt = buildArray(
-    {
-      type: 'text' as const,
-      text: buildArray(
-        agentInstructions,
-        toolsInstructions,
-        knowledgeFilesPrompt,
-        projectFileTreePrompt,
-        systemInfoPrompt
-      ).join('\n\n'),
-    },
-    ...projectFilesPromptContent,
-    {
-      type: 'text' as const,
-      cache_control: { type: 'ephemeral' as const },
-      text: buildArray(gitChangesPrompt, messagesPrompt).join('\n\n'),
-    }
-  )
+  const systemPrompt = buildArray({
+    type: 'text' as const,
+    text: buildArray(
+      agentInstructions,
+      toolsInstructions,
+      knowledgeFilesPrompt,
+      projectFileTreePrompt,
+      systemInfoPrompt,
+      gitChangesPrompt
+    ).join('\n\n'),
+  })
 
   logger.debug(
     {
-      filesTokens,
       fileTreeTokens,
       fileTreeTokenBudget,
       systemInfoTokens,
-      fileVersions: fileContext.fileVersions.map((files) =>
-        files.map((f) => f.path)
-      ),
       systemPromptTokens: countTokensJson(systemPrompt),
+      gitChangesTokens,
       duration: Date.now() - startTime,
     },
     'agent system prompt tokens'

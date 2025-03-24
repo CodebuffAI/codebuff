@@ -38,10 +38,6 @@ export async function requestRelevantFiles(
   userId: string | undefined,
   costMode: CostMode
 ) {
-  const { fileVersions } = fileContext
-  const previousFiles = uniq(
-    fileVersions.flatMap((files) => files.map(({ path }) => path))
-  )
   const countPerRequest =
     costMode === 'lite' ? 8 : costMode === 'normal' ? 12 : 14
 
@@ -63,7 +59,6 @@ export async function requestRelevantFiles(
         clientSessionId,
         fingerprintId,
         userInputId,
-        previousFiles,
         userPrompt,
         userId,
         costMode
@@ -134,7 +129,6 @@ export async function requestRelevantFiles(
         newFilesNecessary,
         response: newFilesNecessaryResponse,
         duration: newFilesNecessaryDuration,
-        previousFiles,
       },
       'requestRelevantFiles: No new files necessary, keeping current files'
     )
@@ -150,7 +144,6 @@ export async function requestRelevantFiles(
 
   logger.info(
     {
-      previousFiles,
       files: firstPassFiles,
       firstPassResults: results,
       newFilesNecessary,

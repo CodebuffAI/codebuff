@@ -2,6 +2,7 @@ import { ToolResult } from 'common/types/agent-state'
 import { generateCompactId } from 'common/util/string'
 import { parseMarkdownFileBlocks } from 'common/util/file'
 import { Message } from 'common/types/message'
+import { toContentString } from 'common/util/messages'
 
 /**
  * Parses XML content for a tool call into a structured object.
@@ -132,8 +133,5 @@ export function simplifyReadFileResults(messageContent: string | {}[]): string {
 }
 
 export function isToolResult(message: Message): boolean {
-  return (
-    typeof message.content === 'string' &&
-    message.content.includes('<tool_result')
-  )
+  return toContentString(message).includes('<tool_result')
 }

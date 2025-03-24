@@ -1,8 +1,6 @@
 import { ProjectFileContext, createMarkdownFileBlock } from 'common/util/file'
-import { buildArray } from 'common/util/array'
 import { truncateString } from 'common/util/string'
-import { CostMode, STOP_MARKER } from 'common/constants'
-import { removeUndefinedProps } from 'common/util/object'
+import { STOP_MARKER } from 'common/constants'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 
@@ -129,48 +127,6 @@ The following are the most recently read files according to the OS atime. This i
 ${lastReadFilePaths.join('\n')}
 </recently_read_file_paths_most_recent_first>
 `.trim()
-}
-
-export const getProjectFilesPromptContent = (
-  fileContext: ProjectFileContext
-) => {
-  const { baseFiles } = fileContext
-
-  const baseFileBlocks = baseFiles
-    .map(({ path, content }) =>
-      createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
-    )
-    .join('\n')
-
-  const intro = `
-# Project files
-
-You have used the read_files tool in previous iterations to read the following files.
-
-If a file was modified by you with the write_file tool or if the user has made changes to the file, then copies of the file with the changes are also listed below.
-
-The multiple versions of each file show how it changed over the course of the conversation between you and the user. For example, you may have used the write_file tool to modify a file, so both the before and after versions of the files are listed.
-
-IMPORTANT: Please be aware that only the last copy of the file is up to date, and that is the one you should pay the most attention to. If you are modifying a file, you should make changes based off just the last copy of the file.
-
-If the included set of files is not sufficient to address the user's request, you can call the read_files tool to add more files for you to read to this set.
-`.trim()
-
-  return buildArray([
-    {
-      type: 'text' as const,
-      text: intro,
-    } as const,
-    baseFiles.length === 0
-      ? {
-          type: 'text' as const,
-          text: 'There are no files selected yet.',
-        }
-      : {
-          type: 'text' as const,
-          text: baseFileBlocks,
-        },
-  ])
 }
 
 export const getGitChangesPrompt = (fileContext: ProjectFileContext) => {

@@ -26,7 +26,7 @@ import { requestRelevantFiles } from './find-files/request-files-prompt'
 import { processStreamWithTags } from './process-stream'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { logger } from './util/logger'
-import { difference, sortBy, uniq } from 'lodash'
+import { difference, partition, uniq } from 'lodash'
 import { buildArray } from 'common/util/array'
 import { generateCompactId } from 'common/util/string'
 import { ToolResult, AgentState } from 'common/types/agent-state'
@@ -134,28 +134,22 @@ export const mainPrompt = async (
     costMode,
     allMessagesTokens
   )
-  const {
-    newBaseFiles,
-    newReadFiles,
-    readFilesMessage,
-    clearReadFileToolResults,
-  } = await getFileVersionUpdates(
-    ws,
-    messagesWithUserMessage,
-    searchSystem,
-    fileContext,
-    null,
-    {
-      skipRequestingFiles: !prompt,
-      clientSessionId,
-      fingerprintId,
-      userInputId: promptId,
-      userId,
-      costMode,
-    }
-  )
-
-  fileContext.baseFiles = newBaseFiles
+  const { addedFiles, readFilesMessage, clearReadFileToolResults } =
+    await getFileVersionUpdates(
+      ws,
+      messagesWithUserMessage,
+      searchSystem,
+      fileContext,
+      null,
+      {
+        skipRequestingFiles: !prompt,
+        clientSessionId,
+        fingerprintId,
+        userInputId: promptId,
+        userId,
+        costMode,
+      }
+    )
 
   if (clearReadFileToolResults) {
     for (const message of messagesWithUserMessage) {
@@ -169,11 +163,11 @@ export const mainPrompt = async (
     onResponseChunk(`${readFilesMessage}\n\n`)
   }
 
-  if (newReadFiles.length > 0) {
+  if (addedFiles.length > 0) {
     const readFilesToolResult = {
       id: generateCompactId(),
       name: 'read_files',
-      result: newReadFiles
+      result: addedFiles
         .map((file) => createMarkdownFileBlock(file.path, file.content))
         .join('\n'),
     }
@@ -181,7 +175,7 @@ export const mainPrompt = async (
       role: 'assistant' as const,
       content: `<read_files>
 <paths>
-${newReadFiles.map((file) => file.path).join('\n')}
+${addedFiles.map((file) => file.path).join('\n')}
 </paths>
 </read_files>\n`,
     })
@@ -239,7 +233,7 @@ ${newReadFiles.map((file) => file.path).join('\n')}
     'Write "<end_turn></end_turn>" at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.'
   ).join('\n')
 
-  const system = getAgentSystemPrompt(fileContext, messagesWithUserMessage)
+  const system = getAgentSystemPrompt(fileContext)
   const systemTokens = countTokensJson(system)
 
   const agentMessages = buildArray(
@@ -260,12 +254,11 @@ ${newReadFiles.map((file) => file.path).join('\n')}
   logger.debug(
     {
       agentMessages,
-      userMessages: messagesWithUserMessage
-        .filter((m) => m.role === 'user')
-        .filter((m) => !isToolResult(m)),
+      messagesWithoutToolResults: messagesWithUserMessage.filter(
+        (m) => !isToolResult(m)
+      ),
       prompt,
       agentContext,
-      files: fileContext.fileVersions.map((files) => files.map((f) => f.path)),
       iteration: iterationNum,
       toolResults,
       systemTokens,
@@ -385,21 +378,8 @@ ${newReadFiles.map((file) => file.path).join('\n')}
         .filter(Boolean)
 
       logger.debug(toolCall, 'tool call')
-      const existingPaths = fileContext.fileVersions.flatMap((files) =>
-        files.map((file) => file.path)
-      )
-      const newPaths = difference(paths, existingPaths)
-      logger.debug(
-        {
-          content: parameters.paths,
-          existingPaths,
-          paths,
-          newPaths,
-        },
-        'read_files tool call'
-      )
 
-      const { newBaseFiles, newReadFiles, existingNewFilePaths } =
+      const { addedFiles, existingNewFilePaths, nonExistingNewFilePaths } =
         await getFileVersionUpdates(
           ws,
           messagesWithResponse,
@@ -408,7 +388,7 @@ ${newReadFiles.map((file) => file.path).join('\n')}
           null,
           {
             skipRequestingFiles: false,
-            requestedFiles: newPaths,
+            requestedFiles: paths,
             clientSessionId,
             fingerprintId,
             userInputId: promptId,
@@ -416,20 +396,23 @@ ${newReadFiles.map((file) => file.path).join('\n')}
             costMode,
           }
         )
-      fileContext.baseFiles = newBaseFiles
-      const didNotExistOrAreHidden = difference(
-        newPaths,
-        existingNewFilePaths ?? []
+      logger.debug(
+        {
+          content: parameters.paths,
+          existingPaths: existingNewFilePaths,
+          paths,
+        },
+        'read_files tool call'
       )
       serverToolResults.push({
         id: generateCompactId(),
         name: 'read_files',
         result:
-          newReadFiles
+          addedFiles
             .map((file) => createMarkdownFileBlock(file.path, file.content))
             .join('\n') +
-          (didNotExistOrAreHidden.length > 0
-            ? `\nThe following files did not exist or were hidden: ${didNotExistOrAreHidden.join('\n')}`
+          (nonExistingNewFilePaths && nonExistingNewFilePaths.length > 0
+            ? `\nThe following files did not exist or were hidden: ${nonExistingNewFilePaths.join('\n')}`
             : ''),
       })
       // } else if (name === 'find_files') {
@@ -588,9 +571,8 @@ function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
       .join(
         '\n'
       )}${filePaths.length > 3 ? `\nand ${filePaths.length - 3} more: ` : ''}${filePaths.slice(3).join(', ')}`
-  return {
-    readFilesMessage: filePaths.length === 0 ? '' : readFilesMessage,
-  }
+
+  return filePaths.length === 0 ? undefined : readFilesMessage
 }
 
 async function getFileVersionUpdates(
@@ -619,15 +601,13 @@ async function getFileVersionUpdates(
   } = options
   const FILE_TOKEN_BUDGET = 100_000
 
-  const { baseFiles } = fileContext
   const toolResults = messages
     .filter(isToolResult)
-    .flatMap((message) => parseToolResults(toContentString(message)))
-  const toolResultFiles = toolResults
+    .flatMap((content) => parseToolResults(toContentString(content)))
+  const previousFileList = toolResults
     .filter(({ name }) => name === 'read_files')
     .flatMap(({ result }) => parseMarkdownFileBlocks(result))
 
-  const previousFileList = [...baseFiles, ...toolResultFiles]
   const previousFiles = Object.fromEntries(
     previousFileList.map(({ path, content }) => [path, content])
   )
@@ -641,7 +621,6 @@ async function getFileVersionUpdates(
 
   logger.debug(
     {
-      baseFilePaths: baseFiles.map(({ path }) => path),
       editedFilePaths,
       previousFilePaths,
     },
@@ -662,9 +641,11 @@ async function getFileVersionUpdates(
       )) ??
       []
 
+  const isFirstRead = previousFileList.length === 0
   const initialFiles = getInitialFiles(fileContext)
-  const includedInitialFiles =
-    baseFiles.length === 0 ? initialFiles.map(({ path }) => path) : []
+  const includedInitialFiles = isFirstRead
+    ? initialFiles.map(({ path }) => path)
+    : []
 
   const allFilePaths = uniq([
     ...includedInitialFiles,
@@ -684,7 +665,10 @@ async function getFileVersionUpdates(
     }
     return tokenCount < 10_000
   })
-  const newFiles = difference(filteredRequestedFiles, previousFilePaths)
+  const newFiles = difference(
+    [...filteredRequestedFiles, ...includedInitialFiles],
+    previousFilePaths
+  )
 
   const updatedFiles = [...previousFilePaths, ...editedFilePaths].filter(
     (path) => {
@@ -716,65 +700,57 @@ async function getFileVersionUpdates(
       }))
       .filter((file) => file.content !== null)
 
-    const newBaseFiles = [...initialFiles, ...requestedLoadedFiles]
-    while (countTokensJson(newBaseFiles) > FILE_TOKEN_BUDGET) {
-      newBaseFiles.pop()
+    const newFiles = [...initialFiles, ...requestedLoadedFiles]
+    while (countTokensJson(newFiles) > FILE_TOKEN_BUDGET) {
+      newFiles.pop()
     }
 
-    const readFilesPaths = requestedLoadedFiles
-      .filter((f) => f.content !== null)
-      .map((f) => f.path)
+    const [existingNewFilePaths, nonExistingNewFilePaths] = partition(
+      requestedLoadedFiles.map((f) => f.path),
+      (path) => loadedFiles[path] && loadedFiles.content !== null
+    )
 
-    const { readFilesMessage } = getRelevantFileInfoMessage(
-      readFilesPaths,
+    const readFilesMessage = getRelevantFileInfoMessage(
+      existingNewFilePaths,
       true
     )
 
     logger.debug(
       {
-        newBaseFiles,
+        newFiles,
         prevFileVersionTokens: previousFilesTokens,
         addedFileTokens,
         beforeTotalTokens: previousFilesTokens + addedFileTokens,
-        newFileVersionTokens: countTokensJson(newBaseFiles),
+        newFileVersionTokens: countTokensJson(newFiles),
         FILE_TOKEN_BUDGET,
       },
-      'resetting file versions b/c of token budget'
+      'resetting read files b/c of token budget'
     )
 
     return {
-      newBaseFiles: [],
-      newReadFiles: newBaseFiles,
-      clearReadFileToolResults: true,
+      addedFiles: newFiles,
+      existingNewFilePaths,
+      nonExistingNewFilePaths,
       readFilesMessage,
+      clearReadFileToolResults: true,
     }
   }
 
-  if (newFiles.length === 0) {
-    return {
-      newBaseFiles: baseFiles,
-      newReadFiles: addedFiles,
-      readFilesMessage: undefined,
-    }
-  }
-
-  const isFirstRead = baseFiles.length === 0
-  const existingNewFilePaths = sortBy(
-    newFiles.filter(
-      (path) => loadedFiles[path] && loadedFiles.content !== null
-    ),
-    (path) => (includedInitialFiles.includes(path) ? 1 : 0)
+  const [existingNewFilePaths, nonExistingNewFilePaths] = partition(
+    newFiles,
+    (path) => loadedFiles[path] && loadedFiles.content !== null
   )
-  const { readFilesMessage } = getRelevantFileInfoMessage(
+  const readFilesMessage = getRelevantFileInfoMessage(
     existingNewFilePaths,
     isFirstRead
   )
 
   return {
-    newBaseFiles: baseFiles,
-    newReadFiles: addedFiles,
+    addedFiles,
     existingNewFilePaths,
+    nonExistingNewFilePaths,
     readFilesMessage,
+    clearReadFileToolResults: false,
   }
 }
 
@@ -799,19 +775,30 @@ function getMessagesSubset(messages: Message[], otherTokens: number) {
 
   // Cache up to the last message!
   const lastMessage = messagesSubset[messagesSubset.length - 1]
-  if (typeof lastMessage.content === 'string') {
-    // Transform to a content array
-    ;(lastMessage as any).content = [
-      {
-        type: 'text',
-        text: lastMessage.content,
-        cache_control: { type: 'ephemeral' as const },
-      },
-    ]
-  } else {
-    lastMessage.content[lastMessage.content.length - 1].cache_control = {
-      type: 'ephemeral' as const,
+  if (lastMessage) {
+    if (typeof lastMessage.content === 'string') {
+      // Transform to a content array
+      ;(lastMessage as any).content = [
+        {
+          type: 'text',
+          text: lastMessage.content,
+          cache_control: { type: 'ephemeral' as const },
+        },
+      ]
+    } else {
+      lastMessage.content[lastMessage.content.length - 1].cache_control = {
+        type: 'ephemeral' as const,
+      }
     }
+  } else {
+    logger.debug(
+      {
+        messages,
+        messagesSubset,
+        otherTokens,
+      },
+      'No last message found in messagesSubset!'
+    )
   }
 
   return messagesSubset

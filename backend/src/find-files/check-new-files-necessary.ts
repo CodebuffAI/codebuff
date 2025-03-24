@@ -9,7 +9,6 @@ export const checkNewFilesNecessary = async (
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  previousFiles: string[],
   userPrompt: string,
   userId: string | undefined,
   costMode: CostMode
@@ -18,7 +17,6 @@ export const checkNewFilesNecessary = async (
   const prompt = `
 Considering the conversation history above, and the following user request, determine if new files should be read (YES or NO) to fulfill the request.
 
-Current files read: ${previousFiles.length > 0 ? previousFiles.join(', ') : 'None'}
 User request: ${userPrompt}
 
 We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request.
