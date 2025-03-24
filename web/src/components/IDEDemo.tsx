@@ -170,6 +170,8 @@ export function IDEDemo({ className }: IDEDemoProps) {
   const [currentLine, setCurrentLine] = useState(1)
   const [currentCol, setCurrentCol] = useState(1)
   const [terminalLines, setTerminalLines] = useState<string[]>([])
+  const [typingText, setTypingText] = useState('')
+  const [isTyping, setIsTyping] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const editorRef = useRef<HTMLDivElement>(null)
 
@@ -202,9 +204,9 @@ export function IDEDemo({ className }: IDEDemoProps) {
     if (!showIDE) return
 
     const messages = [
-      'Codebuff will read and write files in "/Users/me/projects/my-app". Type "help" for commands.',
+      'Codebuff will read and write files in "/Users/me/projects/your-next-app". Type "help" for commands.',
       'Welcome back! What would you like to do?',
-      'my-app > ',
+      '',
     ]
 
     let currentMessageIndex = 0
@@ -253,12 +255,14 @@ export function IDEDemo({ className }: IDEDemoProps) {
 
     const processNextMessage = () => {
       if (currentMessageIndex >= messages.length) {
+        // Start typing animation after all messages are shown
+        startTypingAnimation()
         return
       }
 
       const message = messages[currentMessageIndex]
 
-      if (message.startsWith('>')) {
+      if (message.startsWith('your-next-app >')) {
         setTerminalLines((prev) => [...prev, message])
         currentMessageIndex++
         setTimeout(processNextMessage, 1500)
@@ -274,6 +278,56 @@ export function IDEDemo({ className }: IDEDemoProps) {
           setTimeout(processNextMessage, delay)
         })
       }
+    }
+
+    const startTypingAnimation = () => {
+      const phrasesToType = [
+        'refactor the onboarding module',
+        'fix auth token expiration bug',
+        'add dark mode to dashboard',
+        'optimize weather API requests',
+        'update user profile schema',
+      ]
+      let currentPhraseIndex = 0
+      setIsTyping(true)
+
+      const typePhrase = (phrase: string, callback: () => void) => {
+        let index = 0
+
+        const typeNextChar = () => {
+          if (index < phrase.length) {
+            setTypingText(phrase.substring(0, index + 1))
+            index++
+
+            // Random typing speed between 50ms and 150ms for realistic effect
+            const typingSpeed = Math.floor(Math.random() * 100) + 50
+            setTimeout(typeNextChar, typingSpeed)
+          } else {
+            // Phrase is fully typed, wait before moving to next phrase
+            setTimeout(callback, 1500)
+          }
+        }
+
+        typeNextChar()
+      }
+
+      const startNextPhrase = () => {
+        const phrase = phrasesToType[currentPhraseIndex]
+
+        // Reset text before starting new phrase
+        setTypingText('')
+
+        // Small delay before starting to type the next phrase
+        setTimeout(() => {
+          typePhrase(phrase, () => {
+            // Move to next phrase (cycle back to beginning if needed)
+            currentPhraseIndex = (currentPhraseIndex + 1) % phrasesToType.length
+            startNextPhrase()
+          })
+        }, 300)
+      }
+
+      startNextPhrase()
     }
 
     setTimeout(processNextMessage, 500)
@@ -380,18 +434,31 @@ export function IDEDemo({ className }: IDEDemoProps) {
                     Codebuff CLI v1.5.0
                   </div>
                   {terminalLines.length > 0 ? (
-                    terminalLines.map((line, index) => (
-                      <div key={index} className="text-zinc-300 my-1">
-                        {line.startsWith('>') ? (
-                          <span>
-                            <span className="text-green-400">{`>`}</span>
-                            {line.substring(1)}
-                          </span>
-                        ) : (
-                          line
-                        )}
-                      </div>
-                    ))
+                    <>
+                      {terminalLines.map((line, index) => (
+                        <div key={index} className="text-zinc-300 my-1">
+                          {line.startsWith('your-next-app >') ? (
+                            <span>
+                              <span className="text-green-400">
+                                your-next-app {'>'}
+                              </span>
+                              {line.substring(12)}
+                            </span>
+                          ) : (
+                            line
+                          )}
+                        </div>
+                      ))}
+                      {isTyping && (
+                        <div className="text-zinc-300 my-1">
+                          <span className="text-green-400">
+                            your-next-app {'>'}
+                          </span>{' '}
+                          {typingText}
+                          <span className="inline-block w-2 h-4 ml-1 bg-green-400 animate-pulse"></span>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <>
                       <div className="text-zinc-300 mt-1">
@@ -630,6 +697,15 @@ export function IDEDemo({ className }: IDEDemoProps) {
                     {terminalLines.map((line, index) => (
                       <TerminalOutput key={index}>{line}</TerminalOutput>
                     ))}
+                    {isTyping && (
+                      <TerminalOutput>
+                        <span className="text-green-400">
+                          your-next-app {'>'}
+                        </span>{' '}
+                        {typingText}
+                        <span className="inline-block w-2 h-4 ml-1 bg-green-400 animate-pulse"></span>
+                      </TerminalOutput>
+                    )}
                   </Terminal>
                 </div>
               </div>
@@ -651,10 +727,8 @@ export function IDEDemo({ className }: IDEDemoProps) {
               showWindowButtons={true}
             >
               <TerminalOutput>
-                Codebuff: your terminal's superpower
-              </TerminalOutput>
-              <TerminalOutput>
-                Wherever you code, you have access to Codebuff!
+                <span className="text-green-400 underline">Codebuff:</span>
+                <span className="text-white"> Code from your terminal!</span>
               </TerminalOutput>
             </Terminal>
           </div>

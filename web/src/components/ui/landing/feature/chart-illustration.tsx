@@ -177,7 +177,6 @@ export function ChartIllustration({
           className="text-center mt-6"
         >
           <div className="flex items-center justify-center text-sm text-green-600 font-medium">
-            <Brain className="w-4 h-4 mr-1.5 inline" />
             <span>Unlike other AIs, Codebuff gets better every time</span>
           </div>
         </motion.div>
