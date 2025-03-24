@@ -9,7 +9,8 @@
     "dev": "lsof -t -i:4242 | xargs kill -9 2>/dev/null || true && bun --hot run -r tsconfig-paths/register src/index.ts",
     "build": "tsc",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
-    "typecheck": "bun run --cwd ../common build && bun run typecheck-this-package"
+    "typecheck": "bun run --cwd ../common build && bun run typecheck-this-package",
+    "test": "bun test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
