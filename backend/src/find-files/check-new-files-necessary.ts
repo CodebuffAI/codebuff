@@ -19,19 +19,21 @@ Considering the conversation history above, and the following user request, dete
 
 User request: ${userPrompt}
 
-We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request.
-- Broad user requests may require many files as context.
-- If there are not many files read (e.g. only knowledge files), lean towards reading more files.
+We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad user requests may require many files as context.
 
 You should not read new files (NO) if:
 - The user is following up on a previous request
 - The user says something like "hi" with no specific request
-- The user asks to edit a file you are already reading
-- You just need to run a terminal command
+- The user just wants to run a terminal command (e.g. "Run npm install")
+- The request is purely about executing commands without needing file context
+- The user wants to modify a specific file that is already loaded (check if the file path is mentioned)
 
-However:
-- If the user is asking something new or that would likely benefit from new files being read or if there is a way to provide a better answer by reading more files, you should read new files (YES).
-- We should read lots of files at the beginning of a conversation (and not just knowledge files.) If the user has only sent one message, we should definitely read files relevant to the user's request.
+However, you should read new files (YES) if:
+- The user is asking something new that would benefit from new files being read
+- The user's request requires understanding code or files not yet loaded
+- We are at the beginning of a conversation and need context
+- The user is asking about implementing new features or understanding existing ones
+- The user wants to modify a file but we need to understand its dependencies or related files
 
 Answer with just 'YES' if reading new files is helpful, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
