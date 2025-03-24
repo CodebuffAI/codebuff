@@ -21,6 +21,7 @@ import { filterDefined } from 'common/util/array'
 import { promptGeminiWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
+const MAX_FILES_PER_REQUEST = 30
 
 export async function requestRelevantFiles(
   {
@@ -153,7 +154,7 @@ export async function requestRelevantFiles(
     'requestRelevantFiles: results'
   )
 
-  return firstPassFiles
+  return firstPassFiles.slice(0, MAX_FILES_PER_REQUEST)
 }
 
 async function getRelevantFiles(
