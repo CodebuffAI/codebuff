@@ -17,23 +17,9 @@ export async function fastRewrite(
   userId: string | undefined,
   userMessage: string | undefined
 ) {
-  const commentPreservationStartTime = Date.now()
-
-  // First, preserve any comments from the original file in the edit snippet
-  const editSnippetWithComments = await preserveCommentsInEditSnippet(
-    initialContent,
-    editSnippet,
-    filePath,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId
-  )
-  const commentPreservationDuration = Date.now() - commentPreservationStartTime
-
   const relaceStartTime = Date.now()
   const messageId = generateCompactId('cb-')
-  let response = await promptRelaceAI(initialContent, editSnippetWithComments, {
+  let response = await promptRelaceAI(initialContent, editSnippet, {
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -70,13 +56,10 @@ export async function fastRewrite(
     {
       initialContent,
       editSnippet,
-      editSnippetWithComments,
       response,
       userMessage,
       messageId,
-      commentPreservationDuration,
       relaceDuration,
-      totalDuration: commentPreservationDuration + relaceDuration,
     },
     `fastRewrite of ${filePath}`
   )
@@ -143,7 +126,9 @@ export async function preserveCommentsInEditSnippet(
   userInputId: string,
   userId: string | undefined
 ) {
-  const prompt = `You are an expert programmer. Rewrite the edit snippet to add back comments from the original file (if any), while removing newly added comments that describe changes or edits.
+  const prompt = `You are an expert programmer.
+
+The following "Original file" is the original content of the file. The "Edit snippet" describes a change to the original file that we want to make. We want to tweak it slightly to include comments from the original file. Your task is thus to rewrite the edit snippet to preserve comments from the original file. Secondarily, you can remove newly added comments that describe changes or edits.
 
 Original file:
 \`\`\`
@@ -156,7 +141,7 @@ ${editSnippet}
 \`\`\`
 
 Guidelines for rewriting the edit snippet:
-1. Prefer to keep the edit snippet text exactly the same. Where the edit snippet differs from the original file, prefer the edit snippet text. The most important thing is to preserve the edit snippet.
+1. Keep the code in the edit snippet exactly the same. We are only modifying it slightly to add or remove comments, all other lines in the edit snippet should be kept as is. The most important thing is to preserve the code change that the edit snippet describes.
 
 2. Secondly, add back ALL comments from the original file that match the code structure in the edit snippet. This includes:
    - JSDoc comments (/** ... */)
@@ -550,6 +535,307 @@ class ChatManager extends EventEmitter {
 }
 
 export default ChatManager
+\`\`\`
+
+Example 5 - Preserving the substantial code changes in the edit snippet:
+
+Original:
+\`\`\`
+"use node";
+
+import { v } from "convex/values";
+import { action } from "../_generated/server";
+import { internal } from "../_generated/api";
+import { Id } from "../_generated/dataModel";
+import { AspectRatio } from "../schema";
+import sharp from "sharp";
+
+// Helper to calculate dimensions for an aspect ratio
+function calculateDimensions(width: number, height: number, targetRatio: string): { width: number; height: number } {
+  const [w, h] = targetRatio.split(":").map(Number);
+  const targetAspectRatio = w / h;
+  const currentAspectRatio = width / height;
+  
+  if (currentAspectRatio > targetAspectRatio) {
+    // Image is wider than target ratio
+    const newWidth = Math.round(height * targetAspectRatio);
+    return { width: newWidth, height };
+  } else {
+    // Image is taller than target ratio
+    const newHeight = Math.round(width / targetAspectRatio);
+    return { width, height: newHeight };
+  }
+}
+
+// Action to generate variations
+export const generate = action({
+  args: { pieceId: v.id("pieces") },
+  handler: async (ctx, args) => {
+    // Get the piece
+    const piece = await ctx.runQuery(internal.pieces.get, { id: args.pieceId });
+    if (!piece) throw new Error("Piece not found");
+
+    // Load the original image
+    const imageResponse = await fetch(piece.generatedImageUrl);
+    if (!imageResponse.ok) throw new Error("Failed to fetch original image");
+    
+    const buffer = await imageResponse.arrayBuffer();
+    const image = sharp(Buffer.from(buffer));
+    
+    // Get image metadata
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height) {
+      throw new Error("Could not get image dimensions");
+    }
+    
+    const originalWidth = metadata.width;
+    const originalHeight = metadata.height;
+    const originalRatio = \`\${originalWidth}:\${originalHeight}\`;
+
+    // Get existing variations
+    const existingVariations = await ctx.runQuery(internal.variations.list, { pieceId: args.pieceId });
+    const existingRatios = new Set(existingVariations.map(v => v.aspectRatio));
+
+    // Process each aspect ratio
+    const ratios = Object.values(AspectRatio);
+    for (const ratio of ratios) {
+      // Skip if variation already exists or matches original ratio
+      if (existingRatios.has(ratio) || ratio === originalRatio) continue;
+
+      try {
+        // Calculate new dimensions
+        const { width, height } = calculateDimensions(originalWidth, originalHeight, ratio);
+        
+        // Process the image
+        const processedBuffer = await image
+          .clone()
+          .resize({
+            width,
+            height,
+            fit: 'cover',  // This is equivalent to Jimp's cover
+            position: 'center'
+          })
+          .jpeg({
+            quality: 95,
+            mozjpeg: true  // Use mozjpeg for better compression
+          })
+          .toBuffer();
+        
+        // Store the processed image
+        const imageStorageId = await ctx.storage.store(new Blob([processedBuffer], { type: "image/jpeg" }));
+        const imageUrl = await ctx.storage.getUrl(imageStorageId);
+
+        if (!imageUrl) throw new Error("Failed to get URL for processed image");
+
+        // Insert the variation directly using ctx.db
+        await ctx.runMutation(internal.variations.updateStatus, {
+          id: await ctx.runMutation(internal.variations.create, {
+            pieceId: args.pieceId,
+            aspectRatio: ratio,
+            status: "processing"
+          }),
+          status: "complete",
+          imageStorageId,
+          imageUrl
+        });
+
+      } catch (error) {
+        console.error(\`Failed to generate \${ratio} variation:\`, error);
+        // Insert failed variation directly using ctx.db
+        await ctx.runMutation(internal.variations.create, {
+          pieceId: args.pieceId,
+          aspectRatio: ratio,
+          status: "failed",
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+
+    return { success: true };
+  }
+});
+\`\`\`
+
+Edit snippet:
+\`\`\`
+// ... existing code ...
+
+// Action to generate variations
+export const generate = action({
+  args: { pieceId: v.id("pieces") },
+  handler: async (ctx, args) => {
+    // Get the piece
+    const piece = await ctx.runQuery(internal.pieces.get, { id: args.pieceId });
+    if (!piece) throw new Error("Piece not found");
+
+    // Load the original image
+    const imageResponse = await fetch(piece.generatedImageUrl);
+    if (!imageResponse.ok) throw new Error("Failed to fetch original image");
+    
+    const buffer = await imageResponse.arrayBuffer();
+    const image = sharp(Buffer.from(buffer));
+    
+    // Get image metadata
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height) {
+      throw new Error("Could not get image dimensions");
+    }
+    
+    const originalWidth = metadata.width;
+    const originalHeight = metadata.height;
+    const originalRatio = \`\${originalWidth}:\${originalHeight}\`;
+
+    // Get existing variations
+    const existingVariations = await ctx.runQuery(internal.variations.list, { pieceId: args.pieceId });
+    const existingRatios = new Set(existingVariations.map(v => v.aspectRatio));
+
+    // Process each aspect ratio
+    const ratios = Object.values(AspectRatio);
+    for (const ratio of ratios) {
+      // Skip if variation already exists or matches original ratio
+      if (existingRatios.has(ratio) || ratio === originalRatio) continue;
+
+      try {
+        // Calculate new dimensions
+        const { width, height } = calculateDimensions(originalWidth, originalHeight, ratio);
+        
+        // Process the image
+        const processedBuffer = await image
+          .clone()
+          .resize({
+            width,
+            height,
+            fit: 'cover',  // This is equivalent to Jimp's cover
+            position: 'center'
+          })
+          .jpeg({
+            quality: 95,
+            mozjpeg: true  // Use mozjpeg for better compression
+          })
+          .toBuffer();
+        
+        // Store the processed image
+        const imageStorageId = await ctx.storage.store(new Blob([processedBuffer], { type: "image/jpeg" }));
+        const imageUrl = await ctx.storage.getUrl(imageStorageId);
+
+        if (!imageUrl) throw new Error("Failed to get URL for processed image");
+
+        // Insert directly into the database
+        await ctx.db.insert("variations", {
+          pieceId: args.pieceId,
+          aspectRatio: ratio,
+          status: "complete",
+          imageStorageId,
+          imageUrl,
+          retryCount: 0
+        });
+
+      } catch (error) {
+        console.error(\`Failed to generate \${ratio} variation:\`, error);
+        await ctx.db.insert("variations", {
+          pieceId: args.pieceId,
+          aspectRatio: ratio,
+          status: "failed",
+          error: error instanceof Error ? error.message : "Unknown error",
+          retryCount: 0
+        });
+      }
+    }
+
+    return { success: true };
+  }
+});
+\`\`\`
+
+Should become (exactly the same as the edit snippet):
+\`\`\`
+// ... existing code ...
+
+// Action to generate variations
+export const generate = action({
+  args: { pieceId: v.id("pieces") },
+  handler: async (ctx, args) => {
+    // Get the piece
+    const piece = await ctx.runQuery(internal.pieces.get, { id: args.pieceId });
+    if (!piece) throw new Error("Piece not found");
+
+    // Load the original image
+    const imageResponse = await fetch(piece.generatedImageUrl);
+    if (!imageResponse.ok) throw new Error("Failed to fetch original image");
+    
+    const buffer = await imageResponse.arrayBuffer();
+    const image = sharp(Buffer.from(buffer));
+    
+    // Get image metadata
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height) {
+      throw new Error("Could not get image dimensions");
+    }
+    
+    const originalWidth = metadata.width;
+    const originalHeight = metadata.height;
+    const originalRatio = \`\${originalWidth}:\${originalHeight}\`;
+
+    // Get existing variations
+    const existingVariations = await ctx.runQuery(internal.variations.list, { pieceId: args.pieceId });
+    const existingRatios = new Set(existingVariations.map(v => v.aspectRatio));
+
+    // Process each aspect ratio
+    const ratios = Object.values(AspectRatio);
+    for (const ratio of ratios) {
+      // Skip if variation already exists or matches original ratio
+      if (existingRatios.has(ratio) || ratio === originalRatio) continue;
+
+      try {
+        // Calculate new dimensions
+        const { width, height } = calculateDimensions(originalWidth, originalHeight, ratio);
+        
+        // Process the image
+        const processedBuffer = await image
+          .clone()
+          .resize({
+            width,
+            height,
+            fit: 'cover',  // This is equivalent to Jimp's cover
+            position: 'center'
+          })
+          .jpeg({
+            quality: 95,
+            mozjpeg: true  // Use mozjpeg for better compression
+          })
+          .toBuffer();
+        
+        // Store the processed image
+        const imageStorageId = await ctx.storage.store(new Blob([processedBuffer], { type: "image/jpeg" }));
+        const imageUrl = await ctx.storage.getUrl(imageStorageId);
+
+        if (!imageUrl) throw new Error("Failed to get URL for processed image");
+
+        // Insert directly into the database
+        await ctx.db.insert("variations", {
+          pieceId: args.pieceId,
+          aspectRatio: ratio,
+          status: "complete",
+          imageStorageId,
+          imageUrl,
+          retryCount: 0
+        });
+
+      } catch (error) {
+        console.error(\`Failed to generate \${ratio} variation:\`, error);
+        await ctx.db.insert("variations", {
+          pieceId: args.pieceId,
+          aspectRatio: ratio,
+          status: "failed",
+          error: error instanceof Error ? error.message : "Unknown error",
+          retryCount: 0
+        });
+      }
+    }
+
+    return { success: true };
+  }
+});
 \`\`\`
 `
 
