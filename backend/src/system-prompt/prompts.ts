@@ -132,26 +132,15 @@ ${lastReadFilePaths.join('\n')}
 }
 
 export const getProjectFilesPromptContent = (
-  fileContext: ProjectFileContext,
-  shouldDoPromptCaching: boolean
+  fileContext: ProjectFileContext
 ) => {
-  const { baseFiles, userKnowledgeFiles } = fileContext
-
-  const userKnowledgeFilesSet = Object.entries(userKnowledgeFiles ?? {}).map(
-    ([path, content]) =>
-      createMarkdownFileBlock(`~/${path}`, content ?? '[FILE_DOES_NOT_EXIST]')
-  )
+  const { baseFiles } = fileContext
 
   const baseFileBlocks = baseFiles
     .map(({ path, content }) =>
       createMarkdownFileBlock(path, content ?? '[FILE_DOES_NOT_EXIST]')
     )
     .join('\n')
-
-  const fileBlockSets = [
-    ...userKnowledgeFilesSet,
-    baseFileBlocks
-  ]
 
   const intro = `
 # Project files
@@ -172,21 +161,15 @@ If the included set of files is not sufficient to address the user's request, yo
       type: 'text' as const,
       text: intro,
     } as const,
-    ...fileBlockSets.map((fileBlockSet, i) =>
-      removeUndefinedProps({
-        type: 'text' as const,
-        text: fileBlockSet,
-        cache_control:
-          shouldDoPromptCaching &&
-          (i === fileBlockSets.length - 1 || i === fileBlockSets.length - 2)
-            ? { type: 'ephemeral' as const }
-            : undefined,
-      } as const)
-    ),
-    fileBlockSets.length === 0 && {
-      type: 'text' as const,
-      text: 'There are no files selected yet.',
-    },
+    baseFiles.length === 0
+      ? {
+          type: 'text' as const,
+          text: 'There are no files selected yet.',
+        }
+      : {
+          type: 'text' as const,
+          text: baseFileBlocks,
+        },
   ])
 }
 

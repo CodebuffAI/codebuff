@@ -149,21 +149,13 @@ export const getProjectFileContext = async (
     const knowledgeFilePaths = allFilePaths.filter((filePath) =>
       filePath.endsWith('knowledge.md')
     )
-    const knowledgeFiles = await getExistingFiles(knowledgeFilePaths)
+    const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
     const knowledgeFilesWithScrapedContent =
       await addScrapedContentToFiles(knowledgeFiles)
 
-    // Calculate file versions from the cached context if it exists
-    const fileVersions = [
-      Object.entries(knowledgeFiles).map(([path, content]) => ({
-        path,
-        content,
-      })),
-    ]
-
     // Get knowledge files from user's home directory
     const homeDir = os.homedir()
-    const userKnowledgeFiles = await findKnowledgeFilesInDir(homeDir)
+    const userKnowledgeFiles = findKnowledgeFilesInDir(homeDir)
     const userKnowledgeFilesWithScrapedContent =
       await addScrapedContentToFiles(userKnowledgeFiles)
 
@@ -180,8 +172,8 @@ export const getProjectFileContext = async (
       userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,
       gitChanges,
       changesSinceLastChat,
-      fileVersions,
-      baseFiles: fileVersions[0],
+      fileVersions: [],
+      baseFiles: [],
     }
   }
 

@@ -1,6 +1,5 @@
 import path from 'path'
 import fs from 'fs'
-import { uniq } from 'lodash'
 
 import { ProjectFileContext } from 'common/util/file'
 import { countTokensJson } from '../util/token-counter'
@@ -35,10 +34,7 @@ export const getAgentSystemPrompt = (
   // Messages: Remaining
   // Total: 200k (64k for lite)
 
-  const projectFilesPromptContent = getProjectFilesPromptContent(
-    fileContext,
-    true
-  )
+  const projectFilesPromptContent = getProjectFilesPromptContent(fileContext)
   const filesTokens = countTokensJson(projectFilesPromptContent)
 
   const gitChangesPrompt = getGitChangesPrompt(fileContext)
@@ -71,7 +67,6 @@ ${messageHistory
   const systemPrompt = buildArray(
     {
       type: 'text' as const,
-      cache_control: { type: 'ephemeral' as const },
       text: buildArray(
         agentInstructions,
         toolsInstructions,

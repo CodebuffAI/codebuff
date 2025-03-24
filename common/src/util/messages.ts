@@ -9,29 +9,41 @@ interface ScreenshotRef {
  * Limits the total number of screenshots across all messages to maxCount,
  * keeping only the most recent ones.
  */
-export function limitScreenshots(messages: Message[], maxCount: number): Message[] {
+export function limitScreenshots(
+  messages: Message[],
+  maxCount: number
+): Message[] {
   const screenshots = messages.flatMap((msg, msgIdx) =>
     Array.isArray(msg.content)
-      ? msg.content.map((item, contentIdx) =>
-          item.type === 'image' ? { msgIdx, contentIdx } : null
-        ).filter((ref): ref is ScreenshotRef => ref !== null)
+      ? msg.content
+          .map((item, contentIdx) =>
+            item.type === 'image' ? { msgIdx, contentIdx } : null
+          )
+          .filter((ref): ref is ScreenshotRef => ref !== null)
       : []
   )
 
   if (screenshots.length <= maxCount) return messages
 
   const keepRefs = new Set(
-    screenshots.slice(-maxCount).map(ref => `${ref.msgIdx}-${ref.contentIdx}`)
+    screenshots.slice(-maxCount).map((ref) => `${ref.msgIdx}-${ref.contentIdx}`)
   )
 
   return messages.map((msg, msgIdx) =>
     Array.isArray(msg.content)
       ? {
           ...msg,
-          content: msg.content.filter((item, contentIdx) =>
-            item.type !== 'image' || keepRefs.has(`${msgIdx}-${contentIdx}`)
-          )
+          content: msg.content.filter(
+            (item, contentIdx) =>
+              item.type !== 'image' || keepRefs.has(`${msgIdx}-${contentIdx}`)
+          ),
         }
       : msg
   )
+}
+
+export function toContentString(msg: Message): string {
+  const content = msg.content
+  if (typeof content === 'string') return content
+  return (content[content.length - 1] as any)?.text ?? ''
 }

@@ -23,10 +23,7 @@ export function getSearchSystemPrompt(
   const miscTokens = 10_000
   const systemPromptTokenBudget = maxTokens - messagesTokens - miscTokens
 
-  const projectFilesPromptContent = getProjectFilesPromptContent(
-    fileContext,
-    true
-  )
+  const projectFilesPromptContent = getProjectFilesPromptContent(fileContext)
   const filesTokens = countTokensJson(projectFilesPromptContent)
 
   const gitChangesPrompt = getGitChangesPrompt(fileContext)
@@ -51,9 +48,6 @@ export function getSearchSystemPrompt(
   const systemPrompt = buildArray(
     {
       type: 'text' as const,
-      cache_control: shouldDoPromptCaching
-        ? { type: 'ephemeral' as const }
-        : undefined,
       text: [projectFileTreePrompt, systemInfoPrompt].join('\n\n'),
     },
     ...projectFilesPromptContent,

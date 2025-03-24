@@ -1,6 +1,7 @@
 import { ToolResult } from 'common/types/agent-state'
 import { generateCompactId } from 'common/util/string'
 import { parseMarkdownFileBlocks } from 'common/util/file'
+import { Message } from 'common/types/message'
 
 /**
  * Parses XML content for a tool call into a structured object.
@@ -78,7 +79,7 @@ export const parseToolResults = (xmlString: string): ToolResult[] => {
       results.push({
         id: generateCompactId(),
         name: toolMatch[1],
-        result: resultMatch[1].trim()
+        result: resultMatch[1].trim(),
       })
     }
   }
@@ -91,32 +92,48 @@ export const parseToolResults = (xmlString: string): ToolResult[] => {
  * @param messageContent The message content containing tool results
  * @returns The message content with simplified read_files results
  */
-export function simplifyReadFileResults(messageContent: string): string {
-  if (!messageContent.includes('<tool_result')) {
-    return messageContent
+export function simplifyReadFileResults(messageContent: string | {}[]): string {
+  const resultsStr =
+    typeof messageContent === 'string'
+      ? messageContent
+      : ((messageContent[messageContent.length - 1] as any)?.text as string) ??
+        ''
+  if (!resultsStr.includes('<tool_result')) {
+    return resultsStr
   }
 
-  const toolResults = parseToolResults(messageContent)
-  const readFileResults = toolResults.filter(result => result.name === 'read_files')
-  
+  const toolResults = parseToolResults(resultsStr)
+  const readFileResults = toolResults.filter(
+    (result) => result.name === 'read_files'
+  )
+
   if (readFileResults.length === 0) {
-    return messageContent
+    return resultsStr
   }
 
   // Keep non-read_files results unchanged
-  const otherResults = toolResults.filter(result => result.name !== 'read_files')
-  
+  const otherResults = toolResults.filter(
+    (result) => result.name !== 'read_files'
+  )
+
   // Create simplified read_files results
-  const simplifiedReadFileResults = readFileResults.map(result => {
+  const simplifiedReadFileResults = readFileResults.map((result) => {
     const fileBlocks = parseMarkdownFileBlocks(result.result)
-    const filePaths = fileBlocks.map(block => block.path)
+    const filePaths = fileBlocks.map((block) => block.path)
     return {
       id: result.id, // Keep original ID
       name: 'read_files',
-      result: `Read the following files: ${filePaths.join('\n')}`
+      result: `Read the following files: ${filePaths.join('\n')}`,
     }
   })
 
   // Combine both types of results
   return renderToolResults([...otherResults, ...simplifiedReadFileResults])
+}
+
+export function isToolResult(message: Message): boolean {
+  return (
+    typeof message.content === 'string' &&
+    message.content.includes('<tool_result')
+  )
 }
