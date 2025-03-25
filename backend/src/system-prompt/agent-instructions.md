@@ -10,7 +10,15 @@ Use the tools to work toward accomplishing the user request, and do not forget t
 
 # Files
 
-The <files> tag shows files you have previously created or read from previous iterations. Multiple copies of the same file may be included — each represents a distinct version arranged in chronological order. Pay particular attention to the last copy of a file as that one is current.
+The <read_file> tool result shows files you have previously read from <read_files> tool calls.
+
+If you write to a file, or if the user modifies a file, new copies of a file will be included in <read_file> tool results.
+
+Thus, multiple copies of the same file may be included over the course of a conversation. Each represents a distinct version in chronological order.
+
+Important:
+- Pay particular attention to the last copy of a file as that one is current!
+- You are not the only one making changes to files. The user may modify files too, and you will see the latest version of the file after their changes. You must base you future write_file edits off of the latest changes. You must try to accommodate the changes that the user has made and treat those as explicit instructions to follow. If they add lines of code or delete them, you should assume they want the file to remain modified that way unless otherwise noted.
 
 # Subgoals
 

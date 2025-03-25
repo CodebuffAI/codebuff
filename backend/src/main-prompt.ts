@@ -129,22 +129,26 @@ export const mainPrompt = async (
     costMode,
     allMessagesTokens
   )
-  const { addedFiles, readFilesMessage, clearReadFileToolResults } =
-    await getFileVersionUpdates(
-      ws,
-      messagesWithUserMessage,
-      searchSystem,
-      fileContext,
-      null,
-      {
-        skipRequestingFiles: !prompt,
-        clientSessionId,
-        fingerprintId,
-        userInputId: promptId,
-        userId,
-        costMode,
-      }
-    )
+  const {
+    addedFiles,
+    readFilesMessage,
+    clearReadFileToolResults,
+    updatedFilePaths,
+  } = await getFileVersionUpdates(
+    ws,
+    messagesWithUserMessage,
+    searchSystem,
+    fileContext,
+    null,
+    {
+      skipRequestingFiles: !prompt,
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+      costMode,
+    }
+  )
 
   if (clearReadFileToolResults) {
     for (const message of messagesWithUserMessage) {
@@ -159,10 +163,19 @@ export const mainPrompt = async (
   }
 
   if (addedFiles.length > 0) {
+    const [updatedFiles, newFiles] = partition(addedFiles, (f) =>
+      updatedFilePaths.includes(f.path)
+    )
+    const hasUpdatedFiles = updatedFiles.length > 0
     const readFilesToolResult = {
       id: generateCompactId(),
       name: 'read_files',
-      result: renderReadFilesResult(addedFiles),
+      result:
+        renderReadFilesResult(newFiles) +
+        (hasUpdatedFiles
+          ? `\nThe following files had modifications made by you or the user. Try to accommodate these changes going forward:\n`
+          : '') +
+        renderReadFilesResult(updatedFiles),
     }
     messagesWithUserMessage.push({
       role: 'assistant' as const,
@@ -722,6 +735,7 @@ async function getFileVersionUpdates(
       addedFiles: newFiles,
       existingNewFilePaths,
       nonExistingNewFilePaths,
+      updatedFilePaths: updatedFiles,
       readFilesMessage,
       clearReadFileToolResults: true,
     }
@@ -740,6 +754,7 @@ async function getFileVersionUpdates(
     addedFiles,
     existingNewFilePaths,
     nonExistingNewFilePaths,
+    updatedFilePaths: updatedFiles,
     readFilesMessage,
     clearReadFileToolResults: false,
   }
