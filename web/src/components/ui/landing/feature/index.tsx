@@ -28,12 +28,10 @@ function LearnMoreLink({
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => {
-        e.preventDefault()
         posthog.capture('home.feature_learn_more_clicked', {
           feature: text,
           link: href,
         })
-        window.location.href = href
       }}
       className={cn(
         'inline-block mt-4 text-sm font-medium border-b border-dotted pb-0.5 transition-colors',
@@ -54,13 +52,13 @@ interface FeatureSectionProps {
   description: string
   backdropColor?: BlockColor
   imagePosition?: 'left' | 'right'
-  tagline?: string
+  tagline: string
   decorativeColors?: BlockColor[]
   keyPoints: KeyPoint[]
   highlightText: string
   illustration: ReactNode
   learnMoreText?: string
-  learnMoreLink?: string
+  learnMoreLink: string
   textColor?: string
 }
 
@@ -96,6 +94,29 @@ export function FeatureSection({
     backdropColor === BlockColor.TerminalYellow
   const isMobile = useIsMobile()
 
+  const renderContent = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl lg:text-4xl hero-heading">{title}</h2>
+
+        <span className="text-xs font-semibold uppercase tracking-wider mt-2 inline-block opacity-70">
+          {tagline}
+        </span>
+      </div>
+
+      <HighlightText text={highlightText} isLight={isLight} />
+
+      <p className="text-lg leading-relaxed opacity-70">{description}</p>
+
+      <LearnMoreLink
+        href={learnMoreLink}
+        text={learnMoreText}
+        isLight={isLight}
+        textColor={textColor}
+      />
+    </div>
+  )
+
   return (
     <Section background={backdropColor}>
       <div
@@ -115,35 +136,7 @@ export function FeatureSection({
           {isMobile ? (
             <>
               {/* Content for mobile */}
-              <AnimatedContent>
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-3xl lg:text-4xl hero-heading">
-                      {title}
-                    </h2>
-                    {tagline && (
-                      <span className="text-xs font-semibold uppercase tracking-wider mt-2 inline-block opacity-70">
-                        {tagline}
-                      </span>
-                    )}
-                  </div>
-
-                  <HighlightText text={highlightText} isLight={isLight} />
-
-                  <p className="text-lg leading-relaxed opacity-70">
-                    {description}
-                  </p>
-
-                  {learnMoreLink && (
-                    <LearnMoreLink
-                      href={learnMoreLink}
-                      text={learnMoreText}
-                      isLight={isLight}
-                      textColor={textColor}
-                    />
-                  )}
-                </div>
-              </AnimatedContent>
+              <AnimatedContent>{renderContent()}</AnimatedContent>
 
               {/* Illustration for mobile */}
               <AnimatedContent>
@@ -171,67 +164,11 @@ export function FeatureSection({
                 </div>
               </AnimatedContent>
 
-              <AnimatedContent>
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-3xl lg:text-4xl hero-heading">
-                      {title}
-                    </h2>
-                    {tagline && (
-                      <span className="text-xs font-semibold uppercase tracking-wider mt-2 inline-block opacity-70">
-                        {tagline}
-                      </span>
-                    )}
-                  </div>
-
-                  <HighlightText text={highlightText} isLight={isLight} />
-
-                  <p className="text-lg leading-relaxed opacity-70">
-                    {description}
-                  </p>
-
-                  {learnMoreLink && (
-                    <LearnMoreLink
-                      href={learnMoreLink}
-                      text={learnMoreText}
-                      isLight={isLight}
-                      textColor={textColor}
-                    />
-                  )}
-                </div>
-              </AnimatedContent>
+              <AnimatedContent>{renderContent()}</AnimatedContent>
             </>
           ) : (
             <>
-              <AnimatedContent>
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-3xl lg:text-4xl hero-heading">
-                      {title}
-                    </h2>
-                    {tagline && (
-                      <span className="text-xs font-semibold uppercase tracking-wider mt-2 inline-block opacity-70">
-                        {tagline}
-                      </span>
-                    )}
-                  </div>
-
-                  <HighlightText text={highlightText} isLight={isLight} />
-
-                  <p className="text-lg leading-relaxed opacity-70">
-                    {description}
-                  </p>
-
-                  {learnMoreLink && (
-                    <LearnMoreLink
-                      href={learnMoreLink}
-                      text={learnMoreText}
-                      isLight={isLight}
-                      textColor={textColor}
-                    />
-                  )}
-                </div>
-              </AnimatedContent>
+              <AnimatedContent>{renderContent()}</AnimatedContent>
 
               <AnimatedContent>
                 <div className="relative">

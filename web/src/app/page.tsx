@@ -43,7 +43,7 @@ export default function Home() {
   const handleFeatureLearnMoreClick = (featureName: string, link: string) => {
     posthog.capture('home.feature_learn_more_clicked', {
       feature: featureName,
-      link
+      link,
     })
   }
 
@@ -69,7 +69,6 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* Remaining sections only visible when scrollEnabled is true */}
       <div
         className="transition-opacity duration-500"
         style={{
@@ -121,7 +120,6 @@ export default function Home() {
               ]}
             />
           }
-          onLearnMoreClick={() => handleFeatureLearnMoreClick('codebase_understanding', '/docs/advanced')}
         />
 
         {/* Feature Section 2 - Black */}
@@ -151,7 +149,6 @@ export default function Home() {
               }}
             />
           }
-          onLearnMoreClick={() => handleFeatureLearnMoreClick('installation', '/docs/help')}
         />
 
         {/* Feature Section 3 - Yellow */}
@@ -182,7 +179,6 @@ export default function Home() {
               }}
             />
           }
-          onLearnMoreClick={() => handleFeatureLearnMoreClick('knowledge_files', '/docs/tips#knowledge-files')}
         />
 
         {/* Competition Section - Black */}

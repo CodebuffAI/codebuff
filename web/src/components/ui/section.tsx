@@ -39,6 +39,14 @@ export function Section({
     ...customStyle,
   }
 
+  const content = contained ? (
+    <div className={cn('codebuff-container relative z-10', containerClassName)}>
+      {children}
+    </div>
+  ) : (
+    children
+  )
+
   return (
     <section
       className={cn(
@@ -49,15 +57,7 @@ export function Section({
       style={style}
       {...props}
     >
-      {contained ? (
-        <div
-          className={cn('codebuff-container relative z-10', containerClassName)}
-        >
-          {children}
-        </div>
-      ) : (
-        children
-      )}
+      {content}
     </section>
   )
 }

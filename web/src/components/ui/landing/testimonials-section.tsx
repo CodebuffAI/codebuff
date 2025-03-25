@@ -77,89 +77,90 @@ export function TestimonialsSection() {
   return (
     <Section background={SECTION_THEMES.testimonials.background}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.h2
-          className={`text-3xl md:text-4xl font-medium ${SECTION_THEMES.testimonials.textColor} hero-heading`}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+        <h2
+          className={cn(
+            'text-3xl lg:text-4xl hero-heading',
+            SECTION_THEMES.testimonials.textColor
+          )}
         >
           What Developers Are Saying
-        </motion.h2>
-        <motion.div
-          className="flex items-center gap-2 mt-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
+        </h2>
+
+        <span
+          className={cn(
+            'text-xs font-semibold uppercase tracking-wider mt-2 inline-block opacity-70',
+            SECTION_THEMES.testimonials.textColor
+          )}
         >
-          <span
-            className={`text-xs font-semibold uppercase tracking-wider ${SECTION_THEMES.testimonials.textColor}/70 block`}
-          >
-            See them raving about Codebuff (previously &quot;Manicode&quot;)
-          </span>
-        </motion.div>
-      </div>
-      {/* Marquee section - full width with no side padding */}
-      <div className="mt-12 gap-2 w-full overflow-hidden">
-        {testimonials.map((row, rowIndex) => {
-          const renderedRow = (
-            <div
-              className={cn(
-                'flex items-center gap-6 animate-marquee group-hover:[animation-play-state:paused]',
-                rowIndex % 2 === 1 && '[animation-direction:reverse]'
-              )}
-            >
-              {row.map((testimonial, i) => (
-                <ReviewCard
-                  key={i}
-                  t={testimonial}
-                  onTestimonialClick={handleTestimonialClick}
-                />
-              ))}
-            </div>
-          )
-
-          return (
-            <div
-              key={rowIndex}
-              className={cn(
-                'flex flex-nowrap gap-6 overflow-hidden [--gap:1.5rem] hover:pause-animation group py-4',
-                '[--duration:35s]'
-              )}
-            >
-              {renderedRow}
-              {renderedRow}
-            </div>
-          )
-        })}
+          See them raving about Codebuff (previously &quot;Manicode&quot;)
+        </span>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-8">
-        <div className="flex flex-col items-center">
-          <p className="text-black">Backed by</p>
-          <Link
-            href="https://www.ycombinator.com/companies/codebuff"
+      <div className="mt-12 relative w-screen left-[50%] right-[50%] -ml-[50vw] -mr-[50vw]">
+        <div className="overflow-hidden">
+          {testimonials.map((row, rowIndex) => {
+            const renderedRow = (
+              <div
+                className={cn(
+                  'flex items-center gap-6 animate-marquee group-hover:[animation-play-state:paused]',
+                  rowIndex % 2 === 1 && '[animation-direction:reverse]'
+                )}
+              >
+                {row.map((testimonial, i) => (
+                  <ReviewCard
+                    key={i}
+                    t={testimonial}
+                    onTestimonialClick={handleTestimonialClick}
+                  />
+                ))}
+              </div>
+            )
+
+            return (
+              <div
+                key={rowIndex}
+                className={cn(
+                  'flex flex-nowrap gap-6 overflow-hidden [--gap:1.5rem] hover:pause-animation group py-4',
+                  '[--duration:35s]'
+                )}
+              >
+                {renderedRow}
+                {renderedRow}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        <div className="flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0">
+          <div className="flex flex-col items-center">
+            <p className={SECTION_THEMES.testimonials.textColor}>Backed by</p>
+            <Link
+              href="https://www.ycombinator.com/companies/codebuff"
+              target="_blank"
+              className="block"
+            >
+              <img
+                src="/y-combinator.svg"
+                alt="y combinator logo"
+                className="h-8 w-full"
+              />
+            </Link>
+          </div>
+          <a
+            href="https://www.producthunt.com/posts/codebuff?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-codebuff"
             target="_blank"
             className="block"
           >
             <img
-              src="/y-combinator.svg"
-              alt="y combinator logo"
-              className="h-8 w-full"
+              src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=dark"
+              alt="Codebuff - Better code generation than Cursor, from your CLI | Product Hunt"
+              width="250"
+              height="54"
             />
-          </Link>
+          </a>
         </div>
-        <a
-          href="https://www.producthunt.com/posts/codebuff?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-codebuff"
-          target="_blank"
-          className="block"
-        >
-          <img
-            src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501055&theme=dark"
-            alt="Codebuff - Better code generation than Cursor, from your CLI | Product Hunt"
-            width="250"
-            height="54"
-          />
-        </a>
       </div>
     </Section>
   )

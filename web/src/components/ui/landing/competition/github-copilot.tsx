@@ -8,20 +8,19 @@ interface GithubCopilotVisualizationProps {
   isActive?: boolean
 }
 
-// Nonsense code that gradually appears to simulate hallucinations
 const codeHallucinations = [
   "import React from 'react';",
   "import { useState } from 'react';",
-  "import { ThemeToggle } from 'react-themed';", // Fake
-  "import { configureTheme } from 'theme-context';", // Fake
-  'import pandas as pd;', // Completely wrong language
-  'from sklearn.model_selection import train_test_split', // Wrong language
+  "import { ThemeToggle } from 'react-themed';",
+  "import { configureTheme } from 'theme-context';",
+  'import pandas as pd;',
+  'from sklearn.model_selection import train_test_split',
   'const syncThemeWithServer = async (theme) => {',
   "  await fetch('https://api.auth.io/v2/preferences');",
   '};',
-  '@Component({ themeable: true })', // Angular syntax in React
-  'class ThemeManager extends React.PureComponent {', // Mixed paradigms
-  '  static getDerivedContextFromProps(props, state) {', // Fake lifecycle method
+  '@Component({ themeable: true })',
+  'class ThemeManager extends React.PureComponent {',
+  '  static getDerivedContextFromProps(props, state) {',
   '    return { ...state, themeContext: props.context };',
   '  }',
   '  render() {',
@@ -32,7 +31,6 @@ const codeHallucinations = [
   '}',
 ]
 
-// Original clean code
 const originalCode = [
   'function ThemeToggle() {',
   "  const [theme, setTheme] = useState('light');",
@@ -47,7 +45,6 @@ const originalCode = [
   '}',
 ]
 
-// Random words for matrix effect
 const matrixWords = [
   'useState',
   'useEffect',
@@ -90,11 +87,9 @@ const matrixWords = [
   'zustand',
 ]
 
-// Collection of weird unicode characters for progressive corruption
 const corruptChars =
   'ƒʊßñ†ïø¢ðñµ§†þµ††ðñøñ¢|ï¢|{†ðgg|êÐår|{µ§ê§†å†êªºΔΘΣΠΩδθσπω≈≠≤≥±∞∫∑∏√∂∆'
 
-// Component for melting text that gradually becomes more garbled
 function MeltingText({
   text,
   meltFactor,
@@ -102,28 +97,23 @@ function MeltingText({
   text: string
   meltFactor: number
 }) {
-  // Split text into individual characters for the melting effect
   return (
     <span className="inline-flex flex-wrap">
       {Array.from(text).map((char, i) => {
-        // Determine if this character should be replaced with a corrupt version
-        // Higher meltFactor means more characters get corrupted
-        const corruptThreshold = 0.6 // Start corrupting characters when meltFactor > 0.6
+        const corruptThreshold = 0.6
         const shouldCorrupt =
           meltFactor > corruptThreshold &&
-          Math.random() < (meltFactor - corruptThreshold) * 2 // Randomize which chars get corrupted
+          Math.random() < (meltFactor - corruptThreshold) * 2
 
-        // If corrupting, pick a random char from our corruption set
         const displayChar = shouldCorrupt
           ? corruptChars[Math.floor(Math.random() * corruptChars.length)]
           : char
 
-        // Add more extreme effects as melt factor increases
-        const verticalShift = Math.sin(i * 0.5) * meltFactor * 8 // Increased shift
+        const verticalShift = Math.sin(i * 0.5) * meltFactor * 8
         const horizontalShift =
-          meltFactor > 0.4 ? Math.sin(i * 0.8) * meltFactor * 4 : 0 // Add horizontal warping
+          meltFactor > 0.4 ? Math.sin(i * 0.8) * meltFactor * 4 : 0
         const rotation =
-          meltFactor > 0.7 ? Math.sin(i * 0.3) * meltFactor * 20 : 0 // Add rotation when melting is severe
+          meltFactor > 0.7 ? Math.sin(i * 0.3) * meltFactor * 20 : 0
 
         return (
           <span
@@ -150,7 +140,6 @@ function MeltingText({
   )
 }
 
-// Function to generate a matrix-like falling code effect
 function MatrixRainEffect({
   enabled,
   intensity,
@@ -167,7 +156,6 @@ function MatrixRainEffect({
   >([])
   const animationFrameIdRef = useRef<number>()
 
-  // Only enable when component is both enabled and active
   const effectivelyEnabled = enabled && isActive
 
   useEffect(() => {
@@ -179,7 +167,6 @@ function MatrixRainEffect({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Resize canvas to fit container
     const resizeCanvas = () => {
       if (canvas.parentElement) {
         canvas.width = canvas.parentElement.offsetWidth
@@ -190,12 +177,10 @@ function MatrixRainEffect({
     resizeCanvas()
     window.addEventListener('resize', resizeCanvas)
 
-    // Initialize columns for the rain effect
     const columnCount = Math.floor(canvas.width / 20)
     const newColumns = Array(columnCount).fill(0)
     setColumns(newColumns)
 
-    // Initialize words
     const wordCount = Math.floor(intensity * 15)
     const newWords = []
 
@@ -211,37 +196,26 @@ function MatrixRainEffect({
 
     setWords(newWords)
 
-    // Animation frame
     let animationFrameId: number
 
     const render = () => {
       if (!canvas || !ctx) return
 
-      // Clear canvas with a semi-transparent black
       ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Set text properties
       ctx.font = '12px monospace'
 
-      // Draw each word
       const updatedWords = words.map((word) => {
-        // Move word down
         const newY = word.y + word.speed
-
-        // Reset if it goes off screen
         const y = newY > canvas.height ? 0 : newY
-
-        // Draw word
-        ctx.fillStyle = `rgba(129, 140, 248, ${word.opacity})` // Indigo color with word's opacity
+        ctx.fillStyle = `rgba(129, 140, 248, ${word.opacity})`
         ctx.fillText(word.word, word.x, y)
-
         return { ...word, y }
       })
 
       setWords(updatedWords)
 
-      // Continue animation only if still active
       if (effectivelyEnabled) {
         animationFrameId = requestAnimationFrame(render)
         animationFrameIdRef.current = animationFrameId
@@ -250,7 +224,6 @@ function MatrixRainEffect({
 
     render()
 
-    // Cleanup
     return () => {
       window.removeEventListener('resize', resizeCanvas)
       if (animationFrameIdRef.current) {
@@ -275,25 +248,47 @@ export function GithubCopilotVisualization({
   complexity,
   isActive = false,
 }: GithubCopilotVisualizationProps) {
-  // Reference for chat container to enable auto-scrolling
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const [resetKey, setResetKey] = useState(0)
+  const [currentAccuracy, setCurrentAccuracy] = useState(100)
 
-  // Calculate hallucination levels based on progress, but only when active
   const effectiveProgress = isActive ? progress : 0
 
-  // Calculate hallucination levels based on active progress
-  const realityDistortion = Math.min(1, (effectiveProgress / 100) * 1.5) // Maxes out at 1 when progress is ~67%
-  const codeCorruption = Math.max(0, Math.min(1, (effectiveProgress - 20) / 80)) // Starts at progress 20, maxes at 100
-  const hallucinationFog = Math.min(1, (effectiveProgress / 100) * 1.2) // Maxes out at 1 when progress is ~83%
-  const matrixEffect = Math.max(0, Math.min(1, (effectiveProgress - 60) / 40)) // Starts at progress 60, maxes at 100
+  useEffect(() => {
+    if (!isActive) {
+      setCurrentAccuracy(100)
+      return
+    }
 
-  // Control UI elements appearance based on progress
-  const showFirstSuggestion = effectiveProgress > 10
-  const showSecondSuggestion = effectiveProgress > 30
-  const showThirdSuggestion = effectiveProgress > 50
-  const showError = effectiveProgress > 80
+    if (effectiveProgress > 0) {
+      const decrementInterval = setInterval(() => {
+        setCurrentAccuracy(prev => {
+          const decrement = Math.floor(Math.random() * 10) + 1
+          const newAccuracy = Math.max(0, prev - decrement)
+          
+          if (newAccuracy === 0) {
+            setResetKey(k => k + 1)
+            return 100
+          }
+          
+          return newAccuracy
+        })
+      }, 100)
 
-  // Calculate displayed code for hallucinations
+      return () => clearInterval(decrementInterval)
+    }
+  }, [isActive, effectiveProgress])
+
+  const realityDistortion = Math.min(1, ((100 - currentAccuracy) / 100) * 1.5)
+  const codeCorruption = Math.max(0, Math.min(1, ((100 - currentAccuracy) - 20) / 80))
+  const hallucinationFog = Math.min(1, ((100 - currentAccuracy) / 100) * 1.2)
+  const matrixEffect = Math.max(0, Math.min(1, ((100 - currentAccuracy) - 60) / 40))
+
+  const showFirstSuggestion = currentAccuracy < 90
+  const showSecondSuggestion = currentAccuracy < 70
+  const showThirdSuggestion = currentAccuracy < 50
+  const showError = currentAccuracy < 20
+
   const displayedCodeCount = Math.min(
     codeHallucinations.length,
     Math.floor((codeHallucinations.length * effectiveProgress) / 100)
@@ -301,11 +296,9 @@ export function GithubCopilotVisualization({
 
   const displayedCode = codeHallucinations.slice(0, displayedCodeCount)
 
-  // Auto-scroll chat container when new messages appear, but only when active
   useEffect(() => {
     if (!isActive) return
 
-    // Scroll the chat container to the bottom smoothly when messages change
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
@@ -318,7 +311,7 @@ export function GithubCopilotVisualization({
   ])
 
   return (
-    <div className="flex flex-col h-full p-6 overflow-hidden">
+    <div className="flex flex-col h-full p-6 overflow-hidden" key={resetKey}>
       <div className="flex justify-between items-start mb-4 relative z-20">
         <div>
           <h3 className="text-xl font-medium flex items-center">
@@ -331,10 +324,8 @@ export function GithubCopilotVisualization({
         </div>
       </div>
 
-      {/* Main content area with reality distortion and corruption effects */}
       <div className="flex-1 bg-zinc-950 rounded-lg border border-zinc-800 overflow-hidden relative">
         <div className="flex h-full">
-          {/* Code editor area with reality distortion effect */}
           <div
             className="flex-1 relative overflow-hidden"
             style={{
@@ -342,7 +333,6 @@ export function GithubCopilotVisualization({
               transition: 'filter 0.5s ease-out',
             }}
           >
-            {/* Hallucination fog overlay */}
             <div
               className="absolute inset-0 bg-gradient-to-br from-indigo-900/10 via-fuchsia-900/20 to-indigo-900/10 z-10 pointer-events-none"
               style={{
@@ -351,7 +341,6 @@ export function GithubCopilotVisualization({
               }}
             />
 
-            {/* Editor header */}
             <div className="flex items-center p-3 border-b border-zinc-800">
               <div className="flex space-x-2">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
@@ -363,25 +352,21 @@ export function GithubCopilotVisualization({
               </div>
             </div>
 
-            {/* Code content with corruption effect */}
             <div className="p-4 h-[calc(100%-3rem)] overflow-y-auto font-mono text-sm">
-              {/* Original code that gradually melts and becomes corrupted */}
               <div className="mb-6 space-y-0.5">
                 <div className="text-white/50 mb-2">
                   {'// Original code gradually melting'}
                 </div>
                 {originalCode.map((line, index) => (
                   <div key={`corruption-${index}`} className="text-white/80">
-                    {/* Apply increasing melt factor to each line */}
                     <MeltingText text={line} meltFactor={codeCorruption} />
                   </div>
                 ))}
               </div>
 
-              {/* Hallucinated code that appears over time and melts */}
               <motion.div
                 className="mb-6 space-y-0.5"
-                style={{ opacity: 1 - codeCorruption * 0.3 }} // Fade out slightly as corruption increases
+                style={{ opacity: 1 - codeCorruption * 0.3 }}
               >
                 <div className="text-white/50 mb-2">
                   {'// Hallucinated code suggestions'}
@@ -399,7 +384,6 @@ export function GithubCopilotVisualization({
                         : ''
                     )}
                   >
-                    {/* Apply increasing melt factor based on progress and line index */}
                     <MeltingText
                       text={line}
                       meltFactor={Math.min(
@@ -414,7 +398,6 @@ export function GithubCopilotVisualization({
             </div>
           </div>
 
-          {/* Copilot Chat sidebar - kept from original */}
           <div className="w-1/3 border-l border-zinc-800 bg-black/20 overflow-hidden">
             <div className="bg-zinc-900 border-b border-zinc-800 p-2">
               <div className="text-white/80 text-xs font-medium flex items-center">
@@ -427,7 +410,6 @@ export function GithubCopilotVisualization({
               className="p-3 overflow-y-auto h-[calc(100%-2rem)]"
               id="copilot-chat"
             >
-              {/* Chat messages */}
               <div className="space-y-3">
                 <div className="bg-zinc-800/40 p-2 rounded-lg text-xs">
                   <div className="text-indigo-400 font-medium mb-1">
@@ -565,7 +547,6 @@ class ThemeManager extends React.PureComponent {
           </div>
         </div>
 
-        {/* Matrix-style code rain effect */}
         <MatrixRainEffect
           enabled={matrixEffect > 0}
           intensity={matrixEffect}
@@ -573,7 +554,6 @@ class ThemeManager extends React.PureComponent {
         />
       </div>
 
-      {/* Status indicators */}
       <div className="mt-3 flex justify-between items-center relative z-20">
         <div className="text-sm text-white/40">
           <div className="flex items-center">
@@ -581,7 +561,7 @@ class ThemeManager extends React.PureComponent {
             <span>
               <span className="text-indigo-400">
                 Suggestion accuracy:{' '}
-                {Math.max(0, 100 - Math.round(realityDistortion * 100))}%
+                {currentAccuracy}%
               </span>
             </span>
           </div>
