@@ -12,7 +12,7 @@ import { ClientState } from '@/websockets/switchboard'
 import { WebSocket } from 'ws'
 import { stripNullChars } from 'common/util/string'
 
-const PROFIT_MARGIN = 0.2
+const PROFIT_MARGIN = 0.3
 
 // Pricing details:
 // - https://www.anthropic.com/pricing#anthropic-api
