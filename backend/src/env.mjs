@@ -25,6 +25,7 @@ export const env = createEnv({
     OPEN_AI_KEY: z.string().min(1).startsWith('sk-proj-'),
     GEMINI_API_KEY: z.string().min(1).startsWith('AI'),
     DEEPSEEK_API_KEY: z.string().min(1).startsWith('sk-'),
+    FIREWORKS_API_KEY: z.string().min(1),
     OPEN_ROUTER_API_KEY: z.string().min(1).startsWith('sk-or-v1-'),
     RELACE_API_KEY: z.string().min(1).startsWith('rlc-'),
     GOOGLE_CLOUD_PROJECT_ID: z.string().min(1),

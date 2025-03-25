@@ -34,9 +34,10 @@ import {
   ClientToolCall,
   updateContextFromToolCalls,
 } from './tools'
-import { trimMessagesToFitTokenLimit } from './util/messages'
+import { messagesWithSystem, trimMessagesToFitTokenLimit } from './util/messages'
 import { checkTerminalCommand } from './check-terminal-command'
 import { toContentString } from 'common/util/messages'
+import { promptFireworksDeepseekStream } from './llm-apis/fireworks-api'
 
 export const mainPrompt = async (
   ws: WebSocket,
@@ -259,14 +260,24 @@ ${addedFiles.map((file) => file.path).join('\n')}
     `Main prompt ${iterationNum}`
   )
 
-  const stream = promptClaudeStream(agentMessages, {
-    system,
-    model: getModelForMode(costMode, 'agent') as AnthropicModel,
-    clientSessionId,
-    fingerprintId,
-    userInputId: promptId,
-    userId,
-  })
+  let stream: AsyncGenerator<string, void, unknown>
+  if (costMode === 'lite') {
+    stream = promptFireworksDeepseekStream(messagesWithSystem(agentMessages, system), {
+      model: 'deepseek-v3-0324',
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+    })
+  } else {
+    stream = promptClaudeStream(agentMessages, {
+      model: getModelForMode(costMode, 'agent') as AnthropicModel,
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+    })
+  }
 
   const streamWithTags = processStreamWithTags(stream, {
     write_file: {
@@ -773,13 +784,13 @@ function getMessagesSubset(messages: Message[], otherTokens: number) {
         {
           type: 'text',
           text: lastMessage.content,
-          cache_control: { type: 'ephemeral' as const },
+          // cache_control: { type: 'ephemeral' as const },
         },
       ]
     } else {
-      lastMessage.content[lastMessage.content.length - 1].cache_control = {
-        type: 'ephemeral' as const,
-      }
+      // lastMessage.content[lastMessage.content.length - 1].cache_control = {
+      //   type: 'ephemeral' as const,
+      // }
     }
   } else {
     logger.debug(
