@@ -122,7 +122,7 @@ const PricingCards = () => {
               {currentPlan === plan.name && (
                 <div className="absolute -right-8 -top-8 transform rotate-12">
                   <div className="relative">
-                    <div className="relative bg-gradient-to-r from-blue-500 to-purple-500 px-3 py-1 text-xs font-medium text-white ring-2 ring-blue-500/50 text-white text-xs px-3 py-2 rounded-lg shadow-lg transform hover:rotate-0 transition-transform duration-200">
+                    <div className="relative bg-gradient-to-r from-blue-500 to-purple-500 px-3 py-1 font-medium text-white ring-2 ring-blue-500/50 text-xs rounded-lg shadow-lg transform hover:rotate-0 transition-transform duration-200">
                       Current Plan
                     </div>
                   </div>

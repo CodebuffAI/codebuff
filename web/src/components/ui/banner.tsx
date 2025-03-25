@@ -23,7 +23,7 @@ function BannerContent() {
     utmSource === 'youtube' && referrer && referrer in sponseeConfig
 
   return (
-    <div className="w-full bg-blue-900 text-white relative z-20">
+    <div className="w-full bg-[#7CFF3F] text-black relative z-20">
       <div className="container mx-auto flex items-center justify-between px-4 py-0.5">
         <div className="w-8" />
         <div className="flex items-center gap-1.5 text-center flex-1 justify-center">
@@ -46,7 +46,7 @@ function BannerContent() {
                   ? `/referrals/${sponseeConfig[referrer as keyof typeof sponseeConfig].referralCode}`
                   : '/referrals'
               }
-              className="underline hover:text-blue-200"
+              className="underline hover:text-black/80"
               onClick={() => {
                 posthog.capture('referral_banner.clicked', {
                   type: isYouTubeReferral ? 'youtube' : 'general',
@@ -61,7 +61,7 @@ function BannerContent() {
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-transparent"
+          className="text-black hover:bg-transparent"
           onClick={() => setIsVisible(false)}
         >
           <X className="h-4 w-4" />
