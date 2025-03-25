@@ -36,7 +36,7 @@ export function BrowserComparison({ comparisonData }: BrowserComparisonProps) {
   }, [transitionDuration])
 
   return (
-    <div className="rounded-lg overflow-hidden shadow-xl">
+    <div className="rounded-lg overflow-hidden shadow-xl p-0">
       <div className="mb-3">
         <Terminal
           name="Terminal"
@@ -47,12 +47,13 @@ export function BrowserComparison({ comparisonData }: BrowserComparisonProps) {
           <TerminalOutput>
             <span className="text-green-400">{'>'} </span>
             <span className="text-white">
-              Add a weather forecast feature to my Flask app by integrating the OpenWeatherMap API
+              Add a weather forecast feature to my Flask app by integrating the
+              OpenWeatherMap API
             </span>
           </TerminalOutput>
           <TerminalOutput className="text-gray-500">
-            <span className="text-green-400 underline">{'Codebuff:'}</span>{' '}
-            On it! Scanning your project structure and dependencies...
+            <span className="text-green-400 underline">{'Codebuff:'}</span> On
+            it! Reading files...
           </TerminalOutput>
         </Terminal>
       </div>

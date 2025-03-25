@@ -49,10 +49,10 @@ export default function Home() {
           </div>
 
           <div
-            className={`w-full ${!demoSwitched ? 'flex items-center' : 'mt-8'}`}
+            className={`w-full ${!demoSwitched ? 'flex items-center' : 'mt-8'} pt-4 md:pt-0`}
           >
             <DecorativeBlocks
-              colors={[BlockColor.GenerativeGreen, BlockColor.CRTAmber]}
+              colors={[BlockColor.CRTAmber, BlockColor.AcidMatrix]}
               placement="bottom-right"
             >
               <IDEDemo />
@@ -83,6 +83,7 @@ export default function Home() {
           description="Codebuff deeply understands your entire codebase structure, dependencies, and patterns to generate code that other AI tools can't match."
           backdropColor={SECTION_THEMES.feature1.background}
           decorativeColors={SECTION_THEMES.feature1.decorativeColors}
+          textColor={SECTION_THEMES.feature1.textColor}
           tagline="DEEP PROJECT INSIGHTS & ACTIONS"
           highlightText="Indexes your entire codebase in 2 seconds"
           learnMoreText="See How It Works"
@@ -107,7 +108,7 @@ export default function Home() {
                   icon: '⚡',
                   title: 'Instant Solutions',
                   description:
-                    'Provides specific solutions based on your codebase context, saving time',
+                    'Tailors solutions based on your codebase context',
                 },
               ]}
             />
@@ -122,12 +123,13 @@ export default function Home() {
               <span className="whitespace-nowrap"> like a movie</span>
             </>
           }
-          description="Works in your terminal with any tech stack. No special environments needed, no framework restrictions."
+          description="Works in your terminal with any tech stack, no special environments needed. Just install npm and you're good to go."
           backdropColor={SECTION_THEMES.feature2.background}
           decorativeColors={SECTION_THEMES.feature2.decorativeColors}
+          textColor={SECTION_THEMES.feature2.textColor}
           imagePosition="left"
           tagline="PRECISE CONTROL & FLEXIBILITY"
-          highlightText="Zero setup hurdles, infinite control."
+          highlightText="Zero setup hurdles, infinite control"
           learnMoreText="View Installation Guide"
           learnMoreLink="/docs/help"
           keyPoints={FEATURE_POINTS.rightStuff}
@@ -144,10 +146,11 @@ export default function Home() {
 
         {/* Feature Section 3 - Yellow */}
         <FeatureSection
-          title={<>Better Over Time</>}
-          description="Don't repeat yourself. Codebuff can take notes on your conversations and stores them in human-readable markdown files. Each session makes it smarter about your specific needs and project setup."
+          title={<>Better and Better Over Time</>}
+          description="Don't repeat yourself. Codebuff can take notes on your conversations and stores them in human-readable markdown files. Each session teaches it about your specific needs and project setup."
           backdropColor={SECTION_THEMES.feature3.background}
           decorativeColors={SECTION_THEMES.feature3.decorativeColors}
+          textColor={SECTION_THEMES.feature3.textColor}
           tagline="CONTINUOUS LEARNING & OPTIMIZATION"
           highlightText="Persists project knowledge between sessions"
           learnMoreText="Learn About Knowledge Files"

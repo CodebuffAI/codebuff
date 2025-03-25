@@ -13,12 +13,12 @@ interface WorkflowIllustrationProps {
 
 export function WorkflowIllustration({ steps }: WorkflowIllustrationProps) {
   return (
-    <div className="rounded-lg overflow-hidden shadow-xl p-4 bg-white border border-black/10 [&_*]:text-black">
+    <div className="rounded-lg overflow-hidden shadow-xl p-2 md:p-4 bg-white border border-black/10 [&_*]:text-black">
       <div className="space-y-2">
         {steps.map((step, index) => (
           <motion.div
             key={index}
-            className="p-3 rounded-lg flex items-start bg-black/5"
+            className="p-2 md:p-3 rounded-lg flex items-start bg-black/5"
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}

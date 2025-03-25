@@ -48,7 +48,13 @@ const commandConfusion = [
   "Command '/refactor' not available in current context.",
 ]
 
-const Message = ({ message, onAction }: { message: Message; onAction: (id: number) => void }) => {
+const Message = ({
+  message,
+  onAction,
+}: {
+  message: Message
+  onAction: (id: number) => void
+}) => {
   const handleButtonClick = () => {
     setTimeout(() => onAction(message.id), 200)
   }
@@ -151,14 +157,17 @@ export function ClineVisualization({
   const [messages, setMessages] = useState<Message[]>([])
   const [autoScroll, setAutoScroll] = useState(true)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
-  
+
   const effectiveProgress = isActive ? progress : 0
   const messageCountFrustration = Math.min(1, messages.length / 4)
   const progressFrustration = Math.min(1, effectiveProgress / 100)
-  const frustrationLevel = Math.max(messageCountFrustration, progressFrustration)
+  const frustrationLevel = Math.max(
+    messageCountFrustration,
+    progressFrustration
+  )
 
   const addMessage = useCallback((message: Message) => {
-    setMessages(current => {
+    setMessages((current) => {
       const maxMessages = 5
       const newMessages = [...current, message]
       return newMessages.slice(-maxMessages)
@@ -167,14 +176,14 @@ export function ClineVisualization({
   }, [])
 
   const removeMessage = useCallback((id: number) => {
-    setMessages(current => current.filter(m => m.id !== id))
+    setMessages((current) => current.filter((m) => m.id !== id))
   }, [])
 
   useEffect(() => {
     if (autoScroll && messagesContainerRef.current) {
       messagesContainerRef.current.scrollTo({
         top: messagesContainerRef.current.scrollHeight,
-        behavior: 'smooth'
+        behavior: 'smooth',
       })
     }
   }, [messages.length, autoScroll])
@@ -193,7 +202,7 @@ export function ClineVisualization({
         addMessage({
           id: Date.now(),
           type: 'confirm',
-          text: 'Welcome to Cline. Please follow the prompts to continue.'
+          text: 'Welcome to Cline. Please follow the prompts to continue.',
         })
       }
 
@@ -201,7 +210,9 @@ export function ClineVisualization({
         addMessage({
           id: Date.now(),
           type: 'confirm',
-          text: endlessConfirmations[Math.floor(Math.random() * endlessConfirmations.length)]
+          text: endlessConfirmations[
+            Math.floor(Math.random() * endlessConfirmations.length)
+          ],
         })
       }
 
@@ -228,20 +239,27 @@ export function ClineVisualization({
 
       switch (messageType) {
         case 'confirm':
-          messageText = endlessConfirmations[Math.floor(Math.random() * endlessConfirmations.length)]
+          messageText =
+            endlessConfirmations[
+              Math.floor(Math.random() * endlessConfirmations.length)
+            ]
           break
         case 'error':
-          messageText = confusingErrors[Math.floor(Math.random() * confusingErrors.length)]
+          messageText =
+            confusingErrors[Math.floor(Math.random() * confusingErrors.length)]
           break
         case 'command':
-          messageText = commandConfusion[Math.floor(Math.random() * commandConfusion.length)]
+          messageText =
+            commandConfusion[
+              Math.floor(Math.random() * commandConfusion.length)
+            ]
           break
       }
 
       addMessage({
         id: Date.now(),
         type: messageType,
-        text: messageText
+        text: messageText,
       })
     }
 
@@ -249,7 +267,7 @@ export function ClineVisualization({
     const minInterval = 500
     const interval = Math.max(
       minInterval,
-      baseInterval - (frustrationLevel * 1500)
+      baseInterval - frustrationLevel * 1500
     )
 
     const messageTimer = setInterval(generateMessage, interval)
@@ -258,7 +276,8 @@ export function ClineVisualization({
 
   const handleScroll = () => {
     if (messagesContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
+      const { scrollTop, scrollHeight, clientHeight } =
+        messagesContainerRef.current
       setAutoScroll(scrollTop + clientHeight >= scrollHeight - 10)
     }
   }
@@ -270,9 +289,6 @@ export function ClineVisualization({
           <h3 className="text-xl font-medium flex items-center">
             <span className="text-yellow-400 mr-2">👶</span>
             Cline
-            <span className="ml-2 text-xs py-0.5 px-1.5 rounded-full bg-black/30 border border-white/10">
-              <span className="text-yellow-400">High Maintenance</span>
-            </span>
           </h3>
           <p className="text-white/60 mt-1">Requires constant babysitting</p>
         </div>
@@ -295,11 +311,11 @@ export function ClineVisualization({
               }
             : {}
         }
-        transition={{ 
-          duration: 0.3, 
+        transition={{
+          duration: 0.3,
           ease: 'easeInOut',
           repeat: frustrationLevel > 0.75 ? Infinity : 0,
-          repeatDelay: 0.5
+          repeatDelay: 0.5,
         }}
       >
         <div className="flex h-full">
@@ -373,12 +389,11 @@ export function ClineVisualization({
         </div>
       </motion.div>
 
-      <div className="mt-3 flex justify-center items-center">
-        <div className="text-sm text-white/60 flex items-center">
+      <div className="mt-3 flex items-center">
+        <div className="text-sm text-white/60 flex items-start">
           <span className="text-yellow-400 font-medium mr-1">
             Constant attention required
           </span>
-          <span>to complete tasks</span>
         </div>
       </div>
     </div>

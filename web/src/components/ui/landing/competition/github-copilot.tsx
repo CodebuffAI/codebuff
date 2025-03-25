@@ -324,12 +324,9 @@ export function GithubCopilotVisualization({
           <h3 className="text-xl font-medium flex items-center">
             <span className="text-indigo-400 mr-2">🤖</span>
             GitHub Copilot
-            <span className="ml-2 text-xs py-0.5 px-1.5 rounded-full bg-black/30 border border-white/10">
-              <span className="text-indigo-400">Hallucination Engine</span>
-            </span>
           </h3>
           <p className="text-white/60 mt-1">
-            Constant wrong suggestions and hallucinations
+            Constant hallucinations and wrong suggestions
           </p>
         </div>
       </div>

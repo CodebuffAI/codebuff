@@ -9,6 +9,37 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { HighlightText } from './highlight-text'
 import type { KeyPoint } from '../types'
 
+// Helper component for the Learn More link
+function LearnMoreLink({
+  href,
+  text,
+  isLight,
+  textColor,
+}: {
+  href: string
+  text: string
+  isLight: boolean
+  textColor?: string
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        'inline-block mt-4 text-sm font-medium border-b border-dotted pb-0.5 transition-colors',
+        textColor 
+          ? `${textColor} ${textColor.replace('text-', 'border-')}/40 hover:text-blue-500 hover:border-blue-500`
+          : isLight
+            ? 'text-black border-black/40 hover:text-blue-600 hover:border-blue-600'
+            : 'text-white/80 border-white/40 hover:text-blue-400 hover:border-blue-400'
+      )}
+    >
+      {text} →
+    </a>
+  )
+}
+
 interface FeatureSectionProps {
   title: ReactNode
   description: string
@@ -21,6 +52,7 @@ interface FeatureSectionProps {
   illustration: ReactNode
   learnMoreText?: string
   learnMoreLink?: string
+  textColor?: string
 }
 
 // Internal animated wrapper component
@@ -44,11 +76,11 @@ export function FeatureSection({
   imagePosition = 'right',
   tagline,
   decorativeColors = [BlockColor.GenerativeGreen, BlockColor.DarkForestGreen],
-  keyPoints,
   highlightText,
   illustration,
-  learnMoreText = "Learn More",
+  learnMoreText = 'Learn More',
   learnMoreLink,
+  textColor,
 }: FeatureSectionProps) {
   const isLight =
     backdropColor === BlockColor.CRTAmber ||
@@ -57,7 +89,7 @@ export function FeatureSection({
 
   return (
     <Section background={backdropColor}>
-      <div className={cn('text-white', { 'text-black': isLight })}>
+      <div className={cn('text-white max-w-7xl mx-auto px-4 sm:px-6 lg:px-8', { 'text-black': isLight }, textColor)}>
         <div
           className={cn(
             'grid gap-8 items-center',
@@ -86,21 +118,14 @@ export function FeatureSection({
                   <p className="text-lg leading-relaxed opacity-70">
                     {description}
                   </p>
-                  
+
                   {learnMoreLink && (
-                    <a 
+                    <LearnMoreLink 
                       href={learnMoreLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        "inline-block mt-4 text-sm font-medium border-b border-dotted pb-0.5 transition-colors",
-                        isLight 
-                          ? "text-black border-black/40 hover:text-blue-600 hover:border-blue-600" 
-                          : "text-white/80 border-white/40 hover:text-blue-400 hover:border-blue-400"
-                      )}
-                    >
-                      {learnMoreText} →
-                    </a>
+                      text={learnMoreText}
+                      isLight={isLight}
+                      textColor={textColor}
+                    />
                   )}
                 </div>
               </AnimatedContent>
@@ -149,21 +174,14 @@ export function FeatureSection({
                   <p className="text-lg leading-relaxed opacity-70">
                     {description}
                   </p>
-                  
+
                   {learnMoreLink && (
-                    <a 
+                    <LearnMoreLink 
                       href={learnMoreLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        "inline-block mt-4 text-sm font-medium border-b border-dotted pb-0.5 transition-colors",
-                        isLight 
-                          ? "text-black border-black/40 hover:text-blue-600 hover:border-blue-600" 
-                          : "text-white/80 border-white/40 hover:text-blue-400 hover:border-blue-400"
-                      )}
-                    >
-                      {learnMoreText} →
-                    </a>
+                      text={learnMoreText}
+                      isLight={isLight}
+                      textColor={textColor}
+                    />
                   )}
                 </div>
               </AnimatedContent>
@@ -188,21 +206,14 @@ export function FeatureSection({
                   <p className="text-lg leading-relaxed opacity-70">
                     {description}
                   </p>
-                  
+
                   {learnMoreLink && (
-                    <a 
+                    <LearnMoreLink 
                       href={learnMoreLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        "inline-block mt-4 text-sm font-medium border-b border-dotted pb-0.5 transition-colors",
-                        isLight 
-                          ? "text-black border-black/40 hover:text-blue-600 hover:border-blue-600" 
-                          : "text-white/80 border-white/40 hover:text-blue-400 hover:border-blue-400"
-                      )}
-                    >
-                      {learnMoreText} →
-                    </a>
+                      text={learnMoreText}
+                      isLight={isLight}
+                      textColor={textColor}
+                    />
                   )}
                 </div>
               </AnimatedContent>

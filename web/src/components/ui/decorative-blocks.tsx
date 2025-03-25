@@ -15,8 +15,9 @@ interface Block {
 export enum BlockColor {
   White = 'rgb(255, 255, 255)', // #FFFFFF
   Black = 'rgb(0, 0, 0)', // #000000
-  GenerativeGreen = 'rgb(18, 73, 33)', // #124921
   CRTAmber = 'rgb(255, 110, 11)', // #FF6E0B
+  GenerativeGreen = 'rgb(18, 73, 33)', // #124921
+  BetweenGreen = 'rgba(143,	228,	87, 1)', // #8FE457
   DarkForestGreen = 'rgba(3, 29, 10, 1)', // #031D0A
   AcidMatrix = 'rgba(124, 255, 63, 1)', // #7CFF3F
   TerminalYellow = 'rgba(246, 255, 74, 1)', // #F6FF4A

@@ -117,6 +117,10 @@ const config = {
         float: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-10px)' }
+        },
+        'pulse-border': {
+          '0%, 100%': { boxShadow: '0 0 0 rgba(124, 255, 63, 0)' },
+          '50%': { boxShadow: '0 0 5px rgba(124, 255, 63, 0.5)' }
         }
       },
       animation: {
@@ -129,7 +133,8 @@ const config = {
         textflicker: 'textflicker 0.1s infinite',
         crtflicker: 'crtflicker 2s infinite ease-in-out',
         'path-glow': 'pathGlow 2s ease-in-out infinite',
-        'float': 'float 3s ease-in-out infinite'
+        'float': 'float 3s ease-in-out infinite',
+        'pulse-border': 'pulse-border 2s ease-in-out infinite'
       },
     },
   },

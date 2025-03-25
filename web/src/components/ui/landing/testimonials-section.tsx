@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { Section } from '../section'
 import posthog from 'posthog-js'
 import { motion } from 'framer-motion'
+import { SECTION_THEMES } from './constants'
 
 const ReviewCard = ({
   t,
@@ -74,10 +75,10 @@ export function TestimonialsSection() {
   }
 
   return (
-    <Section background="#ffff33">
-      <div>
+    <Section background={SECTION_THEMES.testimonials.background}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.h2
-          className="text-3xl md:text-4xl font-medium text-black hero-heading"
+          className={`text-3xl md:text-4xl font-medium ${SECTION_THEMES.testimonials.textColor} hero-heading`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -90,12 +91,15 @@ export function TestimonialsSection() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <span className="text-xs font-semibold uppercase tracking-wider text-black/70 block">
+          <span
+            className={`text-xs font-semibold uppercase tracking-wider ${SECTION_THEMES.testimonials.textColor}/70 block`}
+          >
             See them raving about Codebuff (previously &quot;Manicode&quot;)
           </span>
         </motion.div>
       </div>
-      <div className="mt-12 gap-2">
+      {/* Marquee section - full width with no side padding */}
+      <div className="mt-12 gap-2 w-full overflow-hidden">
         {testimonials.map((row, rowIndex) => {
           const renderedRow = (
             <div
@@ -129,9 +133,9 @@ export function TestimonialsSection() {
         })}
       </div>
 
-      <div className="flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-center md:space-x-12 space-y-8 md:space-y-0 mt-8">
         <div className="flex flex-col items-center">
-          {/* <p className="text-black">Backed by</p> */}
+          <p className="text-black">Backed by</p>
           <Link
             href="https://www.ycombinator.com/companies/codebuff"
             target="_blank"

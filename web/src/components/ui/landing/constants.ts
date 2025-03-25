@@ -43,37 +43,37 @@ export const DEMO_CODE = {
 // Section themes
 export const SECTION_THEMES = {
   hero: {
-    background: 'black',
+    background: BlockColor.Black,
     textColor: 'text-white',
     decorativeColors: [BlockColor.TerminalYellow],
   },
   feature1: {
-    background: BlockColor.TerminalYellow,
+    background: BlockColor.BetweenGreen,
     textColor: 'text-black',
     decorativeColors: [BlockColor.CRTAmber, BlockColor.DarkForestGreen],
   },
   feature2: {
     background: BlockColor.Black,
     textColor: 'text-white',
-    decorativeColors: [BlockColor.AcidMatrix, BlockColor.TerminalYellow],
+    decorativeColors: [BlockColor.CRTAmber, BlockColor.TerminalYellow],
   },
   feature3: {
-    background: BlockColor.TerminalYellow,
+    background: BlockColor.BetweenGreen,
     textColor: 'text-black',
     decorativeColors: [BlockColor.GenerativeGreen, BlockColor.CRTAmber],
   },
   competition: {
-    background: 'black',
+    background: BlockColor.Black,
     textColor: 'text-white',
     decorativeColors: [BlockColor.AcidMatrix],
   },
   testimonials: {
-    background: '#ffff33',
+    background: BlockColor.BetweenGreen,
     textColor: 'text-black',
     decorativeColors: [BlockColor.CRTAmber],
   },
   cta: {
-    background: 'black',
+    background: BlockColor.Black,
     textColor: 'text-white',
     decorativeColors: [
       BlockColor.TerminalYellow,

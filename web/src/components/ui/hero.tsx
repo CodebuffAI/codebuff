@@ -12,6 +12,7 @@ function TypingEffect({ words }: { words: string[] }) {
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [currentText, setCurrentText] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
+  const isLastWord = currentWordIndex === words.length - 1
 
   useEffect(() => {
     const typeSpeed = isDeleting ? 50 : 100
@@ -45,7 +46,9 @@ function TypingEffect({ words }: { words: string[] }) {
   }, [currentText, currentWordIndex, isDeleting, words])
 
   return (
-    <span className="text-green-400 relative">
+    <span
+      className={`text-green-400 relative ${isLastWord ? 'underline decoration-2 underline-offset-2' : ''}`}
+    >
       {currentText}
       <motion.span
         className="absolute -right-[3px] top-0 h-full w-1 bg-green-500"
@@ -100,23 +103,19 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <span>
-            Codebuff works{' '}
-            {
-              <TypingEffect
-                words={['in your terminal', 'in your IDE', 'where you work']}
-              />
-            }
-          </span>{' '}
           <span className="whitespace-nowrap">
-            and knows your entire stack.
-          </span>
+            Codebuff knows your entire stack
+          </span>{' '}
+          <span className="whitespace-nowrap">and works in your</span>{' '}
+          <span>{<TypingEffect words={['terminal', 'IDE', 'system']} />}</span>
+          {'.'}
         </motion.h2>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
+          className="mb-12 md:mb-4"  // Added more bottom margin on mobile
         >
           <HeroButtons />
         </motion.div>

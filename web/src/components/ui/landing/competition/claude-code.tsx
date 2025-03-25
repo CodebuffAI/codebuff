@@ -70,30 +70,36 @@ export function ClaudeCodeVisualization({
             </div>
           </div>
 
-          {/* Long loading period */}
+          {/* Long loading period with "Slowculating" message */}
           {!showFirstResponse && (
             <motion.div
-              className="flex flex-col items-center justify-center h-32"
+              className="flex flex-col items-center justify-center h-48"
               initial={{ opacity: 0.7 }}
               animate={{ opacity: [0.4, 0.7, 0.4] }}
               transition={{ duration: 3, repeat: Infinity }}
             >
-              <div className="text-orange-500 mb-3 text-center">
-                Claude is slowtating...
+              <div className="border border-orange-500/30 bg-orange-900/10 rounded-lg p-4 text-center mb-4">
+                <div className="font-mono text-orange-500 text-lg mb-2">
+                  Slowculating ({Math.floor(elapsedSeconds)}s ... esc to interrupt)
+                </div>
+                <motion.div 
+                  className="text-orange-300/70 text-sm"
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  {Array(Math.min(5, Math.floor(elapsedSeconds / 4))).fill('.').join(' ')}
+                </motion.div>
               </div>
-              <div className="w-48 h-2 bg-orange-800/20 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-gradient-to-r from-orange-600 to-orange-400"
-                  style={{ width: `${loadingProgress}%` }}
-                  transition={{ duration: 0.5 }}
-                />
+              
+              <div className="text-white/40 text-xs mt-3 font-mono flex items-center">
+                <span className="text-orange-500 mr-2">⌛</span>
+                <span>Time elapsed: {formattedTime}</span>
               </div>
-              <div className="text-white/40 text-xs mt-3">
-                Estimated time remaining: {Math.max(1, 60 - elapsedSeconds)}{' '}
-                seconds
-              </div>
-              <div className="text-white/30 text-[10px] italic mt-1">
-                Slowcessing your request...
+              
+              <div className="mt-6 text-white/50 text-sm max-w-xs text-center">
+                <span className="text-orange-400/80 font-semibold">Claude Code</span> needs 
+                <span className="text-orange-400 font-bold"> {Math.max(1, 40 - elapsedSeconds)}</span> more seconds 
+                to generate a simple toggle button
               </div>
             </motion.div>
           )}
@@ -142,7 +148,7 @@ export function ClaudeCodeVisualization({
             </motion.div>
           )}
 
-          {/* Second loading period - even longer */}
+          {/* Second loading period - even longer, with enhanced "Slowculating" message */}
           {showLoadingAgain && !showSecondResponse && (
             <motion.div
               className="flex flex-col items-center justify-center h-48"
@@ -150,21 +156,25 @@ export function ClaudeCodeVisualization({
               animate={{ opacity: [0.4, 0.7, 0.4] }}
               transition={{ duration: 3, repeat: Infinity }}
             >
-              <div className="text-orange-500 mb-3 text-center">
-                Claude is slowculating...
+              <div className="border-2 border-orange-500/50 bg-orange-900/20 rounded-lg p-4 text-center mb-4 shadow-md shadow-orange-800/10">
+                <div className="font-mono text-orange-500 text-xl font-semibold mb-2">
+                  Slowculating ({Math.floor(elapsedSeconds)}s ... esc to interrupt)
+                </div>
+                <motion.div 
+                  className="text-orange-300/70 text-lg font-mono"
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  {Array(Math.min(10, Math.floor((progress - 55) / 4))).fill('.').join(' ')}
+                </motion.div>
               </div>
-              <div className="w-48 h-2 bg-orange-800/20 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-gradient-to-r from-orange-600 to-orange-400"
-                  style={{ width: `${loadingProgress}%` }}
-                  transition={{ duration: 0.5 }}
-                />
+              
+              <div className="text-white/60 text-sm mt-3 font-mono flex items-center">
+                <span className="text-orange-500 mr-2">⏱️</span>
+                <span>Time wasted: {formattedTime}</span>
               </div>
-              <div className="text-white/40 text-xs mt-3">
-                Slowtimated time remaining: {Math.max(0, 60 - (progress - 45))}{' '}
-                seconds
-              </div>
-              <div className="text-red-400/70 text-[10px] italic mt-3 max-w-xs text-center">
+              
+              <div className="text-red-400/70 text-sm mt-4 max-w-xs text-center">
                 <span className="font-medium">Still slowiting...</span> Codebuff
                 would be done by now
               </div>
@@ -189,8 +199,7 @@ export function ClaudeCodeVisualization({
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.5 }}
                 >
-                  <span className="text-orange-500/70">95 seconds</span> of
-                  slowmenting? Seriously?
+                  <span className="text-orange-500/70">Still slowculating after {Math.floor(elapsedSeconds)} seconds</span>? Seriously?
                 </motion.div>
               )}
             </motion.div>
@@ -239,35 +248,37 @@ export function ClaudeCodeVisualization({
         </div>
       </div>
 
-      {/* Status indicators to emphasize slowness */}
+      {/* Bottom status bar showing the "esc to interrupt" message */}
       <div className="mt-3 flex justify-between items-center">
-        <div className="text-sm text-white/40">
-          {/* Timer to emphasize the wasted time */}
-          <div className="bg-black/30 border border-orange-700/30 rounded px-2 py-1 flex items-center">
-            <div className="text-orange-500 text-xs font-mono mr-1">⏱️</div>
-            <div className="text-white/80 text-xs font-mono">
-              {formattedTime}
+        {showSecondResponse ? (
+          <>
+            <div className="text-sm text-white/40">
+              {/* Timer to emphasize the wasted time */}
+              <div className="bg-black/30 border border-orange-700/30 rounded px-2 py-1 flex items-center">
+                <div className="text-orange-500 text-xs font-mono mr-1">⏱️</div>
+                <div className="text-white/80 text-xs font-mono">
+                  {formattedTime}
+                </div>
+              </div>
+            </div>
+            <div className="text-xs text-white/30">
+              Finally slowpleting...
+            </div>
+          </>
+        ) : (
+          // When calculating, show the "esc to interrupt" message prominently
+          <div className="w-full bg-orange-900/20 border border-orange-600/30 rounded-md p-2 flex items-center justify-between">
+            <div className="flex items-center">
+              <span className="text-orange-500 text-xs mr-2">⌘</span>
+              <span className="text-white/60 text-xs font-mono">
+                Press <kbd className="bg-black/30 text-orange-400 px-1 rounded">ESC</kbd> to interrupt slowculation...
+              </span>
+            </div>
+            <div className="text-orange-400/70 text-xs font-mono">
+              {showLoadingAgain ? 'STILL SLOWCULATING...' : 'SLOWCULATING...'}
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="text-xs text-white/30">
-            {showSecondResponse
-              ? 'Finally slowpleting...'
-              : showLoadingAgain
-                ? 'Still slowthinking...'
-                : 'Slow-loading...'}
-          </div>
-          {/* Visual progress indicator - deliberately slow */}
-          <motion.div className="flex items-center bg-black/20 rounded-full h-1.5 w-20 overflow-hidden">
-            <motion.div
-              className="h-full bg-orange-500"
-              style={{
-                width: `${Math.min(loadingProgress, 100)}%`,
-              }}
-            />
-          </motion.div>
-        </div>
+        )}
       </div>
     </div>
   )

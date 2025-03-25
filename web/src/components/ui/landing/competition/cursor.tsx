@@ -409,9 +409,6 @@ export function CursorMazeVisualization({
 
       {/* Status line at bottom */}
       <div className="mt-3 flex justify-between items-center">
-        <div className="text-sm text-white/40">
-          <span className="text-red-400">4x slower</span> than Codebuff
-        </div>
         <div className="flex items-center gap-1 text-xs text-white/30">
           <span className="text-red-400/80">⌘+?</span>
           <span>6 errors, 3 warnings</span>

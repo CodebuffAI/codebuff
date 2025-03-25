@@ -15,6 +15,7 @@ import { fonts } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
 import SessionProvider from '@/lib/SessionProvider'
 import QueryProvider from '@/components/providers/query-client-provider'
+import { LayoutWrapper } from '@/components/layout-wrapper'
 import { env } from '@/env.mjs'
 
 export const generateMetadata = (): Metadata => ({
@@ -66,7 +67,9 @@ const RootLayout = ({ children }: PropsWithChildren) => {
               <PostHogProvider>
                 <Banner />
                 <Navbar />
-                <div className="flex-grow">{children}</div>
+                <div className="flex-grow">
+                  <LayoutWrapper>{children}</LayoutWrapper>
+                </div>
                 <Footer />
                 <Toaster />
                 <CookieConsentCard />

@@ -165,7 +165,7 @@ const PHRASES_TO_TYPE = [
   'refactor the onboarding module',
   'fix auth token expiration bug',
   'add dark mode to dashboard',
-  'optimize weather API requests',
+  'optimize my database calls across my API endpoints',
   'update user profile schema',
 ]
 
@@ -724,8 +724,8 @@ export function IDEDemo({ className }: IDEDemoProps) {
               showWindowButtons={true}
             >
               <TerminalOutput>
-                <span className="text-green-400 underline">Codebuff:</span>
-                <span className="text-white"> Code from your terminal!</span>
+                <span className="text-green-400 underline">Codebuff:</span>{' '}
+                <span className="text-white">Code from your terminal!</span>
               </TerminalOutput>
             </Terminal>
           </div>

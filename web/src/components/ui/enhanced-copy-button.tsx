@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Copy, Check, Terminal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
+import { BlockColor } from './decorative-blocks'
 
 interface EnhancedCopyButtonProps {
   value: string
@@ -47,7 +48,8 @@ export function EnhancedCopyButton({
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="text-green-400 flex items-center"
+          style={{ color: BlockColor.AcidMatrix }}
+          className="flex items-center"
         >
           <Check size={16} />
         </motion.div>
@@ -63,7 +65,15 @@ interface TerminalCopyButtonProps {
   onClick?: () => void
 }
 
-export function TerminalCopyButton({ className, onClick }: TerminalCopyButtonProps) {
+export function TerminalCopyButton({ 
+  className, 
+  onClick, 
+  size = 'default',
+  pulseBorder = false
+}: TerminalCopyButtonProps & { 
+  size?: 'default' | 'large',
+  pulseBorder?: boolean 
+}) {
   const [installClicked, setInstallClicked] = useState(false)
 
   const handleClick = () => {
@@ -73,7 +83,15 @@ export function TerminalCopyButton({ className, onClick }: TerminalCopyButtonPro
 
   return (
     <motion.div
-      className={cn("w-full md:w-auto md:min-w-[320px] relative", className)}
+      className={cn(
+        "w-full md:w-auto md:min-w-[320px] relative", 
+        size === 'large' && "md:min-w-[380px]",
+        className
+      )}
+      style={{
+        ...(size === 'large' ? { height: '56px' } : {}),
+        ...(className?.includes('h-[56px]') ? { height: '56px' } : {})
+      }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={handleClick}
@@ -82,16 +100,28 @@ export function TerminalCopyButton({ className, onClick }: TerminalCopyButtonPro
       transition={{ duration: 0.3, delay: 0.2 }}
     >
       <div
+        style={{
+          '--acid-matrix-shadow': `0 0 15px ${BlockColor.AcidMatrix}40`,
+        } as React.CSSProperties}
         className={cn(
-          'bg-zinc-800/60 border border-zinc-700/50 rounded-md px-3 py-2.5',
-          'flex items-center justify-between overflow-hidden group relative',
-          'hover:border-green-500/30 hover:shadow-[0_0_15px_rgba(74,222,128,0.15)]',
+          'bg-zinc-800/60 border rounded-md overflow-hidden group relative',
+          size === 'default' ? 'px-3 py-2.5' : 'px-3 py-4',
+          pulseBorder 
+            ? `border-[${BlockColor.AcidMatrix}80]` 
+            : `border-zinc-700/50 hover:border-[${BlockColor.AcidMatrix}50] hover:shadow-[var(--acid-matrix-shadow)]`,
+          'flex items-center justify-between h-full',
           'transition-all duration-300'
         )}
       >
         <div className="flex items-center space-x-2">
-          <Terminal size={16} className="text-green-400" />
-          <code className="font-mono text-white/90 text-sm select-all">
+          <Terminal 
+            size={size === 'default' ? 16 : 20} 
+            style={{ color: BlockColor.AcidMatrix }}
+          />
+          <code className={cn(
+            "font-mono text-white/90 select-all",
+            size === 'default' ? 'text-sm' : 'text-base'
+          )}>
             npm install -g codebuff
           </code>
         </div>
@@ -100,6 +130,12 @@ export function TerminalCopyButton({ className, onClick }: TerminalCopyButtonPro
           className="ml-2"
         />
       </div>
+      {pulseBorder && (
+        <span 
+          style={{ borderColor: `${BlockColor.AcidMatrix}80` }} 
+          className="absolute inset-0 border rounded-md animate-pulse-border pointer-events-none"
+        ></span>
+      )}
     </motion.div>
   )
 }

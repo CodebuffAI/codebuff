@@ -8,6 +8,8 @@ import { Section } from '../section'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { TerminalCopyButton } from '../enhanced-copy-button'
+import { useInstallDialog } from '@/hooks/use-install-dialog'
+import { SECTION_THEMES } from './constants'
 
 // Benefit card component for the CTA section
 function BenefitCard({
@@ -31,8 +33,12 @@ function BenefitCard({
     >
       <div className="text-2xl mt-1">{icon}</div>
       <div>
-        <h3 className="text-white font-medium text-lg">{title}</h3>
-        <p className="text-white/70 text-sm">{description}</p>
+        <h3 className={`${SECTION_THEMES.cta.textColor} font-medium text-lg`}>
+          {title}
+        </h3>
+        <p className={`${SECTION_THEMES.cta.textColor}/70 text-sm`}>
+          {description}
+        </p>
       </div>
     </motion.div>
   )
@@ -40,14 +46,11 @@ function BenefitCard({
 
 export function CTASection() {
   const [isHovered, setIsHovered] = useState(false)
+  const { open: openInstallDialog } = useInstallDialog()
 
   const decorativeColors = isHovered
     ? [BlockColor.AcidMatrix, BlockColor.GenerativeGreen, BlockColor.CRTAmber]
-    : [
-        BlockColor.TerminalYellow,
-        BlockColor.CRTAmber,
-        BlockColor.DarkForestGreen,
-      ]
+    : SECTION_THEMES.cta.decorativeColors
 
   // Benefits data
   const benefits = [
@@ -71,15 +74,15 @@ export function CTASection() {
   ]
 
   return (
-    <Section background="black">
-      <div className="relative z-10">
+    <Section background={SECTION_THEMES.cta.background}>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7 }}
         >
           <motion.h1
-            className="hero-heading text-center mb-8 text-white text-balance"
+            className={`hero-heading text-center mb-8 ${SECTION_THEMES.cta.textColor} text-balance`}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{
@@ -93,22 +96,21 @@ export function CTASection() {
               animate={{ y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              <span className="relative z-10">Ready</span>
+              <span className="relative z-10">Ready to</span>
             </motion.span>{' '}
-            to experience{' '}
             <motion.span
-              className="relative inline-block"
+              className="relative inline-block whitespace-nowrap"
               initial={{ y: 20 }}
               animate={{ y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <span className="relative z-10">magic?</span>
+              <span className="relative z-10">experience magic?</span>
             </motion.span>
           </motion.h1>
         </motion.div>
 
         <motion.h2
-          className="hero-subtext text-center mx-auto max-w-xl mb-6"
+          className="hero-subtext text-center mx-auto max-w-xl mb-10"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
@@ -126,7 +128,17 @@ export function CTASection() {
           transition={{ duration: 0.5, delay: 0.5 }}
         >
           <div className="flex flex-col md:flex-row items-center justify-center gap-6 max-w-2xl mx-auto">
-            <TerminalCopyButton />
+            <TerminalCopyButton size="large" pulseBorder={true} />
+          </div>
+
+          <div className="mt-0 text-center text-sm text-white/70">
+            First time? Check out our{' '}
+            <button
+              onClick={openInstallDialog}
+              className="relative py-0.5 text-green-400 hover:text-green-300 transition-colors rounded-md hover:underline"
+            >
+              step-by-step guide
+            </button>
           </div>
         </motion.div>
       </div>

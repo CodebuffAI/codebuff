@@ -6,6 +6,7 @@ import { CursorMazeVisualization } from './cursor'
 import { ClaudeCodeVisualization } from './claude-code'
 import { ClineVisualization } from './cline'
 import { GithubCopilotVisualization } from './github-copilot'
+import Image from 'next/image'
 
 const competitors = [
   'github-copilot',
@@ -20,30 +21,38 @@ export type CompetitorType = (typeof competitors)[number]
 const competitorInfo = {
   'github-copilot': {
     name: 'GitHub Copilot',
+    shortName: 'Copilot',
     color: 'text-indigo-400',
     description: 'Endless bugs and hallucinations',
     emoji: '🤖',
+    className: 'invert',
     component: GithubCopilotVisualization,
   },
   cursor: {
     name: 'Cursor',
+    shortName: 'Cursor',
     color: 'text-red-400',
     description: 'Confusing maze of dead ends',
     emoji: '😫',
+    className: 'invert',
     component: CursorMazeVisualization,
   },
   'claude-code': {
     name: 'Claude Code',
+    shortName: 'Claude',
     color: 'text-orange-500',
     description: 'Slow, multi-step process',
     emoji: '⌛',
+    className: '',
     component: ClaudeCodeVisualization,
   },
   cline: {
     name: 'Cline',
+    shortName: 'Cline',
     color: 'text-yellow-400',
     description: 'Requires constant babysitting',
     emoji: '👶',
+    className: '',
     component: ClineVisualization,
   },
 }
@@ -125,18 +134,28 @@ export function CompetitionTabs({
         className={cn(
           isVertical
             ? 'w-1/4 p-2 flex flex-col border-r border-zinc-800/50 bg-black/10'
-            : 'p-2 flex border-b border-zinc-800/50 bg-black/10',
-          'min-h-[60px]'
+            : isMobile
+              ? 'p-1 grid grid-cols-4 gap-1 border-b border-zinc-800/50 bg-black/10'
+              : 'p-2 flex border-b border-zinc-800/50 bg-black/10',
+          'min-h-[40px]'
         )}
+        role="tablist"
+        aria-orientation={isVertical ? 'vertical' : 'horizontal'}
       >
         {competitors.map((competitor) => (
           <motion.button
             key={competitor}
+            role="tab"
+            id={`tab-${competitor}`}
+            aria-selected={activeTab === competitor}
+            aria-controls={`panel-${competitor}`}
             onClick={() => handleTabClick(competitor)}
+            tabIndex={activeTab === competitor ? 0 : -1}
             className={cn(
-              'text-center py-2 px-4 rounded-lg transition-all duration-300',
+              'text-center py-2 px-2 sm:px-4 transition-all duration-300',
               'hover:bg-white/5 relative group',
               isVertical ? 'mb-2' : 'flex-1',
+              isMobile ? 'rounded' : 'rounded-lg',
               activeTab === competitor
                 ? 'bg-white/10 text-white'
                 : 'text-white/60'
@@ -148,11 +167,15 @@ export function CompetitionTabs({
               <div
                 className={cn(
                   'flex items-center justify-center gap-1 md:gap-2',
-                  isVertical && 'justify-start'
+                  isVertical && 'justify-start',
+                  isMobile && 'flex-col'
                 )}
               >
                 <motion.span
-                  className={competitorInfo[competitor].color}
+                  className={cn(
+                    competitorInfo[competitor].color,
+                    'flex items-center justify-center w-5 h-5'
+                  )}
                   animate={
                     activeTab === competitor
                       ? {
@@ -170,10 +193,29 @@ export function CompetitionTabs({
                     repeatDelay: 1,
                   }}
                 >
-                  {competitorInfo[competitor].emoji}
+                  <span
+                    className={cn(
+                      'flex items-center justify-center relative w-5 h-5',
+                      competitorInfo[competitor].className
+                    )}
+                  >
+                    <Image
+                      src={`/competitors/${competitor}.png`}
+                      alt={competitorInfo[competitor].name}
+                      width={18}
+                      height={18}
+                    />
+                  </span>
                 </motion.span>
-                <span className="font-medium">
-                  {competitorInfo[competitor].name}
+                <span
+                  className={cn(
+                    'font-medium truncate max-w-full',
+                    isMobile && 'text-xs'
+                  )}
+                >
+                  {isMobile
+                    ? competitorInfo[competitor].shortName
+                    : competitorInfo[competitor].name}
                 </span>
               </div>
               <p
@@ -226,7 +268,7 @@ export function CompetitionTabs({
             />
 
             <motion.div
-              className="absolute inset-0 rounded-lg bg-white/0 pointer-events-none"
+              className="absolute inset-0 rounded bg-white/0 pointer-events-none"
               initial={false}
               whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}
               transition={{ duration: 0.2 }}
@@ -245,6 +287,9 @@ export function CompetitionTabs({
           {competitors.map((competitor) => (
             <motion.div
               key={competitor}
+              id={`panel-${competitor}`}
+              role="tabpanel"
+              aria-labelledby={`tab-${competitor}`}
               initial={{ opacity: 0 }}
               animate={{
                 opacity: activeTab === competitor ? 1 : 0,
@@ -256,6 +301,7 @@ export function CompetitionTabs({
                   ? 'pointer-events-auto'
                   : 'pointer-events-none'
               )}
+              hidden={activeTab !== competitor}
             >
               <CompetitorCard
                 type={competitor}
