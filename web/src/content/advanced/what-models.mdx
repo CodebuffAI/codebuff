@@ -7,13 +7,11 @@ order: 1
 
 # What models do you use?
 
-We primarily use Claude 3.7 Sonnet for the coding, and Gemini Flash to find relevant files, and Claude 3.7 Sonnet with thinking for deep thinking.
+We primarily use Claude Sonnet for the coding, Gemini Flash to find relevant files.
 
 Codebuff also uses [Relace AI](https://www.relace.ai/) for fast file rewrites.
 
-We have two new modes, which slightly changes the above set-up, mainly to achieve higher performance (in `max`) or lower cost (in `lite`):
+We have two modes, which slightly changes the above set-up, mainly to achieve higher performance (in `max`) or lower cost (in `lite`):
 
-- `--max`: uses Claude 3.7 Sonnet with thinking for complex problems, and does so more frequently. It also pulls more files on your codebase to better handle complex problems.
-- `--lite`: uses Claude 3.5 Haiku for editing instead of Sonnet (~1/3 the cost). It also pulls fewer files, meaning that the context cost will be much smaller.
-
-You can use `codebuff --max` or `codebuff --lite` to set the mode at startup time!
+- `--max`: uses Claude Sonnet and also pulls more files on your codebase to better handle complex problems.
+- `--lite`: uses Claude Haiku for editing instead of Sonnet (~1/3 the cost). It also pulls fewer files, meaning that the context cost will be much smaller.
