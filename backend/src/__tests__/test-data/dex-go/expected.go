@@ -22,6 +22,7 @@ import (
 	externalapi "github.com/humanlayer/smallchain/kubechain/internal/externalAPI"
 	"github.com/humanlayer/smallchain/kubechain/internal/humanlayer"
 	"github.com/humanlayer/smallchain/kubechain/internal/mcpmanager"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )

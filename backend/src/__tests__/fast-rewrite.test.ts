@@ -425,7 +425,7 @@ return createPatch(filePath, normalizedOld, normalizedNew);
 })
 
 describe('rewriteWithOpenAI', () => {
-  it.only('should correctly integrate edit snippet changes while preserving formatting', async () => {
+  it('should correctly integrate edit snippet changes while preserving formatting', async () => {
     const testDataDir = path.join(__dirname, 'test-data', 'dex-go')
     const originalContent = await Bun.file(`${testDataDir}/original.go`).text()
     const editSnippet = await Bun.file(`${testDataDir}/edit-snippet.go`).text()
@@ -448,6 +448,6 @@ describe('rewriteWithOpenAI', () => {
       (line) => line.startsWith('+') || line.startsWith('-')
     ).length
     console.log(patch)
-    expect(linesChanged).toBeLessThanOrEqual(10)
+    expect(linesChanged).toBeLessThanOrEqual(5)
   }, 120_000)
 })
