@@ -88,8 +88,6 @@ const multiWordCommands = [
   'kill',
   'rm',
   'touch',
-  'which',
-  'where',
   'grep',
   'cp',
   'mv',
