@@ -93,6 +93,14 @@ export const createMarkdownFileBlock = (filePath: string, content: string) => {
   return `\`\`\`${filePath}\n${content}\n\`\`\``
 }
 
+export const parseMarkdownCodeBlock = (content: string) => {
+  const match = content.match(/^```(?:[a-zA-Z]+)?\n([\s\S]*)\n```$/)
+  if (match) {
+    return match[1] + '\n'
+  }
+  return content
+}
+
 export const createSearchReplaceBlock = (search: string, replace: string) => {
   return `<<<<<<< SEARCH\n${search}\n=======\n${replace}\n>>>>>>> REPLACE`
 }

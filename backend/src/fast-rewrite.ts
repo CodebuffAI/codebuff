@@ -1,8 +1,9 @@
 import { Message } from 'common/types/message'
 import { logger } from './util/logger'
-import { parseFileBlocks } from 'common/util/file'
+import { parseFileBlocks, parseMarkdownCodeBlock } from 'common/util/file'
 import { generateCompactId, hasLazyEdit } from 'common/util/string'
-import { geminiModels } from 'common/constants'
+import { geminiModels, openaiModels } from 'common/constants'
+import { promptOpenAI } from './llm-apis/openai-api'
 import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptRelaceAI } from './llm-apis/relace-api'
 import { buildArray } from 'common/util/array'
@@ -36,7 +37,7 @@ export async function fastRewrite(
     hasLazyEdit(response)
   ) {
     const relaceResponse = response
-    response = await rewriteWithGemini(
+    response = await rewriteWithOpenAI(
       initialContent,
       editSnippet,
       filePath,
@@ -47,8 +48,8 @@ export async function fastRewrite(
       userMessage
     )
     logger.debug(
-      { filePath, relaceResponse, geminiResponse: response, messageId },
-      'Relace output contained lazy edits, trying Gemini'
+      { filePath, relaceResponse, openaiResponse: response, messageId },
+      `Relace output contained lazy edits, trying GPT-4o-mini ${filePath}`
     )
   }
 
@@ -64,11 +65,11 @@ export async function fastRewrite(
     `fastRewrite of ${filePath}`
   )
 
-  // Add newline to maintain consistency with original file endings
   return response
 }
 
-async function rewriteWithGemini(
+// 4o can output 16k tokens, Gemini flash can only output 8k tokens.
+export async function rewriteWithOpenAI(
   oldContent: string,
   editSnippet: string,
   filePath: string,
@@ -93,19 +94,20 @@ ${editSnippet}
 Integrate the edit snippet into the old file content to produce one coherent new file.
 
 Important:
-1. Preserve the original formatting, indentation, and comments of the old file
+1. Preserve the original formatting, indentation, and comments of the old file. Please include all comments from the original file.
 2. Only implement the changes shown in the edit snippet
 3. Do not include any placeholder comments in your output (like "// ... existing code ..." or "# ... rest of the file ...")
 
 Please output just the complete updated file content with the edit applied and no additional text.`
-  const response = await promptGeminiWithFallbacks(
+
+  const response = await promptOpenAI(
     [
       { role: 'user', content: prompt },
       { role: 'assistant', content: '```\n' },
     ],
-    undefined,
     {
-      model: geminiModels.gemini2flash,
+      model: openaiModels.gpt4o,
+      predictedContent: oldContent,
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -113,8 +115,7 @@ Please output just the complete updated file content with the edit applied and n
     }
   )
 
-  // Remove the last \n``` if present
-  return response.replace(/\n```\s*$/, '')
+  return parseMarkdownCodeBlock(response)
 }
 
 export async function preserveCommentsInEditSnippet(

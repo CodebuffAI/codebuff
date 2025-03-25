@@ -1,6 +1,10 @@
 import { describe, it, expect, mock } from 'bun:test'
-import { preserveCommentsInEditSnippet } from '../fast-rewrite'
+import {
+  preserveCommentsInEditSnippet,
+  rewriteWithOpenAI,
+} from '../fast-rewrite'
 import { TEST_USER_ID } from 'common/constants'
+import { createPatch } from 'diff'
 
 // Mock database interactions
 mock.module('pg-pool', () => ({
@@ -417,4 +421,37 @@ return createPatch(filePath, normalizedOld, normalizedNew);
 `.trim()
     )
   })
+})
+
+describe('rewriteWithOpenAI', () => {
+  it('should correctly integrate edit snippet changes while preserving formatting', async () => {
+    const originalContent = await Bun.file(
+      'backend/src/__tests__/test-data/dex-go/original.go'
+    ).text()
+    const editSnippet = await Bun.file(
+      'backend/src/__tests__/test-data/dex-go/edit-snippet.go'
+    ).text()
+    const expectedResult = await Bun.file(
+      'backend/src/__tests__/test-data/dex-go/expected.go'
+    ).text()
+
+    const result = await rewriteWithOpenAI(
+      originalContent,
+      editSnippet,
+      'taskruntoolcall.go',
+      'clientSessionId',
+      'fingerprintId',
+      'userInputId',
+      TEST_USER_ID,
+      undefined
+    )
+
+    const patch = createPatch('test.ts', expectedResult, result)
+    const patchLines = patch.split('\n').slice(4)
+    const linesChanged = patchLines.filter(
+      (line) => line.startsWith('+') || line.startsWith('-')
+    ).length
+    console.log(patch)
+    expect(linesChanged).toBeLessThanOrEqual(10)
+  }, 120_000)
 })
