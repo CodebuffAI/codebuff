@@ -92,7 +92,7 @@ export function Hero() {
               animate={{ y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <span className="relative z-10">Codeflow</span>
+              <span className="relative z-10">AI Coding</span>
             </motion.span>
           </motion.h1>
         </motion.div>
@@ -103,10 +103,8 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <span className="whitespace-nowrap">
-            Codebuff knows your entire stack
-          </span>{' '}
-          <span className="whitespace-nowrap">and works in your</span>{' '}
+          <span className="whitespace-nowrap">Simple. Fast. Powerful.</span>{' '}
+          <span className="whitespace-nowrap">Codebuff works in your</span>{' '}
           <span>{<TypingEffect words={['terminal', 'IDE', 'system']} />}</span>
           {'.'}
         </motion.h2>
@@ -115,7 +113,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
-          className="mb-12 md:mb-4"  // Added more bottom margin on mobile
+          className="mb-12 md:mb-4" // Added more bottom margin on mobile
         >
           <HeroButtons />
         </motion.div>
