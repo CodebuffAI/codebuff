@@ -1,10 +1,11 @@
 import { describe, it, expect, mock } from 'bun:test'
+import { createPatch } from 'diff'
+import path from 'path'
 import {
   preserveCommentsInEditSnippet,
   rewriteWithOpenAI,
 } from '../fast-rewrite'
 import { TEST_USER_ID } from 'common/constants'
-import { createPatch } from 'diff'
 
 // Mock database interactions
 mock.module('pg-pool', () => ({
@@ -424,16 +425,11 @@ return createPatch(filePath, normalizedOld, normalizedNew);
 })
 
 describe('rewriteWithOpenAI', () => {
-  it('should correctly integrate edit snippet changes while preserving formatting', async () => {
-    const originalContent = await Bun.file(
-      'backend/src/__tests__/test-data/dex-go/original.go'
-    ).text()
-    const editSnippet = await Bun.file(
-      'backend/src/__tests__/test-data/dex-go/edit-snippet.go'
-    ).text()
-    const expectedResult = await Bun.file(
-      'backend/src/__tests__/test-data/dex-go/expected.go'
-    ).text()
+  it.only('should correctly integrate edit snippet changes while preserving formatting', async () => {
+    const testDataDir = path.join(__dirname, 'test-data', 'dex-go')
+    const originalContent = await Bun.file(`${testDataDir}/original.go`).text()
+    const editSnippet = await Bun.file(`${testDataDir}/edit-snippet.go`).text()
+    const expectedResult = await Bun.file(`${testDataDir}/expected.go`).text()
 
     const result = await rewriteWithOpenAI(
       originalContent,

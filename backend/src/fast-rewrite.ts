@@ -68,7 +68,7 @@ export async function fastRewrite(
   return response
 }
 
-// 4o can output 16k tokens, Gemini flash can only output 8k tokens.
+// 4o can output 16k tokens, Gemini flash can only output.
 export async function rewriteWithOpenAI(
   oldContent: string,
   editSnippet: string,
