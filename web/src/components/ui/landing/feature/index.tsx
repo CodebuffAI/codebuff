@@ -8,6 +8,7 @@ import { Section } from '../../section'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { HighlightText } from './highlight-text'
 import type { KeyPoint } from '../types'
+import posthog from 'posthog-js'
 
 // Helper component for the Learn More link
 function LearnMoreLink({
@@ -26,9 +27,17 @@ function LearnMoreLink({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={(e) => {
+        e.preventDefault()
+        posthog.capture('home.feature_learn_more_clicked', {
+          feature: text,
+          link: href,
+        })
+        window.location.href = href
+      }}
       className={cn(
         'inline-block mt-4 text-sm font-medium border-b border-dotted pb-0.5 transition-colors',
-        textColor 
+        textColor
           ? `${textColor} ${textColor.replace('text-', 'border-')}/40 hover:text-blue-500 hover:border-blue-500`
           : isLight
             ? 'text-black border-black/40 hover:text-blue-600 hover:border-blue-600'
@@ -89,7 +98,13 @@ export function FeatureSection({
 
   return (
     <Section background={backdropColor}>
-      <div className={cn('text-white max-w-7xl mx-auto px-4 sm:px-6 lg:px-8', { 'text-black': isLight }, textColor)}>
+      <div
+        className={cn(
+          'text-white max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
+          { 'text-black': isLight },
+          textColor
+        )}
+      >
         <div
           className={cn(
             'grid gap-8 items-center',
@@ -120,7 +135,7 @@ export function FeatureSection({
                   </p>
 
                   {learnMoreLink && (
-                    <LearnMoreLink 
+                    <LearnMoreLink
                       href={learnMoreLink}
                       text={learnMoreText}
                       isLight={isLight}
@@ -176,7 +191,7 @@ export function FeatureSection({
                   </p>
 
                   {learnMoreLink && (
-                    <LearnMoreLink 
+                    <LearnMoreLink
                       href={learnMoreLink}
                       text={learnMoreText}
                       isLight={isLight}
@@ -208,7 +223,7 @@ export function FeatureSection({
                   </p>
 
                   {learnMoreLink && (
-                    <LearnMoreLink 
+                    <LearnMoreLink
                       href={learnMoreLink}
                       text={learnMoreText}
                       isLight={isLight}

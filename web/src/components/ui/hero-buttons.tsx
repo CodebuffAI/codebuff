@@ -12,6 +12,7 @@ import { TerminalCopyButton } from './enhanced-copy-button'
 import { Dialog, DialogContent } from './dialog'
 import { CodeDemo } from '../docs/mdx/code-demo'
 import { useInstallDialog } from '@/hooks/use-install-dialog'
+import posthog from 'posthog-js'
 
 interface HeroButtonsProps {
   className?: string
@@ -28,6 +29,11 @@ export function HeroButtons({
     open: openInstallDialog,
     close: closeInstallDialog,
   } = useInstallDialog()
+
+  const handleTryFreeClick = () => {
+    posthog.capture('home.try_free_clicked')
+    openInstallDialog()
+  }
 
   return (
     <div
@@ -50,7 +56,7 @@ export function HeroButtons({
               'transition-all duration-300 relative group overflow-hidden',
               'border border-white/50 bg-white text-black hover:bg-white'
             )}
-            onClick={openInstallDialog}
+            onClick={handleTryFreeClick}
           >
             <div className="relative z-10 flex items-center gap-2">
               <span>Try Free</span>

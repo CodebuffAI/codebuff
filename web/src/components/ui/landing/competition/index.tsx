@@ -4,6 +4,7 @@ import { Section } from '../../section'
 import { CompetitionTabs, type CompetitorType } from './tabs'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { SECTION_THEMES } from '../constants'
+import posthog from 'posthog-js'
 
 export function CompetitionSection() {
   const [progress, setProgress] = useState(0)
@@ -67,6 +68,10 @@ export function CompetitionSection() {
   const handleTabChange = (tab: CompetitorType) => {
     setActiveTab(tab)
     resetTimer()
+    
+    posthog.capture('home.competition_tab_changed', {
+      competitor: tab
+    })
   }
 
   return (

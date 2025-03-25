@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { TerminalCopyButton } from '../enhanced-copy-button'
 import { useInstallDialog } from '@/hooks/use-install-dialog'
 import { SECTION_THEMES } from './constants'
+import posthog from 'posthog-js'
 
 // Benefit card component for the CTA section
 function BenefitCard({
@@ -73,6 +74,11 @@ export function CTASection() {
     },
   ]
 
+  const handleInstallGuideClick = () => {
+    posthog.capture('home.cta_install_guide_clicked')
+    openInstallDialog()
+  }
+
   return (
     <Section background={SECTION_THEMES.cta.background}>
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -134,7 +140,7 @@ export function CTASection() {
           <div className="mt-0 text-center text-sm text-white/70">
             First time? Check out our{' '}
             <button
-              onClick={openInstallDialog}
+              onClick={handleInstallGuideClick}
               className="relative py-0.5 text-green-400 hover:text-green-300 transition-colors rounded-md hover:underline"
             >
               step-by-step guide

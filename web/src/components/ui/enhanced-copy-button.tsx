@@ -5,6 +5,7 @@ import { Copy, Check, Terminal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { BlockColor } from './decorative-blocks'
+import posthog from 'posthog-js'
 
 interface EnhancedCopyButtonProps {
   value: string
@@ -62,35 +63,31 @@ export function EnhancedCopyButton({
 
 interface TerminalCopyButtonProps {
   className?: string
-  onClick?: () => void
 }
 
-export function TerminalCopyButton({ 
-  className, 
-  onClick, 
-  size = 'default',
-  pulseBorder = false
-}: TerminalCopyButtonProps & { 
-  size?: 'default' | 'large',
-  pulseBorder?: boolean 
-}) {
-  const [installClicked, setInstallClicked] = useState(false)
+export function TerminalCopyButton({
+  className,
 
+  size = 'default',
+  pulseBorder = false,
+}: TerminalCopyButtonProps & {
+  size?: 'default' | 'large'
+  pulseBorder?: boolean
+}) {
   const handleClick = () => {
-    setInstallClicked(true)
-    onClick?.()
+    posthog.capture('home.install_command_copied')
   }
 
   return (
     <motion.div
       className={cn(
-        "w-full md:w-auto md:min-w-[320px] relative", 
-        size === 'large' && "md:min-w-[380px]",
+        'w-full md:w-auto md:min-w-[320px] relative',
+        size === 'large' && 'md:min-w-[380px]',
         className
       )}
       style={{
         ...(size === 'large' ? { height: '56px' } : {}),
-        ...(className?.includes('h-[56px]') ? { height: '56px' } : {})
+        ...(className?.includes('h-[56px]') ? { height: '56px' } : {}),
       }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
@@ -100,39 +97,40 @@ export function TerminalCopyButton({
       transition={{ duration: 0.3, delay: 0.2 }}
     >
       <div
-        style={{
-          '--acid-matrix-shadow': `0 0 15px ${BlockColor.AcidMatrix}40`,
-        } as React.CSSProperties}
+        style={
+          {
+            '--acid-matrix-shadow': `0 0 15px ${BlockColor.AcidMatrix}40`,
+          } as React.CSSProperties
+        }
         className={cn(
           'bg-zinc-800/60 border rounded-md overflow-hidden group relative',
           size === 'default' ? 'px-3 py-2.5' : 'px-3 py-4',
-          pulseBorder 
-            ? `border-[${BlockColor.AcidMatrix}80]` 
+          pulseBorder
+            ? `border-[${BlockColor.AcidMatrix}80]`
             : `border-zinc-700/50 hover:border-[${BlockColor.AcidMatrix}50] hover:shadow-[var(--acid-matrix-shadow)]`,
           'flex items-center justify-between h-full',
           'transition-all duration-300'
         )}
       >
         <div className="flex items-center space-x-2">
-          <Terminal 
-            size={size === 'default' ? 16 : 20} 
+          <Terminal
+            size={size === 'default' ? 16 : 20}
             style={{ color: BlockColor.AcidMatrix }}
           />
-          <code className={cn(
-            "font-mono text-white/90 select-all",
-            size === 'default' ? 'text-sm' : 'text-base'
-          )}>
+          <code
+            className={cn(
+              'font-mono text-white/90 select-all',
+              size === 'default' ? 'text-sm' : 'text-base'
+            )}
+          >
             npm install -g codebuff
           </code>
         </div>
-        <EnhancedCopyButton
-          value="npm install -g codebuff"
-          className="ml-2"
-        />
+        <EnhancedCopyButton value="npm install -g codebuff" className="ml-2" />
       </div>
       {pulseBorder && (
-        <span 
-          style={{ borderColor: `${BlockColor.AcidMatrix}80` }} 
+        <span
+          style={{ borderColor: `${BlockColor.AcidMatrix}80` }}
           className="absolute inset-0 border rounded-md animate-pulse-border pointer-events-none"
         ></span>
       )}
