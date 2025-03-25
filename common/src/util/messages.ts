@@ -47,3 +47,27 @@ export function toContentString(msg: Message): string {
   if (typeof content === 'string') return content
   return content.map((item) => (item as any)?.text ?? '').join('\n')
 }
+
+export function withCacheControl(msg: Message): Message {
+  if (typeof msg.content === 'string') {
+    return {
+      ...msg,
+      content: [
+        {
+          type: 'text',
+          text: msg.content,
+          cache_control: { type: 'ephemeral' as const },
+        },
+      ],
+    }
+  } else {
+    return {
+      ...msg,
+      content: msg.content.map((item, i) =>
+        i === msg.content.length - 1
+          ? { ...item, cache_control: { type: 'ephemeral' as const } }
+          : item
+      ),
+    }
+  }
+}

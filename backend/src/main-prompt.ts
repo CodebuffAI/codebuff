@@ -36,7 +36,7 @@ import {
 } from './tools'
 import { trimMessagesToFitTokenLimit } from './util/messages'
 import { checkTerminalCommand } from './check-terminal-command'
-import { toContentString } from 'common/util/messages'
+import { withCacheControl, toContentString } from 'common/util/messages'
 
 export const mainPrompt = async (
   ws: WebSocket,
@@ -782,20 +782,7 @@ function getMessagesSubset(messages: Message[], otherTokens: number) {
   // Cache up to the last message!
   const lastMessage = messagesSubset[messagesSubset.length - 1]
   if (lastMessage) {
-    if (typeof lastMessage.content === 'string') {
-      // Transform to a content array
-      ;(lastMessage as any).content = [
-        {
-          type: 'text',
-          text: lastMessage.content,
-          cache_control: { type: 'ephemeral' as const },
-        },
-      ]
-    } else {
-      lastMessage.content[lastMessage.content.length - 1].cache_control = {
-        type: 'ephemeral' as const,
-      }
-    }
+    messagesSubset[messagesSubset.length - 1] = withCacheControl(lastMessage)
   } else {
     logger.debug(
       {
