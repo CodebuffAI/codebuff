@@ -1,8 +1,6 @@
 'use client';
 
 import { ComponentProps } from 'react';
-import { useTheme } from 'next-themes';
-
 import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 
@@ -11,18 +9,16 @@ type ThemeSwitcherProps = {
 };
 
 export const ThemeSwitcher = ({ className }: ThemeSwitcherProps) => {
-  const { theme, setTheme } = useTheme();
-
+  // Theme switcher is disabled, always showing dark mode icon
   return (
     <Button
       className={className}
       variant="secondary"
       size="icon"
-      aria-label={'theme toggle'}
-      onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+      aria-label={'dark mode'}
+      disabled={true}
     >
-      <Icons.sun className="dark:hidden" />
-      <Icons.moon className="hidden dark:block" />
+      <Icons.moon />
     </Button>
   );
 };

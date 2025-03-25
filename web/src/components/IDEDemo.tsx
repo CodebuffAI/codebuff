@@ -161,14 +161,20 @@ interface IDEDemoProps {
   className?: string
 }
 
+const PHRASES_TO_TYPE = [
+  'refactor the onboarding module',
+  'fix auth token expiration bug',
+  'add dark mode to dashboard',
+  'optimize weather API requests',
+  'update user profile schema',
+]
+
 export function IDEDemo({ className }: IDEDemoProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showIDE, setShowIDE] = useState(false)
   const [showOriginalTerminal, setShowOriginalTerminal] = useState(true)
   const [expandTerminal, setExpandTerminal] = useState(false)
-  const [cursorPosition, setCursorPosition] = useState(0)
-  const [currentLine, setCurrentLine] = useState(1)
-  const [currentCol, setCurrentCol] = useState(1)
+
   const [terminalLines, setTerminalLines] = useState<string[]>([])
   const [typingText, setTypingText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -281,13 +287,6 @@ export function IDEDemo({ className }: IDEDemoProps) {
     }
 
     const startTypingAnimation = () => {
-      const phrasesToType = [
-        'refactor the onboarding module',
-        'fix auth token expiration bug',
-        'add dark mode to dashboard',
-        'optimize weather API requests',
-        'update user profile schema',
-      ]
       let currentPhraseIndex = 0
       setIsTyping(true)
 
@@ -312,7 +311,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
       }
 
       const startNextPhrase = () => {
-        const phrase = phrasesToType[currentPhraseIndex]
+        const phrase = PHRASES_TO_TYPE[currentPhraseIndex]
 
         // Reset text before starting new phrase
         setTypingText('')
@@ -321,7 +320,8 @@ export function IDEDemo({ className }: IDEDemoProps) {
         setTimeout(() => {
           typePhrase(phrase, () => {
             // Move to next phrase (cycle back to beginning if needed)
-            currentPhraseIndex = (currentPhraseIndex + 1) % phrasesToType.length
+            currentPhraseIndex =
+              (currentPhraseIndex + 1) % PHRASES_TO_TYPE.length
             startNextPhrase()
           })
         }, 300)
@@ -360,7 +360,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
                 <div className="flex items-center">
                   <Files size={16} className="text-green-500 mr-2" />
                   <span className="text-sm text-white font-medium">
-                    Codebuff IDE
+                    Your favorite IDE
                   </span>
                 </div>
                 <div className="flex items-center space-x-3">
@@ -430,9 +430,6 @@ export function IDEDemo({ className }: IDEDemoProps) {
                 </div>
 
                 <div className="p-3 text-xs">
-                  <div className="text-green-400 font-bold mb-1">
-                    Codebuff CLI v1.5.0
-                  </div>
                   {terminalLines.length > 0 ? (
                     <>
                       {terminalLines.map((line, index) => (
@@ -455,7 +452,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
                             your-next-app {'>'}
                           </span>{' '}
                           {typingText}
-                          <span className="inline-block w-2 h-4 ml-1 bg-green-400 animate-pulse"></span>
+                          <span className="inline-block w-2 h-6 ml-1 bg-green-400 animate-pulse align-middle relative -top-[1px]"></span>
                         </div>
                       )}
                     </>
@@ -703,7 +700,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
                           your-next-app {'>'}
                         </span>{' '}
                         {typingText}
-                        <span className="inline-block w-2 h-4 ml-1 bg-green-400 animate-pulse"></span>
+                        <span className="inline-block w-2 h-6 ml-1 bg-green-400 animate-pulse align-middle relative -top-[1px]"></span>
                       </TerminalOutput>
                     )}
                   </Terminal>
