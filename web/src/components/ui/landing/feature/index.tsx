@@ -106,7 +106,7 @@ export function FeatureSection({
 
       <HighlightText text={highlightText} isLight={isLight} />
 
-      <p className="text-lg leading-relaxed opacity-70">{description}</p>
+      <p className="text-lg leading-relaxed opacity-70 font-paragraph">{description}</p>
 
       <LearnMoreLink
         href={learnMoreLink}

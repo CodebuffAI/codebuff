@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
 
 interface GithubCopilotVisualizationProps {
   progress: number
@@ -97,23 +97,95 @@ function MeltingText({
   text: string
   meltFactor: number
 }) {
+  // Generate a unique id for this component instance to create varied effects
+  const instanceId = useRef(Math.floor(Math.random() * 1000)).current
+
+  // Skip rendering expensive effects if melt factor is very low
+  if (meltFactor < 0.05) {
+    return <span>{text}</span>
+  }
+
+  // Apply different effects based on melt factor ranges
+  const isHighMelt = meltFactor > 0.85
+
+  // For high melt factors with longer text, use more efficient chunked rendering
+  if (isHighMelt && text.length > 15) {
+    // Break into chunks of 2-3 characters to reduce number of spans
+    const chunks = []
+    const chunkSize = 3
+
+    for (let i = 0; i < text.length; i += chunkSize) {
+      chunks.push(text.slice(i, i + chunkSize))
+    }
+
+    return (
+      <span className="inline-flex flex-wrap">
+        {chunks.map((chunk, i) => {
+          // Use faster deterministic calculations
+          const verticalShift = ((i % 3) - 1) * meltFactor * 8
+          const horizontalShift = (i % 2) * meltFactor * 4
+          const rotation = ((i % 4) - 2) * meltFactor * 10
+
+          return (
+            <span
+              key={i}
+              style={{
+                display: 'inline-block',
+                transform: `translate(${horizontalShift}px, ${verticalShift}px) rotate(${rotation}deg)`,
+                filter: i % 3 === 0 ? `blur(${meltFactor * 1.5}px)` : 'none',
+                transition: 'none', // No transitions for performance
+                opacity: Math.max(0.4, 1 - meltFactor * 0.4),
+                color: `rgba(${129 + meltFactor * 100}, ${140 - meltFactor * 50}, ${248 - meltFactor * 100}, 1)`,
+              }}
+            >
+              {chunk}
+            </span>
+          )
+        })}
+      </span>
+    )
+  }
+
+  // For normal rendering, process char by char
   return (
     <span className="inline-flex flex-wrap">
       {Array.from(text).map((char, i) => {
+        // Skip spaces at higher melt factors
+        if (isHighMelt && char === ' ') {
+          return <span key={i}> </span>
+        }
+
+        // Use the instanceId and index to create varied but deterministic corruption
+        const charCode = char.charCodeAt(0)
+        const seed = (instanceId + i + charCode) % 100
+
+        // Randomize effects based on character position and instance
         const corruptThreshold = 0.6
         const shouldCorrupt =
           meltFactor > corruptThreshold &&
-          Math.random() < (meltFactor - corruptThreshold) * 2
+          seed / 100 < (meltFactor - corruptThreshold) * 2
 
+        // Choose a deterministic corruption character
         const displayChar = shouldCorrupt
-          ? corruptChars[Math.floor(Math.random() * corruptChars.length)]
+          ? corruptChars[(instanceId + i * 13) % corruptChars.length]
           : char
 
-        const verticalShift = Math.sin(i * 0.5) * meltFactor * 8
+        // Create varied movement patterns based on character position
+        const verticalShift = Math.sin((i + instanceId) * 0.5) * meltFactor * 8
         const horizontalShift =
-          meltFactor > 0.4 ? Math.sin(i * 0.8) * meltFactor * 4 : 0
+          meltFactor > 0.4
+            ? Math.sin((i + instanceId * 3) * 0.8) * meltFactor * 4
+            : 0
         const rotation =
-          meltFactor > 0.7 ? Math.sin(i * 0.3) * meltFactor * 20 : 0
+          meltFactor > 0.7
+            ? Math.sin((i + instanceId * 7) * 0.3) * meltFactor * 20
+            : 0
+
+        // Only blur some characters to improve performance
+        const blur =
+          (i + instanceId) % 3 === 0
+            ? Math.sin((i + instanceId) * 0.5) * meltFactor * 1.8
+            : 0
 
         return (
           <span
@@ -121,11 +193,13 @@ function MeltingText({
             style={{
               display: 'inline-block',
               transform: `translate(${horizontalShift}px, ${verticalShift}px) rotate(${rotation}deg)`,
-              filter: `blur(${Math.sin(i * 0.5 + 1) * meltFactor * 1.8}px)`,
-              transition:
-                'transform 0.8s ease-out, filter 0.8s ease-out, color 0.8s ease-out',
+              filter: blur > 0 ? `blur(${blur}px)` : 'none',
+              transition: 'none', // Remove transitions for better performance
               opacity: Math.max(0.4, 1 - meltFactor * 0.4),
-              textShadow: `0 0 ${meltFactor * 6}px rgba(129, 140, 248, 0.7)`,
+              textShadow:
+                meltFactor > 0.7
+                  ? `0 0 ${meltFactor * 6}px rgba(129, 140, 248, 0.7)`
+                  : 'none',
               color:
                 meltFactor > 0.5
                   ? `rgba(${129 + meltFactor * 100}, ${140 - meltFactor * 50}, ${248 - meltFactor * 100}, 1)`
@@ -158,6 +232,20 @@ function MatrixRainEffect({
 
   const effectivelyEnabled = enabled && isActive
 
+  // Use refs to store animation state to avoid rerendering issues
+  const animationStateRef = useRef({
+    lastUpdateTime: 0,
+    startTime: 0,
+    frameCount: 0,
+    words: [] as {
+      word: string
+      x: number
+      y: number
+      speed: number
+      opacity: number
+    }[],
+  })
+
   useEffect(() => {
     if (!effectivelyEnabled) return
 
@@ -166,6 +254,11 @@ function MatrixRainEffect({
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+
+    // Initialize animation timing
+    animationStateRef.current.startTime = performance.now()
+    animationStateRef.current.lastUpdateTime = 0
+    animationStateRef.current.frameCount = 0
 
     const resizeCanvas = () => {
       if (canvas.parentElement) {
@@ -177,44 +270,64 @@ function MatrixRainEffect({
     resizeCanvas()
     window.addEventListener('resize', resizeCanvas)
 
-    const columnCount = Math.floor(canvas.width / 20)
-    const newColumns = Array(columnCount).fill(0)
-    setColumns(newColumns)
+    // Clear columns since we're not using them
+    setColumns([])
 
-    const wordCount = Math.floor(intensity * 15)
+    // Calculate optimal word count based on screen size to prevent performance issues
+    const maxWords = Math.min(
+      20,
+      Math.floor((canvas.width * canvas.height) / 30000)
+    )
+
+    // Create fewer words but make them look good
+    const wordCount = Math.floor(intensity * maxWords)
     const newWords = []
 
+    // Pre-generate all words for the animation - prevents slowdowns from word creation
     for (let i = 0; i < wordCount; i++) {
       newWords.push({
         word: matrixWords[Math.floor(Math.random() * matrixWords.length)],
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        speed: 1 + Math.random() * 3,
-        opacity: 0.1 + Math.random() * 0.5,
+        speed: 1.2 + Math.random() * 2, // Slightly slower speed for better readability
+        opacity: 0.2 + Math.random() * 0.4, // Subtle but still visible
       })
     }
 
-    setWords(newWords)
+    // Store words in the ref to avoid state updates
+    animationStateRef.current.words = newWords
 
-    let animationFrameId: number
+    // Slightly slower frame rate for better clarity
+    const frameDuration = 50 // ~20fps - slow enough to be clear but still smooth
 
-    const render = () => {
+    const render = (timestamp: number) => {
       if (!canvas || !ctx) return
 
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      animationStateRef.current.frameCount++
 
-      ctx.font = '12px monospace'
+      // Use the frame count instead of elapsed time to ensure consistent framerate
+      const shouldUpdate =
+        timestamp - animationStateRef.current.lastUpdateTime >= frameDuration
 
-      const updatedWords = words.map((word) => {
-        const newY = word.y + word.speed
-        const y = newY > canvas.height ? 0 : newY
-        ctx.fillStyle = `rgba(129, 140, 248, ${word.opacity})`
-        ctx.fillText(word.word, word.x, y)
-        return { ...word, y }
-      })
+      if (shouldUpdate) {
+        animationStateRef.current.lastUpdateTime = timestamp
 
-      setWords(updatedWords)
+        // Clear with a consistent fade rate
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.06)'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        ctx.font = '12px monospace'
+
+        // Use the words from the ref to avoid state dependency issues
+        animationStateRef.current.words.forEach((word) => {
+          const newY = word.y + word.speed
+          word.y = newY > canvas.height ? 0 : newY
+
+          // Fixed opacity for consistent visibility
+          ctx.fillStyle = `rgba(129, 140, 248, ${word.opacity})`
+          ctx.fillText(word.word, word.x, word.y)
+        })
+      }
 
       if (effectivelyEnabled) {
         animationFrameId = requestAnimationFrame(render)
@@ -222,7 +335,9 @@ function MatrixRainEffect({
       }
     }
 
-    render()
+    // Start the animation
+    let animationFrameId = requestAnimationFrame(render)
+    animationFrameIdRef.current = animationFrameId
 
     return () => {
       window.removeEventListener('resize', resizeCanvas)
@@ -230,7 +345,7 @@ function MatrixRainEffect({
         cancelAnimationFrame(animationFrameIdRef.current)
       }
     }
-  }, [effectivelyEnabled, intensity, words])
+  }, [effectivelyEnabled, intensity])
 
   if (!enabled) return null
 
@@ -254,35 +369,100 @@ export function GithubCopilotVisualization({
 
   const effectiveProgress = isActive ? progress : 0
 
+  // Use a ref to track animation state without triggering rerenders
+  const animationState = useRef({
+    startTime: 0,
+    frameCount: 0,
+    isRunning: false,
+  }).current
+
   useEffect(() => {
     if (!isActive) {
       setCurrentAccuracy(100)
+      animationState.isRunning = false
       return
     }
 
-    if (effectiveProgress > 0) {
+    if (effectiveProgress > 0 && !animationState.isRunning) {
+      // Set animation as running and record start time
+      animationState.isRunning = true
+      animationState.startTime = Date.now()
+      animationState.frameCount = 0
+
+      // Slightly slower timing for better comprehension
+      const intervalDuration = 90
+
+      // Longer animation duration for a more gradual experience
+      const totalDuration = 8500 // 8.5 seconds for full cycle
+
+      // Calculate how much to decrement per interval to complete in totalDuration time
+      const calculateDecrement = () => {
+        const elapsed = Date.now() - animationState.startTime
+        const cycleProgress = Math.min(1, elapsed / totalDuration)
+
+        // More gentle decrement values
+        // Start moderate and gradually decrease to allow time to read the final messages
+        const baseDecrement = Math.max(2, 10 - Math.floor(cycleProgress * 7))
+
+        // Less randomness for smoother progression
+        return baseDecrement + Math.floor(Math.random() * 2)
+      }
+
       const decrementInterval = setInterval(() => {
-        setCurrentAccuracy(prev => {
-          const decrement = Math.floor(Math.random() * 10) + 1
-          const newAccuracy = Math.max(0, prev - decrement)
-          
-          if (newAccuracy === 0) {
-            setResetKey(k => k + 1)
-            return 100
+        animationState.frameCount++
+
+        setCurrentAccuracy((prev) => {
+          // Don't update if we're already at 0
+          if (prev === 0) {
+            return prev
           }
-          
+
+          const decrement = calculateDecrement()
+          const newAccuracy = Math.max(0, prev - decrement)
+
+          if (newAccuracy === 0) {
+            // Reset animation state
+            animationState.isRunning = false
+
+            // Schedule reset after a delay
+            setTimeout(() => {
+              setResetKey((k) => k + 1)
+              setCurrentAccuracy(100)
+            }, 300)
+            return 0
+          }
+
           return newAccuracy
         })
-      }, 100)
+      }, intervalDuration)
 
-      return () => clearInterval(decrementInterval)
+      return () => {
+        clearInterval(decrementInterval)
+        animationState.isRunning = false
+      }
     }
-  }, [isActive, effectiveProgress])
+  }, [isActive, effectiveProgress, animationState])
 
-  const realityDistortion = Math.min(1, ((100 - currentAccuracy) / 100) * 1.5)
-  const codeCorruption = Math.max(0, Math.min(1, ((100 - currentAccuracy) - 20) / 80))
-  const hallucinationFog = Math.min(1, ((100 - currentAccuracy) / 100) * 1.2)
-  const matrixEffect = Math.max(0, Math.min(1, ((100 - currentAccuracy) - 60) / 40))
+  // Optimize effect calculations to be less intensive at very low accuracy
+  // Cap the maximum distortion level to prevent performance issues
+  const accuracyForEffects = Math.max(currentAccuracy, 10)
+
+  const realityDistortion = Math.min(
+    0.9,
+    ((100 - accuracyForEffects) / 100) * 1.3
+  )
+  const codeCorruption = Math.max(
+    0,
+    Math.min(0.8, (100 - accuracyForEffects - 20) / 80)
+  )
+  const hallucinationFog = Math.min(
+    0.9,
+    ((100 - accuracyForEffects) / 100) * 1.1
+  )
+  const matrixEffect = Math.max(
+    0,
+    Math.min(0.7, (100 - accuracyForEffects - 60) / 40)
+  )
 
   const showFirstSuggestion = currentAccuracy < 90
   const showSecondSuggestion = currentAccuracy < 70
@@ -312,10 +492,10 @@ export function GithubCopilotVisualization({
 
   return (
     <div className="flex flex-col h-full p-6 overflow-hidden" key={resetKey}>
-      <div className="flex justify-between items-start mb-4 relative z-20">
+      <div className="flex justify-between items-start mb-4 relative z-20 font-paragraph">
         <div>
           <h3 className="text-xl font-medium flex items-center">
-            <span className="text-indigo-400 mr-2">🤖</span>
+            <span className="text-indigo-400 mr-2 ">🤖</span>
             GitHub Copilot
           </h3>
           <p className="text-white/60 mt-1">
@@ -560,8 +740,7 @@ class ThemeManager extends React.PureComponent {
             <span className="text-indigo-400 mr-1">💡</span>
             <span>
               <span className="text-indigo-400">
-                Suggestion accuracy:{' '}
-                {currentAccuracy}%
+                Suggestion accuracy: {currentAccuracy}%
               </span>
             </span>
           </div>

@@ -40,73 +40,24 @@ const BrowserPreview = ({
       {/* Content area */}
       <div className="flex-1 border rounded-b-lg border-gray-200 dark:border-gray-700 p-6">
         {variant === 'before' ? (
-          <div className="bg-white dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-400 dark:border-gray-700 p-6">
-            <h1 className="text-xl font-mono text-gray-700 dark:text-gray-300">
-              Weather App
-            </h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400 font-mono text-sm">
-              Basic frontend with mock data
-            </p>
-            <div className="mt-4 p-4 bg-gray-200 dark:bg-gray-800 border border-gray-300 dark:border-gray-700">
-              <table
-                className="w-full border border-gray-400 dark:border-gray-600"
-                cellPadding="5"
-              >
-                <tbody>
-                  <tr className="border-b border-gray-400 dark:border-gray-600">
-                    <td className="font-mono text-gray-700 dark:text-gray-300 border-r border-gray-400 dark:border-gray-600">
-                      City:
-                    </td>
-                    <td className="font-mono text-gray-700 dark:text-gray-300">
-                      San Francisco
-                    </td>
-                  </tr>
-                  <tr className="border-b border-gray-400 dark:border-gray-600">
-                    <td className="font-mono text-gray-700 dark:text-gray-300 border-r border-gray-400 dark:border-gray-600">
-                      Temp:
-                    </td>
-                    <td className="font-mono text-gray-700 dark:text-gray-300">
-                      72°F (mock)
-                    </td>
-                  </tr>
-                  <tr className="border-b border-gray-400 dark:border-gray-600">
-                    <td className="font-mono text-gray-700 dark:text-gray-300 border-r border-gray-400 dark:border-gray-600">
-                      Status:
-                    </td>
-                    <td className="font-mono text-red-600 dark:text-red-400 font-bold">
-                      ERROR: API NOT FOUND
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="font-mono text-gray-700 dark:text-gray-300 border-r border-gray-400 dark:border-gray-600">
-                      Last Updated:
-                    </td>
-                    <td className="font-mono text-gray-700 dark:text-gray-300">
-                      N/A
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-4 flex flex-col gap-2">
-              <button className="w-full py-1 bg-blue-500 text-white text-center font-mono">
-                REFRESH
+          <div className="bg-gray-800 h-full w-full" style={{ backgroundColor: '#222' }}>
+            <div className="text-left p-6">
+              <h1 className="text-xl text-white mb-4 font-mono">
+                Weather App
+              </h1>
+              
+              <div className="p-4 mb-4 border border-gray-700" style={{ backgroundColor: '#f0f0f0' }}>
+                <p className="text-red-600 mb-3 font-medium font-mono">
+                  Error: API Key Missing
+                </p>
+                <p className="text-gray-800 text-sm mb-4 font-mono">
+                  Please configure the OpenWeatherMap API key to display weather information.
+                </p>
+              </div>
+              
+              <button className="px-4 py-1 bg-gray-700 border border-gray-600 text-gray-300 text-sm font-mono">
+                Configure API
               </button>
-              <button className="w-full py-1 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-center font-mono">
-                CHANGE CITY
-              </button>
-            </div>
-            <div className="mt-4 p-3 border border-red-500 bg-red-100 dark:bg-red-900/30 dark:border-red-700 text-sm text-red-700 dark:text-red-300 font-mono">
-              <p>
-                <strong>ERROR:</strong> Missing API key configuration. Cannot
-                connect to OpenWeatherMap API.
-              </p>
-            </div>
-            <div className="mt-3 p-2 bg-yellow-100 dark:bg-yellow-900/40 text-xs text-yellow-800 dark:text-yellow-300 font-mono">
-              <p>
-                <strong>TODO:</strong> Add API integration code in app.js line
-                42
-              </p>
             </div>
           </div>
         ) : (

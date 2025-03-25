@@ -12,7 +12,9 @@ const config = {
   theme: {
     fontFamily: {
       sans: ['var(--font-sans)'],
-      mono: ['var(--font-mono)'],
+      mono: ['"DM Mono"', 'var(--font-mono)'],
+      paragraph: ['Manrope', 'var(--font-sans)', 'sans-serif'],
+      serif: ['Domine', 'serif'],
     },
     container: {
       center: true,

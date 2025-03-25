@@ -88,14 +88,18 @@ export function BrowserComparison({ comparisonData }: BrowserComparisonProps) {
 
         {/* Slider handle */}
         <div
-          className="absolute top-0 bottom-0 w-1 bg-green-500 z-30 cursor-grab"
+          className="absolute top-0 bottom-0 w-1 bg-blue-500 z-30 cursor-grab"
           style={{
             left: `${sliderPosition}%`,
             transition: 'left 0.3s ease-out',
           }}
         >
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white">
-            <GitCompare size={16} />
+          {/* Before/After labels at the bottom of the line */}
+          <div className="absolute bottom-4 -left-14 bg-blue-600 text-white px-2 py-1 rounded-l-md text-xs font-semibold">
+            Before
+          </div>
+          <div className="absolute bottom-4 left-2 bg-blue-600 text-white px-2 py-1 rounded-r-md text-xs font-semibold">
+            After
           </div>
         </div>
       </div>

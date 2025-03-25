@@ -37,7 +37,7 @@ function BenefitCard({
         <h3 className={`${SECTION_THEMES.cta.textColor} font-medium text-lg`}>
           {title}
         </h3>
-        <p className={`${SECTION_THEMES.cta.textColor}/70 text-sm`}>
+        <p className={`${SECTION_THEMES.cta.textColor}/70 text-sm font-paragraph`}>
           {description}
         </p>
       </div>

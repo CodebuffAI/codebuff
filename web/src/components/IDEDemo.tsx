@@ -169,6 +169,11 @@ const PHRASES_TO_TYPE = [
   'update user profile schema',
 ]
 
+// Define timeouts in milliseconds
+const SHOW_IDE_DELAY = 1500
+const HIDE_TERMINAL_DELAY = 1000
+const EXPAND_TERMINAL_DELAY = 500
+
 export function IDEDemo({ className }: IDEDemoProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showIDE, setShowIDE] = useState(false)
@@ -193,17 +198,33 @@ export function IDEDemo({ className }: IDEDemoProps) {
   }, [])
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowIDE(true)
-      setTimeout(() => {
-        setShowOriginalTerminal(false)
-        setTimeout(() => {
-          setExpandTerminal(true)
-        }, 2000)
-      }, 1000)
-    }, 3000)
+    const timeoutIds: NodeJS.Timeout[] = []
 
-    return () => clearTimeout(timer)
+    // Step 1: Show the IDE
+    const timer1 = setTimeout(() => {
+      setShowIDE(true)
+    }, SHOW_IDE_DELAY)
+    timeoutIds.push(timer1)
+
+    // Step 2: Hide the original terminal
+    const timer2 = setTimeout(() => {
+      setShowOriginalTerminal(false)
+    }, SHOW_IDE_DELAY + HIDE_TERMINAL_DELAY)
+    timeoutIds.push(timer2)
+
+    // Step 3: Expand the terminal
+    const timer3 = setTimeout(
+      () => {
+        setExpandTerminal(true)
+      },
+      SHOW_IDE_DELAY + HIDE_TERMINAL_DELAY + EXPAND_TERMINAL_DELAY
+    )
+    timeoutIds.push(timer3)
+
+    // Cleanup all timeouts on component unmount
+    return () => {
+      timeoutIds.forEach((id) => clearTimeout(id))
+    }
   }, [])
 
   useEffect(() => {
@@ -667,7 +688,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
                     'border-t border-zinc-800 transition-all duration-1000 bg-black z-10',
                     showIDE
                       ? expandTerminal
-                        ? 'h-full text-lg'
+                        ? 'h-[70%]'
                         : 'h-[300px]'
                       : 'h-full'
                   )}
@@ -714,7 +735,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
           <div
             className={cn(
               'absolute inset-0 transition-all duration-1000',
-              showIDE ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+              showIDE ? 'opacity-0' : 'opacity-100'
             )}
           >
             <Terminal
@@ -728,18 +749,6 @@ export function IDEDemo({ className }: IDEDemoProps) {
                 <span className="text-white">Code from your terminal!</span>
               </TerminalOutput>
             </Terminal>
-          </div>
-        )}
-
-        {isMobile && (
-          <div
-            className={cn(
-              'absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-green-500/80 text-black text-xs px-3 py-1 rounded-full',
-              'flex items-center justify-center transition-opacity duration-500',
-              showIDE ? 'opacity-0' : 'opacity-100'
-            )}
-          >
-            Tap to expand IDE demo
           </div>
         )}
       </div>

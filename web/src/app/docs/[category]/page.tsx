@@ -22,17 +22,41 @@ const DocNavigation = ({ category }: { category: string }) => {
       {prevSection && (
         <NextLink
           href={prevSection.href}
-          className="flex items-center gap-2 text-muted-foreground hover:text-primary"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
         >
-          ← {prevSection.title}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+          <span className="font-medium">{prevSection.title}</span>
         </NextLink>
       )}
       {nextSection && (
         <NextLink
           href={nextSection.href}
-          className="flex items-center gap-2 text-muted-foreground hover:text-primary ml-auto"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white transition-colors ml-auto"
         >
-          {nextSection.title} →
+          <span className="font-medium">{nextSection.title}</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
         </NextLink>
       )}
     </div>
@@ -76,7 +100,9 @@ export default function CategoryPage({ params }: CategoryPageProps) {
       import('@/components/docs/mdx/code-demo').then((mod) => mod.CodeDemo)
     ),
     MarkdownTable: dynamic(() =>
-      import('@/components/docs/mdx/markdown-table').then((mod) => mod.MarkdownTable)
+      import('@/components/docs/mdx/markdown-table').then(
+        (mod) => mod.MarkdownTable
+      )
     ),
     a: dynamic(() =>
       import('@/components/docs/mdx/custom-link').then((mod) => mod.CustomLink)
@@ -99,7 +125,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
       return (
         <div className="group">
           <h1
-            className="inline-block hover:cursor-pointer hover:underline -mb-4 scroll-mt-24"
+            className="inline-block hover:cursor-pointer hover:underline -mb-4 scroll-mt-24 font-serif"
             onClick={() => {
               if (id) {
                 document

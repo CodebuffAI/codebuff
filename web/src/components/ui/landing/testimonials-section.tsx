@@ -58,7 +58,7 @@ const ReviewCard = ({
           <ExternalLink className="h-4 w-4" />
         </button>
       </div>
-      <blockquote className="mt-4 text-sm lg:text-base line-clamp-5 select-text">
+      <blockquote className="mt-4 text-sm lg:text-base line-clamp-5 select-text font-paragraph">
         {t.quote}
       </blockquote>
     </figure>

@@ -122,6 +122,7 @@ export function TerminalCopyButton({
               'font-mono text-white/90 select-all',
               size === 'default' ? 'text-sm' : 'text-base'
             )}
+            style={{ fontFamily: '"DM Mono", var(--font-mono), monospace' }}
           >
             npm install -g codebuff
           </code>

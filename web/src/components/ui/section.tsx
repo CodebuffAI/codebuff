@@ -11,7 +11,8 @@ export interface SectionProps {
   containerClassName?: string
   background?: BlockColor | string
   contained?: boolean
-  hero?: boolean // special case for hero section
+  hero?: boolean
+  fullViewport?: boolean
   animate?: boolean
   style?: CSSProperties
 }
@@ -30,6 +31,7 @@ export function Section({
   background,
   contained = true,
   hero = false,
+  fullViewport = false,
   animate = true,
   style: customStyle,
   ...props
@@ -48,16 +50,24 @@ export function Section({
   )
 
   return (
-    <section
-      className={cn(
-        'relative overflow-hidden',
-        hero ? 'pt-4 md:pt-8 md:pb-16' : 'py-40',
-        className
-      )}
-      style={style}
+    <motion.section
+      className={cn('relative overflow-hidden', className)}
+      initial={false}
+      animate={{
+        height: fullViewport ? '95svh' : 'auto',
+      }}
+      transition={{
+        duration: 1,
+        ease: [0.32, 0.72, 0, 1],
+      }}
+      style={{
+        ...style,
+        paddingTop: hero ? '1rem' : '10rem',
+        paddingBottom: hero ? '0' : '10rem',
+      }}
       {...props}
     >
       {content}
-    </section>
+    </motion.section>
   )
 }

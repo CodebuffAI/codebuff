@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Serif:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Domine:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -29,7 +31,7 @@
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
     --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
+    --accent-foreground: 240 4.8% 95.9%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
@@ -81,11 +83,11 @@
 
 .hero-heading {
   @apply text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight;
-  font-family: 'Roboto Serif', serif;
+  font-family: 'Domine', serif;
 }
 
 .hero-subtext {
-  @apply text-lg md:text-xl text-zinc-300 max-w-3xl mx-auto;
+  @apply text-lg md:text-xl text-zinc-300 max-w-3xl mx-auto font-paragraph;
 }
 
 /* Terminal demo section */

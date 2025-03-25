@@ -21,10 +21,10 @@ import { WorkflowIllustration } from '@/components/ui/landing/feature/workflow-i
 import { BrowserComparison } from '@/components/ui/landing/feature/browser-comparison'
 import { ChartIllustration } from '@/components/ui/landing/feature/chart-illustration'
 import posthog from 'posthog-js'
+import { cn } from '@/lib/utils'
 
 export default function Home() {
   const [demoSwitched, setDemoSwitched] = useState(false)
-  const [scrollEnabled, setScrollEnabled] = useState(false)
   const searchParams = useSearchParams()
   const isMobile = useIsMobile()
 
@@ -35,8 +35,7 @@ export default function Home() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDemoSwitched(true)
-      setScrollEnabled(true)
-    }, 4000)
+    }, 2000)
     return () => clearTimeout(timer)
   }, [])
 
@@ -49,15 +48,21 @@ export default function Home() {
 
   return (
     <div className="relative">
-      {/* Hero section always visible */}
-      <Section background={SECTION_THEMES.hero.background} hero>
-        <div className="codebuff-container">
-          <div className="w-full mb-8 md:mb-12">
+      <Section background={SECTION_THEMES.hero.background} hero fullViewport>
+        <div
+          className={cn(
+            'codebuff-container h-full flex flex-col transition-all duration-1000'
+          )}
+        >
+          <div className={cn('w-full mb-8 md:mb-12 flex-shrink-0')}>
             <Hero />
           </div>
 
           <div
-            className={`w-full ${!demoSwitched ? 'flex items-center' : 'mt-8'} pt-4 md:pt-0`}
+            className={cn(
+              'w-full flex-grow flex',
+              !demoSwitched ? 'items-center' : ''
+            )}
           >
             <DecorativeBlocks
               colors={[BlockColor.CRTAmber, BlockColor.AcidMatrix]}
@@ -69,17 +74,8 @@ export default function Home() {
         </div>
       </Section>
 
-      <div
-        className="transition-opacity duration-500"
-        style={{
-          opacity: scrollEnabled ? 1 : 0,
-          visibility: scrollEnabled ? 'visible' : 'hidden',
-          position: scrollEnabled ? 'relative' : 'absolute',
-          top: scrollEnabled ? 'auto' : '-9999px',
-          pointerEvents: scrollEnabled ? 'auto' : 'none',
-        }}
-      >
-        {/* Feature Section 1 - Yellow */}
+      <div className={cn('transition-all duration-1000')}>
+        {/* Feature Section 1 */}
         <FeatureSection
           title={
             <>
@@ -122,7 +118,7 @@ export default function Home() {
           }
         />
 
-        {/* Feature Section 2 - Black */}
+        {/* Feature Section 2 */}
         <FeatureSection
           title={
             <>
@@ -151,7 +147,7 @@ export default function Home() {
           }
         />
 
-        {/* Feature Section 3 - Yellow */}
+        {/* Feature Section 3 */}
         <FeatureSection
           title={<>Better and Better Over Time</>}
           description="Don't repeat yourself. Codebuff can take notes on your conversations and stores them in human-readable markdown files. Each session teaches it about your specific needs and project setup."
@@ -181,13 +177,13 @@ export default function Home() {
           }
         />
 
-        {/* Competition Section - Black */}
+        {/* Competition Section */}
         <CompetitionSection />
 
-        {/* Testimonials Section - Yellow */}
+        {/* Testimonials Section */}
         <TestimonialsSection />
 
-        {/* CTA Section - Black */}
+        {/* CTA Section */}
         <CTASection />
       </div>
     </div>
