@@ -25,6 +25,7 @@ export const Footer = () => {
                 alt="Codebuff Logo"
                 width={200}
                 height={100}
+                priority
                 className="rounded-sm"
               />
             </Link>

@@ -37,7 +37,9 @@ function BenefitCard({
         <h3 className={`${SECTION_THEMES.cta.textColor} font-medium text-lg`}>
           {title}
         </h3>
-        <p className={`${SECTION_THEMES.cta.textColor}/70 text-sm font-paragraph`}>
+        <p
+          className={`${SECTION_THEMES.cta.textColor}/70 text-sm font-paragraph`}
+        >
           {description}
         </p>
       </div>
@@ -137,7 +139,7 @@ export function CTASection() {
             <TerminalCopyButton size="large" pulseBorder={true} />
           </div>
 
-          <div className="mt-0 text-center text-sm text-white/70">
+          <div className="mt-2 text-center text-sm text-white/70">
             First time? Check out our{' '}
             <button
               onClick={handleInstallGuideClick}
