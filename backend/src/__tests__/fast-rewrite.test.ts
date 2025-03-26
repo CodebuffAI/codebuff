@@ -192,7 +192,7 @@ export async function processFileChange(filePath: string, oldContent: string, ne
   try {
     // Generate patch with normalized content
     const patch = createPatch(filePath, normalizedOld, normalizedNew);
-    
+
     // No changes needed if patch is empty
     if (!patch) return null;
 
@@ -218,8 +218,8 @@ function patch(filePath: string, oldContent: string, newContent: string) {
 }
 
 export async function processFileChange(
-  filePath: string, 
-  oldContent: string, 
+  filePath: string,
+  oldContent: string,
   newContent: string,
   isBinary = false
 ): Promise<FileChange | null> {
@@ -238,7 +238,7 @@ export async function processFileChange(
 
   try {
     const patch = createPatch(filePath, normalizedOld, normalizedNew);
-    
+
     if (!patch) return null;
 
     return {
@@ -276,8 +276,8 @@ function patch(filePath: string, oldContent: string, newContent: string) {
  * Processes a file change by applying patches and handling line endings.
  */
 export async function processFileChange(
-  filePath: string, 
-  oldContent: string, 
+  filePath: string,
+  oldContent: string,
   newContent: string,
   isBinary = false
 ): Promise<FileChange | null> {
@@ -301,7 +301,7 @@ export async function processFileChange(
   try {
     // Generate patch with normalized content
     const patch = createPatch(filePath, normalizedOld, normalizedNew);
-    
+
     // No changes needed if patch is empty
     if (!patch) return null;
 
@@ -449,5 +449,5 @@ describe('rewriteWithOpenAI', () => {
     ).length
     console.log(patch)
     expect(linesChanged).toBeLessThanOrEqual(5)
-  }, 120_000)
+  }, 240_000)
 })

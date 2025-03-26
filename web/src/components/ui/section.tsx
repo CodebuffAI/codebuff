@@ -4,6 +4,7 @@ import { ReactNode, CSSProperties } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { BlockColor } from './decorative-blocks'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 export interface SectionProps {
   children: ReactNode
@@ -40,6 +41,7 @@ export function Section({
     backgroundColor: background,
     ...customStyle,
   }
+  const isMobile = useIsMobile()
 
   const content = contained ? (
     <div className={cn('codebuff-container relative z-10', containerClassName)}>
@@ -54,7 +56,7 @@ export function Section({
       className={cn('relative overflow-hidden', className)}
       initial={false}
       animate={{
-        height: fullViewport ? '95svh' : 'auto',
+        height: fullViewport && !isMobile ? '95svh' : 'auto',
       }}
       transition={{
         duration: 1,

@@ -355,402 +355,404 @@ export function IDEDemo({ className }: IDEDemoProps) {
   }, [showIDE])
 
   return (
-    <div className="border border-zinc-800 rounded-lg overflow-hidden shadow-lg">
-      <div
-        className={cn(
-          'relative w-full transition-all duration-1000 ease-in-out overflow-visible',
-          showIDE
-            ? isMobile
-              ? 'h-[450px]'
-              : 'h-[650px]'
-            : isMobile
-              ? 'h-[300px]'
-              : 'h-[400px]',
-          className
-        )}
-      >
-        {isMobile && (
-          <div
-            className={cn(
-              'absolute inset-0 bg-black transition-all duration-1000 z-20',
-              showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-            )}
-          >
-            <div className="flex flex-col h-full">
-              <div className="bg-zinc-900 p-2 flex items-center justify-between border-b border-zinc-800">
-                <div className="flex items-center">
-                  <Files size={16} className="text-green-500 mr-2" />
-                  <span className="text-sm text-white font-medium">
-                    Your favorite IDE
-                  </span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <GitBranch size={14} className="text-zinc-400" />
-                  <Search size={14} className="text-zinc-400" />
-                  <Settings size={14} className="text-zinc-400" />
-                </div>
-              </div>
-
-              <div className="border-b border-zinc-800 overflow-x-auto whitespace-nowrap py-1 px-2 bg-black/40">
-                <div className="inline-flex gap-1">
-                  <div className="flex items-center bg-zinc-800 rounded px-2 py-1 text-xs text-zinc-300">
-                    <FileIcon extension="ts" />
-                    <span>index.ts</span>
+    <div className="mb-16 md:mb-0">
+      <div className="border border-zinc-800 rounded-lg overflow-hidden shadow-lg">
+        <div
+          className={cn(
+            'relative w-full transition-all duration-1000 ease-in-out overflow-visible',
+            showIDE
+              ? isMobile
+                ? 'h-[450px]'
+                : 'h-[650px]'
+              : isMobile
+                ? 'h-[300px]'
+                : 'h-[400px]',
+            className
+          )}
+        >
+          {isMobile && (
+            <div
+              className={cn(
+                'absolute inset-0 bg-black transition-all duration-1000 z-20',
+                showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+              )}
+            >
+              <div className="flex flex-col h-full">
+                <div className="bg-zinc-900 p-2 flex items-center justify-between border-b border-zinc-800">
+                  <div className="flex items-center">
+                    <Files size={16} className="text-green-500 mr-2" />
+                    <span className="text-sm text-white font-medium">
+                      Your favorite IDE
+                    </span>
                   </div>
-                  <div className="flex items-center bg-black/30 rounded px-2 py-1 text-xs text-zinc-400">
-                    <FileIcon extension="ts" />
-                    <span>auth.ts</span>
+                  <div className="flex items-center space-x-3">
+                    <GitBranch size={14} className="text-zinc-400" />
+                    <Search size={14} className="text-zinc-400" />
+                    <Settings size={14} className="text-zinc-400" />
                   </div>
-                </div>
-              </div>
-
-              <div
-                className={cn(
-                  'flex-1 p-3 font-mono text-xs relative bg-black/60 transition-all duration-500',
-                  expandTerminal && 'h-[30%]'
-                )}
-              >
-                <div className="flex relative z-0">
-                  <div className="text-zinc-600 mr-2 select-none w-4 text-right">
-                    1
-                  </div>
-                  <div className="text-zinc-300">
-                    <span>console.log(</span>
-                    <span className="text-green-400">"Hello, Codebuff!"</span>
-                    <span>);</span>
-                  </div>
-                </div>
-                <div className="flex relative z-0 mt-1">
-                  <div className="text-zinc-600 mr-2 select-none w-4 text-right">
-                    2
-                  </div>
-                  <div className="text-zinc-300">
-                    <span>{`// Mobile-friendly IDE demo`}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                className={cn(
-                  'border-t border-zinc-800 bg-black/80 transition-all duration-1000',
-                  expandTerminal ? 'h-[70%]' : 'h-[50%]'
-                )}
-              >
-                <div className="flex items-center border-b border-zinc-800 px-3 py-1 bg-black/40">
-                  <span className="text-xs text-zinc-400">TERMINAL</span>
-                  <button
-                    className="ml-auto p-1 hover:bg-zinc-800 rounded"
-                    onClick={() => setExpandTerminal(!expandTerminal)}
-                  >
-                    {expandTerminal ? (
-                      <ChevronDown size={14} className="text-zinc-400" />
-                    ) : (
-                      <ChevronRight size={14} className="text-zinc-400" />
-                    )}
-                  </button>
                 </div>
 
-                <div className="p-3 text-xs">
-                  {terminalLines.length > 0 ? (
-                    <>
-                      {terminalLines.map((line, index) => (
-                        <div key={index} className="text-zinc-300 my-1">
-                          {line.startsWith('your-next-app >') ? (
-                            <span>
-                              <span className="text-green-400">
-                                your-next-app {'>'}
+                <div className="border-b border-zinc-800 overflow-x-auto whitespace-nowrap py-1 px-2 bg-black/40">
+                  <div className="inline-flex gap-1">
+                    <div className="flex items-center bg-zinc-800 rounded px-2 py-1 text-xs text-zinc-300">
+                      <FileIcon extension="ts" />
+                      <span>index.ts</span>
+                    </div>
+                    <div className="flex items-center bg-black/30 rounded px-2 py-1 text-xs text-zinc-400">
+                      <FileIcon extension="ts" />
+                      <span>auth.ts</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  className={cn(
+                    'flex-1 p-3 font-mono text-xs relative bg-black/60 transition-all duration-500',
+                    expandTerminal && 'h-[30%]'
+                  )}
+                >
+                  <div className="flex relative z-0">
+                    <div className="text-zinc-600 mr-2 select-none w-4 text-right">
+                      1
+                    </div>
+                    <div className="text-zinc-300">
+                      <span>console.log(</span>
+                      <span className="text-green-400">"Hello, Codebuff!"</span>
+                      <span>);</span>
+                    </div>
+                  </div>
+                  <div className="flex relative z-0 mt-1">
+                    <div className="text-zinc-600 mr-2 select-none w-4 text-right">
+                      2
+                    </div>
+                    <div className="text-zinc-300">
+                      <span>{`// Mobile-friendly IDE demo`}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  className={cn(
+                    'border-t border-zinc-800 bg-black/80 transition-all duration-1000',
+                    expandTerminal ? 'h-[70%]' : 'h-[50%]'
+                  )}
+                >
+                  <div className="flex items-center border-b border-zinc-800 px-3 py-1 bg-black/40">
+                    <span className="text-xs text-zinc-400">TERMINAL</span>
+                    <button
+                      className="ml-auto p-1 hover:bg-zinc-800 rounded"
+                      onClick={() => setExpandTerminal(!expandTerminal)}
+                    >
+                      {expandTerminal ? (
+                        <ChevronDown size={14} className="text-zinc-400" />
+                      ) : (
+                        <ChevronRight size={14} className="text-zinc-400" />
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="p-3 text-xs">
+                    {terminalLines.length > 0 ? (
+                      <>
+                        {terminalLines.map((line, index) => (
+                          <div key={index} className="text-zinc-300 my-1">
+                            {line.startsWith('your-next-app >') ? (
+                              <span>
+                                <span className="text-green-400">
+                                  your-next-app {'>'}
+                                </span>
+                                {line.substring(12)}
                               </span>
-                              {line.substring(12)}
-                            </span>
-                          ) : (
-                            line
-                          )}
+                            ) : (
+                              line
+                            )}
+                          </div>
+                        ))}
+                        {isTyping && (
+                          <div className="text-zinc-300 my-1">
+                            <span className="text-green-400">
+                              your-next-app {'>'}
+                            </span>{' '}
+                            {typingText}
+                            <span className="inline-block w-2 h-6 ml-1 bg-green-400 animate-pulse align-middle relative -top-[1px]"></span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-zinc-300 mt-1">
+                          Type 'help' for commands
                         </div>
+                        <div className="text-green-400 mt-2">
+                          {'>'} <span className="animate-pulse">|</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!isMobile && (
+            <div
+              className={cn(
+                'absolute inset-0 bg-black transition-all duration-1000',
+                showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+              )}
+            >
+              <div className="flex h-full">
+                <div className="w-12 border-r border-zinc-800 flex flex-col items-center py-2 bg-black/20 relative">
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
+                  <div className="relative z-0 flex flex-col items-center space-y-4">
+                    <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                      <Files size={20} />
+                    </button>
+                    <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                      <Search size={20} />
+                    </button>
+                    <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                      <GitBranch size={20} />
+                    </button>
+                    <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                      <Bug size={20} />
+                    </button>
+                    <button className="p-2 text-zinc-400 hover:text-zinc-300">
+                      <Package size={20} />
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  className={cn(
+                    'border-r border-zinc-800 transition-all duration-1000 bg-black/20 relative',
+                    showIDE ? 'w-64' : 'w-0'
+                  )}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
+                  <div className="p-2">
+                    <div className="text-sm text-zinc-400 mb-2 flex items-center">
+                      <span className="flex-1">EXPLORER</span>
+                      <button className="p-1 hover:bg-zinc-800 rounded">
+                        <ChevronDown size={16} />
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      {fileStructure.map((item, index) => (
+                        <FileTreeItem key={item.name + index} item={item} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 flex flex-col bg-black/30">
+                  <div className="border-b border-zinc-800 h-9 flex items-center px-2 relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
+                    <div className="flex items-center space-x-1 relative z-0">
+                      <div className="flex items-center bg-zinc-800 rounded-t px-3 py-1 text-sm text-zinc-300 group cursor-pointer">
+                        <FileIcon extension="ts" />
+                        <span>index.ts</span>
+                        <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
+                        <FileIcon extension="ts" />
+                        <span>auth.ts</span>
+                        <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
+                        <FileIcon extension="tsx" />
+                        <span>App.tsx</span>
+                        <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    className={cn(
+                      'flex-1 p-4 font-mono text-sm relative transition-all duration-1000',
+                      expandTerminal && 'h-[20%]'
+                    )}
+                    ref={editorRef}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/70 to-black/70 pointer-events-none z-10" />
+                    <div className="flex relative z-0">
+                      <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                        1
+                      </div>
+                      <div className="text-zinc-300">
+                        <span className="text-blue-400">import</span>
+                        <span> {'{'} </span>
+                        <span className="text-amber-300">useEffect</span>
+                        <span>, </span>
+                        <span className="text-amber-300">useState</span>
+                        <span> {'}'} </span>
+                        <span className="text-blue-400">from</span>
+                        <span className="text-green-400"> 'react'</span>
+                      </div>
+                    </div>
+                    <div className="flex relative z-0">
+                      <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                        2
+                      </div>
+                      <div className="text-zinc-300">
+                        <span className="text-blue-400">import</span>
+                        <span> {'{'} </span>
+                        <span className="text-amber-300">axios</span>
+                        <span> {'}'} </span>
+                        <span className="text-blue-400">from</span>
+                        <span className="text-green-400"> 'axios'</span>
+                      </div>
+                    </div>
+                    <div className="flex relative z-0">
+                      <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                        3
+                      </div>
+                      <div className="text-zinc-300"></div>
+                    </div>
+                    <div className="flex relative z-0">
+                      <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                        4
+                      </div>
+                      <div className="text-zinc-300">
+                        <span className="text-blue-400">interface</span>
+                        <span className="text-amber-300"> User</span>
+                        <span> {`{`}</span>
+                      </div>
+                    </div>
+                    <div className="flex relative z-0">
+                      <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                        5
+                      </div>
+                      <div className="text-zinc-300 pl-8">
+                        <span>id: </span>
+                        <span className="text-amber-300">string</span>
+                      </div>
+                    </div>
+                    <div className="flex relative z-0">
+                      <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                        6
+                      </div>
+                      <div className="text-zinc-300 pl-8">
+                        <span>email: </span>
+                        <span className="text-amber-300">string</span>
+                      </div>
+                    </div>
+                    <div className="flex relative z-0">
+                      <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                        7
+                      </div>
+                      <div className="text-zinc-300">
+                        <span>{`}`}</span>
+                      </div>
+                    </div>
+                    <div className="flex relative z-0">
+                      <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                        8
+                      </div>
+                      <div className="text-zinc-300"></div>
+                    </div>
+                    <div className="flex relative z-0">
+                      <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                        9
+                      </div>
+                      <div className="text-zinc-300">
+                        <span className="text-purple-400">export</span>
+                        <span className="text-blue-400"> function</span>
+                        <span className="text-amber-300"> UserProfile</span>
+                        <span>() {`{`}</span>
+                      </div>
+                    </div>
+                    <div className="flex relative z-0">
+                      <div className="text-zinc-600 mr-4 select-none w-6 text-right">
+                        10
+                      </div>
+                      <div className="text-zinc-300 pl-4">
+                        <span className="text-blue-400">const</span>
+                        <span> [user, setUser] = </span>
+                        <span className="text-amber-300">useState</span>
+                        <span>{`<`}</span>
+                        <span className="text-amber-300">User</span>
+                        <span>{`>`}</span>
+                        <span>();</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    className={cn(
+                      'border-t border-zinc-800 transition-all duration-1000 bg-black z-10',
+                      showIDE
+                        ? expandTerminal
+                          ? 'h-[70%]'
+                          : 'h-[300px]'
+                        : 'h-full'
+                    )}
+                  >
+                    <div className="flex items-center border-b border-zinc-800 px-4 py-1">
+                      <span className="text-xs text-zinc-400">TERMINAL</span>
+                      <div className="ml-auto flex items-center space-x-2">
+                        <button className="p-1 hover:bg-zinc-800 rounded">
+                          <Split size={14} className="text-zinc-400" />
+                        </button>
+                        <button className="p-1 hover:bg-zinc-800 rounded">
+                          <Plus size={14} className="text-zinc-400" />
+                        </button>
+                        <button className="p-1 hover:bg-zinc-800 rounded">
+                          <Trash size={14} className="text-zinc-400" />
+                        </button>
+                      </div>
+                    </div>
+                    <Terminal
+                      colorMode={ColorMode.Dark}
+                      prompt="> "
+                      showWindowButtons={false}
+                    >
+                      {terminalLines.map((line, index) => (
+                        <TerminalOutput key={index}>{line}</TerminalOutput>
                       ))}
                       {isTyping && (
-                        <div className="text-zinc-300 my-1">
+                        <TerminalOutput>
                           <span className="text-green-400">
                             your-next-app {'>'}
                           </span>{' '}
                           {typingText}
                           <span className="inline-block w-2 h-6 ml-1 bg-green-400 animate-pulse align-middle relative -top-[1px]"></span>
-                        </div>
+                        </TerminalOutput>
                       )}
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-zinc-300 mt-1">
-                        Type 'help' for commands
-                      </div>
-                      <div className="text-green-400 mt-2">
-                        {'>'} <span className="animate-pulse">|</span>
-                      </div>
-                    </>
-                  )}
+                    </Terminal>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {!isMobile && (
-          <div
-            className={cn(
-              'absolute inset-0 bg-black transition-all duration-1000',
-              showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-            )}
-          >
-            <div className="flex h-full">
-              <div className="w-12 border-r border-zinc-800 flex flex-col items-center py-2 bg-black/20 relative">
-                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
-                <div className="relative z-0 flex flex-col items-center space-y-4">
-                  <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                    <Files size={20} />
-                  </button>
-                  <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                    <Search size={20} />
-                  </button>
-                  <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                    <GitBranch size={20} />
-                  </button>
-                  <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                    <Bug size={20} />
-                  </button>
-                  <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                    <Package size={20} />
-                  </button>
-                </div>
-              </div>
-
-              <div
-                className={cn(
-                  'border-r border-zinc-800 transition-all duration-1000 bg-black/20 relative',
-                  showIDE ? 'w-64' : 'w-0'
-                )}
-              >
-                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
-                <div className="p-2">
-                  <div className="text-sm text-zinc-400 mb-2 flex items-center">
-                    <span className="flex-1">EXPLORER</span>
-                    <button className="p-1 hover:bg-zinc-800 rounded">
-                      <ChevronDown size={16} />
-                    </button>
-                  </div>
-                  <div className="space-y-1">
-                    {fileStructure.map((item, index) => (
-                      <FileTreeItem key={item.name + index} item={item} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-1 flex flex-col bg-black/30">
-                <div className="border-b border-zinc-800 h-9 flex items-center px-2 relative">
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
-                  <div className="flex items-center space-x-1 relative z-0">
-                    <div className="flex items-center bg-zinc-800 rounded-t px-3 py-1 text-sm text-zinc-300 group cursor-pointer">
-                      <FileIcon extension="ts" />
-                      <span>index.ts</span>
-                      <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <X size={14} />
-                      </button>
-                    </div>
-                    <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
-                      <FileIcon extension="ts" />
-                      <span>auth.ts</span>
-                      <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <X size={14} />
-                      </button>
-                    </div>
-                    <div className="flex items-center hover:bg-zinc-800/50 rounded-t px-3 py-1 text-sm text-zinc-400 group cursor-pointer">
-                      <FileIcon extension="tsx" />
-                      <span>App.tsx</span>
-                      <button className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <X size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  className={cn(
-                    'flex-1 p-4 font-mono text-sm relative transition-all duration-1000',
-                    expandTerminal && 'h-[20%]'
-                  )}
-                  ref={editorRef}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/70 to-black/70 pointer-events-none z-10" />
-                  <div className="flex relative z-0">
-                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
-                      1
-                    </div>
-                    <div className="text-zinc-300">
-                      <span className="text-blue-400">import</span>
-                      <span> {'{'} </span>
-                      <span className="text-amber-300">useEffect</span>
-                      <span>, </span>
-                      <span className="text-amber-300">useState</span>
-                      <span> {'}'} </span>
-                      <span className="text-blue-400">from</span>
-                      <span className="text-green-400"> 'react'</span>
-                    </div>
-                  </div>
-                  <div className="flex relative z-0">
-                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
-                      2
-                    </div>
-                    <div className="text-zinc-300">
-                      <span className="text-blue-400">import</span>
-                      <span> {'{'} </span>
-                      <span className="text-amber-300">axios</span>
-                      <span> {'}'} </span>
-                      <span className="text-blue-400">from</span>
-                      <span className="text-green-400"> 'axios'</span>
-                    </div>
-                  </div>
-                  <div className="flex relative z-0">
-                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
-                      3
-                    </div>
-                    <div className="text-zinc-300"></div>
-                  </div>
-                  <div className="flex relative z-0">
-                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
-                      4
-                    </div>
-                    <div className="text-zinc-300">
-                      <span className="text-blue-400">interface</span>
-                      <span className="text-amber-300"> User</span>
-                      <span> {`{`}</span>
-                    </div>
-                  </div>
-                  <div className="flex relative z-0">
-                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
-                      5
-                    </div>
-                    <div className="text-zinc-300 pl-8">
-                      <span>id: </span>
-                      <span className="text-amber-300">string</span>
-                    </div>
-                  </div>
-                  <div className="flex relative z-0">
-                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
-                      6
-                    </div>
-                    <div className="text-zinc-300 pl-8">
-                      <span>email: </span>
-                      <span className="text-amber-300">string</span>
-                    </div>
-                  </div>
-                  <div className="flex relative z-0">
-                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
-                      7
-                    </div>
-                    <div className="text-zinc-300">
-                      <span>{`}`}</span>
-                    </div>
-                  </div>
-                  <div className="flex relative z-0">
-                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
-                      8
-                    </div>
-                    <div className="text-zinc-300"></div>
-                  </div>
-                  <div className="flex relative z-0">
-                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
-                      9
-                    </div>
-                    <div className="text-zinc-300">
-                      <span className="text-purple-400">export</span>
-                      <span className="text-blue-400"> function</span>
-                      <span className="text-amber-300"> UserProfile</span>
-                      <span>() {`{`}</span>
-                    </div>
-                  </div>
-                  <div className="flex relative z-0">
-                    <div className="text-zinc-600 mr-4 select-none w-6 text-right">
-                      10
-                    </div>
-                    <div className="text-zinc-300 pl-4">
-                      <span className="text-blue-400">const</span>
-                      <span> [user, setUser] = </span>
-                      <span className="text-amber-300">useState</span>
-                      <span>{`<`}</span>
-                      <span className="text-amber-300">User</span>
-                      <span>{`>`}</span>
-                      <span>();</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  className={cn(
-                    'border-t border-zinc-800 transition-all duration-1000 bg-black z-10',
-                    showIDE
-                      ? expandTerminal
-                        ? 'h-[70%]'
-                        : 'h-[300px]'
-                      : 'h-full'
-                  )}
-                >
-                  <div className="flex items-center border-b border-zinc-800 px-4 py-1">
-                    <span className="text-xs text-zinc-400">TERMINAL</span>
-                    <div className="ml-auto flex items-center space-x-2">
-                      <button className="p-1 hover:bg-zinc-800 rounded">
-                        <Split size={14} className="text-zinc-400" />
-                      </button>
-                      <button className="p-1 hover:bg-zinc-800 rounded">
-                        <Plus size={14} className="text-zinc-400" />
-                      </button>
-                      <button className="p-1 hover:bg-zinc-800 rounded">
-                        <Trash size={14} className="text-zinc-400" />
-                      </button>
-                    </div>
-                  </div>
-                  <Terminal
-                    colorMode={ColorMode.Dark}
-                    prompt="> "
-                    showWindowButtons={false}
-                  >
-                    {terminalLines.map((line, index) => (
-                      <TerminalOutput key={index}>{line}</TerminalOutput>
-                    ))}
-                    {isTyping && (
-                      <TerminalOutput>
-                        <span className="text-green-400">
-                          your-next-app {'>'}
-                        </span>{' '}
-                        {typingText}
-                        <span className="inline-block w-2 h-6 ml-1 bg-green-400 animate-pulse align-middle relative -top-[1px]"></span>
-                      </TerminalOutput>
-                    )}
-                  </Terminal>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showOriginalTerminal && (
-          <div
-            className={cn(
-              'absolute inset-0 transition-all duration-1000',
-              showIDE ? 'opacity-0' : 'opacity-100'
-            )}
-          >
-            <Terminal
-              name="Terminal"
-              colorMode={ColorMode.Dark}
-              prompt="> "
-              showWindowButtons={true}
+          {showOriginalTerminal && (
+            <div
+              className={cn(
+                'absolute inset-0 transition-all duration-1000',
+                showIDE ? 'opacity-0' : 'opacity-100'
+              )}
             >
-              <TerminalOutput>
-                <span className="text-green-400 underline">Codebuff:</span>{' '}
-                <span className="text-white">Code from your terminal!</span>
-              </TerminalOutput>
-            </Terminal>
-          </div>
-        )}
+              <Terminal
+                name="Terminal"
+                colorMode={ColorMode.Dark}
+                prompt="> "
+                showWindowButtons={true}
+              >
+                <TerminalOutput>
+                  <span className="text-green-400 underline">Codebuff:</span>{' '}
+                  <span className="text-white">Code from your terminal!</span>
+                </TerminalOutput>
+              </Terminal>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
