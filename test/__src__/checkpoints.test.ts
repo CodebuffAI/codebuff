@@ -1,81 +1,9 @@
 import { describe, it, expect, beforeEach, mock } from 'bun:test'
-import { CheckpointManager } from '../../npm-app/src/checkpoints/checkpoint-manager'
+import { CheckpointManager, CheckpointsDisabledError } from '../../npm-app/src/checkpoints/checkpoint-manager'
 import { AgentState, getInitialAgentState } from 'common/types/agent-state'
 import { ProjectFileContext } from 'common/util/file'
+import { DEFAULT_MAX_FILES } from 'common/project-file-tree'
 
-// Mock isomorphic-git to prevent actual file system operations
-beforeEach(() => {
-  // Mock fs module at the lowest level
-  const mockFs = {
-    default: {
-      mkdirSync: (path: string, options: any) => {
-        // Return undefined to indicate success without actually creating directories
-        return undefined
-      },
-      lstat: () => ({
-        isFile: () => true,
-        isDirectory: () => true,
-        size: 1000,
-        mtimeMs: Date.now(),
-      }),
-      readFileSync: () => '',
-      writeFileSync: () => {},
-      existsSync: () => true,
-      promises: {
-        mkdir: () => Promise.resolve(),
-        writeFile: () => Promise.resolve(),
-        readFile: () => Promise.resolve(''),
-      },
-    },
-  }
-
-  // Mock all fs module variants
-  mock.module('fs', () => mockFs.default)
-  mock.module('node:fs', () => mockFs.default)
-  mock.module('node:fs/promises', () => mockFs.default.promises)
-  mock.module('fs/promises', () => mockFs.default.promises)
-
-  // Mock git operations
-  mock.module('isomorphic-git', () => ({
-    statusMatrix: () => [],
-    add: () => {},
-    commit: () => 'mock-commit',
-    writeRef: () => {},
-    resolveRef: () => 'HEAD',
-    init: () => {},
-    checkout: () => {},
-    resetIndex: () => {},
-  }))
-
-  // Mock crypto
-  mock.module('crypto', () => ({
-    createHash: () => ({
-      update: () => ({
-        digest: () => 'mock-hash',
-      }),
-    }),
-  }))
-
-  // Mock child_process
-  mock.module('child_process', () => ({
-    execFileSync: () => Buffer.from(''),
-  }))
-
-  // Mock project files
-  mock.module('../../npm-app/src/project-files', () => ({
-    getProjectRoot: () => '/test/project',
-    getProjectDataDir: () => '/test/data',
-  }))
-
-  // Mock file-manager module itself to override fs
-  mock.module('../../npm-app/src/checkpoints/file-manager', () => ({
-    ...require('../../npm-app/src/checkpoints/file-manager'),
-    fs: mockFs.default,
-    hasUnsavedChanges: () => Promise.resolve(true),
-  }))
-})
-
-// Mock minimal ProjectFileContext for testing
 const mockFileContext: ProjectFileContext = {
   currentWorkingDirectory: '/test',
   fileTree: [],
@@ -100,11 +28,17 @@ const mockFileContext: ProjectFileContext = {
   fileVersions: [],
 }
 
-// Create a mock agent state for testing
-function createMockAgentState(messageCount: number = 1): AgentState {
-  const agentState = getInitialAgentState(mockFileContext)
+function createMockAgentState(messageCount: number = 1, fileCount: number = 0): AgentState {
+  const agentState = getInitialAgentState({
+    ...mockFileContext,
+    fileTree: Array(fileCount).fill({
+      type: 'file',
+      name: 'test.txt',
+      filePath: 'test.txt',
+      lastReadTime: Date.now(),
+    }),
+  })
 
-  // Add some test messages
   for (let i = 0; i < messageCount; i++) {
     agentState.messageHistory.push({
       role: i % 2 === 0 ? 'user' : 'assistant',
@@ -115,11 +49,110 @@ function createMockAgentState(messageCount: number = 1): AgentState {
   return agentState
 }
 
+const mockFs = {
+  default: {
+    mkdirSync: (path: string, options: any) => {
+      return undefined
+    },
+    lstat: () => ({
+      isFile: () => true,
+      isDirectory: () => true,
+      size: 1000,
+      mtimeMs: Date.now(),
+    }),
+    readFileSync: () => '',
+    writeFileSync: () => {},
+    existsSync: () => true,
+    promises: {
+      mkdir: () => Promise.resolve(),
+      writeFile: () => Promise.resolve(),
+      readFile: () => Promise.resolve(''),
+    },
+  },
+}
+
 describe('CheckpointManager', () => {
   let checkpointManager: CheckpointManager
+  let restoreCount: number
 
   beforeEach(() => {
-    // Create a fresh checkpoint manager before each test
+    restoreCount = 0
+
+    mock.module('fs', () => mockFs.default)
+    mock.module('node:fs', () => mockFs.default)
+    mock.module('node:fs/promises', () => mockFs.default.promises)
+    mock.module('fs/promises', () => mockFs.default.promises)
+
+    mock.module('isomorphic-git', () => ({
+      statusMatrix: () => [['/test/file.txt', 1, 1, 1]],
+      add: () => Promise.resolve(),
+      commit: () => Promise.resolve('mock-commit'),
+      writeRef: () => Promise.resolve(),
+      resolveRef: () => Promise.resolve('HEAD'),
+      init: () => Promise.resolve(),
+      checkout: () => Promise.resolve(),
+      resetIndex: () => Promise.resolve(),
+    }))
+
+    mock.module('crypto', () => ({
+      createHash: () => ({
+        update: () => ({
+          digest: () => 'mock-hash',
+        }),
+      }),
+    }))
+
+    mock.module('child_process', () => ({
+      execFileSync: () => Buffer.from(''),
+    }))
+
+    mock.module('../../npm-app/src/project-files', () => ({
+      getProjectRoot: () => '/test/project',
+      getProjectDataDir: () => '/test/data',
+    }))
+
+    mock.module('../../npm-app/src/checkpoints/file-manager', () => ({
+      fs: mockFs.default,
+      hasUnsavedChanges: () => Promise.resolve(true),
+      getLatestCommit: () => Promise.resolve('mock-commit-hash'),
+      storeFileState: () => Promise.resolve('mock-commit-hash'),
+      restoreFileState: async () => {
+        restoreCount++
+        return Promise.resolve()
+      },
+      getBareRepoPath: () => '/test/data',
+      initializeCheckpointFileManager: () => Promise.resolve(),
+      statusMatrix: () => [['/test/file.txt', 1, 1, 1]],
+    }))
+
+    mock.module('worker_threads', () => ({
+      Worker: class {
+        handler: Function | null = null
+
+        on(event: string, handler: Function) {
+          if (event === 'message') {
+            this.handler = handler
+            handler({
+              id: JSON.stringify({
+                type: 'store',
+                projectDir: '/test/project',
+                bareRepoPath: '/test/data',
+                message: 'test',
+              }),
+              success: true,
+              result: 'mock-commit-hash'
+            })
+          }
+          return this
+        }
+
+        postMessage(message: any) {
+        }
+
+        off() {}
+      }
+    }))
+
     checkpointManager = new CheckpointManager()
   })
 
@@ -127,56 +160,49 @@ describe('CheckpointManager', () => {
     const agentState = createMockAgentState()
     const userInput = 'Test user input'
 
-    const checkpoint = await checkpointManager.addCheckpoint(
+    const { checkpoint, created } = await checkpointManager.addCheckpoint(
       agentState,
       userInput
     )
 
-    expect(checkpoint).not.toBeNull()
-    expect(checkpoint?.userInput).toBe(userInput)
-    expect(checkpoint?.historyLength).toBe(agentState.messageHistory.length)
+    expect(created).toBe(true)
+    expect(checkpoint.userInput).toBe(userInput)
+    expect(checkpoint.historyLength).toBe(agentState.messageHistory.length)
   })
 
   it('should retrieve a checkpoint by ID', async () => {
     const agentState = createMockAgentState()
-    const checkpoint = await checkpointManager.addCheckpoint(
+    const { checkpoint } = await checkpointManager.addCheckpoint(
       agentState,
       'Test input'
     )
 
-    expect(checkpoint).not.toBeNull()
-    expect(checkpoint?.id).toBe(1)
-    expect(JSON.parse(checkpoint!.agentStateString)).toEqual(agentState)
+    expect(checkpoint.id).toBe(1)
+    expect(JSON.parse(checkpoint.agentStateString)).toEqual(agentState)
   })
 
-  it('should return null when getting a non-existent checkpoint', () => {
-    const checkpoint = checkpointManager.getLatestCheckpoint()
-    expect(checkpoint).toBeNull()
+  it('should throw when getting a non-existent checkpoint', () => {
+    expect(() => checkpointManager.getLatestCheckpoint()).toThrow('No checkpoints available')
   })
 
   it('should get all checkpoints', async () => {
-    // Mock hasUnsavedChanges to return true so checkpoints are created
     mock.module('../../npm-app/src/checkpoints/file-manager', () => ({
       ...require('../../npm-app/src/checkpoints/file-manager'),
       hasUnsavedChanges: () => Promise.resolve(true),
     }))
 
-    const checkpoint1 = await checkpointManager.addCheckpoint(
+    const { checkpoint: checkpoint1 } = await checkpointManager.addCheckpoint(
       createMockAgentState(1),
       'Input 1'
     )
-    const checkpoint2 = await checkpointManager.addCheckpoint(
+    const { checkpoint: checkpoint2 } = await checkpointManager.addCheckpoint(
       createMockAgentState(2),
       'Input 2'
     )
-    const checkpoint3 = await checkpointManager.addCheckpoint(
+    const { checkpoint: checkpoint3 } = await checkpointManager.addCheckpoint(
       createMockAgentState(3),
       'Input 3'
     )
-
-    expect(checkpoint1).not.toBeNull()
-    expect(checkpoint2).not.toBeNull()
-    expect(checkpoint3).not.toBeNull()
 
     const checkpoints = checkpointManager.checkpoints
     expect(checkpoints.length).toBe(3)
@@ -186,23 +212,18 @@ describe('CheckpointManager', () => {
   })
 
   it('should get the latest checkpoint', async () => {
-    // Add checkpoints
     await checkpointManager.addCheckpoint(createMockAgentState(1), 'Input 1')
-    const checkpoint2 = await checkpointManager.addCheckpoint(
+    const { checkpoint: checkpoint2 } = await checkpointManager.addCheckpoint(
       createMockAgentState(2),
       'Input 2'
     )
 
     const latestCheckpoint = checkpointManager.getLatestCheckpoint()
-
-    expect(latestCheckpoint).not.toBeNull()
-    // The latest checkpoint should be the one with the highest ID
-    expect(latestCheckpoint?.id).toBe(checkpoint2?.id)
+    expect(latestCheckpoint.id).toBe(checkpoint2.id)
   })
 
-  it('should return null for latest checkpoint when no checkpoints exist', () => {
-    const latestCheckpoint = checkpointManager.getLatestCheckpoint()
-    expect(latestCheckpoint).toBeNull()
+  it('should throw for latest checkpoint when no checkpoints exist', () => {
+    expect(() => checkpointManager.getLatestCheckpoint()).toThrow('No checkpoints available')
   })
 
   it('should clear all checkpoints', async () => {
@@ -212,11 +233,10 @@ describe('CheckpointManager', () => {
     checkpointManager.clearCheckpoints()
 
     expect(checkpointManager.checkpoints.length).toBe(0)
-    expect(checkpointManager.getLatestCheckpoint()).toBeNull()
+    expect(() => checkpointManager.getLatestCheckpoint()).toThrow('No checkpoints available')
   })
 
   it('should maintain all checkpoints', async () => {
-    // Add more checkpoints than the limit (5)
     for (let i = 0; i < 7; i++) {
       await checkpointManager.addCheckpoint(
         createMockAgentState(),
@@ -226,14 +246,13 @@ describe('CheckpointManager', () => {
 
     const checkpoints = checkpointManager.checkpoints
 
-    // Should keep all checkpoints
     expect(checkpoints.length).toBe(7)
-    expect(checkpoints[0].id).toBe(1) // First checkpoint should be ID 1
-    expect(checkpoints[6].id).toBe(7) // Last checkpoint should be ID 7
+    expect(checkpoints[0].id).toBe(1)
+    expect(checkpoints[6].id).toBe(7)
   })
 
   it('should format checkpoints as a string', async () => {
-    await checkpointManager.addCheckpoint(createMockAgentState(), 'Test input')
+    const { checkpoint } = await checkpointManager.addCheckpoint(createMockAgentState(), 'Test input')
 
     const formatted = checkpointManager.getCheckpointsAsString()
 
@@ -243,32 +262,281 @@ describe('CheckpointManager', () => {
   })
 
   it('should format detailed checkpoint information', async () => {
-    const checkpoint = await checkpointManager.addCheckpoint(
+    const { checkpoint } = await checkpointManager.addCheckpoint(
       createMockAgentState(3),
       'Detailed test'
     )
 
     const details = checkpointManager.getCheckpointsAsString(true)
 
-    expect(details).toContain(`#${checkpoint!.id}`)
+    expect(details).toContain(`#${checkpoint.id}`)
     expect(details).toContain('Detailed test')
-    expect(details).toContain('\u001b[34mMessages\u001b[39m: 3') // Match exact format including ANSI color codes
+    expect(details).toContain('\u001b[34mMessages\u001b[39m: 3')
   })
 
   it('should return error message when checkpoints are disabled', () => {
-    checkpointManager.disabledReason = 'Project too large'
+    checkpointManager.disabledReason = new CheckpointsDisabledError('Project too large')
     const details = checkpointManager.getCheckpointsAsString()
-    expect(details).toContain('Checkpoints not enabled: Project too large')
+    expect(details).toContain('\u001B[31mCheckpoints not enabled: Project too large\u001B[39m')
   })
 
   it('should reset the ID counter when clearing checkpoints', async () => {
     await checkpointManager.addCheckpoint(createMockAgentState(), 'First batch')
     checkpointManager.clearCheckpoints()
-    const checkpoint = await checkpointManager.addCheckpoint(
+    const { checkpoint } = await checkpointManager.addCheckpoint(
       createMockAgentState(),
       'Second batch'
     )
 
-    expect(checkpoint?.id).toBe(1) // ID counter should reset to 1
+    expect(checkpoint.id).toBe(1)
+  })
+
+  describe('checkpoint state management', () => {
+    it('should track parent/child relationships between checkpoints', async () => {
+      const { checkpoint: checkpoint1 } = await checkpointManager.addCheckpoint(
+        createMockAgentState(1),
+        'First checkpoint'
+      )
+      const { checkpoint: checkpoint2 } = await checkpointManager.addCheckpoint(
+        createMockAgentState(2),
+        'Second checkpoint'
+      )
+
+      expect(checkpoint2.parentId).toBe(checkpoint1.id)
+      expect(checkpointManager.currentCheckpointId).toBe(checkpoint2.id)
+    })
+
+    it('should not create duplicate checkpoints for identical states', async () => {
+      mock.module('../../npm-app/src/checkpoints/file-manager', () => ({
+        fs: mockFs.default,
+        hasUnsavedChanges: () => Promise.resolve(false),
+        getLatestCommit: () => Promise.resolve('mock-commit-hash'),
+        storeFileState: () => Promise.resolve('mock-commit-hash'),
+        restoreFileState: async () => {
+          restoreCount++
+          return Promise.resolve()
+        },
+        getBareRepoPath: () => '/test/data',
+        initializeCheckpointFileManager: () => Promise.resolve(),
+      }))
+
+      checkpointManager = new CheckpointManager()
+
+      const agentState = createMockAgentState(1)
+      const { checkpoint: checkpoint1, created: created1 } = await checkpointManager.addCheckpoint(
+        agentState,
+        'First attempt'
+      )
+      const { checkpoint: checkpoint2, created: created2 } = await checkpointManager.addCheckpoint(
+        agentState,
+        'Second attempt'
+      )
+
+      expect(created1).toBe(true)
+      expect(created2).toBe(false)
+      expect(checkpoint2.id).toBe(checkpoint1.id)
+    })
+
+    it('should maintain undo/redo chain correctly', async () => {
+      restoreCount = 0
+
+      // Create a fresh checkpoint manager with clean mocks
+      const fileManagerMock = {
+        fs: mockFs.default,
+        hasUnsavedChanges: () => Promise.resolve(true),
+        getLatestCommit: () => Promise.resolve('mock-commit-hash'),
+        storeFileState: () => Promise.resolve('mock-commit-hash'),
+        restoreFileState: async () => {
+          restoreCount++
+          return Promise.resolve()
+        },
+        getBareRepoPath: () => '/test/data',
+        initializeCheckpointFileManager: () => Promise.resolve(),
+        statusMatrix: () => [['/test/file.txt', 1, 1, 1]],
+      }
+
+      mock.module('../../npm-app/src/checkpoints/file-manager', () => fileManagerMock)
+
+      // Reset the worker mock to handle both store and restore operations
+      mock.module('worker_threads', () => ({
+        Worker: class {
+          handler: Function | null = null
+          on(event: string, handler: Function) {
+            if (event === 'message') {
+              this.handler = handler
+            }
+            return this
+          }
+          postMessage(message: any) {
+            if (this.handler) {
+              if (message.type === 'restore') {
+                // For restore operations, call restoreFileState directly
+                fileManagerMock.restoreFileState().then(() => {
+                  this.handler!({
+                    id: message.id,
+                    success: true,
+                    result: undefined
+                  })
+                })
+              } else {
+                // For store operations, just return mock commit hash
+                this.handler({
+                  id: message.id,
+                  success: true,
+                  result: 'mock-commit-hash'
+                })
+              }
+            }
+          }
+          off() {}
+        }
+      }))
+
+      checkpointManager = new CheckpointManager()
+
+      const { checkpoint: checkpoint1 } = await checkpointManager.addCheckpoint(
+        createMockAgentState(1),
+        'First'
+      )
+      const { checkpoint: checkpoint2 } = await checkpointManager.addCheckpoint(
+        createMockAgentState(2),
+        'Second'
+      )
+      const { checkpoint: checkpoint3 } = await checkpointManager.addCheckpoint(
+        createMockAgentState(3),
+        'Third'
+      )
+
+      // Undo twice
+      await checkpointManager.restoreUndoCheckpoint() // Goes to checkpoint2
+      await checkpointManager.restoreUndoCheckpoint() // Goes to checkpoint1
+
+      expect(checkpointManager.currentCheckpointId).toBe(checkpoint1.id)
+      expect(restoreCount).toBe(2)
+
+      // Redo once
+      await checkpointManager.restoreRedoCheckpoint() // Goes back to checkpoint2
+
+      expect(checkpointManager.currentCheckpointId).toBe(checkpoint2.id)
+      expect(restoreCount).toBe(3)
+    })
+
+    it('should clear redo history when new checkpoint is added', async () => {
+      restoreCount = 0
+
+      // Create a fresh checkpoint manager with clean mocks
+      const fileManagerMock = {
+        fs: mockFs.default,
+        hasUnsavedChanges: () => Promise.resolve(true),
+        getLatestCommit: () => Promise.resolve('mock-commit-hash'),
+        storeFileState: () => Promise.resolve('mock-commit-hash'),
+        restoreFileState: async () => {
+          restoreCount++
+          return Promise.resolve()
+        },
+        getBareRepoPath: () => '/test/data',
+        initializeCheckpointFileManager: () => Promise.resolve(),
+        statusMatrix: () => [['/test/file.txt', 1, 1, 1]],
+      }
+
+      mock.module('../../npm-app/src/checkpoints/file-manager', () => fileManagerMock)
+
+      // Reset the worker mock to handle both store and restore operations
+      mock.module('worker_threads', () => ({
+        Worker: class {
+          handler: Function | null = null
+          on(event: string, handler: Function) {
+            if (event === 'message') {
+              this.handler = handler
+            }
+            return this
+          }
+          postMessage(message: any) {
+            if (this.handler) {
+              if (message.type === 'restore') {
+                // For restore operations, call restoreFileState directly
+                fileManagerMock.restoreFileState().then(() => {
+                  this.handler!({
+                    id: message.id,
+                    success: true,
+                    result: undefined
+                  })
+                })
+              } else {
+                // For store operations, just return mock commit hash
+                this.handler({
+                  id: message.id,
+                  success: true,
+                  result: 'mock-commit-hash'
+                })
+              }
+            }
+          }
+          off() {}
+        }
+      }))
+
+      checkpointManager = new CheckpointManager()
+
+      const { checkpoint: checkpoint1 } = await checkpointManager.addCheckpoint(
+        createMockAgentState(1),
+        'First'
+      )
+      const { checkpoint: checkpoint2 } = await checkpointManager.addCheckpoint(
+        createMockAgentState(2),
+        'Second'
+      )
+
+      // Undo to first checkpoint
+      await checkpointManager.restoreUndoCheckpoint()
+      expect(checkpointManager.currentCheckpointId).toBe(checkpoint1.id)
+      expect(restoreCount).toBe(1)
+
+      // Add new checkpoint - should clear redo history
+      const { checkpoint: checkpoint3 } = await checkpointManager.addCheckpoint(
+        createMockAgentState(3),
+        'Third'
+      )
+
+      // Try to redo - should fail since history was cleared
+      await expect(checkpointManager.restoreRedoCheckpoint()).rejects.toThrow('Nothing to redo')
+    })
+  })
+
+  describe('error handling', () => {
+    it('should disable checkpoints when project is too large', async () => {
+      const largeAgentState = createMockAgentState(1, DEFAULT_MAX_FILES + 1)
+
+      await expect(
+        checkpointManager.addCheckpoint(largeAgentState, 'Too large')
+      ).rejects.toThrow(CheckpointsDisabledError)
+
+      expect(checkpointManager.disabledReason).toBeInstanceOf(CheckpointsDisabledError)
+      expect(checkpointManager.disabledReason?.message).toBe('Project too large')
+    })
+
+    it('should propagate errors from disabled state', async () => {
+      checkpointManager.disabledReason = new CheckpointsDisabledError('Test error')
+
+      await expect(
+        checkpointManager.addCheckpoint(createMockAgentState(), 'Test')
+      ).rejects.toThrow('Test error')
+
+      await expect(
+        checkpointManager.restoreCheckointFileState(1)
+      ).rejects.toThrow('Test error')
+
+      await expect(
+        checkpointManager.restoreUndoCheckpoint()
+      ).rejects.toThrow('Test error')
+
+      await expect(
+        checkpointManager.restoreRedoCheckpoint()
+      ).rejects.toThrow('Test error')
+
+      expect(() => 
+        checkpointManager.getLatestCheckpoint()
+      ).toThrow('Test error')
+    })
   })
 })

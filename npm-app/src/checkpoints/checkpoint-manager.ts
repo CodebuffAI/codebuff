@@ -10,11 +10,21 @@ import {
   getLatestCommit,
 } from './file-manager'
 import { getProjectRoot } from '../project-files'
+import assert from 'assert'
+
+export class CheckpointsDisabledError extends Error {
+  constructor(message?: string, options?: ErrorOptions) {
+    super(message, options)
+    this.name = 'CheckpointsDisabledError'
+  }
+}
 
 /**
  * Message format for worker thread operations
  */
 interface WorkerMessage {
+  /** The ID of this message */
+  id: string
   /** Operation type - either storing or restoring checkpoint state */
   type: 'store' | 'restore'
   projectDir: string
@@ -31,13 +41,14 @@ interface WorkerMessage {
  * Response format from worker thread operations
  */
 interface WorkerResponse {
+  /** The ID of the message in which this is a response to */
+  id: string
   /** Whether the operation succeeded */
   success: boolean
   /** Operation result - commit hash for store operations */
   result?: unknown
   /** Error message if operation failed */
   error?: string
-  message: WorkerMessage
 }
 
 /**
@@ -64,7 +75,7 @@ export interface Checkpoint {
 export class CheckpointManager {
   checkpoints: Array<Checkpoint> = []
   currentCheckpointId: number = 0
-  disabledReason: string | null = null
+  disabledReason: CheckpointsDisabledError | null = null
 
   private bareRepoPath: string | null = null
   /** Stores the undo chain (leaf node first, current node last) */
@@ -92,7 +103,7 @@ export class CheckpointManager {
    * Execute an operation in the worker thread with timeout handling
    * @param message - The message describing the operation to perform
    * @returns A promise that resolves with the operation result
-   * @throws Error if the operation fails or times out
+   * @throws {Error} if the operation fails or times out
    */
   private async runWorkerOperation<T>(message: WorkerMessage): Promise<T> {
     const worker = this.initWorker()
@@ -101,10 +112,8 @@ export class CheckpointManager {
       const timeoutMs = 30000 // 30 seconds timeout
 
       const handler = (response: WorkerResponse) => {
-        for (const key of ['type', 'commit', 'message'] as const) {
-          if (response.message[key] !== message[key]) {
-            return
-          }
+        if (response.id !== message.id) {
+          return
         }
         if (response.success) {
           resolve(response.result as T)
@@ -140,14 +149,15 @@ export class CheckpointManager {
    * Add a new checkpoint of the current agent and file state
    * @param agentState - The current agent state to checkpoint
    * @param userInput - The user input that triggered this checkpoint
-   * @returns The created checkpoint, or null if checkpointing is disabled
+   * @returns The latest checkpoint and whether that checkpoint was created (or already existed)
+   * @throws {Error} If the checkpoint cannot be added
    */
   async addCheckpoint(
     agentState: AgentState,
     userInput: string
-  ): Promise<Checkpoint | null> {
+  ): Promise<{ checkpoint: Checkpoint; created: boolean }> {
     if (this.disabledReason !== null) {
-      return null
+      throw this.disabledReason
     }
 
     const id = this.checkpoints.length + 1
@@ -156,8 +166,8 @@ export class CheckpointManager {
     const relativeFilepaths = getAllFilePaths(agentState.fileContext.fileTree)
 
     if (relativeFilepaths.length >= DEFAULT_MAX_FILES) {
-      this.disabledReason = 'Project too large'
-      return null
+      this.disabledReason = new CheckpointsDisabledError('Project too large')
+      throw this.disabledReason
     }
 
     const needToStage = await hasUnsavedChanges({
@@ -166,18 +176,28 @@ export class CheckpointManager {
       relativeFilepaths,
     })
     if (!needToStage && this.checkpoints.length > 0) {
-      return null
+      return {
+        checkpoint: this.checkpoints[this.checkpoints.length - 1],
+        created: false,
+      }
     }
 
-    const fileStateIdPromise = needToStage
-      ? this.runWorkerOperation<string>({
-          type: 'store',
-          projectDir,
-          bareRepoPath,
-          message: `Checkpoint ${id}`,
-          relativeFilepaths,
-        })
-      : getLatestCommit({ bareRepoPath })
+    let fileStateIdPromise: Promise<string>
+    if (needToStage) {
+      const params = {
+        type: 'store' as const,
+        projectDir,
+        bareRepoPath,
+        message: `Checkpoint ${id}`,
+        relativeFilepaths,
+      }
+      fileStateIdPromise = this.runWorkerOperation<string>({
+        ...params,
+        id: JSON.stringify(params),
+      })
+    } else {
+      fileStateIdPromise = getLatestCommit({ bareRepoPath })
+    }
 
     const checkpoint: Checkpoint = {
       agentStateString: JSON.stringify(agentState),
@@ -192,35 +212,36 @@ export class CheckpointManager {
     this.checkpoints.push(checkpoint)
     this.currentCheckpointId = id
     this.undoIds = []
-    return checkpoint
+    return { checkpoint, created: true }
   }
 
   /**
    * Get the most recent checkpoint
    * @returns The most recent checkpoint or null if none exist
    */
-  getLatestCheckpoint(): Checkpoint | null {
+  getLatestCheckpoint(): Checkpoint {
     if (this.disabledReason !== null) {
-      return null
+      throw this.disabledReason
     }
-    return this.checkpoints.length === 0
-      ? null
-      : this.checkpoints[this.checkpoints.length - 1]
+    if (this.checkpoints.length === 0) {
+      throw new ReferenceError('No checkpoints available')
+    }
+    return this.checkpoints[this.checkpoints.length - 1]
   }
 
   /**
    * Restore the file state from a specific checkpoint
    * @param id - The ID of the checkpoint to restore
-   * @returns True if restoration succeeded, false if checkpoint not found
+   * @throws {Error} If the file state cannot be restored
    */
-  async restoreCheckointFileState(id: number): Promise<boolean> {
+  async restoreCheckointFileState(id: number): Promise<void> {
     if (this.disabledReason !== null) {
-      return false
+      throw this.disabledReason
     }
 
     const checkpoint = this.checkpoints[id - 1]
     if (!checkpoint) {
-      return false
+      throw new ReferenceError('No checkpoints available')
     }
 
     const relativeFilepaths = getAllFilePaths(
@@ -228,61 +249,58 @@ export class CheckpointManager {
         .fileTree
     )
 
-    await this.runWorkerOperation({
-      type: 'restore',
+    const params = {
+      type: 'restore' as const,
       projectDir: getProjectRoot(),
       bareRepoPath: this.getBareRepoPath(),
       commit: await checkpoint.fileStateIdPromise,
       relativeFilepaths,
-    })
+    }
+    await this.runWorkerOperation({ ...params, id: JSON.stringify(params) })
     this.currentCheckpointId = id
-    return true
   }
 
-  async restoreUndoCheckpoint(): Promise<boolean> {
+  async restoreUndoCheckpoint(): Promise<void> {
     if (this.disabledReason !== null) {
-      return false
+      throw this.disabledReason
     }
 
     const currentCheckpoint = this.checkpoints[this.currentCheckpointId - 1]
-    if (!currentCheckpoint) {
-      return false
-    }
+    assert(
+      currentCheckpoint,
+      `Internal error: checkpoint #${this.currentCheckpointId} not found`
+    )
 
     if (currentCheckpoint.parentId === 0) {
-      return false
+      throw new ReferenceError('Already at earliest change')
     }
 
-    const restored = await this.restoreCheckointFileState(
-      currentCheckpoint.parentId
-    )
-    if (!restored) {
-      return false
-    }
+    await this.restoreCheckointFileState(currentCheckpoint.parentId)
 
     this.undoIds.push(currentCheckpoint.id)
-
-    return true
   }
 
-  async restoreRedoCheckpoint(): Promise<boolean> {
+  async restoreRedoCheckpoint(): Promise<void> {
     if (this.disabledReason !== null) {
-      return false
+      throw this.disabledReason
     }
 
     const targetId = this.undoIds.pop()
+    if (targetId === undefined) {
+      throw new ReferenceError('Nothing to redo')
+    }
     // Check if targetId is either 0 or undefined
-    if (!targetId) {
-      return false
-    }
+    assert(
+      targetId,
+      `Internal error: Checkpoint ID ${targetId} found in undo list`
+    )
 
-    const restored = await this.restoreCheckointFileState(targetId)
-    if (restored) {
-      return true
+    try {
+      await this.restoreCheckointFileState(targetId)
+    } catch (error) {
+      this.undoIds.push(targetId)
+      throw new Error('Unable to restore checkpoint', { cause: error })
     }
-
-    this.undoIds.push(targetId)
-    return false
   }
 
   /**
@@ -301,7 +319,7 @@ export class CheckpointManager {
    */
   getCheckpointsAsString(detailed: boolean = false): string {
     if (this.disabledReason !== null) {
-      return red(`Checkpoints not enabled: ${this.disabledReason}`)
+      return red(`Checkpoints not enabled: ${this.disabledReason.message}`)
     }
 
     if (this.checkpoints.length === 0) {

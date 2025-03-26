@@ -5,6 +5,8 @@ import { storeFileState, restoreFileState } from '../checkpoints/file-manager'
  * Message format for worker operations
  */
 interface WorkerMessage {
+  /** The ID of this message */
+  id: string
   /** Operation type - either storing or restoring checkpoint state */
   type: 'store' | 'restore'
   projectDir: string
@@ -25,9 +27,16 @@ if (maybeParentPort) {
    * Executes git operations for storing or restoring checkpoints.
    */
   parentPort.on('message', async (message: WorkerMessage) => {
+    const {
+      id,
+      type,
+      projectDir,
+      bareRepoPath,
+      commit,
+      message: commitMessage,
+      relativeFilepaths,
+    } = message
     try {
-      const { type, projectDir, bareRepoPath, commit, message: commitMessage, relativeFilepaths } = message
-
       let result: string | boolean
       if (type === 'store') {
         // Store the current state as a git commit
@@ -50,11 +59,12 @@ if (maybeParentPort) {
         throw new Error(`Unknown operation type: ${type}`)
       }
 
-      parentPort.postMessage({ success: true, result, message })
+      parentPort.postMessage({ id, success: true, result })
     } catch (error) {
-      parentPort.postMessage({ 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      parentPort.postMessage({
+        id,
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       })
     }
   })

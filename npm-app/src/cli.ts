@@ -1,18 +1,8 @@
 import { parse } from 'path'
 
-import {
-  green,
-  red,
-  yellow,
-  blue,
-  cyan,
-  magenta,
-  bold,
-  underline,
-} from 'picocolors'
+import { green, red, yellow, blue, cyan, magenta, bold } from 'picocolors'
 import * as readline from 'readline'
 
-import { REQUEST_CREDIT_SHOW_THRESHOLD } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
@@ -20,7 +10,10 @@ import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 
 import { setMessages } from './chat-storage'
-import { Checkpoint, checkpointManager } from './checkpoints/checkpoint-manager'
+import {
+  checkpointManager,
+  CheckpointsDisabledError,
+} from './checkpoints/checkpoint-manager'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
@@ -31,7 +24,6 @@ import { isCommandRunning, resetShell } from './utils/terminal'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 import type { CostMode } from 'common/constants'
-import { AssertionError } from 'assert'
 
 const restoreCheckpointRegex = /^checkpoint\s+(\d+)$/
 
@@ -216,17 +208,25 @@ export class CLI {
     await this.readyPromise
     Spinner.get().stop()
 
-    // Make sure the previous checkpoint is done
-    await checkpointManager.getLatestCheckpoint()?.fileStateIdPromise
+    try {
+      // Make sure the previous checkpoint is done
+      await checkpointManager.getLatestCheckpoint().fileStateIdPromise
+    } catch (error) {
+      // No latest checkpoint available, no need to wait
+    }
 
     // Save the current agent state
-    const checkpoint = await checkpointManager.addCheckpoint(
-      this.client.agentState as AgentState,
-      userInput
-    )
+    try {
+      const { checkpoint, created } = await checkpointManager.addCheckpoint(
+        this.client.agentState as AgentState,
+        userInput
+      )
 
-    if (checkpoint) {
-      console.log(`[checkpoint #${checkpoint.id} saved]`)
+      if (created) {
+        console.log(`[checkpoint #${checkpoint.id} saved]`)
+      }
+    } catch (error) {
+      // Unable to add checkpoint, do not display anything to user
     }
   }
 
@@ -363,35 +363,45 @@ export class CLI {
   }
 
   private async handleUndo(): Promise<void> {
-    if (checkpointManager.disabledReason !== null) {
-      console.log(
-        red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
-      )
-      this.freshPrompt()
-      return
+    let failed: boolean = false
+
+    try {
+      await checkpointManager.restoreUndoCheckpoint()
+    } catch (error: any) {
+      failed = true
+      if (error instanceof CheckpointsDisabledError) {
+        console.log(red(`Checkpoints not enabled: ${error.message}`))
+      } else {
+        console.log(red(`Unable to undo: ${error.message}`))
+      }
     }
 
-    if (await checkpointManager.restoreUndoCheckpoint()) {
-      console.log(green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`))
-    } else {
-      console.log(red('Unable to undo'))
+    if (!failed) {
+      console.log(
+        green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`)
+      )
     }
     this.freshPrompt()
   }
 
   private async handleRedo(): Promise<void> {
-    if (checkpointManager.disabledReason !== null) {
-      console.log(
-        red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
-      )
-      this.freshPrompt()
-      return
+    let failed: boolean = false
+
+    try {
+      await checkpointManager.restoreRedoCheckpoint()
+    } catch (error: any) {
+      failed = true
+      if (error instanceof CheckpointsDisabledError) {
+        console.log(red(`Checkpoints not enabled: ${error.message}`))
+      } else {
+        console.log(red(`Unable to redo: ${error.message}`))
+      }
     }
 
-    if (await checkpointManager.restoreRedoCheckpoint()) {
-      console.log(green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`))
-    } else {
-      console.log(red('Unable to redo'))
+    if (!failed) {
+      console.log(
+        green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`)
+      )
     }
     this.freshPrompt()
   }
@@ -709,9 +719,11 @@ export class CLI {
   }
 
   private async handleRestoreCheckpoint(id: number): Promise<void> {
+    Spinner.get().start()
+
     if (checkpointManager.disabledReason !== null) {
       console.log(
-        red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
+        red(`Checkpoints not enabled: ${checkpointManager.disabledReason.message}`)
       )
       this.freshPrompt()
       return
@@ -724,32 +736,36 @@ export class CLI {
       return
     }
 
-    // Wait for save before trying to restore checkpoint
-    const latestCheckpoint = checkpointManager.getLatestCheckpoint()
-    await latestCheckpoint?.fileStateIdPromise
+    try {
+      // Wait for save before trying to restore checkpoint
+      const latestCheckpoint = checkpointManager.getLatestCheckpoint()
+      await latestCheckpoint?.fileStateIdPromise
+    } catch (error) {
+      // Should never happen
+    }
 
-    await this.restoreAgentStateAndFiles(checkpoint)
+    // Restore the agentState
+    this.client.agentState = JSON.parse(checkpoint.agentStateString)
 
-    console.log(green(`Restored to checkpoint #${id}.`))
+    let failed = false
+    try {
+      // Restore file state
+      await checkpointManager.restoreCheckointFileState(checkpoint.id)
+    } catch (error: any) {
+      failed = true
+      Spinner.get().stop()
+      console.log(red(`Unable to restore checkpoint: ${error.message}`))
+    }
+
+    if (!failed) {
+      Spinner.get().stop()
+      console.log(green(`Restored to checkpoint #${id}.`))
+    }
 
     // Insert the original user input that created this checkpoint
     this.freshPrompt()
     if (!checkpoint.userInput.match(restoreCheckpointRegex)) {
       this.rl.write(checkpoint.userInput)
-    }
-  }
-
-  private async restoreAgentStateAndFiles(
-    checkpoint: Checkpoint
-  ): Promise<void> {
-    // Restore the agentState
-    this.client.agentState = JSON.parse(checkpoint.agentStateString)
-
-    // Restore file state
-    if (!(await checkpointManager.restoreCheckointFileState(checkpoint.id))) {
-      throw new AssertionError({
-        message: `Internal error: checkpoint ${checkpoint.id} not found`,
-      })
     }
   }
 
