@@ -92,7 +92,7 @@ export function TestimonialsSection() {
             SECTION_THEMES.testimonials.textColor
           )}
         >
-          See them raving about Codebuff (previously &quot;Manicode&quot;)
+          Watch them rave about Codebuff (previously &quot;Manicode&quot;)
         </span>
       </div>
 
