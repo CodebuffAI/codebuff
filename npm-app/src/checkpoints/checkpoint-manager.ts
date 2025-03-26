@@ -232,9 +232,16 @@ export class CheckpointManager {
   /**
    * Restore the file state from a specific checkpoint
    * @param id - The ID of the checkpoint to restore
+   * @param resetUndoIds - Whether to reset the chain of undo/redo ids
    * @throws {Error} If the file state cannot be restored
    */
-  async restoreCheckointFileState(id: number): Promise<void> {
+  async restoreCheckointFileState({
+    id,
+    resetUndoIds = false,
+  }: {
+    id: number
+    resetUndoIds?: boolean
+  }): Promise<void> {
     if (this.disabledReason !== null) {
       throw this.disabledReason
     }
@@ -258,6 +265,9 @@ export class CheckpointManager {
     }
     await this.runWorkerOperation({ ...params, id: JSON.stringify(params) })
     this.currentCheckpointId = id
+    if (resetUndoIds) {
+      this.undoIds = []
+    }
   }
 
   async restoreUndoCheckpoint(): Promise<void> {
@@ -275,7 +285,7 @@ export class CheckpointManager {
       throw new ReferenceError('Already at earliest change')
     }
 
-    await this.restoreCheckointFileState(currentCheckpoint.parentId)
+    await this.restoreCheckointFileState({ id: currentCheckpoint.parentId })
 
     this.undoIds.push(currentCheckpoint.id)
   }
@@ -296,7 +306,7 @@ export class CheckpointManager {
     )
 
     try {
-      await this.restoreCheckointFileState(targetId)
+      await this.restoreCheckointFileState({ id: targetId })
     } catch (error) {
       this.undoIds.push(targetId)
       throw new Error('Unable to restore checkpoint', { cause: error })

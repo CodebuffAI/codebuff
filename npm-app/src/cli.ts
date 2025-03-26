@@ -26,6 +26,8 @@ import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import type { CostMode } from 'common/constants'
 
 const restoreCheckpointRegex = /^checkpoint\s+(\d+)$/
+const undoCommands = ['undo', 'u']
+const redoCommands = ['redo']
 
 export class CLI {
   private client: Client
@@ -254,12 +256,12 @@ export class CLI {
       await this.client.getUsage()
       return true
     }
-    if (userInput === 'undo' || userInput === 'u') {
+    if (undoCommands.includes(userInput)) {
       await this.saveCheckpoint(userInput)
       this.handleUndo()
       return true
     }
-    if (userInput === 'redo') {
+    if (redoCommands.includes(userInput)) {
       await this.saveCheckpoint(userInput)
       this.handleRedo()
       return true
@@ -376,12 +378,17 @@ export class CLI {
       }
     }
 
+    let userInput = ''
     if (!failed) {
       console.log(
         green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`)
       )
+      userInput =
+        checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
+          ?.userInput ?? ''
     }
     this.freshPrompt()
+    this.restoreUserInput(userInput)
   }
 
   private async handleRedo(): Promise<void> {
@@ -398,12 +405,17 @@ export class CLI {
       }
     }
 
+    let userInput = ''
     if (!failed) {
       console.log(
         green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`)
       )
+      userInput =
+        checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
+          ?.userInput ?? ''
     }
     this.freshPrompt()
+    this.restoreUserInput(userInput)
   }
 
   private handleKeyPress(str: string, key: any) {
@@ -723,7 +735,9 @@ export class CLI {
 
     if (checkpointManager.disabledReason !== null) {
       console.log(
-        red(`Checkpoints not enabled: ${checkpointManager.disabledReason.message}`)
+        red(
+          `Checkpoints not enabled: ${checkpointManager.disabledReason.message}`
+        )
       )
       this.freshPrompt()
       return
@@ -750,7 +764,10 @@ export class CLI {
     let failed = false
     try {
       // Restore file state
-      await checkpointManager.restoreCheckointFileState(checkpoint.id)
+      await checkpointManager.restoreCheckointFileState({
+        id: checkpoint.id,
+        resetUndoIds: true,
+      })
     } catch (error: any) {
       failed = true
       Spinner.get().stop()
@@ -764,8 +781,16 @@ export class CLI {
 
     // Insert the original user input that created this checkpoint
     this.freshPrompt()
-    if (!checkpoint.userInput.match(restoreCheckpointRegex)) {
-      this.rl.write(checkpoint.userInput)
+    this.restoreUserInput(checkpoint.userInput)
+  }
+
+  private restoreUserInput(userInput: string) {
+    if (
+      !userInput.match(restoreCheckpointRegex) &&
+      !undoCommands.includes(userInput) &&
+      !redoCommands.includes(userInput)
+    ) {
+      this.rl.write(userInput)
     }
   }
 

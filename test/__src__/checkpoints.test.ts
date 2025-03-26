@@ -501,6 +501,169 @@ describe('CheckpointManager', () => {
       // Try to redo - should fail since history was cleared
       await expect(checkpointManager.restoreRedoCheckpoint()).rejects.toThrow('Nothing to redo')
     })
+
+    it('should reset undo ids when restoring checkpoint with resetUndoIds=true', async () => {
+      restoreCount = 0
+
+      // Create a fresh checkpoint manager with clean mocks
+      const fileManagerMock = {
+        fs: mockFs.default,
+        hasUnsavedChanges: () => Promise.resolve(true),
+        getLatestCommit: () => Promise.resolve('mock-commit-hash'),
+        storeFileState: () => Promise.resolve('mock-commit-hash'),
+        restoreFileState: async () => {
+          restoreCount++
+          return Promise.resolve()
+        },
+        getBareRepoPath: () => '/test/data',
+        initializeCheckpointFileManager: () => Promise.resolve(),
+        statusMatrix: () => [['/test/file.txt', 1, 1, 1]],
+      }
+
+      mock.module('../../npm-app/src/checkpoints/file-manager', () => fileManagerMock)
+
+      // Reset the worker mock to handle both store and restore operations
+      mock.module('worker_threads', () => ({
+        Worker: class {
+          handler: Function | null = null
+          on(event: string, handler: Function) {
+            if (event === 'message') {
+              this.handler = handler
+            }
+            return this
+          }
+          postMessage(message: any) {
+            if (this.handler) {
+              if (message.type === 'restore') {
+                // For restore operations, call restoreFileState directly
+                fileManagerMock.restoreFileState().then(() => {
+                  this.handler!({
+                    id: message.id,
+                    success: true,
+                    result: undefined
+                  })
+                })
+              } else {
+                // For store operations, just return mock commit hash
+                this.handler({
+                  id: message.id,
+                  success: true,
+                  result: 'mock-commit-hash'
+                })
+              }
+            }
+          }
+          off() {}
+        }
+      }))
+
+      checkpointManager = new CheckpointManager()
+
+      // Create a few checkpoints
+      const { checkpoint: checkpoint1 } = await checkpointManager.addCheckpoint(
+        createMockAgentState(1),
+        'First'
+      )
+      const { checkpoint: checkpoint2 } = await checkpointManager.addCheckpoint(
+        createMockAgentState(2),
+        'Second'
+      )
+
+      // Undo to first checkpoint to populate undo ids
+      await checkpointManager.restoreUndoCheckpoint()
+      expect(checkpointManager.currentCheckpointId).toBe(checkpoint1.id)
+
+      // Restore checkpoint2 with resetUndoIds=true
+      await checkpointManager.restoreCheckointFileState({
+        id: checkpoint2.id,
+        resetUndoIds: true
+      })
+
+      // Try to redo - should fail since undo history was cleared
+      await expect(checkpointManager.restoreRedoCheckpoint()).rejects.toThrow('Nothing to redo')
+    })
+
+    it('should not reset undo ids when restoring checkpoint with resetUndoIds=false', async () => {
+      restoreCount = 0
+
+      // Create a fresh checkpoint manager with clean mocks
+      const fileManagerMock = {
+        fs: mockFs.default,
+        hasUnsavedChanges: () => Promise.resolve(true),
+        getLatestCommit: () => Promise.resolve('mock-commit-hash'),
+        storeFileState: () => Promise.resolve('mock-commit-hash'),
+        restoreFileState: async () => {
+          restoreCount++
+          return Promise.resolve()
+        },
+        getBareRepoPath: () => '/test/data',
+        initializeCheckpointFileManager: () => Promise.resolve(),
+        statusMatrix: () => [['/test/file.txt', 1, 1, 1]],
+      }
+
+      mock.module('../../npm-app/src/checkpoints/file-manager', () => fileManagerMock)
+
+      // Reset the worker mock to handle both store and restore operations
+      mock.module('worker_threads', () => ({
+        Worker: class {
+          handler: Function | null = null
+          on(event: string, handler: Function) {
+            if (event === 'message') {
+              this.handler = handler
+            }
+            return this
+          }
+          postMessage(message: any) {
+            if (this.handler) {
+              if (message.type === 'restore') {
+                // For restore operations, call restoreFileState directly
+                fileManagerMock.restoreFileState().then(() => {
+                  this.handler!({
+                    id: message.id,
+                    success: true,
+                    result: undefined
+                  })
+                })
+              } else {
+                // For store operations, just return mock commit hash
+                this.handler({
+                  id: message.id,
+                  success: true,
+                  result: 'mock-commit-hash'
+                })
+              }
+            }
+          }
+          off() {}
+        }
+      }))
+
+      checkpointManager = new CheckpointManager()
+
+      // Create a few checkpoints
+      const { checkpoint: checkpoint1 } = await checkpointManager.addCheckpoint(
+        createMockAgentState(1),
+        'First'
+      )
+      const { checkpoint: checkpoint2 } = await checkpointManager.addCheckpoint(
+        createMockAgentState(2),
+        'Second'
+      )
+
+      // Undo to first checkpoint to populate undo ids
+      await checkpointManager.restoreUndoCheckpoint()
+      expect(checkpointManager.currentCheckpointId).toBe(checkpoint1.id)
+
+      // Restore checkpoint2 with resetUndoIds=false
+      await checkpointManager.restoreCheckointFileState({
+        id: checkpoint2.id,
+        resetUndoIds: false
+      })
+
+      // Should be able to redo since undo history was preserved
+      await checkpointManager.restoreRedoCheckpoint()
+      expect(checkpointManager.currentCheckpointId).toBe(checkpoint2.id)
+    })
   })
 
   describe('error handling', () => {
