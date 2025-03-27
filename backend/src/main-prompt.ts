@@ -524,13 +524,6 @@ ${addedFiles.map((file) => file.path).join('\n')}
   clientToolCalls.unshift(...changeToolCalls)
 
   const newAgentContext = await agentContextPromise
-  logger.debug(
-    {
-      agentContext: newAgentContext,
-      previousAgentContext: agentContext,
-    },
-    'Updated agent context'
-  )
 
   const newAgentState: AgentState = {
     ...agentState,

@@ -131,10 +131,7 @@ export async function genUsageResponse(
       fingerprintId,
       userId,
       sessionId: clientSessionId,
-      limit: params.limit,
-      subscription_active: params.subscription_active,
-      next_quota_reset: params.next_quota_reset,
-      session_credits_used: params.session_credits_used,
+      ...params,
     },
     'Sending usage info'
   )

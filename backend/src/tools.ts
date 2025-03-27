@@ -511,7 +511,6 @@ Please rewrite the entire context using the update instructions in a <new_contex
     userInputId: 'strange-loop',
     userId: TEST_USER_ID,
   })
-  logger.debug({ prompt, response }, 'Updated context')
   const newContext = response.split('</new_context>')[0]
   return newContext.trim()
 }
