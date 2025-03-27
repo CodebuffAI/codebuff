@@ -31,6 +31,8 @@ const InteractionResponseType = {
 //   WELCOME: '1272621334580429053'
 // } as const
 
+const VERIFIED_ROLE_ID = 1354877460583415929
+
 // Verify Discord requests
 async function verifyDiscordRequest(request: Request) {
   const signature = request.headers.get('x-signature-ed25519')
@@ -68,7 +70,7 @@ export async function POST(req: Request) {
       data: {
         content:
           'You are sending commands too quickly. Please wait a minute and try again.',
-        flags: 64
+        flags: 64,
       },
     })
   }
@@ -86,7 +88,7 @@ export async function POST(req: Request) {
           data: {
             content:
               'Please provide your email address with the command, like: `/link your@email.com`',
-            flags: 64
+            flags: 64,
           },
         })
       }
@@ -108,6 +110,22 @@ export async function POST(req: Request) {
             .set({ discord_id: interaction.member.user.id })
             .where(eq(user.id, dbUser.id))
 
+          // Add the role to the user
+          try {
+            await fetch(
+              `https://discord.com/api/v10/guilds/${interaction.guild_id}/members/${interaction.member.user.id}/roles/${VERIFIED_ROLE_ID}`,
+              {
+                method: 'PUT',
+                headers: {
+                  Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            )
+          } catch (error) {
+            logger.error({ error }, 'Error adding role to user')
+          }
+
           logger.info(
             { userId: dbUser.id, discordId: interaction.member.user.id },
             'Linked Discord account to user'
@@ -118,7 +136,7 @@ export async function POST(req: Request) {
             data: {
               content:
                 "Thanks! I've linked your Discord account to your Codebuff account. You're all set! 🎉",
-              flags: 64
+              flags: 64,
             },
           })
         } else {
@@ -126,7 +144,7 @@ export async function POST(req: Request) {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content: `I couldn't find that email in our system. Please make sure you're using the same email you used to register with Codebuff, or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`,
-              flags: 64
+              flags: 64,
             },
           })
         }
@@ -137,7 +155,7 @@ export async function POST(req: Request) {
           data: {
             content:
               'Sorry, I ran into an error while trying to link your account. Please try again later or contact support if the problem persists.',
-            flags: 64
+            flags: 64,
           },
         })
       }
@@ -150,7 +168,7 @@ export async function POST(req: Request) {
     data: {
       content:
         'Unknown command. Please use `/link your@email.com` to link your Discord account.',
-      flags: 64
+      flags: 64,
     },
   })
 }
