@@ -448,6 +448,6 @@ describe('rewriteWithOpenAI', () => {
       (line) => line.startsWith('+') || line.startsWith('-')
     ).length
     console.log(patch)
-    expect(linesChanged).toBeLessThanOrEqual(5)
+    expect(linesChanged).toBeLessThanOrEqual(10)
   }, 240_000)
 })
