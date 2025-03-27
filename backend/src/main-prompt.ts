@@ -599,6 +599,7 @@ async function getFileVersionUpdates(
     costMode: CostMode
   }
 ) {
+  const FILE_TOKEN_BUDGET = 100_000
   const {
     skipRequestingFiles,
     clientSessionId,
@@ -607,7 +608,6 @@ async function getFileVersionUpdates(
     userId,
     costMode,
   } = options
-  const FILE_TOKEN_BUDGET = 100_000
 
   const toolResults = messages
     .filter(isToolResult)
@@ -666,10 +666,16 @@ async function getFileVersionUpdates(
     }
     return tokenCount < 10_000
   })
-  const newFiles = difference(
+  const newFilesWithoutRequestedFiles = difference(
     [...filteredRequestedFiles, ...includedInitialFiles],
     previousFilePaths
   )
+  const newFiles = uniq([
+    ...newFilesWithoutRequestedFiles,
+    // NOTE: When the assistant specifically asks for a file, we force it to be shown even if it's not new or changed.
+    // The assistant is too dumb to know that it is already in context, even when we give it a message saying so.
+    ...(options.requestedFiles ?? []),
+  ])
 
   const updatedFiles = [...previousFilePaths, ...editedFilePaths].filter(
     (path) => {
