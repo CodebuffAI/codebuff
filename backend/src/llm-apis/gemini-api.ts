@@ -99,6 +99,7 @@ export function promptGeminiStream(
           temperature: temperature ?? 0,
           max_tokens: maxTokens,
           stream: true,
+          stream_options: {include_usage: true}
         })
 
         let content = ''
