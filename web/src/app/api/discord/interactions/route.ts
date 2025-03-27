@@ -68,7 +68,7 @@ export async function POST(req: Request) {
       data: {
         content:
           'You are sending commands too quickly. Please wait a minute and try again.',
-        ephemeral: true,
+        flags: 64
       },
     })
   }
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
           data: {
             content:
               'Please provide your email address with the command, like: `/link your@email.com`',
-            ephemeral: true,
+            flags: 64
           },
         })
       }
@@ -118,7 +118,7 @@ export async function POST(req: Request) {
             data: {
               content:
                 "Thanks! I've linked your Discord account to your Codebuff account. You're all set! 🎉",
-              ephemeral: true,
+              flags: 64
             },
           })
         } else {
@@ -126,7 +126,7 @@ export async function POST(req: Request) {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content: `I couldn't find that email in our system. Please make sure you're using the same email you used to register with Codebuff, or reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`,
-              ephemeral: true,
+              flags: 64
             },
           })
         }
@@ -137,7 +137,7 @@ export async function POST(req: Request) {
           data: {
             content:
               'Sorry, I ran into an error while trying to link your account. Please try again later or contact support if the problem persists.',
-            ephemeral: true,
+            flags: 64
           },
         })
       }
@@ -150,7 +150,7 @@ export async function POST(req: Request) {
     data: {
       content:
         'Unknown command. Please use `/link your@email.com` to link your Discord account.',
-      ephemeral: true,
+      flags: 64
     },
   })
 }

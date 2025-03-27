@@ -96,3 +96,11 @@ Codebuff implements a secure authentication flow that involves the npm-app (CLI)
 2. Consider using JSON Web Tokens (JWT) for stateless authentication.
 3. Develop a system for handling password resets and account recovery.
 4. Implement a more robust session management system with the ability to revoke sessions.
+
+## Discord Integration
+
+- Store only Discord user IDs (discord_id) rather than usernames because:
+  - Discord IDs are permanent and unique per user
+  - Usernames/display names can change
+  - Current username can be fetched from Discord API using ID when needed
+  - Discord interactions/events use ID for user identification
