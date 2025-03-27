@@ -100,7 +100,7 @@ const languageConfigs: Omit<LanguageConfig, 'parser' | 'query' | 'language'>[] =
     },
   ]
 
-export function findGlobalCodecaneDir(): string {
+export function findGlobalCodebuffDir(): string {
   const packagePath = path.resolve(__dirname, '..', '..')
   if (isLocal) {
     return path.resolve(packagePath, '..')
@@ -162,7 +162,7 @@ async function installPackage(
   packageVersion: string
 ): Promise<boolean> {
   try {
-    const globalDir = findGlobalCodecaneDir()
+    const globalDir = findGlobalCodebuffDir()
     const { command, args } = detectPackageManager(globalDir)
 
     // Add package with version to arguments
@@ -225,8 +225,8 @@ async function loadLanguage(
 
   for (let attempt = 0; attempt < MAX_INSTALL_ATTEMPTS; attempt++) {
     try {
-      const codecaneDir = findGlobalCodecaneDir()
-      const packagePath = path.join(codecaneDir, 'node_modules', packageName)
+      const codebuffDir = findGlobalCodebuffDir()
+      const packagePath = path.join(codebuffDir, 'node_modules', packageName)
 
       // Try to load the module
       const module = await import(packagePath)
