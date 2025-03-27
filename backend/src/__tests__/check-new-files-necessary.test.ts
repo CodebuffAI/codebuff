@@ -85,7 +85,7 @@ describe('checkNewFilesNecessary', () => {
   it(
     'should return false for simple terminal commands',
     async () => {
-      const userPrompt = 'Run git diff against the latest commit'
+      const userPrompt = 'Run npm build'
 
       const result = await checkNewFilesNecessary(
         [],
