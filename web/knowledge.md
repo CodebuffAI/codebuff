@@ -670,6 +670,39 @@ To streamline the referral process and integrate it with the CLI tool:
 
 This change ensures a consistent user experience across the Codebuff ecosystem and encourages CLI adoption.
 
+## Discord Integration
+
+The application includes a Discord bot integration using Discord's Interactions Endpoint URL approach:
+
+### Key Components
+
+1. **Interactions Endpoint**: `/api/discord/interactions`
+   - Handles Discord slash commands
+   - Verifies requests using Discord's public key
+   - Rate limited to 5 requests per minute per user
+   - All responses are ephemeral (only visible to command sender)
+   - Note: Only handles interactions (slash commands, buttons, modals). Events like message creation or member joins require using Discord's Gateway API via a proper bot client.
+
+2. **Available Commands**:
+   - `/link <email>`: Links Discord account to Codebuff account
+   - Validates email against database
+   - Updates user's Discord ID in database
+
+### Security Considerations
+
+- All requests are verified using Discord's ed25519 signature
+- Rate limiting prevents abuse
+- Responses are ephemeral to protect user privacy
+- Email validation happens before any database updates
+
+### Setup Instructions
+
+1. Create Discord application in Discord Developer Portal
+2. Get application's public key
+3. Add public key to environment variables
+4. Set up slash commands in Discord Developer Portal
+5. Set Interactions Endpoint URL to: `{NEXT_PUBLIC_APP_URL}/api/discord/interactions`
+
 ## Environment Configuration
 
 The application uses environment variables for configuration, which are managed through the `web/src/env.mjs` file. This setup ensures type-safe access to environment variables and proper validation.
