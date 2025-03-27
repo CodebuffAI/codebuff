@@ -47,14 +47,76 @@ export const mainPrompt = async (
 ) => {
   const { prompt, agentState, fingerprintId, costMode, promptId, toolResults } =
     action
-  const { messageHistory, fileContext } = agentState
+  const { messageHistory, fileContext, agentContext } = agentState
+
+  const hasKnowledgeFiles =
+    Object.keys(fileContext.knowledgeFiles).length > 0 ||
+    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
+  const isNotFirstUserMessage =
+    messageHistory.filter((m) => m.role === 'user').length > 0
+  const recentlyDidThinking = toolResults.some((t) => t.name === 'think_deeply')
+  const justUsedATool = toolResults.length > 0
+  const justRanTerminalCommand = toolResults.some(
+    (t) => t.name === 'run_terminal_command'
+  )
+  const userInstructions = buildArray(
+    'Instructions:',
+    'Proceed toward the user request and any subgoals.',
+
+    "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
+
+    'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
+
+    'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
+
+    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Makes sure when using write_file to pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
+
+    'When editing a file, just highlight the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
+
+    !justUsedATool &&
+      !recentlyDidThinking &&
+      'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
+
+    'If the user is starting a new feature or refactoring, consider invoking "<create_plan></create_plan>".',
+
+    recentlyDidThinking &&
+      "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
+
+    'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
+
+    hasKnowledgeFiles &&
+      'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
+
+    hasKnowledgeFiles &&
+      isNotFirstUserMessage &&
+      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
+
+    "Don't run git commands or scripts without being specifically asked to do so. This can prevent costly accidents. Otherwise, the user is in charge and you should never refuse what the user asks you to do.",
+
+    justRanTerminalCommand &&
+      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please use the end_turn tool and do not write anything else.`,
+
+    'Write "<end_turn></end_turn>" at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.'
+  ).join('\n')
 
   const messagesWithUserMessage = buildArray(
     ...messageHistory,
 
+    // Add in new copy of agent context.
+    agentContext && {
+      role: 'assistant' as const,
+      content: agentContext.trim(),
+    },
+
     toolResults.length > 0 && {
       role: 'user' as const,
       content: renderToolResults(toolResults),
+    },
+
+    // Add in new copy of user instructions.
+    {
+      role: 'user' as const,
+      content: userInstructions,
     },
 
     prompt && {
@@ -62,12 +124,6 @@ export const mainPrompt = async (
       content: prompt,
     }
   )
-  const lastAssistantMessage = messagesWithUserMessage.findLast(
-    (m) => m.role === 'assistant'
-  )
-  if (typeof lastAssistantMessage?.content === 'string') {
-    lastAssistantMessage.content = lastAssistantMessage.content.trim()
-  }
 
   const iterationNum = messagesWithUserMessage.length
 
@@ -117,10 +173,6 @@ export const mainPrompt = async (
     Promise<{ path: string; content: string; patch?: string } | null>[]
   > = {}
 
-  const justUsedATool = toolResults.length > 0
-  const justRanTerminalCommand = toolResults.some(
-    (t) => t.name === 'run_terminal_command'
-  )
   const allMessagesTokens = countTokensJson(messagesWithUserMessage)
 
   // Step 1: Read more files.
@@ -191,70 +243,14 @@ ${addedFiles.map((file) => file.path).join('\n')}
     })
   }
 
-  const { agentContext } = agentState
-  const hasKnowledgeFiles =
-    Object.keys(fileContext.knowledgeFiles).length > 0 ||
-    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
-  const isNotFirstUserMessage =
-    messagesWithUserMessage.filter((m) => m.role === 'user').length > 1
-  const recentlyDidThinking = toolResults.some((t) => t.name === 'think_deeply')
-
-  const userInstructions = buildArray(
-    'Instructions:',
-    'Proceed toward the user request and any subgoals.',
-
-    "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
-
-    'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
-
-    'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
-
-    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Makes sure when using write_file to pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
-
-    'When editing a file, just highlight the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
-
-    !justUsedATool &&
-      !recentlyDidThinking &&
-      'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
-
-    'If the user is starting a new feature or refactoring, consider invoking "<create_plan></create_plan>".',
-
-    recentlyDidThinking &&
-      "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
-
-    'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
-
-    hasKnowledgeFiles &&
-      'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
-
-    hasKnowledgeFiles &&
-      isNotFirstUserMessage &&
-      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
-
-    "Don't run git commands or scripts without being specifically asked to do so. This can prevent costly accidents. Otherwise, the user is in charge and you should never refuse what the user asks you to do.",
-
-    justRanTerminalCommand &&
-      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please use the end_turn tool and do not write anything else.`,
-
-    'Write "<end_turn></end_turn>" at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.'
-  ).join('\n')
-
   const system = getAgentSystemPrompt(fileContext)
   const systemTokens = countTokensJson(system)
 
   const agentMessages = buildArray(
-    {
-      role: 'user' as const,
-      content: userInstructions,
-    },
     ...getMessagesSubset(
       messagesWithUserMessage,
       systemTokens + countTokensJson({ agentContext, userInstructions })
-    ),
-    agentContext && {
-      role: 'assistant' as const,
-      content: agentContext.trim(),
-    }
+    )
   )
 
   logger.debug(
