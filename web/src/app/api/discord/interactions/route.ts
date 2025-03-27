@@ -31,7 +31,7 @@ const InteractionResponseType = {
 //   WELCOME: '1272621334580429053'
 // } as const
 
-const VERIFIED_ROLE_ID = 1354877460583415929
+const VERIFIED_ROLE_ID = '1354877460583415929'
 
 // Verify Discord requests
 async function verifyDiscordRequest(request: Request) {
