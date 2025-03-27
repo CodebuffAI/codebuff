@@ -37,6 +37,7 @@ import {
 import { trimMessagesToFitTokenLimit } from './util/messages'
 import { checkTerminalCommand } from './check-terminal-command'
 import { withCacheControl, toContentString } from 'common/util/messages'
+import { saveAgentRequest } from './system-prompt/save-agent-request'
 
 export const mainPrompt = async (
   ws: WebSocket,
@@ -103,10 +104,11 @@ export const mainPrompt = async (
     ...messageHistory,
 
     // Add in new copy of agent context.
-    agentContext && {
-      role: 'assistant' as const,
-      content: agentContext.trim(),
-    },
+    prompt &&
+      agentContext && {
+        role: 'assistant' as const,
+        content: agentContext.trim(),
+      },
 
     toolResults.length > 0 && {
       role: 'user' as const,
@@ -114,7 +116,7 @@ export const mainPrompt = async (
     },
 
     // Add in new copy of user instructions.
-    {
+    prompt && {
       role: 'user' as const,
       content: userInstructions,
     },
@@ -252,6 +254,12 @@ ${addedFiles.map((file) => file.path).join('\n')}
       systemTokens + countTokensJson({ agentContext, userInstructions })
     )
   )
+
+  const debugPromptCaching = false
+  if (debugPromptCaching) {
+    // Store the agent request to a file for debugging
+    await saveAgentRequest(agentMessages, system, promptId)
+  }
 
   logger.debug(
     {
