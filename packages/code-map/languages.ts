@@ -6,6 +6,8 @@ import { spawn } from 'child_process'
 
 import { DEBUG_PARSING } from './parse'
 
+const isLocal = process.env.ENVIRONMENT === 'local'
+
 interface LanguageConfig {
   language: any
   extensions: string[]
@@ -100,6 +102,9 @@ const languageConfigs: Omit<LanguageConfig, 'parser' | 'query' | 'language'>[] =
 
 export function findGlobalCodecaneDir(): string {
   const packagePath = path.resolve(__dirname, '..', '..')
+  if (isLocal) {
+    return path.resolve(packagePath, '..')
+  }
   if (fs.existsSync(path.join(packagePath, 'package.json'))) {
     return packagePath
   }
@@ -123,11 +128,7 @@ function detectPackageManager(globalDir: string): {
   args: string[]
 } {
   // Add special case for our development environment.
-  // Note (James): It's still not actually installing the package in npm-app/node_modules.
-  // Could be something with workspaces?
-  const isRunningLocally =
-    path.basename(path.join(__dirname, '..', '..')) === 'npm-app'
-  if (isRunningLocally) {
+  if (isLocal) {
     return { command: 'bun', args: ['install'] }
   }
 
