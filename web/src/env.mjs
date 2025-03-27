@@ -29,6 +29,9 @@ export const env = createEnv({
     STRIPE_MOAR_PRO_OVERAGE_PRICE_ID: z.string().min(1),
     LOOPS_API_KEY: z.string().min(1),
     DEEPSEEK_API_KEY: z.string().min(1),
+    DISCORD_PUBLIC_KEY: z.string().min(1),
+    DISCORD_BOT_TOKEN: z.string().min(1),
+    DISCORD_APPLICATION_ID: z.string().min(1),
   },
   client: {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
@@ -68,5 +71,8 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_API_KEY: process.env.NEXT_PUBLIC_POSTHOG_API_KEY,
     NEXT_PUBLIC_POSTHOG_HOST_URL: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+    DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY,
+    DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
+    DISCORD_APPLICATION_ID: process.env.DISCORD_APPLICATION_ID,
   },
 })

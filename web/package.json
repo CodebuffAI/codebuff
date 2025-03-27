@@ -17,7 +17,8 @@
     "test": "jest",
     "test:watch": "jest --watchAll",
     "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui"
+    "e2e:ui": "playwright test --ui",
+    "discord:register": "bun run src/scripts/register-discord-commands.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.5.0",
@@ -47,6 +48,8 @@
     "clsx": "^2.1.1",
     "cobe": "^0.6.3",
     "contentlayer": "^0.3.4",
+    "discord-interactions": "^4.1.1",
+    "discord.js": "^14.18.0",
     "dotenv": "^16.4.5",
     "framer-motion": "^11.13.3",
     "lucide-react": "^0.468.0",
