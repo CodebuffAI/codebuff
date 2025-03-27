@@ -100,6 +100,18 @@ export const mainPrompt = async (
     'Write "<end_turn></end_turn>" at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.'
   ).join('\n')
 
+  const messagesForFileRequest = buildArray(
+    ...messageHistory,
+    toolResults.length > 0 && {
+      role: 'user' as const,
+      content: renderToolResults(toolResults),
+    },
+    prompt && {
+      role: 'user' as const,
+      content: prompt,
+    },
+  )
+
   const messagesWithUserMessage = buildArray(
     ...messageHistory,
 
@@ -175,13 +187,13 @@ export const mainPrompt = async (
     Promise<{ path: string; content: string; patch?: string } | null>[]
   > = {}
 
-  const allMessagesTokens = countTokensJson(messagesWithUserMessage)
+  const fileRequestMessagesTokens = countTokensJson(messagesForFileRequest)
 
   // Step 1: Read more files.
   const searchSystem = getSearchSystemPrompt(
     fileContext,
     costMode,
-    allMessagesTokens
+    fileRequestMessagesTokens
   )
   const {
     addedFiles,
@@ -190,7 +202,7 @@ export const mainPrompt = async (
     updatedFilePaths,
   } = await getFileVersionUpdates(
     ws,
-    messagesWithUserMessage,
+    messagesForFileRequest,
     searchSystem,
     fileContext,
     null,
@@ -393,7 +405,7 @@ ${addedFiles.map((file) => file.path).join('\n')}
         await getFileVersionUpdates(
           ws,
           messagesWithResponse,
-          getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
+          getSearchSystemPrompt(fileContext, costMode, fileRequestMessagesTokens),
           fileContext,
           null,
           {
@@ -748,10 +760,10 @@ async function getFileVersionUpdates(
     newFiles,
     (path) => loadedFiles[path] && loadedFiles.content !== null
   )
-  const readFilesMessage = getRelevantFileInfoMessage(
-    existingNewFilePaths,
-    isFirstRead
-  )
+  const readFilesMessage =
+    requestedFiles.length > 0
+      ? getRelevantFileInfoMessage(existingNewFilePaths, isFirstRead)
+      : undefined
 
   return {
     addedFiles,

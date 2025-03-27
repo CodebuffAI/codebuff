@@ -22,9 +22,10 @@ User request: ${userPrompt}
 We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad user requests may require many files as context.
 
 You should read new files (YES) if:
-- There are not yet any <read_files></read_files> tool calls or tool results in the conversation history, or if all the messages are from the user, and the user's request is not trivial, then it is strongly recommended to read new files.
+- There are not yet any <read_files></read_files> tool calls or tool results in the conversation history
+- There's only one message from the user.
 - The user is asking something new that would benefit from new files being read.
-- The user moved on to a new topic.
+- The user moved on to a different topic.
 - The user followed up mentioning new files or functions where reading new files would be helpful.
 - The user's request requires understanding code or files not yet loaded
 - The user is asking about implementing new features or understanding existing ones
