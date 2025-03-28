@@ -36,7 +36,7 @@ export function getCurrentChatDir(): string {
 }
 
 import {
-  createFileBlock,
+  createWriteFileBlock,
   FileVersion,
   ProjectFileContext,
 } from 'common/util/file'
@@ -402,7 +402,7 @@ export function getFileBlocks(filePaths: string[]) {
   }
 
   const fileBlocks = filePaths.map((filePath) =>
-    createFileBlock(filePath, result[filePath])
+    createWriteFileBlock(filePath, result[filePath])
   )
 
   return fileBlocks.join('\n')

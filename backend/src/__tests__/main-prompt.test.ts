@@ -4,6 +4,7 @@ import { getInitialAgentState, ToolResult } from 'common/types/agent-state'
 import { WebSocket } from 'ws'
 import { mock } from 'bun:test'
 import { TEST_USER_ID } from 'common/constants'
+import { createWriteFileBlock } from 'common/util/file'
 
 // Mock all LLM APIs
 mock.module('../llm-apis/claude', () => ({
@@ -39,7 +40,7 @@ mock.module('../websockets/websocket-action', () => ({
       if (p === 'test.txt') {
         results[p] = 'mock content for test.txt' // Provide specific mock content if needed
       } else {
-        results[p] = `mock content for ${p}`
+        results[p] = null
       }
     })
     return results
@@ -47,9 +48,8 @@ mock.module('../websockets/websocket-action', () => ({
   requestFile: async (ws: any, path: string) => {
     if (path === 'test.txt') {
       return 'mock content for test.txt'
-    } else {
-      return `mock content for ${path}`
     }
+    return null
   },
 }))
 
@@ -243,6 +243,51 @@ describe('mainPrompt', () => {
     // Reset the mock
     mock.module('../check-terminal-command', () => ({
       checkTerminalCommand: async () => null,
+    }))
+  })
+
+  it('should handle write_file tool call', async () => {
+    // Mock LLM to return a write_file tool call
+    mock.module('../llm-apis/claude', () => ({
+      promptClaudeStream: async function* () {
+        yield createWriteFileBlock('new-file.txt', 'Hello World')
+      },
+    }))
+
+    const agentState = getInitialAgentState(mockFileContext)
+    const { toolCalls, agentState: newAgentState } = await mainPrompt(
+      new MockWebSocket() as unknown as WebSocket,
+      {
+        type: 'prompt',
+        prompt: 'Write hello world to new-file.txt',
+        agentState,
+        fingerprintId: 'test',
+        costMode: 'max',
+        promptId: 'test',
+        toolResults: [],
+      },
+      TEST_USER_ID,
+      'test-session',
+      () => {}
+    )
+
+    expect(toolCalls).toHaveLength(1)
+    expect(toolCalls[0].name).toBe('write_file')
+    const params = toolCalls[0].parameters as {
+      type: string
+      path: string
+      content: string
+    }
+    expect(params.type).toBe('file')
+    expect(params.path).toBe('new-file.txt')
+    expect(params.content).toBe('Hello World')
+
+    // Reset the mock
+    mock.module('../llm-apis/claude', () => ({
+      promptClaude: () => Promise.resolve('Test response'),
+      promptClaudeStream: async function* () {
+        yield 'Test response'
+      },
     }))
   })
 })

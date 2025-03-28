@@ -60,7 +60,7 @@ export const ProjectFileContextSchema = z.object({
 
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
 
-export const createFileBlock = (filePath: string, content: string) => {
+export const createWriteFileBlock = (filePath: string, content: string) => {
   const tagName = 'write_file'
   return (
     '<' +
