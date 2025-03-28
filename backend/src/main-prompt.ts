@@ -10,6 +10,7 @@ import {
   renderReadFilesResult,
   renderToolResults,
   simplifyReadFileResults,
+  simplifyReadFileToolResult,
 } from './util/parse-tool-call-xml'
 import { getModelForMode } from 'common/constants'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
@@ -94,52 +95,25 @@ export const mainPrompt = async (
 
     "Don't run git commands or scripts without being specifically asked to do so. This can prevent costly accidents. Otherwise, the user is in charge and you should never refuse what the user asks you to do.",
 
-    justRanTerminalCommand &&
-      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please use the end_turn tool and do not write anything else.`,
-
     'Write "<end_turn></end_turn>" at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.'
   ).join('\n')
 
-  const messagesForFileRequest = buildArray(
+  const toolInstructions = buildArray(
+    justRanTerminalCommand &&
+      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please use the end_turn tool and do not write anything else. If your checks are failing, you should only end turn if you have made multiple attempts and feel stuck.`
+  ).join('\n')
+
+  const messagesWithToolResultsAndUser = buildArray(
     ...messageHistory,
     toolResults.length > 0 && {
       role: 'user' as const,
       content: renderToolResults(toolResults),
     },
-    prompt && {
-      role: 'user' as const,
-      content: prompt,
-    },
-  )
-
-  const messagesWithUserMessage = buildArray(
-    ...messageHistory,
-
-    // Add in new copy of agent context.
-    prompt &&
-      agentContext && {
-        role: 'assistant' as const,
-        content: agentContext.trim(),
-      },
-
-    toolResults.length > 0 && {
-      role: 'user' as const,
-      content: renderToolResults(toolResults),
-    },
-
-    // Add in new copy of user instructions.
-    prompt && {
-      role: 'user' as const,
-      content: userInstructions,
-    },
-
     prompt && {
       role: 'user' as const,
       content: prompt,
     }
   )
-
-  const iterationNum = messagesWithUserMessage.length
 
   // Check if this is a direct terminal command
   if (prompt) {
@@ -162,7 +136,7 @@ export const mainPrompt = async (
       )
       const newAgentState = {
         ...agentState,
-        messageHistory: messagesWithUserMessage,
+        messageHistory: messagesWithToolResultsAndUser,
       }
       return {
         agentState: newAgentState,
@@ -181,13 +155,9 @@ export const mainPrompt = async (
     }
   }
 
-  let fullResponse = ''
-  const fileProcessingPromisesByPath: Record<
-    string,
-    Promise<{ path: string; content: string; patch?: string } | null>[]
-  > = {}
-
-  const fileRequestMessagesTokens = countTokensJson(messagesForFileRequest)
+  const fileRequestMessagesTokens = countTokensJson(
+    messagesWithToolResultsAndUser
+  )
 
   // Step 1: Read more files.
   const searchSystem = getSearchSystemPrompt(
@@ -197,12 +167,12 @@ export const mainPrompt = async (
   )
   const {
     addedFiles,
+    updatedFilePaths,
     readFilesMessage,
     clearReadFileToolResults,
-    updatedFilePaths,
-  } = await getFileVersionUpdates(
+  } = await getFileReadingUpdates(
     ws,
-    messagesForFileRequest,
+    messagesWithToolResultsAndUser,
     searchSystem,
     fileContext,
     null,
@@ -215,11 +185,21 @@ export const mainPrompt = async (
       costMode,
     }
   )
-
+  const [updatedFiles, newFiles] = partition(addedFiles, (f) =>
+    updatedFilePaths.includes(f.path)
+  )
   if (clearReadFileToolResults) {
-    for (const message of messagesWithUserMessage) {
+    // Update message history.
+    for (const message of messageHistory) {
       if (isToolResult(message)) {
         message.content = simplifyReadFileResults(message.content)
+      }
+    }
+    // Update tool results.
+    for (let i = 0; i < toolResults.length; i++) {
+      const toolResult = toolResults[i]
+      if (toolResult.name === 'read_files') {
+        toolResults[i] = simplifyReadFileToolResult(toolResult)
       }
     }
   }
@@ -228,43 +208,82 @@ export const mainPrompt = async (
     onResponseChunk(`${readFilesMessage}\n\n`)
   }
 
-  if (addedFiles.length > 0) {
-    const [updatedFiles, newFiles] = partition(addedFiles, (f) =>
-      updatedFilePaths.includes(f.path)
-    )
-    const hasUpdatedFiles = updatedFiles.length > 0
+  if (updatedFiles.length > 0) {
+    toolResults.push({
+      id: generateCompactId(),
+      name: 'file_updates',
+      result:
+        `The following files had modifications made by you or the user. Try to accommodate these changes going forward:\n` +
+        renderReadFilesResult(updatedFiles),
+    })
+  }
+
+  const readFileMessages: Message[] = []
+  if (newFiles.length > 0) {
     const readFilesToolResult = {
       id: generateCompactId(),
       name: 'read_files',
-      result:
-        renderReadFilesResult(newFiles) +
-        (hasUpdatedFiles
-          ? `\nThe following files had modifications made by you or the user. Try to accommodate these changes going forward:\n`
-          : '') +
-        renderReadFilesResult(updatedFiles),
+      result: renderReadFilesResult(newFiles),
     }
-    messagesWithUserMessage.push({
+
+    readFileMessages.push({
       role: 'assistant' as const,
       content: `<read_files>
 <paths>
-${addedFiles.map((file) => file.path).join('\n')}
+${newFiles.map((file) => file.path).join('\n')}
 </paths>
-</read_files>\n`,
+</read_files>`,
     })
-    messagesWithUserMessage.push({
+    readFileMessages.push({
       role: 'user' as const,
       content: renderToolResults([readFilesToolResult]),
     })
   }
 
+  const messagesWithUserMessage = buildArray(
+    ...messageHistory,
+
+    toolResults.length > 0 && {
+      role: 'user' as const,
+      content: renderToolResults(toolResults),
+    },
+
+    // Add in new copy of agent context.
+    prompt &&
+      agentContext && {
+        role: 'user' as const,
+        content: agentContext.trim(),
+      },
+
+    prompt
+      ? // Add in new copy of user instructions.
+        {
+          role: 'user' as const,
+          content: userInstructions,
+        }
+      : // Add in new copy of tool instructions.
+        toolInstructions && {
+          role: 'user' as const,
+          content: toolInstructions,
+        },
+
+    prompt && {
+      role: 'user' as const,
+      content: prompt,
+    },
+
+    ...readFileMessages
+  )
+
+  const iterationNum = messagesWithUserMessage.length
+
   const system = getAgentSystemPrompt(fileContext)
   const systemTokens = countTokensJson(system)
 
-  const agentMessages = buildArray(
-    ...getMessagesSubset(
-      messagesWithUserMessage,
-      systemTokens + countTokensJson({ agentContext, userInstructions })
-    )
+  // Possibly truncated messagesWithUserMessage + cache.
+  const agentMessages = getMessagesSubset(
+    messagesWithUserMessage,
+    systemTokens + countTokensJson({ agentContext, userInstructions })
   )
 
   const debugPromptCaching = false
@@ -287,6 +306,12 @@ ${addedFiles.map((file) => file.path).join('\n')}
     },
     `Main prompt ${iterationNum}`
   )
+
+  let fullResponse = ''
+  const fileProcessingPromisesByPath: Record<
+    string,
+    Promise<{ path: string; content: string; patch?: string } | null>[]
+  > = {}
 
   const stream = promptClaudeStream(agentMessages, {
     system,
@@ -402,10 +427,14 @@ ${addedFiles.map((file) => file.path).join('\n')}
       logger.debug(toolCall, 'tool call')
 
       const { addedFiles, existingNewFilePaths, nonExistingNewFilePaths } =
-        await getFileVersionUpdates(
+        await getFileReadingUpdates(
           ws,
           messagesWithResponse,
-          getSearchSystemPrompt(fileContext, costMode, fileRequestMessagesTokens),
+          getSearchSystemPrompt(
+            fileContext,
+            costMode,
+            fileRequestMessagesTokens
+          ),
           fileContext,
           null,
           {
@@ -595,7 +624,7 @@ function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
   return filePaths.length === 0 ? undefined : readFilesMessage
 }
 
-async function getFileVersionUpdates(
+async function getFileReadingUpdates(
   ws: WebSocket,
   messages: Message[],
   system: string | Array<TextBlockParam>,

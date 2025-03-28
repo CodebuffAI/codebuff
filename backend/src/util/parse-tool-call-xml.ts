@@ -140,18 +140,22 @@ export function simplifyReadFileResults(messageContent: string | {}[]): string {
   )
 
   // Create simplified read_files results: only show file paths
-  const simplifiedReadFileResults = readFileResults.map((toolResult) => {
-    const fileBlocks = parseReadFilesResult(toolResult.result)
-    const filePaths = fileBlocks.map((block) => block.path)
-    return {
-      id: toolResult.id, // Keep original ID
-      name: 'read_files',
-      result: `Read the following files: ${filePaths.join('\n')}`,
-    }
-  })
+  const simplifiedReadFileResults = readFileResults.map(
+    simplifyReadFileToolResult
+  )
 
   // Combine both types of results
   return renderToolResults([...simplifiedReadFileResults, ...otherResults])
+}
+
+export function simplifyReadFileToolResult(toolResult: ToolResult) {
+  const fileBlocks = parseReadFilesResult(toolResult.result)
+  const filePaths = fileBlocks.map((block) => block.path)
+  return {
+    id: toolResult.id, // Keep original ID
+    name: 'read_files',
+    result: `Read the following files: ${filePaths.join('\n')}`,
+  }
 }
 
 export function isToolResult(message: Message): boolean {
