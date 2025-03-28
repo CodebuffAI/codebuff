@@ -51,6 +51,9 @@
     "puppeteer-core": "^24.2.0",
     "systeminformation": "5.23.4",
     "tree-sitter": "^0.21.0",
+    "tree-sitter-javascript": "^0.23.0",
+    "tree-sitter-python": "^0.23.0",
+    "tree-sitter-typescript": "^0.23.0",
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
     "zod": "3.23.8"
@@ -61,12 +64,9 @@
     "tree-sitter-cpp": "^0.23.0",
     "tree-sitter-go": "^0.23.0",
     "tree-sitter-java": "^0.23.0",
-    "tree-sitter-javascript": "^0.23.0",
     "tree-sitter-php": "^0.23.0",
-    "tree-sitter-python": "^0.23.0",
     "tree-sitter-ruby": "^0.23.0",
-    "tree-sitter-rust": "^0.23.0",
-    "tree-sitter-typescript": "^0.23.0"
+    "tree-sitter-rust": "^0.23.0"
   },
   "peerDependenciesMeta": {
     "tree-sitter-c": {
@@ -84,22 +84,13 @@
     "tree-sitter-java": {
       "optional": true
     },
-    "tree-sitter-javascript": {
-      "optional": true
-    },
     "tree-sitter-php": {
-      "optional": true
-    },
-    "tree-sitter-python": {
       "optional": true
     },
     "tree-sitter-ruby": {
       "optional": true
     },
     "tree-sitter-rust": {
-      "optional": true
-    },
-    "tree-sitter-typescript": {
       "optional": true
     }
   },
