@@ -115,7 +115,11 @@ export function startDiscordBot() {
             const member = await command.guild.members.fetch(command.user.id)
             await member.roles.add(VERIFIED_ROLE_ID)
             logger.info(
-              { userId: userRecord.id, discordId: command.user.id },
+              {
+                userId: userRecord.id,
+                discordId: command.user.id,
+                discordUsername: command.user.username,
+              },
               'Added verified role to user'
             )
           } catch (error) {
