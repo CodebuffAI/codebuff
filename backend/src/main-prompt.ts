@@ -347,6 +347,8 @@ ${newFiles.map((file) => file.path).join('\n')}
           ? content.slice(1)
           : content
 
+        logger.debug({ path, content }, `write_file ${path}`)
+
         const newPromise = processFileBlock(
           path,
           latestContentPromise,
