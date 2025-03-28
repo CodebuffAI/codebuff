@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import { AnthropicModel } from 'common/constants'
+import { AnthropicModel, models } from 'common/constants'
 import { promptClaudeStream } from './llm-apis/claude'
 import {
   isToolResult,
@@ -35,10 +35,14 @@ import {
   ClientToolCall,
   updateContextFromToolCalls,
 } from './tools'
-import { trimMessagesToFitTokenLimit } from './util/messages'
+import {
+  messagesWithSystem,
+  trimMessagesToFitTokenLimit,
+} from './util/messages'
 import { checkTerminalCommand } from './check-terminal-command'
 import { withCacheControl, toContentString } from 'common/util/messages'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
+import { promptGeminiStream } from './llm-apis/gemini-api'
 
 export const mainPrompt = async (
   ws: WebSocket,
@@ -313,14 +317,23 @@ ${newFiles.map((file) => file.path).join('\n')}
     Promise<{ path: string; content: string; patch?: string } | null>[]
   > = {}
 
-  const stream = promptClaudeStream(agentMessages, {
-    system,
-    model: getModelForMode(costMode, 'agent') as AnthropicModel,
-    clientSessionId,
-    fingerprintId,
-    userInputId: promptId,
-    userId,
-  })
+  const stream =
+    costMode === 'max'
+      ? promptGeminiStream(messagesWithSystem(agentMessages, system), {
+          clientSessionId,
+          fingerprintId,
+          userInputId: promptId,
+          model: models.gemini2_5_pro,
+          userId,
+        })
+      : promptClaudeStream(agentMessages, {
+          system,
+          model: getModelForMode(costMode, 'agent') as AnthropicModel,
+          clientSessionId,
+          fingerprintId,
+          userInputId: promptId,
+          userId,
+        })
 
   const streamWithTags = processStreamWithTags(stream, {
     write_file: {
