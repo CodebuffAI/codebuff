@@ -428,32 +428,35 @@ ${newFiles.map((file) => file.path).join('\n')}
 
       logger.debug(toolCall, 'tool call')
 
-      const { addedFiles, existingNewFilePaths, nonExistingNewFilePaths } =
-        await getFileReadingUpdates(
-          ws,
-          messagesWithResponse,
-          getSearchSystemPrompt(
-            fileContext,
-            costMode,
-            fileRequestMessagesTokens
-          ),
-          fileContext,
-          null,
-          {
-            skipRequestingFiles: false,
-            requestedFiles: paths,
-            clientSessionId,
-            fingerprintId,
-            userInputId: promptId,
-            userId,
-            costMode,
-          }
-        )
+      const {
+        addedFiles,
+        existingNewFilePaths,
+        nonExistingNewFilePaths,
+        updatedFilePaths,
+      } = await getFileReadingUpdates(
+        ws,
+        messagesWithResponse,
+        getSearchSystemPrompt(fileContext, costMode, fileRequestMessagesTokens),
+        fileContext,
+        null,
+        {
+          skipRequestingFiles: false,
+          requestedFiles: paths,
+          clientSessionId,
+          fingerprintId,
+          userInputId: promptId,
+          userId,
+          costMode,
+        }
+      )
       logger.debug(
         {
           content: parameters.paths,
-          existingPaths: existingNewFilePaths,
           paths,
+          existingPaths: existingNewFilePaths,
+          addedFilesPaths: addedFiles.map((f) => f.path),
+          nonExistingPaths: nonExistingNewFilePaths,
+          updatedFilePaths,
         },
         'read_files tool call'
       )
@@ -771,7 +774,7 @@ async function getFileReadingUpdates(
     )
 
     return {
-      addedFiles: newFiles,
+      addedFiles,
       existingNewFilePaths,
       nonExistingNewFilePaths,
       updatedFilePaths: updatedFiles,
