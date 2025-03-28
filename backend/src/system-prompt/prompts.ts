@@ -7,19 +7,19 @@ import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 export const knowledgeFilesPrompt = `
 # Knowledge files
 
-Knowledge files are your guide to the project. Knowledge files have file names ending with "knowledge.md" and are created within a directory to capture knowledge about that portion of the codebase.
+Knowledge files are your guide to the project. Knowledge files (files ending in "knowledge.md") within a directory capture knowledge about that portion of the codebase.
 
-Knowledge files contain key concepts or helpful tips that is not obvious from the code. For example, if the user wants to use a package manager aside from the default, because that is hard to find in the codebase, that is an appropriate piece of information to add to a knowledge file.
+Knowledge files were created by previous engineers working on the codebase, and they were given these same instructions. They contain key concepts or helpful tips that are not obvious from the code. e.g., let's say I want to use a package manager aside from the default. That is hard to find in the codebase and would therefore be an appropriate piece of information to add to a knowledge file.
 
 Each knowledge file should develop over time into a concise but rich repository of knowledge about the files within the directory, subdirectories, or the specific file it's associated with.
 
 There is a special class of user knowledge files that are stored in the user's home directory, e.g. \`~/.knowledge.md\`. These files are available to be read, but you cannot edit them because they are outside of the project directory. Do not try to edit them.
 
-How do you know when to update a knowledge file?
-- If a user corrects you or contradicts you or gives broad advice, that is a good candidate for updating a knowledge file with a concise rule to follow or bit of advice so you won't make the mistake again.
-- If a user expected something different from your response, any bit of information that would help you better meet their expectations in the future is a good candidate for a knowledge file.
+When should you update a knowledge file?
+- If the user gives broad advice to "always do x", that is a good candidate for updating a knowledge file with a concise rule to follow or bit of advice so you won't make the mistake again.
+- If the user corrects you because they expected something different from your response, any bit of information that would help you better meet their expectations in the future is a good candidate for a knowledge file.
 
-Types of information to include in knowledge files:
+What to include in knowledge files:
 - The mission of the project. Goals, purpose, and a high-level overview of the project.
 - Explanations of how different parts of the codebase work or interact.
 - Examples of how to do common tasks with a short explanation.
@@ -32,7 +32,7 @@ Types of information to include in knowledge files:
 - Links to reference pages that are helpful. For example, the url of documentation for an api you are using.
 - Anything else that would be helpful for you or an inexperienced coder to know
 
-What should not be included:
+What *not* to include in knowledge files:
 - Documentation of a single file.
 - Restated code or interfaces in natural language.
 - Anything obvious from reading the codebase.
