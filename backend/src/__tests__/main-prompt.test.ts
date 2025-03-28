@@ -1,51 +1,58 @@
-import { expect, describe, it, mock, beforeEach, afterEach } from 'bun:test'
+import {
+  expect,
+  describe,
+  it,
+  mock,
+  beforeEach,
+  afterEach,
+  spyOn,
+} from 'bun:test'
 import { mainPrompt } from '../main-prompt'
 import { getInitialAgentState, ToolResult } from 'common/types/agent-state'
 import { WebSocket } from 'ws'
 import { TEST_USER_ID } from 'common/constants'
 import { createWriteFileBlock } from 'common/util/file'
 
-describe('mainPrompt', () => {
-  // Move mocks inside describe block so they are scoped to these tests
-  const originalModules = {
-    claude: require('../llm-apis/claude'),
-    gemini: require('../llm-apis/gemini-api'),
-    openai: require('../llm-apis/openai-api'),
-    websocketAction: require('../websockets/websocket-action'),
-    requestFilesPrompt: require('../find-files/request-files-prompt'),
-    checkTerminalCommand: require('../check-terminal-command'),
-  }
+import * as claude from '../llm-apis/claude'
+import * as gemini from '../llm-apis/gemini-api'
+import * as openai from '../llm-apis/openai-api'
+import * as websocketAction from '../websockets/websocket-action'
+import * as requestFilesPrompt from '../find-files/request-files-prompt'
+import * as checkTerminalCommandModule from '../check-terminal-command'
 
+describe('mainPrompt', () => {
   beforeEach(() => {
     // Set up mocks before each test
-    mock.module('../llm-apis/claude', () => ({
-      promptClaude: () => Promise.resolve('Test response'),
-      promptClaudeStream: async function* () {
-        yield 'Test response'
-        return // Important: return after first yield to prevent duplicate responses
-      },
-    }))
+    spyOn(claude, 'promptClaude').mockImplementation(() =>
+      Promise.resolve('Test response')
+    )
+    spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
+      yield 'Test response'
+      return // Important: return after first yield to prevent duplicate responses
+    })
 
-    mock.module('../llm-apis/gemini-api', () => ({
-      promptGemini: () => Promise.resolve('Test response'),
-      promptGeminiStream: () =>
+    spyOn(gemini, 'promptGemini').mockImplementation(() =>
+      Promise.resolve('Test response')
+    )
+    spyOn(gemini, 'promptGeminiStream').mockImplementation(
+      () =>
         new ReadableStream({
           start(controller) {
             controller.enqueue('Test response')
             controller.close()
           },
-        }),
-    }))
+        })
+    )
 
-    mock.module('../llm-apis/openai-api', () => ({
-      promptOpenAI: () => Promise.resolve('Test response'),
-      promptOpenAIStream: async function* () {
-        yield 'Test response'
-      },
-    }))
+    spyOn(openai, 'promptOpenAI').mockImplementation(() =>
+      Promise.resolve('Test response')
+    )
+    spyOn(openai, 'promptOpenAIStream').mockImplementation(async function* () {
+      yield 'Test response'
+    })
 
-    mock.module('../websockets/websocket-action', () => ({
-      requestFiles: async (ws: any, paths: string[]) => {
+    spyOn(websocketAction, 'requestFiles').mockImplementation(
+      async (ws: any, paths: string[]) => {
         const results: Record<string, string | null> = {}
         paths.forEach((p) => {
           if (p === 'test.txt') {
@@ -55,41 +62,31 @@ describe('mainPrompt', () => {
           }
         })
         return results
-      },
-      requestFile: async (ws: any, path: string) => {
+      }
+    )
+
+    spyOn(websocketAction, 'requestFile').mockImplementation(
+      async (ws: any, path: string) => {
         if (path === 'test.txt') {
           return 'mock content for test.txt'
         }
         return null
-      },
-    }))
+      }
+    )
 
-    mock.module('../find-files/request-files-prompt', () => ({
-      requestRelevantFiles: async () => [],
-    }))
+    spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
+      async () => []
+    )
 
-    mock.module('../check-terminal-command', () => ({
-      checkTerminalCommand: async () => null,
-    }))
+    spyOn(
+      checkTerminalCommandModule,
+      'checkTerminalCommand'
+    ).mockImplementation(async () => null)
   })
 
   afterEach(() => {
-    // Restore original modules after each test
-    mock.module('../llm-apis/claude', () => originalModules.claude)
-    mock.module('../llm-apis/gemini-api', () => originalModules.gemini)
-    mock.module('../llm-apis/openai-api', () => originalModules.openai)
-    mock.module(
-      '../websockets/websocket-action',
-      () => originalModules.websocketAction
-    )
-    mock.module(
-      '../find-files/request-files-prompt',
-      () => originalModules.requestFilesPrompt
-    )
-    mock.module(
-      '../check-terminal-command',
-      () => originalModules.checkTerminalCommand
-    )
+    // Clear all mocks after each test
+    mock.restore()
   })
 
   class MockWebSocket {
@@ -227,9 +224,10 @@ describe('mainPrompt', () => {
 
   it('should handle direct terminal command', async () => {
     // Override the mock to return a terminal command
-    mock.module('../check-terminal-command', () => ({
-      checkTerminalCommand: async () => 'ls -la',
-    }))
+    spyOn(
+      checkTerminalCommandModule,
+      'checkTerminalCommand'
+    ).mockImplementation(async () => 'ls -la')
 
     const agentState = getInitialAgentState(mockFileContext)
     const { toolCalls } = await mainPrompt(
@@ -253,20 +251,13 @@ describe('mainPrompt', () => {
     const params = toolCalls[0].parameters as { command: string; mode: string }
     expect(params.command).toBe('ls -la')
     expect(params.mode).toBe('user')
-
-    // Reset the mock
-    mock.module('../check-terminal-command', () => ({
-      checkTerminalCommand: async () => null,
-    }))
   })
 
   it('should handle write_file tool call', async () => {
     // Mock LLM to return a write_file tool call
-    mock.module('../llm-apis/claude', () => ({
-      promptClaudeStream: async function* () {
-        yield createWriteFileBlock('new-file.txt', 'Hello World')
-      },
-    }))
+    spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
+      yield createWriteFileBlock('new-file.txt', 'Hello World')
+    })
 
     const agentState = getInitialAgentState(mockFileContext)
     const { toolCalls, agentState: newAgentState } = await mainPrompt(
@@ -295,14 +286,6 @@ describe('mainPrompt', () => {
     expect(params.type).toBe('file')
     expect(params.path).toBe('new-file.txt')
     expect(params.content).toBe('Hello World')
-
-    // Reset the mock
-    mock.module('../llm-apis/claude', () => ({
-      promptClaude: () => Promise.resolve('Test response'),
-      promptClaudeStream: async function* () {
-        yield 'Test response'
-      },
-    }))
   })
 })
 
