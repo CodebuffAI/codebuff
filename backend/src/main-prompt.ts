@@ -1,6 +1,10 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { ClientAction } from 'common/actions'
-import { getModelForMode, AnthropicModel } from 'common/constants'
+import {
+  getModelForMode,
+  AnthropicModel,
+  HIDDEN_FILE_READ_STATUS,
+} from 'common/constants'
 import { type CostMode } from 'common/constants'
 import { ToolResult, AgentState } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
@@ -477,12 +481,7 @@ ${newFiles.map((file) => file.path).join('\n')}
 
       logger.debug(toolCall, 'tool call')
 
-      const {
-        addedFiles,
-        existingNewFilePaths,
-        nonExistingNewFilePaths,
-        updatedFilePaths,
-      } = await getFileReadingUpdates(
+      const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
         ws,
         messagesWithResponse,
         getSearchSystemPrompt(fileContext, costMode, fileRequestMessagesTokens),
@@ -502,9 +501,7 @@ ${newFiles.map((file) => file.path).join('\n')}
         {
           content: parameters.paths,
           paths,
-          existingPaths: existingNewFilePaths,
           addedFilesPaths: addedFiles.map((f) => f.path),
-          nonExistingPaths: nonExistingNewFilePaths,
           updatedFilePaths,
         },
         'read_files tool call'
@@ -512,11 +509,7 @@ ${newFiles.map((file) => file.path).join('\n')}
       serverToolResults.push({
         id: generateCompactId(),
         name: 'read_files',
-        result:
-          renderReadFilesResult(addedFiles) +
-          (nonExistingNewFilePaths && nonExistingNewFilePaths.length > 0
-            ? `\nThe following files did not exist or were hidden: ${nonExistingNewFilePaths.join('\n')}`
-            : ''),
+        result: renderReadFilesResult(addedFiles),
       })
       // } else if (name === 'find_files') {
       //   const { description } = parameters
@@ -750,26 +743,25 @@ async function getFileReadingUpdates(
 
   const filteredRequestedFiles = requestedFiles.filter((filePath, i) => {
     const content = loadedFiles[filePath]
-    if (content === undefined) return false
-    if (content === null) return true
+    if (content === null || content === undefined) return false
     const tokenCount = countTokens(content)
     if (i < 5) {
       return tokenCount < 50_000 - i * 10_000
     }
     return tokenCount < 10_000
   })
-  const newFilesWithoutRequestedFiles = difference(
+  const newFiles = difference(
     [...filteredRequestedFiles, ...includedInitialFiles],
     previousFilePaths
   )
-  const newFiles = uniq([
-    ...newFilesWithoutRequestedFiles,
+  const newFilesToRead = uniq([
     // NOTE: When the assistant specifically asks for a file, we force it to be shown even if it's not new or changed.
-    // The assistant is too dumb to know that it is already in context, even when we give it a message saying so.
     ...(options.requestedFiles ?? []),
+
+    ...newFiles,
   ])
 
-  const updatedFiles = [...previousFilePaths, ...editedFilePaths].filter(
+  const updatedFilePaths = [...previousFilePaths, ...editedFilePaths].filter(
     (path) => {
       return loadedFiles[path] !== previousFiles[path]
     }
@@ -777,8 +769,8 @@ async function getFileReadingUpdates(
 
   const addedFiles = uniq([
     ...includedInitialFiles,
-    ...updatedFiles,
-    ...newFiles,
+    ...updatedFilePaths,
+    ...newFilesToRead,
   ])
     .map((path) => {
       return {
@@ -792,26 +784,24 @@ async function getFileReadingUpdates(
   const addedFileTokens = countTokensJson(addedFiles)
 
   if (previousFilesTokens + addedFileTokens > FILE_TOKEN_BUDGET) {
-    const requestedLoadedFiles = filteredRequestedFiles
-      .map((path) => ({
-        path,
-        content: loadedFiles[path]!,
-      }))
-      .filter((file) => file.content !== null)
-
-    const newFiles = [...initialFiles, ...requestedLoadedFiles]
+    const requestedLoadedFiles = filteredRequestedFiles.map((path) => ({
+      path,
+      content: loadedFiles[path]!,
+    }))
+    const newFiles = uniq([...initialFiles, ...requestedLoadedFiles])
     while (countTokensJson(newFiles) > FILE_TOKEN_BUDGET) {
       newFiles.pop()
     }
 
-    const [existingNewFilePaths, nonExistingNewFilePaths] = partition(
-      requestedLoadedFiles.map((f) => f.path),
-      (path) => loadedFiles[path] !== null
+    const printedPaths = getPrintedPaths(
+      requestedFiles,
+      newFilesToRead,
+      loadedFiles
     )
-
+    const isFirstRead = true
     const readFilesMessage = getRelevantFileInfoMessage(
-      existingNewFilePaths,
-      true
+      printedPaths,
+      isFirstRead
     )
 
     logger.debug(
@@ -827,32 +817,47 @@ async function getFileReadingUpdates(
     )
 
     return {
-      addedFiles,
-      existingNewFilePaths,
-      nonExistingNewFilePaths,
-      updatedFilePaths: updatedFiles,
+      addedFiles: newFiles,
+      updatedFilePaths: updatedFilePaths,
       readFilesMessage,
       clearReadFileToolResults: true,
     }
   }
 
-  const [existingNewFilePaths, nonExistingNewFilePaths] = partition(
-    newFiles,
-    (path) => loadedFiles[path] !== null
+  const printedPaths = getPrintedPaths(
+    requestedFiles,
+    newFilesToRead,
+    loadedFiles
   )
   const readFilesMessage =
-    requestedFiles.length > 0
-      ? getRelevantFileInfoMessage(existingNewFilePaths, isFirstRead)
+    printedPaths.length > 0
+      ? getRelevantFileInfoMessage(printedPaths, isFirstRead)
       : undefined
 
   return {
     addedFiles,
-    existingNewFilePaths,
-    nonExistingNewFilePaths,
-    updatedFilePaths: updatedFiles,
+    updatedFilePaths,
     readFilesMessage,
     clearReadFileToolResults: false,
   }
+}
+
+function getPrintedPaths(
+  requestedFiles: string[],
+  newFilesToRead: string[],
+  loadedFiles: Record<string, string | null>
+) {
+  // If no files requests, we don't want to print anything.
+  // Could still have files added from initial files or edited files.
+  if (requestedFiles.length === 0) return []
+  // Otherwise, only print files that don't start with a hidden file status.
+  return newFilesToRead.filter(
+    (path) =>
+      loadedFiles[path] &&
+      !HIDDEN_FILE_READ_STATUS.some((status) =>
+        loadedFiles[path]!.startsWith(status)
+      )
+  )
 }
 
 function getMessagesSubset(messages: Message[], otherTokens: number) {
