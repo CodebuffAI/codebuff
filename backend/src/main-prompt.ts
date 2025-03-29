@@ -1,7 +1,32 @@
-import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import { AnthropicModel } from 'common/constants'
+import { ClientAction } from 'common/actions'
+import { getModelForMode, AnthropicModel } from 'common/constants'
+import { type CostMode } from 'common/constants'
+import { ToolResult, AgentState } from 'common/types/agent-state'
+import { Message } from 'common/types/message'
+import { buildArray } from 'common/util/array'
+import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
+import { withCacheControl, toContentString } from 'common/util/messages'
+import { generateCompactId } from 'common/util/string'
+import { difference, partition, uniq } from 'lodash'
+import { WebSocket } from 'ws'
+
+import { checkTerminalCommand } from './check-terminal-command'
+import { requestRelevantFiles } from './find-files/request-files-prompt'
 import { promptClaudeStream } from './llm-apis/claude'
+import { processFileBlock } from './process-file-block'
+import { processStreamWithTags } from './process-stream'
+import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
+import { saveAgentRequest } from './system-prompt/save-agent-request'
+import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
+import {
+  TOOL_LIST,
+  parseToolCalls,
+  ClientToolCall,
+  updateContextFromToolCalls,
+} from './tools'
+import { logger } from './util/logger'
+import { trimMessagesToFitTokenLimit } from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
@@ -12,33 +37,8 @@ import {
   simplifyReadFileResults,
   simplifyReadFileToolResult,
 } from './util/parse-tool-call-xml'
-import { getModelForMode } from 'common/constants'
-import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
-import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
-import { Message } from 'common/types/message'
-import { ClientAction } from 'common/actions'
-import { type CostMode } from 'common/constants'
-import { requestFile, requestFiles } from './websockets/websocket-action'
-import { processFileBlock } from './process-file-block'
-import { requestRelevantFiles } from './find-files/request-files-prompt'
-import { processStreamWithTags } from './process-stream'
 import { countTokens, countTokensJson } from './util/token-counter'
-import { logger } from './util/logger'
-import { difference, partition, uniq } from 'lodash'
-import { buildArray } from 'common/util/array'
-import { generateCompactId } from 'common/util/string'
-import { ToolResult, AgentState } from 'common/types/agent-state'
-import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
-import {
-  TOOL_LIST,
-  parseToolCalls,
-  ClientToolCall,
-  updateContextFromToolCalls,
-} from './tools'
-import { trimMessagesToFitTokenLimit } from './util/messages'
-import { checkTerminalCommand } from './check-terminal-command'
-import { withCacheControl, toContentString } from 'common/util/messages'
-import { saveAgentRequest } from './system-prompt/save-agent-request'
+import { requestFile, requestFiles } from './websockets/websocket-action'
 
 // Maximum number of consecutive assistant messages allowed before forcing end_turn
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
@@ -806,7 +806,7 @@ async function getFileReadingUpdates(
 
     const [existingNewFilePaths, nonExistingNewFilePaths] = partition(
       requestedLoadedFiles.map((f) => f.path),
-      (path) => loadedFiles[path] && loadedFiles.content !== null
+      (path) => loadedFiles[path] !== null
     )
 
     const readFilesMessage = getRelevantFileInfoMessage(
@@ -838,7 +838,7 @@ async function getFileReadingUpdates(
 
   const [existingNewFilePaths, nonExistingNewFilePaths] = partition(
     newFiles,
-    (path) => loadedFiles[path] && loadedFiles.content !== null
+    (path) => loadedFiles[path] !== null
   )
   const readFilesMessage =
     requestedFiles.length > 0
