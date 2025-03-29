@@ -47,7 +47,6 @@ import {
   requestOptionalFile,
 } from './websockets/websocket-action'
 
-// Maximum number of consecutive assistant messages allowed before forcing end_turn
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
 export const mainPrompt = async (

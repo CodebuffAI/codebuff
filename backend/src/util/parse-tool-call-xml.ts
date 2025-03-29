@@ -1,7 +1,7 @@
 import { ToolResult } from 'common/types/agent-state'
-import { generateCompactId } from 'common/util/string'
 import { Message } from 'common/types/message'
 import { toContentString } from 'common/util/messages'
+import { generateCompactId } from 'common/util/string'
 
 /**
  * Parses XML content for a tool call into a structured object with only string values.
@@ -90,54 +90,6 @@ export function parseReadFilesResult(
   }
 
   return files
-}
-
-/**
- * Simplifies read_files tool results to just show file paths while preserving other tool results.
- * @param messageContent The message content containing tool results
- * @returns The message content with simplified read_files results
- */
-export function simplifyReadFileResults(messageContent: string | {}[]): string {
-  const resultsStr =
-    typeof messageContent === 'string'
-      ? messageContent
-      : ((messageContent[messageContent.length - 1] as any)?.text as string) ??
-        ''
-  if (!resultsStr.includes('<tool_result')) {
-    return resultsStr
-  }
-
-  const toolResults = parseToolResults(resultsStr)
-  const readFileResults = toolResults.filter(
-    (result) => result.name === 'read_files'
-  )
-
-  if (readFileResults.length === 0) {
-    return resultsStr
-  }
-
-  // Keep non-read_files results unchanged
-  const otherResults = toolResults.filter(
-    (result) => result.name !== 'read_files'
-  )
-
-  // Create simplified read_files results: only show file paths
-  const simplifiedReadFileResults = readFileResults.map(
-    simplifyReadFileToolResult
-  )
-
-  // Combine both types of results
-  return renderToolResults([...simplifiedReadFileResults, ...otherResults])
-}
-
-export function simplifyReadFileToolResult(toolResult: ToolResult) {
-  const fileBlocks = parseReadFilesResult(toolResult.result)
-  const filePaths = fileBlocks.map((block) => block.path)
-  return {
-    id: toolResult.id, // Keep original ID
-    name: 'read_files',
-    result: `Read the following files: ${filePaths.join('\n')}`,
-  }
 }
 
 export function isToolResult(message: Message): boolean {
