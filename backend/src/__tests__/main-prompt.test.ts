@@ -13,15 +13,23 @@ import { WebSocket } from 'ws'
 import { TEST_USER_ID } from 'common/constants'
 import { createWriteFileBlock } from 'common/util/file'
 
+// Mock imports
 import * as claude from '../llm-apis/claude'
 import * as gemini from '../llm-apis/gemini-api'
 import * as openai from '../llm-apis/openai-api'
 import * as websocketAction from '../websockets/websocket-action'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as checkTerminalCommandModule from '../check-terminal-command'
+import { logger } from '../util/logger'
 
 describe('mainPrompt', () => {
   beforeEach(() => {
+    // Mock logger
+    spyOn(logger, 'debug').mockImplementation(() => {})
+    spyOn(logger, 'error').mockImplementation(() => {})
+    spyOn(logger, 'info').mockImplementation(() => {})
+    spyOn(logger, 'warn').mockImplementation(() => {})
+
     // Set up mocks before each test
     spyOn(claude, 'promptClaude').mockImplementation(() =>
       Promise.resolve('Test response')
