@@ -95,7 +95,7 @@
         "commander": "^13.1.0",
         "diff": "5.2.0",
         "env-cmd": "^10.1.0",
-        "ignore": "5.3.2",
+        "ignore": "7.0.3",
         "isomorphic-git": "^1.29.0",
         "lodash": "*",
         "nanoid": "5.0.7",
@@ -3737,7 +3737,7 @@
 
     "codebuff/@types/diff": ["@types/diff@5.2.1", "", {}, "sha512-uxpcuwWJGhe2AR1g8hD9F5OYGCqjqWnBUQFD8gMZsDbv8oPHzxJF6iMO6n8Tk0AdzlxoaaoQhOYlIg/PukVU8g=="],
 
-    "codebuff/ignore": ["ignore@5.3.2", "", {}, "sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g=="],
+    "codebuff/ignore": ["ignore@7.0.3", "", {}, "sha512-bAH5jbK/F3T3Jls4I0SO1hmPR0dKU0a7+SY6n1yzRtG54FLO8d6w/nxLFX2Nb7dBu6cCWXPaAME6cYqFUMmuCA=="],
 
     "codebuff/tree-sitter": ["tree-sitter@0.21.1", "", { "dependencies": { "node-addon-api": "^8.0.0", "node-gyp-build": "^4.8.0" } }, "sha512-7dxoA6kYvtgWw80265MyqJlkRl4yawIjO7S5MigytjELkX43fV2WsAXzsNfO7sBpPPCF5Gp0+XzHk0DwLCq3xQ=="],
 

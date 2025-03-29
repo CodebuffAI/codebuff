@@ -104,7 +104,7 @@ export function parseGitignore(dirPath: string): ignore.Ignore {
     const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8')
     const lines = gitignoreContent.split('\n')
     for (const line of lines) {
-      ig.add(line.startsWith('/') ? line.slice(1) : line)
+      ig.add(line)
     }
   }
 
@@ -112,7 +112,7 @@ export function parseGitignore(dirPath: string): ignore.Ignore {
     const codebuffignoreContent = fs.readFileSync(codebuffignorePath, 'utf8')
     const lines = codebuffignoreContent.split('\n')
     for (const line of lines) {
-      ig.add(line.startsWith('/') ? line.slice(1) : line)
+      ig.add(line)
     }
   }
 
@@ -120,7 +120,7 @@ export function parseGitignore(dirPath: string): ignore.Ignore {
     const manicodeignoreContent = fs.readFileSync(manicodeignorePath, 'utf8')
     const lines = manicodeignoreContent.split('\n')
     for (const line of lines) {
-      ig.add(line.startsWith('/') ? line.slice(1) : line)
+      ig.add(line)
     }
   }
 
