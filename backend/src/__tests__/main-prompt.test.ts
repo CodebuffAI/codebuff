@@ -287,6 +287,85 @@ describe('mainPrompt', () => {
     expect(params.path).toBe('new-file.txt')
     expect(params.content).toBe('Hello World')
   })
+
+  it('should force end_turn after MAX_CONSECUTIVE_ASSISTANT_MESSAGES', async () => {
+    const agentState = getInitialAgentState(mockFileContext)
+
+    // Set up message history with many consecutive assistant messages
+    agentState.lastUserPromptIndex = 0
+    agentState.messageHistory = [
+      { role: 'user', content: 'Initial prompt' },
+      ...Array(20).fill({ role: 'assistant', content: 'Assistant response' }),
+    ]
+
+    const { toolCalls } = await mainPrompt(
+      new MockWebSocket() as unknown as WebSocket,
+      {
+        type: 'prompt',
+        prompt: '', // No new prompt
+        agentState,
+        fingerprintId: 'test',
+        costMode: 'max',
+        promptId: 'test',
+        toolResults: [],
+      },
+      TEST_USER_ID,
+      'test-session',
+      () => {}
+    )
+
+    expect(toolCalls).toHaveLength(1)
+    expect(toolCalls[0].name).toBe('end_turn')
+    expect(toolCalls[0].parameters).toEqual({})
+  })
+
+  it('should update lastUserPromptIndex when new prompt is received', async () => {
+    const agentState = getInitialAgentState(mockFileContext)
+    agentState.lastUserPromptIndex = 0
+
+    const { agentState: newAgentState } = await mainPrompt(
+      new MockWebSocket() as unknown as WebSocket,
+      {
+        type: 'prompt',
+        prompt: 'New user prompt',
+        agentState,
+        fingerprintId: 'test',
+        costMode: 'max',
+        promptId: 'test',
+        toolResults: [],
+      },
+      TEST_USER_ID,
+      'test-session',
+      () => {}
+    )
+
+    // The new lastUserPromptIndex should be the index of the new prompt message
+    expect(newAgentState.lastUserPromptIndex).toBeGreaterThan(0)
+  })
+
+  it('should not update lastUserPromptIndex when no new prompt', async () => {
+    const agentState = getInitialAgentState(mockFileContext)
+    const initialIndex = 5
+    agentState.lastUserPromptIndex = initialIndex
+
+    const { agentState: newAgentState } = await mainPrompt(
+      new MockWebSocket() as unknown as WebSocket,
+      {
+        type: 'prompt',
+        prompt: '', // No new prompt
+        agentState,
+        fingerprintId: 'test',
+        costMode: 'max',
+        promptId: 'test',
+        toolResults: [],
+      },
+      TEST_USER_ID,
+      'test-session',
+      () => {}
+    )
+
+    expect(newAgentState.lastUserPromptIndex).toBe(initialIndex)
+  })
 })
 
 // Helper function (consider moving to a test utility file)

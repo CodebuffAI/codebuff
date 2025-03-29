@@ -40,13 +40,20 @@ import { checkTerminalCommand } from './check-terminal-command'
 import { withCacheControl, toContentString } from 'common/util/messages'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 
+// Maximum number of consecutive assistant messages allowed before forcing end_turn
+const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
+
 export const mainPrompt = async (
   ws: WebSocket,
   action: Extract<ClientAction, { type: 'prompt' }>,
   userId: string | undefined,
   clientSessionId: string,
   onResponseChunk: (chunk: string) => void
-) => {
+): Promise<{
+  agentState: AgentState
+  toolCalls: Array<ClientToolCall>
+  toolResults: Array<ToolResult>
+}> => {
   const { prompt, agentState, fingerprintId, costMode, promptId, toolResults } =
     action
   const { messageHistory, fileContext, agentContext } = agentState
@@ -115,8 +122,8 @@ export const mainPrompt = async (
     }
   )
 
-  // Check if this is a direct terminal command
   if (prompt) {
+    // Check if this is a direct terminal command
     const startTime = Date.now()
     const terminalCommand = await checkTerminalCommand(prompt, {
       clientSessionId,
@@ -137,6 +144,7 @@ export const mainPrompt = async (
       const newAgentState = {
         ...agentState,
         messageHistory: messagesWithToolResultsAndUser,
+        lastUserPromptIndex: messagesWithToolResultsAndUser.length - 1,
       }
       return {
         agentState: newAgentState,
@@ -151,6 +159,47 @@ export const mainPrompt = async (
           },
         ],
         toolResults: [],
+      }
+    }
+  } else {
+    // Check number of assistant messages since last user message with prompt
+    const lastUserPromptIndex = agentState.lastUserPromptIndex ?? -1
+    if (lastUserPromptIndex >= 0) {
+      const messagesSincePrompt = messageHistory.slice(lastUserPromptIndex + 1)
+      const consecutiveAssistantMessages = messagesSincePrompt.filter(
+        (msg) => msg.role === 'assistant'
+      ).length
+
+      if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
+        logger.warn(
+          `Detected ${consecutiveAssistantMessages} consecutive assistant messages without user prompt`
+        )
+
+        const warningString = [
+          "I've made quite a few responses in a row.",
+          "Let me pause here to make sure we're still on the right track.",
+          "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
+        ].join(' ')
+
+        onResponseChunk(`${warningString}\n\n`)
+
+        return {
+          agentState: {
+            ...agentState,
+            messageHistory: [
+              ...messageHistory,
+              { role: 'assistant', content: warningString },
+            ],
+          },
+          toolCalls: [
+            {
+              id: generateCompactId(),
+              name: 'end_turn',
+              parameters: {},
+            },
+          ],
+          toolResults: [],
+        }
       }
     }
   }
@@ -568,7 +617,11 @@ ${newFiles.map((file) => file.path).join('\n')}
     ...agentState,
     messageHistory: messagesWithResponse,
     agentContext: newAgentContext,
+    lastUserPromptIndex: prompt
+      ? messagesWithUserMessage.length - 1
+      : agentState.lastUserPromptIndex,
   }
+
   logger.debug(
     {
       iteration: iterationNum,
