@@ -38,9 +38,11 @@ import {
   parseToolResults,
   renderReadFilesResult,
   renderToolResults,
+} from './util/parse-tool-call-xml'
+import {
   simplifyReadFileResults,
   simplifyReadFileToolResult,
-} from './util/parse-tool-call-xml'
+} from './util/simplify-tool-results'
 import { countTokens, countTokensJson } from './util/token-counter'
 import {
   requestFiles,
