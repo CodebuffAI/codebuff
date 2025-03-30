@@ -42,6 +42,13 @@ export const HIDDEN_FILE_READ_STATUS = [
   FILE_READ_STATUS.ERROR,
 ]
 
+export function toOptionalFile(file: string | null) {
+  if (file === null) return null
+  return HIDDEN_FILE_READ_STATUS.some((status) => file.startsWith(status))
+    ? null
+    : file
+}
+
 export const REQUEST_CREDIT_SHOW_THRESHOLD = 1
 export const MAX_DATE = new Date(86399999999999)
 export const BILLING_PERIOD_DAYS = 30

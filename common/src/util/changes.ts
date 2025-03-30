@@ -31,7 +31,7 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
         created.push(filePath)
       }
     } catch (error) {
-      console.error(`Failed to apply patch to ${path}:`, error, content)
+      console.error(`Failed to apply patch to ${filePath}:`, error, content)
     }
   }
 
