@@ -1,7 +1,38 @@
-import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import { AnthropicModel, models } from 'common/constants'
+import { ClientAction } from 'common/actions'
+import {
+  getModelForMode,
+  AnthropicModel,
+  HIDDEN_FILE_READ_STATUS,
+  models,
+} from 'common/constants'
+import { type CostMode } from 'common/constants'
+import { ToolResult, AgentState } from 'common/types/agent-state'
+import { Message } from 'common/types/message'
+import { buildArray } from 'common/util/array'
+import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
+import { withCacheControl, toContentString } from 'common/util/messages'
+import { generateCompactId } from 'common/util/string'
+import { difference, partition, uniq } from 'lodash'
+import { WebSocket } from 'ws'
+
+import { checkTerminalCommand } from './check-terminal-command'
+import { requestRelevantFiles } from './find-files/request-files-prompt'
 import { promptClaudeStream } from './llm-apis/claude'
+import { promptGeminiStream } from './llm-apis/gemini-api'
+import { processFileBlock } from './process-file-block'
+import { processStreamWithTags } from './process-stream'
+import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
+import { saveAgentRequest } from './system-prompt/save-agent-request'
+import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
+import {
+  TOOL_LIST,
+  parseToolCalls,
+  ClientToolCall,
+  updateContextFromToolCalls,
+} from './tools'
+import { logger } from './util/logger'
+import { trimMessagesToFitTokenLimit, messagesWithSystem } from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
@@ -12,37 +43,11 @@ import {
   simplifyReadFileResults,
   simplifyReadFileToolResult,
 } from './util/parse-tool-call-xml'
-import { getModelForMode } from 'common/constants'
-import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
-import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
-import { Message } from 'common/types/message'
-import { ClientAction } from 'common/actions'
-import { type CostMode } from 'common/constants'
-import { requestFile, requestFiles } from './websockets/websocket-action'
-import { processFileBlock } from './process-file-block'
-import { requestRelevantFiles } from './find-files/request-files-prompt'
-import { processStreamWithTags } from './process-stream'
 import { countTokens, countTokensJson } from './util/token-counter'
-import { logger } from './util/logger'
-import { difference, partition, uniq } from 'lodash'
-import { buildArray } from 'common/util/array'
-import { generateCompactId } from 'common/util/string'
-import { ToolResult, AgentState } from 'common/types/agent-state'
-import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
-import {
-  TOOL_LIST,
-  parseToolCalls,
-  ClientToolCall,
-  updateContextFromToolCalls,
-} from './tools'
-import {
-  messagesWithSystem,
-  trimMessagesToFitTokenLimit,
-} from './util/messages'
-import { checkTerminalCommand } from './check-terminal-command'
-import { withCacheControl, toContentString } from 'common/util/messages'
-import { saveAgentRequest } from './system-prompt/save-agent-request'
-import { promptGeminiStream } from './llm-apis/gemini-api'
+import { requestFile, requestFiles } from './websockets/websocket-action'
+
+// Maximum number of consecutive assistant messages allowed before forcing end_turn
+const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
 export const mainPrompt = async (
   ws: WebSocket,
@@ -50,7 +55,11 @@ export const mainPrompt = async (
   userId: string | undefined,
   clientSessionId: string,
   onResponseChunk: (chunk: string) => void
-) => {
+): Promise<{
+  agentState: AgentState
+  toolCalls: Array<ClientToolCall>
+  toolResults: Array<ToolResult>
+}> => {
   const { prompt, agentState, fingerprintId, costMode, promptId, toolResults } =
     action
   const { messageHistory, fileContext, agentContext } = agentState
@@ -119,8 +128,8 @@ export const mainPrompt = async (
     }
   )
 
-  // Check if this is a direct terminal command
   if (prompt) {
+    // Check if this is a direct terminal command
     const startTime = Date.now()
     const terminalCommand = await checkTerminalCommand(prompt, {
       clientSessionId,
@@ -141,6 +150,7 @@ export const mainPrompt = async (
       const newAgentState = {
         ...agentState,
         messageHistory: messagesWithToolResultsAndUser,
+        lastUserPromptIndex: messagesWithToolResultsAndUser.length - 1,
       }
       return {
         agentState: newAgentState,
@@ -155,6 +165,47 @@ export const mainPrompt = async (
           },
         ],
         toolResults: [],
+      }
+    }
+  } else {
+    // Check number of assistant messages since last user message with prompt
+    const lastUserPromptIndex = agentState.lastUserPromptIndex ?? -1
+    if (lastUserPromptIndex >= 0) {
+      const messagesSincePrompt = messageHistory.slice(lastUserPromptIndex + 1)
+      const consecutiveAssistantMessages = messagesSincePrompt.filter(
+        (msg) => msg.role === 'assistant'
+      ).length
+
+      if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
+        logger.warn(
+          `Detected ${consecutiveAssistantMessages} consecutive assistant messages without user prompt`
+        )
+
+        const warningString = [
+          "I've made quite a few responses in a row.",
+          "Let me pause here to make sure we're still on the right track.",
+          "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
+        ].join(' ')
+
+        onResponseChunk(`${warningString}\n\n`)
+
+        return {
+          agentState: {
+            ...agentState,
+            messageHistory: [
+              ...messageHistory,
+              { role: 'assistant', content: warningString },
+            ],
+          },
+          toolCalls: [
+            {
+              id: generateCompactId(),
+              name: 'end_turn',
+              parameters: {},
+            },
+          ],
+          toolResults: [],
+        }
       }
     }
   }
@@ -360,6 +411,8 @@ ${newFiles.map((file) => file.path).join('\n')}
           ? content.slice(1)
           : content
 
+        logger.debug({ path, content }, `write_file ${path}`)
+
         const newPromise = processFileBlock(
           path,
           latestContentPromise,
@@ -439,50 +492,35 @@ ${newFiles.map((file) => file.path).join('\n')}
 
       logger.debug(toolCall, 'tool call')
 
-      const { addedFiles, existingNewFilePaths, nonExistingNewFilePaths } =
-        await getFileReadingUpdates(
-          ws,
-          messagesWithResponse,
-          getSearchSystemPrompt(
-            fileContext,
-            costMode,
-            fileRequestMessagesTokens
-          ),
-          fileContext,
-          null,
-          {
-            skipRequestingFiles: false,
-            requestedFiles: paths,
-            clientSessionId,
-            fingerprintId,
-            userInputId: promptId,
-            userId,
-            costMode,
-          }
-        )
-      const filesAlreadyRead = difference(
-        paths,
-        addedFiles.map((f) => f.path)
+      const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
+        ws,
+        messagesWithResponse,
+        getSearchSystemPrompt(fileContext, costMode, fileRequestMessagesTokens),
+        fileContext,
+        null,
+        {
+          skipRequestingFiles: false,
+          requestedFiles: paths,
+          clientSessionId,
+          fingerprintId,
+          userInputId: promptId,
+          userId,
+          costMode,
+        }
       )
       logger.debug(
         {
           content: parameters.paths,
-          existingPaths: existingNewFilePaths,
           paths,
+          addedFilesPaths: addedFiles.map((f) => f.path),
+          updatedFilePaths,
         },
         'read_files tool call'
       )
       serverToolResults.push({
         id: generateCompactId(),
         name: 'read_files',
-        result:
-          renderReadFilesResult(addedFiles) +
-          (filesAlreadyRead.length > 0
-            ? `\nThe following files were already read earlier in the conversation and are up to date (no changes were made since last read): ${filesAlreadyRead.join('\n')}`
-            : '') +
-          (nonExistingNewFilePaths && nonExistingNewFilePaths.length > 0
-            ? `\nThe following files did not exist or were hidden: ${nonExistingNewFilePaths.join('\n')}`
-            : ''),
+        result: renderReadFilesResult(addedFiles),
       })
       // } else if (name === 'find_files') {
       //   const { description } = parameters
@@ -583,7 +621,11 @@ ${newFiles.map((file) => file.path).join('\n')}
     ...agentState,
     messageHistory: messagesWithResponse,
     agentContext: newAgentContext,
+    lastUserPromptIndex: prompt
+      ? messagesWithUserMessage.length - 1
+      : agentState.lastUserPromptIndex,
   }
+
   logger.debug(
     {
       iteration: iterationNum,
@@ -693,7 +735,7 @@ async function getFileReadingUpdates(
         userInputId,
         userId,
         costMode
-      )) ??
+      ))??
       []
 
   const isFirstRead = previousFileList.length === 0
@@ -712,26 +754,25 @@ async function getFileReadingUpdates(
 
   const filteredRequestedFiles = requestedFiles.filter((filePath, i) => {
     const content = loadedFiles[filePath]
-    if (content === undefined) return false
-    if (content === null) return true
+    if (content === null || content === undefined) return false
     const tokenCount = countTokens(content)
     if (i < 5) {
       return tokenCount < 50_000 - i * 10_000
     }
     return tokenCount < 10_000
   })
-  const newFilesWithoutRequestedFiles = difference(
+  const newFiles = difference(
     [...filteredRequestedFiles, ...includedInitialFiles],
     previousFilePaths
   )
-  const newFiles = uniq([
-    ...newFilesWithoutRequestedFiles,
+  const newFilesToRead = uniq([
     // NOTE: When the assistant specifically asks for a file, we force it to be shown even if it's not new or changed.
-    // The assistant is too dumb to know that it is already in context, even when we give it a message saying so.
     ...(options.requestedFiles ?? []),
+
+    ...newFiles,
   ])
 
-  const updatedFiles = [...previousFilePaths, ...editedFilePaths].filter(
+  const updatedFilePaths = [...previousFilePaths, ...editedFilePaths].filter(
     (path) => {
       return loadedFiles[path] !== previousFiles[path]
     }
@@ -739,8 +780,8 @@ async function getFileReadingUpdates(
 
   const addedFiles = uniq([
     ...includedInitialFiles,
-    ...updatedFiles,
-    ...newFiles,
+    ...updatedFilePaths,
+    ...newFilesToRead,
   ])
     .map((path) => {
       return {
@@ -754,26 +795,24 @@ async function getFileReadingUpdates(
   const addedFileTokens = countTokensJson(addedFiles)
 
   if (previousFilesTokens + addedFileTokens > FILE_TOKEN_BUDGET) {
-    const requestedLoadedFiles = filteredRequestedFiles
-      .map((path) => ({
-        path,
-        content: loadedFiles[path]!,
-      }))
-      .filter((file) => file.content !== null)
-
-    const newFiles = [...initialFiles, ...requestedLoadedFiles]
+    const requestedLoadedFiles = filteredRequestedFiles.map((path) => ({
+      path,
+      content: loadedFiles[path]!,
+    }))
+    const newFiles = uniq([...initialFiles, ...requestedLoadedFiles])
     while (countTokensJson(newFiles) > FILE_TOKEN_BUDGET) {
       newFiles.pop()
     }
 
-    const [existingNewFilePaths, nonExistingNewFilePaths] = partition(
-      requestedLoadedFiles.map((f) => f.path),
-      (path) => loadedFiles[path] && loadedFiles.content !== null
+    const printedPaths = getPrintedPaths(
+      requestedFiles,
+      newFilesToRead,
+      loadedFiles
     )
-
+    const isFirstRead = true
     const readFilesMessage = getRelevantFileInfoMessage(
-      existingNewFilePaths,
-      true
+      printedPaths,
+      isFirstRead
     )
 
     logger.debug(
@@ -790,31 +829,46 @@ async function getFileReadingUpdates(
 
     return {
       addedFiles: newFiles,
-      existingNewFilePaths,
-      nonExistingNewFilePaths,
-      updatedFilePaths: updatedFiles,
+      updatedFilePaths: updatedFilePaths,
       readFilesMessage,
       clearReadFileToolResults: true,
     }
   }
 
-  const [existingNewFilePaths, nonExistingNewFilePaths] = partition(
-    newFiles,
-    (path) => loadedFiles[path] && loadedFiles.content !== null
+  const printedPaths = getPrintedPaths(
+    requestedFiles,
+    newFilesToRead,
+    loadedFiles
   )
   const readFilesMessage =
-    requestedFiles.length > 0
-      ? getRelevantFileInfoMessage(existingNewFilePaths, isFirstRead)
+    printedPaths.length > 0
+      ? getRelevantFileInfoMessage(printedPaths, isFirstRead)
       : undefined
 
   return {
     addedFiles,
-    existingNewFilePaths,
-    nonExistingNewFilePaths,
-    updatedFilePaths: updatedFiles,
+    updatedFilePaths,
     readFilesMessage,
     clearReadFileToolResults: false,
   }
+}
+
+function getPrintedPaths(
+  requestedFiles: string[],
+  newFilesToRead: string[],
+  loadedFiles: Record<string, string | null>
+) {
+  // If no files requests, we don't want to print anything.
+  // Could still have files added from initial files or edited files.
+  if (requestedFiles.length === 0) return []
+  // Otherwise, only print files that don't start with a hidden file status.
+  return newFilesToRead.filter(
+    (path) =>
+      loadedFiles[path] &&
+      !HIDDEN_FILE_READ_STATUS.some((status) =>
+        loadedFiles[path]!.startsWith(status)
+      )
+  )
 }
 
 function getMessagesSubset(messages: Message[], otherTokens: number) {

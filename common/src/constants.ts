@@ -26,6 +26,22 @@ export const DEFAULT_IGNORED_FILES = [
   'bun.lockb',
 ]
 
+export const FILE_READ_STATUS = {
+  DOES_NOT_EXIST: '[FILE_DOES_NOT_EXIST]',
+  IGNORED: '[FILE_IGNORED_BY_GITIGNORE_OR_CODEBUFF_IGNORE]',
+  OUTSIDE_PROJECT: '[FILE_OUTSIDE_PROJECT]',
+  TOO_LARGE: '[FILE_TOO_LARGE]',
+  ERROR: '[FILE_READ_ERROR]',
+} as const
+
+export const HIDDEN_FILE_READ_STATUS = [
+  FILE_READ_STATUS.DOES_NOT_EXIST,
+  FILE_READ_STATUS.IGNORED,
+  FILE_READ_STATUS.OUTSIDE_PROJECT,
+  FILE_READ_STATUS.TOO_LARGE,
+  FILE_READ_STATUS.ERROR,
+]
+
 export const REQUEST_CREDIT_SHOW_THRESHOLD = 1
 export const MAX_DATE = new Date(86399999999999)
 export const BILLING_PERIOD_DAYS = 30
@@ -114,7 +130,7 @@ export const getModelForMode = (
   operation: 'agent' | 'file-requests' | 'check-new-files'
 ) => {
   if (operation === 'agent') {
-    return costMode === 'lite' ? claudeModels.haiku : claudeModels.sonnet
+    return costMode === 'max' ? models.gemini2_5_pro : costMode === 'lite' ? claudeModels.haiku : claudeModels.sonnet
   }
   if (operation === 'file-requests') {
     return costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku

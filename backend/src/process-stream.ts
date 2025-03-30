@@ -114,12 +114,16 @@ export async function* processStreamWithTags<T extends string>(
   }
 }
 
-function parseAttributes(
+// exported for tests
+export function parseAttributes(
   attributesString: string,
   attributeNames: string[]
 ): Record<string, string> {
   const attributes: Record<string, string> = {}
-  const regex = new RegExp(`(${attributeNames.join('|')})="([^"]*)"`, 'g')
+  const regex = new RegExp(
+    `(${attributeNames.join('|')})\\s*=\\s*"([^"]*)"`,
+    'g'
+  )
   let match
   while ((match = regex.exec(attributesString)) !== null) {
     attributes[match[1]] = match[2]

@@ -26,16 +26,6 @@ export type ToolCall = z.infer<typeof ToolCallSchema>
 
 export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
-    type: z.literal('user-input'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    userInputId: z.string(),
-    messages: z.array(MessageSchema),
-    fileContext: ProjectFileContextSchema,
-    changesAlreadyApplied: CHANGES,
-    costMode: z.enum(costModes).optional().default('normal'),
-  }),
-  z.object({
     type: z.literal('prompt'),
     promptId: z.string(),
     prompt: z.string().or(z.undefined()),

@@ -36,7 +36,7 @@ export function getCurrentChatDir(): string {
 }
 
 import {
-  createFileBlock,
+  createWriteFileBlock,
   FileVersion,
   ProjectFileContext,
 } from 'common/util/file'
@@ -50,6 +50,7 @@ import { getFileTokenScores } from 'code-map/parse'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import { getSystemInfo } from './utils/system-info'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
+import { FILE_READ_STATUS } from 'common/constants'
 
 const execAsync = promisify(exec)
 
@@ -282,29 +283,39 @@ export function getFiles(filePaths: string[]) {
       : filePath
     const fullPath = path.join(projectRoot, relativePath)
     if (isAbsolute(relativePath) || !fullPath.startsWith(projectRoot)) {
-      result[relativePath] = '[FILE_OUTSIDE_PROJECT]'
+      result[relativePath] = FILE_READ_STATUS.OUTSIDE_PROJECT
       continue
     }
     try {
       if (ig.ignores(relativePath)) {
-        result[relativePath] = null
+        result[relativePath] = FILE_READ_STATUS.IGNORED
         continue
       }
     } catch (error) {
-      result[relativePath] = null
+      result[relativePath] = FILE_READ_STATUS.ERROR
       continue
     }
     try {
       const stats = fs.statSync(fullPath)
       if (stats.size > MAX_FILE_SIZE) {
         result[relativePath] =
-          `[FILE_TOO_LARGE: ${(stats.size / (1024 * 1024)).toFixed(2)}MB]`
+          FILE_READ_STATUS.TOO_LARGE +
+          ` [${(stats.size / (1024 * 1024)).toFixed(2)}MB]`
       } else {
         const content = fs.readFileSync(fullPath, 'utf8')
         result[relativePath] = content
       }
     } catch (error) {
-      result[relativePath] = null
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
+        result[relativePath] = FILE_READ_STATUS.DOES_NOT_EXIST
+      } else {
+        result[relativePath] = FILE_READ_STATUS.ERROR
+      }
     }
   }
   return result
@@ -402,7 +413,7 @@ export function getFileBlocks(filePaths: string[]) {
   }
 
   const fileBlocks = filePaths.map((filePath) =>
-    createFileBlock(filePath, result[filePath])
+    createWriteFileBlock(filePath, result[filePath])
   )
 
   return fileBlocks.join('\n')

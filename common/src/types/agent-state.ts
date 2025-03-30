@@ -19,6 +19,7 @@ export const AgentStateSchema = z.object({
   agentContext: z.string(),
   fileContext: ProjectFileContextSchema,
   messageHistory: z.array(MessageSchema),
+  lastUserPromptIndex: z.number().optional(),
 })
 export type AgentState = z.infer<typeof AgentStateSchema>
 
@@ -29,5 +30,6 @@ export function getInitialAgentState(
     agentContext: '',
     messageHistory: [],
     fileContext,
+    lastUserPromptIndex: -1,
   }
 }

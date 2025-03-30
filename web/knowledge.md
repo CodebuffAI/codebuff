@@ -560,6 +560,13 @@ For cards that need different positioning on mobile vs desktop:
 - Place PostHogProvider above other providers
 - Handle cleanup with posthog.shutdown()
 
+### PostHog User Identification
+
+When using PostHog analytics:
+
+- Use email as primary identifier (distinct_id) for consistent cross-system tracking but store user_id as a property for internal reference
+- This ensures consistent user tracking across different systems and services
+
 ### Event Categories
 
 - home.\* - Home page events
