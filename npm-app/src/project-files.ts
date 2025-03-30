@@ -50,7 +50,7 @@ import { getFileTokenScores } from 'code-map/parse'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 import { getSystemInfo } from './utils/system-info'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
-import { FILE_READ_STATUS } from 'common/constants'
+import { FILE_READ_STATUS, toOptionalFile } from 'common/constants'
 
 const execAsync = promisify(exec)
 
@@ -320,12 +320,21 @@ export function getFiles(filePaths: string[]) {
   }
   return result
 }
+export function getFilesOrNull(filePaths: string[]) {
+  const result = getFiles(filePaths)
+  return Object.fromEntries(
+    Object.entries(result).map(([filePath, content]) => [
+      filePath,
+      toOptionalFile(content),
+    ])
+  )
+}
 
 export function getExistingFiles(filePaths: string[]) {
-  return filterObject(getFiles(filePaths), (value) => value !== null) as Record<
-    string,
-    string
-  >
+  return filterObject(
+    getFilesOrNull(filePaths),
+    (value) => value !== null
+  ) as Record<string, string>
 }
 export async function addScrapedContentToFiles(files: Record<string, string>) {
   const newFiles = { ...files }

@@ -13,10 +13,10 @@ import { getQuotaManager } from 'common/src/billing/quota-manager'
 import { getNextQuotaReset } from 'common/src/util/dates'
 import { ensureEndsWithNewline } from 'common/src/util/file'
 import { logger, withLoggerContext } from '@/util/logger'
-import { hasMaxedReferrals } from 'common/util/server/referral'
 import { generateCompactId } from 'common/util/string'
 import { renderToolResults } from '@/util/parse-tool-call-xml'
 import { buildArray } from 'common/util/array'
+import { toOptionalFile } from 'common/constants'
 
 /**
  * Sends an action to the client via WebSocket
@@ -418,4 +418,9 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
 export async function requestFile(ws: WebSocket, filePath: string) {
   const files = await requestFiles(ws, [filePath])
   return files[filePath] ?? null
+}
+
+export async function requestOptionalFile(ws: WebSocket, filePath: string) {
+  const file = await requestFile(ws, filePath)
+  return toOptionalFile(file)
 }

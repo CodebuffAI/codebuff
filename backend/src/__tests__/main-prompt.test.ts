@@ -377,7 +377,6 @@ describe('mainPrompt', () => {
 
     expect(newAgentState.lastUserPromptIndex).toBe(initialIndex)
   })
-
   it('should add end_turn tool call when no other tools are called', async () => {
     // Mock LLM to return only plain text
     spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {

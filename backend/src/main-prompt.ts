@@ -47,7 +47,10 @@ import {
   simplifyReadFileToolResult,
 } from './util/parse-tool-call-xml'
 import { countTokens, countTokensJson } from './util/token-counter'
-import { requestFile, requestFiles } from './websockets/websocket-action'
+import {
+  requestFiles,
+  requestOptionalFile,
+} from './websockets/websocket-action'
 
 // Maximum number of consecutive assistant messages allowed before forcing end_turn
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
@@ -406,9 +409,10 @@ ${newFiles.map((file) => file.path).join('\n')}
 
         const latestContentPromise = previousEdit
           ? previousEdit.then(
-              (maybeResult) => maybeResult?.content ?? requestFile(ws, path)
+              (maybeResult) =>
+                maybeResult?.content ?? requestOptionalFile(ws, path)
             )
-          : requestFile(ws, path)
+          : requestOptionalFile(ws, path)
 
         const fileContentWithoutStartNewline = content.startsWith('\n')
           ? content.slice(1)
