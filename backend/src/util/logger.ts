@@ -3,9 +3,17 @@ import path from 'path'
 import { AsyncLocalStorage } from 'async_hooks'
 import { env } from '../env.mjs'
 
-const loggerAsyncStorage = new AsyncLocalStorage<Record<string, any>>()
+export interface LoggerContext {
+  userId?: string
+  userEmail?: string
+  clientSessionId?: string
+  [key: string]: any // Allow for future extensions
+}
+
+const loggerAsyncStorage = new AsyncLocalStorage<LoggerContext>()
+
 export const withLoggerContext = <T>(
-  additionalContext: Record<string, any>,
+  additionalContext: Partial<LoggerContext>,
   fn: () => Promise<T>
 ) => {
   const store = loggerAsyncStorage.getStore() ?? {}
@@ -22,7 +30,7 @@ export const logger = pino(
   {
     level: 'debug',
     mixin() {
-      return { ...loggerAsyncStorage.getStore() }
+      return { logTrace: loggerAsyncStorage.getStore() }
     },
     formatters: {
       level: (label) => {
