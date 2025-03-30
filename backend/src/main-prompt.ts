@@ -375,7 +375,7 @@ ${newFiles.map((file) => file.path).join('\n')}
   > = {}
 
   const stream =
-    costMode === 'max'
+    costMode === 'max' || costMode === 'normal'
       ? promptGeminiStream(messagesWithSystem(agentMessages, system), {
           clientSessionId,
           fingerprintId,
