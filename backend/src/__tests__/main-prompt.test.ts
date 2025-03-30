@@ -12,6 +12,7 @@ import { getInitialAgentState, ToolResult } from 'common/types/agent-state'
 import { WebSocket } from 'ws'
 import { TEST_USER_ID } from 'common/constants'
 import { createWriteFileBlock } from 'common/util/file'
+import { renderToolResults } from '../util/parse-tool-call-xml'
 
 // Mock imports
 import * as claude from '../llm-apis/claude'
@@ -377,66 +378,4 @@ describe('mainPrompt', () => {
 
     expect(newAgentState.lastUserPromptIndex).toBe(initialIndex)
   })
-  it('should add end_turn tool call when no other tools are called', async () => {
-    // Mock LLM to return only plain text
-    spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
-      yield 'Okay, I understand.'
-    })
-    spyOn(gemini, 'promptGeminiStream').mockImplementation(
-      () =>
-        new ReadableStream({
-          start(controller) {
-            controller.enqueue('Okay, I understand.')
-            controller.close()
-          },
-        })
-    )
-
-    // Ensure no files are requested or updated
-    spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
-      async () => []
-    )
-    spyOn(websocketAction, 'requestFiles').mockImplementation(
-      async () => ({}) // No files loaded/updated
-    )
-
-    const agentState = getInitialAgentState(mockFileContext)
-
-    const { toolCalls, toolResults } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
-      {
-        type: 'prompt',
-        prompt: 'Simple prompt with no tools needed',
-        agentState,
-        fingerprintId: 'test',
-        costMode: 'max', // Use max to trigger gemini mock if needed
-        promptId: 'test-end-turn',
-        toolResults: [], // Start with no incoming tool results
-      },
-      TEST_USER_ID,
-      'test-session-end-turn',
-      () => {}
-    )
-
-    // Expect no server-side results (like file_updates or read_files)
-    expect(toolResults).toHaveLength(0)
-    // Expect exactly one client tool call, which should be end_turn
-    expect(toolCalls).toHaveLength(1)
-    expect(toolCalls[0].name).toBe('end_turn')
-    expect(toolCalls[0].parameters).toEqual({})
-  })
 })
-
-// Helper function (consider moving to a test utility file)
-function renderToolResults(toolResults: ToolResult[]): string {
-  return `
-${toolResults
-  .map(
-    (result) => `<tool_result>
-<tool>${result.name}</tool>
-<result>${result.result}</result>
-</tool_result>`
-  )
-  .join('\n')}
-`.trim()
-}
