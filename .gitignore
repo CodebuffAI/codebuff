@@ -19,3 +19,4 @@ __mock-projects__
 .aider*
 .codebuff*
 debug.log
+debug-subset.log
