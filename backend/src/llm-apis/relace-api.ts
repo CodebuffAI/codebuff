@@ -1,11 +1,13 @@
-import { TEST_USER_ID } from 'common/constants'
+import { models, TEST_USER_ID } from 'common/constants'
 import { env } from '../env.mjs'
 import { saveMessage } from '../llm-apis/message-cost-tracker'
 import { logger } from '../util/logger'
 import { countTokens } from '../util/token-counter'
-import { createMarkdownFileBlock } from 'common/util/file'
-import { geminiModels } from 'common/constants'
-import { promptGeminiWithFallbacks } from './gemini-with-fallbacks'
+import {
+  createMarkdownFileBlock,
+  parseMarkdownCodeBlock,
+} from 'common/util/file'
+import { promptOpenAI } from './openai-api'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
@@ -95,7 +97,7 @@ export async function promptRelaceAI(
             ? error.message
             : 'Unknown error',
       },
-      'Error calling Relace AI, falling back to Gemini Flash'
+      'Error calling Relace AI, falling back to o3-mini'
     )
 
     // Fall back to Gemini
@@ -117,22 +119,23 @@ Important:
 3. Only implement the changes shown in the edit snippet
 4. Return only the code, no explanation needed
 
-Please output just the complete updated file content, do not include markdown backticks or other formatting:`
+Please output just the complete updated file content with no other text.`
 
-    const content = await promptGeminiWithFallbacks(
-      [{ role: 'user', content: prompt }],
-      undefined,
+    const content = await promptOpenAI(
+      [
+        { role: 'user', content: prompt },
+        { role: 'assistant', content: '```\n' },
+      ],
       {
         clientSessionId,
         fingerprintId,
         userInputId,
-        model: geminiModels.gemini2flash,
+        model: models.o3mini,
         userId,
-        useGPT4oInsteadOfClaude: true,
       }
     )
 
-    return content
+    return parseMarkdownCodeBlock(content) + '\n'
   }
 }
 
