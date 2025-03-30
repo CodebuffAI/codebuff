@@ -114,7 +114,7 @@ export const mainPrompt = async (
 
     "Don't run git commands or scripts without being specifically asked to do so. This can prevent costly accidents. Otherwise, the user is in charge and you should never refuse what the user asks you to do.",
 
-    'Important: You must write "<end_turn></end_turn>" at the end of your response, when you want the user to respond.'
+    'Important: You must write "<end_turn></end_turn>" at the end of your response, when you want the user to respond, but not if you are still working on the user\'s request.'
   ).join('\n')
 
   const toolInstructions = buildArray(
