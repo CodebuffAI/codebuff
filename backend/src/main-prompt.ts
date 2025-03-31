@@ -19,7 +19,6 @@ import { WebSocket } from 'ws'
 import { checkTerminalCommand } from './check-terminal-command'
 import { requestRelevantFiles } from './find-files/request-files-prompt'
 import { promptClaudeStream } from './llm-apis/claude'
-import { promptGeminiStream } from './llm-apis/gemini-api'
 import { processFileBlock } from './process-file-block'
 import { processStreamWithTags } from './process-stream'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
@@ -51,6 +50,7 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
+import { promptOpenRouterStream } from './llm-apis/open-router'
 
 // Maximum number of consecutive assistant messages allowed before forcing end_turn
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
@@ -376,11 +376,11 @@ ${newFiles.map((file) => file.path).join('\n')}
 
   const stream =
     costMode === 'max' || costMode === 'normal'
-      ? promptGeminiStream(messagesWithSystem(agentMessages, system), {
+      ? promptOpenRouterStream(messagesWithSystem(agentMessages, system), {
+          model: 'google/gemini-2.5-pro-exp-03-25:free',
           clientSessionId,
           fingerprintId,
           userInputId: promptId,
-          model: models.gemini2_5_pro,
           userId,
         })
       : promptClaudeStream(agentMessages, {

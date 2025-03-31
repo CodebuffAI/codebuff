@@ -3,6 +3,7 @@ import { TEST_USER_ID } from 'common/constants'
 import { env } from '../env.mjs'
 import { saveMessage } from '../llm-apis/message-cost-tracker'
 import { logger } from '../util/logger'
+import { removeCache } from 'common/util/messages'
 
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -25,7 +26,7 @@ const getOpenAI = (fingerprintId: string) => {
   return openai
 }
 
-export async function* promptOpenAIStream(
+export async function* promptOpenRouterStream(
   messages: OpenAIMessage[],
   options: {
     clientSessionId: string
@@ -50,8 +51,8 @@ export async function* promptOpenAIStream(
 
   try {
     const stream = await openai.chat.completions.create({
-      model: 'openai/' + model,
-      messages,
+      model,
+      messages: removeCache(messages as any) as OpenAIMessage[],
       temperature: options.temperature ?? 0,
       stream: true,
       ...(predictedContent
@@ -113,7 +114,7 @@ const timeoutPromise = (ms: number) =>
     setTimeout(() => reject(new Error('OpenAI API request timed out')), ms)
   )
 
-export async function promptOpenAI(
+export async function promptOpenRouter(
   messages: OpenAIMessage[],
   options: {
     clientSessionId: string
@@ -127,7 +128,7 @@ export async function promptOpenAI(
 ) {
   try {
     const timeout = options.model.startsWith('o1') ? 800_000 : 200_000
-    const stream = promptOpenAIStream(messages, options)
+    const stream = promptOpenRouterStream(messages, options)
 
     let content = ''
     await Promise.race([
@@ -141,7 +142,7 @@ export async function promptOpenAI(
     const result = content
 
     if (!result) {
-      throw new Error('No response from OpenAI')
+      throw new Error('No response from OpenRouter')
     }
     return result
   } catch (error) {
@@ -152,7 +153,7 @@ export async function promptOpenAI(
             ? error.message
             : 'Unknown error',
       },
-      'Error calling OpenAI API'
+      'Error calling OpenRouter API'
     )
     throw error
   }
