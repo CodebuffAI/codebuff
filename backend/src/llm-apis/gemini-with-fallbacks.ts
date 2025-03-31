@@ -1,14 +1,16 @@
 import { CostMode, GeminiModel, openaiModels } from 'common/constants'
 import { Message } from 'common/types/message'
-import { promptGemini } from './gemini-api'
-import { promptGemini as promptVertexGemini } from './gemini-vertex-api'
+import { promptGemini, promptGeminiStream } from './gemini-api'
+import {
+  promptGemini as promptVertexGemini,
+  promptGeminiStream as promptVertexGeminiStream,
+} from './gemini-vertex-api'
 import { promptClaude, System } from './claude'
 import { logger } from '../util/logger'
 import { claudeModels, geminiModels } from 'common/constants'
 import { messagesWithSystem } from '../util/messages'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { promptOpenRouterStream } from './open-router'
-import { promptGeminiStream } from './gemini-api'
 
 export async function promptGeminiWithFallbacks(
   messages: Message[],
@@ -115,6 +117,16 @@ export async function* streamGemini25Pro(
     temperature,
   }
 
+  const vertexGeminiOptions = {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    model: geminiModels.gemini2_5_pro,
+    maxTokens,
+    temperature,
+  }
+
   try {
     // 1. Try OpenRouter Stream
     logger.debug('Attempting Gemini 2.5 Pro via OpenRouter Stream')
@@ -150,7 +162,23 @@ export async function* streamGemini25Pro(
         { error: finalError },
         'Error calling Gemini 2.5 Pro via Gemini API Stream. All fallbacks failed.'
       )
-      throw finalError // Re-throw the last error if all attempts fail
+      try {
+        // 3. Try Vertex AI Gemini Stream
+        logger.debug('Attempting Gemini 2.5 Pro via Vertex AI Gemini Stream')
+        yield* promptVertexGeminiStream(
+          messages as OpenAIMessage[],
+          system,
+          vertexGeminiOptions
+        )
+        return // Exit successfully if Vertex AI stream works
+      } catch (vertexError) {
+        logger.error(
+          { error: vertexError },
+          'Error calling Gemini 2.5 Pro via Vertex AI Gemini Stream. All fallbacks failed.'
+        )
+        // Re-throw the last error if all attempts fail
+        throw vertexError
+      }
     }
   }
 }

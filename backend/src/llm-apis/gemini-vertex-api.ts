@@ -10,6 +10,7 @@ import {
   Content,
   Part,
   RequestOptions,
+  StreamGenerateContentResult,
 } from '@google-cloud/vertexai/build/src/types/content'
 import { System } from './claude'
 import { removeUndefinedProps } from 'common/util/object'
@@ -31,6 +32,7 @@ const getVertexAI = () => {
   }
   return vertexAI
 }
+
 export type GeminiMessage = OpenAIMessage
 
 function transformToPart(part: any): Part {
@@ -92,6 +94,107 @@ function transformSystem(system: System | undefined): Content | undefined {
     return { role: 'system', parts: [{ text: system }] }
   }
   return { role: 'system', parts: system.map(transformToPart) }
+}
+
+export async function* promptGeminiStream(
+  messages: GeminiMessage[],
+  system: System | undefined,
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: GeminiModel
+    userId: string | undefined
+    maxTokens?: number
+    temperature?: number
+  }
+): AsyncGenerator<string, void, unknown> {
+  const {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model,
+    userId,
+    temperature,
+    maxTokens,
+  } = options
+
+  const startTime = Date.now()
+
+  try {
+    const vertex = getVertexAI()
+    const requestOptions: RequestOptions = {
+      customHeaders,
+    } as RequestOptions
+
+    const generativeModel = vertex.getGenerativeModel(
+      {
+        model,
+        generationConfig: {
+          temperature: temperature,
+          // maxOutputTokens: maxTokens,
+        },
+      },
+      requestOptions
+    )
+
+    const transformedMessages = transformMessages(messages)
+    const transformedSystem = transformSystem(system)
+
+    const streamResult: StreamGenerateContentResult =
+      await generativeModel.generateContentStream(
+        removeUndefinedProps({
+          contents: transformedMessages,
+          systemInstruction: transformedSystem,
+        })
+      )
+
+    let content = ''
+    let usageMetadata: any = null
+
+    for await (const item of streamResult.stream) {
+      const textChunk = item.candidates?.[0]?.content?.parts?.[0]?.text
+      if (textChunk) {
+        content += textChunk
+        yield textChunk
+      }
+      if (item.usageMetadata) {
+        usageMetadata = item.usageMetadata
+      }
+    }
+
+    const inputTokens =
+      usageMetadata?.promptTokenCount ?? countTokensJson(transformedMessages)
+    const outputTokens =
+      usageMetadata?.candidatesTokenCount ?? countTokens(content)
+
+    saveMessage({
+      messageId: generateCompactId(),
+      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model,
+      request: messages,
+      response: content,
+      inputTokens,
+      outputTokens,
+      finishedAt: new Date(),
+      latencyMs: Date.now() - startTime,
+    })
+  } catch (error) {
+    logger.error(
+      {
+        error:
+          error && typeof error === 'object' && 'message' in error
+            ? error.message
+            : 'Unknown error',
+        messages,
+      },
+      'Error calling Vertex AI Streaming API'
+    )
+    throw error
+  }
 }
 
 export async function promptGemini(
