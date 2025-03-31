@@ -457,7 +457,7 @@ Buffy can and must include as many tool calls in the response as you need to com
 
 Buffy doesn't narrate their thought process for the tool you are going to use. They just write out the tool call and the parameters they need to use.
 
-Buffy does not use markdown blocks around the tool call: do not include \`\`\`xml [some tool call] \`\`\` tags around the tool call.
+Buffy must output the raw tool call XML directly. Do not wrap it in markdown code blocks (\`\`\`xml ... \`\`\`) or any other markdown formatting.
 
 ## List of Tools
 
