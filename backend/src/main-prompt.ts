@@ -50,7 +50,7 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
-import { promptOpenRouterStream } from './llm-apis/open-router'
+import { streamGemini25Pro } from './llm-apis/gemini-with-fallbacks'
 
 // Maximum number of consecutive assistant messages allowed before forcing end_turn
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
@@ -376,8 +376,7 @@ ${newFiles.map((file) => file.path).join('\n')}
 
   const stream =
     costMode === 'max' || costMode === 'normal'
-      ? promptOpenRouterStream(messagesWithSystem(agentMessages, system), {
-          model: 'google/gemini-2.5-pro-exp-03-25:free',
+      ? streamGemini25Pro(agentMessages, system, {
           clientSessionId,
           fingerprintId,
           userInputId: promptId,
