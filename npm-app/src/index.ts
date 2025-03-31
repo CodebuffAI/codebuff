@@ -44,6 +44,7 @@ if (require.main === module) {
     .option('--create <template> [name]', 'Create new project from template')
     .option('--lite', 'Use budget models & fetch fewer files')
     .option('--max', 'Use higher quality models and fetch more files')
+    .option('--gemini', 'Use Gemini 2.5 Pro as the main agent. Alias for --max')
     .option('--pro', 'Deprecated: Use --max instead')
     // .option('--git <mode>', 'Git integration mode', 'none')
     .addHelpText('after', `
@@ -94,7 +95,7 @@ See all templates at:
   let costMode: CostMode = 'normal'
   if (options.lite) {
     costMode = 'lite'
-  } else if (options.max || options.o1) {
+  } else if (options.max || options.gemini) {
     costMode = 'max'
   }
 
