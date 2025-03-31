@@ -375,7 +375,7 @@ ${newFiles.map((file) => file.path).join('\n')}
   > = {}
 
   const stream =
-    costMode === 'max' || costMode === 'normal'
+    costMode === 'max'
       ? streamGemini25Pro(agentMessages, system, {
           clientSessionId,
           fingerprintId,
