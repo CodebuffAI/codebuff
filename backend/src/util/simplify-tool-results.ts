@@ -74,7 +74,7 @@ export function simplifyTerminalCommandResults(
   return simplifyToolResults(
     messageContent,
     'run_terminal_command',
-    simplifyTerminalCommandResult
+    simplifyTerminalCommandToolResult
   )
 }
 
@@ -98,7 +98,7 @@ export function simplifyReadFileToolResult(toolResult: ToolResult): ToolResult {
  * @param toolResult - The terminal command tool result to simplify
  * @returns A new tool result with shortened output if the original was long
  */
-export function simplifyTerminalCommandResult(
+export function simplifyTerminalCommandToolResult(
   toolResult: ToolResult
 ): ToolResult {
   const shortenedResultCandidate = '[Output omitted]'

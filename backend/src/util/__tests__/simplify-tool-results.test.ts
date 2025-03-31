@@ -4,7 +4,7 @@ import {
   simplifyReadFileResults,
   simplifyTerminalCommandResults,
   simplifyReadFileToolResult,
-  simplifyTerminalCommandResult,
+  simplifyTerminalCommandToolResult,
 } from '../simplify-tool-results'
 
 describe('simplifyToolResultsInMessages', () => {
@@ -246,7 +246,7 @@ describe('simplifyTerminalCommandResult', () => {
       result: 'Very long terminal output that should be shortened',
     }
 
-    const simplified = simplifyTerminalCommandResult(toolResult)
+    const simplified = simplifyTerminalCommandToolResult(toolResult)
     expect(simplified.id).toBe('1')
     expect(simplified.name).toBe('run_terminal_command')
     expect(simplified.result).toBe('[Output omitted]')
@@ -260,7 +260,7 @@ describe('simplifyTerminalCommandResult', () => {
       result: shortOutput,
     }
 
-    const simplified = simplifyTerminalCommandResult(toolResult)
+    const simplified = simplifyTerminalCommandToolResult(toolResult)
     expect(simplified.result).toBe(shortOutput)
   })
 
@@ -271,7 +271,7 @@ describe('simplifyTerminalCommandResult', () => {
       result: '',
     }
 
-    const simplified = simplifyTerminalCommandResult(toolResult)
+    const simplified = simplifyTerminalCommandToolResult(toolResult)
     expect(simplified.result).toBe('')
   })
 
@@ -282,7 +282,7 @@ describe('simplifyTerminalCommandResult', () => {
       result: '[Output omitted]', // Same length as replacement
     }
 
-    const simplified = simplifyTerminalCommandResult(toolResult)
+    const simplified = simplifyTerminalCommandToolResult(toolResult)
     expect(simplified.result).toBe('[Output omitted]')
   })
 
@@ -293,7 +293,7 @@ describe('simplifyTerminalCommandResult', () => {
       result: '[Output omitted].', // One char longer than replacement
     }
 
-    const simplified = simplifyTerminalCommandResult(toolResult)
+    const simplified = simplifyTerminalCommandToolResult(toolResult)
     expect(simplified.result).toBe('[Output omitted]')
   })
 
@@ -304,7 +304,7 @@ describe('simplifyTerminalCommandResult', () => {
       result: '[Output omit]', // One char shorter than replacement
     }
 
-    const simplified = simplifyTerminalCommandResult(toolResult)
+    const simplified = simplifyTerminalCommandToolResult(toolResult)
     expect(simplified.result).toBe('[Output omit]')
   })
 })
