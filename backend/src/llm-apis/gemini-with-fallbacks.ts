@@ -88,7 +88,7 @@ export async function* streamGemini25Pro(
     maxTokens?: number
     temperature?: number
   }
-): AsyncGenerator<string, void, unknown> {
+): AsyncGenerator<string, void, any> {
   const {
     clientSessionId,
     fingerprintId,
