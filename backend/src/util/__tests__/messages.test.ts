@@ -205,10 +205,12 @@ describe('trimMessagesToFitTokenLimit', () => {
     // 0th and second terminal outputs should be simplified
     expect(result[1].role).toEqual(testMessages[2].role)
     expect(Array.isArray(result[1].content)).toBe(true)
-    expect(result[1].content[0].text).toContain(
+    expect((result[1].content[0] as any).text).toContain(
       '<result>[Output omitted]</result>'
     )
-    expect(result[1].content[1].text).toBe(testMessages[2].content[1].text)
+    expect((result[1].content[1] as any).text).toBe(
+      (testMessages[2].content[1] as any).text
+    )
 
     expect(result[2].role).toEqual(testMessages[3].role)
     expect(result[2].content).toContain('<result>[Output omitted]</result>')
@@ -243,10 +245,12 @@ describe('trimMessagesToFitTokenLimit', () => {
     // 0th and second terminal outputs should be simplified
     expect(result[1].role).toEqual(testMessages[2].role)
     expect(Array.isArray(result[1].content)).toBe(true)
-    expect(result[1].content[0].text).toContain(
+    expect((result[1].content[0] as any).text).toContain(
       '<result>[Output omitted]</result>'
     )
-    expect(result[1].content[1].text).toBe(testMessages[2].content[1].text)
+    expect((result[1].content[1] as any).text).toBe(
+      (testMessages[2].content[1] as any).text
+    )
 
     expect(result[2].role).toEqual(testMessages[3].role)
     expect(result[2].content).toContain('<result>[Output omitted]</result>')
