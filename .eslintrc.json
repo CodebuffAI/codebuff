@@ -1,0 +1,23 @@
+{
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["import"],
+  "extends": ["plugin:import/recommended", "plugin:import/typescript", "prettier"],
+  "rules": {
+    "import/order": [
+      "warn",
+      {
+        "groups": ["builtin", "external", "internal", ["parent", "sibling", "index"]],
+        "alphabetize": { "order": "asc", "caseInsensitive": true },
+        "newlines-between": "always"
+      }
+    ],
+    "import/no-unresolved": "off"
+  },
+  "settings": {
+    "import/resolver": {
+      "typescript": {
+        "alwaysTryTypes": true
+      }
+    }
+  }
+}

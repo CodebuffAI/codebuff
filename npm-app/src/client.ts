@@ -1,18 +1,7 @@
 import { spawn } from 'child_process'
 import * as fs from 'fs'
 import path from 'path'
-
-import {
-  yellow,
-  red,
-  green,
-  bold,
-  underline,
-  blueBright,
-  blue,
-} from 'picocolors'
 import * as readline from 'readline'
-import { match, P } from 'ts-pattern'
 
 import {
   FileChanges,
@@ -25,22 +14,33 @@ import {
   MessageCostResponse,
   MessageCostResponseSchema,
 } from 'common/actions'
-import { User } from 'common/util/credentials'
 import {
   CREDITS_REFERRAL_BONUS,
   REQUEST_CREDIT_SHOW_THRESHOLD,
 } from 'common/constants'
+import type { CostMode } from 'common/constants'
 import {
   AgentState,
   ToolResult,
   getInitialAgentState,
 } from 'common/types/agent-state'
+import { User } from 'common/util/credentials'
 import { FileVersion, ProjectFileContext } from 'common/util/file'
+import { pluralize } from 'common/util/string'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
-import type { CostMode } from 'common/constants'
-import { setMessages } from './chat-storage'
+import {
+  yellow,
+  red,
+  green,
+  bold,
+  underline,
+  blueBright,
+  blue,
+} from 'picocolors'
+import { match, P } from 'ts-pattern'
 
 import { activeBrowserRunner } from './browser-runner'
+import { setMessages } from './chat-storage'
 import { checkpointManager, Checkpoint } from './checkpoints/checkpoint-manager'
 import { backendUrl, websiteUrl } from './config'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
@@ -54,9 +54,8 @@ import {
 import { handleToolCall } from './tool-handlers'
 import { GitCommand } from './types'
 import { Spinner } from './utils/spinner'
-import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { toolRenderers } from './utils/tool-renderers'
-import { pluralize } from 'common/util/string'
+import { createXMLStreamParser } from './utils/xml-stream-parser'
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -638,19 +637,18 @@ export class Client {
         const credits =
           this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
         if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
-          console.log(
-            `${pluralize(credits, 'credit')} used for this request.`
-          )
+          console.log(`${pluralize(credits, 'credit')} used for this request.`)
         }
 
         if (this.hadFileChanges) {
-          const latestCheckpoint = checkpointManager.getLatestCheckpoint()
-          const displayedCheckpointString =
-            latestCheckpoint === null
-              ? ''
-              : ` or "checkpoint ${latestCheckpoint.id}" to revert`
+          let checkpointAddendum = ''
+          try {
+            checkpointAddendum = ` or "checkpoint ${checkpointManager.getLatestCheckpoint().id}" to revert`
+          } catch (error) {
+            // No latest checkpoint, don't show addendum
+          }
           console.log(
-            `\nComplete! Type "diff" to review changes${displayedCheckpointString}.`
+            `\nComplete! Type "diff" to review changes${checkpointAddendum}.`
           )
           this.hadFileChanges = false
         }
@@ -724,12 +722,11 @@ export class Client {
       this.setUsage(parsedAction.data)
     })
 
-    this.webSocket
-      .sendAction({
-        type: 'init',
-        fingerprintId: await this.getFingerprintId(),
-        authToken: this.user?.authToken,
-        fileContext,
-      })
+    this.webSocket.sendAction({
+      type: 'init',
+      fingerprintId: await this.getFingerprintId(),
+      authToken: this.user?.authToken,
+      fileContext,
+    })
   }
 }

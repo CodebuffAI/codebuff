@@ -42,9 +42,11 @@ import {
   parseToolResults,
   renderReadFilesResult,
   renderToolResults,
+} from './util/parse-tool-call-xml'
+import {
   simplifyReadFileResults,
   simplifyReadFileToolResult,
-} from './util/parse-tool-call-xml'
+} from './util/simplify-tool-results'
 import { countTokens, countTokensJson } from './util/token-counter'
 import {
   requestFiles,
@@ -52,7 +54,6 @@ import {
 } from './websockets/websocket-action'
 import { streamGemini25Pro } from './llm-apis/gemini-with-fallbacks'
 
-// Maximum number of consecutive assistant messages allowed before forcing end_turn
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
 export const mainPrompt = async (

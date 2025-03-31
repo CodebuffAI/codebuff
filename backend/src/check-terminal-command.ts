@@ -1,7 +1,8 @@
 import { models } from 'common/constants'
+import { withTimeout } from 'common/util/promise'
+
 import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptOpenAI } from './llm-apis/openai-api'
-import { withTimeout } from 'common/util/promise'
 import { logger } from './util/logger'
 
 /**
@@ -116,7 +117,14 @@ const isWhitelistedTerminalCommand = (command: string) => {
   return false
 }
 
-const blacklistedSingleWordCommands = ['halt', 'reboot', 'yes']
+const blacklistedSingleWordCommands = ['halt', 'reboot']
+const blacklistedMultiWordCommands = ['yes']
 const isBlacklistedTerminalCommand = (command: string) => {
-  return blacklistedSingleWordCommands.includes(command)
+  if (blacklistedSingleWordCommands.includes(command)) {
+    return true
+  }
+
+  const firstWord = command.split(' ')[0]
+
+  return blacklistedMultiWordCommands.includes(firstWord)
 }

@@ -1,71 +1,107 @@
-import { expect, describe, it } from 'bun:test'
+import { describe, it, expect } from 'bun:test'
+
 import { parseToolCallXml } from '../parse-tool-call-xml'
 
 describe('parseToolCallXml', () => {
-  it('should parse basic XML tags', () => {
-    const xml = `
-      <action>click</action>
-      <selector>#button</selector>
-    `
-    const result = parseToolCallXml(xml)
-    expect(result).toEqual({
-      action: 'click',
-      selector: '#button'
+  it('should parse basic key-value pairs', () => {
+    const xml = `<key1>value1</key1><key2>value2</key2>`
+    expect(parseToolCallXml(xml)).toEqual({
+      key1: 'value1',
+      key2: 'value2',
     })
   })
 
-  it('should handle empty input', () => {
+  it('should handle empty content', () => {
+    const xml = `<key1></key1><key2>value2</key2>`
+    expect(parseToolCallXml(xml)).toEqual({
+      key1: '',
+      key2: 'value2',
+    })
+  })
+
+  it('should handle whitespace around values', () => {
+    const xml = `<key1>  value1  </key1><key2>\nvalue2\n</key2>`
+    expect(parseToolCallXml(xml)).toEqual({
+      key1: 'value1',
+      key2: 'value2',
+    })
+  })
+
+  it('should handle internal whitespace', () => {
+    const xml = `<key1>value with spaces</key1>`
+    expect(parseToolCallXml(xml)).toEqual({
+      key1: 'value with spaces',
+    })
+  })
+
+  it('should return an empty object for empty or whitespace-only input', () => {
     expect(parseToolCallXml('')).toEqual({})
     expect(parseToolCallXml('   ')).toEqual({})
+    expect(parseToolCallXml('\n\t')).toEqual({})
   })
 
-  it('should parse coordinate ranges for browser click action', () => {
-    const xml = `
-      <type>click</type>
-      <xRange><min>100</min><max>120</max></xRange>
-      <yRange><min>200</min><max>220</max></yRange>
-      <waitForNavigation>true</waitForNavigation>
-    `
-    const result = parseToolCallXml(xml)
-    expect(result).toEqual({
-      type: 'click',
-      xRange: { min: 100, max: 120 },
-      yRange: { min: 200, max: 220 },
-      waitForNavigation: true
+  it('should handle special XML characters within values', () => {
+    const xml = `<key1>&lt;value1&gt;</key1><key2>"value2's"</key2><key3>&amp;value3</key3>`
+    expect(parseToolCallXml(xml)).toEqual({
+      key1: '&lt;value1&gt;',
+      key2: '"value2\'s"',
+      key3: '&amp;value3',
     })
   })
 
-  it('should handle nested XML tags in ranges', () => {
-    const xml = `
-      <type>click</type>
-      <xRange>
-        <min>100</min>
-        <max>120</max>
-      </xRange>
-      <yRange>
-        <min>200</min>
-        <max>220</max>
-      </yRange>
-    `
-    const result = parseToolCallXml(xml)
-    expect(result).toEqual({
-      type: 'click',
-      xRange: { min: 100, max: 120 },
-      yRange: { min: 200, max: 220 }
+  it('should parse numbers as strings', () => {
+    const xml = `<key1>123</key1><key2>45.67</key2><key3>-8</key3>`
+    expect(parseToolCallXml(xml)).toEqual({
+      key1: '123',
+      key2: '45.67',
+      key3: '-8',
     })
   })
 
-  it('should convert numeric values in ranges', () => {
+  it('should parse booleans as strings', () => {
+    const xml = `<key1>true</key1><key2>false</key2>`
+    expect(parseToolCallXml(xml)).toEqual({
+      key1: 'true',
+      key2: 'false',
+    })
+  })
+
+  it('should parse nested range tags as raw string content', () => {
+    const xml = `<xRange><min>100</min><max>120</max></xRange><yRange><min>200</min><max>220</max></yRange>`
+    expect(parseToolCallXml(xml)).toEqual({
+      xRange: '<min>100</min><max>120</max>',
+      yRange: '<min>200</min><max>220</max>',
+    })
+  })
+
+  it('should parse mixed types as strings', () => {
+    const xml = `<text>hello</text><number>99</number><bool>true</bool><empty></empty>`
+    expect(parseToolCallXml(xml)).toEqual({
+      text: 'hello',
+      number: '99',
+      bool: 'true',
+      empty: '',
+    })
+  })
+
+  it('should handle complex example with various types (all as strings)', () => {
     const xml = `
-      <type>click</type>
+      <action>click</action>
+      <selector>#submit-button</selector>
+      <timeout>5000</timeout>
+      <force>false</force>
       <xRange><min>50.5</min><max>75.5</max></xRange>
       <yRange><min>100</min><max>150</max></yRange>
+      <comment>Submit the form</comment>
     `
-    const result = parseToolCallXml(xml)
-    expect(result).toEqual({
-      type: 'click',
-      xRange: { min: 50.5, max: 75.5 },
-      yRange: { min: 100, max: 150 }
+    expect(parseToolCallXml(xml)).toEqual({
+      action: 'click',
+      selector: '#submit-button',
+      timeout: '5000',
+      force: 'false',
+      xRange: '<min>50.5</min><max>75.5</max>',
+      yRange: '<min>100</min><max>150</max>',
+      comment: 'Submit the form',
     })
   })
 
@@ -76,8 +112,8 @@ describe('parseToolCallXml', () => {
     `
     const result = parseToolCallXml(xml)
     expect(result).toEqual({
-      waitForNavigation: true,
-      headless: false
+      waitForNavigation: 'true',
+      headless: 'false',
     })
   })
 
@@ -89,9 +125,9 @@ describe('parseToolCallXml', () => {
     `
     const result = parseToolCallXml(xml)
     expect(result).toEqual({
-      delay: 50,
-      quality: 80.5,
-      timeout: 1000
+      delay: '50',
+      quality: '80.5',
+      timeout: '1000',
     })
   })
 
@@ -118,10 +154,12 @@ describe('parseToolCallXml', () => {
       action: 'start',
       url: 'http://localhost:3000/test?param=value',
       waitUntil: 'networkidle0',
-      retryOptions: 'maxRetries: 3,\n        retryDelay: 1000,\n        retryOnErrors: [\'TimeoutError\', \'TargetClosedError\']',
-      logFilter: 'types: [\'error\', \'warning\'],\n        minLevel: 2,\n        categories: [\'network\', \'console\']',
-      timeout: 15000,
-      headless: true
+      retryOptions:
+        "maxRetries: 3,\n        retryDelay: 1000,\n        retryOnErrors: ['TimeoutError', 'TargetClosedError']",
+      logFilter:
+        "types: ['error', 'warning'],\n        minLevel: 2,\n        categories: ['network', 'console']",
+      timeout: '15000',
+      headless: 'true',
     })
   })
 
@@ -140,8 +178,9 @@ describe('parseToolCallXml', () => {
     `
     const result = parseToolCallXml(xml)
     expect(result).toEqual({
-      selector: '#main-content\n        .button-class\n        [data-test="submit"]',
-      text: 'This is a\n        multiline text\n        with preserved whitespace'
+      selector:
+        '#main-content\n        .button-class\n        [data-test="submit"]',
+      text: 'This is a\n        multiline text\n        with preserved whitespace',
     })
   })
 
@@ -163,11 +202,12 @@ describe('parseToolCallXml', () => {
     const result = parseToolCallXml(xml)
     expect(result).toEqual({
       action: 'diagnose',
-      steps: '- Click login button\n        - Wait for form\n        - Fill credentials\n        - Submit form\n        - Verify redirect',
-      automated: true,
-      maxSteps: 5,
-      sessionTimeoutMs: 300000,
-      debug: true
+      steps:
+        '- Click login button\n        - Wait for form\n        - Fill credentials\n        - Submit form\n        - Verify redirect',
+      automated: 'true',
+      maxSteps: '5',
+      sessionTimeoutMs: '300000',
+      debug: 'true',
     })
   })
 
@@ -181,7 +221,7 @@ describe('parseToolCallXml', () => {
     expect(result).toEqual({
       action: 'stop',
       screenshot: '',
-      debug: ''
+      debug: '',
     })
   })
 })

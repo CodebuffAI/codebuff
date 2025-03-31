@@ -100,17 +100,13 @@ export function listen(server: HttpServer, path: string) {
 
             const lastSeen = client.lastSeen
             if (lastSeen < now - CONNECTION_TIMEOUT_MS) {
-              logger.info(
-                { lastSeen, now, diff: now - lastSeen },
-                'Terminating inactive connection'
-              )
               ws.terminate()
             }
           } catch (err) {
-            logger.error(
-              { error: err },
-              'Error checking individual connection in deadConnectionCleaner'
-            )
+            // logger.error(
+            //   { error: err },
+            //   'Error checking individual connection in deadConnectionCleaner'
+            // )
           }
         }
       } catch (error) {

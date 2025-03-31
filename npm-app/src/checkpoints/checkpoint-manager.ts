@@ -1,16 +1,17 @@
+import assert from 'assert'
 import { join } from 'path'
-import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 import { Worker } from 'worker_threads'
 
 import { getAllFilePaths, DEFAULT_MAX_FILES } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
+import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
+
 import {
   getBareRepoPath,
   hasUnsavedChanges,
   getLatestCommit,
 } from './file-manager'
 import { getProjectRoot } from '../project-files'
-import assert from 'assert'
 
 export class CheckpointsDisabledError extends Error {
   constructor(message?: string, options?: ErrorOptions) {
@@ -75,7 +76,7 @@ export interface Checkpoint {
 export class CheckpointManager {
   checkpoints: Array<Checkpoint> = []
   currentCheckpointId: number = 0
-  disabledReason: CheckpointsDisabledError | null = null
+  disabledReason: string | null = null
 
   private bareRepoPath: string | null = null
   /** Stores the undo chain (leaf node first, current node last) */
@@ -157,7 +158,7 @@ export class CheckpointManager {
     userInput: string
   ): Promise<{ checkpoint: Checkpoint; created: boolean }> {
     if (this.disabledReason !== null) {
-      throw this.disabledReason
+      throw new CheckpointsDisabledError(this.disabledReason)
     }
 
     const id = this.checkpoints.length + 1
@@ -166,8 +167,8 @@ export class CheckpointManager {
     const relativeFilepaths = getAllFilePaths(agentState.fileContext.fileTree)
 
     if (relativeFilepaths.length >= DEFAULT_MAX_FILES) {
-      this.disabledReason = new CheckpointsDisabledError('Project too large')
-      throw this.disabledReason
+      this.disabledReason = 'Project too large'
+      throw new CheckpointsDisabledError(this.disabledReason)
     }
 
     const needToStage = await hasUnsavedChanges({
@@ -218,10 +219,12 @@ export class CheckpointManager {
   /**
    * Get the most recent checkpoint
    * @returns The most recent checkpoint or null if none exist
+   * @throws {CheckpointsDisabledError} If checkpoints are disabled
+   * @throws {ReferenceError} If no checkpoints exist
    */
   getLatestCheckpoint(): Checkpoint {
     if (this.disabledReason !== null) {
-      throw this.disabledReason
+      throw new CheckpointsDisabledError(this.disabledReason)
     }
     if (this.checkpoints.length === 0) {
       throw new ReferenceError('No checkpoints available')
@@ -243,7 +246,7 @@ export class CheckpointManager {
     resetUndoIds?: boolean
   }): Promise<void> {
     if (this.disabledReason !== null) {
-      throw this.disabledReason
+      throw new CheckpointsDisabledError(this.disabledReason)
     }
 
     const checkpoint = this.checkpoints[id - 1]
@@ -272,7 +275,7 @@ export class CheckpointManager {
 
   async restoreUndoCheckpoint(): Promise<void> {
     if (this.disabledReason !== null) {
-      throw this.disabledReason
+      throw new CheckpointsDisabledError(this.disabledReason)
     }
 
     const currentCheckpoint = this.checkpoints[this.currentCheckpointId - 1]
@@ -292,7 +295,7 @@ export class CheckpointManager {
 
   async restoreRedoCheckpoint(): Promise<void> {
     if (this.disabledReason !== null) {
-      throw this.disabledReason
+      throw new CheckpointsDisabledError(this.disabledReason)
     }
 
     const targetId = this.undoIds.pop()
@@ -329,7 +332,7 @@ export class CheckpointManager {
    */
   getCheckpointsAsString(detailed: boolean = false): string {
     if (this.disabledReason !== null) {
-      return red(`Checkpoints not enabled: ${this.disabledReason.message}`)
+      return red(`Checkpoints not enabled: ${this.disabledReason}`)
     }
 
     if (this.checkpoints.length === 0) {

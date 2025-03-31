@@ -1,13 +1,13 @@
 import { parse } from 'path'
-
-import { green, red, yellow, blue, cyan, magenta, bold } from 'picocolors'
 import * as readline from 'readline'
 
+import type { CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
+import { green, red, yellow, blue, cyan, magenta, bold } from 'picocolors'
 
 import { setMessages } from './chat-storage'
 import {
@@ -22,8 +22,6 @@ import { CliOptions, GitCommand } from './types'
 import { Spinner } from './utils/spinner'
 import { isCommandRunning, resetShell } from './utils/terminal'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-
-import type { CostMode } from 'common/constants'
 
 const restoreCheckpointRegex = /^checkpoint\s+(\d+)$/
 const undoCommands = ['undo', 'u']
@@ -735,9 +733,7 @@ export class CLI {
 
     if (checkpointManager.disabledReason !== null) {
       console.log(
-        red(
-          `Checkpoints not enabled: ${checkpointManager.disabledReason.message}`
-        )
+        red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
       )
       this.freshPrompt()
       return

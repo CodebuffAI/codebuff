@@ -2,7 +2,8 @@ import { WebSocket } from 'ws'
 import { ClientAction, ServerAction } from 'common/actions'
 import { sendAction } from './websocket-action'
 import { checkAuth } from '../util/check-auth'
-import { logger } from '@/util/logger'
+import { logger, withLoggerContext, LoggerContext } from '@/util/logger'
+import { getUserInfoFromAuthToken } from './auth'
 
 export class WebSocketMiddleware {
   private middlewares: Array<
@@ -43,7 +44,6 @@ export class WebSocketMiddleware {
             action,
             middlewareResp: actionOrContinue,
             clientSessionId,
-            silent: !!options.silent,
           },
           'Middleware execution halted.'
         )
@@ -69,15 +69,30 @@ export class WebSocketMiddleware {
       clientSessionId: string,
       ws: WebSocket
     ) => {
-      const shouldContinue = await this.execute(
-        action,
-        clientSessionId,
-        ws,
-        options
+      const userInfo =
+        'authToken' in action
+          ? await getUserInfoFromAuthToken(action.authToken!)
+          : undefined
+
+      return withLoggerContext(
+        {
+          clientSessionId,
+          userId: userInfo?.id,
+          userEmail: userInfo?.email,
+          discordId: userInfo?.discord_id,
+        },
+        async () => {
+          const shouldContinue = await this.execute(
+            action,
+            clientSessionId,
+            ws,
+            options
+          )
+          if (shouldContinue) {
+            baseAction(action, clientSessionId, ws)
+          }
+        }
       )
-      if (shouldContinue) {
-        baseAction(action, clientSessionId, ws)
-      }
     }
   }
 }
