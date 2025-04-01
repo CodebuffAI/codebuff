@@ -156,7 +156,7 @@ const onPrompt = async (
   const { fingerprintId, authToken, promptId, prompt, toolResults } = action
 
   await withLoggerContext(
-    { fingerprintId, authToken, clientRequestId: promptId },
+    { fingerprintId, clientRequestId: promptId },
     async () => {
       if (prompt) logger.info(`USER INPUT: ${prompt}`)
 
@@ -262,7 +262,7 @@ const onInit = async (
   clientSessionId: string,
   ws: WebSocket
 ) => {
-  await withLoggerContext({ fingerprintId, authToken }, async () => {
+  await withLoggerContext({ fingerprintId }, async () => {
     // Create a new session for fingerprint if it doesn't exist
     await db
       .insert(schema.fingerprint)

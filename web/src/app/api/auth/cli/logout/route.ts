@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { and, eq, gt } from 'drizzle-orm'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
+import { and, eq } from 'drizzle-orm'
 import { logger } from '@/util/logger'
 
 export async function POST(req: Request) {
@@ -20,13 +20,13 @@ export async function POST(req: Request) {
   const { authToken, userId, fingerprintId } = result.data
 
   try {
+    // First delete the session
     const validDeletion = await db
       .delete(schema.session)
       .where(
         and(
           eq(schema.session.sessionToken, authToken),
           eq(schema.session.userId, userId),
-          gt(schema.session.expires, new Date()),
           eq(schema.session.fingerprint_id, fingerprintId)
         )
       )
@@ -38,9 +38,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
     }
 
-    return NextResponse.json({ message: 'Logged out successfully' })
+    // Then reset sig_hash to null
+    await db
+      .update(schema.fingerprint)
+      .set({ sig_hash: null })
+      .where(eq(schema.fingerprint.id, fingerprintId))
+
+    logger.info({ fingerprintId }, 'Fingerprint marked as unclaimed')
+
+    return NextResponse.json({ success: true })
   } catch (error) {
-    logger.error({ error }, 'Error logging out')
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    logger.error({ error }, 'Error during logout')
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
