@@ -786,7 +786,10 @@ export class CLI {
       !undoCommands.includes(userInput) &&
       !redoCommands.includes(userInput)
     ) {
-      this.rl.write(userInput)
+      this.rl.write(' '.repeat(userInput.length)) // hacky way to move cursor
+      const rlAny = this.rl as any
+      rlAny.line = userInput
+      rlAny._refreshLine()
     }
   }
 
