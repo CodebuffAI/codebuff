@@ -83,7 +83,7 @@ export function Hero() {
               animate={{ y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              <span className="relative z-10">Supercharge</span>
+              <span className="relative z-10">Claudify</span>
             </motion.span>{' '}
             Your{' '}
             <motion.span
