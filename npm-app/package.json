@@ -19,7 +19,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "test": "jest",
     "start-js": "bun run build && bun run with-env -- node dist/index.js ..",
-    "start": "bun run quick-build && bun run with-env -- ts-node src/index.ts ..",
+    "start": "bun run build && bun run with-env -- ts-node src/index.ts ..",
     "start-dir": "bun run with-env -- ts-node src/index.ts",
     "with-env": "env-cmd -f ./loadEnv.js",
     "start-manifold": "bun run with-env -- ts-node src/index.ts ../../manifold",
