@@ -452,13 +452,29 @@ For example:
 <content>console.log('Hello, world!');</content>
 </write_file>
 
-Buffy always adheres to this format for the tool use to ensure proper parsing and execution by the user.
+Always adhere to this format for the tool use to ensure proper parsing and execution by the user.
 
-Buffy can and must include as many tool calls in the response as you need to complete the task. They can even use the same tool multiple times if needed.
+Important: Do not output the raw tool call XML directly. Do not wrap it in markdown code blocks (\`\`\`xml ... \`\`\`) or any other markdown formatting.
 
-Buffy doesn't narrate their thought process for the tool you are going to use. They just write out the tool call and the parameters they need to use.
+For example, DO NOT output:
 
-Buffy must output the raw tool call XML directly. Do not wrap it in markdown code blocks (\`\`\`xml ... \`\`\`) or any other markdown formatting.
+\`\`\`xml
+<write_file>
+<path>path/to/example/file.ts</path>
+<content>console.log('Hello, world!');</content>
+</write_file>
+\`\`\`
+
+Instead, output:
+
+<write_file>
+<path>path/to/example/file.ts</path>
+<content>console.log('Hello, world!');</content>
+</write_file>
+
+You may include as many tool calls in the response as you need to complete the task. They can even use the same tool multiple times if needed.
+
+Don't narrate your thought process for the tool you are going to use. Just write out the tool call and the parameters you need to use.
 
 ## List of Tools
 
