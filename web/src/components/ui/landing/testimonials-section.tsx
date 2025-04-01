@@ -83,7 +83,7 @@ export function TestimonialsSection() {
             SECTION_THEMES.testimonials.textColor
           )}
         >
-          What Developers Are Saying
+          What Our Definitely Real Users Say
         </h2>
 
         <span
@@ -92,7 +92,7 @@ export function TestimonialsSection() {
             SECTION_THEMES.testimonials.textColor
           )}
         >
-          Watch them rave about Codebuff (previously &quot;Manicode&quot;)
+          Absolutely no AI hallucinations were used to create these reviews 😉
         </span>
       </div>
 

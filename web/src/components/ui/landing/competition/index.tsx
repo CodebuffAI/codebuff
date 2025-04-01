@@ -84,7 +84,7 @@ export function CompetitionSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            The Competition
+            The "Competition" 🤣
           </motion.h2>
           <motion.div
             className="flex items-center gap-2 mt-2"
@@ -95,7 +95,7 @@ export function CompetitionSection() {
             <span
               className={`text-xs font-semibold uppercase tracking-wider ${SECTION_THEMES.competition.textColor}/70 block`}
             >
-              Spoiler: We're faster, smarter, and work anywhere you do
+              Spoiler: They're still trying to figure out how we trained our AI on unicorn magic
             </span>
           </motion.div>
         </div>

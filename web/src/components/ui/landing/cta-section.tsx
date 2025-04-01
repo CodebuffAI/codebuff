@@ -58,21 +58,22 @@ export function CTASection() {
   // Benefits data
   const benefits = [
     {
-      icon: '⚡',
-      title: 'Lightning Fast',
+      icon: '🧙‍♂️',
+      title: 'Faster Than You Can Say Abracadabra',
       description:
-        'Start using Codebuff in under 30 seconds with a simple install',
+        'Conjure ClaudeCodeBuff in your terminal before you can finish saying "April Fool\'s"',
     },
     {
-      icon: '🔒',
-      title: 'No Card Required',
+      icon: '🦄',
+      title: 'No Unicorn Credit Card Required',
       description:
-        'Free tier available with no credit card or complicated signup',
+        'ClaudeCodeBuff free tier available with no mythical creature payment methods required',
     },
     {
-      icon: '🛠️',
-      title: 'Use Anywhere',
-      description: 'Works in any terminal or development environment',
+      icon: '🪄',
+      title: 'Magic Everywhere You Go',
+      description:
+        'Works in any terminal because our magic is portable and travel-sized',
     },
   ]
 
@@ -104,7 +105,7 @@ export function CTASection() {
               animate={{ y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              <span className="relative z-10">Ready to</span>
+              <span className="relative z-10">Unleash</span>
             </motion.span>{' '}
             <motion.span
               className="relative inline-block whitespace-nowrap"
@@ -112,7 +113,9 @@ export function CTASection() {
               animate={{ y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <span className="relative z-10">experience magic?</span>
+              <span className="relative z-10">
+                your Magical Coding Powers! ✨
+              </span>
             </motion.span>
           </motion.h1>
         </motion.div>
@@ -124,10 +127,12 @@ export function CTASection() {
           transition={{ duration: 0.5, delay: 0.3 }}
         >
           <span className="whitespace-nowrap">
-            Integrates with your existing workflow.
+            Works like magic (literally, we use real magic).
           </span>{' '}
-          <span className="whitespace-nowrap">Simple install.</span>{' '}
-          <span className="whitespace-nowrap">No hassles.</span>
+          <br />
+          <span className="whitespace-nowrap">
+            Zero unicorns harmed. Probably.
+          </span>{' '}
         </motion.h2>
 
         <motion.div
