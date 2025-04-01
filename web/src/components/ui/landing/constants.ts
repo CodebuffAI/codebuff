@@ -43,7 +43,7 @@ export const DEMO_CODE = {
 // Section themes
 export const SECTION_THEMES = {
   hero: {
-    background: BlockColor.Black,
+    background: '#c96442',
     textColor: 'text-white',
     decorativeColors: [BlockColor.TerminalYellow],
   },

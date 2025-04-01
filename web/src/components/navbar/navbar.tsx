@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import Link from 'next/link'
-import Image from 'next/image'
+import { ClaudeCodeBuffLogo } from '../icons/ClaudeCodeBuffLogo'
 import {
   Menu,
   DollarSign,
@@ -20,24 +20,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 
 export const Navbar = async () => {
   const session = await getServerSession(authOptions)
 
   return (
-    <header className="container mx-auto p-4 flex justify-between items-center relative z-10">
+    <header className={cn("container mx-auto p-4 flex justify-between items-center relative z-10", "bg-[#c96442]")}>
       <Link
         href="/"
-        className="flex items-center space-x-2 transition-transform hover:scale-105"
+        className="flex items-center space-x-0 transition-transform hover:scale-105 text-white"
       >
-        <Image
-          src="/favicon/logo-and-name.ico"
-          alt="Codebuff"
-          width={200}
-          height={100}
-          priority
-          className="rounded-sm"
-        />
+        <ClaudeCodeBuffLogo className="h-16 w-auto" />
+        <span className="text-xl font-bold">ClaudeCodeBuff</span>
       </Link>
       <nav className="hidden md:flex space-x-6 ml-auto">
         <Link
