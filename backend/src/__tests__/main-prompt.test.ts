@@ -26,10 +26,10 @@ import { logger } from '../util/logger'
 
 describe('mainPrompt', () => {
   beforeEach(() => {
-    spyOn(logger, 'debug').mockImplementation(() => {});
-    spyOn(logger, 'error').mockImplementation(() => {});
-    spyOn(logger, 'info').mockImplementation(() => {});
-    spyOn(logger, 'warn').mockImplementation(() => {}); // Corrected syntax if needed
+    spyOn(logger, 'debug').mockImplementation(() => {})
+    spyOn(logger, 'error').mockImplementation(() => {})
+    spyOn(logger, 'info').mockImplementation(() => {})
+    spyOn(logger, 'warn').mockImplementation(() => {}) // Corrected syntax if needed
     // Mock logger - Ensure correct arrow function syntax
 
     // Set up mocks before each test
@@ -179,34 +179,34 @@ describe('mainPrompt', () => {
         m.content.includes('read_files')
     )
     expect(userToolResultMessageIndex).toBeGreaterThanOrEqual(0) // Should be index 0
-    const userToolResultMessage = newAgentState.messageHistory[userToolResultMessageIndex]
+    const userToolResultMessage =
+      newAgentState.messageHistory[userToolResultMessageIndex]
     expect(userToolResultMessage).toBeDefined()
     expect(userToolResultMessage?.content).toContain('read_files')
 
-
     // 2. The user instructions message should be next (we don't need to assert its exact content)
     const userInstructionsMessageIndex = userToolResultMessageIndex + 1
-    const userInstructionsMessage = newAgentState.messageHistory[userInstructionsMessageIndex]
+    const userInstructionsMessage =
+      newAgentState.messageHistory[userInstructionsMessageIndex]
     expect(userInstructionsMessage?.role).toBe('user')
     expect(typeof userInstructionsMessage?.content).toBe('string')
 
-
     // 3. The user prompt message should be after instructions
     const userPromptMessageIndex = userInstructionsMessageIndex + 1
-    const userPromptMessage = newAgentState.messageHistory[userPromptMessageIndex]
+    const userPromptMessage =
+      newAgentState.messageHistory[userPromptMessageIndex]
     expect(userPromptMessage?.role).toBe('user')
     // Check the content structure (array with text block)
     expect(Array.isArray(userPromptMessage?.content)).toBe(true)
-    expect(userPromptMessage?.content?.[0]?.type).toBe('text')
-    expect(userPromptMessage?.content?.[0]?.text).toBe(userPromptText) // Check text property
-
+    expect((userPromptMessage?.content as any)?.[0]?.type).toBe('text')
+    expect((userPromptMessage?.content as any)?.[0]?.text).toBe(userPromptText) // Check text property
 
     // 4. The assistant response should be after the prompt message
     const assistantResponseMessageIndex = userPromptMessageIndex + 1
-    const assistantResponseMessage = newAgentState.messageHistory[assistantResponseMessageIndex]
+    const assistantResponseMessage =
+      newAgentState.messageHistory[assistantResponseMessageIndex]
     expect(assistantResponseMessage?.role).toBe('assistant')
     expect(assistantResponseMessage?.content).toBe('Test response')
-
 
     // Check overall length
     expect(newAgentState.messageHistory.length).toBeGreaterThanOrEqual(4)
