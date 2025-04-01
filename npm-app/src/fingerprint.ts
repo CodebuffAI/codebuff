@@ -1,6 +1,6 @@
 // Modified from: https://github.com/andsmedeiros/hw-fingerprint
 
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { EOL, endianness } from 'node:os'
 import {
   system,
@@ -57,5 +57,10 @@ export async function calculateFingerprint() {
   const fingerprintInfo = await getFingerprintInfo()
   const fingerprintString = JSON.stringify(fingerprintInfo)
   const fingerprintHash = createHash('sha256').update(fingerprintString)
+
+  // Add 8 random bytes to make the fingerprint unique even on identical hardware
+  const randomSuffix = randomBytes(8)
+  fingerprintHash.update(randomSuffix)
+
   return fingerprintHash.digest().toString('base64url')
 }

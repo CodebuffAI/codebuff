@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, gt } from 'drizzle-orm'
 import { MAX_DATE } from 'common/src/constants'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { genAuthCode } from 'common/util/credentials'
@@ -100,6 +100,46 @@ const Onboard = async ({ searchParams }: PageProps) => {
     })
   }
 
+  // Check if this fingerprint is already associated with a different user
+  const existingSession = await db
+    .select({
+      userId: schema.session.userId,
+      expires: schema.session.expires,
+    })
+    .from(schema.session)
+    .where(
+      and(
+        eq(schema.session.fingerprint_id, fingerprintId),
+        gt(schema.session.expires, new Date())
+      )
+    )
+    .limit(1)
+
+  const activeSession = existingSession[0]
+  if (activeSession && activeSession.userId !== user.id) {
+    // Only reject if the session belongs to a different user
+    console.warn(
+      {
+        fingerprintId,
+        existingUserId: activeSession.userId,
+        attemptedUserId: user.id,
+        event: 'fingerprint_ownership_conflict',
+      },
+      'Attempt to associate fingerprint with different user'
+    )
+
+    return CardWithBeams({
+      title: 'Unable to complete login',
+      description: 'Something went wrong during the login process.',
+      content: (
+        <p>
+          Please try generating a new login code. If the problem persists,
+          contact {env.NEXT_PUBLIC_SUPPORT_EMAIL} for assistance.
+        </p>
+      ),
+    })
+  }
+
   // Add it to the db
   const didInsert = await db.transaction(async (tx) => {
     await tx
@@ -108,19 +148,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
         sig_hash: fingerprintHash,
         id: fingerprintId,
       })
-      .onConflictDoUpdate({
-        target: schema.fingerprint.id,
-        set: {
-          sig_hash: fingerprintHash,
-        },
-      })
-      .returning({ id: schema.fingerprint.id })
-      .then((fingerprints) => {
-        if (fingerprints.length === 1) {
-          return fingerprints[0].id
-        }
-        throw new Error('Failed to create fingerprint record')
-      })
+      .onConflictDoNothing()
 
     const session = await tx
       .insert(schema.session)

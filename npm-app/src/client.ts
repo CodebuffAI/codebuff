@@ -236,7 +236,7 @@ export class Client {
         return
       }
 
-      const { loginUrl, fingerprintHash } = await response.json()
+      const { loginUrl, fingerprintHash, expiresAt } = await response.json()
 
       const responseToUser = [
         '\n',
@@ -250,7 +250,7 @@ export class Client {
         if (shouldRequestLogin) {
           spawn(`open ${loginUrl}`, { shell: true })
           console.log(
-            'Done. If nothing happened, copy and paste this link into your browser:'
+            "Opened a browser window to log you in! If it doesn't open automatically, you can click this link:"
           )
           console.log()
           console.log(blue(bold(underline(loginUrl))))
@@ -276,7 +276,7 @@ export class Client {
 
         try {
           const statusResponse = await fetch(
-            `${websiteUrl}/api/auth/cli/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}`
+            `${websiteUrl}/api/auth/cli/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}&expiresAt=${expiresAt}`
           )
 
           if (!statusResponse.ok) {

@@ -2,105 +2,212 @@
 
 ## Overview
 
-Codebuff implements a secure authentication flow that involves the npm-app (CLI), backend, and web application. This document outlines the key steps and security measures in place.
+Codebuff implements a secure authentication flow between the CLI (npm-app), backend, and web application.
 
-## Authentication Process
+## Lifecycle:
 
-1. CLI Initiation:
+```mermaid
+stateDiagram-v2
+    [*] --> Unauthenticated
 
-   - The npm-app sends a `fingerprintId` to the backend via WebSocket on a `login` message type.
+    state Unauthenticated {
+        state "No Credentials" as NC
+        state "Generate Fingerprint" as GF
+        NC --> GF
+    }
 
-2. One-Time Auth Code:
+    state "Core Auth Flow" as Core {
+        state "Request Auth Code" as RAC
+        state "OAuth Flow" as OAuth
+        state "Session Check" as SC
+        RAC --> OAuth
+        OAuth --> SC
+    }
 
-   - Backend creates a one-time auth code consisting of:
-     a. `fingerprintId` (to link the current session with user credentials)
-     b. Timestamp (5 minutes in the future, for link expiration)
-     c. Hash of the above + a secret value (for request verification)
-   - Backend appends this auth code to the login URL: `${NEXT_PUBLIC_APP_URL}/login?auth_code=<token-goes-here>`
+    state Success {
+        state "Save Credentials" as Save
+        state "Ready" as Ready
+        Save --> Ready
+    }
 
-3. User Login:
+    state Failure {
+        state "Log Security Event" as Log
+        state "Return to Start" as Return
+        Log --> Return
+    }
 
-   - npm-app receives the link, displays it to the user, and automatically opens the browser.
-   - User visits the link and goes through the OAuth flow.
-   - The `redirect_uri` should include the auth code as a query parameter.
-   - If needed, store the auth code in local storage to persist through OAuth flows.
+    Unauthenticated --> Core
+    Core --> Success : Valid user
+    Core --> Failure : Invalid/conflict
+    Success --> Unauthenticated : Logout
+    Failure --> Unauthenticated
+```
 
-4. Credential Verification:
+## Core Authentication Flow
 
-   - After OAuth, the browser calls the `app/onboard` server component with the auth code and user credentials.
-   - The server component verifies the hash using received values and stores the `fingerprintId` + hash in a new session row in the database.
+This is the common path that all authentication attempts follow:
 
-5. Session Establishment:
-   - npm-app sends a WebSocket message every few seconds to the backend to check for a session with the same `fingerprintId` and hash.
-   - If a matching session is found, the backend sends the user's credentials to the CLI via WebSockets.
-   - npm-app saves the credentials locally.
+```mermaid
+sequenceDiagram
+    participant CLI as npm-app
+    participant Web as web app
+    participant DB as Database
 
-## Security Considerations
+    CLI->>Web: POST /api/auth/cli/code {fingerprintId}
+    Web->>DB: Check active sessions
+    Web->>Web: Generate auth code (1h expiry)
+    Web->>CLI: Return login URL
+    CLI->>CLI: Open browser
+    Note over Web: User completes OAuth
+    Web->>DB: Check fingerprint ownership
+    Web->>DB: Create/update session
+    loop Every 5s
+        CLI->>Web: GET /api/auth/cli/status
+        Web->>DB: Check session
+    end
+```
 
-- The one-time auth code includes a hash with a secret value, ensuring the request comes from a trusted source.
-- The auth code has a short expiration time (5 minutes) to limit the window of potential misuse.
-- The `fingerprintId` is used to link the CLI session with the web login, preventing session hijacking.
-- User credentials are never stored or transmitted in plain text.
+## Entry Points
+
+### 1. First Time Login
+```mermaid
+sequenceDiagram
+    participant CLI as npm-app
+    participant HW as Hardware Info
+
+    CLI->>HW: Get system info
+    HW->>CLI: Return hardware details
+    CLI->>CLI: Generate random bytes
+    CLI->>CLI: Hash(hardware + random)
+    Note over CLI: Continues to core flow<br/>with new fingerprintId
+```
+
+### 2. Logout Flow
+```mermaid
+sequenceDiagram
+    participant CLI as npm-app
+    participant Web as web app
+    participant HW as Hardware Info
+
+    Note over CLI: User types 'logout'
+    CLI->>Web: POST /api/auth/cli/logout
+    Web-->>CLI: OK
+    CLI->>CLI: Delete credentials.json
+    Note over CLI: User types 'login'
+    CLI->>HW: Get system info
+    HW->>CLI: Return hardware details
+    CLI->>CLI: Generate random bytes
+    CLI->>CLI: Hash(hardware + random)
+    Note over CLI: Continues to core flow<br/>with new fingerprintId
+```
+
+### 3. Missing Credentials
+```mermaid
+sequenceDiagram
+    participant CLI as npm-app
+    participant FS as File System
+    participant HW as Hardware Info
+
+    CLI->>FS: Check credentials.json
+    FS-->>CLI: File not found
+    CLI->>HW: Get system info
+    HW->>CLI: Return hardware details
+    CLI->>CLI: Generate random bytes
+    CLI->>CLI: Hash(hardware + random)
+    Note over CLI: Continues to core flow<br/>with new fingerprintId
+```
+
+## Exit Points
+
+### 1. Success: New Device
+```mermaid
+sequenceDiagram
+    participant CLI as npm-app
+    participant Web as web app
+    participant DB as Database
+
+    Note over CLI,DB: Continuing from core flow...
+    Web->>DB: Check fingerprint (not found)
+    Web->>DB: Create fingerprint record
+    Web->>DB: Create new session
+    Web->>CLI: Return user credentials
+    CLI->>CLI: Save credentials.json
+    Note over CLI: Ready for use
+```
+
+### 2. Success: Known Device
+```mermaid
+sequenceDiagram
+    participant CLI as npm-app
+    participant Web as web app
+    participant DB as Database
+
+    Note over CLI,DB: Continuing from core flow...
+    Web->>DB: Check fingerprint (found)
+    Web->>DB: Verify ownership
+    Web->>DB: Update existing session
+    Web->>CLI: Return user credentials
+    CLI->>CLI: Save credentials.json
+    Note over CLI: Ready for use
+```
+
+### 3. Failure: Ownership Conflict
+```mermaid
+sequenceDiagram
+    participant CLI as npm-app
+    participant Web as web app
+    participant DB as Database
+
+    Note over CLI,DB: Continuing from core flow...
+    Web->>DB: Check fingerprint
+    DB-->>Web: Found with different owner
+    Web-->>Web: Log security event
+    Web-->>Web: Log ownership conflict
+    Web->>CLI: Return error
+    Note over CLI: User must generate new fingerprint
+```
+
+### 4. Failure: Invalid/Expired Code
+```mermaid
+sequenceDiagram
+    participant CLI as npm-app
+    participant Web as web app
+
+    Note over CLI,Web: Continuing from core flow...
+    Web-->>Web: Validate auth code
+    Web-->>Web: Check expiration
+    Web->>CLI: Return error
+    Note over CLI: User must request new code
+```
+
+## Security Features
+
+- Auth codes expire after 1 hour
+- FingerprintIds are unique per device:
+  - Hardware info + 8 random bytes ensures uniqueness
+  - Attempts by other users are blocked and logged
+  - Original user sessions remain secure
+- Credentials never stored/transmitted in plain text
+- All auth attempts and conflicts logged for monitoring
 
 ## Implementation Guidelines
 
-- Centralize authentication-related logic in one place to prevent synchronization issues.
-- Handle fingerprint generation and user credential loading together in `setUser()`.
-- Avoid duplicating credential checking or fingerprint generation logic across different parts of the codebase.
-- Always use existing fingerprintId from user credentials when available, only generate new ones when needed.
-- Reference fingerprintId from the Client instance rather than config exports to maintain single source of truth.
-- Always use existing fingerprintId from user credentials when available, only generate new ones when needed.
-- Reference fingerprintId from the Client instance rather than config exports to maintain single source of truth.
+1. Centralize Auth Logic:
+   - Keep auth code in one place
+   - Handle fingerprint and credentials together
+   - Avoid duplicating auth checks
 
-## Integration with Billing
+2. Fingerprint Management:
+   - Use existing fingerprintId from credentials when available
+   - Only generate new ones for first-time users
+   - Reference fingerprintId from Client instance (single source of truth)
 
-- Upon successful authentication, the user's billing status and quota are retrieved from the database.
-- The authenticated user's quota and usage limits are applied to their session.
-- Subscription status affects the user's access to premium features and higher usage limits.
+3. Class Initialization:
+   - Initialize auth properties in constructors
+   - Use pre-calculated async values with defaults
+   - Override defaults with user values if available
 
-## Best Practices
-
-1. Always use secure WebSocket connections (WSS) in production environments.
-2. Regularly rotate secret keys used for hash generation.
-3. Implement rate limiting on authentication attempts to prevent brute-force attacks.
-4. Use HTTPS for all web communications, especially during the OAuth flow.
-5. Regularly audit and update the authentication flow to address new security concerns.
-6. Initialize critical authentication properties (like fingerprintId) in class constructors:
-   - Ensure properties are available immediately after instantiation
-   - Prevent undefined states during authentication flow
-   - Make TypeScript type checking more effective
-   - For async initialization:
-     - Option 1 - Split initialization:
-       - Split into sync (constructor) and async (init method) steps
-       - Use temporary placeholder values in constructor
-       - Complete async initialization in separate connect/init method
-     - Option 2 - Pre-calculate async values (preferred):
-       - Calculate required async values before class instantiation
-       - Pass pre-calculated values to constructor with 'default' prefix (e.g., defaultFingerprintId)
-       - Override defaults with existing user values if available
-       - Ensures values are valid at construction time
-       - Example: fingerprint handling
-         - Calculate default fingerprint before Client instantiation
-         - Pass as defaultFingerprintId to constructor
-         - Override with user.fingerprintId if credentials exist
-
-7. Handle user identity consistently:
-   - Check for existing user credentials before using defaults
-   - Maintain single source of truth for user identity
-   - Keep related data (e.g., fingerprintId) together with user object
-   - Ensure Client class is the single source of truth for user state
-
-## Future Considerations
-
-1. Implement multi-factor authentication for enhanced security.
-2. Consider using JSON Web Tokens (JWT) for stateless authentication.
-3. Develop a system for handling password resets and account recovery.
-4. Implement a more robust session management system with the ability to revoke sessions.
-
-## Discord Integration
-
-- Store only Discord user IDs (discord_id) rather than usernames because:
-  - Discord IDs are permanent and unique per user
-  - Usernames/display names can change
-  - Current username can be fetched from Discord API using ID when needed
-  - Discord interactions/events use ID for user identification
+4. User Identity:
+   - Maintain single source of truth
+   - Keep related data with user object
+   - Client class owns user state
