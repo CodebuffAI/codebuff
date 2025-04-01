@@ -70,7 +70,7 @@ export class MinHeap<T> {
   extractMin(): T | undefined {
     if (this.heap.length === 0) return undefined
 
-    const min = this.heap[0].item
+    const minItem = this.heap[0].item
     const last = this.heap.pop()!
 
     if (this.heap.length > 0) {
@@ -78,7 +78,7 @@ export class MinHeap<T> {
       this.siftDown(0)
     }
 
-    return min
+    return minItem
   }
 
   get size(): number {

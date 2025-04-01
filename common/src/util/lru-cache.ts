@@ -1,39 +1,66 @@
-import { MinHeap } from './min-heap'
-
+/**
+ * A simple Least Recently Used (LRU) cache implementation using a Map.
+ * It leverages the fact that Map objects maintain insertion order.
+ */
 export class LRUCache<K, V> {
-  private cache = new Map<K, { value: V; lastAccess: number }>()
-  private heap = new MinHeap<K>()
-  private accessCounter = 0
+  private cache = new Map<K, V>()
 
-  constructor(private maxSize: number) {}
+  constructor(private maxSize: number) {
+    if (maxSize <= 0) {
+      throw new Error('LRUCache maxSize must be a positive number.');
+    }
+  }
 
+  /**
+   * Retrieves an item from the cache. If found, marks it as recently used.
+   * @param key The key of the item to retrieve.
+   * @returns The value associated with the key, or undefined if not found.
+   */
   get(key: K): V | undefined {
-    const entry = this.cache.get(key)
-    if (entry) {
-      // Update access time
-      entry.lastAccess = ++this.accessCounter
-      this.heap.insert(key, -entry.lastAccess) // Negative so oldest is at top
-      return entry.value
+    const value = this.cache.get(key)
+    if (value !== undefined) {
+      // Mark as recently used by deleting and re-setting
+      this.cache.delete(key)
+      this.cache.set(key, value)
+      return value
     }
     return undefined
   }
 
+  /**
+   * Adds or updates an item in the cache. If the cache exceeds maxSize,
+   * the least recently used item is evicted.
+   * @param key The key of the item to set.
+   * @param value The value to associate with the key.
+   */
   set(key: K, value: V): void {
-    // If key exists, we need to remove its old heap entry
+    // If key already exists, delete it first to update its position
     if (this.cache.has(key)) {
-      // Note: The old heap entry will be replaced by the new one
-      this.heap.insert(key, -this.accessCounter) // Dummy insert to replace old entry
+      this.cache.delete(key)
     }
-    // If at capacity and this is a new key, evict oldest
+    // Check if cache is full before adding the new item
     else if (this.cache.size >= this.maxSize) {
-      const oldestKey = this.heap.extractMin()
-      if (oldestKey) {
-        this.cache.delete(oldestKey)
+      // Evict the least recently used item (the first item in the Map's iteration order)
+      const oldestKey = this.cache.keys().next().value
+      if (oldestKey !== undefined) { // Should always be defined if size >= maxSize > 0
+          this.cache.delete(oldestKey)
       }
     }
-    
-    const lastAccess = ++this.accessCounter
-    this.cache.set(key, { value, lastAccess })
-    this.heap.insert(key, -lastAccess) // Negative so oldest is at top
+    // Add the new item (or re-add the updated item)
+    this.cache.set(key, value)
+  }
+
+  /**
+   * Returns the current number of items in the cache.
+   */
+  get size(): number {
+    return this.cache.size;
+  }
+
+  /**
+   * Clears all items from the cache.
+   */
+  clear(): void {
+    this.cache.clear();
   }
 }
