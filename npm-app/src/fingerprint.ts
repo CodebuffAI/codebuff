@@ -52,15 +52,16 @@ const getFingerprintInfo = async () => {
     arch,
   } as Record<string, any>
 }
-
 export async function calculateFingerprint() {
   const fingerprintInfo = await getFingerprintInfo()
   const fingerprintString = JSON.stringify(fingerprintInfo)
-  const fingerprintHash = createHash('sha256').update(fingerprintString)
+  const fingerprintHash = createHash('sha256')
+    .update(fingerprintString)
+    .digest()
+    .toString('base64url')
 
-  // Add 8 random bytes to make the fingerprint unique even on identical hardware
-  const randomSuffix = randomBytes(8)
-  fingerprintHash.update(randomSuffix)
+  // Add 8 random characters to make the fingerprint unique even on identical hardware
+  const randomSuffix = randomBytes(6).toString('base64url').substring(0, 8)
 
-  return fingerprintHash.digest().toString('base64url')
+  return `${fingerprintHash}-${randomSuffix}`
 }
