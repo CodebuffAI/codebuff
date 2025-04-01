@@ -8,17 +8,24 @@ import {
   boolean,
   jsonb,
   numeric,
-  uuid,
   pgEnum,
   index,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
+
 import { ReferralStatusValues } from '../types/referral'
 
 // Define the ReferralStatus enum
 export const ReferralStatus = pgEnum('referral_status', [
   ReferralStatusValues[0],
   ...ReferralStatusValues.slice(1),
+])
+
+// Define the API Key Type enum
+export const apiKeyTypeEnum = pgEnum('api_key_type', [
+  'anthropic',
+  'gemini',
+  'openai',
 ])
 
 export const user = pgTable('user', {
@@ -88,6 +95,7 @@ export const referral = pgTable(
   },
   (table) => [primaryKey({ columns: [table.referrer_id, table.referred_id] })]
 )
+
 export const fingerprint = pgTable('fingerprint', {
   id: text('id').primaryKey(),
   sig_hash: text('sig_hash'),
@@ -150,4 +158,20 @@ export const verificationToken = pgTable(
     expires: timestamp('expires', { mode: 'date' }).notNull(),
   },
   (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
+)
+
+// Restructured table to store one key per row per user
+export const encryptedApiKeys = pgTable(
+  'encrypted_api_keys',
+  {
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    type: apiKeyTypeEnum('type').notNull(),
+    api_key: text('api_key').notNull(), // Stores the encrypted key string "iv:encrypted:authTag"
+  },
+  (table) => ({
+    // Composite primary key to ensure only one key of a specific type per user
+    pk: primaryKey({ columns: [table.user_id, table.type] }),
+  })
 )
