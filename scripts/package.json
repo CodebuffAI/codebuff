@@ -4,7 +4,8 @@
   "description": "Scripts package for Codebuff",
   "scripts": {
     "typecheck-this-package": "tsc --noEmit",
-    "typecheck": "cd .. && bun run --cwd common build && bun run --cwd backend build && cd scripts && bun run typecheck-this-package"
+    "typecheck": "cd .. && bun run --cwd common build && bun run --cwd backend build && cd scripts && bun run typecheck-this-package",
+    "debug-log-subset": "bun run debug-log-subset.ts"
   },
   "dependencies": {
     "backend": "file:../backend",

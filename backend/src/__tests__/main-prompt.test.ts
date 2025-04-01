@@ -12,11 +12,13 @@ import { getInitialAgentState, ToolResult } from 'common/types/agent-state'
 import { WebSocket } from 'ws'
 import { TEST_USER_ID } from 'common/constants'
 import { createWriteFileBlock } from 'common/util/file'
+import { renderToolResults } from '../util/parse-tool-call-xml'
 
 // Mock imports
 import * as claude from '../llm-apis/claude'
 import * as gemini from '../llm-apis/gemini-api'
 import * as openai from '../llm-apis/openai-api'
+import * as geminiWithFallbacks from '../llm-apis/gemini-with-fallbacks'
 import * as websocketAction from '../websockets/websocket-action'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as checkTerminalCommandModule from '../check-terminal-command'
@@ -58,6 +60,16 @@ describe('mainPrompt', () => {
     spyOn(openai, 'promptOpenAIStream').mockImplementation(async function* () {
       yield 'Test response'
     })
+
+    spyOn(geminiWithFallbacks, 'streamGemini25Pro').mockImplementation(
+      () =>
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue('Test response')
+            controller.close()
+          },
+        }) as any
+    )
 
     spyOn(websocketAction, 'requestFiles').mockImplementation(
       async (ws: any, paths: string[]) => {
@@ -263,9 +275,23 @@ describe('mainPrompt', () => {
 
   it('should handle write_file tool call', async () => {
     // Mock LLM to return a write_file tool call
+    const writeFileBlock = createWriteFileBlock('new-file.txt', 'Hello World')
     spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
-      yield createWriteFileBlock('new-file.txt', 'Hello World')
+      yield writeFileBlock
     })
+    spyOn(gemini, 'promptGeminiStream').mockImplementation(async function* () {
+      yield writeFileBlock
+    } as any)
+    // Override the mock specifically for this test case when costMode is 'max'
+    spyOn(geminiWithFallbacks, 'streamGemini25Pro').mockImplementation(
+      () =>
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(writeFileBlock)
+            controller.close()
+          },
+        }) as any
+    )
 
     const agentState = getInitialAgentState(mockFileContext)
     const { toolCalls, agentState: newAgentState } = await mainPrompt(
@@ -275,7 +301,7 @@ describe('mainPrompt', () => {
         prompt: 'Write hello world to new-file.txt',
         agentState,
         fingerprintId: 'test',
-        costMode: 'max',
+        costMode: 'max', // This causes streamGemini25Pro to be called
         promptId: 'test',
         toolResults: [],
       },
@@ -284,7 +310,7 @@ describe('mainPrompt', () => {
       () => {}
     )
 
-    expect(toolCalls).toHaveLength(1)
+    expect(toolCalls).toHaveLength(1) // This assertion should now pass
     expect(toolCalls[0].name).toBe('write_file')
     const params = toolCalls[0].parameters as {
       type: string
@@ -374,18 +400,37 @@ describe('mainPrompt', () => {
 
     expect(newAgentState.lastUserPromptIndex).toBe(initialIndex)
   })
-})
 
-// Helper function (consider moving to a test utility file)
-function renderToolResults(toolResults: ToolResult[]): string {
-  return `
-${toolResults
-  .map(
-    (result) => `<tool_result>
-<tool>${result.name}</tool>
-<result>${result.result}</result>
-</tool_result>`
-  )
-  .join('\n')}
-`.trim()
-}
+  it('should return end_turn tool call when LLM response is empty', async () => {
+    // Mock the LLM stream to return nothing
+    spyOn(geminiWithFallbacks, 'streamGemini25Pro').mockImplementation(
+      () =>
+        new ReadableStream({
+          start(controller) {
+            controller.close() // Close immediately without enqueueing anything
+          },
+        }) as any
+    )
+
+    const agentState = getInitialAgentState(mockFileContext)
+    const { toolCalls } = await mainPrompt(
+      new MockWebSocket() as unknown as WebSocket,
+      {
+        type: 'prompt',
+        prompt: 'Test prompt leading to empty response',
+        agentState,
+        fingerprintId: 'test',
+        costMode: 'max', // Ensure the mocked stream is used
+        promptId: 'test',
+        toolResults: [],
+      },
+      TEST_USER_ID,
+      'test-session',
+      () => {}
+    )
+
+    expect(toolCalls).toHaveLength(1)
+    expect(toolCalls[0].name).toBe('end_turn')
+    expect(toolCalls[0].parameters).toEqual({})
+  })
+})

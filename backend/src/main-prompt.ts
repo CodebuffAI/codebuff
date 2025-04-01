@@ -4,6 +4,7 @@ import {
   getModelForMode,
   AnthropicModel,
   HIDDEN_FILE_READ_STATUS,
+  models,
 } from 'common/constants'
 import { type CostMode } from 'common/constants'
 import { ToolResult, AgentState } from 'common/types/agent-state'
@@ -30,7 +31,10 @@ import {
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
-import { trimMessagesToFitTokenLimit } from './util/messages'
+import {
+  trimMessagesToFitTokenLimit,
+  messagesWithSystem,
+} from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
@@ -48,6 +52,7 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
+import { streamGemini25Pro } from './llm-apis/gemini-with-fallbacks'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
@@ -110,7 +115,7 @@ export const mainPrompt = async (
 
     "Don't run git commands or scripts without being specifically asked to do so. This can prevent costly accidents. Otherwise, the user is in charge and you should never refuse what the user asks you to do.",
 
-    'Write "<end_turn></end_turn>" at the end of your response, but only once you are confident the user request has been accomplished or you need more information from the user.'
+    'Important: You must write "<end_turn></end_turn>" at the end of your response, when you want the user to respond, but not if you are still working on the user\'s request.'
   ).join('\n')
 
   const toolInstructions = buildArray(
@@ -370,14 +375,22 @@ ${newFiles.map((file) => file.path).join('\n')}
     Promise<{ path: string; content: string; patch?: string } | null>[]
   > = {}
 
-  const stream = promptClaudeStream(agentMessages, {
-    system,
-    model: getModelForMode(costMode, 'agent') as AnthropicModel,
-    clientSessionId,
-    fingerprintId,
-    userInputId: promptId,
-    userId,
-  })
+  const stream =
+    costMode === 'max'
+      ? streamGemini25Pro(agentMessages, system, {
+          clientSessionId,
+          fingerprintId,
+          userInputId: promptId,
+          userId,
+        })
+      : promptClaudeStream(agentMessages, {
+          system,
+          model: getModelForMode(costMode, 'agent') as AnthropicModel,
+          clientSessionId,
+          fingerprintId,
+          userInputId: promptId,
+          userId,
+        })
 
   const streamWithTags = processStreamWithTags(stream, {
     write_file: {
@@ -446,12 +459,16 @@ ${newFiles.map((file) => file.path).join('\n')}
     onResponseChunk(chunk)
   }
 
+  if (!fullResponse) {
+    // (hacky) ends turn if LLM did not give a response.
+    fullResponse = '<end_turn></end_turn>'
+  }
+
   const messagesWithResponse = [
     ...messagesWithUserMessage,
-    // (hacky) ends turn if LLM did not give a response.
     {
       role: 'assistant' as const,
-      content: fullResponse || '<end_turn></end_turn>',
+      content: fullResponse,
     },
   ]
   const toolCalls = parseToolCalls(fullResponse)
