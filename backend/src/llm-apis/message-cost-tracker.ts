@@ -1,16 +1,18 @@
 import { models, TEST_USER_ID } from 'common/constants'
-import { OpenAIMessage } from '@/llm-apis/openai-api'
-import { Message } from 'common/types/message'
 import db from 'common/db'
-import { stripeServer } from 'common/util/stripe'
 import * as schema from 'common/db/schema'
+import { Message } from 'common/types/message'
+import { stripeServer } from 'common/util/stripe'
 import { eq } from 'drizzle-orm'
+import { WebSocket } from 'ws'
+
+import { stripNullCharsFromObject } from '../util/object'
+
+import { OpenAIMessage } from '@/llm-apis/openai-api'
 import { logger, withLoggerContext } from '@/util/logger'
 import { SWITCHBOARD } from '@/websockets/server'
-import { sendAction } from '@/websockets/websocket-action'
 import { ClientState } from '@/websockets/switchboard'
-import { WebSocket } from 'ws'
-import { stripNullChars } from 'common/util/string'
+import { sendAction } from '@/websockets/websocket-action'
 
 const PROFIT_MARGIN = 0.3
 
@@ -121,20 +123,17 @@ export const saveMessage = async (value: {
         return null
       }
 
-      // Clean request messages by converting to JSON and back to remove null chars
-      const cleanRequest = JSON.parse(
-        stripNullChars(JSON.stringify(value.request))
-      )
-
       const savedMessage = await db.insert(schema.message).values({
-        id: value.messageId,
-        user_id: value.userId,
-        fingerprint_id: value.fingerprintId,
-        client_id: value.clientSessionId,
-        client_request_id: value.userInputId,
-        model: value.model,
-        request: cleanRequest,
-        response: stripNullChars(value.response),
+        ...stripNullCharsFromObject({
+          id: value.messageId,
+          user_id: value.userId,
+          fingerprint_id: value.fingerprintId,
+          client_id: value.clientSessionId,
+          client_request_id: value.userInputId,
+          model: value.model,
+          request: value.request,
+          response: value.response,
+        }),
         input_tokens: value.inputTokens,
         output_tokens: value.outputTokens,
         cache_creation_input_tokens: value.cacheCreationInputTokens,
@@ -169,7 +168,7 @@ export const saveMessage = async (value: {
         }
 
         const [ws] = clientEntry
-        
+
         // Check if the WebSocket is still open before sending
         if (ws.readyState === WebSocket.OPEN) {
           // Send immediate message cost response
