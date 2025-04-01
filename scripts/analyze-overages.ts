@@ -43,32 +43,56 @@ async function analyzeOverages(): Promise<void> {
   const statsByPlan = new Map<keyof typeof UsageLimits, PlanStats>()
 
   try {
-    // Get all active subscriptions first
+    // Get all active subscriptions using pagination
     console.log('Fetching active subscriptions...')
     const activeCustomers = new Set<string>()
-    const subscriptions = await stripeServer.subscriptions.list({
-      limit: 100,
-      status: 'active',
-      expand: ['data.customer'],
-    })
+    let startingAfter: string | undefined = undefined
+    let hasMore = true
+    let totalFetchedSubscriptions = 0
 
-    for (const subscription of subscriptions.data) {
-      if (subscription.customer) {
-        const customerId =
-          typeof subscription.customer === 'string'
-            ? subscription.customer
-            : subscription.customer.id
-        activeCustomers.add(customerId)
+    while (hasMore) {
+      const subscriptions: any = await stripeServer.subscriptions.list({
+        limit: 100, // Fetch in batches of 100
+        status: 'active',
+        expand: ['data.customer'],
+        starting_after: startingAfter,
+      })
+
+      totalFetchedSubscriptions += subscriptions.data.length
+
+      for (const subscription of subscriptions.data) {
+        if (subscription.customer) {
+          const customerId =
+            typeof subscription.customer === 'string'
+              ? subscription.customer
+              : subscription.customer.id
+          activeCustomers.add(customerId)
+        }
       }
+
+      hasMore = subscriptions.has_more
+      if (hasMore && subscriptions.data.length > 0) {
+        startingAfter = subscriptions.data[subscriptions.data.length - 1].id
+      } else {
+        hasMore = false // Exit loop if no more data or last batch was empty
+      }
+      console.log(
+        `Fetched ${totalFetchedSubscriptions} subscriptions so far...`
+      )
     }
 
-    console.log(`Found ${activeCustomers.size} active subscribers`)
+    console.log(`Found ${activeCustomers.size} active subscribers in total`)
 
     // For each active customer, get their invoice history
     console.log('\nAnalyzing invoices for established customers...')
     console.log('(Only showing customers with more than one paid invoice)\n')
 
+    let processedCustomers = 0
     for (const customerId of activeCustomers) {
+      processedCustomers++
+      console.log(
+        `Processing customer ${processedCustomers}/${activeCustomers.size}: ${customerId}`
+      )
       // Get customer's paid invoices
       const invoices = await stripeServer.invoices.list({
         customer: customerId,
@@ -86,7 +110,8 @@ async function analyzeOverages(): Promise<void> {
 
       // Get the plan
       const plan =
-        typeof latestInvoice.subscription !== 'string'
+        typeof latestInvoice.subscription !== 'string' &&
+        latestInvoice.subscription !== null
           ? getPlanFromPriceId(
               getSubscriptionItemByType(latestInvoice.subscription, 'licensed')
                 ?.price.id
@@ -165,7 +190,7 @@ async function analyzeOverages(): Promise<void> {
         if (!hasOverage) {
           planStats.customers.push({
             id: customerId,
-            usage: 0,
+            usage: 0, // No usage above base tier if no overage
             overage: 0,
             invoiceTotal: latestInvoice.amount_paid,
           })
@@ -178,22 +203,36 @@ async function analyzeOverages(): Promise<void> {
     console.log('\n=== Summary Statistics ===')
     let totalMRR = 0
     let totalOverage = 0
+    let totalCustomersWithOverages = 0 // Added for overall summary
 
     for (const [plan, stats] of statsByPlan.entries()) {
-      const avgOverage = stats.totalOverage / (stats.customerCount * 100) // Convert to dollars
+      // Filter customers who actually had overages
+      const customersWithOverage = stats.customers.filter(c => c.overage > 0);
+      const numCustomersWithOverage = customersWithOverage.length;
+      totalCustomersWithOverages += numCustomersWithOverage; // Accumulate for overall summary
+
+      // Calculate average overage based only on customers who had overages
+      const avgOverage = numCustomersWithOverage > 0
+        ? stats.totalOverage / (numCustomersWithOverage * 100) // Convert cents to dollars
+        : 0;
+
       const planConfig = PLAN_CONFIGS[plan as UsageLimits]
       const basePrice = planConfig?.monthlyPrice || 0
+      // Use stats.customerCount for MRR calculation as it represents all established customers on the plan
       const baseMRR = basePrice * stats.customerCount
       totalMRR += baseMRR
-      totalOverage += stats.totalOverage / 100
+      totalOverage += stats.totalOverage / 100 // Convert cents to dollars
 
       console.log(`\n${plan}:`)
-      console.log(`  Number of customers with overages: ${stats.customerCount}`)
+      // Correctly report the number of customers *with* overages
+      console.log(`  Number of established customers: ${stats.customerCount}`)
+      console.log(`  Number of customers with overages: ${numCustomersWithOverage}`)
       console.log(
         `  Total overage amount: $${(stats.totalOverage / 100).toFixed(2)}`
       )
-      console.log(`  Average overage per customer: $${avgOverage.toFixed(2)}`)
-      console.log(`  Base MRR: $${baseMRR.toFixed(2)}`)
+      // Report average overage only for those who had overages
+      console.log(`  Average overage (among those with overages): $${avgOverage.toFixed(2)}`)
+      console.log(`  Base MRR (from established customers): $${baseMRR.toFixed(2)}`)
       console.log(
         `  Total Revenue (MRR + overages): $${(
           baseMRR +
@@ -201,21 +240,22 @@ async function analyzeOverages(): Promise<void> {
         ).toFixed(2)}`
       )
 
-      // Distribution of usage
+      // Distribution of usage based on overage amount in DOLLARS
       const usageBuckets = {
-        small: 0, // 0-5000 over free tier
-        medium: 0, // 5000-10000 over free tier
-        large: 0, // 10000+ over free tier
+        small: 0, // $0-$50 overage
+        medium: 0, // $50-$100 overage
+        large: 0, // $100+ overage
       }
 
-      for (const customer of stats.customers) {
-        const overageAmount = customer.overage / 100
-        if (overageAmount <= 50) usageBuckets.small++
-        else if (overageAmount <= 100) usageBuckets.medium++
+      // Iterate only over customers with overages for distribution
+      for (const customer of customersWithOverage) {
+        const overageAmountDollars = customer.overage / 100 // Convert cents to dollars
+        if (overageAmountDollars <= 50) usageBuckets.small++
+        else if (overageAmountDollars <= 100) usageBuckets.medium++
         else usageBuckets.large++
       }
 
-      console.log('  Usage distribution:')
+      console.log('  Overage distribution (among those with overages):')
       console.log(
         `    Small overages ($0-$50): ${usageBuckets.small} customers`
       )
@@ -226,41 +266,49 @@ async function analyzeOverages(): Promise<void> {
     }
 
     // Calculate combined averages across all plans
-    const totalCustomers = Array.from(statsByPlan.values()).reduce(
+    const totalEstablishedCustomers = Array.from(statsByPlan.values()).reduce(
       (sum, stats) => sum + stats.customerCount,
       0
     )
 
     console.log('\nOverall Summary:')
+    console.log(`Total Established Customers: ${totalEstablishedCustomers}`)
+    console.log(`Total Customers with Overages: ${totalCustomersWithOverages}`) // Added
     console.log(`Total MRR (base subscriptions only): $${totalMRR.toFixed(2)}`)
     console.log(`Total overage charges: $${totalOverage.toFixed(2)}`)
     console.log(
       `Total Revenue (MRR + overages): $${(totalMRR + totalOverage).toFixed(2)}`
     )
+    const percentageFromOverages = totalMRR + totalOverage > 0
+        ? (totalOverage / (totalMRR + totalOverage)) * 100
+        : 0;
     console.log(
-      `Percentage of total revenue from overages: ${(
-        (totalOverage / (totalMRR + totalOverage)) *
-        100
-      ).toFixed(1)}%`
+      `Percentage of total revenue from overages: ${percentageFromOverages.toFixed(1)}%`
     )
+
 
     // Print combined averages for both plans
     console.log('\nCombined Plan Statistics:')
-    console.log(`Total customers across all plans: ${totalCustomers}`)
+    console.log(`Total established customers across all plans: ${totalEstablishedCustomers}`)
     console.log(
-      `Average base MRR per customer: $${(totalMRR / totalCustomers).toFixed(2)}`
+      `Average base MRR per established customer: $${(totalMRR / totalEstablishedCustomers).toFixed(2)}`
     )
+    // Calculate average overage across *all* established customers
+    const avgOverageAllCustomers = totalEstablishedCustomers > 0 ? totalOverage / totalEstablishedCustomers : 0;
     console.log(
-      `Average overage per customer: $${(totalOverage / totalCustomers).toFixed(2)}`
+      `Average overage per established customer: $${avgOverageAllCustomers.toFixed(2)}`
     )
+     // Calculate average overage across only customers *with* overages
+    const avgOverageAmongstOveragers = totalCustomersWithOverages > 0 ? totalOverage / totalCustomersWithOverages : 0;
     console.log(
-      `Average total revenue per customer: $${(
-        (totalMRR + totalOverage) /
-        totalCustomers
-      ).toFixed(2)}`
+        `Average overage (among those with overages): $${avgOverageAmongstOveragers.toFixed(2)}`
+    )
+    const avgTotalRevenue = totalEstablishedCustomers > 0 ? (totalMRR + totalOverage) / totalEstablishedCustomers : 0;
+    console.log(
+      `Average total revenue per established customer: $${avgTotalRevenue.toFixed(2)}`
     )
 
-    // Distribution across all plans combined
+    // Distribution across all plans combined, based on DOLLARS
     const combinedUsageBuckets = {
       small: 0, // $0-$50 overage
       medium: 0, // $50-$100 overage
@@ -268,15 +316,16 @@ async function analyzeOverages(): Promise<void> {
     }
 
     for (const stats of statsByPlan.values()) {
-      for (const customer of stats.customers) {
-        const overageAmount = customer.overage
-        if (overageAmount <= 50) combinedUsageBuckets.small++
-        else if (overageAmount <= 100) combinedUsageBuckets.medium++
+      // Iterate only over customers with overages
+      for (const customer of stats.customers.filter(c => c.overage > 0)) {
+        const overageAmountDollars = customer.overage / 100 // Convert cents to dollars
+        if (overageAmountDollars <= 50) combinedUsageBuckets.small++
+        else if (overageAmountDollars <= 100) combinedUsageBuckets.medium++
         else combinedUsageBuckets.large++
       }
     }
 
-    console.log('\nCombined Usage Distribution:')
+    console.log('\nCombined Overage Distribution (among those with overages):')
     console.log(
       `Small overages ($0-$50): ${combinedUsageBuckets.small} customers`
     )
