@@ -400,4 +400,37 @@ describe('mainPrompt', () => {
 
     expect(newAgentState.lastUserPromptIndex).toBe(initialIndex)
   })
+
+  it('should return end_turn tool call when LLM response is empty', async () => {
+    // Mock the LLM stream to return nothing
+    spyOn(geminiWithFallbacks, 'streamGemini25Pro').mockImplementation(
+      () =>
+        new ReadableStream({
+          start(controller) {
+            controller.close() // Close immediately without enqueueing anything
+          },
+        }) as any
+    )
+
+    const agentState = getInitialAgentState(mockFileContext)
+    const { toolCalls } = await mainPrompt(
+      new MockWebSocket() as unknown as WebSocket,
+      {
+        type: 'prompt',
+        prompt: 'Test prompt leading to empty response',
+        agentState,
+        fingerprintId: 'test',
+        costMode: 'max', // Ensure the mocked stream is used
+        promptId: 'test',
+        toolResults: [],
+      },
+      TEST_USER_ID,
+      'test-session',
+      () => {}
+    )
+
+    expect(toolCalls).toHaveLength(1)
+    expect(toolCalls[0].name).toBe('end_turn')
+    expect(toolCalls[0].parameters).toEqual({})
+  })
 })

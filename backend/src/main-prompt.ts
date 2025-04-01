@@ -459,12 +459,16 @@ ${newFiles.map((file) => file.path).join('\n')}
     onResponseChunk(chunk)
   }
 
+  if (!fullResponse) {
+    // (hacky) ends turn if LLM did not give a response.
+    fullResponse = '<end_turn></end_turn>'
+  }
+
   const messagesWithResponse = [
     ...messagesWithUserMessage,
-    // (hacky) ends turn if LLM did not give a response.
     {
       role: 'assistant' as const,
-      content: fullResponse || '<end_turn></end_turn>',
+      content: fullResponse,
     },
   ]
   const toolCalls = parseToolCalls(fullResponse)
