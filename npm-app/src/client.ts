@@ -60,7 +60,7 @@ import { createXMLStreamParser } from './utils/xml-stream-parser'
 export class Client {
   private webSocket: APIRealtimeClient
   private returnControlToUser: () => void
-  private fingerprintId: string | undefined
+  private fingerprintId!: string | Promise<string>
   private costMode: CostMode
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
@@ -96,7 +96,7 @@ export class Client {
       onWebSocketReconnect
     )
     this.user = this.getUser()
-    this.getFingerprintId()
+    this.initFingerprintId()
     this.returnControlToUser = returnControlToUser
     this.rl = rl
   }
@@ -113,13 +113,10 @@ export class Client {
     this.fileContext = projectFileContext
   }
 
-  private async getFingerprintId(): Promise<string> {
-    if (this.fingerprintId) {
-      return this.fingerprintId
+  private initFingerprintId(): string | Promise<string> {
+    if (!this.fingerprintId) {
+      this.fingerprintId = this.user?.fingerprintId ?? calculateFingerprint()
     }
-
-    this.fingerprintId =
-      this.user?.fingerprintId ?? (await calculateFingerprint())
     return this.fingerprintId
   }
 
@@ -224,7 +221,7 @@ export class Client {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fingerprintId: await this.getFingerprintId(),
+          fingerprintId: await this.fingerprintId,
           referralCode,
         }),
       })
@@ -276,7 +273,7 @@ export class Client {
 
         try {
           const statusResponse = await fetch(
-            `${websiteUrl}/api/auth/cli/status?fingerprintId=${await this.getFingerprintId()}&fingerprintHash=${fingerprintHash}&expiresAt=${expiresAt}`
+            `${websiteUrl}/api/auth/cli/status?fingerprintId=${await this.fingerprintId}&fingerprintHash=${fingerprintHash}&expiresAt=${expiresAt}`
           )
 
           if (!statusResponse.ok) {
@@ -444,7 +441,7 @@ export class Client {
 
       this.webSocket.sendAction({
         type: 'generate-commit-message',
-        fingerprintId: await this.getFingerprintId(),
+        fingerprintId: await this.fingerprintId,
         authToken: this.user?.authToken,
         stagedChanges,
       })
@@ -478,7 +475,7 @@ export class Client {
       prompt,
       agentState: this.agentState,
       toolResults: this.lastToolResults,
-      fingerprintId: await this.getFingerprintId(),
+      fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,
       costMode: this.costMode,
     })
@@ -619,7 +616,7 @@ export class Client {
             prompt: undefined,
             agentState: this.agentState,
             toolResults,
-            fingerprintId: await this.getFingerprintId(),
+            fingerprintId: await this.fingerprintId,
             authToken: this.user?.authToken,
             costMode: this.costMode,
           })
@@ -675,7 +672,7 @@ export class Client {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          fingerprintId: await this.getFingerprintId(),
+          fingerprintId: await this.fingerprintId,
           authToken: this.user?.authToken,
         }),
       })
@@ -724,7 +721,7 @@ export class Client {
 
     this.webSocket.sendAction({
       type: 'init',
-      fingerprintId: await this.getFingerprintId(),
+      fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,
       fileContext,
     })
