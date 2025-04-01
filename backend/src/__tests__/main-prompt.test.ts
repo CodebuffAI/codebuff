@@ -26,11 +26,11 @@ import { logger } from '../util/logger'
 
 describe('mainPrompt', () => {
   beforeEach(() => {
-    // Mock logger
-    spyOn(logger, 'debug').mockImplementation(() => {})
-    spyOn(logger, 'error').mockImplementation(() => {})
-    spyOn(logger, 'info').mockImplementation(() => {})
-    spyOn(logger, 'warn').mockImplementation(() => {})
+    spyOn(logger, 'debug').mockImplementation(() => {});
+    spyOn(logger, 'error').mockImplementation(() => {});
+    spyOn(logger, 'info').mockImplementation(() => {});
+    spyOn(logger, 'warn').mockImplementation(() => {}); // Corrected syntax if needed
+    // Mock logger - Ensure correct arrow function syntax
 
     // Set up mocks before each test
     spyOn(claude, 'promptClaude').mockImplementation(() =>
@@ -149,12 +149,13 @@ describe('mainPrompt', () => {
         result: 'Read test.txt',
       },
     ]
+    const userPromptText = 'Test prompt'
 
     const { agentState: newAgentState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       {
         type: 'prompt',
-        prompt: 'Test prompt',
+        prompt: userPromptText,
         agentState,
         fingerprintId: 'test',
         costMode: 'max',
@@ -166,26 +167,49 @@ describe('mainPrompt', () => {
       () => {}
     )
 
-    const userToolResultMessage = newAgentState.messageHistory.find(
+    // Expected order: [ToolResultsMsg, InstructionsMsg, PromptMsg, AssistantMsg]
+    // (Assuming empty initial history and no readFileMessages)
+
+    // 1. Find the message containing the tool results
+    const userToolResultMessageIndex = newAgentState.messageHistory.findIndex(
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.includes('<tool_result>')
+        m.content.includes('<tool_result>') &&
+        m.content.includes('read_files')
     )
-    const userPromptMessage = newAgentState.messageHistory.find(
-      (m) => m.role === 'user' && m.content === 'Test prompt'
-    )
-    const assistantResponseMessage = newAgentState.messageHistory.find(
-      (m) => m.role === 'assistant'
-    )
-
+    expect(userToolResultMessageIndex).toBeGreaterThanOrEqual(0) // Should be index 0
+    const userToolResultMessage = newAgentState.messageHistory[userToolResultMessageIndex]
     expect(userToolResultMessage).toBeDefined()
     expect(userToolResultMessage?.content).toContain('read_files')
-    expect(userPromptMessage).toBeDefined()
-    expect(assistantResponseMessage).toBeDefined()
+
+
+    // 2. The user instructions message should be next (we don't need to assert its exact content)
+    const userInstructionsMessageIndex = userToolResultMessageIndex + 1
+    const userInstructionsMessage = newAgentState.messageHistory[userInstructionsMessageIndex]
+    expect(userInstructionsMessage?.role).toBe('user')
+    expect(typeof userInstructionsMessage?.content).toBe('string')
+
+
+    // 3. The user prompt message should be after instructions
+    const userPromptMessageIndex = userInstructionsMessageIndex + 1
+    const userPromptMessage = newAgentState.messageHistory[userPromptMessageIndex]
+    expect(userPromptMessage?.role).toBe('user')
+    // Check the content structure (array with text block)
+    expect(Array.isArray(userPromptMessage?.content)).toBe(true)
+    expect(userPromptMessage?.content?.[0]?.type).toBe('text')
+    expect(userPromptMessage?.content?.[0]?.text).toBe(userPromptText) // Check text property
+
+
+    // 4. The assistant response should be after the prompt message
+    const assistantResponseMessageIndex = userPromptMessageIndex + 1
+    const assistantResponseMessage = newAgentState.messageHistory[assistantResponseMessageIndex]
+    expect(assistantResponseMessage?.role).toBe('assistant')
     expect(assistantResponseMessage?.content).toBe('Test response')
 
-    expect(newAgentState.messageHistory.length).toBeGreaterThanOrEqual(3)
+
+    // Check overall length
+    expect(newAgentState.messageHistory.length).toBeGreaterThanOrEqual(4)
   })
 
   it('should add file updates to tool results in message history', async () => {
