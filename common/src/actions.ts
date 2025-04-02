@@ -59,7 +59,6 @@ export const UsageReponseSchema = z.object({
   type: z.literal('usage-response'),
   usage: z.number(),
   limit: z.number(),
-  referralLink: z.string().optional(),
   subscription_active: z.boolean(),
   next_quota_reset: z.coerce.date(),
   session_credits_used: z.number(),
