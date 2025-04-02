@@ -42,11 +42,15 @@ export function getProjectFileTree(
   let totalFiles = 0
 
   while (queue.length > 0 && totalFiles < maxFiles) {
-    const { node, fullPath, ignore: currentIgnore } = queue.shift()!
+    const {
+      node,
+      fullPath,
+      ignore: currentIgnore,
+    } = queue.shift()!
     const mergedIgnore = ignore
       .default()
       .add(currentIgnore)
-      .add(parseGitignore(fullPath))
+      .add(parseGitignore(fullPath, projectRoot))
 
     try {
       const files = fs.readdirSync(fullPath)
@@ -94,33 +98,50 @@ export function getProjectFileTree(
   return root.children
 }
 
-export function parseGitignore(dirPath: string): ignore.Ignore {
+export function parseGitignore(
+  fullDirPath: string,
+  projectRoot: string
+): ignore.Ignore {
   const ig = ignore.default()
-  const gitignorePath = path.join(dirPath, '.gitignore')
-  const codebuffignorePath = path.join(dirPath, '.codebuffignore')
-  const manicodeignorePath = path.join(dirPath, '.manicodeignore') // Legacy support
+  const relativeDirPath = path.relative(projectRoot, fullDirPath)
+  const ignoreFiles = [
+    path.join(fullDirPath, '.gitignore'),
+    path.join(fullDirPath, '.codebuffignore'),
+    path.join(fullDirPath, '.manicodeignore'), // Legacy support
+  ]
 
-  if (fs.existsSync(gitignorePath)) {
-    const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8')
-    const lines = gitignoreContent.split('\n')
-    for (const line of lines) {
-      ig.add(line)
-    }
-  }
+  for (const ignoreFilePath of ignoreFiles) {
+    if (fs.existsSync(ignoreFilePath)) {
+      const ignoreContent = fs.readFileSync(ignoreFilePath, 'utf8')
+      const lines = ignoreContent.split('\n')
+      for (let line of lines) {
+        line = line.trim()
+        if (line === '' || line.startsWith('#')) {
+          continue
+        }
 
-  if (fs.existsSync(codebuffignorePath)) {
-    const codebuffignoreContent = fs.readFileSync(codebuffignorePath, 'utf8')
-    const lines = codebuffignoreContent.split('\n')
-    for (const line of lines) {
-      ig.add(line)
-    }
-  }
+        let isNegated = false
+        let pattern = line
+        if (pattern.startsWith('!')) {
+          isNegated = true
+          pattern = pattern.slice(1)
+        }
 
-  if (fs.existsSync(manicodeignorePath)) {
-    const manicodeignoreContent = fs.readFileSync(manicodeignorePath, 'utf8')
-    const lines = manicodeignoreContent.split('\n')
-    for (const line of lines) {
-      ig.add(line)
+        let finalPattern = pattern
+        if (pattern.startsWith('/')) {
+          finalPattern = pattern.slice(1)
+          if (relativeDirPath !== '') {
+            finalPattern = path.join(relativeDirPath, finalPattern)
+          }
+        }
+        finalPattern = finalPattern.replace(/\\/g, '/')
+
+        if (isNegated) {
+          ig.add(`!${finalPattern}`)
+        } else {
+          ig.add(finalPattern)
+        }
+      }
     }
   }
 
