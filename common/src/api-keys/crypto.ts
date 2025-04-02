@@ -9,13 +9,11 @@ import {
   IV_LENGTH,
   KEY_PREFIXES,
   KEY_LENGTHS,
+  type ApiKeyType,
 } from './constants'
 import * as schema from '../db/schema'
 import { env } from '../env.mjs'
 import { logger } from '../util/logger'
-
-// Update ApiKeyType to use the enum values
-export type ApiKeyType = (typeof schema.apiKeyTypeEnum.enumValues)[number]
 
 /**
  * Encrypts an API key using the secret from environment variables.

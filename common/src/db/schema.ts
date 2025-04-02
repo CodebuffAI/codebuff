@@ -13,6 +13,7 @@ import {
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
 
+import { API_KEY_TYPES } from '../api-keys/constants' // Import the constant
 import { ReferralStatusValues } from '../types/referral'
 
 // Define the ReferralStatus enum
@@ -21,12 +22,8 @@ export const ReferralStatus = pgEnum('referral_status', [
   ...ReferralStatusValues.slice(1),
 ])
 
-// Define the API Key Type enum
-export const apiKeyTypeEnum = pgEnum('api_key_type', [
-  'anthropic',
-  'gemini',
-  'openai',
-])
+// Define the API Key Type enum using the imported constant
+export const apiKeyTypeEnum = pgEnum('api_key_type', API_KEY_TYPES)
 
 export const user = pgTable('user', {
   id: text('id')

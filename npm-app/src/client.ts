@@ -11,9 +11,9 @@ import {
   ServerAction,
   UsageReponseSchema,
   UsageResponse,
-  MessageCostResponse,
   MessageCostResponseSchema,
 } from 'common/actions'
+import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
 import {
   CREDITS_REFERRAL_BONUS,
   REQUEST_CREDIT_SHOW_THRESHOLD,
@@ -25,7 +25,7 @@ import {
   getInitialAgentState,
 } from 'common/types/agent-state'
 import { User } from 'common/util/credentials'
-import { FileVersion, ProjectFileContext } from 'common/util/file'
+import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
@@ -41,7 +41,7 @@ import { match, P } from 'ts-pattern'
 
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
-import { checkpointManager, Checkpoint } from './checkpoints/checkpoint-manager'
+import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { backendUrl, websiteUrl } from './config'
 import { userFromJson, CREDENTIALS_PATH } from './credentials'
 import { calculateFingerprint } from './fingerprint'
@@ -132,6 +132,46 @@ export class Client {
   async connect() {
     await this.webSocket.connect()
     this.setupSubscriptions()
+  }
+
+  async handleAddApiKey(keyType: ApiKeyType, apiKey: string): Promise<void> {
+    if (!this.user || !this.user.authToken) {
+      console.log(yellow("Please log in first using 'login'."))
+      this.returnControlToUser()
+      return
+    }
+
+    const readableKeyType = READABLE_NAME[keyType]
+
+    Spinner.get().start()
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Cookie: `next-auth.session-token=${this.user.authToken}`,
+          },
+          body: JSON.stringify({ keyType, apiKey }),
+        }
+      )
+
+      Spinner.get().stop()
+      const respJson = await response.json()
+
+      if (response.ok) {
+        console.log(green(`Successfully added ${readableKeyType} API key.`))
+      } else {
+        throw new Error(respJson.message)
+      }
+    } catch (e) {
+      Spinner.get().stop()
+      const error = e as Error
+      console.error(red('Error: ' + error.message))
+    } finally {
+      this.returnControlToUser()
+    }
   }
 
   async handleReferralCode(referralCode: string) {

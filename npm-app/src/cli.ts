@@ -1,6 +1,11 @@
 import { parse } from 'path'
 import * as readline from 'readline'
 
+import {
+  type ApiKeyType,
+  KEY_PREFIXES,
+  KEY_LENGTHS,
+} from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
@@ -26,6 +31,8 @@ import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 const restoreCheckpointRegex = /^checkpoint\s+(\d+)$/
 const undoCommands = ['undo', 'u']
 const redoCommands = ['redo']
+
+type ApiKeyPrefix = keyof typeof KEY_PREFIXES
 
 export class CLI {
   private client: Client
@@ -248,6 +255,30 @@ export class CLI {
     }
     if (userInput.startsWith('ref-')) {
       await this.client.handleReferralCode(userInput.trim())
+      return true
+    }
+    // Handle input raw API keys
+    let keyType: ApiKeyType | null = null
+    for (const prefixKey in KEY_PREFIXES) {
+      const prefix = KEY_PREFIXES[prefixKey as ApiKeyPrefix]
+      if (userInput.startsWith(prefix)) {
+        if (userInput.length === KEY_LENGTHS[prefixKey as ApiKeyPrefix]) {
+          keyType = prefixKey as ApiKeyType
+          break
+        } else {
+          console.log(
+            yellow(
+              `Input looks like a ${prefixKey} API key but has the wrong length. Expected ${KEY_LENGTHS[prefixKey as ApiKeyPrefix]}, got ${userInput.length}.`
+            )
+          )
+          this.freshPrompt()
+          return true
+        }
+      }
+    }
+    if (keyType) {
+      await this.client.handleAddApiKey(keyType, userInput)
+      // handleAddApiKey calls returnControlToUser
       return true
     }
     if (userInput === 'usage' || userInput === 'credits') {
