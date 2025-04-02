@@ -127,3 +127,18 @@
 .terminal-code::-webkit-scrollbar-thumb:hover {
   @apply bg-zinc-600;
 }
+
+/* Add spin animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin 10s linear infinite; /* Adjust duration (10s) as needed */
+  transform-origin: center; /* Ensure rotation is around the center */
+}

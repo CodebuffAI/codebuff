@@ -80,38 +80,38 @@ export default function Home() {
           title={
             <>
               Your Codebase,{' '}
-              <span className="whitespace-nowrap">Fully Understood</span>
+              <span className="whitespace-nowrap">Psychically Decoded</span>
             </>
           }
-          description="Codebuff deeply understands your entire codebase structure, dependencies, and patterns to generate code that other AI tools can't match."
+          description="ClaudeCodeBuff uses a secret blend of unicorn magic and psychic powers to understand your codebase better than you do. Even the parts you haven't written yet!"
           backdropColor={SECTION_THEMES.feature1.background}
           decorativeColors={SECTION_THEMES.feature1.decorativeColors}
           textColor={SECTION_THEMES.feature1.textColor}
-          tagline="DEEP PROJECT INSIGHTS & ACTIONS"
-          highlightText="Indexes your entire codebase in 2 seconds"
-          learnMoreText="See How It Works"
+          tagline="MYSTICAL CODE UNDERSTANDING & DIVINATION"
+          highlightText="Reads your entire codebase with its third eye"
+          learnMoreText="Witness The Magic"
           learnMoreLink="/docs/advanced"
           keyPoints={FEATURE_POINTS.understanding}
           illustration={
             <WorkflowIllustration
               steps={[
                 {
-                  icon: '🧠',
-                  title: 'Total Codebase Awareness',
+                  icon: '🔮',
+                  title: 'Crystal Ball Codebase Reading',
                   description:
-                    'Builds a complete map of your project, including hidden dependencies',
+                    'Gazes into the future of your project, including bugs you haven\'t even created yet',
                 },
                 {
-                  icon: '✂️',
-                  title: 'Surgical Code Edits',
+                  icon: '🧙‍♂️',
+                  title: 'Magical Code Incantations',
                   description:
-                    "Makes pinpoint changes while respecting your codebase's existing structure and style",
+                    "Waves a digital wand and mutters spells to transform your code while no one's looking",
                 },
                 {
-                  icon: '⚡',
-                  title: 'Instant Solutions',
+                  icon: '🦄',
+                  title: 'Unicorn-Powered Solutions',
                   description:
-                    'Tailors solutions based on your codebase context',
+                    'Each solution is hand-crafted by our team of coding unicorns',
                 },
               ]}
             />
@@ -122,18 +122,18 @@ export default function Home() {
         <FeatureSection
           title={
             <>
-              Direct your codebase{' '}
-              <span className="whitespace-nowrap"> like a movie</span>
+              Command your code{' '}
+              <span className="whitespace-nowrap">like a wizard</span>
             </>
           }
-          description="Works in your terminal with any tech stack, no special environments needed. Just install npm and you're good to go."
+          description="Wave your terminal around like a magic wand! ClaudeCodeBuff works with any tech stack because magic is universal. No potions or special cauldrons required."
           backdropColor={SECTION_THEMES.feature2.background}
           decorativeColors={SECTION_THEMES.feature2.decorativeColors}
           textColor={SECTION_THEMES.feature2.textColor}
           imagePosition="left"
-          tagline="PRECISE CONTROL & FLEXIBILITY"
-          highlightText="Zero setup hurdles, infinite control"
-          learnMoreText="View Installation Guide"
+          tagline="ARCANE CONTROL & MYSTICAL FLEXIBILITY"
+          highlightText="Zero setup wizardry, infinite magical power"
+          learnMoreText="View Spellbook (Installation Guide)"
           learnMoreLink="/docs/help"
           keyPoints={FEATURE_POINTS.rightStuff}
           illustration={
@@ -149,26 +149,26 @@ export default function Home() {
 
         {/* Feature Section 3 */}
         <FeatureSection
-          title={<>Better and Better Over Time</>}
-          description="Don't repeat yourself. Codebuff can take notes on your conversations and stores them in human-readable markdown files. Each session teaches it about your specific needs and project setup."
+          title={<>Gets Weirder Over Time (In a Good Way)</>}
+          description="ClaudeCodeBuff is like that friend who remembers every embarrassing detail about you. It stores your coding secrets in magic scrolls (markdown files) and uses them to haunt your future sessions."
           backdropColor={SECTION_THEMES.feature3.background}
           decorativeColors={SECTION_THEMES.feature3.decorativeColors}
           textColor={SECTION_THEMES.feature3.textColor}
-          tagline="CONTINUOUS LEARNING & OPTIMIZATION"
-          highlightText="Persists project knowledge between sessions"
-          learnMoreText="Learn About Knowledge Files"
+          tagline="SUPERNATURAL MEMORY & UNCANNY LEARNING"
+          highlightText="Haunts your projects with spooky-good memory"
+          learnMoreText="Learn About Our Mystical Knowledge Scrolls"
           learnMoreLink="/docs/tips#knowledge-files"
           keyPoints={FEATURE_POINTS.remembers}
           illustration={
             <ChartIllustration
               chartData={{
                 labels: [
-                  'Time to Context',
-                  'Assistance Quality',
-                  'Repeat Tasks',
-                  'Project Recall',
+                  'Psychic Ability',
+                  'Magic Power',
+                  'Unicorn Energy',
+                  'Memory Haunting',
                 ],
-                values: [95, 85, 90, 100],
+                values: [95, 110, 120, 100],
                 colors: Array(4).fill(
                   'bg-gradient-to-r from-green-500 to-green-300'
                 ),

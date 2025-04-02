@@ -10,18 +10,20 @@ export const sponseeConfig = {
 export const sponsees = Object.values(sponseeConfig)
 
 export const siteConfig = {
-  title: 'Codebuff',
-  description: 'Code faster with AI using Codebuff. Edit your codebase and run terminal commands via natural language instruction.',
+  title: 'ClaudeCodeBuff - Magical Coding Assistant for Peter',
+  description:
+    'Harness magical coding powers with ClaudeCodeBuff. Our team of unicorns, wizards, and psychics will transform your codebase with mystical AI powers.',
   keywords: () => [
-    'Manicode',
+    'ClaudeCodeBuff',
     'Codebuff',
-    'Coding Assistant',
-    'Coding Assistant',
-    'Agent',
-    'AI',
-    'Next.js',
-    'React',
-    'TypeScript',
+    'Magical Coding',
+    'Coding Wizardry',
+    'AI Magic',
+    'Unicorn Code',
+    'Psychic Programming',
+    'Spell Casting',
+    'Wizarding Terminal',
+    "April Fool's",
   ],
   url: () => env.NEXT_PUBLIC_APP_URL,
   googleSiteVerificationId: () => env.GOOGLE_SITE_VERIFICATION_ID || '',

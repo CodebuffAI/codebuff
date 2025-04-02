@@ -43,7 +43,7 @@ export const DEMO_CODE = {
 // Section themes
 export const SECTION_THEMES = {
   hero: {
-    background: BlockColor.Black,
+    background: '#c96442',
     textColor: 'text-white',
     decorativeColors: [BlockColor.TerminalYellow],
   },
@@ -103,62 +103,62 @@ export const ANIMATION = {
 export const FEATURE_POINTS = {
   understanding: [
     {
-      icon: '🧠',
-      title: 'Total Project Awareness',
+      icon: '🤪',
+      title: 'Total Codebase Mind-Reading',
       description:
-        'Maps your entire codebase to grasp the architecture, dependencies, and coding patterns that make it tick',
+        'Uses psychic powers to understand your code before you even write it - we call it "pre-coding"',
     },
     {
-      icon: '🔍',
-      title: 'Uncanny Problem Detection',
+      icon: '🔮',
+      title: 'Bug Fortune Telling',
       description:
-        'Spots bugs, security issues, and performance bottlenecks that other AI tools completely miss',
+        "Can predict bugs you'll create next week. Spooky? Yes. Useful? Also yes.",
     },
     {
-      icon: '⚡',
-      title: 'Context-Perfect Solutions',
+      icon: '🦄',
+      title: 'Unicorn-Powered Solutions',
       description:
-        'Crafts code that fits your project like a glove - matching your style, patterns, and standards exactly',
+        "Our code is actually written by mythical unicorns. Don't ask how - it's proprietary technology",
     },
   ],
   rightStuff: [
     {
-      icon: '🛠️',
-      title: 'Zero-Friction Setup',
+      icon: '🎪',
+      title: 'Circus-Level Setup',
       description:
-        'Handles complex project configuration, dependencies, and scaffolding without making you jump through hoops',
+        'So easy to set up, even a circus clown could do it. (No offense to circus professionals)',
     },
     {
-      icon: '✂️',
-      title: 'Surgical Code Changes',
+      icon: '🧙‍♂️',
+      title: 'Magical Code Spells',
       description:
-        'Makes precise, targeted edits that respect your codebase instead of ham-fisted rewrites that break things',
+        'Casts arcane incantations that somehow transform spaghetti code into beautiful architecture',
     },
     {
-      icon: '🔄',
-      title: 'Works Where You Work',
+      icon: '🏄‍♂️',
+      title: 'Terminal Surfing',
       description:
-        'Runs in any terminal with any tech stack - no special environments, no framework limitations, no hassles',
+        'Rides the command line waves with style. Cowabunga, dude! Your terminal has never been this rad',
     },
   ],
   remembers: [
     {
-      icon: '🧩',
-      title: "Your Project's Memory",
+      icon: '🐘',
+      title: 'Elephant-Grade Memory',
       description:
-        'Stores knowledge in smart .md files that grow with each session, eliminating those "let me explain again" moments',
+        'Remembers everything better than your best friend who never forgets that embarrassing thing you did in 2009',
     },
     {
-      icon: '📈',
-      title: 'Learns Your Style',
+      icon: '👻',
+      title: 'Haunted By Your Code',
       description:
-        'Adapts to your unique coding patterns and workflow preferences to deliver increasingly personalized help',
+        "Your code style haunts our AI at night. It's actually kind of creepy how well it mimics you",
     },
     {
-      icon: '⏱️',
-      title: 'Picks Up Where You Left Off',
+      icon: '⏰',
+      title: 'Time-Traveling Assistant',
       description:
-        'Remembers previous conversations, decisions, and context - just like working with a human teammate',
+        'Might actually be from the future. Our legal team says we can neither confirm nor deny this claim',
     },
   ],
 }

@@ -10,23 +10,25 @@ export const testimonials: Testimonial[][] = [
   [
     {
       quote:
-        'I was so flabbergasted that it even did the pip install for me haha',
+        'Yesterday I asked ClaudeCodeBuff for help with a bug, and this morning I found my keyboard covered in sparkly dust. Bug fixed, though! 🧙‍♂️',
       author: 'Daniel Hsu',
-      title: 'Founder & CEO',
+      title: 'Founder & Apprentice Wizard',
       avatar: '/testimonials/daniel-hsu.jpg',
       link: '/testimonials/proof/daniel-hsu.jpg',
     },
     {
-      quote: 'Dude you guys are building something good',
+      quote:
+        'I swear ClaudeCodeBuff turned my coffee into a magical coding potion. Two sips and I was debugging at 3x speed! Side effects may include spontaneous code refactoring.',
       author: 'Albert Lam',
-      title: 'Founder & CEO',
+      title: 'Potion Master & CEO',
       avatar: '/testimonials/albert-lam.jpg',
       link: '/testimonials/proof/albert-lam.png',
     },
     {
-      quote: "I'm honestly surprised by how well the product works!",
+      quote:
+        'During a full moon, ClaudeCodeBuff generated code so elegant it made our senior developer weep tears of joy. The tears turned into tiny butterflies that fixed three security vulnerabilities before flying away.',
       author: 'Chrisjan Wust',
-      title: 'Founder & CTO',
+      title: 'Butterfly Whisperer & CTO',
       avatar: '/testimonials/chrisjan-wust.jpg',
       link: '/testimonials/proof/chrisjan-wust.png',
     },
@@ -39,17 +41,18 @@ export const testimonials: Testimonial[][] = [
       link: 'https://www.linkedin.com/posts/stefan-gasser_24-hour-update-from-idea-to-production-activity-7261680039333666818-G0XP',
     },
     {
-      quote: 'Just had a magical manicode moment: ... And it just worked!',
+      quote:
+        'I think ClaudeCodeBuff might actually be using real magic. My code started working before I even finished typing the prompt!',
       author: 'Stephen Grugett',
-      title: 'Founder & CEO',
+      title: 'Wizard in Residence',
       avatar: '/testimonials/stevo.png',
       link: '/testimonials/proof/stevo.png',
     },
     {
       quote:
-        "One of my favorite parts of every day is hearing @brett_beatty giggle in awe at @CodebuffAI. We've been using it daily for a couple months now and it's still incredible 🤯",
+        'After using ClaudeCodeBuff for three days straight, I started dreaming in perfectly formatted code. My pillow now doubles as a debugging console, and my snores sound like compilation warnings.',
       author: 'Dennis Beatty',
-      title: 'Founder & CEO',
+      title: 'Dream Developer & CEO',
       avatar:
         'https://pbs.twimg.com/profile_images/943341063502286848/2h_xKTs9_400x400.jpg',
       link: 'https://x.com/dnsbty/status/1867062230614938034',
@@ -95,25 +98,24 @@ export const testimonials: Testimonial[][] = [
     },
     {
       quote:
-        'codebuff is amazing; I use it over Claude for all my coding projects now',
+        "Last week I fell asleep at my desk with ClaudeCodeBuff running. When I woke up, it had rewritten our entire codebase, filed our taxes, and ordered pizza. The code quality was excellent, but I'm still waiting on my tax refund.",
       author: 'Janna Lu',
-      title: 'Economics PhD Candidate',
+      title: 'Professional Napper & Economics PhD',
       avatar: '/testimonials/janna-lu.jpg',
       link: '/testimonials/proof/janna-lu.png',
     },
     {
       quote:
-        "Im basically hiring an engineer for $50/month, that's how I see it",
+        "Did ClaudeCodeBuff just read my mind? I was thinking about adding a feature, and suddenly my code had it. Either I'm psychic, or this AI has supernatural powers.",
       author: 'Shardool Patel',
-      title: 'Founder & CTO',
+      title: 'Mind Reader & CTO',
       avatar: '/testimonials/shardool-patel.jpg',
       link: '/testimonials/proof/shardool-patel.png',
     },
     {
-      quote:
-        'when investors ask me about codebuff I tell them i use it 6 days a week',
+      quote: 'Sometimes I hear magical hoofbeats when my code compiles.',
       author: 'Dexter Horthy',
-      title: 'Founder & CEO',
+      title: 'Chief Unicorn Officer',
       avatar: '/testimonials/dex.jpg',
       link: '/testimonials/proof/dex.png',
     },

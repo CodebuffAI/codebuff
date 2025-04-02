@@ -83,7 +83,7 @@ export function Hero() {
               animate={{ y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              <span className="relative z-10">Supercharge</span>
+              <span className="relative z-10">Claudify</span>
             </motion.span>{' '}
             Your{' '}
             <motion.span
@@ -92,7 +92,7 @@ export function Hero() {
               animate={{ y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <span className="relative z-10">AI Coding</span>
+              <span className="relative z-10">Claude Coding</span>
             </motion.span>
           </motion.h1>
         </motion.div>
@@ -103,9 +103,9 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <span className="whitespace-nowrap">Simple. Fast. Powerful.</span>{' '}
-          <span className="whitespace-nowrap">Codebuff works in your</span>{' '}
-          <span>{<TypingEffect words={['terminal', 'IDE', 'system']} />}</span>
+          <span className="whitespace-nowrap">The Claudiest way to code.</span>{' '}
+          <span className="whitespace-nowrap">ClaudeCodeBuff works in your</span>{' '}
+          <span>{<TypingEffect words={['terminal', 'house', 'garden']} />}</span>
           {'.'}
         </motion.h2>
 
