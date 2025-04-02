@@ -1,12 +1,14 @@
+import { spawn } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-import { models, TEST_USER_ID } from 'common/constants'
-import { spawn } from 'child_process'
-import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
-import { z } from 'zod'
+
 import { FileChange } from 'common/actions'
-import { logger } from './util/logger'
+import { models, TEST_USER_ID } from 'common/constants'
 import { buildArray } from 'common/util/array'
+import { z } from 'zod'
+
+import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { logger } from './util/logger'
 
 const tools = [
   {
@@ -227,9 +229,14 @@ When using this tool, please adhere to the following rules:
 6. Do not use the run_terminal_command tool to create or edit files. Do not use \`cat\` or \`echo\` to create or edit files. You should instead write out <write_file> blocks for for editing or creating files as detailed above in the <editing_instructions> block.
 7. Do not install packages without asking, unless it is within a small, new-ish project. Users working on a larger project will want to manage packages themselves, so ask first.
 8. Do not use the wrong package manager for the project. For example, if the project uses \`pnpm\` or \`bun\` or \`yarn\`, you should not use \`npm\`. Similarly not everyone uses \`pip\` for python, etc.
+9. You must write out ampersands without escaping them. E.g. write out '&' instead of '&amp;'.
+Incorrect:
+\`cd backend &amp;&amp; npm typecheck\` 
+Correct:
+\`cd backend && npm typecheck\`
 
 Notes:
-- The current working directory will always reset to project root directory for each command you run. You can only access files within this directory (or sub-directories).
+- The current working directory will always reset to project root directory for each command you run. You can only access files within this directory (or sub-directories). So if you run cd in one command, the directory change won't persist to the next command.
 - Commands can succeed without giving any output, e.g. if no type errors were found. So you may not always see output for successful executions.
     `.trim(),
   },
