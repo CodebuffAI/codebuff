@@ -9,13 +9,12 @@ import {
   OVERAGE_RATE_PRO,
   OVERAGE_RATE_MOAR_PRO,
 } from 'common/constants'
-import { stripeServer } from 'common/src/util/stripe'
+import { stripeServer, getCurrentSubscription } from 'common/src/util/stripe'
 import { AuthenticatedQuotaManager } from 'common/billing/quota-manager'
 import { SubscriptionPreviewResponse } from 'common/src/types/plan'
 import { UsageLimits } from 'common/constants'
 import {
   checkForUnpaidInvoices,
-  getCurrentSubscription,
   getPlanPriceIds,
   getSubscriptionItemByType,
   getTotalReferralCreditsForCustomer,
@@ -211,7 +210,7 @@ export const GET = async (request: Request) => {
 
             newOverageRate: planConfig.overageRate || 0,
             newOverageAmount,
-            lineItems: [], // hmmm
+            lineItems: [],
             overageCredits: 0,
             newOverageCredits,
             currentOverageAmount: 0,
