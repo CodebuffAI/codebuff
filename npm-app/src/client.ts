@@ -62,22 +62,23 @@ export class Client {
   private returnControlToUser: () => void
   private fingerprintId!: string | Promise<string>
   private costMode: CostMode
+  private hadFileChanges: boolean = false
+  private git: GitCommand
+  private rl: readline.Interface
+  private lastToolResults: ToolResult[] = []
+
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
   public agentState: AgentState | undefined
   public originalFileVersions: Record<string, string | null> = {}
   public creditsByPromptId: Record<string, number[]> = {}
-
   public user: User | undefined
   public lastWarnedPct: number = 0
   public usage: number = 0
   public limit: number = 0
   public subscription_active: boolean = false
   public nextQuotaReset: Date | null = null
-  private hadFileChanges: boolean = false
-  private git: GitCommand
-  private rl: readline.Interface
-  private lastToolResults: ToolResult[] = []
+  public storedApiKeyTypes: ApiKeyType[] = []
 
   constructor(
     websocketUrl: string,
@@ -132,6 +133,35 @@ export class Client {
   async connect() {
     await this.webSocket.connect()
     this.setupSubscriptions()
+    await this.fetchStoredApiKeyTypes()
+  }
+
+  async fetchStoredApiKeyTypes(): Promise<void> {
+    if (!this.user || !this.user.authToken) {
+      return
+    }
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Cookie: `next-auth.session-token=${this.user.authToken}`,
+          },
+        }
+      )
+
+      if (response.ok) {
+        const { keyTypes } = await response.json()
+        this.storedApiKeyTypes = keyTypes as ApiKeyType[]
+      } else {
+        this.storedApiKeyTypes = []
+      }
+    } catch (error) {
+      this.storedApiKeyTypes = []
+    }
   }
 
   async handleAddApiKey(keyType: ApiKeyType, apiKey: string): Promise<void> {
@@ -162,13 +192,16 @@ export class Client {
 
       if (response.ok) {
         console.log(green(`Successfully added ${readableKeyType} API key.`))
+        if (!this.storedApiKeyTypes.includes(keyType)) {
+          this.storedApiKeyTypes.push(keyType)
+        }
       } else {
         throw new Error(respJson.message)
       }
     } catch (e) {
       Spinner.get().stop()
       const error = e as Error
-      console.error(red('Error: ' + error.message))
+      console.error(red('Error adding API key: ' + error.message))
     } finally {
       this.returnControlToUser()
     }
@@ -765,5 +798,7 @@ export class Client {
       authToken: this.user?.authToken,
       fileContext,
     })
+
+    this.fetchStoredApiKeyTypes()
   }
 }
