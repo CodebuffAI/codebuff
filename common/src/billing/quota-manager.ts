@@ -8,7 +8,6 @@ import { match } from 'ts-pattern'
 type CheckQuotaResult = Promise<{
   creditsUsed: number
   quota: number
-  startDate: Date | string
   endDate: Date
   subscription_active: boolean
   session_credits_used?: number
@@ -82,7 +81,6 @@ export class AnonymousQuotaManager implements IQuotaManager {
     return {
       creditsUsed: parseInt(result.creditsUsed),
       quota,
-      startDate,
       endDate: new Date(result.endDate),
       subscription_active: false,
       session_credits_used,
@@ -173,7 +171,6 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
       return {
         creditsUsed: 0,
         quota: CREDITS_USAGE_LIMITS.FREE,
-        startDate: new Date(),
         endDate: new Date(),
         subscription_active: false,
         session_credits_used: 0,
@@ -270,7 +267,6 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
     return {
       creditsUsed,
       quota,
-      startDate,
       endDate,
       subscription_active,
       session_credits_used,
