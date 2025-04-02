@@ -48,7 +48,7 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
   }
 
   console.log(
-    `\nWelcome${username ? ` back ${username}` : ''}! What would you like to do? 🃏`
+    `\nWelcome${username ? ` back ${username}` : ''}! What would you like to do?`
   )
 }
 
