@@ -1,34 +1,21 @@
 'use client'
 
-import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
-import { BlockColor } from './decorative-blocks'
-import { DecorativeBlocks } from './decorative-blocks'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Button } from './button'
 import { TerminalCopyButton } from './enhanced-copy-button'
-import { Dialog, DialogContent } from './dialog'
-import { CodeDemo } from '../docs/mdx/code-demo'
 import { useInstallDialog } from '@/hooks/use-install-dialog'
 import posthog from 'posthog-js'
 
 interface HeroButtonsProps {
   className?: string
-  decorativeColors?: BlockColor[]
 }
 
-export function HeroButtons({
-  className,
-  decorativeColors = [BlockColor.TerminalYellow],
-}: HeroButtonsProps) {
+export function HeroButtons({ className }: HeroButtonsProps) {
   const [buttonHovered, setButtonHovered] = useState(false)
-  const {
-    isOpen: isInstallOpen,
-    open: openInstallDialog,
-    close: closeInstallDialog,
-  } = useInstallDialog()
+  const { open: openInstallDialog } = useInstallDialog()
 
   const handleTryFreeClick = () => {
     posthog.capture('home.try_free_clicked')
@@ -42,23 +29,32 @@ export function HeroButtons({
         className
       )}
     >
-      <DecorativeBlocks colors={decorativeColors} placement="bottom-left">
+      <div
+        className="relative w-full md:w-auto"
+        onMouseEnter={() => setButtonHovered(true)}
+        onMouseLeave={() => setButtonHovered(false)}
+      >
+        <div className="absolute inset-0 bg-[rgb(143,228,87)] -translate-x-1 translate-y-1" />
+        
         <motion.div
-          whileHover={{ scale: 1.02, x: 2, y: -2 }}
-          whileTap={{ scale: 0.98, x: 0, y: 0 }}
-          onHoverStart={() => setButtonHovered(true)}
-          onHoverEnd={() => setButtonHovered(false)}
+          animate={{
+            x: buttonHovered ? 2 : 0,
+            y: buttonHovered ? -2 : 0,
+          }}
+          transition={{ duration: 0.2 }}
         >
           <Button
             size="lg"
             className={cn(
-              'w-full md:w-[320px] text-base font-medium px-8 py-4 h-auto',
-              'transition-all duration-300 relative group overflow-hidden',
-              'border border-white/50 bg-white text-black hover:bg-white'
+              'relative w-full',
+              'px-8 py-4 h-auto text-base font-medium',
+              'bg-white text-black hover:bg-white',
+              'border border-white/50',
+              'transition-all duration-300'
             )}
             onClick={handleTryFreeClick}
           >
-            <div className="relative z-10 flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <span>Try Free</span>
               <motion.div
                 animate={{
@@ -71,7 +67,7 @@ export function HeroButtons({
             </div>
           </Button>
         </motion.div>
-      </DecorativeBlocks>
+      </div>
 
       <TerminalCopyButton className="h-[56px]" />
     </div>
