@@ -3,6 +3,7 @@ import * as readline from 'readline'
 
 import {
   type ApiKeyType,
+  API_KEY_TYPES,
   KEY_PREFIXES,
   KEY_LENGTHS,
 } from 'common/api-keys/constants'
@@ -31,8 +32,6 @@ import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 const restoreCheckpointRegex = /^checkpoint\s+(\d+)$/
 const undoCommands = ['undo', 'u']
 const redoCommands = ['redo']
-
-type ApiKeyPrefix = keyof typeof KEY_PREFIXES
 
 export class CLI {
   private client: Client
@@ -260,16 +259,16 @@ export class CLI {
     }
     // Handle input raw API keys
     let keyType: ApiKeyType | null = null
-    for (const prefixKey in KEY_PREFIXES) {
-      const prefix = KEY_PREFIXES[prefixKey as ApiKeyPrefix]
+    for (const prefixKey of API_KEY_TYPES) {
+      const prefix = KEY_PREFIXES[prefixKey]
       if (userInput.startsWith(prefix)) {
-        if (userInput.length === KEY_LENGTHS[prefixKey as ApiKeyPrefix]) {
+        if (userInput.length === KEY_LENGTHS[prefixKey]) {
           keyType = prefixKey as ApiKeyType
           break
         } else {
           console.log(
             yellow(
-              `Input looks like a ${prefixKey} API key but has the wrong length. Expected ${KEY_LENGTHS[prefixKey as ApiKeyPrefix]}, got ${userInput.length}.`
+              `Input looks like a ${prefixKey} API key but has the wrong length. Expected ${KEY_LENGTHS[prefixKey]}, got ${userInput.length}.`
             )
           )
           this.freshPrompt()
