@@ -97,7 +97,7 @@ export function FeatureSection({
   const renderContent = () => (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl lg:text-4xl hero-heading">{title}</h2>
+        <h2 className="feature-heading">{title}</h2>
 
         <span className="text-xs font-semibold uppercase tracking-wider mt-2 inline-block opacity-70">
           {tagline}
@@ -106,7 +106,9 @@ export function FeatureSection({
 
       <HighlightText text={highlightText} isLight={isLight} />
 
-      <p className="text-lg leading-relaxed opacity-70 font-paragraph">{description}</p>
+      <p className="text-lg leading-relaxed opacity-70 font-paragraph">
+        {description}
+      </p>
 
       <LearnMoreLink
         href={learnMoreLink}

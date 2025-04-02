@@ -44,8 +44,8 @@ export function HeroButtons({
     >
       <DecorativeBlocks colors={decorativeColors} placement="bottom-left">
         <motion.div
-          whileHover={{ x: 4, y: -4 }}
-          whileTap={{ x: 0, y: 0 }}
+          whileHover={{ scale: 1.02, x: 2, y: -2 }}
+          whileTap={{ scale: 0.98, x: 0, y: 0 }}
           onHoverStart={() => setButtonHovered(true)}
           onHoverEnd={() => setButtonHovered(false)}
         >

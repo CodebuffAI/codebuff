@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Section } from '../../section'
-import { CompetitionTabs, type CompetitorType } from './tabs'
+import { CompetitionTabs, type CompetitorType, competitors } from './tabs'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { SECTION_THEMES } from '../constants'
 import posthog from 'posthog-js'
@@ -13,6 +13,20 @@ export function CompetitionSection() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const sectionRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
+  const cycleTimeMs = 8000 // 8 seconds per competitor
+
+  // Function to advance to the next tab
+  const advanceToNextTab = () => {
+    if (competitors) {
+      const currentIndex = competitors.indexOf(activeTab);
+      if (currentIndex !== -1) {
+        const nextIndex = (currentIndex + 1) % competitors.length;
+        setActiveTab(competitors[nextIndex]);
+        // Reset progress when switching tabs
+        setProgress(0);
+      }
+    }
+  }
 
   // Function to reset and start the timer
   const resetTimer = () => {
@@ -21,10 +35,18 @@ export function CompetitionSection() {
     setProgress(0)
     intervalRef.current = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 100) return 0
-        return prev + 1
+        // Calculate the increment to complete in cycleTimeMs
+        const increment = 100 / (cycleTimeMs / 50); 
+        const newProgress = prev + increment;
+        
+        if (newProgress >= 100) {
+          // Schedule the tab advance for the next tick to avoid state update conflicts
+          setTimeout(() => advanceToNextTab(), 0);
+          return 100; // Cap at 100 until the next tick
+        }
+        return newProgress;
       })
-    }, 100)
+    }, 50) // Update every 50ms for smoother animation
   }
 
   // Set up intersection observer to detect when section is in view
@@ -62,16 +84,20 @@ export function CompetitionSection() {
         clearInterval(intervalRef.current)
       }
     }
-  }, [])
+  }, [activeTab]) // Re-establish timer when tab changes
 
-  // Handler for tab changes
+  // Handler for tab changes initiated by user
   const handleTabChange = (tab: CompetitorType) => {
-    setActiveTab(tab)
-    resetTimer()
-    
-    posthog.capture('home.competition_tab_changed', {
-      competitor: tab
-    })
+    // Set the active tab and reset progress
+    if (tab !== activeTab) {
+      setActiveTab(tab)
+      setProgress(0)
+      resetTimer()
+      
+      posthog.capture('home.competition_tab_changed', {
+        competitor: tab
+      })
+    }
   }
 
   return (
@@ -79,7 +105,7 @@ export function CompetitionSection() {
       <div ref={sectionRef} className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div>
           <motion.h2
-            className={`text-3xl md:text-4xl font-medium ${SECTION_THEMES.competition.textColor} hero-heading`}
+            className={`feature-heading ${SECTION_THEMES.competition.textColor}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
