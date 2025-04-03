@@ -17,6 +17,12 @@
     }
   }
 
+  /* Feature section headers */
+  h2.feature-heading {
+    @apply text-4xl md:text-5xl lg:text-[56px] font-medium;
+    font-family: 'Domine', serif;
+  }
+
   :root {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;

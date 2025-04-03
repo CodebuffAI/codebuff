@@ -224,131 +224,93 @@ function MatrixRainEffect({
   isActive?: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [columns, setColumns] = useState<number[]>([])
-  const [words, setWords] = useState<
-    { word: string; x: number; y: number; speed: number; opacity: number }[]
-  >([])
-  const animationFrameIdRef = useRef<number>()
-
-  const effectivelyEnabled = enabled && isActive
-
-  // Use refs to store animation state to avoid rerendering issues
-  const animationStateRef = useRef({
-    lastUpdateTime: 0,
-    startTime: 0,
-    frameCount: 0,
-    words: [] as {
-      word: string
-      x: number
-      y: number
-      speed: number
-      opacity: number
-    }[],
-  })
-
+  const requestRef = useRef<number>()
+  
+  // Only render if enabled and active
+  const shouldRender = enabled && isActive
+  
+  // Static matrix words for consistent rendering
+  const matrixWordCount = 20
+  const matrixWordList = useRef<{word: string, x: number, y: number, speed: number, opacity: number}[]>([])
+  
+  // Initialize the canvas and animation
   useEffect(() => {
-    if (!effectivelyEnabled) return
-
+    // Don't run if not active or enabled
+    if (!shouldRender) return
+    
     const canvas = canvasRef.current
     if (!canvas) return
-
+    
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-
-    // Initialize animation timing
-    animationStateRef.current.startTime = performance.now()
-    animationStateRef.current.lastUpdateTime = 0
-    animationStateRef.current.frameCount = 0
-
+    
+    // Set canvas size based on parent element
     const resizeCanvas = () => {
       if (canvas.parentElement) {
         canvas.width = canvas.parentElement.offsetWidth
         canvas.height = canvas.parentElement.offsetHeight
       }
     }
-
+    
     resizeCanvas()
     window.addEventListener('resize', resizeCanvas)
-
-    // Clear columns since we're not using them
-    setColumns([])
-
-    // Calculate optimal word count based on screen size to prevent performance issues
-    const maxWords = Math.min(
-      20,
-      Math.floor((canvas.width * canvas.height) / 30000)
-    )
-
-    // Create fewer words but make them look good
-    const wordCount = Math.floor(intensity * maxWords)
-    const newWords = []
-
-    // Pre-generate all words for the animation - prevents slowdowns from word creation
-    for (let i = 0; i < wordCount; i++) {
-      newWords.push({
-        word: matrixWords[Math.floor(Math.random() * matrixWords.length)],
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        speed: 1.2 + Math.random() * 2, // Slightly slower speed for better readability
-        opacity: 0.2 + Math.random() * 0.4, // Subtle but still visible
-      })
-    }
-
-    // Store words in the ref to avoid state updates
-    animationStateRef.current.words = newWords
-
-    // Slightly slower frame rate for better clarity
-    const frameDuration = 50 // ~20fps - slow enough to be clear but still smooth
-
-    const render = (timestamp: number) => {
-      if (!canvas || !ctx) return
-
-      animationStateRef.current.frameCount++
-
-      // Use the frame count instead of elapsed time to ensure consistent framerate
-      const shouldUpdate =
-        timestamp - animationStateRef.current.lastUpdateTime >= frameDuration
-
-      if (shouldUpdate) {
-        animationStateRef.current.lastUpdateTime = timestamp
-
-        // Clear with a consistent fade rate
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.06)'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-        ctx.font = '12px monospace'
-
-        // Use the words from the ref to avoid state dependency issues
-        animationStateRef.current.words.forEach((word) => {
-          const newY = word.y + word.speed
-          word.y = newY > canvas.height ? 0 : newY
-
-          // Fixed opacity for consistent visibility
-          ctx.fillStyle = `rgba(129, 140, 248, ${word.opacity})`
-          ctx.fillText(word.word, word.x, word.y)
+    
+    // Initialize matrix words if not already created
+    if (matrixWordList.current.length === 0) {
+      const wordCount = Math.floor(matrixWordCount * intensity)
+      
+      for (let i = 0; i < wordCount; i++) {
+        matrixWordList.current.push({
+          word: matrixWords[Math.floor(Math.random() * matrixWords.length)],
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          speed: 1 + Math.random() * 2,
+          opacity: 0.2 + Math.random() * 0.4
         })
       }
-
-      if (effectivelyEnabled) {
-        animationFrameId = requestAnimationFrame(render)
-        animationFrameIdRef.current = animationFrameId
-      }
     }
-
-    // Start the animation
-    let animationFrameId = requestAnimationFrame(render)
-    animationFrameIdRef.current = animationFrameId
-
+    
+    // Animation function
+    const animate = () => {
+      if (!canvas || !ctx) return
+      
+      // Fade previous frame
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      
+      // Draw and update words
+      ctx.font = '12px monospace'
+      matrixWordList.current.forEach(word => {
+        // Draw the word
+        ctx.fillStyle = `rgba(129, 140, 248, ${word.opacity})`
+        ctx.fillText(word.word, word.x, word.y)
+        
+        // Update position
+        word.y += word.speed
+        if (word.y > canvas.height) {
+          word.y = 0
+          word.x = Math.random() * canvas.width
+        }
+      })
+      
+      // Continue animation
+      requestRef.current = requestAnimationFrame(animate)
+    }
+    
+    // Start animation
+    requestRef.current = requestAnimationFrame(animate)
+    
+    // Cleanup function
     return () => {
       window.removeEventListener('resize', resizeCanvas)
-      if (animationFrameIdRef.current) {
-        cancelAnimationFrame(animationFrameIdRef.current)
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current)
       }
     }
-  }, [effectivelyEnabled, intensity])
-
+  }, [shouldRender, intensity]) // Only re-run if these values change
+  
   if (!enabled) return null
-
+  
   return (
     <canvas
       ref={canvasRef}
@@ -366,82 +328,71 @@ export function GithubCopilotVisualization({
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const [resetKey, setResetKey] = useState(0)
   const [currentAccuracy, setCurrentAccuracy] = useState(100)
-
-  const effectiveProgress = isActive ? progress : 0
-
-  // Use a ref to track animation state without triggering rerenders
-  const animationState = useRef({
-    startTime: 0,
-    frameCount: 0,
-    isRunning: false,
-  }).current
-
+  
+  // Calculate accuracy with random variations based on progress
+  const [lastProgress, setLastProgress] = useState(0);
+  
   useEffect(() => {
     if (!isActive) {
-      setCurrentAccuracy(100)
-      animationState.isRunning = false
-      return
+      setCurrentAccuracy(100);
+      setLastProgress(0);
+      return;
     }
-
-    if (effectiveProgress > 0 && !animationState.isRunning) {
-      // Set animation as running and record start time
-      animationState.isRunning = true
-      animationState.startTime = Date.now()
-      animationState.frameCount = 0
-
-      // Slightly slower timing for better comprehension
-      const intervalDuration = 90
-
-      // Longer animation duration for a more gradual experience
-      const totalDuration = 8500 // 8.5 seconds for full cycle
-
-      // Calculate how much to decrement per interval to complete in totalDuration time
-      const calculateDecrement = () => {
-        const elapsed = Date.now() - animationState.startTime
-        const cycleProgress = Math.min(1, elapsed / totalDuration)
-
-        // More gentle decrement values
-        // Start moderate and gradually decrease to allow time to read the final messages
-        const baseDecrement = Math.max(2, 10 - Math.floor(cycleProgress * 7))
-
-        // Less randomness for smoother progression
-        return baseDecrement + Math.floor(Math.random() * 2)
-      }
-
-      const decrementInterval = setInterval(() => {
-        animationState.frameCount++
-
-        setCurrentAccuracy((prev) => {
-          // Don't update if we're already at 0
-          if (prev === 0) {
-            return prev
-          }
-
-          const decrement = calculateDecrement()
-          const newAccuracy = Math.max(0, prev - decrement)
-
-          if (newAccuracy === 0) {
-            // Reset animation state
-            animationState.isRunning = false
-
-            // Schedule reset after a delay
-            setTimeout(() => {
-              setResetKey((k) => k + 1)
-              setCurrentAccuracy(100)
-            }, 300)
-            return 0
-          }
-
-          return newAccuracy
-        })
-      }, intervalDuration)
-
-      return () => {
-        clearInterval(decrementInterval)
-        animationState.isRunning = false
-      }
+    
+    // Only update on meaningful progress changes to avoid too many updates
+    if (Math.abs(progress - lastProgress) < 2 && progress !== 100) {
+      return;
     }
-  }, [isActive, effectiveProgress, animationState])
+    
+    setLastProgress(progress);
+    
+    // Reset accuracy to 100 when progress is 0
+    if (progress === 0) {
+      setCurrentAccuracy(100);
+      return;
+    }
+    
+    // When progress is 100, reset everything
+    if (progress >= 100) {
+      setResetKey(prev => prev + 1);
+      return;
+    }
+    
+    // Calculate how far along we are in the animation cycle
+    const cycleProgress = progress / 100;
+    
+    // Add randomized drops in accuracy that become more frequent and larger as progress increases
+    // Early (0-30%): small drops
+    // Middle (30-70%): moderate drops 
+    // Late (70-100%): large drops
+    let randomFactor = 0;
+    
+    if (cycleProgress < 0.3) {
+      // Small random drops early on
+      randomFactor = Math.random() * 8; // 0-8% variation
+    } else if (cycleProgress < 0.7) {
+      // Moderate drops in the middle
+      randomFactor = 5 + Math.random() * 15; // 5-20% variation
+    } else {
+      // Large drops toward the end
+      randomFactor = 15 + Math.random() * 25; // 15-40% variation
+    }
+    
+    // Base accuracy drops from 100 to 10 as progress increases
+    const baseAccuracy = 100 - (90 * cycleProgress);
+    
+    // Apply random variation and ensure we don't go below 0
+    const newAccuracy = Math.max(0, baseAccuracy - randomFactor);
+    setCurrentAccuracy(newAccuracy);
+    
+  }, [progress, isActive, lastProgress]);
+  
+  // Always scroll chat to bottom when messages are shown
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [currentAccuracy, isActive]);
 
   // Optimize effect calculations to be less intensive at very low accuracy
   // Cap the maximum distortion level to prevent performance issues
@@ -469,9 +420,10 @@ export function GithubCopilotVisualization({
   const showThirdSuggestion = currentAccuracy < 50
   const showError = currentAccuracy < 20
 
+  // Calculate how many hallucinations to show based on progress
   const displayedCodeCount = Math.min(
     codeHallucinations.length,
-    Math.floor((codeHallucinations.length * effectiveProgress) / 100)
+    Math.floor((codeHallucinations.length * (isActive ? progress : 0)) / 100)
   )
 
   const displayedCode = codeHallucinations.slice(0, displayedCodeCount)
@@ -740,7 +692,7 @@ class ThemeManager extends React.PureComponent {
             <span className="text-indigo-400 mr-1">💡</span>
             <span>
               <span className="text-indigo-400">
-                Suggestion accuracy: {currentAccuracy}%
+                Suggestion accuracy: {Math.round(currentAccuracy)}%
               </span>
             </span>
           </div>

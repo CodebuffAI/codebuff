@@ -1,8 +1,8 @@
 import { getServerSession } from 'next-auth'
-
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import Link from 'next/link'
 import Image from 'next/image'
+import { cn } from '@/lib/utils'
 import {
   Menu,
   DollarSign,
@@ -117,8 +117,17 @@ export const Navbar = async () => {
         {session ? (
           <UserDropdown session={session} />
         ) : (
-          <Link href="/login" className="hidden md:inline-block">
-            <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105">
+          <Link href="/login" className="hidden md:inline-block relative group">
+            <div className="absolute inset-0 bg-[rgb(255,110,11)] translate-x-0.5 -translate-y-0.5" />
+            <Button
+              className={cn(
+                'relative',
+                'bg-white text-black hover:bg-white',
+                'border border-white/50',
+                'transition-all duration-300',
+                'group-hover:-translate-x-0.5 group-hover:translate-y-0.5'
+              )}
+            >
               Log in
             </Button>
           </Link>

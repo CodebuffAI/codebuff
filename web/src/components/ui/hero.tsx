@@ -104,9 +104,7 @@ export function Hero() {
           transition={{ duration: 0.5, delay: 0.3 }}
         >
           <span className="whitespace-nowrap">Simple. Fast. Powerful.</span>{' '}
-          <span className="whitespace-nowrap">Codebuff works in your</span>{' '}
-          <span>{<TypingEffect words={['terminal', 'IDE', 'system']} />}</span>
-          {'.'}
+          <span className="whitespace-nowrap">Codebuff works in your terminal.</span>
         </motion.h2>
 
         <motion.div

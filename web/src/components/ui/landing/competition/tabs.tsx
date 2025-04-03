@@ -8,7 +8,7 @@ import { ClineVisualization } from './cline'
 import { GithubCopilotVisualization } from './github-copilot'
 import Image from 'next/image'
 
-const competitors = [
+export const competitors = [
   'github-copilot',
   'cursor',
   'claude-code',
@@ -153,7 +153,7 @@ export function CompetitionTabs({
             tabIndex={activeTab === competitor ? 0 : -1}
             className={cn(
               'text-center py-2 px-2 sm:px-4 transition-all duration-300',
-              'hover:bg-white/5 relative group font-paragraph',
+              'relative group font-paragraph',
               isVertical ? 'mb-2' : 'flex-1',
               isMobile ? 'rounded' : 'rounded-lg',
               activeTab === competitor
@@ -270,7 +270,6 @@ export function CompetitionTabs({
             <motion.div
               className="absolute inset-0 rounded bg-white/0 pointer-events-none"
               initial={false}
-              whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}
               transition={{ duration: 0.2 }}
             />
           </motion.button>

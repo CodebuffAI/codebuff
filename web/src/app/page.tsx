@@ -122,8 +122,8 @@ export default function Home() {
         <FeatureSection
           title={
             <>
-              Direct your codebase{' '}
-              <span className="whitespace-nowrap"> like a movie</span>
+              Direct Your Codebase{' '}
+              <span className="whitespace-nowrap"> Like a Movie</span>
             </>
           }
           description="Works in your terminal with any tech stack, no special environments needed. Just install npm and you're good to go."
