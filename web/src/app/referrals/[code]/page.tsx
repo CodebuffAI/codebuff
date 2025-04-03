@@ -13,12 +13,14 @@ import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { sleep } from 'common/util/promise'
 import { CopyIcon, CheckIcon, GiftIcon } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReferralCodeResponse } from '@/app/api/referrals/[code]/route'
 import { Button } from '@/components/ui/button'
 import { env } from '@/env.mjs'
 import CardWithBeams from '@/components/card-with-beams'
-import { sponsees } from '@/lib/constant'
+import { useSearchParams } from 'next/navigation'
+import { storeSearchParams } from '@/lib/trackConversions'
+import posthog from 'posthog-js'
 
 const InputWithCopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
@@ -55,11 +57,12 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
 }
 
 export default function RedeemPage({ params }: { params: { code: string } }) {
-  const sponsee = sponsees.find((e) => e.referralCode === params.code)
-  const code = sponsee ? sponsee.referralCode : params.code
+  const code = params.code
   const { data: session, status } = useSession()
+  const searchParams = useSearchParams()
+  const referrerParam = searchParams.get('referrer')
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, isSuccess } = useQuery({
     queryKey: ['referrals', code],
     queryFn: async (): Promise<ReferralCodeResponse> => {
       const res = await fetch(`/api/referrals/${code}`)
@@ -67,9 +70,20 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
       if (!res.ok) {
         throw new Error(`Error fetching referral code: ${ret.error}`)
       }
+      posthog.capture('referral.page_viewed', {
+        code: code,
+        referrer_name: ret.referrerName,
+        is_sponsee: !!referrerParam,
+        sponsee_name: referrerParam,
+      })
       return ret
     },
+    staleTime: Infinity,
   })
+
+  useEffect(() => {
+    storeSearchParams(searchParams)
+  }, [searchParams])
 
   if (status === 'loading' || isLoading) {
     return (
@@ -119,7 +133,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
             <p className="text-red-600 mt-2">{data.status.details.msg}</p>
           ) : (
             <p>
-              {sponsee ? sponsee.name : data?.referrerName} just scored you some
+              {referrerParam || data?.referrerName} just scored you some
               sweet sweet credits.
             </p>
           )}

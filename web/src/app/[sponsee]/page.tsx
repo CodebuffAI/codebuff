@@ -1,35 +1,57 @@
-'use client'
+'use server'
 
-import { redirect, useSearchParams } from 'next/navigation'
+import { redirect } from 'next/navigation'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { eq } from 'drizzle-orm'
+import CardWithBeams from '@/components/card-with-beams'
+import { env } from '@/env.mjs'
+import Link from 'next/link'
 
-import { sponseeConfig } from '@/lib/constant'
-import { storeSearchParams } from '@/lib/trackConversions'
-import { useEffect } from 'react'
-
-// Only allow sponsee names that are in the list of valid sponsees
-const isValidSponseeName = (name: string) => {
-  return name.toLowerCase() in sponseeConfig
-}
-
-export default function SponseePage({
+export default async function SponseePage({
   params,
 }: {
   params: { sponsee: string }
 }) {
   const sponseeName = params['sponsee'].toLowerCase()
 
-  const searchParams = useSearchParams()
+  const referralCode = await db
+    .select({
+      referralCode: schema.user.referral_code,
+    })
+    .from(schema.user)
+    .where(eq(schema.user.handle, sponseeName))
+    .limit(1)
+    .then((result) => result[0]?.referralCode ?? null)
 
-  useEffect(() => {
-    storeSearchParams(searchParams)
-  }, [searchParams])
-
-  if (!isValidSponseeName(sponseeName)) {
-    redirect('/')
+  if (!referralCode) {
+    return (
+      <CardWithBeams
+        title="Hmm, that link doesn't look right."
+        description={`We don't have a referral code for "${params['sponsee']}".`}
+        content={
+          <>
+            <p className="text-center">
+              Please double-check the link you used or try contacting the person
+              who shared it.
+            </p>
+            <p className="text-center text-sm text-muted-foreground">
+              You can also reach out to our support team at{' '}
+              <Link
+                href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+                className="underline"
+              >
+                {env.NEXT_PUBLIC_SUPPORT_EMAIL}
+              </Link>
+              .
+            </p>
+          </>
+        }
+      />
+    )
   }
 
-  // Redirect to home with utm_source
   redirect(
-    `/referrals/${sponseeConfig[sponseeName as keyof typeof sponseeConfig].referralCode}?utm_source=youtube&referrer=${encodeURIComponent(sponseeName)}`
+    `/referrals/${referralCode}?referrer=${encodeURIComponent(sponseeName)}`
   )
 }

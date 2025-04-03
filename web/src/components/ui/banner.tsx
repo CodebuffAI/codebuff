@@ -8,19 +8,17 @@ import Link from 'next/link'
 import { CREDITS_REFERRAL_BONUS } from 'common/constants'
 import { useSearchParams } from 'next/navigation'
 import posthog from 'posthog-js'
-import { sponseeConfig } from '@/lib/constant'
+import { capitalize } from 'common/util/string'
 
 function BannerContent() {
   const [isVisible, setIsVisible] = useState(true)
   const searchParams = useSearchParams()
-  const utmSource = searchParams.get('utm_source')
   const referrer = searchParams.get('referrer')
   const { data: session } = useSession()
 
   if (!isVisible || !session?.user) return null
 
-  const isYouTubeReferral =
-    utmSource === 'youtube' && referrer && referrer in sponseeConfig
+  const isPersonalReferral = !!referrer
 
   return (
     <div className="w-full bg-[#7CFF3F] text-black relative z-20">
@@ -29,10 +27,10 @@ function BannerContent() {
         <div className="flex items-center gap-1.5 text-center flex-1 justify-center">
           <Gift className="hidden md:block h-3.5 w-3.5 flex-shrink-0" />
           <p className="text-sm md:whitespace-nowrap">
-            {isYouTubeReferral ? (
+            {isPersonalReferral ? (
               <>
-                {sponseeConfig[referrer as keyof typeof sponseeConfig].name} got
-                you an extra {CREDITS_REFERRAL_BONUS} credits per month!
+                {capitalize(referrer)} got you an extra {CREDITS_REFERRAL_BONUS}{' '}
+                credits per month!
               </>
             ) : (
               <>
@@ -41,15 +39,11 @@ function BannerContent() {
               </>
             )}{' '}
             <Link
-              href={
-                isYouTubeReferral
-                  ? `/referrals/${sponseeConfig[referrer as keyof typeof sponseeConfig].referralCode}`
-                  : '/referrals'
-              }
+              href={'/referrals'}
               className="underline hover:text-black/80"
               onClick={() => {
                 posthog.capture('referral_banner.clicked', {
-                  type: isYouTubeReferral ? 'youtube' : 'general',
+                  type: isPersonalReferral ? 'personal_referral' : 'general',
                   source: referrer || undefined,
                 })
               }}

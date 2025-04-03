@@ -10,6 +10,7 @@ import { eq } from 'drizzle-orm'
 import { Adapter } from 'next-auth/adapters'
 import { parse, format } from 'url'
 import { CREDITS_USAGE_LIMITS } from 'common/constants'
+import { logger } from '@/util/logger'
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {
@@ -42,17 +43,36 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async redirect({ url, baseUrl }) {
-      const parsedUrl = parse(url, true)
-      // const pathname = parsedUrl.pathname
-      const query = parsedUrl.query
+      const potentialRedirectUrl = new URL(url, baseUrl)
+      const authCode = potentialRedirectUrl.searchParams.get('auth_code')
 
-      // Construct the new URL with the `onboard` page and the original query params
-      const newUrl = format({
-        pathname: `${baseUrl}/onboard`,
-        query,
-      })
+      if (authCode) {
+        const onboardUrl = new URL(`${baseUrl}/onboard`)
+        potentialRedirectUrl.searchParams.forEach((value, key) => {
+          onboardUrl.searchParams.set(key, value)
+        })
+        logger.info(
+          { url, authCode, redirectTarget: onboardUrl.toString() },
+          'Redirecting CLI flow to /onboard'
+        )
+        return onboardUrl.toString()
+      }
 
-      return newUrl
+      // Allow relative callback URLs
+      if (url.startsWith('/') || potentialRedirectUrl.origin === baseUrl) {
+        logger.info(
+          { url, redirectTarget: potentialRedirectUrl.toString() },
+          'Redirecting web flow to callbackUrl'
+        )
+        return potentialRedirectUrl.toString()
+      }
+
+      // Default to base URL for external callback URLs
+      logger.info(
+        { url, baseUrl, redirectTarget: baseUrl },
+        'Callback URL is external or invalid, redirecting to baseUrl'
+      )
+      return baseUrl
     },
   },
   events: {

@@ -51,6 +51,7 @@ export const user = pgTable('user', {
     .default(sql`'ref-' || gen_random_uuid()`),
   referral_limit: integer('referral_limit').notNull().default(5),
   discord_id: text('discord_id').unique(),
+  handle: text('handle').unique(),
 })
 
 export const account = pgTable(

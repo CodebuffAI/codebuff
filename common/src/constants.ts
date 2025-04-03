@@ -54,7 +54,8 @@ export const MAX_DATE = new Date(86399999999999)
 export const BILLING_PERIOD_DAYS = 30
 export const OVERAGE_RATE_PRO = 0.99
 export const OVERAGE_RATE_MOAR_PRO = 0.9
-export const CREDITS_REFERRAL_BONUS = 500
+export const CREDITS_REFERRAL_BONUS = 250
+export const AFFILIATE_USER_REFFERAL_LIMIT = 500
 
 export const getPlanDisplayName = (limit: UsageLimits): string => {
   return PLAN_CONFIGS[limit].displayName
@@ -137,7 +138,11 @@ export const getModelForMode = (
   operation: 'agent' | 'file-requests' | 'check-new-files'
 ) => {
   if (operation === 'agent') {
-    return costMode === 'max' ? models.gemini2_5_pro : costMode === 'lite' ? claudeModels.haiku : claudeModels.sonnet
+    return costMode === 'max'
+      ? models.gemini2_5_pro
+      : costMode === 'lite'
+        ? claudeModels.haiku
+        : claudeModels.sonnet
   }
   if (operation === 'file-requests') {
     return costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku

@@ -92,70 +92,70 @@ Progress bar color coding:
    - navigation.pricing_clicked
 
 10. Toast Events (`toast.*`)
-   - toast.shown
+    - toast.shown
 
 Properties that should be included with events:
 
 1. Toast Events:
-   ```typescript
-   {
-     title?: string,      // The toast title if provided
-     variant?: 'default' | 'destructive'  // The toast variant
-   }
-   ```
+    ```typescript
+    {
+      title?: string,      // The toast title if provided
+      variant?: 'default' | 'destructive'  // The toast variant
+    }
+    ```
 
 Properties that should be included with events:
 
 1. Usage Events:
-   ```typescript
-   {
-     credits_used: number,
-     credits_limit: number,
-     percentage_used: number
-   }
-   ```
+    ```typescript
+    {
+      credits_used: number,
+      credits_limit: number,
+      percentage_used: number
+    }
+    ```
 
 Properties that should be included with events:
 
 1. Documentation Events:
-   ```typescript
-   {
-     section: string // The documentation section being viewed
-   }
-   ```
+    ```typescript
+    {
+      section: string // The documentation section being viewed
+    }
+    ```
 
 2. Banner Events:
-   ```typescript
-   {
-     type: 'youtube_referral' | 'referral',
-     source?: string // The referrer if available
-   }
-   ```
+    ```typescript
+    {
+      type: 'youtube_referral' | 'referral',
+      source?: string // The referrer if available
+    }
+    ```
 
 Other Events:
 
 1. Auth Events:
-   ```typescript
-   {
-     provider: 'github' | 'google'
-   }
-   ```
+    ```typescript
+    {
+      provider: 'github' | 'google'
+    }
+    ```
 
 2. Subscription Events:
-   ```typescript
-   {
-     current_plan?: string,
-     target_plan?: string
-   }
-   ```
+    ```typescript
+    {
+      current_plan?: string,
+      target_plan?: string
+    }
+    ```
 
 3. Referral Events:
-   ```typescript
-   {
-     referrer?: string,
-     code?: string
-   }
-   ```
+    ```typescript
+    {
+      referrer?: string,
+      code?: string
+    }
+    ```
 
 Example event tracking:
 ```typescript
@@ -366,47 +366,15 @@ Example flow:
 3. Banner shows {display-name}
 4. "Learn more" links to /referrals/{referral-code}
 
-## Sponsee Referral Configuration
-
-Each sponsee has three distinct identifiers:
-- Routing key: URL-friendly identifier for page routing (e.g., 'berman')
-- Display name: Full name for UI display (e.g., 'Matthew Berman')
-- Referral code: Unique code for tracking referrals
-- Important: Keep all three IDs together in sponseeConfig
-- Use routing key as object key for consistent lookup
-
-The sponseeConfig object in constants.ts is the single source of truth for:
-- Route validation (/[sponsee] page)
-- Display names (banner, referral pages)
-- Referral code mapping (referral system)
-- YouTube referral tracking
-
-Example flow:
-1. User visits /{routing-key}
-2. Redirects to /?utm_source=youtube&referrer={routing-key}
-3. Banner shows {display-name}
-4. "Learn more" links to /referrals/{referral-code}
-
 ## Route Parameters vs Display Names
 
-- Route parameters (e.g., [sponsee-name]) are for URL routing only
-- Keep routing keys simple and URL-friendly (e.g., 'berman')
-- Display names should be separate from routing keys (e.g., 'Matthew Berman')
-- Only use routing key validation in the page component
-- Use display names only in user-facing UI components like banners
-- Keep routing logic separate from display logic
-- Example: /[sponsee-name] validates 'berman' for routing but displays "Matthew Berman" in UI
+- Route parameters (e.g., [sponsee-name]) are used for URL routing.
+- The `/[sponsee]` page validates the handle against the database.
+- Display names shown in the UI (like on the referral redemption page) now primarily come from the API response (`referrerName`) or the `referrer` URL parameter.
 
 ## Referral Link Handling
 
 Special UTM sources:
-- youtube: Shows personalized banner with referrer name and bonus amount
-- Referrer name passed via `referrer` parameter
-- Used for tracking creator-driven referrals
-- Important: Referrer display names differ from routing keys
-- Maintain mapping of routing keys to display names for consistent tracking
-
-2. Client vs Server Considerations:
-   - Analytics tracking must happen client-side to access localStorage
-   - Avoid attempting tracking in server components or API routes
-   - Use client components or client-side event handlers for tracking
+- `youtube`: Indicates a referral likely came from a partner/creator.
+- The `referrer` parameter contains the handle associated with the referral link.
+- This information is used for tracking in PostHog.
