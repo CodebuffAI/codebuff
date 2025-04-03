@@ -10,7 +10,7 @@ import { Message } from 'common/types/message'
 
 import { logger } from '../util/logger'
 import { messagesWithSystem } from '../util/messages'
-import { promptClaude, System } from './claude'
+import { promptClaude, promptClaudeStream, System } from './claude'
 import { promptGemini, promptGeminiStream } from './gemini-api'
 import {
   promptGemini as promptVertexGemini,
@@ -110,13 +110,14 @@ export async function promptGeminiWithFallbacks(
 }
 
 /**
- * Streams a response from Gemini 2.5 Pro with multiple fallback strategies.
+ * Streams a response from Gemini 2.5 Pro with multiple fallback strategies, including Claude Sonnet.
  *
  * Attempts the following endpoints in order until one succeeds:
  * 1. OpenRouter (Internal Key, Free Tier)
  * 2. Gemini API (Internal Key)
  * 3. Vertex AI Gemini
  * 4. Gemini API (User's Key, if available)
+ * 5. Claude Sonnet (Final Fallback)
  *
  * This function handles streaming requests and yields chunks of the response as they arrive.
  *
@@ -271,9 +272,29 @@ export async function* streamGemini25ProWithFallbacks(
   } catch (userKeyError) {
     logger.error(
       { error: userKeyError },
-      'Error calling Gemini 2.5 Pro via Gemini API Stream (User Key). All fallbacks failed.'
+      'Error calling Gemini 2.5 Pro via Gemini API Stream (User Key). Falling back to Claude Sonnet.'
     )
-    // If this final attempt fails, throw the specific error from this attempt.
-    throw userKeyError
+    // If this attempt fails, try Claude Sonnet as the last resort
+    try {
+      logger.debug('Attempting final fallback to Claude Sonnet Stream')
+      yield* promptClaudeStream(messages, { // Use original messages for Claude
+        model: claudeModels.sonnet,
+        system,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+        maxTokens,
+        // Temperature might differ, using Claude's default or a standard value
+      })
+      return // Success! Claude Sonnet worked.
+    } catch (claudeError) {
+      logger.error(
+        { error: claudeError },
+        'Error calling Claude Sonnet Stream. All fallbacks failed.'
+      )
+      // Throw the Claude error as it's the very last thing that failed
+      throw claudeError
+    }
   }
 }
