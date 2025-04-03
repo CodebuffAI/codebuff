@@ -61,7 +61,7 @@ describe('mainPrompt', () => {
       yield 'Test response'
     })
 
-    spyOn(geminiWithFallbacks, 'streamGemini25Pro').mockImplementation(
+    spyOn(geminiWithFallbacks, 'streamGemini25ProWithFallbacks').mockImplementation(
       () =>
         new ReadableStream({
           start(controller) {
@@ -307,7 +307,7 @@ describe('mainPrompt', () => {
       yield writeFileBlock
     } as any)
     // Override the mock specifically for this test case when costMode is 'max'
-    spyOn(geminiWithFallbacks, 'streamGemini25Pro').mockImplementation(
+    spyOn(geminiWithFallbacks, 'streamGemini25ProWithFallbacks').mockImplementation(
       () =>
         new ReadableStream({
           start(controller) {
@@ -427,7 +427,7 @@ describe('mainPrompt', () => {
 
   it('should return end_turn tool call when LLM response is empty', async () => {
     // Mock the LLM stream to return nothing
-    spyOn(geminiWithFallbacks, 'streamGemini25Pro').mockImplementation(
+    spyOn(geminiWithFallbacks, 'streamGemini25ProWithFallbacks').mockImplementation(
       () =>
         new ReadableStream({
           start(controller) {

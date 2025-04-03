@@ -1,13 +1,19 @@
 import { parse } from 'path'
 import * as readline from 'readline'
 
+import {
+  type ApiKeyType,
+  API_KEY_TYPES,
+  KEY_LENGTHS,
+  KEY_PREFIXES,
+} from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { AgentState } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { green, red, yellow, blue, cyan, magenta, bold } from 'picocolors'
+import { blue, bold, cyan, green, magenta, red, yellow } from 'picocolors'
 
 import { setMessages } from './chat-storage'
 import {
@@ -40,6 +46,7 @@ export class CLI {
   private consecutiveFastInputs: number = 0
   private pastedContent: string = ''
   private isPasting: boolean = false
+  private geminiPromptShown: boolean = false
 
   constructor(
     readyPromise: Promise<[void, ProjectFileContext]>,
@@ -250,6 +257,30 @@ export class CLI {
       await this.client.handleReferralCode(userInput.trim())
       return true
     }
+    // Handle input raw API keys
+    let keyType: ApiKeyType | null = null
+    for (const prefixKey of API_KEY_TYPES) {
+      const prefix = KEY_PREFIXES[prefixKey]
+      if (userInput.startsWith(prefix)) {
+        if (userInput.length === KEY_LENGTHS[prefixKey]) {
+          keyType = prefixKey as ApiKeyType
+          break
+        } else {
+          console.log(
+            yellow(
+              `Input looks like a ${prefixKey} API key but has the wrong length. Expected ${KEY_LENGTHS[prefixKey]}, got ${userInput.length}.`
+            )
+          )
+          this.freshPrompt()
+          return true
+        }
+      }
+    }
+    if (keyType) {
+      await this.client.handleAddApiKey(keyType, userInput)
+      // handleAddApiKey calls returnControlToUser
+      return true
+    }
     if (userInput === 'usage' || userInput === 'credits') {
       await this.client.getUsage()
       return true
@@ -306,6 +337,13 @@ export class CLI {
   }
 
   private async forwardUserInput(userInput: string) {
+    // vvv Code while we are waiting for gemini 2.5 pro vvv
+    Spinner.get().start()
+    await this.readyPromise
+    Spinner.get().stop()
+    this.displayGeminiKeyPromptIfNeeded()
+    // ^^^ --- ^^^
+
     await this.saveCheckpoint(userInput)
     Spinner.get().start()
 
@@ -797,5 +835,30 @@ export class CLI {
     checkpointManager.clearCheckpoints()
     console.log('Cleared all checkpoints.')
     this.freshPrompt()
+  }
+
+  private displayGeminiKeyPromptIfNeeded() {
+    if (this.geminiPromptShown) {
+      return
+    }
+
+    // Only show if user is logged in, doesn't have a Gemini key stored, and is in max mode
+    if (
+      this.client.user &&
+      !this.client.storedApiKeyTypes.includes('gemini') &&
+      this.costMode === 'max'
+    ) {
+      console.log(
+        yellow(
+          [
+            "✨ Recommended: Add your Gemini API key to use the powerful Gemini 2.5 Pro model! Here's how:",
+            '1. Go to https://aistudio.google.com/apikey and create an API key',
+            '2. Paste your key here',
+            '',
+          ].join('\n')
+        )
+      )
+      this.geminiPromptShown = true
+    }
   }
 }

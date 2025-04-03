@@ -1,17 +1,16 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { ClientAction } from 'common/actions'
 import {
-  getModelForMode,
   AnthropicModel,
+  getModelForMode,
   HIDDEN_FILE_READ_STATUS,
-  models,
+  type CostMode,
 } from 'common/constants'
-import { type CostMode } from 'common/constants'
-import { ToolResult, AgentState } from 'common/types/agent-state'
+import { AgentState, ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { buildArray } from 'common/util/array'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
-import { withCacheControl, toContentString } from 'common/util/messages'
+import { toContentString, withCacheControl } from 'common/util/messages'
 import { generateCompactId } from 'common/util/string'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
@@ -19,22 +18,20 @@ import { WebSocket } from 'ws'
 import { checkTerminalCommand } from './check-terminal-command'
 import { requestRelevantFiles } from './find-files/request-files-prompt'
 import { promptClaudeStream } from './llm-apis/claude'
+import { streamGemini25ProWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { processFileBlock } from './process-file-block'
 import { processStreamWithTags } from './process-stream'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import {
-  TOOL_LIST,
-  parseToolCalls,
   ClientToolCall,
+  parseToolCalls,
+  TOOL_LIST,
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
-import {
-  trimMessagesToFitTokenLimit,
-  messagesWithSystem,
-} from './util/messages'
+import { trimMessagesToFitTokenLimit } from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
@@ -52,7 +49,6 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
-import { streamGemini25Pro } from './llm-apis/gemini-with-fallbacks'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
@@ -377,7 +373,7 @@ ${newFiles.map((file) => file.path).join('\n')}
 
   const stream =
     costMode === 'max'
-      ? streamGemini25Pro(agentMessages, system, {
+      ? streamGemini25ProWithFallbacks(agentMessages, system, {
           clientSessionId,
           fingerprintId,
           userInputId: promptId,
@@ -455,7 +451,12 @@ ${newFiles.map((file) => file.path).join('\n')}
   })
 
   for await (const chunk of streamWithTags) {
-    fullResponse += chunk
+    if (
+      !chunk.includes('<codebuff_rate_limit_info>') &&
+      !chunk.includes('<codebuff_no_user_key_info>')
+    ) {
+      fullResponse += chunk
+    }
     onResponseChunk(chunk)
   }
 
@@ -533,33 +534,6 @@ ${newFiles.map((file) => file.path).join('\n')}
         name: 'read_files',
         result: renderReadFilesResult(addedFiles),
       })
-      // } else if (name === 'find_files') {
-      //   const { description } = parameters
-      //   const { newFileVersions, readFilesMessage, existingNewFilePaths } =
-      //     await getFileVersionUpdates(
-      //       ws,
-      //       messagesWithResponse,
-      //       getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
-      //       fileContext,
-      //       description,
-      //       {
-      //         skipRequestingFiles: false,
-      //         clientSessionId,
-      //         fingerprintId,
-      //         userInputId: promptId,
-      //         userId,
-      //         costMode,
-      //       }
-      //     )
-      //   fileContext.fileVersions = newFileVersions
-      //   if (readFilesMessage !== undefined) {
-      //     onResponseChunk(`\n${readFilesMessage}`)
-      //   }
-      //   serverToolResults.push({
-      //     id: generateCompactId(),
-      //     name: 'find_files',
-      //     result: `For the following request "${description}", the following files were found: ${existingNewFilePaths?.join('\n') ?? 'None'}`,
-      //   })
     } else if (name === 'think_deeply') {
       const { thought } = parameters
       logger.debug(

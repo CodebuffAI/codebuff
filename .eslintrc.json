@@ -11,6 +11,7 @@
         "newlines-between": "always"
       }
     ],
+    "import/default": "off",
     "import/no-unresolved": "off"
   },
   "settings": {

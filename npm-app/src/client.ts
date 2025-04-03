@@ -7,43 +7,43 @@ import {
   FileChanges,
   FileChangeSchema,
   InitResponseSchema,
+  MessageCostResponseSchema,
   PromptResponseSchema,
   ServerAction,
   UsageReponseSchema,
   UsageResponse,
-  MessageCostResponse,
-  MessageCostResponseSchema,
 } from 'common/actions'
+import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
+import type { CostMode } from 'common/constants'
 import {
   CREDITS_REFERRAL_BONUS,
   REQUEST_CREDIT_SHOW_THRESHOLD,
 } from 'common/constants'
-import type { CostMode } from 'common/constants'
 import {
   AgentState,
-  ToolResult,
   getInitialAgentState,
+  ToolResult,
 } from 'common/types/agent-state'
 import { User } from 'common/util/credentials'
-import { FileVersion, ProjectFileContext } from 'common/util/file'
+import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
-  yellow,
-  red,
-  green,
-  bold,
-  underline,
-  blueBright,
   blue,
+  blueBright,
+  bold,
+  green,
+  red,
+  underline,
+  yellow,
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
 
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
-import { checkpointManager, Checkpoint } from './checkpoints/checkpoint-manager'
+import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { backendUrl, websiteUrl } from './config'
-import { userFromJson, CREDENTIALS_PATH } from './credentials'
+import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { calculateFingerprint } from './fingerprint'
 import { displayGreeting } from './menu'
 import {
@@ -62,22 +62,24 @@ export class Client {
   private returnControlToUser: () => void
   private fingerprintId!: string | Promise<string>
   private costMode: CostMode
+  private hadFileChanges: boolean = false
+  private git: GitCommand
+  private rl: readline.Interface
+  private lastToolResults: ToolResult[] = []
+  private extraGemini25ProMessageShown: boolean = false // Flag for rate limit message
+
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
   public agentState: AgentState | undefined
   public originalFileVersions: Record<string, string | null> = {}
   public creditsByPromptId: Record<string, number[]> = {}
-
   public user: User | undefined
   public lastWarnedPct: number = 0
   public usage: number = 0
   public limit: number = 0
   public subscription_active: boolean = false
   public nextQuotaReset: Date | null = null
-  private hadFileChanges: boolean = false
-  private git: GitCommand
-  private rl: readline.Interface
-  private lastToolResults: ToolResult[] = []
+  public storedApiKeyTypes: ApiKeyType[] = []
 
   constructor(
     websocketUrl: string,
@@ -132,6 +134,79 @@ export class Client {
   async connect() {
     await this.webSocket.connect()
     this.setupSubscriptions()
+    await this.fetchStoredApiKeyTypes()
+  }
+
+  async fetchStoredApiKeyTypes(): Promise<void> {
+    if (!this.user || !this.user.authToken) {
+      return
+    }
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Cookie: `next-auth.session-token=${this.user.authToken}`,
+          },
+        }
+      )
+
+      if (response.ok) {
+        const { keyTypes } = await response.json()
+        this.storedApiKeyTypes = keyTypes as ApiKeyType[]
+      } else {
+        this.storedApiKeyTypes = []
+      }
+    } catch (error) {
+      this.storedApiKeyTypes = []
+    }
+  }
+
+  async handleAddApiKey(keyType: ApiKeyType, apiKey: string): Promise<void> {
+    if (!this.user || !this.user.authToken) {
+      console.log(yellow("Please log in first using 'login'."))
+      this.returnControlToUser()
+      return
+    }
+
+    const readableKeyType = READABLE_NAME[keyType]
+
+    Spinner.get().start()
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Cookie: `next-auth.session-token=${this.user.authToken}`,
+          },
+          body: JSON.stringify({ keyType, apiKey }),
+        }
+      )
+
+      Spinner.get().stop()
+      const respJson = await response.json()
+
+      if (response.ok) {
+        console.log(green(`Successfully added ${readableKeyType} API key.`))
+        if (!this.storedApiKeyTypes.includes(keyType)) {
+          this.storedApiKeyTypes.push(keyType)
+        }
+        this.extraGemini25ProMessageShown = false
+      } else {
+        throw new Error(respJson.message)
+      }
+    } catch (e) {
+      Spinner.get().stop()
+      const error = e as Error
+      console.error(red('Error adding API key: ' + error.message))
+    } finally {
+      this.returnControlToUser()
+    }
   }
 
   async handleReferralCode(referralCode: string) {
@@ -198,6 +273,7 @@ export class Client {
           fs.unlinkSync(CREDENTIALS_PATH)
           console.log(`You (${this.user.name}) have been logged out.`)
           this.user = undefined
+          this.extraGemini25ProMessageShown = false // Reset flag on logout
         } catch (error) {
           console.error('Error removing credentials file:', error)
         }
@@ -306,6 +382,7 @@ export class Client {
             ]
             console.log('\n' + responseToUser.join('\n'))
             this.lastWarnedPct = 0
+            this.extraGemini25ProMessageShown = false // Reset flag on login
 
             displayGreeting(this.costMode, null)
             clearInterval(pollInterval)
@@ -556,6 +633,31 @@ export class Client {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
+      if (chunk.includes('<codebuff_rate_limit_info>')) {
+        if (this.extraGemini25ProMessageShown) {
+          return
+        }
+        Spinner.get().stop()
+        const warningMessage = chunk
+          .replace('<codebuff_rate_limit_info>', '')
+          .replace('</codebuff_rate_limit_info>', '')
+        console.warn(yellow(`\n${warningMessage}`))
+        this.extraGemini25ProMessageShown = true
+        return
+      }
+      if (chunk.includes('<codebuff_no_user_key_info>')) {
+        if (this.extraGemini25ProMessageShown) {
+          return
+        }
+        Spinner.get().stop()
+        const warningMessage = chunk
+          .replace('<codebuff_no_user_key_info>', '')
+          .replace('</codebuff_no_user_key_info>', '')
+        console.warn(yellow(`\n${warningMessage}`))
+        this.extraGemini25ProMessageShown = true
+        return
+      }
+
       if (chunk && chunk.trim()) {
         if (!streamStarted && chunk.trim()) {
           streamStarted = true
@@ -728,5 +830,7 @@ export class Client {
       authToken: this.user?.authToken,
       fileContext,
     })
+
+    this.fetchStoredApiKeyTypes()
   }
 }
