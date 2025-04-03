@@ -7,6 +7,7 @@ import {
   openaiModels,
 } from 'common/constants'
 import { Message } from 'common/types/message'
+import { APIError } from 'openai'
 
 import { logger } from '../util/logger'
 import { messagesWithSystem } from '../util/messages'
@@ -211,7 +212,6 @@ export async function* streamGemini25ProWithFallbacks(
     maxTokens,
     temperature,
   }
-  let vertexError: unknown
   try {
     logger.debug('Attempting Gemini 2.5 Pro via Vertex AI Gemini Stream')
     yield* promptVertexGeminiStream(
@@ -221,7 +221,6 @@ export async function* streamGemini25ProWithFallbacks(
     )
     return // Success
   } catch (error) {
-    vertexError = error // Store the error for potential re-throw
     logger.error(
       { error },
       'Error calling Gemini 2.5 Pro via Vertex AI Gemini Stream, falling back to User Key if available'
@@ -229,72 +228,83 @@ export async function* streamGemini25ProWithFallbacks(
   }
 
   // 4. Try User's Gemini Key if available
-  if (!userId) {
-    logger.warn('No userId provided, cannot attempt user key fallback.')
-    // Throw the error from the previous step (Vertex) or a generic one if Vertex didn't run/error
-    throw vertexError ?? new Error('All fallbacks failed, no user ID provided.')
-  }
-
-  // Attempt to retrieve and decrypt the user's API key
   let userApiKey: string | null = null
-  try {
-    userApiKey = await retrieveAndDecryptApiKey(userId, 'gemini')
-  } catch (keyRetrievalError) {
-    logger.error(
-      { error: keyRetrievalError, userId },
-      'Failed to retrieve or decrypt user Gemini key.'
-    )
-    // If key retrieval fails, we can't proceed. Throw the Vertex error or a generic one.
-    throw (
-      vertexError ??
-      new Error('All fallbacks failed, including user key retrieval.')
-    )
-  }
-
-  // Guard clause: Check if the API key was actually found
-  if (!userApiKey) {
+  if (userId) {
+    try {
+      userApiKey = await retrieveAndDecryptApiKey(userId, 'gemini')
+    } catch (keyRetrievalError) {
+      logger.warn(
+        { error: keyRetrievalError, userId },
+        'Failed to retrieve or decrypt user Gemini key. Proceeding to Claude fallback.'
+      )
+      // Don't throw, proceed to Claude
+    }
+  } else {
     logger.warn(
-      { userId },
-      'User Gemini key not found in DB, cannot use as fallback.'
+      'No userId provided, cannot attempt user key fallback. Proceeding to Claude fallback.'
     )
-    // If no key found, throw the Vertex error or a generic one.
-    throw vertexError ?? new Error('All fallbacks failed, user key not found.')
   }
 
   // If we have a userApiKey, attempt the final fallback using it
-  try {
-    logger.debug('Attempting Gemini 2.5 Pro via Gemini API Stream (User Key)')
-    yield* promptGeminiStream(formattedMessages, {
-      ...geminiOptions,
-      apiKey: userApiKey,
-    })
-    return // Success! The user key worked.
-  } catch (userKeyError) {
-    logger.error(
-      { error: userKeyError },
-      'Error calling Gemini 2.5 Pro via Gemini API Stream (User Key). Falling back to Claude Sonnet.'
-    )
-    // If this attempt fails, try Claude Sonnet as the last resort
+  if (userApiKey) {
     try {
-      logger.debug('Attempting final fallback to Claude Sonnet Stream')
-      yield* promptClaudeStream(messages, { // Use original messages for Claude
-        model: claudeModels.sonnet,
-        system,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-        maxTokens,
-        // Temperature might differ, using Claude's default or a standard value
+      logger.debug('Attempting Gemini 2.5 Pro via Gemini API Stream (User Key)')
+      yield* promptGeminiStream(formattedMessages, {
+        ...geminiOptions,
+        apiKey: userApiKey,
       })
-      return // Success! Claude Sonnet worked.
-    } catch (claudeError) {
-      logger.error(
-        { error: claudeError },
-        'Error calling Claude Sonnet Stream. All fallbacks failed.'
-      )
-      // Throw the Claude error as it's the very last thing that failed
-      throw claudeError
+      return // Success! The user key worked.
+    } catch (userKeyError) {
+      // Check if the error is a rate limit error (429)
+      if (userKeyError instanceof APIError && userKeyError.status === 429) {
+        logger.warn(
+          { userId },
+          'User Gemini API key hit rate limit. Yielding notification and falling back to Claude Sonnet.'
+        )
+        // Yield the special message for the client. This will be parsed out of the messages.
+        yield '<codebuff_rate_limit_info>Your Gemini API key seems to have hit a rate limit. Falling back to Claude.</codebuff_rate_limit_info>'
+      } else {
+        // Log other errors normally
+        logger.error(
+          { error: userKeyError },
+          'Error calling Gemini 2.5 Pro via Gemini API Stream (User Key). Falling back to Claude Sonnet.'
+        )
+      }
+      // Proceed to Claude fallback regardless of the error type here
     }
+  } else {
+    logger.warn(
+      { userId },
+      'User Gemini key not found or retrieval failed. Proceeding to Claude fallback.'
+    )
+    yield `<codebuff_no_user_key_info>
+Make sure to provide your Gemini API key to get longer access to Gemini 2.5 Pro! Falling back to Claude for now.
+1. Go to https://aistudio.google.com/apikey and create an API key
+2. Paste your key here
+</codebuff_no_user_key_info>`
+  }
+
+  // 5. Final Fallback: Claude Sonnet
+  try {
+    logger.debug('Attempting final fallback to Claude Sonnet Stream')
+    yield* promptClaudeStream(messages, {
+      // Use original messages for Claude
+      model: claudeModels.sonnet,
+      system,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      maxTokens,
+      // Temperature might differ, using Claude's default or a standard value
+    })
+    return // Success! Claude Sonnet worked.
+  } catch (claudeError) {
+    logger.error(
+      { error: claudeError },
+      'Error calling Claude Sonnet Stream. All fallbacks failed.'
+    )
+    // Throw the Claude error as it's the very last thing that failed
+    throw claudeError
   }
 }

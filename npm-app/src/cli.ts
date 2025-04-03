@@ -4,8 +4,8 @@ import * as readline from 'readline'
 import {
   type ApiKeyType,
   API_KEY_TYPES,
-  KEY_PREFIXES,
   KEY_LENGTHS,
+  KEY_PREFIXES,
 } from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
@@ -13,7 +13,7 @@ import { AgentState } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { green, red, yellow, blue, cyan, magenta, bold } from 'picocolors'
+import { blue, bold, cyan, green, magenta, red, yellow } from 'picocolors'
 
 import { setMessages } from './chat-storage'
 import {
@@ -851,7 +851,7 @@ export class CLI {
       console.log(
         yellow(
           [
-            "✨ Tip: Add your Gemini API key to use the powerful Gemini 2.5 Pro model! Here's how:",
+            "✨ Recommended: Add your Gemini API key to use the powerful Gemini 2.5 Pro model! Here's how:",
             '1. Go to https://aistudio.google.com/apikey and create an API key',
             '2. Paste your key here',
             '',

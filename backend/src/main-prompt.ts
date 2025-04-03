@@ -451,7 +451,12 @@ ${newFiles.map((file) => file.path).join('\n')}
   })
 
   for await (const chunk of streamWithTags) {
-    fullResponse += chunk
+    if (
+      !chunk.includes('<codebuff_rate_limit_info>') &&
+      !chunk.includes('<codebuff_no_user_key_info>')
+    ) {
+      fullResponse += chunk
+    }
     onResponseChunk(chunk)
   }
 
@@ -529,33 +534,6 @@ ${newFiles.map((file) => file.path).join('\n')}
         name: 'read_files',
         result: renderReadFilesResult(addedFiles),
       })
-      // } else if (name === 'find_files') {
-      //   const { description } = parameters
-      //   const { newFileVersions, readFilesMessage, existingNewFilePaths } =
-      //     await getFileVersionUpdates(
-      //       ws,
-      //       messagesWithResponse,
-      //       getSearchSystemPrompt(fileContext, costMode, allMessagesTokens),
-      //       fileContext,
-      //       description,
-      //       {
-      //         skipRequestingFiles: false,
-      //         clientSessionId,
-      //         fingerprintId,
-      //         userInputId: promptId,
-      //         userId,
-      //         costMode,
-      //       }
-      //     )
-      //   fileContext.fileVersions = newFileVersions
-      //   if (readFilesMessage !== undefined) {
-      //     onResponseChunk(`\n${readFilesMessage}`)
-      //   }
-      //   serverToolResults.push({
-      //     id: generateCompactId(),
-      //     name: 'find_files',
-      //     result: `For the following request "${description}", the following files were found: ${existingNewFilePaths?.join('\n') ?? 'None'}`,
-      //   })
     } else if (name === 'think_deeply') {
       const { thought } = parameters
       logger.debug(

@@ -7,35 +7,35 @@ import {
   FileChanges,
   FileChangeSchema,
   InitResponseSchema,
+  MessageCostResponseSchema,
   PromptResponseSchema,
   ServerAction,
   UsageReponseSchema,
   UsageResponse,
-  MessageCostResponseSchema,
 } from 'common/actions'
 import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
+import type { CostMode } from 'common/constants'
 import {
   CREDITS_REFERRAL_BONUS,
   REQUEST_CREDIT_SHOW_THRESHOLD,
 } from 'common/constants'
-import type { CostMode } from 'common/constants'
 import {
   AgentState,
-  ToolResult,
   getInitialAgentState,
+  ToolResult,
 } from 'common/types/agent-state'
 import { User } from 'common/util/credentials'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
-  yellow,
-  red,
-  green,
-  bold,
-  underline,
-  blueBright,
   blue,
+  blueBright,
+  bold,
+  green,
+  red,
+  underline,
+  yellow,
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
 
@@ -43,7 +43,7 @@ import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { backendUrl, websiteUrl } from './config'
-import { userFromJson, CREDENTIALS_PATH } from './credentials'
+import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { calculateFingerprint } from './fingerprint'
 import { displayGreeting } from './menu'
 import {
@@ -66,6 +66,7 @@ export class Client {
   private git: GitCommand
   private rl: readline.Interface
   private lastToolResults: ToolResult[] = []
+  private extraGemini25ProMessageShown: boolean = false // Flag for rate limit message
 
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
@@ -195,6 +196,7 @@ export class Client {
         if (!this.storedApiKeyTypes.includes(keyType)) {
           this.storedApiKeyTypes.push(keyType)
         }
+        this.extraGemini25ProMessageShown = false
       } else {
         throw new Error(respJson.message)
       }
@@ -271,6 +273,7 @@ export class Client {
           fs.unlinkSync(CREDENTIALS_PATH)
           console.log(`You (${this.user.name}) have been logged out.`)
           this.user = undefined
+          this.extraGemini25ProMessageShown = false // Reset flag on logout
         } catch (error) {
           console.error('Error removing credentials file:', error)
         }
@@ -379,6 +382,7 @@ export class Client {
             ]
             console.log('\n' + responseToUser.join('\n'))
             this.lastWarnedPct = 0
+            this.extraGemini25ProMessageShown = false // Reset flag on login
 
             displayGreeting(this.costMode, null)
             clearInterval(pollInterval)
@@ -623,6 +627,31 @@ export class Client {
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
+
+      if (chunk.includes('<codebuff_rate_limit_info>')) {
+        if (this.extraGemini25ProMessageShown) {
+          return
+        }
+        Spinner.get().stop()
+        const warningMessage = chunk
+          .replace('<codebuff_rate_limit_info>', '')
+          .replace('</codebuff_rate_limit_info>', '')
+        console.warn(yellow(`\n${warningMessage}`))
+        this.extraGemini25ProMessageShown = true
+        return
+      }
+      if (chunk.includes('<codebuff_no_user_key_info>')) {
+        if (this.extraGemini25ProMessageShown) {
+          return
+        }
+        Spinner.get().stop()
+        const warningMessage = chunk
+          .replace('<codebuff_no_user_key_info>', '')
+          .replace('</codebuff_no_user_key_info>', '')
+        console.warn(yellow(`\n${warningMessage}`))
+        this.extraGemini25ProMessageShown = true
+        return
+      }
 
       if (chunk && chunk.trim()) {
         if (!streamStarted && chunk.trim()) {
