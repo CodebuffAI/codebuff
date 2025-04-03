@@ -13,7 +13,7 @@ import CardWithBeams from '@/components/card-with-beams'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { env } from '@/env.mjs'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useFormState, useFormStatus } from 'react-dom'
 import { setAffiliateHandleAction, SetHandleFormState } from './actions'
 import { Input } from '@/components/ui/input'
@@ -30,7 +30,7 @@ function SubmitButton() {
   )
 }
 
-function SetHandleForm() {
+function SetHandleForm({ onHandleSetSuccess }: { onHandleSetSuccess: () => void }) {
   const { toast } = useToast()
   const initialState: SetHandleFormState = {
     message: '',
@@ -46,8 +46,11 @@ function SetHandleForm() {
         description: state.message,
         variant: state.success ? 'default' : 'destructive',
       })
+      if (state.success) {
+        onHandleSetSuccess()
+      }
     }
-  }, [state, toast])
+  }, [state, toast, onHandleSetSuccess])
 
   return (
     <form action={formAction} className="space-y-4">
@@ -87,31 +90,36 @@ export default function AffiliatesPage() {
   const [userProfile, setUserProfile] = useState<{ handle: string | null, referralCode: string | null } | undefined>(undefined)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
+  const fetchUserProfile = useCallback(() => {
+    setFetchError(null)
+    fetch('/api/user/profile')
+      .then(async (res) => {
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}))
+          throw new Error(errorData.error || `HTTP error! status: ${res.status}`)
+        }
+        return res.json()
+      })
+      .then((data) => {
+        setUserProfile({
+           handle: data.handle ?? null,
+           referralCode: data.referralCode ?? null
+        })
+      })
+      .catch((error) => {
+        console.error('Failed to fetch user profile:', error)
+        setFetchError(error.message || 'Failed to load profile data.')
+        setUserProfile({ handle: null, referralCode: null })
+      })
+  }, [])
+
   useEffect(() => {
     if (sessionStatus === 'authenticated') {
-      fetch('/api/user/profile')
-        .then(async (res) => {
-          if (!res.ok) {
-            const errorData = await res.json().catch(() => ({}))
-            throw new Error(errorData.error || `HTTP error! status: ${res.status}`)
-          }
-          return res.json()
-        })
-        .then((data) => {
-          setUserProfile({
-             handle: data.handle ?? null,
-             referralCode: data.referralCode ?? null
-          })
-        })
-        .catch((error) => {
-          console.error('Failed to fetch user profile:', error)
-          setFetchError(error.message || 'Failed to load profile data.')
-          setUserProfile({ handle: null, referralCode: null })
-        })
+      fetchUserProfile()
     } else if (sessionStatus === 'unauthenticated') {
       setUserProfile({ handle: null, referralCode: null })
     }
-  }, [sessionStatus])
+  }, [sessionStatus, fetchUserProfile])
 
   if (sessionStatus === 'loading' || userProfile === undefined) {
     return (
@@ -193,7 +201,7 @@ export default function AffiliatesPage() {
                   Choose a unique handle below. This handle will be used in your
                   personal referral links (e.g., `codebuff.ai/{userHandle}`). Setting a handle will upgrade your account to affiliate status with increased referral limits.
                 </p>
-                <SetHandleForm />
+                <SetHandleForm onHandleSetSuccess={fetchUserProfile} />
               </div>
             )}
 
