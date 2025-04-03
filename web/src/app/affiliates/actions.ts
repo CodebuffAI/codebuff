@@ -7,9 +7,40 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, ne } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { AFFILIATE_USER_REFFERAL_LIMIT } from 'common/constants'
 
-// Define validation schema for the handle
-// Allows alphanumeric characters and underscores, 3-20 characters long.
+const RESERVED_HANDLES = [
+  'api',
+  'docs',
+  'hackathon',
+  'login',
+  'onboard',
+  'payment-change',
+  'payment-success',
+  'pricing',
+  'privacy-policy',
+  'referrals',
+  'subscription',
+  'terms-of-service',
+  'usage',
+  'affiliates',
+  'discord',
+  'ingest',
+  'admin',
+  'auth',
+  'user',
+  'profile',
+  'settings',
+  'support',
+  'help',
+  'contact',
+  'root',
+  'codebuff',
+  'manicode',
+  'status',
+  'healthz',
+].map((h) => h.toLowerCase())
+
 const HandleSchema = z
   .string()
   .min(3, 'Handle must be at least 3 characters long.')
@@ -18,9 +49,10 @@ const HandleSchema = z
     /^[a-zA-Z0-9_]+$/,
     'Handle can only contain letters, numbers, and underscores.'
   )
-  .transform((str) => str.toLowerCase()) // Store handles in lowercase
-
-const AFFILIATE_REFERRAL_LIMIT = 5000
+  .transform((str) => str.toLowerCase())
+  .refine((handle) => !RESERVED_HANDLES.includes(handle), {
+    message: 'This handle is reserved and cannot be used.',
+  })
 
 export interface SetHandleFormState {
   message: string
@@ -44,14 +76,14 @@ export async function setAffiliateHandleAction(
   const handleResult = HandleSchema.safeParse(formData.get('handle'))
 
   if (!handleResult.success) {
-    // For a simple schema like z.string(), errors are usually in formErrors.
-    // We'll map the formErrors to the 'handle' field in our state.
-    const formErrors = handleResult.error.flatten().formErrors;
+    const formErrors = handleResult.error.flatten().formErrors
+    const message =
+      formErrors.find((err) => err.includes('reserved')) ||
+      formErrors[0] ||
+      'Invalid handle format.'
     return {
       success: false,
-      // Use the first form error as the main message, or a default.
-      message: formErrors[0] || 'Invalid handle format.',
-      // Assign the form errors array to the 'handle' field.
+      message: message,
       fieldErrors: { handle: formErrors },
     }
   }
@@ -59,7 +91,6 @@ export async function setAffiliateHandleAction(
   const desiredHandle = handleResult.data
 
   try {
-    // Check if the user already has a handle set
     const currentUser = await db.query.user.findFirst({
       where: eq(schema.user.id, userId),
       columns: { handle: true },
@@ -69,11 +100,10 @@ export async function setAffiliateHandleAction(
       return { success: false, message: 'You already have a handle set.' }
     }
 
-    // Check if the desired handle is already taken by another user
     const existingUser = await db.query.user.findFirst({
       where: and(
         eq(schema.user.handle, desiredHandle),
-        ne(schema.user.id, userId) // Ensure it's not the current user's existing handle (though checked above)
+        ne(schema.user.id, userId)
       ),
       columns: { id: true },
     })
@@ -86,17 +116,15 @@ export async function setAffiliateHandleAction(
       }
     }
 
-    // Update the user's handle and referral limit
     await db
       .update(schema.user)
       .set({
         handle: desiredHandle,
-        referral_limit: AFFILIATE_REFERRAL_LIMIT,
+        referral_limit: AFFILIATE_USER_REFFERAL_LIMIT,
       })
       .where(eq(schema.user.id, userId))
 
-    // Revalidate the path if needed, e.g., if the affiliates page displays the handle
-    revalidatePath('/affiliates') // Or potentially a profile/settings page path
+    revalidatePath('/affiliates')
 
     return { success: true, message: 'Handle set successfully!' }
   } catch (error) {
