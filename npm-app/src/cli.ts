@@ -337,7 +337,12 @@ export class CLI {
   }
 
   private async forwardUserInput(userInput: string) {
+    // vvv Code while we are waiting for gemini 2.5 pro vvv
+    Spinner.get().start()
+    await this.readyPromise
+    Spinner.get().stop()
     this.displayGeminiKeyPromptIfNeeded()
+    // ^^^ --- ^^^
 
     await this.saveCheckpoint(userInput)
     Spinner.get().start()
