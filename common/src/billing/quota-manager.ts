@@ -1,4 +1,4 @@
-import { stripeServer } from '../util/stripe'
+import { stripeServer, getCurrentSubscription } from '../util/stripe'
 import { CREDITS_USAGE_LIMITS } from '../constants'
 import db from '../db'
 import * as schema from '../db/schema'
@@ -14,10 +14,7 @@ type CheckQuotaResult = Promise<{
 }>
 
 export interface IQuotaManager {
-  checkQuota(
-    id: string,
-    sessionId?: string
-  ): CheckQuotaResult
+  checkQuota(id: string, sessionId?: string): CheckQuotaResult
   setNextQuota(
     id: string,
     quota_exceeded: boolean,
@@ -158,46 +155,86 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
   }
 
   async checkQuota(userId: string, sessionId?: string): CheckQuotaResult {
-    const startDate: SQL<string> = sql<string>`COALESCE(${schema.user.next_quota_reset}, now()) - INTERVAL '1 month'`
-    const endDate: SQL<string> = sql<string>`COALESCE(${schema.user.next_quota_reset}, now())`
+    const userResult = await db.query.user.findFirst({
+      where: eq(schema.user.id, userId),
+      columns: {
+        id: true,
+        quota: true,
+        stripe_customer_id: true,
+        stripe_price_id: true,
+        subscription_active: true,
+        next_quota_reset: true,
+      },
+    })
+
+    if (!userResult) {
+      return {
+        creditsUsed: 0,
+        quota: CREDITS_USAGE_LIMITS.FREE,
+        endDate: new Date(),
+        subscription_active: false,
+        session_credits_used: 0,
+      }
+    }
+
+    let startDate: Date
+    let endDate: Date
+    let subscription_active = userResult.subscription_active
+
+    if (subscription_active && userResult.stripe_customer_id) {
+      try {
+        const subscription = await getCurrentSubscription(
+          userResult.stripe_customer_id
+        )
+        if (subscription && subscription.status === 'active') {
+          startDate = new Date(subscription.current_period_start * 1000)
+          endDate = new Date(subscription.current_period_end * 1000)
+          subscription_active = true
+        } else {
+          console.warn(
+            `Subscription discrepancy for user ${userId}. DB says active, Stripe says ${subscription?.status}. Falling back to next_quota_reset.`
+          )
+          subscription_active = false
+          const fallbackEndDate = userResult.next_quota_reset ?? new Date()
+          endDate = new Date(fallbackEndDate)
+          startDate = new Date(endDate)
+          startDate.setMonth(startDate.getMonth() - 1)
+        }
+      } catch (error) {
+        console.error(
+          `Error fetching Stripe subscription for user ${userId}:`,
+          error
+        )
+        subscription_active = false
+        const fallbackEndDate = userResult.next_quota_reset ?? new Date()
+        endDate = new Date(fallbackEndDate)
+        startDate = new Date(endDate)
+        startDate.setMonth(startDate.getMonth() - 1)
+      }
+    } else {
+      const fallbackEndDate = userResult.next_quota_reset ?? new Date()
+      endDate = new Date(fallbackEndDate)
+      startDate = new Date(endDate)
+      startDate.setMonth(startDate.getMonth() - 1)
+      if (subscription_active) {
+        subscription_active = false
+      }
+    }
+
     let session_credits_used = undefined
 
-    const result = await db
+    const creditsUsed = await db
       .select({
-        quota: schema.user.quota,
-        stripe_customer_id: schema.user.stripe_customer_id,
-        stripe_price_id: schema.user.stripe_price_id,
-        subscription_active: schema.user.subscription_active,
-        endDate,
         creditsUsed: sql<string>`SUM(COALESCE(${schema.message.credits}, 0))`,
       })
-      .from(schema.user)
-      .leftJoin(
-        schema.message,
+      .from(schema.message)
+      .where(
         and(
-          eq(schema.message.user_id, schema.user.id),
+          eq(schema.message.user_id, userId),
           between(schema.message.finished_at, startDate, endDate)
         )
       )
-      .where(eq(schema.user.id, userId))
-      .groupBy(
-        schema.user.quota,
-        schema.user.stripe_customer_id,
-        schema.user.stripe_price_id,
-        schema.user.subscription_active,
-        schema.user.next_quota_reset
-      )
-      .then((rows) => {
-        if (rows.length > 0) return rows[0]
-        return {
-          quota: 0,
-          stripe_customer_id: null,
-          stripe_price_id: null,
-          creditsUsed: '0',
-          endDate: new Date().toDateString(),
-          subscription_active: false,
-        }
-      })
+      .then((rows) => parseInt(rows[0].creditsUsed ?? '0'))
 
     if (sessionId) {
       session_credits_used = await db
@@ -223,15 +260,15 @@ export class AuthenticatedQuotaManager implements IQuotaManager {
     }
 
     const quota =
-      !result?.stripe_customer_id && !result?.stripe_price_id
+      !userResult.stripe_customer_id && !userResult.stripe_price_id
         ? CREDITS_USAGE_LIMITS.FREE
-        : result?.quota ?? CREDITS_USAGE_LIMITS.FREE
+        : userResult.quota ?? CREDITS_USAGE_LIMITS.FREE
 
     return {
-      creditsUsed: parseInt(result.creditsUsed),
+      creditsUsed,
       quota,
-      endDate: new Date(result.endDate),
-      subscription_active: !!result.subscription_active,
+      endDate,
+      subscription_active,
       session_credits_used,
     }
   }
@@ -260,8 +297,7 @@ export const getQuotaManager = (authType: AuthType, id: string) => {
     .exhaustive()
 
   return {
-    checkQuota: (sessionId?: string) => 
-      manager.checkQuota(id, sessionId),
+    checkQuota: (sessionId?: string) => manager.checkQuota(id, sessionId),
     setNextQuota: (quota_exceeded: boolean, next_quota_reset: Date) =>
       manager.setNextQuota(id, quota_exceeded, next_quota_reset),
   }

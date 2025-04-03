@@ -35,7 +35,7 @@ const copyReferral = (link: string) => {
 const CreditsBadge = (credits: number) => {
   return (
     <span
-      className={`flex-none p-2 rounded-full text-xs bg-green-200 text-green-800 item-center text-center`}
+      className={`flex-none p-2 rounded-full text-xs bg-gradient-to-r from-green-300 to-emerald-300 dark:from-green-600 dark:to-emerald-600 text-green-800 dark:text-white font-semibold item-center text-center shadow-sm`}
     >
       +{credits} credits
     </span>
@@ -93,9 +93,9 @@ const ReferralsPage = () => {
   return (
     <div className="flex flex-col space-y-6">
       {data?.referredBy && (
-        <Card className="bg-green-100 dark:bg-green-900">
+        <Card className="bg-gradient-to-br from-green-100/90 to-emerald-100/90 dark:from-green-900/90 dark:to-emerald-900/90 border border-green-200 dark:border-green-800 shadow-lg">
           <CardHeader>
-            <CardTitle className="flex items-center">
+            <CardTitle className="flex items-center text-green-800 dark:text-green-200">
               <Forward className="mr-2" /> You claimed a referral bonus. You
               rock! 🤘
             </CardTitle>
@@ -105,7 +105,7 @@ const ReferralsPage = () => {
               <div className="text-sm flex items-center">
                 <Button variant="link" className="p-0 mr-1 h-auto" asChild>
                   <Link href={`mailto:${data.referredBy.email}`}>
-                    <span className="text-sm">{data.referredBy.name}</span>
+                    <span className="text-sm font-medium">{data.referredBy.name}</span>
                   </Link>
                 </Button>
                 <p>referred you. </p>
@@ -115,10 +115,10 @@ const ReferralsPage = () => {
           </CardContent>
         </Card>
       )}
-      <Card className="bg-sky-100 dark:bg-sky-900 ">
+      <Card className="bg-gradient-to-br from-green-50/90 to-emerald-50/90 dark:from-green-950/90 dark:to-emerald-950/90 border border-green-200 dark:border-green-800 shadow-lg">
         <CardHeader>
-          <CardTitle>Your Referrals</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-green-800 dark:text-green-200">Your Referrals</CardTitle>
+          <CardDescription className="text-green-700 dark:text-green-300">
             Refer a friend and <b>you&apos;ll both</b> earn{' '}
             {CREDITS_REFERRAL_BONUS} credits per month!{' '}
           </CardDescription>

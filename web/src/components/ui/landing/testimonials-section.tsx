@@ -79,7 +79,7 @@ export function TestimonialsSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2
           className={cn(
-            'text-3xl lg:text-4xl hero-heading',
+            'feature-heading',
             SECTION_THEMES.testimonials.textColor
           )}
         >

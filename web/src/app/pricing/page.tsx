@@ -11,6 +11,8 @@ import {
   CheckCircle2Icon,
   SparklesIcon,
 } from 'lucide-react'
+import { DecorativeBlocks, BlockColor } from '@/components/ui/decorative-blocks'
+import { motion } from 'framer-motion'
 import { PLAN_CONFIGS, UsageLimits } from 'common/constants'
 import { useSession } from 'next-auth/react'
 import { useUserPlan } from '@/hooks/use-user-plan'
@@ -94,12 +96,19 @@ const PricingCards = () => {
         'Priority support over email, Discord, and Slack',
       ],
       cardFooterChildren: (
-        <Button
-          className="w-full text-white transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-          asChild
-        >
-          <Link href={'mailto:founders@codebuff.com'}>Contact Sales</Link>
-        </Button>
+        <DecorativeBlocks colors={[BlockColor.TerminalYellow]} placement="bottom-left">
+          <motion.div
+            whileHover={{ scale: 1.02, x: 2, y: -2 }}
+            whileTap={{ scale: 0.98, x: 0, y: 0 }}
+          >
+            <Button
+              className="w-full text-base font-medium px-8 py-4 h-auto border border-white/50 bg-white text-black hover:bg-white transition-all duration-300 relative group overflow-hidden"
+              asChild
+            >
+              <Link href={'mailto:founders@codebuff.com'}>Contact Sales</Link>
+            </Button>
+          </motion.div>
+        </DecorativeBlocks>
       ),
     },
   ]
@@ -111,9 +120,8 @@ const PricingCards = () => {
           key={index}
           className={cn(
             'bg-gradient-to-br from-gray-900/90 to-gray-800/90 text-white flex flex-col relative backdrop-blur-sm',
-            'border border-gray-800/50 hover:border-blue-500/50 transition-all duration-500',
-            'shadow-lg hover:shadow-xl hover:shadow-blue-900/30',
-            'transform hover:-translate-y-2 hover:scale-[1.01]'
+            'border border-gray-800/50 hover:border-green-500/50 transition-colors duration-500',
+            'shadow-lg hover:shadow-xl hover:shadow-green-900/30'
           )}
         >
           <CardHeader className="min-h-[200px] flex flex-col">
@@ -122,7 +130,7 @@ const PricingCards = () => {
               {currentPlan === plan.name && (
                 <div className="absolute -right-8 -top-8 transform rotate-12">
                   <div className="relative">
-                    <div className="relative bg-gradient-to-r from-blue-500 to-purple-500 px-3 py-1 font-medium text-white ring-2 ring-blue-500/50 text-xs rounded-lg shadow-lg transform hover:rotate-0 transition-transform duration-200">
+                    <div className="relative bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-1 font-medium text-white ring-2 ring-green-500/50 text-xs rounded-lg shadow-lg transform hover:rotate-0 transition-transform duration-200">
                       Current Plan
                     </div>
                   </div>
@@ -132,7 +140,7 @@ const PricingCards = () => {
             <div className="mt-4 space-y-3">
               {' '}
               <div className="text-center">
-                <p className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+                <p className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-400">
                   {plan.price}
                 </p>
                 <p className="text-sm text-gray-400 mt-1">per month</p>
@@ -173,24 +181,24 @@ const PricingPage = () => {
 
       <main className="container mx-auto px-4 py-12 md:py-20 text-center relative z-10">
         <div className="mb-12">
-          <h1 className="text-5xl md:text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-blue-600 via-blue-800 to-purple-700 dark:from-blue-400 dark:via-blue-600 dark:to-purple-500">
+          <h1 className="hero-heading text-white">
             Choose Your Plan
           </h1>
-          <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="mt-4 text-xs font-semibold uppercase tracking-wider inline-block opacity-70 text-white">
             Start with our free tier or upgrade for more credits and features
           </p>
         </div>
 
         <div className="relative">
           {/* Add subtle gradient behind cards */}
-          <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 via-purple-500/5 to-blue-500/5 dark:from-blue-900/10 dark:via-purple-900/10 dark:to-blue-900/10 blur-3xl -z-10" />
+          <div className="absolute inset-0 bg-gradient-to-b from-green-500/5 via-emerald-500/5 to-green-500/5 dark:from-green-900/10 dark:via-emerald-900/10 dark:to-green-900/10 blur-3xl -z-10" />
           <PricingCards />
         </div>
 
         {/* Key benefits */}
         <div className="mt-24 md:mt-32">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-16">
-            <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm transition-colors duration-200">
               <ZapIcon className="h-8 w-8 text-yellow-500 mb-2" />
               <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
                 Efficient
@@ -199,16 +207,16 @@ const PricingPage = () => {
                 500 credits = 1 hour coding
               </p>
             </div>
-            <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all duration-200">
-              <SparklesIcon className="h-8 w-8 text-purple-500 mb-2" />
+            <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm transition-colors duration-200">
+              <SparklesIcon className="h-8 w-8 text-green-500 mb-2" />
               <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
-                Context-Aware
+                Credit Maximizer
               </h3>
               <p className="text-sm text-gray-600 dark:text-muted-foreground text-center">
-                Understands your entire codebase
+                More done with fewer credits
               </p>
             </div>
-            <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm transition-colors duration-200">
               <RefreshCwIcon className="h-8 w-8 text-green-500 mb-2" />
               <h3 className="font-semibold text-lg">Monthly Reset</h3>
               <p className="text-sm text-muted-foreground text-center">

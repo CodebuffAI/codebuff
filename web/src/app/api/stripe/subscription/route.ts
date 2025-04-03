@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import { getCurrentSubscription, getPlanFromPriceId } from '@/lib/stripe-utils'
+import { getCurrentSubscription } from 'common/src/util/stripe'
+import { getPlanFromPriceId } from '@/lib/stripe-utils'
 import type Stripe from 'stripe'
 
 export const GET = async (request: Request) => {

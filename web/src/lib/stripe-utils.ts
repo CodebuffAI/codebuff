@@ -1,4 +1,4 @@
-import { stripeServer } from 'common/src/util/stripe'
+import { stripeServer, getCurrentSubscription } from 'common/src/util/stripe'
 import { UsageLimits, PLAN_CONFIGS } from 'common/constants'
 import { env } from '@/env.mjs'
 import type Stripe from 'stripe'
@@ -43,15 +43,6 @@ export function getPlanPriceIds(targetPlan: string): PlanPriceIds | null {
       overagePriceId: env.STRIPE_MOAR_PRO_OVERAGE_PRICE_ID,
     }))
     .otherwise(() => null)
-}
-
-export async function getCurrentSubscription(customerId: string) {
-  const subscriptions = await stripeServer.subscriptions.list({
-    customer: customerId,
-    status: 'active',
-    limit: 1,
-  })
-  return subscriptions.data[0]
 }
 
 export async function validatePlanChange(

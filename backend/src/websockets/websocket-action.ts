@@ -133,7 +133,7 @@ export async function genUsageResponse(
       sessionId: clientSessionId,
       ...params,
     },
-    'Sending usage info'
+    'Generating usage info'
   )
 
   return {

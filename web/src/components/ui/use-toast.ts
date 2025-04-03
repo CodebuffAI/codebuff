@@ -151,6 +151,8 @@ function toast({ title, description, ...props }: Toast) {
     toast: {
       ...props,
       id,
+      title,
+      description,
       open: true,
       onOpenChange: (open) => {
         if (!open) dismiss()
@@ -159,9 +161,11 @@ function toast({ title, description, ...props }: Toast) {
   })
 
   // Track the toast in PostHog
+  const descriptionString = typeof description === 'string' ? description : JSON.stringify(description ?? null);
   posthog.capture('toast.shown', {
-    title: title,
-    description: JSON.stringify(description),
+    title: typeof title === 'string' ? title : JSON.stringify(title ?? null),
+    description: descriptionString,
+    variant: props.variant ?? 'default',
   })
 
   return {

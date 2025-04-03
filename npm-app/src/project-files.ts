@@ -270,7 +270,7 @@ export function getChangesSinceLastFileVersion(
 export function getFiles(filePaths: string[]) {
   const result: Record<string, string | null> = {}
   const MAX_FILE_SIZE = 1024 * 1024 // 1MB in bytes
-  const ig = parseGitignore(projectRoot)
+  const ig = parseGitignore(projectRoot, projectRoot)
 
   for (const filePath of filePaths) {
     if (!filePath) {

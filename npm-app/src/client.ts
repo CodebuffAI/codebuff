@@ -456,6 +456,8 @@ export class Client {
       if (!parsedAction.success) return
 
       this.setUsage(parsedAction.data)
+
+      this.showUsageWarning()
     })
   }
 
@@ -475,10 +477,11 @@ export class Client {
       this.lastWarnedPct = 100
       if (!this.subscription_active) {
         console.error(
-          [red('You have reached your monthly usage limit.'), errorCopy].join(
+          [red('\nYou have reached your monthly usage limit.'), errorCopy].join(
             '\n'
           )
         )
+        this.returnControlToUser()
         return
       }
 
@@ -488,6 +491,7 @@ export class Client {
             `You have exceeded your monthly quota, but feel free to keep using Codebuff! We'll continue to charge you for the overage until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/usage for more details.`
           )
         )
+        this.returnControlToUser()
         return
       }
     }
@@ -503,6 +507,7 @@ export class Client {
         ].join('\n')
       )
       this.lastWarnedPct = pct
+      this.returnControlToUser()
     }
   }
 
@@ -751,8 +756,6 @@ export class Client {
           )
           this.hadFileChanges = false
         }
-
-        this.showUsageWarning()
 
         unsubscribeChunks()
         unsubscribeComplete()
