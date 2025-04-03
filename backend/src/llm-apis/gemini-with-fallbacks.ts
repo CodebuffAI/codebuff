@@ -1,13 +1,15 @@
 import { retrieveAndDecryptApiKey } from 'common/api-keys/crypto'
 import {
+  claudeModels,
   CostMode,
   GeminiModel,
-  openaiModels,
-  claudeModels,
   geminiModels,
+  openaiModels,
 } from 'common/constants'
 import { Message } from 'common/types/message'
 
+import { logger } from '../util/logger'
+import { messagesWithSystem } from '../util/messages'
 import { promptClaude, System } from './claude'
 import { promptGemini, promptGeminiStream } from './gemini-api'
 import {
@@ -16,9 +18,32 @@ import {
 } from './gemini-vertex-api'
 import { promptOpenRouterStream } from './open-router'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
-import { logger } from '../util/logger'
-import { messagesWithSystem } from '../util/messages'
 
+/**
+ * Prompts a Gemini model with fallback logic.
+ *
+ * Attempts to call the specified Gemini model via the standard Gemini API.
+ * If that fails, it falls back to using the Vertex AI Gemini endpoint.
+ * If Vertex AI also fails, it falls back to either GPT-4o (if `useGPT4oInsteadOfClaude` is true)
+ * or a Claude model (Sonnet for 'max' costMode, Haiku otherwise).
+ *
+ * This function handles non-streaming requests and returns the complete response string.
+ *
+ * @param messages - The array of messages forming the conversation history.
+ * @param system - An optional system prompt string or array of text blocks.
+ * @param options - Configuration options for the API call.
+ * @param options.clientSessionId - Unique ID for the client session.
+ * @param options.fingerprintId - Unique ID for the user's device/fingerprint.
+ * @param options.userInputId - Unique ID for the specific user input triggering this call.
+ * @param options.model - The primary Gemini model to attempt.
+ * @param options.userId - The ID of the user making the request.
+ * @param options.maxTokens - Optional maximum number of tokens for the response.
+ * @param options.temperature - Optional temperature setting for generation (0-1).
+ * @param options.costMode - Optional cost mode ('lite', 'normal', 'max') influencing fallback model choice.
+ * @param options.useGPT4oInsteadOfClaude - Optional flag to use GPT-4o instead of Claude as the final fallback.
+ * @returns A promise that resolves to the complete response string from the successful API call.
+ * @throws If all API calls (primary and fallbacks) fail.
+ */
 export async function promptGeminiWithFallbacks(
   messages: Message[],
   system: System | undefined,
@@ -84,7 +109,30 @@ export async function promptGeminiWithFallbacks(
   }
 }
 
-export async function* streamGemini25Pro(
+/**
+ * Streams a response from Gemini 2.5 Pro with multiple fallback strategies.
+ *
+ * Attempts the following endpoints in order until one succeeds:
+ * 1. OpenRouter (Internal Key, Free Tier)
+ * 2. Gemini API (Internal Key)
+ * 3. Vertex AI Gemini
+ * 4. Gemini API (User's Key, if available)
+ *
+ * This function handles streaming requests and yields chunks of the response as they arrive.
+ *
+ * @param messages - The array of messages forming the conversation history.
+ * @param system - An optional system prompt string or array of text blocks.
+ * @param options - Configuration options for the API call.
+ * @param options.clientSessionId - Unique ID for the client session.
+ * @param options.fingerprintId - Unique ID for the user's device/fingerprint.
+ * @param options.userInputId - Unique ID for the specific user input triggering this call.
+ * @param options.userId - The ID of the user making the request (required for user key fallback).
+ * @param options.maxTokens - Optional maximum number of tokens for the response.
+ * @param options.temperature - Optional temperature setting for generation (0-1).
+ * @yields {string} Chunks of the generated response text.
+ * @throws If all fallback attempts fail.
+ */
+export async function* streamGemini25ProWithFallbacks(
   messages: Message[],
   system: System | undefined,
   options: {
@@ -105,6 +153,11 @@ export async function* streamGemini25Pro(
     temperature,
   } = options
 
+  const formattedMessages = system
+    ? messagesWithSystem(messages, system)
+    : (messages as OpenAIMessage[])
+
+  // 1. Try OpenRouter Stream
   const openRouterOptions = {
     clientSessionId,
     fingerprintId,
@@ -113,7 +166,18 @@ export async function* streamGemini25Pro(
     model: 'google/gemini-2.5-pro-exp-03-25:free',
     temperature,
   }
+  try {
+    logger.debug('Attempting Gemini 2.5 Pro via OpenRouter Stream')
+    yield* promptOpenRouterStream(formattedMessages, openRouterOptions)
+    return // Success
+  } catch (error) {
+    logger.error(
+      { error },
+      'Error calling Gemini 2.5 Pro via OpenRouter Stream, falling back to Gemini API Stream (Internal Key)'
+    )
+  }
 
+  // 2. Try Gemini API Stream (Internal Key)
   const geminiOptions = {
     clientSessionId,
     fingerprintId,
@@ -123,7 +187,20 @@ export async function* streamGemini25Pro(
     maxTokens,
     temperature,
   }
+  try {
+    logger.debug(
+      'Attempting Gemini 2.5 Pro via Gemini API Stream (Internal Key)'
+    )
+    yield* promptGeminiStream(formattedMessages, geminiOptions) // Uses internal key by default
+    return // Success
+  } catch (error) {
+    logger.error(
+      { error },
+      'Error calling Gemini 2.5 Pro via Gemini API Stream (Internal Key), falling back to Vertex AI'
+    )
+  }
 
+  // 3. Try Vertex AI Gemini Stream
   const vertexGeminiOptions = {
     clientSessionId,
     fingerprintId,
@@ -133,91 +210,70 @@ export async function* streamGemini25Pro(
     maxTokens,
     temperature,
   }
-
+  let vertexError: unknown
   try {
-    // 1. Try OpenRouter Stream
-    logger.debug('Attempting Gemini 2.5 Pro via OpenRouter Stream')
-    yield* promptOpenRouterStream(
-      system
-        ? messagesWithSystem(messages, system)
-        : (messages as OpenAIMessage[]),
-      openRouterOptions
+    logger.debug('Attempting Gemini 2.5 Pro via Vertex AI Gemini Stream')
+    yield* promptVertexGeminiStream(
+      messages as OpenAIMessage[],
+      system,
+      vertexGeminiOptions
     )
-    return // Exit successfully if OpenRouter stream works
+    return // Success
   } catch (error) {
+    vertexError = error // Store the error for potential re-throw
     logger.error(
       { error },
-      'Error calling Gemini 2.5 Pro via OpenRouter Stream, falling back to Gemini API Stream'
+      'Error calling Gemini 2.5 Pro via Vertex AI Gemini Stream, falling back to User Key if available'
     )
-    try {
-      // 2. Try Gemini API Stream (Internal Key)
-      logger.debug(
-        'Attempting Gemini 2.5 Pro via Gemini API Stream (Internal Key)'
-      )
-      const stream = promptGeminiStream(
-        system
-          ? messagesWithSystem(messages, system)
-          : (messages as OpenAIMessage[]),
-        geminiOptions // Uses internal key by default
-      )
-      yield* stream
-      return // Exit successfully if Gemini API stream works
-    } catch (geminiError) {
-      logger.error(
-        { error: geminiError },
-        'Error calling Gemini 2.5 Pro via Gemini API Stream (Internal Key), falling back to Vertex AI'
-      )
-      try {
-        // 3. Try Vertex AI Gemini Stream
-        logger.debug('Attempting Gemini 2.5 Pro via Vertex AI Gemini Stream')
-        yield* promptVertexGeminiStream(
-          messages as OpenAIMessage[],
-          system,
-          vertexGeminiOptions
-        )
-        return // Exit successfully if Vertex AI stream works
-      } catch (vertexError) {
-        logger.error(
-          { error: vertexError },
-          'Error calling Gemini 2.5 Pro via Vertex AI Gemini Stream, falling back to User Key if available'
-        )
-        // 4. Try User's Gemini Key if available
-        if (userId) {
-          try {
-            const userApiKey = await retrieveAndDecryptApiKey(userId, 'gemini')
-            if (userApiKey) {
-              logger.debug(
-                'Attempting Gemini 2.5 Pro via Gemini API Stream (User Key)'
-              )
-              const userKeyStream = promptGeminiStream(
-                system
-                  ? messagesWithSystem(messages, system)
-                  : (messages as OpenAIMessage[]),
-                { ...geminiOptions, apiKey: userApiKey } // Pass user's key
-              )
-              yield* userKeyStream
-              return // Exit successfully if user key stream works
-            } else {
-              logger.warn(
-                { userId },
-                'User Gemini key not found, cannot use as fallback.'
-              )
-              throw vertexError // Re-throw Vertex error if no user key
-            }
-          } catch (userKeyError) {
-            logger.error(
-              { error: userKeyError },
-              'Error calling Gemini 2.5 Pro via Gemini API Stream (User Key). All fallbacks failed.'
-            )
-            // Re-throw the last error (Vertex error) if user key attempt also fails
-            throw vertexError
-          }
-        } else {
-          logger.warn('No userId provided, cannot attempt user key fallback.')
-          // Re-throw the last error (Vertex error) if no user ID
-          throw vertexError
-        }
-      }
-    }
+  }
+
+  // 4. Try User's Gemini Key if available
+  if (!userId) {
+    logger.warn('No userId provided, cannot attempt user key fallback.')
+    // Throw the error from the previous step (Vertex) or a generic one if Vertex didn't run/error
+    throw vertexError ?? new Error('All fallbacks failed, no user ID provided.')
+  }
+
+  // Attempt to retrieve and decrypt the user's API key
+  let userApiKey: string | null = null
+  try {
+    userApiKey = await retrieveAndDecryptApiKey(userId, 'gemini')
+  } catch (keyRetrievalError) {
+    logger.error(
+      { error: keyRetrievalError, userId },
+      'Failed to retrieve or decrypt user Gemini key.'
+    )
+    // If key retrieval fails, we can't proceed. Throw the Vertex error or a generic one.
+    throw (
+      vertexError ??
+      new Error('All fallbacks failed, including user key retrieval.')
+    )
+  }
+
+  // Guard clause: Check if the API key was actually found
+  if (!userApiKey) {
+    logger.warn(
+      { userId },
+      'User Gemini key not found in DB, cannot use as fallback.'
+    )
+    // If no key found, throw the Vertex error or a generic one.
+    throw vertexError ?? new Error('All fallbacks failed, user key not found.')
+  }
+
+  // If we have a userApiKey, attempt the final fallback using it
+  try {
+    logger.debug('Attempting Gemini 2.5 Pro via Gemini API Stream (User Key)')
+    yield* promptGeminiStream(formattedMessages, {
+      ...geminiOptions,
+      apiKey: userApiKey,
+    })
+    return // Success! The user key worked.
+  } catch (userKeyError) {
+    logger.error(
+      { error: userKeyError },
+      'Error calling Gemini 2.5 Pro via Gemini API Stream (User Key). All fallbacks failed.'
+    )
+    // If this final attempt fails, throw the specific error from this attempt.
+    throw userKeyError
   }
 }
