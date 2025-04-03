@@ -1,12 +1,12 @@
+import { geminiModels, TEST_USER_ID, GeminiModel } from 'common/constants'
+import { generateCompactId } from 'common/util/string'
 import OpenAI from 'openai'
-import { geminiModels, TEST_USER_ID } from 'common/constants'
+import { match, P } from 'ts-pattern'
+
 import { env } from '../env.mjs'
 import { saveMessage } from './message-cost-tracker'
-import { logger } from '../util/logger'
 import { OpenAIMessage } from '../llm-apis/openai-api'
-import { GeminiModel } from 'common/constants'
-import { match, P } from 'ts-pattern'
-import { generateCompactId } from 'common/util/string'
+import { logger } from '../util/logger'
 
 /**
  * Transform messages between our internal format and Gemini's format.
@@ -44,17 +44,29 @@ function transformMessages(
 export type GeminiMessage = OpenAI.Chat.ChatCompletionMessageParam
 
 let geminiClient: OpenAI | null = null
+const apiKeyClients: Record<string, OpenAI> = {}
 
-const getGeminiClient = (fingerprintId: string) => {
+const getGeminiClient = (fingerprintId: string, apiKey?: string): OpenAI => {
+  const effectiveApiKey = apiKey ?? env.GEMINI_API_KEY
+  const openAiParams = {
+    apiKey: effectiveApiKey,
+    baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+    defaultHeaders: {
+      'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
+      'Helicone-User-Id': fingerprintId,
+    },
+  }
+
+  if (apiKey) {
+    if (!(effectiveApiKey in apiKeyClients)) {
+      apiKeyClients[effectiveApiKey] = new OpenAI(openAiParams)
+    }
+    return apiKeyClients[effectiveApiKey]
+  }
+
+  // Use shared instance for internal key
   if (!geminiClient) {
-    geminiClient = new OpenAI({
-      apiKey: env.GEMINI_API_KEY,
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-      defaultHeaders: {
-        'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
-        'Helicone-User-Id': fingerprintId,
-      },
-    })
+    geminiClient = new OpenAI(openAiParams)
   }
 
   return geminiClient
@@ -75,6 +87,7 @@ export function promptGeminiStream(
     userId: string | undefined
     maxTokens?: number
     temperature?: number
+    apiKey?: string
   }
 ): ReadableStream<string> {
   const {
@@ -85,10 +98,11 @@ export function promptGeminiStream(
     userId,
     model,
     maxTokens,
+    apiKey,
   } = options
   return new ReadableStream({
     async start(controller) {
-      const gemini = getGeminiClient(fingerprintId)
+      const gemini = getGeminiClient(fingerprintId, apiKey)
       const startTime = Date.now()
       try {
         const transformedMessages = transformMessages(messages, model)
@@ -99,7 +113,7 @@ export function promptGeminiStream(
           temperature: temperature ?? 0,
           max_tokens: maxTokens,
           stream: true,
-          stream_options: {include_usage: true}
+          stream_options: { include_usage: true },
         })
 
         let content = ''
@@ -121,7 +135,7 @@ export function promptGeminiStream(
           }
         }
 
-        if (messages.length > 0 && userId !== TEST_USER_ID) {
+        if (!apiKey && messages.length > 0 && userId !== TEST_USER_ID) {
           saveMessage({
             messageId: generateCompactId(),
             userId,
@@ -147,6 +161,7 @@ export function promptGeminiStream(
                 ? error.message
                 : 'Unknown error',
             messages,
+            usingUserKey: !!apiKey,
           },
           'Error calling Gemini API'
         )
@@ -166,6 +181,7 @@ export async function promptGemini(
     userId: string | undefined
     maxTokens?: number
     temperature?: number
+    apiKey?: string
   }
 ): Promise<string> {
   const stream = promptGeminiStream(messages, options)
@@ -189,6 +205,7 @@ export async function promptGemini(
           error && typeof error === 'object' && 'message' in error
             ? error.message
             : 'Unknown error',
+        usingUserKey: !!options.apiKey,
       },
       'Error calling Gemini API'
     )

@@ -1,16 +1,23 @@
-import { CostMode, GeminiModel, openaiModels } from 'common/constants'
+import { retrieveAndDecryptApiKey } from 'common/api-keys/crypto'
+import {
+  CostMode,
+  GeminiModel,
+  openaiModels,
+  claudeModels,
+  geminiModels,
+} from 'common/constants'
 import { Message } from 'common/types/message'
+
+import { promptClaude, System } from './claude'
 import { promptGemini, promptGeminiStream } from './gemini-api'
 import {
   promptGemini as promptVertexGemini,
   promptGeminiStream as promptVertexGeminiStream,
 } from './gemini-vertex-api'
-import { promptClaude, System } from './claude'
-import { logger } from '../util/logger'
-import { claudeModels, geminiModels } from 'common/constants'
-import { messagesWithSystem } from '../util/messages'
-import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { promptOpenRouterStream } from './open-router'
+import { OpenAIMessage, promptOpenAI } from './openai-api'
+import { logger } from '../util/logger'
+import { messagesWithSystem } from '../util/messages'
 
 export async function promptGeminiWithFallbacks(
   messages: Message[],
@@ -143,24 +150,22 @@ export async function* streamGemini25Pro(
       'Error calling Gemini 2.5 Pro via OpenRouter Stream, falling back to Gemini API Stream'
     )
     try {
-      // 2. Try Gemini API Stream
-      logger.debug('Attempting Gemini 2.5 Pro via Gemini API Stream')
+      // 2. Try Gemini API Stream (Internal Key)
+      logger.debug(
+        'Attempting Gemini 2.5 Pro via Gemini API Stream (Internal Key)'
+      )
       const stream = promptGeminiStream(
         system
           ? messagesWithSystem(messages, system)
           : (messages as OpenAIMessage[]),
-        geminiOptions
+        geminiOptions // Uses internal key by default
       )
-
-      // Since promptGeminiStream now correctly returns ReadableStream<string>,
-      // we can directly yield from it.
       yield* stream
-
       return // Exit successfully if Gemini API stream works
-    } catch (finalError) {
+    } catch (geminiError) {
       logger.error(
-        { error: finalError },
-        'Error calling Gemini 2.5 Pro via Gemini API Stream. All fallbacks failed.'
+        { error: geminiError },
+        'Error calling Gemini 2.5 Pro via Gemini API Stream (Internal Key), falling back to Vertex AI'
       )
       try {
         // 3. Try Vertex AI Gemini Stream
@@ -174,10 +179,44 @@ export async function* streamGemini25Pro(
       } catch (vertexError) {
         logger.error(
           { error: vertexError },
-          'Error calling Gemini 2.5 Pro via Vertex AI Gemini Stream. All fallbacks failed.'
+          'Error calling Gemini 2.5 Pro via Vertex AI Gemini Stream, falling back to User Key if available'
         )
-        // Re-throw the last error if all attempts fail
-        throw vertexError
+        // 4. Try User's Gemini Key if available
+        if (userId) {
+          try {
+            const userApiKey = await retrieveAndDecryptApiKey(userId, 'gemini')
+            if (userApiKey) {
+              logger.debug(
+                'Attempting Gemini 2.5 Pro via Gemini API Stream (User Key)'
+              )
+              const userKeyStream = promptGeminiStream(
+                system
+                  ? messagesWithSystem(messages, system)
+                  : (messages as OpenAIMessage[]),
+                { ...geminiOptions, apiKey: userApiKey } // Pass user's key
+              )
+              yield* userKeyStream
+              return // Exit successfully if user key stream works
+            } else {
+              logger.warn(
+                { userId },
+                'User Gemini key not found, cannot use as fallback.'
+              )
+              throw vertexError // Re-throw Vertex error if no user key
+            }
+          } catch (userKeyError) {
+            logger.error(
+              { error: userKeyError },
+              'Error calling Gemini 2.5 Pro via Gemini API Stream (User Key). All fallbacks failed.'
+            )
+            // Re-throw the last error (Vertex error) if user key attempt also fails
+            throw vertexError
+          }
+        } else {
+          logger.warn('No userId provided, cannot attempt user key fallback.')
+          // Re-throw the last error (Vertex error) if no user ID
+          throw vertexError
+        }
       }
     }
   }
