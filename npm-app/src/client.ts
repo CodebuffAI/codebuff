@@ -151,6 +151,9 @@ export class Client {
             'Content-Type': 'application/json',
             Cookie: `next-auth.session-token=${this.user.authToken}`,
           },
+          body: JSON.stringify({
+            authToken: this.user.authToken,
+          }),
         }
       )
 
@@ -184,7 +187,11 @@ export class Client {
             'Content-Type': 'application/json',
             Cookie: `next-auth.session-token=${this.user.authToken}`,
           },
-          body: JSON.stringify({ keyType, apiKey }),
+          body: JSON.stringify({
+            keyType,
+            apiKey,
+            authToken: this.user.authToken,
+          }),
         }
       )
 
@@ -831,6 +838,6 @@ export class Client {
       fileContext,
     })
 
-    this.fetchStoredApiKeyTypes()
+    await this.fetchStoredApiKeyTypes()
   }
 }
