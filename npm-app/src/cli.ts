@@ -33,6 +33,12 @@ const restoreCheckpointRegex = /^checkpoint\s+(\d+)$/
 const undoCommands = ['undo', 'u']
 const redoCommands = ['redo']
 
+// Define a type for the detection result
+type ApiKeyDetectionResult =
+  | { status: 'found'; type: ApiKeyType; key: string }
+  | { status: 'prefix_only'; type: ApiKeyType; prefix: string; length: number }
+  | { status: 'not_found' }
+
 export class CLI {
   private client: Client
   private readyPromise: Promise<any>
@@ -257,34 +263,16 @@ export class CLI {
       await this.client.handleReferralCode(userInput.trim())
       return true
     }
-    // Handle input raw API keys
-    let keyType: ApiKeyType | null = null
-    for (const prefixKey of API_KEY_TYPES) {
-      const prefix = KEY_PREFIXES[prefixKey]
-      if (userInput.startsWith(prefix)) {
-        if (userInput.length === KEY_LENGTHS[prefixKey]) {
-          keyType = prefixKey as ApiKeyType
-          break
-        } else {
-          console.log(
-            yellow(
-              `Input looks like a ${prefixKey} API key but has the wrong length. Expected ${KEY_LENGTHS[prefixKey]}, got ${userInput.length}.`
-            )
-          )
-          this.freshPrompt()
-          return true
-        }
-      }
-    }
-    if (keyType) {
-      Spinner.get().start()
-      await this.readyPromise
-      Spinner.get().stop()
 
-      await this.client.handleAddApiKey(keyType, userInput)
-      // handleAddApiKey calls returnControlToUser
-      return true
+    // Detect potential API key input first
+    const detectionResult = this.detectApiKey(userInput)
+    if (detectionResult.status !== 'not_found') {
+      // If something resembling an API key was detected (valid or just prefix), handle it
+      await this.handleApiKeyInput(detectionResult)
+      return true // Indicate command was handled
     }
+
+    // Continue with other commands if no API key input was detected/handled
     if (userInput === 'usage' || userInput === 'credits') {
       await this.client.getUsage()
       return true
@@ -338,6 +326,83 @@ export class CLI {
     }
 
     return false
+  }
+
+  /**
+   * Detects if the user input contains a known API key pattern.
+   * Returns information about the detected key or prefix.
+   */
+  private detectApiKey(userInput: string): ApiKeyDetectionResult {
+    // Build regex patterns for each key type
+    const keyPatterns = API_KEY_TYPES.map((keyType) => {
+      const prefix = KEY_PREFIXES[keyType]
+      const length = KEY_LENGTHS[keyType]
+      const escapedPrefix = prefix.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+      return {
+        type: keyType,
+        prefix: prefix,
+        length: length,
+        // Regex to find the key potentially surrounded by whitespace or at start/end
+        regex: new RegExp(
+          `(?:^|\\s)(${escapedPrefix}[^\\s]{${length - prefix.length}})(?:\\s|$)`
+        ),
+      }
+    })
+
+    // Test input against each pattern for a full match
+    for (const patternInfo of keyPatterns) {
+      const match = userInput.match(patternInfo.regex)
+      if (match && match[1]) {
+        // Found a full, valid key pattern
+        return { status: 'found', type: patternInfo.type, key: match[1] }
+      }
+    }
+
+    // If no full key matched, check if the input *starts* with any known prefix
+    for (const patternInfo of keyPatterns) {
+      if (userInput.includes(patternInfo.prefix)) {
+        // Found a prefix, but it didn't match the full pattern (wrong length/format)
+        return {
+          status: 'prefix_only',
+          type: patternInfo.type,
+          prefix: patternInfo.prefix,
+          length: patternInfo.length,
+        }
+      }
+    }
+
+    // No valid key or known prefix detected
+    return { status: 'not_found' }
+  }
+
+  /**
+   * Handles the result of API key detection.
+   */
+  private async handleApiKeyInput(
+    detectionResult: Exclude<ApiKeyDetectionResult, { status: 'not_found' }>
+  ): Promise<void> {
+    switch (detectionResult.status) {
+      case 'found':
+        Spinner.get().start()
+        await this.readyPromise
+        Spinner.get().stop()
+        // Call the client method to add the valid key
+        await this.client.handleAddApiKey(
+          detectionResult.type,
+          detectionResult.key
+        )
+        // Note: client.handleAddApiKey calls returnControlToUser internally
+        break
+      case 'prefix_only':
+        // Print the warning for incorrect format/length
+        console.log(
+          yellow(
+            `Input looks like a ${detectionResult.type} API key but has the wrong length or format. Expected ${detectionResult.length} characters starting with "${detectionResult.prefix}".`
+          )
+        )
+        this.freshPrompt() // Give the user a fresh prompt after the warning
+        break
+    }
   }
 
   private async forwardUserInput(userInput: string) {
