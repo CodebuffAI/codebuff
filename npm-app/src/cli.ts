@@ -277,6 +277,10 @@ export class CLI {
       }
     }
     if (keyType) {
+      Spinner.get().start()
+      await this.readyPromise
+      Spinner.get().stop()
+
       await this.client.handleAddApiKey(keyType, userInput)
       // handleAddApiKey calls returnControlToUser
       return true
