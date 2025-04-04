@@ -28,6 +28,7 @@
       "dependencies": {
         "@anthropic-ai/sdk": "^0.39.0",
         "@google-cloud/vertexai": "^1.9.3",
+        "@google/generative-ai": "^0.24.0",
         "@t3-oss/env-core": "0.11.1",
         "diff": "5.2.0",
         "dotenv": "16.4.5",
@@ -84,7 +85,7 @@
     },
     "npm-app": {
       "name": "codebuff",
-      "version": "1.0.196",
+      "version": "1.0.205",
       "bin": {
         "codebuff": "dist/index.js",
       },
@@ -678,6 +679,8 @@
     "@floating-ui/utils": ["@floating-ui/utils@0.2.9", "", {}, "sha512-MDWhGtE+eHw5JW7lq4qhc5yRLS11ERl1c7Z6Xd0a58DozHES6EnNNwUWbMiG4J9Cgj053Bhk8zvlhFYKVhULwg=="],
 
     "@google-cloud/vertexai": ["@google-cloud/vertexai@1.9.3", "", { "dependencies": { "google-auth-library": "^9.1.0" } }, "sha512-35o5tIEMLW3JeFJOaaMNR2e5sq+6rpnhrF97PuAxeOm0GlqVTESKhkGj7a5B5mmJSSSU3hUfIhcQCRRsw4Ipzg=="],
+
+    "@google/generative-ai": ["@google/generative-ai@0.24.0", "", {}, "sha512-fnEITCGEB7NdX0BhoYZ/cq/7WPZ1QS5IzJJfC3Tg/OwkvBetMiVJciyaan297OvE4B9Jg1xvo0zIazX/9sGu1Q=="],
 
     "@grpc/grpc-js": ["@grpc/grpc-js@1.13.0", "", { "dependencies": { "@grpc/proto-loader": "^0.7.13", "@js-sdsl/ordered-map": "^4.4.2" } }, "sha512-pMuxInZjUnUkgMT2QLZclRqwk2ykJbIU05aZgPgJYXEpN9+2I7z7aNwcjWZSycRPl232FfhPszyBFJyOxTHNog=="],
 
