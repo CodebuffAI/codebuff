@@ -790,3 +790,7 @@ ${lines.join('\n')}
 </subgoal>
 `.trim()
 }
+
+export function transformRunTerminalCommand(command: string) {
+  return command.replace(/&amp;/g, '&')
+}

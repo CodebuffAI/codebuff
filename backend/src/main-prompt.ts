@@ -28,6 +28,7 @@ import {
   ClientToolCall,
   parseToolCalls,
   TOOL_LIST,
+  transformRunTerminalCommand,
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
@@ -492,6 +493,9 @@ ${newFiles.map((file) => file.path).join('\n')}
       name === 'run_terminal_command' ||
       name === 'end_turn'
     ) {
+      if (name === 'run_terminal_command') {
+        parameters.command = transformRunTerminalCommand(parameters.command)
+      }
       clientToolCalls.push({
         ...(toolCall as ClientToolCall),
         id: generateCompactId(),

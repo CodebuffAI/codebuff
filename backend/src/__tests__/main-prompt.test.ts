@@ -61,7 +61,10 @@ describe('mainPrompt', () => {
       yield 'Test response'
     })
 
-    spyOn(geminiWithFallbacks, 'streamGemini25ProWithFallbacks').mockImplementation(
+    spyOn(
+      geminiWithFallbacks,
+      'streamGemini25ProWithFallbacks'
+    ).mockImplementation(
       () =>
         new ReadableStream({
           start(controller) {
@@ -307,7 +310,10 @@ describe('mainPrompt', () => {
       yield writeFileBlock
     } as any)
     // Override the mock specifically for this test case when costMode is 'max'
-    spyOn(geminiWithFallbacks, 'streamGemini25ProWithFallbacks').mockImplementation(
+    spyOn(
+      geminiWithFallbacks,
+      'streamGemini25ProWithFallbacks'
+    ).mockImplementation(
       () =>
         new ReadableStream({
           start(controller) {
@@ -427,7 +433,10 @@ describe('mainPrompt', () => {
 
   it('should return end_turn tool call when LLM response is empty', async () => {
     // Mock the LLM stream to return nothing
-    spyOn(geminiWithFallbacks, 'streamGemini25ProWithFallbacks').mockImplementation(
+    spyOn(
+      geminiWithFallbacks,
+      'streamGemini25ProWithFallbacks'
+    ).mockImplementation(
       () =>
         new ReadableStream({
           start(controller) {
@@ -456,5 +465,49 @@ describe('mainPrompt', () => {
     expect(toolCalls).toHaveLength(1)
     expect(toolCalls[0].name).toBe('end_turn')
     expect(toolCalls[0].parameters).toEqual({})
+  })
+
+  it('should unescape ampersands in run_terminal_command tool calls', async () => {
+    const agentState = getInitialAgentState(mockFileContext)
+    const userPromptText = 'Run the backend tests'
+    const escapedCommand = 'cd backend &amp;&amp; bun test'
+    const expectedCommand = 'cd backend && bun test'
+
+    spyOn(
+      geminiWithFallbacks,
+      'streamGemini25ProWithFallbacks'
+    ).mockImplementation(
+      () =>
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(`<run_terminal_command>
+<command>${escapedCommand}</command>
+</run_terminal_command>`)
+            controller.close()
+          },
+        }) as any
+    )
+
+    const { toolCalls } = await mainPrompt(
+      new MockWebSocket() as unknown as WebSocket,
+      {
+        type: 'prompt',
+        prompt: userPromptText,
+        agentState,
+        fingerprintId: 'test',
+        costMode: 'max',
+        promptId: 'test',
+        toolResults: [],
+      },
+      TEST_USER_ID,
+      'test-session',
+      () => {}
+    )
+
+    expect(toolCalls).toHaveLength(1)
+    expect(toolCalls[0].name).toBe('run_terminal_command')
+    expect((toolCalls[0].parameters as { command: string }).command).toBe(
+      expectedCommand
+    )
   })
 })
