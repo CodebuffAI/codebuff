@@ -234,6 +234,7 @@ Incorrect:
 \`cd backend &amp;&amp; npm typecheck\` 
 Correct:
 \`cd backend && npm typecheck\`
+10. Do not use more than one run_terminal_command tool call in a single response. Wait for the tool results of the first command before invoking the next one.
 
 Notes:
 - The current working directory will always reset to project root directory for each command you run. You can only access files within this directory (or sub-directories). So if you run cd in one command, the directory change won't persist to the next command.
