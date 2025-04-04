@@ -59,6 +59,42 @@ const TOKENS_COST_PER_M = {
 
 const RELACE_FAST_APPLY_COST = 0.01
 
+/**
+ * Calculates the cost for the gemini-2.5-pro-preview model based on its specific tiered pricing.
+ *
+ * Pricing rules:
+ * - Input tokens:
+ *   - $1.25 per 1 million tokens for the first 200,000 tokens.
+ *   - $2.50 per 1 million tokens for tokens beyond 200,000.
+ * - Output tokens:
+ *   - $10.00 per 1 million tokens if input tokens <= 200,000.
+ *   - $15.00 per 1 million tokens if input tokens > 200,000.
+ *
+ * @param input_tokens The number of input tokens used.
+ * @param output_tokens The number of output tokens generated.
+ * @returns The calculated cost for the API call.
+ */
+const getGemini25ProPreviewCost = (
+  input_tokens: number,
+  output_tokens: number
+): number => {
+  let inputCost = 0
+  const tier1Tokens = Math.min(input_tokens, 200_000)
+  const tier2Tokens = Math.max(0, input_tokens - 200_000)
+
+  inputCost += (tier1Tokens * 1.25) / 1_000_000
+  inputCost += (tier2Tokens * 2.5) / 1_000_000
+
+  let outputCost = 0
+  if (input_tokens <= 200_000) {
+    outputCost = (output_tokens * 10) / 1_000_000
+  } else {
+    outputCost = (output_tokens * 15) / 1_000_000
+  }
+
+  return inputCost + outputCost
+}
+
 const getPerTokenCost = (
   model: string,
   type: keyof typeof TOKENS_COST_PER_M
@@ -77,6 +113,13 @@ const calcCost = (
 ) => {
   if (model === 'relace-fast-apply') {
     return RELACE_FAST_APPLY_COST
+  }
+  if (model === models.gemini2_5_pro_preview) {
+    return (
+      getGemini25ProPreviewCost(input_tokens, output_tokens) +
+      cache_creation_input_tokens * getPerTokenCost(model, 'cache_creation') +
+      cache_read_input_tokens * getPerTokenCost(model, 'cache_read')
+    )
   }
   return (
     input_tokens * getPerTokenCost(model, 'input') +

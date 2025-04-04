@@ -111,14 +111,15 @@ export async function promptGeminiWithFallbacks(
 }
 
 /**
- * Streams a response from Gemini 2.5 Pro with multiple fallback strategies, including Claude Sonnet.
+ * Streams a response from Gemini 2.5 Pro with multiple fallback strategies.
  *
  * Attempts the following endpoints in order until one succeeds:
- * 1. OpenRouter (Internal Key, Free Tier)
- * 2. Gemini API (Internal Key)
- * 3. Vertex AI Gemini
- * 4. Gemini API (User's Key, if available)
- * 5. Claude Sonnet (Final Fallback)
+ * 1. Gemini API (User's Key, if available - gemini-2.5-pro-exp)
+ * 2. OpenRouter (Internal Key, Free Tier - google/gemini-2.5-pro-exp-03-25:free)
+ * 3. Vertex AI Gemini (gemini-2.5-pro-exp)
+ * 4. Gemini API (Internal Key - gemini-2.5-pro-exp)
+ * 5. Gemini API (Internal Key - gemini-2.5-pro-preview)
+ * 6. Claude Sonnet (Final Fallback)
  *
  * This function handles streaming requests and yields chunks of the response as they arrive.
  *
@@ -159,7 +160,68 @@ export async function* streamGemini25ProWithFallbacks(
     ? messagesWithSystem(messages, system)
     : (messages as OpenAIMessage[])
 
-  // 1. Try OpenRouter Stream
+  // 1. Try User's Gemini Key if available (using gemini-2.5-pro-exp)
+  const geminiExpOptions = {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    model: geminiModels.gemini2_5_pro_exp,
+    maxTokens,
+    temperature,
+  }
+  let userApiKey: string | null = null
+  let userKeyAttempted = false
+  if (userId) {
+    try {
+      userApiKey = await retrieveAndDecryptApiKey(userId, 'gemini')
+    } catch (keyRetrievalError) {
+      logger.warn(
+        { error: keyRetrievalError, userId },
+        'Failed to retrieve or decrypt user Gemini key. Proceeding to internal fallbacks.'
+      )
+    }
+  } else {
+    logger.warn(
+      'No userId provided, cannot attempt user key. Proceeding to internal fallbacks.'
+    )
+  }
+
+  if (userApiKey) {
+    userKeyAttempted = true
+    try {
+      logger.debug(
+        'Attempting Gemini 2.5 Pro (exp) via Gemini API Stream (User Key)'
+      )
+      yield* promptGeminiStream(formattedMessages, {
+        ...geminiExpOptions,
+        apiKey: userApiKey,
+      })
+      return // Success! The user key worked.
+    } catch (userKeyError) {
+      if (userKeyError instanceof APIError && userKeyError.status === 429) {
+        logger.warn(
+          { userId },
+          'User Gemini API key hit rate limit. Yielding notification and falling back to internal keys.'
+        )
+        yield '<codebuff_rate_limit_info>Your Gemini API key seems to have hit a rate limit. Falling back to internal keys.</codebuff_rate_limit_info>'
+      } else {
+        logger.error(
+          { error: userKeyError },
+          'Error calling Gemini 2.5 Pro (exp) via Gemini API Stream (User Key). Falling back to internal keys.'
+        )
+      }
+    }
+  } else if (userId && !userKeyAttempted) {
+    logger.warn(
+      { userId },
+      'User Gemini key not found or retrieval failed. Proceeding to internal fallbacks.'
+    )
+  }
+
+  // --- Internal Fallbacks ---
+
+  // 2. Try OpenRouter Stream (google/gemini-2.5-pro-exp-03-25:free)
   const openRouterOptions = {
     clientSessionId,
     fingerprintId,
@@ -169,51 +231,28 @@ export async function* streamGemini25ProWithFallbacks(
     temperature,
   }
   try {
-    logger.debug('Attempting Gemini 2.5 Pro via OpenRouter Stream')
+    logger.debug('Attempting Gemini 2.5 Pro (exp) via OpenRouter Stream')
     yield* promptOpenRouterStream(formattedMessages, openRouterOptions)
     return // Success
   } catch (error) {
     logger.error(
       { error },
-      'Error calling Gemini 2.5 Pro via OpenRouter Stream, falling back to Gemini API Stream (Internal Key)'
+      'Error calling Gemini 2.5 Pro (exp) via OpenRouter Stream, falling back to Vertex AI'
     )
   }
 
-  // 2. Try Gemini API Stream (Internal Key)
-  const geminiOptions = {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    model: geminiModels.gemini2_5_pro,
-    maxTokens,
-    temperature,
-  }
-  try {
-    logger.debug(
-      'Attempting Gemini 2.5 Pro via Gemini API Stream (Internal Key)'
-    )
-    yield* promptGeminiStream(formattedMessages, geminiOptions) // Uses internal key by default
-    return // Success
-  } catch (error) {
-    logger.error(
-      { error },
-      'Error calling Gemini 2.5 Pro via Gemini API Stream (Internal Key), falling back to Vertex AI'
-    )
-  }
-
-  // 3. Try Vertex AI Gemini Stream
+  // 3. Try Vertex AI Gemini Stream (gemini-2.5-pro-exp)
   const vertexGeminiOptions = {
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-    model: geminiModels.gemini2_5_pro,
+    model: geminiModels.gemini2_5_pro_exp,
     maxTokens,
     temperature,
   }
   try {
-    logger.debug('Attempting Gemini 2.5 Pro via Vertex AI Gemini Stream')
+    logger.debug('Attempting Gemini 2.5 Pro (exp) via Vertex AI Gemini Stream')
     yield* promptVertexGeminiStream(
       messages as OpenAIMessage[],
       system,
@@ -223,68 +262,48 @@ export async function* streamGemini25ProWithFallbacks(
   } catch (error) {
     logger.error(
       { error },
-      'Error calling Gemini 2.5 Pro via Vertex AI Gemini Stream, falling back to User Key if available'
+      'Error calling Gemini 2.5 Pro (exp) via Vertex AI Gemini Stream, falling back to Gemini API (preview)'
     )
   }
 
-  // 4. Try User's Gemini Key if available
-  let userApiKey: string | null = null
-  if (userId) {
-    try {
-      userApiKey = await retrieveAndDecryptApiKey(userId, 'gemini')
-    } catch (keyRetrievalError) {
-      logger.warn(
-        { error: keyRetrievalError, userId },
-        'Failed to retrieve or decrypt user Gemini key. Proceeding to Claude fallback.'
-      )
-      // Don't throw, proceed to Claude
-    }
-  } else {
-    logger.warn(
-      'No userId provided, cannot attempt user key fallback. Proceeding to Claude fallback.'
+  // 4. Try Gemini API Stream (Internal Key - gemini-2.5-pro-exp)
+  try {
+    logger.debug(
+      'Attempting Gemini 2.5 Pro (exp) via Gemini API Stream (Internal Key)'
+    )
+    yield* promptGeminiStream(formattedMessages, geminiExpOptions)
+    return // Success
+  } catch (error) {
+    logger.error(
+      { error },
+      'Error calling Gemini 2.5 Pro (exp) via Gemini API Stream (Internal Key), falling back to Gemini 2.5 Pro (preview)'
     )
   }
 
-  // If we have a userApiKey, attempt the final fallback using it
-  if (userApiKey) {
-    try {
-      logger.debug('Attempting Gemini 2.5 Pro via Gemini API Stream (User Key)')
-      yield* promptGeminiStream(formattedMessages, {
-        ...geminiOptions,
-        apiKey: userApiKey,
-      })
-      return // Success! The user key worked.
-    } catch (userKeyError) {
-      // Check if the error is a rate limit error (429)
-      if (userKeyError instanceof APIError && userKeyError.status === 429) {
-        logger.warn(
-          { userId },
-          'User Gemini API key hit rate limit. Yielding notification and falling back to Claude Sonnet.'
-        )
-        // Yield the special message for the client. This will be parsed out of the messages.
-        yield '<codebuff_rate_limit_info>Your Gemini API key seems to have hit a rate limit. Falling back to Claude.</codebuff_rate_limit_info>'
-      } else {
-        // Log other errors normally
-        logger.error(
-          { error: userKeyError },
-          'Error calling Gemini 2.5 Pro via Gemini API Stream (User Key). Falling back to Claude Sonnet.'
-        )
-      }
-      // Proceed to Claude fallback regardless of the error type here
-    }
-  } else {
-    logger.warn(
-      { userId },
-      'User Gemini key not found or retrieval failed. Proceeding to Claude fallback.'
+  // 5. Try Gemini API Stream (Internal Key - gemini-2.5-pro-preview)
+  const geminiPreviewOptions = {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    model: geminiModels.gemini2_5_pro_preview,
+    maxTokens,
+    temperature,
+  }
+  try {
+    logger.debug(
+      'Attempting Gemini 2.5 Pro (preview) via Gemini API Stream (Internal Key)'
     )
-    yield `<codebuff_no_user_key_info>
-Make sure to provide your Gemini API key to get longer access to Gemini 2.5 Pro! Falling back to Claude for now.
-1. Go to https://aistudio.google.com/apikey and create an API key
-2. Paste your key here
-</codebuff_no_user_key_info>`
+    yield* promptGeminiStream(formattedMessages, geminiPreviewOptions)
+    return // Success
+  } catch (error) {
+    logger.error(
+      { error },
+      'Error calling Gemini 2.5 Pro (preview) via Gemini API Stream (Internal Key), falling back to Claude Sonnet'
+    )
   }
 
-  // 5. Final Fallback: Claude Sonnet
+  // 6. Final Fallback: Claude Sonnet
   try {
     logger.debug('Attempting final fallback to Claude Sonnet Stream')
     yield* promptClaudeStream(messages, {

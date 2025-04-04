@@ -139,7 +139,7 @@ export const getModelForMode = (
 ) => {
   if (operation === 'agent') {
     return costMode === 'max'
-      ? models.gemini2_5_pro
+      ? models.gemini2_5_pro_exp
       : costMode === 'lite'
         ? claudeModels.haiku
         : claudeModels.sonnet
@@ -170,7 +170,8 @@ export type OpenAIModel = (typeof openaiModels)[keyof typeof openaiModels]
 
 export const geminiModels = {
   gemini2flash: 'gemini-2.0-flash-001',
-  gemini2_5_pro: 'gemini-2.5-pro-exp-03-25',
+  gemini2_5_pro_exp: 'gemini-2.5-pro-exp-03-25',
+  gemini2_5_pro_preview: 'gemini-2.5-pro-preview-03-25',
 } as const
 export type GeminiModel = (typeof geminiModels)[keyof typeof geminiModels]
 
