@@ -2,6 +2,7 @@ import { System } from '@/llm-apis/claude'
 import { Message } from 'common/types/message'
 import { CostMode, models } from 'common/constants'
 import { promptGeminiWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
+import { getMessagesSubset } from '@/util/messages'
 
 export const checkNewFilesNecessary = async (
   messages: Message[],
@@ -41,8 +42,12 @@ You should not read new files (NO) if:
 Answer with just 'YES' if reading new files is helpful, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
 
+  const bufferTokens = 100_000
   const response = await promptGeminiWithFallbacks(
-    [...messages, { role: 'user', content: prompt }],
+    getMessagesSubset(
+      [...messages, { role: 'user', content: prompt }],
+      bufferTokens
+    ),
     system,
     {
       model: models.gemini2flash,
@@ -51,7 +56,6 @@ Answer with just 'YES' if reading new files is helpful, or 'NO' if the current f
       userInputId,
       userId,
       costMode,
-      useGPT4oInsteadOfClaude: true,
     }
   )
   const endTime = Date.now()

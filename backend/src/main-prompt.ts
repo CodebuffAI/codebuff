@@ -32,7 +32,6 @@ import {
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
-import { trimMessagesToFitTokenLimit } from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
@@ -50,6 +49,7 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
+import { getMessagesSubset } from './util/messages'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
@@ -858,41 +858,4 @@ function getPrintedPaths(
         loadedFiles[path]!.startsWith(status)
       )
   )
-}
-
-function getMessagesSubset(messages: Message[], otherTokens: number) {
-  const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
-    JSON.stringify(content).includes('COMPLETE')
-  })
-
-  const messagesSubset = trimMessagesToFitTokenLimit(
-    indexLastSubgoalComplete === -1
-      ? messages
-      : messages.slice(indexLastSubgoalComplete),
-    otherTokens
-  )
-
-  // Remove cache_control from all messages
-  for (const message of messagesSubset) {
-    if (typeof message.content === 'object' && message.content.length > 0) {
-      delete message.content[message.content.length - 1].cache_control
-    }
-  }
-
-  // Cache up to the last message!
-  const lastMessage = messagesSubset[messagesSubset.length - 1]
-  if (lastMessage) {
-    messagesSubset[messagesSubset.length - 1] = withCacheControl(lastMessage)
-  } else {
-    logger.debug(
-      {
-        messages,
-        messagesSubset,
-        otherTokens,
-      },
-      'No last message found in messagesSubset!'
-    )
-  }
-
-  return messagesSubset
 }

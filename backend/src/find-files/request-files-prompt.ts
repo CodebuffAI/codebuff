@@ -19,6 +19,7 @@ import { countTokens } from '../util/token-counter'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 import { filterDefined } from 'common/util/array'
 import { promptGeminiWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
+import { getMessagesSubset } from '@/util/messages'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30
@@ -173,13 +174,17 @@ async function getRelevantFiles(
   userId: string | undefined,
   costMode: CostMode
 ) {
-  const messagesWithPrompt = [
-    ...messages,
-    {
-      role: 'user' as const,
-      content: userPrompt,
-    },
-  ]
+  const bufferTokens = 100_000
+  const messagesWithPrompt = getMessagesSubset(
+    [
+      ...messages,
+      {
+        role: 'user' as const,
+        content: userPrompt,
+      },
+    ],
+    bufferTokens
+  )
   const start = performance.now()
   let response = await promptGeminiWithFallbacks(messagesWithPrompt, system, {
     clientSessionId,
