@@ -150,10 +150,8 @@ export class Client {
           headers: {
             'Content-Type': 'application/json',
             Cookie: `next-auth.session-token=${this.user.authToken}`,
+            Authorization: `Bearer ${this.user.authToken}`,
           },
-          body: JSON.stringify({
-            authToken: this.user.authToken,
-          }),
         }
       )
 

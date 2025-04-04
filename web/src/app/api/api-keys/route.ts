@@ -10,18 +10,13 @@ import { z } from 'zod'
 import { logger } from '@/util/logger'
 
 export async function GET(request: NextRequest) {
-  const reqJson = await request.json()
-  const parsedJson = z
-    .object({
-      authToken: z.string(),
-    })
-    .safeParse(reqJson)
+  const authHeader = await request.headers.get('authorization')
 
-  if (!parsedJson.success) {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response('Unauthorized', { status: 401 })
   }
 
-  const { authToken } = parsedJson.data
+  const authToken = authHeader.split(' ')[1]
   const user = await db.query.session.findFirst({
     where: eq(schema.session.sessionToken, authToken),
     columns: {
