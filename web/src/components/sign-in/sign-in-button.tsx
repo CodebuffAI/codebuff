@@ -4,6 +4,7 @@ import { useTransition } from 'react'
 import { signIn } from 'next-auth/react'
 import { OAuthProviderType } from 'next-auth/providers/oauth-types'
 import posthog from 'posthog-js'
+import { usePathname, useSearchParams } from 'next/navigation'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
@@ -18,13 +19,27 @@ export const SignInButton = ({
   providerDomain: string
 }) => {
   const [isPending, startTransition] = useTransition()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   const handleSignIn = () => {
     startTransition(async () => {
+      let callbackUrl = pathname
+
+      if (pathname === '/login') {
+        const authCode = searchParams.get('auth_code')
+        if (authCode) {
+          callbackUrl = `/onboard?${searchParams.toString()}`
+        } else {
+          callbackUrl = '/'
+        }
+      }
+
       posthog.capture('auth.login_started', {
         provider: providerName,
+        callbackUrl: callbackUrl,
       })
-      await signIn(providerName)
+      await signIn(providerName, { callbackUrl })
       await sleep(10000).then(() => {
         toast({
           title: 'Uh-oh this is taking a while...',
