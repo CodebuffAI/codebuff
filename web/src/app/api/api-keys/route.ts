@@ -1,14 +1,14 @@
+import db from 'common/db'
+import { ApiKeyType } from 'common/src/api-keys/constants'
 import { encryptAndStoreApiKey } from 'common/src/api-keys/crypto'
 import { apiKeyTypeEnum, encryptedApiKeys } from 'common/src/db/schema'
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { z } from 'zod'
 import { eq } from 'drizzle-orm'
-import db from 'common/db'
+import { getServerSession } from 'next-auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
-import { ApiKeyType } from 'common/src/api-keys/constants'
 
 // Define the schema for the request body
 const ApiKeySchema = z.object({
@@ -18,6 +18,7 @@ const ApiKeySchema = z.object({
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
+  console.log({ session })
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -33,7 +34,10 @@ export async function GET(req: NextRequest) {
 
     const keyTypes: ApiKeyType[] = storedKeys.map((key) => key.type)
 
-    logger.info({ userId, keyTypes }, 'Successfully retrieved stored API key types')
+    logger.info(
+      { userId, keyTypes },
+      'Successfully retrieved stored API key types'
+    )
     return NextResponse.json({ keyTypes }, { status: 200 })
   } catch (error) {
     logger.error({ error, userId }, 'Failed to retrieve stored API key types')
