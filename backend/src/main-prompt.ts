@@ -453,9 +453,10 @@ ${newFiles.map((file) => file.path).join('\n')}
   })
 
   for await (const chunk of streamWithTags) {
+    const trimmed = chunk.trim()
     if (
       !ONE_TIME_TAGS.some(
-        (tag) => chunk.startsWith(`<${tag}>`) && chunk.endsWith(`</${tag}>`)
+        (tag) => trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)
       )
     ) {
       fullResponse += chunk

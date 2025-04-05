@@ -643,13 +643,14 @@ export class Client {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
+      const trimmed = chunk.trim()
       for (const tag of ONE_TIME_TAGS) {
-        if (chunk.startsWith(`<${tag}>`) && chunk.endsWith(`</${tag}>`)) {
+        if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)) {
           if (this.oneTimeTagsShown[tag]) {
             return
           }
           Spinner.get().stop()
-          const warningMessage = chunk
+          const warningMessage = trimmed
             .replace(`<${tag}>`, '')
             .replace(`</${tag}>`, '')
           console.warn(yellow(`\n${warningMessage}`))

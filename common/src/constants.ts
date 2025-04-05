@@ -29,9 +29,11 @@ export const DEFAULT_IGNORED_FILES = [
 // Special message content tags indicating specific server states
 export const CODEBUFF_RATE_LIMIT_INFO = 'codebuff_rate_limit_info'
 export const CODEBUFF_CLAUDE_FALLBACK_INFO = 'codebuff_claude_fallback_info'
+export const CODEBUFF_INVALID_KEY_INFO = 'codebuff_invalid_gemini_key_info'
 export const ONE_TIME_TAGS = [
   CODEBUFF_RATE_LIMIT_INFO,
   CODEBUFF_CLAUDE_FALLBACK_INFO,
+  CODEBUFF_INVALID_KEY_INFO,
 ] as const
 
 export const FILE_READ_STATUS = {

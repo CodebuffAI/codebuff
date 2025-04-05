@@ -3,6 +3,7 @@ import { retrieveAndDecryptApiKey } from 'common/api-keys/crypto'
 import {
   claudeModels,
   CODEBUFF_CLAUDE_FALLBACK_INFO,
+  CODEBUFF_INVALID_KEY_INFO as CODEBUFF_INVALID_GEMINI_KEY_INFO,
   CODEBUFF_RATE_LIMIT_INFO,
   CostMode,
   GeminiModel,
@@ -73,7 +74,7 @@ export async function promptGeminiWithFallbacks(
       geminiOptions
     )
   } catch (error) {
-    logger.error(
+    logger.warn(
       { error },
       'Error calling Gemini API, falling back to Vertex Gemini'
     )
@@ -85,7 +86,7 @@ export async function promptGeminiWithFallbacks(
         geminiOptions
       )
     } catch (error) {
-      logger.error(
+      logger.warn(
         { error },
         `Error calling Vertex Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`
       )
@@ -203,15 +204,23 @@ export async function* streamGemini25ProWithFallbacks(
     } catch (userKeyError) {
       if (
         userKeyError instanceof GoogleGenerativeAIError &&
+        (userKeyError as any)?.errorDetails?.some(
+          (detail: any) => detail?.reason === 'API_KEY_INVALID'
+        )
+      ) {
+        logger.warn({ userId }, 'User Gemini API key is invalid.')
+        yield `<${CODEBUFF_INVALID_GEMINI_KEY_INFO}>Your Gemini API key is invalid. Please check your API key and try again.</${CODEBUFF_INVALID_GEMINI_KEY_INFO}>\n`
+      } else if (
+        userKeyError instanceof GoogleGenerativeAIError &&
         (userKeyError as any)?.status === 429
       ) {
         logger.warn(
           { userId },
           'User Gemini API key hit rate limit. Yielding notification and falling back to internal keys.'
         )
-        yield `<${CODEBUFF_RATE_LIMIT_INFO}>Your Gemini API key seems to have hit a rate limit. Falling back to internal keys.</${CODEBUFF_RATE_LIMIT_INFO}>`
+        yield `<${CODEBUFF_RATE_LIMIT_INFO}>Your Gemini API key seems to have hit a rate limit. Falling back to internal keys.</${CODEBUFF_RATE_LIMIT_INFO}>\n`
       } else {
-        logger.error(
+        logger.warn(
           { error: userKeyError },
           'Error calling Gemini 2.5 Pro (exp) via Gemini API Stream (User Key). Falling back to internal keys.'
         )
@@ -240,7 +249,7 @@ export async function* streamGemini25ProWithFallbacks(
     yield* promptOpenRouterStream(formattedMessages, openRouterOptions)
     return // Success
   } catch (error) {
-    logger.error(
+    logger.warn(
       { error },
       'Error calling Gemini 2.5 Pro (exp) via OpenRouter Stream, falling back to Vertex AI'
     )
@@ -265,7 +274,7 @@ export async function* streamGemini25ProWithFallbacks(
     )
     return // Success
   } catch (error) {
-    logger.error(
+    logger.warn(
       { error },
       'Error calling Gemini 2.5 Pro (exp) via Vertex AI Gemini Stream, falling back to Gemini API (preview)'
     )
@@ -279,7 +288,7 @@ export async function* streamGemini25ProWithFallbacks(
     yield* promptGeminiStream(formattedMessages, geminiExpOptions)
     return // Success
   } catch (error) {
-    logger.error(
+    logger.warn(
       { error },
       'Error calling Gemini 2.5 Pro (exp) via Gemini API Stream (Internal Key), falling back to Gemini 2.5 Pro (preview)'
     )
@@ -302,11 +311,11 @@ export async function* streamGemini25ProWithFallbacks(
     yield* promptGeminiStream(formattedMessages, geminiPreviewOptions)
     return // Success
   } catch (error) {
-    logger.error(
+    logger.warn(
       { error },
       'Error calling Gemini 2.5 Pro (preview) via Gemini API Stream (Internal Key), falling back to Claude Sonnet'
     )
-    yield `<${CODEBUFF_CLAUDE_FALLBACK_INFO}>All Gemini API attempts failed. Falling back to Claude Sonnet.</${CODEBUFF_CLAUDE_FALLBACK_INFO}>`
+    yield `<${CODEBUFF_CLAUDE_FALLBACK_INFO}>All Gemini API attempts failed. Falling back to Claude Sonnet.</${CODEBUFF_CLAUDE_FALLBACK_INFO}>\n`
   }
 
   // 6. Final Fallback: Claude Sonnet

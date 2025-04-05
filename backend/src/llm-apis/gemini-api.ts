@@ -167,7 +167,7 @@ export function promptGeminiStream(
         const inputTokens = usageMetadata?.promptTokenCount ?? 0
         const outputTokens = usageMetadata?.candidatesTokenCount ?? 0
 
-        if (!apiKey && messages.length > 0 && userId !== TEST_USER_ID) {
+        if (messages.length > 0 && userId !== TEST_USER_ID) {
           saveMessage({
             messageId: generateCompactId(),
             userId,
@@ -181,6 +181,7 @@ export function promptGeminiStream(
             outputTokens,
             finishedAt: new Date(),
             latencyMs: Date.now() - startTime,
+            usesUserApiKey: !!apiKey,
           })
         }
 
@@ -270,7 +271,7 @@ export async function promptGemini(
     const inputTokens = usageMetadata?.promptTokenCount ?? 0
     const outputTokens = usageMetadata?.candidatesTokenCount ?? 0
 
-    if (!apiKey && messages.length > 0 && userId !== TEST_USER_ID) {
+    if (messages.length > 0 && userId !== TEST_USER_ID) {
       saveMessage({
         messageId: generateCompactId(),
         userId,
@@ -284,6 +285,7 @@ export async function promptGemini(
         outputTokens,
         finishedAt: new Date(),
         latencyMs: Date.now() - startTime,
+        usesUserApiKey: !!apiKey,
       })
     }
 

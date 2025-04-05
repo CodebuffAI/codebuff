@@ -144,6 +144,7 @@ export const saveMessage = async (value: {
   cacheReadInputTokens?: number
   finishedAt: Date
   latencyMs: number
+  usesUserApiKey?: boolean
 }) =>
   withLoggerContext(
     {
@@ -160,7 +161,9 @@ export const saveMessage = async (value: {
         value.cacheReadInputTokens ?? 0
       )
 
-      const creditsUsed = Math.round(cost * 100 * (1 + PROFIT_MARGIN))
+      const creditsUsed = Math.round(
+        cost * 100 * (value.usesUserApiKey ? PROFIT_MARGIN : 1 + PROFIT_MARGIN)
+      )
 
       if (!value.userId || value.userId === TEST_USER_ID) {
         return null
