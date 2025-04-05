@@ -84,6 +84,19 @@ export class CLI {
     ])
 
     this.setPrompt()
+
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('\nUnhandled Rejection at:', promise, 'reason:', reason)
+      this.freshPrompt()
+    })
+
+    process.on('uncaughtException', (err, origin) => {
+      console.error(
+        `\nCaught exception: ${err}\n` + `Exception origin: ${origin}`
+      )
+      console.error(err.stack)
+      this.freshPrompt()
+    })
   }
 
   private setupSignalHandlers() {

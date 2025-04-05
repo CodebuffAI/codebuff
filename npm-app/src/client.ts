@@ -688,24 +688,30 @@ export class Client {
         const toolResults: ToolResult[] = [...a.toolResults]
 
         for (const toolCall of a.toolCalls) {
-          if (toolCall.name === 'end_turn') {
-            isComplete = true
-            continue
+          try {
+            if (toolCall.name === 'end_turn') {
+              isComplete = true
+              continue
+            }
+            if (toolCall.name === 'write_file') {
+              // Save lastChanges for `diff` command
+              this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
+              this.hadFileChanges = true
+            }
+            if (
+              toolCall.name === 'run_terminal_command' &&
+              toolCall.parameters.mode === 'user'
+            ) {
+              // Special case: when terminal command is run it as a user command, then no need to reprompt assistant.
+              isComplete = true
+            }
+            const toolResult = await handleToolCall(toolCall, getProjectRoot())
+            toolResults.push(toolResult)
+          } catch (error) {
+            console.error(
+              error instanceof Error ? red(error.message) : red(String(error))
+            )
           }
-          if (toolCall.name === 'write_file') {
-            // Save lastChanges for `diff` command
-            this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
-            this.hadFileChanges = true
-          }
-          if (
-            toolCall.name === 'run_terminal_command' &&
-            toolCall.parameters.mode === 'user'
-          ) {
-            // Special case: when terminal command is run it as a user command, then no need to reprompt assistant.
-            isComplete = true
-          }
-          const toolResult = await handleToolCall(toolCall, getProjectRoot())
-          toolResults.push(toolResult)
         }
         if (
           toolResults.length > 0 ||
