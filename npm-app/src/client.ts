@@ -38,6 +38,7 @@ import {
   yellow,
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
+import { GrantType } from 'common/db/schema'
 
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
@@ -76,8 +77,9 @@ export class Client {
   public user: User | undefined
   public lastWarnedPct: number = 0
   public usage: number = 0
-  public limit: number = 0
-  public subscription_active: boolean = false
+  public remainingBalance: number = 0
+  public balanceBreakdown: Partial<Record<GrantType, number>> | undefined =
+    undefined
   public nextQuotaReset: Date | null = null
   public storedApiKeyTypes: ApiKeyType[] = []
 
@@ -273,7 +275,11 @@ export class Client {
           fs.unlinkSync(CREDENTIALS_PATH)
           console.log(`You (${this.user.name}) have been logged out.`)
           this.user = undefined
-          this.extraGemini25ProMessageShown = false // Reset flag on logout
+          this.extraGemini25ProMessageShown = false
+          this.usage = 0
+          this.remainingBalance = 0
+          this.balanceBreakdown = undefined
+          this.nextQuotaReset = null
         } catch (error) {
           console.error('Error removing credentials file:', error)
         }
@@ -398,21 +404,32 @@ export class Client {
     }
   }
 
-  public setUsage({
-    usage,
-    limit,
-    subscription_active,
-    next_quota_reset,
-  }: Omit<UsageResponse, 'type'>) {
-    this.usage = usage
-    this.limit = limit
-    this.subscription_active = subscription_active
-    this.nextQuotaReset = next_quota_reset
+  public setUsage(usageData: Omit<UsageResponse, 'type'>) {
+    this.usage = usageData.usage
+    this.remainingBalance = usageData.remainingBalance
+    this.balanceBreakdown = usageData.balanceBreakdown
+    this.nextQuotaReset = usageData.next_quota_reset
   }
 
   private setupSubscriptions() {
     this.webSocket.subscribe('action-error', (action) => {
-      console.error(['', red(`Error: ${action.message}`)].join('\n'))
+      if (action.error === 'Insufficient credits') {
+        console.error(['', red(`Error: ${action.message}`)].join('\n'))
+        if (action.remainingBalance !== undefined) {
+          console.error(
+            yellow(
+              `Remaining balance: ${action.remainingBalance.toLocaleString()}`
+            )
+          )
+        }
+        console.error(
+          yellow(
+            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))} to upgrade.`
+          )
+        )
+      } else {
+        console.error(['', red(`Error: ${action.message}`)].join('\n'))
+      }
       this.returnControlToUser()
       return
     })
@@ -456,58 +473,59 @@ export class Client {
       if (!parsedAction.success) return
 
       this.setUsage(parsedAction.data)
-
       this.showUsageWarning()
     })
   }
 
   public showUsageWarning() {
-    const errorCopy = [
-      this.user
-        ? `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))} to upgrade – or refer a new user and earn ${CREDITS_REFERRAL_BONUS} credits per month: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/referrals'))}`
-        : green('Type "login" below to sign up and get more credits!'),
-    ].join('\n')
+    const LOW_BALANCE_THRESHOLD = 500
+    const VERY_LOW_BALANCE_THRESHOLD = 100
 
-    const pct: number = match(Math.floor((this.usage / this.limit) * 100))
-      .with(P.number.gte(100), () => 100)
-      .with(P.number.gte(75), () => 75)
-      .otherwise(() => 0)
-
-    if (pct >= 100) {
-      this.lastWarnedPct = 100
-      if (!this.subscription_active) {
-        console.error(
-          [red('\nYou have reached your monthly usage limit.'), errorCopy].join(
-            '\n'
-          )
+    if (
+      this.remainingBalance < VERY_LOW_BALANCE_THRESHOLD &&
+      this.lastWarnedPct < 100
+    ) {
+      console.warn(
+        yellow(
+          `\n⚠️ Warning: Your remaining credit balance is very low (${this.remainingBalance.toLocaleString()}).`
         )
-        this.returnControlToUser()
-        return
-      }
-
-      if (this.subscription_active && this.lastWarnedPct < 100) {
+      )
+      if (this.user) {
         console.warn(
           yellow(
-            `You have exceeded your monthly quota, but feel free to keep using Codebuff! We'll continue to charge you for the overage until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/usage for more details.`
+            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))} to add credits or upgrade.`
           )
         )
-        this.returnControlToUser()
-        return
+      } else {
+        console.warn(yellow(`Type "login" to sign up/in and get more credits!`))
       }
-    }
-
-    if (pct > 0 && pct > this.lastWarnedPct) {
-      console.warn(
-        [
-          '',
-          yellow(
-            `You have used over ${pct}% of your monthly usage limit (${this.usage}/${this.limit} credits).`
-          ),
-          errorCopy,
-        ].join('\n')
-      )
-      this.lastWarnedPct = pct
+      this.lastWarnedPct = 100
       this.returnControlToUser()
+    } else if (
+      this.remainingBalance < LOW_BALANCE_THRESHOLD &&
+      this.lastWarnedPct < 75
+    ) {
+      console.warn(
+        yellow(
+          `\n⚠️ Warning: Your remaining credit balance is low (${this.remainingBalance.toLocaleString()}).`
+        )
+      )
+      if (this.user) {
+        console.warn(
+          yellow(
+            `Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))}`
+          )
+        )
+      } else {
+        console.warn(yellow(`Type "login" to sign up/in and get more credits!`))
+      }
+      this.lastWarnedPct = 75
+      this.returnControlToUser()
+    } else if (
+      this.remainingBalance >= LOW_BALANCE_THRESHOLD &&
+      this.lastWarnedPct > 0
+    ) {
+      this.lastWarnedPct = 0
     }
   }
 
@@ -794,20 +812,35 @@ export class Client {
 
       this.setUsage(parsedResponse)
 
+      console.log(green(underline(`Codebuff Usage:`)))
       console.log(
-        green(underline(`Codebuff usage:`)),
-        `${parsedResponse.usage} / ${parsedResponse.limit} credits`
+        ` Credits Remaining: ${this.remainingBalance.toLocaleString()}`
       )
+      if (this.balanceBreakdown) {
+        const breakdownParts = Object.entries(this.balanceBreakdown)
+          .filter(([, amount]) => amount > 0)
+          .map(([type, amount]) => `${type}: ${amount.toLocaleString()}`)
+        if (breakdownParts.length > 0) {
+          console.log(`   Breakdown: ${breakdownParts.join(', ')}`)
+        }
+      }
+      if (this.nextQuotaReset) {
+        console.log(` Current Cycle Usage: ${this.usage.toLocaleString()}`)
+        console.log(
+          ` Next Cycle Start: ${this.nextQuotaReset.toLocaleDateString()}`
+        )
+      } else {
+        console.log(` (Usage is based on available grants)`)
+      }
 
       this.showUsageWarning()
     } catch (error) {
-      console.log({ error })
-
       console.error(
         red(
           `Error checking usage: Please reach out to ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
         )
       )
+      console.error(error)
     } finally {
       this.returnControlToUser()
     }

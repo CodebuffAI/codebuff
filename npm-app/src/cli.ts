@@ -690,17 +690,23 @@ export class CLI {
     }, 100)
   }
 
+  // Updated handleExit method
   private handleExit() {
     Spinner.get().restoreCursor()
     console.log('\n')
 
     const logMessages = []
-    const totalCredits = Object.values(this.client.creditsByPromptId)
+    const totalCreditsUsedThisSession = Object.values(
+      this.client.creditsByPromptId
+    )
       .flat()
       .reduce((sum, credits) => sum + credits, 0)
 
-    logMessages.push(`${pluralize(totalCredits, 'credit')} used this session.`)
-    if (this.client.limit && this.client.usage && this.client.nextQuotaReset) {
+    logMessages.push(
+      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session. ${this.client.remainingBalance.toLocaleString()} credits remaining.`
+    )
+
+    if (this.client.nextQuotaReset) {
       const daysUntilReset = Math.max(
         0,
         Math.floor(
@@ -708,12 +714,7 @@ export class CLI {
             (1000 * 60 * 60 * 24)
         )
       )
-      logMessages.push(
-        `${Math.max(
-          0,
-          this.client.limit - this.client.usage
-        )} credits remaining. Renews in ${pluralize(daysUntilReset, 'day')}.`
-      )
+      logMessages.push(`Renews in ${pluralize(daysUntilReset, 'day')}.`)
     }
 
     console.log(logMessages.join(' '))
