@@ -2,11 +2,13 @@ import { models, TEST_USER_ID } from 'common/constants'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { Message } from 'common/types/message'
-import { stripeServer } from 'common/util/stripe'
-import { eq } from 'drizzle-orm'
+import { stripeServer } from 'common/src/util/stripe'
+import { eq, sql } from 'drizzle-orm'
 import { WebSocket } from 'ws'
+import Stripe from 'stripe'
 
 import { stripNullCharsFromObject } from '../util/object'
+import { INITIAL_RETRY_DELAY, withRetry } from 'common/src/util/promise'
 
 import { OpenAIMessage } from '@/llm-apis/openai-api'
 import { logger, withLoggerContext } from '@/util/logger'
@@ -16,10 +18,8 @@ import { sendAction } from '@/websockets/websocket-action'
 
 const PROFIT_MARGIN = 0.3
 
-// Pricing details:
-// - https://www.anthropic.com/pricing#anthropic-api
-// - https://openai.com/pricing
-// - https://ai.google.dev/pricing
+type CostModelKey = keyof (typeof TOKENS_COST_PER_M)['input']
+
 const TOKENS_COST_PER_M = {
   input: {
     [models.sonnet]: 3,
@@ -63,9 +63,8 @@ const getPerTokenCost = (
   model: string,
   type: keyof typeof TOKENS_COST_PER_M
 ): number => {
-  // @ts-ignore
-  // @ts-ignore
-  return (TOKENS_COST_PER_M[type][model] ?? 0) / 1_000_000
+  const costMap = TOKENS_COST_PER_M[type] as Record<CostModelKey, number>
+  return (costMap[model as CostModelKey] ?? 0) / 1_000_000
 }
 
 const calcCost = (
@@ -84,6 +83,297 @@ const calcCost = (
     cache_creation_input_tokens * getPerTokenCost(model, 'cache_creation') +
     cache_read_input_tokens * getPerTokenCost(model, 'cache_read')
   )
+}
+
+async function syncMessageToStripe(messageData: {
+  messageId: string
+  userId: string
+  creditsUsed: number
+  finishedAt: Date
+}) {
+  const { messageId, userId, creditsUsed, finishedAt } = messageData
+
+  if (!userId || userId === TEST_USER_ID || creditsUsed <= 0) {
+    logger.debug(
+      { messageId, userId, creditsUsed },
+      'Skipping Stripe sync (no user, test user, or zero credits).'
+    )
+    return
+  }
+
+  const logContext = { messageId, userId, creditsUsed }
+
+  try {
+    const user = await db.query.user.findFirst({
+      where: eq(schema.user.id, userId),
+      columns: { stripe_customer_id: true },
+    })
+
+    if (!user?.stripe_customer_id) {
+      logger.warn(
+        logContext,
+        'Cannot sync usage to Stripe: User has no stripe_customer_id.'
+      )
+      return
+    }
+
+    const stripeCustomerId = user.stripe_customer_id
+    const eventName = 'credits'
+    const timestamp = Math.floor(finishedAt.getTime() / 1000)
+
+    const syncAction = async () => {
+      logger.info(
+        logContext,
+        `Attempting to sync usage to Stripe Meter Events for customer ${stripeCustomerId}`
+      )
+      await stripeServer.billing.meterEvents.create({
+        event_name: eventName,
+        timestamp: timestamp,
+        payload: {
+          stripe_customer_id: stripeCustomerId,
+          value: creditsUsed.toString(),
+          message_id: messageId,
+        },
+      })
+      logger.info(logContext, 'Successfully synced usage to Stripe.')
+
+      await db
+        .delete(schema.syncFailures)
+        .where(eq(schema.syncFailures.message_id, messageId))
+        .catch((err) =>
+          logger.error(
+            { ...logContext, error: err },
+            'Error deleting sync failure record after successful sync.'
+          )
+        )
+    }
+
+    await withRetry(syncAction, {
+      maxRetries: 5,
+      shouldRetry: (error) => {
+        if (
+          error instanceof Stripe.errors.StripeConnectionError ||
+          error instanceof Stripe.errors.StripeAPIError ||
+          error instanceof Stripe.errors.StripeRateLimitError
+        ) {
+          logger.warn(
+            { ...logContext, error: error.message, type: error.type },
+            'Retrying Stripe sync due to error.'
+          )
+          return true
+        }
+        logger.error(
+          { ...logContext, error: error.message, type: error.type },
+          'Non-retriable error during Stripe sync.'
+        )
+        return false
+      },
+    })
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : 'Unknown error during Stripe sync'
+    logger.error(
+      { ...logContext, error: errorMessage },
+      'Failed to sync usage to Stripe after retries.'
+    )
+    await logSyncFailure(messageId, errorMessage)
+  }
+}
+
+async function logSyncFailure(messageId: string, errorMessage: string) {
+  try {
+    await db
+      .insert(schema.syncFailures)
+      .values({
+        message_id: messageId,
+        last_error: errorMessage,
+        last_attempt_at: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: schema.syncFailures.message_id,
+        set: {
+          last_error: errorMessage,
+          last_attempt_at: new Date(),
+          retry_count: sql`${schema.syncFailures.retry_count} + 1`,
+        },
+      })
+    logger.info({ messageId }, 'Logged sync failure to database.')
+  } catch (dbError) {
+    logger.error(
+      { messageId, error: dbError },
+      'Failed to log sync failure to database.'
+    )
+  }
+}
+
+type InsertMessageParams = {
+  messageId: string
+  userId: string | undefined
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  model: string
+  request: Message[] | OpenAIMessage[]
+  response: string
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens?: number
+  cacheReadInputTokens?: number
+  cost: number
+  creditsUsed: number
+  finishedAt: Date
+  latencyMs: number
+}
+
+async function insertMessageRecord(
+  params: InsertMessageParams
+): Promise<typeof schema.message.$inferSelect | null> {
+  const {
+    messageId,
+    userId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model,
+    request,
+    response,
+    inputTokens,
+    outputTokens,
+    cacheCreationInputTokens,
+    cacheReadInputTokens,
+    cost,
+    creditsUsed,
+    finishedAt,
+    latencyMs,
+  } = params
+
+  try {
+    const insertResult = await db
+      .insert(schema.message)
+      .values({
+        ...stripNullCharsFromObject({
+          id: messageId,
+          user_id: userId,
+          fingerprint_id: fingerprintId,
+          client_id: clientSessionId,
+          client_request_id: userInputId,
+          model: model,
+          request: request,
+          response: response,
+        }),
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        cache_creation_input_tokens: cacheCreationInputTokens,
+        cache_read_input_tokens: cacheReadInputTokens,
+        cost: cost.toString(),
+        credits: creditsUsed,
+        finished_at: finishedAt,
+        latency_ms: latencyMs,
+      })
+      .returning()
+
+    if (insertResult.length > 0) {
+      logger.debug(
+        { messageId: messageId, creditsUsed },
+        'Message saved to DB.'
+      )
+      return insertResult[0]
+    } else {
+      logger.error(
+        { messageId: messageId },
+        'Failed to insert message into DB (no rows returned).'
+      )
+      return null
+    }
+  } catch (dbError) {
+    logger.error(
+      { messageId: messageId, error: dbError },
+      'Error saving message to DB.'
+    )
+    return null
+  }
+}
+
+async function sendCostResponseToClient(
+  clientSessionId: string,
+  userInputId: string,
+  creditsUsed: number
+): Promise<void> {
+  try {
+    const clientEntry = Array.from(SWITCHBOARD.clients.entries()).find(
+      ([_, state]: [WebSocket, ClientState]) =>
+        state.sessionId === clientSessionId
+    )
+
+    if (clientEntry) {
+      const [ws] = clientEntry
+      if (ws.readyState === WebSocket.OPEN) {
+        sendAction(ws, {
+          type: 'message-cost-response',
+          promptId: userInputId,
+          credits: creditsUsed,
+        })
+        logger.trace(
+          {
+            clientSessionId: clientSessionId,
+            promptId: userInputId,
+            credits: creditsUsed,
+          },
+          'Sent message cost response via WebSocket.'
+        )
+      } else {
+        logger.warn(
+          { clientSessionId: clientSessionId },
+          'WebSocket connection not in OPEN state when trying to send cost response.'
+        )
+      }
+    } else {
+      logger.warn(
+        { clientSessionId: clientSessionId },
+        'No WebSocket connection found for cost response.'
+      )
+    }
+  } catch (wsError) {
+    logger.error(
+      { clientSessionId: clientSessionId, error: wsError },
+      'Error sending message cost response via WebSocket.'
+    )
+  }
+}
+
+/**
+ * Updates the user's cycle usage in the database.
+ * @param userId - The ID of the user whose usage to update.
+ * @param creditsUsed - The amount of credits to add to the user's usage.
+ */
+async function updateUserCycleUsage(
+  userId: string,
+  creditsUsed: number
+): Promise<void> {
+  if (creditsUsed <= 0) {
+    logger.trace(
+      { userId, creditsUsed },
+      'Skipping user usage update (zero credits).'
+    )
+    return
+  }
+  try {
+    await db
+      .update(schema.user)
+      .set({ usage: sql`${schema.user.usage} + ${creditsUsed}` })
+      .where(eq(schema.user.id, userId))
+    logger.debug(
+      { userId: userId, creditsAdded: creditsUsed },
+      'User cycle usage updated.'
+    )
+  } catch (usageError) {
+    logger.error(
+      { userId: userId, creditsUsed, error: usageError },
+      'Error updating user cycle usage.'
+    )
+  }
 }
 
 export const saveMessage = async (value: {
@@ -117,94 +407,45 @@ export const saveMessage = async (value: {
         value.cacheReadInputTokens ?? 0
       )
 
-      const creditsUsed = Math.round(cost * 100 * (1 + PROFIT_MARGIN))
+      const creditsUsed = Math.max(
+        1,
+        Math.round(cost * 100 * (1 + PROFIT_MARGIN))
+      )
 
-      if (!value.userId || value.userId === TEST_USER_ID) {
+      const savedMessageResult = await insertMessageRecord({
+        ...value,
+        cost,
+        creditsUsed,
+      })
+
+      if (!savedMessageResult || !value.userId) {
+        logger.debug(
+          { messageId: value.messageId, userId: value.userId },
+          'Skipping Stripe sync call (no user ID or failed to save message).'
+        )
         return null
       }
 
-      const savedMessage = await db.insert(schema.message).values({
-        ...stripNullCharsFromObject({
-          id: value.messageId,
-          user_id: value.userId,
-          fingerprint_id: value.fingerprintId,
-          client_id: value.clientSessionId,
-          client_request_id: value.userInputId,
-          model: value.model,
-          request: value.request,
-          response: value.response,
-        }),
-        input_tokens: value.inputTokens,
-        output_tokens: value.outputTokens,
-        cache_creation_input_tokens: value.cacheCreationInputTokens,
-        cache_read_input_tokens: value.cacheReadInputTokens,
-        cost: cost.toString(),
-        credits: creditsUsed,
-        finished_at: value.finishedAt,
-        latency_ms: value.latencyMs,
+      await updateUserCycleUsage(value.userId, creditsUsed)
+
+      await sendCostResponseToClient(
+        value.clientSessionId,
+        value.userInputId,
+        creditsUsed
+      )
+
+      await syncMessageToStripe({
+        messageId: value.messageId,
+        userId: value.userId,
+        creditsUsed: creditsUsed,
+        finishedAt: value.finishedAt,
+      }).catch((syncError) => {
+        logger.error(
+          { messageId: value.messageId, error: syncError },
+          'Background Stripe sync failed.'
+        )
       })
 
-      try {
-        const user = await db.query.user.findFirst({
-          where: eq(schema.user.id, value.userId),
-          columns: {
-            stripe_customer_id: true,
-            subscription_active: true,
-          },
-        })
-
-        // Find WebSocket connection using existing clientSessionId
-        const clientEntry = Array.from(SWITCHBOARD.clients.entries()).find(
-          ([_, state]: [WebSocket, ClientState]) =>
-            state.sessionId === value.clientSessionId
-        )
-
-        if (!clientEntry) {
-          logger.warn(
-            { clientSessionId: value.clientSessionId },
-            'No WebSocket connection found'
-          )
-          return savedMessage
-        }
-
-        const [ws] = clientEntry
-
-        // Check if the WebSocket is still open before sending
-        if (ws.readyState === WebSocket.OPEN) {
-          // Send immediate message cost response
-          sendAction(ws, {
-            type: 'message-cost-response',
-            promptId: value.userInputId,
-            credits: creditsUsed,
-          })
-        } else {
-          logger.warn(
-            { clientSessionId: value.clientSessionId },
-            'WebSocket connection not in OPEN state'
-          )
-        }
-
-        if (
-          !user ||
-          !user.stripe_customer_id ||
-          !user.subscription_active ||
-          !creditsUsed
-        ) {
-          return savedMessage
-        }
-
-        await stripeServer.billing.meterEvents.create({
-          event_name: 'credits',
-          timestamp: Math.floor(value.finishedAt.getTime() / 1000),
-          payload: {
-            stripe_customer_id: user.stripe_customer_id,
-            value: creditsUsed.toString(),
-          },
-        })
-      } catch (error) {
-        logger.error({ error, creditsUsed }, 'Failed to report usage to Stripe')
-      }
-
-      return savedMessage
+      return savedMessageResult
     }
   )
