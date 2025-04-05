@@ -47,7 +47,6 @@ export const user = pgTable('user', {
   stripe_customer_id: text('stripe_customer_id').unique(),
   stripe_price_id: text('stripe_price_id'),
   usage: integer('usage').notNull().default(0),
-  quota: integer('quota').notNull().default(0),
   next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
     sql<Date>`now() + INTERVAL '1 month'`
   ),
@@ -196,8 +195,12 @@ export const creditGrants = pgTable(
     stripe_grant_id: text('stripe_grant_id').unique(),
   },
   (table) => ({
-    idx_credit_grants_user_active: index('idx_credit_grants_user_active')
-      .on(table.user_id, table.expires_at, table.priority, table.created_at),
+    idx_credit_grants_user_active: index('idx_credit_grants_user_active').on(
+      table.user_id,
+      table.expires_at,
+      table.priority,
+      table.created_at
+    ),
   })
 )
 
