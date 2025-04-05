@@ -74,6 +74,7 @@
         "next-auth": "^4.24.7",
         "pg": "^8.13.0",
         "readable-stream": "^4.7.0",
+        "stripe": "17.0.0",
         "zod": "3.23.8",
       },
       "peerDependencies": {
@@ -84,7 +85,7 @@
     },
     "npm-app": {
       "name": "codebuff",
-      "version": "1.0.196",
+      "version": "1.0.203",
       "bin": {
         "codebuff": "dist/index.js",
       },
@@ -215,7 +216,7 @@
         "react-hook-form": "^7.53.0",
         "react-spring": "^9.7.4",
         "shadcn-ui": "^0.9.4",
-        "stripe": "^16.11.0",
+        "stripe": "17.0.0",
         "tailwind-merge": "^2.5.2",
         "three": "^0.168.0",
         "three-globe": "^2.31.1",
@@ -3125,7 +3126,7 @@
 
     "strip-json-comments": ["strip-json-comments@3.1.1", "", {}, "sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig=="],
 
-    "stripe": ["stripe@16.12.0", "", { "dependencies": { "@types/node": ">=8.1.0", "qs": "^6.11.0" } }, "sha512-H7eFVLDxeTNNSn4JTRfL2//LzCbDrMSZ+2q1c7CanVWgK2qIW5TwS+0V7N9KcKZZNpYh/uCqK0PyZh/2UsaAtQ=="],
+    "stripe": ["stripe@17.0.0", "", { "dependencies": { "@types/node": ">=8.1.0", "qs": "^6.11.0" } }, "sha512-URKpnjH2O+OWxhvXLIaEIaAkp2fQvqITm/3zJS0a3nGCREjH3qJYxmGowngA46Qu1x2MumNL3Y/OdY6uzIhpCQ=="],
 
     "style-to-js": ["style-to-js@1.1.16", "", { "dependencies": { "style-to-object": "1.0.8" } }, "sha512-/Q6ld50hKYPH3d/r6nr117TZkHR0w0kGGIVfpG9N6D8NymRPM9RqCUv4pRpJ62E5DqOYx2AFpbZMyCPnjQCnOw=="],
 

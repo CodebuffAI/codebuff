@@ -66,7 +66,7 @@
     "react-hook-form": "^7.53.0",
     "react-spring": "^9.7.4",
     "shadcn-ui": "^0.9.4",
-    "stripe": "^16.11.0",
+    "stripe": "17.0.0",
     "tailwind-merge": "^2.5.2",
     "three": "^0.168.0",
     "three-globe": "^2.31.1",
