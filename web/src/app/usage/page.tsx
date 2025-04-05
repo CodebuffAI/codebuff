@@ -2,10 +2,22 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
-import { AuthenticatedQuotaManager } from 'common/src/billing/quota-manager'
-import { getNextQuotaReset } from 'common/util/dates'
-import { UsageData } from 'common/src/types/usage'
+import {
+  getCurrentBalanceDetails,
+  CreditBalance,
+  GRANT_PRIORITIES,
+} from 'common/src/billing/balance-calculator'
+import { GrantType } from 'common/src/db/schema'
 import { cn } from '@/lib/utils'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { eq } from 'drizzle-orm'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 const SignInCard = () => (
   <Card>
@@ -19,10 +31,48 @@ const SignInCard = () => (
   </Card>
 )
 
-const UsageDisplay = ({ data }: { data: UsageData }) => {
-  const { creditsUsed, totalQuota, nextQuotaReset, subscriptionActive } = data
-  const remainingCredits = Math.max(0, totalQuota - creditsUsed)
-  const usagePercentage = Math.min(100, (creditsUsed / totalQuota) * 100)
+interface UsageDisplayProps {
+  usageThisCycle: number
+  balance: CreditBalance
+  nextQuotaReset: Date | null
+}
+
+const grantTypeColors: Record<GrantType, string> = {
+  free: 'bg-green-500',
+  referral: 'bg-blue-500',
+  rollover: 'bg-purple-500',
+  purchase: 'bg-yellow-500',
+  admin: 'bg-pink-500',
+}
+const usedColor = 'bg-gray-400 dark:bg-gray-600'
+
+const getGrantTypeDisplayName = (type: GrantType): string => {
+  switch (type) {
+    case 'free': return 'Free';
+    case 'referral': return 'Referral';
+    case 'rollover': return 'Rollover';
+    case 'purchase': return 'Purchased';
+    case 'admin': return 'Admin Grant';
+    default: return type;
+  }
+}
+
+const UsageDisplay = ({
+  usageThisCycle,
+  balance,
+  nextQuotaReset,
+}: UsageDisplayProps) => {
+  const { totalRemaining, breakdown } = balance
+  const totalAvailable = totalRemaining + usageThisCycle
+
+  const sortedGrantTypes = (
+    Object.keys(breakdown) as GrantType[]
+  ).sort((a, b) => GRANT_PRIORITIES[a] - GRANT_PRIORITIES[b])
+
+  const calculatePercentage = (amount: number) =>
+    totalAvailable > 0 ? (amount / totalAvailable) * 100 : 0
+
+  const usagePercentage = calculatePercentage(usageThisCycle)
 
   return (
     <Card className="w-full max-w-2xl mx-auto mt-8">
@@ -30,76 +80,93 @@ const UsageDisplay = ({ data }: { data: UsageData }) => {
         <CardTitle className="text-2xl font-bold">Usage Statistics</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Usage Bar */}
         <div className="space-y-2">
-          <div className="h-4 bg-secondary rounded-full overflow-hidden">
-            <div 
-              className={cn(
-                "h-full transition-all duration-500",
-                usagePercentage > 90 ? "bg-red-500" :
-                usagePercentage > 75 ? "bg-yellow-500" :
-                "bg-blue-500"
-              )}
-              style={{ width: `${usagePercentage}%` }}
-            />
-          </div>
-          <p className="text-sm text-muted-foreground text-right">
-            {usagePercentage.toFixed(1)}% used
+          <p className="text-sm text-muted-foreground text-left">
+            Current Cycle Credit Status
           </p>
-        </div>
+          <TooltipProvider>
+            <div className="h-4 w-full flex rounded-full overflow-hidden bg-secondary">
+              {usagePercentage > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={cn('h-full', usedColor)}
+                      style={{ width: `${usagePercentage}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Used: {usageThisCycle.toLocaleString()}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {sortedGrantTypes.map((type) => {
+                const amount = breakdown[type]
+                if (!amount || amount <= 0) return null
+                const percentage = calculatePercentage(amount)
+                const colorClass = grantTypeColors[type] || 'bg-gray-300'
+                const displayName = getGrantTypeDisplayName(type)
 
-        {creditsUsed > totalQuota && subscriptionActive && (
-          <div className="p-4 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 space-y-2">
-            {data.overageRate ? (
-              <>
-                <p>
-                  You have exceeded your monthly quota, but you can continue
-                  using Codebuff. You will be charged an overage fee of $
-                  {data.overageRate.toFixed(2)} per 100 additional credits.
-                </p>
-                <p className="font-semibold">
-                  Current overage bill:{' '}
-                  <span className="text-yellow-700 dark:text-yellow-400">
-                    ${(((creditsUsed - totalQuota) / 100) * data.overageRate).toFixed(2)}
-                  </span>
-                </p>
-              </>
-            ) : (
-              <p>
-                You have exceeded your monthly quota, but you can continue
-                using Codebuff.
-              </p>
-            )}
+                return (
+                  <Tooltip key={type}>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={cn('h-full', colorClass)}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{displayName}: {amount.toLocaleString()}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })}
+            </div>
+          </TooltipProvider>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <span className={cn("w-3 h-3 rounded-full inline-block", usedColor)}></span>
+              <span>Used</span>
+            </div>
+            {sortedGrantTypes.map((type) => {
+              const amount = breakdown[type];
+              if (!amount || amount <= 0) return null;
+              const colorClass = grantTypeColors[type] || 'bg-gray-300';
+              const displayName = getGrantTypeDisplayName(type);
+              return (
+                <div key={type} className="flex items-center gap-1">
+                  <span className={cn("w-3 h-3 rounded-full inline-block", colorClass)}></span>
+                  <span>{displayName}</span>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
 
         <div className="grid gap-4">
           <div className="flex justify-between items-center p-4 rounded-lg bg-card/50">
-            <span className="font-medium">Remaining credits</span>
+            <span className="font-medium">Total Remaining Credits</span>
             <span className="text-xl font-bold">
-              {remainingCredits.toLocaleString('en-US')}
+              {totalRemaining.toLocaleString('en-US')}
             </span>
           </div>
 
           <div className="flex justify-between items-center p-4 rounded-lg bg-card/50">
-            <span className="font-medium">Credits used</span>
+            <span className="font-medium">Credits Used (This Cycle)</span>
             <span className="text-xl">
-              {creditsUsed.toLocaleString('en-US')}
+              {usageThisCycle.toLocaleString('en-US')}
             </span>
           </div>
 
-          <div className="flex justify-between items-center p-4 rounded-lg bg-card/50">
-            <span className="font-medium">Total quota</span>
-            <span className="text-xl">
-              {totalQuota.toLocaleString('en-US')}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center p-4 rounded-lg bg-card/50">
-            <span className="font-medium">Quota resets</span>
-            <span>{nextQuotaReset.toLocaleDateString()}</span>
-          </div>
+          {nextQuotaReset && (
+            <div className="flex justify-between items-center p-4 rounded-lg bg-card/50">
+              <span className="font-medium">Next Cycle Starts</span>
+              <span>{nextQuotaReset.toLocaleDateString()}</span>
+            </div>
+          )}
         </div>
+        <p className="text-xs text-muted-foreground pt-4">
+          Note: Credits are consumed starting with Free, then Referral, Rollover, Purchased, and finally Admin grants. Billing for usage beyond granted credits is handled by Stripe according to your plan.
+        </p>
       </CardContent>
     </Card>
   )
@@ -108,31 +175,46 @@ const UsageDisplay = ({ data }: { data: UsageData }) => {
 const UsagePage = async () => {
   const session = await getServerSession(authOptions)
 
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return <SignInCard />
   }
 
-  const quotaManager = new AuthenticatedQuotaManager()
-  let q = await quotaManager.checkQuota(session.user.id)
-  if (q.endDate < new Date()) {
-    const nextQuotaReset = getNextQuotaReset(q.endDate)
-    await quotaManager.setNextQuota(session.user.id, false, nextQuotaReset)
-    q = await quotaManager.checkQuota(session.user.id)
-  }
-  const { overageRate } = await quotaManager.getStripeSubscriptionQuota(
-    session.user.id
-  )
+  const userId = session.user.id
 
-  const usageData: UsageData = {
-    creditsUsed: q.creditsUsed,
-    totalQuota: q.quota,
-    remainingCredits: q.quota - q.creditsUsed,
-    nextQuotaReset: q.endDate,
-    subscriptionActive: q.subscription_active,
-    overageRate,
-  }
+  try {
+    const user = await db.query.user.findFirst({
+      where: eq(schema.user.id, userId),
+      columns: { usage: true, next_quota_reset: true },
+    })
 
-  return <UsageDisplay data={usageData} />
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    const balance = await calculateCurrentBalance(userId)
+
+    const usageData = {
+      usageThisCycle: user.usage,
+      balance: balance,
+      nextQuotaReset: user.next_quota_reset,
+    }
+
+    return <UsageDisplay {...usageData} />
+  } catch (error) {
+    console.error('Error fetching usage data:', error)
+    return (
+      <Card className="w-full max-w-2xl mx-auto mt-8">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-red-600">
+            Error
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>Could not load usage data. Please try again later.</p>
+        </CardContent>
+      </Card>
+    )
+  }
 }
 
 export default UsagePage
