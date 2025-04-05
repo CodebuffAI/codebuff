@@ -8,7 +8,6 @@ import { buildArray } from 'common/util/array'
 import { z } from 'zod'
 
 import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
-import { logger } from './util/logger'
 
 const tools = [
   {
@@ -116,6 +115,7 @@ function foo() {
 
 
 Notes for editing a file:
+- Don't try to use XML attributes. If you do, (e.g. <path name="foo">), the tool will not work.
 - If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
 - When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
 - You can also use this tool to create new files.
