@@ -707,7 +707,10 @@ export class Client {
           const toolResult = await handleToolCall(toolCall, getProjectRoot())
           toolResults.push(toolResult)
         }
-        if (toolResults.length > 0) {
+        if (
+          toolResults.length > 0 ||
+          a.toolCalls.some((call) => call.name === 'end_turn')
+        ) {
           console.log()
         }
 
