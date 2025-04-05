@@ -9,7 +9,7 @@ import { sendMessage } from './server'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { protec } from './middleware'
-import { getCurrentBalanceDetails } from 'common/src/billing/balance-calculator'
+import { calculateCurrentBalance } from 'common/src/billing/balance-calculator'
 import { ensureEndsWithNewline } from 'common/src/util/file'
 import { logger, withLoggerContext } from '@/util/logger'
 import { generateCompactId } from 'common/util/string'
@@ -87,7 +87,7 @@ export async function genUsageResponse(
 
     try {
       // Now userId is guaranteed to be a string
-      const balanceDetails = await getCurrentBalanceDetails(userId)
+      const balanceDetails = await calculateCurrentBalance(userId)
 
       return {
         type: 'usage-response' as const,
