@@ -7,14 +7,18 @@ import { hasMaxedReferrals } from 'common/util/server/referral'
 import { stripeServer } from 'common/src/util/stripe'
 import { GRANT_PRIORITIES } from 'common/src/billing/balance-calculator'
 import { logger } from '@/util/logger'
-import { createStripeMonetaryAmount } from 'common/src/billing/conversion'
+import {
+  createStripeMonetaryAmount,
+  getUserCostPerCredit,
+} from 'common/src/billing/conversion'
 import Stripe from 'stripe'
 
 /**
  * Helper function to create a Stripe credit grant for a referral.
+ * NOTE: stripeAmountObject should already be calculated based on the granting user's rate.
  */
 async function grantReferralStripeCredit(
-  userId: string,
+  userId: string, // The user receiving the grant
   stripeCustomerId: string,
   role: 'referrer' | 'referred',
   referrerId: string,
@@ -24,7 +28,7 @@ async function grantReferralStripeCredit(
 ): Promise<Stripe.Billing.CreditGrant | null> {
   try {
     const grant = await stripeServer.billing.creditGrants.create({
-      amount: stripeAmountObject,
+      amount: stripeAmountObject, // Use the provided monetary amount object
       customer: stripeCustomerId,
       category: 'promotional',
       applicability_config: {
@@ -38,17 +42,89 @@ async function grantReferralStripeCredit(
         referrer_user_id: referrerId,
         referred_user_id: referredId,
         local_operation_id: localOperationId,
+        // Add the user_id receiving the grant for webhook processing
+        user_id: userId,
       },
     })
     logger.info(
-      { userId, role, grantId: grant.id },
-      'Stripe credit grant created successfully'
+      {
+        userId,
+        role,
+        grantId: grant.id,
+        stripeAmountObject: stripeAmountObject,
+      },
+      'Stripe credit grant created successfully for referral'
     )
     return grant
   } catch (e) {
     logger.error({ error: e, userId, role }, 'Stripe grant creation failed')
     return null
   }
+}
+
+/**
+ * Processes a single user (referrer or referred) for referral credit granting.
+ * Fetches cost per credit, calculates monetary amount, and calls Stripe grant creation.
+ * Throws errors on validation failures which will rollback the transaction.
+ */
+async function processAndGrantReferralCredit(
+  userToGrant: { id: string; stripe_customer_id: string | null },
+  role: 'referrer' | 'referred',
+  creditsToGrant: number,
+  referrerId: string,
+  referredId: string,
+  localOperationId: string
+): Promise<Stripe.Billing.CreditGrant | null> {
+  // 1. Validate user and Stripe customer ID
+  if (!userToGrant || !userToGrant.stripe_customer_id) {
+    logger.error(
+      { userId: userToGrant?.id, role },
+      `User not found or missing Stripe customer ID for ${role}.`
+    )
+    throw new Error(`User setup issue for ${role}.`)
+  }
+
+  // 2. Get user-specific cost per credit
+  const centsPerCredit = await getUserCostPerCredit(userToGrant.id)
+  if (centsPerCredit <= 0) {
+    logger.error(
+      { userId: userToGrant.id, role, centsPerCredit },
+      `Invalid centsPerCredit for ${role}, cannot create grant.`
+    )
+    throw new Error(`${role} cost per credit is invalid.`)
+  }
+
+  // 3. Create Stripe monetary amount object
+  const stripeAmountObject = createStripeMonetaryAmount(
+    creditsToGrant,
+    centsPerCredit
+  )
+  if (!stripeAmountObject || stripeAmountObject.monetary.value <= 0) {
+    logger.error(
+      {
+        userId: userToGrant.id,
+        role,
+        creditsToGrant,
+        centsPerCredit,
+        stripeAmountObject,
+      },
+      `Referral bonus amount resulted in invalid monetary value for ${role}, skipping Stripe grant.`
+    )
+    throw new Error(
+      `Invalid referral bonus amount for ${role}, cannot create Stripe grant.`
+    )
+  }
+
+  // 4. Call the grant creation helper
+  return grantReferralStripeCredit(
+    userToGrant.id,
+    userToGrant.stripe_customer_id,
+    role,
+    referrerId,
+    referredId,
+    localOperationId,
+    stripeAmountObject
+  )
 }
 
 export async function redeemReferralCode(referralCode: string, userId: string) {
@@ -123,12 +199,12 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       )
     }
 
-    // Find the referrer user and their Stripe customer ID
+    // Find the referrer user object (needed for the helper)
     const referrer = await db.query.user.findFirst({
       where: eq(schema.user.referral_code, referralCode),
       columns: { id: true, stripe_customer_id: true },
     })
-
+    // Initial validation (redundant with helper but good for early exit)
     if (!referrer || !referrer.stripe_customer_id) {
       logger.warn(
         { referralCode, referrerId: referrer?.id },
@@ -140,12 +216,12 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       )
     }
 
-    // Find the referred user (the current user) and their Stripe customer ID
+    // Find the referred user object (needed for the helper)
     const referred = await db.query.user.findFirst({
       where: eq(schema.user.id, userId),
       columns: { id: true, stripe_customer_id: true },
     })
-
+    // Initial validation (redundant with helper but good for early exit)
     if (!referred || !referred.stripe_customer_id) {
       logger.warn(
         { userId },
@@ -167,15 +243,15 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
     }
 
     await db.transaction(async (tx) => {
-      // 1. Create the referral record locally with status 'completed'
+      // 1. Create the referral record locally
       const now = new Date()
       const referralRecord = await tx
         .insert(schema.referral)
         .values({
           referrer_id: referrer.id,
-          referred_id: userId,
+          referred_id: userId, // userId is referred.id
           status: 'completed',
-          credits: CREDITS_REFERRAL_BONUS,
+          credits: CREDITS_REFERRAL_BONUS, // Store internal credit amount locally
           created_at: now,
           completed_at: now,
         })
@@ -185,72 +261,43 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
 
       const localOperationId = referralRecord[0].operation_id
 
-      // 2. Grant credits via Stripe Billing Credits API for both users
+      // 2. Process and grant credits for both users using the new helper
       const grantPromises = []
-      const stripeAmountObject = createStripeMonetaryAmount(
-        CREDITS_REFERRAL_BONUS
-      )
 
-      if (!stripeAmountObject) {
-        logger.error(
-          { referralBonusCredits: CREDITS_REFERRAL_BONUS },
-          'Referral bonus amount is invalid, skipping Stripe grants.'
-        )
-        throw new Error(
-          'Invalid referral bonus amount, cannot create Stripe grants.'
-        )
-      }
-
-      if (!referrer || !referrer.stripe_customer_id) {
-        logger.warn(
-          { referralCode, referrerId: referrer?.id },
-          'Referrer not found or missing Stripe customer ID.'
-        )
-        throw new Error('Referrer not found or missing Stripe customer ID.')
-      }
-
-      // Grant to Referrer using helper
+      // Process Referrer
       grantPromises.push(
-        grantReferralStripeCredit(
-          referrer.id,
-          referrer.stripe_customer_id,
+        processAndGrantReferralCredit(
+          referrer,
           'referrer',
+          CREDITS_REFERRAL_BONUS,
           referrer.id,
           referred.id,
-          localOperationId,
-          stripeAmountObject
+          localOperationId
         )
       )
 
-      if (!referred || !referred.stripe_customer_id) {
-        logger.warn(
-          { userId },
-          'Referred user not found or missing Stripe customer ID during referral redemption.'
-        )
-        throw new Error('User not found or setup issue.')
-      }
-
-      // Grant to Referred User using helper
+      // Process Referred User
       grantPromises.push(
-        grantReferralStripeCredit(
-          referred.id,
-          referred.stripe_customer_id,
+        processAndGrantReferralCredit(
+          referred,
           'referred',
+          CREDITS_REFERRAL_BONUS,
           referrer.id,
           referred.id,
-          localOperationId,
-          stripeAmountObject
+          localOperationId
         )
       )
 
       const results = await Promise.all(grantPromises)
 
-      // Check if any grant creation failed (helper returns null on failure)
+      // Check if any grant creation failed (helper returns null on success/failure, throws on validation error)
       if (results.some((result) => result === null)) {
         logger.error(
           { localOperationId, referrerId: referrer.id, referredId: userId },
-          'One or more Stripe credit grants failed for referral. Rolling back transaction.'
+          'One or more Stripe credit grants failed (API error). Rolling back transaction.'
         )
+        // Error thrown by helper for validation issues already rolled back.
+        // This handles Stripe API errors returned as null by grantReferralStripeCredit.
         throw new Error('Failed to create Stripe credit grants for referral.')
       } else {
         logger.info(
@@ -264,7 +311,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
     return NextResponse.json(
       {
         message: 'Referral applied successfully!',
-        credits_awarded: CREDITS_REFERRAL_BONUS,
+        credits_awarded: CREDITS_REFERRAL_BONUS, // Report internal credits awarded
       },
       {
         status: 200,
@@ -277,9 +324,14 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
     )
     const errorMessage =
       error instanceof Error ? error.message : 'Internal Server Error'
-    const userFacingError = errorMessage.includes('Stripe credit grants')
-      ? errorMessage
-      : 'Failed to apply referral code. Please try again later.'
+    // Make specific error messages user-facing if they originate from our checks/helpers
+    const userFacingError =
+      errorMessage.includes('Stripe credit grants') ||
+      errorMessage.includes('cost per credit') ||
+      errorMessage.includes('bonus amount') ||
+      errorMessage.includes('User setup issue')
+        ? errorMessage
+        : 'Failed to apply referral code. Please try again later.'
     return NextResponse.json({ error: userFacingError }, { status: 500 })
   }
 }

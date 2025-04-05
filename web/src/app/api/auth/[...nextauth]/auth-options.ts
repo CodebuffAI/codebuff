@@ -4,7 +4,7 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter'
 
 import { env } from '@/env.mjs'
 import { stripeServer } from 'common/src/util/stripe'
-import db from 'common/src/db'
+import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { Adapter } from 'next-auth/adapters'
@@ -12,7 +12,10 @@ import { parse, format } from 'url'
 import { CREDITS_USAGE_LIMITS } from 'common/src/constants'
 import { logger } from '@/util/logger'
 import { GRANT_PRIORITIES } from 'common/src/billing/balance-calculator'
-import { createStripeMonetaryAmount } from 'common/src/billing/conversion'
+import {
+  createStripeMonetaryAmount,
+  getUserCostPerCredit,
+} from 'common/src/billing/conversion'
 
 async function createAndLinkStripeCustomer(user: User): Promise<string | null> {
   if (!user.email || !user.name) {
@@ -58,11 +61,17 @@ async function createInitialCreditGrant(
 ): Promise<void> {
   try {
     const initialGrantCredits = CREDITS_USAGE_LIMITS.FREE
-    const stripeAmountObject = createStripeMonetaryAmount(initialGrantCredits)
+
+    const centsPerCredit = await getUserCostPerCredit(userId)
+
+    const stripeAmountObject = createStripeMonetaryAmount(
+      initialGrantCredits,
+      centsPerCredit
+    )
 
     if (!stripeAmountObject) {
       logger.error(
-        { userId, customerId, initialGrantCredits },
+        { userId, customerId, initialGrantCredits, centsPerCredit },
         'Initial grant amount is invalid, skipping Stripe grant creation.'
       )
       return
@@ -88,7 +97,7 @@ async function createInitialCreditGrant(
         userId: userId,
         customerId: customerId,
         grantId: grant.id,
-        creditsGranted: initialGrantCredits,
+        creditsGrantedInternal: initialGrantCredits,
         stripeAmountCents: stripeAmountObject.monetary.value,
       },
       'Initial free credit grant created via Stripe.'
@@ -165,11 +174,9 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async redirect({ url, baseUrl }) {
-      // Parse the URL to check for auth_code
       const potentialRedirectUrl = new URL(url, baseUrl)
       const authCode = potentialRedirectUrl.searchParams.get('auth_code')
 
-      // If there's an auth_code, this is a CLI login flow - redirect to onboard
       if (authCode) {
         const onboardUrl = new URL(`${baseUrl}/onboard`)
         potentialRedirectUrl.searchParams.forEach((value, key) => {
@@ -182,7 +189,6 @@ export const authOptions: NextAuthOptions = {
         return onboardUrl.toString()
       }
 
-      // For web login flow, allow relative URLs and same-origin URLs
       if (url.startsWith('/') || potentialRedirectUrl.origin === baseUrl) {
         logger.info(
           { url, redirectTarget: potentialRedirectUrl.toString() },
@@ -191,7 +197,6 @@ export const authOptions: NextAuthOptions = {
         return potentialRedirectUrl.toString()
       }
 
-      // Default to base URL for external callback URLs
       logger.info(
         { url, baseUrl, redirectTarget: baseUrl },
         'Callback URL is external or invalid, redirecting to baseUrl'

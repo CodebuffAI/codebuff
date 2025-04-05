@@ -9,6 +9,7 @@ import Stripe from 'stripe'
 
 import { stripNullCharsFromObject } from '../util/object'
 import { INITIAL_RETRY_DELAY, withRetry } from 'common/src/util/promise'
+import { getUserCostPerCredit } from 'common/src/billing/conversion'
 
 import { OpenAIMessage } from '@/llm-apis/openai-api'
 import { logger, withLoggerContext } from '@/util/logger'
@@ -88,20 +89,20 @@ const calcCost = (
 async function syncMessageToStripe(messageData: {
   messageId: string
   userId: string
-  creditsUsed: number
+  monetaryCostInCents: number
   finishedAt: Date
 }) {
-  const { messageId, userId, creditsUsed, finishedAt } = messageData
+  const { messageId, userId, monetaryCostInCents, finishedAt } = messageData
 
-  if (!userId || userId === TEST_USER_ID || creditsUsed <= 0) {
+  if (!userId || userId === TEST_USER_ID || monetaryCostInCents <= 0) {
     logger.debug(
-      { messageId, userId, creditsUsed },
-      'Skipping Stripe sync (no user, test user, or zero credits).'
+      { messageId, userId, monetaryCostInCents },
+      'Skipping Stripe sync (no user, test user, or zero cost).'
     )
     return
   }
 
-  const logContext = { messageId, userId, creditsUsed }
+  const logContext = { messageId, userId, monetaryCostInCents }
 
   try {
     const user = await db.query.user.findFirst({
@@ -118,24 +119,23 @@ async function syncMessageToStripe(messageData: {
     }
 
     const stripeCustomerId = user.stripe_customer_id
-    const eventName = 'credits'
     const timestamp = Math.floor(finishedAt.getTime() / 1000)
 
     const syncAction = async () => {
       logger.info(
         logContext,
-        `Attempting to sync usage to Stripe Meter Events for customer ${stripeCustomerId}`
+        `Attempting to sync monetary usage (${monetaryCostInCents} cents) to Stripe Meter Events for customer ${stripeCustomerId}`
       )
       await stripeServer.billing.meterEvents.create({
-        event_name: eventName,
+        event_name: 'cents',
         timestamp: timestamp,
         payload: {
           stripe_customer_id: stripeCustomerId,
-          value: creditsUsed.toString(),
+          value: monetaryCostInCents.toString(),
           message_id: messageId,
         },
       })
-      logger.info(logContext, 'Successfully synced usage to Stripe.')
+      logger.info(logContext, 'Successfully synced monetary usage to Stripe.')
 
       await db
         .delete(schema.syncFailures)
@@ -343,11 +343,6 @@ async function sendCostResponseToClient(
   }
 }
 
-/**
- * Updates the user's cycle usage in the database.
- * @param userId - The ID of the user whose usage to update.
- * @param creditsUsed - The amount of credits to add to the user's usage.
- */
 async function updateUserCycleUsage(
   userId: string,
   creditsUsed: number
@@ -407,37 +402,62 @@ export const saveMessage = async (value: {
         value.cacheReadInputTokens ?? 0
       )
 
-      const creditsUsed = Math.max(
+      const monetaryCostInCents = Math.max(
         1,
         Math.round(cost * 100 * (1 + PROFIT_MARGIN))
+      )
+
+      const centsPerCredit = await getUserCostPerCredit(value.userId)
+      if (centsPerCredit <= 0) {
+        logger.error(
+          { userId: value.userId, centsPerCredit },
+          'Invalid centsPerCredit, cannot calculate internal credits used.'
+        )
+        return null
+      }
+
+      const internalCreditsUsed = Math.max(
+        1,
+        Math.ceil(monetaryCostInCents / centsPerCredit)
+      )
+
+      logger.debug(
+        {
+          messageId: value.messageId,
+          costUSD: cost,
+          monetaryCostInCents,
+          centsPerCredit,
+          internalCreditsUsed,
+        },
+        'Calculated message cost and credits'
       )
 
       const savedMessageResult = await insertMessageRecord({
         ...value,
         cost,
-        creditsUsed,
+        creditsUsed: internalCreditsUsed,
       })
 
       if (!savedMessageResult || !value.userId) {
         logger.debug(
           { messageId: value.messageId, userId: value.userId },
-          'Skipping Stripe sync call (no user ID or failed to save message).'
+          'Skipping further processing (no user ID or failed to save message).'
         )
         return null
       }
 
-      await updateUserCycleUsage(value.userId, creditsUsed)
+      await updateUserCycleUsage(value.userId, internalCreditsUsed)
 
       await sendCostResponseToClient(
         value.clientSessionId,
         value.userInputId,
-        creditsUsed
+        internalCreditsUsed
       )
 
       await syncMessageToStripe({
         messageId: value.messageId,
         userId: value.userId,
-        creditsUsed: creditsUsed,
+        monetaryCostInCents: monetaryCostInCents,
         finishedAt: value.finishedAt,
       }).catch((syncError) => {
         logger.error(

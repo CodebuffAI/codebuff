@@ -1,54 +1,101 @@
+import { logger } from '../util/logger' // Assuming logger exists
+
 /**
- * Converts a Stripe grant amount (in the smallest currency unit, e.g., cents for USD)
- * to the application's internal credit system units.
+ * Determines the cost of one internal credit in USD cents for a given user.
+ * TODO: Enhance this function to fetch user's plan and apply plan-specific rates.
  *
- * Currently, the ratio is 1 cent = 1 credit ($1 = 100 credits).
- *
- * @param amountInSmallestUnit - The grant amount from Stripe, typically in cents.
- * @returns The equivalent amount in application credits. Uses Math.round for conversion.
+ * @param userId - The ID of the user (currently unused, for future enhancement).
+ * @returns The cost of one internal credit in cents.
  */
-export function convertStripeGrantAmountToCredits(amountInSmallestUnit: number): number {
-  // Assuming the Stripe amount is in cents (for USD) and $1 = 100 credits.
-  // Therefore, 1 cent = 1 credit.
-  const creditsPerCent = 1;
-  // Use Math.round in case the ratio changes or Stripe sends unexpected values
-  return Math.round(amountInSmallestUnit * creditsPerCent);
+export async function getUserCostPerCredit(
+  userId: string | undefined
+): Promise<number> {
+  // Placeholder: Currently 1 cent per credit for all users. Can adjust in the future based on user
+  return 1
 }
 
 /**
- * Converts an internal credit system value to the equivalent monetary amount in USD cents.
- * Uses Math.ceil to ensure enough monetary value is granted if the ratio changes,
- * though currently 1 credit = 1 cent.
+ * Converts a Stripe grant amount (in the smallest currency unit, e.g., cents for USD)
+ * to the application's internal credit system units, based on the user's cost per credit.
+ *
+ * @param amountInSmallestUnit - The grant amount from Stripe, typically in cents.
+ * @param centsPerCredit - The user's effective cost per internal credit (in cents).
+ * @returns The equivalent amount in application credits. Uses Math.round for conversion.
+ */
+export function convertStripeGrantAmountToCredits(
+  amountInSmallestUnit: number,
+  centsPerCredit: number
+): number {
+  if (centsPerCredit <= 0) {
+    logger.error(
+      { amountInSmallestUnit, centsPerCredit },
+      'Invalid centsPerCredit value (must be positive). Cannot convert Stripe grant.'
+    )
+    // Return 0 or throw an error, depending on desired handling
+    return 0
+  }
+  // Credits = Total Cents / Cents per Credit
+  const credits = amountInSmallestUnit / centsPerCredit
+  // Use Math.round for robustness
+  return Math.round(credits)
+}
+
+/**
+ * Converts an internal credit system value to the equivalent monetary amount in USD cents,
+ * based on the user's cost per credit.
+ * Uses Math.ceil to ensure enough monetary value is calculated if rounding occurs.
+ *
  * @param credits - The amount in internal credits.
+ * @param centsPerCredit - The user's effective cost per internal credit (in cents).
  * @returns The equivalent amount in USD cents.
  */
-export function convertCreditsToUsdCents(credits: number): number {
+export function convertCreditsToUsdCents(
+  credits: number,
+  centsPerCredit: number
+): number {
   if (credits <= 0) {
-    return 0;
+    return 0
   }
-  // Assuming 1 credit = 1 cent for now.
-  const centsPerCredit = 1;
-  // Use Math.ceil for safety if ratio changes, ensuring we grant enough monetary value.
-  return Math.ceil(credits * centsPerCredit);
+  if (centsPerCredit <= 0) {
+    logger.error(
+      { credits, centsPerCredit },
+      'Invalid centsPerCredit value (must be positive). Cannot convert credits to cents.'
+    )
+    return 0
+  }
+  // Total Cents = Credits * Cents per Credit
+  const cents = credits * centsPerCredit
+  // Use Math.ceil for safety, ensuring we calculate enough monetary value.
+  return Math.ceil(cents)
 }
 
 /**
  * Creates the Amount object structure required by the Stripe Billing Credits API v18+.
- * This structure specifies the monetary value and currency.
+ * This structure specifies the monetary value and currency based on internal credits
+ * and the user's cost per credit.
+ *
  * @param credits - The amount in internal credits to be granted.
- * @returns The Stripe Amount object structure or null if credits are non-positive.
+ * @param centsPerCredit - The user's effective cost per internal credit (in cents).
+ * @returns The Stripe Amount object structure or null if credits are non-positive or conversion fails.
  */
-export function createStripeMonetaryAmount(credits: number): { monetary: { currency: 'usd', value: number }, type: 'monetary' } | null {
-    const cents = convertCreditsToUsdCents(credits);
-    if (cents <= 0) {
-        // Stripe API likely expects a positive value
-        return null;
-    }
-    return {
-        monetary: {
-            currency: 'usd',
-            value: cents, // Value must be in cents
-        },
-        type: 'monetary',
-    };
+export function createStripeMonetaryAmount(
+  credits: number,
+  centsPerCredit: number
+): { monetary: { currency: 'usd'; value: number }; type: 'monetary' } | null {
+  const cents = convertCreditsToUsdCents(credits, centsPerCredit)
+  if (cents <= 0) {
+    // Stripe API likely expects a positive value, or conversion failed
+    logger.warn(
+      { credits, centsPerCredit, calculatedCents: cents },
+      'Calculated non-positive cents for Stripe grant, returning null.'
+    )
+    return null
+  }
+  return {
+    monetary: {
+      currency: 'usd',
+      value: cents, // Value must be in cents
+    },
+    type: 'monetary',
+  }
 }
