@@ -14,9 +14,10 @@ import {
   UsageResponse,
 } from 'common/actions'
 import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
-import type { CostMode } from 'common/constants'
 import {
+  CostMode,
   CREDITS_REFERRAL_BONUS,
+  ONE_TIME_TAGS,
   REQUEST_CREDIT_SHOW_THRESHOLD,
 } from 'common/constants'
 import {
@@ -66,7 +67,11 @@ export class Client {
   private git: GitCommand
   private rl: readline.Interface
   private lastToolResults: ToolResult[] = []
-  private extraGemini25ProMessageShown: boolean = false // Flag for rate limit message
+  private oneTimeTagsShown: Record<(typeof ONE_TIME_TAGS)[number], boolean> =
+    Object.fromEntries(ONE_TIME_TAGS.map((tag) => [tag, false])) as Record<
+      (typeof ONE_TIME_TAGS)[number],
+      boolean
+    >
 
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
@@ -201,7 +206,6 @@ export class Client {
         if (!this.storedApiKeyTypes.includes(keyType)) {
           this.storedApiKeyTypes.push(keyType)
         }
-        this.extraGemini25ProMessageShown = false
       } else {
         throw new Error(respJson.message)
       }
@@ -278,7 +282,6 @@ export class Client {
           fs.unlinkSync(CREDENTIALS_PATH)
           console.log(`You (${this.user.name}) have been logged out.`)
           this.user = undefined
-          this.extraGemini25ProMessageShown = false // Reset flag on logout
         } catch (error) {
           console.error('Error removing credentials file:', error)
         }
@@ -387,7 +390,9 @@ export class Client {
             ]
             console.log('\n' + responseToUser.join('\n'))
             this.lastWarnedPct = 0
-            this.extraGemini25ProMessageShown = false // Reset flag on login
+            this.oneTimeTagsShown = Object.fromEntries(
+              ONE_TIME_TAGS.map((tag) => [tag, false])
+            ) as Record<(typeof ONE_TIME_TAGS)[number], boolean>
 
             displayGreeting(this.costMode, null)
             clearInterval(pollInterval)
@@ -638,29 +643,19 @@ export class Client {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
-      if (chunk.includes('<codebuff_rate_limit_info>')) {
-        if (this.extraGemini25ProMessageShown) {
+      for (const tag of ONE_TIME_TAGS) {
+        if (chunk.startsWith(`<${tag}>`) && chunk.endsWith(`</${tag}>`)) {
+          if (this.oneTimeTagsShown[tag]) {
+            return
+          }
+          Spinner.get().stop()
+          const warningMessage = chunk
+            .replace(`<${tag}>`, '')
+            .replace(`</${tag}>`, '')
+          console.warn(yellow(`\n${warningMessage}`))
+          this.oneTimeTagsShown[tag] = true
           return
         }
-        Spinner.get().stop()
-        const warningMessage = chunk
-          .replace('<codebuff_rate_limit_info>', '')
-          .replace('</codebuff_rate_limit_info>', '')
-        console.warn(yellow(`\n${warningMessage}`))
-        this.extraGemini25ProMessageShown = true
-        return
-      }
-      if (chunk.includes('<codebuff_no_user_key_info>')) {
-        if (this.extraGemini25ProMessageShown) {
-          return
-        }
-        Spinner.get().stop()
-        const warningMessage = chunk
-          .replace('<codebuff_no_user_key_info>', '')
-          .replace('</codebuff_no_user_key_info>', '')
-        console.warn(yellow(`\n${warningMessage}`))
-        this.extraGemini25ProMessageShown = true
-        return
       }
 
       if (chunk && chunk.trim()) {

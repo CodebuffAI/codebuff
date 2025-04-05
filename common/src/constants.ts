@@ -26,6 +26,14 @@ export const DEFAULT_IGNORED_FILES = [
   'bun.lockb',
 ]
 
+// Special message content tags indicating specific server states
+export const CODEBUFF_RATE_LIMIT_INFO = 'codebuff_rate_limit_info'
+export const CODEBUFF_CLAUDE_FALLBACK_INFO = 'codebuff_claude_fallback_info'
+export const ONE_TIME_TAGS = [
+  CODEBUFF_RATE_LIMIT_INFO,
+  CODEBUFF_CLAUDE_FALLBACK_INFO,
+] as const
+
 export const FILE_READ_STATUS = {
   DOES_NOT_EXIST: '[FILE_DOES_NOT_EXIST]',
   IGNORED: '[FILE_IGNORED_BY_GITIGNORE_OR_CODEBUFF_IGNORE]',

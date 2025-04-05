@@ -4,13 +4,14 @@ import {
   AnthropicModel,
   getModelForMode,
   HIDDEN_FILE_READ_STATUS,
+  ONE_TIME_TAGS,
   type CostMode,
 } from 'common/constants'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { buildArray } from 'common/util/array'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
-import { toContentString, withCacheControl } from 'common/util/messages'
+import { toContentString } from 'common/util/messages'
 import { generateCompactId } from 'common/util/string'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
@@ -32,6 +33,7 @@ import {
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
+import { getMessagesSubset } from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
@@ -49,7 +51,6 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
-import { getMessagesSubset } from './util/messages'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
@@ -453,8 +454,9 @@ ${newFiles.map((file) => file.path).join('\n')}
 
   for await (const chunk of streamWithTags) {
     if (
-      !chunk.includes('<codebuff_rate_limit_info>') &&
-      !chunk.includes('<codebuff_no_user_key_info>')
+      !ONE_TIME_TAGS.some(
+        (tag) => chunk.startsWith(`<${tag}>`) && chunk.endsWith(`</${tag}>`)
+      )
     ) {
       fullResponse += chunk
     }
