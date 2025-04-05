@@ -1,19 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { eq, sql, SQL } from 'drizzle-orm'
+import { eq, sql, SQL, and, isNull } from 'drizzle-orm'
 
 import { env } from '@/env.mjs'
 import { stripeServer } from 'common/src/util/stripe'
-import {
-  getPlanFromPriceId,
-  getSubscriptionItemByType,
-  getTotalReferralCreditsForCustomer,
-} from '@/lib/stripe-utils'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { PLAN_CONFIGS, UsageLimits } from 'common/constants'
+import { logger } from '@/util/logger'
+import {
+  convertStripeGrantAmountToCredits,
+  getUserCostPerCredit,
+} from 'common/src/billing/conversion'
 import { match, P } from 'ts-pattern'
-import { AuthenticatedQuotaManager } from 'common/billing/quota-manager'
 
 const getCustomerId = (
   customer: string | Stripe.Customer | Stripe.DeletedCustomer
@@ -32,200 +30,228 @@ const getCustomerId = (
     .exhaustive()
 }
 
-
 const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
+  let event: Stripe.Event
   try {
     const buf = await req.text()
     const sig = req.headers.get('stripe-signature')!
 
-    let event: Stripe.Event
+    event = stripeServer.webhooks.constructEvent(
+      buf,
+      sig,
+      env.STRIPE_WEBHOOK_SECRET_KEY
+    )
+  } catch (err) {
+    const error = err as Error
+    logger.error(
+      { error: error.message },
+      'Webhook signature verification failed'
+    )
+    return NextResponse.json(
+      { error: { message: `Webhook Error: ${error.message}` } },
+      { status: 400 }
+    )
+  }
 
-    try {
-      event = stripeServer.webhooks.constructEvent(
-        buf,
-        sig,
-        env.STRIPE_WEBHOOK_SECRET_KEY
-      )
-    } catch (err) {
-      return NextResponse.json(
-        {
-          error: {
-            message: `Webhook Error - ${err}`,
-          },
-        },
-        { status: 400 }
-      )
-    }
+  logger.info({ type: event.type }, 'Received Stripe webhook event')
 
+  try {
     switch (event.type) {
       case 'customer.created':
         // Misnomer; we always create a customer when a user signs up.
         // We should use this webhook to send general onboarding material, welcome emails, etc.
         break
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
-        // Determine plan type from subscription items
-        const subscription = event.data.object as Stripe.Subscription
-
-        // Handle subscription states with ts-pattern match
-        await match(subscription)
-          .with(
-            { status: P.union('incomplete_expired', 'unpaid') },
-            async (sub) => {
-              // Immediately downgrade for payment-related failures
-              await handleSubscriptionChange(sub, UsageLimits.FREE)
-            }
-          )
-          .with({ status: 'canceled', cancel_at_period_end: true }, () => {
-            // Keep user on current plan until period end
-            // No action needed, subscription.deleted event will handle the downgrade
-          })
-          .with(
-            { status: 'canceled', cancel_at_period_end: false },
-            async (sub) => {
-              // Immediate cancellation, downgrade now
-              await handleSubscriptionChange(sub, UsageLimits.FREE)
-            }
-          )
-          .otherwise(async (sub) => {
-            // For other states (active, trialing, past_due), proceed normally
-            const basePriceId = getSubscriptionItemByType(sub, 'licensed')
-            const plan = getPlanFromPriceId(basePriceId?.price.id)
-            await handleSubscriptionChange(sub, plan)
-          })
+      case 'billing.credit_grant.created': {
+        await handleCreditGrantCreated(
+          event.data.object as Stripe.Billing.CreditGrant
+        )
         break
       }
-      case 'customer.subscription.deleted':
-        // Only downgrade to FREE tier when subscription period has ended
-        await handleSubscriptionChange(event.data.object, UsageLimits.FREE)
+      case 'billing.credit_grant.updated': {
+        await handleCreditGrantUpdated(
+          event.data.object as Stripe.Billing.CreditGrant
+        )
         break
-      case 'invoice.created':
-        await handleInvoiceCreated(event)
-        break
-      case 'invoice.paid':
-        await handleInvoicePaid(event)
-        break
+      }
       default:
         console.log(`Unhandled event type ${event.type}`)
-        return NextResponse.json(
-          {
-            error: {
-              message: 'Method Not Allowed',
-            },
-          },
-          { status: 405 }
-        )
     }
     return NextResponse.json({ received: true })
   } catch (err) {
     const error = err as Error
-    console.error('Error processing webhook:', error)
+    logger.error(
+      { error: error.message, eventType: event.type },
+      'Error processing webhook'
+    )
     return NextResponse.json(
-      {
-        error: {
-          message: error.message,
-        },
-      },
+      { error: { message: `Webhook handler error: ${error.message}` } },
       { status: 500 }
     )
   }
 }
 
-async function handleSubscriptionChange(
-  subscription: Stripe.Subscription,
-  usageTier: UsageLimits
-) {
-  const customerId = getCustomerId(subscription.customer)
-  console.log(`Customer ID: ${customerId}`)
+async function handleCreditGrantCreated(grant: Stripe.Billing.CreditGrant) {
+  const userId = grant.metadata?.user_id
+  if (!userId) {
+    logger.error(
+      { grantId: grant.id, metadata: grant.metadata },
+      'Missing user_id in metadata for credit grant created event'
+    )
+    return
+  }
 
-  // Get quota from the target plan and add referral credits
-  const baseQuota = PLAN_CONFIGS[usageTier].limit
-  const referralCredits = await getTotalReferralCreditsForCustomer(customerId)
-  const newQuota = baseQuota + referralCredits
-  console.log(
-    `Calculated new quota: ${newQuota} (base: ${baseQuota}, referral: ${referralCredits})`
+  let amountInCents: number
+  if (
+    grant.amount &&
+    grant.amount.type === 'monetary' &&
+    grant.amount.monetary?.value !== undefined
+  ) {
+    amountInCents = grant.amount.monetary.value
+  } else {
+    logger.error(
+      { grantId: grant.id, amountObject: grant.amount },
+      'Invalid or missing monetary amount in credit grant created event'
+    )
+    return
+  }
+
+  const customerId = getCustomerId(grant.customer)
+  const grantType = (grant.metadata?.type || 'admin') as schema.GrantType
+  const priority =
+    typeof grant.priority === 'number' && !isNaN(grant.priority)
+      ? grant.priority
+      : 50
+  const description = grant.metadata?.description || `Stripe Grant ${grant.id}`
+  const expiresAt = grant.expires_at ? new Date(grant.expires_at * 1000) : null
+
+  logger.info(
+    {
+      userId: userId,
+      grantId: grant.id,
+      stripeAmountCents: amountInCents,
+      type: grantType,
+      priority: priority,
+      customerId: customerId,
+      metadata: grant.metadata,
+      grantPriorityField: grant.priority,
+    },
+    'Processing credit grant creation'
   )
 
-  let newSubscriptionId: string | null = subscription.id
-  if (subscription.canceled_at) {
-    const cancelTime = new Date(subscription.canceled_at * 1000)
-    const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000)
-    
-    if (cancelTime <= fiveMinutesFromNow) {
-      console.log(
-        `Subscription cancelled at ${cancelTime.toISOString()}`
+  try {
+    const centsPerCredit = await getUserCostPerCredit(userId)
+    if (centsPerCredit <= 0) {
+      logger.error(
+        { userId, grantId: grant.id, centsPerCredit },
+        'Invalid centsPerCredit for user, cannot process grant.'
       )
-      newSubscriptionId = null
+      return
     }
-  }
-  console.log(`New subscription ID: ${newSubscriptionId}`)
 
-  await db
-    .update(schema.user)
-    .set({
-      quota_exceeded: false,
-      quota: newQuota,
-      next_quota_reset: new Date(subscription.current_period_end * 1000),
-      subscription_active: !!newSubscriptionId,
-      stripe_price_id: newSubscriptionId,
-    })
-    .where(eq(schema.user.stripe_customer_id, customerId))
-}
+    const internalCredits = convertStripeGrantAmountToCredits(
+      amountInCents,
+      centsPerCredit
+    )
 
-async function handleInvoiceCreated(
-  invoiceCreated: Stripe.InvoiceCreatedEvent
-) {
-  const customer = invoiceCreated.data.object.customer
+    if (internalCredits <= 0 && amountInCents > 0) {
+      logger.warn(
+        {
+          userId,
+          grantId: grant.id,
+          amountInCents,
+          centsPerCredit,
+          internalCredits,
+        },
+        'Calculated zero or negative internal credits from a positive Stripe grant amount.'
+      )
+    }
 
-  if (!customer) {
-    throw new Error('No customer found in invoice paid event')
-  }
-
-  const customerId = getCustomerId(customer)
-
-  // Get total referral credits for this user
-  const referralCredits = await getTotalReferralCreditsForCustomer(customerId)
-  if (referralCredits > 0) {
-    await stripeServer.billing.meterEvents.create({
-      event_name: 'credits',
-      timestamp: Math.floor(new Date().getTime() / 1000),
-      payload: {
-        stripe_customer_id: customerId,
-        value: `-${referralCredits}`,
-        description: `Referral bonus: your bill was reduced by ${referralCredits} credits.`,
+    logger.debug(
+      {
+        userId,
+        grantId: grant.id,
+        amountInCents,
+        centsPerCredit,
+        internalCredits,
       },
-    })
+      'Converted Stripe grant to internal credits'
+    )
+
+    await db
+      .insert(schema.creditGrants)
+      .values({
+        operation_id: grant.id,
+        user_id: userId,
+        amount: internalCredits,
+        type: grantType,
+        description: description,
+        priority: priority,
+        expires_at: expiresAt,
+        created_at: new Date(grant.created * 1000),
+        stripe_grant_id: grant.id,
+      })
+      .onConflictDoNothing()
+
+    logger.info(
+      { userId: userId, grantId: grant.id, creditsAdded: internalCredits },
+      'Credit grant successfully inserted/ignored in DB via webhook'
+    )
+  } catch (error) {
+    logger.error(
+      { userId: userId, grantId: grant.id, error },
+      'Error processing credit grant creation in handleCreditGrantCreated'
+    )
+    throw error
   }
 }
 
-async function handleInvoicePaid(invoicePaid: Stripe.InvoicePaidEvent) {
-  const customer = invoicePaid.data.object.customer
-
-  if (!customer) {
-    throw new Error('No customer found in invoice paid event')
+async function handleCreditGrantUpdated(grant: Stripe.Billing.CreditGrant) {
+  const userId = grant.metadata?.user_id
+  if (!userId) {
+    logger.error(
+      { grantId: grant.id, metadata: grant.metadata },
+      'Missing user_id in metadata for credit grant updated event'
+    )
+    return
   }
 
-  const customerId = getCustomerId(customer)
-  const subscriptionId = match(invoicePaid.data.object.subscription)
-    .with(P.string, (id) => id)
-    .with({ object: 'subscription' }, (subscription) => subscription.id)
-    .otherwise(() => null)
+  const customerId = getCustomerId(grant.customer)
 
-  // Next month
-  const nextQuotaReset: SQL<string> | Date = invoicePaid.data.object
-    .next_payment_attempt
-    ? new Date(invoicePaid.data.object.next_payment_attempt * 1000)
-    : sql<string>`now() + INTERVAL '1 month'`
+  const expiresAt = grant.expires_at ? new Date(grant.expires_at * 1000) : null
+  const description = grant.metadata?.description || `Stripe Grant ${grant.id}`
 
-  await db
-    .update(schema.user)
-    .set({
-      quota_exceeded: false,
-      next_quota_reset: nextQuotaReset,
-      subscription_active: true,
-      stripe_price_id: subscriptionId,
-    })
-    .where(eq(schema.user.stripe_customer_id, customerId))
+  logger.info(
+    { userId: userId, grantId: grant.id, customerId: customerId },
+    'Processing credit grant update'
+  )
+
+  try {
+    const result = await db
+      .update(schema.creditGrants)
+      .set({
+        expires_at: expiresAt,
+        description: description,
+      })
+      .where(eq(schema.creditGrants.stripe_grant_id, grant.id))
+
+    if (result.rowCount && result.rowCount > 0) {
+      logger.info(
+        { userId: userId, grantId: grant.id },
+        'Credit grant successfully updated in DB'
+      )
+    } else {
+      logger.warn(
+        { userId: userId, grantId: grant.id },
+        'Credit grant update webhook received, but no matching grant found in DB'
+      )
+    }
+  } catch (error) {
+    logger.error(
+      { userId: userId, grantId: grant.id, error },
+      'Error updating credit grant in DB'
+    )
+    throw error
+  }
 }
 
 export { webhookHandler as POST }
