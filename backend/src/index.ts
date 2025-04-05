@@ -3,7 +3,7 @@ import http from 'http'
 import { listen as webSocketListen } from './websockets/server'
 import { env } from './env.mjs'
 import { logger } from './util/logger'
-import { handler as usageHandler } from './api/usage'
+import usageHandler from './api/usage'
 
 const app = express()
 const port = env.PORT
