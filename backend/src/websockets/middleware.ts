@@ -3,31 +3,28 @@ import { ClientAction, ServerAction } from 'common/actions'
 import { sendAction } from './websocket-action'
 import { checkAuth } from '../util/check-auth'
 import { logger, withLoggerContext, LoggerContext } from '@/util/logger'
-import { getUserInfoFromAuthToken } from './auth'
+import { getUserInfoFromAuthToken, UserInfo } from './auth'
+import { calculateCurrentBalance } from 'common/src/billing/balance-calculator'
+
+type MiddlewareCallback = (
+  action: ClientAction,
+  clientSessionId: string,
+  ws: WebSocket,
+  userInfo: UserInfo | undefined
+) => Promise<void | ServerAction>
 
 export class WebSocketMiddleware {
-  private middlewares: Array<
-    (
-      action: ClientAction,
-      clientSessionId: string,
-      ws: WebSocket
-    ) => Promise<void | ServerAction>
-  > = []
+  private middlewares: Array<MiddlewareCallback> = []
 
   use<T extends ClientAction['type']>(
     callback: (
       action: Extract<ClientAction, { type: T }>,
       clientSessionId: string,
-      ws: WebSocket
+      ws: WebSocket,
+      userInfo: UserInfo | undefined
     ) => Promise<void | ServerAction>
   ) {
-    this.middlewares.push(
-      callback as (
-        action: ClientAction,
-        clientSessionId: string,
-        ws: WebSocket
-      ) => Promise<void | ServerAction>
-    )
+    this.middlewares.push(callback as MiddlewareCallback)
   }
 
   async execute(
@@ -36,24 +33,44 @@ export class WebSocketMiddleware {
     ws: WebSocket,
     options: { silent?: boolean } = {}
   ): Promise<boolean> {
-    for (const middleware of this.middlewares) {
-      const actionOrContinue = await middleware(action, clientSessionId, ws)
-      if (actionOrContinue) {
-        logger.warn(
-          {
+    const userInfo =
+      'authToken' in action && action.authToken
+        ? await getUserInfoFromAuthToken(action.authToken)
+        : undefined
+
+    return await withLoggerContext(
+      {
+        clientSessionId,
+        userId: userInfo?.id,
+        userEmail: userInfo?.email,
+        discordId: userInfo?.discord_id,
+      },
+      async () => {
+        for (const middleware of this.middlewares) {
+          const actionOrContinue = await middleware(
             action,
-            middlewareResp: actionOrContinue,
             clientSessionId,
-          },
-          'Middleware execution halted.'
-        )
-        if (!options.silent) {
-          sendAction(ws, actionOrContinue)
+            ws,
+            userInfo
+          )
+          if (actionOrContinue) {
+            logger.warn(
+              {
+                actionType: action.type,
+                middlewareResp: actionOrContinue.type,
+                clientSessionId,
+              },
+              'Middleware execution halted.'
+            )
+            if (!options.silent) {
+              sendAction(ws, actionOrContinue)
+            }
+            return false
+          }
         }
-        return false
+        return true
       }
-    }
-    return true
+    )
   }
 
   run<T extends ClientAction['type']>(
@@ -69,40 +86,69 @@ export class WebSocketMiddleware {
       clientSessionId: string,
       ws: WebSocket
     ) => {
-      const userInfo =
-        'authToken' in action
-          ? await getUserInfoFromAuthToken(action.authToken!)
-          : undefined
-
-      return withLoggerContext(
-        {
-          clientSessionId,
-          userId: userInfo?.id,
-          userEmail: userInfo?.email,
-          discordId: userInfo?.discord_id,
-        },
-        async () => {
-          const shouldContinue = await this.execute(
-            action,
-            clientSessionId,
-            ws,
-            options
-          )
-          if (shouldContinue) {
-            baseAction(action, clientSessionId, ws)
-          }
-        }
+      const shouldContinue = await this.execute(
+        action,
+        clientSessionId,
+        ws,
+        options
       )
+      if (shouldContinue) {
+        baseAction(action, clientSessionId, ws)
+      }
     }
   }
 }
 
 export const protec = new WebSocketMiddleware()
 
-protec.use(async (action, clientSessionId, ws) =>
+protec.use(async (action, clientSessionId, ws, userInfo) =>
   checkAuth({
     fingerprintId: 'fingerprintId' in action ? action.fingerprintId : undefined,
     authToken: 'authToken' in action ? action.authToken : undefined,
     clientSessionId,
   })
 )
+
+protec.use(async (action, clientSessionId, ws, userInfo) => {
+  const userId = userInfo?.id
+  const fingerprintId =
+    'fingerprintId' in action ? action.fingerprintId : 'unknown-fingerprint'
+
+  if (!userId || !fingerprintId) {
+    logger.warn(
+      {
+        userId,
+        fingerprintId,
+        actionType: action.type,
+      },
+      'Missing user or fingerprint ID'
+    )
+    return {
+      type: 'action-error',
+      error: 'Missing user or fingerprint ID',
+      message: 'Please log in to continue.',
+    }
+  }
+
+  const { totalRemaining } = await calculateCurrentBalance(userId)
+
+  if (totalRemaining <= 0) {
+    logger.warn(
+      {
+        userId,
+        fingerprintId,
+        remaining: totalRemaining,
+        actionType: action.type,
+      },
+      'Insufficient credits for action'
+    )
+    return {
+      type: 'action-error',
+      error: 'Insufficient credits',
+      message: `You do not have enough credits for this action. Please upgrade your plan or wait for your credits to reset.`,
+      remainingBalance: totalRemaining,
+    }
+  }
+
+  return undefined
+})

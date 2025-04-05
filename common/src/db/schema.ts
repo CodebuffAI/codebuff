@@ -14,6 +14,7 @@ import {
 import type { AdapterAccount } from 'next-auth/adapters'
 
 import { ReferralStatusValues } from '../types/referral'
+import { GrantTypeValues } from '../types/grant'
 
 // Define the ReferralStatus enum
 export const ReferralStatus = pgEnum('referral_status', [
@@ -28,12 +29,14 @@ export const apiKeyTypeEnum = pgEnum('api_key_type', [
   'openai',
 ])
 
+// Define the Grant Type enum using imported values
 export const grantTypeEnum = pgEnum('grant_type', [
-  'free',
-  'referral',
-  'purchase',
-  'admin',
+  GrantTypeValues[0],
+  ...GrantTypeValues.slice(1),
 ])
+
+// Derive the GrantType type from the enum values for use elsewhere if needed
+export type GrantType = (typeof grantTypeEnum.enumValues)[number]
 
 export const user = pgTable('user', {
   id: text('id')
