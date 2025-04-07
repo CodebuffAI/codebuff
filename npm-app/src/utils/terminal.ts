@@ -1,11 +1,13 @@
 import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
-import path from 'path'
-import { green } from 'picocolors'
 import * as os from 'os'
-import { detectShell } from './detect-shell'
-import { setProjectRoot } from '../project-files'
-import { truncateStringWithMessage } from 'common/util/string'
+import path from 'path'
+
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
+import { truncateStringWithMessage } from 'common/util/string'
+import { green } from 'picocolors'
+
+import { setProjectRoot } from '../project-files'
+import { detectShell } from './detect-shell'
 
 let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
 const tempConsoleError = console.error
@@ -170,10 +172,93 @@ function formatResult(stdout: string, status: string): string {
 
 const MAX_EXECUTION_TIME = 30_000
 
+const runCommandNewWindow = (
+  command: string,
+  projectPath: string,
+  resolveCommand: (value: { result: string; stdout: string }) => void
+) => {
+  console.log(green(`Running command in new window:\n> ${command}`))
+
+  let spawnCommand: string | null = null
+  let spawnArgs: string[] = []
+
+  const platform = os.platform()
+
+  try {
+    // Ensure projectPath is absolute for cd commands in new terminals
+    const absoluteProjectPath = path.resolve(projectPath)
+
+    if (platform === 'win32') {
+      // Windows: Use 'start' to open a new cmd.exe window
+      // /k keeps the window open after the command finishes
+      // cmd /c executes the command string
+      spawnCommand = 'cmd.exe'
+      spawnArgs = [
+        '/c',
+        `start "CodeBuff Background Task" cmd.exe /k "cd /d ${absoluteProjectPath} && ${command}"`,
+      ]
+    } else if (platform === 'darwin') {
+      // macOS: Use osascript to tell Terminal.app to run the command
+      const script = `tell application "Terminal" to do script "cd ${absoluteProjectPath} && ${command}"`
+      spawnCommand = 'osascript'
+      spawnArgs = ['-e', script]
+    } else if (platform === 'linux') {
+      // Linux: Try gnome-terminal (common default)
+      // --working-directory sets the path
+      // bash -c "command ; exec bash" runs the command and keeps the shell open
+      // We wrap the user command execution and the final `exec bash` within a single bash -c '...'
+      spawnCommand = 'gnome-terminal'
+      spawnArgs = [
+        '--working-directory',
+        absoluteProjectPath,
+        '--',
+        'bash',
+        '-c',
+        `${command}; echo 'Command finished. Press Ctrl+D to close window.'; exec bash`,
+      ]
+      // Note: This might fail if gnome-terminal isn't installed.
+      // Could add fallbacks for xterm, konsole etc., but keeping it simpler for now.
+    } else {
+      throw new Error(
+        `Unsupported platform for opening new terminal: ${platform}`
+      )
+    }
+
+    const child = spawn(spawnCommand, spawnArgs, {
+      cwd: projectPath, // Cwd for the spawn command itself
+      detached: true,
+      stdio: 'ignore', // Ignore stdio of the command *launching* the terminal
+      env: { ...process.env },
+    })
+    child.unref()
+
+    const stdoutMsg = `Attempted to start command in a new window:\n> ${command}`
+    resolveCommand({
+      result: formatResult(
+        stdoutMsg,
+        'Successfully started command in new window'
+      ),
+      stdout: stdoutMsg,
+    })
+  } catch (error) {
+    const errorMsg = `Failed to start command "${command}" in new window: ${error instanceof Error ? error.message : String(error)}`
+    console.error(errorMsg)
+    // Include details about the failed command if possible
+    if (spawnCommand) {
+      console.error(`Failed command: ${spawnCommand} ${spawnArgs.join(' ')}`)
+    }
+    resolveCommand({
+      result: formatResult(errorMsg, 'Failed to start command in new window'),
+      stdout: errorMsg,
+    })
+  }
+}
+
 export const runTerminalCommand = async (
   command: string,
   mode: 'user' | 'assistant',
-  projectPath: string
+  projectPath: string,
+  backgroundProcess: boolean = false
 ): Promise<{ result: string; stdout: string }> => {
   return new Promise((resolve) => {
     if (!persistentProcess) {
@@ -195,7 +280,9 @@ export const runTerminalCommand = async (
       resolve(value)
     }
 
-    if (persistentProcess.type === 'pty') {
+    if (backgroundProcess) {
+      runCommandNewWindow(modifiedCommand, projectPath, resolveCommand)
+    } else if (persistentProcess.type === 'pty') {
       runCommandPty(
         persistentProcess,
         modifiedCommand,

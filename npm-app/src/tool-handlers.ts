@@ -1,16 +1,18 @@
-import { rgPath } from '@vscode/ripgrep'
-import { green, red, yellow, cyan } from 'picocolors'
 import { spawn } from 'child_process'
-import { BrowserActionSchema, BrowserResponse } from 'common/browser-actions'
-import { handleBrowserInstruction } from './browser-runner'
-import { scrapeWebPage } from './web-scraper'
-import { runTerminalCommand } from './utils/terminal'
-import { truncateStringWithMessage } from 'common/util/string'
 import * as path from 'path'
-import { Spinner } from './utils/spinner'
+
+import { rgPath } from '@vscode/ripgrep'
+import { FileChangeSchema } from 'common/actions'
+import { BrowserActionSchema, BrowserResponse } from 'common/browser-actions'
 import { RawToolCall } from 'common/types/tools'
 import { applyChanges } from 'common/util/changes'
-import { FileChangeSchema } from 'common/actions'
+import { truncateStringWithMessage } from 'common/util/string'
+import { cyan, green, red, yellow } from 'picocolors'
+
+import { handleBrowserInstruction } from './browser-runner'
+import { Spinner } from './utils/spinner'
+import { runTerminalCommand } from './utils/terminal'
+import { scrapeWebPage } from './web-scraper'
 
 export type ToolHandler<T extends Record<string, any>> = (
   parameters: T,
@@ -49,12 +51,16 @@ export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
 }
 
 export const handleRunTerminalCommand = async (
-  parameters: { command: string; mode?: 'user' | 'assistant' },
+  parameters: {
+    command: string
+    mode?: 'user' | 'assistant'
+    new_window?: boolean
+  },
   id: string,
   projectPath: string
 ): Promise<{ result: string; stdout: string }> => {
-  const { command, mode = 'assistant' } = parameters
-  return runTerminalCommand(command, mode, projectPath)
+  const { command, mode = 'assistant', new_window = false } = parameters
+  return runTerminalCommand(command, mode, projectPath, new_window)
 }
 
 export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
@@ -141,7 +147,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   run_terminal_command: ((parameters, id, projectPath) =>
     handleRunTerminalCommand(parameters, id, projectPath).then(
       (result) => result.result
-    )) as ToolHandler<{ command: string }>,
+    )) as ToolHandler<{ command: string; new_window?: boolean }>,
   code_search: handleCodeSearch,
   end_turn: async () => {
     return ''
