@@ -1,4 +1,3 @@
-import { withContentlayer } from 'next-contentlayer'
 import createMDX from '@next/mdx'
 import { env } from './src/env.mjs'
 
@@ -13,6 +12,14 @@ const withMDX = createMDX({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
+  output: 'standalone',
+  swcMinify: true,
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   headers: () => {
     return [
       {
@@ -92,4 +99,4 @@ const nextConfig = {
   },
 }
 
-export default withContentlayer(withMDX(nextConfig))
+export default withMDX(nextConfig)

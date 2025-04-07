@@ -3,7 +3,7 @@ import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import {
-  getCurrentBalanceDetails,
+  calculateCurrentBalance,
   CreditBalance,
   GRANT_PRIORITIES,
 } from 'common/src/billing/balance-calculator'
@@ -48,12 +48,18 @@ const usedColor = 'bg-gray-400 dark:bg-gray-600'
 
 const getGrantTypeDisplayName = (type: GrantType): string => {
   switch (type) {
-    case 'free': return 'Free';
-    case 'referral': return 'Referral';
-    case 'rollover': return 'Rollover';
-    case 'purchase': return 'Purchased';
-    case 'admin': return 'Admin Grant';
-    default: return type;
+    case 'free':
+      return 'Free'
+    case 'referral':
+      return 'Referral'
+    case 'rollover':
+      return 'Rollover'
+    case 'purchase':
+      return 'Purchased'
+    case 'admin':
+      return 'Admin Grant'
+    default:
+      return type
   }
 }
 
@@ -65,9 +71,9 @@ const UsageDisplay = ({
   const { totalRemaining, breakdown } = balance
   const totalAvailable = totalRemaining + usageThisCycle
 
-  const sortedGrantTypes = (
-    Object.keys(breakdown) as GrantType[]
-  ).sort((a, b) => GRANT_PRIORITIES[a] - GRANT_PRIORITIES[b])
+  const sortedGrantTypes = (Object.keys(breakdown) as GrantType[]).sort(
+    (a, b) => GRANT_PRIORITIES[a] - GRANT_PRIORITIES[b]
+  )
 
   const calculatePercentage = (amount: number) =>
     totalAvailable > 0 ? (amount / totalAvailable) * 100 : 0
@@ -115,7 +121,9 @@ const UsageDisplay = ({
                       />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{displayName}: {amount.toLocaleString()}</p>
+                      <p>
+                        {displayName}: {amount.toLocaleString()}
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 )
@@ -124,20 +132,27 @@ const UsageDisplay = ({
           </TooltipProvider>
           <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
-              <span className={cn("w-3 h-3 rounded-full inline-block", usedColor)}></span>
+              <span
+                className={cn('w-3 h-3 rounded-full inline-block', usedColor)}
+              ></span>
               <span>Used</span>
             </div>
             {sortedGrantTypes.map((type) => {
-              const amount = breakdown[type];
-              if (!amount || amount <= 0) return null;
-              const colorClass = grantTypeColors[type] || 'bg-gray-300';
-              const displayName = getGrantTypeDisplayName(type);
+              const amount = breakdown[type]
+              if (!amount || amount <= 0) return null
+              const colorClass = grantTypeColors[type] || 'bg-gray-300'
+              const displayName = getGrantTypeDisplayName(type)
               return (
                 <div key={type} className="flex items-center gap-1">
-                  <span className={cn("w-3 h-3 rounded-full inline-block", colorClass)}></span>
+                  <span
+                    className={cn(
+                      'w-3 h-3 rounded-full inline-block',
+                      colorClass
+                    )}
+                  ></span>
                   <span>{displayName}</span>
                 </div>
-              );
+              )
             })}
           </div>
         </div>
@@ -165,7 +180,9 @@ const UsageDisplay = ({
           )}
         </div>
         <p className="text-xs text-muted-foreground pt-4">
-          Note: Credits are consumed starting with Free, then Referral, Rollover, Purchased, and finally Admin grants. Billing for usage beyond granted credits is handled by Stripe according to your plan.
+          Note: Credits are consumed starting with Free, then Referral,
+          Rollover, Purchased, and finally Admin grants. Billing for usage
+          beyond granted credits is handled by Stripe according to your plan.
         </p>
       </CardContent>
     </Card>
