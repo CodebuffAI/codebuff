@@ -30,6 +30,7 @@ const TOKENS_COST_PER_M = {
     [models.deepseekChat]: 0.14,
     [models.deepseekReasoner]: 0.55,
     [models.gemini2flash]: 0.1,
+    [models.openrouter_gemini2_5_pro_preview]: 1.25,
   },
   output: {
     [models.sonnet]: 15,
@@ -40,6 +41,7 @@ const TOKENS_COST_PER_M = {
     [models.deepseekChat]: 0.28,
     [models.deepseekReasoner]: 2.19,
     [models.gemini2flash]: 0.4,
+    [models.openrouter_gemini2_5_pro_preview]: 10,
   },
   cache_creation: {
     [models.sonnet]: 3.75,

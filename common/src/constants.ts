@@ -185,6 +185,13 @@ export const geminiModels = {
 } as const
 export type GeminiModel = (typeof geminiModels)[keyof typeof geminiModels]
 
+export const openrouterModels = {
+  openrouter_gemini2_5_pro_exp: 'google/gemini-2.5-pro-exp-03-25:free',
+  openrouter_gemini2_5_pro_preview: 'google/gemini-2.5-pro-preview-03-25',
+} as const
+export type openrouterModel =
+  (typeof openrouterModels)[keyof typeof openrouterModels]
+
 export const deepseekModels = {
   deepseekChat: 'deepseek-chat',
   deepseekReasoner: 'deepseek-reasoner',
@@ -196,6 +203,7 @@ export const models = {
   ...openaiModels,
   ...geminiModels,
   ...deepseekModels,
+  ...openrouterModels,
 } as const
 
 export type Model = (typeof models)[keyof typeof models]
