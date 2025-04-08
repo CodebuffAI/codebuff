@@ -1,18 +1,17 @@
-import {
-  ChildProcessByStdio,
-  ChildProcessWithoutNullStreams,
-  execSync,
-  spawn,
-} from 'child_process'
+import assert from 'assert'
+import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
 import * as os from 'os'
 import path from 'path'
-import { Readable } from 'stream'
 
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
+import { buildArray } from 'common/util/array'
 import { truncateStringWithMessage } from 'common/util/string'
-import { nanoid } from 'nanoid'
-import { green, red } from 'picocolors'
+import { green } from 'picocolors'
 
+import {
+  backgroundProcesses,
+  BackgroundProcessInfo,
+} from '../background-process-manager'
 import { setProjectRoot } from '../project-files'
 import { detectShell } from './detect-shell'
 
@@ -26,6 +25,7 @@ try {
   console.error = tempConsoleError
 }
 
+const COMMAND_OUTPUT_LIMIT = 10_000
 const promptIdentifier = '@36261@'
 
 type PersistentProcess =
@@ -171,7 +171,7 @@ export const resetShell = (projectPath: string) => {
 
 function formatResult(stdout: string, status: string): string {
   let result = '<terminal_command_result>\n'
-  result += `<output>${truncateStringWithMessage(stdout, 10000)}</output>\n`
+  result += `<output>${truncateStringWithMessage(stdout, COMMAND_OUTPUT_LIMIT)}</output>\n`
   result += `<status>${status}</status>\n`
   result += '</terminal_command_result>'
   return result
@@ -179,31 +179,21 @@ function formatResult(stdout: string, status: string): string {
 
 const MAX_EXECUTION_TIME = 30_000
 
-interface BackgroundProcessInfo {
-  id: string
-  command: string
-  process: ChildProcessByStdio<null, Readable, Readable>
-  stdoutBuffer: string[]
-  stderrBuffer: string[]
-  status: 'running' | 'completed' | 'error'
-  exitCode: number | null
-  startTime: number
-  endTime: number | null
-}
-
-const backgroundProcesses = new Map<string, BackgroundProcessInfo>()
-
 const getBackgroundProcessInfoString = (info: BackgroundProcessInfo) => {
-  return `<background_process_info>
-<process_id>${info.id}</process_id>
-<command>${info.command}</command>
-<status>${info.status}</status>
-<exit_code>${info.exitCode}</exit_code>
-<start_time>${info.startTime}</start_time>
-<duration_ms>${info.endTime === null ? Date.now() - info.startTime : info.endTime - info.startTime}</duration_ms>
-<stdout>${info.stdoutBuffer.join('')}</stdout>
-<stderr>${info.stderrBuffer.join('')}</stderr>
-</background_process_info>`
+  return buildArray([
+    '<background_process_info>',
+    `<process_id>${info.id}</process_id>`,
+    `<command>${info.command}</command>`,
+    `<start_time>${info.startTime}</start_time>`,
+    `<duration_ms>${info.endTime === null ? Date.now() - info.startTime : info.endTime - info.startTime}</duration_ms>`,
+    `</terminal_command_result>`,
+    `<status>${info.status}</status>`,
+    info.exitCode !== null && `<exit_code>${info.exitCode}</exit_code>`,
+    `<stdout>${truncateStringWithMessage(info.stdoutBuffer.join(''), COMMAND_OUTPUT_LIMIT / 2)}</stdout>`,
+    `<stderr>${truncateStringWithMessage(info.stderrBuffer.join(''), COMMAND_OUTPUT_LIMIT / 2)}</stderr>`,
+    '</terminal_command_result>',
+    '</background_process_info>',
+  ]).join('\n')
 }
 
 const runBackgroundCommand = (
@@ -215,7 +205,7 @@ const runBackgroundCommand = (
   const shell = isWindows ? 'cmd.exe' : 'bash'
   const shellArgs = isWindows ? ['/c'] : ['-c']
 
-  console.log(green(`Running command in background...\n> ${command}`))
+  console.log(green(`Running background process...\n> ${command}`))
 
   const initialStdout = ''
   const initialStderr = ''
@@ -232,8 +222,13 @@ const runBackgroundCommand = (
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
-    const processId = childProcess.pid ? `${childProcess.pid}` : nanoid()
+    // An error should have been thrown when we called `spawn`
+    assert(
+      childProcess.pid !== undefined,
+      'Failed to spawn process: no PID assigned.'
+    )
 
+    const processId = childProcess.pid
     const processInfo: BackgroundProcessInfo = {
       id: processId,
       command: command,
@@ -271,6 +266,9 @@ const runBackgroundCommand = (
       processInfo.endTime = Date.now()
     })
 
+    console.log({ pid: childProcess.pid }, 'asdf')
+    childProcess.kill()
+
     // Unreference the process so the parent can exit independently IF the child is the only thing keeping it alive.
     childProcess.unref()
 
@@ -284,7 +282,6 @@ const runBackgroundCommand = (
       stdout: initialStdout + initialStderr,
     })
   } catch (error: any) {
-    console.error(red(`Failed to start background command: ${error.message}`))
     const errorMessage = `<background_process_failed>\n<command>${command}</command>\n<error>${error.message}</error>\n</background_process_failed>`
     resolveCommand({ result: errorMessage, stdout: error.message })
   }
