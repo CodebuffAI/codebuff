@@ -113,8 +113,9 @@ export async function promptGeminiWithFallbacks(
  * Attempts the following endpoints in order until one succeeds:
  * 1. Gemini API (Internal Key - gemini-2.5-pro-exp)
  * 2. OpenRouter (Internal Key - google/gemini-2.5-pro-exp-03-25:free)
- * 3. OpenRouter (Internal Key - google/gemini-2.5-pro-preview-03-25)
- * 4. Claude Sonnet (Final Fallback)
+ * 3. Gemini API (Internal Key - gemini-2.5-pro-preview)
+ * 4. OpenRouter (Internal Key - google/gemini-2.5-pro-preview-03-25)
+ * 5. Claude Sonnet (Final Fallback)
  *
  * This function handles streaming requests and yields chunks of the response as they arrive.
  *
@@ -196,11 +197,34 @@ export async function* streamGemini25ProWithFallbacks(
   } catch (error) {
     logger.warn(
       { error },
-      'Error calling Gemini 2.5 Pro (exp) via OpenRouter Stream, falling back to OpenRouter (preview)'
+      'Error calling Gemini 2.5 Pro (exp) via OpenRouter Stream, falling back to Gemini API (preview)'
     )
   }
 
-  // 3. Try OpenRouter Stream (google/gemini-2.5-pro-preview)
+  // 3. Try Gemini API Stream (Internal Key - gemini-2.5-pro-preview) <-- NEW STEP
+  const geminiPreviewOptions = {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    model: geminiModels.gemini2_5_pro_preview, // Preview model via Gemini API
+    maxTokens,
+    temperature,
+  }
+  try {
+    logger.debug(
+      'Attempting Gemini 2.5 Pro (preview) via Gemini API Stream (Internal Key)'
+    )
+    yield* promptGeminiStream(formattedMessages, geminiPreviewOptions)
+    return // Success
+  } catch (error) {
+    logger.warn(
+      { error },
+      'Error calling Gemini 2.5 Pro (preview) via Gemini API Stream (Internal Key), falling back to OpenRouter (preview)'
+    )
+  }
+
+  // 4. Try OpenRouter Stream (google/gemini-2.5-pro-preview)
   const openRouterPreviewOptions = {
     clientSessionId,
     fingerprintId,
@@ -221,7 +245,7 @@ export async function* streamGemini25ProWithFallbacks(
     yield `<${CODEBUFF_CLAUDE_FALLBACK_INFO}>All Gemini attempts failed. Falling back to Claude Sonnet.</${CODEBUFF_CLAUDE_FALLBACK_INFO}>\n`
   }
 
-  // 4. Final Fallback: Claude Sonnet
+  // 5. Final Fallback: Claude Sonnet
   try {
     logger.debug('Attempting final fallback to Claude Sonnet Stream')
     yield* promptClaudeStream(messages, {
