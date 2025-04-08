@@ -52,7 +52,6 @@ export class CLI {
   private consecutiveFastInputs: number = 0
   private pastedContent: string = ''
   private isPasting: boolean = false
-  private geminiPromptShown: boolean = false
 
   constructor(
     readyPromise: Promise<[void, ProjectFileContext]>,
@@ -419,13 +418,6 @@ export class CLI {
   }
 
   private async forwardUserInput(userInput: string) {
-    // vvv Code while we are waiting for gemini 2.5 pro vvv
-    Spinner.get().start()
-    await this.readyPromise
-    Spinner.get().stop()
-    this.displayGeminiKeyPromptIfNeeded()
-    // ^^^ --- ^^^
-
     await this.saveCheckpoint(userInput)
     Spinner.get().start()
 
@@ -917,30 +909,5 @@ export class CLI {
     checkpointManager.clearCheckpoints()
     console.log('Cleared all checkpoints.')
     this.freshPrompt()
-  }
-
-  private displayGeminiKeyPromptIfNeeded() {
-    if (this.geminiPromptShown) {
-      return
-    }
-
-    // Only show if user is logged in, doesn't have a Gemini key stored, and is in max mode
-    if (
-      this.client.user &&
-      !this.client.storedApiKeyTypes.includes('gemini') &&
-      this.costMode === 'max'
-    ) {
-      console.log(
-        yellow(
-          [
-            "✨ Recommended: Add your Gemini API key to use the powerful Gemini 2.5 Pro model! Here's how:",
-            '1. Go to https://aistudio.google.com/apikey and create an API key',
-            '2. Paste your key here',
-            '',
-          ].join('\n')
-        )
-      )
-      this.geminiPromptShown = true
-    }
   }
 }
