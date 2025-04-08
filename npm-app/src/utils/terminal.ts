@@ -1,11 +1,20 @@
-import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
-import path from 'path'
-import { green } from 'picocolors'
+import {
+  ChildProcessByStdio,
+  ChildProcessWithoutNullStreams,
+  execSync,
+  spawn,
+} from 'child_process'
 import * as os from 'os'
-import { detectShell } from './detect-shell'
-import { setProjectRoot } from '../project-files'
-import { truncateStringWithMessage } from 'common/util/string'
+import path from 'path'
+import { Readable } from 'stream'
+
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
+import { truncateStringWithMessage } from 'common/util/string'
+import { nanoid } from 'nanoid'
+import { green, red } from 'picocolors'
+
+import { setProjectRoot } from '../project-files'
+import { detectShell } from './detect-shell'
 
 let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
 const tempConsoleError = console.error
@@ -170,10 +179,122 @@ function formatResult(stdout: string, status: string): string {
 
 const MAX_EXECUTION_TIME = 30_000
 
+interface BackgroundProcessInfo {
+  id: string
+  command: string
+  process: ChildProcessByStdio<null, Readable, Readable>
+  stdoutBuffer: string[]
+  stderrBuffer: string[]
+  status: 'running' | 'completed' | 'error'
+  exitCode: number | null
+  startTime: number
+  endTime: number | null
+}
+
+const backgroundProcesses = new Map<string, BackgroundProcessInfo>()
+
+const getBackgroundProcessInfoString = (info: BackgroundProcessInfo) => {
+  return `<background_process_info>
+<process_id>${info.id}</process_id>
+<command>${info.command}</command>
+<status>${info.status}</status>
+<exit_code>${info.exitCode}</exit_code>
+<start_time>${info.startTime}</start_time>
+<duration_ms>${info.endTime === null ? Date.now() - info.startTime : info.endTime - info.startTime}</duration_ms>
+<stdout>${info.stdoutBuffer.join('')}</stdout>
+<stderr>${info.stderrBuffer.join('')}</stderr>
+</background_process_info>`
+}
+
+const runBackgroundCommand = (
+  command: string,
+  projectPath: string,
+  resolveCommand: (value: { result: string; stdout: string }) => void
+) => {
+  const isWindows = os.platform() === 'win32'
+  const shell = isWindows ? 'cmd.exe' : 'bash'
+  const shellArgs = isWindows ? ['/c'] : ['-c']
+
+  console.log(green(`Running command in background...\n> ${command}`))
+
+  const initialStdout = ''
+  const initialStderr = ''
+
+  try {
+    const childProcess = spawn(shell, [...shellArgs, command], {
+      cwd: projectPath,
+      env: {
+        ...process.env,
+        FORCE_COLOR: '1',
+      },
+      // Ensure detached is always false to link child lifetime to parent
+      detached: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
+    const processId = childProcess.pid ? `${childProcess.pid}` : nanoid()
+
+    const processInfo: BackgroundProcessInfo = {
+      id: processId,
+      command: command,
+      process: childProcess,
+      stdoutBuffer: [],
+      stderrBuffer: [],
+      status: 'running',
+      exitCode: null,
+      startTime: Date.now(),
+      endTime: null,
+    }
+    backgroundProcesses.set(processId, processInfo)
+
+    childProcess.stdout.on('data', (data: Buffer) => {
+      const output = data.toString()
+      processInfo.stdoutBuffer.push(output)
+    })
+
+    childProcess.stderr.on('data', (data: Buffer) => {
+      const output = data.toString()
+      processInfo.stderrBuffer.push(output)
+    })
+
+    childProcess.on('error', (error) => {
+      processInfo.status = 'error'
+      processInfo.stderrBuffer.push(
+        `\nError spawning command: ${error.message}`
+      )
+      processInfo.endTime = Date.now()
+    })
+
+    childProcess.on('close', (code) => {
+      processInfo.status = code === 0 ? 'completed' : 'error'
+      processInfo.exitCode = code
+      processInfo.endTime = Date.now()
+    })
+
+    // Unreference the process so the parent can exit independently IF the child is the only thing keeping it alive.
+    childProcess.unref()
+
+    const resultMessage = `<background_process_started>
+<process_id>${processId}</process_id>
+<command>${command}</command>
+<status>${processInfo.status}</status>
+</background_process_started>`
+    resolveCommand({
+      result: resultMessage,
+      stdout: initialStdout + initialStderr,
+    })
+  } catch (error: any) {
+    console.error(red(`Failed to start background command: ${error.message}`))
+    const errorMessage = `<background_process_failed>\n<command>${command}</command>\n<error>${error.message}</error>\n</background_process_failed>`
+    resolveCommand({ result: errorMessage, stdout: error.message })
+  }
+}
+
 export const runTerminalCommand = async (
   command: string,
   mode: 'user' | 'assistant',
-  projectPath: string
+  projectPath: string,
+  backgroundProcess: boolean = false
 ): Promise<{ result: string; stdout: string }> => {
   return new Promise((resolve) => {
     if (!persistentProcess) {
@@ -195,7 +316,9 @@ export const runTerminalCommand = async (
       resolve(value)
     }
 
-    if (persistentProcess.type === 'pty') {
+    if (backgroundProcess) {
+      runBackgroundCommand(modifiedCommand, projectPath, resolveCommand)
+    } else if (persistentProcess.type === 'pty') {
       runCommandPty(
         persistentProcess,
         modifiedCommand,
@@ -312,7 +435,7 @@ export const runCommandPty = (
   const isWindows = os.platform() === 'win32'
 
   if (command.trim() === 'clear') {
-    // NOTE: node-pty doesn't seem to clear the terminal. This is a workaround.
+    // `clear` needs access to the main process stdout. This is a workaround.
     execSync('clear', { stdio: 'inherit' })
   }
 
@@ -381,7 +504,6 @@ const runCommandChildProcess = (
 
   childProcess.stderr.on('data', (data: Buffer) => {
     const output = data.toString()
-
     process.stdout.write(output)
     commandOutput += output
   })

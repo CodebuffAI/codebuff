@@ -201,9 +201,13 @@ Note that there's no need to call this tool if you're already reading the files 
 Description: Request to execute a CLI command on the system. Use this when you need to perform system operations or run specific commands to accomplish any step in the user's task. You must tailor your command to the user's system and provide a clear explanation of what the command does. For command chaining, use the appropriate chaining syntax for the user's shell. Prefer to execute complex CLI commands over creating executable scripts, as they are more flexible and easier to run. Commands will be executed in the current working directory: ${process.cwd()}
 Parameters:
 - command: (required) The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.
+- background_process: (optional) Whether to run this process in a background process. Will be evaluated based on the truthiness of the string value provided, so unintuitively, \`<background_process>False</background_process>\` would evaluate to True, but \`<background_process></backgroundProcess>\` (or omitting) would evaluate to False. Defaults to False.
+  - False (default): the command will be run in (and block) the current process. This is required if the output of the command is required to be parsed. Most commands will be run with child=False.
+  - True: the command will be run in a child background process. The output will be NOT be available for the user to see, but will be sent in the tool results. This is for running servers or other long-running processes.
 Usage:
 <run_terminal_command>
 <command>Your command here</command>
+<background_process>value</background_process>
 </run_terminal_command>
 
 Stick to these use cases:
@@ -229,8 +233,8 @@ Incorrect:
 \`cd backend &amp;&amp; npm typecheck\` 
 Correct:
 \`cd backend && npm typecheck\`
-10. Do not use more than one run_terminal_command tool call in a single response. Wait for the tool results of the first command before invoking the next one.
-11. If there's an opportunity to use "-y" or "--yes" flags, use them. That is because any command that prompts for confirmation will hang if you don't use the flags.
+10. Do not use more than one run_terminal_command tool call in a single response. Wait for the tool results of each command before invoking the next one.
+11. The user will not be able to interact with these processes, e.g. confirming the command. So if there's an opportunity to use "-y" or "--yes" flags, use them. Any command that prompts for confirmation will hang if you don't use the flags.
 
 Notes:
 - The current working directory will always reset to project root directory for each command you run. You can only access files within this directory (or sub-directories). So if you run cd in one command, the directory change won't persist to the next command.
