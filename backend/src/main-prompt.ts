@@ -95,6 +95,8 @@ export const mainPrompt = async (
 
     'When using tools, make sure to NOT use XML attributes. The format should contain nested XML tags. For example, when using write_file, the format should be <write_file><path>...</path><content>...</content></write_file>',
 
+    `Only use the tools listed, (i.e. ${TOOL_LIST.join(', ')}). If you use tools not listed, nothing will happen, but the user will get some unintended display issues.`,
+
     !justUsedATool &&
       !recentlyDidThinking &&
       'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
