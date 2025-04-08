@@ -13,12 +13,21 @@ const withMDX = createMDX({
 const nextConfig = {
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
   output: 'standalone',
-  swcMinify: true,
   typescript: {
     ignoreBuildErrors: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
+  },
+  experimental: {
+    workerThreads: false,
+    cpus: 1
+  },
+  webpack: (config, { dev, isServer }) => {
+    if (!dev && !isServer) {
+      config.optimization.splitChunks = false
+    }
+    return config
   },
   headers: () => {
     return [
@@ -67,7 +76,6 @@ const nextConfig = {
       },
     ]
   },
-  // This is required to support PostHog trailing slash API requests
   skipTrailingSlashRedirect: true,
   async redirects() {
     return [

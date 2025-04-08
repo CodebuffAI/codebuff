@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import posthog from 'posthog-js'
 import { PLAN_CONFIGS } from 'common/constants'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
@@ -11,12 +11,12 @@ import { trackUpgrade } from '@/lib/trackConversions'
 import { useUserPlan } from '@/hooks/use-user-plan'
 import { capitalize } from 'common/util/string'
 
-const PaymentChangePage = () => {
+function PaymentChangeContent() {
+  const { data: session } = useSession()
+  const { data: currentPlan } = useUserPlan(session?.user?.stripe_customer_id)
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { data: session } = useSession()
-  const { data: currentPlan } = useUserPlan(session?.user?.stripe_customer_id)
   const modification = searchParams.get('modification') || 'change'
 
   useEffect(() => {
@@ -31,7 +31,7 @@ const PaymentChangePage = () => {
         modification,
       })
     }
-  }, [session, currentPlan, modification])
+  }, [session, currentPlan, modification, searchParams, pathname, router])
 
   if (!session?.user) {
     return CardWithBeams({
@@ -72,6 +72,14 @@ const PaymentChangePage = () => {
       </div>
     ),
   })
+}
+
+const PaymentChangePage = () => {
+  return (
+    <Suspense>
+      <PaymentChangeContent />
+    </Suspense>
+  )
 }
 
 export default PaymentChangePage

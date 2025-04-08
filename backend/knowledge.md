@@ -338,29 +338,15 @@ When cleaning responses from AI models:
 - Example: subscription status flows from quota check → usage response → client display
 - When resetting quotas for authenticated users, update both user and fingerprint records with same reset date
 
-#### Quota Reset Coordination
+#### Quota Reset Process
 
-- User and fingerprint quotas must be reset together to maintain consistency
-- Use same next_quota_reset date for both records
-- Reset both quota_exceeded flags to false simultaneously
-- Use Promise.all for atomic-like updates
-
-### Subscription Status
-
-- Active subscriptions completely bypass quota exceeded checks
-- Non-subscribed users are blocked when exceeding their quota
-- Quota tracking continues even when checks are bypassed for billing purposes
-
-Important: When handling subscription states:
-
-- Distinguish between immediate cancellation and scheduled cancellation (cancel_at_period_end)
-- Keep subscription active until period end for scheduled cancellations
-- For downgrades, use the new plan's quota immediately - do not look up current subscription quota
-- Always preserve referral credits through plan changes by adding them after determining the new base quota
-- When checking for cancelled subscriptions:
-  - Use subscription.canceled_at timestamp instead of cancellation_details
-  - Consider subscription cancelled if canceled_at is in past or within next 5 minutes
-  - This handles both immediate cancellations and scheduled cancellations that are about to take effect
+When a user's quota resets (next_quota_reset date is in the past):
+1. Reset their usage to 0
+2. Set their next quota reset time using getNextQuotaReset helper
+3. Create a new credit grant in Stripe if they have a customer ID
+   - Use CREDITS_USAGE_LIMITS.FREE for the grant amount
+   - Set grant type as 'free' with appropriate priority
+   - Log success/failure of grant creation
 
 ## Referral System
 
@@ -401,3 +387,12 @@ Remember to keep the referral system logic consistent between the backend API an
 These changes aim to provide a better user experience by offering more informative error messages, streamlining usage information handling, and improving the overall system consistency.
 
 Remember to keep this knowledge file updated as the application evolves or new features are added.
+
+## Automatic URL Detection and Scraping
+
+The backend now includes a feature that automatically detects and scrapes URLs from user input. This feature allows the AI assistant to gather information from external web pages and integrate it into the code changes.
+
+- **URL Detection**: The system uses natural language processing techniques to identify URLs within user input.
+- **Scraping**: When a URL is detected, the backend scrapes the content of the web page and includes it in the code changes.
+
+This feature is useful for integrating external resources into code changes, such as documentation, API endpoints, or other web-based content.

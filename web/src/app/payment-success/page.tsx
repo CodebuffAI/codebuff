@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import posthog from 'posthog-js'
 import { PLAN_CONFIGS } from 'common/constants'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
@@ -10,7 +10,7 @@ import CardWithBeams from '@/components/card-with-beams'
 import { trackUpgrade } from '@/lib/trackConversions'
 import { useUserPlan } from '@/hooks/use-user-plan'
 
-const PaymentSuccessPage = () => {
+function SearchParamsHandler() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -28,7 +28,14 @@ const PaymentSuccessPage = () => {
         plan: currentPlan,
       })
     }
-  }, [session, currentPlan])
+  }, [session, currentPlan, searchParams, pathname, router])
+
+  return null
+}
+
+const PaymentSuccessPage = () => {
+  const { data: session } = useSession()
+  const { data: currentPlan } = useUserPlan(session?.user?.stripe_customer_id)
 
   if (!session?.user) {
     return CardWithBeams({
@@ -54,20 +61,27 @@ const PaymentSuccessPage = () => {
   const credits = PLAN_CONFIGS[currentPlan].limit
   const planDisplayName = PLAN_CONFIGS[currentPlan].displayName
 
-  return CardWithBeams({
-    title: 'Upgrade successful!',
-    description: `Welcome to your new ${planDisplayName} plan! Your monthly credits have been increased to ${credits.toLocaleString()}.`,
-    content: (
-      <div className="flex flex-col space-y-2">
-        <Image
-          src="/much-credits.jpg"
-          alt="Successful upgrade"
-          width={600}
-          height={600}
-        />
-      </div>
-    ),
-  })
+  return (
+    <>
+      <Suspense>
+        <SearchParamsHandler />
+      </Suspense>
+      {CardWithBeams({
+        title: 'Upgrade successful!',
+        description: `Welcome to your new ${planDisplayName} plan! Your monthly credits have been increased to ${credits.toLocaleString()}.`,
+        content: (
+          <div className="flex flex-col space-y-2">
+            <Image
+              src="/much-credits.jpg"
+              alt="Successful upgrade"
+              width={600}
+              height={600}
+            />
+          </div>
+        ),
+      })}
+    </>
+  )
 }
 
 export default PaymentSuccessPage

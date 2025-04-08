@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Section } from '@/components/ui/section'
 import { Hero } from '@/components/ui/hero'
 import { FeatureSection } from '@/components/ui/landing/feature'
@@ -23,14 +23,19 @@ import { ChartIllustration } from '@/components/ui/landing/feature/chart-illustr
 import posthog from 'posthog-js'
 import { cn } from '@/lib/utils'
 
-export default function Home() {
-  const [demoSwitched, setDemoSwitched] = useState(false)
+function SearchParamsHandler() {
   const searchParams = useSearchParams()
-  const isMobile = useIsMobile()
-
+  
   useEffect(() => {
     storeSearchParams(searchParams)
   }, [searchParams])
+  
+  return null
+}
+
+export default function Home() {
+  const [demoSwitched, setDemoSwitched] = useState(false)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -48,6 +53,10 @@ export default function Home() {
 
   return (
     <div className="relative">
+      <Suspense>
+        <SearchParamsHandler />
+      </Suspense>
+      
       <Section background={SECTION_THEMES.hero.background} hero fullViewport>
         <div
           className={cn(
@@ -75,7 +84,6 @@ export default function Home() {
       </Section>
 
       <div className={cn('transition-all duration-1000')}>
-        {/* Feature Section 1 */}
         <FeatureSection
           title={
             <>
@@ -118,7 +126,6 @@ export default function Home() {
           }
         />
 
-        {/* Feature Section 2 */}
         <FeatureSection
           title={
             <>
@@ -147,7 +154,6 @@ export default function Home() {
           }
         />
 
-        {/* Feature Section 3 */}
         <FeatureSection
           title={<>Better and Better Over Time</>}
           description="Don't repeat yourself. Codebuff can take notes on your conversations and stores them in human-readable markdown files. Each session teaches it about your specific needs and project setup."
@@ -177,13 +183,8 @@ export default function Home() {
           }
         />
 
-        {/* Competition Section */}
         <CompetitionSection />
-
-        {/* Testimonials Section */}
         <TestimonialsSection />
-
-        {/* CTA Section */}
         <CTASection />
       </div>
     </div>

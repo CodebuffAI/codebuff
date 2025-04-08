@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { eq, sql, SQL, and, isNull } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 import { env } from '@/env.mjs'
 import { stripeServer } from 'common/src/util/stripe'
@@ -12,22 +12,133 @@ import {
   getUserCostPerCredit,
 } from 'common/src/billing/conversion'
 import { match, P } from 'ts-pattern'
+import { GrantType } from 'common/types/grant'
+import { GRANT_PRIORITIES } from 'common/src/billing/balance-calculator'
 
-const getCustomerId = (
-  customer: string | Stripe.Customer | Stripe.DeletedCustomer
-) => {
-  return match(customer)
-    .with(
-      // string ID case
-      P.string,
-      (id) => id
+async function handleCreditGrantCreated(grant: Stripe.Billing.CreditGrant) {
+  const operationId = grant.metadata?.local_operation_id ?? grant.id
+  const grantType = (grant.metadata?.type as GrantType | undefined) ?? 'free'
+  const priority = parseInt(
+    grant.metadata?.priority ?? GRANT_PRIORITIES[grantType].toString()
+  )
+
+  try {
+    // Get userId directly from database using customer ID
+    const userId = await db.query.user
+      .findFirst({
+        where: eq(schema.user.stripe_customer_id, grant.customer as string),
+        columns: { id: true },
+      })
+      .then((user) => user?.id)
+
+    if (!userId) {
+      logger.error(
+        { grantId: grant.id, customerId: grant.customer },
+        'Credit grant created but no user found with customer ID'
+      )
+      // Don't retry - this is a data consistency issue that won't resolve itself
+      return
+    }
+
+    const existingGrant = await db.query.creditGrants.findFirst({
+      where: eq(schema.creditGrants.operation_id, operationId),
+    })
+
+    if (existingGrant) {
+      await db
+        .update(schema.creditGrants)
+        .set({
+          stripe_grant_id: grant.id,
+        })
+        .where(eq(schema.creditGrants.operation_id, operationId))
+
+      logger.info(
+        { grantId: grant.id, operationId, userId },
+        'Updated local credit grant with Stripe grant ID'
+      )
+      return
+    }
+
+    const amountInCents = grant.amount.monetary?.value ?? 0
+    const creditCost = await getUserCostPerCredit(userId)
+    const credits = convertStripeGrantAmountToCredits(amountInCents, creditCost)
+
+    await db.insert(schema.creditGrants).values({
+      operation_id: operationId,
+      user_id: userId,
+      amount: credits,
+      type: grantType,
+      priority,
+      stripe_grant_id: grant.id,
+      expires_at: grant.expires_at ? new Date(grant.expires_at * 1000) : null,
+    })
+
+    logger.info(
+      { grantId: grant.id, operationId, userId, credits, grantType, priority },
+      'Created local credit grant from Stripe webhook'
     )
-    .with(
-      // Customer or DeletedCustomer case
-      { object: 'customer' },
-      (customer) => customer.id
+  } catch (err) {
+    // Log the error with full context
+    logger.error(
+      {
+        error: err,
+        grantId: grant.id,
+        operationId,
+        grantType,
+        customerId: grant.customer,
+      },
+      'Failed to process credit grant webhook'
     )
-    .exhaustive()
+    // Re-throw to trigger Stripe retry
+    throw err
+  }
+}
+
+async function handleCreditGrantUpdated(grant: Stripe.Billing.CreditGrant) {
+  const existingGrant = await db.query.creditGrants.findFirst({
+    where: eq(schema.creditGrants.stripe_grant_id, grant.id),
+    columns: { operation_id: true, user_id: true },
+  })
+
+  if (!existingGrant) {
+    logger.warn(
+      { grantId: grant.id },
+      'Credit grant updated but no matching local grant found'
+    )
+    return
+  }
+
+  const amountInCents = grant.amount.monetary?.value ?? 0
+  const creditCost = await getUserCostPerCredit(existingGrant.user_id)
+  const credits = convertStripeGrantAmountToCredits(amountInCents, creditCost)
+
+  await db
+    .update(schema.creditGrants)
+    .set({
+      amount: credits,
+      expires_at: grant.expires_at ? new Date(grant.expires_at * 1000) : null,
+    })
+    .where(eq(schema.creditGrants.stripe_grant_id, grant.id))
+
+  logger.info(
+    { grantId: grant.id, userId: existingGrant.user_id, credits },
+    'Updated local credit grant from Stripe webhook'
+  )
+}
+
+async function handleCustomerCreated(customer: Stripe.Customer) {
+  logger.info({ customerId: customer.id }, 'New customer created')
+}
+
+async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
+  logger.info(
+    {
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      customerId: subscription.customer,
+    },
+    'Subscription event received'
+  )
 }
 
 const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
@@ -87,170 +198,6 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       { error: { message: `Webhook handler error: ${error.message}` } },
       { status: 500 }
     )
-  }
-}
-
-async function handleCreditGrantCreated(grant: Stripe.Billing.CreditGrant) {
-  const userId = grant.metadata?.user_id
-  if (!userId) {
-    logger.error(
-      { grantId: grant.id, metadata: grant.metadata },
-      'Missing user_id in metadata for credit grant created event'
-    )
-    return
-  }
-
-  let amountInCents: number
-  if (
-    grant.amount &&
-    grant.amount.type === 'monetary' &&
-    grant.amount.monetary?.value !== undefined
-  ) {
-    amountInCents = grant.amount.monetary.value
-  } else {
-    logger.error(
-      { grantId: grant.id, amountObject: grant.amount },
-      'Invalid or missing monetary amount in credit grant created event'
-    )
-    return
-  }
-
-  const customerId = getCustomerId(grant.customer)
-  const grantType = (grant.metadata?.type || 'admin') as schema.GrantType
-  const priority =
-    typeof grant.priority === 'number' && !isNaN(grant.priority)
-      ? grant.priority
-      : 50
-  const description = grant.metadata?.description || `Stripe Grant ${grant.id}`
-  const expiresAt = grant.expires_at ? new Date(grant.expires_at * 1000) : null
-
-  logger.info(
-    {
-      userId: userId,
-      grantId: grant.id,
-      stripeAmountCents: amountInCents,
-      type: grantType,
-      priority: priority,
-      customerId: customerId,
-      metadata: grant.metadata,
-      grantPriorityField: grant.priority,
-    },
-    'Processing credit grant creation'
-  )
-
-  try {
-    const centsPerCredit = await getUserCostPerCredit(userId)
-    if (centsPerCredit <= 0) {
-      logger.error(
-        { userId, grantId: grant.id, centsPerCredit },
-        'Invalid centsPerCredit for user, cannot process grant.'
-      )
-      return
-    }
-
-    const internalCredits = convertStripeGrantAmountToCredits(
-      amountInCents,
-      centsPerCredit
-    )
-
-    if (internalCredits <= 0 && amountInCents > 0) {
-      logger.warn(
-        {
-          userId,
-          grantId: grant.id,
-          amountInCents,
-          centsPerCredit,
-          internalCredits,
-        },
-        'Calculated zero or negative internal credits from a positive Stripe grant amount.'
-      )
-    }
-
-    logger.debug(
-      {
-        userId,
-        grantId: grant.id,
-        amountInCents,
-        centsPerCredit,
-        internalCredits,
-      },
-      'Converted Stripe grant to internal credits'
-    )
-
-    await db
-      .insert(schema.creditGrants)
-      .values({
-        operation_id: grant.id,
-        user_id: userId,
-        amount: internalCredits,
-        type: grantType,
-        description: description,
-        priority: priority,
-        expires_at: expiresAt,
-        created_at: new Date(grant.created * 1000),
-        stripe_grant_id: grant.id,
-      })
-      .onConflictDoNothing()
-
-    logger.info(
-      { userId: userId, grantId: grant.id, creditsAdded: internalCredits },
-      'Credit grant successfully inserted/ignored in DB via webhook'
-    )
-  } catch (error) {
-    logger.error(
-      { userId: userId, grantId: grant.id, error },
-      'Error processing credit grant creation in handleCreditGrantCreated'
-    )
-    throw error
-  }
-}
-
-async function handleCreditGrantUpdated(grant: Stripe.Billing.CreditGrant) {
-  const userId = grant.metadata?.user_id
-  if (!userId) {
-    logger.error(
-      { grantId: grant.id, metadata: grant.metadata },
-      'Missing user_id in metadata for credit grant updated event'
-    )
-    return
-  }
-
-  const customerId = getCustomerId(grant.customer)
-
-  const expiresAt = grant.expires_at ? new Date(grant.expires_at * 1000) : null
-  const description = grant.metadata?.description || `Stripe Grant ${grant.id}`
-
-  logger.info(
-    { userId: userId, grantId: grant.id, customerId: customerId },
-    'Processing credit grant update'
-  )
-
-  try {
-    const result = await db
-      .update(schema.creditGrants)
-      .set({
-        expires_at: expiresAt,
-        description: description,
-      })
-      .where(eq(schema.creditGrants.stripe_grant_id, grant.id))
-
-    if (result.rowCount && result.rowCount > 0) {
-      logger.info(
-        { userId: userId, grantId: grant.id },
-        'Credit grant successfully updated in DB'
-      )
-    } else {
-      logger.warn(
-        { userId: userId, grantId: grant.id },
-        'Credit grant update webhook received, but no matching grant found in DB'
-      )
-    }
-  } catch (error) {
-    logger.error(
-      { userId: userId, grantId: grant.id, error },
-      'Error updating credit grant in DB'
-    )
-    throw error
   }
 }
 

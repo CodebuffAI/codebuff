@@ -2,9 +2,22 @@ import { WebSocket } from 'ws'
 import { ClientAction, ServerAction } from 'common/actions'
 import { sendAction } from './websocket-action'
 import { checkAuth } from '../util/check-auth'
-import { logger, withLoggerContext, LoggerContext } from '@/util/logger'
+import { logger, withLoggerContext } from '@/util/logger'
 import { getUserInfoFromAuthToken, UserInfo } from './auth'
-import { calculateCurrentBalance } from 'common/src/billing/balance-calculator'
+import {
+  calculateCurrentBalance,
+  GRANT_PRIORITIES,
+} from 'common/src/billing/balance-calculator'
+import { getNextQuotaReset } from 'common/src/util/dates'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { eq } from 'drizzle-orm'
+import {
+  CREDITS_USAGE_LIMITS,
+  CREDITS_REFERRAL_BONUS,
+} from 'common/src/constants'
+import { grantCredit } from 'common/src/billing/grant-credits'
+import { calculateAndApplyRollover } from 'common/src/billing/rollover-logic'
 
 type MiddlewareCallback = (
   action: ClientAction,
@@ -127,6 +140,49 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
       type: 'action-error',
       error: 'Missing user or fingerprint ID',
       message: 'Please log in to continue.',
+    }
+  }
+
+  // First check if we need to reset the quota
+  const user = await db.query.user.findFirst({
+    where: eq(schema.user.id, userId),
+    columns: {
+      usage: true,
+      next_quota_reset: true,
+      stripe_customer_id: true,
+    },
+  })
+
+  if (user && user.next_quota_reset && user.next_quota_reset <= new Date()) {
+    const currentResetDate = user.next_quota_reset
+    const nextResetDate = getNextQuotaReset(user.next_quota_reset)
+    const baseOperationId = `reset-${userId}-${Date.now()}`
+
+    // Calculate rollover first - this will also reset usage and update next_quota_reset
+    await calculateAndApplyRollover(userId, currentResetDate)
+
+    try {
+      // Create both grants (local and Stripe if applicable)
+      await Promise.all([
+        grantCredit(
+          { id: userId, stripe_customer_id: user.stripe_customer_id },
+          'free',
+          CREDITS_USAGE_LIMITS.FREE,
+          `${baseOperationId}-free`,
+          nextResetDate
+        ),
+        grantCredit(
+          { id: userId, stripe_customer_id: user.stripe_customer_id },
+          'referral',
+          CREDITS_REFERRAL_BONUS,
+          `${baseOperationId}-referral`,
+          nextResetDate
+        ),
+      ])
+
+      logger.info({ userId, baseOperationId }, 'Monthly credit grants created.')
+    } catch (error) {
+      logger.error({ userId, error }, 'Failed to create monthly credit grants.')
     }
   }
 

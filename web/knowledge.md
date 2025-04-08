@@ -1,5 +1,22 @@
 # Codebuff Web Application
 
+## Build Configuration
+
+When using Next.js 15+ with contentlayer:
+- Disable worker threads in next.config.mjs to prevent worker errors:
+  ```js
+  experimental: {
+    workerThreads: false,
+    cpus: 1
+  }
+  ```
+- Add onSuccess handler in contentlayer.config.ts:
+  ```js
+  onSuccess: () => {
+    return Promise.resolve()
+  }
+  ```
+
 ## Authentication Flow
 
 1. **Auth Code Validation**:
@@ -897,3 +914,57 @@ Important: When integrating PostHog:
 - Validate subscription states
 - Track metered usage accurately
 - Handle plan upgrades and downgrades
+
+## Build Configuration
+
+When using Next.js 15+ with contentlayer:
+- Disable worker threads in next.config.mjs to prevent worker errors:
+  ```js
+  experimental: {
+    workerThreads: false,
+    cpus: 1
+  }
+  ```
+- Add onSuccess handler in contentlayer.config.ts:
+  ```js
+  onSuccess: () => {
+    return Promise.resolve()
+  }
+  ```
+
+## Stripe Webhooks
+
+Webhook handlers are split by event type for clarity:
+- `handleCreditGrantCreated`: Handles credit grant creation/updates
+  - Uses operation_id from metadata or falls back to grant.id
+  - Defaults to 'free' grant type if not specified
+  - Defaults to priority 1 if not specified
+  - Only requires user_id in metadata
+- `handleCustomerCreated`: For customer welcome/onboarding flows
+- `handleSubscriptionEvent`: For subscription lifecycle events
+
+Each handler is responsible for its own validation and error handling.
+
+Important: Use ts-pattern's match with object structure validation:
+```typescript
+match(event)
+  .with({
+    type: P.string.startsWith('event.type'),
+    data: {
+      object: {
+        id: P.string,
+        // Validate required fields
+      }
+    }
+  }, handler)
+```
+This ensures both event type and object structure are valid before processing.
+
+### Webhook Error Handling
+
+- Data consistency errors (e.g. missing user) should return 200 to prevent retries
+- Transient errors (e.g. DB timeouts) should throw to trigger Stripe retries
+- Log all errors with full context for debugging
+- Use try/catch in handlers to control retry behavior
+- Stripe will retry failed webhooks (non-200 responses) up to 3 times
+- Retries occur after 1 minute, 10 minutes, and 100 minutes
