@@ -712,6 +712,7 @@ async function getFileReadingUpdates(
   const previousFilePaths = uniq(Object.keys(previousFiles))
 
   const editedFilePaths = messages
+    .filter(({ role }) => role === 'assistant')
     .map(toContentString)
     .filter((content) => content.includes('<write_file'))
     .flatMap((content) => Object.keys(parseFileBlocks(content)))
