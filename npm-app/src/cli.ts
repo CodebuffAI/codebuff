@@ -15,6 +15,7 @@ import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 import { blue, bold, cyan, green, magenta, red, yellow } from 'picocolors'
 
+import { backgroundProcesses } from './background-process-manager'
 import { setMessages } from './chat-storage'
 import {
   checkpointManager,
@@ -782,6 +783,14 @@ export class CLI {
   private handleExit() {
     Spinner.get().restoreCursor()
     console.log('\n')
+
+    for (const [pid, processInfo] of backgroundProcesses.entries()) {
+      if (processInfo.status === 'running') {
+        try {
+          processInfo.process.kill()
+        } catch (error) {}
+      }
+    }
 
     const logMessages = []
     const totalCredits = Object.values(this.client.creditsByPromptId)

@@ -266,9 +266,6 @@ const runBackgroundCommand = (
       processInfo.endTime = Date.now()
     })
 
-    console.log({ pid: childProcess.pid }, 'asdf')
-    childProcess.kill()
-
     // Unreference the process so the parent can exit independently IF the child is the only thing keeping it alive.
     childProcess.unref()
 
