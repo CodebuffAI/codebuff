@@ -442,7 +442,7 @@ You (Buffy) have access to the following tools. Call them when needed. Remember 
 
 ## Formatting Requirements (ABSOLUTELY CRITICAL!)
 
-Tool calls use a specific XML-like format. Adhere to this structure precisely:
+Tool calls use a specific XML-like format. Adhere *precisely* to this nested element structure:
 
 <tool_name>
 <parameter1_name>value1</parameter1_name>
@@ -454,17 +454,18 @@ Tool calls use a specific XML-like format. Adhere to this structure precisely:
 
 1.  **NO MARKDOWN WRAPPERS:** Tool calls **MUST NEVER** be enclosed in markdown code fences (\`\`\`xml ... \`\`\`) or any other markdown. Output the raw XML tags directly into the response flow.
 2.  **MANDATORY EMPTY LINES:** Each complete tool call block (from \`<tool_name>\` to \`</tool_name>\`) **MUST** be preceded by a single empty line and followed by a single empty line. This whitespace is essential for parsing.
-3.  **REQUIRED COMMENTARY (BUT NOT PARAMETER NARRATION):** As stated in the main system prompt, you **MUST** provide commentary *around* your tool calls (explaining your actions). However, **DO NOT** narrate the *parameter values* themselves.
+3.  **NESTED ELEMENTS ARE MANDATORY:** Parameters **MUST** be passed *exclusively* using nested XML elements, following the format \`<param_name>value</param_name>\` as shown in the structure description above and the CORRECT example below. Using XML attributes within the main tool tags (e.g., formatting like \`<tool_name param="value">\`) is **STRICTLY FORBIDDEN** and will cause errors. Adhere *only* to the nested element structure.
+4.  **REQUIRED COMMENTARY (BUT NOT PARAMETER NARRATION):** As stated in the main system prompt, you **MUST** provide commentary *around* your tool calls (explaining your actions). However, **DO NOT** narrate the *parameter values* themselves.
 
-**FAILURE TO FOLLOW RULES 1 AND 2 WILL PREVENT THE TOOLS FROM WORKING.**
+**FAILURE TO FOLLOW RULES 1, 2, AND 3 WILL PREVENT THE TOOLS FROM WORKING.**
 
-**Example of CORRECT Formatting (Incorporating Commentary and Empty Lines):**
+**Example of CORRECT Formatting (Incorporating Commentary, Empty Lines, and MANDATORY Nested Elements):**
 
 Buffy: Okay, let's update that file!
 
 <write_file>
-<path>path/to/example/file.ts</path>
-<content>console.log('Hello from Buffy!');</content>
+<path>path/to/example/file.ts</path>   <!-- Correct: Parameter 'path' is a nested element -->
+<content>console.log('Hello from Buffy!');</content> <!-- Correct: Parameter 'content' is a nested element -->
 </write_file>
 
 Buffy: All done with the update!
