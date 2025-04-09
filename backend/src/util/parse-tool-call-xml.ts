@@ -71,21 +71,25 @@ export function renderReadFilesResult(
   files: { path: string; content: string }[]
 ) {
   return files
-    .map((file) => `<read_file path="${file.path}">${file.content}</read_file>`)
-    .join('\n')
+    .map(
+      (file) =>
+        `<read_file>\n<path>${file.path}</path>\n<content>${file.content}</content>\n</read_file>`
+    )
+    .join('\n\n')
 }
 
 export function parseReadFilesResult(
   xmlString: string
 ): { path: string; content: string }[] {
   const files: { path: string; content: string }[] = []
-  const filePattern = /<read_file path="([^"]+)">([\s\S]*?)<\/read_file>/g
+  const filePattern =
+    /<read_file>\n<path>([^<>]+)<\/path>\n<content>([\s\S]*?)<\/content>\n<\/read_file>/g
   let match
 
   while ((match = filePattern.exec(xmlString)) !== null) {
     const [, filePath, content] = match
     if (filePath.trim()) {
-      files.push({ path: filePath, content })
+      files.push({ path: filePath.trim(), content })
     }
   }
 

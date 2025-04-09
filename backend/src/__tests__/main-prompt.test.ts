@@ -1,28 +1,28 @@
 import {
-  expect,
+  afterEach,
+  beforeEach,
   describe,
+  expect,
   it,
   mock,
-  beforeEach,
-  afterEach,
   spyOn,
 } from 'bun:test'
-import { mainPrompt } from '../main-prompt'
-import { getInitialAgentState, ToolResult } from 'common/types/agent-state'
-import { WebSocket } from 'ws'
 import { TEST_USER_ID } from 'common/constants'
+import { getInitialAgentState } from 'common/types/agent-state'
 import { createWriteFileBlock } from 'common/util/file'
-import { renderToolResults } from '../util/parse-tool-call-xml'
+import { WebSocket } from 'ws'
 
 // Mock imports
+import * as checkTerminalCommandModule from '../check-terminal-command'
+import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as claude from '../llm-apis/claude'
 import * as gemini from '../llm-apis/gemini-api'
-import * as openai from '../llm-apis/openai-api'
 import * as geminiWithFallbacks from '../llm-apis/gemini-with-fallbacks'
-import * as websocketAction from '../websockets/websocket-action'
-import * as requestFilesPrompt from '../find-files/request-files-prompt'
-import * as checkTerminalCommandModule from '../check-terminal-command'
+import * as openai from '../llm-apis/openai-api'
+import { mainPrompt } from '../main-prompt'
 import { logger } from '../util/logger'
+import { renderToolResults } from '../util/parse-tool-call-xml'
+import * as websocketAction from '../websockets/websocket-action'
 
 describe('mainPrompt', () => {
   beforeEach(() => {
@@ -224,7 +224,8 @@ describe('mainPrompt', () => {
         {
           id: 'prev-read',
           name: 'read_files',
-          result: '<read_file path="test.txt">old content</read_file>',
+          result:
+            '<read_file>\n<path>test.txt</path>\n<content>old content</content>\n</read_file>',
         },
       ]),
     })

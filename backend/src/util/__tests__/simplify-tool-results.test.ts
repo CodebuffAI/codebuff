@@ -1,9 +1,9 @@
-import { expect, describe, it } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 
 import {
   simplifyReadFileResults,
-  simplifyTerminalCommandResults,
   simplifyReadFileToolResult,
+  simplifyTerminalCommandResults,
   simplifyTerminalCommandToolResult,
 } from '../simplify-tool-results'
 
@@ -12,8 +12,15 @@ describe('simplifyToolResultsInMessages', () => {
     const messageContent = `
 <tool_result>
 <tool>read_files</tool>
-<result><read_file path="test1.txt">content1</read_file>
-<read_file path="test2.txt">content2</read_file></result>
+<result><read_file>
+<path>test1.txt</path>
+<content>content1</content>
+</read_file>
+
+<read_file>
+<path>test2.txt</path>
+<content>content2</content>
+</read_file></result>
 </tool_result>
 <tool_result>
 <tool>run_terminal_command</tool>
@@ -32,7 +39,10 @@ describe('simplifyToolResultsInMessages', () => {
         text: `
 <tool_result>
 <tool>read_files</tool>
-<result><read_file path="test.txt">content</read_file></result>
+<result><read_file>
+<path>test.txt</path>
+<content>content</content>
+</read_file></result>
 </tool_result>`,
       },
     ]
@@ -68,11 +78,17 @@ describe('simplifyToolResultsInMessages', () => {
     const messageContent = `
 <tool_result>
 <tool>read_files</tool>
-<result><read_file path="test1.txt">content1</read_file></result>
+<result><read_file>
+<path>test1.txt</path>
+<content>content1</content>
+</read_file></result>
 </tool_result>
 <tool_result>
 <tool>read_files</tool>
-<result><read_file path="test2.txt">content2</read_file></result>
+<result><read_file>
+<path>test2.txt</path>
+<content>content2</content>
+</read_file></result>
 </tool_result>`
 
     const result = simplifyReadFileResults(messageContent)
@@ -124,12 +140,17 @@ describe('simplifyTerminalCommandResultsInMessages', () => {
 </tool_result>
 <tool_result>
 <tool>read_files</tool>
-<result><read_file path="test.txt">content</read_file></result>
+<result><read_file>
+<path>test.txt</path>
+<content>content</content>
+</read_file></result>
 </tool_result>`
 
     const result = simplifyTerminalCommandResults(messageContent)
     expect(result).toContain('[Output omitted]')
-    expect(result).toContain('<read_file path="test.txt">content</read_file>')
+    expect(result).toContain(
+      '<read_file>\n<path>test.txt</path>\n<content>content</content>\n</read_file>'
+    )
   })
 
   it('should handle multiple terminal command results', () => {
@@ -181,8 +202,15 @@ describe('simplifyReadFileToolResult', () => {
     const toolResult = {
       id: '1',
       name: 'read_files',
-      result:
-        '<read_file path="test1.txt">content1</read_file>\n<read_file path="test2.txt">content2</read_file>',
+      result: `<read_file>
+<path>test1.txt</path>
+<content>content1</content>
+</read_file>
+
+<read_file>
+<path>test2.txt</path>
+<content>content2</content>
+</read_file>`,
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
@@ -197,7 +225,8 @@ describe('simplifyReadFileToolResult', () => {
     const toolResult = {
       id: '1',
       name: 'read_files',
-      result: '<read_file path="test.txt">content</read_file>',
+      result:
+        '<read_file>\n<path>test.txt</path>\n<content>content</content>\n</read_file>',
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
@@ -230,7 +259,8 @@ describe('simplifyReadFileToolResult', () => {
     const toolResult = {
       id: '1',
       name: 'read_files',
-      result: '<read_file path="">content</read_file>',
+      result:
+        '<read_file>\n<path></path>\n<content>content</content>\n</read_file>',
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
