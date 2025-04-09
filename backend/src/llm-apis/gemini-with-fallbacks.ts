@@ -118,6 +118,8 @@ export async function promptGeminiWithFallbacks(
  * 5. Claude Sonnet (Final Fallback)
  *
  * This function handles streaming requests and yields chunks of the response as they arrive.
+ * If a stream fails mid-way (e.g., due to rate limits), it appends the partially
+ * generated content to the message history before attempting the next fallback.
  *
  * @param messages - The array of messages forming the conversation history.
  * @param system - An optional system prompt string or array of text blocks.
@@ -152,9 +154,11 @@ export async function* streamGemini25ProWithFallbacks(
     temperature,
   } = options
 
-  const formattedMessages = system
+  // Initialize the message list for the first attempt
+  let currentMessages: OpenAIMessage[] = system
     ? messagesWithSystem(messages, system)
     : (messages as OpenAIMessage[])
+  let accumulatedContent = '' // To store content from the failed stream
 
   // --- Internal Fallbacks ---
 
@@ -168,17 +172,31 @@ export async function* streamGemini25ProWithFallbacks(
     maxTokens,
     temperature,
   }
+  accumulatedContent = '' // Reset before this attempt
+  logger.debug(
+    'Attempting Gemini 2.5 Pro (exp) via Gemini API Stream (Internal Key)'
+  )
   try {
-    logger.debug(
-      'Attempting Gemini 2.5 Pro (exp) via Gemini API Stream (Internal Key)'
-    )
-    yield* promptGeminiStream(formattedMessages, geminiExpOptions)
+    for await (const chunk of promptGeminiStream(
+      currentMessages,
+      geminiExpOptions
+    )) {
+      accumulatedContent += chunk
+      yield chunk
+    }
     return // Success
   } catch (error) {
     logger.warn(
       { error },
       'Error calling Gemini 2.5 Pro (exp) via Gemini API Stream (Internal Key), falling back to OpenRouter (exp)'
     )
+    // Append partial content before next attempt
+    if (accumulatedContent) {
+      currentMessages = [
+        ...currentMessages,
+        { role: 'assistant', content: accumulatedContent },
+      ]
+    }
   }
 
   // 2. Try OpenRouter Stream (google/gemini-2.5-pro-exp-03-25:free)
@@ -190,18 +208,31 @@ export async function* streamGemini25ProWithFallbacks(
     model: openrouterModels.openrouter_gemini2_5_pro_exp, // Experimental model via OpenRouter
     temperature,
   }
+  accumulatedContent = '' // Reset before this attempt
+  logger.debug('Attempting Gemini 2.5 Pro (exp) via OpenRouter Stream')
   try {
-    logger.debug('Attempting Gemini 2.5 Pro (exp) via OpenRouter Stream')
-    yield* promptOpenRouterStream(formattedMessages, openRouterExpOptions)
+    for await (const chunk of promptOpenRouterStream(
+      currentMessages,
+      openRouterExpOptions
+    )) {
+      accumulatedContent += chunk
+      yield chunk
+    }
     return // Success
   } catch (error) {
     logger.warn(
       { error },
       'Error calling Gemini 2.5 Pro (exp) via OpenRouter Stream, falling back to Gemini API (preview)'
     )
+    if (accumulatedContent) {
+      currentMessages = [
+        ...currentMessages,
+        { role: 'assistant', content: accumulatedContent },
+      ]
+    }
   }
 
-  // 3. Try Gemini API Stream (Internal Key - gemini-2.5-pro-preview) <-- NEW STEP
+  // 3. Try Gemini API Stream (Internal Key - gemini-2.5-pro-preview)
   const geminiPreviewOptions = {
     clientSessionId,
     fingerprintId,
@@ -211,17 +242,30 @@ export async function* streamGemini25ProWithFallbacks(
     maxTokens,
     temperature,
   }
+  accumulatedContent = '' // Reset before this attempt
+  logger.debug(
+    'Attempting Gemini 2.5 Pro (preview) via Gemini API Stream (Internal Key)'
+  )
   try {
-    logger.debug(
-      'Attempting Gemini 2.5 Pro (preview) via Gemini API Stream (Internal Key)'
-    )
-    yield* promptGeminiStream(formattedMessages, geminiPreviewOptions)
+    for await (const chunk of promptGeminiStream(
+      currentMessages,
+      geminiPreviewOptions
+    )) {
+      accumulatedContent += chunk
+      yield chunk
+    }
     return // Success
   } catch (error) {
     logger.warn(
       { error },
       'Error calling Gemini 2.5 Pro (preview) via Gemini API Stream (Internal Key), falling back to OpenRouter (preview)'
     )
+    if (accumulatedContent) {
+      currentMessages = [
+        ...currentMessages,
+        { role: 'assistant', content: accumulatedContent },
+      ]
+    }
   }
 
   // 4. Try OpenRouter Stream (google/gemini-2.5-pro-preview)
@@ -233,9 +277,16 @@ export async function* streamGemini25ProWithFallbacks(
     model: openrouterModels.openrouter_gemini2_5_pro_preview, // Preview model via OpenRouter
     temperature,
   }
+  accumulatedContent = '' // Reset before this attempt
+  logger.debug('Attempting Gemini 2.5 Pro (preview) via OpenRouter Stream')
   try {
-    logger.debug('Attempting Gemini 2.5 Pro (preview) via OpenRouter Stream')
-    yield* promptOpenRouterStream(formattedMessages, openRouterPreviewOptions)
+    for await (const chunk of promptOpenRouterStream(
+      currentMessages,
+      openRouterPreviewOptions
+    )) {
+      accumulatedContent += chunk
+      yield chunk
+    }
     return // Success
   } catch (error) {
     logger.warn(
@@ -243,13 +294,23 @@ export async function* streamGemini25ProWithFallbacks(
       'Error calling Gemini 2.5 Pro (preview) via OpenRouter Stream, falling back to Claude Sonnet'
     )
     yield `<${CODEBUFF_CLAUDE_FALLBACK_INFO}>All Gemini attempts failed. Falling back to Claude Sonnet.</${CODEBUFF_CLAUDE_FALLBACK_INFO}>\n`
+    // Don't update currentMessages here, as Claude uses the original `messages`.
+    // The last `accumulatedContent` will be appended to the original `messages` below.
   }
 
   // 5. Final Fallback: Claude Sonnet
+  // Prepare messages for Claude, using original `messages` and appending the last accumulated content
+  const claudeMessages = [...messages] // Start with original messages
+  if (accumulatedContent) {
+    // Append content from the last failed attempt (OpenRouter Preview)
+    claudeMessages.push({ role: 'assistant', content: accumulatedContent })
+  }
+  // Use a separate accumulator for the Claude stream itself, though we don't use it for further fallbacks
+  let claudeAccumulatedContent = ''
+  logger.debug('Attempting final fallback to Claude Sonnet Stream')
   try {
-    logger.debug('Attempting final fallback to Claude Sonnet Stream')
-    yield* promptClaudeStream(messages, {
-      // Use original messages for Claude
+    for await (const chunk of promptClaudeStream(claudeMessages, {
+      // Use modified claudeMessages
       model: claudeModels.sonnet,
       system,
       clientSessionId,
@@ -258,7 +319,10 @@ export async function* streamGemini25ProWithFallbacks(
       userId,
       maxTokens,
       // Temperature might differ, using Claude's default or a standard value
-    })
+    })) {
+      claudeAccumulatedContent += chunk // Accumulate just in case, though not used after this
+      yield chunk
+    }
     return // Success! Claude Sonnet worked.
   } catch (claudeError) {
     logger.error(
