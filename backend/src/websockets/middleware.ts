@@ -6,7 +6,6 @@ import { logger, withLoggerContext } from '@/util/logger'
 import { getUserInfoFromAuthToken, UserInfo } from './auth'
 import {
   calculateCurrentBalance,
-  GRANT_PRIORITIES,
 } from 'common/src/billing/balance-calculator'
 import { getNextQuotaReset } from 'common/src/util/dates'
 import db from 'common/db'
@@ -16,7 +15,7 @@ import {
   CREDITS_USAGE_LIMITS,
   CREDITS_REFERRAL_BONUS,
 } from 'common/src/constants'
-import { grantCredit } from 'common/src/billing/grant-credits'
+import { processAndGrantCredit } from 'common/src/billing/grant-credits'
 import { calculateAndApplyRollover } from 'common/src/billing/rollover-logic'
 
 type MiddlewareCallback = (
@@ -163,20 +162,24 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
 
     try {
       // Create both grants (local and Stripe if applicable)
+      const freeGrantOpId = `${baseOperationId}-free`
+      const referralGrantOpId = `${baseOperationId}-referral`
       await Promise.all([
-        grantCredit(
-          { id: userId, stripe_customer_id: user.stripe_customer_id },
-          'free',
+        processAndGrantCredit(
+          userId,
           CREDITS_USAGE_LIMITS.FREE,
-          `${baseOperationId}-free`,
-          nextResetDate
+          'free',
+          `Monthly free grant`,
+          nextResetDate,
+          freeGrantOpId
         ),
-        grantCredit(
-          { id: userId, stripe_customer_id: user.stripe_customer_id },
-          'referral',
+        processAndGrantCredit(
+          userId,
           CREDITS_REFERRAL_BONUS,
-          `${baseOperationId}-referral`,
-          nextResetDate
+          'referral',
+          `Monthly referral bonus grant`,
+          nextResetDate,
+          referralGrantOpId
         ),
       ])
 

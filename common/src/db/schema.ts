@@ -60,6 +60,10 @@ export const user = pgTable('user', {
   referral_limit: integer('referral_limit').notNull().default(5),
   discord_id: text('discord_id').unique(),
   handle: text('handle').unique(),
+  // Auto-Top-up Settings
+  auto_topup_enabled: boolean('auto_topup_enabled').notNull().default(false),
+  auto_topup_threshold: integer('auto_topup_threshold'), // When balance drops below this
+  auto_topup_target_balance: integer('auto_topup_target_balance'), // Top up *to* this balance
 })
 
 export const account = pgTable(

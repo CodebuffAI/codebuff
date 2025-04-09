@@ -64,6 +64,7 @@ export const UsageReponseSchema = z.object({
     .record(z.enum(grantTypeEnum.enumValues), z.number())
     .optional(),
   next_quota_reset: z.coerce.date().nullable(),
+  nextMonthlyGrant: z.number(),
 })
 export type UsageResponse = z.infer<typeof UsageReponseSchema>
 

@@ -307,6 +307,18 @@ When cleaning responses from AI models:
 2. **Input Validation**: User input is validated and sanitized before processing.
 3. **File Access Restrictions**: File operations are restricted to the project directory to prevent unauthorized access.
 
+## Stripe Integration
+
+When interacting with Stripe:
+- Log failures to the sync_failures table using logSyncFailure helper
+- Use unique IDs (message_id, operation_id, user_id) as failure record identifiers
+- Retry count tracked automatically by the sync_failures table
+- Failures are logged for:
+  - Message usage syncs
+  - Credit grant creation
+  - Customer/subscription creation
+  - Initial credit grants
+
 ## TODO List
 
 1. Implement authentication and authorization for WebSocket connections.
@@ -363,6 +375,15 @@ The referral system is an important feature of our application. Here are key poi
 5. **Error Handling**: Provide clear error messages when a referral code cannot be redeemed due to the referrer reaching their limit. This helps maintain a good user experience.
 
 Remember to keep the referral system logic consistent between the backend API and the websocket server to ensure uniform behavior across different parts of the application.
+
+## User Creation Flow
+
+When a new user signs up:
+1. Create Stripe customer record
+2. Create usage-based subscription with STRIPE_USAGE_PRICE_ID
+3. Create initial credit grant
+4. Send signup event to Loops
+5. Link Stripe customer ID to user record
 
 ## Recent Updates
 

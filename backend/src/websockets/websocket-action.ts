@@ -15,7 +15,8 @@ import { logger, withLoggerContext } from '@/util/logger'
 import { generateCompactId } from 'common/util/string'
 import { renderToolResults } from '@/util/parse-tool-call-xml'
 import { buildArray } from 'common/util/array'
-import { toOptionalFile } from 'common/constants'
+import { toOptionalFile, UsageLimits } from 'common/constants'
+import { getPlanFromPriceId, getMonthlyGrantForPlan } from '../billing/plans'
 
 /**
  * Sends an action to the client via WebSocket
@@ -73,12 +74,17 @@ export async function genUsageResponse(
     remainingBalance: 0,
     balanceBreakdown: {},
     next_quota_reset: null,
+    nextMonthlyGrant: getMonthlyGrantForPlan(UsageLimits.FREE),
   }
 
   return withLoggerContext(logContext, async () => {
     const user = await db.query.user.findFirst({
       where: eq(schema.user.id, userId),
-      columns: { usage: true, next_quota_reset: true },
+      columns: {
+        usage: true,
+        next_quota_reset: true,
+        stripe_price_id: true,
+      },
     })
 
     if (!user) {
@@ -88,6 +94,8 @@ export async function genUsageResponse(
     try {
       // Now userId is guaranteed to be a string
       const balanceDetails = await calculateCurrentBalance(userId)
+      const currentPlan = getPlanFromPriceId(user.stripe_price_id)
+      const nextMonthlyGrant = getMonthlyGrantForPlan(currentPlan)
 
       return {
         type: 'usage-response' as const,
@@ -95,6 +103,7 @@ export async function genUsageResponse(
         remainingBalance: balanceDetails.totalRemaining,
         balanceBreakdown: balanceDetails.breakdown,
         next_quota_reset: user.next_quota_reset,
+        nextMonthlyGrant: nextMonthlyGrant,
       }
     } catch (error) {
       logger.error(
@@ -236,6 +245,7 @@ const onInit = async (
         balanceBreakdown: {},
         next_quota_reset: null,
         type: 'init-response',
+        nextMonthlyGrant: getMonthlyGrantForPlan(UsageLimits.FREE),
       })
       return
     }
@@ -247,7 +257,7 @@ const onInit = async (
       clientSessionId
     )
     sendAction(ws, {
-      ...usageResponse, // Spread the fields from UsageResponse
+      ...usageResponse,
       type: 'init-response',
     })
   })

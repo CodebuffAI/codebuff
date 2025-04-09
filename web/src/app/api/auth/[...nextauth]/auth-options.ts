@@ -16,6 +16,7 @@ import {
   createStripeMonetaryAmount,
   getUserCostPerCredit,
 } from 'common/src/billing/conversion'
+import { logSyncFailure } from 'common/src/util/sync-failure'
 
 async function createAndLinkStripeCustomer(user: User): Promise<string | null> {
   if (!user.email || !user.name) {
@@ -34,23 +35,32 @@ async function createAndLinkStripeCustomer(user: User): Promise<string | null> {
       },
     })
 
+    // Create subscription with the usage price
+    await stripeServer.subscriptions.create({
+      customer: customer.id,
+      items: [{ price: env.STRIPE_USAGE_PRICE_ID }],
+    })
+
     await db
       .update(schema.user)
       .set({
         stripe_customer_id: customer.id,
+        stripe_price_id: env.STRIPE_USAGE_PRICE_ID,
       })
       .where(eq(schema.user.id, user.id))
 
     logger.info(
       { userId: user.id, customerId: customer.id },
-      'Stripe customer created and linked to user.'
+      'Stripe customer created with usage subscription and linked to user.'
     )
     return customer.id
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error creating Stripe customer'
     logger.error(
       { userId: user.id, error },
       'Failed to create Stripe customer or update user record.'
     )
+    await logSyncFailure(user.id, errorMessage)
     return null
   }
 }
@@ -103,10 +113,12 @@ async function createInitialCreditGrant(
       'Initial free credit grant created via Stripe.'
     )
   } catch (grantError) {
+    const errorMessage = grantError instanceof Error ? grantError.message : 'Unknown error creating initial credit grant'
     logger.error(
       { userId: userId, customerId: customerId, error: grantError },
       'Failed to create initial Stripe credit grant.'
     )
+    await logSyncFailure(userId, errorMessage)
   }
 }
 

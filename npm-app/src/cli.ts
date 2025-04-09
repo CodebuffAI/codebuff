@@ -13,7 +13,17 @@ import { AgentState } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { blue, bold, cyan, green, magenta, red, yellow } from 'picocolors'
+import {
+  blue,
+  bold,
+  cyan,
+  green,
+  magenta,
+  red,
+  yellow,
+  underline,
+  gray,
+} from 'picocolors'
 
 import { setMessages } from './chat-storage'
 import {
@@ -21,7 +31,7 @@ import {
   CheckpointsDisabledError,
 } from './checkpoints/checkpoint-manager'
 import { Client } from './client'
-import { websocketUrl } from './config'
+import { websocketUrl, websiteUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
 import { getProjectRoot } from './project-files'
 import { CliOptions, GitCommand } from './types'

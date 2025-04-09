@@ -9,6 +9,8 @@ import { useSession } from 'next-auth/react'
 import CardWithBeams from '@/components/card-with-beams'
 import { trackUpgrade } from '@/lib/trackConversions'
 import { useUserPlan } from '@/hooks/use-user-plan'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 
 function SearchParamsHandler() {
   const router = useRouter()
@@ -36,6 +38,28 @@ function SearchParamsHandler() {
 const PaymentSuccessPage = () => {
   const { data: session } = useSession()
   const { data: currentPlan } = useUserPlan(session?.user?.stripe_customer_id)
+  const searchParams = useSearchParams()
+  const isCreditPurchase = searchParams.get('purchase') === 'credits' // Check for credit purchase flag
+
+  if (isCreditPurchase) {
+    return CardWithBeams({
+      title: 'Purchase Successful!',
+      description: `Your credits have been added to your account.`,
+      content: (
+        <div className="flex flex-col items-center space-y-4">
+          <Image
+            src="/much-credits.jpg"
+            alt="Successful credit purchase"
+            width={600}
+            height={600}
+          />
+          <Button asChild>
+            <Link href="/usage">View Usage</Link>
+          </Button>
+        </div>
+      ),
+    });
+  }
 
   if (!session?.user) {
     return CardWithBeams({

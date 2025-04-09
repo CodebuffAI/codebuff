@@ -32,6 +32,7 @@ import {
   blue,
   blueBright,
   bold,
+  gray,
   green,
   red,
   underline,
@@ -39,6 +40,7 @@ import {
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
 import { GrantType } from 'common/db/schema'
+import { z } from 'zod'
 
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
@@ -67,7 +69,7 @@ export class Client {
   private git: GitCommand
   private rl: readline.Interface
   private lastToolResults: ToolResult[] = []
-  private extraGemini25ProMessageShown: boolean = false // Flag for rate limit message
+  private extraGemini25ProMessageShown: boolean = false
 
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
@@ -81,6 +83,7 @@ export class Client {
   public balanceBreakdown: Partial<Record<GrantType, number>> | undefined =
     undefined
   public nextQuotaReset: Date | null = null
+  public nextMonthlyGrant: number = 0
   public storedApiKeyTypes: ApiKeyType[] = []
 
   constructor(
@@ -388,7 +391,7 @@ export class Client {
             ]
             console.log('\n' + responseToUser.join('\n'))
             this.lastWarnedPct = 0
-            this.extraGemini25ProMessageShown = false // Reset flag on login
+            this.extraGemini25ProMessageShown = false
 
             displayGreeting(this.costMode, null)
             clearInterval(pollInterval)
@@ -409,6 +412,7 @@ export class Client {
     this.remainingBalance = usageData.remainingBalance
     this.balanceBreakdown = usageData.balanceBreakdown
     this.nextQuotaReset = usageData.next_quota_reset
+    this.nextMonthlyGrant = usageData.nextMonthlyGrant
   }
 
   private setupSubscriptions() {
@@ -470,7 +474,13 @@ export class Client {
 
     this.webSocket.subscribe('usage-response', (action) => {
       const parsedAction = UsageReponseSchema.safeParse(action)
-      if (!parsedAction.success) return
+      if (!parsedAction.success) {
+        console.error(
+          red('Received invalid usage data from server:'),
+          parsedAction.error.errors
+        )
+        return
+      }
 
       this.setUsage(parsedAction.data)
       this.showUsageWarning()
@@ -816,22 +826,51 @@ export class Client {
       console.log(
         ` Credits Remaining: ${this.remainingBalance.toLocaleString()}`
       )
-      if (this.balanceBreakdown) {
-        const breakdownParts = Object.entries(this.balanceBreakdown)
-          .filter(([, amount]) => amount > 0)
-          .map(([type, amount]) => `${type}: ${amount.toLocaleString()}`)
-        if (breakdownParts.length > 0) {
-          console.log(`   Breakdown: ${breakdownParts.join(', ')}`)
-        }
-      }
       if (this.nextQuotaReset) {
         console.log(` Current Cycle Usage: ${this.usage.toLocaleString()}`)
         console.log(
           ` Next Cycle Start: ${this.nextQuotaReset.toLocaleDateString()}`
         )
+        // Display the upcoming grant amount
+        console.log(
+          ` Credits renewing next cycle: ${green(this.nextMonthlyGrant.toLocaleString())}`
+        )
       } else {
         console.log(` (Usage is based on available grants)`)
       }
+
+      const remainingColor =
+        this.remainingBalance <= 0
+          ? red
+          : this.remainingBalance <= 500
+            ? yellow
+            : green
+
+      console.log(bold('--- Usage ---'))
+      console.log(
+        `Credits Remaining: ${remainingColor(this.remainingBalance.toLocaleString())}`
+      )
+
+      if (this.nextQuotaReset) {
+        const nextResetDate = new Date(this.nextQuotaReset)
+        console.log(
+          `Next cycle starts: ${gray(nextResetDate.toLocaleString())}`
+        )
+      } else {
+        console.log(
+          `Next monthly grant: ${green(this.nextMonthlyGrant.toLocaleString())}`
+        )
+      }
+
+      if (websiteUrl) {
+        const usageLink = `${websiteUrl}/usage`
+        console.log(`Manage usage & billing: ${underline(blue(usageLink))}`)
+      } else {
+        console.warn(
+          yellow('Could not determine website URL for usage management link.')
+        )
+      }
+      console.log(bold('-------------'))
 
       this.showUsageWarning()
     } catch (error) {
@@ -840,7 +879,12 @@ export class Client {
           `Error checking usage: Please reach out to ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
         )
       )
-      console.error(error)
+      // Check if it's a ZodError for more specific feedback
+      if (error instanceof z.ZodError) {
+        console.error(red('Data validation failed:'), error.errors)
+      } else {
+        console.error(error)
+      }
     } finally {
       this.returnControlToUser()
     }

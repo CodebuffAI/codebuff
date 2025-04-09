@@ -94,10 +94,10 @@ async function syncMessageToStripe(messageData: {
 }) {
   const { messageId, userId, monetaryCostInCents, finishedAt } = messageData
 
-  if (!userId || userId === TEST_USER_ID || monetaryCostInCents <= 0) {
+  if (!userId || userId === TEST_USER_ID) {
     logger.debug(
-      { messageId, userId, monetaryCostInCents },
-      'Skipping Stripe sync (no user, test user, or zero cost).'
+      { messageId, userId },
+      'Skipping Stripe sync (no user or test user).'
     )
     return
   }
@@ -127,7 +127,7 @@ async function syncMessageToStripe(messageData: {
         `Attempting to sync monetary usage (${monetaryCostInCents} cents) to Stripe Meter Events for customer ${stripeCustomerId}`
       )
       await stripeServer.billing.meterEvents.create({
-        event_name: 'cents',
+        event_name: 'credits',
         timestamp: timestamp,
         payload: {
           stripe_customer_id: stripeCustomerId,
