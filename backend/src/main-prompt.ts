@@ -27,6 +27,7 @@ import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import {
   ClientToolCall,
+  parseRawToolCall,
   parseToolCalls,
   TOOL_LIST,
   transformRunTerminalCommand,
@@ -486,6 +487,17 @@ ${newFiles.map((file) => file.path).join('\n')}
       : Promise.resolve(agentContext)
 
   for (const toolCall of toolCalls) {
+    try {
+      parseRawToolCall(toolCall)
+    } catch (error) {
+      serverToolResults.push({
+        id: generateCompactId(),
+        name: toolCall.name,
+        result: `Error parsing tool call:\n${error}`,
+      })
+      continue
+    }
+
     const { name, parameters } = toolCall
     if (name === 'write_file') {
       // write_file tool calls are handled as they are streamed in.

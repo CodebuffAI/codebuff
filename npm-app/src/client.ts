@@ -709,7 +709,7 @@ export class Client {
             toolResults.push(toolResult)
           } catch (error) {
             console.error(
-              error instanceof Error ? red(error.message) : red(String(error))
+              red(`Error parsing tool call ${toolCall.name}:\n${error}`)
             )
           }
         }

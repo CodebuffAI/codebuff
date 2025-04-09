@@ -97,7 +97,6 @@ export async function* promptOpenRouterStream(
       })
     }
   } catch (error) {
-    console.log({ error }, 'asdf')
     logger.error(error, 'Error calling OpenRouter API Stream')
     throw error
   }
