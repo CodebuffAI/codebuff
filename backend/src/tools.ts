@@ -115,7 +115,7 @@ function foo() {
 
 
 Notes for editing a file:
-- Don't use XML attributes. If you do, (e.g. <write_file path="foo">my content goes here</write_file>), the tool will not write to the file.
+- Don't use XML attributes. If you do, the tool will NOT write to the file.
 - If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
 - When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
 - You can also use this tool to create new files.
