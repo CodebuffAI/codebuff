@@ -125,6 +125,17 @@ export const UsageDisplay = ({
           </TooltipProvider>
           <div className="space-y-2">
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              {usagePercentage > 0 && (
+                 <div className="flex items-center gap-1">
+                    <span
+                      className={cn(
+                        'w-3 h-3 rounded-full inline-block',
+                        usedColor
+                      )}
+                    ></span>
+                    <span>Used</span>
+                  </div>
+              )}
               {sortedGrantTypes.map((type) => {
                 const amount = breakdown[type]
                 if (!amount || amount <= 0) return null
@@ -205,10 +216,10 @@ export const UsageDisplay = ({
 
           <div className="flex justify-between items-center rounded-lg bg-card/50">
             <div className="flex items-center gap-2">
-              <span className="font-medium">Credits Used</span>
               <span
                 className={cn('w-3 h-3 rounded-full inline-block', usedColor)}
               ></span>
+              <span className="font-medium">Credits Used</span>
             </div>
             <span className="text-xl">
               {usageThisCycle.toLocaleString('en-US')}
@@ -218,7 +229,7 @@ export const UsageDisplay = ({
           {nextQuotaReset && (
             <div className="flex justify-between items-center rounded-lg bg-card/50">
               <span className="font-medium">Next Cycle Starts</span>
-              <div className="text-right">
+              <div className="flex flex-col items-end">
                 <div>{nextQuotaReset.toLocaleDateString()}</div>
                 <div className="text-sm text-muted-foreground">
                   {nextQuotaReset.toLocaleTimeString([], {
