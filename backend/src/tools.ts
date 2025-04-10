@@ -434,7 +434,6 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'run_terminal_command',
 ]
 
-// This is written by Gemini 2.5 Pro
 export const toolsInstructions = `
 # Tools
 
@@ -461,33 +460,13 @@ Tool calls use a specific XML-like format. Adhere *precisely* to this nested ele
 
 **Example of CORRECT Formatting (Incorporating Commentary, Empty Lines, and MANDATORY Nested Elements):**
 
-Buffy: Okay, let's update that file!
+Buffy: Let's update that file!
 
 <write_file>
 <path>path/to/example/file.ts</path>   <!-- Correct: Parameter 'path' is a nested element -->
 <content>console.log('Hello from Buffy!');</content> <!-- Correct: Parameter 'content' is a nested element -->
 </write_file>
 
-Buffy: All done with the update!
-
-**Example of INCORRECT Formatting (DO NOT DO THIS - Missing Empty Lines):**
-
-Buffy: Okay, let's update that file!
-<write_file>
-<path>path/to/example/file.ts</path>
-<content>console.log('Hello from Buffy!');</content>
-</write_file>
-Buffy: All done with the update!
-
-**Example of INCORRECT Formatting (DO NOT DO THIS - Markdown):**
-
-Buffy: Okay, let's update that file!
-\`\`\`xml
-<write_file>
-<path>path/to/example/file.ts</path>
-<content>console.log('Hello from Buffy!');</content>
-</write_file>
-\`\`\`
 Buffy: All done with the update!
 
 -----
