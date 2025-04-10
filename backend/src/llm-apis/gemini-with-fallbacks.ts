@@ -113,9 +113,8 @@ export async function promptGeminiWithFallbacks(
  * Attempts the following endpoints in order until one succeeds:
  * 1. Gemini API (Internal Key - gemini-2.5-pro-exp)
  * 2. OpenRouter (Internal Key - google/gemini-2.5-pro-exp-03-25:free)
- * 3. Gemini API (Internal Key - gemini-2.5-pro-preview)
- * 4. OpenRouter (Internal Key - google/gemini-2.5-pro-preview-03-25)
- * 5. Claude Sonnet (Final Fallback)
+ * 3. OpenRouter (Internal Key - google/gemini-2.5-pro-preview-03-25)
+ * 4. Claude Sonnet (Final Fallback)
  *
  * This function handles streaming requests and yields chunks of the response as they arrive.
  * If a stream fails mid-way (e.g., due to rate limits), it appends the partially
@@ -187,7 +186,7 @@ export async function* streamGemini25ProWithFallbacks(
     return // Success
   } catch (error) {
     logger.warn(
-      { error },
+      { accumulatedContent, error },
       'Error calling Gemini 2.5 Pro (exp) via Gemini API Stream (Internal Key), falling back to OpenRouter (exp)'
     )
     // Append partial content before next attempt
@@ -221,8 +220,8 @@ export async function* streamGemini25ProWithFallbacks(
     return // Success
   } catch (error) {
     logger.warn(
-      { error },
-      'Error calling Gemini 2.5 Pro (exp) via OpenRouter Stream, falling back to Gemini API (preview)'
+      { accumulatedContent, error },
+      'Error calling Gemini 2.5 Pro (exp) via OpenRouter Stream, falling back to OpenRouter (preview)'
     )
     if (accumulatedContent) {
       currentMessages = [
@@ -232,43 +231,7 @@ export async function* streamGemini25ProWithFallbacks(
     }
   }
 
-  // 3. Try Gemini API Stream (Internal Key - gemini-2.5-pro-preview)
-  const geminiPreviewOptions = {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    model: geminiModels.gemini2_5_pro_preview, // Preview model via Gemini API
-    maxTokens,
-    temperature,
-  }
-  accumulatedContent = '' // Reset before this attempt
-  logger.debug(
-    'Attempting Gemini 2.5 Pro (preview) via Gemini API Stream (Internal Key)'
-  )
-  try {
-    for await (const chunk of promptGeminiStream(
-      currentMessages,
-      geminiPreviewOptions
-    )) {
-      accumulatedContent += chunk
-      yield chunk
-    }
-    return // Success
-  } catch (error) {
-    logger.warn(
-      { error },
-      'Error calling Gemini 2.5 Pro (preview) via Gemini API Stream (Internal Key), falling back to OpenRouter (preview)'
-    )
-    if (accumulatedContent) {
-      currentMessages = [
-        ...currentMessages,
-        { role: 'assistant', content: accumulatedContent },
-      ]
-    }
-  }
-
-  // 4. Try OpenRouter Stream (google/gemini-2.5-pro-preview)
+  // 3. Try OpenRouter Stream (google/gemini-2.5-pro-preview)
   const openRouterPreviewOptions = {
     clientSessionId,
     fingerprintId,
@@ -290,7 +253,7 @@ export async function* streamGemini25ProWithFallbacks(
     return // Success
   } catch (error) {
     logger.warn(
-      { error },
+      { accumulatedContent, error },
       'Error calling Gemini 2.5 Pro (preview) via OpenRouter Stream, falling back to Claude Sonnet'
     )
     yield `<${CODEBUFF_CLAUDE_FALLBACK_INFO}>All Gemini attempts failed. Falling back to Claude Sonnet.</${CODEBUFF_CLAUDE_FALLBACK_INFO}>\n`
@@ -298,7 +261,7 @@ export async function* streamGemini25ProWithFallbacks(
     // The last `accumulatedContent` will be appended to the original `messages` below.
   }
 
-  // 5. Final Fallback: Claude Sonnet
+  // 4. Final Fallback: Claude Sonnet
   // Prepare messages for Claude, using original `messages` and appending the last accumulated content
   const claudeMessages = [...messages] // Start with original messages
   if (accumulatedContent) {

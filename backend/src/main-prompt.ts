@@ -381,6 +381,7 @@ ${newFiles.map((file) => file.path).join('\n')}
           fingerprintId,
           userInputId: promptId,
           userId,
+          temperature: 0,
         })
       : promptClaudeStream(agentMessages, {
           system,
