@@ -1,4 +1,5 @@
-import { logger } from '../util/logger' // Assuming logger exists
+import { logger } from '../util/logger'
+import { convertCreditsToUsdCents } from './credit-conversion'
 
 /**
  * Determines the cost of one internal credit in USD cents for a given user.
@@ -12,61 +13,6 @@ export async function getUserCostPerCredit(
 ): Promise<number> {
   // Placeholder: Currently 1 cent per credit for all users. Can adjust in the future based on user
   return 1
-}
-
-/**
- * Converts a Stripe grant amount (in the smallest currency unit, e.g., cents for USD)
- * to the application's internal credit system units, based on the user's cost per credit.
- *
- * @param amountInSmallestUnit - The grant amount from Stripe, typically in cents.
- * @param centsPerCredit - The user's effective cost per internal credit (in cents).
- * @returns The equivalent amount in application credits. Uses Math.round for conversion.
- */
-export function convertStripeGrantAmountToCredits(
-  amountInSmallestUnit: number,
-  centsPerCredit: number
-): number {
-  if (centsPerCredit <= 0) {
-    logger.error(
-      { amountInSmallestUnit, centsPerCredit },
-      'Invalid centsPerCredit value (must be positive). Cannot convert Stripe grant.'
-    )
-    // Return 0 or throw an error, depending on desired handling
-    return 0
-  }
-  // Credits = Total Cents / Cents per Credit
-  const credits = amountInSmallestUnit / centsPerCredit
-  // Use Math.round for robustness
-  return Math.round(credits)
-}
-
-/**
- * Converts an internal credit system value to the equivalent monetary amount in USD cents,
- * based on the user's cost per credit.
- * Uses Math.ceil to ensure enough monetary value is calculated if rounding occurs.
- *
- * @param credits - The amount in internal credits.
- * @param centsPerCredit - The user's effective cost per internal credit (in cents).
- * @returns The equivalent amount in USD cents.
- */
-export function convertCreditsToUsdCents(
-  credits: number,
-  centsPerCredit: number
-): number {
-  if (credits <= 0) {
-    return 0
-  }
-  if (centsPerCredit <= 0) {
-    logger.error(
-      { credits, centsPerCredit },
-      'Invalid centsPerCredit value (must be positive). Cannot convert credits to cents.'
-    )
-    return 0
-  }
-  // Total Cents = Credits * Cents per Credit
-  const cents = credits * centsPerCredit
-  // Use Math.ceil for safety, ensuring we calculate enough monetary value.
-  return Math.ceil(cents)
 }
 
 /**
@@ -99,3 +45,6 @@ export function createStripeMonetaryAmount(
     type: 'monetary',
   }
 }
+
+// Re-export the pure conversion functions
+export { convertCreditsToUsdCents, convertStripeGrantAmountToCredits } from './credit-conversion'

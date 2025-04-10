@@ -822,23 +822,7 @@ export class Client {
 
       this.setUsage(parsedResponse)
 
-      console.log(green(underline(`Codebuff Usage:`)))
-      console.log(
-        ` Credits Remaining: ${this.remainingBalance.toLocaleString()}`
-      )
-      if (this.nextQuotaReset) {
-        console.log(` Current Cycle Usage: ${this.usage.toLocaleString()}`)
-        console.log(
-          ` Next Cycle Start: ${this.nextQuotaReset.toLocaleDateString()}`
-        )
-        // Display the upcoming grant amount
-        console.log(
-          ` Credits renewing next cycle: ${green(this.nextMonthlyGrant.toLocaleString())}`
-        )
-      } else {
-        console.log(` (Usage is based on available grants)`)
-      }
-
+      const usageLink = `${websiteUrl}/usage`
       const remainingColor =
         this.remainingBalance <= 0
           ? red
@@ -846,31 +830,16 @@ export class Client {
             ? yellow
             : green
 
-      console.log(bold('--- Usage ---'))
       console.log(
-        `Credits Remaining: ${remainingColor(this.remainingBalance.toLocaleString())}`
+        `Total used: ${this.usage.toLocaleString()}. Credits Remaining: ${remainingColor(this.remainingBalance.toLocaleString())}`
       )
 
       if (this.nextQuotaReset) {
-        const nextResetDate = new Date(this.nextQuotaReset)
+        // Updated log message!
         console.log(
-          `Next cycle starts: ${gray(nextResetDate.toLocaleString())}`
-        )
-      } else {
-        console.log(
-          `Next monthly grant: ${green(this.nextMonthlyGrant.toLocaleString())}`
+          `${this.nextMonthlyGrant.toLocaleString()} credits will be added on ${this.nextQuotaReset.toLocaleDateString()}. Details: ${underline(blue(usageLink))}`
         )
       }
-
-      if (websiteUrl) {
-        const usageLink = `${websiteUrl}/usage`
-        console.log(`Manage usage & billing: ${underline(blue(usageLink))}`)
-      } else {
-        console.warn(
-          yellow('Could not determine website URL for usage management link.')
-        )
-      }
-      console.log(bold('-------------'))
 
       this.showUsageWarning()
     } catch (error) {

@@ -59,7 +59,7 @@ export const UsageDisplay = ({
   nextQuotaReset,
 }: UsageDisplayProps) => {
   const [isOpen, setIsOpen] = React.useState(false)
-  
+
   const { totalRemaining, breakdown } = balance
   const totalAvailable = totalRemaining + usageThisCycle
 
@@ -73,7 +73,7 @@ export const UsageDisplay = ({
   const usagePercentage = calculatePercentage(usageThisCycle)
 
   return (
-    <Card className="w-full max-w-2xl mx-auto mt-8">
+    <Card className="w-full max-w-2xl mx-auto -mt-8">
       <CardHeader>
         <CardTitle className="text-2xl font-bold">Usage Statistics</CardTitle>
       </CardHeader>
@@ -82,9 +82,6 @@ export const UsageDisplay = ({
           <div className="flex justify-between items-baseline">
             <p className="text-sm text-muted-foreground">
               Current Cycle Credit Status
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Remaining credits by type:
             </p>
           </div>
           <TooltipProvider>
@@ -133,7 +130,6 @@ export const UsageDisplay = ({
                 if (!amount || amount <= 0) return null
                 const colorClass = grantTypeColors[type] || 'bg-gray-300'
                 const displayName = getGrantTypeDisplayName(type)
-                const isRenewable = renewableGrantTypes.includes(type)
                 return (
                   <div key={type} className="flex items-center gap-1">
                     <span
@@ -156,21 +152,21 @@ export const UsageDisplay = ({
         <div className="grid gap-4">
           <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <CollapsibleTrigger asChild>
-              <button className="w-full">
-                <div className="flex justify-between items-center p-4 rounded-lg bg-card/50 cursor-pointer hover:bg-card/70">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">Total Remaining Credits</span>
-                    {isOpen ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </div>
+              <div className="flex justify-between items-center gap-6 rounded-lg bg-card/50 cursor-pointer hover:bg-card/70">
+                <div className="flex items-center gap-2">
+                  <span className="p-0 font-medium">Remaining Credits</span>
+                  {isOpen ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex items-center gap-6">
                   <span className="text-xl font-bold">
                     {totalRemaining.toLocaleString('en-US')}
                   </span>
                 </div>
-              </button>
+              </div>
             </CollapsibleTrigger>
 
             <CollapsibleContent>
@@ -183,7 +179,7 @@ export const UsageDisplay = ({
                   return (
                     <div
                       key={type}
-                      className="flex justify-between items-center px-4 py-2"
+                      className="flex justify-between items-center py-2"
                     >
                       <div className="flex items-center gap-2">
                         <span
@@ -207,7 +203,7 @@ export const UsageDisplay = ({
             </CollapsibleContent>
           </Collapsible>
 
-          <div className="flex justify-between items-center p-4 rounded-lg bg-card/50">
+          <div className="flex justify-between items-center rounded-lg bg-card/50">
             <div className="flex items-center gap-2">
               <span className="font-medium">Credits Used</span>
               <span
@@ -220,7 +216,7 @@ export const UsageDisplay = ({
           </div>
 
           {nextQuotaReset && (
-            <div className="flex justify-between items-center p-4 rounded-lg bg-card/50">
+            <div className="flex justify-between items-center rounded-lg bg-card/50">
               <span className="font-medium">Next Cycle Starts</span>
               <div className="text-right">
                 <div>{nextQuotaReset.toLocaleDateString()}</div>

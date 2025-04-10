@@ -48,7 +48,6 @@ export async function POST(req: NextRequest) {
     })
 
     if (!user?.stripe_customer_id) {
-      // This shouldn't happen if they are logged in, but good to check
       logger.error({ userId }, "User attempting to buy credits has no Stripe customer ID.");
       return NextResponse.json({ error: 'Stripe customer not found.' }, { status: 400 })
     }
@@ -56,15 +55,13 @@ export async function POST(req: NextRequest) {
     const centsPerCredit = await getUserCostPerCredit(userId);
     const amountInCents = convertCreditsToUsdCents(credits, centsPerCredit);
 
-     if (amountInCents <= 0) { // Basic sanity check
+     if (amountInCents <= 0) {
         logger.error({ userId, credits, centsPerCredit }, "Calculated zero or negative amount in cents for credit purchase.");
         return NextResponse.json({ error: 'Invalid credit amount calculation.' }, { status: 400 })
      }
 
-    // Generate a unique ID for this purchase operation
     const operationId = `buy-${userId}-${generateCompactId()}`;
 
-    // Create a Stripe Checkout Session
     const checkoutSession = await stripeServer.checkout.sessions.create({
       payment_method_types: ['card'],
       customer: user.stripe_customer_id,
@@ -76,41 +73,37 @@ export async function POST(req: NextRequest) {
               name: `Codebuff Credits - ${credits.toLocaleString()}`,
               description: 'One-time credit purchase. Credits do not expire.',
             },
-            unit_amount: amountInCents, // Amount in cents
+            unit_amount: amountInCents,
           },
           quantity: 1,
         },
       ],
-      mode: 'payment', // One-time purchase
-      success_url: `${env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&purchase=credits`, // Redirect on success
-      cancel_url: `${env.NEXT_PUBLIC_APP_URL}/usage?purchase_canceled=true`, // Redirect on cancel
-      // Include metadata to identify the purchase on webhook completion
+      mode: 'payment',
+      success_url: `${env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&purchase=credits`,
+      cancel_url: `${env.NEXT_PUBLIC_APP_URL}/usage?purchase_canceled=true`,
       metadata: {
         userId: userId,
-        credits: credits.toString(), // Metadata values must be strings
+        credits: credits.toString(),
         operationId: operationId,
         grantType: 'purchase',
       },
-       payment_intent_data: {
-           metadata: { // Also add to payment intent for easier lookup if needed
-               userId: userId,
-               credits: credits.toString(),
-               operationId: operationId,
-               grantType: 'purchase',
-           }
-       },
-       // Pre-fill email for convenience
-       customer_email: userEmail,
+      payment_intent_data: {
+        metadata: {
+          userId: userId,
+          credits: credits.toString(),
+          operationId: operationId,
+          grantType: 'purchase',
+        }
+      }
     })
 
     if (!checkoutSession.url) {
-        logger.error({ userId, credits }, "Stripe checkout session created without a URL.");
-        return NextResponse.json({ error: 'Could not create Stripe checkout session.' }, { status: 500 })
+      logger.error({ userId, credits }, "Stripe checkout session created without a URL.");
+      return NextResponse.json({ error: 'Could not create Stripe checkout session.' }, { status: 500 })
     }
 
     logger.info({ userId, credits, operationId, sessionId: checkoutSession.id }, "Created Stripe checkout session for credit purchase");
 
-    // Return the session ID to the client
     return NextResponse.json({ sessionId: checkoutSession.id })
 
   } catch (error: any) {
@@ -118,8 +111,9 @@ export async function POST(req: NextRequest) {
       { error: error.message, userId, credits },
       'Failed to create Stripe checkout session for credit purchase'
     )
+    const stripeErrorMessage = error?.raw?.message || 'Internal server error creating checkout session.';
     return NextResponse.json(
-      { error: 'Internal server error creating checkout session.' },
+      { error: stripeErrorMessage },
       { status: 500 }
     )
   }

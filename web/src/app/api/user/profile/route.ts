@@ -15,7 +15,13 @@ export async function GET() {
   try {
     const user = await db.query.user.findFirst({
       where: eq(schema.user.id, session.user.id),
-      columns: { handle: true, referral_code: true },
+      columns: {
+        handle: true,
+        referral_code: true,
+        auto_topup_enabled: true,
+        auto_topup_threshold: true,
+        auto_topup_target_balance: true,
+      },
     })
 
     if (!user) {
@@ -23,7 +29,13 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ handle: user.handle, referralCode: user.referral_code })
+    return NextResponse.json({
+      handle: user.handle,
+      referralCode: user.referral_code,
+      auto_topup_enabled: user.auto_topup_enabled ?? false,
+      auto_topup_threshold: user.auto_topup_threshold ?? 500,
+      auto_topup_target_balance: user.auto_topup_target_balance ?? 2000,
+    })
   } catch (error) {
     console.error('Error fetching user profile:', error)
     return NextResponse.json(
