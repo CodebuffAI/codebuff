@@ -4,7 +4,6 @@ import type Stripe from 'stripe'
 import { env } from 'src/env.mjs'
 
 export interface AutoTopupCheckResult {
-  canAutoTopup: boolean
   blockedReason: string | null
   validPaymentMethod: Stripe.PaymentMethod | null
 }
@@ -23,7 +22,6 @@ export async function checkAutoTopupAllowed(
 
   if (!stripeCustomerId) {
     return {
-      canAutoTopup: false,
       blockedReason: `You don\'t have a valid account with us. Please log in at ${env.NEXT_PUBLIC_APP_URL}/login`,
       validPaymentMethod: null,
     }
@@ -49,7 +47,6 @@ export async function checkAutoTopupAllowed(
         'No valid payment methods found for auto top-up'
       )
       return {
-        canAutoTopup: false,
         blockedReason:
           'You need a valid payment method to enable auto top-up. You can add one by manually purchasing credits.',
         validPaymentMethod: null,
@@ -57,14 +54,12 @@ export async function checkAutoTopupAllowed(
     }
 
     return {
-      canAutoTopup: true,
       blockedReason: null,
       validPaymentMethod,
     }
   } catch (error) {
     logger.error({ ...logContext, error }, 'Failed to fetch payment methods')
     return {
-      canAutoTopup: false,
       blockedReason: 'Unable to verify payment method status.',
       validPaymentMethod: null,
     }

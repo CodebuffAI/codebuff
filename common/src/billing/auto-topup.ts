@@ -43,10 +43,10 @@ export async function checkAndTriggerAutoTopup(userId: string): Promise<void> {
     }
 
     // Check if auto top-up is allowed
-    const { canAutoTopup, blockedReason, validPaymentMethod } =
+    const { blockedReason, validPaymentMethod } =
       await checkAutoTopupAllowed(userId, user.stripe_customer_id)
 
-    if (!canAutoTopup || !validPaymentMethod) {
+    if (blockedReason || !validPaymentMethod) {
       // Disable auto-topup since we can't process it
       await db
         .update(schema.user)

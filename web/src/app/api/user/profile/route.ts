@@ -32,13 +32,13 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const { canAutoTopup, blockedReason: auto_topup_blocked_reason } = await checkAutoTopupAllowed(
+    const { blockedReason: auto_topup_blocked_reason } = await checkAutoTopupAllowed(
       session.user.id,
       user.stripe_customer_id
     )
 
-    // If auto top-up is enabled but not allowed, disable it
-    if (user.auto_topup_enabled && !canAutoTopup) {
+    // If auto top-up is enabled but blocked, disable it
+    if (user.auto_topup_enabled && auto_topup_blocked_reason) {
       await db
         .update(schema.user)
         .set({ auto_topup_enabled: false })
@@ -53,7 +53,7 @@ export async function GET() {
     const response: Partial<UserProfile> = {
       handle: user.handle,
       referral_code: user.referral_code,
-      auto_topup_enabled: user.auto_topup_enabled && canAutoTopup, // Only show as enabled if actually allowed
+      auto_topup_enabled: user.auto_topup_enabled && !auto_topup_blocked_reason, // Only show as enabled if not blocked
       auto_topup_threshold: user.auto_topup_threshold ?? 500,
       auto_topup_target_balance: user.auto_topup_target_balance ?? 2000,
       auto_topup_blocked_reason,
