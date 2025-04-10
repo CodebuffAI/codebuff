@@ -2,16 +2,16 @@ import assert from 'assert'
 import { join } from 'path'
 import { Worker } from 'worker_threads'
 
-import { getAllFilePaths, DEFAULT_MAX_FILES } from 'common/project-file-tree'
-import { AgentState } from 'common/types/agent-state'
+import { DEFAULT_MAX_FILES, getAllFilePaths } from 'common/project-file-tree'
+import { AgentState, ToolResult } from 'common/types/agent-state'
 import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 
+import { getProjectRoot } from '../project-files'
 import {
   getBareRepoPath,
-  hasUnsavedChanges,
   getLatestCommit,
+  hasUnsavedChanges,
 } from './file-manager'
-import { getProjectRoot } from '../project-files'
 
 export class CheckpointsDisabledError extends Error {
   constructor(message?: string, options?: ErrorOptions) {
@@ -57,6 +57,7 @@ interface WorkerResponse {
  */
 export interface Checkpoint {
   agentStateString: string
+  lastToolResultsString: string
   /** Promise resolving to the git commit hash for this checkpoint */
   fileStateIdPromise: Promise<string>
   /** Number of messages in the agent's history at checkpoint time */
@@ -149,12 +150,14 @@ export class CheckpointManager {
   /**
    * Add a new checkpoint of the current agent and file state
    * @param agentState - The current agent state to checkpoint
+   * @param lastToolResults - The tool results from the last assistant turn
    * @param userInput - The user input that triggered this checkpoint
    * @returns The latest checkpoint and whether that checkpoint was created (or already existed)
    * @throws {Error} If the checkpoint cannot be added
    */
   async addCheckpoint(
     agentState: AgentState,
+    lastToolResults: ToolResult[],
     userInput: string
   ): Promise<{ checkpoint: Checkpoint; created: boolean }> {
     if (this.disabledReason !== null) {
@@ -202,6 +205,7 @@ export class CheckpointManager {
 
     const checkpoint: Checkpoint = {
       agentStateString: JSON.stringify(agentState),
+      lastToolResultsString: JSON.stringify(lastToolResults),
       fileStateIdPromise,
       historyLength: agentState.messageHistory.length,
       id,

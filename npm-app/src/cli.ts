@@ -244,6 +244,7 @@ export class CLI {
     try {
       const { checkpoint, created } = await checkpointManager.addCheckpoint(
         this.client.agentState as AgentState,
+        this.client.lastToolResults,
         userInput
       )
 
@@ -490,6 +491,15 @@ export class CLI {
 
     let userInput = ''
     if (!failed) {
+      const currentCheckpoint =
+        checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
+
+      // Restore the agentState
+      this.client.agentState = JSON.parse(currentCheckpoint.agentStateString)
+      this.client.lastToolResults = JSON.parse(
+        currentCheckpoint.lastToolResultsString
+      )
+
       console.log(
         green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`)
       )
@@ -517,6 +527,15 @@ export class CLI {
 
     let userInput = ''
     if (!failed) {
+      const currentCheckpoint =
+        checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
+
+      // Restore the agentState
+      this.client.agentState = JSON.parse(currentCheckpoint.agentStateString)
+      this.client.lastToolResults = JSON.parse(
+        currentCheckpoint.lastToolResultsString
+      )
+
       console.log(
         green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`)
       )
@@ -868,6 +887,7 @@ export class CLI {
 
     // Restore the agentState
     this.client.agentState = JSON.parse(checkpoint.agentStateString)
+    this.client.lastToolResults = JSON.parse(checkpoint.lastToolResultsString)
 
     let failed = false
     try {

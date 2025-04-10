@@ -66,7 +66,6 @@ export class Client {
   private hadFileChanges: boolean = false
   private git: GitCommand
   private rl: readline.Interface
-  private lastToolResults: ToolResult[] = []
   private oneTimeTagsShown: Record<(typeof ONE_TIME_TAGS)[number], boolean> =
     Object.fromEntries(ONE_TIME_TAGS.map((tag) => [tag, false])) as Record<
       (typeof ONE_TIME_TAGS)[number],
@@ -85,6 +84,7 @@ export class Client {
   public subscription_active: boolean = false
   public nextQuotaReset: Date | null = null
   public storedApiKeyTypes: ApiKeyType[] = []
+  public lastToolResults: ToolResult[] = []
 
   constructor(
     websocketUrl: string,
