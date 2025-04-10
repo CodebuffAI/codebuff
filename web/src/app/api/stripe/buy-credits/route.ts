@@ -55,10 +55,10 @@ export async function POST(req: NextRequest) {
     const centsPerCredit = await getUserCostPerCredit(userId);
     const amountInCents = convertCreditsToUsdCents(credits, centsPerCredit);
 
-     if (amountInCents <= 0) {
-        logger.error({ userId, credits, centsPerCredit }, "Calculated zero or negative amount in cents for credit purchase.");
-        return NextResponse.json({ error: 'Invalid credit amount calculation.' }, { status: 400 })
-     }
+    if (amountInCents <= 0) {
+      logger.error({ userId, credits, centsPerCredit }, "Calculated zero or negative amount in cents for credit purchase.");
+      return NextResponse.json({ error: 'Invalid credit amount calculation.' }, { status: 400 })
+    }
 
     const operationId = `buy-${userId}-${generateCompactId()}`;
 
@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
         grantType: 'purchase',
       },
       payment_intent_data: {
+        setup_future_usage: 'off_session',
         metadata: {
           userId: userId,
           credits: credits.toString(),

@@ -3,9 +3,11 @@ import * as schema from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { stripeServer } from '../util/stripe'
 import { logger } from '../util/logger'
-import { processAndGrantCredit } from './grant-credits' // Assuming this helper exists for Stripe grant creation
+import { processAndGrantCredit } from './grant-credits'
 import { calculateCurrentBalance } from './balance-calculator'
 import { convertCreditsToUsdCents, getUserCostPerCredit } from './conversion'
+import { generateCompactId } from '../util/string'
+import { checkAutoTopupAllowed } from './check-auto-topup'
 
 const MINIMUM_PURCHASE_CREDITS = 500 // Ensure consistency
 
@@ -40,6 +42,19 @@ export async function checkAndTriggerAutoTopup(userId: string): Promise<void> {
       return
     }
 
+    // Check if auto top-up is allowed
+    const { canAutoTopup, blockedReason, validPaymentMethod } =
+      await checkAutoTopupAllowed(userId, user.stripe_customer_id)
+
+    if (!canAutoTopup || !validPaymentMethod) {
+      // Disable auto-topup since we can't process it
+      await db
+        .update(schema.user)
+        .set({ auto_topup_enabled: false })
+        .where(eq(schema.user.id, userId))
+      throw new Error(blockedReason || 'Auto top-up is not available.')
+    }
+
     const threshold = user.auto_topup_threshold
     const targetBalance = user.auto_topup_target_balance
 
@@ -53,117 +68,112 @@ export async function checkAndTriggerAutoTopup(userId: string): Promise<void> {
       // Double-check if the calculated top-up amount is sufficient
       if (amountToTopUp < MINIMUM_PURCHASE_CREDITS) {
         logger.warn(
-            logContext,
-            `Auto-top-up triggered for user ${userId}, but calculated amount ${amountToTopUp} is less than minimum ${MINIMUM_PURCHASE_CREDITS}. Skipping top-up. Check configuration.`
+          logContext,
+          `Auto-top-up triggered but calculated amount ${amountToTopUp} is less than minimum ${MINIMUM_PURCHASE_CREDITS}. Skipping top-up. Check user settings.`
         )
-        // Consider disabling auto-topup or notifying the user about misconfiguration
-        return;
+        return
       }
 
-
       logger.info(
-        { ...logContext, currentBalance: currentBalance.totalRemaining, threshold, targetBalance, amountToTopUp },
+        {
+          ...logContext,
+          currentBalance: currentBalance.totalRemaining,
+          threshold,
+          targetBalance,
+          amountToTopUp,
+        },
         `Auto-top-up triggered for user ${userId}. Attempting to purchase ${amountToTopUp} credits.`
       )
 
-      // --- Perform Stripe Purchase ---
       const customerId = user.stripe_customer_id
       const centsPerCredit = await getUserCostPerCredit(userId)
-      const amountInCents = convertCreditsToUsdCents(amountToTopUp, centsPerCredit)
+      const amountInCents = convertCreditsToUsdCents(
+        amountToTopUp,
+        centsPerCredit
+      )
 
       if (amountInCents <= 0) {
-          logger.error({...logContext, amountToTopUp, centsPerCredit}, "Calculated zero or negative amount in cents for auto-top-up. Skipping.");
-          return;
+        logger.error(
+          { ...logContext, amountToTopUp, centsPerCredit },
+          'Calculated zero or negative amount in cents for auto-top-up. Skipping.'
+        )
+        return
       }
 
+      const operationId = `auto-${userId}-${generateCompactId()}`
+
       try {
-        // 1. Create an InvoiceItem for the charge
-        const invoiceItem = await stripeServer.invoiceItems.create({
-          customer: customerId,
+        // Create and confirm a PaymentIntent directly
+        const paymentIntent = await stripeServer.paymentIntents.create({
           amount: amountInCents,
           currency: 'usd',
-          description: `Automatic top-up: ${amountToTopUp.toLocaleString()} credits`,
-          metadata: {
-            credits: amountToTopUp,
-            userId: userId,
-            type: 'auto-topup',
-          },
-        })
-
-        // 2. Create an Invoice to group the item(s)
-        const invoice = await stripeServer.invoices.create({
           customer: customerId,
-          auto_advance: true, // Automatically attempts payment
-          collection_method: 'charge_automatically',
-          description: 'Automatic credit top-up',
+          payment_method: validPaymentMethod.id,
+          off_session: true, // This is key - indicates this is a background charge
+          confirm: true, // Immediately try to confirm the payment
+          description: `Auto top-up: ${amountToTopUp.toLocaleString()} credits`,
           metadata: {
-            userId: userId,
+            userId,
+            credits: amountToTopUp.toString(),
+            operationId,
+            grantType: 'purchase',
             type: 'auto-topup',
           },
         })
 
-        // --- BEGIN CHANGE ---
-        // 3. Ensure invoice ID exists before attempting to pay
-        if (!invoice.id) {
-            logger.error({...logContext, customerId}, "Failed to create Stripe invoice for auto-top-up (invoice ID is missing). Skipping payment.");
-            return;
-        }
-
-        // Attempt to pay the invoice immediately
-        // Note: This requires a default payment method on the customer.
-        const finalizedInvoice = await stripeServer.invoices.pay(invoice.id, {
-            // Forgive if uncollectible? Decide policy. false is stricter.
-            forgive: false,
-        });
-        // --- END CHANGE ---
-
-        if (finalizedInvoice.status === 'paid') {
-          logger.info(
-            { ...logContext, invoiceId: finalizedInvoice.id, amount: finalizedInvoice.amount_paid },
-            `Successfully charged user ${userId} for auto-top-up.`
-          )
-          // Grant credits locally immediately for better UX, rely on webhook for Stripe grant confirmation
-          // Use a specific operation ID prefix for auto-topups
-          const operationId = `auto-${userId}-${Date.now()}`
+        if (paymentIntent.status === 'succeeded') {
+          // Payment successful, grant credits
           await processAndGrantCredit(
-              userId,
-              amountToTopUp,
-              'purchase', // Auto-topups are considered purchases
-              `Automatic top-up of ${amountToTopUp.toLocaleString()} credits`,
-              null, // Purchases don't expire
-              operationId
-          )
-          logger.info(
-            { ...logContext, operationId, credits: amountToTopUp },
-            `Locally granted ${amountToTopUp} credits for auto-top-up.`
+            userId,
+            amountToTopUp,
+            'purchase',
+            `Auto top-up of ${amountToTopUp.toLocaleString()} credits`,
+            null,
+            operationId,
+            false // Don't create a separate Stripe grant since this is a direct purchase
           )
 
+          logger.info(
+            {
+              ...logContext,
+              operationId,
+              paymentIntentId: paymentIntent.id,
+              credits: amountToTopUp,
+            },
+            'Auto top-up payment succeeded and credits granted'
+          )
         } else {
           // Payment failed or requires action
-          logger.warn(
-            { ...logContext, invoiceId: invoice.id, status: finalizedInvoice.status },
-            `Auto-top-up invoice payment failed or requires action for user ${userId}. Status: ${finalizedInvoice.status}`
+          logger.error(
+            {
+              ...logContext,
+              paymentIntentId: paymentIntent.id,
+              status: paymentIntent.status,
+            },
+            'Auto top-up payment failed or requires action'
           )
-          // TODO: Notify user, potentially disable auto-top-up after repeated failures
-           await db
-             .update(schema.user)
-             .set({ auto_topup_enabled: false })
-             .where(eq(schema.user.id, userId));
-           logger.info({...logContext}, `Disabled auto-top-up for user ${userId} due to payment failure.`);
-           // Send notification to user via websocket?
+          // Disable auto-topup since we can't process it automatically
+          await db
+            .update(schema.user)
+            .set({ auto_topup_enabled: false })
+            .where(eq(schema.user.id, userId))
+          throw new Error(
+            'Payment failed. Please check your payment method and re-enable auto top-up.'
+          )
         }
       } catch (stripeError: any) {
         logger.error(
           { ...logContext, error: stripeError.message },
-          `Stripe error during auto-top-up charge for user ${userId}`
+          'Stripe error during auto-top-up'
         )
-         // Disable auto-topup on stripe error
-         await db
-           .update(schema.user)
-           .set({ auto_topup_enabled: false })
-           .where(eq(schema.user.id, userId));
-         logger.info({...logContext}, `Disabled auto-top-up for user ${userId} due to Stripe error.`);
-        // TODO: Notify user
+        // Disable auto-topup on stripe error
+        await db
+          .update(schema.user)
+          .set({ auto_topup_enabled: false })
+          .where(eq(schema.user.id, userId))
+        throw new Error(
+          'Payment failed. Please check your payment method and re-enable auto top-up.'
+        )
       }
     }
   } catch (error) {
@@ -171,5 +181,7 @@ export async function checkAndTriggerAutoTopup(userId: string): Promise<void> {
       { ...logContext, error },
       `Error during auto-top-up check for user ${userId}`
     )
+    // Re-throw the error so it can be handled by the middleware
+    throw error
   }
 }

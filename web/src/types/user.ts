@@ -11,4 +11,5 @@ export type UserProfile = TUser & {
   auto_topup_enabled?: boolean
   auto_topup_threshold?: number | null
   auto_topup_target_balance?: number | null
+  auto_topup_blocked_reason?: string | null
 }

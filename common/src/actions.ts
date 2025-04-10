@@ -65,6 +65,7 @@ export const UsageReponseSchema = z.object({
     .optional(),
   next_quota_reset: z.coerce.date().nullable(),
   nextMonthlyGrant: z.number(),
+  autoTopupAdded: z.number().optional(),
 })
 export type UsageResponse = z.infer<typeof UsageReponseSchema>
 
@@ -158,4 +159,5 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     commitMessage: z.string(),
   }),
 ])
+
 export type ServerAction = z.infer<typeof SERVER_ACTION_SCHEMA>

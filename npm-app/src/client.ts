@@ -428,7 +428,14 @@ export class Client {
         }
         console.error(
           yellow(
-            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))} to upgrade.`
+            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to add credits.`
+          )
+        )
+      } else if (action.error === 'Auto top-up disabled') {
+        console.error(['', red(`Error: ${action.message}`)].join('\n'))
+        console.error(
+          yellow(
+            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to update your payment settings.`
           )
         )
       } else {
@@ -483,6 +490,16 @@ export class Client {
       }
 
       this.setUsage(parsedAction.data)
+
+      // Show auto top-up success message if credits were added
+      if (action.autoTopupAdded) {
+        console.log(
+          green(
+            `\n✨ Auto top-up successful! Added ${action.autoTopupAdded.toLocaleString()} credits to your account.`
+          )
+        )
+      }
+
       this.showUsageWarning()
     })
   }
@@ -497,13 +514,13 @@ export class Client {
     ) {
       console.warn(
         yellow(
-          `\n⚠️ Warning: Your remaining credit balance is very low (${this.remainingBalance.toLocaleString()}).`
+          `\n⚠️ Warning: You have ${bold(this.remainingBalance.toLocaleString())} credits remaining. Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage`'))}`
         )
       )
       if (this.user) {
         console.warn(
           yellow(
-            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))} to add credits or upgrade.`
+            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to add credits.`
           )
         )
       } else {
@@ -517,13 +534,13 @@ export class Client {
     ) {
       console.warn(
         yellow(
-          `\n⚠️ Warning: Your remaining credit balance is low (${this.remainingBalance.toLocaleString()}).`
+          `\n⚠️ Warning: You have ${bold(this.remainingBalance.toLocaleString())} credits remaining. Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage`'))}`
         )
       )
       if (this.user) {
         console.warn(
           yellow(
-            `Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))}`
+            `Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))}`
           )
         )
       } else {

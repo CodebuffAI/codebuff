@@ -35,11 +35,11 @@ function SearchParamsHandler() {
   return null
 }
 
-const PaymentSuccessPage = () => {
+function PaymentSuccessContent() {
   const { data: session } = useSession()
   const { data: currentPlan } = useUserPlan(session?.user?.stripe_customer_id)
   const searchParams = useSearchParams()
-  const isCreditPurchase = searchParams.get('purchase') === 'credits' // Check for credit purchase flag
+  const isCreditPurchase = searchParams.get('purchase') === 'credits'
 
   if (isCreditPurchase) {
     return CardWithBeams({
@@ -85,25 +85,31 @@ const PaymentSuccessPage = () => {
   const credits = PLAN_CONFIGS[currentPlan].limit
   const planDisplayName = PLAN_CONFIGS[currentPlan].displayName
 
+  return CardWithBeams({
+    title: 'Upgrade successful!',
+    description: `Welcome to your new ${planDisplayName} plan! Your monthly credits have been increased to ${credits.toLocaleString()}.`,
+    content: (
+      <div className="flex flex-col space-y-2">
+        <Image
+          src="/much-credits.jpg"
+          alt="Successful upgrade"
+          width={600}
+          height={600}
+        />
+      </div>
+    ),
+  })
+}
+
+const PaymentSuccessPage = () => {
   return (
     <>
       <Suspense>
         <SearchParamsHandler />
       </Suspense>
-      {CardWithBeams({
-        title: 'Upgrade successful!',
-        description: `Welcome to your new ${planDisplayName} plan! Your monthly credits have been increased to ${credits.toLocaleString()}.`,
-        content: (
-          <div className="flex flex-col space-y-2">
-            <Image
-              src="/much-credits.jpg"
-              alt="Successful upgrade"
-              width={600}
-              height={600}
-            />
-          </div>
-        ),
-      })}
+      <Suspense fallback={<div>Loading...</div>}>
+        <PaymentSuccessContent />
+      </Suspense>
     </>
   )
 }

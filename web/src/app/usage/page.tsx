@@ -24,7 +24,7 @@ import {
   convertStripeGrantAmountToCredits,
 } from 'common/src/billing/credit-conversion'
 import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
-import { cn } from '@/lib/utils'
+import { cn, clamp } from '@/lib/utils'
 import {
   Tooltip,
   TooltipContent,
@@ -39,10 +39,6 @@ const MAX_THRESHOLD_CREDITS = 10000
 const MIN_TOPUP_DOLLARS = 5.0
 const MAX_TOPUP_DOLLARS = 100.0
 const CENTS_PER_CREDIT = 1
-
-// Helper function to clamp numbers
-const clamp = (value: number, min: number, max: number): number =>
-  Math.max(min, Math.min(max, value))
 
 const UsagePageSkeleton = () => (
   <div className="space-y-8 container mx-auto py-6 px-4 sm:py-10 sm:px-6">
@@ -106,6 +102,7 @@ const CreditPurchaseSection = ({
   onToggle,
   isPending,
   isPurchasePending,
+  autoTopupBlockedReason,
 }: {
   onPurchase: (credits: number) => void
   onSaveAutoTopupSettings: () => Promise<boolean>
@@ -115,6 +112,7 @@ const CreditPurchaseSection = ({
   onToggle: (checked: boolean) => void
   isPending: boolean
   isPurchasePending: boolean
+  autoTopupBlockedReason: string | null
 }) => {
   const creditOptions = [500, 1000, 2000, 5000, 10000]
   const [selectedCredits, setSelectedCredits] = useState<number | null>(null)
@@ -171,33 +169,38 @@ const CreditPurchaseSection = ({
           )
         })}
       </div>
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Switch
-            id="auto-topup-switch"
-            checked={isEnabled}
-            onCheckedChange={onToggle}
-            disabled={isPending || isPurchasePending}
-          />
-          <Label htmlFor="auto-topup-switch">Auto Top-up</Label>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="auto-topup-switch"
+              checked={isEnabled}
+              onCheckedChange={onToggle}
+              disabled={Boolean(autoTopupBlockedReason) || isPending || isPurchasePending}
+            />
+            <Label htmlFor="auto-topup-switch">Auto Top-up</Label>
+          </div>
+          <NeonGradientButton
+            onClick={handlePurchaseClick}
+            disabled={!selectedCredits || isPending || isPurchasePending}
+            className={cn(
+              'w-auto transition-opacity min-w-[120px]',
+              (!selectedCredits || isPending || isPurchasePending) && 'opacity-50'
+            )}
+            neonColors={{
+              firstColor: '#4F46E5',
+              secondColor: '#06B6D4',
+            }}
+          >
+            {isPurchasePending ? (
+              <Loader className="mr-2 size-4 animate-spin" />
+            ) : null}
+            Buy Credits
+          </NeonGradientButton>
         </div>
-        <NeonGradientButton
-          onClick={handlePurchaseClick}
-          disabled={!selectedCredits || isPending || isPurchasePending}
-          className={cn(
-            'w-auto transition-opacity min-w-[120px]',
-            (!selectedCredits || isPending || isPurchasePending) && 'opacity-50'
-          )}
-          neonColors={{
-            firstColor: '#4F46E5',
-            secondColor: '#06B6D4',
-          }}
-        >
-          {isPurchasePending ? (
-            <Loader className="mr-2 size-4 animate-spin" />
-          ) : null}
-          Buy Credits
-        </NeonGradientButton>
+        {autoTopupBlockedReason && !isEnabled && (
+          <p className="text-sm text-muted-foreground">{autoTopupBlockedReason}</p>
+        )}
       </div>
     </div>
   )
@@ -335,6 +338,17 @@ const ManageCreditsCard = () => {
       }
     },
   })
+
+  useEffect(() => {
+    if (userProfile?.auto_topup_blocked_reason && isEnabled) {
+      setIsEnabled(false)
+      toast({
+        title: "Auto Top-up Disabled",
+        description: userProfile.auto_topup_blocked_reason,
+        variant: "destructive"
+      })
+    }
+  }, [userProfile?.auto_topup_blocked_reason, isEnabled])
 
   useEffect(() => {
     if (userProfile) {
@@ -710,6 +724,15 @@ const ManageCreditsCard = () => {
   }
 
   const handleToggleAutoTopup = (checked: boolean) => {
+    if (checked && userProfile?.auto_topup_blocked_reason) {
+      toast({
+        title: "Cannot Enable Auto Top-up",
+        description: userProfile.auto_topup_blocked_reason,
+        variant: "destructive"
+      })
+      return
+    }
+
     setIsEnabled(checked)
     debouncedSaveSettings.cancel()
 
@@ -755,7 +778,10 @@ const ManageCreditsCard = () => {
         },
         {
           onSuccess: () => {
-            toast({ title: 'Auto Top-up enabled!' })
+            toast({ 
+              title: 'Auto Top-up enabled!',
+              description: `We'll automatically add credits when your balance falls below ${threshold.toLocaleString()} credits.`
+            })
           },
           onError: () => {
             setIsEnabled(false)
@@ -808,15 +834,18 @@ const ManageCreditsCard = () => {
             onToggle={handleToggleAutoTopup}
             isPending={autoTopupMutation.isPending}
             isPurchasePending={buyCreditsMutation.isPending}
+            autoTopupBlockedReason={userProfile?.auto_topup_blocked_reason ?? null}
           />
-          <AutoTopupSection
-            isEnabled={isEnabled}
-            threshold={threshold}
-            topUpAmountDollars={topUpAmountDollars}
-            onThresholdChange={handleThresholdInputChange}
-            onTopUpAmountChange={handleTopUpAmountInputChange}
-            isPending={autoTopupMutation.isPending}
-          />
+          {isEnabled && (
+            <AutoTopupSection
+              isEnabled={isEnabled}
+              threshold={threshold}
+              topUpAmountDollars={topUpAmountDollars}
+              onThresholdChange={handleThresholdInputChange}
+              onTopUpAmountChange={handleTopUpAmountInputChange}
+              isPending={autoTopupMutation.isPending}
+            />
+          )}
         </div>
       </CardContent>
     </Card>

@@ -1,245 +1,113 @@
 'use client'
 
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
-import { BackgroundBeams } from '@/components/ui/background-beams'
-import Link from 'next/link'
-import { cn } from '@/lib/utils'
-import {
-  ZapIcon,
-  RefreshCwIcon,
-  CheckCircle2Icon,
-  SparklesIcon,
-} from 'lucide-react'
-import { DecorativeBlocks, BlockColor } from '@/components/ui/decorative-blocks'
-import { motion } from 'framer-motion'
-import { PLAN_CONFIGS, UsageLimits } from 'common/constants'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { useUserPlan } from '@/hooks/use-user-plan'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { toast } from '@/components/ui/use-toast'
 import { PaidPlanFooter } from '@/components/pricing/paid-plan-footer'
 import { FreePlanButton } from '@/components/pricing/free-plan-button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
+import { UsageLimits } from 'common/src/constants'
 
-const PricingCards = () => {
-  const session = useSession()
-  // For logged-out users, we don't need to fetch the plan
-  const {
-    data: currentPlan,
-    isLoading,
-    isPending,
-  } = useUserPlan(session.data?.user?.stripe_customer_id)
+export default function PricingPage() {
+  const router = useRouter()
+  const { data: session, status } = useSession()
 
-  // Set currentPlan to ANON for logged-out users to ensure proper button rendering
-  const effectiveCurrentPlan = !session.data ? UsageLimits.ANON : currentPlan
-
-  const pricingPlans = [
-    ...Object.entries(PLAN_CONFIGS)
-      .filter(([key]) => key !== UsageLimits.ANON)
-      .map(
-        ([key, config]): {
-          name: UsageLimits
-          displayName: string
-          price: string
-          credits: number
-          features: (string | JSX.Element)[]
-          cardFooterChildren: JSX.Element
-        } => ({
-          name: config.planName,
-          displayName: config.displayName,
-          price: `$${config.monthlyPrice}`,
-          credits: config.limit,
-          features: [
-            config.overageRate ? (
-              <>
-                Overage allowed
-                <br />
-                {`($${config.overageRate.toFixed(2)} per 100 credits)`}
-              </>
-            ) : (
-              'No overage allowed'
-            ),
-            config.displayName === 'Free' ? (
-              <Link
-                key="community-support"
-                href="https://discord.gg/mcWTGjgTj3"
-                className="hover:underline"
-                target="_blank"
-              >
-                Community support
-              </Link>
-            ) : (
-              'Priority support over email and Discord'
-            ),
-          ],
-          cardFooterChildren:
-            config.planName === UsageLimits.FREE ? (
-              <FreePlanButton
-                currentPlan={effectiveCurrentPlan}
-                userEmail={session.data?.user?.email}
-              />
-            ) : (
-              <PaidPlanFooter
-                planName={config.planName as UsageLimits}
-                currentPlan={effectiveCurrentPlan ?? UsageLimits.FREE}
-                isLoading={isLoading || isPending}
-              />
-            ),
-        })
-      ),
-    {
-      name: 'TEAM',
-      displayName: 'Team',
-      price: '$99/seat',
-      credits: '$0.90 per 100',
-      features: [
-        'Custom credit limits per member',
-        'Custom account limits',
-        'Priority support over email, Discord, and Slack',
-      ],
-      cardFooterChildren: (
-        <DecorativeBlocks colors={[BlockColor.TerminalYellow]} placement="bottom-left">
-          <motion.div
-            whileHover={{ scale: 1.02, x: 2, y: -2 }}
-            whileTap={{ scale: 0.98, x: 0, y: 0 }}
-          >
-            <Button
-              className="w-full text-base font-medium px-8 py-4 h-auto border border-white/50 bg-white text-black hover:bg-white transition-all duration-300 relative group overflow-hidden"
-              asChild
-            >
-              <Link href={'mailto:founders@codebuff.com'}>Contact Sales</Link>
-            </Button>
-          </motion.div>
-        </DecorativeBlocks>
-      ),
+  const { data: currentPlan, isLoading } = useQuery<UsageLimits>({
+    queryKey: ['currentPlan', session?.user?.id],
+    queryFn: async () => {
+      const response = await fetch('/api/user/plan')
+      if (!response.ok) throw new Error('Failed to fetch current plan')
+      const data = await response.json()
+      return data.plan as UsageLimits
     },
-  ]
+    enabled: status === 'authenticated',
+  })
 
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 container mx-auto px-4 md:px-6 max-w-7xl">
-      {pricingPlans.map((plan, index) => (
-        <Card
-          key={index}
-          className={cn(
-            'bg-gradient-to-br from-gray-900/90 to-gray-800/90 text-white flex flex-col relative backdrop-blur-sm',
-            'border border-gray-800/50 hover:border-green-500/50 transition-colors duration-500',
-            'shadow-lg hover:shadow-xl hover:shadow-green-900/30'
-          )}
-        >
-          <CardHeader className="min-h-[200px] flex flex-col">
-            <h3 className="text-2xl font-bold relative flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">
-              {plan.displayName}
-              {currentPlan === plan.name && (
-                <div className="absolute -right-8 -top-8 transform rotate-12">
-                  <div className="relative">
-                    <div className="relative bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-1 font-medium text-white ring-2 ring-green-500/50 text-xs rounded-lg shadow-lg transform hover:rotate-0 transition-transform duration-200">
-                      Current Plan
-                    </div>
-                  </div>
-                </div>
-              )}
-            </h3>
-            <div className="mt-4 space-y-3">
-              {' '}
-              <div className="text-center">
-                <p className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-400">
-                  {plan.price}
-                </p>
-                <p className="text-sm text-gray-400 mt-1">per month</p>
-              </div>
-              {plan.credits && (
-                <div className="flex items-center justify-center gap-2">
-                  <SparklesIcon className="h-5 w-5 text-yellow-500 animate-pulse" />
-                  <p className="text-base text-gray-300">
-                    {plan.credits.toLocaleString()} credits
-                  </p>
-                </div>
-              )}
-            </div>
+  const upgradeMutation = useMutation({
+    mutationFn: async (plan: UsageLimits) => {
+      const response = await fetch('/api/stripe/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to upgrade plan')
+      }
+      return response.json()
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        router.push(data.url)
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      })
+    },
+  })
+
+  if (status === 'unauthenticated') {
+    return (
+      <div className="container mx-auto py-6 px-4 sm:py-10 sm:px-6">
+        <Card className="w-full max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle>Sign in to upgrade</CardTitle>
           </CardHeader>
-          <CardContent className="flex-grow flex flex-col justify-between pt-6">
-            <ul className="space-y-4 text-gray-300 text-left">
-              {plan.features.map((feature, idx) => (
-                <li key={idx} className="flex items-center gap-2">
-                  <CheckCircle2Icon className="h-5 w-5 text-green-500 flex-shrink-0" />
-                  <span className="text-sm">{feature}</span>
-                </li>
-              ))}
-            </ul>
+          <CardContent>
+            <p>Please sign in to view and manage your subscription.</p>
           </CardContent>
-          <CardFooter className="w-full justify-center pt-6">
-            {plan.cardFooterChildren}
-          </CardFooter>
+          <SignInCardFooter />
         </Card>
-      ))}
-    </div>
-  )
-}
+      </div>
+    )
+  }
 
-const PricingPage = () => {
   return (
-    <div className="overflow-hidden min-h-screen">
-      <BackgroundBeams />
-
-      <main className="container mx-auto px-4 py-12 md:py-20 text-center relative z-10">
-        <div className="mb-12">
-          <h1 className="hero-heading text-white">
-            Choose Your Plan
-          </h1>
-          <p className="mt-4 text-xs font-semibold uppercase tracking-wider inline-block opacity-70 text-white">
-            Start with our free tier or upgrade for more credits and features
-          </p>
-        </div>
-
-        <div className="relative">
-          {/* Add subtle gradient behind cards */}
-          <div className="absolute inset-0 bg-gradient-to-b from-green-500/5 via-emerald-500/5 to-green-500/5 dark:from-green-900/10 dark:via-emerald-900/10 dark:to-green-900/10 blur-3xl -z-10" />
-          <PricingCards />
-        </div>
-
-        {/* Key benefits */}
-        <div className="mt-24 md:mt-32">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-16">
-            <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm transition-colors duration-200">
-              <ZapIcon className="h-8 w-8 text-yellow-500 mb-2" />
-              <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
-                Efficient
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-muted-foreground text-center">
-                500 credits = 1 hour coding
-              </p>
-            </div>
-            <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm transition-colors duration-200">
-              <SparklesIcon className="h-8 w-8 text-green-500 mb-2" />
-              <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
-                Credit Maximizer
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-muted-foreground text-center">
-                More done with fewer credits
-              </p>
-            </div>
-            <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm transition-colors duration-200">
-              <RefreshCwIcon className="h-8 w-8 text-green-500 mb-2" />
-              <h3 className="font-semibold text-lg">Monthly Reset</h3>
-              <p className="text-sm text-muted-foreground text-center">
-                Credits reset every month
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-8">
-          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            Need something custom?{' '}
-            <Link
-              href={'mailto:founders@codebuff.com'}
-              className="text-blue-500 hover:text-blue-400 underline decoration-blue-500/30 hover:decoration-blue-400"
-            >
-              Contact our team
-            </Link>
-          </p>
-        </div>
-      </main>
+    <div className="container mx-auto py-6 px-4 sm:py-10 sm:px-6">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Free</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FreePlanButton
+              currentPlan={currentPlan}
+              onUpgrade={() => upgradeMutation.mutate(UsageLimits.FREE)}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Pro</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PaidPlanFooter
+              currentPlan={currentPlan}
+              planName="pro"
+              onUpgrade={() => upgradeMutation.mutate(UsageLimits.PRO)}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>MOAR Pro</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PaidPlanFooter
+              currentPlan={currentPlan}
+              planName="moar_pro"
+              onUpgrade={() => upgradeMutation.mutate(UsageLimits.MOAR_PRO)}
+            />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
-
-export default PricingPage
