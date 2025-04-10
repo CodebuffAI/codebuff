@@ -201,13 +201,13 @@ Note that there's no need to call this tool if you're already reading the files 
 Description: Request to execute a CLI command on the system. Use this when you need to perform system operations or run specific commands to accomplish any step in the user's task. You must tailor your command to the user's system and provide a clear explanation of what the command does. For command chaining, use the appropriate chaining syntax for the user's shell. Prefer to execute complex CLI commands over creating executable scripts, as they are more flexible and easier to run. Commands will be executed in the current working directory: ${process.cwd()}
 Parameters:
 - command: (required) The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.
-- background_process: (optional) Whether to run this process in a background process. Will be evaluated based on the truthiness of the string value provided, so unintuitively, \`<background_process>False</background_process>\` would evaluate to True, but \`<background_process></backgroundProcess>\` (or omitting) would evaluate to False. Defaults to False.
-  - False (default): the command will be run in (and block) the current process. This is required if the output of the command is required to be parsed. Most commands will be run with child=False.
-  - True: the command will be run in a child background process. The output will be NOT be available for the user to see, but will be sent in the tool results. This is for running servers or other long-running processes.
+- process_type: (required) What type of process to run. One of SYNC or BACKGROUND.
+  - SYNC: the command will be run in (and block) the current process. This is required if the output of the command is needed immediately. Most commands will be run in this way. Do not try to run processes in the background with process_type=SYNC and using & at the end of the command. Instead, use the process_type=BACKGROUND option.
+  - BACKGROUND: the command will be run in a child background process. This is for running servers or other long-running processes.
 Usage:
 <run_terminal_command>
 <command>Your command here</command>
-<background_process>value</background_process>
+<process_type>value</process_type>
 </run_terminal_command>
 
 Stick to these use cases:
@@ -224,11 +224,10 @@ When using this tool, please adhere to the following rules:
 3. Do not run scripts without asking. Especially don't run scripts that could run against the production environment or have permanent effects without explicit permission from the user. Don't run scripts with side effects without permission from the user unless they don't have much effect or are simple.
 4. Be careful with any command that has big or irreversible effects. Anything that touches a production environment, servers, the database, or other systems that could be affected by a command should be run with explicit permission from the user.
 4. Don't run too many commands in a row without pausing to check in with what the user wants to do next.
-5. Don't run long-running commands, e.g. \`npm run dev\` or \`npm start\`, that start a server and do not exit. Only run commands that will complete within 30 seconds, because longer commands will be killed. Instead, ask the user to manually run long-running commands.
-6. Do not use the run_terminal_command tool to create or edit files. Do not use \`cat\` or \`echo\` to create or edit files. You should instead write out <write_file> blocks for for editing or creating files as detailed above in the <editing_instructions> block.
-7. Do not install packages without asking, unless it is within a small, new-ish project. Users working on a larger project will want to manage packages themselves, so ask first.
-8. Do not use the wrong package manager for the project. For example, if the project uses \`pnpm\` or \`bun\` or \`yarn\`, you should not use \`npm\`. Similarly not everyone uses \`pip\` for python, etc.
-9. You must write out ampersands without escaping them. E.g. write out '&' instead of '&amp;'.
+5. Do not use the run_terminal_command tool to create or edit files. Do not use \`cat\` or \`echo\` to create or edit files. You should instead write out <write_file> blocks for for editing or creating files as detailed above in the <editing_instructions> block.
+6. Do not install packages without asking, unless it is within a small, new-ish project. Users working on a larger project will want to manage packages themselves, so ask first.
+7. Do not use the wrong package manager for the project. For example, if the project uses \`pnpm\` or \`bun\` or \`yarn\`, you should not use \`npm\`. Similarly not everyone uses \`pip\` for python, etc.
+8. You must write out ampersands without escaping them. E.g. write out '&' instead of '&amp;'.
 Incorrect:
 \`cd backend &amp;&amp; npm typecheck\` 
 Correct:
@@ -334,6 +333,8 @@ Description: End your response. Use this tool when you've completed the user's r
 Parameters: None
 Usage:
 <end_turn></end_turn>
+
+Do not use the end_turn tool in the same message as other tool calls. Instead, wait for the tool call results from the user. Then, send a new message with the end_turn tool and no other tool calls. Text can be included with this tool call.
     `.trim(),
   },
 ] as const
@@ -369,8 +370,16 @@ const codeSearchSchema = z.object({
   pattern: z.string().min(1, 'Pattern cannot be empty'),
 })
 
+const ProcessTypeEnum = z.enum(['SYNC', 'BACKGROUND'])
+
+const processTypeSchema = z
+  .string({ required_error: 'process_type must be either SYNC or BACKGROUND' })
+  .transform((val) => val.toUpperCase())
+  .pipe(ProcessTypeEnum)
+
 const runTerminalCommandSchema = z.object({
   command: z.string().min(1, 'Command cannot be empty'),
+  process_type: processTypeSchema,
 })
 
 const thinkDeeplySchema = z.object({

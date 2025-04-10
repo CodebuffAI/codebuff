@@ -54,13 +54,18 @@ export const handleRunTerminalCommand = async (
   parameters: {
     command: string
     mode?: 'user' | 'assistant'
-    background_process?: boolean
+    process_type: 'SYNC' | 'BACKGROUND'
   },
   id: string,
   projectPath: string
 ): Promise<{ result: string; stdout: string }> => {
-  const { command, mode = 'assistant', background_process = false } = parameters
-  return runTerminalCommand(command, mode, projectPath, background_process)
+  const { command, mode = 'assistant', process_type = 'SYNC' } = parameters
+  return runTerminalCommand(
+    command,
+    mode,
+    projectPath,
+    process_type.toUpperCase() as 'SYNC' | 'BACKGROUND'
+  )
 }
 
 export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
@@ -147,7 +152,10 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   run_terminal_command: ((parameters, id, projectPath) =>
     handleRunTerminalCommand(parameters, id, projectPath).then(
       (result) => result.result
-    )) as ToolHandler<{ command: string; background_process?: boolean }>,
+    )) as ToolHandler<{
+    command: string
+    process_type: 'SYNC' | 'BACKGROUND'
+  }>,
   code_search: handleCodeSearch,
   end_turn: async () => {
     return ''

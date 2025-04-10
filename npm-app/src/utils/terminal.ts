@@ -181,7 +181,7 @@ const MAX_EXECUTION_TIME = 30_000
 
 const getBackgroundProcessInfoString = (info: BackgroundProcessInfo) => {
   return buildArray([
-    '<background_process_info>',
+    '<background_process>',
     `<process_id>${info.id}</process_id>`,
     `<command>${info.command}</command>`,
     `<start_time>${info.startTime}</start_time>`,
@@ -192,7 +192,7 @@ const getBackgroundProcessInfoString = (info: BackgroundProcessInfo) => {
     `<stdout>${truncateStringWithMessage(info.stdoutBuffer.join(''), COMMAND_OUTPUT_LIMIT / 2)}</stdout>`,
     `<stderr>${truncateStringWithMessage(info.stderrBuffer.join(''), COMMAND_OUTPUT_LIMIT / 2)}</stderr>`,
     '</terminal_command_result>',
-    '</background_process_info>',
+    '</background_process>',
   ]).join('\n')
 }
 
@@ -269,17 +269,17 @@ const runBackgroundCommand = (
     // Unreference the process so the parent can exit independently IF the child is the only thing keeping it alive.
     childProcess.unref()
 
-    const resultMessage = `<background_process_started>
+    const resultMessage = `<background_process>
 <process_id>${processId}</process_id>
 <command>${command}</command>
 <status>${processInfo.status}</status>
-</background_process_started>`
+</background_process>`
     resolveCommand({
       result: resultMessage,
       stdout: initialStdout + initialStderr,
     })
   } catch (error: any) {
-    const errorMessage = `<background_process_failed>\n<command>${command}</command>\n<error>${error.message}</error>\n</background_process_failed>`
+    const errorMessage = `<background_process>\n<command>${command}</command>\n<error>${error.message}</error>\n</background_process>`
     resolveCommand({ result: errorMessage, stdout: error.message })
   }
 }
@@ -288,7 +288,7 @@ export const runTerminalCommand = async (
   command: string,
   mode: 'user' | 'assistant',
   projectPath: string,
-  backgroundProcess: boolean = false
+  processType: 'SYNC' | 'BACKGROUND'
 ): Promise<{ result: string; stdout: string }> => {
   return new Promise((resolve) => {
     if (!persistentProcess) {
@@ -310,7 +310,7 @@ export const runTerminalCommand = async (
       resolve(value)
     }
 
-    if (backgroundProcess) {
+    if (processType === 'BACKGROUND') {
       runBackgroundCommand(modifiedCommand, projectPath, resolveCommand)
     } else if (persistentProcess.type === 'pty') {
       runCommandPty(
