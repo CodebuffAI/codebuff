@@ -9,7 +9,7 @@ export const toolSchema = {
 
   // Search and terminal
   code_search: ['pattern'],
-  run_terminal_command: ['command'],
+  run_terminal_command: ['command', 'process_type'],
 
   // Planning tools
   think_deeply: ['thought'],

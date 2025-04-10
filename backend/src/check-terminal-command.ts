@@ -37,9 +37,11 @@ export async function checkTerminalCommand(
   const messages = [
     {
       role: 'user' as const,
-      content: `You are checking if the following input is a terminal command that can be run directly without any modification. Only respond with "yes" or "no". Do not explain your reasoning.
+      content: `You are checking if the following input between the three backticks is a terminal command that can be run directly without any modification. Only respond with "yes" or "no". Do not explain your reasoning.
 
-Input: ${prompt}`,
+\`\`\`
+${prompt}
+\`\`\``,
     },
   ]
 
