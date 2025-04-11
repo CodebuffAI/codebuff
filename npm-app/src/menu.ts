@@ -140,7 +140,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
   )
 
   console.log(
-    '\nAny files in .gitignore are not read by Codebuff. You can ignore further files with .codebuffignore'
+    "\nAny files in .gitignore are not read by Codebuff. You can ignore further files with .codebuffignore, or choose files codebuff should not ignore by adding a '!' prefix to the ignore pattern."
   )
   console.log(
     '\nEmail your feedback to',
