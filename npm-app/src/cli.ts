@@ -784,6 +784,23 @@ export class CLI {
     Spinner.get().restoreCursor()
     console.log('\n')
 
+    for (const [pid, processInfo] of backgroundProcesses.entries()) {
+      if (processInfo.status === 'running') {
+        try {
+          processInfo.process.kill()
+          console.log(yellow(`Killed process: ${processInfo.command}`))
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error)
+          console.error(
+            red(
+              `Error killing process with PID ${pid} (${processInfo.command}): ${errorMessage}`
+            )
+          )
+        }
+      }
+    }
+
     const logMessages = []
     const totalCredits = Object.values(this.client.creditsByPromptId)
       .flat()
@@ -807,24 +824,6 @@ export class CLI {
     }
 
     console.log(logMessages.join(' '))
-
-    for (const [pid, processInfo] of backgroundProcesses.entries()) {
-      if (processInfo.status === 'running') {
-        try {
-          processInfo.process.kill()
-          console.log(yellow(`Killed process: ${processInfo.command}`))
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error)
-          console.error(
-            red(
-              `Error killing process with PID ${pid} (${processInfo.command}): ${errorMessage}`
-            )
-          )
-        }
-      }
-    }
-
     console.log(green('Codebuff out!'))
     process.exit(0)
   }
