@@ -14,7 +14,6 @@ import {
 import type { AdapterAccount } from 'next-auth/adapters'
 
 import { ReferralStatusValues } from '../types/referral'
-import { GrantTypeValues } from '../types/grant'
 
 // Define the ReferralStatus enum
 export const ReferralStatus = pgEnum('referral_status', [
@@ -29,15 +28,6 @@ export const apiKeyTypeEnum = pgEnum('api_key_type', [
   'openai',
 ])
 
-// Define the Grant Type enum using imported values
-export const grantTypeEnum = pgEnum('grant_type', [
-  GrantTypeValues[0],
-  ...GrantTypeValues.slice(1),
-])
-
-// Derive the GrantType type from the enum values for use elsewhere if needed
-export type GrantType = (typeof grantTypeEnum.enumValues)[number]
-
 export const user = pgTable('user', {
   id: text('id')
     .primaryKey()
@@ -48,11 +38,11 @@ export const user = pgTable('user', {
   emailVerified: timestamp('emailVerified', { mode: 'date' }),
   image: text('image'),
   stripe_customer_id: text('stripe_customer_id').unique(),
-  stripe_price_id: text('stripe_price_id'),
   usage: integer('usage').notNull().default(0),
   next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
     sql<Date>`now() + INTERVAL '1 month'`
   ),
+  balance: integer('balance').notNull().default(0),
   created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
   referral_code: text('referral_code')
     .unique()
@@ -63,7 +53,7 @@ export const user = pgTable('user', {
   // Auto-Top-up Settings
   auto_topup_enabled: boolean('auto_topup_enabled').notNull().default(false),
   auto_topup_threshold: integer('auto_topup_threshold'), // When balance drops below this
-  auto_topup_target_balance: integer('auto_topup_target_balance'), // Top up *to* this balance
+  auto_topup_amount: integer('auto_topup_amount'), // Amount to add each time (renamed from target_balance)
 })
 
 export const account = pgTable(
@@ -181,61 +171,5 @@ export const encryptedApiKeys = pgTable(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.user_id, table.type] }),
-  })
-)
-
-export const creditGrants = pgTable(
-  'credit_grants',
-  {
-    operation_id: text('operation_id').primaryKey(),
-    user_id: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    amount: integer('amount').notNull(),
-    type: grantTypeEnum('type').notNull(),
-    description: text('description'),
-    priority: integer('priority').notNull(),
-    expires_at: timestamp('expires_at', { mode: 'date', withTimezone: true }),
-    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    stripe_grant_id: text('stripe_grant_id').unique(),
-  },
-  (table) => ({
-    idx_credit_grants_user_active: index('idx_credit_grants_user_active').on(
-      table.user_id,
-      table.expires_at,
-      table.priority,
-      table.created_at
-    ),
-  })
-)
-
-export const syncFailures = pgTable(
-  'sync_failures',
-  {
-    message_id: text('message_id')
-      .primaryKey()
-      .references(() => message.id, { onDelete: 'cascade' }),
-    provider: text('provider').notNull().default('stripe'),
-    first_attempt_at: timestamp('first_attempt_at', {
-      mode: 'date',
-      withTimezone: true,
-    })
-      .notNull()
-      .defaultNow(),
-    last_attempt_at: timestamp('last_attempt_at', {
-      mode: 'date',
-      withTimezone: true,
-    })
-      .notNull()
-      .defaultNow(),
-    retry_count: integer('retry_count').notNull().default(1),
-    last_error: text('last_error').notNull(),
-  },
-  (table) => ({
-    idx_sync_failures_retry: index('idx_sync_failures_retry')
-      .on(table.retry_count, table.last_attempt_at)
-      .where(sql`${table.retry_count} < 5`),
   })
 )

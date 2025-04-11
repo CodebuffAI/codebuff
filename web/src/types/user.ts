@@ -10,6 +10,6 @@ export type UserProfile = TUser & {
   referral_code?: string | null
   auto_topup_enabled?: boolean
   auto_topup_threshold?: number | null
-  auto_topup_target_balance?: number | null
+  auto_topup_amount?: number | null
   auto_topup_blocked_reason?: string | null
 }

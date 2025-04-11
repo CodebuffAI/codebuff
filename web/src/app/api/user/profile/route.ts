@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm'
 import * as schema from 'common/db/schema'
 import { logger } from '@/util/logger'
 import { UserProfile } from '@/types/user'
-import { checkAutoTopupAllowed } from 'common/src/billing/check-auto-topup'
+import { validateAutoTopupStatus } from 'common/src/billing/auto-topup'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -23,8 +23,7 @@ export async function GET() {
         referral_code: true,
         auto_topup_enabled: true,
         auto_topup_threshold: true,
-        auto_topup_target_balance: true,
-        stripe_customer_id: true,
+        auto_topup_amount: true,
       },
     })
 
@@ -32,30 +31,16 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const { blockedReason: auto_topup_blocked_reason } = await checkAutoTopupAllowed(
-      session.user.id,
-      user.stripe_customer_id
+    const { blockedReason: auto_topup_blocked_reason } = await validateAutoTopupStatus(
+      session.user.id
     )
-
-    // If auto top-up is enabled but blocked, disable it
-    if (user.auto_topup_enabled && auto_topup_blocked_reason) {
-      await db
-        .update(schema.user)
-        .set({ auto_topup_enabled: false })
-        .where(eq(schema.user.id, session.user.id))
-      
-      logger.info(
-        { userId: session.user.id, reason: auto_topup_blocked_reason },
-        'Disabled auto top-up due to invalid payment method'
-      )
-    }
 
     const response: Partial<UserProfile> = {
       handle: user.handle,
       referral_code: user.referral_code,
-      auto_topup_enabled: user.auto_topup_enabled && !auto_topup_blocked_reason, // Only show as enabled if not blocked
+      auto_topup_enabled: user.auto_topup_enabled && !auto_topup_blocked_reason,
       auto_topup_threshold: user.auto_topup_threshold ?? 500,
-      auto_topup_target_balance: user.auto_topup_target_balance ?? 2000,
+      auto_topup_amount: user.auto_topup_amount ?? 2000,
       auto_topup_blocked_reason,
     }
 
