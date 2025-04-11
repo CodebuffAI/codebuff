@@ -140,7 +140,7 @@ export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
     Object.entries(PLAN_CONFIGS).map(([key, config]) => [key, config.limit])
   ) as Record<UsageLimits, number>
 
-export const costModes = ['lite', 'normal', 'max'] as const
+export const costModes = ['lite', 'normal', 'max', 'experimental'] as const
 export type CostMode = (typeof costModes)[number]
 
 export const getModelForMode = (
@@ -148,7 +148,7 @@ export const getModelForMode = (
   operation: 'agent' | 'file-requests' | 'check-new-files'
 ) => {
   if (operation === 'agent') {
-    return costMode === 'max'
+    return costMode === 'experimental'
       ? models.gemini2_5_pro_exp
       : costMode === 'lite'
         ? claudeModels.haiku

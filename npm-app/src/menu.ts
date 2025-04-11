@@ -32,6 +32,7 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
     lite: bold(yellow('Lite mode ✨ enabled')),
     normal: '',
     max: bold(blueBright('Max mode️ ⚡ enabled')),
+    experimental: bold(magenta('Experimental mode 🧪 enabled')),
   }
   console.log(`${costModeDescription[costMode]}`)
   console.log(
@@ -119,7 +120,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
     '- Type "diff" or "d" to show changes from the last assistant response'
   )
   console.log(
-    '- Start codebuff with --lite for efficient, budget responses or --max for higher quality responses'
+    '- Start codebuff with --lite for efficient responses, --max for higher quality responses, or --experimental for cutting-edge features'
   )
 
   console.log('\nCheckpoint Commands:')
