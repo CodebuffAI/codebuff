@@ -275,7 +275,7 @@ export const mainPrompt = async (
       id: generateCompactId(),
       name: 'file_updates',
       result:
-        `The following files had modifications made by you or the user. Try to accommodate these changes going forward:\n` +
+        `These are the updates made to the files since the last response (either by you or by the user). These are the most recent versions of these files. You MUST be considerate of the user's changes:\n` +
         renderReadFilesResult(updatedFiles),
     })
   }

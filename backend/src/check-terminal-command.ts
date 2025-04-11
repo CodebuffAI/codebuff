@@ -37,11 +37,9 @@ export async function checkTerminalCommand(
   const messages = [
     {
       role: 'user' as const,
-      content: `You are checking if the following input between the three backticks is a terminal command that can be run directly without any modification. Only respond with "yes" or "no". Do not explain your reasoning.
+      content: `You are checking if the following input (in quotes) is a terminal command that can be run directly without any modification. Only respond with "yes" or "no". Do not explain your reasoning.
 
-\`\`\`
-${prompt}
-\`\`\``,
+Input: ${JSON.stringify(prompt)}`,
     },
   ]
 
@@ -73,7 +71,11 @@ ${prompt}
     return null
   } catch (error) {
     // If both LLM calls fail, return false to fall back to normal processing
-    logger.error('Error checking if prompt is terminal command:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error(
+      { error },
+      `Error checking if prompt is terminal command: ${errorMessage}`
+    )
     return null
   }
 }
