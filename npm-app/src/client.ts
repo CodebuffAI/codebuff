@@ -27,7 +27,7 @@ import {
 } from 'common/types/agent-state'
 import { User } from 'common/util/credentials'
 import { ProjectFileContext } from 'common/util/file'
-import { pluralize } from 'common/util/string'
+import { generateCompactId, pluralize } from 'common/util/string'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
   blue,
@@ -40,6 +40,7 @@ import {
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
 
+import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
@@ -560,13 +561,25 @@ export class Client {
       prompt
     )
 
+    // Get new output from all running background processes
+    const processUpdates = getBackgroundProcessUpdates()
+
+    // Append process updates to existing tool results
+    const toolResults = processUpdates
+      ? (this.lastToolResults || []).concat({
+          id: generateCompactId(),
+          name: 'background_process_updates',
+          result: processUpdates,
+        })
+      : this.lastToolResults
+
     Spinner.get().start()
     this.webSocket.sendAction({
       type: 'prompt',
       promptId: userInputId,
       prompt,
       agentState: this.agentState,
-      toolResults: this.lastToolResults,
+      toolResults,
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,
       costMode: this.costMode,

@@ -169,32 +169,17 @@ export const resetShell = (projectPath: string) => {
   }
 }
 
-function formatResult(stdout: string, status: string): string {
-  let result = '<terminal_command_result>\n'
-  result += `<output>${truncateStringWithMessage({ str: stdout, maxLength: COMMAND_OUTPUT_LIMIT })}</output>\n`
-  result += `<status>${status}</status>\n`
-  result += '</terminal_command_result>'
-  return result
+function formatResult(command: string, stdout: string, status: string): string {
+  return buildArray(
+    `<command>${command}</command>`,
+    '<terminal_command_result>',
+    `<output>${truncateStringWithMessage({ str: stdout, maxLength: COMMAND_OUTPUT_LIMIT })}</output>`,
+    `<status>${status}</status>`,
+    '</terminal_command_result>'
+  ).join('\n')
 }
 
 const MAX_EXECUTION_TIME = 30_000
-
-const getBackgroundProcessInfoString = (info: BackgroundProcessInfo) => {
-  return buildArray([
-    '<background_process>',
-    `  <process_id>${info.id}</process_id>`,
-    `  <command>${info.command}</command>`,
-    `  <start_time>${info.startTime}</start_time>`,
-    `  <duration_ms>${info.endTime === null ? Date.now() - info.startTime : info.endTime - info.startTime}</duration_ms>`,
-    `  <terminal_command_result>`,
-    `    <status>${info.status}</status>`,
-    info.exitCode !== null && `  <exit_code>${info.exitCode}</exit_code>`,
-    `    <stdout>${truncateStringWithMessage({ str: info.stdoutBuffer.join(''), maxLength: COMMAND_OUTPUT_LIMIT / 2, truncate: 'END' })}</stdout>`,
-    `    <stderr>${truncateStringWithMessage({ str: info.stderrBuffer.join(''), maxLength: COMMAND_OUTPUT_LIMIT / 2, truncate: 'START' })}</stderr>`,
-    '  </terminal_command_result>',
-    '</background_process>',
-  ]).join('\n')
-}
 
 const runBackgroundCommand = (
   command: string,
@@ -231,14 +216,16 @@ const runBackgroundCommand = (
     const processId = childProcess.pid
     const processInfo: BackgroundProcessInfo = {
       id: processId,
-      command: command,
+      command,
       process: childProcess,
       stdoutBuffer: [],
       stderrBuffer: [],
       status: 'running',
-      exitCode: null,
       startTime: Date.now(),
       endTime: null,
+      lastReportedStdoutLength: 0,
+      lastReportedStderrLength: 0,
+      lastReportedStatus: null,
     }
     backgroundProcesses.set(processId, processInfo)
 
@@ -262,7 +249,6 @@ const runBackgroundCommand = (
 
     childProcess.on('close', (code) => {
       processInfo.status = code === 0 ? 'completed' : 'error'
-      processInfo.exitCode = code
       processInfo.endTime = Date.now()
     })
 
@@ -358,6 +344,7 @@ export const runCommandPty = (
 
       resolve({
         result: formatResult(
+          command,
           commandOutput,
           `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
         ),
@@ -411,7 +398,7 @@ export const runCommandPty = (
         ptyProcess.write(`cd ${projectPath}\r`)
 
         resolve({
-          result: formatResult(commandOutput, 'Command completed'),
+          result: formatResult(command, commandOutput, 'Command completed'),
           stdout: commandOutput,
         })
         return
@@ -480,6 +467,7 @@ const runCommandChildProcess = (
     if (mode === 'assistant') {
       resolve({
         result: formatResult(
+          command,
           commandOutput,
           `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated.`
         ),
@@ -515,7 +503,7 @@ const runCommandChildProcess = (
     }
 
     resolve({
-      result: formatResult(commandOutput, `Command completed`),
+      result: formatResult(command, commandOutput, `Command completed`),
       stdout: commandOutput,
     })
   })
