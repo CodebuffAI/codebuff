@@ -193,12 +193,15 @@ function splitAndLog(
   })
 }
 
-export const logger: Record<LogLevel, pino.LogFn> = Object.fromEntries(
-  loggingLevels.map((level) => {
-    return [
-      level,
-      (data: any, msg?: string, ...args: any[]) =>
-        splitAndLog(level, data, msg, ...args),
-    ]
-  })
-) as Record<LogLevel, pino.LogFn>
+export const logger: Record<LogLevel, pino.LogFn> =
+  process.env.ENVIRONMENT === 'local'
+    ? pinoLogger
+    : (Object.fromEntries(
+        loggingLevels.map((level) => {
+          return [
+            level,
+            (data: any, msg?: string, ...args: any[]) =>
+              splitAndLog(level, data, msg, ...args),
+          ]
+        })
+      ) as Record<LogLevel, pino.LogFn>)
