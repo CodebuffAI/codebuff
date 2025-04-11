@@ -11,12 +11,11 @@ import { Adapter } from 'next-auth/adapters'
 import { parse, format } from 'url'
 import { CREDITS_USAGE_LIMITS } from 'common/src/constants'
 import { logger } from '@/util/logger'
-import { GRANT_PRIORITIES } from 'common/src/billing/balance-calculator'
-import {
-  createStripeMonetaryAmount,
-  getUserCostPerCredit,
-} from 'common/src/billing/conversion'
+import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
+import { getUserCostPerCredit } from 'common/src/billing/conversion'
 import { logSyncFailure } from 'common/src/util/sync-failure'
+import { processAndGrantCredit } from 'common/src/billing/grant-credits'
+import { generateCompactId } from 'common/src/util/string'
 
 async function createAndLinkStripeCustomer(user: User): Promise<string | null> {
   if (!user.email || !user.name) {
@@ -65,58 +64,33 @@ async function createAndLinkStripeCustomer(user: User): Promise<string | null> {
   }
 }
 
-async function createInitialCreditGrant(
-  customerId: string,
-  userId: string
-): Promise<void> {
+async function createInitialCreditGrant(userId: string): Promise<void> {
   try {
     const initialGrantCredits = CREDITS_USAGE_LIMITS.FREE
+    const operationId = `free-${userId}-${generateCompactId()}`
 
-    const centsPerCredit = await getUserCostPerCredit(userId)
-
-    const stripeAmountObject = createStripeMonetaryAmount(
+    await processAndGrantCredit(
+      userId,
       initialGrantCredits,
-      centsPerCredit
+      'free',
+      'Initial free credits',
+      null, // No expiration for initial grant
+      operationId
     )
 
-    if (!stripeAmountObject) {
-      logger.error(
-        { userId, customerId, initialGrantCredits, centsPerCredit },
-        'Initial grant amount is invalid, skipping Stripe grant creation.'
-      )
-      return
-    }
-
-    const grant = await stripeServer.billing.creditGrants.create({
-      amount: stripeAmountObject,
-      customer: customerId,
-      category: 'promotional',
-      applicability_config: {
-        scope: {
-          price_type: 'metered',
-        },
-      },
-      metadata: {
-        type: 'free',
-        priority: GRANT_PRIORITIES.free.toString(),
-        user_id: userId,
-      },
-    })
     logger.info(
       {
-        userId: userId,
-        customerId: customerId,
-        grantId: grant.id,
-        creditsGrantedInternal: initialGrantCredits,
-        stripeAmountCents: stripeAmountObject.monetary.value,
+        userId,
+        operationId,
+        creditsGranted: initialGrantCredits,
       },
-      'Initial free credit grant created via Stripe.'
+      'Initial free credit grant created.'
     )
   } catch (grantError) {
     const errorMessage = grantError instanceof Error ? grantError.message : 'Unknown error creating initial credit grant'
     logger.error(
-      { userId: userId, customerId: customerId, error: grantError },
-      'Failed to create initial Stripe credit grant.'
+      { userId, error: grantError },
+      'Failed to create initial credit grant.'
     )
     await logSyncFailure(userId, errorMessage)
   }
@@ -226,7 +200,7 @@ export const authOptions: NextAuthOptions = {
       const customerId = await createAndLinkStripeCustomer(user)
 
       if (customerId) {
-        await createInitialCreditGrant(customerId, user.id)
+        await createInitialCreditGrant(user.id)
       }
 
       await sendSignupEventToLoops(user)

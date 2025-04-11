@@ -1,15 +1,14 @@
-export type TUser = {
+export interface UserProfile {
   id: string
+  name: string | null
   email: string
-  name: string
-  image: string
-}
-
-export type UserProfile = TUser & {
-  handle?: string | null
-  referral_code?: string | null
-  auto_topup_enabled?: boolean
-  auto_topup_threshold?: number | null
-  auto_topup_amount?: number | null
-  auto_topup_blocked_reason?: string | null
+  image: string | null
+  stripe_customer_id: string | null
+  stripe_price_id: string | null
+  handle: string | null
+  referral_code: string | null
+  auto_topup_enabled: boolean
+  auto_topup_threshold: number | null
+  auto_topup_amount: number | null
+  auto_topup_blocked_reason: string | null
 }

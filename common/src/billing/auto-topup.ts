@@ -139,8 +139,7 @@ async function processAutoTopupPayment(
     'purchase',
     `Auto top-up of ${amountToTopUp.toLocaleString()} credits`,
     null,
-    operationId,
-    false
+    operationId
   )
 
   logger.info(

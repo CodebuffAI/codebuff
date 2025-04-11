@@ -4,7 +4,7 @@ import { sendAction } from './websocket-action'
 import { checkAuth } from '../util/check-auth'
 import { logger, withLoggerContext } from '@/util/logger'
 import { getUserInfoFromAuthToken, UserInfo } from './auth'
-import { calculateCurrentBalance } from 'common/src/billing/balance-calculator'
+import { calculateCurrentBalance, consumeCredits } from 'common/src/billing/balance-calculator'
 import { getNextQuotaReset } from 'common/src/util/dates'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
@@ -14,8 +14,8 @@ import {
   CREDITS_REFERRAL_BONUS,
 } from 'common/src/constants'
 import { processAndGrantCredit } from 'common/src/billing/grant-credits'
-import { calculateAndApplyRollover } from 'common/src/billing/rollover-logic'
 import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
+import { generateCompactId } from 'common/util/string'
 
 type MiddlewareCallback = (
   action: ClientAction,
@@ -156,11 +156,17 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     const nextResetDate = getNextQuotaReset(user.next_quota_reset)
     const baseOperationId = `reset-${userId}-${Date.now()}`
 
-    // Calculate rollover first - this will also reset usage and update next_quota_reset
-    await calculateAndApplyRollover(userId, currentResetDate)
+    // Reset usage and update next reset date
+    await db
+      .update(schema.user)
+      .set({
+        usage: 0,
+        next_quota_reset: nextResetDate,
+      })
+      .where(eq(schema.user.id, userId))
 
     try {
-      // Create both grants (local and Stripe if applicable)
+      // Create both grants (free and referral)
       const freeGrantOpId = `${baseOperationId}-free`
       const referralGrantOpId = `${baseOperationId}-referral`
       await Promise.all([

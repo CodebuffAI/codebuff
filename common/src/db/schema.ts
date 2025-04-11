@@ -12,21 +12,25 @@ import {
   index,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
-
+import { GrantTypeValues } from '../types/grant'
 import { ReferralStatusValues } from '../types/referral'
 
-// Define the ReferralStatus enum
 export const ReferralStatus = pgEnum('referral_status', [
   ReferralStatusValues[0],
   ...ReferralStatusValues.slice(1),
 ])
 
-// Define the API Key Type enum
 export const apiKeyTypeEnum = pgEnum('api_key_type', [
   'anthropic',
   'gemini',
   'openai',
 ])
+
+export const grantTypeEnum = pgEnum('grant_type', [
+  GrantTypeValues[0],
+  ...GrantTypeValues.slice(1),
+])
+export type GrantType = (typeof grantTypeEnum.enumValues)[number]
 
 export const user = pgTable('user', {
   id: text('id')
@@ -38,11 +42,11 @@ export const user = pgTable('user', {
   emailVerified: timestamp('emailVerified', { mode: 'date' }),
   image: text('image'),
   stripe_customer_id: text('stripe_customer_id').unique(),
+  stripe_price_id: text('stripe_price_id'),
   usage: integer('usage').notNull().default(0),
   next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
     sql<Date>`now() + INTERVAL '1 month'`
   ),
-  balance: integer('balance').notNull().default(0),
   created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
   referral_code: text('referral_code')
     .unique()
@@ -50,10 +54,9 @@ export const user = pgTable('user', {
   referral_limit: integer('referral_limit').notNull().default(5),
   discord_id: text('discord_id').unique(),
   handle: text('handle').unique(),
-  // Auto-Top-up Settings
   auto_topup_enabled: boolean('auto_topup_enabled').notNull().default(false),
-  auto_topup_threshold: integer('auto_topup_threshold'), // When balance drops below this
-  auto_topup_amount: integer('auto_topup_amount'), // Amount to add each time (renamed from target_balance)
+  auto_topup_threshold: integer('auto_topup_threshold'),
+  auto_topup_amount: integer('auto_topup_amount'),
 })
 
 export const account = pgTable(
@@ -78,6 +81,62 @@ export const account = pgTable(
       columns: [account.provider, account.providerAccountId],
     }),
   ]
+)
+
+export const creditGrants = pgTable(
+  'credit_grants',
+  {
+    operation_id: text('operation_id').primaryKey(),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    amount: integer('amount').notNull(),
+    amount_remaining: integer('amount_remaining').notNull(),
+    type: grantTypeEnum('type').notNull(),
+    description: text('description'),
+    priority: integer('priority').notNull(),
+    expires_at: timestamp('expires_at', { mode: 'date', withTimezone: true }),
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    idx_credit_grants_user_active: index('idx_credit_grants_user_active').on(
+      table.user_id,
+      table.expires_at,
+      table.priority,
+      table.created_at
+    ),
+  })
+)
+
+export const syncFailures = pgTable(
+  'sync_failures',
+  {
+    message_id: text('message_id')
+      .primaryKey()
+      .references(() => message.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull().default('stripe'),
+    first_attempt_at: timestamp('first_attempt_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    last_attempt_at: timestamp('last_attempt_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    retry_count: integer('retry_count').notNull().default(1),
+    last_error: text('last_error').notNull(),
+  },
+  (table) => ({
+    idx_sync_failures_retry: index('idx_sync_failures_retry')
+      .on(table.retry_count, table.last_attempt_at)
+      .where(sql`${table.retry_count} < 5`),
+  })
 )
 
 export const referral = pgTable(
@@ -159,7 +218,6 @@ export const verificationToken = pgTable(
   (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
 )
 
-// Restructured table to store one key per row per user
 export const encryptedApiKeys = pgTable(
   'encrypted_api_keys',
   {
@@ -167,7 +225,7 @@ export const encryptedApiKeys = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     type: apiKeyTypeEnum('type').notNull(),
-    api_key: text('api_key').notNull(), // Stores the encrypted key string "iv:encrypted:authTag"
+    api_key: text('api_key').notNull(),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.user_id, table.type] }),

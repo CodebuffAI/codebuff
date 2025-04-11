@@ -25,14 +25,14 @@ interface UsageDisplayProps {
   nextQuotaReset: Date | null
 }
 
-const grantTypeColors: Record<GrantType, string> = {
-  free: 'bg-green-500',
-  referral: 'bg-blue-500',
-  rollover: 'bg-purple-500',
-  purchase: 'bg-yellow-500',
-  admin: 'bg-pink-500',
-}
 const usedColor = 'bg-gray-400 dark:bg-gray-600'
+
+const grantTypeColors: Record<GrantType, string> = {
+  free: 'bg-blue-500',
+  referral: 'bg-green-500',
+  purchase: 'bg-yellow-500',
+  admin: 'bg-red-500',
+}
 
 const renewableGrantTypes: GrantType[] = ['free', 'referral']
 
@@ -42,8 +42,6 @@ const getGrantTypeDisplayName = (type: GrantType): string => {
       return 'Free'
     case 'referral':
       return 'Referral'
-    case 'rollover':
-      return 'Rollover'
     case 'purchase':
       return 'Purchased'
     case 'admin':

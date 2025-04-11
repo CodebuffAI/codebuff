@@ -34,6 +34,14 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import debounce from 'lodash/debounce'
 
+type UserProfileKeys =
+  | 'handle'
+  | 'referral_code'
+  | 'auto_topup_enabled'
+  | 'auto_topup_threshold'
+  | 'auto_topup_amount'
+  | 'auto_topup_blocked_reason'
+
 const MIN_THRESHOLD_CREDITS = 100
 const MAX_THRESHOLD_CREDITS = 10000
 const MIN_TOPUP_DOLLARS = 5.0
@@ -305,21 +313,9 @@ const ManageCreditsCard = () => {
       const response = await fetch('/api/user/profile')
       if (!response.ok) throw new Error('Failed to fetch profile')
       const data = await response.json()
-      const targetBalanceCredits =
-        data.auto_topup_target_balance ??
-        MIN_THRESHOLD_CREDITS +
-          convertStripeGrantAmountToCredits(
-            MIN_TOPUP_DOLLARS * 100,
-            CENTS_PER_CREDIT
-          )
-      const thresholdCredits =
-        data.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS
-      const topUpCredits = Math.max(0, targetBalanceCredits - thresholdCredits)
-      const topUpCents = convertCreditsToUsdCents(
-        topUpCredits,
-        CENTS_PER_CREDIT
-      )
-      const initialTopUpDollars = topUpCents / 100
+      const thresholdCredits = data.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS
+      const topUpAmount = data.auto_topup_amount ?? MIN_TOPUP_DOLLARS * 100
+      const topUpDollars = topUpAmount / 100
 
       return {
         ...data,
@@ -330,11 +326,10 @@ const ManageCreditsCard = () => {
           MAX_THRESHOLD_CREDITS
         ),
         initialTopUpDollars: clamp(
-          initialTopUpDollars > 0 ? initialTopUpDollars : MIN_TOPUP_DOLLARS,
+          topUpDollars > 0 ? topUpDollars : MIN_TOPUP_DOLLARS,
           MIN_TOPUP_DOLLARS,
           MAX_TOPUP_DOLLARS
         ),
-        auto_topup_target_balance: targetBalanceCredits,
       }
     },
   })
@@ -384,14 +379,14 @@ const ManageCreditsCard = () => {
           UserProfile,
           | 'auto_topup_enabled'
           | 'auto_topup_threshold'
-          | 'auto_topup_target_balance'
+          | 'auto_topup_amount'
         >
       >
     ) => {
       const payload = {
         enabled: settings.auto_topup_enabled,
         threshold: settings.auto_topup_threshold,
-        targetBalance: settings.auto_topup_target_balance,
+        amount: settings.auto_topup_amount,
       }
 
       if (typeof payload.enabled !== 'boolean') {
@@ -406,19 +401,19 @@ const ManageCreditsCard = () => {
         if (payload.threshold === null || payload.threshold === undefined)
           throw new Error('Threshold is required.')
         if (
-          payload.targetBalance === null ||
-          payload.targetBalance === undefined
+          payload.amount === null ||
+          payload.amount === undefined
         )
-          throw new Error('Target balance is required.')
+          throw new Error('Amount is required.')
         if (
           payload.threshold < MIN_THRESHOLD_CREDITS ||
           payload.threshold > MAX_THRESHOLD_CREDITS
         )
           throw new Error('Invalid threshold value.')
-        if (payload.targetBalance <= payload.threshold)
-          throw new Error('Target balance must exceed threshold.')
+        if (payload.amount < MIN_TOPUP_DOLLARS || payload.amount > MAX_TOPUP_DOLLARS)
+          throw new Error('Invalid top-up amount value.')
 
-        const topUpCredits = payload.targetBalance - payload.threshold
+        const topUpCredits = payload.amount / 100
         const minTopUpCredits = convertStripeGrantAmountToCredits(
           MIN_TOPUP_DOLLARS * 100,
           CENTS_PER_CREDIT
@@ -459,7 +454,7 @@ const ManageCreditsCard = () => {
       const wasEnabled = variables.auto_topup_enabled
       const savingSettings =
         variables.auto_topup_threshold !== undefined &&
-        variables.auto_topup_target_balance !== undefined
+        variables.auto_topup_amount !== undefined
 
       let toastMessage = ''
       if (wasEnabled && savingSettings) {
@@ -481,9 +476,8 @@ const ManageCreditsCard = () => {
             data?.auto_topup_enabled ?? variables.auto_topup_enabled
           const savedThresholdRaw =
             data?.auto_topup_threshold ?? variables.auto_topup_threshold
-          const savedTargetBalanceRaw =
-            data?.auto_topup_target_balance ??
-            variables.auto_topup_target_balance
+          const savedAmountRaw =
+            data?.auto_topup_amount ?? variables.auto_topup_amount
 
           const savedThreshold = savedEnabled
             ? clamp(
@@ -493,8 +487,8 @@ const ManageCreditsCard = () => {
               )
             : MIN_THRESHOLD_CREDITS
 
-          const savedTargetBalance = savedEnabled
-            ? (savedTargetBalanceRaw ??
+          const savedAmount = savedEnabled
+            ? (savedAmountRaw ??
               savedThreshold +
                 convertStripeGrantAmountToCredits(
                   MIN_TOPUP_DOLLARS * 100,
@@ -508,7 +502,7 @@ const ManageCreditsCard = () => {
 
           const savedTopUpCredits = Math.max(
             0,
-            savedTargetBalance - savedThreshold
+            savedAmount - savedThreshold
           )
           const savedTopUpCents = convertCreditsToUsdCents(
             savedTopUpCredits,
@@ -524,7 +518,7 @@ const ManageCreditsCard = () => {
             ...oldData,
             auto_topup_enabled: savedEnabled,
             auto_topup_threshold: savedEnabled ? savedThreshold : null,
-            auto_topup_target_balance: savedEnabled ? savedTargetBalance : null,
+            auto_topup_amount: savedEnabled ? savedAmount : null,
             initialTopUpDollars: savedTopUpDollars,
           }
 
@@ -580,15 +574,10 @@ const ManageCreditsCard = () => {
       }
 
       const topUpAmountCents = Math.round(currentTopUpDollars * 100)
-      const topUpCredits = convertStripeGrantAmountToCredits(
-        topUpAmountCents,
-        CENTS_PER_CREDIT
-      )
-      const targetBalanceCredits = currentThreshold + topUpCredits
 
       if (
         currentThreshold === userProfile?.auto_topup_threshold &&
-        targetBalanceCredits === userProfile?.auto_topup_target_balance &&
+        topUpAmountCents === userProfile?.auto_topup_amount &&
         userProfile?.auto_topup_enabled === true
       ) {
         return
@@ -596,12 +585,12 @@ const ManageCreditsCard = () => {
 
       console.log('Debounced save triggered', {
         threshold: currentThreshold,
-        targetBalance: targetBalanceCredits,
+        topUpAmount: topUpAmountCents,
       })
       autoTopupMutation.mutate({
         auto_topup_enabled: true,
         auto_topup_threshold: currentThreshold,
-        auto_topup_target_balance: targetBalanceCredits,
+        auto_topup_amount: topUpAmountCents,
       })
     }, 750),
     [autoTopupMutation, userProfile]
@@ -774,7 +763,7 @@ const ManageCreditsCard = () => {
         {
           auto_topup_enabled: true,
           auto_topup_threshold: threshold,
-          auto_topup_target_balance: targetBalanceCredits,
+          auto_topup_amount: topUpAmountCents,
         },
         {
           onSuccess: () => {
@@ -793,7 +782,7 @@ const ManageCreditsCard = () => {
         {
           auto_topup_enabled: false,
           auto_topup_threshold: null,
-          auto_topup_target_balance: null,
+          auto_topup_amount: null,
         },
         {
           onSuccess: () => {

@@ -15,36 +15,5 @@ export async function getUserCostPerCredit(
   return 1
 }
 
-/**
- * Creates the Amount object structure required by the Stripe Billing Credits API v18+.
- * This structure specifies the monetary value and currency based on internal credits
- * and the user's cost per credit.
- *
- * @param credits - The amount in internal credits to be granted.
- * @param centsPerCredit - The user's effective cost per internal credit (in cents).
- * @returns The Stripe Amount object structure or null if credits are non-positive or conversion fails.
- */
-export function createStripeMonetaryAmount(
-  credits: number,
-  centsPerCredit: number
-): { monetary: { currency: 'usd'; value: number }; type: 'monetary' } | null {
-  const cents = convertCreditsToUsdCents(credits, centsPerCredit)
-  if (cents <= 0) {
-    // Stripe API likely expects a positive value, or conversion failed
-    logger.warn(
-      { credits, centsPerCredit, calculatedCents: cents },
-      'Calculated non-positive cents for Stripe grant, returning null.'
-    )
-    return null
-  }
-  return {
-    monetary: {
-      currency: 'usd',
-      value: cents, // Value must be in cents
-    },
-    type: 'monetary',
-  }
-}
-
 // Re-export the pure conversion functions
 export { convertCreditsToUsdCents, convertStripeGrantAmountToCredits } from './credit-conversion'
