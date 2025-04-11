@@ -8,7 +8,7 @@ import { env } from '../env.mjs'
 
 // --- Constants ---
 const MAX_LENGTH = 100_000 // Max total log size
-const BUFFER = 5000 // Buffer for context, etc.
+const BUFFER = 1000 // Buffer for context, etc.
 
 export interface LoggerContext {
   userId?: string
@@ -76,7 +76,7 @@ function splitData(data: any, characterLimit: number): any[] {
       if (currentChunkLength + itemLength > characterLimit) {
         if (itemString.length > characterLimit) {
           // If single item is too large, recursively split it
-          const splitItem = splitData(item, characterLimit - ','.length)
+          const splitItem = splitData(item, characterLimit - '[],'.length)
           chunks.push(...splitItem.map((subItem) => [subItem]))
         } else {
           chunks.push(currentChunk)
@@ -125,6 +125,36 @@ function splitData(data: any, characterLimit: number): any[] {
     }
     if (Object.keys(currentChunk).length > 0) {
       chunks.push(currentChunk)
+    }
+    return chunks
+  }
+
+  if (typeof data === 'string') {
+    const chunks = []
+    const stringified = JSON.stringify(data)
+    let start = 0
+    while (start < stringified.length) {
+      let chunk: string | null = null
+
+      let end = Math.min(start + characterLimit, stringified.length)
+      while (chunk === null) {
+        const candidate = stringified.slice(start, end) + '"'
+        try {
+          chunk = JSON.parse(candidate) as string
+        } catch (e) {
+          // unable to parse JSON (probably escape sequence?)
+          // subtract one character and try again
+          if (end === stringified.length) {
+            // should never happen, just log the stringified string
+            chunk = candidate
+            break
+          }
+        }
+        end -= 1
+      }
+      start = end
+
+      chunks.push(chunk)
     }
     return chunks
   }
