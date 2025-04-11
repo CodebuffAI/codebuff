@@ -1,9 +1,11 @@
-import { WebSocket } from 'ws'
 import { ClientAction, ServerAction } from 'common/actions'
-import { sendAction } from './websocket-action'
+import { WebSocket } from 'ws'
+
 import { checkAuth } from '../util/check-auth'
-import { logger, withLoggerContext, LoggerContext } from '@/util/logger'
 import { getUserInfoFromAuthToken } from './auth'
+import { sendAction } from './websocket-action'
+
+import { logger, withLoggerContext } from '@/util/logger'
 
 export class WebSocketMiddleware {
   private middlewares: Array<
@@ -79,7 +81,7 @@ export class WebSocketMiddleware {
           clientSessionId,
           userId: userInfo?.id,
           userEmail: userInfo?.email,
-          discordId: userInfo?.discord_id,
+          discordId: userInfo?.discord_id ?? undefined,
         },
         async () => {
           const shouldContinue = await this.execute(
