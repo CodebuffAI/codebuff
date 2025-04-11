@@ -76,7 +76,7 @@ function splitData(data: any, characterLimit: number): any[] {
       if (currentChunkLength + itemLength > characterLimit) {
         if (itemString.length > characterLimit) {
           // If single item is too large, recursively split it
-          const splitItem = splitData(item, characterLimit)
+          const splitItem = splitData(item, characterLimit - ','.length)
           chunks.push(...splitItem.map((subItem) => [subItem]))
         } else {
           chunks.push(currentChunk)
@@ -108,7 +108,10 @@ function splitData(data: any, characterLimit: number): any[] {
       if (currentChunkLength + entryLength > characterLimit) {
         if (entryString.length > characterLimit) {
           // If single entry is too large, recursively split the value
-          const splitValue = splitData(value, characterLimit)
+          const splitValue = splitData(
+            value,
+            characterLimit - `{"${key}":},`.length
+          )
           chunks.push(...splitValue.map((subValue) => ({ [key]: subValue })))
         } else {
           chunks.push(currentChunk)
