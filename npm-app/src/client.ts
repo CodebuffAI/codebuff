@@ -537,15 +537,7 @@ export class Client {
           `\n⚠️ Warning: You have ${bold(this.remainingBalance.toLocaleString())} credits remaining. Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage`'))}`
         )
       )
-      if (this.user) {
-        console.warn(
-          yellow(
-            `Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))}`
-          )
-        )
-      } else {
-        console.warn(yellow(`Type "login" to sign up/in and get more credits!`))
-      }
+
       this.lastWarnedPct = 75
       this.returnControlToUser()
     } else if (

@@ -1,29 +1,49 @@
 import { Card, CardHeader, CardContent } from './card'
 import { Skeleton } from './skeleton'
 
-export const SkeletonLoading = () => {
+export const PricingCardSkeleton = () => {
   return (
-    <Card className="max-w-2xl mx-auto">
+    <Card>
       <CardHeader>
-        <Skeleton className="h-8 w-64 mb-2" />
-        <Skeleton className="h-4 w-48" />
+        <Skeleton className="h-7 w-24" />
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="py-4">
-          <Skeleton className="h-6 w-48 mb-4" />
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-5/6" />
-          </div>
+      <CardContent>
+        <div className="space-y-4">
+          <Skeleton className="h-6 w-full" />
+          <Skeleton className="h-10 w-full" />
         </div>
+      </CardContent>
+    </Card>
+  )
+}
 
-        <div className="pb-4">
-          <Skeleton className="h-6 w-48 mb-4" />
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-2/3" />
+export const PaymentSuccessCardSkeleton = () => {
+  return (
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader>
+        <Skeleton className="h-8 w-48 mb-2" />
+        <Skeleton className="h-4 w-64" />
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col items-center space-y-4">
+          <Skeleton className="h-[600px] w-[600px]" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+export const AutoTopupCardSkeleton = () => {
+  return (
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardContent className="space-y-6 pt-6">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-6 w-48" />
           </div>
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-32 w-full" />
         </div>
       </CardContent>
     </Card>

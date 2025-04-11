@@ -64,7 +64,7 @@ export async function validateAutoTopupStatus(
 
     if (!validPaymentMethod) {
       throw new AutoTopupValidationError(
-        'You need a valid payment method to enable auto top-up. You can add one by manually purchasing credits.'
+        'You need a valid payment method to enable auto top-up. Try buying some credits!'
       )
     }
 
@@ -217,9 +217,10 @@ export async function checkAndTriggerAutoTopup(userId: string): Promise<void> {
         validPaymentMethod
       )
     } catch (error) {
-      const message = error instanceof AutoTopupPaymentError
-        ? error.message
-        : 'Payment failed. Please check your payment method and re-enable auto top-up.'
+      const message =
+        error instanceof AutoTopupPaymentError
+          ? error.message
+          : 'Payment failed. Please check your payment method and re-enable auto top-up.'
 
       await disableAutoTopup(userId, message)
       throw new Error(message)

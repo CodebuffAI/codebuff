@@ -10,6 +10,7 @@ import { FreePlanButton } from '@/components/pricing/free-plan-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { UsageLimits } from 'common/src/constants'
+import { PricingCardSkeleton } from '@/components/pricing/pricing-card-skeleton'
 
 export default function PricingPage() {
   const router = useRouter()
@@ -65,6 +66,18 @@ export default function PricingPage() {
           </CardContent>
           <SignInCardFooter />
         </Card>
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-6 px-4 sm:py-10 sm:px-6">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <PricingCardSkeleton />
+          <PricingCardSkeleton />
+          <PricingCardSkeleton />
+        </div>
       </div>
     )
   }

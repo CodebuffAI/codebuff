@@ -1,7 +1,8 @@
 'use client'
 
 import React from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import {
   Tooltip,
@@ -18,6 +19,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { CreditBalance } from 'common/src/billing/balance-calculator'
 import { GrantType } from 'common/src/db/schema'
 import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
+import { GrantTypeValues } from 'common/src/types/grant'
 
 interface UsageDisplayProps {
   usageThisCycle: number
@@ -51,6 +53,26 @@ const getGrantTypeDisplayName = (type: GrantType): string => {
   }
 }
 
+export const UsageDisplaySkeleton = () => (
+  <Card className="w-full max-w-2xl mx-auto -mt-8">
+    <CardHeader>
+      <Skeleton className="h-8 w-1/2" />
+    </CardHeader>
+    <CardContent className="space-y-6">
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-4 w-full rounded-full" />
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-4 w-18" />
+      </div>
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+    </CardContent>
+  </Card>
+)
+
 export const UsageDisplay = ({
   usageThisCycle,
   balance,
@@ -61,7 +83,7 @@ export const UsageDisplay = ({
   const { totalRemaining, breakdown } = balance
   const totalAvailable = totalRemaining + usageThisCycle
 
-  const sortedGrantTypes = (Object.keys(breakdown) as GrantType[]).sort(
+  const sortedGrantTypes = GrantTypeValues.sort(
     (a, b) => GRANT_PRIORITIES[a] - GRANT_PRIORITIES[b]
   )
 
@@ -98,12 +120,11 @@ export const UsageDisplay = ({
                 </Tooltip>
               )}
               {sortedGrantTypes.map((type) => {
-                const amount = breakdown[type]
-                if (!amount || amount <= 0) return null
+                const amount = breakdown[type] || 0
                 const percentage = calculatePercentage(amount)
-                const colorClass = grantTypeColors[type] || 'bg-gray-300'
+                const colorClass = grantTypeColors[type]
                 const displayName = getGrantTypeDisplayName(type)
-                return (
+                return percentage > 0 ? (
                   <Tooltip key={type}>
                     <TooltipTrigger asChild>
                       <div
@@ -117,27 +138,25 @@ export const UsageDisplay = ({
                       </p>
                     </TooltipContent>
                   </Tooltip>
-                )
+                ) : null
               })}
             </div>
           </TooltipProvider>
           <div className="space-y-2">
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
               {usagePercentage > 0 && (
-                 <div className="flex items-center gap-1">
-                    <span
-                      className={cn(
-                        'w-3 h-3 rounded-full inline-block',
-                        usedColor
-                      )}
-                    ></span>
-                    <span>Used</span>
-                  </div>
+                <div className="flex items-center gap-1">
+                  <span
+                    className={cn(
+                      'w-3 h-3 rounded-full inline-block',
+                      usedColor
+                    )}
+                  ></span>
+                  <span>Used</span>
+                </div>
               )}
               {sortedGrantTypes.map((type) => {
-                const amount = breakdown[type]
-                if (!amount || amount <= 0) return null
-                const colorClass = grantTypeColors[type] || 'bg-gray-300'
+                const colorClass = grantTypeColors[type]
                 const displayName = getGrantTypeDisplayName(type)
                 return (
                   <div key={type} className="flex items-center gap-1">
@@ -181,8 +200,7 @@ export const UsageDisplay = ({
             <CollapsibleContent>
               <div className="space-y-2 py-2">
                 {sortedGrantTypes.map((type) => {
-                  const amount = breakdown[type]
-                  if (!amount || amount <= 0) return null
+                  const amount = breakdown[type] || 0
                   const displayName = getGrantTypeDisplayName(type)
                   const isRenewable = renewableGrantTypes.includes(type)
                   return (

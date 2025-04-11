@@ -1,28 +1,11 @@
-'use client'
-
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
-import { UsageDisplay, UsageDisplaySkeleton } from './usage-display'
-import { Button } from '@/components/ui/button'
-import Link from 'next/link'
-import { env } from '@/env.mjs'
-import {
-  useQuery,
-  useMutation,
-  useQueryClient as useTanstackQueryClient,
-} from '@tanstack/react-query'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/use-toast'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Info, ChevronDown, ChevronUp, Loader2 as Loader } from 'lucide-react'
-import { UserProfile } from '@/types/user'
-import { useSession } from 'next-auth/react'
-import {
-  convertCreditsToUsdCents,
-  convertStripeGrantAmountToCredits,
-} from 'common/src/billing/credit-conversion'
+import { Info, Loader2 as Loader } from 'lucide-react'
 import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
 import { cn, clamp } from '@/lib/utils'
 import {
@@ -31,56 +14,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Skeleton } from '@/components/ui/skeleton'
+import { UserProfile } from '@/types/user'
 import debounce from 'lodash/debounce'
-
-type UserProfileKeys =
-  | 'handle'
-  | 'referral_code'
-  | 'auto_topup_enabled'
-  | 'auto_topup_threshold'
-  | 'auto_topup_amount'
-  | 'auto_topup_blocked_reason'
+import { convertCreditsToUsdCents, convertStripeGrantAmountToCredits } from 'common/src/billing/credit-conversion'
 
 const MIN_THRESHOLD_CREDITS = 100
 const MAX_THRESHOLD_CREDITS = 10000
 const MIN_TOPUP_DOLLARS = 5.0
 const MAX_TOPUP_DOLLARS = 100.0
 const CENTS_PER_CREDIT = 1
-
-const UsagePageSkeleton = () => (
-  <div className="space-y-8 container mx-auto py-6 px-4 sm:py-10 sm:px-6">
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <Skeleton className="h-8 w-1/2" />
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-full rounded-full" />
-        <div className="flex flex-wrap gap-x-4 gap-y-1">
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-4 w-18" />
-        </div>
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-      </CardContent>
-    </Card>
-  </div>
-)
-
-const SignInCard = () => (
-  <Card className="w-full max-w-md mx-auto mt-10">
-    <CardHeader>
-      <CardTitle>Sign in to view usage</CardTitle>
-    </CardHeader>
-    <CardContent>
-      <p>Please sign in to view your usage statistics and manage settings.</p>
-    </CardContent>
-    <SignInCardFooter />
-  </Card>
-)
 
 const CreditPurchaseSection = ({
   onPurchase,
@@ -165,11 +107,7 @@ const CreditPurchaseSection = ({
               id="auto-topup-switch"
               checked={isEnabled}
               onCheckedChange={onToggle}
-              disabled={
-                Boolean(autoTopupBlockedReason) ||
-                isPending ||
-                isPurchasePending
-              }
+              disabled={Boolean(autoTopupBlockedReason) || isPending || isPurchasePending}
             />
             <Label htmlFor="auto-topup-switch">Auto Top-up</Label>
           </div>
@@ -178,8 +116,7 @@ const CreditPurchaseSection = ({
             disabled={!selectedCredits || isPending || isPurchasePending}
             className={cn(
               'w-auto transition-opacity min-w-[120px]',
-              (!selectedCredits || isPending || isPurchasePending) &&
-                'opacity-50'
+              (!selectedCredits || isPending || isPurchasePending) && 'opacity-50'
             )}
             neonColors={{
               firstColor: '#4F46E5',
@@ -193,16 +130,14 @@ const CreditPurchaseSection = ({
           </NeonGradientButton>
         </div>
         {autoTopupBlockedReason && !isEnabled && (
-          <p className="text-sm text-muted-foreground">
-            {autoTopupBlockedReason}
-          </p>
+          <p className="text-sm text-muted-foreground">{autoTopupBlockedReason}</p>
         )}
       </div>
     </div>
   )
 }
 
-const AutoTopupSection = ({
+const AutoTopupSettingsSection = ({
   isEnabled,
   threshold,
   topUpAmountDollars,
@@ -285,34 +220,11 @@ const AutoTopupSection = ({
   </TooltipProvider>
 )
 
-const BuyCreditsSkeleton = () => (
-  <Card className="w-full max-w-2xl mx-auto mb-8">
-    <CardContent className="space-y-6 pt-6">
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-6 w-1/4" />
-        <Skeleton className="h-4 w-1/5" />
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-      </div>
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-6 w-1/4" />
-        <Skeleton className="h-10 w-1/3" />
-      </div>
-    </CardContent>
-  </Card>
-)
-
-const ManageCreditsCard = () => {
-  const tanstackQueryClient = useTanstackQueryClient()
+export function AutoTopupSection() {
+  const queryClient = useQueryClient()
   const [isEnabled, setIsEnabled] = useState(false)
   const [threshold, setThreshold] = useState(MIN_THRESHOLD_CREDITS)
-  const [topUpAmountDollars, setTopUpAmountDollars] =
-    useState(MIN_TOPUP_DOLLARS)
+  const [topUpAmountDollars, setTopUpAmountDollars] = useState(MIN_TOPUP_DOLLARS)
   const isInitialLoad = useRef(true)
 
   const { data: userProfile, isLoading: isLoadingProfile } = useQuery<
@@ -323,8 +235,7 @@ const ManageCreditsCard = () => {
       const response = await fetch('/api/user/profile')
       if (!response.ok) throw new Error('Failed to fetch profile')
       const data = await response.json()
-      const thresholdCredits =
-        data.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS
+      const thresholdCredits = data.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS
       const topUpAmount = data.auto_topup_amount ?? MIN_TOPUP_DOLLARS * 100
       const topUpDollars = topUpAmount / 100
 
@@ -349,9 +260,9 @@ const ManageCreditsCard = () => {
     if (userProfile?.auto_topup_blocked_reason && isEnabled) {
       setIsEnabled(false)
       toast({
-        title: 'Auto Top-up Disabled',
+        title: "Auto Top-up Disabled",
         description: userProfile.auto_topup_blocked_reason,
-        variant: 'destructive',
+        variant: "destructive"
       })
     }
   }, [userProfile?.auto_topup_blocked_reason, isEnabled])
@@ -388,7 +299,9 @@ const ManageCreditsCard = () => {
       settings: Partial<
         Pick<
           UserProfile,
-          'auto_topup_enabled' | 'auto_topup_threshold' | 'auto_topup_amount'
+          | 'auto_topup_enabled'
+          | 'auto_topup_threshold'
+          | 'auto_topup_amount'
         >
       >
     ) => {
@@ -409,17 +322,17 @@ const ManageCreditsCard = () => {
       if (payload.enabled) {
         if (payload.threshold === null || payload.threshold === undefined)
           throw new Error('Threshold is required.')
-        if (payload.amount === null || payload.amount === undefined)
+        if (
+          payload.amount === null ||
+          payload.amount === undefined
+        )
           throw new Error('Amount is required.')
         if (
           payload.threshold < MIN_THRESHOLD_CREDITS ||
           payload.threshold > MAX_THRESHOLD_CREDITS
         )
           throw new Error('Invalid threshold value.')
-        if (
-          payload.amount < MIN_TOPUP_DOLLARS ||
-          payload.amount > MAX_TOPUP_DOLLARS
-        )
+        if (payload.amount < MIN_TOPUP_DOLLARS || payload.amount > MAX_TOPUP_DOLLARS)
           throw new Error('Invalid top-up amount value.')
 
         const topUpCredits = payload.amount / 100
@@ -474,7 +387,7 @@ const ManageCreditsCard = () => {
         toast({ title: toastMessage })
       }
 
-      tanstackQueryClient.setQueryData(
+      queryClient.setQueryData(
         ['userProfile'],
         (
           oldData: (UserProfile & { initialTopUpDollars?: number }) | undefined
@@ -509,7 +422,10 @@ const ManageCreditsCard = () => {
                 CENTS_PER_CREDIT
               )
 
-          const savedTopUpCredits = Math.max(0, savedAmount - savedThreshold)
+          const savedTopUpCredits = Math.max(
+            0,
+            savedAmount - savedThreshold
+          )
           const savedTopUpCents = convertCreditsToUsdCents(
             savedTopUpCredits,
             CENTS_PER_CREDIT
@@ -662,7 +578,7 @@ const ManageCreditsCard = () => {
           }
         })
       } else {
-        tanstackQueryClient.invalidateQueries({ queryKey: ['usageData'] })
+        queryClient.invalidateQueries({ queryKey: ['usageData'] })
       }
     },
     onError: (error: Error) => {
@@ -721,9 +637,9 @@ const ManageCreditsCard = () => {
   const handleToggleAutoTopup = (checked: boolean) => {
     if (checked && userProfile?.auto_topup_blocked_reason) {
       toast({
-        title: 'Cannot Enable Auto Top-up',
+        title: "Cannot Enable Auto Top-up",
         description: userProfile.auto_topup_blocked_reason,
-        variant: 'destructive',
+        variant: "destructive"
       })
       return
     }
@@ -773,9 +689,9 @@ const ManageCreditsCard = () => {
         },
         {
           onSuccess: () => {
-            toast({
+            toast({ 
               title: 'Auto Top-up enabled!',
-              description: `We'll automatically add credits when your balance falls below ${threshold.toLocaleString()} credits.`,
+              description: `We'll automatically add credits when your balance falls below ${threshold.toLocaleString()} credits.`
             })
           },
           onError: () => {
@@ -803,126 +719,32 @@ const ManageCreditsCard = () => {
   }
 
   if (isLoadingProfile) {
-    return <BuyCreditsSkeleton />
+    return null
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto mb-8">
-      <CardContent className="space-y-6 pt-6">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Buy Credits</h3>
-            <Link
-              href={env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}
-              target="_blank"
-              className="text-sm text-primary underline underline-offset-4 hover:text-primary/90"
-            >
-              Billing Portal →
-            </Link>
-          </div>
-          <CreditPurchaseSection
-            onPurchase={(credits) => buyCreditsMutation.mutate(credits)}
-            onSaveAutoTopupSettings={handleSaveSettingsIfNeeded}
-            isAutoTopupEnabled={isEnabled}
-            isAutoTopupPending={autoTopupMutation.isPending}
-            isEnabled={isEnabled}
-            onToggle={handleToggleAutoTopup}
-            isPending={autoTopupMutation.isPending}
-            isPurchasePending={buyCreditsMutation.isPending}
-            autoTopupBlockedReason={
-              userProfile?.auto_topup_blocked_reason ?? null
-            }
-          />
-          {isEnabled && (
-            <AutoTopupSection
-              isEnabled={isEnabled}
-              threshold={threshold}
-              topUpAmountDollars={topUpAmountDollars}
-              onThresholdChange={handleThresholdInputChange}
-              onTopUpAmountChange={handleTopUpAmountInputChange}
-              isPending={autoTopupMutation.isPending}
-            />
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-const UsagePage = () => {
-  const { data: session, status } = useSession()
-
-  const {
-    data: usageData,
-    isLoading: isLoadingUsage,
-    isError: isUsageError,
-  } = useQuery({
-    queryKey: ['usageData', session?.user?.id],
-    queryFn: async () => {
-      if (!session?.user?.id) throw new Error('User not logged in')
-      const response = await fetch('/api/user/usage')
-      if (!response.ok) throw new Error('Failed to fetch usage data')
-      const data = await response.json()
-      return {
-        usageThisCycle: data.usageThisCycle,
-        balance: data.balance,
-        nextQuotaReset: data.nextQuotaReset
-          ? new Date(data.nextQuotaReset)
-          : null,
-      }
-    },
-    enabled: status === 'authenticated',
-  })
-
-  if (status === 'loading') {
-    return (
-      <div className="space-y-8 container mx-auto py-6 px-4 sm:py-10 sm:px-6">
-        <UsageDisplaySkeleton />
-        <BuyCreditsSkeleton />
-      </div>
-    )
-  }
-
-  if (status === 'unauthenticated') {
-    return <SignInCard />
-  }
-
-  const isUsageOrProfileLoading =
-    isLoadingUsage || (status === 'authenticated' && !usageData)
-
-  return (
-    <div className="space-y-8 container mx-auto py-6 px-4 sm:py-10 sm:px-6">
-      {isUsageOrProfileLoading && (
-        <>
-          <UsageDisplaySkeleton />
-          <BuyCreditsSkeleton />
-        </>
+    <div className="space-y-6">
+      <CreditPurchaseSection
+        onPurchase={(credits) => buyCreditsMutation.mutate(credits)}
+        onSaveAutoTopupSettings={handleSaveSettingsIfNeeded}
+        isAutoTopupEnabled={isEnabled}
+        isAutoTopupPending={autoTopupMutation.isPending}
+        isEnabled={isEnabled}
+        onToggle={handleToggleAutoTopup}
+        isPending={autoTopupMutation.isPending}
+        isPurchasePending={buyCreditsMutation.isPending}
+        autoTopupBlockedReason={userProfile?.auto_topup_blocked_reason ?? null}
+      />
+      {isEnabled && (
+        <AutoTopupSettingsSection
+          isEnabled={isEnabled}
+          threshold={threshold}
+          topUpAmountDollars={topUpAmountDollars}
+          onThresholdChange={handleThresholdInputChange}
+          onTopUpAmountChange={handleTopUpAmountInputChange}
+          isPending={autoTopupMutation.isPending}
+        />
       )}
-      {isUsageError && (
-        <Card className="w-full max-w-2xl mx-auto border-destructive">
-          <CardHeader>
-            <CardTitle className="text-destructive">
-              Error Loading Usage
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>
-              Could not load your usage data. Please try refreshing the page.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-      {status === 'authenticated' &&
-        !isUsageOrProfileLoading &&
-        !isUsageError &&
-        usageData && (
-          <>
-            <UsageDisplay {...usageData} />
-            <ManageCreditsCard />
-          </>
-        )}
     </div>
   )
 }
-
-export default UsagePage

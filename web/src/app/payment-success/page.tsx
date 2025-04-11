@@ -11,6 +11,8 @@ import { trackUpgrade } from '@/lib/trackConversions'
 import { useUserPlan } from '@/hooks/use-user-plan'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { AutoTopupSection } from '@/components/auto-topup/auto-topup-section'
 
 function SearchParamsHandler() {
   const router = useRouter()
@@ -37,28 +39,55 @@ function SearchParamsHandler() {
 
 function PaymentSuccessContent() {
   const { data: session } = useSession()
-  const { data: currentPlan } = useUserPlan(session?.user?.stripe_customer_id)
+  const { data: currentPlan, isLoading } = useUserPlan(session?.user?.stripe_customer_id)
   const searchParams = useSearchParams()
   const isCreditPurchase = searchParams.get('purchase') === 'credits'
 
+  if (isLoading) {
+    return (
+      <div className="space-y-8">
+        <PaymentSuccessCardSkeleton />
+        {isCreditPurchase && <AutoTopupCardSkeleton />}
+      </div>
+    )
+  }
+
   if (isCreditPurchase) {
-    return CardWithBeams({
-      title: 'Purchase Successful!',
-      description: `Your credits have been added to your account.`,
-      content: (
-        <div className="flex flex-col items-center space-y-4">
-          <Image
-            src="/much-credits.jpg"
-            alt="Successful credit purchase"
-            width={600}
-            height={600}
-          />
-          <Button asChild>
-            <Link href="/usage">View Usage</Link>
-          </Button>
-        </div>
-      ),
-    });
+    return (
+      <div className="space-y-8">
+        {CardWithBeams({
+          title: 'Purchase Successful!',
+          description: `Your credits have been added to your account.`,
+          content: (
+            <div className="flex flex-col items-center space-y-4">
+              <Image
+                src="/much-credits.jpg"
+                alt="Successful credit purchase"
+                width={600}
+                height={600}
+              />
+              <Button asChild>
+                <Link href="/usage">View Usage</Link>
+              </Button>
+            </div>
+          ),
+        })}
+        
+        <Card className="w-full max-w-2xl mx-auto">
+          <CardContent className="space-y-6 pt-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Enable Auto Top-up</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Never run out of credits. We'll automatically top up your account when your balance gets low.
+              </p>
+              <AutoTopupSection />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (!session?.user) {
