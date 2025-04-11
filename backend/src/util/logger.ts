@@ -8,7 +8,7 @@ import { env } from '../env.mjs'
 
 // --- Constants ---
 const MAX_LENGTH = 100_000 // Max total log size
-const TOLERANCE = 1000 // Buffer for message text, etc.
+const TOLERANCE = 2000 // Buffer for context, etc.
 
 export interface LoggerContext {
   userId?: string
