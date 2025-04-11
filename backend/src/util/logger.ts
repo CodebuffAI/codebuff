@@ -57,7 +57,6 @@ const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
 type LogLevel = (typeof loggingLevels)[number]
 
 function splitData(data: any, characterLimit: number): any[] {
-  console.log({ data, characterLimit }, 'asdf')
   // Convert to string to check size
   const dataString = JSON.stringify(data)
   if (dataString.length <= characterLimit) {
@@ -147,7 +146,6 @@ function splitAndLog(
 
   // split data recursively into chunks small enough to log
   const processedData: any[] = splitData(data, availableDataLimit)
-  console.log({ processedData }, 'asdf')
 
   if (processedData.length === 1) {
     pinoLogger[level](processedData[0], msg, ...args)
