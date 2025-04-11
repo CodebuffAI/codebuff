@@ -1,1 +1,0 @@
-ALTER TABLE "user" RENAME COLUMN "auto_topup_target_balance" TO "auto_topup_amount";

@@ -99,34 +99,6 @@
       "when": 1743702318588,
       "tag": "0013_famous_risque",
       "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1743745052085,
-      "tag": "0014_nice_sharon_ventura",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1743842415438,
-      "tag": "0015_sloppy_polaris",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1744238552887,
-      "tag": "0016_silent_jasper_sitwell",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1744327110995,
-      "tag": "0017_misty_khan",
-      "breakpoints": true
     }
   ]
 }
