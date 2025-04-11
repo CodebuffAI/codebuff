@@ -107,8 +107,14 @@ export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
       }
       console.log(green(`Found ${lines.length} results`))
 
-      const truncatedStdout = truncateStringWithMessage(stdout, 10000)
-      const truncatedStderr = truncateStringWithMessage(stderr, 1000)
+      const truncatedStdout = truncateStringWithMessage({
+        str: stdout,
+        maxLength: 10000,
+      })
+      const truncatedStderr = truncateStringWithMessage({
+        str: stderr,
+        maxLength: 1000,
+      })
       resolve(
         formatResult(
           truncatedStdout,

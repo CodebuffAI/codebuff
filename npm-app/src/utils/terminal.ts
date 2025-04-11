@@ -171,7 +171,7 @@ export const resetShell = (projectPath: string) => {
 
 function formatResult(stdout: string, status: string): string {
   let result = '<terminal_command_result>\n'
-  result += `<output>${truncateStringWithMessage(stdout, COMMAND_OUTPUT_LIMIT)}</output>\n`
+  result += `<output>${truncateStringWithMessage({ str: stdout, maxLength: COMMAND_OUTPUT_LIMIT })}</output>\n`
   result += `<status>${status}</status>\n`
   result += '</terminal_command_result>'
   return result
@@ -182,16 +182,16 @@ const MAX_EXECUTION_TIME = 30_000
 const getBackgroundProcessInfoString = (info: BackgroundProcessInfo) => {
   return buildArray([
     '<background_process>',
-    `<process_id>${info.id}</process_id>`,
-    `<command>${info.command}</command>`,
-    `<start_time>${info.startTime}</start_time>`,
-    `<duration_ms>${info.endTime === null ? Date.now() - info.startTime : info.endTime - info.startTime}</duration_ms>`,
-    `</terminal_command_result>`,
-    `<status>${info.status}</status>`,
-    info.exitCode !== null && `<exit_code>${info.exitCode}</exit_code>`,
-    `<stdout>${truncateStringWithMessage(info.stdoutBuffer.join(''), COMMAND_OUTPUT_LIMIT / 2)}</stdout>`,
-    `<stderr>${truncateStringWithMessage(info.stderrBuffer.join(''), COMMAND_OUTPUT_LIMIT / 2)}</stderr>`,
-    '</terminal_command_result>',
+    `  <process_id>${info.id}</process_id>`,
+    `  <command>${info.command}</command>`,
+    `  <start_time>${info.startTime}</start_time>`,
+    `  <duration_ms>${info.endTime === null ? Date.now() - info.startTime : info.endTime - info.startTime}</duration_ms>`,
+    `  <terminal_command_result>`,
+    `    <status>${info.status}</status>`,
+    info.exitCode !== null && `  <exit_code>${info.exitCode}</exit_code>`,
+    `    <stdout>${truncateStringWithMessage({ str: info.stdoutBuffer.join(''), maxLength: COMMAND_OUTPUT_LIMIT / 2, truncate: 'END' })}</stdout>`,
+    `    <stderr>${truncateStringWithMessage({ str: info.stderrBuffer.join(''), maxLength: COMMAND_OUTPUT_LIMIT / 2, truncate: 'START' })}</stderr>`,
+    '  </terminal_command_result>',
     '</background_process>',
   ]).join('\n')
 }
