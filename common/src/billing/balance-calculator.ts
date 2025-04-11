@@ -14,7 +14,7 @@ export interface CreditBalance {
 /**
  * Calculates the user's current real-time credit balance based on active grants.
  * Grants are consumed in priority order (lower number = higher priority).
- * 
+ *
  * @param userId The ID of the user
  * @returns A Promise resolving to the user's CreditBalance
  */
@@ -22,7 +22,7 @@ export async function calculateCurrentBalance(
   userId: string
 ): Promise<CreditBalance> {
   // 1. Fetch all currently active grants for the user
-  // Active means expires_at is NULL OR expires_at is in the future
+  // Active means expires_at is NULL OR expires_at is in the future AND has remaining credits
   const now = new Date()
   const activeGrants = await db
     .select()
@@ -33,7 +33,8 @@ export async function calculateCurrentBalance(
         or(
           isNull(schema.creditGrants.expires_at),
           gt(schema.creditGrants.expires_at, now)
-        )
+        ),
+        gt(schema.creditGrants.amount_remaining, 0) // Only get grants with remaining credits
       )
     )
     // Order grants by priority ASC (consume higher priority/lower number first)
@@ -51,7 +52,9 @@ export async function calculateCurrentBalance(
   // 3. Sum up remaining amounts by type
   for (const grant of activeGrants) {
     balance.totalRemaining += grant.amount_remaining
-    balance.breakdown[grant.type] = (balance.breakdown[grant.type] || 0) + grant.amount_remaining
+    const grantType = grant.type as GrantType
+    balance.breakdown[grantType] =
+      (balance.breakdown[grantType] || 0) + grant.amount_remaining
   }
 
   logger.debug(
@@ -65,7 +68,7 @@ export async function calculateCurrentBalance(
 /**
  * Updates the remaining amounts in credit grants after consumption.
  * Follows priority order strictly - higher priority grants (lower number) are consumed first.
- * 
+ *
  * @param userId The ID of the user
  * @param creditsToConsume Number of credits being consumed
  * @returns Promise resolving when updates are complete
@@ -100,7 +103,10 @@ export async function consumeCredits(
   for (const grant of activeGrants) {
     if (remainingToConsume <= 0) break
 
-    const consumeFromThisGrant = Math.min(grant.amount_remaining, remainingToConsume)
+    const consumeFromThisGrant = Math.min(
+      grant.amount_remaining,
+      remainingToConsume
+    )
     const newRemaining = grant.amount_remaining - consumeFromThisGrant
     remainingToConsume -= consumeFromThisGrant
 

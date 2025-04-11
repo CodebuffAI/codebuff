@@ -117,7 +117,7 @@ export const syncFailures = pgTable(
       .primaryKey()
       .references(() => message.id, { onDelete: 'cascade' }),
     provider: text('provider').notNull().default('stripe'),
-    first_attempt_at: timestamp('first_attempt_at', {
+    created_at: timestamp('created_at', {
       mode: 'date',
       withTimezone: true,
     })
