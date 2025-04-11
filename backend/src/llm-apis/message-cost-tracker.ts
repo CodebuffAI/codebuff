@@ -6,6 +6,7 @@ import { stripeServer } from 'common/src/util/stripe'
 import { eq, sql } from 'drizzle-orm'
 import { WebSocket } from 'ws'
 import Stripe from 'stripe'
+import { consumeCredits } from 'common/src/billing/balance-calculator'
 
 import { stripNullCharsFromObject } from '../util/object'
 import { INITIAL_RETRY_DELAY, withRetry } from 'common/src/util/promise'
@@ -355,19 +356,25 @@ async function updateUserCycleUsage(
     return
   }
   try {
+    // First consume from grants in priority order
+    await consumeCredits(userId, creditsUsed)
+
+    // Then update total usage counter
     await db
       .update(schema.user)
       .set({ usage: sql`${schema.user.usage} + ${creditsUsed}` })
       .where(eq(schema.user.id, userId))
+
     logger.debug(
       { userId: userId, creditsAdded: creditsUsed },
-      'User cycle usage updated.'
+      'User cycle usage updated and credits consumed from grants.'
     )
-  } catch (usageError) {
+  } catch (error) {
     logger.error(
-      { userId: userId, creditsUsed, error: usageError },
-      'Error updating user cycle usage.'
+      { userId: userId, creditsUsed, error },
+      'Error updating user cycle usage or consuming credits.'
     )
+    throw error // Re-throw to prevent further processing if we couldn't consume credits
   }
 }
 
@@ -446,15 +453,15 @@ export const saveMessage = async (value: {
         return null
       }
 
-      await updateUserCycleUsage(value.userId, internalCreditsUsed)
+      updateUserCycleUsage(value.userId, internalCreditsUsed)
 
-      await sendCostResponseToClient(
+      sendCostResponseToClient(
         value.clientSessionId,
         value.userInputId,
         internalCreditsUsed
       )
 
-      await syncMessageToStripe({
+      syncMessageToStripe({
         messageId: value.messageId,
         userId: value.userId,
         monetaryCostInCents: monetaryCostInCents,

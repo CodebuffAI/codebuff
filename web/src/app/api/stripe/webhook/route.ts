@@ -14,39 +14,55 @@ import {
 import { GrantType } from 'common/types/grant'
 import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
 import { processAndGrantCredit } from 'common/src/billing/grant-credits'
+import { getStripeCustomerId } from '@/lib/stripe-utils'
 
 async function handleCustomerCreated(customer: Stripe.Customer) {
   logger.info({ customerId: customer.id }, 'New customer created')
 }
 
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-    const sessionId = session.id;
-    const metadata = session.metadata;
+async function handleCheckoutSessionCompleted(
+  session: Stripe.Checkout.Session
+) {
+  const sessionId = session.id
+  const metadata = session.metadata
 
-    if (metadata?.grantType === 'purchase' && metadata?.userId && metadata?.credits && metadata?.operationId) {
-        const userId = metadata.userId;
-        const credits = parseInt(metadata.credits, 10);
-        const operationId = metadata.operationId;
-        const paymentStatus = session.payment_status;
+  if (
+    metadata?.grantType === 'purchase' &&
+    metadata?.userId &&
+    metadata?.credits &&
+    metadata?.operationId
+  ) {
+    const userId = metadata.userId
+    const credits = parseInt(metadata.credits, 10)
+    const operationId = metadata.operationId
+    const paymentStatus = session.payment_status
 
-        if (paymentStatus === 'paid') {
-            logger.info({ sessionId, userId, credits, operationId }, "Checkout session completed and paid for credit purchase.");
+    if (paymentStatus === 'paid') {
+      logger.info(
+        { sessionId, userId, credits, operationId },
+        'Checkout session completed and paid for credit purchase.'
+      )
 
-            await processAndGrantCredit(
-                userId,
-                credits,
-                'purchase',
-                `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`,
-                null,
-                operationId
-            );
-
-        } else {
-            logger.warn({ sessionId, userId, credits, operationId, paymentStatus }, "Checkout session completed but payment status is not 'paid'. No credits granted.");
-        }
+      await processAndGrantCredit(
+        userId,
+        credits,
+        'purchase',
+        `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`,
+        null,
+        operationId
+      )
     } else {
-        logger.info({ sessionId, metadata }, "Checkout session completed for non-credit purchase or missing metadata.");
+      logger.warn(
+        { sessionId, userId, credits, operationId, paymentStatus },
+        "Checkout session completed but payment status is not 'paid'. No credits granted."
+      )
     }
+  } else {
+    logger.info(
+      { sessionId, metadata },
+      'Checkout session completed for non-credit purchase or missing metadata.'
+    )
+  }
 }
 
 async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
@@ -58,6 +74,78 @@ async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
     },
     'Subscription event received'
   )
+}
+
+async function handleInvoiceCreated(invoice: Stripe.Invoice) {
+  // Only handle non-auto-topup invoices that are in draft state
+  if (
+    invoice.status === 'draft' &&
+    invoice.metadata?.type !== 'auto-topup' &&
+    invoice.id
+  ) {
+    try {
+      // Create a credit note for the full amount since we handle usage internally
+      const creditNote = await stripeServer.creditNotes.create({
+        invoice: invoice.id,
+        lines: invoice.lines.data.map((line) => ({
+          type: 'invoice_line_item' as const,
+          invoice_line_item: line.id,
+          quantity: line.quantity ?? 1,
+        })),
+      })
+
+      logger.info(
+        {
+          invoiceId: invoice.id,
+          creditNoteId: creditNote.id,
+          amount: creditNote.amount,
+          customerId: invoice.customer,
+        },
+        'Created credit note for usage-based billing invoice'
+      )
+    } catch (error) {
+      logger.error(
+        {
+          error: (error as Error).message,
+          invoiceId: invoice.id,
+          customerId: invoice.customer,
+        },
+        'Failed to create credit note for invoice'
+      )
+      throw error // Let the webhook handler catch and process this
+    }
+  }
+}
+
+async function handleInvoicePaid(invoice: Stripe.Invoice) {
+  // For regular (non-auto-topup) invoices, verify credit note exists
+  const creditNotes = await stripeServer.creditNotes.list({
+    invoice: invoice.id,
+  })
+
+  let customerId: string | null = null
+  if (invoice.customer) {
+    customerId = getStripeCustomerId(invoice.customer)
+  }
+
+  if (creditNotes.data.length > 0) {
+    logger.info(
+      {
+        invoiceId: invoice.id,
+        creditNoteIds: creditNotes.data.map((cn) => cn.id),
+        customerId,
+      },
+      'Invoice paid with existing credit notes - no action needed'
+    )
+  } else {
+    logger.warn(
+      {
+        invoiceId: invoice.id,
+        customerId,
+      },
+      'Invoice paid but no credit notes found - this may indicate a missing credit note from draft stage'
+    )
+  }
 }
 
 const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
@@ -95,57 +183,33 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
         )
         break
       }
+      case 'invoice.created': {
+        await handleInvoiceCreated(event.data.object as Stripe.Invoice)
+        break
+      }
       case 'invoice.paid': {
-          const invoice = event.data.object as Stripe.Invoice;
-          if (invoice.metadata?.type === 'auto-topup' && invoice.billing_reason === 'manual') {
-              const userId = invoice.metadata?.userId;
-              const customerId = invoice.customer as string;
-
-              if (userId && customerId && invoice.amount_paid > 0) {
-                  const invoiceItems = await stripeServer.invoiceItems.list({ invoice: invoice.id });
-                  let creditsToGrant = 0;
-                  for (const item of invoiceItems.data) {
-                      if (item.metadata?.credits) {
-                          creditsToGrant += parseInt(item.metadata.credits, 10);
-                      } else {
-                          const centsPerCredit = await getUserCostPerCredit(userId);
-                          creditsToGrant += convertStripeGrantAmountToCredits(item.amount, centsPerCredit);
-                      }
-                  }
-
-                  if (creditsToGrant > 0) {
-                      const operationId = `invpaid-${userId}-${invoice.id}`;
-                      logger.info({ invoiceId: invoice.id, userId, credits: creditsToGrant, operationId }, "Invoice paid event for auto-topup.");
-                       await processAndGrantCredit(
-                           userId,
-                           creditsToGrant,
-                           'purchase',
-                           `Automatic top-up via invoice ${invoice.id}`,
-                           null,
-                           operationId
-                       );
-                  } else {
-                       logger.warn({ invoiceId: invoice.id, userId }, "Invoice paid for auto-topup, but calculated 0 credits to grant.");
-                  }
-              } else {
-                   logger.warn({ invoiceId: invoice.id, metadata: invoice.metadata }, "Invoice paid event received, but missing userId or customerId in metadata or amount paid is zero.");
-              }
-          }
-          break;
+        await handleInvoicePaid(event.data.object as Stripe.Invoice)
+        break
       }
       case 'invoice.payment_failed': {
-          const invoice = event.data.object as Stripe.Invoice;
-           if (invoice.metadata?.type === 'auto-topup' && invoice.billing_reason === 'manual') {
-               const userId = invoice.metadata?.userId;
-               if (userId) {
-                   logger.warn({ invoiceId: invoice.id, userId }, `Invoice payment failed for auto-topup. Disabling setting for user ${userId}.`);
-                   await db
-                       .update(schema.user)
-                       .set({ auto_topup_enabled: false })
-                       .where(eq(schema.user.id, userId));
-               }
-           }
-           break;
+        const invoice = event.data.object as Stripe.Invoice
+        if (
+          invoice.metadata?.type === 'auto-topup' &&
+          invoice.billing_reason === 'manual'
+        ) {
+          const userId = invoice.metadata?.userId
+          if (userId) {
+            logger.warn(
+              { invoiceId: invoice.id, userId },
+              `Invoice payment failed for auto-topup. Disabling setting for user ${userId}.`
+            )
+            await db
+              .update(schema.user)
+              .set({ auto_topup_enabled: false })
+              .where(eq(schema.user.id, userId))
+          }
+        }
+        break
       }
       default:
         console.log(`Unhandled event type ${event.type}`)
