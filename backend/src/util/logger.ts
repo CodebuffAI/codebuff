@@ -8,7 +8,7 @@ import { env } from '../env.mjs'
 
 // --- Constants ---
 const MAX_LENGTH = 100_000 // Max total log size
-const TOLERANCE = 2000 // Buffer for context, etc.
+const BUFFER = 5000 // Buffer for context, etc.
 
 export interface LoggerContext {
   userId?: string
@@ -145,7 +145,7 @@ function splitAndLog(
   ...args: any[]
 ): void {
   const formattedMsg = format(msg ?? '', ...args)
-  const availableDataLimit = MAX_LENGTH - TOLERANCE - formattedMsg.length
+  const availableDataLimit = MAX_LENGTH - BUFFER - formattedMsg.length
 
   // split data recursively into chunks small enough to log
   const processedData: any[] = splitData(data, availableDataLimit)
