@@ -174,7 +174,6 @@ export async function* streamGemini25ProWithFallbacks(
     'Attempting Gemini 2.5 Pro (exp) via Gemini API Stream (Internal Key)'
   )
   try {
-    throw new Error('test')
     for await (const chunk of promptGeminiStream(
       currentMessages,
       geminiExpOptions
@@ -200,7 +199,6 @@ export async function* streamGemini25ProWithFallbacks(
   }
   logger.debug('Attempting Gemini 2.5 Pro (exp) via OpenRouter Stream')
   try {
-    throw new Error('test')
     for await (const chunk of promptOpenRouterStream(
       currentMessages,
       openRouterExpOptions
@@ -225,7 +223,6 @@ export async function* streamGemini25ProWithFallbacks(
   }
   logger.debug('Attempting Gemini 2.5 Pro (preview) via OpenRouter Stream')
   try {
-    throw new Error('test')
     for await (const chunk of promptOpenRouterStream(
       currentMessages,
       openRouterPreviewOptions
