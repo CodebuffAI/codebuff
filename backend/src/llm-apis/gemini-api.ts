@@ -11,6 +11,8 @@ import { GeminiModel, geminiModels, TEST_USER_ID } from 'common/constants'
 import { removeUndefinedProps } from 'common/util/object'
 import { generateCompactId } from 'common/util/string'
 import OpenAI from 'openai'
+import * as fs from 'fs';
+import * as path from 'path';
 
 import { env } from '../env.mjs'
 import { OpenAIMessage } from '../llm-apis/openai-api'
@@ -129,6 +131,20 @@ export function promptGeminiStream(
     maxTokens,
     apiKey,
   } = options
+
+  // --- Buffy's Debugging Code Start ---
+  try {
+    // Construct path relative to the project root (assuming backend/src/llm-apis is the structure)
+    const projectRoot = path.join(__dirname, '..', '..', '..');
+    const filePath = path.join(projectRoot, `gemini-messages-debug-${model}-${apiKey}.json`);
+    const messagesJson = JSON.stringify(messages, null, 2); // Pretty print JSON
+    fs.writeFileSync(filePath, messagesJson, 'utf8');
+    // Using console.log for simple debug output, consider using logger for production
+    console.log(`[Buffy Debug] Saved Gemini messages to ${filePath}`);
+  } catch (error) {
+    console.error('[Buffy Debug] Error saving Gemini messages:', error);
+  }
+  // --- Buffy's Debugging Code End ---
 
   const streamController = new AbortController()
   const outputStream = new ReadableStream<string>({
