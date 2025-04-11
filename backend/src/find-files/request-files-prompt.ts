@@ -1,23 +1,26 @@
-import { WebSocket } from 'ws'
-import { range, shuffle, uniq } from 'lodash'
 import { dirname, isAbsolute, normalize } from 'path'
-import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
+import { TextBlockParam } from '@anthropic-ai/sdk/resources'
+import { models, type CostMode } from 'common/constants'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { getAllFilePaths } from 'common/project-file-tree'
 import { Message } from 'common/types/message'
+import { filterDefined } from 'common/util/array'
 import {
   ProjectFileContext,
   cleanMarkdownCodeBlock,
   createMarkdownFileBlock,
 } from 'common/util/file'
+import { range, shuffle, uniq } from 'lodash'
+import { WebSocket } from 'ws'
+
 import { System } from '../llm-apis/claude'
-import { type CostMode } from 'common/constants'
-import { models } from 'common/constants'
-import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from '../util/logger'
-import { requestFiles } from '../websockets/websocket-action'
 import { countTokens } from '../util/token-counter'
+import { requestFiles } from '../websockets/websocket-action'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
-import { filterDefined } from 'common/util/array'
+
 import { promptGeminiWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
 import { getMessagesSubset } from '@/util/messages'
 
@@ -75,6 +78,11 @@ export async function requestRelevantFiles(
     fileContext,
     countPerRequest
   )
+
+  console.log('========REQUEST_RELEVANT_FILES========')
+  console.log('keyPrompt', keyPrompt)
+  console.log('messagesExcludingLastIfByUser', messagesExcludingLastIfByUser)
+  console.log('system', system)
 
   const keyPromise = getRelevantFiles(
     {
@@ -186,6 +194,10 @@ async function getRelevantFiles(
     bufferTokens
   )
   const start = performance.now()
+  console.log('messagesWithPrompt', messagesWithPrompt)
+
+  // Create filepicker capture record
+
   let response = await promptGeminiWithFallbacks(messagesWithPrompt, system, {
     clientSessionId,
     fingerprintId,
@@ -194,6 +206,24 @@ async function getRelevantFiles(
     userId,
     costMode,
   })
+  db.insert(schema.ft_filepicker_capture)
+    .values({
+      messages: messagesWithPrompt,
+      system,
+      output: response,
+      other: {
+        requestType,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+        costMode,
+      },
+    })
+    .catch((error) => {
+      logger.error({ error }, 'Failed to log file-picker run')
+    })
+
   const end = performance.now()
   const duration = end - start
 

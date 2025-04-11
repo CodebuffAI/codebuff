@@ -1,18 +1,20 @@
 import { SQL, sql } from 'drizzle-orm'
 import {
-  timestamp,
-  pgTable,
-  text,
-  primaryKey,
-  integer,
   boolean,
+  index,
+  integer,
   jsonb,
   numeric,
   pgEnum,
-  index,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
 
+import { Message } from '../types/message'
 import { ReferralStatusValues } from '../types/referral'
 
 // Define the ReferralStatus enum
@@ -176,3 +178,29 @@ export const encryptedApiKeys = pgTable(
     pk: primaryKey({ columns: [table.user_id, table.type] }),
   })
 )
+
+// New tables for file picker functionality
+export const ft_filepicker_capture = pgTable('ft_filepicker_capture', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  timestamp: timestamp('timestamp', { mode: 'date' }).notNull().defaultNow(),
+  messages: jsonb('messages').$type<Message[]>().notNull(),
+  system: jsonb('system').notNull(),
+  other: jsonb('other'), // Arbitrary record of string to string
+  output: text('output').notNull(),
+})
+
+export const ft_filepicker_traces = pgTable('ft_filepicker_traces', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  timestamp: timestamp('timestamp', { mode: 'date' }).notNull().defaultNow(),
+  captureId: uuid('capture_id').notNull(),
+  model: text('model').notNull(),
+  output: text('output').notNull(),
+})
+
+export const ft_filepicker_evals = pgTable('ft_filepicker_evals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  captureId: uuid('capture_id').notNull(),
+  traceIds: jsonb('trace_ids').notNull(), // JSONB array pointing to traces
+  result: jsonb('result').notNull(),
+  output: text('output').notNull(),
+})
