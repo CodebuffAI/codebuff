@@ -56,116 +56,162 @@ export const pinoLogger = pino(
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
 type LogLevel = (typeof loggingLevels)[number]
 
-function splitData(data: any, characterLimit: number): any[] {
-  // Convert to string to check size
-  const dataString = JSON.stringify(data)
-  if (dataString.length <= characterLimit) {
+type Chunk = any
+type PlainObject = Record<string, any>
+
+function isPlainObject(val: any): val is PlainObject {
+  return (
+    typeof val === 'object' &&
+    val !== null &&
+    Object.getPrototypeOf(val) === Object.prototype
+  )
+}
+
+function getJsonSize(val: any): number {
+  return JSON.stringify(val).length
+}
+
+function splitString(str: string, maxSize: number): string[] {
+  const chunks: string[] = []
+  let current = ''
+
+  // Account for JSON string quotes
+  const actualMaxSize = maxSize - 2
+
+  for (let i = 0; i < str.length; i++) {
+    if (current.length >= actualMaxSize) {
+      chunks.push(current)
+      current = ''
+    }
+    current += str[i]
+  }
+
+  if (current) {
+    chunks.push(current)
+  }
+
+  return chunks.length ? chunks : [str]
+}
+
+function splitNestedObject(obj: PlainObject, maxSize: number): PlainObject[] {
+  const chunks: PlainObject[] = []
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) continue
+
+    // Calculate overhead for this key in an object
+    const keyOverhead = getJsonSize({ [key]: '' }) - 2
+
+    if (isPlainObject(value)) {
+      // For nested objects, we need to account for the additional nesting overhead
+      const nestedMaxSize = maxSize - keyOverhead
+      const nestedChunks = splitNestedObject(value, nestedMaxSize)
+
+      for (const nested of nestedChunks) {
+        const chunk = { [key]: nested }
+        if (getJsonSize(chunk) <= maxSize) {
+          chunks.push(chunk)
+        }
+      }
+    } else if (typeof value === 'string') {
+      // For strings, split if needed
+      const stringMaxSize = maxSize - keyOverhead
+      const stringChunks = splitString(value, stringMaxSize)
+
+      for (const str of stringChunks) {
+        const chunk = { [key]: str }
+        if (getJsonSize(chunk) <= maxSize) {
+          chunks.push(chunk)
+        }
+      }
+    } else {
+      // For other values (numbers, booleans), try to add as-is
+      const chunk = { [key]: value }
+      if (getJsonSize(chunk) <= maxSize) {
+        chunks.push(chunk)
+      }
+    }
+  }
+
+  // If no chunks were created (everything was too big), at least try to split the first property
+  if (chunks.length === 0 && Object.keys(obj).length > 0) {
+    const [[firstKey, firstValue]] = Object.entries(obj)
+    if (typeof firstValue === 'string') {
+      const keyOverhead = getJsonSize({ [firstKey]: '' }) - 2
+      const stringMaxSize = maxSize - keyOverhead
+      const stringChunks = splitString(firstValue, stringMaxSize)
+      for (const str of stringChunks) {
+        const chunk = { [firstKey]: str }
+        if (getJsonSize(chunk) <= maxSize) {
+          chunks.push(chunk)
+        }
+      }
+    }
+  }
+
+  return chunks
+}
+
+function splitArray(arr: any[], maxSize: number): any[][] {
+  const chunks: any[][] = []
+  let currentChunk: any[] = []
+
+  // Account for array brackets and commas
+  const itemMaxSize = maxSize - 4
+
+  for (const item of arr) {
+    if (isPlainObject(item)) {
+      // For objects in arrays, split them independently
+      const objectChunks = splitNestedObject(item, itemMaxSize)
+      for (const chunk of objectChunks) {
+        if (getJsonSize([chunk]) <= maxSize) {
+          chunks.push([chunk])
+        }
+      }
+    } else if (typeof item === 'string') {
+      // For strings, split if needed
+      const stringChunks = splitString(item, itemMaxSize)
+      for (const str of stringChunks) {
+        if (getJsonSize([str]) <= maxSize) {
+          chunks.push([str])
+        }
+      }
+    } else {
+      // For other values, try to add as-is
+      const newChunk = [item]
+      if (getJsonSize(newChunk) <= maxSize) {
+        chunks.push(newChunk)
+      }
+    }
+  }
+
+  return chunks
+}
+
+export function splitData(data: any, maxChunkSize = 99_000): Chunk[] {
+  // Handle primitives
+  if (typeof data !== 'object' || data === null) {
+    if (typeof data === 'string') {
+      const result = splitString(data, maxChunkSize)
+      return result
+    }
     return [data]
   }
 
-  // Handle arrays
+  // Non-plain objects (Date, RegExp, etc.)
+  if (!Array.isArray(data) && !isPlainObject(data)) {
+    return [data]
+  }
+
+  // Arrays
   if (Array.isArray(data)) {
-    const chunks: any[] = []
-    let currentChunk: any[] = []
-    let currentChunkLength = 2 // Account for [] brackets
-
-    for (const item of data) {
-      const itemString = JSON.stringify(item)
-      const itemLength = itemString.length + (currentChunk.length > 0 ? 1 : 0) // Add 1 for comma if not first item
-
-      if (currentChunkLength + itemLength > characterLimit) {
-        if (itemString.length > characterLimit) {
-          // If single item is too large, recursively split it
-          const splitItem = splitData(item, characterLimit - '[],'.length)
-          chunks.push(...splitItem.map((subItem) => [subItem]))
-        } else {
-          chunks.push(currentChunk)
-          currentChunk = [item]
-          currentChunkLength = 2 + itemString.length
-        }
-      } else {
-        currentChunk.push(item)
-        currentChunkLength += itemLength
-      }
-    }
-    if (currentChunk.length > 0) {
-      chunks.push(currentChunk)
-    }
-    return chunks
+    const result = splitArray(data, maxChunkSize)
+    return result
   }
 
-  // Handle objects
-  if (typeof data === 'object') {
-    const chunks: Record<string, any>[] = []
-    let currentChunk: Record<string, any> = {}
-    let currentChunkLength = 2 // Account for {} brackets
-
-    for (const [key, value] of Object.entries(data)) {
-      const entryString = JSON.stringify({ [key]: value }).slice(1, -1)
-      const entryLength =
-        entryString.length + (Object.keys(currentChunk).length > 0 ? 1 : 0) // Add 1 for comma if not first entry
-
-      if (currentChunkLength + entryLength > characterLimit) {
-        if (entryString.length > characterLimit) {
-          // If single entry is too large, recursively split the value
-          const splitValue = splitData(
-            value,
-            characterLimit - `{"${key}":},`.length
-          )
-          chunks.push(...splitValue.map((subValue) => ({ [key]: subValue })))
-        } else {
-          chunks.push(currentChunk)
-          currentChunk = { [key]: value }
-          currentChunkLength = 2 + entryString.length
-        }
-      } else {
-        currentChunk[key] = value
-        currentChunkLength += entryLength
-      }
-    }
-    if (Object.keys(currentChunk).length > 0) {
-      chunks.push(currentChunk)
-    }
-    return chunks
-  }
-
-  if (typeof data === 'string') {
-    const chunks = []
-    const stringified = JSON.stringify(data)
-    let start = 0
-    while (start < stringified.length) {
-      let chunk: string | null = null
-
-      let end = Math.min(start + characterLimit, stringified.length)
-      while (chunk === null) {
-        const candidate = stringified.slice(start, end) + '"'
-        try {
-          chunk = JSON.parse(candidate) as string
-        } catch (e) {
-          // unable to parse JSON (probably escape sequence?)
-          // subtract one character and try again
-          if (end === stringified.length) {
-            // should never happen, just log the stringified string
-            chunk = candidate
-            break
-          }
-        }
-        end -= 1
-      }
-      start = end
-
-      chunks.push(chunk)
-    }
-    return chunks
-  }
-
-  // Handle primitive values by splitting the string
-  const stringValue = String(data)
-  const chunks: any[] = []
-  for (let i = 0; i < stringValue.length; i += characterLimit) {
-    chunks.push(stringValue.slice(i, i + characterLimit))
-  }
-  return chunks
+  // Plain objects
+  const result = splitNestedObject(data, maxChunkSize)
+  return result
 }
 
 function splitAndLog(
