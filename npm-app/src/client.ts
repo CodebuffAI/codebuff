@@ -27,7 +27,7 @@ import {
 } from 'common/types/agent-state'
 import { User } from 'common/util/credentials'
 import { ProjectFileContext } from 'common/util/file'
-import { generateCompactId, pluralize } from 'common/util/string'
+import { pluralize } from 'common/util/string'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
   blue,
@@ -566,11 +566,7 @@ export class Client {
 
     // Append process updates to existing tool results
     const toolResults = processUpdates
-      ? (this.lastToolResults || []).concat({
-          id: generateCompactId(),
-          name: 'background_process_updates',
-          result: processUpdates,
-        })
+      ? (this.lastToolResults || []).concat(processUpdates)
       : this.lastToolResults
 
     Spinner.get().start()
@@ -739,6 +735,14 @@ export class Client {
         }
 
         if (!isComplete) {
+          // Get new output from all running background processes
+          const processUpdates = getBackgroundProcessUpdates()
+
+          // Append process updates to existing tool results
+          if (processUpdates) {
+            toolResults.push(processUpdates)
+          }
+
           // Continue the prompt with the tool results.
           this.webSocket.sendAction({
             type: 'prompt',

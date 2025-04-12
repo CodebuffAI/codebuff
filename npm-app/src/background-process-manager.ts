@@ -1,8 +1,12 @@
 import { ChildProcessByStdio } from 'child_process'
 import { Readable } from 'stream'
 
+import { ToolResult } from 'common/types/agent-state'
 import { buildArray } from 'common/util/array'
-import { truncateStringWithMessage } from 'common/util/string'
+import {
+  generateCompactId,
+  truncateStringWithMessage,
+} from 'common/util/string'
 
 const COMMAND_OUTPUT_LIMIT = 5000 // Limit output to 10KB per stream
 
@@ -113,7 +117,7 @@ export function getBackgroundProcessInfoString(
 /**
  * Gets updates from all background processes and updates tracking info
  */
-export function getBackgroundProcessUpdates(): string {
+export function getBackgroundProcessUpdates(): ToolResult | null {
   const updates = Array.from(backgroundProcesses.values())
     .map(getBackgroundProcessInfoString)
     .filter(Boolean)
@@ -128,7 +132,15 @@ export function getBackgroundProcessUpdates(): string {
   // Clean up completed processes that we've already reported
   cleanupReportedProcesses()
 
-  return updates.join('\n')
+  if (!updates.length) {
+    return null
+  }
+
+  return {
+    name: 'background_process_updates',
+    result: updates.join('\n'),
+    id: generateCompactId(),
+  }
 }
 
 /**
