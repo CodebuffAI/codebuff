@@ -18,6 +18,7 @@ import { WebSocket } from 'ws'
 
 import { checkTerminalCommand } from './check-terminal-command'
 import { requestRelevantFiles } from './find-files/request-files-prompt'
+import { getDocumentationForQuery } from './get-documentation-for-query'
 import { promptClaudeStream } from './llm-apis/claude'
 import { streamGemini25ProWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { processFileBlock } from './process-file-block'
@@ -69,6 +70,15 @@ export const mainPrompt = async (
   const { prompt, agentState, fingerprintId, costMode, promptId, toolResults } =
     action
   const { messageHistory, fileContext, agentContext } = agentState
+
+  const relevantDocumentationPromise = prompt
+    ? getDocumentationForQuery(prompt, {
+        tokens: 5000,
+        clientSessionId,
+        fingerprintId,
+        userId,
+      })
+    : Promise.resolve(null)
 
   const hasKnowledgeFiles =
     Object.keys(fileContext.knowledgeFiles).length > 0 ||
@@ -302,6 +312,8 @@ ${newFiles.map((file) => file.path).join('\n')}
     })
   }
 
+  const relevantDocumentation = await relevantDocumentationPromise
+
   const messagesWithUserMessage = buildArray(
     ...messageHistory,
 
@@ -328,6 +340,11 @@ ${newFiles.map((file) => file.path).join('\n')}
           role: 'user' as const,
           content: toolInstructions,
         },
+
+    relevantDocumentation && {
+      role: 'user' as const,
+      content: `Relevant context from web documentation:\n${relevantDocumentation}`,
+    },
 
     prompt && {
       role: 'user' as const,
