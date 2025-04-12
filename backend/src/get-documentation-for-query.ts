@@ -60,7 +60,7 @@ ${query}
 Respond in this exact JSON format:
 {
   "projectId": "the-project-id",
-  "topic": "relevant search keywords",
+  "topic": "relevant search keywords. only include keywords that are relevant to the documentation you are searching for.",
   "confidence": 0.8  // 0-1 score of how confident you are this is relevant
 }`
 
