@@ -3,7 +3,7 @@ import { z } from 'zod'
 // Default values for browser actions
 export const BROWSER_DEFAULTS = {
   // Common defaults
-  headless: false,
+  headless: true,
   debug: false,
   timeout: 15000, // 15 seconds
   userDataDir: '_browser_profile', // Will be relative to project data dir

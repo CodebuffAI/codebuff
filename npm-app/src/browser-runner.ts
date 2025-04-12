@@ -139,12 +139,12 @@ export class BrowserRunner {
       // Only take pre-action screenshot if browser is already running
       let preActionResult = null
       if (this.browser && this.page) {
-        preActionResult = await this.takeScreenshot(
-          {
-            type: 'screenshot',
-          },
-          this.page
-        )
+        // preActionResult = await this.takeScreenshot(
+        //   {
+        //     type: 'screenshot',
+        //   },
+        //   this.page
+        // )
       }
 
       let response: BrowserResponse
@@ -184,12 +184,12 @@ export class BrowserRunner {
       // Take post-action screenshot
       let postActionResult = null
       if (this.page) {
-        postActionResult = await this.takeScreenshot(
-          {
-            type: 'screenshot',
-          },
-          this.page
-        )
+        // postActionResult = await this.takeScreenshot(
+        //   {
+        //     type: 'screenshot',
+        //   },
+        //   this.page
+        // )
       }
 
       const metrics = await this.collectMetrics()
@@ -197,28 +197,28 @@ export class BrowserRunner {
         success: true,
         logs: this.logs,
         metrics,
-        ...(postActionResult && {
-          screenshots: {
-            ...(preActionResult && {
-              pre: {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: 'image/jpeg',
-                  data: preActionResult.data,
-                },
-              },
-            }),
-            post: {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: 'image/jpeg',
-                data: postActionResult.data,
-              },
-            },
-          },
-        }),
+        // ...(postActionResult && {
+        //   screenshots: {
+        //     ...(preActionResult && {
+        //       pre: {
+        //         type: 'image',
+        //         source: {
+        //           type: 'base64',
+        //           media_type: 'image/jpeg',
+        //           data: preActionResult.data,
+        //         },
+        //       },
+        //     }),
+        // post: {
+        //   type: 'image',
+        //   source: {
+        //     type: 'base64',
+        //     media_type: 'image/jpeg',
+        //     data: postActionResult.data,
+        //   },
+        // },
+        // },
+        // }),
       }
 
       return response
@@ -376,12 +376,12 @@ export class BrowserRunner {
       }
     }
 
-    this.logs.push({
-      type: 'info',
-      message: 'Browser started',
-      timestamp: Date.now(),
-      source: 'tool',
-    })
+    // this.logs.push({
+    //   type: 'info',
+    //   message: 'Browser started',
+    //   timestamp: Date.now(),
+    //   source: 'tool',
+    // })
 
     // Pick the first existing page or create a new one
     const pages = await this.browser.pages()

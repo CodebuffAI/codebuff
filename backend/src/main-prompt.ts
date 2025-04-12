@@ -108,6 +108,8 @@ export const mainPrompt = async (
 
     `Only use the tools listed, (i.e. ${TOOL_LIST.join(', ')}). If you use tools not listed, nothing will happen, but the user will get some unintended display issues.`,
 
+    `To confirm complex changes to a web app, you should use the browser_action tool to check for console logs or errors.`,
+
     !justUsedATool &&
       !recentlyDidThinking &&
       'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
@@ -528,6 +530,7 @@ ${newFiles.map((file) => file.path).join('\n')}
     } else if (
       name === 'code_search' ||
       name === 'run_terminal_command' ||
+      name === 'browser_action' ||
       name === 'end_turn'
     ) {
       if (name === 'run_terminal_command') {

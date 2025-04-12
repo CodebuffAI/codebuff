@@ -326,6 +326,60 @@ Important: Use this tool sparingly. Do not use this tool more than once in a con
     `.trim(),
   },
   {
+    name: 'browser_action',
+    description: `
+### browser_action
+Description: In a headless browser, navigate to a web page and get the console logs after page load.
+Purpose: Use this tool to check the output of console.log or errors in order to debug issues, test functionality, or verify expected behavior.
+
+IMPORTANT: Assume the user's development server is ALREADY running and active, unless you see logs indicating otherwise. Never start the user's development server for them. Instead, give them instructions to spin it up themselves in a new terminal.
+Never offer to interact with the website aside from reading them (see available actions below). The user will manipulate the website themselves and bring you to the UI they want you to interact with.
+
+There is currently only one type of browser action available:
+Navigate:
+   - Load a new URL in the current browser window and get the logs after page load.
+   - Required: <url>, <type>navigate</type>
+   - Optional: <waitUntil> ('load', 'domcontentloaded', 'networkidle0')
+
+Usage:
+<browser_action>
+<type>navigate</type>
+<url>localhost:3000</url>
+<waitUntil>domcontentloaded</waitUntil>
+</browser_action>
+
+IMPORTANT: make absolutely totally sure that you're using the XML tags as shown in the examples. Don't use JSON or any other formatting, only XML tags.
+
+### Response Analysis
+
+After each action, you'll receive:
+1. Success/failure status
+2. New console logs since last action
+3. Network requests and responses
+4. JavaScript errors with stack traces
+
+Use this data to:
+- Verify expected behavior
+- Debug issues
+- Guide next actions
+- Make informed decisions about fixes
+
+### Best Practices
+
+**Workflow**
+- Navigate to the user's website, probably on localhost, but you can compare with the production site if you want.
+- Scroll to the relevant section
+- Take screenshots and analyze confirm changes
+- Check network requests for anomalies
+
+**Debugging Flow**
+- Start with minimal reproduction steps
+- Collect data at each step
+- Analyze results before next action
+- Take screenshots to track your changes after each UI change you make
+    `.trim(),
+  },
+  {
     name: 'end_turn',
     description: `
 ### end_turn
@@ -391,6 +445,12 @@ const createPlanSchema = z.object({
   plan: z.string().min(1, 'Plan cannot be empty'),
 })
 
+const browserActionSchema = z.object({
+  type: z.string().min(1, 'Type cannot be empty'),
+  url: z.string().min(1, 'URL cannot be empty'),
+  waitUntil: z.string().optional(),
+})
+
 const emptySchema = z.object({}).transform(() => ({}))
 
 // Map tool names to their schemas
@@ -404,6 +464,7 @@ const toolSchemas = {
   run_terminal_command: runTerminalCommandSchema,
   think_deeply: thinkDeeplySchema,
   create_plan: createPlanSchema,
+  browser_action: browserActionSchema,
   end_turn: emptySchema,
 } as const
 

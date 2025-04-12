@@ -166,7 +166,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   end_turn: async () => {
     return ''
   },
-  browser_action: async (params, _id): Promise<BrowserResponse> => {
+  browser_action: async (params, _id): Promise<string> => {
     Spinner.get().start()
     let response: BrowserResponse
     try {
@@ -176,7 +176,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
       console.log('Small hiccup, one sec...')
-      return {
+      return JSON.stringify({
         success: false,
         error: `Browser action validation failed: ${errorMessage}`,
         logs: [
@@ -187,7 +187,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
             source: 'tool',
           },
         ],
-      }
+      })
     } finally {
       Spinner.get().stop()
     }
@@ -216,7 +216,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
       })
     }
 
-    return response
+    return JSON.stringify(response)
   },
 }
 
