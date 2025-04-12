@@ -11,6 +11,7 @@ import { stripeServer } from 'common/src/util/stripe'
 import { convertCreditsToUsdCents, getUserCostPerCredit } from 'common/src/billing/conversion'
 import { env } from '@/env.mjs'
 import { generateCompactId } from 'common/src/util/string'
+import { processAndGrantCredit } from 'common/src/billing/grant-credits'
 
 const buyCreditsSchema = z.object({
   credits: z.number().int().min(500, { message: "Minimum purchase is 500 credits." }), // Enforce minimum purchase
@@ -62,6 +63,66 @@ export async function POST(req: NextRequest) {
 
     const operationId = `buy-${userId}-${generateCompactId()}`;
 
+    // Check for valid payment methods
+    const paymentMethods = await stripeServer.paymentMethods.list({
+      customer: user.stripe_customer_id,
+      type: 'card',
+    })
+
+    const validPaymentMethod = paymentMethods.data.find(
+      (pm) =>
+        pm.card?.exp_year &&
+        pm.card.exp_month &&
+        new Date(pm.card.exp_year, pm.card.exp_month - 1) > new Date()
+    )
+
+    // If we have a valid payment method, charge directly
+    if (validPaymentMethod) {
+      try {
+        const paymentIntent = await stripeServer.paymentIntents.create({
+          amount: amountInCents,
+          currency: 'usd',
+          customer: user.stripe_customer_id,
+          payment_method: validPaymentMethod.id,
+          off_session: true,
+          confirm: true,
+          description: `${credits.toLocaleString()} credits`,
+          metadata: {
+            userId,
+            credits: credits.toString(),
+            operationId,
+            grantType: 'purchase',
+          },
+        })
+
+        if (paymentIntent.status === 'succeeded') {
+          // Grant credits immediately
+          await processAndGrantCredit(
+            userId,
+            credits,
+            'purchase',
+            `Direct purchase of ${credits.toLocaleString()} credits`,
+            null,
+            operationId
+          )
+
+          logger.info(
+            { userId, credits, operationId, paymentIntentId: paymentIntent.id },
+            'Successfully processed direct credit purchase'
+          )
+
+          return NextResponse.json({ success: true, credits })
+        }
+      } catch (error: any) {
+        // If direct charge fails, fall back to checkout
+        logger.warn(
+          { userId, error: error.message },
+          'Direct charge failed, falling back to checkout'
+        )
+      }
+    }
+
+    // Fall back to checkout session if direct charge failed or no valid payment method
     const checkoutSession = await stripeServer.checkout.sessions.create({
       payment_method_types: ['card'],
       customer: user.stripe_customer_id,
@@ -110,9 +171,9 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     logger.error(
       { error: error.message, userId, credits },
-      'Failed to create Stripe checkout session for credit purchase'
+      'Failed to process credit purchase'
     )
-    const stripeErrorMessage = error?.raw?.message || 'Internal server error creating checkout session.';
+    const stripeErrorMessage = error?.raw?.message || 'Internal server error processing purchase.';
     return NextResponse.json(
       { error: stripeErrorMessage },
       { status: 500 }

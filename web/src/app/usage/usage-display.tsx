@@ -47,7 +47,7 @@ const getGrantTypeDisplayName = (type: GrantType): string => {
     case 'purchase':
       return 'Purchased'
     case 'admin':
-      return 'Admin Grant'
+      return 'Bonus'
     default:
       return type
   }
@@ -178,6 +178,18 @@ export const UsageDisplay = ({
         </div>
 
         <div className="grid gap-4">
+          <div className="flex justify-between items-center rounded-lg bg-card/50">
+            <div className="flex items-center gap-2">
+              <span
+                className={cn('w-3 h-3 rounded-full inline-block', usedColor)}
+              ></span>
+              <span className="font-medium">Credits Used</span>
+            </div>
+            <span className="text-xl">
+              {usageThisCycle.toLocaleString('en-US')}
+            </span>
+          </div>
+
           <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <CollapsibleTrigger asChild>
               <div className="flex justify-between items-center gap-6 rounded-lg bg-card/50 cursor-pointer hover:bg-card/70">
@@ -211,7 +223,7 @@ export const UsageDisplay = ({
                       <div className="flex items-center gap-2">
                         <span
                           className={cn(
-                            'w-2 h-2 rounded-full inline-block',
+                            'w-3 h-3 rounded-full inline-block',
                             grantTypeColors[type]
                           )}
                         />
@@ -229,18 +241,6 @@ export const UsageDisplay = ({
               </div>
             </CollapsibleContent>
           </Collapsible>
-
-          <div className="flex justify-between items-center rounded-lg bg-card/50">
-            <div className="flex items-center gap-2">
-              <span
-                className={cn('w-3 h-3 rounded-full inline-block', usedColor)}
-              ></span>
-              <span className="font-medium">Credits Used</span>
-            </div>
-            <span className="text-xl">
-              {usageThisCycle.toLocaleString('en-US')}
-            </span>
-          </div>
 
           {nextQuotaReset && (
             <div className="flex justify-between items-center rounded-lg bg-card/50">

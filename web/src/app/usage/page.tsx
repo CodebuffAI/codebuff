@@ -199,14 +199,17 @@ const BuyCreditsSkeleton = () => (
 )
 
 const ManageCreditsCard = () => {
+  const { data: session } = useSession()
+  const email = encodeURIComponent(session?.user?.email || '')
+  
   return (
     <Card className="w-full max-w-2xl mx-auto mb-8">
       <CardContent className="space-y-6 pt-6">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Buy Credits</h3>
+            <h3 className="text-2xl font-bold">Buy Credits</h3>
             <Link
-              href={env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}
+              href={`${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${email}`}
               target="_blank"
               className="text-sm text-primary underline underline-offset-4 hover:text-primary/90"
             >
