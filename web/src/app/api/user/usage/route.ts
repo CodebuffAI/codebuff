@@ -4,7 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import { eq } from 'drizzle-orm'
 import * as schema from 'common/db/schema'
-import { calculateCurrentBalance } from 'common/src/billing/balance-calculator'
+import { calculateUsageAndBalance } from 'common/src/billing/balance-calculator'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -16,11 +16,10 @@ export async function GET() {
   const userId = session.user.id
 
   try {
-    // Fetch user's usage and quota reset date
+    // Fetch user's quota reset date
     const user = await db.query.user.findFirst({
       where: eq(schema.user.id, userId),
       columns: {
-        usage: true,
         next_quota_reset: true,
       },
     })
@@ -29,13 +28,16 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Calculate the current balance
-    const balance = await calculateCurrentBalance(userId)
+    // Calculate both usage and balance in one operation
+    const { usageThisCycle, balance } = await calculateUsageAndBalance(
+      userId,
+      user.next_quota_reset ?? new Date(0)
+    )
 
     // Prepare the response data
     const usageData = {
-      usageThisCycle: user.usage ?? 0, // Default to 0 if null
-      balance: balance, // This already has totalRemaining and breakdown
+      usageThisCycle,
+      balance,
       nextQuotaReset: user.next_quota_reset,
     }
 

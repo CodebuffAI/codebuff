@@ -9,7 +9,7 @@ import { sendMessage } from './server'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { protec } from './middleware'
-import { calculateCurrentBalance } from 'common/src/billing/balance-calculator'
+import { calculateUsageAndBalance } from 'common/src/billing/balance-calculator'
 import { ensureEndsWithNewline } from 'common/src/util/file'
 import { logger, withLoggerContext } from '@/util/logger'
 import { generateCompactId } from 'common/util/string'
@@ -81,7 +81,6 @@ export async function genUsageResponse(
     const user = await db.query.user.findFirst({
       where: eq(schema.user.id, userId),
       columns: {
-        usage: true,
         next_quota_reset: true,
         stripe_price_id: true,
       },
@@ -93,13 +92,14 @@ export async function genUsageResponse(
 
     try {
       // Now userId is guaranteed to be a string
-      const balanceDetails = await calculateCurrentBalance(userId)
+      const { balance: balanceDetails, usageThisCycle } =
+        await calculateUsageAndBalance(userId, new Date())
       const currentPlan = getPlanFromPriceId(user.stripe_price_id)
       const nextMonthlyGrant = getMonthlyGrantForPlan(currentPlan)
 
       return {
         type: 'usage-response' as const,
-        usage: user.usage,
+        usage: usageThisCycle,
         remainingBalance: balanceDetails.totalRemaining,
         balanceBreakdown: balanceDetails.breakdown,
         next_quota_reset: user.next_quota_reset,

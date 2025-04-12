@@ -1,49 +1,31 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { env } from '@/env.mjs'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Info, Loader2 as Loader } from 'lucide-react'
+import { Loader2 as Loader } from 'lucide-react'
 import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
-import { cn, clamp } from '@/lib/utils'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { UserProfile } from '@/types/user'
-import debounce from 'lodash/debounce'
-import { convertCreditsToUsdCents, convertStripeGrantAmountToCredits } from 'common/src/billing/credit-conversion'
+import { cn } from '@/lib/utils'
+import { useState } from 'react'
+import { convertCreditsToUsdCents } from 'common/src/billing/credit-conversion'
+import { useAutoTopup, AUTO_TOPUP_CONSTANTS } from '@/hooks/use-auto-topup'
+import { ConnectedAutoTopupSettings } from './connected-auto-topup-settings'
 
-const MIN_THRESHOLD_CREDITS = 100
-const MAX_THRESHOLD_CREDITS = 10000
-const MIN_TOPUP_DOLLARS = 5.0
-const MAX_TOPUP_DOLLARS = 100.0
-const CENTS_PER_CREDIT = 1
+const { CENTS_PER_CREDIT } = AUTO_TOPUP_CONSTANTS
 
 const CreditPurchaseSection = ({
   onPurchase,
   onSaveAutoTopupSettings,
   isAutoTopupEnabled,
   isAutoTopupPending,
-  isEnabled,
-  onToggle,
   isPending,
   isPurchasePending,
-  autoTopupBlockedReason,
 }: {
   onPurchase: (credits: number) => void
   onSaveAutoTopupSettings: () => Promise<boolean>
   isAutoTopupEnabled: boolean
   isAutoTopupPending: boolean
-  isEnabled: boolean
-  onToggle: (checked: boolean) => void
   isPending: boolean
   isPurchasePending: boolean
-  autoTopupBlockedReason: string | null
 }) => {
   const creditOptions = [500, 1000, 2000, 5000, 10000]
   const [selectedCredits, setSelectedCredits] = useState<number | null>(null)
@@ -100,440 +82,39 @@ const CreditPurchaseSection = ({
           )
         })}
       </div>
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Switch
-              id="auto-topup-switch"
-              checked={isEnabled}
-              onCheckedChange={onToggle}
-              disabled={Boolean(autoTopupBlockedReason) || isPending || isPurchasePending}
-            />
-            <Label htmlFor="auto-topup-switch">Auto Top-up</Label>
-          </div>
-          <NeonGradientButton
-            onClick={handlePurchaseClick}
-            disabled={!selectedCredits || isPending || isPurchasePending}
-            className={cn(
-              'w-auto transition-opacity min-w-[120px]',
-              (!selectedCredits || isPending || isPurchasePending) && 'opacity-50'
-            )}
-            neonColors={{
-              firstColor: '#4F46E5',
-              secondColor: '#06B6D4',
-            }}
-          >
-            {isPurchasePending ? (
-              <Loader className="mr-2 size-4 animate-spin" />
-            ) : null}
-            Buy Credits
-          </NeonGradientButton>
-        </div>
-        {autoTopupBlockedReason && !isEnabled && (
-          <p className="text-sm text-muted-foreground">{autoTopupBlockedReason}</p>
-        )}
+      <div className="flex items-center justify-end">
+        <NeonGradientButton
+          onClick={handlePurchaseClick}
+          disabled={!selectedCredits || isPending || isPurchasePending}
+          className={cn(
+            'w-auto transition-opacity min-w-[120px]',
+            (!selectedCredits || isPending || isPurchasePending) && 'opacity-50'
+          )}
+          neonColors={{
+            firstColor: '#4F46E5',
+            secondColor: '#06B6D4',
+          }}
+        >
+          {isPurchasePending ? (
+            <Loader className="mr-2 size-4 animate-spin" />
+          ) : null}
+          Buy Credits
+        </NeonGradientButton>
       </div>
     </div>
   )
 }
 
-const AutoTopupSettingsSection = ({
-  isEnabled,
-  threshold,
-  topUpAmountDollars,
-  onThresholdChange,
-  onTopUpAmountChange,
-  isPending,
-}: {
-  isEnabled: boolean
-  threshold: number
-  topUpAmountDollars: number
-  onThresholdChange: (value: number) => void
-  onTopUpAmountChange: (value: number) => void
-  isPending: boolean
-}) => (
-  <TooltipProvider>
-    <div className="space-y-4">
-      {isEnabled && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            <div className="space-y-2">
-              <Label htmlFor="threshold" className="flex items-center gap-1">
-                Low Balance Threshold (Credits)
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      When your balance falls below this credit amount,
-                      <br /> we'll automatically top it up.
-                      <br />
-                      Min: {MIN_THRESHOLD_CREDITS}, Max: {MAX_THRESHOLD_CREDITS}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </Label>
-              <Input
-                id="threshold"
-                type="number"
-                value={threshold}
-                onChange={(e) => onThresholdChange(Number(e.target.value))}
-                placeholder={`e.g., ${MIN_THRESHOLD_CREDITS}`}
-                min={MIN_THRESHOLD_CREDITS}
-                max={MAX_THRESHOLD_CREDITS}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="topUpAmount" className="flex items-center gap-1">
-                Top-up Amount ($)
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      The amount in USD to automatically purchase
-                      <br /> when your balance is low.
-                      <br />
-                      Min: ${MIN_TOPUP_DOLLARS.toFixed(2)}, Max: $
-                      {MAX_TOPUP_DOLLARS.toFixed(2)}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </Label>
-              <Input
-                id="topUpAmount"
-                type="number"
-                step="0.01"
-                value={topUpAmountDollars}
-                onChange={(e) => onTopUpAmountChange(Number(e.target.value))}
-                placeholder={`e.g., ${MIN_TOPUP_DOLLARS.toFixed(2)}`}
-                min={MIN_TOPUP_DOLLARS}
-                max={MAX_TOPUP_DOLLARS}
-              />
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  </TooltipProvider>
-)
-
 export function AutoTopupSection() {
   const queryClient = useQueryClient()
-  const [isEnabled, setIsEnabled] = useState(false)
-  const [threshold, setThreshold] = useState(MIN_THRESHOLD_CREDITS)
-  const [topUpAmountDollars, setTopUpAmountDollars] = useState(MIN_TOPUP_DOLLARS)
-  const isInitialLoad = useRef(true)
-
-  const { data: userProfile, isLoading: isLoadingProfile } = useQuery<
-    UserProfile & { initialTopUpDollars?: number }
-  >({
-    queryKey: ['userProfile'],
-    queryFn: async () => {
-      const response = await fetch('/api/user/profile')
-      if (!response.ok) throw new Error('Failed to fetch profile')
-      const data = await response.json()
-      const thresholdCredits = data.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS
-      const topUpAmount = data.auto_topup_amount ?? MIN_TOPUP_DOLLARS * 100
-      const topUpDollars = topUpAmount / 100
-
-      return {
-        ...data,
-        auto_topup_enabled: data.auto_topup_enabled ?? false,
-        auto_topup_threshold: clamp(
-          thresholdCredits,
-          MIN_THRESHOLD_CREDITS,
-          MAX_THRESHOLD_CREDITS
-        ),
-        initialTopUpDollars: clamp(
-          topUpDollars > 0 ? topUpDollars : MIN_TOPUP_DOLLARS,
-          MIN_TOPUP_DOLLARS,
-          MAX_TOPUP_DOLLARS
-        ),
-      }
-    },
-  })
-
-  useEffect(() => {
-    if (userProfile?.auto_topup_blocked_reason && isEnabled) {
-      setIsEnabled(false)
-      toast({
-        title: "Auto Top-up Disabled",
-        description: userProfile.auto_topup_blocked_reason,
-        variant: "destructive"
-      })
-    }
-  }, [userProfile?.auto_topup_blocked_reason, isEnabled])
-
-  useEffect(() => {
-    if (userProfile) {
-      setIsEnabled(userProfile.auto_topup_enabled ?? false)
-      setThreshold(userProfile.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS)
-      setTopUpAmountDollars(
-        userProfile.initialTopUpDollars ?? MIN_TOPUP_DOLLARS
-      )
-      setTimeout(() => {
-        isInitialLoad.current = false
-      }, 0)
-    }
-  }, [userProfile])
-
-  const handleThresholdInputChange = (rawValue: number) => {
-    const clampedValue = clamp(
-      rawValue,
-      MIN_THRESHOLD_CREDITS,
-      MAX_THRESHOLD_CREDITS
-    )
-    setThreshold(clampedValue)
-  }
-
-  const handleTopUpAmountInputChange = (rawValue: number) => {
-    const clampedValue = clamp(rawValue, MIN_TOPUP_DOLLARS, MAX_TOPUP_DOLLARS)
-    setTopUpAmountDollars(clampedValue)
-  }
-
-  const autoTopupMutation = useMutation({
-    mutationFn: async (
-      settings: Partial<
-        Pick<
-          UserProfile,
-          | 'auto_topup_enabled'
-          | 'auto_topup_threshold'
-          | 'auto_topup_amount'
-        >
-      >
-    ) => {
-      const payload = {
-        enabled: settings.auto_topup_enabled,
-        threshold: settings.auto_topup_threshold,
-        amount: settings.auto_topup_amount,
-      }
-
-      if (typeof payload.enabled !== 'boolean') {
-        console.error(
-          "Auto-topup 'enabled' state is not boolean before sending to API:",
-          payload.enabled
-        )
-        throw new Error('Internal error: Auto-topup enabled state is invalid.')
-      }
-
-      if (payload.enabled) {
-        if (payload.threshold === null || payload.threshold === undefined)
-          throw new Error('Threshold is required.')
-        if (
-          payload.amount === null ||
-          payload.amount === undefined
-        )
-          throw new Error('Amount is required.')
-        if (
-          payload.threshold < MIN_THRESHOLD_CREDITS ||
-          payload.threshold > MAX_THRESHOLD_CREDITS
-        )
-          throw new Error('Invalid threshold value.')
-        if (payload.amount < MIN_TOPUP_DOLLARS || payload.amount > MAX_TOPUP_DOLLARS)
-          throw new Error('Invalid top-up amount value.')
-
-        const topUpCredits = payload.amount / 100
-        const minTopUpCredits = convertStripeGrantAmountToCredits(
-          MIN_TOPUP_DOLLARS * 100,
-          CENTS_PER_CREDIT
-        )
-        const maxTopUpCredits = convertStripeGrantAmountToCredits(
-          MAX_TOPUP_DOLLARS * 100,
-          CENTS_PER_CREDIT
-        )
-        if (topUpCredits < minTopUpCredits || topUpCredits > maxTopUpCredits) {
-          throw new Error(
-            `Top-up amount must result in between ${minTopUpCredits} and ${maxTopUpCredits} credits.`
-          )
-        }
-      }
-
-      const response = await fetch('/api/user/auto-topup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ error: 'Failed to update settings' }))
-        let message = errorData.error || 'Failed to update settings'
-        if (errorData.issues) {
-          message = errorData.issues
-            .map((issue: any) => issue.message)
-            .join(', ')
-        } else if (response.status === 400) {
-          message = errorData.error || 'Invalid settings provided.'
-        }
-        throw new Error(message)
-      }
-      return response.json()
-    },
-    onSuccess: (data, variables) => {
-      const wasEnabled = variables.auto_topup_enabled
-      const savingSettings =
-        variables.auto_topup_threshold !== undefined &&
-        variables.auto_topup_amount !== undefined
-
-      let toastMessage = ''
-      if (wasEnabled && savingSettings) {
-        toastMessage = 'Auto Top-up settings saved!'
-      }
-
-      if (toastMessage) {
-        toast({ title: toastMessage })
-      }
-
-      queryClient.setQueryData(
-        ['userProfile'],
-        (
-          oldData: (UserProfile & { initialTopUpDollars?: number }) | undefined
-        ) => {
-          if (!oldData) return oldData
-
-          const savedEnabled =
-            data?.auto_topup_enabled ?? variables.auto_topup_enabled
-          const savedThresholdRaw =
-            data?.auto_topup_threshold ?? variables.auto_topup_threshold
-          const savedAmountRaw =
-            data?.auto_topup_amount ?? variables.auto_topup_amount
-
-          const savedThreshold = savedEnabled
-            ? clamp(
-                savedThresholdRaw ?? MIN_THRESHOLD_CREDITS,
-                MIN_THRESHOLD_CREDITS,
-                MAX_THRESHOLD_CREDITS
-              )
-            : MIN_THRESHOLD_CREDITS
-
-          const savedAmount = savedEnabled
-            ? (savedAmountRaw ??
-              savedThreshold +
-                convertStripeGrantAmountToCredits(
-                  MIN_TOPUP_DOLLARS * 100,
-                  CENTS_PER_CREDIT
-                ))
-            : savedThreshold +
-              convertStripeGrantAmountToCredits(
-                MIN_TOPUP_DOLLARS * 100,
-                CENTS_PER_CREDIT
-              )
-
-          const savedTopUpCredits = Math.max(
-            0,
-            savedAmount - savedThreshold
-          )
-          const savedTopUpCents = convertCreditsToUsdCents(
-            savedTopUpCredits,
-            CENTS_PER_CREDIT
-          )
-          const savedTopUpDollars = clamp(
-            savedTopUpCents / 100,
-            MIN_TOPUP_DOLLARS,
-            MAX_TOPUP_DOLLARS
-          )
-
-          const updatedData = {
-            ...oldData,
-            auto_topup_enabled: savedEnabled,
-            auto_topup_threshold: savedEnabled ? savedThreshold : null,
-            auto_topup_amount: savedEnabled ? savedAmount : null,
-            initialTopUpDollars: savedTopUpDollars,
-          }
-
-          setIsEnabled(updatedData.auto_topup_enabled ?? false)
-          setThreshold(
-            updatedData.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS
-          )
-          setTopUpAmountDollars(
-            updatedData.initialTopUpDollars ?? MIN_TOPUP_DOLLARS
-          )
-
-          return updatedData
-        }
-      )
-    },
-    onError: (error: Error, variables) => {
-      toast({
-        title: 'Error saving settings',
-        description: error.message,
-        variant: 'destructive',
-      })
-      if (userProfile) {
-        setIsEnabled(userProfile.auto_topup_enabled ?? false)
-        setThreshold(userProfile.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS)
-        setTopUpAmountDollars(
-          userProfile.initialTopUpDollars ?? MIN_TOPUP_DOLLARS
-        )
-      }
-    },
-  })
-
-  const debouncedSaveSettings = useCallback(
-    debounce((currentThreshold: number, currentTopUpDollars: number) => {
-      if (
-        currentThreshold < MIN_THRESHOLD_CREDITS ||
-        currentThreshold > MAX_THRESHOLD_CREDITS
-      ) {
-        console.error(
-          'Debounced save called with invalid threshold:',
-          currentThreshold
-        )
-        return
-      }
-      if (
-        currentTopUpDollars < MIN_TOPUP_DOLLARS ||
-        currentTopUpDollars > MAX_TOPUP_DOLLARS
-      ) {
-        console.error(
-          'Debounced save called with invalid top-up amount:',
-          currentTopUpDollars
-        )
-        return
-      }
-
-      const topUpAmountCents = Math.round(currentTopUpDollars * 100)
-
-      if (
-        currentThreshold === userProfile?.auto_topup_threshold &&
-        topUpAmountCents === userProfile?.auto_topup_amount &&
-        userProfile?.auto_topup_enabled === true
-      ) {
-        return
-      }
-
-      console.log('Debounced save triggered', {
-        threshold: currentThreshold,
-        topUpAmount: topUpAmountCents,
-      })
-      autoTopupMutation.mutate({
-        auto_topup_enabled: true,
-        auto_topup_threshold: currentThreshold,
-        auto_topup_amount: topUpAmountCents,
-      })
-    }, 750),
-    [autoTopupMutation, userProfile]
-  )
-
-  useEffect(() => {
-    if (isInitialLoad.current || !isEnabled || isLoadingProfile) {
-      return
-    }
-    debouncedSaveSettings(threshold, topUpAmountDollars)
-
-    return () => {
-      debouncedSaveSettings.cancel()
-    }
-  }, [
+  const {
+    isEnabled,
     threshold,
     topUpAmountDollars,
-    isEnabled,
     isLoadingProfile,
-    debouncedSaveSettings,
-  ])
+    handleToggleAutoTopup,
+    isPending,
+  } = useAutoTopup()
 
   const buyCreditsMutation = useMutation({
     mutationFn: async (credits: number) => {
@@ -595,38 +176,23 @@ export function AutoTopupSection() {
       return true
     }
     if (
-      threshold < MIN_THRESHOLD_CREDITS ||
-      threshold > MAX_THRESHOLD_CREDITS
+      threshold < AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS ||
+      threshold > AUTO_TOPUP_CONSTANTS.MAX_THRESHOLD_CREDITS
     ) {
       toast({
         title: 'Invalid Threshold',
-        description: `Threshold must be between ${MIN_THRESHOLD_CREDITS} and ${MAX_THRESHOLD_CREDITS}.`,
+        description: `Threshold must be between ${AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS} and ${AUTO_TOPUP_CONSTANTS.MAX_THRESHOLD_CREDITS}.`,
         variant: 'destructive',
       })
       return false
     }
     if (
-      topUpAmountDollars < MIN_TOPUP_DOLLARS ||
-      topUpAmountDollars > MAX_TOPUP_DOLLARS
+      topUpAmountDollars < AUTO_TOPUP_CONSTANTS.MIN_TOPUP_DOLLARS ||
+      topUpAmountDollars > AUTO_TOPUP_CONSTANTS.MAX_TOPUP_DOLLARS
     ) {
       toast({
         title: 'Invalid Top-up Amount',
-        description: `Amount must be between $${MIN_TOPUP_DOLLARS.toFixed(2)} and $${MAX_TOPUP_DOLLARS.toFixed(2)}.`,
-        variant: 'destructive',
-      })
-      return false
-    }
-    const topUpAmountCents = Math.round(topUpAmountDollars * 100)
-    const topUpCredits = convertStripeGrantAmountToCredits(
-      topUpAmountCents,
-      CENTS_PER_CREDIT
-    )
-    const targetBalanceCredits = threshold + topUpCredits
-    if (targetBalanceCredits <= threshold) {
-      toast({
-        title: 'Invalid Settings',
-        description:
-          'Calculated target balance must be greater than the threshold.',
+        description: `Amount must be between $${AUTO_TOPUP_CONSTANTS.MIN_TOPUP_DOLLARS.toFixed(2)} and $${AUTO_TOPUP_CONSTANTS.MAX_TOPUP_DOLLARS.toFixed(2)}.`,
         variant: 'destructive',
       })
       return false
@@ -634,117 +200,26 @@ export function AutoTopupSection() {
     return true
   }
 
-  const handleToggleAutoTopup = (checked: boolean) => {
-    if (checked && userProfile?.auto_topup_blocked_reason) {
-      toast({
-        title: "Cannot Enable Auto Top-up",
-        description: userProfile.auto_topup_blocked_reason,
-        variant: "destructive"
-      })
-      return
-    }
-
-    setIsEnabled(checked)
-    debouncedSaveSettings.cancel()
-
-    if (checked) {
-      if (
-        threshold < MIN_THRESHOLD_CREDITS ||
-        threshold > MAX_THRESHOLD_CREDITS ||
-        topUpAmountDollars < MIN_TOPUP_DOLLARS ||
-        topUpAmountDollars > MAX_TOPUP_DOLLARS
-      ) {
-        toast({
-          title: 'Invalid Settings',
-          description: `Cannot enable auto top-up with current values. Please ensure they are within limits.`,
-          variant: 'destructive',
-        })
-        setIsEnabled(false)
-        return
-      }
-
-      const topUpAmountCents = Math.round(topUpAmountDollars * 100)
-      const topUpCredits = convertStripeGrantAmountToCredits(
-        topUpAmountCents,
-        CENTS_PER_CREDIT
-      )
-      const targetBalanceCredits = threshold + topUpCredits
-
-      if (targetBalanceCredits <= threshold) {
-        toast({
-          title: 'Invalid Settings',
-          description:
-            'Cannot enable: Calculated target balance must be greater than the threshold.',
-          variant: 'destructive',
-        })
-        setIsEnabled(false)
-        return
-      }
-
-      autoTopupMutation.mutate(
-        {
-          auto_topup_enabled: true,
-          auto_topup_threshold: threshold,
-          auto_topup_amount: topUpAmountCents,
-        },
-        {
-          onSuccess: () => {
-            toast({ 
-              title: 'Auto Top-up enabled!',
-              description: `We'll automatically add credits when your balance falls below ${threshold.toLocaleString()} credits.`
-            })
-          },
-          onError: () => {
-            setIsEnabled(false)
-          },
-        }
-      )
-    } else {
-      autoTopupMutation.mutate(
-        {
-          auto_topup_enabled: false,
-          auto_topup_threshold: null,
-          auto_topup_amount: null,
-        },
-        {
-          onSuccess: () => {
-            toast({ title: 'Auto Top-up disabled.' })
-          },
-          onError: () => {
-            setIsEnabled(true)
-          },
-        }
-      )
-    }
-  }
-
   if (isLoadingProfile) {
     return null
   }
 
   return (
-    <div className="space-y-6">
-      <CreditPurchaseSection
-        onPurchase={(credits) => buyCreditsMutation.mutate(credits)}
-        onSaveAutoTopupSettings={handleSaveSettingsIfNeeded}
-        isAutoTopupEnabled={isEnabled}
-        isAutoTopupPending={autoTopupMutation.isPending}
-        isEnabled={isEnabled}
-        onToggle={handleToggleAutoTopup}
-        isPending={autoTopupMutation.isPending}
-        isPurchasePending={buyCreditsMutation.isPending}
-        autoTopupBlockedReason={userProfile?.auto_topup_blocked_reason ?? null}
-      />
-      {isEnabled && (
-        <AutoTopupSettingsSection
-          isEnabled={isEnabled}
-          threshold={threshold}
-          topUpAmountDollars={topUpAmountDollars}
-          onThresholdChange={handleThresholdInputChange}
-          onTopUpAmountChange={handleTopUpAmountInputChange}
-          isPending={autoTopupMutation.isPending}
+    <div className="space-y-8">
+      <div className="space-y-6">
+        <CreditPurchaseSection
+          onPurchase={(credits) => buyCreditsMutation.mutate(credits)}
+          onSaveAutoTopupSettings={handleSaveSettingsIfNeeded}
+          isAutoTopupEnabled={isEnabled}
+          isAutoTopupPending={isPending}
+          isPending={isPending}
+          isPurchasePending={buyCreditsMutation.isPending}
         />
-      )}
+      </div>
+
+      <div className="border-t border-border" />
+
+      <ConnectedAutoTopupSettings />
     </div>
   )
 }

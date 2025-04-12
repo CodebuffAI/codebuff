@@ -17,23 +17,6 @@ export const PricingCardSkeleton = () => {
   )
 }
 
-export const PaymentSuccessCardSkeleton = () => {
-  return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <Skeleton className="h-8 w-48 mb-2" />
-        <Skeleton className="h-4 w-64" />
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-col items-center space-y-4">
-          <Skeleton className="h-[600px] w-[600px]" />
-          <Skeleton className="h-10 w-32" />
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
 export const AutoTopupCardSkeleton = () => {
   return (
     <Card className="w-full max-w-2xl mx-auto">

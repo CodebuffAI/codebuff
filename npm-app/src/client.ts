@@ -60,6 +60,9 @@ import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 
+const LOW_BALANCE_THRESHOLD = 100
+const VERY_LOW_BALANCE_THRESHOLD = 20
+
 export class Client {
   private webSocket: APIRealtimeClient
   private returnControlToUser: () => void
@@ -505,9 +508,6 @@ export class Client {
   }
 
   public showUsageWarning() {
-    const LOW_BALANCE_THRESHOLD = 500
-    const VERY_LOW_BALANCE_THRESHOLD = 100
-
     if (
       this.remainingBalance < VERY_LOW_BALANCE_THRESHOLD &&
       this.lastWarnedPct < 100
@@ -534,7 +534,7 @@ export class Client {
     ) {
       console.warn(
         yellow(
-          `\n⚠️ Warning: You have ${bold(this.remainingBalance.toLocaleString())} credits remaining. Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage`'))}`
+          `You have ${bold(this.remainingBalance.toLocaleString())} credits remaining. Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage`'))}`
         )
       )
 

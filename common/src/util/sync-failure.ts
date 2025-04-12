@@ -10,7 +10,7 @@ export async function logSyncFailure(
 ): Promise<void> {
   try {
     await db
-      .insert(schema.syncFailures)
+      .insert(schema.syncFailure)
       .values({
         message_id: id,
         provider,
@@ -18,11 +18,11 @@ export async function logSyncFailure(
         last_attempt_at: new Date(),
       })
       .onConflictDoUpdate({
-        target: schema.syncFailures.message_id,
+        target: schema.syncFailure.message_id,
         set: {
           last_error: errorMessage,
           last_attempt_at: new Date(),
-          retry_count: sql`${schema.syncFailures.retry_count} + 1`,
+          retry_count: sql`${schema.syncFailure.retry_count} + 1`,
         },
       })
   } catch (dbError) {

@@ -139,8 +139,8 @@ async function syncMessageToStripe(messageData: {
       logger.info(logContext, 'Successfully synced monetary usage to Stripe.')
 
       await db
-        .delete(schema.syncFailures)
-        .where(eq(schema.syncFailures.message_id, messageId))
+        .delete(schema.syncFailure)
+        .where(eq(schema.syncFailure.message_id, messageId))
         .catch((err) =>
           logger.error(
             { ...logContext, error: err },
@@ -186,18 +186,18 @@ async function syncMessageToStripe(messageData: {
 async function logSyncFailure(messageId: string, errorMessage: string) {
   try {
     await db
-      .insert(schema.syncFailures)
+      .insert(schema.syncFailure)
       .values({
         message_id: messageId,
         last_error: errorMessage,
         last_attempt_at: new Date(),
       })
       .onConflictDoUpdate({
-        target: schema.syncFailures.message_id,
+        target: schema.syncFailure.message_id,
         set: {
           last_error: errorMessage,
           last_attempt_at: new Date(),
-          retry_count: sql`${schema.syncFailures.retry_count} + 1`,
+          retry_count: sql`${schema.syncFailure.retry_count} + 1`,
         },
       })
     logger.info({ messageId }, 'Logged sync failure to database.')
@@ -356,23 +356,17 @@ async function updateUserCycleUsage(
     return
   }
   try {
-    // First consume from grants in priority order
+    // Consume from grants in priority order
     await consumeCredits(userId, creditsUsed)
 
-    // Then update total usage counter
-    await db
-      .update(schema.user)
-      .set({ usage: sql`${schema.user.usage} + ${creditsUsed}` })
-      .where(eq(schema.user.id, userId))
-
     logger.debug(
-      { userId: userId, creditsAdded: creditsUsed },
-      'User cycle usage updated and credits consumed from grants.'
+      { userId: userId, creditsUsed },
+      'Credits consumed from grants.'
     )
   } catch (error) {
     logger.error(
       { userId: userId, creditsUsed, error },
-      'Error updating user cycle usage or consuming credits.'
+      'Error consuming credits.'
     )
     throw error // Re-throw to prevent further processing if we couldn't consume credits
   }

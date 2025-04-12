@@ -1,146 +1,128 @@
 'use client'
 
-import Image from 'next/image'
 import { useEffect, Suspense } from 'react'
-import posthog from 'posthog-js'
-import { PLAN_CONFIGS } from 'common/constants'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import CardWithBeams from '@/components/card-with-beams'
+import { toast } from '@/components/ui/use-toast'
 import { trackUpgrade } from '@/lib/trackConversions'
 import { useUserPlan } from '@/hooks/use-user-plan'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { AutoTopupSection } from '@/components/auto-topup/auto-topup-section'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { ConnectedAutoTopupSettings } from '@/components/auto-topup/connected-auto-topup-settings'
+import { Skeleton } from '@/components/ui/skeleton'
+import Image from 'next/image'
 
 function SearchParamsHandler() {
   const router = useRouter()
-  const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { data: session } = useSession()
-  const { data: currentPlan } = useUserPlan(session?.user?.stripe_customer_id)
+  const success = searchParams.get('success')
+  const canceled = searchParams.get('canceled')
 
   useEffect(() => {
-    const params = trackUpgrade(true)
-    const newParams = new URLSearchParams(searchParams)
-    params.forEach((value, key) => newParams.set(key, value))
-    router.replace(`${pathname}?${newParams}`)
-
-    if (session?.user) {
-      posthog.capture('subscription.payment_completed', {
-        plan: currentPlan,
+    if (success) {
+      trackUpgrade(true)
+      toast({
+        title: 'Success!',
+        description: 'Your payment was successful.',
       })
     }
-  }, [session, currentPlan, searchParams, pathname, router])
+    if (canceled) {
+      toast({
+        title: 'Payment canceled',
+        description: 'Your payment was canceled.',
+        variant: 'destructive',
+      })
+      router.push('/pricing')
+    }
+  }, [success, canceled, router])
 
   return null
 }
 
 function PaymentSuccessContent() {
   const { data: session } = useSession()
-  const { data: currentPlan, isLoading } = useUserPlan(session?.user?.stripe_customer_id)
+  const { data: currentPlan, isLoading: isPlanLoading } = useUserPlan(
+    session?.user?.stripe_customer_id
+  )
   const searchParams = useSearchParams()
   const isCreditPurchase = searchParams.get('purchase') === 'credits'
 
-  if (isLoading) {
+  if (isPlanLoading) {
     return (
-      <div className="space-y-8">
-        <PaymentSuccessCardSkeleton />
-        {isCreditPurchase && <AutoTopupCardSkeleton />}
-      </div>
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardHeader>
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-64" />
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center space-y-4">
+            <Skeleton className="h-[600px] w-[600px]" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
-  if (isCreditPurchase) {
-    return (
-      <div className="space-y-8">
-        {CardWithBeams({
-          title: 'Purchase Successful!',
-          description: `Your credits have been added to your account.`,
-          content: (
-            <div className="flex flex-col items-center space-y-4">
-              <Image
-                src="/much-credits.jpg"
-                alt="Successful credit purchase"
-                width={600}
-                height={600}
-              />
-              <Button asChild>
-                <Link href="/usage">View Usage</Link>
-              </Button>
-            </div>
-          ),
-        })}
-        
+  return (
+    <div className="space-y-8">
+      <SearchParamsHandler />
+
+      {isCreditPurchase ? (
         <Card className="w-full max-w-2xl mx-auto">
           <CardContent className="space-y-6 pt-6">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Enable Auto Top-up</h3>
+                <h3 className="text-lg font-semibold">Payment Successful!</h3>
               </div>
               <p className="text-sm text-muted-foreground">
-                Never run out of credits. We'll automatically top up your account when your balance gets low.
+                Your credits have been added to your account. Never run out of
+                credits by enabling auto top-up below.
               </p>
-              <AutoTopupSection />
+              <ConnectedAutoTopupSettings />
+              <div className="flex justify-center">
+                <Image
+                  src="/much-credits.jpg"
+                  alt="Much credits, very wow"
+                  width={400}
+                  height={400}
+                  className="rounded-lg"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
-      </div>
-    )
-  }
-
-  if (!session?.user) {
-    return CardWithBeams({
-      title: 'You&apos;re not logged in.',
-      description: 'How can you pay but not be logged in?!',
-      content: (
-        <p>
-          Err this is awkward... Please reach out to support at{' '}
-          <a href="mailto:support@codebuff.com">support@codebuff.com</a> for
-          help finishing your upgrade.
-        </p>
-      ),
-    })
-  }
-
-  if (!currentPlan) {
-    return CardWithBeams({
-      title: 'Something went wrong',
-      description:
-        'We could not find your plan details. Please contact support for assistance.',
-    })
-  }
-  const credits = PLAN_CONFIGS[currentPlan].limit
-  const planDisplayName = PLAN_CONFIGS[currentPlan].displayName
-
-  return CardWithBeams({
-    title: 'Upgrade successful!',
-    description: `Welcome to your new ${planDisplayName} plan! Your monthly credits have been increased to ${credits.toLocaleString()}.`,
-    content: (
-      <div className="flex flex-col space-y-2">
-        <Image
-          src="/much-credits.jpg"
-          alt="Successful upgrade"
-          width={600}
-          height={600}
-        />
-      </div>
-    ),
-  })
-}
-
-const PaymentSuccessPage = () => {
-  return (
-    <>
-      <Suspense>
-        <SearchParamsHandler />
-      </Suspense>
-      <Suspense fallback={<div>Loading...</div>}>
-        <PaymentSuccessContent />
-      </Suspense>
-    </>
+      ) : (
+        <Card className="w-full max-w-2xl mx-auto">
+          <CardContent className="space-y-6 pt-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">
+                  Welcome to {currentPlan}!
+                </h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Your subscription has been activated. You can now enjoy all the
+                features of your new plan.
+              </p>
+              <div className="flex justify-center">
+                <Link href="/usage">
+                  <Button>View Usage</Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }
 
-export default PaymentSuccessPage
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense>
+      <PaymentSuccessContent />
+    </Suspense>
+  )
+}

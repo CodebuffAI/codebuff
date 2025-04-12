@@ -7,7 +7,7 @@ import { GRANT_PRIORITIES } from '../constants/grant-priorities'
 import { eq } from 'drizzle-orm'
 import { generateCompactId } from '../util/string'
 
-type CreditGrantSelect = typeof schema.creditGrants.$inferSelect
+type CreditGrantSelect = typeof schema.creditGrant.$inferSelect
 
 /**
  * Processes a credit grant request:
@@ -68,7 +68,7 @@ export async function processAndGrantCredit(
   // 3. Create local grant record
   try {
     const insertedGrants = await db
-      .insert(schema.creditGrants)
+      .insert(schema.creditGrant)
       .values({
         operation_id: opId,
         user_id: userId,

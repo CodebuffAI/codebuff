@@ -4,7 +4,7 @@ import { sendAction } from './websocket-action'
 import { checkAuth } from '../util/check-auth'
 import { logger, withLoggerContext } from '@/util/logger'
 import { getUserInfoFromAuthToken, UserInfo } from './auth'
-import { calculateCurrentBalance, consumeCredits } from 'common/src/billing/balance-calculator'
+import { calculateUsageAndBalance, consumeCredits } from 'common/src/billing/balance-calculator'
 import { getNextQuotaReset } from 'common/src/util/dates'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
@@ -145,7 +145,6 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
   const user = await db.query.user.findFirst({
     where: eq(schema.user.id, userId),
     columns: {
-      usage: true,
       next_quota_reset: true,
       stripe_customer_id: true,
     },
@@ -156,11 +155,10 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     const nextResetDate = getNextQuotaReset(user.next_quota_reset)
     const baseOperationId = `reset-${userId}-${Date.now()}`
 
-    // Reset usage and update next reset date
+    // Update next reset date
     await db
       .update(schema.user)
       .set({
-        usage: 0,
         next_quota_reset: nextResetDate,
       })
       .where(eq(schema.user.id, userId))
@@ -194,14 +192,17 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     }
   }
 
-  const { totalRemaining } = await calculateCurrentBalance(userId)
+  const { usageThisCycle, balance } = await calculateUsageAndBalance(
+    userId,
+    user?.next_quota_reset ?? new Date(0)
+  )
 
-  if (totalRemaining <= 0) {
+  if (balance.totalRemaining <= 0) {
     logger.warn(
       {
         userId,
         fingerprintId,
-        remaining: totalRemaining,
+        remaining: balance.totalRemaining,
         actionType: action.type,
       },
       'Insufficient credits for action'
@@ -211,31 +212,34 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     try {
       await checkAndTriggerAutoTopup(userId)
       // Re-check balance after potential auto top-up
-      const newBalance = await calculateCurrentBalance(userId)
+      const newUsageAndBalance = await calculateUsageAndBalance(
+        userId,
+        user?.next_quota_reset ?? new Date(0)
+      )
       
       // If we still don't have credits after auto top-up attempt, return error
-      if (newBalance.totalRemaining <= 0) {
+      if (newUsageAndBalance.balance.totalRemaining <= 0) {
         return {
           type: 'action-error',
           error: 'Insufficient credits',
           message: `You do not have enough credits for this action. Please add credits or wait for your next cycle to begin.`,
-          remainingBalance: newBalance.totalRemaining,
+          remainingBalance: newUsageAndBalance.balance.totalRemaining,
         }
       }
       
       // If we have credits now, continue with the action and send updated usage info
-      const creditsAdded = newBalance.totalRemaining - totalRemaining
+      const creditsAdded = newUsageAndBalance.balance.totalRemaining - balance.totalRemaining
       logger.info(
-        { userId, newBalance: newBalance.totalRemaining, creditsAdded },
+        { userId, newBalance: newUsageAndBalance.balance.totalRemaining, creditsAdded },
         'Auto top-up successful, proceeding with action'
       )
 
       // Send updated usage info with auto top-up details
       sendAction(ws, {
         type: 'usage-response',
-        usage: user?.usage ?? 0,
-        remainingBalance: newBalance.totalRemaining,
-        balanceBreakdown: newBalance.breakdown,
+        usage: newUsageAndBalance.usageThisCycle,
+        remainingBalance: newUsageAndBalance.balance.totalRemaining,
+        balanceBreakdown: newUsageAndBalance.balance.breakdown,
         next_quota_reset: user?.next_quota_reset ?? null,
         nextMonthlyGrant: CREDITS_USAGE_LIMITS.FREE,
         autoTopupAdded: creditsAdded,
@@ -253,7 +257,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
         type: 'action-error',
         error: 'Auto top-up disabled',
         message: `Auto top-up has been disabled due to a payment issue. Please check your payment method and re-enable auto top-up in your settings.`,
-        remainingBalance: totalRemaining,
+        remainingBalance: balance.totalRemaining,
       }
     }
   }

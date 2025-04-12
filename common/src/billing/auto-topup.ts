@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { stripeServer } from '../util/stripe'
 import { logger } from '../util/logger'
 import { processAndGrantCredit } from './grant-credits'
-import { calculateCurrentBalance } from './balance-calculator'
+import { calculateUsageAndBalance } from './balance-calculator'
 import { convertCreditsToUsdCents, getUserCostPerCredit } from './conversion'
 import { generateCompactId } from '../util/string'
 import type Stripe from 'stripe'
@@ -164,6 +164,7 @@ export async function checkAndTriggerAutoTopup(userId: string): Promise<void> {
         auto_topup_enabled: true,
         auto_topup_threshold: true,
         auto_topup_amount: true,
+        next_quota_reset: true,
       },
     })
 
@@ -184,8 +185,8 @@ export async function checkAndTriggerAutoTopup(userId: string): Promise<void> {
       throw new Error(blockedReason || 'Auto top-up is not available.')
     }
 
-    const currentBalance = await calculateCurrentBalance(userId)
-    if (currentBalance.totalRemaining >= user.auto_topup_threshold) {
+    const { balance } = await calculateUsageAndBalance(userId, user.next_quota_reset ?? new Date(0))
+    if (balance.totalRemaining >= user.auto_topup_threshold) {
       return
     }
 
@@ -202,7 +203,7 @@ export async function checkAndTriggerAutoTopup(userId: string): Promise<void> {
     logger.info(
       {
         ...logContext,
-        currentBalance: currentBalance.totalRemaining,
+        currentBalance: balance.totalRemaining,
         threshold: user.auto_topup_threshold,
         amountToTopUp,
       },

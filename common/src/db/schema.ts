@@ -43,7 +43,6 @@ export const user = pgTable('user', {
   image: text('image'),
   stripe_customer_id: text('stripe_customer_id').unique(),
   stripe_price_id: text('stripe_price_id'),
-  usage: integer('usage').notNull().default(0),
   next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
     sql<Date>`now() + INTERVAL '1 month'`
   ),
@@ -83,8 +82,8 @@ export const account = pgTable(
   ]
 )
 
-export const creditGrants = pgTable(
-  'credit_grants',
+export const creditGrant = pgTable(
+  'credit_grant',
   {
     operation_id: text('operation_id').primaryKey(),
     user_id: text('user_id')
@@ -101,17 +100,18 @@ export const creditGrants = pgTable(
       .defaultNow(),
   },
   (table) => ({
-    idx_credit_grants_user_active: index('idx_credit_grants_user_active').on(
+    idx_credit_grant_active_balance: index('idx_credit_grant_active_balance').on(
       table.user_id,
+      table.amount_remaining,
       table.expires_at,
       table.priority,
       table.created_at
-    ),
+    ).where(sql`${table.amount_remaining} > 0 AND (${table.expires_at} > now() OR ${table.expires_at} IS NULL)`),
   })
 )
 
-export const syncFailures = pgTable(
-  'sync_failures',
+export const syncFailure = pgTable(
+  'sync_failure',
   {
     message_id: text('message_id')
       .primaryKey()
@@ -133,7 +133,7 @@ export const syncFailures = pgTable(
     last_error: text('last_error').notNull(),
   },
   (table) => ({
-    idx_sync_failures_retry: index('idx_sync_failures_retry')
+    idx_sync_failure_retry: index('idx_sync_failure_retry')
       .on(table.retry_count, table.last_attempt_at)
       .where(sql`${table.retry_count} < 5`),
   })
