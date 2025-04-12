@@ -434,17 +434,18 @@ describe('mainPrompt', () => {
 
   it('should return end_turn tool call when LLM response is empty', async () => {
     // Mock the LLM stream to return nothing
+    spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
+      yield ''
+    })
+    spyOn(gemini, 'promptGeminiStream').mockImplementation(async function* () {
+      yield ''
+    } as any)
     spyOn(
       geminiWithFallbacks,
       'streamGemini25ProWithFallbacks'
-    ).mockImplementation(
-      () =>
-        new ReadableStream({
-          start(controller) {
-            controller.close() // Close immediately without enqueueing anything
-          },
-        }) as any
-    )
+    ).mockImplementation(async function* () {
+      yield ''
+    } as any)
 
     const agentState = getInitialAgentState(mockFileContext)
     const { toolCalls } = await mainPrompt(
@@ -474,20 +475,23 @@ describe('mainPrompt', () => {
     const escapedCommand = 'cd backend &amp;&amp; bun test'
     const expectedCommand = 'cd backend && bun test'
 
+    const mockResponse = `<run_terminal_command>
+<command>${escapedCommand}</command>
+<process_type>SYNC</process_type>
+</run_terminal_command>`
+
+    spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
+      yield mockResponse
+    })
+    spyOn(gemini, 'promptGeminiStream').mockImplementation(async function* () {
+      yield mockResponse
+    } as any)
     spyOn(
       geminiWithFallbacks,
       'streamGemini25ProWithFallbacks'
-    ).mockImplementation(
-      () =>
-        new ReadableStream({
-          start(controller) {
-            controller.enqueue(`<run_terminal_command>
-<command>${escapedCommand}</command>
-</run_terminal_command>`)
-            controller.close()
-          },
-        }) as any
-    )
+    ).mockImplementation(async function* () {
+      yield mockResponse
+    } as any)
 
     const { toolCalls } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
