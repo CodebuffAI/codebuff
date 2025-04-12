@@ -7,6 +7,7 @@ import {
   mock,
   spyOn,
   test,
+  // @ts-ignore
 } from 'bun:test'
 
 import {
