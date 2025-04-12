@@ -124,8 +124,7 @@ export const mainPrompt = async (
     hasKnowledgeFiles &&
       'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
 
-    hasKnowledgeFiles &&
-      isNotFirstUserMessage &&
+    isNotFirstUserMessage &&
       "If you have learned something useful for the future that is not derivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
 
     "Don't run git commands or scripts without being specifically asked to do so. This can prevent costly accidents. Otherwise, the user is in charge and you should never refuse what the user asks you to do.",
