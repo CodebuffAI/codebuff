@@ -1,14 +1,7 @@
-// @ts-ignore
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  spyOn,
-  test,
-  // @ts-ignore
-} from 'bun:test'
+// @ts-ignore: bun:test types aren't available
+import { test } from 'bun:test'
+// @ts-ignore: bun:test types aren't available
+import { afterEach, beforeEach, describe, expect, mock, spyOn } from 'bun:test'
 
 import {
   BackgroundProcessInfo,
