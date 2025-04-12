@@ -9,7 +9,7 @@ import { useUserPlan } from '@/hooks/use-user-plan'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { ConnectedAutoTopupSettings } from '@/components/auto-topup/connected-auto-topup-settings'
+import { AutoTopupSection } from '@/components/auto-topup/AutoTopupSection'
 import { Skeleton } from '@/components/ui/skeleton'
 import Image from 'next/image'
 
@@ -80,7 +80,7 @@ function PaymentSuccessContent() {
                 Your credits have been added to your account. Never run out of
                 credits by enabling auto top-up below.
               </p>
-              <ConnectedAutoTopupSettings />
+              <AutoTopupSection />
               <div className="flex justify-center">
                 <Image
                   src="/much-credits.jpg"

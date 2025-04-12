@@ -12,8 +12,9 @@ export default async function SponseePage({
   params,
 }: {
   params: { sponsee: string }
+  searchParams?: { [key: string]: string | string[] | undefined }
 }) {
-  const sponseeName = params['sponsee'].toLowerCase()
+  const sponseeName = params.sponsee.toLowerCase()
 
   const referralCode = await db
     .select({
@@ -28,7 +29,7 @@ export default async function SponseePage({
     return (
       <CardWithBeams
         title="Hmm, that link doesn't look right."
-        description={`We don't have a referral code for "${params['sponsee']}".`}
+        description={`We don't have a referral code for "${params.sponsee}".`}
         content={
           <>
             <p className="text-center">

@@ -35,7 +35,7 @@ EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_credit_grant_user_active" ON "credit_grant" USING btree ("user_id","expires_at","priority","created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_credit_grant_active_balance" ON "credit_grant" USING btree ("user_id","amount_remaining","expires_at","priority","created_at") WHERE "credit_grant"."amount_remaining" > 0 AND "credit_grant"."expires_at" IS NULL;--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "idx_sync_failure_retry" ON "sync_failure" USING btree ("retry_count","last_attempt_at") WHERE "sync_failure"."retry_count" < 5;--> statement-breakpoint
 ALTER TABLE "fingerprint" DROP COLUMN IF EXISTS "quota_exceeded";--> statement-breakpoint
 ALTER TABLE "fingerprint" DROP COLUMN IF EXISTS "next_quota_reset";--> statement-breakpoint

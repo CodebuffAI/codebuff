@@ -100,13 +100,17 @@ export const creditGrant = pgTable(
       .defaultNow(),
   },
   (table) => ({
-    idx_credit_grant_active_balance: index('idx_credit_grant_active_balance').on(
-      table.user_id,
-      table.amount_remaining,
-      table.expires_at,
-      table.priority,
-      table.created_at
-    ).where(sql`${table.amount_remaining} > 0 AND (${table.expires_at} > now() OR ${table.expires_at} IS NULL)`),
+    idx_credit_grant_active_balance: index('idx_credit_grant_active_balance')
+      .on(
+        table.user_id,
+        table.amount_remaining,
+        table.expires_at,
+        table.priority,
+        table.created_at
+      )
+      .where(
+        sql`${table.amount_remaining} > 0 AND ${table.expires_at} IS NULL`
+      ),
   })
 )
 

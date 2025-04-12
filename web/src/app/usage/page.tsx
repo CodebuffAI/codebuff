@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import debounce from 'lodash/debounce'
-import { AutoTopupSection } from '@/components/auto-topup/auto-topup-section'
+import { AutoTopupSection } from '@/components/auto-topup/AutoTopupSection'
 
 type UserProfileKeys =
   | 'handle'

@@ -1,5 +1,5 @@
 {
-  "id": "69b1c26f-55e6-4cf4-a994-59960561a585",
+  "id": "e429bf57-8c65-464e-bfd8-3c24e3cb1c56",
   "prevId": "abc09d3f-a5b3-4739-8032-8b5ee906d373",
   "version": "7",
   "dialect": "postgresql",
@@ -167,11 +167,17 @@
         }
       },
       "indexes": {
-        "idx_credit_grant_user_active": {
-          "name": "idx_credit_grant_user_active",
+        "idx_credit_grant_active_balance": {
+          "name": "idx_credit_grant_active_balance",
           "columns": [
             {
               "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "amount_remaining",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -196,6 +202,7 @@
             }
           ],
           "isUnique": false,
+          "where": "\"credit_grant\".\"amount_remaining\" > 0 AND \"credit_grant\".\"expires_at\" IS NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
