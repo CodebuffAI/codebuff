@@ -17,9 +17,10 @@ export function getProjectFileTree(
     defaultIgnore.add(pattern)
   }
 
-  if (projectRoot === os.homedir()) {
+  const isHomeDir = projectRoot === os.homedir()
+  if (isHomeDir) {
     defaultIgnore.add('.*')
-    maxFiles = 1000
+    maxFiles = 0
   }
 
   const root: DirectoryNode = {
