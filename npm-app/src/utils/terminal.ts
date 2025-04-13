@@ -182,6 +182,7 @@ function formatResult(command: string, stdout: string, status: string): string {
 const MAX_EXECUTION_TIME = 30_000
 
 const runBackgroundCommand = (
+  toolCallId: string,
   command: string,
   projectPath: string,
   resolveCommand: (value: { result: string; stdout: string }) => void
@@ -215,7 +216,8 @@ const runBackgroundCommand = (
 
     const processId = childProcess.pid
     const processInfo: BackgroundProcessInfo = {
-      id: processId,
+      pid: processId,
+      toolCallId,
       command,
       process: childProcess,
       stdoutBuffer: [],
@@ -271,6 +273,7 @@ const runBackgroundCommand = (
 }
 
 export const runTerminalCommand = async (
+  toolCallId: string,
   command: string,
   mode: 'user' | 'assistant',
   projectPath: string,
@@ -297,7 +300,12 @@ export const runTerminalCommand = async (
     }
 
     if (processType === 'BACKGROUND') {
-      runBackgroundCommand(modifiedCommand, projectPath, resolveCommand)
+      runBackgroundCommand(
+        toolCallId,
+        modifiedCommand,
+        projectPath,
+        resolveCommand
+      )
     } else if (persistentProcess.type === 'pty') {
       runCommandPty(
         persistentProcess,

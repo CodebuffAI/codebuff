@@ -30,7 +30,8 @@ describe('getBackgroundProcessInfoString', () => {
     const startTime = 1000
 
     const info: BackgroundProcessInfo = {
-      id: 123,
+      pid: 123,
+      toolCallId: 'toolCall123',
       command: 'npm test',
       process: mockChildProcess,
       stdoutBuffer: ['test output'],
@@ -66,7 +67,8 @@ describe('getBackgroundProcessInfoString', () => {
     }
 
     const info: BackgroundProcessInfo = {
-      id: 456,
+      pid: 456,
+      toolCallId: 'toolCall456',
       command: 'npm build',
       process: mockCompletedProcess,
       stdoutBuffer: ['build successful'],
@@ -102,7 +104,8 @@ describe('getBackgroundProcessInfoString', () => {
     }
 
     const info: BackgroundProcessInfo = {
-      id: 789,
+      pid: 789,
+      toolCallId: 'toolCall789',
       command: 'invalid-command',
       process: mockErroredProcess,
       stdoutBuffer: [],
@@ -133,7 +136,8 @@ describe('getBackgroundProcessInfoString', () => {
     const endTime = 2000
 
     const info: BackgroundProcessInfo = {
-      id: 101,
+      pid: 101,
+      toolCallId: 'toolCall101',
       command: 'echo test',
       process: mockChildProcess,
       stdoutBuffer: ['test'],
@@ -155,7 +159,8 @@ describe('getBackgroundProcessInfoString', () => {
     const endTime = 2000
 
     const info: BackgroundProcessInfo = {
-      id: 102,
+      pid: 102,
+      toolCallId: 'toolCall102',
       command: 'echo test',
       process: mockChildProcess,
       stdoutBuffer: ['test', ' more output'],
@@ -180,7 +185,8 @@ describe('getBackgroundProcessInfoString', () => {
     const endTime = 2000
 
     const info: BackgroundProcessInfo = {
-      id: 103,
+      pid: 103,
+      toolCallId: 'toolCall103',
       command: 'echo test',
       process: mockChildProcess,
       stdoutBuffer: ['test'],
@@ -204,7 +210,8 @@ describe('getBackgroundProcessInfoString', () => {
     const endTime = 2000
 
     const info: BackgroundProcessInfo = {
-      id: 104,
+      pid: 104,
+      toolCallId: 'toolCall104',
       command: 'echo test',
       process: mockChildProcess,
       stdoutBuffer: [],
@@ -227,7 +234,8 @@ describe('getBackgroundProcessInfoString', () => {
     const startTime = 1000
 
     const info: BackgroundProcessInfo = {
-      id: 105,
+      pid: 105,
+      toolCallId: 'toolCall105',
       command: 'echo test',
       process: mockChildProcess,
       stdoutBuffer: ['first output'],
@@ -251,7 +259,8 @@ describe('getBackgroundProcessInfoString', () => {
     const endTime = 2000
 
     const info: BackgroundProcessInfo = {
-      id: 106,
+      pid: 106,
+      toolCallId: 'toolCall106',
       command: 'echo test',
       process: mockChildProcess,
       stdoutBuffer: ['test'],
@@ -276,7 +285,8 @@ describe('getBackgroundProcessInfoString', () => {
     const endTime = 2000
 
     const info: BackgroundProcessInfo = {
-      id: 107,
+      pid: 107,
+      toolCallId: 'toolCall107',
       command: 'echo test',
       process: mockChildProcess,
       stdoutBuffer: ['test', ' more'],
@@ -301,7 +311,8 @@ describe('getBackgroundProcessInfoString', () => {
     const endTime = 2000
 
     const info: BackgroundProcessInfo = {
-      id: 108,
+      pid: 108,
+      toolCallId: 'toolCall108',
       command: 'echo test',
       process: mockChildProcess,
       stdoutBuffer: ['test'],
@@ -327,7 +338,8 @@ describe('getBackgroundProcessInfoString', () => {
     const endTime = 2500
 
     const info: BackgroundProcessInfo = {
-      id: 109,
+      pid: 109,
+      toolCallId: 'toolCall109',
       command: 'echo test',
       process: mockChildProcess,
       stdoutBuffer: ['test'],
@@ -350,7 +362,8 @@ describe('getBackgroundProcessInfoString', () => {
     const startTime = 1000
 
     const info: BackgroundProcessInfo = {
-      id: 110,
+      pid: 110,
+      toolCallId: 'toolCall110',
       command: 'echo test',
       process: mockChildProcess,
       stdoutBuffer: ['test'],
