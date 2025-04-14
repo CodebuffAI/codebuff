@@ -86,6 +86,7 @@ export class Client {
   public nextQuotaReset: Date | null = null
   public storedApiKeyTypes: ApiKeyType[] = []
   public lastToolResults: ToolResult[] = []
+  public model: string | undefined
 
   constructor(
     websocketUrl: string,
@@ -94,9 +95,11 @@ export class Client {
     returnControlToUser: () => void,
     costMode: CostMode,
     git: GitCommand,
-    rl: readline.Interface
+    rl: readline.Interface,
+    model: string | undefined
   ) {
     this.costMode = costMode
+    this.model = model
     this.git = git
     this.webSocket = new APIRealtimeClient(
       websocketUrl,
@@ -577,6 +580,7 @@ export class Client {
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,
       costMode: this.costMode,
+      model: this.model,
     })
 
     return {
@@ -746,6 +750,7 @@ export class Client {
             fingerprintId: await this.fingerprintId,
             authToken: this.user?.authToken,
             costMode: this.costMode,
+            model: this.model,
           })
           return
         }

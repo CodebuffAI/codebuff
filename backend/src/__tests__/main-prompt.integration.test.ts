@@ -94,7 +94,8 @@ describe('mainPrompt (Integration)', () => {
       },
       TEST_USER_ID,
       'test-session-gemini-real-end-turn-integration', // Unique ID
-      () => {} // Mock onResponseChunk
+      () => {}, // Mock onResponseChunk
+      undefined // Mock model
     )
 
     // Assertions

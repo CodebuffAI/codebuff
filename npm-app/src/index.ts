@@ -17,7 +17,7 @@ import { createTemplateProject } from './create-template-project'
 
 async function codebuff(
   projectDir: string | undefined,
-  { initialInput, git, costMode }: CliOptions
+  { initialInput, git, costMode, model }: CliOptions
 ) {
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
@@ -27,7 +27,7 @@ async function codebuff(
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
 
-  const cli = new CLI(readyPromise, { git, costMode })
+  const cli = new CLI(readyPromise, { git, costMode, model })
 
   await cli.printInitialPrompt(initialInput)
 }
@@ -51,7 +51,10 @@ if (require.main === module) {
       'Use cutting-edge experimental features and models'
     )
     .option('--create <template> [name]', 'Create new project from template')
-    // .option('--git <mode>', 'Git integration mode', 'none')
+    .option(
+      '--model <model>',
+      'Experimental: Specify the main model to use for the agent ("sonnet-3.6", "sonnet-3.7", "gpt-4.1", "gemini-2.5-pro", "o3-mini"). Be aware codebuff might not work as well with non-default models.'
+    )
     .addHelpText(
       'after',
       `
@@ -119,5 +122,5 @@ The recommended way to get started is by running 'codebuff' in your project dire
   const projectPath = args[0]
   const initialInput = args.slice(1).join(' ')
 
-  codebuff(projectPath, { initialInput, git, costMode })
+  codebuff(projectPath, { initialInput, git, costMode, model: options.model })
 }
