@@ -31,6 +31,14 @@ export const getAgentStream = (params: {
     userId,
   } = params
 
+  if (selectedModel && !(selectedModel in shortModelNames)) {
+    throw new Error(
+      `Unknown model: ${selectedModel}. Please use a valid model. Valid models are: ${Object.keys(
+        shortModelNames
+      ).join(', ')}`
+    )
+  }
+
   const fullSelectedModel =
     shortModelNames[(selectedModel ?? '') as keyof typeof shortModelNames]
 
