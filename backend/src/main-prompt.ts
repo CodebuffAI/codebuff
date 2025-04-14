@@ -182,7 +182,6 @@ export const mainPrompt = async (
       const newAgentState = {
         ...agentState,
         messageHistory: messagesWithToolResultsAndUser,
-        lastUserPromptIndex: messagesWithToolResultsAndUser.length - 1,
       }
       return {
         agentState: newAgentState,
@@ -201,43 +200,37 @@ export const mainPrompt = async (
     }
   } else {
     // Check number of assistant messages since last user message with prompt
-    const lastUserPromptIndex = agentState.lastUserPromptIndex ?? -1
-    if (lastUserPromptIndex >= 0) {
-      const messagesSincePrompt = messageHistory.slice(lastUserPromptIndex + 1)
-      const consecutiveAssistantMessages = messagesSincePrompt.filter(
-        (msg) => msg.role === 'assistant'
-      ).length
+    const consecutiveAssistantMessages =
+      agentState.consecutiveAssistantMessages ?? 0
+    if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
+      logger.warn(
+        `Detected ${consecutiveAssistantMessages} consecutive assistant messages without user prompt`
+      )
 
-      if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
-        logger.warn(
-          `Detected ${consecutiveAssistantMessages} consecutive assistant messages without user prompt`
-        )
+      const warningString = [
+        "I've made quite a few responses in a row.",
+        "Let me pause here to make sure we're still on the right track.",
+        "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
+      ].join(' ')
 
-        const warningString = [
-          "I've made quite a few responses in a row.",
-          "Let me pause here to make sure we're still on the right track.",
-          "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
-        ].join(' ')
+      onResponseChunk(`${warningString}\n\n`)
 
-        onResponseChunk(`${warningString}\n\n`)
-
-        return {
-          agentState: {
-            ...agentState,
-            messageHistory: [
-              ...messageHistory,
-              { role: 'assistant', content: warningString },
-            ],
-          },
-          toolCalls: [
-            {
-              id: generateCompactId(),
-              name: 'end_turn',
-              parameters: {},
-            },
+      return {
+        agentState: {
+          ...agentState,
+          messageHistory: [
+            ...messageHistory,
+            { role: 'assistant', content: warningString },
           ],
-          toolResults: [],
-        }
+        },
+        toolCalls: [
+          {
+            id: generateCompactId(),
+            name: 'end_turn',
+            parameters: {},
+          },
+        ],
+        toolResults: [],
       }
     }
   }
@@ -489,7 +482,7 @@ ${newFiles.map((file) => file.path).join('\n')}
   }
 
   const messagesWithResponse = [
-    ...messagesWithUserMessage,
+    ...agentMessages,
     {
       role: 'assistant' as const,
       content: fullResponse,
@@ -644,9 +637,9 @@ ${newFiles.map((file) => file.path).join('\n')}
     ...agentState,
     messageHistory: messagesWithResponse,
     agentContext: newAgentContext,
-    lastUserPromptIndex: prompt
-      ? messagesWithUserMessage.length - 1
-      : agentState.lastUserPromptIndex,
+    consecutiveAssistantMessages: prompt
+      ? 1
+      : (agentState.consecutiveAssistantMessages ?? 0) + 1,
   }
 
   logger.debug(

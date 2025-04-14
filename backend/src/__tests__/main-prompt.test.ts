@@ -360,7 +360,7 @@ describe('mainPrompt', () => {
     const agentState = getInitialAgentState(mockFileContext)
 
     // Set up message history with many consecutive assistant messages
-    agentState.lastUserPromptIndex = 0
+    agentState.consecutiveAssistantMessages = 20 // Set to MAX_CONSECUTIVE_ASSISTANT_MESSAGES
     agentState.messageHistory = [
       { role: 'user', content: 'Initial prompt' },
       ...Array(20).fill({ role: 'assistant', content: 'Assistant response' }),
@@ -388,9 +388,9 @@ describe('mainPrompt', () => {
     expect(toolCalls[0].parameters).toEqual({})
   })
 
-  it('should update lastUserPromptIndex when new prompt is received', async () => {
+  it('should update consecutiveAssistantMessages when new prompt is received', async () => {
     const agentState = getInitialAgentState(mockFileContext)
-    agentState.lastUserPromptIndex = 0
+    agentState.consecutiveAssistantMessages = 0
 
     const { agentState: newAgentState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
@@ -409,14 +409,14 @@ describe('mainPrompt', () => {
       undefined // Mock model
     )
 
-    // The new lastUserPromptIndex should be the index of the new prompt message
-    expect(newAgentState.lastUserPromptIndex).toBeGreaterThan(0)
+    // When there's a new prompt, consecutiveAssistantMessages should be set to 1
+    expect(newAgentState.consecutiveAssistantMessages).toBe(1)
   })
 
-  it('should not update lastUserPromptIndex when no new prompt', async () => {
+  it('should increment consecutiveAssistantMessages when no new prompt', async () => {
     const agentState = getInitialAgentState(mockFileContext)
-    const initialIndex = 5
-    agentState.lastUserPromptIndex = initialIndex
+    const initialCount = 5
+    agentState.consecutiveAssistantMessages = initialCount
 
     const { agentState: newAgentState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
@@ -435,7 +435,8 @@ describe('mainPrompt', () => {
       undefined // Mock model
     )
 
-    expect(newAgentState.lastUserPromptIndex).toBe(initialIndex)
+    // When there's no new prompt, consecutiveAssistantMessages should increment by 1
+    expect(newAgentState.consecutiveAssistantMessages).toBe(initialCount + 1)
   })
 
   it('should return end_turn tool call when LLM response is empty', async () => {
