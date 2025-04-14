@@ -52,7 +52,7 @@ describe('mainPrompt (Integration)', () => {
     mock.restore()
   })
 
-  it.skip('should add end_turn when LLM stream yields only text', async () => {
+  it('should add end_turn when LLM stream yields only text', async () => {
     // Mock necessary non-LLM functions ONLY for this test
     spyOn(logger, 'debug').mockImplementation(() => {})
     spyOn(logger, 'error').mockImplementation(() => {})

@@ -24,6 +24,23 @@ import { logger } from '../util/logger'
 import { renderToolResults } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
+const mockAgentStream = (streamOutput: string) => {
+  spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
+    yield streamOutput
+  })
+  spyOn(gemini, 'promptGeminiStream').mockImplementation(async function* () {
+    yield streamOutput
+  } as any)
+  spyOn(openai, 'promptOpenAIStream').mockImplementation(async function* () {
+    yield streamOutput
+  })
+  spyOn(
+    geminiWithFallbacks,
+    'streamGemini25ProWithFallbacks'
+  ).mockImplementation(async function* () {
+    yield streamOutput
+  } as any)
+}
 describe('mainPrompt', () => {
   beforeEach(() => {
     spyOn(logger, 'debug').mockImplementation(() => {})
@@ -304,25 +321,7 @@ describe('mainPrompt', () => {
   it('should handle write_file tool call', async () => {
     // Mock LLM to return a write_file tool call
     const writeFileBlock = createWriteFileBlock('new-file.txt', 'Hello World')
-    spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
-      yield writeFileBlock
-    })
-    spyOn(gemini, 'promptGeminiStream').mockImplementation(async function* () {
-      yield writeFileBlock
-    } as any)
-    // Override the mock specifically for this test case when costMode is 'max'
-    spyOn(
-      geminiWithFallbacks,
-      'streamGemini25ProWithFallbacks'
-    ).mockImplementation(
-      () =>
-        new ReadableStream({
-          start(controller) {
-            controller.enqueue(writeFileBlock)
-            controller.close()
-          },
-        }) as any
-    )
+    mockAgentStream(writeFileBlock)
 
     const agentState = getInitialAgentState(mockFileContext)
     const { toolCalls, agentState: newAgentState } = await mainPrompt(
@@ -434,18 +433,7 @@ describe('mainPrompt', () => {
 
   it('should return end_turn tool call when LLM response is empty', async () => {
     // Mock the LLM stream to return nothing
-    spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
-      yield ''
-    })
-    spyOn(gemini, 'promptGeminiStream').mockImplementation(async function* () {
-      yield ''
-    } as any)
-    spyOn(
-      geminiWithFallbacks,
-      'streamGemini25ProWithFallbacks'
-    ).mockImplementation(async function* () {
-      yield ''
-    } as any)
+    mockAgentStream('')
 
     const agentState = getInitialAgentState(mockFileContext)
     const { toolCalls } = await mainPrompt(
@@ -480,18 +468,7 @@ describe('mainPrompt', () => {
 <process_type>SYNC</process_type>
 </run_terminal_command>`
 
-    spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
-    spyOn(gemini, 'promptGeminiStream').mockImplementation(async function* () {
-      yield mockResponse
-    } as any)
-    spyOn(
-      geminiWithFallbacks,
-      'streamGemini25ProWithFallbacks'
-    ).mockImplementation(async function* () {
-      yield mockResponse
-    } as any)
+    mockAgentStream(mockResponse)
 
     const { toolCalls } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
