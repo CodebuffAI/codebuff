@@ -52,7 +52,7 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
-import { promptOpenAI, promptOpenAIStream } from './llm-apis/openai-api'
+import { promptOpenAIStream } from './llm-apis/openai-api'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
@@ -500,6 +500,13 @@ ${newFiles.map((file) => file.path).join('\n')}
     },
   ]
   const toolCalls = parseToolCalls(fullResponse)
+  if (toolCalls.length === 0) {
+    fullResponse += '\n\n<end_turn></end_turn>'
+    toolCalls.push({
+      name: 'end_turn',
+      parameters: {},
+    })
+  }
   const clientToolCalls: ClientToolCall[] = []
   const serverToolResults: ToolResult[] = []
 
