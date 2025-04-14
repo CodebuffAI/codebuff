@@ -1,201 +1,215 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { useSession } from 'next-auth/react'
-import { useIsMobile } from '@/hooks/use-mobile'
+import { BlockColor } from '@/components/ui/decorative-blocks'
+import { SECTION_THEMES } from '@/components/ui/landing/constants'
+import { FeatureSection } from '@/components/ui/landing/feature'
 
-import {
-  Loader2 as Loader,
-  DollarSign,
-  Zap,
-  LineChart,
-  Shield,
-  Bell,
-  BarChart,
-  ArrowRight,
-  Rocket,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
-import { motion } from 'framer-motion'
-import { Section } from '@/components/ui/section'
-import { BackgroundBeams } from '@/components/ui/background-beams'
-import { useRouter } from 'next/navigation'
+import { CheckCircle, Gift, Shield, XCircle } from 'lucide-react'
 
-function PricingCard() {
-  const { status } = useSession()
-  const router = useRouter()
-  
-  const handleUsageClick = () => {
-    router.push('/usage')
-  }
-
+function CreditVisual() {
   return (
-    <Card className="relative overflow-hidden border-2 max-w-sm mx-auto">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent pointer-events-none" />
-      <CardHeader className="pb-4">
-        <CardTitle className="text-center text-2xl">Start Free</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="text-center">
-          <div className="text-4xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
-            500 credits
+    <div className="flex flex-col items-center text-center space-y-4 mt-3">
+      <div className="flex flex-col items-center">
+        {/* Enhanced price display for better visual appeal */}
+        <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-green-400 flex items-baseline">
+          1¢
+          <span className="text-xs sm:text-sm md:text-base text-white/70 ml-2">
+            /credit
+          </span>
+        </div>
+        <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-green-400/40 to-transparent my-4"></div>
+
+        {/* Grid with improved spacing for mobile and desktop */}
+        <div className="grid grid-cols-2 gap-x-10 gap-y-6 sm:gap-x-16">
+          <div className="flex flex-col items-center group">
+            <div className="p-2 rounded-full bg-blue-500/10 mb-2">
+              <Gift className="h-5 w-5 text-blue-400" />
+            </div>
+            <div className="text-lg font-bold text-blue-400">500</div>
+            <div className="text-xs sm:text-sm text-white/70">Free monthly</div>
           </div>
-          <div className="text-muted-foreground text-sm">
-            Free credits every month
+
+          <div className="flex flex-col items-center group">
+            <div className="p-2 rounded-full bg-purple-500/10 mb-2">
+              <Shield className="h-5 w-5 text-purple-400" />
+            </div>
+            <div className="text-lg font-bold text-white">∞</div>
+            <div className="text-xs sm:text-sm text-white/70">Never expire</div>
           </div>
         </div>
-
-        <div className="text-center pt-2">
-          <div className="text-xl font-semibold">Then Just</div>
-          <div className="text-3xl font-bold bg-gradient-to-r from-primary via-primary/90 to-primary bg-clip-text text-transparent">
-            1¢ per credit
-          </div>
-          <div className="text-muted-foreground text-sm">Pay as you go</div>
-        </div>
-
-        {status === 'authenticated' ? (
-          <Button
-            className="w-full bg-gradient-to-r from-primary/90 to-primary hover:from-primary hover:to-primary/90"
-            size="default"
-            onClick={handleUsageClick}
-          >
-            View Usage
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        ) : (
-          <Button
-            className="w-full bg-gradient-to-r from-primary/90 to-primary hover:from-primary hover:to-primary/90"
-            size="default"
-          >
-            Get Started Free
-            <Rocket className="ml-2 h-4 w-4" />
-          </Button>
-        )}
-
-        <div className="text-center text-xs text-muted-foreground">
-          All purchased credits never expire
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
-function Features() {
-  const items = [
-    {
-      icon: <DollarSign className="h-5 w-5" />,
-      title: 'Pay Per Success',
-      description: 'Only pay for successful changes',
-    },
-    {
-      icon: <Shield className="h-5 w-5" />,
-      title: 'Predictable Costs',
-      description: 'No hidden fees or surprises',
-    },
-    {
-      icon: <LineChart className="h-5 w-5" />,
-      title: 'Real-time Balance',
-      description: 'Monitor costs as you go',
-    },
-    {
-      icon: <Bell className="h-5 w-5" />,
-      title: 'Usage Alerts',
-      description: 'Set notification thresholds',
-    },
-    {
-      icon: <Zap className="h-5 w-5" />,
-      title: 'Auto Top-up',
-      description: 'Never run out of credits',
-    },
-    {
-      icon: <BarChart className="h-5 w-5" />,
-      title: 'Usage Analytics',
-      description: 'Track spending patterns',
-    },
-  ]
-
+function PricingCard() {
   return (
-    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
-      {items.map((item, i) => (
-        <motion.div
-          key={item.title}
-          initial={{ opacity: 0, y: 10 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: i * 0.1 }}
-          viewport={{ once: true }}
-          className="flex items-start gap-3 p-4 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-        >
-          <div className="text-primary mt-1">{item.icon}</div>
-          <div>
-            <h3 className="font-medium">{item.title}</h3>
-            <p className="text-sm text-muted-foreground">{item.description}</p>
+    <div className="w-full bg-black overflow-hidden flex flex-col h-full">
+      <div className="p-6 sm:p-8 flex flex-col">
+        <CreditVisual />
+      </div>
+    </div>
+  )
+}
+
+function TeamPlanIllustration() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full max-w-screen-lg mx-auto">
+      {/* Team plan */}
+      <div className="bg-white border border-zinc-200 rounded-lg p-4 sm:p-6 flex flex-col h-full shadow-lg">
+        <div className="mb-4">
+          <h3 className="text-xl font-bold text-gray-900 mb-1">Team</h3>
+          <div className="flex items-baseline">
+            <span className="text-2xl sm:text-3xl font-bold text-gray-900">
+              $19
+            </span>
+            <span className="text-sm sm:text-base text-gray-500 ml-1">
+              /user/month
+            </span>
           </div>
-        </motion.div>
-      ))}
+        </div>
+
+        <ul className="space-y-2 sm:space-y-3 mb-auto">
+          <li className="flex text-gray-700">
+            <span className="text-green-600 mr-2">✓</span>
+            <span className="text-sm sm:text-base">
+              Team management dashboard
+            </span>
+          </li>
+          <li className="flex text-gray-700">
+            <span className="text-green-600 mr-2">✓</span>
+            <span className="text-sm sm:text-base">Pooled credit usage</span>
+          </li>
+          <li className="flex text-gray-700">
+            <span className="text-green-600 mr-2">✓</span>
+            <span className="text-sm sm:text-base">
+              Pay-as-you-go at 1¢ per credit
+            </span>
+          </li>
+        </ul>
+
+        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-200">
+          <a
+            href="mailto:support@codebuff.com"
+            className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm"
+          >
+            Reach out to support@codebuff.com
+          </a>
+        </div>
+      </div>
+
+      {/* Enterprise plan */}
+      <div className="bg-gradient-to-b from-blue-50 to-white border border-blue-200 rounded-lg p-4 sm:p-6 flex flex-col h-full shadow-lg">
+        <div className="mb-4">
+          <h3 className="text-xl font-bold text-gray-900 mb-1">Enterprise</h3>
+          <div className="text-sm sm:text-base text-gray-500">
+            Custom Pricing
+          </div>
+        </div>
+
+        <ul className="space-y-2 sm:space-y-3 mb-auto">
+          <li className="flex text-gray-700">
+            <span className="text-blue-600 mr-2">✓</span>
+            <span className="text-sm sm:text-base">Everything in Team</span>
+          </li>
+          <li className="flex text-gray-700">
+            <span className="text-blue-600 mr-2">✓</span>
+            <span className="text-sm sm:text-base">Dedicated support</span>
+          </li>
+          <li className="flex text-gray-700">
+            <span className="text-blue-600 mr-2">✓</span>
+            <span className="text-sm sm:text-base">Custom integrations</span>
+          </li>
+        </ul>
+
+        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-blue-100">
+          <a
+            href="mailto:founders@codebuff.com"
+            className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm"
+          >
+            Reach out to founders@codebuff.com
+          </a>
+        </div>
+      </div>
     </div>
   )
 }
 
 export default function PricingPage() {
   const { status } = useSession()
-  const isMobile = useIsMobile()
-
-  if (status === 'loading') {
-    return (
-      <div className="flex justify-center items-center min-h-[50vh]">
-        <Loader className="h-8 w-8 animate-spin" />
-      </div>
-    )
-  }
-
-  if (status === 'unauthenticated') {
-    return (
-      <div className="container mx-auto py-6 px-4 sm:py-10 sm:px-6">
-        <Card className="w-full max-w-md mx-auto">
-          <CardHeader>
-            <CardTitle>Sign in to get started</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Please sign in to start using Codebuff.</p>
-          </CardContent>
-          <SignInCardFooter />
-        </Card>
-      </div>
-    )
-  }
 
   return (
-    <Section className={cn('relative', isMobile ? 'pt-0' : 'py-6')}>
-      <BackgroundBeams className="opacity-20" />
-      <div className="relative z-10 space-y-16">
-        <motion.div 
-          className="text-center space-y-4"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/90 to-primary bg-clip-text text-transparent">
-            Pay Less, Get More
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Simple, transparent pricing with no monthly fees.
-            <br />
-            Only pay for what you use.
-          </p>
-        </motion.div>
+    <>
+      <FeatureSection
+        title={<span>Simple, Usage-Based Pricing</span>}
+        description="Get 500 free credits monthly, then pay just 1¢ per credit. Credits are consumed based on task complexity — simple queries cost less, complex changes more. You'll see how many credits each task consumes."
+        backdropColor={SECTION_THEMES.competition.background}
+        decorativeColors={[BlockColor.GenerativeGreen, BlockColor.AcidMatrix]}
+        textColor="text-white"
+        tagline="PAY AS YOU GO"
+        highlightText="500 free credits monthly"
+        illustration={<PricingCard />}
+        learnMoreText={status === 'authenticated' ? 'My Usage' : 'Get Started'}
+        learnMoreLink={status === 'authenticated' ? '/usage' : '/login'}
+        keyPoints={[
+          {
+            icon: '💰',
+            title: 'Predictable Costs',
+            description:
+              'Only pay for what you actually use. No surprises at the end of the month.',
+          },
+          {
+            icon: '🔄',
+            title: 'Monthly Free Credits',
+            description:
+              'Get 500 free credits each month, automatically added to your account.',
+          },
+          {
+            icon: '🛡️',
+            title: 'No Failed Call Charges',
+            description:
+              'Only pay for successful API calls. Failed calls cost nothing.',
+          },
+        ]}
+      />
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <PricingCard />
-        </motion.div>
-
-        <Features />
-      </div>
-    </Section>
+      <FeatureSection
+        title={<span>Working with others</span>}
+        description="Collaborate with your team more closely using Codebuff by pooling credits and seeing usage analytics."
+        backdropColor={BlockColor.CRTAmber}
+        decorativeColors={[
+          BlockColor.DarkForestGreen,
+          BlockColor.GenerativeGreen,
+        ]}
+        textColor="text-black"
+        tagline="SCALE UP YOUR TEAM"
+        highlightText="Pooled resources and usage analytics"
+        illustration={<TeamPlanIllustration />}
+        learnMoreText="Contact Sales"
+        learnMoreLink="mailto:founders@codebuff.com"
+        imagePosition="left"
+        keyPoints={[
+          {
+            icon: '👥',
+            title: 'Team Dashboard',
+            description:
+              "Manage your entire team's usage from a centralized dashboard.",
+          },
+          {
+            icon: '🔋',
+            title: 'Pooled Credits',
+            description:
+              'Share credits across your organization for maximum flexibility.',
+          },
+          {
+            icon: '💼',
+            title: 'Enterprise Options',
+            description:
+              'Custom integrations and dedicated support available for larger teams.',
+          },
+        ]}
+      />
+    </>
   )
 }

@@ -24,25 +24,35 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>
-        <Image
-          className="overflow-hidden rounded-full"
-          src={`${user?.image}`}
-          alt={`${user?.name}`}
-          width={32}
-          height={32}
-        />
+        <div className="relative group">
+          <div className="absolute inset-0 bg-[rgb(255,110,11)] translate-x-0.5 -translate-y-0.5 rounded-md"></div>
+          <div className="relative bg-white border border-white/50 rounded-md overflow-hidden transition-all duration-300 group-hover:-translate-x-0.5 group-hover:translate-y-0.5">
+            <Image
+              className="w-8 h-8"
+              src={`${user?.image}`}
+              alt={`${user?.name}`}
+              width={32}
+              height={32}
+            />
+          </div>
+        </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <div className="flex flex-col items-center justify-center p-2">
-          <Image
-            className="overflow-hidden rounded-full"
-            src={`${user?.image}`}
-            alt={`${user?.name}`}
-            width={100}
-            height={100}
-          />
+          <div className="relative">
+            <div className="absolute inset-0 bg-[rgb(255,110,11)] translate-x-1.5 -translate-y-1.5 rounded-md"></div>
+            <div className="relative bg-white border border-white/50 rounded-md overflow-hidden">
+              <Image
+                className="w-24 h-24"
+                src={`${user?.image}`}
+                alt={`${user?.name}`}
+                width={96}
+                height={96}
+              />
+            </div>
+          </div>
           <h2 className="py-2 text-lg font-bold">{user?.name}</h2>
           {user?.subscription_active ? (
             <Button

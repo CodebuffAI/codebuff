@@ -197,20 +197,34 @@ export function useAutoTopup(): AutoTopupState {
   )
 
   const handleThresholdChange = (rawValue: number) => {
-    const clampedValue = clamp(rawValue, MIN_THRESHOLD_CREDITS, MAX_THRESHOLD_CREDITS)
-    setThreshold(clampedValue)
+    // Allow any value for UI display
+    setThreshold(rawValue)
+    
     if (isEnabled) {
-      pendingSettings.current = { threshold: clampedValue, topUpAmountDollars }
-      debouncedSaveSettings()
+      // Make sure we send a valid value to the server
+      const validValue = clamp(rawValue, MIN_THRESHOLD_CREDITS, MAX_THRESHOLD_CREDITS)
+      pendingSettings.current = { threshold: validValue, topUpAmountDollars }
+      
+      // Only save if the value is valid
+      if (rawValue >= MIN_THRESHOLD_CREDITS && rawValue <= MAX_THRESHOLD_CREDITS) {
+        debouncedSaveSettings()
+      }
     }
   }
 
   const handleTopUpAmountChange = (rawValue: number) => {
-    const clampedValue = clamp(rawValue, MIN_TOPUP_DOLLARS, MAX_TOPUP_DOLLARS)
-    setTopUpAmountDollars(clampedValue)
+    // Allow any value for UI display
+    setTopUpAmountDollars(rawValue)
+    
     if (isEnabled) {
-      pendingSettings.current = { threshold, topUpAmountDollars: clampedValue }
-      debouncedSaveSettings()
+      // Make sure we send a valid value to the server
+      const validValue = clamp(rawValue, MIN_TOPUP_DOLLARS, MAX_TOPUP_DOLLARS)
+      pendingSettings.current = { threshold, topUpAmountDollars: validValue }
+      
+      // Only save if the value is valid
+      if (rawValue >= MIN_TOPUP_DOLLARS && rawValue <= MAX_TOPUP_DOLLARS) {
+        debouncedSaveSettings()
+      }
     }
   }
 

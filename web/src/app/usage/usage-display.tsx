@@ -96,6 +96,13 @@ export const UsageDisplay = ({
     <Card className="w-full max-w-2xl mx-auto -mt-8">
       <CardHeader>
         <CardTitle className="text-2xl font-bold">Usage Statistics</CardTitle>
+        {balance.netBalance < 0 && (
+          <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-md">
+            <p className="text-red-500 font-medium">
+              Please purchase {Math.abs(balance.netBalance).toLocaleString()} credits to continue using the service
+            </p>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
@@ -254,6 +261,15 @@ export const UsageDisplay = ({
                   })}
                 </div>
               </div>
+            </div>
+          )}
+
+          {balance.totalDebt > 0 && (
+            <div className="flex justify-between items-center rounded-lg bg-red-500/10 border border-red-500/20">
+              <span className="font-medium text-red-500">Negative Balance</span>
+              <span className="text-xl text-red-500">
+                -{balance.totalDebt.toLocaleString('en-US')}
+              </span>
             </div>
           )}
         </div>
