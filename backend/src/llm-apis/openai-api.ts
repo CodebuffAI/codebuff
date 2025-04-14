@@ -11,6 +11,7 @@ export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 import { OpenAIModel } from 'common/constants'
 import { match, P } from 'ts-pattern'
 import { generateCompactId } from 'common/util/string'
+import { countTokensJson } from '@/util/token-counter'
 
 let openai: OpenAI | null = null
 
@@ -140,6 +141,16 @@ export async function* promptOpenAIStream(
         inputTokens = chunk.usage.prompt_tokens
         outputTokens = chunk.usage.completion_tokens
       }
+    }
+
+    if (!inputTokens || !outputTokens) {
+      inputTokens = countTokensJson(messages)
+      outputTokens = countTokensJson([
+        {
+          role: 'assistant',
+          content,
+        },
+      ])
     }
 
     if (messages.length > 0 && userId !== TEST_USER_ID) {

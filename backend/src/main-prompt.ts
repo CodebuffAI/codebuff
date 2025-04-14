@@ -90,11 +90,13 @@ export const mainPrompt = async (
   const justRanTerminalCommand = toolResults.some(
     (t) => t.name === 'run_terminal_command'
   )
+  const isGPT4_1 = true
   const userInstructions = buildArray(
     'Instructions:',
     'Proceed toward the user request and any subgoals.',
 
-    "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
+    !isGPT4_1 &&
+      "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
 
@@ -129,7 +131,9 @@ export const mainPrompt = async (
 
     "Don't run git commands or scripts without being specifically asked to do so. This can prevent costly accidents. Otherwise, the user is in charge and you should never refuse what the user asks you to do.",
 
-    'Important: You must write "<end_turn></end_turn>" at the end of your response, when you want the user to respond, but not if you are still working on the user\'s request.'
+    'Important: You must write "<end_turn></end_turn>" at the end of your response, when you want the user to respond, but not if you are still working on the user\'s request.',
+    isGPT4_1 &&
+      "Make sure you completely finish the entire user's request. If the user's request is multi-part, please complete ALL the parts before ending turn. If you ask the user for more information, you must also use end_turn.",
   ).join('\n\n')
 
   const toolInstructions = buildArray(
@@ -500,13 +504,6 @@ ${newFiles.map((file) => file.path).join('\n')}
     },
   ]
   const toolCalls = parseToolCalls(fullResponse)
-  if (toolCalls.length === 0) {
-    fullResponse += '\n\n<end_turn></end_turn>'
-    toolCalls.push({
-      name: 'end_turn',
-      parameters: {},
-    })
-  }
   const clientToolCalls: ClientToolCall[] = []
   const serverToolResults: ToolResult[] = []
 
