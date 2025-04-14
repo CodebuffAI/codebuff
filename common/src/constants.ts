@@ -170,6 +170,7 @@ export const claudeModels = {
 export type AnthropicModel = (typeof claudeModels)[keyof typeof claudeModels]
 
 export const openaiModels = {
+  gpt4_1: 'gpt-4.1-2025-04-14',
   gpt4o: 'gpt-4o-2024-11-20',
   gpt4omini: 'gpt-4o-mini-2024-07-18',
   o3mini: 'o3-mini-2025-01-31',

@@ -1,9 +1,8 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { ClientAction } from 'common/actions'
 import {
-  AnthropicModel,
-  getModelForMode,
   HIDDEN_FILE_READ_STATUS,
+  models,
   ONE_TIME_TAGS,
   type CostMode,
 } from 'common/constants'
@@ -35,7 +34,7 @@ import {
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
-import { getMessagesSubset } from './util/messages'
+import { getMessagesSubset, messagesWithSystem } from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
@@ -53,6 +52,7 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
+import { promptOpenAI, promptOpenAIStream } from './llm-apis/openai-api'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
@@ -405,9 +405,8 @@ ${newFiles.map((file) => file.path).join('\n')}
           userId,
           temperature: 0,
         })
-      : promptClaudeStream(agentMessages, {
-          system,
-          model: getModelForMode(costMode, 'agent') as AnthropicModel,
+      : promptOpenAIStream(messagesWithSystem(agentMessages, system), {
+          model: models.gpt4_1,
           clientSessionId,
           fingerprintId,
           userInputId: promptId,

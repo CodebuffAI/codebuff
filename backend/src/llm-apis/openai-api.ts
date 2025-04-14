@@ -10,6 +10,7 @@ import { ChatCompletionReasoningEffort } from 'openai/resources/chat/completions
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 import { OpenAIModel } from 'common/constants'
 import { match, P } from 'ts-pattern'
+import { generateCompactId } from 'common/util/string'
 
 let openai: OpenAI | null = null
 
@@ -39,6 +40,7 @@ function transformMessages(
   return messages.map((msg) =>
     match(model)
       .with(
+        openaiModels.gpt4_1,
         openaiModels.gpt4o,
         openaiModels.gpt4omini,
         openaiModels.generatePatch,
@@ -124,7 +126,6 @@ export async function* promptOpenAIStream(
     })
 
     let content = ''
-    let messageId: string | undefined
     let inputTokens = 0
     let outputTokens = 0
 
@@ -136,15 +137,14 @@ export async function* promptOpenAIStream(
       }
 
       if (chunk.usage) {
-        messageId = chunk.id
         inputTokens = chunk.usage.prompt_tokens
         outputTokens = chunk.usage.completion_tokens
       }
     }
 
-    if (messageId && messages.length > 0 && userId !== TEST_USER_ID) {
+    if (messages.length > 0 && userId !== TEST_USER_ID) {
       saveMessage({
-        messageId,
+        messageId: `oai-${generateCompactId()}`,
         userId,
         clientSessionId,
         fingerprintId,
