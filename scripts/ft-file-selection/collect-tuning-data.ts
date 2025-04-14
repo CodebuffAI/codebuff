@@ -1,4 +1,4 @@
-import { writeFileSync } from 'fs'
+import { existsSync, readdirSync, writeFileSync } from 'fs'
 
 import db from 'common/db'
 import { ft_filepicker_capture, ft_filepicker_traces } from 'common/db/schema'
@@ -16,6 +16,37 @@ if (!model) {
   process.exit(1)
 }
 
+// Utility function to get next available filename with auto-incrementing number
+function getNextAvailableFilename(
+  baseFilename: string,
+  extension: string
+): string {
+  const dir = 'scripts/ft-file-selection'
+  const files = readdirSync(dir)
+
+  // If base file doesn't exist yet, use it
+  const basePath = `${dir}/${baseFilename}.${extension}`
+  if (!existsSync(basePath)) {
+    return basePath
+  }
+
+  // Find all numbered versions
+  const pattern = new RegExp(`${baseFilename}-(\\d+)\\.${extension}`)
+  const numbers = files
+    .map((file) => {
+      const match = file.match(pattern)
+      return match ? parseInt(match[1]) : 0
+    })
+    .filter((n) => n > 0)
+
+  // Get next number (or start at 001 if no numbered files exist)
+  const nextNum = numbers.length > 0 ? Math.max(...numbers) + 1 : 1
+
+  // Format with padded zeros
+  const paddedNum = nextNum.toString().padStart(3, '0')
+  return `${dir}/${baseFilename}-${paddedNum}.${extension}`
+}
+
 interface SystemMessage {
   text: string
   type: 'text'
@@ -26,7 +57,7 @@ interface GeminiPart {
 }
 
 interface GeminiMessage {
-  role: 'user' | 'model'
+  role: 'user' | 'model' | 'system'
   parts: GeminiPart[]
 }
 
@@ -45,7 +76,7 @@ interface OpenAITuningExample {
   messages: OpenAIMessage[]
 }
 
-function convertRole(role: string): 'user' | 'model' {
+function convertRole(role: string): 'user' | 'model' | 'system' {
   if (role === 'assistant') return 'model'
   return 'user'
 }
@@ -56,21 +87,27 @@ function convertToGeminiFormat(
   output: string
 ): GeminiTuningExample {
   // Handle system message
-  let allMessages: Message[] = []
+  let allMessages: Message[] = [
+    ...messages,
+    { role: 'assistant', content: output },
+  ]
+  let systemMessage: GeminiMessage
 
   if (Array.isArray(system)) {
-    let retypedSystem: Message[] = system.map((s) => ({
-      role: 'assistant',
-      content: s.text,
-    }))
-    allMessages = [...retypedSystem, ...messages]
+    systemMessage = {
+      role: 'system',
+      parts: system.map((s) => ({ text: s.text })),
+    }
   } else if (typeof system === 'string') {
-    allMessages = [{ role: 'user', content: system }, ...messages]
+    systemMessage = {
+      role: 'system',
+      parts: [{ text: system }],
+    }
   } else {
-    allMessages = messages
+    throw new Error(
+      `Invalid system message, expected string or array, got ${typeof system}`
+    )
   }
-
-  allMessages = [...allMessages, { role: 'assistant', content: output }]
 
   // Convert all messages to Gemini format
   // @ts-ignore
@@ -95,12 +132,22 @@ function convertToGeminiFormat(
     })
     .filter((msg): msg is GeminiMessage => msg !== null)
 
-  // Split into systemInstruction and contents
-  const [systemInstruction, ...contents] = geminiMessages
+  // If there are multiple messages in a row with the same role, we need to combine them into a single message with multiple parts
+  const combinedMessages: GeminiMessage[] = []
+  for (const msg of geminiMessages) {
+    if (
+      combinedMessages.length > 0 &&
+      combinedMessages[combinedMessages.length - 1].role === msg.role
+    ) {
+      combinedMessages[combinedMessages.length - 1].parts.push(...msg.parts)
+    } else {
+      combinedMessages.push(msg)
+    }
+  }
 
   return {
-    systemInstruction,
-    contents,
+    systemInstruction: systemMessage,
+    contents: combinedMessages,
   }
 }
 
@@ -183,18 +230,16 @@ async function main() {
       })
       .filter(Boolean)
 
-    // Save as JSONL
+    // Save as JSONL with auto-incrementing filename
     const jsonlContent = tuningData
       .map((example) => JSON.stringify(example))
       .join('\n')
 
-    writeFileSync(
-      'scripts/ft-file-selection/gemini-tune-data.jsonl',
-      jsonlContent
-    )
+    const geminiPath = getNextAvailableFilename('gemini-tune-data', 'jsonl')
+    writeFileSync(geminiPath, jsonlContent)
 
     console.log(
-      `Successfully saved ${tuningData.length} examples to gemini-tune-data.jsonl`
+      `Successfully saved ${tuningData.length} examples to ${geminiPath}`
     )
 
     // Match traces with captures and convert to OpenAI format
@@ -217,18 +262,16 @@ async function main() {
       openaiTuningData.push(openaiTuningData[openaiTuningData.length - 1])
     }
 
-    // Save as JSONL
+    // Save as JSONL with auto-incrementing filename
     const openaiJsonlContent = openaiTuningData
       .map((example) => JSON.stringify(example))
       .join('\n')
 
-    writeFileSync(
-      'scripts/ft-file-selection/openai-tune-data.jsonl',
-      openaiJsonlContent
-    )
+    const openaiPath = getNextAvailableFilename('openai-tune-data', 'jsonl')
+    writeFileSync(openaiPath, openaiJsonlContent)
 
     console.log(
-      `Successfully saved ${openaiTuningData.length} examples to openai-tune-data.jsonl`
+      `Successfully saved ${openaiTuningData.length} examples to ${openaiPath}`
     )
   } catch (error) {
     console.error('Error:', error)
