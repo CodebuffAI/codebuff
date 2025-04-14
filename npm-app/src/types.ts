@@ -6,4 +6,5 @@ export interface CliOptions {
   initialInput?: string
   git: GitCommand
   costMode: CostMode
+  model?: string
 }

@@ -184,7 +184,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     // Expected order: [ToolResultsMsg, InstructionsMsg, PromptMsg, AssistantMsg]
@@ -261,7 +262,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     // Find the user message containing tool results added *during* the mainPrompt execution
@@ -308,7 +310,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     expect(toolCalls).toHaveLength(1)
@@ -337,7 +340,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     expect(toolCalls).toHaveLength(1) // This assertion should now pass
@@ -375,7 +379,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     expect(toolCalls).toHaveLength(1)
@@ -400,7 +405,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     // The new lastUserPromptIndex should be the index of the new prompt message
@@ -425,7 +431,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     expect(newAgentState.lastUserPromptIndex).toBe(initialIndex)
@@ -449,7 +456,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     expect(toolCalls).toHaveLength(1)
@@ -483,7 +491,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     expect(toolCalls).toHaveLength(1)

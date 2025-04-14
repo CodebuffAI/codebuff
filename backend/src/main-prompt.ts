@@ -18,10 +18,9 @@ import { WebSocket } from 'ws'
 import { checkTerminalCommand } from './check-terminal-command'
 import { requestRelevantFiles } from './find-files/request-files-prompt'
 import { getDocumentationForQuery } from './get-documentation-for-query'
-import { promptClaudeStream } from './llm-apis/claude'
-import { streamGemini25ProWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { processFileBlock } from './process-file-block'
 import { processStreamWithTags } from './process-stream'
+import { getAgentStream } from './prompt-agent-stream'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
@@ -34,7 +33,7 @@ import {
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
-import { getMessagesSubset, messagesWithSystem } from './util/messages'
+import { getMessagesSubset } from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
@@ -52,8 +51,6 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
-import { promptOpenAIStream } from './llm-apis/openai-api'
-
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
 export const mainPrompt = async (
@@ -61,7 +58,8 @@ export const mainPrompt = async (
   action: Extract<ClientAction, { type: 'prompt' }>,
   userId: string | undefined,
   clientSessionId: string,
-  onResponseChunk: (chunk: string) => void
+  onResponseChunk: (chunk: string) => void,
+  selectedModel: string | undefined
 ): Promise<{
   agentState: AgentState
   toolCalls: Array<ClientToolCall>
@@ -70,6 +68,15 @@ export const mainPrompt = async (
   const { prompt, agentState, fingerprintId, costMode, promptId, toolResults } =
     action
   const { messageHistory, fileContext, agentContext } = agentState
+
+  const { getStream, model } = getAgentStream({
+    costMode,
+    selectedModel,
+    clientSessionId,
+    fingerprintId,
+    userInputId: promptId,
+    userId,
+  })
 
   const relevantDocumentationPromise = prompt
     ? getDocumentationForQuery(prompt, {
@@ -90,7 +97,7 @@ export const mainPrompt = async (
   const justRanTerminalCommand = toolResults.some(
     (t) => t.name === 'run_terminal_command'
   )
-  const isGPT4_1 = true
+  const isGPT4_1 = model === models.gpt4_1
   const userInstructions = buildArray(
     'Instructions:',
     'Proceed toward the user request and any subgoals.',
@@ -133,7 +140,7 @@ export const mainPrompt = async (
 
     'Important: You must write "<end_turn></end_turn>" at the end of your response, when you want the user to respond, but not if you are still working on the user\'s request.',
     isGPT4_1 &&
-      "Make sure you completely finish the entire user's request. If the user's request is multi-part, please complete ALL the parts before ending turn. If you ask the user for more information, you must also use end_turn.",
+      "Make sure you completely finish the entire user's request. If the user's request is multi-part, please complete ALL the parts before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking."
   ).join('\n\n')
 
   const toolInstructions = buildArray(
@@ -400,22 +407,7 @@ ${newFiles.map((file) => file.path).join('\n')}
     Promise<{ path: string; content: string; patch?: string } | null>[]
   > = {}
 
-  const stream =
-    costMode === 'experimental'
-      ? streamGemini25ProWithFallbacks(agentMessages, system, {
-          clientSessionId,
-          fingerprintId,
-          userInputId: promptId,
-          userId,
-          temperature: 0,
-        })
-      : promptOpenAIStream(messagesWithSystem(agentMessages, system), {
-          model: models.gpt4_1,
-          clientSessionId,
-          fingerprintId,
-          userInputId: promptId,
-          userId,
-        })
+  const stream = getStream(agentMessages, system)
 
   const streamWithTags = processStreamWithTags(stream, {
     write_file: {

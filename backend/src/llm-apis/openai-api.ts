@@ -12,6 +12,7 @@ import { OpenAIModel } from 'common/constants'
 import { match, P } from 'ts-pattern'
 import { generateCompactId } from 'common/util/string'
 import { countTokensJson } from '@/util/token-counter'
+import { removeUndefinedProps } from 'common/util/object'
 
 let openai: OpenAI | null = null
 
@@ -116,15 +117,17 @@ export async function* promptOpenAIStream(
   const startTime = Date.now()
 
   try {
-    const stream = await openai.chat.completions.create({
-      model,
-      messages: transformedMessages,
-      temperature: options.temperature ?? 0,
-      stream: true,
-      ...(predictedContent
-        ? { prediction: { type: 'content', content: predictedContent } }
-        : {}),
-    })
+    const stream = await openai.chat.completions.create(
+      removeUndefinedProps({
+        model,
+        messages: transformedMessages,
+        temperature: options.temperature,
+        stream: true,
+        ...(predictedContent
+          ? { prediction: { type: 'content', content: predictedContent } }
+          : {}),
+      })
+    )
 
     let content = ''
     let inputTokens = 0

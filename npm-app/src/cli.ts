@@ -56,7 +56,7 @@ export class CLI {
 
   constructor(
     readyPromise: Promise<[void, ProjectFileContext]>,
-    { git, costMode }: CliOptions
+    { git, costMode, model }: CliOptions
   ) {
     this.git = git
     this.costMode = costMode
@@ -71,7 +71,8 @@ export class CLI {
       this.returnControlToUser.bind(this),
       this.costMode,
       this.git,
-      this.rl
+      this.rl,
+      model
     )
 
     this.readyPromise = Promise.all([
