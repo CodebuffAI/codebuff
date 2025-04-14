@@ -53,7 +53,7 @@ if (require.main === module) {
     .option('--create <template> [name]', 'Create new project from template')
     .option(
       '--model <model>',
-      'Experimental: Specify the model to use ("sonnet-3.6", "sonnet-3.7", "gpt-4.1", "gemini-2.5-pro", "o3-mini")'
+      'Experimental: Specify the main model to use for the agent ("sonnet-3.6", "sonnet-3.7", "gpt-4.1", "gemini-2.5-pro", "o3-mini"). Be aware codebuff might not work as well with non-default models.'
     )
     .addHelpText(
       'after',
