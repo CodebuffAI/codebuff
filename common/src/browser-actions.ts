@@ -326,7 +326,7 @@ export function createBrowserActionXML(action: BrowserAction): string {
       return `${k}="${escaped}"`
     })
     .join(' ')
-  return `<browser_action action="${type}" ${attrsString} />`
+  return `<browser_logs action="${type}" ${attrsString} />`
 }
 
 /**
@@ -334,8 +334,8 @@ export function createBrowserActionXML(action: BrowserAction): string {
  */
 export function parseBrowserActionXML(xmlString: string): BrowserAction {
   // Basic XML validation
-  if (!xmlString.includes('<browser_action') || !xmlString.includes('/>')) {
-    throw new Error('Invalid browser action XML: missing browser_action tag')
+  if (!xmlString.includes('<browser_logs') || !xmlString.includes('/>')) {
+    throw new Error('Invalid browser action XML: missing browser_logs tag')
   }
 
   // Extract attributes using regex

@@ -326,9 +326,9 @@ Important: Use this tool sparingly. Do not use this tool more than once in a con
     `.trim(),
   },
   {
-    name: 'browser_action',
+    name: 'browser_logs',
     description: `
-### browser_action
+### browser_logs
 Description: In a headless browser, navigate to a web page and get the console logs after page load.
 Purpose: Use this tool to check the output of console.log or errors in order to debug issues, test functionality, or verify expected behavior.
 
@@ -342,11 +342,11 @@ Navigate:
    - Optional: <waitUntil> ('load', 'domcontentloaded', 'networkidle0')
 
 Usage:
-<browser_action>
+<browser_logs>
 <type>navigate</type>
 <url>localhost:3000</url>
 <waitUntil>domcontentloaded</waitUntil>
-</browser_action>
+</browser_logs>
 
 IMPORTANT: make absolutely totally sure that you're using the XML tags as shown in the examples. Don't use JSON or any other formatting, only XML tags.
 
@@ -468,7 +468,7 @@ const toolSchemas = {
   run_terminal_command: runTerminalCommandSchema,
   think_deeply: thinkDeeplySchema,
   create_plan: createPlanSchema,
-  browser_action: browserActionSchema,
+  browser_logs: browserActionSchema,
   end_turn: emptySchema,
 } as const
 

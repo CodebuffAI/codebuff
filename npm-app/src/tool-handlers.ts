@@ -167,7 +167,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   end_turn: async () => {
     return ''
   },
-  browser_action: async (params, _id): Promise<string> => {
+  browser_logs: async (params, _id): Promise<string> => {
     Spinner.get().start()
     let response: BrowserResponse
     try {

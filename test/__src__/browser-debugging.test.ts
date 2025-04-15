@@ -32,7 +32,7 @@ describe.skip('Browser XML Instructions', () => {
     }
 
     const xml = createBrowserActionXML(action)
-    expect(xml).toContain('<browser_action')
+    expect(xml).toContain('<browser_logs')
     expect(xml).toContain('action="start"')
     expect(xml).toContain('url="https://example.com"')
     expect(xml).toContain('headless="true"')
@@ -84,7 +84,7 @@ describe.skip('Browser XML Instructions', () => {
   })
 
   test('throws error on invalid XML', () => {
-    const invalidXml = '<browser_action type="click" >'
+    const invalidXml = '<browser_logs type="click" >'
     expect(() => parseBrowserActionXML(invalidXml)).toThrow()
   })
 

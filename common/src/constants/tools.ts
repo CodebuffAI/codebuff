@@ -15,7 +15,7 @@ export const toolSchema = {
   think_deeply: ['thought'],
   create_plan: ['path', 'plan'],
 
-  browser_action: ['type', 'url', 'waitUntil'],
+  browser_logs: ['type', 'url', 'waitUntil'],
 
   // Simple tools
   end_turn: [], // No parameters
