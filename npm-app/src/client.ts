@@ -18,6 +18,7 @@ import type { CostMode } from 'common/constants'
 import {
   CREDITS_REFERRAL_BONUS,
   REQUEST_CREDIT_SHOW_THRESHOLD,
+  UserState,
 } from 'common/constants'
 import {
   AgentState,
@@ -61,8 +62,45 @@ import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 
 const LOW_BALANCE_THRESHOLD = 100
-const VERY_LOW_BALANCE_THRESHOLD = 20
-const MAX_DEBT_LIMIT = 1000
+
+const WARNING_CONFIG = {
+  [UserState.LOGGED_OUT]: {
+    message: () => `Type "login" to unlock full access and get free credits!`,
+    threshold: 100,
+  },
+  [UserState.DEPLETED]: {
+    message: () =>
+      [
+        red(`\n❌ Credits Depleted`),
+        red(`You have used all your credits.`),
+        `Visit ${bold(blue(websiteUrl + '/usage'))} to add more credits and continue coding.`,
+      ].join('\n'),
+    threshold: 100,
+  },
+  [UserState.CRITICAL]: {
+    message: (credits: number) =>
+      [
+        yellow(`\n🪫 Credits Running Low`),
+        yellow(`Only ${bold(pluralize(credits, 'credit'))} remaining!`),
+        yellow(`Visit ${bold(websiteUrl + '/usage')} to add more credits.`),
+      ].join('\n'),
+    threshold: 85,
+  },
+  [UserState.ATTENTION_NEEDED]: {
+    message: (credits: number) =>
+      [
+        yellow(`\n⚠️ Low Credit Alert`),
+        yellow(
+          `${bold(pluralize(credits, 'credit'))} remaining. Consider topping up soon.`
+        ),
+      ].join('\n'),
+    threshold: 75,
+  },
+  [UserState.GOOD_STANDING]: {
+    message: () => '',
+    threshold: 0,
+  },
+} as const
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -74,6 +112,7 @@ export class Client {
   private rl: readline.Interface
   private lastToolResults: ToolResult[] = []
   private extraGemini25ProMessageShown: boolean = false
+  private responseComplete: boolean = false
 
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
@@ -504,50 +543,39 @@ export class Client {
         )
       }
 
-      this.showUsageWarning()
-      
-      // Return control to user after showing usage warning
-      this.returnControlToUser()
+      // Only show warning if the response is complete
+      if (this.responseComplete) {
+        this.showUsageWarning()
+      }
     })
   }
 
-  public showUsageWarning() {
-    if (
-      this.remainingBalance < VERY_LOW_BALANCE_THRESHOLD &&
-      this.lastWarnedPct < 100
-    ) {
-      const message = this.remainingBalance <= 0
-        ? `\n⚠️ Warning: You have no credits remaining and cannot go below -${MAX_DEBT_LIMIT} credits.`
-        : `\n⚠️ Warning: You have only ${bold(this.remainingBalance.toLocaleString())} credits remaining.`;
-      
-      console.warn(yellow(message));
-      
-      if (this.user) {
-        console.warn(
-          yellow(
-            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to add credits.`
-          )
-        )
-      } else {
-        console.warn(yellow(`Type "login" to sign up/in and get more credits!`))
-      }
-      this.lastWarnedPct = 100
-    } else if (
-      this.remainingBalance < LOW_BALANCE_THRESHOLD &&
-      this.lastWarnedPct < 75
-    ) {
-      console.warn(
-        yellow(
-          `You have ${bold(this.remainingBalance.toLocaleString())} credits remaining. Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))}`
-        )
-      )
+  private showUsageWarning() {
+    // Determine user state based on login status and credit balance
+    const state = match({
+      isLoggedIn: !!this.user,
+      credits: this.remainingBalance,
+    })
+      .with({ isLoggedIn: false }, () => UserState.LOGGED_OUT)
+      .with({ credits: P.number.gte(100) }, () => UserState.GOOD_STANDING)
+      .with({ credits: P.number.gte(20) }, () => UserState.ATTENTION_NEEDED)
+      .with({ credits: P.number.gte(1) }, () => UserState.CRITICAL)
+      .otherwise(() => UserState.DEPLETED)
 
-      this.lastWarnedPct = 75
-    } else if (
-      this.remainingBalance >= LOW_BALANCE_THRESHOLD &&
-      this.lastWarnedPct > 0
-    ) {
+    const config = WARNING_CONFIG[state]
+
+    // Reset warning percentage if in good standing
+    if (state === UserState.GOOD_STANDING) {
       this.lastWarnedPct = 0
+      return
+    }
+
+    // Show warning if we haven't warned at this threshold yet
+    if (this.lastWarnedPct < config.threshold) {
+      const message = config.message(this.remainingBalance)
+      console.warn(message)
+      this.lastWarnedPct = config.threshold
+      this.returnControlToUser()
     }
   }
 
@@ -723,12 +751,11 @@ export class Client {
         Spinner.get().stop()
 
         this.agentState = a.agentState
-        let isComplete = false
         const toolResults: ToolResult[] = [...a.toolResults]
 
         for (const toolCall of a.toolCalls) {
           if (toolCall.name === 'end_turn') {
-            isComplete = true
+            this.responseComplete = true
             continue
           }
           if (toolCall.name === 'write_file') {
@@ -741,7 +768,7 @@ export class Client {
             toolCall.parameters.mode === 'user'
           ) {
             // Special case: when terminal command is run it as a user command, then no need to reprompt assistant.
-            isComplete = true
+            this.responseComplete = true
           }
           const toolResult = await handleToolCall(toolCall, getProjectRoot())
           toolResults.push(toolResult)
@@ -755,7 +782,7 @@ export class Client {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
         }
 
-        if (!isComplete) {
+        if (!this.responseComplete) {
           // Continue the prompt with the tool results.
           this.webSocket.sendAction({
             type: 'prompt',
@@ -795,6 +822,7 @@ export class Client {
             `\nComplete! Type "diff" to review changes${checkpointAddendum}.`
           )
           this.hadFileChanges = false
+          this.returnControlToUser()
         }
 
         unsubscribeChunks()
@@ -802,6 +830,9 @@ export class Client {
         resolveResponse({ ...a, wasStoppedByUser: false })
       }
     )
+
+    // Reset the flag at the start of each response
+    this.responseComplete = false
 
     return {
       responsePromise,
