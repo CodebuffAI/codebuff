@@ -1,4 +1,5 @@
 import { z } from 'zod'
+
 import { ProjectFileContext, ProjectFileContextSchema } from '../util/file'
 import { MessageSchema } from './message'
 
@@ -19,7 +20,7 @@ export const AgentStateSchema = z.object({
   agentContext: z.string(),
   fileContext: ProjectFileContextSchema,
   messageHistory: z.array(MessageSchema),
-  lastUserPromptIndex: z.number().optional(),
+  consecutiveAssistantMessages: z.number().optional(),
 })
 export type AgentState = z.infer<typeof AgentStateSchema>
 
@@ -30,6 +31,6 @@ export function getInitialAgentState(
     agentContext: '',
     messageHistory: [],
     fileContext,
-    lastUserPromptIndex: -1,
+    consecutiveAssistantMessages: 0,
   }
 }

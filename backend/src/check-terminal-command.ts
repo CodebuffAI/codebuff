@@ -39,6 +39,18 @@ export async function checkTerminalCommand(
       role: 'user' as const,
       content: `You are checking if the following input (in quotes) is a terminal command that can be run directly without any modification. Only respond with "yes" or "no". Do not explain your reasoning.
 
+Examples of terminal commands ('yes'):
+- "git pull"
+- "npm install"
+- "cd .."
+- "ls"
+
+Examples of non-terminal commands ('no'):
+- "yes"
+- "hi"
+- "I need to install the dependencies"
+- [... long request ...]
+
 Input: ${JSON.stringify(prompt)}`,
     },
   ]

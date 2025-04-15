@@ -1,4 +1,5 @@
 import assert from 'assert'
+import os from 'os'
 import { join } from 'path'
 import { Worker } from 'worker_threads'
 
@@ -91,7 +92,7 @@ export class CheckpointManager {
    */
   private initWorker(): Worker {
     if (!this.worker) {
-      // NOTE: Uses the built worker-script-project-context.js within dist.
+      // NOTE: Uses the built workers/checkpoint-worker.js within dist.
       // So you need to run `bun run build` before running locally.
       const workerPath = __filename.endsWith('.ts')
         ? join(__dirname, '../../dist', 'workers/checkpoint-worker.js')
@@ -166,6 +167,10 @@ export class CheckpointManager {
 
     const id = this.checkpoints.length + 1
     const projectDir = getProjectRoot()
+    if (projectDir === os.homedir()) {
+      this.disabledReason = 'In home directory'
+      throw new CheckpointsDisabledError(this.disabledReason)
+    }
     const bareRepoPath = this.getBareRepoPath()
     const relativeFilepaths = getAllFilePaths(agentState.fileContext.fileTree)
 
@@ -323,10 +328,13 @@ export class CheckpointManager {
   /**
    * Clear all checkpoints
    */
-  clearCheckpoints(): void {
+  clearCheckpoints(resetBareRepoPath: boolean = false): void {
     this.checkpoints = []
     this.currentCheckpointId = 0
     this.undoIds = []
+    if (resetBareRepoPath) {
+      this.bareRepoPath = null
+    }
   }
 
   /**

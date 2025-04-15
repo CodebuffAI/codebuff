@@ -1,11 +1,11 @@
 import { Message } from 'common/types/message'
+import { withCacheControl } from 'common/util/messages'
 
-import { simplifyTerminalCommandResults } from './simplify-tool-results'
-import { countTokensJson } from './token-counter'
 import { System } from '../llm-apis/claude'
 import { OpenAIMessage } from '../llm-apis/openai-api'
 import { logger } from './logger'
-import { withCacheControl } from 'common/util/messages'
+import { simplifyTerminalCommandResults } from './simplify-tool-results'
+import { countTokensJson } from './token-counter'
 
 /**
  * Wraps an array of messages with a system prompt for LLM API calls

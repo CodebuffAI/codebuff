@@ -165,11 +165,13 @@ export const getModelForMode = (
 
 export const claudeModels = {
   sonnet: 'claude-3-5-sonnet-20241022',
+  sonnet3_7: 'claude-3-7-sonnet-20250219',
   haiku: 'claude-3-5-haiku-20241022',
 } as const
 export type AnthropicModel = (typeof claudeModels)[keyof typeof claudeModels]
 
 export const openaiModels = {
+  gpt4_1: 'gpt-4.1-2025-04-14',
   gpt4o: 'gpt-4o-2024-11-20',
   gpt4omini: 'gpt-4o-mini-2024-07-18',
   o3mini: 'o3-mini-2025-01-31',
@@ -205,6 +207,26 @@ export const models = {
   ...deepseekModels,
   ...openrouterModels,
 } as const
+
+export const shortModelNames = {
+  'gemini-2.5-pro': models.gemini2_5_pro_preview,
+  'sonnet-3.7': models.sonnet3_7,
+  'sonnet-3.5': models.sonnet,
+  'sonnet-3.6': models.sonnet,
+  'gpt-4.1': models.gpt4_1,
+  'o3-mini': models.o3mini,
+}
+
+export const providerModelNames = {
+  [models.gemini2_5_pro_preview]: 'gemini',
+  [models.gemini2_5_pro_exp]: 'gemini',
+  [models.sonnet3_7]: 'anthropic',
+  [models.sonnet]: 'anthropic',
+  [models.gpt4_1]: 'openai',
+  [models.gpt4o]: 'openai',
+  [models.gpt4omini]: 'openai',
+  [models.o3mini]: 'openai',
+}
 
 export type Model = (typeof models)[keyof typeof models]
 

@@ -61,6 +61,7 @@ export const handleRunTerminalCommand = async (
 ): Promise<{ result: string; stdout: string }> => {
   const { command, mode = 'assistant', process_type = 'SYNC' } = parameters
   return runTerminalCommand(
+    id,
     command,
     mode,
     projectPath,

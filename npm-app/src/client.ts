@@ -27,7 +27,7 @@ import {
 } from 'common/types/agent-state'
 import { User } from 'common/util/credentials'
 import { ProjectFileContext } from 'common/util/file'
-import { generateCompactId, pluralize } from 'common/util/string'
+import { pluralize } from 'common/util/string'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import {
   blue,
@@ -86,6 +86,7 @@ export class Client {
   public nextQuotaReset: Date | null = null
   public storedApiKeyTypes: ApiKeyType[] = []
   public lastToolResults: ToolResult[] = []
+  public model: string | undefined
 
   constructor(
     websocketUrl: string,
@@ -94,9 +95,11 @@ export class Client {
     returnControlToUser: () => void,
     costMode: CostMode,
     git: GitCommand,
-    rl: readline.Interface
+    rl: readline.Interface,
+    model: string | undefined
   ) {
     this.costMode = costMode
+    this.model = model
     this.git = git
     this.webSocket = new APIRealtimeClient(
       websocketUrl,
@@ -561,17 +564,11 @@ export class Client {
       prompt
     )
 
-    // Get new output from all running background processes
-    const processUpdates = getBackgroundProcessUpdates()
-
     // Append process updates to existing tool results
-    const toolResults = processUpdates
-      ? (this.lastToolResults || []).concat({
-          id: generateCompactId(),
-          name: 'background_process_updates',
-          result: processUpdates,
-        })
-      : this.lastToolResults
+    const toolResults = [
+      ...(this.lastToolResults || []),
+      ...getBackgroundProcessUpdates(),
+    ]
 
     Spinner.get().start()
     this.webSocket.sendAction({
@@ -583,6 +580,7 @@ export class Client {
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,
       costMode: this.costMode,
+      model: this.model,
     })
 
     return {
@@ -739,6 +737,9 @@ export class Client {
         }
 
         if (!isComplete) {
+          // Append process updates to existing tool results
+          toolResults.push(...getBackgroundProcessUpdates())
+
           // Continue the prompt with the tool results.
           this.webSocket.sendAction({
             type: 'prompt',
@@ -749,6 +750,7 @@ export class Client {
             fingerprintId: await this.fingerprintId,
             authToken: this.user?.authToken,
             costMode: this.costMode,
+            model: this.model,
           })
           return
         }

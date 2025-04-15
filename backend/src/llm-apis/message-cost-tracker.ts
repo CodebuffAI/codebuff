@@ -23,8 +23,10 @@ const PROFIT_MARGIN = 0.3
 const TOKENS_COST_PER_M = {
   input: {
     [models.sonnet]: 3,
+    [models.sonnet3_7]: 3,
     [models.haiku]: 0.8,
     [models.gpt4o]: 2.5,
+    [models.gpt4_1]: 2,
     [models.gpt4omini]: 0.15,
     [models.o3mini]: 1.1,
     [models.deepseekChat]: 0.14,
@@ -34,8 +36,10 @@ const TOKENS_COST_PER_M = {
   },
   output: {
     [models.sonnet]: 15,
+    [models.sonnet3_7]: 15,
     [models.haiku]: 4,
     [models.gpt4o]: 10.0,
+    [models.gpt4_1]: 8,
     [models.gpt4omini]: 0.6,
     [models.o3mini]: 4.4,
     [models.deepseekChat]: 0.28,
@@ -45,14 +49,17 @@ const TOKENS_COST_PER_M = {
   },
   cache_creation: {
     [models.sonnet]: 3.75,
+    [models.sonnet3_7]: 3.75,
     [models.haiku]: 1,
   },
   cache_read: {
     [models.sonnet]: 0.3,
+    [models.sonnet3_7]: 0.3,
     [models.haiku]: 0.08,
     [models.deepseekChat]: 0.014,
     [models.deepseekReasoner]: 0.14,
     [models.gpt4o]: 1.25,
+    [models.gpt4_1]: 0.5,
     [models.gpt4omini]: 0.075,
     [models.o3mini]: 0.55,
     [models.gemini2flash]: 0.025,

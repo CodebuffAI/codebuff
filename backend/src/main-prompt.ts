@@ -1,9 +1,8 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { ClientAction } from 'common/actions'
 import {
-  AnthropicModel,
-  getModelForMode,
   HIDDEN_FILE_READ_STATUS,
+  models,
   ONE_TIME_TAGS,
   type CostMode,
 } from 'common/constants'
@@ -19,10 +18,9 @@ import { WebSocket } from 'ws'
 import { checkTerminalCommand } from './check-terminal-command'
 import { requestRelevantFiles } from './find-files/request-files-prompt'
 import { getDocumentationForQuery } from './get-documentation-for-query'
-import { promptClaudeStream } from './llm-apis/claude'
-import { streamGemini25ProWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { processFileBlock } from './process-file-block'
 import { processStreamWithTags } from './process-stream'
+import { getAgentStream } from './prompt-agent-stream'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
@@ -53,7 +51,6 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
-
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
 export const mainPrompt = async (
@@ -61,7 +58,8 @@ export const mainPrompt = async (
   action: Extract<ClientAction, { type: 'prompt' }>,
   userId: string | undefined,
   clientSessionId: string,
-  onResponseChunk: (chunk: string) => void
+  onResponseChunk: (chunk: string) => void,
+  selectedModel: string | undefined
 ): Promise<{
   agentState: AgentState
   toolCalls: Array<ClientToolCall>
@@ -70,6 +68,15 @@ export const mainPrompt = async (
   const { prompt, agentState, fingerprintId, costMode, promptId, toolResults } =
     action
   const { messageHistory, fileContext, agentContext } = agentState
+
+  const { getStream, model } = getAgentStream({
+    costMode,
+    selectedModel,
+    clientSessionId,
+    fingerprintId,
+    userInputId: promptId,
+    userId,
+  })
 
   const relevantDocumentationPromise = prompt
     ? getDocumentationForQuery(prompt, {
@@ -90,11 +97,13 @@ export const mainPrompt = async (
   const justRanTerminalCommand = toolResults.some(
     (t) => t.name === 'run_terminal_command'
   )
+  const isGPT4_1 = model === models.gpt4_1
   const userInstructions = buildArray(
     'Instructions:',
     'Proceed toward the user request and any subgoals.',
 
-    "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
+    !isGPT4_1 &&
+      "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
 
@@ -129,7 +138,9 @@ export const mainPrompt = async (
 
     "Don't run git commands or scripts without being specifically asked to do so. This can prevent costly accidents. Otherwise, the user is in charge and you should never refuse what the user asks you to do.",
 
-    'Important: You must write "<end_turn></end_turn>" at the end of your response, when you want the user to respond, but not if you are still working on the user\'s request.'
+    'Important: You must write "<end_turn></end_turn>" at the end of your response, when you want the user to respond, but not if you are still working on the user\'s request.',
+    isGPT4_1 &&
+      "Make sure you completely finish the entire user's request. If the user's request is multi-part, please complete ALL the parts before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response."
   ).join('\n\n')
 
   const toolInstructions = buildArray(
@@ -171,7 +182,6 @@ export const mainPrompt = async (
       const newAgentState = {
         ...agentState,
         messageHistory: messagesWithToolResultsAndUser,
-        lastUserPromptIndex: messagesWithToolResultsAndUser.length - 1,
       }
       return {
         agentState: newAgentState,
@@ -190,43 +200,37 @@ export const mainPrompt = async (
     }
   } else {
     // Check number of assistant messages since last user message with prompt
-    const lastUserPromptIndex = agentState.lastUserPromptIndex ?? -1
-    if (lastUserPromptIndex >= 0) {
-      const messagesSincePrompt = messageHistory.slice(lastUserPromptIndex + 1)
-      const consecutiveAssistantMessages = messagesSincePrompt.filter(
-        (msg) => msg.role === 'assistant'
-      ).length
+    const consecutiveAssistantMessages =
+      agentState.consecutiveAssistantMessages ?? 0
+    if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
+      logger.warn(
+        `Detected ${consecutiveAssistantMessages} consecutive assistant messages without user prompt`
+      )
 
-      if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
-        logger.warn(
-          `Detected ${consecutiveAssistantMessages} consecutive assistant messages without user prompt`
-        )
+      const warningString = [
+        "I've made quite a few responses in a row.",
+        "Let me pause here to make sure we're still on the right track.",
+        "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
+      ].join(' ')
 
-        const warningString = [
-          "I've made quite a few responses in a row.",
-          "Let me pause here to make sure we're still on the right track.",
-          "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
-        ].join(' ')
+      onResponseChunk(`${warningString}\n\n`)
 
-        onResponseChunk(`${warningString}\n\n`)
-
-        return {
-          agentState: {
-            ...agentState,
-            messageHistory: [
-              ...messageHistory,
-              { role: 'assistant', content: warningString },
-            ],
-          },
-          toolCalls: [
-            {
-              id: generateCompactId(),
-              name: 'end_turn',
-              parameters: {},
-            },
+      return {
+        agentState: {
+          ...agentState,
+          messageHistory: [
+            ...messageHistory,
+            { role: 'assistant', content: warningString },
           ],
-          toolResults: [],
-        }
+        },
+        toolCalls: [
+          {
+            id: generateCompactId(),
+            name: 'end_turn',
+            parameters: {},
+          },
+        ],
+        toolResults: [],
       }
     }
   }
@@ -396,23 +400,7 @@ ${newFiles.map((file) => file.path).join('\n')}
     Promise<{ path: string; content: string; patch?: string } | null>[]
   > = {}
 
-  const stream =
-    costMode === 'experimental'
-      ? streamGemini25ProWithFallbacks(agentMessages, system, {
-          clientSessionId,
-          fingerprintId,
-          userInputId: promptId,
-          userId,
-          temperature: 0,
-        })
-      : promptClaudeStream(agentMessages, {
-          system,
-          model: getModelForMode(costMode, 'agent') as AnthropicModel,
-          clientSessionId,
-          fingerprintId,
-          userInputId: promptId,
-          userId,
-        })
+  const stream = getStream(agentMessages, system)
 
   const streamWithTags = processStreamWithTags(stream, {
     write_file: {
@@ -494,7 +482,7 @@ ${newFiles.map((file) => file.path).join('\n')}
   }
 
   const messagesWithResponse = [
-    ...messagesWithUserMessage,
+    ...agentMessages,
     {
       role: 'assistant' as const,
       content: fullResponse,
@@ -649,9 +637,9 @@ ${newFiles.map((file) => file.path).join('\n')}
     ...agentState,
     messageHistory: messagesWithResponse,
     agentContext: newAgentContext,
-    lastUserPromptIndex: prompt
-      ? messagesWithUserMessage.length - 1
-      : agentState.lastUserPromptIndex,
+    consecutiveAssistantMessages: prompt
+      ? 1
+      : (agentState.consecutiveAssistantMessages ?? 0) + 1,
   }
 
   logger.debug(

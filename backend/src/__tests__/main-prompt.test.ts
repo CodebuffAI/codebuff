@@ -24,6 +24,23 @@ import { logger } from '../util/logger'
 import { renderToolResults } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
+const mockAgentStream = (streamOutput: string) => {
+  spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
+    yield streamOutput
+  })
+  spyOn(gemini, 'promptGeminiStream').mockImplementation(async function* () {
+    yield streamOutput
+  } as any)
+  spyOn(openai, 'promptOpenAIStream').mockImplementation(async function* () {
+    yield streamOutput
+  })
+  spyOn(
+    geminiWithFallbacks,
+    'streamGemini25ProWithFallbacks'
+  ).mockImplementation(async function* () {
+    yield streamOutput
+  } as any)
+}
 describe('mainPrompt', () => {
   beforeEach(() => {
     spyOn(logger, 'debug').mockImplementation(() => {})
@@ -167,7 +184,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     // Expected order: [ToolResultsMsg, InstructionsMsg, PromptMsg, AssistantMsg]
@@ -244,7 +262,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     // Find the user message containing tool results added *during* the mainPrompt execution
@@ -291,7 +310,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     expect(toolCalls).toHaveLength(1)
@@ -304,25 +324,7 @@ describe('mainPrompt', () => {
   it('should handle write_file tool call', async () => {
     // Mock LLM to return a write_file tool call
     const writeFileBlock = createWriteFileBlock('new-file.txt', 'Hello World')
-    spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
-      yield writeFileBlock
-    })
-    spyOn(gemini, 'promptGeminiStream').mockImplementation(async function* () {
-      yield writeFileBlock
-    } as any)
-    // Override the mock specifically for this test case when costMode is 'max'
-    spyOn(
-      geminiWithFallbacks,
-      'streamGemini25ProWithFallbacks'
-    ).mockImplementation(
-      () =>
-        new ReadableStream({
-          start(controller) {
-            controller.enqueue(writeFileBlock)
-            controller.close()
-          },
-        }) as any
-    )
+    mockAgentStream(writeFileBlock)
 
     const agentState = getInitialAgentState(mockFileContext)
     const { toolCalls, agentState: newAgentState } = await mainPrompt(
@@ -338,7 +340,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     expect(toolCalls).toHaveLength(1) // This assertion should now pass
@@ -357,7 +360,7 @@ describe('mainPrompt', () => {
     const agentState = getInitialAgentState(mockFileContext)
 
     // Set up message history with many consecutive assistant messages
-    agentState.lastUserPromptIndex = 0
+    agentState.consecutiveAssistantMessages = 20 // Set to MAX_CONSECUTIVE_ASSISTANT_MESSAGES
     agentState.messageHistory = [
       { role: 'user', content: 'Initial prompt' },
       ...Array(20).fill({ role: 'assistant', content: 'Assistant response' }),
@@ -376,7 +379,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     expect(toolCalls).toHaveLength(1)
@@ -384,9 +388,9 @@ describe('mainPrompt', () => {
     expect(toolCalls[0].parameters).toEqual({})
   })
 
-  it('should update lastUserPromptIndex when new prompt is received', async () => {
+  it('should update consecutiveAssistantMessages when new prompt is received', async () => {
     const agentState = getInitialAgentState(mockFileContext)
-    agentState.lastUserPromptIndex = 0
+    agentState.consecutiveAssistantMessages = 0
 
     const { agentState: newAgentState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
@@ -401,17 +405,18 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
-    // The new lastUserPromptIndex should be the index of the new prompt message
-    expect(newAgentState.lastUserPromptIndex).toBeGreaterThan(0)
+    // When there's a new prompt, consecutiveAssistantMessages should be set to 1
+    expect(newAgentState.consecutiveAssistantMessages).toBe(1)
   })
 
-  it('should not update lastUserPromptIndex when no new prompt', async () => {
+  it('should increment consecutiveAssistantMessages when no new prompt', async () => {
     const agentState = getInitialAgentState(mockFileContext)
-    const initialIndex = 5
-    agentState.lastUserPromptIndex = initialIndex
+    const initialCount = 5
+    agentState.consecutiveAssistantMessages = initialCount
 
     const { agentState: newAgentState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
@@ -426,26 +431,17 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
-    expect(newAgentState.lastUserPromptIndex).toBe(initialIndex)
+    // When there's no new prompt, consecutiveAssistantMessages should increment by 1
+    expect(newAgentState.consecutiveAssistantMessages).toBe(initialCount + 1)
   })
 
   it('should return end_turn tool call when LLM response is empty', async () => {
     // Mock the LLM stream to return nothing
-    spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
-      yield ''
-    })
-    spyOn(gemini, 'promptGeminiStream').mockImplementation(async function* () {
-      yield ''
-    } as any)
-    spyOn(
-      geminiWithFallbacks,
-      'streamGemini25ProWithFallbacks'
-    ).mockImplementation(async function* () {
-      yield ''
-    } as any)
+    mockAgentStream('')
 
     const agentState = getInitialAgentState(mockFileContext)
     const { toolCalls } = await mainPrompt(
@@ -461,7 +457,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     expect(toolCalls).toHaveLength(1)
@@ -480,18 +477,7 @@ describe('mainPrompt', () => {
 <process_type>SYNC</process_type>
 </run_terminal_command>`
 
-    spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
-    spyOn(gemini, 'promptGeminiStream').mockImplementation(async function* () {
-      yield mockResponse
-    } as any)
-    spyOn(
-      geminiWithFallbacks,
-      'streamGemini25ProWithFallbacks'
-    ).mockImplementation(async function* () {
-      yield mockResponse
-    } as any)
+    mockAgentStream(mockResponse)
 
     const { toolCalls } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
@@ -506,7 +492,8 @@ describe('mainPrompt', () => {
       },
       TEST_USER_ID,
       'test-session',
-      () => {}
+      () => {},
+      undefined // Mock model
     )
 
     expect(toolCalls).toHaveLength(1)

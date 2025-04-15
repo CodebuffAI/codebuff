@@ -1,6 +1,7 @@
 import { ChildProcessByStdio } from 'child_process'
 import { Readable } from 'stream'
 
+import { ToolResult } from 'common/types/agent-state'
 import { buildArray } from 'common/util/array'
 import { truncateStringWithMessage } from 'common/util/string'
 
@@ -11,7 +12,8 @@ const COMMAND_OUTPUT_LIMIT = 5000 // Limit output to 10KB per stream
  */
 export interface BackgroundProcessInfo {
   // OS-assigned Process ID
-  id: number
+  pid: number
+  toolCallId: string
   command: string
   // The actual child process object
   process: ChildProcessByStdio<null, Readable, Readable>
@@ -83,7 +85,7 @@ export function getBackgroundProcessInfoString(
 
   return buildArray(
     '<background_process>',
-    `  <process_id>${info.id}</process_id>`,
+    `  <process_id>${info.pid}</process_id>`,
     `  <command>${info.command}</command>`,
     `  <start_time_utc>${new Date(info.startTime).toISOString()}</start_time_utc>`,
     `  <duration_ms>${duration}</duration_ms>`,
@@ -113,10 +115,12 @@ export function getBackgroundProcessInfoString(
 /**
  * Gets updates from all background processes and updates tracking info
  */
-export function getBackgroundProcessUpdates(): string {
+export function getBackgroundProcessUpdates(): ToolResult[] {
   const updates = Array.from(backgroundProcesses.values())
-    .map(getBackgroundProcessInfoString)
-    .filter(Boolean)
+    .map((bgProcess) => {
+      return [getBackgroundProcessInfoString(bgProcess), bgProcess.toolCallId]
+    })
+    .filter(([update]) => Boolean(update))
 
   // Update tracking info after getting updates
   for (const process of backgroundProcesses.values()) {
@@ -128,7 +132,13 @@ export function getBackgroundProcessUpdates(): string {
   // Clean up completed processes that we've already reported
   cleanupReportedProcesses()
 
-  return updates.join('\n')
+  return updates.map(([update, toolCallId]) => {
+    return {
+      name: 'background_process_updates',
+      result: update,
+      id: toolCallId,
+    }
+  })
 }
 
 /**

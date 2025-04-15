@@ -395,16 +395,20 @@ Do not use the end_turn tool in the same message as other tool calls. Instead, w
 
 // Define Zod schemas for parameter validation
 const addSubgoalSchema = z.object({
+  id: z.string().min(1, 'Id cannot be empty'),
   objective: z.string().min(1, 'Objective cannot be empty'),
   status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED']),
   plan: z.string().optional(),
+  log: z.string().optional(),
 })
 
 const updateSubgoalSchema = z.object({
-  objective: z.string().min(1, 'Objective cannot be empty'),
-  status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED']),
+  id: z.string().min(1, 'Id cannot be empty'),
+  status: z
+    .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED'])
+    .optional(),
   plan: z.string().optional(),
-  update: z.string().optional(),
+  log: z.string().optional(),
 })
 
 const writeFileSchema = z.object({
