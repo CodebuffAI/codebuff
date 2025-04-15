@@ -7,11 +7,7 @@ import { UsageDisplay, UsageDisplaySkeleton } from './usage-display'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { env } from '@/env.mjs'
-import {
-  useQuery,
-  useMutation,
-  useQueryClient as useTanstackQueryClient,
-} from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -33,7 +29,9 @@ import {
 } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import debounce from 'lodash/debounce'
-import { AutoTopupSection } from '@/components/auto-topup/AutoTopupSection'
+
+import { AutoTopupSettings } from '@/components/auto-topup/AutoTopupSettings'
+import { CreditPurchaseSection } from '@/components/credits/CreditPurchaseSection'
 
 type UserProfileKeys =
   | 'handle'
@@ -83,99 +81,6 @@ const SignInCard = () => (
   </Card>
 )
 
-const CreditPurchaseSection = ({
-  onPurchase,
-  onSaveAutoTopupSettings,
-  isAutoTopupEnabled,
-  isAutoTopupPending,
-  isPending,
-  isPurchasePending,
-}: {
-  onPurchase: (credits: number) => void
-  onSaveAutoTopupSettings: () => Promise<boolean>
-  isAutoTopupEnabled: boolean
-  isAutoTopupPending: boolean
-  isPending: boolean
-  isPurchasePending: boolean
-}) => {
-  const creditOptions = [500, 1000, 2000, 5000, 10000]
-  const [selectedCredits, setSelectedCredits] = useState<number | null>(null)
-
-  const handlePurchaseClick = async () => {
-    if (!selectedCredits || isPurchasePending || isPending) return
-
-    let canProceed = true
-    if (isAutoTopupEnabled) {
-      canProceed = await onSaveAutoTopupSettings()
-    }
-
-    if (canProceed) {
-      onPurchase(selectedCredits)
-    }
-  }
-
-  const handleCreditSelection = (credits: number) => {
-    setSelectedCredits((currentSelected) =>
-      currentSelected === credits ? null : credits
-    )
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-        {creditOptions.map((credits) => {
-          const costInCents = convertCreditsToUsdCents(
-            credits,
-            CENTS_PER_CREDIT
-          )
-          const costInDollars = (costInCents / 100).toFixed(2)
-
-          return (
-            <Button
-              key={credits}
-              variant="outline"
-              onClick={() => handleCreditSelection(credits)}
-              className={cn(
-                'flex flex-col p-4 h-auto gap-1 transition-colors',
-                selectedCredits === credits
-                  ? 'border-primary bg-accent'
-                  : 'hover:bg-accent/50'
-              )}
-              disabled={isPending || isPurchasePending}
-            >
-              <span className="text-lg font-semibold">
-                {credits.toLocaleString()}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                ${costInDollars}
-              </span>
-            </Button>
-          )
-        })}
-      </div>
-      <div className="flex items-center justify-end">
-        <NeonGradientButton
-          onClick={handlePurchaseClick}
-          disabled={!selectedCredits || isPending || isPurchasePending}
-          className={cn(
-            'w-auto transition-opacity min-w-[120px]',
-            (!selectedCredits || isPending || isPurchasePending) && 'opacity-50'
-          )}
-          neonColors={{
-            firstColor: '#4F46E5',
-            secondColor: '#06B6D4',
-          }}
-        >
-          {isPurchasePending ? (
-            <Loader className="mr-2 size-4 animate-spin" />
-          ) : null}
-          Buy Credits
-        </NeonGradientButton>
-      </div>
-    </div>
-  )
-}
-
 const BuyCreditsSkeleton = () => (
   <Card className="w-full max-w-2xl mx-auto mb-8">
     <CardContent className="space-y-6 pt-6">
@@ -201,11 +106,67 @@ const BuyCreditsSkeleton = () => (
 const ManageCreditsCard = () => {
   const { data: session } = useSession()
   const email = encodeURIComponent(session?.user?.email || '')
-  
+  const queryClient = useQueryClient()
+
+  const buyCreditsMutation = useMutation({
+    mutationFn: async (credits: number) => {
+      const response = await fetch('/api/stripe/buy-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credits }),
+      })
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: 'Failed to initiate purchase' }))
+        throw new Error(errorData.error || 'Failed to initiate purchase')
+      }
+      return response.json()
+    },
+    onSuccess: (data) => {
+      if (data.sessionId) {
+        import('@stripe/stripe-js').then(async ({ loadStripe }) => {
+          const stripePromise = loadStripe(
+            env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+          )
+          const stripe = await stripePromise
+          if (!stripe) {
+            toast({
+              title: 'Error',
+              description: 'Stripe.js failed to load.',
+              variant: 'destructive',
+            })
+            return
+          }
+          const { error } = await stripe.redirectToCheckout({
+            sessionId: data.sessionId,
+          })
+          if (error) {
+            console.error('Stripe redirect error:', error)
+            toast({
+              title: 'Error',
+              description: error.message || 'Failed to redirect to Stripe.',
+              variant: 'destructive',
+            })
+          }
+        })
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['usageData'] })
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Purchase Error',
+        description: error.message,
+        variant: 'destructive',
+      })
+    },
+  })
+
   return (
     <Card className="w-full max-w-2xl mx-auto mb-8">
       <CardContent className="space-y-6 pt-6">
-        <div className="space-y-4">
+        <div className="space-y-8">
           <div className="flex items-center justify-between">
             <h3 className="text-2xl font-bold">Buy Credits</h3>
             <Link
@@ -216,7 +177,16 @@ const ManageCreditsCard = () => {
               Billing Portal →
             </Link>
           </div>
-          <AutoTopupSection />
+          <CreditPurchaseSection
+            onPurchase={(credits) => buyCreditsMutation.mutate(credits)}
+            onSaveAutoTopupSettings={async () => true}
+            isAutoTopupEnabled={false}
+            isAutoTopupPending={false}
+            isPending={false}
+            isPurchasePending={buyCreditsMutation.isPending}
+          />
+          <div className="border-t border-border" />
+          <AutoTopupSettings />
         </div>
       </CardContent>
     </Card>
@@ -247,19 +217,6 @@ const UsagePage = () => {
     },
     enabled: status === 'authenticated',
   })
-
-  if (status === 'loading') {
-    return (
-      <div className="space-y-8 container mx-auto py-6 px-4 sm:py-10 sm:px-6">
-        <UsageDisplaySkeleton />
-        <BuyCreditsSkeleton />
-      </div>
-    )
-  }
-
-  if (status === 'unauthenticated') {
-    return <SignInCard />
-  }
 
   const isUsageOrProfileLoading =
     isLoadingUsage || (status === 'authenticated' && !usageData)

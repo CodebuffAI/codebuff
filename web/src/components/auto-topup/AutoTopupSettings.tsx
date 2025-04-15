@@ -20,13 +20,15 @@ export function AutoTopupSettings() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
       <div className="flex items-center justify-between">
         <AutoTopupSwitch
           isEnabled={isEnabled}
           onToggle={handleToggleAutoTopup}
           isPending={isPending}
-          autoTopupBlockedReason={userProfile?.auto_topup_blocked_reason ?? null}
+          autoTopupBlockedReason={
+            userProfile?.auto_topup_blocked_reason ?? null
+          }
         />
       </div>
       <AutoTopupSettingsForm
@@ -37,6 +39,6 @@ export function AutoTopupSettings() {
         onTopUpAmountChange={handleTopUpAmountChange}
         isPending={isPending}
       />
-    </div>
+    </>
   )
 }
