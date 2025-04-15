@@ -159,7 +159,8 @@ export class CheckpointManager {
   async addCheckpoint(
     agentState: AgentState,
     lastToolResults: ToolResult[],
-    userInput: string
+    userInput: string,
+    saveWithNoChanges: boolean = false
   ): Promise<{ checkpoint: Checkpoint; created: boolean }> {
     if (this.disabledReason !== null) {
       throw new CheckpointsDisabledError(this.disabledReason)
@@ -184,7 +185,7 @@ export class CheckpointManager {
       bareRepoPath,
       relativeFilepaths,
     })
-    if (!needToStage && this.checkpoints.length > 0) {
+    if (!needToStage && !saveWithNoChanges && this.checkpoints.length > 0) {
       return {
         checkpoint: this.checkpoints[this.checkpoints.length - 1],
         created: false,

@@ -19,18 +19,14 @@ import { backgroundProcesses } from './background-process-manager'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import {
-  checkpointClearCommands,
-  checkpointListCommands,
-  handleCheckpoints,
+  displayCheckpointMenu,
   handleClearCheckpoints,
   handleRedo,
   handleRestoreCheckpoint,
   handleUndo,
   isCheckpointCommand,
-  redoCommands,
-  restoreCheckpointRegex,
+  listCheckpoints,
   saveCheckpoint,
-  undoCommands,
 } from './cli-handlers/checkpoint'
 import { Client } from './client'
 import { websocketUrl } from './config'
@@ -333,27 +329,27 @@ export class CLI {
 
     // Checkpoint commands
     if (isCheckpointCommand(userInput)) {
-      if (undoCommands.includes(userInput)) {
+      if (isCheckpointCommand(userInput, 'undo')) {
         await saveCheckpoint(userInput, this.client, this.readyPromise)
         const toRestore = await handleUndo(this.client, this.rl)
         this.freshPrompt(toRestore)
         return true
       }
-      if (redoCommands.includes(userInput)) {
+      if (isCheckpointCommand(userInput, 'redo')) {
         await saveCheckpoint(userInput, this.client, this.readyPromise)
         const toRestore = await handleRedo(this.client, this.rl)
         this.freshPrompt(toRestore)
         return true
       }
-      if (checkpointListCommands.includes(userInput)) {
+      if (isCheckpointCommand(userInput, 'list')) {
         await saveCheckpoint(userInput, this.client, this.readyPromise)
-        await handleCheckpoints()
+        await listCheckpoints()
         this.freshPrompt()
         return true
       }
-      const restoreMatch = userInput.match(restoreCheckpointRegex)
+      const restoreMatch = isCheckpointCommand(userInput, 'restore')
       if (restoreMatch) {
-        const id = parseInt(restoreMatch[1], 10)
+        const id = parseInt((restoreMatch as RegExpMatchArray)[1], 10)
         await saveCheckpoint(userInput, this.client, this.readyPromise)
         const toRestore = await handleRestoreCheckpoint(
           id,
@@ -363,13 +359,20 @@ export class CLI {
         this.freshPrompt(toRestore)
         return true
       }
-      if (checkpointClearCommands.includes(userInput)) {
+      if (isCheckpointCommand(userInput, 'clear')) {
         handleClearCheckpoints()
         this.freshPrompt()
         return true
       }
-      // TODO checkpoint menu
-      return false
+      if (isCheckpointCommand(userInput, 'save')) {
+        await saveCheckpoint(userInput, this.client, this.readyPromise, true)
+        displayCheckpointMenu()
+        this.freshPrompt()
+        return true
+      }
+      displayCheckpointMenu()
+      this.freshPrompt()
+      return true
     }
 
     return false

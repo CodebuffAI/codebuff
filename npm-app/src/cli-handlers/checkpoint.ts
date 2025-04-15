@@ -1,7 +1,7 @@
-import type { Interface as ReadlineInterface } from 'readline'
+import { Interface as ReadlineInterface } from 'readline'
 
 import { AgentState } from 'common/types/agent-state'
-import { green, red } from 'picocolors'
+import { bold, cyan, green, red, underline } from 'picocolors'
 
 import {
   CheckpointsDisabledError,
@@ -10,25 +10,68 @@ import {
 import type { Client } from '../client'
 import { Spinner } from '../utils/spinner'
 
-export const restoreCheckpointRegex = /^checkpoint\s+(\d+)$/
-export const undoCommands = ['undo', 'u']
-export const redoCommands = ['redo', 'r']
-export const checkpointListCommands = ['checkpoint list', 'checkpoints']
-export const checkpointClearCommands = ['checkpoint clear']
-export const allCheckpointCommands = [
-  ...undoCommands,
-  ...redoCommands,
-  ...checkpointListCommands,
-]
+export const checkpointCommands = {
+  save: [['checkpoint'], 'Save current state as a new checkpoint'],
+  list: [['checkpoint list', 'checkpoints'], 'List all saved checkpoints'],
+  clear: [['checkpoint clear'], 'Clear all checkpoints'],
+  undo: [['undo', 'u'], 'Undo to previous checkpoint'],
+  redo: [['redo', 'r'], 'Redo previously undone checkpoint'],
+  restore: [[/^checkpoint\s+(\d+)$/], 'Restore to checkpoint number <n>'],
+} as const
+const allCheckpointCommands = Object.entries(checkpointCommands)
+  .map((entry) => entry[1][0])
+  .flat()
 
-export function isCheckpointCommand(userInput: string): boolean {
-  return (
-    userInput.startsWith('checkpoint') ||
-    allCheckpointCommands.includes(userInput)
-  )
+export function displayCheckpointMenu(): void {
+  console.log('\n' + bold(underline('Checkpoint Commands:')))
+  Object.entries(checkpointCommands).forEach(([, [aliases, description]]) => {
+    const formattedAliases = aliases
+      .map((a) => (typeof a === 'string' ? cyan(a) : cyan('checkpoint <n>')))
+      .join(', ')
+    console.log(`${formattedAliases} - ${description}`)
+  })
+  console.log()
 }
 
-export async function handleCheckpoints(): Promise<void> {
+export function isCheckpointCommand(
+  userInput: string,
+  type: keyof typeof checkpointCommands | null = null
+): boolean | RegExpMatchArray {
+  if (type === null) {
+    if (userInput.startsWith('checkpoint')) {
+      return true
+    }
+
+    for (const pattern of allCheckpointCommands) {
+      if (pattern instanceof RegExp) {
+        const m = userInput.match(pattern)
+        if (m) {
+          return m
+        }
+      }
+      if (userInput === pattern) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  for (const pattern of checkpointCommands[type][0]) {
+    if (pattern instanceof RegExp) {
+      const m = userInput.match(pattern)
+      if (m) {
+        return m
+      }
+    }
+    if (userInput === pattern) {
+      return true
+    }
+  }
+  return false
+}
+
+export async function listCheckpoints(): Promise<void> {
   console.log(checkpointManager.getCheckpointsAsString())
 }
 
@@ -168,7 +211,8 @@ export function handleClearCheckpoints(): void {
 export async function saveCheckpoint(
   userInput: string,
   client: Client,
-  readyPromise: Promise<any>
+  readyPromise: Promise<any>,
+  saveWithNoChanges: boolean = false
 ): Promise<void> {
   if (checkpointManager.disabledReason !== null) {
     return
@@ -190,7 +234,8 @@ export async function saveCheckpoint(
     const { checkpoint, created } = await checkpointManager.addCheckpoint(
       client.agentState as AgentState,
       client.lastToolResults,
-      userInput
+      userInput,
+      saveWithNoChanges
     )
 
     if (created) {
