@@ -64,6 +64,13 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
   const searchParams = useSearchParams()
   const referrerParam = searchParams.get('referrer')
 
+  useEffect(() => {
+    // Store the referral code if user is not logged in
+    if (status === 'unauthenticated') {
+      localStorage.setItem('codebuff_referral_code', code)
+    }
+  }, [code, status])
+
   const { data, isLoading, error, isSuccess } = useQuery({
     queryKey: ['referrals', code],
     queryFn: async (): Promise<ReferralCodeResponse> => {
