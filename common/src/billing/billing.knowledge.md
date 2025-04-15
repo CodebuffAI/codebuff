@@ -13,6 +13,16 @@ Both flows must:
 - Use the same operationId throughout the flow
 - Log all steps for debugging
 
+When granting credits:
+1. Check for any negative balances (debt)
+2. If debt exists:
+   - Clear all negative balances to 0
+   - Reduce new grant amount by total debt
+   - Add note to grant description about debt clearance
+   - Only create grant if amount > debt
+3. If no debt:
+   - Create grant normally
+
 ## Refund Flow
 
 When a refund is issued in Stripe:
@@ -34,7 +44,7 @@ When a refund is issued in Stripe:
   - Then consume from remaining grants in order:
     1. Expiring soonest first (never-expiring last)
     2. Within same expiry, by priority (free -> referral -> purchase -> admin)
-    3. Within same priority, oldest first
+    3. Within same priority, oldest first (by created_at)
   - Example:
     ```
     Initial state:
@@ -107,6 +117,12 @@ Auto top-up triggers when:
 - User has valid payment method
 - Amount is >= minimum purchase (500 credits)
 - If user has debt, top-up amount is max(configured amount, debt amount)
+- Settings:
+  - Threshold: 100-10,000 credits
+  - Amount: $5-$100
+  - Settings are saved after 750ms of no changes
+  - Invalid settings prevent enabling
+  - Blocked users cannot enable (e.g. payment failed)
 
 ## Stripe Integration
 

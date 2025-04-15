@@ -781,6 +781,9 @@ export class Client {
           console.log(`${pluralize(credits, 'credit')} used for this request.`)
         }
 
+        // Show usage warning after showing credits used
+        this.showUsageWarning()
+
         if (this.hadFileChanges) {
           let checkpointAddendum = ''
           try {

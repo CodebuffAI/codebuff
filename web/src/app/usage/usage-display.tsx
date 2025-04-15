@@ -20,6 +20,7 @@ import { CreditBalance } from 'common/src/billing/balance-calculator'
 import { GrantType } from 'common/src/db/schema'
 import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
 import { GrantTypeValues } from 'common/src/types/grant'
+import { pluralize } from 'common/util/string'
 
 interface UsageDisplayProps {
   usageThisCycle: number
@@ -99,7 +100,12 @@ export const UsageDisplay = ({
         {balance.netBalance < 0 && (
           <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-md">
             <p className="text-red-500 font-medium">
-              Please purchase {Math.abs(balance.netBalance).toLocaleString()} credits to continue using the service
+              Please purchase at least{' '}
+              {pluralize(
+                Math.abs(balance.netBalance),
+                'credit'
+              ).toLocaleString()}{' '}
+              to continue using Codebuff.
             </p>
           </div>
         )}
@@ -265,7 +271,7 @@ export const UsageDisplay = ({
           )}
 
           {balance.totalDebt > 0 && (
-            <div className="flex justify-between items-center rounded-lg bg-red-500/10 border border-red-500/20">
+            <div className="flex justify-between items-center rounded-lg text-xl">
               <span className="font-medium text-red-500">Negative Balance</span>
               <span className="text-xl text-red-500">
                 -{balance.totalDebt.toLocaleString('en-US')}

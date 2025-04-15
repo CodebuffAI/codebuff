@@ -86,8 +86,8 @@ export async function calculateTotalReferralBonus(
 
 /**
  * Processes a credit grant request:
- * 1. Validates the user.
- * 2. Creates a local grant record.
+ * 1. Checks for and consolidates any existing debt
+ * 2. Creates a new grant record with remaining amount
  *
  * Grant priorities (lower = higher priority):
  * - free (20): Monthly free credits, consumed first
@@ -100,8 +100,8 @@ export async function calculateTotalReferralBonus(
  * @param type The type of grant (e.g., 'free', 'referral', 'purchase', 'admin').
  * @param description Optional description for the grant.
  * @param expiresAt Optional expiration date for the grant. Null means never expires.
- * @param operationId A unique identifier for this grant operation (UUID recommended). If not provided, one will be generated.
- * @returns The created local grant record or null if an error occurred.
+ * @param operationId A unique identifier for this grant operation (UUID recommended).
+ * @returns Promise resolving when complete
  */
 export async function processAndGrantCredit(
   userId: string,
@@ -113,17 +113,78 @@ export async function processAndGrantCredit(
 ): Promise<void> {
   const now = new Date()
 
-  await db.insert(schema.creditLedger).values({
-    operation_id: operationId,
-    user_id: userId,
-    principal: amount,
-    balance: amount,
-    type,
-    description,
-    priority: GRANT_PRIORITIES[type],
-    expires_at: expiresAt,
-    created_at: now,
-  })
+  // First check for any negative balances
+  const negativeGrants = await db
+    .select()
+    .from(schema.creditLedger)
+    .where(
+      and(
+        eq(schema.creditLedger.user_id, userId),
+        or(
+          isNull(schema.creditLedger.expires_at),
+          gt(schema.creditLedger.expires_at, now)
+        )
+      )
+    )
+    .then(grants => grants.filter(g => g.balance < 0))
+
+  if (negativeGrants.length > 0) {
+    // Calculate total debt
+    const totalDebt = negativeGrants.reduce((sum, g) => sum + Math.abs(g.balance), 0)
+    
+    // Clear all negative balances
+    for (const grant of negativeGrants) {
+      await db
+        .update(schema.creditLedger)
+        .set({ balance: 0 })
+        .where(eq(schema.creditLedger.operation_id, grant.operation_id))
+    }
+
+    // Reduce the amount of the new grant by the debt amount
+    const remainingAmount = Math.max(0, amount - totalDebt)
+    
+    logger.info(
+      {
+        userId,
+        operationId,
+        totalDebt,
+        originalAmount: amount,
+        remainingAmount,
+        clearedGrants: negativeGrants.map(g => g.operation_id),
+      },
+      'Cleared negative balances before creating new grant'
+    )
+
+    // Only create new grant if there's remaining amount
+    if (remainingAmount > 0) {
+      await db.insert(schema.creditLedger).values({
+        operation_id: operationId,
+        user_id: userId,
+        principal: amount, // Keep original amount as principal
+        balance: remainingAmount, // Use remaining amount after debt
+        type,
+        description: totalDebt > 0 
+          ? `${description} (${totalDebt} credits used to clear existing debt)`
+          : description,
+        priority: GRANT_PRIORITIES[type],
+        expires_at: expiresAt,
+        created_at: now,
+      })
+    }
+  } else {
+    // No debt - create grant normally
+    await db.insert(schema.creditLedger).values({
+      operation_id: operationId,
+      user_id: userId,
+      principal: amount,
+      balance: amount,
+      type,
+      description,
+      priority: GRANT_PRIORITIES[type],
+      expires_at: expiresAt,
+      created_at: now,
+    })
+  }
 
   logger.info(
     {
@@ -169,6 +230,7 @@ export async function revokeGrantByOperationId(
   await db
     .update(schema.creditLedger)
     .set({
+      principal: 0,
       balance: 0,
       description: `${grant.description} (Revoked: ${reason})`,
     })

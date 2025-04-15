@@ -21,7 +21,7 @@ export interface CreditUsageAndBalance {
 }
 
 /**
- * Gets active grants for a user, ordered by expiration (soonest first), then priority.
+ * Gets active grants for a user, ordered by expiration (soonest first), then priority, and creation date.
  * This is the core ordering logic used by both balance calculation and credit consumption.
  */
 export async function getOrderedActiveGrants(userId: string, now: Date) {
@@ -38,9 +38,10 @@ export async function getOrderedActiveGrants(userId: string, now: Date) {
       )
     )
     .orderBy(
-      // Use grants based on priority, then expiration date
+      // Use grants based on priority, then expiration date, then creation date
       asc(schema.creditLedger.priority),
-      asc(schema.creditLedger.expires_at)
+      asc(schema.creditLedger.expires_at),
+      asc(schema.creditLedger.created_at)
     )
 }
 
@@ -102,9 +103,8 @@ async function consumeFromOrderedGrants(
   }
 
   // Second pass: consume from positive balances
-  // Process all but the very last grant
-  for (let i = 0; i < grants.length - 1 && remainingToConsume > 0; i++) {
-    const grant = grants[i]
+  for (const grant of grants) {
+    if (remainingToConsume <= 0) break
     if (grant.balance <= 0) continue // Skip grants we already handled or with no balance
 
     const consumeFromThisGrant = Math.min(remainingToConsume, grant.balance)
@@ -115,33 +115,37 @@ async function consumeFromOrderedGrants(
     await updateGrantBalance(userId, grant, consumeFromThisGrant, newBalance)
   }
 
-  // Put any remaining amount into the last grant, but respect max debt limit
-  if (remainingToConsume > 0) {
+  // If we still have remaining to consume and no grants left, create debt in the last grant
+  if (remainingToConsume > 0 && grants.length > 0) {
     const lastGrant = grants[grants.length - 1]
-    const newBalance = lastGrant.balance - remainingToConsume
+    
+    // Only create debt if the last grant already has a negative balance or zero balance
+    if (lastGrant.balance <= 0) {
+      const newBalance = lastGrant.balance - remainingToConsume
 
-    // Check if this would exceed max debt limit
-    if (Math.abs(newBalance) > MAX_DEBT_LIMIT) {
-      // Only consume up to the max debt limit
-      const maxAllowedConsumption = lastGrant.balance + MAX_DEBT_LIMIT
-      const actualConsumption = Math.min(remainingToConsume, maxAllowedConsumption)
-      
-      await updateGrantBalance(userId, lastGrant, actualConsumption, -MAX_DEBT_LIMIT)
-      totalConsumed += actualConsumption
+      // Check if this would exceed max debt limit
+      if (Math.abs(newBalance) > MAX_DEBT_LIMIT) {
+        // Only consume up to the max debt limit
+        const maxAllowedConsumption = Math.abs(lastGrant.balance - (-MAX_DEBT_LIMIT))
+        const actualConsumption = Math.min(remainingToConsume, maxAllowedConsumption)
+        
+        await updateGrantBalance(userId, lastGrant, actualConsumption, -MAX_DEBT_LIMIT)
+        totalConsumed += actualConsumption
 
-      logger.warn(
-        {
-          userId,
-          grantId: lastGrant.operation_id,
-          requested: remainingToConsume,
-          consumed: actualConsumption,
-          maxDebt: MAX_DEBT_LIMIT,
-        },
-        'Hit max debt limit, consumed partial amount'
-      )
-    } else {
-      await updateGrantBalance(userId, lastGrant, remainingToConsume, newBalance)
-      totalConsumed += remainingToConsume
+        logger.warn(
+          {
+            userId,
+            grantId: lastGrant.operation_id,
+            requested: remainingToConsume,
+            consumed: actualConsumption,
+            maxDebt: MAX_DEBT_LIMIT,
+          },
+          'Hit max debt limit, consumed partial amount'
+        )
+      } else {
+        await updateGrantBalance(userId, lastGrant, remainingToConsume, newBalance)
+        totalConsumed += remainingToConsume
+      }
     }
   }
 

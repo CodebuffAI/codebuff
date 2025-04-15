@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import debounce from 'lodash/debounce'
+import { loadStripe } from '@stripe/stripe-js'
 
 import { AutoTopupSettings } from '@/components/auto-topup/AutoTopupSettings'
 import { CreditPurchaseSection } from '@/components/credits/CreditPurchaseSection'
@@ -123,33 +124,29 @@ const ManageCreditsCard = () => {
       }
       return response.json()
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.sessionId) {
-        import('@stripe/stripe-js').then(async ({ loadStripe }) => {
-          const stripePromise = loadStripe(
-            env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-          )
-          const stripe = await stripePromise
-          if (!stripe) {
-            toast({
-              title: 'Error',
-              description: 'Stripe.js failed to load.',
-              variant: 'destructive',
-            })
-            return
-          }
-          const { error } = await stripe.redirectToCheckout({
-            sessionId: data.sessionId,
+        const stripePromise = loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+        const stripe = await stripePromise
+        if (!stripe) {
+          toast({
+            title: 'Error',
+            description: 'Stripe.js failed to load.',
+            variant: 'destructive',
           })
-          if (error) {
-            console.error('Stripe redirect error:', error)
-            toast({
-              title: 'Error',
-              description: error.message || 'Failed to redirect to Stripe.',
-              variant: 'destructive',
-            })
-          }
+          return
+        }
+        const { error } = await stripe.redirectToCheckout({
+          sessionId: data.sessionId,
         })
+        if (error) {
+          console.error('Stripe redirect error:', error)
+          toast({
+            title: 'Error',
+            description: error.message || 'Failed to redirect to Stripe.',
+            variant: 'destructive',
+          })
+        }
       } else {
         queryClient.invalidateQueries({ queryKey: ['usageData'] })
       }
