@@ -328,10 +328,13 @@ export class CheckpointManager {
   /**
    * Clear all checkpoints
    */
-  clearCheckpoints(): void {
+  clearCheckpoints(resetBareRepoPath: boolean = false): void {
     this.checkpoints = []
     this.currentCheckpointId = 0
     this.undoIds = []
+    if (resetBareRepoPath) {
+      this.bareRepoPath = null
+    }
   }
 
   /**
