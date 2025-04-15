@@ -140,7 +140,7 @@ export const mainPrompt = async (
 
     'Important: You must write "<end_turn></end_turn>" at the end of your response, when you want the user to respond, but not if you are still working on the user\'s request.',
     isGPT4_1 &&
-      "Make sure you completely finish the entire user's request. If the user's request is multi-part, please complete ALL the parts before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking."
+      "Make sure you completely finish the entire user's request. If the user's request is multi-part, please complete ALL the parts before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response."
   ).join('\n\n')
 
   const toolInstructions = buildArray(
