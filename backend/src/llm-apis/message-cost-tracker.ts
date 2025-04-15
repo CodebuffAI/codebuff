@@ -23,6 +23,7 @@ const PROFIT_MARGIN = 0.3
 const TOKENS_COST_PER_M = {
   input: {
     [models.sonnet]: 3,
+    [models.sonnet3_7]: 3,
     [models.haiku]: 0.8,
     [models.gpt4o]: 2.5,
     [models.gpt4_1]: 2,
@@ -35,6 +36,7 @@ const TOKENS_COST_PER_M = {
   },
   output: {
     [models.sonnet]: 15,
+    [models.sonnet3_7]: 15,
     [models.haiku]: 4,
     [models.gpt4o]: 10.0,
     [models.gpt4_1]: 8,
@@ -47,10 +49,12 @@ const TOKENS_COST_PER_M = {
   },
   cache_creation: {
     [models.sonnet]: 3.75,
+    [models.sonnet3_7]: 3.75,
     [models.haiku]: 1,
   },
   cache_read: {
     [models.sonnet]: 0.3,
+    [models.sonnet3_7]: 0.3,
     [models.haiku]: 0.08,
     [models.deepseekChat]: 0.014,
     [models.deepseekReasoner]: 0.14,
