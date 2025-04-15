@@ -4,10 +4,78 @@ import { GrantType } from '../db/schema'
 import { logger } from '../util/logger'
 import { getUserCostPerCredit } from './conversion'
 import { GRANT_PRIORITIES } from '../constants/grant-priorities'
-import { eq } from 'drizzle-orm'
+import { eq, desc, lte, and, or, sql } from 'drizzle-orm'
 import { generateCompactId } from '../util/string'
+import { CREDITS_USAGE_LIMITS } from '../constants'
 
 type CreditGrantSelect = typeof schema.creditGrant.$inferSelect
+
+/**
+ * Finds the amount of the most recent expired 'free' grant for a user.
+ * If no expired 'free' grant is found, returns the default free limit.
+ * @param userId The ID of the user.
+ * @returns The amount of the last expired free grant or the default.
+ */
+export async function getPreviousFreeGrantAmount(userId: string): Promise<number> {
+  const now = new Date()
+  const lastExpiredFreeGrant = await db.query.creditGrant.findFirst({
+    where: and(
+      eq(schema.creditGrant.user_id, userId),
+      eq(schema.creditGrant.type, 'free'),
+      lte(schema.creditGrant.expires_at, now) // Grant has expired
+    ),
+    orderBy: [desc(schema.creditGrant.expires_at)], // Most recent expiry first
+    columns: {
+      amount: true,
+    },
+  })
+
+  if (lastExpiredFreeGrant) {
+    logger.debug(
+      { userId, amount: lastExpiredFreeGrant.amount },
+      'Found previous expired free grant amount.'
+    )
+    return lastExpiredFreeGrant.amount
+  } else {
+    logger.debug(
+      { userId, defaultAmount: CREDITS_USAGE_LIMITS.FREE },
+      'No previous expired free grant found. Using default.'
+    )
+    return CREDITS_USAGE_LIMITS.FREE // Default if no previous grant found
+  }
+}
+
+/**
+ * Calculates the total referral bonus credits a user should receive based on
+ * their referral history (both as referrer and referred).
+ * @param userId The ID of the user.
+ * @returns The total referral bonus credits earned.
+ */
+export async function calculateTotalReferralBonus(userId: string): Promise<number> {
+  try {
+    const result = await db
+      .select({
+        totalCredits: sql<number>`COALESCE(SUM(${schema.referral.credits}), 0)`,
+      })
+      .from(schema.referral)
+      .where(
+        or(
+          eq(schema.referral.referrer_id, userId),
+          eq(schema.referral.referred_id, userId)
+        )
+      )
+
+    const totalBonus = result[0]?.totalCredits ?? 0
+    logger.debug({ userId, totalBonus }, 'Calculated total referral bonus.')
+    return totalBonus
+  } catch (error) {
+    logger.error(
+      { userId, error },
+      'Error calculating total referral bonus. Returning 0.'
+    )
+    return 0
+  }
+}
 
 /**
  * Processes a credit grant request:

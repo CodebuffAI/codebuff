@@ -4,7 +4,10 @@ import { sendAction } from './websocket-action'
 import { checkAuth } from '../util/check-auth'
 import { logger, withLoggerContext } from '@/util/logger'
 import { getUserInfoFromAuthToken, UserInfo } from './auth'
-import { calculateUsageAndBalance, consumeCredits } from 'common/src/billing/balance-calculator'
+import {
+  calculateUsageAndBalance,
+  consumeCredits,
+} from 'common/src/billing/balance-calculator'
 import { getNextQuotaReset } from 'common/src/util/dates'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
@@ -13,7 +16,11 @@ import {
   CREDITS_USAGE_LIMITS,
   CREDITS_REFERRAL_BONUS,
 } from 'common/src/constants'
-import { processAndGrantCredit } from 'common/src/billing/grant-credits'
+import {
+  processAndGrantCredit,
+  getPreviousFreeGrantAmount,
+  calculateTotalReferralBonus,
+} from 'common/src/billing/grant-credits'
 import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
 import { generateCompactId } from 'common/util/string'
 
@@ -164,29 +171,42 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
       .where(eq(schema.user.id, userId))
 
     try {
-      // Create both grants (free and referral)
-      const freeGrantOpId = `${baseOperationId}-free`
-      const referralGrantOpId = `${baseOperationId}-referral`
-      await Promise.all([
+      // Get the amount for the grants
+      const freeGrantAmount = await getPreviousFreeGrantAmount(userId)
+      const referralGrantAmount = await calculateTotalReferralBonus(userId)
+
+      const grantsToProcess = []
+      grantsToProcess.push(
         processAndGrantCredit(
           userId,
-          CREDITS_USAGE_LIMITS.FREE,
+          freeGrantAmount,
           'free',
           `Monthly free grant`,
-          nextResetDate,
-          freeGrantOpId
-        ),
-        processAndGrantCredit(
-          userId,
-          CREDITS_REFERRAL_BONUS,
-          'referral',
-          `Monthly referral bonus grant`,
-          nextResetDate,
-          referralGrantOpId
-        ),
-      ])
+          nextResetDate, // Expires next cycle
+          `${baseOperationId}-free`
+        )
+      )
 
-      logger.info({ userId, baseOperationId }, 'Monthly credit grants created.')
+      // Add referral grant if amount > 0
+      if (referralGrantAmount > 0) {
+        grantsToProcess.push(
+          processAndGrantCredit(
+            userId,
+            referralGrantAmount,
+            'referral',
+            `Monthly referral bonus grant based on history`,
+            nextResetDate, // Expires next cycle
+            `${baseOperationId}-referral`
+          )
+        )
+      }
+
+      // Process grants only if there are any to process
+      await Promise.all(grantsToProcess)
+      logger.info(
+        { userId, baseOperationId, freeGrantAmount, referralGrantAmount },
+        'Monthly credit grants created.'
+      )
     } catch (error) {
       logger.error({ userId, error }, 'Failed to create monthly credit grants.')
     }
@@ -216,7 +236,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
         userId,
         user?.next_quota_reset ?? new Date(0)
       )
-      
+
       // If we still don't have credits after auto top-up attempt, return error
       if (newUsageAndBalance.balance.totalRemaining <= 0) {
         return {
@@ -226,11 +246,16 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
           remainingBalance: newUsageAndBalance.balance.totalRemaining,
         }
       }
-      
+
       // If we have credits now, continue with the action and send updated usage info
-      const creditsAdded = newUsageAndBalance.balance.totalRemaining - balance.totalRemaining
+      const creditsAdded =
+        newUsageAndBalance.balance.totalRemaining - balance.totalRemaining
       logger.info(
-        { userId, newBalance: newUsageAndBalance.balance.totalRemaining, creditsAdded },
+        {
+          userId,
+          newBalance: newUsageAndBalance.balance.totalRemaining,
+          creditsAdded,
+        },
         'Auto top-up successful, proceeding with action'
       )
 
@@ -246,12 +271,8 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
       })
 
       return undefined
-      
     } catch (error) {
-      logger.error(
-        { userId, error },
-        'Error during auto top-up attempt'
-      )
+      logger.error({ userId, error }, 'Error during auto top-up attempt')
       // Return error indicating auto top-up was disabled
       return {
         type: 'action-error',

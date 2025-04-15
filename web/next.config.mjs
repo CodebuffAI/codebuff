@@ -1,3 +1,4 @@
+import { withContentlayer } from 'next-contentlayer'
 import createMDX from '@next/mdx'
 import { env } from './src/env.mjs'
 
@@ -12,23 +13,6 @@ const withMDX = createMDX({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
-  output: 'standalone',
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  experimental: {
-    workerThreads: false,
-    cpus: 1
-  },
-  webpack: (config, { dev, isServer }) => {
-    if (!dev && !isServer) {
-      config.optimization.splitChunks = false
-    }
-    return config
-  },
   headers: () => {
     return [
       {
@@ -76,6 +60,7 @@ const nextConfig = {
       },
     ]
   },
+  // This is required to support PostHog trailing slash API requests
   skipTrailingSlashRedirect: true,
   async redirects() {
     return [
@@ -107,4 +92,4 @@ const nextConfig = {
   },
 }
 
-export default withMDX(nextConfig)
+export default withContentlayer(withMDX(nextConfig))
