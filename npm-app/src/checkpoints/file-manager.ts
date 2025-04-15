@@ -209,12 +209,13 @@ async function gitAddAll({
   // Stage files with isomorphic-git
 
   // Get status of all files in the project directory
-  const currStatusMatrix = await statusMatrix({
-    fs,
-    dir: projectDir,
-    gitdir: bareRepoPath,
-    filepaths: relativeFilepaths,
-  })
+  const currStatusMatrix =
+    (await statusMatrix({
+      fs,
+      dir: projectDir,
+      gitdir: bareRepoPath,
+      filepaths: relativeFilepaths,
+    })) ?? []
 
   for (const [filepath, , workdirStatus, stageStatus] of currStatusMatrix) {
     if (workdirStatus === stageStatus) {
