@@ -17,10 +17,21 @@ import { blue, bold, cyan, green, magenta, red, yellow } from 'picocolors'
 
 import { backgroundProcesses } from './background-process-manager'
 import { setMessages } from './chat-storage'
+import { checkpointManager } from './checkpoints/checkpoint-manager'
 import {
-  checkpointManager,
-  CheckpointsDisabledError,
-} from './checkpoints/checkpoint-manager'
+  checkpointClearCommands,
+  checkpointListCommands,
+  handleCheckpoints,
+  handleClearCheckpoints,
+  handleRedo,
+  handleRestoreCheckpoint,
+  handleUndo,
+  isCheckpointCommand,
+  redoCommands,
+  restoreCheckpointRegex,
+  saveCheckpoint,
+  undoCommands,
+} from './cli-handlers/checkpoint'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
@@ -29,10 +40,6 @@ import { CliOptions, GitCommand } from './types'
 import { Spinner } from './utils/spinner'
 import { isCommandRunning, resetShell } from './utils/terminal'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-
-const restoreCheckpointRegex = /^checkpoint\s+(\d+)$/
-const undoCommands = ['undo', 'u']
-const redoCommands = ['redo']
 
 // Define a type for the detection result
 type ApiKeyDetectionResult =
@@ -169,12 +176,26 @@ export class CLI {
   /**
    * Prompts the user with a clean prompt state
    */
-  private freshPrompt() {
+  private freshPrompt(userInput: string = '') {
     Spinner.get().stop()
     readline.cursorTo(process.stdout, 0)
-    ;(this.rl as any).line = ''
+    const rlAny = this.rl as any
+
+    // clear line first
+    rlAny.line = ''
     this.setPrompt()
+
+    // then prompt
     this.rl.prompt()
+
+    if (!userInput) {
+      return
+    }
+
+    // then rewrite new prompt
+    this.rl.write(' '.repeat(userInput.length)) // hacky way to move cursor
+    rlAny.line = userInput
+    rlAny._refreshLine()
   }
 
   public async printInitialPrompt(initialInput?: string) {
@@ -292,16 +313,6 @@ export class CLI {
       await this.client.getUsage()
       return true
     }
-    if (undoCommands.includes(userInput)) {
-      await this.saveCheckpoint(userInput)
-      this.handleUndo()
-      return true
-    }
-    if (redoCommands.includes(userInput)) {
-      await this.saveCheckpoint(userInput)
-      this.handleRedo()
-      return true
-    }
     if (userInput === 'quit' || userInput === 'exit' || userInput === 'q') {
       this.handleExit()
       return true
@@ -321,23 +332,44 @@ export class CLI {
     }
 
     // Checkpoint commands
-    if (userInput === 'checkpoint list' || userInput === 'checkpoints') {
-      await this.saveCheckpoint(userInput)
-      this.handleCheckpoints()
-      return true
-    }
-
-    const restoreMatch = userInput.match(restoreCheckpointRegex)
-    if (restoreMatch) {
-      const id = parseInt(restoreMatch[1], 10)
-      await this.saveCheckpoint(userInput)
-      await this.handleRestoreCheckpoint(id)
-      return true
-    }
-
-    if (userInput === 'checkpoint clear') {
-      this.handleClearCheckpoints()
-      return true
+    if (isCheckpointCommand(userInput)) {
+      if (undoCommands.includes(userInput)) {
+        await saveCheckpoint(userInput, this.client, this.readyPromise)
+        const toRestore = await handleUndo(this.client, this.rl)
+        this.freshPrompt(toRestore)
+        return true
+      }
+      if (redoCommands.includes(userInput)) {
+        await saveCheckpoint(userInput, this.client, this.readyPromise)
+        const toRestore = await handleRedo(this.client, this.rl)
+        this.freshPrompt(toRestore)
+        return true
+      }
+      if (checkpointListCommands.includes(userInput)) {
+        await saveCheckpoint(userInput, this.client, this.readyPromise)
+        await handleCheckpoints()
+        this.freshPrompt()
+        return true
+      }
+      const restoreMatch = userInput.match(restoreCheckpointRegex)
+      if (restoreMatch) {
+        const id = parseInt(restoreMatch[1], 10)
+        await saveCheckpoint(userInput, this.client, this.readyPromise)
+        const toRestore = await handleRestoreCheckpoint(
+          id,
+          this.client,
+          this.rl
+        )
+        this.freshPrompt(toRestore)
+        return true
+      }
+      if (checkpointClearCommands.includes(userInput)) {
+        handleClearCheckpoints()
+        this.freshPrompt()
+        return true
+      }
+      // TODO checkpoint menu
+      return false
     }
 
     return false
@@ -475,78 +507,6 @@ export class CLI {
   private onWebSocketReconnect() {
     console.log(green('\nReconnected!'))
     this.returnControlToUser()
-  }
-
-  private async handleUndo(): Promise<void> {
-    let failed: boolean = false
-
-    try {
-      await checkpointManager.restoreUndoCheckpoint()
-    } catch (error: any) {
-      failed = true
-      if (error instanceof CheckpointsDisabledError) {
-        console.log(red(`Checkpoints not enabled: ${error.message}`))
-      } else {
-        console.log(red(`Unable to undo: ${error.message}`))
-      }
-    }
-
-    let userInput = ''
-    if (!failed) {
-      const currentCheckpoint =
-        checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
-
-      // Restore the agentState
-      this.client.agentState = JSON.parse(currentCheckpoint.agentStateString)
-      this.client.lastToolResults = JSON.parse(
-        currentCheckpoint.lastToolResultsString
-      )
-
-      console.log(
-        green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`)
-      )
-      userInput =
-        checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
-          ?.userInput ?? ''
-    }
-    this.freshPrompt()
-    this.restoreUserInput(userInput)
-  }
-
-  private async handleRedo(): Promise<void> {
-    let failed: boolean = false
-
-    try {
-      await checkpointManager.restoreRedoCheckpoint()
-    } catch (error: any) {
-      failed = true
-      if (error instanceof CheckpointsDisabledError) {
-        console.log(red(`Checkpoints not enabled: ${error.message}`))
-      } else {
-        console.log(red(`Unable to redo: ${error.message}`))
-      }
-    }
-
-    let userInput = ''
-    if (!failed) {
-      const currentCheckpoint =
-        checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
-
-      // Restore the agentState
-      this.client.agentState = JSON.parse(currentCheckpoint.agentStateString)
-      this.client.lastToolResults = JSON.parse(
-        currentCheckpoint.lastToolResultsString
-      )
-
-      console.log(
-        green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`)
-      )
-      userInput =
-        checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
-          ?.userInput ?? ''
-    }
-    this.freshPrompt()
-    this.restoreUserInput(userInput)
   }
 
   private handleKeyPress(str: string, key: any) {
@@ -870,83 +830,5 @@ export class CLI {
         }
       })
     })
-  }
-
-  // Checkpoint command handlers
-  private async handleCheckpoints(): Promise<void> {
-    console.log(checkpointManager.getCheckpointsAsString())
-    this.freshPrompt()
-  }
-
-  private async handleRestoreCheckpoint(id: number): Promise<void> {
-    Spinner.get().start()
-
-    if (checkpointManager.disabledReason !== null) {
-      console.log(
-        red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
-      )
-      this.freshPrompt()
-      return
-    }
-
-    const checkpoint = checkpointManager.checkpoints[id - 1]
-    if (!checkpoint) {
-      console.log(red(`Checkpoint #${id} not found.`))
-      this.freshPrompt()
-      return
-    }
-
-    try {
-      // Wait for save before trying to restore checkpoint
-      const latestCheckpoint = checkpointManager.getLatestCheckpoint()
-      await latestCheckpoint?.fileStateIdPromise
-    } catch (error) {
-      // Should never happen
-    }
-
-    // Restore the agentState
-    this.client.agentState = JSON.parse(checkpoint.agentStateString)
-    this.client.lastToolResults = JSON.parse(checkpoint.lastToolResultsString)
-
-    let failed = false
-    try {
-      // Restore file state
-      await checkpointManager.restoreCheckointFileState({
-        id: checkpoint.id,
-        resetUndoIds: true,
-      })
-    } catch (error: any) {
-      failed = true
-      Spinner.get().stop()
-      console.log(red(`Unable to restore checkpoint: ${error.message}`))
-    }
-
-    if (!failed) {
-      Spinner.get().stop()
-      console.log(green(`Restored to checkpoint #${id}.`))
-    }
-
-    // Insert the original user input that created this checkpoint
-    this.freshPrompt()
-    this.restoreUserInput(checkpoint.userInput)
-  }
-
-  private restoreUserInput(userInput: string) {
-    if (
-      !userInput.match(restoreCheckpointRegex) &&
-      !undoCommands.includes(userInput) &&
-      !redoCommands.includes(userInput)
-    ) {
-      this.rl.write(' '.repeat(userInput.length)) // hacky way to move cursor
-      const rlAny = this.rl as any
-      rlAny.line = userInput
-      rlAny._refreshLine()
-    }
-  }
-
-  private async handleClearCheckpoints(): Promise<void> {
-    checkpointManager.clearCheckpoints()
-    console.log('Cleared all checkpoints.')
-    this.freshPrompt()
   }
 }
