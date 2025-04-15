@@ -1,5 +1,6 @@
 import path from 'path'
 import * as fs from 'fs'
+import os from 'os'
 
 import picocolors, {
   blue,
@@ -40,6 +41,13 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
   )
 
   const gitDir = path.join(getProjectRoot(), '.git')
+  if (getProjectRoot() === os.homedir()) {
+    console.info(
+      '\nTo get started:\n- cd into a project\n- ask for a code change'
+    )
+    return
+  }
+
   if (!fs.existsSync(gitDir)) {
     console.info(
       magenta(
