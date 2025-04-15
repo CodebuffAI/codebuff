@@ -42,13 +42,14 @@ function SearchParamsHandler() {
 
 function PaymentSuccessContent() {
   const { data: session } = useSession()
-  const { data: currentPlan, isLoading: isPlanLoading } = useUserPlan(
-    session?.user?.stripe_customer_id
-  )
   const searchParams = useSearchParams()
   const isCreditPurchase = searchParams.get('purchase') === 'credits'
 
-  if (isPlanLoading) {
+  const { data: currentPlan, isLoading: isPlanLoading } = useUserPlan(
+    isCreditPurchase ? null : session?.user?.stripe_customer_id
+  )
+
+  if (!isCreditPurchase && isPlanLoading) {
     return (
       <Card className="w-full max-w-2xl mx-auto">
         <CardHeader>

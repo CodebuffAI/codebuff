@@ -10,6 +10,17 @@ import { useEffect, useState } from 'react'
 import type { Doc } from '@/types/docs'
 import { sections } from '@/components/docs/doc-sidebar'
 import NextLink from 'next/link'
+import { Metadata } from 'next'
+
+export const generateMetadata = async ({
+  params,
+}: {
+  params: { category: string }
+}): Promise<Metadata> => {
+  return {
+    title: `${params.category} | Codebuff Docs`,
+  }
+}
 
 const DocNavigation = ({ category }: { category: string }) => {
   const currentIndex = sections.findIndex((s) => s.href === `/docs/${category}`)
@@ -64,9 +75,7 @@ const DocNavigation = ({ category }: { category: string }) => {
 }
 
 interface CategoryPageProps {
-  params: {
-    category: string
-  }
+  params: { category: string }
 }
 
 const DocPage = ({ doc, components }: { doc: Doc; components: any }) => {

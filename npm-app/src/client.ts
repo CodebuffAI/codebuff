@@ -839,8 +839,11 @@ export class Client {
             ? yellow
             : green
 
+      const totalCreditsUsedThisSession = Object.values(this.creditsByPromptId)
+        .flat()
+        .reduce((sum, credits) => sum + credits, 0)
       console.log(
-        `Total used: ${this.usage.toLocaleString()}. Credits Remaining: ${remainingColor(this.remainingBalance.toLocaleString())}`
+        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}. Credits Remaining: ${remainingColor(this.remainingBalance.toLocaleString())}`
       )
 
       if (this.nextQuotaReset) {

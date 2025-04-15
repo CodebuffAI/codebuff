@@ -43,7 +43,7 @@ export async function validateAutoTopupStatus(userId: string) {
 
   const { balance } = await calculateUsageAndBalance(userId, user.next_quota_reset ?? new Date(0))
 
-  if (balance.totalRemaining > user.auto_topup_threshold) {
+  if (balance.totalRemaining > user.auto_topup_threshold && balance.totalDebt === 0) {
     return false
   }
 
@@ -71,6 +71,7 @@ export async function processAutoTopupPayment(userId: string) {
       auto_topup_threshold: true,
       auto_topup_amount: true,
       stripe_customer_id: true,
+      next_quota_reset: true,
     },
   })
 
@@ -78,7 +79,11 @@ export async function processAutoTopupPayment(userId: string) {
     throw new AutoTopupValidationError('Invalid auto top-up configuration')
   }
 
-  // TODO: Implement Stripe payment processing
+  const { balance } = await calculateUsageAndBalance(userId, user.next_quota_reset ?? new Date(0))
+  const amountToTopUp = balance.totalDebt > 0
+    ? Math.max(user.auto_topup_amount, balance.totalDebt)
+    : user.auto_topup_amount
+
   throw new Error('Not implemented')
 }
 

@@ -1,9 +1,9 @@
 CREATE TYPE "public"."grant_type" AS ENUM('free', 'referral', 'purchase', 'admin');--> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "credit_grant" (
+CREATE TABLE IF NOT EXISTS "credit_ledger" (
 	"operation_id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
-	"amount" integer NOT NULL,
-	"amount_remaining" integer NOT NULL,
+	"principal" integer NOT NULL,
+	"balance" integer NOT NULL,
 	"type" "grant_type" NOT NULL,
 	"description" text,
 	"priority" integer NOT NULL,
@@ -24,7 +24,7 @@ ALTER TABLE "user" ADD COLUMN "auto_topup_enabled" boolean DEFAULT false NOT NUL
 ALTER TABLE "user" ADD COLUMN "auto_topup_threshold" integer;--> statement-breakpoint
 ALTER TABLE "user" ADD COLUMN "auto_topup_amount" integer;--> statement-breakpoint
 DO $$ BEGIN
- ALTER TABLE "credit_grant" ADD CONSTRAINT "credit_grant_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+ ALTER TABLE "credit_ledger" ADD CONSTRAINT "credit_ledger_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -35,7 +35,7 @@ EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_credit_grant_active_balance" ON "credit_grant" USING btree ("user_id","amount_remaining","expires_at","priority","created_at") WHERE "credit_grant"."amount_remaining" > 0 AND "credit_grant"."expires_at" IS NULL;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_credit_ledger_active_balance" ON "credit_ledger" USING btree ("user_id","balance","expires_at","priority","created_at") WHERE "credit_ledger"."balance" != 0 AND "credit_ledger"."expires_at" IS NULL;--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "idx_sync_failure_retry" ON "sync_failure" USING btree ("retry_count","last_attempt_at") WHERE "sync_failure"."retry_count" < 5;--> statement-breakpoint
 ALTER TABLE "fingerprint" DROP COLUMN IF EXISTS "quota_exceeded";--> statement-breakpoint
 ALTER TABLE "fingerprint" DROP COLUMN IF EXISTS "next_quota_reset";--> statement-breakpoint

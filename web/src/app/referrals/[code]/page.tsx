@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { sleep } from 'common/util/promise'
 import { CopyIcon, CheckIcon, GiftIcon } from 'lucide-react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import type { ReferralCodeResponse } from '@/app/api/referrals/[code]/route'
 import { Button } from '@/components/ui/button'
 import { env } from '@/env.mjs'
@@ -21,6 +21,17 @@ import CardWithBeams from '@/components/card-with-beams'
 import { useSearchParams } from 'next/navigation'
 import { storeSearchParams } from '@/lib/trackConversions'
 import posthog from 'posthog-js'
+import { Metadata } from 'next'
+
+export const generateMetadata = async ({
+  params,
+}: {
+  params: { code: string }
+}): Promise<Metadata> => {
+  return {
+    title: 'Redeem Referral | Codebuff',
+  }
+}
 
 const InputWithCopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
@@ -56,7 +67,11 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
   )
 }
 
-export default function RedeemPage({ params }: { params: { code: string } }) {
+export default function RedeemPage({
+  params,
+}: {
+  params: { code: string }
+}) {
   const code = params.code
   const { data: session, status } = useSession()
   const searchParams = useSearchParams()

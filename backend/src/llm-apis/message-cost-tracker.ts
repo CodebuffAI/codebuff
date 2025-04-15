@@ -357,18 +357,24 @@ async function updateUserCycleUsage(
   }
   try {
     // Consume from grants in priority order
-    await consumeCredits(userId, creditsUsed)
+    const consumed = await consumeCredits(userId, creditsUsed)
+    
+    if (consumed < creditsUsed) {
+      throw new Error(
+        `Could only consume ${consumed} of ${creditsUsed} credits due to debt limit. Please add more credits to continue.`
+      )
+    }
 
     logger.debug(
-      { userId: userId, creditsUsed },
+      { userId, creditsUsed },
       'Credits consumed from grants.'
     )
   } catch (error) {
     logger.error(
-      { userId: userId, creditsUsed, error },
+      { userId, creditsUsed, error },
       'Error consuming credits.'
     )
-    throw error // Re-throw to prevent further processing if we couldn't consume credits
+    throw error
   }
 }
 

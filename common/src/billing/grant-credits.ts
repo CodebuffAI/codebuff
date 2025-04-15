@@ -4,11 +4,11 @@ import { GrantType } from '../db/schema'
 import { logger } from '../util/logger'
 import { getUserCostPerCredit } from './conversion'
 import { GRANT_PRIORITIES } from '../constants/grant-priorities'
-import { eq, desc, lte, and, or, sql } from 'drizzle-orm'
+import { eq, desc, lte, and, or, sql, isNull, gt } from 'drizzle-orm'
 import { generateCompactId } from '../util/string'
 import { CREDITS_USAGE_LIMITS } from '../constants'
 
-type CreditGrantSelect = typeof schema.creditGrant.$inferSelect
+type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
 
 /**
  * Finds the amount of the most recent expired 'free' grant for a user.
@@ -16,26 +16,31 @@ type CreditGrantSelect = typeof schema.creditGrant.$inferSelect
  * @param userId The ID of the user.
  * @returns The amount of the last expired free grant or the default.
  */
-export async function getPreviousFreeGrantAmount(userId: string): Promise<number> {
+export async function getPreviousFreeGrantAmount(
+  userId: string
+): Promise<number> {
   const now = new Date()
-  const lastExpiredFreeGrant = await db.query.creditGrant.findFirst({
-    where: and(
-      eq(schema.creditGrant.user_id, userId),
-      eq(schema.creditGrant.type, 'free'),
-      lte(schema.creditGrant.expires_at, now) // Grant has expired
-    ),
-    orderBy: [desc(schema.creditGrant.expires_at)], // Most recent expiry first
-    columns: {
-      amount: true,
-    },
-  })
+  const lastExpiredFreeGrant = await db
+    .select({
+      principal: schema.creditLedger.principal,
+    })
+    .from(schema.creditLedger)
+    .where(
+      and(
+        eq(schema.creditLedger.user_id, userId),
+        eq(schema.creditLedger.type, 'free'),
+        lte(schema.creditLedger.expires_at, now) // Grant has expired
+      )
+    )
+    .orderBy(desc(schema.creditLedger.expires_at)) // Most recent expiry first
+    .limit(1)
 
-  if (lastExpiredFreeGrant) {
+  if (lastExpiredFreeGrant.length > 0) {
     logger.debug(
-      { userId, amount: lastExpiredFreeGrant.amount },
+      { userId, amount: lastExpiredFreeGrant[0].principal },
       'Found previous expired free grant amount.'
     )
-    return lastExpiredFreeGrant.amount
+    return lastExpiredFreeGrant[0].principal
   } else {
     logger.debug(
       { userId, defaultAmount: CREDITS_USAGE_LIMITS.FREE },
@@ -51,7 +56,9 @@ export async function getPreviousFreeGrantAmount(userId: string): Promise<number
  * @param userId The ID of the user.
  * @returns The total referral bonus credits earned.
  */
-export async function calculateTotalReferralBonus(userId: string): Promise<number> {
+export async function calculateTotalReferralBonus(
+  userId: string
+): Promise<number> {
   try {
     const result = await db
       .select({
@@ -89,7 +96,7 @@ export async function calculateTotalReferralBonus(userId: string): Promise<numbe
  * - admin (80): Admin-granted credits
  *
  * @param userId The ID of the user receiving the grant.
- * @param credits The number of credits to grant (must be positive).
+ * @param amount The number of credits to grant (must be positive).
  * @param type The type of grant (e.g., 'free', 'referral', 'purchase', 'admin').
  * @param description Optional description for the grant.
  * @param expiresAt Optional expiration date for the grant. Null means never expires.
@@ -98,71 +105,84 @@ export async function calculateTotalReferralBonus(userId: string): Promise<numbe
  */
 export async function processAndGrantCredit(
   userId: string,
-  credits: number,
+  amount: number,
   type: GrantType,
-  description: string | null = null,
-  expiresAt: Date | null = null,
-  operationId: string | null = null
-): Promise<CreditGrantSelect | null> {
-  const opId = operationId || `${type}-${userId}-${generateCompactId()}`
-  const logContext = { userId, credits, type, operationId: opId, expiresAt }
+  description: string,
+  expiresAt: Date | null,
+  operationId: string
+): Promise<void> {
+  const now = new Date()
 
-  if (credits <= 0) {
-    logger.warn(
-      logContext,
-      'Attempted to grant non-positive credits. Skipping.'
-    )
-    return null
-  }
-
-  // 1. Validate user exists
-  const user = await db.query.user.findFirst({
-    where: eq(schema.user.id, userId),
-    columns: { id: true },
+  await db.insert(schema.creditLedger).values({
+    operation_id: operationId,
+    user_id: userId,
+    principal: amount,
+    balance: amount,
+    type,
+    description,
+    priority: GRANT_PRIORITIES[type],
+    expires_at: expiresAt,
+    created_at: now,
   })
 
-  if (!user) {
-    logger.error(logContext, 'User not found for credit grant. Skipping.')
-    return null
+  logger.info(
+    {
+      userId,
+      operationId,
+      type,
+      amount,
+      expiresAt,
+    },
+    'Created new credit grant'
+  )
+}
+
+/**
+ * Revokes credits from a specific grant by operation ID.
+ * This sets the balance to 0 and updates the description to indicate a refund.
+ * 
+ * @param operationId The operation ID of the grant to revoke
+ * @param reason The reason for revoking the credits (e.g. refund)
+ * @returns true if the grant was found and revoked, false otherwise
+ */
+export async function revokeGrantByOperationId(
+  operationId: string,
+  reason: string
+): Promise<boolean> {
+  const grant = await db.query.creditLedger.findFirst({
+    where: eq(schema.creditLedger.operation_id, operationId),
+  })
+
+  if (!grant) {
+    logger.warn({ operationId }, 'Attempted to revoke non-existent grant')
+    return false
   }
 
-  // 2. Get priority from our centralized GRANT_PRIORITIES
-  const priority = GRANT_PRIORITIES[type]
-  if (priority === undefined) {
-    logger.error(logContext, `Invalid grant type: ${type}. Skipping.`)
-    return null
-  }
-
-  // 3. Create local grant record
-  try {
-    const insertedGrants = await db
-      .insert(schema.creditGrant)
-      .values({
-        operation_id: opId,
-        user_id: userId,
-        amount: credits,
-        amount_remaining: credits, // Initially equals the granted amount
-        type: type,
-        priority: priority,
-        description: description,
-        expires_at: expiresAt,
-      })
-      .returning()
-
-    const localGrant = insertedGrants[0]
-    if (!localGrant) {
-      throw new Error('Failed to insert local credit grant or retrieve it.')
-    }
-    logger.info(
-      logContext,
-      `Successfully created local credit grant record ${opId}`
+  if (grant.balance < 0) {
+    logger.warn(
+      { operationId, currentBalance: grant.balance },
+      'Cannot revoke grant with negative balance - user has already spent these credits'
     )
-    return localGrant
-  } catch (dbError) {
-    logger.error(
-      { ...logContext, error: dbError },
-      'Database error creating local credit grant record.'
-    )
-    return null
+    return false
   }
+
+  await db
+    .update(schema.creditLedger)
+    .set({
+      balance: 0,
+      description: `${grant.description} (Revoked: ${reason})`,
+    })
+    .where(eq(schema.creditLedger.operation_id, operationId))
+
+  logger.info(
+    {
+      operationId,
+      userId: grant.user_id,
+      revokedAmount: grant.balance,
+      reason,
+    },
+    'Revoked credit grant'
+  )
+
+  return true
 }

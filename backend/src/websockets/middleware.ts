@@ -217,6 +217,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     user?.next_quota_reset ?? new Date(0)
   )
 
+  // Check if we have enough remaining credits
   if (balance.totalRemaining <= 0) {
     logger.warn(
       {
@@ -239,11 +240,16 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
 
       // If we still don't have credits after auto top-up attempt, return error
       if (newUsageAndBalance.balance.totalRemaining <= 0) {
+        // If they have debt, show that in the message
+        const message = newUsageAndBalance.balance.totalDebt > 0
+          ? `You have a negative balance of ${newUsageAndBalance.balance.totalDebt} credits. Please add credits to continue using the service.`
+          : `You do not have enough credits for this action. Please add credits or wait for your next cycle to begin.`
+
         return {
           type: 'action-error',
           error: 'Insufficient credits',
-          message: `You do not have enough credits for this action. Please add credits or wait for your next cycle to begin.`,
-          remainingBalance: newUsageAndBalance.balance.totalRemaining,
+          message,
+          remainingBalance: newUsageAndBalance.balance.netBalance,
         }
       }
 

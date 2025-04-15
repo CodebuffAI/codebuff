@@ -119,12 +119,6 @@ export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {
   },
 }
 
-if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'local') {
-  Object.values(PLAN_CONFIGS).forEach((config) => {
-    config.limit *= 1000
-  })
-}
-
 export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
   Object.fromEntries(
     Object.entries(PLAN_CONFIGS).map(([key, config]) => [key, config.limit])

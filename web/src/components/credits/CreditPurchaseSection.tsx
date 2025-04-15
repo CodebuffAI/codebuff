@@ -36,10 +36,11 @@ export function CreditPurchaseSection({
   const [customError, setCustomError] = useState<string>('')
   const [showConfetti, setShowConfetti] = useState(false)
   const [purchasedAmount, setPurchasedAmount] = useState(0)
+  const [isProcessing, setIsProcessing] = useState(false)
 
   const handlePurchaseClick = async () => {
     const credits = selectedCredits || parseInt(customCredits)
-    if (!credits || isPurchasePending || isPending) return
+    if (!credits || isProcessing || isPurchasePending || isPending) return
 
     let canProceed = true
     if (isAutoTopupEnabled && onSaveAutoTopupSettings) {
@@ -47,29 +48,7 @@ export function CreditPurchaseSection({
     }
 
     if (canProceed) {
-      try {
-        const response = await fetch('/api/stripe/buy-credits', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credits }),
-        })
-        const data = await response.json()
-        
-        if (data.success) {
-          toast({
-            title: "Purchase Complete!",
-            description: `Successfully purchased ${credits.toLocaleString()} credits.`,
-            variant: "default",
-          })
-          // Trigger confetti animation
-          setPurchasedAmount(credits)
-          setShowConfetti(true)
-          setTimeout(() => setShowConfetti(false), 3000)
-        }
-        onPurchase(credits)
-      } catch (error) {
-        onPurchase(credits)
-      }
+      onPurchase(credits)
     }
   }
 
@@ -134,7 +113,7 @@ export function CreditPurchaseSection({
                   ? 'border-primary bg-accent'
                   : 'hover:bg-accent/50'
               )}
-              disabled={isPending || isPurchasePending}
+              disabled={isProcessing || isPending || isPurchasePending}
             >
               <span className="text-lg font-semibold">
                 {credits.toLocaleString()}
@@ -162,6 +141,7 @@ export function CreditPurchaseSection({
                   onChange={(e) => handleCustomCreditsChange(e.target.value)}
                   placeholder={`${MIN_CREDITS.toLocaleString()} - ${MAX_CREDITS.toLocaleString()} credits`}
                   className={cn(customError && 'border-destructive')}
+                  disabled={isProcessing}
                 />
                 {customError && (
                   <p className="text-xs text-destructive mt-2 pl-1">
@@ -177,17 +157,17 @@ export function CreditPurchaseSection({
 
               <NeonGradientButton
                 onClick={handlePurchaseClick}
-                disabled={!isValid || isPending || isPurchasePending}
+                disabled={!isValid || isProcessing || isPending || isPurchasePending}
                 className={cn(
                   'w-full md:w-auto transition-opacity min-w-[120px]',
-                  (!isValid || isPending || isPurchasePending) && 'opacity-50'
+                  (!isValid || isProcessing || isPending || isPurchasePending) && 'opacity-50'
                 )}
                 neonColors={{
                   firstColor: '#4F46E5',
                   secondColor: '#06B6D4',
                 }}
               >
-                {isPurchasePending ? (
+                {(isProcessing || isPurchasePending) ? (
                   <Loader className="mr-2 size-4 animate-spin" />
                 ) : null}
                 Buy Credits

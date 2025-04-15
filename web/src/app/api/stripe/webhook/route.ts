@@ -13,7 +13,7 @@ import {
 } from 'common/src/billing/conversion'
 import { GrantType } from 'common/types/grant'
 import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
-import { processAndGrantCredit } from 'common/src/billing/grant-credits'
+import { processAndGrantCredit, revokeGrantByOperationId } from 'common/src/billing/grant-credits'
 import { getStripeCustomerId } from '@/lib/stripe-utils'
 
 async function handleCustomerCreated(customer: Stripe.Customer) {
@@ -177,6 +177,43 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
     switch (event.type) {
       case 'customer.created':
         break
+      case 'charge.refunded': {
+        const charge = event.data.object as Stripe.Charge
+        // Get the payment intent ID from the charge
+        const paymentIntentId = charge.payment_intent
+        if (paymentIntentId) {
+          // Get the payment intent to access its metadata
+          const paymentIntent = await stripeServer.paymentIntents.retrieve(
+            typeof paymentIntentId === 'string' ? paymentIntentId : paymentIntentId.toString()
+          )
+          
+          if (paymentIntent.metadata?.operationId) {
+            const operationId = paymentIntent.metadata.operationId
+            logger.info(
+              { chargeId: charge.id, paymentIntentId, operationId },
+              'Processing refund, attempting to revoke credits'
+            )
+            
+            const revoked = await revokeGrantByOperationId(
+              operationId,
+              `Refund for charge ${charge.id}`
+            )
+            
+            if (!revoked) {
+              logger.error(
+                { chargeId: charge.id, operationId },
+                'Failed to revoke credits for refund - grant may not exist or credits already spent'
+              )
+            }
+          } else {
+            logger.warn(
+              { chargeId: charge.id, paymentIntentId },
+              'Refund received but no operation ID found in payment intent metadata'
+            )
+          }
+        }
+        break
+      }
       case 'checkout.session.completed': {
         await handleCheckoutSessionCompleted(
           event.data.object as Stripe.Checkout.Session

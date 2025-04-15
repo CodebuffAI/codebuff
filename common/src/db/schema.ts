@@ -82,15 +82,15 @@ export const account = pgTable(
   ]
 )
 
-export const creditGrant = pgTable(
-  'credit_grant',
+export const creditLedger = pgTable(
+  'credit_ledger',
   {
     operation_id: text('operation_id').primaryKey(),
     user_id: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    amount: integer('amount').notNull(),
-    amount_remaining: integer('amount_remaining').notNull(),
+    principal: integer('principal').notNull(),
+    balance: integer('balance').notNull(),
     type: grantTypeEnum('type').notNull(),
     description: text('description'),
     priority: integer('priority').notNull(),
@@ -100,17 +100,15 @@ export const creditGrant = pgTable(
       .defaultNow(),
   },
   (table) => ({
-    idx_credit_grant_active_balance: index('idx_credit_grant_active_balance')
+    idx_credit_ledger_active_balance: index('idx_credit_ledger_active_balance')
       .on(
         table.user_id,
-        table.amount_remaining,
+        table.balance,
         table.expires_at,
         table.priority,
         table.created_at
       )
-      .where(
-        sql`${table.amount_remaining} > 0 AND ${table.expires_at} IS NULL`
-      ),
+      .where(sql`${table.balance} != 0 AND ${table.expires_at} IS NULL`),
   })
 )
 
