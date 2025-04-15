@@ -20,7 +20,7 @@ export function getProjectFileTree(
   const isHomeDir = projectRoot === os.homedir()
   if (isHomeDir) {
     defaultIgnore.add('.*')
-    maxFiles = 1000
+    maxFiles = 0
   }
 
   const root: DirectoryNode = {
@@ -53,9 +53,6 @@ export function getProjectFileTree(
       const files = fs.readdirSync(fullPath)
       for (const file of files) {
         if (totalFiles >= maxFiles) break
-
-        // Skip protected directories when in home directory
-        if (isHomeDir && commonProtectedDirs.has(file)) continue
 
         const filePath = path.join(fullPath, file)
         const relativeFilePath = path.relative(projectRoot, filePath)
@@ -181,32 +178,3 @@ export function getLastReadFilePaths(
     .slice(0, count)
     .map((node) => node.filePath)
 }
-
-// List of common protected directories in home folder
-const commonProtectedDirs = new Set([
-  // Cross-platform
-  'Downloads',
-  'Documents',
-  'Pictures',
-  'Photos',
-  'Music',
-  'Videos',
-  'Desktop',
-  'Public',
-  'Applications',
-
-  // macOS specific
-  'Library',
-  'Movies',
-  'iCloud Drive',
-
-  // Windows specific
-  'AppData',
-  'Contacts',
-  'Favorites',
-  'Links',
-  'OneDrive',
-  'Saved Games',
-  'Searches',
-  '3D Objects',
-])
