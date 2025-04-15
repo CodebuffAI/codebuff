@@ -8,6 +8,7 @@ import { buildArray } from 'common/util/array'
 import { z } from 'zod'
 
 import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { gitCommitGuidePrompt } from './system-prompt/prompts'
 
 const tools = [
   {
@@ -238,6 +239,8 @@ Correct:
 Notes:
 - The current working directory will always reset to project root directory for each command you run. You can only access files within this directory (or sub-directories). So if you run cd in one command, the directory change won't persist to the next command.
 - Commands can succeed without giving any output, e.g. if no type errors were found. So you may not always see output for successful executions.
+
+${gitCommitGuidePrompt}
     `.trim(),
   },
   {
