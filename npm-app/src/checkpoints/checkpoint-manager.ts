@@ -1,4 +1,5 @@
 import assert from 'assert'
+import os from 'os'
 import { join } from 'path'
 import { Worker } from 'worker_threads'
 
@@ -166,6 +167,10 @@ export class CheckpointManager {
 
     const id = this.checkpoints.length + 1
     const projectDir = getProjectRoot()
+    if (projectDir === os.homedir()) {
+      this.disabledReason = 'In home directory'
+      throw new CheckpointsDisabledError(this.disabledReason)
+    }
     const bareRepoPath = this.getBareRepoPath()
     const relativeFilepaths = getAllFilePaths(agentState.fileContext.fileTree)
 
