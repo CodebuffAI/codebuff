@@ -23,6 +23,7 @@ import {
 } from 'common/src/billing/grant-credits'
 import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
 import { generateCompactId } from 'common/util/string'
+import { pluralize } from 'common/util/string'
 
 type MiddlewareCallback = (
   action: ClientAction,
@@ -243,7 +244,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
         // If they have debt, show that in the message
         const message =
           newUsageAndBalance.balance.totalDebt > 0
-            ? `You have a negative balance of ${newUsageAndBalance.balance.totalDebt} credits. Please add credits to continue using Codebuff.`
+            ? `You have a balance of negative ${pluralize(newUsageAndBalance.balance.totalDebt, 'credit')}. Please add credits to continue using Codebuff.`
             : `You do not have enough credits for this action. Please add credits or wait for your next cycle to begin.`
 
         return {

@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils'
 import { useState } from 'react'
 import { convertCreditsToUsdCents } from 'common/src/billing/credit-conversion'
 import { toast } from '@/components/ui/use-toast'
-import { CreditConfetti } from '@/components/ui/credit-confetti'
 
 export const CREDIT_OPTIONS = [500, 1000, 2000, 5000, 10000, 20000] as const
 export const CENTS_PER_CREDIT = 1
@@ -34,13 +33,12 @@ export function CreditPurchaseSection({
   const [selectedCredits, setSelectedCredits] = useState<number | null>(null)
   const [customCredits, setCustomCredits] = useState<string>('')
   const [customError, setCustomError] = useState<string>('')
-  const [showConfetti, setShowConfetti] = useState(false)
-  const [purchasedAmount, setPurchasedAmount] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [cooldownActive, setCooldownActive] = useState(false)
 
   const handlePurchaseClick = async () => {
     const credits = selectedCredits || parseInt(customCredits)
-    if (!credits || isProcessing || isPurchasePending || isPending) return
+    if (!credits || isProcessing || isPurchasePending || isPending || cooldownActive) return
 
     let canProceed = true
     if (isAutoTopupEnabled && onSaveAutoTopupSettings) {
@@ -48,6 +46,8 @@ export function CreditPurchaseSection({
     }
 
     if (canProceed) {
+      setCooldownActive(true)
+      setTimeout(() => setCooldownActive(false), 3000) // 3 second cooldown
       onPurchase(credits)
     }
   }
@@ -92,8 +92,6 @@ export function CreditPurchaseSection({
 
   return (
     <div className="space-y-6">
-      {showConfetti && <CreditConfetti amount={purchasedAmount} />}
-      
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {CREDIT_OPTIONS.map((credits) => {
           const optionCostInCents = convertCreditsToUsdCents(
@@ -113,7 +111,7 @@ export function CreditPurchaseSection({
                   ? 'border-primary bg-accent'
                   : 'hover:bg-accent/50'
               )}
-              disabled={isProcessing || isPending || isPurchasePending}
+              disabled={isProcessing || isPending || isPurchasePending || cooldownActive}
             >
               <span className="text-lg font-semibold">
                 {credits.toLocaleString()}
@@ -141,7 +139,7 @@ export function CreditPurchaseSection({
                   onChange={(e) => handleCustomCreditsChange(e.target.value)}
                   placeholder={`${MIN_CREDITS.toLocaleString()} - ${MAX_CREDITS.toLocaleString()} credits`}
                   className={cn(customError && 'border-destructive')}
-                  disabled={isProcessing}
+                  disabled={isProcessing || cooldownActive}
                 />
                 {customError && (
                   <p className="text-xs text-destructive mt-2 pl-1">
@@ -157,10 +155,10 @@ export function CreditPurchaseSection({
 
               <NeonGradientButton
                 onClick={handlePurchaseClick}
-                disabled={!isValid || isProcessing || isPending || isPurchasePending}
+                disabled={!isValid || isProcessing || isPending || isPurchasePending || cooldownActive}
                 className={cn(
                   'w-full md:w-auto transition-opacity min-w-[120px]',
-                  (!isValid || isProcessing || isPending || isPurchasePending) && 'opacity-50'
+                  (!isValid || isProcessing || isPending || isPurchasePending || cooldownActive) && 'opacity-50'
                 )}
                 neonColors={{
                   firstColor: '#4F46E5',

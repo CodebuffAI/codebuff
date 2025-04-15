@@ -33,6 +33,7 @@ import { loadStripe } from '@stripe/stripe-js'
 
 import { AutoTopupSettings } from '@/components/auto-topup/AutoTopupSettings'
 import { CreditPurchaseSection } from '@/components/credits/CreditPurchaseSection'
+import { CreditConfetti } from '@/components/ui/credit-confetti'
 
 type UserProfileKeys =
   | 'handle'
@@ -108,9 +109,12 @@ const ManageCreditsCard = () => {
   const { data: session } = useSession()
   const email = encodeURIComponent(session?.user?.email || '')
   const queryClient = useQueryClient()
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [purchasedAmount, setPurchasedAmount] = useState(0)
 
   const buyCreditsMutation = useMutation({
     mutationFn: async (credits: number) => {
+      setPurchasedAmount(credits)
       const response = await fetch('/api/stripe/buy-credits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,6 +152,7 @@ const ManageCreditsCard = () => {
           })
         }
       } else {
+        setShowConfetti(true)
         queryClient.invalidateQueries({ queryKey: ['usageData'] })
       }
     },
@@ -164,6 +169,7 @@ const ManageCreditsCard = () => {
     <Card className="w-full max-w-2xl mx-auto mb-8">
       <CardContent className="space-y-6 pt-6">
         <div className="space-y-8">
+          {showConfetti && <CreditConfetti amount={purchasedAmount} />}
           <div className="flex items-center justify-between">
             <h3 className="text-2xl font-bold">Buy Credits</h3>
             <Link
