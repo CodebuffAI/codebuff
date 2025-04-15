@@ -1,23 +1,18 @@
 import { parse } from 'path'
 import * as readline from 'readline'
 
-import {
-  type ApiKeyType,
-  API_KEY_TYPES,
-  KEY_LENGTHS,
-  KEY_PREFIXES,
-} from 'common/api-keys/constants'
+import { type ApiKeyType } from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
-import { AgentState } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { blue, bold, cyan, green, magenta, red, yellow } from 'picocolors'
+import { green, red, yellow } from 'picocolors'
 
 import { backgroundProcesses } from './background-process-manager'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
+import { detectApiKey, handleApiKeyInput } from './cli-handlers/api-key'
 import {
   displayCheckpointMenu,
   handleClearCheckpoints,
@@ -28,6 +23,8 @@ import {
   listCheckpoints,
   saveCheckpoint,
 } from './cli-handlers/checkpoint'
+import { handleDiff } from './cli-handlers/diff'
+import { showEasterEgg } from './cli-handlers/easter-egg'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
@@ -37,7 +34,6 @@ import { Spinner } from './utils/spinner'
 import { isCommandRunning, resetShell } from './utils/terminal'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
-// Define a type for the detection result
 type ApiKeyDetectionResult =
   | { status: 'found'; type: ApiKeyType; key: string }
   | { status: 'prefix_only'; type: ApiKeyType; prefix: string; length: number }
@@ -212,7 +208,7 @@ export class CLI {
   }
 
   public async printDiff() {
-    this.handleDiff()
+    handleDiff(this.client.lastChanges)
     this.freshPrompt()
   }
 
@@ -243,38 +239,6 @@ export class CLI {
     await this.forwardUserInput(userInput)
   }
 
-  private async saveCheckpoint(userInput: string): Promise<void> {
-    if (checkpointManager.disabledReason !== null) {
-      return
-    }
-
-    Spinner.get().start()
-    await this.readyPromise
-    Spinner.get().stop()
-
-    try {
-      // Make sure the previous checkpoint is done
-      await checkpointManager.getLatestCheckpoint().fileStateIdPromise
-    } catch (error) {
-      // No latest checkpoint available, no need to wait
-    }
-
-    // Save the current agent state
-    try {
-      const { checkpoint, created } = await checkpointManager.addCheckpoint(
-        this.client.agentState as AgentState,
-        this.client.lastToolResults,
-        userInput
-      )
-
-      if (created) {
-        console.log(`[checkpoint #${checkpoint.id} saved]`)
-      }
-    } catch (error) {
-      // Unable to add checkpoint, do not display anything to user
-    }
-  }
-
   private async processCommand(userInput: string): Promise<boolean> {
     if (userInput === 'help' || userInput === 'h') {
       displayMenu()
@@ -297,10 +261,15 @@ export class CLI {
     }
 
     // Detect potential API key input first
-    const detectionResult = this.detectApiKey(userInput)
+    const detectionResult = detectApiKey(userInput)
     if (detectionResult.status !== 'not_found') {
       // If something resembling an API key was detected (valid or just prefix), handle it
-      await this.handleApiKeyInput(detectionResult)
+      await handleApiKeyInput(
+        this.client,
+        detectionResult,
+        this.readyPromise,
+        this.returnControlToUser.bind(this)
+      )
       return true // Indicate command was handled
     }
 
@@ -314,7 +283,7 @@ export class CLI {
       return true
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(userInput)) {
-      this.handleDiff()
+      handleDiff(this.client.lastChanges)
       this.freshPrompt()
       return true
     }
@@ -323,7 +292,7 @@ export class CLI {
       userInput === 'konami' ||
       userInput === 'codebuffy'
     ) {
-      this.showEasterEgg()
+      showEasterEgg(this.returnControlToUser.bind(this))
       return true
     }
 
@@ -378,85 +347,8 @@ export class CLI {
     return false
   }
 
-  /**
-   * Detects if the user input contains a known API key pattern.
-   * Returns information about the detected key or prefix.
-   */
-  private detectApiKey(userInput: string): ApiKeyDetectionResult {
-    // Build regex patterns for each key type
-    const keyPatterns = API_KEY_TYPES.map((keyType) => {
-      const prefix = KEY_PREFIXES[keyType]
-      const length = KEY_LENGTHS[keyType]
-      const escapedPrefix = prefix.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
-      return {
-        type: keyType,
-        prefix: prefix,
-        length: length,
-        // Regex to find the key potentially surrounded by whitespace or at start/end
-        regex: new RegExp(
-          `(?:^|\\s)(${escapedPrefix}[^\\s]{${length - prefix.length}})(?:\\s|$)`
-        ),
-      }
-    })
-
-    // Test input against each pattern for a full match
-    for (const patternInfo of keyPatterns) {
-      const match = userInput.match(patternInfo.regex)
-      if (match && match[1]) {
-        // Found a full, valid key pattern
-        return { status: 'found', type: patternInfo.type, key: match[1] }
-      }
-    }
-
-    // If no full key matched, check if the input *starts* with any known prefix
-    for (const patternInfo of keyPatterns) {
-      if (userInput.includes(patternInfo.prefix)) {
-        // Found a prefix, but it didn't match the full pattern (wrong length/format)
-        return {
-          status: 'prefix_only',
-          type: patternInfo.type,
-          prefix: patternInfo.prefix,
-          length: patternInfo.length,
-        }
-      }
-    }
-
-    // No valid key or known prefix detected
-    return { status: 'not_found' }
-  }
-
-  /**
-   * Handles the result of API key detection.
-   */
-  private async handleApiKeyInput(
-    detectionResult: Exclude<ApiKeyDetectionResult, { status: 'not_found' }>
-  ): Promise<void> {
-    switch (detectionResult.status) {
-      case 'found':
-        Spinner.get().start()
-        await this.readyPromise
-        Spinner.get().stop()
-        // Call the client method to add the valid key
-        await this.client.handleAddApiKey(
-          detectionResult.type,
-          detectionResult.key
-        )
-        // Note: client.handleAddApiKey calls returnControlToUser internally
-        break
-      case 'prefix_only':
-        // Print the warning for incorrect format/length
-        console.log(
-          yellow(
-            `Input looks like a ${detectionResult.type} API key but has the wrong length or format. Expected ${detectionResult.length} characters starting with "${detectionResult.prefix}".`
-          )
-        )
-        this.freshPrompt() // Give the user a fresh prompt after the warning
-        break
-    }
-  }
-
   private async forwardUserInput(userInput: string) {
-    await this.saveCheckpoint(userInput)
+    await saveCheckpoint(userInput, this.client, this.readyPromise)
     Spinner.get().start()
 
     this.client.lastChanges = []
@@ -573,177 +465,6 @@ export class CLI {
     Spinner.get().stop()
   }
 
-  private async showEasterEgg() {
-    const text = 'codebuffy'
-
-    // Utility: clear the terminal screen
-    function clearScreen() {
-      process.stdout.write('\u001b[2J\u001b[0;0H')
-    }
-
-    const termWidth = process.stdout.columns
-    const termHeight = process.stdout.rows
-    const baselineWidth = 80
-    const baselineHeight = 24
-    const scaleFactor = Math.min(
-      termWidth / baselineWidth,
-      termHeight / baselineHeight
-    )
-
-    // Utility: Generate a set of points tracing a "C" shape using an arc.
-    function generateCPath(cx: number, cy: number, r: number, steps: number) {
-      const points = []
-      // A typical "C" opens to the right: from 45° to 315° (in radians)
-      const startAngle = Math.PI / 4
-      const endAngle = (7 * Math.PI) / 4
-      const angleStep = (endAngle - startAngle) / steps
-      for (let i = 0; i <= steps; i++) {
-        const angle = startAngle + i * angleStep
-        const x = Math.floor(cx + r * Math.cos(angle))
-        const y = Math.floor(cy + r * Math.sin(angle))
-        points.push({ x, y })
-      }
-      return points
-    }
-
-    // Utility: Generate points along a quadratic Bézier curve.
-    function quadraticBezier(
-      P0: { x: number; y: number },
-      P1: { x: number; y: number },
-      P2: { x: number; y: number },
-      steps: number
-    ) {
-      const points = []
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps
-        const x = Math.round(
-          (1 - t) ** 2 * P0.x + 2 * (1 - t) * t * P1.x + t ** 2 * P2.x
-        )
-        const y = Math.round(
-          (1 - t) ** 2 * P0.y + 2 * (1 - t) * t * P1.y + t ** 2 * P2.y
-        )
-        points.push({ x, y })
-      }
-      return points
-    }
-
-    // Generate a vertical line from startY to endY at a given x.
-    function generateVerticalLine(x: number, startY: number, endY: number) {
-      const points = []
-      const step = startY < endY ? 1 : -1
-      for (let y = startY; y !== endY; y += step) {
-        points.push({ x, y })
-      }
-      points.push({ x, y: endY })
-      return points
-    }
-
-    // Generate a path approximating a B shape using two quadratic Bézier curves
-    // for the rounded bubbles, and then closing the shape with a vertical spine.
-    function generateBPath(
-      bX: number,
-      bYTop: number,
-      bYBottom: number,
-      bWidth: number,
-      bGap: number,
-      stepsPerCurve: number
-    ) {
-      let points: { x: number; y: number }[] = []
-      const middle = Math.floor((bYTop + bYBottom) / 2)
-
-      // Upper bubble: from top-left (spine) out then back to the spine at the middle.
-      const upperStart = { x: bX, y: bYTop }
-      const upperControl = {
-        x: bX + bWidth + bGap - 10,
-        y: Math.floor((bYTop + middle) / 2),
-      }
-      const upperEnd = { x: bX, y: middle }
-      const upperCurve = quadraticBezier(
-        upperStart,
-        upperControl,
-        upperEnd,
-        stepsPerCurve
-      )
-
-      // Lower bubble: from the middle to the bottom.
-      const lowerStart = { x: bX, y: middle }
-      const lowerControl = {
-        x: bX + bWidth + bGap,
-        y: Math.floor((middle + bYBottom) / 2),
-      }
-      const lowerEnd = { x: bX, y: bYBottom }
-      const lowerCurve = quadraticBezier(
-        lowerStart,
-        lowerControl,
-        lowerEnd,
-        stepsPerCurve
-      )
-
-      // Combine the curves.
-      points = points.concat(upperCurve, lowerCurve)
-
-      // Add a vertical line from the bottom of the B back up to the top.
-      const closingLine = generateVerticalLine(bX, bYBottom, bYTop)
-      points = points.concat(closingLine)
-
-      return points
-    }
-
-    // Dynamically scale parameters for the shapes.
-    // Use Math.max to ensure values don't get too small.
-    const cCenterX = Math.floor(termWidth * 0.3)
-    const cCenterY = Math.floor(termHeight / 2)
-    const cRadius = Math.max(2, Math.floor(8 * scaleFactor))
-    const cSteps = Math.max(10, Math.floor(30 * scaleFactor))
-
-    const bX = Math.floor(termWidth * 0.55)
-    const bYTop = Math.floor(termHeight / 2 - 7 * scaleFactor)
-    const bYBottom = Math.floor(termHeight / 2 + 7 * scaleFactor)
-    const bWidth = Math.max(2, Math.floor(8 * scaleFactor))
-    const bGap = Math.max(1, Math.floor(35 * scaleFactor))
-    const bStepsPerCurve = Math.max(10, Math.floor(20 * scaleFactor))
-
-    // Generate the paths.
-    const fullPath = [
-      ...generateCPath(cCenterX, cCenterY, cRadius, cSteps),
-      ...generateBPath(bX, bYTop, bYBottom, bWidth, bGap, bStepsPerCurve),
-    ]
-
-    // Array of picocolors functions for random colors.
-    const colors = [red, green, yellow, blue, magenta, cyan]
-    function getRandomColor() {
-      return colors[Math.floor(Math.random() * colors.length)]
-    }
-
-    // Animation state: index into the fullPath.
-    let index = 0
-    let completedCycle = false
-
-    // Main animation function
-    function animate() {
-      if (index >= fullPath.length) {
-        completedCycle = true
-        return
-      }
-
-      const { x, y } = fullPath[index]
-      const cursorPosition = `\u001b[${y + 1};${x + 1}H`
-      process.stdout.write(cursorPosition + getRandomColor()(text))
-
-      index++
-    }
-
-    clearScreen()
-    const interval = setInterval(() => {
-      animate()
-      if (completedCycle) {
-        clearInterval(interval)
-        clearScreen()
-        this.returnControlToUser()
-      }
-    }, 100)
-  }
-
   private handleExit() {
     Spinner.get().restoreCursor()
     console.log('\n')
@@ -807,31 +528,5 @@ export class CLI {
       }
     }
     this.lastInputTime = currentTime
-  }
-
-  private handleDiff() {
-    if (this.client.lastChanges.length === 0) {
-      console.log(yellow('No changes found in the last assistant response.'))
-      return
-    }
-
-    this.client.lastChanges.forEach((change) => {
-      console.log(bold(`___${change.path}___`))
-      const lines = change.content
-        .split('\n')
-        .map((line) => (change.type === 'file' ? '+' + line : line))
-
-      lines.forEach((line) => {
-        if (line.startsWith('+')) {
-          console.log(green(line))
-        } else if (line.startsWith('-')) {
-          console.log(red(line))
-        } else if (line.startsWith('@@')) {
-          console.log(cyan(line))
-        } else {
-          console.log(line)
-        }
-      })
-    })
   }
 }

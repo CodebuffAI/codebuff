@@ -180,12 +180,15 @@ export class CheckpointManager {
       throw new CheckpointsDisabledError(this.disabledReason)
     }
 
-    const needToStage = await hasUnsavedChanges({
-      projectDir,
-      bareRepoPath,
-      relativeFilepaths,
-    })
-    if (!needToStage && !saveWithNoChanges && this.checkpoints.length > 0) {
+    const needToStage =
+      saveWithNoChanges ||
+      (await hasUnsavedChanges({
+        projectDir,
+        bareRepoPath,
+        relativeFilepaths,
+      })) ||
+      saveWithNoChanges
+    if (!needToStage && this.checkpoints.length > 0) {
       return {
         checkpoint: this.checkpoints[this.checkpoints.length - 1],
         created: false,
