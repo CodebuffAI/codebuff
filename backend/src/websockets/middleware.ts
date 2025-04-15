@@ -241,9 +241,10 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
       // If we still don't have credits after auto top-up attempt, return error
       if (newUsageAndBalance.balance.totalRemaining <= 0) {
         // If they have debt, show that in the message
-        const message = newUsageAndBalance.balance.totalDebt > 0
-          ? `You have a negative balance of ${newUsageAndBalance.balance.totalDebt} credits. Please add credits to continue using the service.`
-          : `You do not have enough credits for this action. Please add credits or wait for your next cycle to begin.`
+        const message =
+          newUsageAndBalance.balance.totalDebt > 0
+            ? `You have a negative balance of ${newUsageAndBalance.balance.totalDebt} credits. Please add credits to continue using Codebuff.`
+            : `You do not have enough credits for this action. Please add credits or wait for your next cycle to begin.`
 
         return {
           type: 'action-error',

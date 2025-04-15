@@ -71,8 +71,7 @@ const WARNING_CONFIG = {
   [UserState.DEPLETED]: {
     message: () =>
       [
-        red(`\n❌ Credits Depleted`),
-        red(`You have used all your credits.`),
+        red(`\n❌ You have used all your credits.`),
         `Visit ${bold(blue(websiteUrl + '/usage'))} to add more credits and continue coding.`,
       ].join('\n'),
     threshold: 100,
@@ -80,8 +79,7 @@ const WARNING_CONFIG = {
   [UserState.CRITICAL]: {
     message: (credits: number) =>
       [
-        yellow(`\n🪫 Credits Running Low`),
-        yellow(`Only ${bold(pluralize(credits, 'credit'))} remaining!`),
+        yellow(`\n🪫 Only ${bold(pluralize(credits, 'credit'))} remaining!`),
         yellow(`Visit ${bold(websiteUrl + '/usage')} to add more credits.`),
       ].join('\n'),
     threshold: 85,
@@ -89,9 +87,8 @@ const WARNING_CONFIG = {
   [UserState.ATTENTION_NEEDED]: {
     message: (credits: number) =>
       [
-        yellow(`\n⚠️ Low Credit Alert`),
         yellow(
-          `${bold(pluralize(credits, 'credit'))} remaining. Consider topping up soon.`
+          `\n⚠️ ${bold(pluralize(credits, 'credit'))} remaining. Consider topping up soon.`
         ),
       ].join('\n'),
     threshold: 75,
@@ -462,17 +459,8 @@ export class Client {
     this.webSocket.subscribe('action-error', (action) => {
       if (action.error === 'Insufficient credits') {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
-        if (action.remainingBalance !== undefined) {
-          console.error(
-            yellow(
-              `Remaining balance: ${action.remainingBalance.toLocaleString()}`
-            )
-          )
-        }
         console.error(
-          yellow(
-            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to add credits.`
-          )
+          `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to add credits.`
         )
       } else if (action.error === 'Auto top-up disabled') {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
