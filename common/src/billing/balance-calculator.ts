@@ -140,8 +140,9 @@ async function consumeFromOrderedGrants(
             consumed: actualConsumption,
             maxDebt: MAX_DEBT_LIMIT,
           },
-          'Hit max debt limit, consumed partial amount'
+          'Hit max debt limit, cannot consume more credits'
         )
+        throw new Error(`Cannot consume more credits - you have reached the maximum debt limit of ${MAX_DEBT_LIMIT} credits. Please add more credits to continue.`)
       } else {
         await updateGrantBalance(userId, lastGrant, remainingToConsume, newBalance)
         totalConsumed += remainingToConsume

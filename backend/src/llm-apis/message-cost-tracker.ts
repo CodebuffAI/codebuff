@@ -90,10 +90,10 @@ const calcCost = (
 async function syncMessageToStripe(messageData: {
   messageId: string
   userId: string
-  monetaryCostInCents: number
+  costInCents: number
   finishedAt: Date
 }) {
-  const { messageId, userId, monetaryCostInCents, finishedAt } = messageData
+  const { messageId, userId, costInCents, finishedAt } = messageData
 
   if (!userId || userId === TEST_USER_ID) {
     logger.debug(
@@ -103,7 +103,7 @@ async function syncMessageToStripe(messageData: {
     return
   }
 
-  const logContext = { messageId, userId, monetaryCostInCents }
+  const logContext = { messageId, userId, costInCents }
 
   try {
     const user = await db.query.user.findFirst({
@@ -125,18 +125,18 @@ async function syncMessageToStripe(messageData: {
     const syncAction = async () => {
       logger.info(
         logContext,
-        `Attempting to sync monetary usage (${monetaryCostInCents} cents) to Stripe Meter Events for customer ${stripeCustomerId}`
+        `Attempting to sync usage (${costInCents} credits) to Stripe Meter Events for customer ${stripeCustomerId}`
       )
       await stripeServer.billing.meterEvents.create({
         event_name: 'credits',
         timestamp: timestamp,
         payload: {
           stripe_customer_id: stripeCustomerId,
-          value: monetaryCostInCents.toString(),
+          value: costInCents.toString(),
           message_id: messageId,
         },
       })
-      logger.info(logContext, 'Successfully synced monetary usage to Stripe.')
+      logger.info(logContext, 'Successfully synced usage to Stripe.')
 
       await db
         .delete(schema.syncFailure)
@@ -409,32 +409,21 @@ export const saveMessage = async (value: {
         value.cacheReadInputTokens ?? 0
       )
 
-      const monetaryCostInCents = Math.max(
+      const centsPerCredit = await getUserCostPerCredit(value.userId)
+      const costInCents = Math.max(
         1,
         Math.round(cost * 100 * (1 + PROFIT_MARGIN))
       )
 
-      const centsPerCredit = await getUserCostPerCredit(value.userId)
-      if (centsPerCredit <= 0) {
-        logger.error(
-          { userId: value.userId, centsPerCredit },
-          'Invalid centsPerCredit, cannot calculate internal credits used.'
-        )
-        return null
-      }
-
-      const internalCreditsUsed = Math.max(
-        1,
-        Math.ceil(monetaryCostInCents / centsPerCredit)
-      )
+      const creditsUsed = Math.max(1, costInCents)
 
       logger.debug(
         {
           messageId: value.messageId,
           costUSD: cost,
-          monetaryCostInCents,
+          costInCents,
+          creditsUsed,
           centsPerCredit,
-          internalCreditsUsed,
         },
         'Calculated message cost and credits'
       )
@@ -442,7 +431,7 @@ export const saveMessage = async (value: {
       const savedMessageResult = await insertMessageRecord({
         ...value,
         cost,
-        creditsUsed: internalCreditsUsed,
+        creditsUsed,
       })
 
       if (!savedMessageResult || !value.userId) {
@@ -453,18 +442,18 @@ export const saveMessage = async (value: {
         return null
       }
 
-      updateUserCycleUsage(value.userId, internalCreditsUsed)
+      updateUserCycleUsage(value.userId, creditsUsed)
 
       sendCostResponseToClient(
         value.clientSessionId,
         value.userInputId,
-        internalCreditsUsed
+        creditsUsed
       )
 
       syncMessageToStripe({
         messageId: value.messageId,
         userId: value.userId,
-        monetaryCostInCents: monetaryCostInCents,
+        costInCents,
         finishedAt: value.finishedAt,
       }).catch((syncError) => {
         logger.error(

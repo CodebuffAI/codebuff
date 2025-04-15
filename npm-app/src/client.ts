@@ -62,6 +62,7 @@ import { createXMLStreamParser } from './utils/xml-stream-parser'
 
 const LOW_BALANCE_THRESHOLD = 100
 const VERY_LOW_BALANCE_THRESHOLD = 20
+const MAX_DEBT_LIMIT = 1000
 
 export class Client {
   private webSocket: APIRealtimeClient
@@ -504,6 +505,9 @@ export class Client {
       }
 
       this.showUsageWarning()
+      
+      // Return control to user after showing usage warning
+      this.returnControlToUser()
     })
   }
 
@@ -512,11 +516,12 @@ export class Client {
       this.remainingBalance < VERY_LOW_BALANCE_THRESHOLD &&
       this.lastWarnedPct < 100
     ) {
-      console.warn(
-        yellow(
-          `\n⚠️ Warning: You have ${bold(this.remainingBalance.toLocaleString())} credits remaining. Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage`'))}`
-        )
-      )
+      const message = this.remainingBalance <= 0
+        ? `\n⚠️ Warning: You have no credits remaining and cannot go below -${MAX_DEBT_LIMIT} credits.`
+        : `\n⚠️ Warning: You have only ${bold(this.remainingBalance.toLocaleString())} credits remaining.`;
+      
+      console.warn(yellow(message));
+      
       if (this.user) {
         console.warn(
           yellow(
@@ -527,19 +532,17 @@ export class Client {
         console.warn(yellow(`Type "login" to sign up/in and get more credits!`))
       }
       this.lastWarnedPct = 100
-      this.returnControlToUser()
     } else if (
       this.remainingBalance < LOW_BALANCE_THRESHOLD &&
       this.lastWarnedPct < 75
     ) {
       console.warn(
         yellow(
-          `You have ${bold(this.remainingBalance.toLocaleString())} credits remaining. Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage`'))}`
+          `You have ${bold(this.remainingBalance.toLocaleString())} credits remaining. Consider upgrading or adding credits soon: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))}`
         )
       )
 
       this.lastWarnedPct = 75
-      this.returnControlToUser()
     } else if (
       this.remainingBalance >= LOW_BALANCE_THRESHOLD &&
       this.lastWarnedPct > 0
@@ -781,9 +784,6 @@ export class Client {
           console.log(`${pluralize(credits, 'credit')} used for this request.`)
         }
 
-        // Show usage warning after showing credits used
-        this.showUsageWarning()
-
         if (this.hadFileChanges) {
           let checkpointAddendum = ''
           try {
@@ -838,8 +838,8 @@ export class Client {
       const remainingColor =
         this.remainingBalance <= 0
           ? red
-          : this.remainingBalance <= 500
-            ? yellow
+          : this.remainingBalance <= LOW_BALANCE_THRESHOLD
+            ? red
             : green
 
       const totalCreditsUsedThisSession = Object.values(this.creditsByPromptId)
@@ -850,7 +850,6 @@ export class Client {
       )
 
       if (this.nextQuotaReset) {
-        // Updated log message!
         console.log(
           `${this.nextMonthlyGrant.toLocaleString()} credits will be added on ${this.nextQuotaReset.toLocaleDateString()}. Details: ${underline(blue(usageLink))}`
         )

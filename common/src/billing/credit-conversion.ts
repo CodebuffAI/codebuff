@@ -1,4 +1,12 @@
 /**
+ * Gets the cost per credit for a user. Currently hardcoded to 1 cent per credit,
+ * but could be customized per user in the future.
+ */
+export async function getUserCostPerCredit(userId: string | undefined): Promise<number> {
+  return 1 // 1 cent per credit
+}
+
+/**
  * Converts an internal credit system value to the equivalent monetary amount in USD cents,
  * based on the user's cost per credit.
  * Uses Math.ceil to ensure enough monetary value is calculated if rounding occurs.
