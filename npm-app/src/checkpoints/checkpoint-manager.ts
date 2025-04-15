@@ -92,7 +92,7 @@ export class CheckpointManager {
    */
   private initWorker(): Worker {
     if (!this.worker) {
-      // NOTE: Uses the built worker-script-project-context.js within dist.
+      // NOTE: Uses the built workers/checkpoint-worker.js within dist.
       // So you need to run `bun run build` before running locally.
       const workerPath = __filename.endsWith('.ts')
         ? join(__dirname, '../../dist', 'workers/checkpoint-worker.js')

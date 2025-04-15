@@ -396,10 +396,18 @@ export const runCommandPty = (
         dataDisposable.dispose()
 
         if (command.startsWith('cd ') && mode === 'user') {
-          const newWorkingDirectory = command.split(' ')[1]
-          projectPath = setProjectRoot(
-            path.join(projectPath, newWorkingDirectory)
-          )
+          let newWorkingDirectory = command.split(' ')[1]
+          if (newWorkingDirectory === '~') {
+            newWorkingDirectory = os.homedir()
+          } else if (newWorkingDirectory.startsWith('~/')) {
+            newWorkingDirectory = path.join(
+              os.homedir(),
+              newWorkingDirectory.slice(2)
+            )
+          } else if (!path.isAbsolute(newWorkingDirectory)) {
+            newWorkingDirectory = path.join(projectPath, newWorkingDirectory)
+          }
+          projectPath = setProjectRoot(newWorkingDirectory)
         }
 
         // Reset the PTY to the project root
