@@ -271,7 +271,7 @@ export const UsageDisplay = ({
         <CardTitle className="text-xl font-bold mb-1">Credit Balance</CardTitle>
         <div className="flex flex-col gap-1">
           <span className="text-sm text-muted-foreground">
-            Credits are consumed in order from top to bottom
+            We'll use your renewable credits before non-renewable ones
           </span>
         </div>
 
@@ -351,7 +351,7 @@ export const UsageDisplay = ({
 
         <div className="pt-4">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium">Total Left</span>
+            <span className="text-xl font-medium">Total Left</span>
             <span className="text-xl font-bold">
               {totalRemaining.toLocaleString()}
             </span>
