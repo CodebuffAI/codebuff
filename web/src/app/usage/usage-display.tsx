@@ -53,7 +53,7 @@ const grantTypeInfo: Record<
     gradient: 'from-green-500/70 to-green-600/70',
     icon: <Users className="h-4 w-4" />,
     label: 'Referral Bonus',
-    description: 'Earned by inviting others to Codebuff',
+    description: 'Earned by referring others',
   },
   purchase: {
     bg: 'bg-yellow-500',
@@ -80,6 +80,7 @@ interface CreditLeafProps {
   renewalDate?: Date | null
   expiryDate?: Date | null
   isLast?: boolean
+  isRenewable?: boolean
 }
 
 const CreditLeaf = ({
@@ -89,95 +90,50 @@ const CreditLeaf = ({
   renewalDate,
   expiryDate,
   isLast = false,
+  isRenewable = false,
 }: CreditLeafProps) => {
   const remainingAmount = amount - used
-  const usedPercentage = amount > 0 ? Math.round((used / amount) * 100) : 0
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="group relative pl-6 py-1.5 rounded">
-            <div
-              className={cn(
-                'absolute left-0 w-px bg-border/30',
-                isLast ? 'top-0 h-[calc(50%+2px)]' : 'top-0 bottom-0'
-              )}
-            />
-            <div className="absolute left-0 top-1/2 w-4 h-px bg-border/60" />
+    <div className="group relative pl-6">
+      <div
+        className={cn(
+          'absolute left-0 w-px bg-border/20',
+          isLast ? 'top-0 h-[calc(50%+2px)]' : 'top-0 bottom-0'
+        )}
+      />
+      <div className="absolute left-0 top-1/2 w-4 h-px bg-border/30" />
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-3 px-3 border rounded-md min-h-[3.5rem]">
-              <div className="flex flex-col gap-1 mb-1.5 sm:mb-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 flex-shrink-0">
-                    {grantTypeInfo[type].icon}
-                  </div>
-                  <span className="font-medium">
-                    {grantTypeInfo[type].label}
-                  </span>
-                </div>
-                <span className="text-xs text-muted-foreground pl-7">
-                  {grantTypeInfo[type].description}
-                </span>
-              </div>
-              <div className="flex flex-col items-end">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-base">
-                    {remainingAmount.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-muted-foreground">left</span>
-                  <span className="text-xs text-muted-foreground mx-0.5">
-                    •
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {amount.toLocaleString()} total
-                  </span>
-                </div>
-              </div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-2 px-3 hover:bg-accent/5 rounded-md transition-colors">
+        <div className="flex flex-col gap-1 w-full sm:w-auto">
+          <div className="flex items-center gap-3">
+            <div className="w-4 h-4 flex-shrink-0">
+              {grantTypeInfo[type].icon}
             </div>
+            <span className="font-medium text-sm">
+              {grantTypeInfo[type].label}
+            </span>
           </div>
-        </TooltipTrigger>
-        <TooltipContent side="right" className="hidden sm:block">
-          <div className="p-2 space-y-2">
-            <div className="text-sm">{grantTypeInfo[type].description}</div>
-            <div className="space-y-1 pt-1 border-t">
-              {amount !== remainingAmount && (
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Total:</span>
-                  <span>{amount.toLocaleString()}</span>
-                </div>
-              )}
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Left:</span>
-                <span className="font-medium">
-                  {remainingAmount.toLocaleString()}
-                </span>
-              </div>
-              {used > 0 && (
-                <div className="flex justify-between gap-4 text-xs pt-1 border-t">
-                  <span>Used:</span>
-                  <span>
-                    {used.toLocaleString()} ({usedPercentage}%)
-                  </span>
-                </div>
-              )}
-              {renewalDate && (
-                <div className="flex justify-between gap-4 text-xs pt-1 border-t">
-                  <span>Renews:</span>
-                  <span>{renewalDate.toLocaleDateString()}</span>
-                </div>
-              )}
-              {expiryDate && (
-                <div className="flex justify-between gap-4 text-xs">
-                  <span>Expires:</span>
-                  <span>{expiryDate.toLocaleDateString()}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+          <span className="text-xs text-muted-foreground pl-7">
+            {grantTypeInfo[type].description}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 mt-1 sm:mt-0 pl-7 sm:pl-0">
+          <span className="font-medium text-sm">
+            {remainingAmount.toLocaleString()}
+          </span>
+          <span className="text-xs text-muted-foreground">left</span>
+          {isRenewable && (
+            <>
+              <span className="text-xs text-muted-foreground mx-0.5">•</span>
+              <span className="text-xs text-muted-foreground">
+                {amount.toLocaleString()} total
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -202,93 +158,63 @@ const CreditBranch = ({
 }: CreditBranchProps) => {
   const [isOpen, setIsOpen] = React.useState(false)
   const leftAmount = totalAmount - usedAmount
-  const showPercentage = title === 'Renewable'
-  const usedPercentage =
-    showPercentage && totalAmount > 0
-      ? Math.round((usedAmount / totalAmount) * 100)
-      : null
+  const isRenewable = title === 'Renewable'
 
   return (
-    <div className="space-y-2 relative">
-      <div className="relative z-10">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex flex-col sm:flex-row items-start sm:items-center bg-card hover:bg-accent/50 py-3 px-4 rounded-lg transition-all duration-200 border-2 border-border/70 shadow-sm hover:shadow-md"
-          aria-expanded={isOpen}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2 mb-2 sm:mb-0">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-3">
-                <div className="text-green-400">
-                  {isOpen ? (
-                    <ChevronDown className="h-5 w-5" />
-                  ) : (
-                    <ChevronRight className="h-5 w-5" />
-                  )}
-                </div>
-                <span className="font-medium text-[15px]">{title}</span>
-              </div>
-              <div className="hidden sm:flex items-center gap-2 pl-7">
-                {usedPercentage !== null && usedAmount > 0 && (
-                  <span
-                    className={cn(
-                      'text-xs font-medium',
-                      usedPercentage > 80
-                        ? 'text-red-400'
-                        : usedPercentage > 50
-                          ? 'text-yellow-400'
-                          : 'text-green-400'
-                    )}
-                  >
-                    {usedPercentage}% used
-                  </span>
-                )}
-                {title === 'Renewable' && nextQuotaReset && (
-                  <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-400/20 px-2 py-0.5 rounded-none">
+    <div className="space-y-1 border rounded-lg p-2">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex flex-col sm:flex-row items-start sm:items-center py-2 px-4 hover:bg-accent/5 rounded-md transition-colors"
+        aria-expanded={isOpen}
+      >
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="text-muted-foreground">
+            {isOpen ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-4 w-full">
+            <div className="flex flex-col sm:flex-row gap-1 sm:gap-4">
+              <span className="font-medium text-sm text-left">{title}</span>
+              <div className="flex sm:hidden items-center gap-2">
+                {isRenewable && nextQuotaReset && (
+                  <span className="text-xs bg-blue-500/5 text-blue-400 border border-blue-400/10 px-2 py-0.5 rounded">
                     Renews {nextQuotaReset.toLocaleDateString()}
                   </span>
                 )}
               </div>
             </div>
-          </div>
-
-          <div className="flex-1 flex flex-col items-start sm:items-end gap-1">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-[15px]">
-                {leftAmount.toLocaleString()}
-              </span>
-              <span className="text-xs text-muted-foreground">left</span>
-              <span className="text-xs text-muted-foreground mx-0.5">•</span>
-              <span className="text-xs text-muted-foreground">
-                {totalAmount.toLocaleString()} total
-              </span>
-            </div>
-            <div className="flex sm:hidden items-center gap-2">
-              {usedPercentage !== null && usedAmount > 0 && (
-                <span
-                  className={cn(
-                    'text-xs font-medium',
-                    usedPercentage > 80
-                      ? 'text-red-400'
-                      : usedPercentage > 50
-                        ? 'text-yellow-400'
-                        : 'text-green-400'
-                  )}
-                >
-                  {usedPercentage}% used
-                </span>
-              )}
-              {title === 'Renewable' && nextQuotaReset && (
-                <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-400/20 px-2 py-0.5 rounded-none">
+            <div className="hidden sm:flex items-center gap-2">
+              {isRenewable && nextQuotaReset && (
+                <span className="text-xs bg-blue-500/5 text-blue-400 border border-blue-400/10 px-2 py-0.5 rounded">
                   Renews {nextQuotaReset.toLocaleDateString()}
                 </span>
               )}
             </div>
           </div>
-        </button>
-      </div>
+        </div>
 
-      {isOpen && <div className="pl-4 space-y-2 mt-2">{children}</div>}
+        <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-center justify-end gap-1 mt-1 sm:mt-0 pl-7 sm:pl-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm">
+              {leftAmount.toLocaleString()}
+            </span>
+            <span className="text-xs text-muted-foreground">left</span>
+            {isRenewable && (
+              <>
+                <span className="text-xs text-muted-foreground mx-0.5">•</span>
+                <span className="text-xs text-muted-foreground">
+                  {totalAmount.toLocaleString()} total
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </button>
+
+      {isOpen && <div className="space-y-0.5 mt-1">{children}</div>}
     </div>
   )
 }
@@ -317,7 +243,7 @@ export const UsageDisplay = ({
 
   // Group credits by expiration type
   const expiringTypes: GrantType[] = ['free', 'referral']
-  const nonExpiringTypes: GrantType[] = ['purchase', 'admin']
+  const nonExpiringTypes: GrantType[] = ['admin', 'purchase']
 
   const expiringTotal = expiringTypes.reduce(
     (acc, type) => acc + (principals?.[type] || breakdown[type] || 0),
@@ -349,7 +275,7 @@ export const UsageDisplay = ({
           </span>
         </div>
 
-        {totalDebt > 0 && (
+        {totalDebt > 500 && (
           <div className="mt-3 p-2.5 bg-red-500/10 border border-red-500/20 rounded-md">
             <p className="text-red-500 font-medium">
               Please add more than{' '}
@@ -374,13 +300,14 @@ export const UsageDisplay = ({
             const currentBalance = breakdown[type] || 0
             const principal = principals?.[type] || currentBalance
             const used = usedCredits[type]
-            return principal > 0 ? (
+            return (
               <CreditLeaf
                 key={type}
                 type={type}
                 amount={principal}
                 used={used}
                 renewalDate={nextQuotaReset}
+                isRenewable={true}
                 isLast={
                   index === array.length - 1 ||
                   !array
@@ -388,44 +315,43 @@ export const UsageDisplay = ({
                     .some((t) => (principals?.[t] || breakdown[t] || 0) > 0)
                 }
               />
-            ) : null
+            )
           })}
         </CreditBranch>
 
         {/* Non-expiring Credits */}
-        {(nonExpiringTotal > 0 || nonExpiringUsed > 0) && (
-          <CreditBranch
-            title="Non-renewable"
-            totalAmount={nonExpiringTotal}
-            usedAmount={nonExpiringUsed}
-            isLast={true}
-            isTopLevel={true}
-          >
-            {nonExpiringTypes.map((type, index, array) => {
-              const currentBalance = breakdown[type] || 0
-              const principal = principals?.[type] || currentBalance
-              const used = usedCredits[type]
-              return principal > 0 ? (
-                <CreditLeaf
-                  key={type}
-                  type={type}
-                  amount={principal}
-                  used={used}
-                  isLast={
-                    index === array.length - 1 ||
-                    !array
-                      .slice(index + 1)
-                      .some((t) => (principals?.[t] || breakdown[t] || 0) > 0)
-                  }
-                />
-              ) : null
-            })}
-          </CreditBranch>
-        )}
+        <CreditBranch
+          title="Non-renewable"
+          totalAmount={nonExpiringTotal}
+          usedAmount={nonExpiringUsed}
+          isLast={true}
+          isTopLevel={true}
+        >
+          {nonExpiringTypes.map((type, index, array) => {
+            const currentBalance = breakdown[type] || 0
+            const principal = principals?.[type] || currentBalance
+            const used = usedCredits[type]
+            return (
+              <CreditLeaf
+                key={type}
+                type={type}
+                amount={principal}
+                used={used}
+                isRenewable={false}
+                isLast={
+                  index === array.length - 1 ||
+                  !array
+                    .slice(index + 1)
+                    .some((t) => (principals?.[t] || breakdown[t] || 0) > 0)
+                }
+              />
+            )
+          })}
+        </CreditBranch>
 
-        <div className="border-t pt-4 mt-2">
+        <div className="pt-4">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium">Total Available</span>
+            <span className="text-sm font-medium">Total Left</span>
             <span className="text-xl font-bold">
               {totalRemaining.toLocaleString()}
             </span>

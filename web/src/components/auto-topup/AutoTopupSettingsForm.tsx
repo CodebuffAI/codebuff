@@ -21,8 +21,10 @@ const {
 } = AUTO_TOPUP_CONSTANTS
 
 // Convert dollars to credits and vice versa
-const dollarsToCredits = (dollars: number) => Math.round(dollars * 100 / CENTS_PER_CREDIT)
-const creditsToDollars = (credits: number) => (credits * CENTS_PER_CREDIT / 100).toFixed(2)
+const dollarsToCredits = (dollars: number) =>
+  Math.round((dollars * 100) / CENTS_PER_CREDIT)
+const creditsToDollars = (credits: number) =>
+  ((credits * CENTS_PER_CREDIT) / 100).toFixed(2)
 
 // Define min/max credits based on dollar limits
 const MIN_TOPUP_CREDITS = dollarsToCredits(MIN_TOPUP_DOLLARS)
@@ -38,38 +40,46 @@ export function AutoTopupSettingsForm({
 }: AutoTopupSettingsFormProps) {
   const [thresholdError, setThresholdError] = useState<string>('')
   const [topUpCreditsError, setTopUpCreditsError] = useState<string>('')
-  
+
   // Convert dollar amount to credits for display
   const topUpAmountCredits = dollarsToCredits(topUpAmountDollars)
-  
+
   // Check threshold limits
   useEffect(() => {
     if (threshold < MIN_THRESHOLD_CREDITS) {
-      setThresholdError(`Minimum ${MIN_THRESHOLD_CREDITS.toLocaleString()} credits`)
+      setThresholdError(
+        `Minimum ${MIN_THRESHOLD_CREDITS.toLocaleString()} credits`
+      )
     } else if (threshold > MAX_THRESHOLD_CREDITS) {
-      setThresholdError(`Maximum ${MAX_THRESHOLD_CREDITS.toLocaleString()} credits`)
+      setThresholdError(
+        `Maximum ${MAX_THRESHOLD_CREDITS.toLocaleString()} credits`
+      )
     } else {
       setThresholdError('')
     }
   }, [threshold])
-  
+
   // Check top-up credit limits
   useEffect(() => {
     if (topUpAmountCredits < MIN_TOPUP_CREDITS) {
-      setTopUpCreditsError(`Minimum ${MIN_TOPUP_CREDITS.toLocaleString()} credits`)
+      setTopUpCreditsError(
+        `Minimum ${MIN_TOPUP_CREDITS.toLocaleString()} credits`
+      )
     } else if (topUpAmountCredits > MAX_TOPUP_CREDITS) {
-      setTopUpCreditsError(`Maximum ${MAX_TOPUP_CREDITS.toLocaleString()} credits`)
+      setTopUpCreditsError(
+        `Maximum ${MAX_TOPUP_CREDITS.toLocaleString()} credits`
+      )
     } else {
       setTopUpCreditsError('')
     }
   }, [topUpAmountCredits])
-  
+
   // Handle credits input change by converting to dollars
   const handleTopUpCreditsChange = (credits: number) => {
-    const dollars = Number((credits * CENTS_PER_CREDIT / 100).toFixed(2))
+    const dollars = Number(((credits * CENTS_PER_CREDIT) / 100).toFixed(2))
     onTopUpAmountChange(dollars)
   }
-  
+
   if (!isEnabled) return null
 
   return (
@@ -78,7 +88,7 @@ export function AutoTopupSettingsForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
           <div className="space-y-2">
             <Label htmlFor="threshold" className="flex items-center gap-1">
-              Low Balance Threshold (Credits)
+              Low Balance Threshold
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="h-4 w-4 text-muted-foreground cursor-help" />
@@ -88,7 +98,8 @@ export function AutoTopupSettingsForm({
                     When your balance falls below this credit amount,
                     <br /> we'll automatically top it up.
                     <br />
-                    Min: {MIN_THRESHOLD_CREDITS.toLocaleString()}, Max: {MAX_THRESHOLD_CREDITS.toLocaleString()}
+                    Min: {MIN_THRESHOLD_CREDITS.toLocaleString()}, Max:{' '}
+                    {MAX_THRESHOLD_CREDITS.toLocaleString()}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -110,7 +121,7 @@ export function AutoTopupSettingsForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="topUpAmount" className="flex items-center gap-1">
-              Top-up Amount (Credits)
+              Top-up Amount
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="h-4 w-4 text-muted-foreground cursor-help" />
@@ -120,7 +131,8 @@ export function AutoTopupSettingsForm({
                     The amount of credits to automatically purchase
                     <br /> when your balance is low.
                     <br />
-                    Min: {MIN_TOPUP_CREDITS.toLocaleString()}, Max: {MAX_TOPUP_CREDITS.toLocaleString()}
+                    Min: {MIN_TOPUP_CREDITS.toLocaleString()}, Max:{' '}
+                    {MAX_TOPUP_CREDITS.toLocaleString()}
                   </p>
                 </TooltipContent>
               </Tooltip>

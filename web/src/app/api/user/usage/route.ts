@@ -111,13 +111,23 @@ export async function GET() {
       )
       .groupBy(schema.creditLedger.type)
 
-    // Initialize balance structure
+    // Initialize balance structure with all grant types set to 0
     const balance: CreditBalance = {
       totalRemaining: 0,
       totalDebt: 0,
       netBalance: 0,
-      breakdown: {},
-      principals: {},
+      breakdown: {
+        free: 0,
+        referral: 0,
+        purchase: 0,
+        admin: 0,
+      },
+      principals: {
+        free: 0,
+        referral: 0,
+        purchase: 0,
+        admin: 0,
+      },
     }
 
     let usageThisCycle = 0
@@ -126,7 +136,7 @@ export async function GET() {
     for (const total of grantTotals) {
       const grantType = total.type as GrantType
       
-      // Add to type-specific totals
+      // Add to type-specific totals (overwriting the 0 defaults)
       balance.breakdown[grantType] = total.typeBalance
       balance.principals[grantType] = total.typePrincipal
 
