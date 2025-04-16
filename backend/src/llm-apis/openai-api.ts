@@ -126,12 +126,16 @@ export async function* promptOpenAIStream(
         ...(predictedContent
           ? { prediction: { type: 'content', content: predictedContent } }
           : {}),
+        stream_options: {
+          include_usage: true,
+        },
       })
     )
 
     let content = ''
     let inputTokens = 0
     let outputTokens = 0
+    let cachedInputTokens = 0
 
     for await (const chunk of stream) {
       if (chunk.choices[0]?.delta?.content) {
@@ -141,8 +145,16 @@ export async function* promptOpenAIStream(
       }
 
       if (chunk.usage) {
-        inputTokens = chunk.usage.prompt_tokens
-        outputTokens = chunk.usage.completion_tokens
+        const { usage } = chunk
+        inputTokens = usage.prompt_tokens
+        outputTokens = usage.completion_tokens
+        if (
+          usage.prompt_tokens_details &&
+          usage.prompt_tokens_details.cached_tokens
+        ) {
+          cachedInputTokens = usage.prompt_tokens_details.cached_tokens
+          inputTokens -= cachedInputTokens
+        }
       }
     }
 
@@ -167,6 +179,7 @@ export async function* promptOpenAIStream(
         request: messages,
         response: content,
         inputTokens: inputTokens || 0,
+        cacheReadInputTokens: cachedInputTokens || 0,
         outputTokens: outputTokens || 0,
         finishedAt: new Date(),
         latencyMs: Date.now() - startTime,
