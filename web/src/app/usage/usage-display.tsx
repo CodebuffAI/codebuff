@@ -43,7 +43,7 @@ const grantTypeInfo: Record<
     bg: 'bg-blue-500',
     text: 'text-blue-600 dark:text-blue-400',
     gradient: 'from-blue-500/70 to-blue-600/70',
-    icon: <Gift className="h-3 w-3" />,
+    icon: <Gift className="h-4 w-4" />,
     label: 'Monthly Free',
     description: 'Your monthly allowance',
   },
@@ -51,7 +51,7 @@ const grantTypeInfo: Record<
     bg: 'bg-green-500',
     text: 'text-green-600 dark:text-green-400',
     gradient: 'from-green-500/70 to-green-600/70',
-    icon: <Users className="h-3 w-3" />,
+    icon: <Users className="h-4 w-4" />,
     label: 'Referral Bonus',
     description: 'Earned by inviting others to Codebuff',
   },
@@ -59,7 +59,7 @@ const grantTypeInfo: Record<
     bg: 'bg-yellow-500',
     text: 'text-yellow-600 dark:text-yellow-400',
     gradient: 'from-yellow-500/70 to-yellow-600/70',
-    icon: <CreditCard className="h-3 w-3" />,
+    icon: <CreditCard className="h-4 w-4" />,
     label: 'Purchased',
     description: 'Credits you bought',
   },
@@ -67,7 +67,7 @@ const grantTypeInfo: Record<
     bg: 'bg-red-500',
     text: 'text-red-600 dark:text-red-400',
     gradient: 'from-red-500/70 to-red-600/70',
-    icon: <Star className="h-3 w-3" />,
+    icon: <Star className="h-4 w-4" />,
     label: 'Special Grant',
     description: 'Special credits from Codebuff',
   },
@@ -106,39 +106,38 @@ const CreditLeaf = ({
             />
             <div className="absolute left-0 top-1/2 w-4 h-px bg-border/60" />
 
-            <div className="flex items-center justify-between py-2 px-3 border rounded-md h-12">
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 flex-shrink-0">
-                  {grantTypeInfo[type].icon}
-                </div>
-                <div className="flex flex-col">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-3 px-3 border rounded-md min-h-[3.5rem]">
+              <div className="flex flex-col gap-1 mb-1.5 sm:mb-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 flex-shrink-0">
+                    {grantTypeInfo[type].icon}
+                  </div>
                   <span className="font-medium">
                     {grantTypeInfo[type].label}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {grantTypeInfo[type].description}
-                  </span>
                 </div>
+                <span className="text-xs text-muted-foreground pl-7">
+                  {grantTypeInfo[type].description}
+                </span>
               </div>
               <div className="flex flex-col items-end">
-                <div className="flex items-center gap-1">
-                  <span className="font-medium">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-base">
                     {remainingAmount.toLocaleString()}
                   </span>
+                  <span className="text-xs text-muted-foreground">left</span>
+                  <span className="text-xs text-muted-foreground mx-0.5">
+                    •
+                  </span>
                   <span className="text-xs text-muted-foreground">
-                    remaining
+                    {amount.toLocaleString()} total
                   </span>
                 </div>
-                {used > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    of {amount.toLocaleString()} total
-                  </span>
-                )}
               </div>
             </div>
           </div>
         </TooltipTrigger>
-        <TooltipContent>
+        <TooltipContent side="right" className="hidden sm:block">
           <div className="p-2 space-y-2">
             <div className="text-sm">{grantTypeInfo[type].description}</div>
             <div className="space-y-1 pt-1 border-t">
@@ -149,14 +148,14 @@ const CreditLeaf = ({
                 </div>
               )}
               <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Available:</span>
+                <span className="text-muted-foreground">Left:</span>
                 <span className="font-medium">
                   {remainingAmount.toLocaleString()}
                 </span>
               </div>
               {used > 0 && (
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Used:</span>
+                <div className="flex justify-between gap-4 text-xs pt-1 border-t">
+                  <span>Used:</span>
                   <span>
                     {used.toLocaleString()} ({usedPercentage}%)
                   </span>
@@ -202,62 +201,94 @@ const CreditBranch = ({
   isTopLevel = false,
 }: CreditBranchProps) => {
   const [isOpen, setIsOpen] = React.useState(false)
-  const remainingAmount = totalAmount - usedAmount
+  const leftAmount = totalAmount - usedAmount
+  const showPercentage = title === 'Renewable'
   const usedPercentage =
-    totalAmount > 0 ? Math.round((usedAmount / totalAmount) * 100) : 0
+    showPercentage && totalAmount > 0
+      ? Math.round((usedAmount / totalAmount) * 100)
+      : null
 
   return (
     <div className="space-y-2 relative">
       <div className="relative z-10">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center bg-card hover:bg-accent/50 py-3 px-4 rounded-lg transition-all duration-200 border-2 border-border/70 shadow-sm hover:shadow-md"
+          className="w-full flex flex-col sm:flex-row items-start sm:items-center bg-card hover:bg-accent/50 py-3 px-4 rounded-lg transition-all duration-200 border-2 border-border/70 shadow-sm hover:shadow-md"
           aria-expanded={isOpen}
         >
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-            <div className="flex items-center gap-2">
-              <div className="text-green-400">
-                {isOpen ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
+          <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2 mb-2 sm:mb-0">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-3">
+                <div className="text-green-400">
+                  {isOpen ? (
+                    <ChevronDown className="h-5 w-5" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5" />
+                  )}
+                </div>
+                <span className="font-medium text-[15px]">{title}</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 pl-7">
+                {usedPercentage !== null && usedAmount > 0 && (
+                  <span
+                    className={cn(
+                      'text-xs font-medium',
+                      usedPercentage > 80
+                        ? 'text-red-400'
+                        : usedPercentage > 50
+                          ? 'text-yellow-400'
+                          : 'text-green-400'
+                    )}
+                  >
+                    {usedPercentage}% used
+                  </span>
+                )}
+                {title === 'Renewable' && nextQuotaReset && (
+                  <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-400/20 px-2 py-0.5 rounded-none">
+                    Renews {nextQuotaReset.toLocaleDateString()}
+                  </span>
                 )}
               </div>
-              <span className="font-medium text-[15px]">{title}</span>
             </div>
-            {title === 'Monthly' && nextQuotaReset && (
-              <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-400/20 px-2 py-0.5 ml-0 sm:ml-2">
-                Renews {nextQuotaReset.toLocaleDateString()}
-              </span>
-            )}
           </div>
 
-          <div className="flex-1 flex flex-col items-end gap-1">
-            <div className="flex items-center gap-1">
+          <div className="flex-1 flex flex-col items-start sm:items-end gap-1">
+            <div className="flex items-center gap-2">
               <span className="font-medium text-[15px]">
-                {remainingAmount.toLocaleString()}
+                {leftAmount.toLocaleString()}
               </span>
               <span className="text-xs text-muted-foreground">left</span>
+              <span className="text-xs text-muted-foreground mx-0.5">•</span>
+              <span className="text-xs text-muted-foreground">
+                {totalAmount.toLocaleString()} total
+              </span>
             </div>
-            <span
-              className={cn(
-                'text-xs font-medium',
-                usedPercentage > 80
-                  ? 'text-red-400'
-                  : usedPercentage > 50
-                    ? 'text-yellow-400'
-                    : 'text-green-400'
+            <div className="flex sm:hidden items-center gap-2">
+              {usedPercentage !== null && usedAmount > 0 && (
+                <span
+                  className={cn(
+                    'text-xs font-medium',
+                    usedPercentage > 80
+                      ? 'text-red-400'
+                      : usedPercentage > 50
+                        ? 'text-yellow-400'
+                        : 'text-green-400'
+                  )}
+                >
+                  {usedPercentage}% used
+                </span>
               )}
-            >
-              {usedAmount > 0
-                ? `${usedPercentage}% used`
-                : `${totalAmount.toLocaleString()} total`}
-            </span>
+              {title === 'Renewable' && nextQuotaReset && (
+                <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-400/20 px-2 py-0.5 rounded-none">
+                  Renews {nextQuotaReset.toLocaleDateString()}
+                </span>
+              )}
+            </div>
           </div>
         </button>
       </div>
 
-      {isOpen && <div className="pl-4 space-y-1.5 mt-2">{children}</div>}
+      {isOpen && <div className="pl-4 space-y-2 mt-2">{children}</div>}
     </div>
   )
 }
