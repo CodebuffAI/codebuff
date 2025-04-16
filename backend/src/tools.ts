@@ -386,12 +386,10 @@ Use this data to:
     name: 'end_turn',
     description: `
 ### end_turn
-Description: End your response. Use this tool when you've completed the user's request, or need more information from the user, or feel like you are not making progress and want help from the user.
+Description: End your turn. You must use this tool when you've fully responded to the user. Either you've completed the user's request, need more information from the user, or feel like you are not making progress and want help from the user.
 Parameters: None
 Usage:
 <end_turn></end_turn>
-
-Do not use the end_turn tool in the same message as other tool calls. Instead, wait for the tool call results from the user. Then, send a new message with the end_turn tool and no other tool calls. Text can be included with this tool call.
     `.trim(),
   },
 ] as const
