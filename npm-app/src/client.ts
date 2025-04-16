@@ -109,7 +109,6 @@ export class Client {
   private hadFileChanges: boolean = false
   private git: GitCommand
   private rl: readline.Interface
-  private lastToolResults: ToolResult[] = []
   private responseComplete: boolean = false
   private topUpOccurred: boolean = false
   private oneTimeTagsShown: Record<(typeof ONE_TIME_TAGS)[number], boolean> =
