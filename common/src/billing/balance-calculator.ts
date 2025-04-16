@@ -5,19 +5,22 @@ import { GrantType } from '../db/schema'
 import { logger } from '../util/logger'
 import { GRANT_PRIORITIES } from '../constants/grant-priorities'
 
-// Maximum debt a user can accrue before being blocked
-const MAX_DEBT_LIMIT = 100
-
 export interface CreditBalance {
   totalRemaining: number
   totalDebt: number
   netBalance: number
   breakdown: Partial<Record<GrantType, number>>
+  principals: Partial<Record<GrantType, number>>
 }
 
 export interface CreditUsageAndBalance {
   usageThisCycle: number
   balance: CreditBalance
+}
+
+export interface CreditConsumptionResult {
+  consumed: number
+  fromPurchased: number
 }
 
 /**
@@ -74,15 +77,16 @@ async function updateGrantBalance(
 
 /**
  * Consumes credits from a list of ordered grants.
- * Returns the number of credits actually consumed (may be less than requested if hit debt limit).
+ * Returns details about credit consumption including how many came from purchased credits.
  */
 async function consumeFromOrderedGrants(
   userId: string,
   creditsToConsume: number,
   grants: (typeof schema.creditLedger.$inferSelect)[]
-): Promise<number> {
+): Promise<CreditConsumptionResult> {
   let remainingToConsume = creditsToConsume
-  let totalConsumed = 0
+  let consumed = 0
+  let fromPurchased = 0
 
   // First pass: try to repay any debt
   for (const grant of grants) {
@@ -91,10 +95,10 @@ async function consumeFromOrderedGrants(
       const repayAmount = Math.min(debtAmount, remainingToConsume)
       const newBalance = grant.balance + repayAmount
       remainingToConsume -= repayAmount
-      totalConsumed += repayAmount
+      consumed += repayAmount
 
-      await updateGrantBalance(userId, grant, -repayAmount, newBalance) // Negative consumed means repayment
-      
+      await updateGrantBalance(userId, grant, -repayAmount, newBalance)
+
       logger.debug(
         { userId, grantId: grant.operation_id, repayAmount, newBalance },
         'Repaid debt in grant'
@@ -105,12 +109,17 @@ async function consumeFromOrderedGrants(
   // Second pass: consume from positive balances
   for (const grant of grants) {
     if (remainingToConsume <= 0) break
-    if (grant.balance <= 0) continue // Skip grants we already handled or with no balance
+    if (grant.balance <= 0) continue
 
     const consumeFromThisGrant = Math.min(remainingToConsume, grant.balance)
     const newBalance = grant.balance - consumeFromThisGrant
     remainingToConsume -= consumeFromThisGrant
-    totalConsumed += consumeFromThisGrant
+    consumed += consumeFromThisGrant
+
+    // Track consumption from purchased credits
+    if (grant.type === 'purchase') {
+      fromPurchased += consumeFromThisGrant
+    }
 
     await updateGrantBalance(userId, grant, consumeFromThisGrant, newBalance)
   }
@@ -118,39 +127,31 @@ async function consumeFromOrderedGrants(
   // If we still have remaining to consume and no grants left, create debt in the last grant
   if (remainingToConsume > 0 && grants.length > 0) {
     const lastGrant = grants[grants.length - 1]
-    
-    // Only create debt if the last grant already has a negative balance or zero balance
+
     if (lastGrant.balance <= 0) {
       const newBalance = lastGrant.balance - remainingToConsume
+      await updateGrantBalance(
+        userId,
+        lastGrant,
+        remainingToConsume,
+        newBalance
+      )
+      consumed += remainingToConsume
 
-      // Check if this would exceed max debt limit
-      if (Math.abs(newBalance) > MAX_DEBT_LIMIT) {
-        // Only consume up to the max debt limit
-        const maxAllowedConsumption = Math.abs(lastGrant.balance - (-MAX_DEBT_LIMIT))
-        const actualConsumption = Math.min(remainingToConsume, maxAllowedConsumption)
-        
-        await updateGrantBalance(userId, lastGrant, actualConsumption, -MAX_DEBT_LIMIT)
-        totalConsumed += actualConsumption
-
-        logger.warn(
-          {
-            userId,
-            grantId: lastGrant.operation_id,
-            requested: remainingToConsume,
-            consumed: actualConsumption,
-            maxDebt: MAX_DEBT_LIMIT,
-          },
-          'Hit max debt limit, cannot consume more credits'
-        )
-        throw new Error(`Cannot consume more credits - you have reached the maximum debt limit of ${MAX_DEBT_LIMIT} credits. Please add more credits to continue.`)
-      } else {
-        await updateGrantBalance(userId, lastGrant, remainingToConsume, newBalance)
-        totalConsumed += remainingToConsume
-      }
+      logger.warn(
+        {
+          userId,
+          grantId: lastGrant.operation_id,
+          requested: remainingToConsume,
+          consumed: remainingToConsume,
+          newDebt: Math.abs(newBalance),
+        },
+        'Created new debt in grant'
+      )
     }
   }
 
-  return totalConsumed
+  return { consumed, fromPurchased }
 }
 
 /**
@@ -171,6 +172,7 @@ export async function calculateUsageAndBalance(
     totalDebt: 0,
     netBalance: 0,
     breakdown: {},
+    principals: {},
   }
 
   // Calculate both metrics in one pass
@@ -193,6 +195,8 @@ export async function calculateUsageAndBalance(
         balance.totalRemaining += grant.balance
         balance.breakdown[grantType] =
           (balance.breakdown[grantType] || 0) + grant.balance
+        balance.principals[grantType] =
+          (balance.principals[grantType] || 0) + grant.principal
       } else if (grant.balance < 0) {
         balance.totalDebt += Math.abs(grant.balance)
       }
@@ -213,7 +217,7 @@ export async function calculateUsageAndBalance(
 /**
  * Updates the remaining amounts in credit grants after consumption.
  * Follows priority order strictly - higher priority grants (lower number) are consumed first.
- * Returns the number of credits actually consumed.
+ * Returns details about credit consumption including how many came from purchased credits.
  *
  * @param userId The ID of the user
  * @param creditsToConsume Number of credits being consumed
@@ -223,7 +227,7 @@ export async function calculateUsageAndBalance(
 export async function consumeCredits(
   userId: string,
   creditsToConsume: number
-): Promise<number> {
+): Promise<CreditConsumptionResult> {
   const now = new Date()
   const activeGrants = await getOrderedActiveGrants(userId, now)
 
@@ -235,22 +239,65 @@ export async function consumeCredits(
     throw new Error('No active grants found')
   }
 
-  // Check if user has any debt
-  const hasDebt = activeGrants.some(grant => grant.balance < 0)
+  const hasDebt = activeGrants.some((grant) => grant.balance < 0)
   if (hasDebt) {
     logger.error(
       { userId, creditsToConsume },
       'Cannot consume credits - user has existing debt'
     )
-    throw new Error('Cannot use credits while you have unpaid debt. Please add credits to clear your debt first.')
+    throw new Error(
+      'Cannot use credits while you have unpaid debt. Please add credits to clear your debt first.'
+    )
   }
 
-  const consumed = await consumeFromOrderedGrants(userId, creditsToConsume, activeGrants)
-  logger.info(
-    { userId, creditsRequested: creditsToConsume, creditsConsumed: consumed },
-    consumed < creditsToConsume ? 'Partially consumed credits (hit debt limit)' : 'Successfully consumed credits'
+  const result = await consumeFromOrderedGrants(
+    userId,
+    creditsToConsume,
+    activeGrants
   )
-  return consumed
+  logger.info(
+    {
+      userId,
+      creditsRequested: creditsToConsume,
+      creditsConsumed: result.consumed,
+      fromPurchased: result.fromPurchased,
+    },
+    'Successfully consumed credits'
+  )
+
+  // Get user's auto-topup settings
+  const user = await db.query.user.findFirst({
+    where: eq(schema.user.id, userId),
+    columns: {
+      auto_topup_enabled: true,
+      auto_topup_threshold: true,
+      next_quota_reset: true,
+    },
+  })
+
+  // Check if we need to trigger auto-topup
+  if (user?.auto_topup_enabled && user.auto_topup_threshold) {
+    const { balance } = await calculateUsageAndBalance(
+      userId,
+      user.next_quota_reset ?? new Date(0)
+    )
+    if (balance.totalRemaining < user.auto_topup_threshold) {
+      // Import and call checkAndTriggerAutoTopup
+      const { checkAndTriggerAutoTopup } = await import(
+        'common/src/billing/auto-topup'
+      )
+      try {
+        await checkAndTriggerAutoTopup(userId)
+      } catch (error) {
+        logger.error(
+          { userId, error },
+          'Failed to process auto top-up after credit consumption'
+        )
+      }
+    }
+  }
+
+  return result
 }
 
 /**

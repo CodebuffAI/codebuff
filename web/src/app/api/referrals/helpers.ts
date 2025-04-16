@@ -17,16 +17,20 @@ async function processAndGrantReferralCredit(
   creditsToGrant: number,
   referrerId: string,
   referredId: string,
-  localOperationId: string
+  baseOperationId: string,
+  expiresAt: Date
 ): Promise<boolean> {
   try {
+    // Create unique operation ID for each user by appending their role
+    const operationId = `${baseOperationId}-${role}`
+    
     await processAndGrantCredit(
       userToGrant.id,
       creditsToGrant,
       'referral',
       `Referral bonus (${role})`,
-      null, // No expiration for referral credits
-      localOperationId
+      expiresAt, // Expires at next quota reset
+      operationId
     )
     return true
   } catch (error) {
@@ -49,7 +53,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
 
     if (alreadyUsed.length > 0) {
       return NextResponse.json(
-        { error: 'You have already used this referral code.' },
+        { error: "You've already been referred by someone. Each user can only be referred once." },
         { status: 429 }
       )
     }
@@ -165,10 +169,22 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
           completed_at: now,
         })
         .returning({
-          operation_id: sql<string>`'local-ref-' || gen_random_uuid()`,
+          operation_id: sql<string>`'ref-' || gen_random_uuid()`,
         })
 
-      const localOperationId = referralRecord[0].operation_id
+      const operationId = referralRecord[0].operation_id
+
+      // Get the user's next quota reset date
+      const user = await tx.query.user.findFirst({
+        where: eq(schema.user.id, userId),
+        columns: {
+          next_quota_reset: true,
+        },
+      })
+
+      if (!user?.next_quota_reset) {
+        throw new Error('User next_quota_reset not found')
+      }
 
       // 2. Process and grant credits for both users
       const grantPromises = []
@@ -181,7 +197,8 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
           CREDITS_REFERRAL_BONUS,
           referrer.id,
           referred.id,
-          localOperationId
+          operationId,
+          user.next_quota_reset
         )
       )
 
@@ -193,7 +210,8 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
           CREDITS_REFERRAL_BONUS,
           referrer.id,
           referred.id,
-          localOperationId
+          operationId,
+          user.next_quota_reset
         )
       )
 
@@ -202,13 +220,13 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       // Check if any grant creation failed
       if (results.some((result) => !result)) {
         logger.error(
-          { localOperationId, referrerId: referrer.id, referredId: userId },
+          { operationId, referrerId: referrer.id, referredId: userId },
           'One or more credit grants failed. Rolling back transaction.'
         )
         throw new Error('Failed to create credit grants for referral.')
       } else {
         logger.info(
-          { localOperationId, referrerId: referrer.id, referredId: userId },
+          { operationId, referrerId: referrer.id, referredId: userId },
           'Credit grants created successfully for referral.'
         )
       }
@@ -218,7 +236,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
     return NextResponse.json(
       {
         message: 'Referral applied successfully!',
-        credits_awarded: CREDITS_REFERRAL_BONUS,
+        credits_redeemed: CREDITS_REFERRAL_BONUS,
       },
       {
         status: 200,

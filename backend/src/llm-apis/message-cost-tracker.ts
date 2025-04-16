@@ -123,10 +123,6 @@ async function syncMessageToStripe(messageData: {
     const timestamp = Math.floor(finishedAt.getTime() / 1000)
 
     const syncAction = async () => {
-      logger.info(
-        logContext,
-        `Attempting to sync usage (${costInCents} credits) to Stripe Meter Events for customer ${stripeCustomerId}`
-      )
       await stripeServer.billing.meterEvents.create({
         event_name: 'credits',
         timestamp: timestamp,
@@ -344,36 +340,34 @@ async function sendCostResponseToClient(
   }
 }
 
+type CreditConsumptionResult = {
+  consumed: number
+  fromPurchased: number
+}
+
 async function updateUserCycleUsage(
   userId: string,
   creditsUsed: number
-): Promise<void> {
+): Promise<CreditConsumptionResult> {
   if (creditsUsed <= 0) {
     logger.trace(
       { userId, creditsUsed },
       'Skipping user usage update (zero credits).'
     )
-    return
+    return { consumed: 0, fromPurchased: 0 }
   }
   try {
-    // Consume from grants in priority order
-    const consumed = await consumeCredits(userId, creditsUsed)
+    // Consume from grants in priority order and track purchased credit usage
+    const result = await consumeCredits(userId, creditsUsed)
     
-    if (consumed < creditsUsed) {
-      throw new Error(
-        `Could only consume ${consumed} of ${creditsUsed} credits due to debt limit. Please add more credits to continue.`
-      )
-    }
-
     logger.debug(
-      { userId, creditsUsed },
-      'Credits consumed from grants.'
+      { userId, creditsUsed, fromPurchased: result.fromPurchased },
+      'Credits consumed successfully'
     )
+
+    return result
   } catch (error) {
-    logger.error(
-      { userId, creditsUsed, error },
-      'Error consuming credits.'
-    )
+    logger.error({ userId, creditsUsed, error }, 'Error consuming credits.')
     throw error
   }
 }
@@ -442,7 +436,10 @@ export const saveMessage = async (value: {
         return null
       }
 
-      updateUserCycleUsage(value.userId, creditsUsed)
+      const consumptionResult = await updateUserCycleUsage(
+        value.userId,
+        creditsUsed
+      )
 
       sendCostResponseToClient(
         value.clientSessionId,
@@ -450,17 +447,25 @@ export const saveMessage = async (value: {
         creditsUsed
       )
 
-      syncMessageToStripe({
-        messageId: value.messageId,
-        userId: value.userId,
-        costInCents,
-        finishedAt: value.finishedAt,
-      }).catch((syncError) => {
-        logger.error(
-          { messageId: value.messageId, error: syncError },
-          'Background Stripe sync failed.'
+      // Only sync to Stripe if purchased credits were used
+      if (consumptionResult.fromPurchased > 0) {
+        syncMessageToStripe({
+          messageId: value.messageId,
+          userId: value.userId,
+          costInCents,
+          finishedAt: value.finishedAt,
+        }).catch((syncError) => {
+          logger.error(
+            { messageId: value.messageId, error: syncError },
+            'Background Stripe sync failed.'
+          )
+        })
+      } else {
+        logger.debug(
+          { messageId: value.messageId },
+          'Skipping Stripe sync (no purchased credits used)'
         )
-      })
+      }
 
       return savedMessageResult
     }

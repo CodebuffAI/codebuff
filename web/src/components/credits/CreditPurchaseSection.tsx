@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { convertCreditsToUsdCents } from 'common/src/billing/credit-conversion'
 import { toast } from '@/components/ui/use-toast'
 
-export const CREDIT_OPTIONS = [500, 1000, 2000, 5000, 10000, 20000] as const
+export const CREDIT_OPTIONS = [1000, 2500, 5000, 10000] as const
 export const CENTS_PER_CREDIT = 1
 const MIN_CREDITS = 500
 const MAX_CREDITS = 100000
@@ -92,7 +92,7 @@ export function CreditPurchaseSection({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {CREDIT_OPTIONS.map((credits) => {
           const optionCostInCents = convertCreditsToUsdCents(
             credits,

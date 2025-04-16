@@ -62,7 +62,7 @@ export async function calculateTotalReferralBonus(
   try {
     const result = await db
       .select({
-        totalCredits: sql<number>`COALESCE(SUM(${schema.referral.credits}), 0)`,
+        totalCredits: sql<string>`COALESCE(SUM(${schema.referral.credits}), 0)`,
       })
       .from(schema.referral)
       .where(
@@ -72,7 +72,7 @@ export async function calculateTotalReferralBonus(
         )
       )
 
-    const totalBonus = result[0]?.totalCredits ?? 0
+    const totalBonus = parseInt(result[0]?.totalCredits ?? '0')
     logger.debug({ userId, totalBonus }, 'Calculated total referral bonus.')
     return totalBonus
   } catch (error) {
@@ -126,12 +126,15 @@ export async function processAndGrantCredit(
         )
       )
     )
-    .then(grants => grants.filter(g => g.balance < 0))
+    .then((grants) => grants.filter((g) => g.balance < 0))
 
   if (negativeGrants.length > 0) {
     // Calculate total debt
-    const totalDebt = negativeGrants.reduce((sum, g) => sum + Math.abs(g.balance), 0)
-    
+    const totalDebt = negativeGrants.reduce(
+      (sum, g) => sum + Math.abs(g.balance),
+      0
+    )
+
     // Clear all negative balances
     for (const grant of negativeGrants) {
       await db
@@ -142,7 +145,7 @@ export async function processAndGrantCredit(
 
     // Reduce the amount of the new grant by the debt amount
     const remainingAmount = Math.max(0, amount - totalDebt)
-    
+
     logger.info(
       {
         userId,
@@ -150,7 +153,7 @@ export async function processAndGrantCredit(
         totalDebt,
         originalAmount: amount,
         remainingAmount,
-        clearedGrants: negativeGrants.map(g => g.operation_id),
+        clearedGrants: negativeGrants.map((g) => g.operation_id),
       },
       'Cleared negative balances before creating new grant'
     )
@@ -163,9 +166,10 @@ export async function processAndGrantCredit(
         principal: amount, // Keep original amount as principal
         balance: remainingAmount, // Use remaining amount after debt
         type,
-        description: totalDebt > 0 
-          ? `${description} (${totalDebt} credits used to clear existing debt)`
-          : description,
+        description:
+          totalDebt > 0
+            ? `${description} (${totalDebt} credits used to clear existing debt)`
+            : description,
         priority: GRANT_PRIORITIES[type],
         expires_at: expiresAt,
         created_at: now,
@@ -201,7 +205,7 @@ export async function processAndGrantCredit(
 /**
  * Revokes credits from a specific grant by operation ID.
  * This sets the balance to 0 and updates the description to indicate a refund.
- * 
+ *
  * @param operationId The operation ID of the grant to revoke
  * @param reason The reason for revoking the credits (e.g. refund)
  * @returns true if the grant was found and revoked, false otherwise

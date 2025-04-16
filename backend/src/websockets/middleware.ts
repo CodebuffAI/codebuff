@@ -24,6 +24,7 @@ import {
 import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
 import { generateCompactId } from 'common/util/string'
 import { pluralize } from 'common/util/string'
+import { getPlanFromPriceId, getMonthlyGrantForPlan } from '../billing/plans'
 
 type MiddlewareCallback = (
   action: ClientAction,
@@ -155,13 +156,14 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     columns: {
       next_quota_reset: true,
       stripe_customer_id: true,
+      stripe_price_id: true,
     },
   })
 
   if (user && user.next_quota_reset && user.next_quota_reset <= new Date()) {
     const currentResetDate = user.next_quota_reset
     const nextResetDate = getNextQuotaReset(user.next_quota_reset)
-    const baseOperationId = `reset-${userId}-${Date.now()}`
+    const baseOperationIdSuffix = `-${userId}-${Date.now()}`
 
     // Update next reset date
     await db
@@ -173,8 +175,10 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
 
     try {
       // Get the amount for the grants
-      const freeGrantAmount = await getPreviousFreeGrantAmount(userId)
-      const referralGrantAmount = await calculateTotalReferralBonus(userId)
+      const [freeGrantAmount, referralBonus] = await Promise.all([
+        getPreviousFreeGrantAmount(userId),
+        calculateTotalReferralBonus(userId),
+      ])
 
       const grantsToProcess = []
       grantsToProcess.push(
@@ -184,20 +188,20 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
           'free',
           `Monthly free grant`,
           nextResetDate, // Expires next cycle
-          `${baseOperationId}-free`
+          `free-${baseOperationIdSuffix}`
         )
       )
 
       // Add referral grant if amount > 0
-      if (referralGrantAmount > 0) {
+      if (referralBonus > 0) {
         grantsToProcess.push(
           processAndGrantCredit(
             userId,
-            referralGrantAmount,
+            referralBonus,
             'referral',
             `Monthly referral bonus grant based on history`,
             nextResetDate, // Expires next cycle
-            `${baseOperationId}-referral`
+            `ref-${baseOperationIdSuffix}`
           )
         )
       }
@@ -205,7 +209,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
       // Process grants only if there are any to process
       await Promise.all(grantsToProcess)
       logger.info(
-        { userId, baseOperationId, freeGrantAmount, referralGrantAmount },
+        { userId, baseOperationIdSuffix, freeGrantAmount, referralBonus },
         'Monthly credit grants created.'
       )
     } catch (error) {
@@ -216,6 +220,12 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
   const { usageThisCycle, balance } = await calculateUsageAndBalance(
     userId,
     user?.next_quota_reset ?? new Date(0)
+  )
+
+  // Calculate next monthly grant amount once since we use it in multiple places
+  const nextMonthlyGrant = await getMonthlyGrantForPlan(
+    getPlanFromPriceId(user?.stripe_price_id),
+    userId
   )
 
   // Check if we have enough remaining credits
@@ -242,10 +252,9 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
       // If we still don't have credits after auto top-up attempt, return error
       if (newUsageAndBalance.balance.totalRemaining <= 0) {
         // If they have debt, show that in the message
-        const message =
-          newUsageAndBalance.balance.totalDebt > 0
-            ? `You have a balance of negative ${pluralize(newUsageAndBalance.balance.totalDebt, 'credit')}. Please add credits to continue using Codebuff.`
-            : `You do not have enough credits for this action. Please add credits or wait for your next cycle to begin.`
+        const message = newUsageAndBalance.balance.totalDebt > 0
+          ? `You have a negative balance of ${pluralize(Math.abs(newUsageAndBalance.balance.totalDebt), 'credit')}. Please add credits to continue using Codebuff.`
+          : `You do not have enough credits for this action. Please add credits or wait for your next cycle to begin.`
 
         return {
           type: 'action-error',
@@ -274,7 +283,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
         remainingBalance: newUsageAndBalance.balance.totalRemaining,
         balanceBreakdown: newUsageAndBalance.balance.breakdown,
         next_quota_reset: user?.next_quota_reset ?? null,
-        nextMonthlyGrant: CREDITS_USAGE_LIMITS.FREE,
+        nextMonthlyGrant,
         autoTopupAdded: creditsAdded,
       })
 
@@ -290,6 +299,16 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
       }
     }
   }
+
+  // Send initial usage info if we have sufficient credits
+  sendAction(ws, {
+    type: 'usage-response',
+    usage: usageThisCycle,
+    remainingBalance: balance.totalRemaining,
+    balanceBreakdown: balance.breakdown,
+    next_quota_reset: user?.next_quota_reset ?? null,
+    nextMonthlyGrant,
+  })
 
   return undefined
 })

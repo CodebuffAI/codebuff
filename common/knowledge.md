@@ -42,6 +42,12 @@ When granting credits to users (monthly reset, referrals, etc.):
 - Each grant type has its own priority level from GRANT_PRIORITIES
 - Always include operation_id to track related grants
 
+### Credit Ledger Operations
+
+- Operation IDs must be unique for each credit grant operation
+- When granting credits to multiple users in a single transaction (e.g. referrals), ensure each grant has a unique operation ID
+- For referrals, append the role (e.g. "-referrer" or "-referred") to the base operation ID
+
 ### Credit Grant Flow
 1. Create local credit grant record immediately
 2. Create Stripe grant asynchronously
