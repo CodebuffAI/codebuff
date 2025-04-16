@@ -175,6 +175,8 @@ export const openaiModels = {
   gpt4o: 'gpt-4o-2024-11-20',
   gpt4omini: 'gpt-4o-mini-2024-07-18',
   o3mini: 'o3-mini-2025-01-31',
+  o3: 'o3-2025-04-16',
+  o4mini: 'o4-mini-2025-04-16',
   generatePatch:
     'ft:gpt-4o-2024-08-06:manifold-markets:generate-patch-batch2:AKYtDIhk',
 } as const
@@ -215,6 +217,8 @@ export const shortModelNames = {
   'sonnet-3.6': models.sonnet,
   'gpt-4.1': models.gpt4_1,
   'o3-mini': models.o3mini,
+  'o3': models.o3,
+  'o4-mini': models.o4mini,
 }
 
 export const providerModelNames = {
@@ -226,6 +230,8 @@ export const providerModelNames = {
   [models.gpt4o]: 'openai',
   [models.gpt4omini]: 'openai',
   [models.o3mini]: 'openai',
+  [models.o3]: 'openai',
+  [models.o4mini]: 'openai',
 }
 
 export type Model = (typeof models)[keyof typeof models]
