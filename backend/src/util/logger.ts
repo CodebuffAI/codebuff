@@ -1,12 +1,24 @@
-import pino from 'pino'
-import path from 'path'
 import { AsyncLocalStorage } from 'async_hooks'
+import path from 'path'
+import { format } from 'util'
+
+import pino from 'pino'
+
 import { env } from '../env.mjs'
+import { splitData } from './split-data'
+
+// --- Constants ---
+const MAX_LENGTH = 100_000 // Max total log size
+const BUFFER = 1000 // Buffer for context, etc.
 
 export interface LoggerContext {
   userId?: string
   userEmail?: string
   clientSessionId?: string
+  fingerprintId?: string
+  clientRequestId?: string
+  messageId?: string
+  discordId?: string
   [key: string]: any // Allow for future extensions
 }
 
@@ -26,7 +38,7 @@ const fileTransport = pino.transport({
   level: 'debug',
 })
 
-export const logger = pino(
+export const pinoLogger = pino(
   {
     level: 'debug',
     mixin() {
@@ -41,3 +53,44 @@ export const logger = pino(
   },
   env.ENVIRONMENT === 'production' ? undefined : fileTransport
 )
+
+const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
+type LogLevel = (typeof loggingLevels)[number]
+
+function splitAndLog(
+  level: LogLevel,
+  data: any,
+  msg?: string,
+  ...args: any[]
+): void {
+  const formattedMsg = format(msg ?? '', ...args)
+  const availableDataLimit = MAX_LENGTH - BUFFER - formattedMsg.length
+
+  // split data recursively into chunks small enough to log
+  const processedData: any[] = splitData(data, availableDataLimit)
+
+  if (processedData.length === 1) {
+    pinoLogger[level](processedData[0], msg, ...args)
+    return
+  }
+
+  processedData.forEach((chunk, index) => {
+    pinoLogger[level](
+      chunk,
+      `${formattedMsg} (chunk ${index + 1}/${processedData.length})`
+    )
+  })
+}
+
+export const logger: Record<LogLevel, pino.LogFn> =
+  process.env.ENVIRONMENT === 'local'
+    ? pinoLogger
+    : (Object.fromEntries(
+        loggingLevels.map((level) => {
+          return [
+            level,
+            (data: any, msg?: string, ...args: any[]) =>
+              splitAndLog(level, data, msg, ...args),
+          ]
+        })
+      ) as Record<LogLevel, pino.LogFn>)

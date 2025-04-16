@@ -63,6 +63,9 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   end_turn: {
     // Don't render anything
   },
+  browser_logs: {
+    // Don't render anything
+  },
   read_files: {
     ...defaultToolCallRenderer,
     onParamChunk: (content, paramName, toolName) => {

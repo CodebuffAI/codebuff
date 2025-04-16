@@ -1,7 +1,9 @@
-import { System } from '@/llm-apis/claude'
-import { Message } from 'common/types/message'
 import { CostMode, models } from 'common/constants'
+import { Message } from 'common/types/message'
+
+import { System } from '@/llm-apis/claude'
 import { promptGeminiWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
+import { getMessagesSubset } from '@/util/messages'
 
 export const checkNewFilesNecessary = async (
   messages: Message[],
@@ -15,9 +17,9 @@ export const checkNewFilesNecessary = async (
 ) => {
   const startTime = Date.now()
   const prompt = `
-Considering the conversation history above, and the following user request, determine if new files should be read (YES or NO) to fulfill the request.
+Considering the conversation history above, and the following user request (in quotes), determine if new files should be read (YES or NO) to fulfill the request.
 
-User request: ${userPrompt}
+User request: ${JSON.stringify(userPrompt)}
 
 We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad user requests may require many files as context.
 
@@ -41,8 +43,12 @@ You should not read new files (NO) if:
 Answer with just 'YES' if reading new files is helpful, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
 
+  const bufferTokens = 100_000
   const response = await promptGeminiWithFallbacks(
-    [...messages, { role: 'user', content: prompt }],
+    getMessagesSubset(
+      [...messages, { role: 'user', content: prompt }],
+      bufferTokens
+    ),
     system,
     {
       model: models.gemini2flash,
@@ -51,7 +57,6 @@ Answer with just 'YES' if reading new files is helpful, or 'NO' if the current f
       userInputId,
       userId,
       costMode,
-      useGPT4oInsteadOfClaude: true,
     }
   )
   const endTime = Date.now()

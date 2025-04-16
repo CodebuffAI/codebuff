@@ -17,7 +17,7 @@ import { createTemplateProject } from './create-template-project'
 
 async function codebuff(
   projectDir: string | undefined,
-  { initialInput, git, costMode }: CliOptions
+  { initialInput, git, costMode, model }: CliOptions
 ) {
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
@@ -27,7 +27,7 @@ async function codebuff(
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
 
-  const cli = new CLI(readyPromise, { git, costMode })
+  const cli = new CLI(readyPromise, { git, costMode, model })
 
   await cli.printInitialPrompt(initialInput)
 }
@@ -39,22 +39,26 @@ if (require.main === module) {
     .name('codebuff')
     .description('AI code buffer')
     .version(packageJson.version)
-    .argument('[project-directory]', 'Project directory (default: current directory)')
+    .argument(
+      '[project-directory]',
+      'Project directory (default: current directory)'
+    )
     .argument('[initial-prompt...]', 'Initial prompt to send')
-    .option('--create <template> [name]', 'Create new project from template')
     .option('--lite', 'Use budget models & fetch fewer files')
     .option('--max', 'Use higher quality models and fetch more files')
-    .option('--gemini', 'Use Gemini 2.5 Pro as the main agent. Alias for --max')
-    .option('--pro', 'Deprecated: Use --max instead')
-    // .option('--git <mode>', 'Git integration mode', 'none')
-    .addHelpText('after', `
-Examples:
-  $ codebuff                            # Start in current directory
-  $ codebuff my-project                 # Start in specific directory
-  $ codebuff --create nextjs my-app     # Create new Next.js project
-  $ codebuff . "fix the bug in foo()"   # Start with initial prompt
-
-Available templates:
+    .option(
+      '--experimental',
+      'Use cutting-edge experimental features and models'
+    )
+    .option('--create <template> [name]', 'Create new project from template')
+    .option(
+      '--model <model>',
+      'Experimental: Specify the main model to use for the agent ("sonnet-3.6", "sonnet-3.7", "gpt-4.1", "gemini-2.5-pro", "o3-mini"). Be aware codebuff might not work as well with non-default models.'
+    )
+    .addHelpText(
+      'after',
+      `
+Available templates for --create:
   nextjs    - Next.js starter template
   convex    - Convex starter template
   vite      - Vite starter template
@@ -63,8 +67,18 @@ Available templates:
   python-cli - Python CLI starter template
   chrome-extension - Chrome extension starter template
 
-See all templates at:
-  https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates`)
+  See all templates at:
+    https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates
+
+Examples:
+  $ codebuff                            # Start in current directory
+  $ codebuff my-project                 # Start in specific directory
+  $ codebuff --create nextjs my-app     # Create new Next.js project
+  $ codebuff . "fix the bug in foo()"   # Start with initial prompt
+  
+The recommended way to get started is by running 'codebuff' in your project directory.
+`
+    )
 
   program.parse()
 
@@ -95,8 +109,10 @@ See all templates at:
   let costMode: CostMode = 'normal'
   if (options.lite) {
     costMode = 'lite'
-  } else if (options.max || options.gemini) {
+  } else if (options.max) {
     costMode = 'max'
+  } else if (options.experimental) {
+    costMode = 'experimental'
   }
 
   // Handle git integration
@@ -106,5 +122,5 @@ See all templates at:
   const projectPath = args[0]
   const initialInput = args.slice(1).join(' ')
 
-  codebuff(projectPath, { initialInput, git, costMode })
+  codebuff(projectPath, { initialInput, git, costMode, model: options.model })
 }

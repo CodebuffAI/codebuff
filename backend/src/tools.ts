@@ -8,7 +8,7 @@ import { buildArray } from 'common/util/array'
 import { z } from 'zod'
 
 import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
-import { logger } from './util/logger'
+import { gitCommitGuidePrompt } from './system-prompt/prompts'
 
 const tools = [
   {
@@ -78,7 +78,7 @@ Use "placeholder comments" i.e. "// ... existing code ..." (or "# ... existing c
 The write_file tool is very expensive for each line of code you write, so try to write as little \`content\` as possible to accomplish the task. Often this will mean that the start/end of the file will be skipped, but that's okay! Rewrite the entire file only if specifically requested.
 --- IMPORTANT OPTIMIZATION DETAIL ---
 
-These edit codeblocks will be read by a less intelligent "apply" language model to update the file. To help specify the edit to the apply model, be very careful to include a few lines of context when generating the codeblock to not introduce ambiguity. Specify all unchanged regions (code and comments) of the file with "// ... existing code ..." markers (in comments). This will ensure the apply model will not delete existing unchanged code or comments when editing the file. This is just an abstraction for your understanding, you should not mention the apply model to the user.
+These edit codeblocks will be parsed and then read by a less intelligent "apply" language model to update the file. To help specify the edit to the apply model, be very careful to include a few lines of context when generating the codeblock to not introduce ambiguity. Specify all unchanged regions (code and comments) of the file with "// ... existing code ..." markers (in comments). This will ensure the apply model will not delete existing unchanged code or comments when editing the file. This is just an abstraction for your understanding, you should not mention the apply model to the user.
 
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
@@ -116,16 +116,12 @@ function foo() {
 
 
 Notes for editing a file:
+- Don't use XML attributes. If you do, the tool will NOT write to the file.
 - If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
 - When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
 - You can also use this tool to create new files.
 - After you have written out a write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
 - Don't escape characters — write them out directly! E.g. write out '&' instead of '&amp;', '>' instead of '&gt;', '<' instead of '&lt;', and '"' instead of '&quot;' in the content.
-
-If you just want to show the user some code, and don't want to necessarily make a code change, do not use <write_file> blocks -- these blocks will cause the code to be applied to the file immediately -- instead, wrap the code in markdown \`\`\` tags:
-\`\`\`typescript
-// ... code to show the user ...
-\`\`\`
     `.trim(),
   },
   {
@@ -134,7 +130,7 @@ If you just want to show the user some code, and don't want to necessarily make 
 ### read_files
 Description: Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request. Make sure to read any files before you write to them with the write_file tool.
 Parameters:
-- paths: (required) List of file paths to read, separated by newlines
+- paths: (required) List of relative file paths to read, separated by newlines. Absolute file paths will not work.
 Usage:
 <read_files>
 <paths>
@@ -206,9 +202,13 @@ Note that there's no need to call this tool if you're already reading the files 
 Description: Request to execute a CLI command on the system. Use this when you need to perform system operations or run specific commands to accomplish any step in the user's task. You must tailor your command to the user's system and provide a clear explanation of what the command does. For command chaining, use the appropriate chaining syntax for the user's shell. Prefer to execute complex CLI commands over creating executable scripts, as they are more flexible and easier to run. Commands will be executed in the current working directory: ${process.cwd()}
 Parameters:
 - command: (required) The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.
+- process_type: (required) What type of process to run. One of SYNC or BACKGROUND.
+  - SYNC: the command will be run in (and block) the current process. This is required if the output of the command is needed immediately. Most commands will be run in this way. Do not try to run processes in the background with process_type=SYNC and using & at the end of the command. Instead, use the process_type=BACKGROUND option.
+  - BACKGROUND: the command will be run in a child background process. This is for running servers or other long-running processes.
 Usage:
 <run_terminal_command>
 <command>Your command here</command>
+<process_type>value</process_type>
 </run_terminal_command>
 
 Stick to these use cases:
@@ -225,19 +225,22 @@ When using this tool, please adhere to the following rules:
 3. Do not run scripts without asking. Especially don't run scripts that could run against the production environment or have permanent effects without explicit permission from the user. Don't run scripts with side effects without permission from the user unless they don't have much effect or are simple.
 4. Be careful with any command that has big or irreversible effects. Anything that touches a production environment, servers, the database, or other systems that could be affected by a command should be run with explicit permission from the user.
 4. Don't run too many commands in a row without pausing to check in with what the user wants to do next.
-5. Don't run long-running commands, e.g. \`npm run dev\` or \`npm start\`, that start a server and do not exit. Only run commands that will complete within 30 seconds, because longer commands will be killed. Instead, ask the user to manually run long-running commands.
-6. Do not use the run_terminal_command tool to create or edit files. Do not use \`cat\` or \`echo\` to create or edit files. You should instead write out <write_file> blocks for for editing or creating files as detailed above in the <editing_instructions> block.
-7. Do not install packages without asking, unless it is within a small, new-ish project. Users working on a larger project will want to manage packages themselves, so ask first.
-8. Do not use the wrong package manager for the project. For example, if the project uses \`pnpm\` or \`bun\` or \`yarn\`, you should not use \`npm\`. Similarly not everyone uses \`pip\` for python, etc.
-9. You must write out ampersands without escaping them. E.g. write out '&' instead of '&amp;'.
+5. Do not use the run_terminal_command tool to create or edit files. Do not use \`cat\` or \`echo\` to create or edit files. You should instead write out <write_file> blocks for for editing or creating files as detailed above in the <editing_instructions> block.
+6. Do not install packages without asking, unless it is within a small, new-ish project. Users working on a larger project will want to manage packages themselves, so ask first.
+7. Do not use the wrong package manager for the project. For example, if the project uses \`pnpm\` or \`bun\` or \`yarn\`, you should not use \`npm\`. Similarly not everyone uses \`pip\` for python, etc.
+8. You must write out ampersands without escaping them. E.g. write out '&' instead of '&amp;'.
 Incorrect:
 \`cd backend &amp;&amp; npm typecheck\` 
 Correct:
 \`cd backend && npm typecheck\`
+10. Do not use more than one run_terminal_command tool call in a single response. Wait for the tool results of each command before invoking the next one.
+11. The user will not be able to interact with these processes, e.g. confirming the command. So if there's an opportunity to use "-y" or "--yes" flags, use them. Any command that prompts for confirmation will hang if you don't use the flags.
 
 Notes:
 - The current working directory will always reset to project root directory for each command you run. You can only access files within this directory (or sub-directories). So if you run cd in one command, the directory change won't persist to the next command.
 - Commands can succeed without giving any output, e.g. if no type errors were found. So you may not always see output for successful executions.
+
+${gitCommitGuidePrompt}
     `.trim(),
   },
   {
@@ -326,6 +329,60 @@ Important: Use this tool sparingly. Do not use this tool more than once in a con
     `.trim(),
   },
   {
+    name: 'browser_logs',
+    description: `
+### browser_logs
+Description: In a headless browser, navigate to a web page and get the console logs after page load.
+Purpose: Use this tool to check the output of console.log or errors in order to debug issues, test functionality, or verify expected behavior.
+
+IMPORTANT: Assume the user's development server is ALREADY running and active, unless you see logs indicating otherwise. Never start the user's development server for them. Instead, give them instructions to spin it up themselves in a new terminal.
+Never offer to interact with the website aside from reading them (see available actions below). The user will manipulate the website themselves and bring you to the UI they want you to interact with.
+
+There is currently only one type of browser action available:
+Navigate:
+   - Load a new URL in the current browser window and get the logs after page load.
+   - Required: <url>, <type>navigate</type>
+   - Optional: <waitUntil> ('load', 'domcontentloaded', 'networkidle0')
+
+Usage:
+<browser_logs>
+<type>navigate</type>
+<url>localhost:3000</url>
+<waitUntil>domcontentloaded</waitUntil>
+</browser_logs>
+
+IMPORTANT: make absolutely totally sure that you're using the XML tags as shown in the examples. Don't use JSON or any other formatting, only XML tags.
+
+### Response Analysis
+
+After each action, you'll receive:
+1. Success/failure status
+2. New console logs since last action
+3. Network requests and responses
+4. JavaScript errors with stack traces
+
+Use this data to:
+- Verify expected behavior
+- Debug issues
+- Guide next actions
+- Make informed decisions about fixes
+
+### Best Practices
+
+**Workflow**
+- Navigate to the user's website, probably on localhost, but you can compare with the production site if you want.
+- Scroll to the relevant section
+- Take screenshots and analyze confirm changes
+- Check network requests for anomalies
+
+**Debugging Flow**
+- Start with minimal reproduction steps
+- Collect data at each step
+- Analyze results before next action
+- Take screenshots to track your changes after each UI change you make
+    `.trim(),
+  },
+  {
     name: 'end_turn',
     description: `
 ### end_turn
@@ -333,22 +390,28 @@ Description: End your response. Use this tool when you've completed the user's r
 Parameters: None
 Usage:
 <end_turn></end_turn>
+
+Do not use the end_turn tool in the same message as other tool calls. Instead, wait for the tool call results from the user. Then, send a new message with the end_turn tool and no other tool calls. Text can be included with this tool call.
     `.trim(),
   },
 ] as const
 
 // Define Zod schemas for parameter validation
 const addSubgoalSchema = z.object({
+  id: z.string().min(1, 'Id cannot be empty'),
   objective: z.string().min(1, 'Objective cannot be empty'),
   status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED']),
   plan: z.string().optional(),
+  log: z.string().optional(),
 })
 
 const updateSubgoalSchema = z.object({
-  objective: z.string().min(1, 'Objective cannot be empty'),
-  status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED']),
+  id: z.string().min(1, 'Id cannot be empty'),
+  status: z
+    .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED'])
+    .optional(),
   plan: z.string().optional(),
-  update: z.string().optional(),
+  log: z.string().optional(),
 })
 
 const writeFileSchema = z.object({
@@ -368,8 +431,16 @@ const codeSearchSchema = z.object({
   pattern: z.string().min(1, 'Pattern cannot be empty'),
 })
 
+const ProcessTypeEnum = z.enum(['SYNC', 'BACKGROUND'])
+
+const processTypeSchema = z
+  .string({ required_error: 'process_type must be either SYNC or BACKGROUND' })
+  .transform((val) => val.toUpperCase())
+  .pipe(ProcessTypeEnum)
+
 const runTerminalCommandSchema = z.object({
   command: z.string().min(1, 'Command cannot be empty'),
+  process_type: processTypeSchema,
 })
 
 const thinkDeeplySchema = z.object({
@@ -379,6 +450,12 @@ const thinkDeeplySchema = z.object({
 const createPlanSchema = z.object({
   path: z.string().min(1, 'Path cannot be empty'),
   plan: z.string().min(1, 'Plan cannot be empty'),
+})
+
+const browserActionSchema = z.object({
+  type: z.string().min(1, 'Type cannot be empty'),
+  url: z.string().min(1, 'URL cannot be empty'),
+  waitUntil: z.string().optional(),
 })
 
 const emptySchema = z.object({}).transform(() => ({}))
@@ -394,6 +471,7 @@ const toolSchemas = {
   run_terminal_command: runTerminalCommandSchema,
   think_deeply: thinkDeeplySchema,
   create_plan: createPlanSchema,
+  browser_logs: browserActionSchema,
   end_turn: emptySchema,
 } as const
 
@@ -440,11 +518,11 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
 export const toolsInstructions = `
 # Tools
 
-Tools are available for the assistant (Buffy) to use. Whenever Buffy calls these tools, the user responds with the tool results.
+You (Buffy) have access to the following tools. Call them when needed. Remember your Buffy persona!
 
-## Formatting
+## Formatting Requirements (ABSOLUTELY CRITICAL!)
 
-Tool use is formatted using XML-style tags. The tool name is enclosed in opening and closing tags, and each parameter is similarly enclosed within its own set of tags. Structure:
+Tool calls use a specific XML-like format. Adhere *precisely* to this nested element structure:
 
 <tool_name>
 <parameter1_name>value1</parameter1_name>
@@ -452,40 +530,33 @@ Tool use is formatted using XML-style tags. The tool name is enclosed in opening
 ...
 </tool_name>
 
-For example:
+**NON-NEGOTIABLE Formatting Rules:**
+
+1.  **NO MARKDOWN WRAPPERS:** Tool calls **MUST NEVER** be enclosed in markdown code fences (\`\`\`xml ... \`\`\`) or any other markdown. Output the raw XML tags directly into the response flow.
+2.  **MANDATORY EMPTY LINES:** Each complete tool call block (from \`<tool_name>\` to \`</tool_name>\`) **MUST** be preceded by a single empty line and followed by a single empty line. This whitespace is essential for parsing.
+3.  **NESTED ELEMENTS ARE MANDATORY:** Parameters **MUST** be passed *exclusively* using nested XML elements, following the format \`<param_name>value</param_name>\` as shown in the structure description above and the CORRECT example below. Using XML attributes within the main tool tags (e.g., formatting like \`<tool_name param="value">\`) is **STRICTLY FORBIDDEN** and will cause errors. Adhere *only* to the nested element structure.
+4.  **REQUIRED COMMENTARY (BUT NOT PARAMETER NARRATION):** As stated in the main system prompt, you **MUST** provide commentary *around* your tool calls (explaining your actions). However, **DO NOT** narrate the *parameter values* themselves.
+
+**FAILURE TO FOLLOW RULES 1, 2, AND 3 WILL PREVENT THE TOOLS FROM WORKING.**
+
+**Example of CORRECT Formatting (Incorporating Commentary, Empty Lines, and MANDATORY Nested Elements):**
+
+Buffy: Let's update that file!
 
 <write_file>
-<path>path/to/example/file.ts</path>
-<content>console.log('Hello, world!');</content>
+<path>path/to/example/file.ts</path>   <!-- Correct: Parameter 'path' is a nested element -->
+<content>console.log('Hello from Buffy!');</content> <!-- Correct: Parameter 'content' is a nested element -->
 </write_file>
 
-Always adhere to this format for the tool use to ensure proper parsing and execution by the user.
+Buffy: All done with the update!
 
-Important: Do not output the raw tool call XML directly. Do not wrap it in markdown code blocks (\`\`\`xml ... \`\`\`) or any other markdown formatting.
+-----
 
-For example, DO NOT output:
-
-\`\`\`xml
-<write_file>
-<path>path/to/example/file.ts</path>
-<content>console.log('Hello, world!');</content>
-</write_file>
-\`\`\`
-
-Instead, output:
-
-<write_file>
-<path>path/to/example/file.ts</path>
-<content>console.log('Hello, world!');</content>
-</write_file>
-
-You may include as many tool calls in the response as you need to complete the task. They can even use the same tool multiple times if needed.
-
-Don't narrate your thought process for the tool you are going to use. Just write out the tool call and the parameters you need to use.
+Call tools as needed, following these strict formatting rules and remembering to act as Buffy.
 
 ## List of Tools
 
-These are the tools that the assistant (Buffy) sees. The user cannot see the tool descriptions.
+These are the tools that you (Buffy) can use. The user cannot see these descriptions.
 
 ${tools.map((tool) => tool.description).join('\n\n')}
 `
@@ -789,4 +860,8 @@ function renderSubgoalUpdate(subgoal: {
 ${lines.join('\n')}
 </subgoal>
 `.trim()
+}
+
+export function transformRunTerminalCommand(command: string) {
+  return command.replace(/&amp;/g, '&')
 }

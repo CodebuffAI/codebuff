@@ -1,80 +1,109 @@
-import { geminiModels, TEST_USER_ID, GeminiModel } from 'common/constants'
+import {
+  Content,
+  GenerateContentResult,
+  GenerateContentStreamResult,
+  GoogleGenerativeAI,
+  HarmBlockThreshold,
+  HarmCategory,
+  Part,
+} from '@google/generative-ai'
+import { GeminiModel, geminiModels, TEST_USER_ID } from 'common/constants'
+import { removeUndefinedProps } from 'common/util/object'
 import { generateCompactId } from 'common/util/string'
 import OpenAI from 'openai'
-import { match, P } from 'ts-pattern'
 
 import { env } from '../env.mjs'
-import { saveMessage } from './message-cost-tracker'
 import { OpenAIMessage } from '../llm-apis/openai-api'
 import { logger } from '../util/logger'
+import { saveMessage } from './message-cost-tracker'
 
-/**
- * Transform messages between our internal format and Gemini's format.
- * All Gemini models support images in their specific format.
- */
-function transformMessages(
-  messages: OpenAIMessage[],
-  model: GeminiModel
-): OpenAIMessage[] {
-  return messages.map((msg) =>
-    match(msg as any)
-      .with(
-        {
-          content: {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: 'image/jpeg',
-              data: P.string,
-            },
-          },
-        },
-        (m) => ({
-          ...msg,
-          content: {
-            inlineData: m.content.source.data,
-            mimeType: 'image/jpeg',
-          },
+type OpenAIMessageContentPart = OpenAI.Chat.ChatCompletionContentPart
+
+const safetySettings = [
+  {
+    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+]
+
+function transformMessagesToGoogle(messages: OpenAIMessage[]): Content[] {
+  return messages
+    .filter((msg) => msg.role !== 'system')
+    .map((msg) => {
+      const role = msg.role === 'assistant' ? 'model' : 'user'
+      let parts: Part[] = []
+
+      if (typeof msg.content === 'string') {
+        parts = [{ text: msg.content }]
+      } else if (Array.isArray(msg.content)) {
+        const contentParts = msg.content as OpenAIMessageContentPart[]
+        parts = contentParts.map((part) => {
+          if (part.type === 'text') {
+            return { text: part.text }
+          } else if (part.type === 'image_url' && part.image_url?.url) {
+            const url = part.image_url.url
+            const base64Data = url.split(',')[1] || ''
+            const mimeTypeMatch = url.match(/^data:(image\/\w+);base64,/)
+            const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg'
+            return {
+              inlineData: {
+                mimeType,
+                data: base64Data,
+              },
+            }
+          }
+          logger.warn(
+            { part },
+            'Unknown message part type encountered during transformation'
+          )
+          return { text: '[Unsupported Content]' }
         })
-      )
-      .otherwise(() => msg)
-  ) as OpenAIMessage[]
+      } else {
+        logger.warn(
+          { content: msg.content },
+          'Unexpected message content format encountered during transformation'
+        )
+        parts = [{ text: '[Unsupported Content]' }]
+      }
+
+      return { role, parts }
+    })
 }
 
-export type GeminiMessage = OpenAI.Chat.ChatCompletionMessageParam
+const genAIClients: Record<string, GoogleGenerativeAI> = {}
 
-let geminiClient: OpenAI | null = null
-const apiKeyClients: Record<string, OpenAI> = {}
-
-const getGeminiClient = (fingerprintId: string, apiKey?: string): OpenAI => {
+const getGenerativeModel = (modelName: GeminiModel, apiKey?: string) => {
   const effectiveApiKey = apiKey ?? env.GEMINI_API_KEY
-  const openAiParams = {
-    apiKey: effectiveApiKey,
-    baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-    defaultHeaders: {
-      'Helicone-Auth': `Bearer ${env.HELICONE_API_KEY}`,
-      'Helicone-User-Id': fingerprintId,
-    },
+  if (!effectiveApiKey) {
+    throw new Error('Missing Gemini API Key')
   }
 
-  if (apiKey) {
-    if (!(effectiveApiKey in apiKeyClients)) {
-      apiKeyClients[effectiveApiKey] = new OpenAI(openAiParams)
-    }
-    return apiKeyClients[effectiveApiKey]
+  if (!genAIClients[effectiveApiKey]) {
+    genAIClients[effectiveApiKey] = new GoogleGenerativeAI(effectiveApiKey)
   }
+  const genAI = genAIClients[effectiveApiKey]
 
-  // Use shared instance for internal key
-  if (!geminiClient) {
-    geminiClient = new OpenAI(openAiParams)
-  }
-
-  return geminiClient
+  return genAI.getGenerativeModel({
+    model: modelName,
+    safetySettings,
+  })
 }
 
-const timeoutPromise = (ms: number) =>
-  new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Gemini API request timed out')), ms)
+const timeoutPromise = (ms: number, message: string) =>
+  new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(message)), ms)
   )
 
 export function promptGeminiStream(
@@ -100,42 +129,45 @@ export function promptGeminiStream(
     maxTokens,
     apiKey,
   } = options
-  return new ReadableStream({
-    async start(controller) {
-      const gemini = getGeminiClient(fingerprintId, apiKey)
-      const startTime = Date.now()
-      try {
-        const transformedMessages = transformMessages(messages, model)
 
-        const stream = await gemini.chat.completions.create({
-          model: model,
-          messages: transformedMessages,
-          temperature: temperature ?? 0,
-          max_tokens: maxTokens,
-          stream: true,
-          stream_options: { include_usage: true },
+  const streamController = new AbortController()
+  const outputStream = new ReadableStream<string>({
+    async start(controller) {
+      const startTime = Date.now()
+      let streamResult: GenerateContentStreamResult | null = null
+      try {
+        const generativeModel = getGenerativeModel(model, apiKey)
+        const transformedMessages = transformMessagesToGoogle(messages)
+
+        const generationConfig = removeUndefinedProps({
+          temperature: temperature ?? 0.7,
+          maxOutputTokens: maxTokens,
+        })
+
+        streamResult = await generativeModel.generateContentStream({
+          contents: transformedMessages,
+          generationConfig,
         })
 
         let content = ''
-        let messageId: string | undefined
-        let inputTokens = 0
-        let outputTokens = 0
-
-        for await (const chunk of stream) {
-          if (chunk.choices[0]?.delta?.content) {
-            const delta = chunk.choices[0].delta.content
-            content += delta
-            controller.enqueue(delta)
+        for await (const chunk of streamResult.stream) {
+          if (streamController.signal.aborted) {
+            logger.warn('Gemini stream aborted, stopping processing.')
+            break
           }
-
-          if (chunk.usage) {
-            messageId = chunk.id
-            inputTokens = chunk.usage.prompt_tokens
-            outputTokens = chunk.usage.completion_tokens
+          const textChunk = chunk.text()
+          if (textChunk) {
+            content += textChunk
+            controller.enqueue(textChunk)
           }
         }
 
-        if (!apiKey && messages.length > 0 && userId !== TEST_USER_ID) {
+        const response = streamResult ? await streamResult.response : null
+        const usageMetadata = response?.usageMetadata
+        const inputTokens = usageMetadata?.promptTokenCount ?? 0
+        const outputTokens = usageMetadata?.candidatesTokenCount ?? 0
+
+        if (messages.length > 0 && userId !== TEST_USER_ID) {
           saveMessage({
             messageId: generateCompactId(),
             userId,
@@ -145,10 +177,11 @@ export function promptGeminiStream(
             model,
             request: messages,
             response: content,
-            inputTokens: inputTokens || 0,
-            outputTokens: outputTokens || 0,
+            inputTokens,
+            outputTokens,
             finishedAt: new Date(),
             latencyMs: Date.now() - startTime,
+            usesUserApiKey: !!apiKey,
           })
         }
 
@@ -157,18 +190,25 @@ export function promptGeminiStream(
         logger.error(
           {
             error:
-              error && typeof error === 'object' && 'message' in error
-                ? error.message
-                : 'Unknown error',
+              error instanceof Error
+                ? { message: error.message, stack: error.stack }
+                : error,
             messages,
             usingUserKey: !!apiKey,
+            model,
           },
-          'Error calling Gemini API'
+          'Error calling Gemini API Stream'
         )
         controller.error(error)
       }
     },
+    cancel(reason) {
+      logger.warn({ reason }, 'Gemini stream cancelled')
+      streamController.abort()
+    },
   })
+
+  return outputStream
 }
 
 export async function promptGemini(
@@ -184,28 +224,82 @@ export async function promptGemini(
     apiKey?: string
   }
 ): Promise<string> {
-  const stream = promptGeminiStream(messages, options)
+  const {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    temperature,
+    userId,
+    model,
+    maxTokens,
+    apiKey,
+  } = options
+
+  const startTime = Date.now()
+  let result: GenerateContentResult | null = null
+
   try {
-    let content = ''
-    await Promise.race([
-      (async () => {
-        for await (const chunk of stream) {
-          content += chunk
-        }
-      })(),
+    const generativeModel = getGenerativeModel(model, apiKey)
+    const transformedMessages = transformMessagesToGoogle(messages)
+
+    const generationConfig = removeUndefinedProps({
+      temperature: temperature ?? 0.7,
+      maxOutputTokens: maxTokens,
+    })
+
+    const timeoutMs = model === geminiModels.gemini2flash ? 60_000 : 200_000
+    result = await Promise.race([
+      generativeModel.generateContent({
+        contents: transformedMessages,
+        generationConfig,
+      }),
       timeoutPromise(
-        options.model === geminiModels.gemini2flash ? 60_000 : 200_000
+        timeoutMs,
+        `Gemini API request timed out after ${timeoutMs}ms`
       ),
     ])
+
+    if (!result) {
+      throw new Error(
+        'Gemini API call resulted in null or timed out before returning a result.'
+      )
+    }
+    const response = result.response
+
+    const content = response.text()
+    const usageMetadata = response.usageMetadata
+    const inputTokens = usageMetadata?.promptTokenCount ?? 0
+    const outputTokens = usageMetadata?.candidatesTokenCount ?? 0
+
+    if (messages.length > 0 && userId !== TEST_USER_ID) {
+      saveMessage({
+        messageId: generateCompactId(),
+        userId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        model,
+        request: messages,
+        response: content,
+        inputTokens,
+        outputTokens,
+        finishedAt: new Date(),
+        latencyMs: Date.now() - startTime,
+        usesUserApiKey: !!apiKey,
+      })
+    }
+
     return content
   } catch (error) {
     logger.error(
       {
         error:
-          error && typeof error === 'object' && 'message' in error
-            ? error.message
-            : 'Unknown error',
-        usingUserKey: !!options.apiKey,
+          error instanceof Error
+            ? { message: error.message, stack: error.stack }
+            : error,
+        messages,
+        usingUserKey: !!apiKey,
+        model,
       },
       'Error calling Gemini API'
     )

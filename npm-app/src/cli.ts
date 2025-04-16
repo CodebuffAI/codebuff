@@ -1,15 +1,9 @@
 import { parse } from 'path'
 import * as readline from 'readline'
 
-import {
-  type ApiKeyType,
-  API_KEY_TYPES,
-  KEY_LENGTHS,
-  KEY_PREFIXES,
-} from 'common/api-keys/constants'
+import { type ApiKeyType } from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
-import { AgentState } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
@@ -18,18 +12,29 @@ import {
   bold,
   cyan,
   green,
+  gray,
   magenta,
   red,
-  yellow,
   underline,
-  gray,
+  yellow,
 } from 'picocolors'
 
+import { backgroundProcesses } from './background-process-manager'
 import { setMessages } from './chat-storage'
+import { checkpointManager } from './checkpoints/checkpoint-manager'
+import { detectApiKey, handleApiKeyInput } from './cli-handlers/api-key'
 import {
-  checkpointManager,
-  CheckpointsDisabledError,
-} from './checkpoints/checkpoint-manager'
+  displayCheckpointMenu,
+  handleClearCheckpoints,
+  handleRedo,
+  handleRestoreCheckpoint,
+  handleUndo,
+  isCheckpointCommand,
+  listCheckpoints,
+  saveCheckpoint,
+} from './cli-handlers/checkpoint'
+import { handleDiff } from './cli-handlers/diff'
+import { showEasterEgg } from './cli-handlers/easter-egg'
 import { Client } from './client'
 import { websocketUrl, websiteUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
@@ -39,9 +44,10 @@ import { Spinner } from './utils/spinner'
 import { isCommandRunning, resetShell } from './utils/terminal'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
-const restoreCheckpointRegex = /^checkpoint\s+(\d+)$/
-const undoCommands = ['undo', 'u']
-const redoCommands = ['redo']
+type ApiKeyDetectionResult =
+  | { status: 'found'; type: ApiKeyType; key: string }
+  | { status: 'prefix_only'; type: ApiKeyType; prefix: string; length: number }
+  | { status: 'not_found' }
 
 export class CLI {
   private client: Client
@@ -56,11 +62,10 @@ export class CLI {
   private consecutiveFastInputs: number = 0
   private pastedContent: string = ''
   private isPasting: boolean = false
-  private geminiPromptShown: boolean = false
 
   constructor(
     readyPromise: Promise<[void, ProjectFileContext]>,
-    { git, costMode }: CliOptions
+    { git, costMode, model }: CliOptions
   ) {
     this.git = git
     this.costMode = costMode
@@ -75,7 +80,8 @@ export class CLI {
       this.returnControlToUser.bind(this),
       this.costMode,
       this.git,
-      this.rl
+      this.rl,
+      model
     )
 
     this.readyPromise = Promise.all([
@@ -88,6 +94,19 @@ export class CLI {
     ])
 
     this.setPrompt()
+
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('\nUnhandled Rejection at:', promise, 'reason:', reason)
+      this.freshPrompt()
+    })
+
+    process.on('uncaughtException', (err, origin) => {
+      console.error(
+        `\nCaught exception: ${err}\n` + `Exception origin: ${origin}`
+      )
+      console.error(err.stack)
+      this.freshPrompt()
+    })
   }
 
   private setupSignalHandlers() {
@@ -159,12 +178,26 @@ export class CLI {
   /**
    * Prompts the user with a clean prompt state
    */
-  private freshPrompt() {
+  private freshPrompt(userInput: string = '') {
     Spinner.get().stop()
     readline.cursorTo(process.stdout, 0)
-    ;(this.rl as any).line = ''
+    const rlAny = this.rl as any
+
+    // clear line first
+    rlAny.line = ''
     this.setPrompt()
+
+    // then prompt
     this.rl.prompt()
+
+    if (!userInput) {
+      return
+    }
+
+    // then rewrite new prompt
+    this.rl.write(' '.repeat(userInput.length)) // hacky way to move cursor
+    rlAny.line = userInput
+    rlAny._refreshLine()
   }
 
   public async printInitialPrompt(initialInput?: string) {
@@ -185,7 +218,7 @@ export class CLI {
   }
 
   public async printDiff() {
-    this.handleDiff()
+    handleDiff(this.client.lastChanges)
     this.freshPrompt()
   }
 
@@ -216,37 +249,6 @@ export class CLI {
     await this.forwardUserInput(userInput)
   }
 
-  private async saveCheckpoint(userInput: string): Promise<void> {
-    if (checkpointManager.disabledReason !== null) {
-      return
-    }
-
-    Spinner.get().start()
-    await this.readyPromise
-    Spinner.get().stop()
-
-    try {
-      // Make sure the previous checkpoint is done
-      await checkpointManager.getLatestCheckpoint().fileStateIdPromise
-    } catch (error) {
-      // No latest checkpoint available, no need to wait
-    }
-
-    // Save the current agent state
-    try {
-      const { checkpoint, created } = await checkpointManager.addCheckpoint(
-        this.client.agentState as AgentState,
-        userInput
-      )
-
-      if (created) {
-        console.log(`[checkpoint #${checkpoint.id} saved]`)
-      }
-    } catch (error) {
-      // Unable to add checkpoint, do not display anything to user
-    }
-  }
-
   private async processCommand(userInput: string): Promise<boolean> {
     if (userInput === 'help' || userInput === 'h') {
       displayMenu()
@@ -267,46 +269,23 @@ export class CLI {
       await this.client.handleReferralCode(userInput.trim())
       return true
     }
-    // Handle input raw API keys
-    let keyType: ApiKeyType | null = null
-    for (const prefixKey of API_KEY_TYPES) {
-      const prefix = KEY_PREFIXES[prefixKey]
-      if (userInput.startsWith(prefix)) {
-        if (userInput.length === KEY_LENGTHS[prefixKey]) {
-          keyType = prefixKey as ApiKeyType
-          break
-        } else {
-          console.log(
-            yellow(
-              `Input looks like a ${prefixKey} API key but has the wrong length. Expected ${KEY_LENGTHS[prefixKey]}, got ${userInput.length}.`
-            )
-          )
-          this.freshPrompt()
-          return true
-        }
-      }
-    }
-    if (keyType) {
-      Spinner.get().start()
-      await this.readyPromise
-      Spinner.get().stop()
 
-      await this.client.handleAddApiKey(keyType, userInput)
-      // handleAddApiKey calls returnControlToUser
-      return true
+    // Detect potential API key input first
+    const detectionResult = detectApiKey(userInput)
+    if (detectionResult.status !== 'not_found') {
+      // If something resembling an API key was detected (valid or just prefix), handle it
+      await handleApiKeyInput(
+        this.client,
+        detectionResult,
+        this.readyPromise,
+        this.returnControlToUser.bind(this)
+      )
+      return true // Indicate command was handled
     }
+
+    // Continue with other commands if no API key input was detected/handled
     if (userInput === 'usage' || userInput === 'credits') {
       await this.client.getUsage()
-      return true
-    }
-    if (undoCommands.includes(userInput)) {
-      await this.saveCheckpoint(userInput)
-      this.handleUndo()
-      return true
-    }
-    if (redoCommands.includes(userInput)) {
-      await this.saveCheckpoint(userInput)
-      this.handleRedo()
       return true
     }
     if (userInput === 'quit' || userInput === 'exit' || userInput === 'q') {
@@ -314,7 +293,7 @@ export class CLI {
       return true
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(userInput)) {
-      this.handleDiff()
+      handleDiff(this.client.lastChanges)
       this.freshPrompt()
       return true
     }
@@ -323,27 +302,55 @@ export class CLI {
       userInput === 'konami' ||
       userInput === 'codebuffy'
     ) {
-      this.showEasterEgg()
+      showEasterEgg(this.returnControlToUser.bind(this))
       return true
     }
 
     // Checkpoint commands
-    if (userInput === 'checkpoint list' || userInput === 'checkpoints') {
-      await this.saveCheckpoint(userInput)
-      this.handleCheckpoints()
-      return true
-    }
-
-    const restoreMatch = userInput.match(restoreCheckpointRegex)
-    if (restoreMatch) {
-      const id = parseInt(restoreMatch[1], 10)
-      await this.saveCheckpoint(userInput)
-      await this.handleRestoreCheckpoint(id)
-      return true
-    }
-
-    if (userInput === 'checkpoint clear') {
-      this.handleClearCheckpoints()
+    if (isCheckpointCommand(userInput)) {
+      if (isCheckpointCommand(userInput, 'undo')) {
+        await saveCheckpoint(userInput, this.client, this.readyPromise)
+        const toRestore = await handleUndo(this.client, this.rl)
+        this.freshPrompt(toRestore)
+        return true
+      }
+      if (isCheckpointCommand(userInput, 'redo')) {
+        await saveCheckpoint(userInput, this.client, this.readyPromise)
+        const toRestore = await handleRedo(this.client, this.rl)
+        this.freshPrompt(toRestore)
+        return true
+      }
+      if (isCheckpointCommand(userInput, 'list')) {
+        await saveCheckpoint(userInput, this.client, this.readyPromise)
+        await listCheckpoints()
+        this.freshPrompt()
+        return true
+      }
+      const restoreMatch = isCheckpointCommand(userInput, 'restore')
+      if (restoreMatch) {
+        const id = parseInt((restoreMatch as RegExpMatchArray)[1], 10)
+        await saveCheckpoint(userInput, this.client, this.readyPromise)
+        const toRestore = await handleRestoreCheckpoint(
+          id,
+          this.client,
+          this.rl
+        )
+        this.freshPrompt(toRestore)
+        return true
+      }
+      if (isCheckpointCommand(userInput, 'clear')) {
+        handleClearCheckpoints()
+        this.freshPrompt()
+        return true
+      }
+      if (isCheckpointCommand(userInput, 'save')) {
+        await saveCheckpoint(userInput, this.client, this.readyPromise, true)
+        displayCheckpointMenu()
+        this.freshPrompt()
+        return true
+      }
+      displayCheckpointMenu()
+      this.freshPrompt()
       return true
     }
 
@@ -351,14 +358,7 @@ export class CLI {
   }
 
   private async forwardUserInput(userInput: string) {
-    // vvv Code while we are waiting for gemini 2.5 pro vvv
-    Spinner.get().start()
-    await this.readyPromise
-    Spinner.get().stop()
-    this.displayGeminiKeyPromptIfNeeded()
-    // ^^^ --- ^^^
-
-    await this.saveCheckpoint(userInput)
+    await saveCheckpoint(userInput, this.client, this.readyPromise)
     Spinner.get().start()
 
     this.client.lastChanges = []
@@ -412,60 +412,6 @@ export class CLI {
   private onWebSocketReconnect() {
     console.log(green('\nReconnected!'))
     this.returnControlToUser()
-  }
-
-  private async handleUndo(): Promise<void> {
-    let failed: boolean = false
-
-    try {
-      await checkpointManager.restoreUndoCheckpoint()
-    } catch (error: any) {
-      failed = true
-      if (error instanceof CheckpointsDisabledError) {
-        console.log(red(`Checkpoints not enabled: ${error.message}`))
-      } else {
-        console.log(red(`Unable to undo: ${error.message}`))
-      }
-    }
-
-    let userInput = ''
-    if (!failed) {
-      console.log(
-        green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`)
-      )
-      userInput =
-        checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
-          ?.userInput ?? ''
-    }
-    this.freshPrompt()
-    this.restoreUserInput(userInput)
-  }
-
-  private async handleRedo(): Promise<void> {
-    let failed: boolean = false
-
-    try {
-      await checkpointManager.restoreRedoCheckpoint()
-    } catch (error: any) {
-      failed = true
-      if (error instanceof CheckpointsDisabledError) {
-        console.log(red(`Checkpoints not enabled: ${error.message}`))
-      } else {
-        console.log(red(`Unable to redo: ${error.message}`))
-      }
-    }
-
-    let userInput = ''
-    if (!failed) {
-      console.log(
-        green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`)
-      )
-      userInput =
-        checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
-          ?.userInput ?? ''
-    }
-    this.freshPrompt()
-    this.restoreUserInput(userInput)
   }
 
   private handleKeyPress(str: string, key: any) {
@@ -529,181 +475,26 @@ export class CLI {
     Spinner.get().stop()
   }
 
-  private async showEasterEgg() {
-    const text = 'codebuffy'
-
-    // Utility: clear the terminal screen
-    function clearScreen() {
-      process.stdout.write('\u001b[2J\u001b[0;0H')
-    }
-
-    const termWidth = process.stdout.columns
-    const termHeight = process.stdout.rows
-    const baselineWidth = 80
-    const baselineHeight = 24
-    const scaleFactor = Math.min(
-      termWidth / baselineWidth,
-      termHeight / baselineHeight
-    )
-
-    // Utility: Generate a set of points tracing a "C" shape using an arc.
-    function generateCPath(cx: number, cy: number, r: number, steps: number) {
-      const points = []
-      // A typical "C" opens to the right: from 45° to 315° (in radians)
-      const startAngle = Math.PI / 4
-      const endAngle = (7 * Math.PI) / 4
-      const angleStep = (endAngle - startAngle) / steps
-      for (let i = 0; i <= steps; i++) {
-        const angle = startAngle + i * angleStep
-        const x = Math.floor(cx + r * Math.cos(angle))
-        const y = Math.floor(cy + r * Math.sin(angle))
-        points.push({ x, y })
-      }
-      return points
-    }
-
-    // Utility: Generate points along a quadratic Bézier curve.
-    function quadraticBezier(
-      P0: { x: number; y: number },
-      P1: { x: number; y: number },
-      P2: { x: number; y: number },
-      steps: number
-    ) {
-      const points = []
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps
-        const x = Math.round(
-          (1 - t) ** 2 * P0.x + 2 * (1 - t) * t * P1.x + t ** 2 * P2.x
-        )
-        const y = Math.round(
-          (1 - t) ** 2 * P0.y + 2 * (1 - t) * t * P1.y + t ** 2 * P2.y
-        )
-        points.push({ x, y })
-      }
-      return points
-    }
-
-    // Generate a vertical line from startY to endY at a given x.
-    function generateVerticalLine(x: number, startY: number, endY: number) {
-      const points = []
-      const step = startY < endY ? 1 : -1
-      for (let y = startY; y !== endY; y += step) {
-        points.push({ x, y })
-      }
-      points.push({ x, y: endY })
-      return points
-    }
-
-    // Generate a path approximating a B shape using two quadratic Bézier curves
-    // for the rounded bubbles, and then closing the shape with a vertical spine.
-    function generateBPath(
-      bX: number,
-      bYTop: number,
-      bYBottom: number,
-      bWidth: number,
-      bGap: number,
-      stepsPerCurve: number
-    ) {
-      let points: { x: number; y: number }[] = []
-      const middle = Math.floor((bYTop + bYBottom) / 2)
-
-      // Upper bubble: from top-left (spine) out then back to the spine at the middle.
-      const upperStart = { x: bX, y: bYTop }
-      const upperControl = {
-        x: bX + bWidth + bGap - 10,
-        y: Math.floor((bYTop + middle) / 2),
-      }
-      const upperEnd = { x: bX, y: middle }
-      const upperCurve = quadraticBezier(
-        upperStart,
-        upperControl,
-        upperEnd,
-        stepsPerCurve
-      )
-
-      // Lower bubble: from the middle to the bottom.
-      const lowerStart = { x: bX, y: middle }
-      const lowerControl = {
-        x: bX + bWidth + bGap,
-        y: Math.floor((middle + bYBottom) / 2),
-      }
-      const lowerEnd = { x: bX, y: bYBottom }
-      const lowerCurve = quadraticBezier(
-        lowerStart,
-        lowerControl,
-        lowerEnd,
-        stepsPerCurve
-      )
-
-      // Combine the curves.
-      points = points.concat(upperCurve, lowerCurve)
-
-      // Add a vertical line from the bottom of the B back up to the top.
-      const closingLine = generateVerticalLine(bX, bYBottom, bYTop)
-      points = points.concat(closingLine)
-
-      return points
-    }
-
-    // Dynamically scale parameters for the shapes.
-    // Use Math.max to ensure values don't get too small.
-    const cCenterX = Math.floor(termWidth * 0.3)
-    const cCenterY = Math.floor(termHeight / 2)
-    const cRadius = Math.max(2, Math.floor(8 * scaleFactor))
-    const cSteps = Math.max(10, Math.floor(30 * scaleFactor))
-
-    const bX = Math.floor(termWidth * 0.55)
-    const bYTop = Math.floor(termHeight / 2 - 7 * scaleFactor)
-    const bYBottom = Math.floor(termHeight / 2 + 7 * scaleFactor)
-    const bWidth = Math.max(2, Math.floor(8 * scaleFactor))
-    const bGap = Math.max(1, Math.floor(35 * scaleFactor))
-    const bStepsPerCurve = Math.max(10, Math.floor(20 * scaleFactor))
-
-    // Generate the paths.
-    const fullPath = [
-      ...generateCPath(cCenterX, cCenterY, cRadius, cSteps),
-      ...generateBPath(bX, bYTop, bYBottom, bWidth, bGap, bStepsPerCurve),
-    ]
-
-    // Array of picocolors functions for random colors.
-    const colors = [red, green, yellow, blue, magenta, cyan]
-    function getRandomColor() {
-      return colors[Math.floor(Math.random() * colors.length)]
-    }
-
-    // Animation state: index into the fullPath.
-    let index = 0
-    let completedCycle = false
-
-    // Main animation function
-    function animate() {
-      if (index >= fullPath.length) {
-        completedCycle = true
-        return
-      }
-
-      const { x, y } = fullPath[index]
-      const cursorPosition = `\u001b[${y + 1};${x + 1}H`
-      process.stdout.write(cursorPosition + getRandomColor()(text))
-
-      index++
-    }
-
-    clearScreen()
-    const interval = setInterval(() => {
-      animate()
-      if (completedCycle) {
-        clearInterval(interval)
-        clearScreen()
-        this.returnControlToUser()
-      }
-    }, 100)
-  }
-
-  // Updated handleExit method
   private handleExit() {
     Spinner.get().restoreCursor()
     console.log('\n')
+
+    for (const [pid, processInfo] of backgroundProcesses.entries()) {
+      if (processInfo.status === 'running') {
+        try {
+          processInfo.process.kill()
+          console.log(yellow(`Killed process: ${processInfo.command}`))
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error)
+          console.error(
+            red(
+              `Error killing process with PID ${pid} (${processInfo.command}): ${errorMessage}`
+            )
+          )
+        }
+      }
+    }
 
     const logMessages = []
     const totalCreditsUsedThisSession = Object.values(
@@ -747,133 +538,5 @@ export class CLI {
       }
     }
     this.lastInputTime = currentTime
-  }
-
-  private handleDiff() {
-    if (this.client.lastChanges.length === 0) {
-      console.log(yellow('No changes found in the last assistant response.'))
-      return
-    }
-
-    this.client.lastChanges.forEach((change) => {
-      console.log(bold(`___${change.path}___`))
-      const lines = change.content
-        .split('\n')
-        .map((line) => (change.type === 'file' ? '+' + line : line))
-
-      lines.forEach((line) => {
-        if (line.startsWith('+')) {
-          console.log(green(line))
-        } else if (line.startsWith('-')) {
-          console.log(red(line))
-        } else if (line.startsWith('@@')) {
-          console.log(cyan(line))
-        } else {
-          console.log(line)
-        }
-      })
-    })
-  }
-
-  // Checkpoint command handlers
-  private async handleCheckpoints(): Promise<void> {
-    console.log(checkpointManager.getCheckpointsAsString())
-    this.freshPrompt()
-  }
-
-  private async handleRestoreCheckpoint(id: number): Promise<void> {
-    Spinner.get().start()
-
-    if (checkpointManager.disabledReason !== null) {
-      console.log(
-        red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
-      )
-      this.freshPrompt()
-      return
-    }
-
-    const checkpoint = checkpointManager.checkpoints[id - 1]
-    if (!checkpoint) {
-      console.log(red(`Checkpoint #${id} not found.`))
-      this.freshPrompt()
-      return
-    }
-
-    try {
-      // Wait for save before trying to restore checkpoint
-      const latestCheckpoint = checkpointManager.getLatestCheckpoint()
-      await latestCheckpoint?.fileStateIdPromise
-    } catch (error) {
-      // Should never happen
-    }
-
-    // Restore the agentState
-    this.client.agentState = JSON.parse(checkpoint.agentStateString)
-
-    let failed = false
-    try {
-      // Restore file state
-      await checkpointManager.restoreCheckointFileState({
-        id: checkpoint.id,
-        resetUndoIds: true,
-      })
-    } catch (error: any) {
-      failed = true
-      Spinner.get().stop()
-      console.log(red(`Unable to restore checkpoint: ${error.message}`))
-    }
-
-    if (!failed) {
-      Spinner.get().stop()
-      console.log(green(`Restored to checkpoint #${id}.`))
-    }
-
-    // Insert the original user input that created this checkpoint
-    this.freshPrompt()
-    this.restoreUserInput(checkpoint.userInput)
-  }
-
-  private restoreUserInput(userInput: string) {
-    if (
-      !userInput.match(restoreCheckpointRegex) &&
-      !undoCommands.includes(userInput) &&
-      !redoCommands.includes(userInput)
-    ) {
-      this.rl.write(' '.repeat(userInput.length)) // hacky way to move cursor
-      const rlAny = this.rl as any
-      rlAny.line = userInput
-      rlAny._refreshLine()
-    }
-  }
-
-  private async handleClearCheckpoints(): Promise<void> {
-    checkpointManager.clearCheckpoints()
-    console.log('Cleared all checkpoints.')
-    this.freshPrompt()
-  }
-
-  private displayGeminiKeyPromptIfNeeded() {
-    if (this.geminiPromptShown) {
-      return
-    }
-
-    // Only show if user is logged in, doesn't have a Gemini key stored, and is in max mode
-    if (
-      this.client.user &&
-      !this.client.storedApiKeyTypes.includes('gemini') &&
-      this.costMode === 'max'
-    ) {
-      console.log(
-        yellow(
-          [
-            "✨ Recommended: Add your Gemini API key to use the powerful Gemini 2.5 Pro model! Here's how:",
-            '1. Go to https://aistudio.google.com/apikey and create an API key',
-            '2. Paste your key here',
-            '',
-          ].join('\n')
-        )
-      )
-      this.geminiPromptShown = true
-    }
   }
 }

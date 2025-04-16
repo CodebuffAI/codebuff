@@ -1,9 +1,10 @@
-import { WebSocket } from 'ws'
 import { ClientAction, ServerAction } from 'common/actions'
-import { sendAction } from './websocket-action'
+import { WebSocket } from 'ws'
+
 import { checkAuth } from '../util/check-auth'
 import { logger, withLoggerContext } from '@/util/logger'
 import { getUserInfoFromAuthToken, UserInfo } from './auth'
+import { sendAction } from './websocket-action'
 import {
   calculateUsageAndBalance,
   consumeCredits,
@@ -106,15 +107,30 @@ export class WebSocketMiddleware {
       clientSessionId: string,
       ws: WebSocket
     ) => {
-      const shouldContinue = await this.execute(
-        action,
-        clientSessionId,
-        ws,
-        options
+      const userInfo =
+        'authToken' in action
+          ? await getUserInfoFromAuthToken(action.authToken!)
+          : undefined
+
+      return withLoggerContext(
+        {
+          clientSessionId,
+          userId: userInfo?.id,
+          userEmail: userInfo?.email,
+          discordId: userInfo?.discord_id ?? undefined,
+        },
+        async () => {
+          const shouldContinue = await this.execute(
+            action,
+            clientSessionId,
+            ws,
+            options
+          )
+          if (shouldContinue) {
+            baseAction(action, clientSessionId, ws)
+          }
+        }
       )
-      if (shouldContinue) {
-        baseAction(action, clientSessionId, ws)
-      }
     }
   }
 }

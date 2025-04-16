@@ -1,17 +1,18 @@
 import assert from 'assert'
+import os from 'os'
 import { join } from 'path'
 import { Worker } from 'worker_threads'
 
-import { getAllFilePaths, DEFAULT_MAX_FILES } from 'common/project-file-tree'
-import { AgentState } from 'common/types/agent-state'
+import { DEFAULT_MAX_FILES, getAllFilePaths } from 'common/project-file-tree'
+import { AgentState, ToolResult } from 'common/types/agent-state'
 import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 
+import { getProjectRoot } from '../project-files'
 import {
   getBareRepoPath,
-  hasUnsavedChanges,
   getLatestCommit,
+  hasUnsavedChanges,
 } from './file-manager'
-import { getProjectRoot } from '../project-files'
 
 export class CheckpointsDisabledError extends Error {
   constructor(message?: string, options?: ErrorOptions) {
@@ -57,6 +58,7 @@ interface WorkerResponse {
  */
 export interface Checkpoint {
   agentStateString: string
+  lastToolResultsString: string
   /** Promise resolving to the git commit hash for this checkpoint */
   fileStateIdPromise: Promise<string>
   /** Number of messages in the agent's history at checkpoint time */
@@ -90,7 +92,7 @@ export class CheckpointManager {
    */
   private initWorker(): Worker {
     if (!this.worker) {
-      // NOTE: Uses the built worker-script-project-context.js within dist.
+      // NOTE: Uses the built workers/checkpoint-worker.js within dist.
       // So you need to run `bun run build` before running locally.
       const workerPath = __filename.endsWith('.ts')
         ? join(__dirname, '../../dist', 'workers/checkpoint-worker.js')
@@ -149,13 +151,16 @@ export class CheckpointManager {
   /**
    * Add a new checkpoint of the current agent and file state
    * @param agentState - The current agent state to checkpoint
+   * @param lastToolResults - The tool results from the last assistant turn
    * @param userInput - The user input that triggered this checkpoint
    * @returns The latest checkpoint and whether that checkpoint was created (or already existed)
    * @throws {Error} If the checkpoint cannot be added
    */
   async addCheckpoint(
     agentState: AgentState,
-    userInput: string
+    lastToolResults: ToolResult[],
+    userInput: string,
+    saveWithNoChanges: boolean = false
   ): Promise<{ checkpoint: Checkpoint; created: boolean }> {
     if (this.disabledReason !== null) {
       throw new CheckpointsDisabledError(this.disabledReason)
@@ -163,6 +168,10 @@ export class CheckpointManager {
 
     const id = this.checkpoints.length + 1
     const projectDir = getProjectRoot()
+    if (projectDir === os.homedir()) {
+      this.disabledReason = 'In home directory'
+      throw new CheckpointsDisabledError(this.disabledReason)
+    }
     const bareRepoPath = this.getBareRepoPath()
     const relativeFilepaths = getAllFilePaths(agentState.fileContext.fileTree)
 
@@ -171,11 +180,14 @@ export class CheckpointManager {
       throw new CheckpointsDisabledError(this.disabledReason)
     }
 
-    const needToStage = await hasUnsavedChanges({
-      projectDir,
-      bareRepoPath,
-      relativeFilepaths,
-    })
+    const needToStage =
+      saveWithNoChanges ||
+      (await hasUnsavedChanges({
+        projectDir,
+        bareRepoPath,
+        relativeFilepaths,
+      })) ||
+      saveWithNoChanges
     if (!needToStage && this.checkpoints.length > 0) {
       return {
         checkpoint: this.checkpoints[this.checkpoints.length - 1],
@@ -202,6 +214,7 @@ export class CheckpointManager {
 
     const checkpoint: Checkpoint = {
       agentStateString: JSON.stringify(agentState),
+      lastToolResultsString: JSON.stringify(lastToolResults),
       fileStateIdPromise,
       historyLength: agentState.messageHistory.length,
       id,
@@ -319,10 +332,13 @@ export class CheckpointManager {
   /**
    * Clear all checkpoints
    */
-  clearCheckpoints(): void {
+  clearCheckpoints(resetBareRepoPath: boolean = false): void {
     this.checkpoints = []
     this.currentCheckpointId = 0
     this.undoIds = []
+    if (resetBareRepoPath) {
+      this.bareRepoPath = null
+    }
   }
 
   /**

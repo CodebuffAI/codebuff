@@ -3,7 +3,7 @@ import { z } from 'zod'
 // Default values for browser actions
 export const BROWSER_DEFAULTS = {
   // Common defaults
-  headless: false,
+  headless: true,
   debug: false,
   timeout: 15000, // 15 seconds
   userDataDir: '_browser_profile', // Will be relative to project data dir
@@ -326,7 +326,7 @@ export function createBrowserActionXML(action: BrowserAction): string {
       return `${k}="${escaped}"`
     })
     .join(' ')
-  return `<browser_action action="${type}" ${attrsString} />`
+  return `<browser_logs action="${type}" ${attrsString} />`
 }
 
 /**
@@ -334,8 +334,8 @@ export function createBrowserActionXML(action: BrowserAction): string {
  */
 export function parseBrowserActionXML(xmlString: string): BrowserAction {
   // Basic XML validation
-  if (!xmlString.includes('<browser_action') || !xmlString.includes('/>')) {
-    throw new Error('Invalid browser action XML: missing browser_action tag')
+  if (!xmlString.includes('<browser_logs') || !xmlString.includes('/>')) {
+    throw new Error('Invalid browser action XML: missing browser_logs tag')
   }
 
   // Extract attributes using regex

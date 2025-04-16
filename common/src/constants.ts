@@ -26,6 +26,16 @@ export const DEFAULT_IGNORED_FILES = [
   'bun.lockb',
 ]
 
+// Special message content tags indicating specific server states
+export const CODEBUFF_RATE_LIMIT_INFO = 'codebuff_rate_limit_info'
+export const CODEBUFF_CLAUDE_FALLBACK_INFO = 'codebuff_claude_fallback_info'
+export const CODEBUFF_INVALID_KEY_INFO = 'codebuff_invalid_gemini_key_info'
+export const ONE_TIME_TAGS = [
+  CODEBUFF_RATE_LIMIT_INFO,
+  CODEBUFF_CLAUDE_FALLBACK_INFO,
+  CODEBUFF_INVALID_KEY_INFO,
+] as const
+
 export const FILE_READ_STATUS = {
   DOES_NOT_EXIST: '[FILE_DOES_NOT_EXIST]',
   IGNORED: '[FILE_IGNORED_BY_GITIGNORE_OR_CODEBUFF_IGNORE]',
@@ -54,7 +64,7 @@ export const MAX_DATE = new Date(86399999999999)
 export const BILLING_PERIOD_DAYS = 30
 export const OVERAGE_RATE_PRO = 0.99
 export const OVERAGE_RATE_MOAR_PRO = 0.9
-export const CREDITS_REFERRAL_BONUS = 250
+export const CREDITS_REFERRAL_BONUS = 500
 export const AFFILIATE_USER_REFFERAL_LIMIT = 500
 
 export const getPlanDisplayName = (limit: UsageLimits): string => {
@@ -124,7 +134,7 @@ export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
     Object.entries(PLAN_CONFIGS).map(([key, config]) => [key, config.limit])
   ) as Record<UsageLimits, number>
 
-export const costModes = ['lite', 'normal', 'max'] as const
+export const costModes = ['lite', 'normal', 'max', 'experimental'] as const
 export type CostMode = (typeof costModes)[number]
 
 export const getModelForMode = (
@@ -132,8 +142,8 @@ export const getModelForMode = (
   operation: 'agent' | 'file-requests' | 'check-new-files'
 ) => {
   if (operation === 'agent') {
-    return costMode === 'max'
-      ? models.gemini2_5_pro
+    return costMode === 'experimental'
+      ? models.gemini2_5_pro_exp
       : costMode === 'lite'
         ? claudeModels.haiku
         : claudeModels.sonnet
@@ -149,14 +159,18 @@ export const getModelForMode = (
 
 export const claudeModels = {
   sonnet: 'claude-3-5-sonnet-20241022',
+  sonnet3_7: 'claude-3-7-sonnet-20250219',
   haiku: 'claude-3-5-haiku-20241022',
 } as const
 export type AnthropicModel = (typeof claudeModels)[keyof typeof claudeModels]
 
 export const openaiModels = {
+  gpt4_1: 'gpt-4.1-2025-04-14',
   gpt4o: 'gpt-4o-2024-11-20',
   gpt4omini: 'gpt-4o-mini-2024-07-18',
   o3mini: 'o3-mini-2025-01-31',
+  o3: 'o3-2025-04-16',
+  o4mini: 'o4-mini-2025-04-16',
   generatePatch:
     'ft:gpt-4o-2024-08-06:manifold-markets:generate-patch-batch2:AKYtDIhk',
 } as const
@@ -164,9 +178,17 @@ export type OpenAIModel = (typeof openaiModels)[keyof typeof openaiModels]
 
 export const geminiModels = {
   gemini2flash: 'gemini-2.0-flash-001',
-  gemini2_5_pro: 'gemini-2.5-pro-exp-03-25',
+  gemini2_5_pro_exp: 'gemini-2.5-pro-exp-03-25',
+  gemini2_5_pro_preview: 'gemini-2.5-pro-preview-03-25',
 } as const
 export type GeminiModel = (typeof geminiModels)[keyof typeof geminiModels]
+
+export const openrouterModels = {
+  openrouter_gemini2_5_pro_exp: 'google/gemini-2.5-pro-exp-03-25:free',
+  openrouter_gemini2_5_pro_preview: 'google/gemini-2.5-pro-preview-03-25',
+} as const
+export type openrouterModel =
+  (typeof openrouterModels)[keyof typeof openrouterModels]
 
 export const deepseekModels = {
   deepseekChat: 'deepseek-chat',
@@ -179,7 +201,32 @@ export const models = {
   ...openaiModels,
   ...geminiModels,
   ...deepseekModels,
+  ...openrouterModels,
 } as const
+
+export const shortModelNames = {
+  'gemini-2.5-pro': models.gemini2_5_pro_preview,
+  'sonnet-3.7': models.sonnet3_7,
+  'sonnet-3.5': models.sonnet,
+  'sonnet-3.6': models.sonnet,
+  'gpt-4.1': models.gpt4_1,
+  'o3-mini': models.o3mini,
+  'o3': models.o3,
+  'o4-mini': models.o4mini,
+}
+
+export const providerModelNames = {
+  [models.gemini2_5_pro_preview]: 'gemini',
+  [models.gemini2_5_pro_exp]: 'gemini',
+  [models.sonnet3_7]: 'anthropic',
+  [models.sonnet]: 'anthropic',
+  [models.gpt4_1]: 'openai',
+  [models.gpt4o]: 'openai',
+  [models.gpt4omini]: 'openai',
+  [models.o3mini]: 'openai',
+  [models.o3]: 'openai',
+  [models.o4mini]: 'openai',
+}
 
 export type Model = (typeof models)[keyof typeof models]
 

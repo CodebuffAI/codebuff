@@ -25,41 +25,92 @@ type CostModelKey = keyof (typeof TOKENS_COST_PER_M)['input']
 const TOKENS_COST_PER_M = {
   input: {
     [models.sonnet]: 3,
+    [models.sonnet3_7]: 3,
     [models.haiku]: 0.8,
     [models.gpt4o]: 2.5,
+    [models.gpt4_1]: 2,
     [models.gpt4omini]: 0.15,
+    [models.o3]: 10.0,
     [models.o3mini]: 1.1,
+    [models.o4mini]: 1.1,
     [models.deepseekChat]: 0.14,
     [models.deepseekReasoner]: 0.55,
     [models.gemini2flash]: 0.1,
+    [models.openrouter_gemini2_5_pro_preview]: 1.25,
   },
   output: {
     [models.sonnet]: 15,
+    [models.sonnet3_7]: 15,
     [models.haiku]: 4,
     [models.gpt4o]: 10.0,
+    [models.gpt4_1]: 8,
     [models.gpt4omini]: 0.6,
+    [models.o3]: 40.0,
     [models.o3mini]: 4.4,
+    [models.o4mini]: 1.1,
     [models.deepseekChat]: 0.28,
     [models.deepseekReasoner]: 2.19,
     [models.gemini2flash]: 0.4,
+    [models.openrouter_gemini2_5_pro_preview]: 10,
   },
   cache_creation: {
     [models.sonnet]: 3.75,
+    [models.sonnet3_7]: 3.75,
     [models.haiku]: 1,
   },
   cache_read: {
     [models.sonnet]: 0.3,
+    [models.sonnet3_7]: 0.3,
     [models.haiku]: 0.08,
     [models.deepseekChat]: 0.014,
     [models.deepseekReasoner]: 0.14,
     [models.gpt4o]: 1.25,
+    [models.gpt4_1]: 0.5,
     [models.gpt4omini]: 0.075,
+    [models.o3]: 2.5,
     [models.o3mini]: 0.55,
+    [models.o4mini]: 0.275,
     [models.gemini2flash]: 0.025,
   },
 }
 
 const RELACE_FAST_APPLY_COST = 0.01
+
+/**
+ * Calculates the cost for the gemini-2.5-pro-preview model based on its specific tiered pricing.
+ *
+ * Pricing rules:
+ * - Input tokens:
+ *   - $1.25 per 1 million tokens for the first 200,000 tokens.
+ *   - $2.50 per 1 million tokens for tokens beyond 200,000.
+ * - Output tokens:
+ *   - $10.00 per 1 million tokens if input tokens <= 200,000.
+ *   - $15.00 per 1 million tokens if input tokens > 200,000.
+ *
+ * @param input_tokens The number of input tokens used.
+ * @param output_tokens The number of output tokens generated.
+ * @returns The calculated cost for the API call.
+ */
+const getGemini25ProPreviewCost = (
+  input_tokens: number,
+  output_tokens: number
+): number => {
+  let inputCost = 0
+  const tier1Tokens = Math.min(input_tokens, 200_000)
+  const tier2Tokens = Math.max(0, input_tokens - 200_000)
+
+  inputCost += (tier1Tokens * 1.25) / 1_000_000
+  inputCost += (tier2Tokens * 2.5) / 1_000_000
+
+  let outputCost = 0
+  if (input_tokens <= 200_000) {
+    outputCost = (output_tokens * 10) / 1_000_000
+  } else {
+    outputCost = (output_tokens * 15) / 1_000_000
+  }
+
+  return inputCost + outputCost
+}
 
 const getPerTokenCost = (
   model: string,
@@ -78,6 +129,13 @@ const calcCost = (
 ) => {
   if (model === 'relace-fast-apply') {
     return RELACE_FAST_APPLY_COST
+  }
+  if (model === models.gemini2_5_pro_preview) {
+    return (
+      getGemini25ProPreviewCost(input_tokens, output_tokens) +
+      cache_creation_input_tokens * getPerTokenCost(model, 'cache_creation') +
+      cache_read_input_tokens * getPerTokenCost(model, 'cache_read')
+    )
   }
   return (
     input_tokens * getPerTokenCost(model, 'input') +
@@ -387,6 +445,7 @@ export const saveMessage = async (value: {
   cacheReadInputTokens?: number
   finishedAt: Date
   latencyMs: number
+  usesUserApiKey?: boolean
 }) =>
   withLoggerContext(
     {
@@ -406,7 +465,7 @@ export const saveMessage = async (value: {
       const centsPerCredit = await getUserCostPerCredit(value.userId)
       const costInCents = Math.max(
         1,
-        Math.round(cost * 100 * (1 + PROFIT_MARGIN))
+        Math.round(cost * 100 * (value.usesUserApiKey ? PROFIT_MARGIN : 1 + PROFIT_MARGIN))
       )
 
       const creditsUsed = Math.max(1, costInCents)

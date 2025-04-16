@@ -1,9 +1,11 @@
 import { Message } from 'common/types/message'
+import { withCacheControl } from 'common/util/messages'
 
-import { simplifyTerminalCommandResults } from './simplify-tool-results'
-import { countTokensJson } from './token-counter'
 import { System } from '../llm-apis/claude'
 import { OpenAIMessage } from '../llm-apis/openai-api'
+import { logger } from './logger'
+import { simplifyTerminalCommandResults } from './simplify-tool-results'
+import { countTokensJson } from './token-counter'
 
 /**
  * Wraps an array of messages with a system prompt for LLM API calls
@@ -131,4 +133,41 @@ export function trimMessagesToFitTokenLimit(
 
   results.reverse()
   return results
+}
+
+export function getMessagesSubset(messages: Message[], otherTokens: number) {
+  const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
+    JSON.stringify(content).includes('COMPLETE')
+  })
+
+  const messagesSubset = trimMessagesToFitTokenLimit(
+    indexLastSubgoalComplete === -1
+      ? messages
+      : messages.slice(indexLastSubgoalComplete),
+    otherTokens
+  )
+
+  // Remove cache_control from all messages
+  for (const message of messagesSubset) {
+    if (typeof message.content === 'object' && message.content.length > 0) {
+      delete message.content[message.content.length - 1].cache_control
+    }
+  }
+
+  // Cache up to the last message!
+  const lastMessage = messagesSubset[messagesSubset.length - 1]
+  if (lastMessage) {
+    messagesSubset[messagesSubset.length - 1] = withCacheControl(lastMessage)
+  } else {
+    logger.debug(
+      {
+        messages,
+        messagesSubset,
+        otherTokens,
+      },
+      'No last message found in messagesSubset!'
+    )
+  }
+
+  return messagesSubset
 }

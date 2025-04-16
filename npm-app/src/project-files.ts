@@ -1,14 +1,30 @@
+import { exec } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path, { isAbsolute } from 'path'
-import { exec } from 'child_process'
 import { promisify } from 'util'
-import { createPatch } from 'diff'
-import { green } from 'picocolors'
 import { Worker } from 'worker_threads'
 
-import { ensureDirectoryExists } from 'common/util/file'
+import { getFileTokenScores } from 'code-map/parse'
+import { FILE_READ_STATUS, toOptionalFile } from 'common/constants'
+import {
+  flattenTree,
+  getProjectFileTree,
+  parseGitignore,
+} from 'common/project-file-tree'
+import {
+  createWriteFileBlock,
+  ensureDirectoryExists,
+  ProjectFileContext,
+} from 'common/util/file'
+import { filterObject } from 'common/util/object'
+import { createPatch } from 'diff'
+import { green } from 'picocolors'
+
+import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
+import { getSystemInfo } from './utils/system-info'
+import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 // Global variables for chat management
 // Initialize chat ID on first import
@@ -35,33 +51,16 @@ export function getCurrentChatDir(): string {
   return dir
 }
 
-import {
-  createWriteFileBlock,
-  FileVersion,
-  ProjectFileContext,
-} from 'common/util/file'
-import { filterObject } from 'common/util/object'
-import {
-  getProjectFileTree,
-  flattenTree,
-  parseGitignore,
-} from 'common/project-file-tree'
-import { getFileTokenScores } from 'code-map/parse'
-import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-import { getSystemInfo } from './utils/system-info'
-import { checkpointManager } from './checkpoints/checkpoint-manager'
-import { FILE_READ_STATUS, toOptionalFile } from 'common/constants'
-
 const execAsync = promisify(exec)
 
 let projectRoot: string
 
 export function setProjectRoot(dir: string | undefined) {
-  checkpointManager.clearCheckpoints()
-
   const newDir = path.resolve(dir || getCurrentDirectory())
   if (fs.existsSync(newDir)) {
     if (projectRoot) {
+      checkpointManager.clearCheckpoints(true)
+
       console.log(
         green('\nDirectory change:'),
         `Codebuff will read and write files in "${newDir}".\n`

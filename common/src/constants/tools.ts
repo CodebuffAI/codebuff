@@ -9,11 +9,13 @@ export const toolSchema = {
 
   // Search and terminal
   code_search: ['pattern'],
-  run_terminal_command: ['command'],
+  run_terminal_command: ['command', 'process_type'],
 
   // Planning tools
   think_deeply: ['thought'],
   create_plan: ['path', 'plan'],
+
+  browser_logs: ['type', 'url', 'waitUntil'],
 
   // Simple tools
   end_turn: [], // No parameters

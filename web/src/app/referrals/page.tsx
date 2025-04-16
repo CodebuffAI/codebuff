@@ -110,7 +110,7 @@ const ReferralsPage = () => {
                 </Button>
                 <p>referred you. </p>
               </div>
-              {CreditsBadge(CREDITS_REFERRAL_BONUS)}
+              {CreditsBadge(data.referredBy.credits)}
             </div>
           </CardContent>
         </Card>
@@ -202,7 +202,7 @@ const ReferralsPage = () => {
                             <span>
                               {r.name} ({r.email})
                             </span>
-                            {CreditsBadge(CREDITS_REFERRAL_BONUS)}
+                            {CreditsBadge(r.credits)}
                           </li>
                         ))}
                       </ul>

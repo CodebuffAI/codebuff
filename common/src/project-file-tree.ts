@@ -17,9 +17,10 @@ export function getProjectFileTree(
     defaultIgnore.add(pattern)
   }
 
-  if (projectRoot === os.homedir()) {
+  const isHomeDir = projectRoot === os.homedir()
+  if (isHomeDir) {
     defaultIgnore.add('.*')
-    maxFiles = 1000
+    maxFiles = 0
   }
 
   const root: DirectoryNode = {
@@ -42,11 +43,7 @@ export function getProjectFileTree(
   let totalFiles = 0
 
   while (queue.length > 0 && totalFiles < maxFiles) {
-    const {
-      node,
-      fullPath,
-      ignore: currentIgnore,
-    } = queue.shift()!
+    const { node, fullPath, ignore: currentIgnore } = queue.shift()!
     const mergedIgnore = ignore
       .default()
       .add(currentIgnore)

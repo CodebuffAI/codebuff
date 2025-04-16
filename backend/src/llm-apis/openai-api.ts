@@ -10,6 +10,9 @@ import { ChatCompletionReasoningEffort } from 'openai/resources/chat/completions
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 import { OpenAIModel } from 'common/constants'
 import { match, P } from 'ts-pattern'
+import { generateCompactId } from 'common/util/string'
+import { countTokensJson } from '@/util/token-counter'
+import { removeUndefinedProps } from 'common/util/object'
 
 let openai: OpenAI | null = null
 
@@ -39,6 +42,7 @@ function transformMessages(
   return messages.map((msg) =>
     match(model)
       .with(
+        openaiModels.gpt4_1,
         openaiModels.gpt4o,
         openaiModels.gpt4omini,
         openaiModels.generatePatch,
@@ -67,7 +71,7 @@ function transformMessages(
             )
             .otherwise(() => msg)
       )
-      .with(openaiModels.o3mini, () => {
+      .with(openaiModels.o3mini, openaiModels.o3, openaiModels.o4mini, () => {
         if (
           Array.isArray(msg.content) &&
           msg.content.some((obj: any) => obj.type === 'image')
@@ -113,18 +117,19 @@ export async function* promptOpenAIStream(
   const startTime = Date.now()
 
   try {
-    const stream = await openai.chat.completions.create({
-      model,
-      messages: transformedMessages,
-      temperature: options.temperature ?? 0,
-      stream: true,
-      ...(predictedContent
-        ? { prediction: { type: 'content', content: predictedContent } }
-        : {}),
-    })
+    const stream = await openai.chat.completions.create(
+      removeUndefinedProps({
+        model,
+        messages: transformedMessages,
+        temperature: options.temperature,
+        stream: true,
+        ...(predictedContent
+          ? { prediction: { type: 'content', content: predictedContent } }
+          : {}),
+      })
+    )
 
     let content = ''
-    let messageId: string | undefined
     let inputTokens = 0
     let outputTokens = 0
 
@@ -136,15 +141,24 @@ export async function* promptOpenAIStream(
       }
 
       if (chunk.usage) {
-        messageId = chunk.id
         inputTokens = chunk.usage.prompt_tokens
         outputTokens = chunk.usage.completion_tokens
       }
     }
 
-    if (messageId && messages.length > 0 && userId !== TEST_USER_ID) {
+    if (!inputTokens || !outputTokens) {
+      inputTokens = countTokensJson(messages)
+      outputTokens = countTokensJson([
+        {
+          role: 'assistant',
+          content,
+        },
+      ])
+    }
+
+    if (messages.length > 0 && userId !== TEST_USER_ID) {
       saveMessage({
-        messageId,
+        messageId: `oai-${generateCompactId()}`,
         userId,
         clientSessionId,
         fingerprintId,

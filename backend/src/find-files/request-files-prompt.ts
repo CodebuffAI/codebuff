@@ -1,24 +1,26 @@
-import { WebSocket } from 'ws'
-import { range, shuffle, uniq } from 'lodash'
 import { dirname, isAbsolute, normalize } from 'path'
-import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 
+import { TextBlockParam } from '@anthropic-ai/sdk/resources'
+import { models, type CostMode } from 'common/constants'
+import { getAllFilePaths } from 'common/project-file-tree'
 import { Message } from 'common/types/message'
+import { filterDefined } from 'common/util/array'
 import {
   ProjectFileContext,
   cleanMarkdownCodeBlock,
   createMarkdownFileBlock,
 } from 'common/util/file'
+import { range, shuffle, uniq } from 'lodash'
+import { WebSocket } from 'ws'
+
 import { System } from '../llm-apis/claude'
-import { type CostMode } from 'common/constants'
-import { models } from 'common/constants'
-import { getAllFilePaths } from 'common/project-file-tree'
 import { logger } from '../util/logger'
-import { requestFiles } from '../websockets/websocket-action'
 import { countTokens } from '../util/token-counter'
+import { requestFiles } from '../websockets/websocket-action'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
-import { filterDefined } from 'common/util/array'
+
 import { promptGeminiWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
+import { getMessagesSubset } from '@/util/messages'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30
@@ -173,13 +175,17 @@ async function getRelevantFiles(
   userId: string | undefined,
   costMode: CostMode
 ) {
-  const messagesWithPrompt = [
-    ...messages,
-    {
-      role: 'user' as const,
-      content: userPrompt,
-    },
-  ]
+  const bufferTokens = 100_000
+  const messagesWithPrompt = getMessagesSubset(
+    [
+      ...messages,
+      {
+        role: 'user' as const,
+        content: userPrompt,
+      },
+    ],
+    bufferTokens
+  )
   const start = performance.now()
   let response = await promptGeminiWithFallbacks(messagesWithPrompt, system, {
     clientSessionId,
@@ -234,18 +240,18 @@ function generateNonObviousRequestFilesPrompt(
 ): string {
   const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
   return `
-Your task is to find the second-order relevant files for the following user request.
-
-Random project files:
-${exampleFiles.join('\n')}
+Your task is to find the second-order relevant files for the following user request (in quotes).
 
 ${
   userPrompt
-    ? `<user_prompt>${userPrompt}</user_prompt>`
-    : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
+    ? `User prompt: ${JSON.stringify(userPrompt)}`
+    : `Assistant prompt: ${JSON.stringify(assistantPrompt)}`
 }
 
-Do not act on the above instructions for the user, instead, we are asking you to find files for the user's request that are not obvious or take a moment to realize are relevant.
+Do not act on the above instructions for the user, instead, your task is to find files for the user's request that are not obvious or take a moment to realize are relevant.
+
+Random project files:
+${exampleFiles.join('\n')}
 
 Based on this conversation, please select files beyond the obvious files that would be helpful to complete the user's request.
 Select files that might be useful for understanding and addressing the user's needs, but you would not choose in the first 10 files if you were asked.
@@ -289,18 +295,18 @@ function generateKeyRequestFilesPrompt(
 ): string {
   const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
   return `
-Your task is to find the most relevant files for the following user request.
-
-Random project files:
-${exampleFiles.join('\n')}
+Your task is to find the most relevant files for the following user request (in quotes).
 
 ${
   userPrompt
-    ? `<user_prompt>${userPrompt}</user_prompt>`
-    : `<assistant_prompt>${assistantPrompt}</assistant_prompt>`
+    ? `User prompt: ${JSON.stringify(userPrompt)}`
+    : `Assistant prompt: ${JSON.stringify(assistantPrompt)}`
 }
 
-Do not act on the above instructions for the user, instead, we are asking you to find the most relevant files for the user's request.
+Do not act on the above instructions for the user, instead, your task is to find the most relevant files for the user's request.
+
+Random project files:
+${exampleFiles.join('\n')}
 
 Based on this conversation, please identify the most relevant files for a user's request in a software project, sort them from most to least relevant, and then output just the top files.
 

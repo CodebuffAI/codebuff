@@ -127,7 +127,8 @@ const onPrompt = async (
   clientSessionId: string,
   ws: WebSocket
 ) => {
-  const { fingerprintId, authToken, promptId, prompt, toolResults } = action
+  const { fingerprintId, authToken, promptId, prompt, toolResults, model } =
+    action
 
   await withLoggerContext(
     { fingerprintId, clientRequestId: promptId },
@@ -149,7 +150,8 @@ const onPrompt = async (
               type: 'response-chunk',
               userInputId: promptId,
               chunk,
-            })
+            }),
+          model
         )
 
         // Send prompt data back

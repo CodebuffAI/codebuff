@@ -1,16 +1,18 @@
-import { rgPath } from '@vscode/ripgrep'
-import { green, red, yellow, cyan } from 'picocolors'
 import { spawn } from 'child_process'
-import { BrowserActionSchema, BrowserResponse } from 'common/browser-actions'
-import { handleBrowserInstruction } from './browser-runner'
-import { scrapeWebPage } from './web-scraper'
-import { runTerminalCommand } from './utils/terminal'
-import { truncateStringWithMessage } from 'common/util/string'
 import * as path from 'path'
-import { Spinner } from './utils/spinner'
+
+import { rgPath } from '@vscode/ripgrep'
+import { FileChangeSchema } from 'common/actions'
+import { BrowserActionSchema, BrowserResponse } from 'common/browser-actions'
 import { RawToolCall } from 'common/types/tools'
 import { applyChanges } from 'common/util/changes'
-import { FileChangeSchema } from 'common/actions'
+import { truncateStringWithMessage } from 'common/util/string'
+import { cyan, green, red, yellow } from 'picocolors'
+
+import { handleBrowserInstruction } from './browser-runner'
+import { Spinner } from './utils/spinner'
+import { runTerminalCommand } from './utils/terminal'
+import { scrapeWebPage } from './web-scraper'
 
 export type ToolHandler<T extends Record<string, any>> = (
   parameters: T,
@@ -49,12 +51,22 @@ export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
 }
 
 export const handleRunTerminalCommand = async (
-  parameters: { command: string; mode?: 'user' | 'assistant' },
+  parameters: {
+    command: string
+    mode?: 'user' | 'assistant'
+    process_type: 'SYNC' | 'BACKGROUND'
+  },
   id: string,
   projectPath: string
 ): Promise<{ result: string; stdout: string }> => {
-  const { command, mode = 'assistant' } = parameters
-  return runTerminalCommand(command, mode, projectPath)
+  const { command, mode = 'assistant', process_type = 'SYNC' } = parameters
+  return runTerminalCommand(
+    id,
+    command,
+    mode,
+    projectPath,
+    process_type.toUpperCase() as 'SYNC' | 'BACKGROUND'
+  )
 }
 
 export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
@@ -96,8 +108,14 @@ export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
       }
       console.log(green(`Found ${lines.length} results`))
 
-      const truncatedStdout = truncateStringWithMessage(stdout, 10000)
-      const truncatedStderr = truncateStringWithMessage(stderr, 1000)
+      const truncatedStdout = truncateStringWithMessage({
+        str: stdout,
+        maxLength: 10000,
+      })
+      const truncatedStderr = truncateStringWithMessage({
+        str: stderr,
+        maxLength: 1000,
+      })
       resolve(
         formatResult(
           truncatedStdout,
@@ -141,12 +159,15 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   run_terminal_command: ((parameters, id, projectPath) =>
     handleRunTerminalCommand(parameters, id, projectPath).then(
       (result) => result.result
-    )) as ToolHandler<{ command: string }>,
+    )) as ToolHandler<{
+    command: string
+    process_type: 'SYNC' | 'BACKGROUND'
+  }>,
   code_search: handleCodeSearch,
   end_turn: async () => {
     return ''
   },
-  browser_action: async (params, _id): Promise<BrowserResponse> => {
+  browser_logs: async (params, _id): Promise<string> => {
     Spinner.get().start()
     let response: BrowserResponse
     try {
@@ -156,7 +177,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
       console.log('Small hiccup, one sec...')
-      return {
+      return JSON.stringify({
         success: false,
         error: `Browser action validation failed: ${errorMessage}`,
         logs: [
@@ -167,7 +188,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
             source: 'tool',
           },
         ],
-      }
+      })
     } finally {
       Spinner.get().stop()
     }
@@ -196,7 +217,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
       })
     }
 
-    return response
+    return JSON.stringify(response)
   },
 }
 

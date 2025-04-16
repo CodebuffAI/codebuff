@@ -1,7 +1,9 @@
-import { expect, describe, it } from 'bun:test'
-import { checkNewFilesNecessary } from '../find-files/check-new-files-necessary'
-import { System } from '@/llm-apis/claude'
+import { describe, expect, it } from 'bun:test'
 import { CostMode } from 'common/constants'
+
+import { checkNewFilesNecessary } from '../find-files/check-new-files-necessary'
+
+import { System } from '@/llm-apis/claude'
 
 describe('checkNewFilesNecessary', () => {
   const mockSystem: System = 'You are a helpful assistant.'
@@ -53,8 +55,11 @@ describe('checkNewFilesNecessary', () => {
         },
         {
           role: 'user' as const,
-          content:
-            '<read_files_result><file path="src/file1.ts" content="console.log(\'Hello, world!\');"></file></read_files_result>',
+          content: `<read_files_result><read_file>
+<path>src/file1.ts</path>
+<content>console.log('Hello, world!');
+</content>
+</read_file></read_files_result>`,
         },
         {
           role: 'assistant' as const,

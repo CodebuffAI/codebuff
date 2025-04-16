@@ -1,6 +1,16 @@
 'use client'
 
+import { useQuery } from '@tanstack/react-query'
+import { sleep } from 'common/util/promise'
+import { CheckIcon, CopyIcon, GiftIcon } from 'lucide-react'
 import { useSession } from 'next-auth/react'
+import { useSearchParams } from 'next/navigation'
+import posthog from 'posthog-js'
+import { useEffect, useState } from 'react'
+
+import type { ReferralCodeResponse } from '@/app/api/referrals/[code]/route'
+import CardWithBeams from '@/components/card-with-beams'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -8,19 +18,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
-import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
-import { sleep } from 'common/util/promise'
-import { CopyIcon, CheckIcon, GiftIcon } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import type { ReferralCodeResponse } from '@/app/api/referrals/[code]/route'
-import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { env } from '@/env.mjs'
-import CardWithBeams from '@/components/card-with-beams'
-import { useSearchParams } from 'next/navigation'
 import { storeSearchParams } from '@/lib/trackConversions'
-import posthog from 'posthog-js'
 import { Metadata } from 'next'
 
 export const generateMetadata = async ({
@@ -76,6 +77,13 @@ export default function RedeemPage({
   const { data: session, status } = useSession()
   const searchParams = useSearchParams()
   const referrerParam = searchParams.get('referrer')
+
+  useEffect(() => {
+    // Store the referral code if user is not logged in
+    if (status === 'unauthenticated') {
+      localStorage.setItem('codebuff_referral_code', code)
+    }
+  }, [code, status])
 
   const { data, isLoading, error, isSuccess } = useQuery({
     queryKey: ['referrals', code],
@@ -168,7 +176,7 @@ export default function RedeemPage({
               </li>
               <li>
                 Run Codebuff in Terminal
-                <InputWithCopyButton text={'codebuff'} />
+                <InputWithCopyButton text={'cd /my/project/dir && codebuff'} />
               </li>
               {!data?.status.reason && (
                 <li>

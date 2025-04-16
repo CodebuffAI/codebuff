@@ -1,5 +1,9 @@
+import { execFileSync } from 'child_process'
 import { createHash } from 'crypto'
 import fs from 'fs'
+import os from 'os'
+import { join } from 'path'
+
 import {
   add,
   checkout,
@@ -10,8 +14,6 @@ import {
   resolveRef,
   statusMatrix,
 } from 'isomorphic-git'
-import { join } from 'path'
-import { execFileSync } from 'child_process'
 
 import { getProjectDataDir } from '../project-files'
 
@@ -140,6 +142,9 @@ export async function initializeCheckpointFileManager({
   projectDir: string
   relativeFilepaths: Array<string>
 }): Promise<void> {
+  if (projectDir === os.homedir()) {
+    return
+  }
   const bareRepoPath = getBareRepoPath(projectDir)
 
   // Create the bare repo directory if it doesn't exist
@@ -209,12 +214,13 @@ async function gitAddAll({
   // Stage files with isomorphic-git
 
   // Get status of all files in the project directory
-  const currStatusMatrix = await statusMatrix({
-    fs,
-    dir: projectDir,
-    gitdir: bareRepoPath,
-    filepaths: relativeFilepaths,
-  })
+  const currStatusMatrix =
+    (await statusMatrix({
+      fs,
+      dir: projectDir,
+      gitdir: bareRepoPath,
+      filepaths: relativeFilepaths,
+    })) ?? []
 
   for (const [filepath, , workdirStatus, stageStatus] of currStatusMatrix) {
     if (workdirStatus === stageStatus) {

@@ -1,5 +1,6 @@
 import path from 'path'
 import * as fs from 'fs'
+import os from 'os'
 
 import picocolors, {
   blue,
@@ -32,6 +33,7 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
     lite: bold(yellow('Lite mode ✨ enabled')),
     normal: '',
     max: bold(blueBright('Max mode️ ⚡ enabled')),
+    experimental: bold(magenta('Experimental mode 🧪 enabled')),
   }
   console.log(`${costModeDescription[costMode]}`)
   console.log(
@@ -39,6 +41,13 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
   )
 
   const gitDir = path.join(getProjectRoot(), '.git')
+  if (getProjectRoot() === os.homedir()) {
+    console.info(
+      '\nTo get started:\n- cd into a project\n- ask for a code change'
+    )
+    return
+  }
+
   if (!fs.existsSync(gitDir)) {
     console.info(
       magenta(
@@ -119,7 +128,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
     '- Type "diff" or "d" to show changes from the last assistant response'
   )
   console.log(
-    '- Start codebuff with --lite for efficient, budget responses or --max for higher quality responses'
+    '- Start codebuff with --lite for efficient responses, --max for higher quality responses, or --experimental for cutting-edge features'
   )
 
   console.log('\nCheckpoint Commands:')
@@ -139,7 +148,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
   )
 
   console.log(
-    '\nAny files in .gitignore are not read by Codebuff. You can ignore further files with .codebuffignore'
+    "\nAny files in .gitignore are not read by Codebuff. You can ignore further files with .codebuffignore, or choose files codebuff should not ignore by adding a '!' prefix to the ignore pattern."
   )
   console.log(
     '\nEmail your feedback to',

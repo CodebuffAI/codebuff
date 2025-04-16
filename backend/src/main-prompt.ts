@@ -1,37 +1,39 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { ClientAction } from 'common/actions'
 import {
-  AnthropicModel,
-  getModelForMode,
   HIDDEN_FILE_READ_STATUS,
+  models,
+  ONE_TIME_TAGS,
   type CostMode,
 } from 'common/constants'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { buildArray } from 'common/util/array'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
-import { toContentString, withCacheControl } from 'common/util/messages'
+import { toContentString } from 'common/util/messages'
 import { generateCompactId } from 'common/util/string'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
 import { checkTerminalCommand } from './check-terminal-command'
 import { requestRelevantFiles } from './find-files/request-files-prompt'
-import { promptClaudeStream } from './llm-apis/claude'
-import { streamGemini25ProWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { getDocumentationForQuery } from './get-documentation-for-query'
 import { processFileBlock } from './process-file-block'
 import { processStreamWithTags } from './process-stream'
+import { getAgentStream } from './prompt-agent-stream'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import {
   ClientToolCall,
+  parseRawToolCall,
   parseToolCalls,
   TOOL_LIST,
+  transformRunTerminalCommand,
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
-import { trimMessagesToFitTokenLimit } from './util/messages'
+import { getMessagesSubset } from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
@@ -49,7 +51,6 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
-
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
 export const mainPrompt = async (
@@ -57,7 +58,8 @@ export const mainPrompt = async (
   action: Extract<ClientAction, { type: 'prompt' }>,
   userId: string | undefined,
   clientSessionId: string,
-  onResponseChunk: (chunk: string) => void
+  onResponseChunk: (chunk: string) => void,
+  selectedModel: string | undefined
 ): Promise<{
   agentState: AgentState
   toolCalls: Array<ClientToolCall>
@@ -66,6 +68,24 @@ export const mainPrompt = async (
   const { prompt, agentState, fingerprintId, costMode, promptId, toolResults } =
     action
   const { messageHistory, fileContext, agentContext } = agentState
+
+  const { getStream, model } = getAgentStream({
+    costMode,
+    selectedModel,
+    clientSessionId,
+    fingerprintId,
+    userInputId: promptId,
+    userId,
+  })
+
+  const relevantDocumentationPromise = prompt
+    ? getDocumentationForQuery(prompt, {
+        tokens: 5000,
+        clientSessionId,
+        fingerprintId,
+        userId,
+      })
+    : Promise.resolve(null)
 
   const hasKnowledgeFiles =
     Object.keys(fileContext.knowledgeFiles).length > 0 ||
@@ -77,11 +97,13 @@ export const mainPrompt = async (
   const justRanTerminalCommand = toolResults.some(
     (t) => t.name === 'run_terminal_command'
   )
+  const isGPT4_1 = model === models.gpt4_1
   const userInstructions = buildArray(
     'Instructions:',
     'Proceed toward the user request and any subgoals.',
 
-    "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
+    !isGPT4_1 &&
+      "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
 
@@ -89,7 +111,13 @@ export const mainPrompt = async (
 
     'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Makes sure when using write_file to pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
 
-    'When editing a file, just highlight the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
+    'When editing a file, write the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
+
+    'When using tools, make sure to NOT use XML attributes. The format should contain nested XML tags. For example, when using write_file, the format should be <write_file><path>...</path><content>...</content></write_file>',
+
+    `Only use the tools listed, (i.e. ${TOOL_LIST.join(', ')}). If you use tools not listed, nothing will happen, but the user will get some unintended display issues.`,
+
+    `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
 
     !justUsedATool &&
       !recentlyDidThinking &&
@@ -105,19 +133,19 @@ export const mainPrompt = async (
     hasKnowledgeFiles &&
       'If the knowledge files say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
 
-    hasKnowledgeFiles &&
-      isNotFirstUserMessage &&
-      "If you have learned something useful for the future that is not derrivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
+    isNotFirstUserMessage &&
+      "If you have learned something useful for the future that is not derivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
 
     "Don't run git commands or scripts without being specifically asked to do so. This can prevent costly accidents. Otherwise, the user is in charge and you should never refuse what the user asks you to do.",
 
-    'Important: You must write "<end_turn></end_turn>" at the end of your response, when you want the user to respond, but not if you are still working on the user\'s request.'
-  ).join('\n')
+    'Important: You must write "<end_turn></end_turn>" at the end of your response, when you are done or want the user to respond. But not if you are still working on the user\'s request.',
+    "If the user's request is multi-part, please complete ALL the parts before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response."
+  ).join('\n\n')
 
   const toolInstructions = buildArray(
     justRanTerminalCommand &&
       `If the tool result above is of a terminal command succeeding and you have completed the user's request, please use the end_turn tool and do not write anything else. If your checks are failing, you should only end turn if you have made multiple attempts and feel stuck.`
-  ).join('\n')
+  ).join('\n\n')
 
   const messagesWithToolResultsAndUser = buildArray(
     ...messageHistory,
@@ -153,7 +181,6 @@ export const mainPrompt = async (
       const newAgentState = {
         ...agentState,
         messageHistory: messagesWithToolResultsAndUser,
-        lastUserPromptIndex: messagesWithToolResultsAndUser.length - 1,
       }
       return {
         agentState: newAgentState,
@@ -172,43 +199,37 @@ export const mainPrompt = async (
     }
   } else {
     // Check number of assistant messages since last user message with prompt
-    const lastUserPromptIndex = agentState.lastUserPromptIndex ?? -1
-    if (lastUserPromptIndex >= 0) {
-      const messagesSincePrompt = messageHistory.slice(lastUserPromptIndex + 1)
-      const consecutiveAssistantMessages = messagesSincePrompt.filter(
-        (msg) => msg.role === 'assistant'
-      ).length
+    const consecutiveAssistantMessages =
+      agentState.consecutiveAssistantMessages ?? 0
+    if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
+      logger.warn(
+        `Detected ${consecutiveAssistantMessages} consecutive assistant messages without user prompt`
+      )
 
-      if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
-        logger.warn(
-          `Detected ${consecutiveAssistantMessages} consecutive assistant messages without user prompt`
-        )
+      const warningString = [
+        "I've made quite a few responses in a row.",
+        "Let me pause here to make sure we're still on the right track.",
+        "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
+      ].join(' ')
 
-        const warningString = [
-          "I've made quite a few responses in a row.",
-          "Let me pause here to make sure we're still on the right track.",
-          "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
-        ].join(' ')
+      onResponseChunk(`${warningString}\n\n`)
 
-        onResponseChunk(`${warningString}\n\n`)
-
-        return {
-          agentState: {
-            ...agentState,
-            messageHistory: [
-              ...messageHistory,
-              { role: 'assistant', content: warningString },
-            ],
-          },
-          toolCalls: [
-            {
-              id: generateCompactId(),
-              name: 'end_turn',
-              parameters: {},
-            },
+      return {
+        agentState: {
+          ...agentState,
+          messageHistory: [
+            ...messageHistory,
+            { role: 'assistant', content: warningString },
           ],
-          toolResults: [],
-        }
+        },
+        toolCalls: [
+          {
+            id: generateCompactId(),
+            name: 'end_turn',
+            parameters: {},
+          },
+        ],
+        toolResults: [],
       }
     }
   }
@@ -271,7 +292,7 @@ export const mainPrompt = async (
       id: generateCompactId(),
       name: 'file_updates',
       result:
-        `The following files had modifications made by you or the user. Try to accommodate these changes going forward:\n` +
+        `These are the updates made to the files since the last response (either by you or by the user). These are the most recent versions of these files. You MUST be considerate of the user's changes:\n` +
         renderReadFilesResult(updatedFiles),
     })
   }
@@ -297,6 +318,8 @@ ${newFiles.map((file) => file.path).join('\n')}
       content: renderToolResults([readFilesToolResult]),
     })
   }
+
+  const relevantDocumentation = await relevantDocumentationPromise
 
   const messagesWithUserMessage = buildArray(
     ...messageHistory,
@@ -324,6 +347,11 @@ ${newFiles.map((file) => file.path).join('\n')}
           role: 'user' as const,
           content: toolInstructions,
         },
+
+    relevantDocumentation && {
+      role: 'user' as const,
+      content: `Relevant context from web documentation:\n${relevantDocumentation}`,
+    },
 
     prompt && {
       role: 'user' as const,
@@ -371,22 +399,7 @@ ${newFiles.map((file) => file.path).join('\n')}
     Promise<{ path: string; content: string; patch?: string } | null>[]
   > = {}
 
-  const stream =
-    costMode === 'max'
-      ? streamGemini25ProWithFallbacks(agentMessages, system, {
-          clientSessionId,
-          fingerprintId,
-          userInputId: promptId,
-          userId,
-        })
-      : promptClaudeStream(agentMessages, {
-          system,
-          model: getModelForMode(costMode, 'agent') as AnthropicModel,
-          clientSessionId,
-          fingerprintId,
-          userInputId: promptId,
-          userId,
-        })
+  const stream = getStream(agentMessages, system)
 
   const streamWithTags = processStreamWithTags(stream, {
     write_file: {
@@ -451,9 +464,11 @@ ${newFiles.map((file) => file.path).join('\n')}
   })
 
   for await (const chunk of streamWithTags) {
+    const trimmed = chunk.trim()
     if (
-      !chunk.includes('<codebuff_rate_limit_info>') &&
-      !chunk.includes('<codebuff_no_user_key_info>')
+      !ONE_TIME_TAGS.some(
+        (tag) => trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)
+      )
     ) {
       fullResponse += chunk
     }
@@ -466,7 +481,7 @@ ${newFiles.map((file) => file.path).join('\n')}
   }
 
   const messagesWithResponse = [
-    ...messagesWithUserMessage,
+    ...agentMessages,
     {
       role: 'assistant' as const,
       content: fullResponse,
@@ -482,6 +497,17 @@ ${newFiles.map((file) => file.path).join('\n')}
       : Promise.resolve(agentContext)
 
   for (const toolCall of toolCalls) {
+    try {
+      parseRawToolCall(toolCall)
+    } catch (error) {
+      serverToolResults.push({
+        id: generateCompactId(),
+        name: toolCall.name,
+        result: `Error parsing tool call:\n${error}`,
+      })
+      continue
+    }
+
     const { name, parameters } = toolCall
     if (name === 'write_file') {
       // write_file tool calls are handled as they are streamed in.
@@ -490,8 +516,12 @@ ${newFiles.map((file) => file.path).join('\n')}
     } else if (
       name === 'code_search' ||
       name === 'run_terminal_command' ||
+      name === 'browser_logs' ||
       name === 'end_turn'
     ) {
+      if (name === 'run_terminal_command') {
+        parameters.command = transformRunTerminalCommand(parameters.command)
+      }
       clientToolCalls.push({
         ...(toolCall as ClientToolCall),
         id: generateCompactId(),
@@ -606,9 +636,9 @@ ${newFiles.map((file) => file.path).join('\n')}
     ...agentState,
     messageHistory: messagesWithResponse,
     agentContext: newAgentContext,
-    lastUserPromptIndex: prompt
-      ? messagesWithUserMessage.length - 1
-      : agentState.lastUserPromptIndex,
+    consecutiveAssistantMessages: prompt
+      ? 1
+      : (agentState.consecutiveAssistantMessages ?? 0) + 1,
   }
 
   logger.debug(
@@ -703,6 +733,7 @@ async function getFileReadingUpdates(
   const previousFilePaths = uniq(Object.keys(previousFiles))
 
   const editedFilePaths = messages
+    .filter(({ role }) => role === 'assistant')
     .map(toContentString)
     .filter((content) => content.includes('<write_file'))
     .flatMap((content) => Object.keys(parseFileBlocks(content)))
@@ -854,41 +885,4 @@ function getPrintedPaths(
         loadedFiles[path]!.startsWith(status)
       )
   )
-}
-
-function getMessagesSubset(messages: Message[], otherTokens: number) {
-  const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
-    JSON.stringify(content).includes('COMPLETE')
-  })
-
-  const messagesSubset = trimMessagesToFitTokenLimit(
-    indexLastSubgoalComplete === -1
-      ? messages
-      : messages.slice(indexLastSubgoalComplete),
-    otherTokens
-  )
-
-  // Remove cache_control from all messages
-  for (const message of messagesSubset) {
-    if (typeof message.content === 'object' && message.content.length > 0) {
-      delete message.content[message.content.length - 1].cache_control
-    }
-  }
-
-  // Cache up to the last message!
-  const lastMessage = messagesSubset[messagesSubset.length - 1]
-  if (lastMessage) {
-    messagesSubset[messagesSubset.length - 1] = withCacheControl(lastMessage)
-  } else {
-    logger.debug(
-      {
-        messages,
-        messagesSubset,
-        otherTokens,
-      },
-      'No last message found in messagesSubset!'
-    )
-  }
-
-  return messagesSubset
 }

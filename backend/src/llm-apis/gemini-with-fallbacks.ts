@@ -1,22 +1,19 @@
-import { retrieveAndDecryptApiKey } from 'common/api-keys/crypto'
 import {
   claudeModels,
+  CODEBUFF_CLAUDE_FALLBACK_INFO,
   CostMode,
   GeminiModel,
   geminiModels,
   openaiModels,
+  openrouterModels,
 } from 'common/constants'
 import { Message } from 'common/types/message'
-import { APIError } from 'openai'
 
 import { logger } from '../util/logger'
 import { messagesWithSystem } from '../util/messages'
 import { promptClaude, promptClaudeStream, System } from './claude'
 import { promptGemini, promptGeminiStream } from './gemini-api'
-import {
-  promptGemini as promptVertexGemini,
-  promptGeminiStream as promptVertexGeminiStream,
-} from './gemini-vertex-api'
+import { promptGemini as promptVertexGemini } from './gemini-vertex-api'
 import { promptOpenRouterStream } from './open-router'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 
@@ -71,7 +68,7 @@ export async function promptGeminiWithFallbacks(
       geminiOptions
     )
   } catch (error) {
-    logger.error(
+    logger.warn(
       { error },
       'Error calling Gemini API, falling back to Vertex Gemini'
     )
@@ -83,7 +80,7 @@ export async function promptGeminiWithFallbacks(
         geminiOptions
       )
     } catch (error) {
-      logger.error(
+      logger.warn(
         { error },
         `Error calling Vertex Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`
       )
@@ -111,16 +108,17 @@ export async function promptGeminiWithFallbacks(
 }
 
 /**
- * Streams a response from Gemini 2.5 Pro with multiple fallback strategies, including Claude Sonnet.
+ * Streams a response from Gemini 2.5 Pro with multiple fallback strategies.
  *
  * Attempts the following endpoints in order until one succeeds:
- * 1. OpenRouter (Internal Key, Free Tier)
- * 2. Gemini API (Internal Key)
- * 3. Vertex AI Gemini
- * 4. Gemini API (User's Key, if available)
- * 5. Claude Sonnet (Final Fallback)
+ * 1. Gemini API (Internal Key - gemini-2.5-pro-exp)
+ * 2. OpenRouter (Internal Key - google/gemini-2.5-pro-exp-03-25:free)
+ * 3. OpenRouter (Internal Key - google/gemini-2.5-pro-preview-03-25)
+ * 4. Claude Sonnet (Final Fallback)
  *
  * This function handles streaming requests and yields chunks of the response as they arrive.
+ * If a stream fails mid-way (e.g., due to rate limits), it appends the partially
+ * generated content to the message history before attempting the next fallback.
  *
  * @param messages - The array of messages forming the conversation history.
  * @param system - An optional system prompt string or array of text blocks.
@@ -155,140 +153,127 @@ export async function* streamGemini25ProWithFallbacks(
     temperature,
   } = options
 
-  const formattedMessages = system
+  // Initialize the message list for the first attempt
+  let currentMessages: OpenAIMessage[] = system
     ? messagesWithSystem(messages, system)
     : (messages as OpenAIMessage[])
+  let accumulatedContent = '' // To store content from the failed stream
 
-  // 1. Try OpenRouter Stream
-  const openRouterOptions = {
+  // --- Internal Fallbacks ---
+
+  // 1. Try Gemini API Stream (Internal Key - gemini-2.5-pro-exp)
+  const geminiExpOptions = {
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-    model: 'google/gemini-2.5-pro-exp-03-25:free',
-    temperature,
-  }
-  try {
-    logger.debug('Attempting Gemini 2.5 Pro via OpenRouter Stream')
-    yield* promptOpenRouterStream(formattedMessages, openRouterOptions)
-    return // Success
-  } catch (error) {
-    logger.error(
-      { error },
-      'Error calling Gemini 2.5 Pro via OpenRouter Stream, falling back to Gemini API Stream (Internal Key)'
-    )
-  }
-
-  // 2. Try Gemini API Stream (Internal Key)
-  const geminiOptions = {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    model: geminiModels.gemini2_5_pro,
+    model: geminiModels.gemini2_5_pro_exp,
     maxTokens,
     temperature,
   }
+  accumulatedContent = '' // Reset before this attempt
+  logger.debug(
+    'Attempting Gemini 2.5 Pro (exp) via Gemini API Stream (Internal Key)'
+  )
   try {
-    logger.debug(
-      'Attempting Gemini 2.5 Pro via Gemini API Stream (Internal Key)'
-    )
-    yield* promptGeminiStream(formattedMessages, geminiOptions) // Uses internal key by default
+    for await (const chunk of promptGeminiStream(
+      currentMessages,
+      geminiExpOptions
+    )) {
+      accumulatedContent += chunk
+      yield chunk
+    }
     return // Success
   } catch (error) {
-    logger.error(
-      { error },
-      'Error calling Gemini 2.5 Pro via Gemini API Stream (Internal Key), falling back to Vertex AI'
+    logger.warn(
+      { accumulatedContent, error },
+      'Error calling Gemini 2.5 Pro (exp) via Gemini API Stream (Internal Key), falling back to OpenRouter (exp)'
     )
+    // Append partial content before next attempt
+    if (accumulatedContent) {
+      currentMessages = [
+        ...currentMessages,
+        { role: 'assistant', content: accumulatedContent },
+      ]
+    }
   }
 
-  // 3. Try Vertex AI Gemini Stream
-  const vertexGeminiOptions = {
+  // 2. Try OpenRouter Stream (google/gemini-2.5-pro-exp-03-25:free)
+  const openRouterExpOptions = {
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-    model: geminiModels.gemini2_5_pro,
-    maxTokens,
+    model: openrouterModels.openrouter_gemini2_5_pro_exp, // Experimental model via OpenRouter
     temperature,
   }
+  accumulatedContent = '' // Reset before this attempt
+  logger.debug('Attempting Gemini 2.5 Pro (exp) via OpenRouter Stream')
   try {
-    logger.debug('Attempting Gemini 2.5 Pro via Vertex AI Gemini Stream')
-    yield* promptVertexGeminiStream(
-      messages as OpenAIMessage[],
-      system,
-      vertexGeminiOptions
-    )
+    for await (const chunk of promptOpenRouterStream(
+      currentMessages,
+      openRouterExpOptions
+    )) {
+      accumulatedContent += chunk
+      yield chunk
+    }
     return // Success
   } catch (error) {
-    logger.error(
-      { error },
-      'Error calling Gemini 2.5 Pro via Vertex AI Gemini Stream, falling back to User Key if available'
-    )
-  }
-
-  // 4. Try User's Gemini Key if available
-  let userApiKey: string | null = null
-  if (userId) {
-    try {
-      userApiKey = await retrieveAndDecryptApiKey(userId, 'gemini')
-    } catch (keyRetrievalError) {
-      logger.warn(
-        { error: keyRetrievalError, userId },
-        'Failed to retrieve or decrypt user Gemini key. Proceeding to Claude fallback.'
-      )
-      // Don't throw, proceed to Claude
-    }
-  } else {
     logger.warn(
-      'No userId provided, cannot attempt user key fallback. Proceeding to Claude fallback.'
+      { accumulatedContent, error },
+      'Error calling Gemini 2.5 Pro (exp) via OpenRouter Stream, falling back to OpenRouter (preview)'
     )
-  }
-
-  // If we have a userApiKey, attempt the final fallback using it
-  if (userApiKey) {
-    try {
-      logger.debug('Attempting Gemini 2.5 Pro via Gemini API Stream (User Key)')
-      yield* promptGeminiStream(formattedMessages, {
-        ...geminiOptions,
-        apiKey: userApiKey,
-      })
-      return // Success! The user key worked.
-    } catch (userKeyError) {
-      // Check if the error is a rate limit error (429)
-      if (userKeyError instanceof APIError && userKeyError.status === 429) {
-        logger.warn(
-          { userId },
-          'User Gemini API key hit rate limit. Yielding notification and falling back to Claude Sonnet.'
-        )
-        // Yield the special message for the client. This will be parsed out of the messages.
-        yield '<codebuff_rate_limit_info>Your Gemini API key seems to have hit a rate limit. Falling back to Claude.</codebuff_rate_limit_info>'
-      } else {
-        // Log other errors normally
-        logger.error(
-          { error: userKeyError },
-          'Error calling Gemini 2.5 Pro via Gemini API Stream (User Key). Falling back to Claude Sonnet.'
-        )
-      }
-      // Proceed to Claude fallback regardless of the error type here
+    if (accumulatedContent) {
+      currentMessages = [
+        ...currentMessages,
+        { role: 'assistant', content: accumulatedContent },
+      ]
     }
-  } else {
-    logger.warn(
-      { userId },
-      'User Gemini key not found or retrieval failed. Proceeding to Claude fallback.'
-    )
-    yield `<codebuff_no_user_key_info>
-Make sure to provide your Gemini API key to get longer access to Gemini 2.5 Pro! Falling back to Claude for now.
-1. Go to https://aistudio.google.com/apikey and create an API key
-2. Paste your key here
-</codebuff_no_user_key_info>`
   }
 
-  // 5. Final Fallback: Claude Sonnet
+  // 3. Try OpenRouter Stream (google/gemini-2.5-pro-preview)
+  const openRouterPreviewOptions = {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    model: openrouterModels.openrouter_gemini2_5_pro_preview, // Preview model via OpenRouter
+    temperature,
+  }
+  accumulatedContent = '' // Reset before this attempt
+  logger.debug('Attempting Gemini 2.5 Pro (preview) via OpenRouter Stream')
   try {
-    logger.debug('Attempting final fallback to Claude Sonnet Stream')
-    yield* promptClaudeStream(messages, {
-      // Use original messages for Claude
+    for await (const chunk of promptOpenRouterStream(
+      currentMessages,
+      openRouterPreviewOptions
+    )) {
+      accumulatedContent += chunk
+      yield chunk
+    }
+    return // Success
+  } catch (error) {
+    logger.warn(
+      { accumulatedContent, error },
+      'Error calling Gemini 2.5 Pro (preview) via OpenRouter Stream, falling back to Claude Sonnet'
+    )
+    yield `<${CODEBUFF_CLAUDE_FALLBACK_INFO}>All Gemini attempts failed. Falling back to Claude Sonnet.</${CODEBUFF_CLAUDE_FALLBACK_INFO}>\n`
+    // Don't update currentMessages here, as Claude uses the original `messages`.
+    // The last `accumulatedContent` will be appended to the original `messages` below.
+  }
+
+  // 4. Final Fallback: Claude Sonnet
+  // Prepare messages for Claude, using original `messages` and appending the last accumulated content
+  const claudeMessages = [...messages] // Start with original messages
+  if (accumulatedContent) {
+    // Append content from the last failed attempt (OpenRouter Preview)
+    claudeMessages.push({ role: 'assistant', content: accumulatedContent })
+  }
+  // Use a separate accumulator for the Claude stream itself, though we don't use it for further fallbacks
+  let claudeAccumulatedContent = ''
+  logger.debug('Attempting final fallback to Claude Sonnet Stream')
+  try {
+    for await (const chunk of promptClaudeStream(claudeMessages, {
+      // Use modified claudeMessages
       model: claudeModels.sonnet,
       system,
       clientSessionId,
@@ -297,7 +282,10 @@ Make sure to provide your Gemini API key to get longer access to Gemini 2.5 Pro!
       userId,
       maxTokens,
       // Temperature might differ, using Claude's default or a standard value
-    })
+    })) {
+      claudeAccumulatedContent += chunk // Accumulate just in case, though not used after this
+      yield chunk
+    }
     return // Success! Claude Sonnet worked.
   } catch (claudeError) {
     logger.error(

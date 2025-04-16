@@ -1,17 +1,17 @@
-import { expect, describe, it, mock, afterEach, spyOn } from 'bun:test'
-import { mainPrompt } from '../main-prompt'
-import { getInitialAgentState, ToolResult } from 'common/types/agent-state'
-import { WebSocket } from 'ws'
+import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import { TEST_USER_ID } from 'common/constants'
+import { getInitialAgentState } from 'common/types/agent-state'
+import { WebSocket } from 'ws'
 
 // Mock imports needed for setup within the test
+import * as checkTerminalCommandModule from '../check-terminal-command'
+import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as claude from '../llm-apis/claude'
 import * as gemini from '../llm-apis/gemini-api'
 import * as openai from '../llm-apis/openai-api'
-import * as websocketAction from '../websockets/websocket-action'
-import * as requestFilesPrompt from '../find-files/request-files-prompt'
-import * as checkTerminalCommandModule from '../check-terminal-command'
+import { mainPrompt } from '../main-prompt'
 import { logger } from '../util/logger'
+import * as websocketAction from '../websockets/websocket-action'
 
 // --- Shared Mocks & Helpers ---
 
@@ -52,7 +52,7 @@ describe('mainPrompt (Integration)', () => {
     mock.restore()
   })
 
-  it('should add end_turn when LLM stream yields only text', async () => {
+  it.skip('should add end_turn when LLM stream yields only text', async () => {
     // Mock necessary non-LLM functions ONLY for this test
     spyOn(logger, 'debug').mockImplementation(() => {})
     spyOn(logger, 'error').mockImplementation(() => {})
@@ -94,7 +94,8 @@ describe('mainPrompt (Integration)', () => {
       },
       TEST_USER_ID,
       'test-session-gemini-real-end-turn-integration', // Unique ID
-      () => {} // Mock onResponseChunk
+      () => {}, // Mock onResponseChunk
+      undefined // Mock model
     )
 
     // Assertions

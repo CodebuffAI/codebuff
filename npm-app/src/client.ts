@@ -14,9 +14,10 @@ import {
   UsageResponse,
 } from 'common/actions'
 import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
-import type { CostMode } from 'common/constants'
 import {
+  CostMode,
   CREDITS_REFERRAL_BONUS,
+  ONE_TIME_TAGS,
   REQUEST_CREDIT_SHOW_THRESHOLD,
   UserState,
 } from 'common/constants'
@@ -43,6 +44,7 @@ import { match, P } from 'ts-pattern'
 import { GrantType } from 'common/db/schema'
 import { z } from 'zod'
 
+import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
@@ -108,9 +110,13 @@ export class Client {
   private git: GitCommand
   private rl: readline.Interface
   private lastToolResults: ToolResult[] = []
-  private extraGemini25ProMessageShown: boolean = false
   private responseComplete: boolean = false
   private topUpOccurred: boolean = false
+  private oneTimeTagsShown: Record<(typeof ONE_TIME_TAGS)[number], boolean> =
+    Object.fromEntries(ONE_TIME_TAGS.map((tag) => [tag, false])) as Record<
+      (typeof ONE_TIME_TAGS)[number],
+      boolean
+    >
 
   public usageData: Omit<UsageResponse, 'type'> = {
     usage: 0,
@@ -128,6 +134,8 @@ export class Client {
   public lastWarnedPct: number = 0
   public nextMonthlyGrant: number = 0
   public storedApiKeyTypes: ApiKeyType[] = []
+  public lastToolResults: ToolResult[] = []
+  public model: string | undefined
 
   constructor(
     websocketUrl: string,
@@ -136,9 +144,11 @@ export class Client {
     returnControlToUser: () => void,
     costMode: CostMode,
     git: GitCommand,
-    rl: readline.Interface
+    rl: readline.Interface,
+    model: string | undefined
   ) {
     this.costMode = costMode
+    this.model = model
     this.git = git
     this.webSocket = new APIRealtimeClient(
       websocketUrl,
@@ -198,6 +208,7 @@ export class Client {
           headers: {
             'Content-Type': 'application/json',
             Cookie: `next-auth.session-token=${this.user.authToken}`,
+            Authorization: `Bearer ${this.user.authToken}`,
           },
         }
       )
@@ -232,7 +243,11 @@ export class Client {
             'Content-Type': 'application/json',
             Cookie: `next-auth.session-token=${this.user.authToken}`,
           },
-          body: JSON.stringify({ keyType, apiKey }),
+          body: JSON.stringify({
+            keyType,
+            apiKey,
+            authToken: this.user.authToken,
+          }),
         }
       )
 
@@ -244,7 +259,6 @@ export class Client {
         if (!this.storedApiKeyTypes.includes(keyType)) {
           this.storedApiKeyTypes.push(keyType)
         }
-        this.extraGemini25ProMessageShown = false
       } else {
         throw new Error(respJson.message)
       }
@@ -321,7 +335,6 @@ export class Client {
           fs.unlinkSync(CREDENTIALS_PATH)
           console.log(`You (${this.user.name}) have been logged out.`)
           this.user = undefined
-          this.extraGemini25ProMessageShown = false
           this.topUpOccurred = false
           this.usageData = {
             usage: 0,
@@ -330,6 +343,9 @@ export class Client {
             next_quota_reset: null,
             nextMonthlyGrant: 0,
           }
+          this.oneTimeTagsShown = Object.fromEntries(
+            ONE_TIME_TAGS.map((tag) => [tag, false])
+          ) as Record<(typeof ONE_TIME_TAGS)[number], boolean>
         } catch (error) {
           console.error('Error removing credentials file:', error)
         }
@@ -438,7 +454,9 @@ export class Client {
             ]
             console.log('\n' + responseToUser.join('\n'))
             this.lastWarnedPct = 0
-            this.extraGemini25ProMessageShown = false
+            this.oneTimeTagsShown = Object.fromEntries(
+              ONE_TIME_TAGS.map((tag) => [tag, false])
+            ) as Record<(typeof ONE_TIME_TAGS)[number], boolean>
 
             displayGreeting(this.costMode, null)
             clearInterval(pollInterval)
@@ -610,16 +628,23 @@ export class Client {
       prompt
     )
 
+    // Append process updates to existing tool results
+    const toolResults = [
+      ...(this.lastToolResults || []),
+      ...getBackgroundProcessUpdates(),
+    ]
+
     Spinner.get().start()
     this.webSocket.sendAction({
       type: 'prompt',
       promptId: userInputId,
       prompt,
       agentState: this.agentState,
-      toolResults: this.lastToolResults,
+      toolResults,
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,
       costMode: this.costMode,
+      model: this.model,
     })
 
     return {
@@ -693,29 +718,20 @@ export class Client {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
-      if (chunk.includes('<codebuff_rate_limit_info>')) {
-        if (this.extraGemini25ProMessageShown) {
+      const trimmed = chunk.trim()
+      for (const tag of ONE_TIME_TAGS) {
+        if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)) {
+          if (this.oneTimeTagsShown[tag]) {
+            return
+          }
+          Spinner.get().stop()
+          const warningMessage = trimmed
+            .replace(`<${tag}>`, '')
+            .replace(`</${tag}>`, '')
+          console.warn(yellow(`\n${warningMessage}`))
+          this.oneTimeTagsShown[tag] = true
           return
         }
-        Spinner.get().stop()
-        const warningMessage = chunk
-          .replace('<codebuff_rate_limit_info>', '')
-          .replace('</codebuff_rate_limit_info>', '')
-        console.warn(yellow(`\n${warningMessage}`))
-        this.extraGemini25ProMessageShown = true
-        return
-      }
-      if (chunk.includes('<codebuff_no_user_key_info>')) {
-        if (this.extraGemini25ProMessageShown) {
-          return
-        }
-        Spinner.get().stop()
-        const warningMessage = chunk
-          .replace('<codebuff_no_user_key_info>', '')
-          .replace('</codebuff_no_user_key_info>', '')
-        console.warn(yellow(`\n${warningMessage}`))
-        this.extraGemini25ProMessageShown = true
-        return
       }
 
       if (chunk && chunk.trim()) {
@@ -739,6 +755,7 @@ export class Client {
         if (!parsedAction.success) return
         if (action.promptId !== userInputId) return
         const a = parsedAction.data
+        let isComplete = false
 
         Spinner.get().stop()
 
@@ -746,26 +763,37 @@ export class Client {
         const toolResults: ToolResult[] = [...a.toolResults]
 
         for (const toolCall of a.toolCalls) {
-          if (toolCall.name === 'end_turn') {
-            this.responseComplete = true
-            continue
+          try {
+            if (toolCall.name === 'end_turn') {
+              this.responseComplete = true
+              isComplete = true
+              continue
+            }
+            if (toolCall.name === 'write_file') {
+              // Save lastChanges for `diff` command
+              this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
+              this.hadFileChanges = true
+            }
+            if (
+              toolCall.name === 'run_terminal_command' &&
+              toolCall.parameters.mode === 'user'
+            ) {
+              // Special case: when terminal command is run it as a user command, then no need to reprompt assistant.
+              this.responseComplete = true
+              isComplete = true
+            }
+            const toolResult = await handleToolCall(toolCall, getProjectRoot())
+            toolResults.push(toolResult)
+          } catch (error) {
+            console.error(
+              red(`Error parsing tool call ${toolCall.name}:\n${error}`)
+            )
           }
-          if (toolCall.name === 'write_file') {
-            // Save lastChanges for `diff` command
-            this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
-            this.hadFileChanges = true
-          }
-          if (
-            toolCall.name === 'run_terminal_command' &&
-            toolCall.parameters.mode === 'user'
-          ) {
-            // Special case: when terminal command is run it as a user command, then no need to reprompt assistant.
-            this.responseComplete = true
-          }
-          const toolResult = await handleToolCall(toolCall, getProjectRoot())
-          toolResults.push(toolResult)
         }
-        if (toolResults.length > 0) {
+        if (
+          toolResults.length > 0 ||
+          a.toolCalls.some((call) => call.name === 'end_turn')
+        ) {
           console.log()
         }
 
@@ -774,7 +802,9 @@ export class Client {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
         }
 
-        if (!this.responseComplete) {
+        if (!isComplete) {
+          // Append process updates to existing tool results
+          toolResults.push(...getBackgroundProcessUpdates())
           // Continue the prompt with the tool results.
           this.webSocket.sendAction({
             type: 'prompt',
@@ -785,6 +815,7 @@ export class Client {
             fingerprintId: await this.fingerprintId,
             authToken: this.user?.authToken,
             costMode: this.costMode,
+            model: this.model,
           })
           return
         }
@@ -915,6 +946,6 @@ export class Client {
       fileContext,
     })
 
-    this.fetchStoredApiKeyTypes()
+    await this.fetchStoredApiKeyTypes()
   }
 }

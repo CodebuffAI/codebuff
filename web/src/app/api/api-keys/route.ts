@@ -1,29 +1,34 @@
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { ApiKeyType } from 'common/src/api-keys/constants'
 import { encryptAndStoreApiKey } from 'common/src/api-keys/crypto'
 import { apiKeyTypeEnum, encryptedApiKeys } from 'common/src/db/schema'
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { z } from 'zod'
 import { eq } from 'drizzle-orm'
-import db from 'common/db'
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
-import { ApiKeyType } from 'common/src/api-keys/constants'
 
-// Define the schema for the request body
-const ApiKeySchema = z.object({
-  keyType: z.enum(apiKeyTypeEnum.enumValues),
-  apiKey: z.string().min(1, 'API key cannot be empty'),
-})
+export async function GET(request: NextRequest) {
+  const authHeader = await request.headers.get('authorization')
 
-export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response('Unauthorized', { status: 401 })
   }
 
-  const userId = session.user.id
+  const authToken = authHeader.split(' ')[1]
+  const user = await db.query.session.findFirst({
+    where: eq(schema.session.sessionToken, authToken),
+    columns: {
+      userId: true,
+    },
+  })
+
+  const userId = user?.userId
+
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   try {
     const storedKeys = await db
@@ -33,7 +38,10 @@ export async function GET(req: NextRequest) {
 
     const keyTypes: ApiKeyType[] = storedKeys.map((key) => key.type)
 
-    logger.info({ userId, keyTypes }, 'Successfully retrieved stored API key types')
+    logger.info(
+      { userId, keyTypes },
+      'Successfully retrieved stored API key types'
+    )
     return NextResponse.json({ keyTypes }, { status: 200 })
   } catch (error) {
     logger.error({ error, userId }, 'Failed to retrieve stored API key types')
@@ -44,34 +52,33 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
+export async function POST(request: NextRequest) {
+  const reqJson = await request.json()
+  const parsedJson = z
+    .object({
+      keyType: z.enum(apiKeyTypeEnum.enumValues),
+      apiKey: z.string().min(1, 'API key cannot be empty'),
+      authToken: z.string(),
+    })
+    .safeParse(reqJson)
 
-  if (!session?.user?.id) {
+  if (!parsedJson.success) {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
+
+  const { keyType, apiKey, authToken } = parsedJson.data
+  const user = await db.query.session.findFirst({
+    where: eq(schema.session.sessionToken, authToken),
+    columns: {
+      userId: true,
+    },
+  })
+
+  const userId = user?.userId
+
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-
-  const userId = session.user.id
-
-  let reqBody: z.infer<typeof ApiKeySchema>
-  try {
-    reqBody = await req.json()
-    ApiKeySchema.parse(reqBody) // Validate the request body
-  } catch (error) {
-    logger.error({ error, userId }, 'Invalid request body for adding API key')
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request body', details: error.errors },
-        { status: 400 }
-      )
-    }
-    return NextResponse.json(
-      { error: 'Failed to parse request body' },
-      { status: 400 }
-    )
-  }
-
-  const { keyType, apiKey } = reqBody
 
   try {
     await encryptAndStoreApiKey(userId, keyType, apiKey)

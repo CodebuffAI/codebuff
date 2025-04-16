@@ -1,11 +1,19 @@
+import assert from 'assert'
 import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
-import path from 'path'
-import { green } from 'picocolors'
 import * as os from 'os'
-import { detectShell } from './detect-shell'
-import { setProjectRoot } from '../project-files'
-import { truncateStringWithMessage } from 'common/util/string'
+import path from 'path'
+
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
+import { buildArray } from 'common/util/array'
+import { truncateStringWithMessage } from 'common/util/string'
+import { green } from 'picocolors'
+
+import {
+  backgroundProcesses,
+  BackgroundProcessInfo,
+} from '../background-process-manager'
+import { setProjectRoot } from '../project-files'
+import { detectShell } from './detect-shell'
 
 let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
 const tempConsoleError = console.error
@@ -17,6 +25,7 @@ try {
   console.error = tempConsoleError
 }
 
+const COMMAND_OUTPUT_LIMIT = 10_000
 const promptIdentifier = '@36261@'
 
 type PersistentProcess =
@@ -160,20 +169,115 @@ export const resetShell = (projectPath: string) => {
   }
 }
 
-function formatResult(stdout: string, status: string): string {
-  let result = '<terminal_command_result>\n'
-  result += `<output>${truncateStringWithMessage(stdout, 10000)}</output>\n`
-  result += `<status>${status}</status>\n`
-  result += '</terminal_command_result>'
-  return result
+function formatResult(command: string, stdout: string, status: string): string {
+  return buildArray(
+    `<command>${command}</command>`,
+    '<terminal_command_result>',
+    `<output>${truncateStringWithMessage({ str: stdout, maxLength: COMMAND_OUTPUT_LIMIT })}</output>`,
+    `<status>${status}</status>`,
+    '</terminal_command_result>'
+  ).join('\n')
 }
 
 const MAX_EXECUTION_TIME = 30_000
 
+const runBackgroundCommand = (
+  toolCallId: string,
+  command: string,
+  projectPath: string,
+  resolveCommand: (value: { result: string; stdout: string }) => void
+) => {
+  const isWindows = os.platform() === 'win32'
+  const shell = isWindows ? 'cmd.exe' : 'bash'
+  const shellArgs = isWindows ? ['/c'] : ['-c']
+
+  console.log(green(`Running background process...\n> ${command}`))
+
+  const initialStdout = ''
+  const initialStderr = ''
+
+  try {
+    const childProcess = spawn(shell, [...shellArgs, command], {
+      cwd: projectPath,
+      env: {
+        ...process.env,
+        FORCE_COLOR: '1',
+      },
+      // Ensure detached is always false to link child lifetime to parent
+      detached: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
+    // An error should have been thrown when we called `spawn`
+    assert(
+      childProcess.pid !== undefined,
+      'Failed to spawn process: no PID assigned.'
+    )
+
+    const processId = childProcess.pid
+    const processInfo: BackgroundProcessInfo = {
+      pid: processId,
+      toolCallId,
+      command,
+      process: childProcess,
+      stdoutBuffer: [],
+      stderrBuffer: [],
+      status: 'running',
+      startTime: Date.now(),
+      endTime: null,
+      lastReportedStdoutLength: 0,
+      lastReportedStderrLength: 0,
+      lastReportedStatus: null,
+    }
+    backgroundProcesses.set(processId, processInfo)
+
+    childProcess.stdout.on('data', (data: Buffer) => {
+      const output = data.toString()
+      processInfo.stdoutBuffer.push(output)
+    })
+
+    childProcess.stderr.on('data', (data: Buffer) => {
+      const output = data.toString()
+      processInfo.stderrBuffer.push(output)
+    })
+
+    childProcess.on('error', (error) => {
+      processInfo.status = 'error'
+      processInfo.stderrBuffer.push(
+        `\nError spawning command: ${error.message}`
+      )
+      processInfo.endTime = Date.now()
+    })
+
+    childProcess.on('close', (code) => {
+      processInfo.status = code === 0 ? 'completed' : 'error'
+      processInfo.endTime = Date.now()
+    })
+
+    // Unreference the process so the parent can exit independently IF the child is the only thing keeping it alive.
+    childProcess.unref()
+
+    const resultMessage = `<background_process>
+<process_id>${processId}</process_id>
+<command>${command}</command>
+<status>${processInfo.status}</status>
+</background_process>`
+    resolveCommand({
+      result: resultMessage,
+      stdout: initialStdout + initialStderr,
+    })
+  } catch (error: any) {
+    const errorMessage = `<background_process>\n<command>${command}</command>\n<error>${error.message}</error>\n</background_process>`
+    resolveCommand({ result: errorMessage, stdout: error.message })
+  }
+}
+
 export const runTerminalCommand = async (
+  toolCallId: string,
   command: string,
   mode: 'user' | 'assistant',
-  projectPath: string
+  projectPath: string,
+  processType: 'SYNC' | 'BACKGROUND'
 ): Promise<{ result: string; stdout: string }> => {
   return new Promise((resolve) => {
     if (!persistentProcess) {
@@ -195,7 +299,14 @@ export const runTerminalCommand = async (
       resolve(value)
     }
 
-    if (persistentProcess.type === 'pty') {
+    if (processType === 'BACKGROUND') {
+      runBackgroundCommand(
+        toolCallId,
+        modifiedCommand,
+        projectPath,
+        resolveCommand
+      )
+    } else if (persistentProcess.type === 'pty') {
       runCommandPty(
         persistentProcess,
         modifiedCommand,
@@ -241,6 +352,7 @@ export const runCommandPty = (
 
       resolve({
         result: formatResult(
+          command,
           commandOutput,
           `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
         ),
@@ -284,17 +396,25 @@ export const runCommandPty = (
         dataDisposable.dispose()
 
         if (command.startsWith('cd ') && mode === 'user') {
-          const newWorkingDirectory = command.split(' ')[1]
-          projectPath = setProjectRoot(
-            path.join(projectPath, newWorkingDirectory)
-          )
+          let newWorkingDirectory = command.split(' ')[1]
+          if (newWorkingDirectory === '~') {
+            newWorkingDirectory = os.homedir()
+          } else if (newWorkingDirectory.startsWith('~/')) {
+            newWorkingDirectory = path.join(
+              os.homedir(),
+              newWorkingDirectory.slice(2)
+            )
+          } else if (!path.isAbsolute(newWorkingDirectory)) {
+            newWorkingDirectory = path.join(projectPath, newWorkingDirectory)
+          }
+          projectPath = setProjectRoot(newWorkingDirectory)
         }
 
         // Reset the PTY to the project root
         ptyProcess.write(`cd ${projectPath}\r`)
 
         resolve({
-          result: formatResult(commandOutput, 'Command completed'),
+          result: formatResult(command, commandOutput, 'Command completed'),
           stdout: commandOutput,
         })
         return
@@ -312,7 +432,7 @@ export const runCommandPty = (
   const isWindows = os.platform() === 'win32'
 
   if (command.trim() === 'clear') {
-    // NOTE: node-pty doesn't seem to clear the terminal. This is a workaround.
+    // `clear` needs access to the main process stdout. This is a workaround.
     execSync('clear', { stdio: 'inherit' })
   }
 
@@ -363,6 +483,7 @@ const runCommandChildProcess = (
     if (mode === 'assistant') {
       resolve({
         result: formatResult(
+          command,
           commandOutput,
           `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated.`
         ),
@@ -381,7 +502,6 @@ const runCommandChildProcess = (
 
   childProcess.stderr.on('data', (data: Buffer) => {
     const output = data.toString()
-
     process.stdout.write(output)
     commandOutput += output
   })
@@ -399,7 +519,7 @@ const runCommandChildProcess = (
     }
 
     resolve({
-      result: formatResult(commandOutput, `Command completed`),
+      result: formatResult(command, commandOutput, `Command completed`),
       stdout: commandOutput,
     })
   })

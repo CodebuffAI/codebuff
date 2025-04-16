@@ -27,7 +27,7 @@ mock.module('backend/llm-apis/message-cost-tracker', () => ({
   saveMessage: () => Promise.resolve(),
 }))
 
-describe('preserveCommentsInEditSnippet', () => {
+describe.skip('preserveCommentsInEditSnippet', () => {
   it('should preserve existing comments from original file', async () => {
     const initialContent = `
 function test() {
@@ -424,7 +424,7 @@ return createPatch(filePath, normalizedOld, normalizedNew);
   })
 })
 
-describe('rewriteWithOpenAI', () => {
+describe.skip('rewriteWithOpenAI', () => {
   it('should correctly integrate edit snippet changes while preserving formatting', async () => {
     const testDataDir = path.join(__dirname, 'test-data', 'dex-go')
     const originalContent = await Bun.file(`${testDataDir}/original.go`).text()

@@ -1,9 +1,10 @@
-import OpenAI from 'openai'
 import { TEST_USER_ID } from 'common/constants'
+import { removeCache } from 'common/util/messages'
+import OpenAI from 'openai'
+
 import { env } from '../env.mjs'
 import { saveMessage } from '../llm-apis/message-cost-tracker'
 import { logger } from '../util/logger'
-import { removeCache } from 'common/util/messages'
 
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
 
@@ -96,15 +97,7 @@ export async function* promptOpenRouterStream(
       })
     }
   } catch (error) {
-    logger.error(
-      {
-        error:
-          error && typeof error === 'object' && 'message' in error
-            ? error.message
-            : 'Unknown error',
-      },
-      'Error calling OpenAI API'
-    )
+    logger.error(error, 'Error calling OpenRouter API Stream')
     throw error
   }
 }
