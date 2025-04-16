@@ -685,8 +685,8 @@ export class Client {
       unsubscribeComplete()
 
       const assistantMessage = {
-        role: 'assistant' as const,
-        content: responseBuffer + '[RESPONSE_CANCELED_BY_USER]',
+        role: 'user' as const,
+        content: `Received output:\n${responseBuffer}[RESPONSE_CANCELED_BY_USER]`,
       }
 
       // Update the agent state with just the assistant's response

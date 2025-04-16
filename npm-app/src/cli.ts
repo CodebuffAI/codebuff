@@ -250,7 +250,7 @@ export class CLI {
   }
 
   private async processCommand(userInput: string): Promise<boolean> {
-    if (userInput === 'help' || userInput === 'h') {
+    if (userInput === 'help' || userInput === 'h' || userInput === '/help') {
       displayMenu()
       this.freshPrompt()
       return true

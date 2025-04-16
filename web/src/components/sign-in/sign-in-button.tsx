@@ -1,15 +1,16 @@
 'use client'
 
-import { useTransition } from 'react'
-import { signIn } from 'next-auth/react'
+import { sleep } from 'common/util/promise'
 import { OAuthProviderType } from 'next-auth/providers/oauth-types'
-import posthog from 'posthog-js'
+import { signIn } from 'next-auth/react'
 import { usePathname, useSearchParams } from 'next/navigation'
+import posthog from 'posthog-js'
+import { useTransition } from 'react'
+
+import { toast } from '../ui/use-toast'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
-import { sleep } from 'common/util/promise'
-import { toast } from '../ui/use-toast'
 
 export const SignInButton = ({
   providerName,
@@ -29,8 +30,15 @@ export const SignInButton = ({
       if (pathname === '/login') {
         const authCode = searchParams.get('auth_code')
         if (authCode) {
+          // Logging in from CLI
           callbackUrl = `/onboard?${searchParams.toString()}`
         } else {
+          // Logging in from website
+          const referralCode = searchParams.get('referral_code')
+          if (referralCode) {
+            // Store referral code in localStorage to be handled after successful sign in
+            localStorage.setItem('referral_code', referralCode)
+          }
           callbackUrl = '/'
         }
       }

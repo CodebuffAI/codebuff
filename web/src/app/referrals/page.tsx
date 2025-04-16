@@ -1,9 +1,16 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
 import { useQuery } from '@tanstack/react-query'
+import { CREDITS_REFERRAL_BONUS } from 'common/constants'
+import { getReferralLink } from 'common/util/referral'
+import { CopyIcon, Forward } from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import { match, P } from 'ts-pattern'
+
+import { ReferralData } from '@/app/api/referrals/route'
+import CardWithBeams from '@/components/card-with-beams'
+import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Card,
   CardContent,
@@ -11,18 +18,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { toast } from '@/components/ui/use-toast'
-import { ReferralData } from '@/app/api/referrals/route'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { match, P } from 'ts-pattern'
-import { env } from '@/env.mjs'
-import { CopyIcon, Forward } from 'lucide-react'
+import { toast } from '@/components/ui/use-toast'
+
+
 import { Separator } from '@/components/ui/separator'
-import Link from 'next/link'
-import { CREDITS_REFERRAL_BONUS } from 'common/constants'
-import { getReferralLink } from 'common/util/referral'
-import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
-import CardWithBeams from '@/components/card-with-beams'
+import { env } from '@/env.mjs'
 
 const copyReferral = (link: string) => {
   navigator.clipboard.writeText(link)
@@ -103,12 +105,7 @@ const ReferralsPage = () => {
           <CardContent className="flex flex-col">
             <div className="flex place-content-between">
               <div className="text-sm flex items-center">
-                <Button variant="link" className="p-0 mr-1 h-auto" asChild>
-                  <Link href={`mailto:${data.referredBy.email}`}>
-                    <span className="text-sm font-medium">{data.referredBy.name}</span>
-                  </Link>
-                </Button>
-                <p>referred you. </p>
+                <p>{data.referredBy.name} referred you. </p>
               </div>
               {CreditsBadge(data.referredBy.credits)}
             </div>

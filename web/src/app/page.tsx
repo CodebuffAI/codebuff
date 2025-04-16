@@ -1,31 +1,35 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
-import { Section } from '@/components/ui/section'
-import { Hero } from '@/components/ui/hero'
-import { FeatureSection } from '@/components/ui/landing/feature'
-import { CompetitionSection } from '@/components/ui/landing/competition'
-import { TestimonialsSection } from '@/components/ui/landing/testimonials-section'
-import { CTASection } from '@/components/ui/landing/cta-section'
-import { DecorativeBlocks, BlockColor } from '@/components/ui/decorative-blocks'
-import { useIsMobile } from '@/hooks/use-mobile'
+import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
-import { storeSearchParams } from '@/lib/trackConversions'
+import posthog from 'posthog-js'
+import { useEffect, useState, Suspense } from 'react'
+
 import IDEDemo from '@/components/IDEDemo'
+import { BlockColor, DecorativeBlocks } from '@/components/ui/decorative-blocks'
+import { Hero } from '@/components/ui/hero'
+import { CompetitionSection } from '@/components/ui/landing/competition'
 import {
-  SECTION_THEMES,
-  DEMO_CODE,
   FEATURE_POINTS,
+  SECTION_THEMES
 } from '@/components/ui/landing/constants'
-import { WorkflowIllustration } from '@/components/ui/landing/feature/workflow-illustration'
+import { CTASection } from '@/components/ui/landing/cta-section'
+import { FeatureSection } from '@/components/ui/landing/feature'
 import { BrowserComparison } from '@/components/ui/landing/feature/browser-comparison'
 import { ChartIllustration } from '@/components/ui/landing/feature/chart-illustration'
-import posthog from 'posthog-js'
+import { WorkflowIllustration } from '@/components/ui/landing/feature/workflow-illustration'
+import { TestimonialsSection } from '@/components/ui/landing/testimonials-section'
+import { Section } from '@/components/ui/section'
+import { toast } from '@/components/ui/use-toast'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { storeSearchParams } from '@/lib/trackConversions'
 import { cn } from '@/lib/utils'
 
 function SearchParamsHandler() {
   const searchParams = useSearchParams()
-  
+  const isMobile = useIsMobile()
+  const { data: session } = useSession()
+
   useEffect(() => {
     storeSearchParams(searchParams)
   }, [searchParams])
@@ -36,6 +40,7 @@ function SearchParamsHandler() {
 export default function Home() {
   const [demoSwitched, setDemoSwitched] = useState(false)
   const isMobile = useIsMobile()
+  const { data: session } = useSession()
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -43,6 +48,42 @@ export default function Home() {
     }, 2000)
     return () => clearTimeout(timer)
   }, [])
+
+  useEffect(() => {
+    const handleReferralCode = async () => {
+      const referralCode = localStorage.getItem('referral_code')
+      if (referralCode && session?.user?.id) {
+        try {
+          const response = await fetch('/api/referrals', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ referralCode }),
+          })
+          
+          const data = await response.json()
+          
+          if (response.ok) {
+            toast({
+              title: 'Success!',
+              description: `You earned ${data.credits_redeemed} credits from your referral!`,
+              className: 'cursor-pointer',
+              onClick: () => {
+                window.location.href = '/referrals'
+              }
+            })
+          }
+        } catch (error) {
+          console.error('Error redeeming referral code:', error)
+        } finally {
+          localStorage.removeItem('referral_code')
+        }
+      }
+    }
+
+    handleReferralCode()
+  }, [session?.user?.id])
 
   const handleFeatureLearnMoreClick = (featureName: string, link: string) => {
     posthog.capture('home.feature_learn_more_clicked', {
