@@ -71,7 +71,7 @@ function transformMessages(
             )
             .otherwise(() => msg)
       )
-      .with(openaiModels.o3mini, () => {
+      .with(openaiModels.o3mini, openaiModels.o3, openaiModels.o4mini, () => {
         if (
           Array.isArray(msg.content) &&
           msg.content.some((obj: any) => obj.type === 'image')
