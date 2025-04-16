@@ -504,18 +504,18 @@ export class CLI {
       .reduce((sum, credits) => sum + credits, 0)
 
     logMessages.push(
-      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session. ${this.client.usageData.remainingBalance.toLocaleString()} credits remaining.`
+      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session, ${this.client.usageData.remainingBalance.toLocaleString()} credits left.`
     )
 
     if (this.client.usageData.next_quota_reset) {
-      const daysUntilReset = Math.max(
-        0,
-        Math.floor(
-          (this.client.usageData.next_quota_reset.getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24)
-        )
+      const daysUntilReset = Math.ceil(
+        (new Date(this.client.usageData.next_quota_reset).getTime() -
+          Date.now()) /
+          (1000 * 60 * 60 * 24)
       )
-      logMessages.push(`Renews in ${pluralize(daysUntilReset, 'day')}.`)
+      logMessages.push(
+        `You'll get ${this.client.usageData.nextMonthlyGrant.toLocaleString()} more credits in ${pluralize(daysUntilReset, 'day')}.`
+      )
     }
 
     console.log(logMessages.join(' '))
