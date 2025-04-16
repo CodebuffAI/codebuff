@@ -228,75 +228,82 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     userId
   )
 
-  // Check if we have enough remaining credits
-  if (balance.totalRemaining <= 0) {
-    logger.warn(
-      {
-        userId,
-        fingerprintId,
-        remaining: balance.totalRemaining,
-        actionType: action.type,
-      },
-      'Insufficient credits for action'
-    )
+  // Get user's auto top-up settings
+  const userWithSettings = await db.query.user.findFirst({
+    where: eq(schema.user.id, userId),
+    columns: {
+      auto_topup_enabled: true,
+      auto_topup_threshold: true,
+    },
+  })
 
-    // Check if we should trigger auto top-up
+  // Try auto top-up if balance falls below threshold
+  if (userWithSettings?.auto_topup_enabled && 
+      userWithSettings.auto_topup_threshold && 
+      balance.totalRemaining < userWithSettings.auto_topup_threshold) {
     try {
       await checkAndTriggerAutoTopup(userId)
-      // Re-check balance after potential auto top-up
+      // Get updated balance after potential auto top-up
       const newUsageAndBalance = await calculateUsageAndBalance(
         userId,
         user?.next_quota_reset ?? new Date(0)
       )
 
-      // If we still don't have credits after auto top-up attempt, return error
-      if (newUsageAndBalance.balance.totalRemaining <= 0) {
-        // If they have debt, show that in the message
-        const message = newUsageAndBalance.balance.totalDebt > 0
-          ? `You have a negative balance of ${pluralize(Math.abs(newUsageAndBalance.balance.totalDebt), 'credit')}. Please add credits to continue using Codebuff.`
-          : `You do not have enough credits for this action. Please add credits or wait for your next cycle to begin.`
+      // If auto-topup occurred, send updated usage info
+      if (newUsageAndBalance.balance.totalRemaining > balance.totalRemaining) {
+        const creditsAdded = newUsageAndBalance.balance.totalRemaining - balance.totalRemaining
+        logger.info(
+          {
+            userId,
+            newBalance: newUsageAndBalance.balance.totalRemaining,
+            creditsAdded,
+          },
+          'Auto top-up successful'
+        )
 
-        return {
-          type: 'action-error',
-          error: 'Insufficient credits',
-          message,
-          remainingBalance: newUsageAndBalance.balance.netBalance,
-        }
+        // Send updated usage info with auto top-up details
+        sendAction(ws, {
+          type: 'usage-response',
+          usage: newUsageAndBalance.usageThisCycle,
+          remainingBalance: newUsageAndBalance.balance.totalRemaining,
+          balanceBreakdown: newUsageAndBalance.balance.breakdown,
+          next_quota_reset: user?.next_quota_reset ?? null,
+          nextMonthlyGrant,
+          autoTopupAdded: creditsAdded,
+        })
+
+        // Use new balance for subsequent checks
+        balance.totalRemaining = newUsageAndBalance.balance.totalRemaining
+        balance.totalDebt = newUsageAndBalance.balance.totalDebt
+        balance.netBalance = newUsageAndBalance.balance.netBalance
       }
-
-      // If we have credits now, continue with the action and send updated usage info
-      const creditsAdded =
-        newUsageAndBalance.balance.totalRemaining - balance.totalRemaining
-      logger.info(
-        {
-          userId,
-          newBalance: newUsageAndBalance.balance.totalRemaining,
-          creditsAdded,
-        },
-        'Auto top-up successful, proceeding with action'
-      )
-
-      // Send updated usage info with auto top-up details
-      sendAction(ws, {
-        type: 'usage-response',
-        usage: newUsageAndBalance.usageThisCycle,
-        remainingBalance: newUsageAndBalance.balance.totalRemaining,
-        balanceBreakdown: newUsageAndBalance.balance.breakdown,
-        next_quota_reset: user?.next_quota_reset ?? null,
-        nextMonthlyGrant,
-        autoTopupAdded: creditsAdded,
-      })
-
-      return undefined
     } catch (error) {
       logger.error({ userId, error }, 'Error during auto top-up attempt')
-      // Return error indicating auto top-up was disabled
-      return {
-        type: 'action-error',
-        error: 'Auto top-up disabled',
-        message: `Auto top-up has been disabled due to a payment issue. Please check your payment method and re-enable auto top-up in your settings.`,
-        remainingBalance: balance.totalRemaining,
+      // Only return error if we don't have enough credits
+      if (balance.totalRemaining <= 0) {
+        return {
+          type: 'action-error',
+          error: 'Auto top-up disabled',
+          message: `Auto top-up has been disabled due to a payment issue. Please check your payment method and re-enable auto top-up in your settings.`,
+          remainingBalance: balance.totalRemaining,
+        }
       }
+    }
+  }
+
+  // Check if we have enough remaining credits
+  if (balance.totalRemaining <= 0) {
+    // If they have debt, show that in the message
+    const message =
+      balance.totalDebt > 0
+        ? `You have a balance of negative ${pluralize(Math.abs(balance.totalDebt), 'credit')}. Please add credits to continue using Codebuff.`
+        : `You do not have enough credits for this action. Please add credits or wait for your next cycle to begin.`
+
+    return {
+      type: 'action-error',
+      error: 'Insufficient credits',
+      message,
+      remainingBalance: balance.netBalance,
     }
   }
 

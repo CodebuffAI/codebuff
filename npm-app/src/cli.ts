@@ -713,14 +713,14 @@ export class CLI {
       .reduce((sum, credits) => sum + credits, 0)
 
     logMessages.push(
-      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session. ${this.client.remainingBalance.toLocaleString()} credits remaining.`
+      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session. ${this.client.usageData.remainingBalance.toLocaleString()} credits remaining.`
     )
 
-    if (this.client.nextQuotaReset) {
+    if (this.client.usageData.next_quota_reset) {
       const daysUntilReset = Math.max(
         0,
         Math.floor(
-          (this.client.nextQuotaReset.getTime() - Date.now()) /
+          (this.client.usageData.next_quota_reset.getTime() - Date.now()) /
             (1000 * 60 * 60 * 24)
         )
       )

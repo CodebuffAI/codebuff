@@ -36,6 +36,7 @@ const grantTypeInfo: Record<
     gradient: string
     icon: React.ReactNode
     label: string
+    description: string
   }
 > = {
   free: {
@@ -43,14 +44,16 @@ const grantTypeInfo: Record<
     text: 'text-blue-600 dark:text-blue-400',
     gradient: 'from-blue-500/70 to-blue-600/70',
     icon: <Gift className="h-3 w-3" />,
-    label: 'Free',
+    label: 'Monthly Free',
+    description: 'Your monthly allowance',
   },
   referral: {
     bg: 'bg-green-500',
     text: 'text-green-600 dark:text-green-400',
     gradient: 'from-green-500/70 to-green-600/70',
     icon: <Users className="h-3 w-3" />,
-    label: 'Referral',
+    label: 'Referral Bonus',
+    description: 'Earned by inviting others to Codebuff',
   },
   purchase: {
     bg: 'bg-yellow-500',
@@ -58,13 +61,15 @@ const grantTypeInfo: Record<
     gradient: 'from-yellow-500/70 to-yellow-600/70',
     icon: <CreditCard className="h-3 w-3" />,
     label: 'Purchased',
+    description: 'Credits you bought',
   },
   admin: {
     bg: 'bg-red-500',
     text: 'text-red-600 dark:text-red-400',
     gradient: 'from-red-500/70 to-red-600/70',
     icon: <Star className="h-3 w-3" />,
-    label: 'Admin',
+    label: 'Special Grant',
+    description: 'Special credits from Codebuff',
   },
 }
 
@@ -106,15 +111,27 @@ const CreditLeaf = ({
                 <div className="w-4 h-4 flex-shrink-0">
                   {grantTypeInfo[type].icon}
                 </div>
-                <span className="font-medium">{grantTypeInfo[type].label}</span>
+                <div className="flex flex-col">
+                  <span className="font-medium">
+                    {grantTypeInfo[type].label}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {grantTypeInfo[type].description}
+                  </span>
+                </div>
               </div>
               <div className="flex flex-col items-end">
-                <span className="font-medium">
-                  {remainingAmount.toLocaleString()}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="font-medium">
+                    {remainingAmount.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    remaining
+                  </span>
+                </div>
                 {used > 0 && (
                   <span className="text-xs text-muted-foreground">
-                    of {amount.toLocaleString()}
+                    of {amount.toLocaleString()} total
                   </span>
                 )}
               </div>
@@ -122,31 +139,42 @@ const CreditLeaf = ({
           </div>
         </TooltipTrigger>
         <TooltipContent>
-          <div className="p-1 space-y-1">
-            {amount !== remainingAmount && (
+          <div className="p-2 space-y-2">
+            <div className="text-sm">{grantTypeInfo[type].description}</div>
+            <div className="space-y-1 pt-1 border-t">
+              {amount !== remainingAmount && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Total:</span>
+                  <span>{amount.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Total:</span>
-                <span>{amount.toLocaleString()}</span>
+                <span className="text-muted-foreground">Available:</span>
+                <span className="font-medium">
+                  {remainingAmount.toLocaleString()}
+                </span>
               </div>
-            )}
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Available:</span>
-              <span className="font-medium">
-                {remainingAmount.toLocaleString()}
-              </span>
+              {used > 0 && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Used:</span>
+                  <span>
+                    {used.toLocaleString()} ({usedPercentage}%)
+                  </span>
+                </div>
+              )}
+              {renewalDate && (
+                <div className="flex justify-between gap-4 text-xs pt-1 border-t">
+                  <span>Renews:</span>
+                  <span>{renewalDate.toLocaleDateString()}</span>
+                </div>
+              )}
+              {expiryDate && (
+                <div className="flex justify-between gap-4 text-xs">
+                  <span>Expires:</span>
+                  <span>{expiryDate.toLocaleDateString()}</span>
+                </div>
+              )}
             </div>
-            {renewalDate && (
-              <div className="flex justify-between gap-4 text-xs">
-                <span>Renews:</span>
-                <span>{renewalDate.toLocaleDateString()}</span>
-              </div>
-            )}
-            {expiryDate && (
-              <div className="flex justify-between gap-4 text-xs">
-                <span>Expires:</span>
-                <span>{expiryDate.toLocaleDateString()}</span>
-              </div>
-            )}
           </div>
         </TooltipContent>
       </Tooltip>
@@ -183,7 +211,7 @@ const CreditBranch = ({
       <div className="relative z-10">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center bg-card hover:bg-accent/50 py-3 px-4 rounded-lg transition-all duration-200 border border-border/50 shadow-sm hover:shadow-md"
+          className="w-full flex items-center bg-card hover:bg-accent/50 py-3 px-4 rounded-lg transition-all duration-200 border-2 border-border/70 shadow-sm hover:shadow-md"
           aria-expanded={isOpen}
         >
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
@@ -205,9 +233,12 @@ const CreditBranch = ({
           </div>
 
           <div className="flex-1 flex flex-col items-end gap-1">
-            <span className="font-medium text-[15px]">
-              {remainingAmount.toLocaleString()}
-            </span>
+            <div className="flex items-center gap-1">
+              <span className="font-medium text-[15px]">
+                {remainingAmount.toLocaleString()}
+              </span>
+              <span className="text-xs text-muted-foreground">left</span>
+            </div>
             <span
               className={cn(
                 'text-xs font-medium',
@@ -300,7 +331,7 @@ export const UsageDisplay = ({
       <CardContent className="space-y-4">
         {/* Monthly Credits */}
         <CreditBranch
-          title="Monthly"
+          title="Renewable"
           totalAmount={expiringTotal}
           usedAmount={expiringUsed}
           nextQuotaReset={nextQuotaReset}
@@ -332,7 +363,7 @@ export const UsageDisplay = ({
         {/* Non-expiring Credits */}
         {(nonExpiringTotal > 0 || nonExpiringUsed > 0) && (
           <CreditBranch
-            title="Non-expiring"
+            title="Non-renewable"
             totalAmount={nonExpiringTotal}
             usedAmount={nonExpiringUsed}
             isLast={true}

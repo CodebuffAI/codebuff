@@ -110,7 +110,15 @@ export class Client {
   private lastToolResults: ToolResult[] = []
   private extraGemini25ProMessageShown: boolean = false
   private responseComplete: boolean = false
+  private topUpOccurred: boolean = false
 
+  public usageData: Omit<UsageResponse, 'type'> = {
+    usage: 0,
+    remainingBalance: 0,
+    balanceBreakdown: undefined,
+    next_quota_reset: null,
+    nextMonthlyGrant: 0,
+  }
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
   public agentState: AgentState | undefined
@@ -118,11 +126,6 @@ export class Client {
   public creditsByPromptId: Record<string, number[]> = {}
   public user: User | undefined
   public lastWarnedPct: number = 0
-  public usage: number = 0
-  public remainingBalance: number = 0
-  public balanceBreakdown: Partial<Record<GrantType, number>> | undefined =
-    undefined
-  public nextQuotaReset: Date | null = null
   public nextMonthlyGrant: number = 0
   public storedApiKeyTypes: ApiKeyType[] = []
 
@@ -319,10 +322,14 @@ export class Client {
           console.log(`You (${this.user.name}) have been logged out.`)
           this.user = undefined
           this.extraGemini25ProMessageShown = false
-          this.usage = 0
-          this.remainingBalance = 0
-          this.balanceBreakdown = undefined
-          this.nextQuotaReset = null
+          this.topUpOccurred = false
+          this.usageData = {
+            usage: 0,
+            remainingBalance: 0,
+            balanceBreakdown: undefined,
+            next_quota_reset: null,
+            nextMonthlyGrant: 0,
+          }
         } catch (error) {
           console.error('Error removing credentials file:', error)
         }
@@ -448,11 +455,7 @@ export class Client {
   }
 
   public setUsage(usageData: Omit<UsageResponse, 'type'>) {
-    this.usage = usageData.usage
-    this.remainingBalance = usageData.remainingBalance
-    this.balanceBreakdown = usageData.balanceBreakdown
-    this.nextQuotaReset = usageData.next_quota_reset
-    this.nextMonthlyGrant = usageData.nextMonthlyGrant
+    this.usageData = usageData
   }
 
   private setupSubscriptions() {
@@ -522,13 +525,14 @@ export class Client {
 
       this.setUsage(parsedAction.data)
 
-      // Show auto top-up success message if credits were added
-      if (action.autoTopupAdded) {
+      // Show auto-topup message if it occurred and we haven't shown it yet
+      if (parsedAction.data.autoTopupAdded && !this.topUpOccurred) {
         console.log(
           green(
-            `\n✨ Auto top-up successful! Added ${action.autoTopupAdded.toLocaleString()} credits to your account.`
+            `\n✨ Auto top-up successful! Added ${parsedAction.data.autoTopupAdded.toLocaleString()} credits.`
           )
         )
+        this.topUpOccurred = true
       }
 
       // Only show warning if the response is complete
@@ -542,7 +546,7 @@ export class Client {
     // Determine user state based on login status and credit balance
     const state = match({
       isLoggedIn: !!this.user,
-      credits: this.remainingBalance,
+      credits: this.usageData.remainingBalance,
     })
       .with({ isLoggedIn: false }, () => UserState.LOGGED_OUT)
       .with({ credits: P.number.gte(100) }, () => UserState.GOOD_STANDING)
@@ -560,7 +564,7 @@ export class Client {
 
     // Show warning if we haven't warned at this threshold yet
     if (this.lastWarnedPct < config.threshold) {
-      const message = config.message(this.remainingBalance)
+      const message = config.message(this.usageData.remainingBalance)
       console.warn(message)
       this.lastWarnedPct = config.threshold
       this.returnControlToUser()
@@ -819,8 +823,9 @@ export class Client {
       }
     )
 
-    // Reset the flag at the start of each response
+    // Reset flags at the start of each response
     this.responseComplete = false
+    this.topUpOccurred = false
 
     return {
       responsePromise,
@@ -855,9 +860,9 @@ export class Client {
 
       const usageLink = `${websiteUrl}/usage`
       const remainingColor =
-        this.remainingBalance <= 0
+        this.usageData.remainingBalance <= 0
           ? red
-          : this.remainingBalance <= LOW_BALANCE_THRESHOLD
+          : this.usageData.remainingBalance <= LOW_BALANCE_THRESHOLD
             ? red
             : green
 
@@ -865,12 +870,12 @@ export class Client {
         .flat()
         .reduce((sum, credits) => sum + credits, 0)
       console.log(
-        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}. Credits Remaining: ${remainingColor(this.remainingBalance.toLocaleString())}`
+        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
       )
 
-      if (this.nextQuotaReset) {
+      if (this.usageData.next_quota_reset) {
         console.log(
-          `${this.nextMonthlyGrant.toLocaleString()} credits will be added on ${this.nextQuotaReset.toLocaleDateString()}. Details: ${underline(blue(usageLink))}`
+          `${this.usageData.nextMonthlyGrant.toLocaleString()} credits will be added on ${this.usageData.next_quota_reset.toLocaleDateString()}. Details: ${underline(blue(usageLink))}`
         )
       }
 

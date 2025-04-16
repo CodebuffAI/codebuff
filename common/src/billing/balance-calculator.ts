@@ -265,38 +265,6 @@ export async function consumeCredits(
     'Successfully consumed credits'
   )
 
-  // Get user's auto-topup settings
-  const user = await db.query.user.findFirst({
-    where: eq(schema.user.id, userId),
-    columns: {
-      auto_topup_enabled: true,
-      auto_topup_threshold: true,
-      next_quota_reset: true,
-    },
-  })
-
-  // Check if we need to trigger auto-topup
-  if (user?.auto_topup_enabled && user.auto_topup_threshold) {
-    const { balance } = await calculateUsageAndBalance(
-      userId,
-      user.next_quota_reset ?? new Date(0)
-    )
-    if (balance.totalRemaining < user.auto_topup_threshold) {
-      // Import and call checkAndTriggerAutoTopup
-      const { checkAndTriggerAutoTopup } = await import(
-        'common/src/billing/auto-topup'
-      )
-      try {
-        await checkAndTriggerAutoTopup(userId)
-      } catch (error) {
-        logger.error(
-          { userId, error },
-          'Failed to process auto top-up after credit consumption'
-        )
-      }
-    }
-  }
-
   return result
 }
 
