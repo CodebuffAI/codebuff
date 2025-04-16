@@ -158,7 +158,7 @@ const CreditBranch = ({
 }: CreditBranchProps) => {
   const [isOpen, setIsOpen] = React.useState(false)
   const leftAmount = totalAmount - usedAmount
-  const isRenewable = title === 'Renewable'
+  const isRenewable = title === 'Renewable Credits'
 
   return (
     <div className="space-y-1 border rounded-lg p-2">
@@ -175,24 +175,13 @@ const CreditBranch = ({
               <ChevronRight className="h-4 w-4" />
             )}
           </div>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-4 w-full">
-            <div className="flex flex-col sm:flex-row gap-1 sm:gap-4">
-              <span className="font-medium text-sm text-left">{title}</span>
-              <div className="flex sm:hidden items-center gap-2">
-                {isRenewable && nextQuotaReset && (
-                  <span className="text-xs bg-blue-500/5 text-blue-400 border border-blue-400/10 px-2 py-0.5 rounded">
-                    Renews {nextQuotaReset.toLocaleDateString()}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="hidden sm:flex items-center gap-2">
-              {isRenewable && nextQuotaReset && (
-                <span className="text-xs bg-blue-500/5 text-blue-400 border border-blue-400/10 px-2 py-0.5 rounded">
-                  Renews {nextQuotaReset.toLocaleDateString()}
-                </span>
-              )}
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm text-left">{title}</span>
+            {isRenewable && nextQuotaReset && (
+              <span className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                Renews {nextQuotaReset.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              </span>
+            )}
           </div>
         </div>
 
@@ -225,7 +214,7 @@ export const UsageDisplay = ({
   nextQuotaReset,
 }: UsageDisplayProps) => {
   const { totalRemaining, breakdown, totalDebt, principals } = balance
-
+  
   // Calculate used credits per type
   const usedCredits: Record<GrantType, number> = {
     free: 0,
@@ -240,7 +229,7 @@ export const UsageDisplay = ({
     const principal = principals?.[typeKey] || currentBalance
     usedCredits[typeKey] = Math.max(0, principal - currentBalance)
   })
-
+  
   // Group credits by expiration type
   const expiringTypes: GrantType[] = ['free', 'referral']
   const nonExpiringTypes: GrantType[] = ['admin', 'purchase']
@@ -265,18 +254,22 @@ export const UsageDisplay = ({
     0
   )
 
+  // Format date for display
+  const formattedRenewalDate = nextQuotaReset 
+    ? nextQuotaReset.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : null
+
   return (
     <Card className="w-full max-w-2xl mx-auto -mt-8">
       <CardHeader className="pb-4">
-        <CardTitle className="text-xl font-bold mb-1">Credit Balance</CardTitle>
-        <div className="flex flex-col gap-1">
-          <span className="text-sm text-muted-foreground">
-            We'll use your renewable credits before non-renewable ones
-          </span>
+        <CardTitle className="text-xl font-bold mb-3">Credit Balance</CardTitle>
+        
+        <div className="text-sm text-muted-foreground mb-3">
+          We'll use your renewable credits before non-renewable ones
         </div>
-
+        
         {totalDebt > 500 && (
-          <div className="mt-3 p-2.5 bg-red-500/10 border border-red-500/20 rounded-md">
+          <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-md">
             <p className="text-red-500 font-medium">
               Please add more than{' '}
               {pluralize(totalDebt, 'credit').toLocaleString()} to continue
@@ -287,50 +280,42 @@ export const UsageDisplay = ({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Monthly Credits */}
+        {/* Credit Categories with expandable details */}
+        <div className="space-y-1">
+          <CreditBranch
+            title="Renewable Credits"
+            totalAmount={expiringTotal}
+            usedAmount={expiringUsed}
+            nextQuotaReset={nextQuotaReset}
+          >
+            {expiringTypes.map((type) => {
+              const currentBalance = breakdown[type] || 0
+              const principal = principals?.[type] || currentBalance
+              const used = usedCredits[type]
+              
+              return (
+                <CreditLeaf
+                  key={type}
+                  type={type}
+                  amount={principal}
+                  used={used}
+                  isRenewable={true}
+                />
+              )
+            })}
+          </CreditBranch>
+        </div>
+        
         <CreditBranch
-          title="Renewable"
-          totalAmount={expiringTotal}
-          usedAmount={expiringUsed}
-          nextQuotaReset={nextQuotaReset}
-          isLast={nonExpiringTotal <= 0}
-          isTopLevel={true}
-        >
-          {expiringTypes.map((type, index, array) => {
-            const currentBalance = breakdown[type] || 0
-            const principal = principals?.[type] || currentBalance
-            const used = usedCredits[type]
-            return (
-              <CreditLeaf
-                key={type}
-                type={type}
-                amount={principal}
-                used={used}
-                renewalDate={nextQuotaReset}
-                isRenewable={true}
-                isLast={
-                  index === array.length - 1 ||
-                  !array
-                    .slice(index + 1)
-                    .some((t) => (principals?.[t] || breakdown[t] || 0) > 0)
-                }
-              />
-            )
-          })}
-        </CreditBranch>
-
-        {/* Non-expiring Credits */}
-        <CreditBranch
-          title="Non-renewable"
+          title="Non-renewable Credits"
           totalAmount={nonExpiringTotal}
           usedAmount={nonExpiringUsed}
-          isLast={true}
-          isTopLevel={true}
         >
-          {nonExpiringTypes.map((type, index, array) => {
+          {nonExpiringTypes.map((type) => {
             const currentBalance = breakdown[type] || 0
             const principal = principals?.[type] || currentBalance
             const used = usedCredits[type]
+            
             return (
               <CreditLeaf
                 key={type}
@@ -338,19 +323,14 @@ export const UsageDisplay = ({
                 amount={principal}
                 used={used}
                 isRenewable={false}
-                isLast={
-                  index === array.length - 1 ||
-                  !array
-                    .slice(index + 1)
-                    .some((t) => (principals?.[t] || breakdown[t] || 0) > 0)
-                }
               />
             )
           })}
         </CreditBranch>
 
-        <div className="pt-4">
-          <div className="flex justify-between items-center">
+        {/* Total remaining */}
+        <div className="pt-4 mt-2 border-t">
+          <div className="flex justify-between items-center md:px-6">
             <span className="text-xl font-medium">Total Left</span>
             <span className="text-xl font-bold">
               {totalRemaining.toLocaleString()}
@@ -364,39 +344,32 @@ export const UsageDisplay = ({
 
 export const UsageDisplaySkeleton = () => (
   <Card className="w-full max-w-2xl mx-auto -mt-8">
-    <CardHeader>
-      <div className="h-8 w-48 bg-muted rounded animate-pulse" />
-      <div className="h-6 w-64 bg-muted rounded animate-pulse" />
+    <CardHeader className="pb-4">
+      <div className="h-7 w-32 bg-muted rounded animate-pulse mb-3" />
+      <div className="h-5 w-64 bg-muted/70 rounded animate-pulse mb-3" />
+      <div className="h-10 w-full bg-blue-100/50 dark:bg-blue-900/20 rounded-md animate-pulse mb-3" />
     </CardHeader>
-    <CardContent className="space-y-6">
-      {/* Monthly Credits skeleton */}
-      <div className="space-y-4">
-        <div className="h-12 bg-muted rounded animate-pulse" />
-        <div className="pl-4 space-y-3 relative">
-          {[1, 2].map((i) => (
-            <div key={i} className="relative pl-6">
-              <div
-                className={cn(
-                  'absolute left-0 w-px bg-muted/30',
-                  i === 2 ? 'top-0 h-[calc(50%+2px)]' : 'top-0 bottom-0'
-                )}
-              />
-              <div className="absolute left-0 top-1/2 w-4 h-px bg-muted/30" />
-              <div className="h-8 bg-muted/80 rounded-md animate-pulse" />
-            </div>
-          ))}
-        </div>
+    
+    <CardContent className="space-y-4">
+      {/* Credit Category Branches */}
+      <div className="space-y-1 border rounded-lg p-2 animate-pulse">
+        <div className="h-12 bg-muted rounded-md" />
       </div>
-
-      {/* Non-expiring Credits skeleton */}
-      <div className="space-y-4">
-        <div className="h-12 bg-muted rounded animate-pulse" />
-        <div className="pl-4 space-y-3 relative">
-          <div key={1} className="relative pl-6">
-            <div className="absolute left-0 top-0 h-[calc(50%+2px)] w-px bg-muted/30" />
-            <div className="absolute left-0 top-1/2 w-4 h-px bg-muted/30" />
-            <div className="h-8 bg-muted/80 rounded-md animate-pulse" />
-          </div>
+      
+      <div className="space-y-1 border rounded-lg p-2 animate-pulse">
+        <div className="h-12 bg-muted rounded-md" />
+      </div>
+      
+      {/* Summary section skeleton */}
+      <div className="pt-4 mt-2 border-t space-y-3">
+        <div className="flex justify-between items-center">
+          <div className="h-5 w-32 bg-muted/70 rounded animate-pulse" />
+          <div className="h-5 w-20 bg-muted/70 rounded animate-pulse" />
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <div className="h-7 w-24 bg-muted rounded animate-pulse" />
+          <div className="h-7 w-28 bg-muted rounded animate-pulse" />
         </div>
       </div>
     </CardContent>
