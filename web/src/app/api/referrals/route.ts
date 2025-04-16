@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { eq } from 'drizzle-orm'
-import { z } from 'zod'
-import { authOptions } from '../auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
+import { eq } from 'drizzle-orm'
+import { getServerSession } from 'next-auth'
+import { NextResponse } from 'next/server'
+import { z } from 'zod'
+
+import { authOptions } from '../auth/[...nextauth]/auth-options'
 import { redeemReferralCode } from './helpers'
 
 type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
@@ -112,6 +113,28 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  try {
+    // First try to get the session (web flow)
+    const session = await getServerSession(authOptions)
+    if (session?.user?.id) {
+      const { referralCode } = await request.json()
+      if (!referralCode) {
+        return NextResponse.json(
+          { error: 'Missing referral code' },
+          { status: 400 }
+        )
+      }
+      return redeemReferralCode(referralCode, session.user.id)
+    }
+  } catch (error) {
+    console.error('Error processing referral:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+
+  // Fall back to auth token (CLI flow)
   const reqJson = await request.json()
   const parsedJson = z
     .object({

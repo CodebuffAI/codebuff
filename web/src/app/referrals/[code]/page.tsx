@@ -67,7 +67,7 @@ export default function RedeemPage({ params }: { params: { code: string } }) {
   useEffect(() => {
     // Store the referral code if user is not logged in
     if (status === 'unauthenticated') {
-      localStorage.setItem('codebuff_referral_code', code)
+      localStorage.setItem('referral_code', code)
     }
   }, [code, status])
 
