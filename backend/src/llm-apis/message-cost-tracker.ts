@@ -20,8 +20,11 @@ import { sendAction } from '@/websockets/websocket-action'
 
 const PROFIT_MARGIN = 0.3
 
+// Pricing details:
+// - https://www.anthropic.com/pricing#anthropic-api
+// - https://openai.com/pricing
+// - https://ai.google.dev/pricing
 type CostModelKey = keyof (typeof TOKENS_COST_PER_M)['input']
-
 const TOKENS_COST_PER_M = {
   input: {
     [models.sonnet]: 3,
@@ -370,7 +373,7 @@ async function sendCostResponseToClient(
           promptId: userInputId,
           credits: creditsUsed,
         })
-        logger.trace(
+        logger.debug(
           {
             clientSessionId: clientSessionId,
             promptId: userInputId,
@@ -408,7 +411,7 @@ async function updateUserCycleUsage(
   creditsUsed: number
 ): Promise<CreditConsumptionResult> {
   if (creditsUsed <= 0) {
-    logger.trace(
+    logger.debug(
       { userId, creditsUsed },
       'Skipping user usage update (zero credits).'
     )
@@ -417,7 +420,7 @@ async function updateUserCycleUsage(
   try {
     // Consume from grants in priority order and track purchased credit usage
     const result = await consumeCredits(userId, creditsUsed)
-    
+
     logger.debug(
       { userId, creditsUsed, fromPurchased: result.fromPurchased },
       'Credits consumed successfully'
@@ -465,7 +468,11 @@ export const saveMessage = async (value: {
       const centsPerCredit = await getUserCostPerCredit(value.userId)
       const costInCents = Math.max(
         1,
-        Math.round(cost * 100 * (value.usesUserApiKey ? PROFIT_MARGIN : 1 + PROFIT_MARGIN))
+        Math.round(
+          cost *
+            100 *
+            (value.usesUserApiKey ? PROFIT_MARGIN : 1 + PROFIT_MARGIN)
+        )
       )
 
       const creditsUsed = Math.max(1, costInCents)

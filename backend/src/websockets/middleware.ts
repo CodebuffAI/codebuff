@@ -64,7 +64,7 @@ export class WebSocketMiddleware {
         clientSessionId,
         userId: userInfo?.id,
         userEmail: userInfo?.email,
-        discordId: userInfo?.discord_id,
+        discordId: userInfo?.discord_id ?? undefined,
       },
       async () => {
         for (const middleware of this.middlewares) {
