@@ -352,8 +352,9 @@ export const UsageDisplay = ({
         {totalDebt > 0 && (
           <div className="mt-3 p-2.5 bg-red-500/10 border border-red-500/20 rounded-md">
             <p className="text-red-500 font-medium">
-              Please purchase {pluralize(totalDebt, 'credit').toLocaleString()}{' '}
-              to continue using Codebuff.
+              Please add more than{' '}
+              {pluralize(totalDebt, 'credit').toLocaleString()} to continue
+              using Codebuff.
             </p>
           </div>
         )}
