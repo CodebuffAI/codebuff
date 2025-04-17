@@ -208,7 +208,7 @@ async function syncMessageToStripe(messageData: {
 
     await withRetry(syncAction, {
       maxRetries: 5,
-      shouldRetry: (error) => {
+      retryIf: (error: Stripe.errors.StripeError) => {
         if (
           error instanceof Stripe.errors.StripeConnectionError ||
           error instanceof Stripe.errors.StripeAPIError ||

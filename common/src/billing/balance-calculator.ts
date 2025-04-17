@@ -23,12 +23,19 @@ export interface CreditConsumptionResult {
   fromPurchased: number
 }
 
+// Add a minimal structural type that both `db` and `tx` satisfy
+type DbConn = Pick<typeof db, 'select' | 'update'> /* + whatever else you call */
+
 /**
  * Gets active grants for a user, ordered by expiration (soonest first), then priority, and creation date.
- * This is the core ordering logic used by both balance calculation and credit consumption.
+ * Added optional `conn` param so callers inside a transaction can supply their TX object.
  */
-export async function getOrderedActiveGrants(userId: string, now: Date) {
-  return db
+export async function getOrderedActiveGrants(
+  userId: string,
+  now: Date,
+  conn: DbConn = db  // use DbConn instead of typeof db
+) {
+  return conn
     .select()
     .from(schema.creditLedger)
     .where(
@@ -55,9 +62,10 @@ async function updateGrantBalance(
   userId: string,
   grant: typeof schema.creditLedger.$inferSelect,
   consumed: number,
-  newBalance: number
+  newBalance: number,
+  tx: DbConn
 ) {
-  await db
+  await tx
     .update(schema.creditLedger)
     .set({ balance: newBalance })
     .where(eq(schema.creditLedger.operation_id, grant.operation_id))
@@ -77,12 +85,12 @@ async function updateGrantBalance(
 
 /**
  * Consumes credits from a list of ordered grants.
- * Returns details about credit consumption including how many came from purchased credits.
  */
 async function consumeFromOrderedGrants(
   userId: string,
   creditsToConsume: number,
-  grants: (typeof schema.creditLedger.$inferSelect)[]
+  grants: (typeof schema.creditLedger.$inferSelect)[],
+  tx: DbConn
 ): Promise<CreditConsumptionResult> {
   let remainingToConsume = creditsToConsume
   let consumed = 0
@@ -97,7 +105,7 @@ async function consumeFromOrderedGrants(
       remainingToConsume -= repayAmount
       consumed += repayAmount
 
-      await updateGrantBalance(userId, grant, -repayAmount, newBalance)
+      await updateGrantBalance(userId, grant, -repayAmount, newBalance, tx)
 
       logger.debug(
         { userId, grantId: grant.operation_id, repayAmount, newBalance },
@@ -121,7 +129,7 @@ async function consumeFromOrderedGrants(
       fromPurchased += consumeFromThisGrant
     }
 
-    await updateGrantBalance(userId, grant, consumeFromThisGrant, newBalance)
+    await updateGrantBalance(userId, grant, consumeFromThisGrant, newBalance, tx)
   }
 
   // If we still have remaining to consume and no grants left, create debt in the last grant
@@ -134,7 +142,8 @@ async function consumeFromOrderedGrants(
         userId,
         lastGrant,
         remainingToConsume,
-        newBalance
+        newBalance,
+        tx
       )
       consumed += remainingToConsume
 
@@ -228,44 +237,47 @@ export async function consumeCredits(
   userId: string,
   creditsToConsume: number
 ): Promise<CreditConsumptionResult> {
-  const now = new Date()
-  const activeGrants = await getOrderedActiveGrants(userId, now)
+  return await db.transaction(async (tx) => {
+    const now = new Date()
+    const activeGrants = await getOrderedActiveGrants(userId, now, tx as DbConn)
 
-  if (activeGrants.length === 0) {
-    logger.error(
-      { userId, creditsToConsume },
-      'No active grants found to consume credits from'
-    )
-    throw new Error('No active grants found')
-  }
+    if (activeGrants.length === 0) {
+      logger.error(
+        { userId, creditsToConsume },
+        'No active grants found to consume credits from'
+      )
+      throw new Error('No active grants found')
+    }
 
-  const hasDebt = activeGrants.some((grant) => grant.balance < 0)
-  if (hasDebt) {
-    logger.error(
-      { userId, creditsToConsume },
-      'Cannot consume credits - user has existing debt'
-    )
-    throw new Error(
-      'Cannot use credits while you have unpaid debt. Please add credits to clear your debt first.'
-    )
-  }
+    const hasDebt = activeGrants.some((grant) => grant.balance < 0)
+    if (hasDebt) {
+      logger.error(
+        { userId, creditsToConsume },
+        'Cannot consume credits - user has existing debt'
+      )
+      throw new Error(
+        'Cannot use credits while you have unpaid debt. Please add credits to clear your debt first.'
+      )
+    }
 
-  const result = await consumeFromOrderedGrants(
-    userId,
-    creditsToConsume,
-    activeGrants
-  )
-  logger.info(
-    {
+    const result = await consumeFromOrderedGrants(
       userId,
-      creditsRequested: creditsToConsume,
-      creditsConsumed: result.consumed,
-      fromPurchased: result.fromPurchased,
-    },
-    'Successfully consumed credits'
-  )
+      creditsToConsume,
+      activeGrants,
+      tx
+    )
+    logger.info(
+      {
+        userId,
+        creditsRequested: creditsToConsume,
+        creditsConsumed: result.consumed,
+        fromPurchased: result.fromPurchased,
+      },
+      'Successfully consumed credits'
+    )
 
-  return result
+    return result
+  })
 }
 
 /**

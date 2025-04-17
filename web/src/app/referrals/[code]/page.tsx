@@ -22,17 +22,6 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { env } from '@/env.mjs'
 import { storeSearchParams } from '@/lib/trackConversions'
-import { Metadata } from 'next'
-
-export const generateMetadata = async ({
-  params,
-}: {
-  params: { code: string }
-}): Promise<Metadata> => {
-  return {
-    title: 'Redeem Referral | Codebuff',
-  }
-}
 
 const InputWithCopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
