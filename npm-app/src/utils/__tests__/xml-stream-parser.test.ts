@@ -1,10 +1,12 @@
-// @ts-ignore
-import { describe, test, expect } from 'bun:test'
-import { Writable } from 'stream'
 import fs from 'fs'
 import path from 'path'
-import { createXMLStreamParser } from '../xml-stream-parser'
+import { Writable } from 'stream'
+
+// @ts-ignore
+import { describe, expect, test } from 'bun:test'
+
 import { defaultToolCallRenderer } from '../tool-renderers'
+import { createXMLStreamParser } from '../xml-stream-parser'
 
 const toolRenderers = {
   run_terminal_command: defaultToolCallRenderer,
@@ -159,7 +161,7 @@ describe('Saxy Stream Processor', () => {
 
   test('processes text content incrementally', async () => {
     // Define chunks that will be written one at a time
-    const chunks = ['hi', 'hi2', 'hi3 <yo>yo</yo>']
+    const chunks = ['hi', 'hi2', 'hi3 <yo>\nyo\n</yo>']
 
     // Array to store output chunks as they're produced
     const outputChunks: string[] = []
@@ -192,7 +194,7 @@ describe('Saxy Stream Processor', () => {
 
     // Verify the complete output
     const fullOutput = outputChunks.join('')
-    expect(fullOutput).toEqual('hihi2hi3 yo')
+    expect(fullOutput).toEqual('hihi2hi3 <yo>\nyo\n</yo>')
 
     expect(outputChunks.length).toBeGreaterThan(3)
   })
@@ -223,20 +225,16 @@ describe('Saxy Stream Processor', () => {
       write_file: {
         ...defaultToolCallRenderer,
         onToolStart: (toolName: string) => {
-          console.log('write_file start')
           writeFileStartCount++
           return 'Write File'
         },
         onParamStart: (paramName: string, toolName: string) => {
-          console.log('write_file param start', paramName)
           return null
         },
         onParamEnd: (paramName: string, toolName: string, content: string) => {
-          console.log('write_file param end', paramName, content)
           return null
         },
         onToolEnd: (toolName: string, params: Record<string, string>) => {
-          console.log('write_file end', params)
           writeFileEndCount++
           return null
         },
