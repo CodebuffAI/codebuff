@@ -514,7 +514,7 @@ export class CLI {
           (1000 * 60 * 60 * 24)
       )
       logMessages.push(
-        `You'll get ${this.client.usageData.nextMonthlyGrant.toLocaleString()} more credits in ${pluralize(daysUntilReset, 'day')}.`
+        `Your free credits will reset in ${pluralize(daysUntilReset, 'day')}.`
       )
     }
 

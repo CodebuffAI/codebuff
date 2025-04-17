@@ -544,7 +544,7 @@ export class Client {
 
       // Store auto-topup info if it occurred
       if (parsedAction.data.autoTopupAdded) {
-        this.pendingTopUpMessageAmount = parsedAction.data.autoTopupAdded;
+        this.pendingTopUpMessageAmount = parsedAction.data.autoTopupAdded
       }
 
       // Only show warning if the response is complete
@@ -899,7 +899,7 @@ export class Client {
 
       if (this.usageData.next_quota_reset) {
         console.log(
-          `${this.usageData.nextMonthlyGrant.toLocaleString()} credits will be added on ${this.usageData.next_quota_reset.toLocaleDateString()}. Details: ${underline(blue(usageLink))}`
+          `Free credits will renew on ${this.usageData.next_quota_reset.toLocaleDateString()}. Details: ${underline(blue(usageLink))}`
         )
       }
 
