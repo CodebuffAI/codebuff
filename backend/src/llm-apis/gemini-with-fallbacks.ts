@@ -74,7 +74,6 @@ export async function promptGeminiWithFallbacks(
       geminiOptions
     )
   } catch (error) {
-    console.log('error', error)
     logger.warn(
       { error },
       'Error calling Gemini API, falling back to Vertex Gemini'
