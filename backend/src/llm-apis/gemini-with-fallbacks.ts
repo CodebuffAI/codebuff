@@ -165,6 +165,31 @@ export async function* streamGemini25ProWithFallbacks(
     : (messages as OpenAIMessage[])
   let accumulatedContent = '' // To store content from the failed stream
 
+  // Try Gemini API Stream (Internal Key - gemini-2.5-pro-preview)
+  const geminiPreviewOptions = {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    model: geminiModels.gemini2_5_pro_preview, // Preview model via Gemini API
+    maxTokens,
+    temperature,
+  }
+  try {
+    for await (const chunk of promptGeminiStream(
+      currentMessages,
+      geminiPreviewOptions
+    )) {
+      yield chunk
+    }
+    return // Success
+  } catch (error) {
+    logger.warn(
+      { error },
+      'Error calling Gemini 2.5 Pro (preview) via Gemini API Stream (Internal Key)'
+    )
+  }
+
   // --- Internal Fallbacks ---
 
   // 1. Try Gemini API Stream (Internal Key - gemini-2.5-pro-exp)

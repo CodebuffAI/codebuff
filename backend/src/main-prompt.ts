@@ -51,6 +51,7 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
+import { getThinkingStream } from './thinking-stream'
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
 export const mainPrompt = async (
@@ -119,7 +120,11 @@ export const mainPrompt = async (
 
     `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
 
-    !justUsedATool &&
+    costMode === 'max' &&
+      'Start your response with the <think_deeply> tool call to decide how to proceed.',
+
+    costMode !== 'max' &&
+      !justUsedATool &&
       !recentlyDidThinking &&
       'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
 
@@ -399,7 +404,36 @@ ${newFiles.map((file) => file.path).join('\n')}
     Promise<{ path: string; content: string; patch?: string } | null>[]
   > = {}
 
-  const stream = getStream(agentMessages, system)
+  // Add deep thinking for max mode
+  if (costMode === 'max') {
+    await getThinkingStream(
+      agentMessages,
+      system,
+      (chunk) => {
+        onResponseChunk(chunk)
+        fullResponse += chunk
+      },
+      {
+        costMode,
+        clientSessionId,
+        fingerprintId,
+        userInputId: promptId,
+        userId,
+      }
+    )
+  }
+
+  const stream = getStream(
+    buildArray(
+      ...agentMessages,
+      // Add prefix of the response from fullResponse if it exists
+      fullResponse && {
+        role: 'assistant' as const,
+        content: fullResponse.trim(),
+      }
+    ),
+    system
+  )
 
   const streamWithTags = processStreamWithTags(stream, {
     write_file: {

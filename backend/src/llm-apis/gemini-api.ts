@@ -245,6 +245,7 @@ export async function promptGemini(
     const generationConfig = removeUndefinedProps({
       temperature: temperature ?? 0.7,
       maxOutputTokens: maxTokens,
+      stopSequences: ['</think_deeply>'],
     })
 
     const timeoutMs = model === geminiModels.gemini2flash ? 60_000 : 200_000

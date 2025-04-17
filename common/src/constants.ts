@@ -183,6 +183,7 @@ export const openaiModels = {
 export type OpenAIModel = (typeof openaiModels)[keyof typeof openaiModels]
 
 export const geminiModels = {
+  gemini2_5_flash: 'gemini-2.5-flash-preview-04-17',
   gemini2flash: 'gemini-2.0-flash-001',
   gemini2_5_pro_exp: 'gemini-2.5-pro-exp-03-25',
   gemini2_5_pro_preview: 'gemini-2.5-pro-preview-03-25',
