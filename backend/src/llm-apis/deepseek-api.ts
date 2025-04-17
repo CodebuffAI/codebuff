@@ -123,7 +123,7 @@ async function* innerPromptDeepseekStream(
       },
       {
         maxRetries: DEEPSEEK_MAX_RETRIES,
-        shouldRetry: (error) => {
+        retryIf: (error) => {
           // Only retry on timeout errors - Deepseek API rarely errors, just gets very slow
           return error instanceof Error && error.message === timeoutErrorMessage
         },

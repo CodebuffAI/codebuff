@@ -9,14 +9,14 @@ import { sendMessage } from './server'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { protec } from './middleware'
-import { getQuotaManager } from 'common/src/billing/quota-manager'
-import { getNextQuotaReset } from 'common/src/util/dates'
+import { calculateUsageAndBalance } from 'common/src/billing/balance-calculator'
 import { ensureEndsWithNewline } from 'common/src/util/file'
 import { logger, withLoggerContext } from '@/util/logger'
 import { generateCompactId } from 'common/util/string'
 import { renderToolResults } from '@/util/parse-tool-call-xml'
 import { buildArray } from 'common/util/array'
-import { toOptionalFile } from 'common/constants'
+import { toOptionalFile, UsageLimits, PLAN_CONFIGS } from 'common/constants'
+import { getPlanFromPriceId, getMonthlyGrantForPlan } from 'common/src/billing/plans'
 
 /**
  * Sends an action to the client via WebSocket
@@ -56,90 +56,64 @@ export const getUserIdFromAuthToken = async (
 }
 
 /**
- * Calculates usage metrics for a user or anonymous session
- * @param fingerprintId - The fingerprint ID for anonymous users
- * @param userId - The user ID for authenticated users
- * @param sessionId - The current session ID
- * @returns Object containing usage metrics including credits used, quota limits, and subscription status
- */
-async function calculateUsage(
-  fingerprintId: string,
-  userId: string | undefined,
-  sessionId: string | undefined
-) {
-  const quotaManager = getQuotaManager(
-    userId ? 'authenticated' : 'anonymous',
-    userId ?? fingerprintId
-  )
-  const {
-    creditsUsed,
-    quota,
-    endDate,
-    subscription_active,
-    session_credits_used,
-  } = await quotaManager.checkQuota(sessionId)
-
-  // Case 1: end date is in the past, so just reset the quota
-  if (endDate < new Date()) {
-    const nextQuotaReset = getNextQuotaReset(endDate)
-    await quotaManager.setNextQuota(false, nextQuotaReset)
-
-    // pull their newly updated info
-    const newQuota = await quotaManager.checkQuota(sessionId)
-    return {
-      usage: newQuota.creditsUsed,
-      limit: newQuota.quota,
-      subscription_active: newQuota.subscription_active,
-      next_quota_reset: nextQuotaReset,
-      session_credits_used: newQuota.session_credits_used ?? 0,
-    }
-  }
-
-  // Case 2: end date hasn't been reached yet
-  // if a non-subscribed user has exceeded their quota, set their quota exceeded flag
-  if (creditsUsed >= quota && !subscription_active) {
-    const nextQuotaReset = getNextQuotaReset(endDate)
-    await quotaManager.setNextQuota(true, nextQuotaReset)
-  }
-
-  return {
-    usage: creditsUsed,
-    limit: quota,
-    subscription_active,
-    next_quota_reset: endDate,
-    session_credits_used: session_credits_used ?? 0,
-  }
-}
-
-/**
  * Generates a usage response object for the client
  * @param fingerprintId - The fingerprint ID for the user/device
- * @param userId - Optional user ID for authenticated users
+ * @param userId - user ID for authenticated users
  * @param clientSessionId - Optional session ID
- * @param requestedByUser - Whether the request was made by the user
  * @returns A UsageResponse object containing usage metrics and referral information
  */
 export async function genUsageResponse(
   fingerprintId: string,
-  userId: string | undefined,
-  clientSessionId: string | undefined,
-  requestedByUser: boolean = false
+  userId: string,
+  clientSessionId: string | undefined
 ): Promise<UsageResponse> {
-  const params = await calculateUsage(fingerprintId, userId, clientSessionId)
-  logger.info(
-    {
-      fingerprintId,
-      userId,
-      sessionId: clientSessionId,
-      ...params,
-    },
-    'Generating usage info'
-  )
-
-  return {
-    type: 'usage-response',
-    ...params,
+  const logContext = { fingerprintId, userId, sessionId: clientSessionId }
+  const defaultResp = {
+    type: 'usage-response' as const,
+    usage: 0,
+    remainingBalance: 0,
+    balanceBreakdown: {},
+    next_quota_reset: null,
+    nextMonthlyGrant: PLAN_CONFIGS[UsageLimits.FREE].limit, // Default for anonymous users
   }
+
+  return withLoggerContext(logContext, async () => {
+    const user = await db.query.user.findFirst({
+      where: eq(schema.user.id, userId),
+      columns: {
+        next_quota_reset: true,
+        stripe_price_id: true,
+      },
+    })
+
+    if (!user) {
+      return defaultResp
+    }
+
+    try {
+      // Now userId is guaranteed to be a string
+      const { balance: balanceDetails, usageThisCycle } =
+        await calculateUsageAndBalance(userId, new Date())
+      const currentPlan = getPlanFromPriceId(user.stripe_price_id)
+      const nextMonthlyGrant = await getMonthlyGrantForPlan(currentPlan, userId)
+
+      return {
+        type: 'usage-response' as const,
+        usage: usageThisCycle,
+        remainingBalance: balanceDetails.totalRemaining,
+        balanceBreakdown: balanceDetails.breakdown,
+        next_quota_reset: user.next_quota_reset,
+        nextMonthlyGrant,
+      }
+    } catch (error) {
+      logger.error(
+        { error, usage: defaultResp },
+        'Error generating usage response, returning default'
+      )
+    }
+
+    return defaultResp
+  })
 }
 
 /**
@@ -238,8 +212,7 @@ const onPrompt = async (
         const usageResponse = await genUsageResponse(
           fingerprintId,
           userId,
-          undefined,
-          false
+          undefined
         )
         sendAction(ws, usageResponse)
       }
@@ -265,53 +238,29 @@ const onInit = async (
   ws: WebSocket
 ) => {
   await withLoggerContext({ fingerprintId }, async () => {
-    // Create a new session for fingerprint if it doesn't exist
-    await db
-      .insert(schema.fingerprint)
-      .values({
-        id: fingerprintId,
-      })
-      .onConflictDoNothing()
-
     const userId = await getUserIdFromAuthToken(authToken)
 
-    // DISABLED FOR NOW
-    // warm context cache
-    // const startTime = Date.now()
-    // const system = getSearchSystemPrompt(fileContext)
-    // try {
-    //   await promptClaude(
-    //     [
-    //       {
-    //         role: 'user',
-    //         content: 'please respond with just a single word "codebuff"',
-    //       },
-    //     ],
-    //     {
-    //       model: claudeModels.haiku,
-    //       system,
-    //       clientSessionId,
-    //       fingerprintId,
-    //       userId,
-    //       userInputId: 'init-cache',
-    //       maxTokens: 1,
-    //     }
-    //   )
-    //   logger.info(`Warming context cache done in ${Date.now() - startTime}ms`)
-    // } catch (e) {
-    //   logger.error(e, 'Error in init')
-    // }
+    if (!userId) {
+      sendAction(ws, {
+        usage: 0,
+        remainingBalance: 0,
+        balanceBreakdown: {},
+        next_quota_reset: null,
+        type: 'init-response',
+        nextMonthlyGrant: PLAN_CONFIGS[UsageLimits.FREE].limit, // Default for anonymous users
+      })
+      return
+    }
 
     // Send combined init and usage response
-    const { type, ...params } = await genUsageResponse(
+    const usageResponse = await genUsageResponse(
       fingerprintId,
       userId,
-      clientSessionId,
-      false
+      clientSessionId
     )
     sendAction(ws, {
+      ...usageResponse,
       type: 'init-response',
-      ...params,
     })
   })
 }

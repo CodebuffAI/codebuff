@@ -24,6 +24,11 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
 
   const initializePostHog = useCallback(() => {
+    // Skip if no API key is set
+    if (!env.NEXT_PUBLIC_POSTHOG_API_KEY) {
+      return
+    }
+
     // Check for user consent
     const consent = localStorage.getItem('cookieConsent')
     const hasConsented = consent === null || consent === 'true'
@@ -47,19 +52,21 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 
   // Identify user when session changes
   useEffect(() => {
-    if (session?.user?.email) {
-      // Use email as the primary identifier
-      posthog.identify(session.user.email, {
-        email: session.user.email, // Ensure email is used as distinct_id
-        user_id: session.user.id, // Keep user ID as a property
-        name: session.user.name,
-        subscription_active: session.user.subscription_active,
-        stripe_price_id: session.user.stripe_price_id,
-      })
-
-      // Set alias to ensure user_id is linked to the email
-      posthog.alias(session.user.id, session.user.email)
+    if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !session?.user?.email) {
+      return
     }
+
+    // Use email as the primary identifier
+    posthog.identify(session.user.email, {
+      email: session.user.email, // Ensure email is used as distinct_id
+      user_id: session.user.id, // Keep user ID as a property
+      name: session.user.name,
+      subscription_active: session.user.subscription_active,
+      stripe_price_id: session.user.stripe_price_id,
+    })
+
+    // Set alias to ensure user_id is linked to the email
+    posthog.alias(session.user.id, session.user.email)
   }, [session])
 
   return (

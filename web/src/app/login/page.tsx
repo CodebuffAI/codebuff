@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Card,
@@ -10,7 +11,7 @@ import {
 import CardWithBeams from '@/components/card-with-beams'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 
-const Home = () => {
+function LoginContent() {
   const searchParams = useSearchParams()
   const authCode = searchParams.get('auth_code')
 
@@ -33,37 +34,28 @@ const Home = () => {
     }
   }
 
-  // TODO: handle case where token has expired
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="mb-2">{authCode ? 'Login' : 'Login'}</CardTitle>
+        <CardDescription>
+          {authCode
+            ? 'Continue to sign in to the Codebuff CLI.'
+            : 'Increased rate limits, priority support, and more!'}
+        </CardDescription>
+      </CardHeader>
+      <SignInCardFooter />
+    </Card>
+  )
+}
+
+const Home = () => {
   return (
     <main className="container mx-auto flex flex-col items-center relative z-10">
       <div className="w-full sm:w-1/2 md:w-1/3">
-        {authCode ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="mb-2">Login</CardTitle>
-              <CardDescription>
-                Continue to sign in to the Codebuff CLI.
-                {/* If you just logged into Codebuff from the command line, please
-                  select an OAuth provider below to continue. */}
-              </CardDescription>
-              {/* <CardDescription>
-                  (Otherwise, you can just close this window. Phishing attack
-                  averted, phew!)
-                </CardDescription> */}
-            </CardHeader>
-            <SignInCardFooter />
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Login</CardTitle>
-              <CardDescription>
-                Increased rate limits, priority support, and more!
-              </CardDescription>
-            </CardHeader>
-            <SignInCardFooter />
-          </Card>
-        )}
+        <Suspense>
+          <LoginContent />
+        </Suspense>
       </div>
     </main>
   )

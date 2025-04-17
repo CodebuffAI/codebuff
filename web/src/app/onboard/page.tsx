@@ -15,13 +15,13 @@ import CardWithBeams from '@/components/card-with-beams'
 import { redeemReferralCode } from '../api/referrals/helpers'
 
 interface PageProps {
-  searchParams: {
+  searchParams?: {
     auth_code?: string
     referral_code?: string
   }
 }
 
-const Onboard = async ({ searchParams }: PageProps) => {
+const Onboard = async ({ searchParams = {} }: PageProps) => {
   const authCode = searchParams.auth_code
   const referralCode = searchParams.referral_code
   const session = await getServerSession(authOptions)

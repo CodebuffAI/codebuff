@@ -52,14 +52,7 @@ export const Navbar = async () => {
         >
           Pricing
         </Link>
-        {session && (
-          <Link
-            href="/referrals"
-            className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
-          >
-            Referrals
-          </Link>
-        )}
+
         {session && (
           <Link
             href="/usage"
@@ -90,12 +83,7 @@ export const Navbar = async () => {
                 Pricing
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/referrals" className="flex items-center">
-                <Users className="mr-2 h-4 w-4" />
-                Referrals
-              </Link>
-            </DropdownMenuItem>
+
             {session && (
               <DropdownMenuItem asChild>
                 <Link href="/usage" className="flex items-center">

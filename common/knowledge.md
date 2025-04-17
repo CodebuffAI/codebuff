@@ -23,3 +23,45 @@ This package contains code shared between the `web` (Next.js frontend/backend) a
 - Migrations are managed using `drizzle-kit`.
 - Run `bun run --cwd common db:generate` to create new migration files after schema changes.
 - Run `bun run --cwd common db:migrate` to apply pending migrations to the database.
+
+## Credit Grant Management
+
+When granting credits to users (monthly reset, referrals, etc.):
+- Use the shared `processAndGrantCredit` helper in `common/src/billing/grant-credits.ts`
+- Helper handles:
+  - User validation
+  - Cost per credit calculation
+  - Stripe monetary amount conversion
+  - Grant creation with proper metadata
+- Grant types:
+  - 'free' for monthly quota resets (expires next cycle)
+  - 'referral' for referral bonuses (expires next cycle)
+  - 'rollover' for unused purchase/rollover credits (never expires)
+  - 'purchase' for bought credits (never expires)
+  - 'admin' for manual grants (never expires)
+- Each grant type has its own priority level from GRANT_PRIORITIES
+- Always include operation_id to track related grants
+
+### Credit Ledger Operations
+
+- Operation IDs must be unique for each credit grant operation
+- When granting credits to multiple users in a single transaction (e.g. referrals), ensure each grant has a unique operation ID
+- For referrals, append the role (e.g. "-referrer" or "-referred") to the base operation ID
+
+### Credit Grant Flow
+1. Create local credit grant record immediately
+2. Create Stripe grant asynchronously
+3. Webhook updates local grant with Stripe ID when confirmed
+4. This ensures:
+   - Good UX: Users get credits immediately
+   - Data consistency: We track Stripe confirmations
+   - Reconciliation: Can find/fix mismatches via webhook
+
+### Monthly Reset Flow
+1. `calculateAndApplyRollover`:
+   - Calculates unused purchase/rollover credits
+   - Creates new rollover grant if needed
+   - Resets usage to 0
+   - Updates next_quota_reset
+2. Create new free/referral grants with expiration
+3. Create Stripe grants if needed

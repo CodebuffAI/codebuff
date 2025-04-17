@@ -7,6 +7,7 @@ import {
   ToolCallSchema as NewToolCallSchema,
 } from './types/agent-state'
 import { MessageSchema } from './types/message'
+import { grantTypeEnum } from './db/schema'
 
 export const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
@@ -59,10 +60,13 @@ export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 export const UsageReponseSchema = z.object({
   type: z.literal('usage-response'),
   usage: z.number(),
-  limit: z.number(),
-  subscription_active: z.boolean(),
-  next_quota_reset: z.coerce.date(),
-  session_credits_used: z.number(),
+  remainingBalance: z.number(),
+  balanceBreakdown: z
+    .record(z.enum(grantTypeEnum.enumValues), z.number())
+    .optional(),
+  next_quota_reset: z.coerce.date().nullable(),
+  nextMonthlyGrant: z.number(),
+  autoTopupAdded: z.number().optional(),
 })
 export type UsageResponse = z.infer<typeof UsageReponseSchema>
 
@@ -148,10 +152,13 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('action-error'),
     message: z.string(),
+    error: z.string().optional(),
+    remainingBalance: z.number().optional(),
   }),
   z.object({
     type: z.literal('commit-message-response'),
     commitMessage: z.string(),
   }),
 ])
+
 export type ServerAction = z.infer<typeof SERVER_ACTION_SCHEMA>

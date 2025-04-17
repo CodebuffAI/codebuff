@@ -123,6 +123,20 @@ const config = {
         'pulse-border': {
           '0%, 100%': { boxShadow: '0 0 0 rgba(124, 255, 63, 0)' },
           '50%': { boxShadow: '0 0 5px rgba(124, 255, 63, 0.5)' }
+        },
+        shimmer: {
+          from: { transform: 'translateX(-100%)' },
+          to: { transform: 'translateX(200%)' }
+        },
+        'gradient-shift': {
+          '0%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+          '100%': { backgroundPosition: '0% 50%' }
+        },
+        glow: {
+          '0%': { backgroundPosition: '0% 50%', opacity: '0.2' },
+          '50%': { backgroundPosition: '100% 50%', opacity: '0.4' },
+          '100%': { backgroundPosition: '0% 50%', opacity: '0.2' }
         }
       },
       animation: {
@@ -136,7 +150,10 @@ const config = {
         crtflicker: 'crtflicker 2s infinite ease-in-out',
         'path-glow': 'pathGlow 2s ease-in-out infinite',
         'float': 'float 3s ease-in-out infinite',
-        'pulse-border': 'pulse-border 2s ease-in-out infinite'
+        'pulse-border': 'pulse-border 2s ease-in-out infinite',
+        'shimmer': 'shimmer 2.5s infinite',
+        'gradient-shift': 'gradient-shift 10s ease infinite',
+        'glow': 'glow 3s ease-in-out infinite'
       },
     },
   },

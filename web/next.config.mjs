@@ -12,6 +12,16 @@ const withMDX = createMDX({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  webpack: (config) => {
+    config.resolve.fallback = { fs: false, net: false, tls: false }
+    // Tell Next.js to leave pino and thread-stream unbundled
+    config.externals.push(
+      { 'thread-stream': 'commonjs thread-stream', pino: 'commonjs pino' },
+      'pino-pretty',
+      'encoding'
+    )
+    return config
+  },
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
   headers: () => {
     return [
@@ -82,9 +92,10 @@ const nextConfig = {
       },
       {
         source: '/vibe',
-        destination: 'https://codebuff.com/referrals/ref-e0a1a93e-d811-49f9-97bc-dd17af50e3ad',
+        destination:
+          'https://codebuff.com/referrals/ref-e0a1a93e-d811-49f9-97bc-dd17af50e3ad',
         permanent: false,
-      }
+      },
     ]
   },
   images: {

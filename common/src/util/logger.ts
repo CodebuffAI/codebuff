@@ -1,7 +1,26 @@
 import pino from 'pino'
 import path from 'path'
-import { AsyncLocalStorage } from 'async_hooks'
 import { env } from '../env.mjs'
+import type { AsyncLocalStorage as NodeAsyncLocalStorage } from 'async_hooks'
+
+let AsyncLocalStorageImpl: typeof import('async_hooks').AsyncLocalStorage | null
+try {
+  // Load AsyncLocalStorage via require
+  AsyncLocalStorageImpl = require('async_hooks').AsyncLocalStorage
+} catch {
+  AsyncLocalStorageImpl = null
+}
+
+// Create a no‑op shim when AsyncLocalStorage isn't present
+const loggerAsyncStorage =
+  AsyncLocalStorageImpl !== null
+    ? new AsyncLocalStorageImpl<LoggerContext>()
+    : {
+        // run() just executes fn without context tracking
+        run: <R, A extends any[]>(_: any, fn: (...args: A) => R, ...args: A) =>
+          fn(...args),
+        getStore: () => undefined,
+      }
 
 export interface LoggerContext {
   userId?: string
@@ -10,34 +29,40 @@ export interface LoggerContext {
   [key: string]: any // Allow for future extensions
 }
 
-const loggerAsyncStorage = new AsyncLocalStorage<LoggerContext>()
-
 export const withLoggerContext = <T>(
   additionalContext: Partial<LoggerContext>,
   fn: () => Promise<T>
 ) => {
-  const store = loggerAsyncStorage.getStore() ?? {}
-  return loggerAsyncStorage.run({ ...store, ...additionalContext }, fn)
+  const store = (loggerAsyncStorage.getStore?.() ?? {}) as LoggerContext
+  // Cast to Node's AsyncLocalStorage to resolve overload mismatch
+  return (loggerAsyncStorage as NodeAsyncLocalStorage<LoggerContext>).run(
+    { ...store, ...additionalContext },
+    fn
+  )
 }
 
-const fileTransport = pino.transport({
-  target: 'pino/file',
-  options: { destination: path.join(__dirname, '..', 'debug.log') },
-  level: 'debug',
-})
+// Only use file transport when not running in Edge/browser‑like env
+const runningInEdge = process.env.NEXT_RUNTIME === 'edge'
+const fileTransport =
+  !runningInEdge && env.ENVIRONMENT !== 'production'
+    ? pino.transport({
+        target: 'pino/file',
+        options: { destination: path.join(__dirname, '..', 'debug.log') },
+        level: 'debug',
+      })
+    : undefined
 
 export const logger = pino(
   {
     level: 'debug',
     mixin() {
-      return { logTrace: loggerAsyncStorage.getStore() }
+      // If AsyncLocalStorage isn't available, return undefined
+      return { logTrace: loggerAsyncStorage.getStore?.() }
     },
     formatters: {
-      level: (label) => {
-        return { level: label.toUpperCase() }
-      },
+      level: (label) => ({ level: label.toUpperCase() }),
     },
-    timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
+    timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
   },
-  env.ENVIRONMENT === 'production' ? undefined : fileTransport
+  fileTransport
 )

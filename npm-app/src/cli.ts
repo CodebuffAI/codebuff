@@ -7,7 +7,17 @@ import { getAllFilePaths } from 'common/project-file-tree'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { green, red, yellow } from 'picocolors'
+import {
+  blue,
+  bold,
+  cyan,
+  green,
+  gray,
+  magenta,
+  red,
+  underline,
+  yellow,
+} from 'picocolors'
 
 import { backgroundProcesses } from './background-process-manager'
 import { setMessages } from './chat-storage'
@@ -26,7 +36,7 @@ import {
 import { handleDiff } from './cli-handlers/diff'
 import { showEasterEgg } from './cli-handlers/easter-egg'
 import { Client } from './client'
-import { websocketUrl } from './config'
+import { websocketUrl, websiteUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
 import { getProjectRoot } from './project-files'
 import { CliOptions, GitCommand } from './types'
@@ -487,24 +497,24 @@ export class CLI {
     }
 
     const logMessages = []
-    const totalCredits = Object.values(this.client.creditsByPromptId)
+    const totalCreditsUsedThisSession = Object.values(
+      this.client.creditsByPromptId
+    )
       .flat()
       .reduce((sum, credits) => sum + credits, 0)
 
-    logMessages.push(`${pluralize(totalCredits, 'credit')} used this session.`)
-    if (this.client.limit && this.client.usage && this.client.nextQuotaReset) {
-      const daysUntilReset = Math.max(
-        0,
-        Math.floor(
-          (this.client.nextQuotaReset.getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24)
-        )
+    logMessages.push(
+      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session, ${this.client.usageData.remainingBalance.toLocaleString()} credits left.`
+    )
+
+    if (this.client.usageData.next_quota_reset) {
+      const daysUntilReset = Math.ceil(
+        (new Date(this.client.usageData.next_quota_reset).getTime() -
+          Date.now()) /
+          (1000 * 60 * 60 * 24)
       )
       logMessages.push(
-        `${Math.max(
-          0,
-          this.client.limit - this.client.usage
-        )} credits remaining. Renews in ${pluralize(daysUntilReset, 'day')}.`
+        `Your free credits will reset in ${pluralize(daysUntilReset, 'day')}.`
       )
     }
 

@@ -1,16 +1,134 @@
-import type { NextAuthOptions } from 'next-auth'
+import type { NextAuthOptions, User, DefaultSession } from 'next-auth'
 import GitHubProvider from 'next-auth/providers/github'
 import { DrizzleAdapter } from '@auth/drizzle-adapter'
 
 import { env } from '@/env.mjs'
 import { stripeServer } from 'common/src/util/stripe'
-import db from 'common/src/db'
+import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { Adapter } from 'next-auth/adapters'
 import { parse, format } from 'url'
-import { CREDITS_USAGE_LIMITS } from 'common/constants'
+import { CREDITS_USAGE_LIMITS } from 'common/src/constants'
 import { logger } from '@/util/logger'
+import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
+import { getUserCostPerCredit } from 'common/src/billing/conversion'
+import { logSyncFailure } from 'common/src/util/sync-failure'
+import { processAndGrantCredit } from 'common/src/billing/grant-credits'
+import { generateCompactId } from 'common/src/util/string'
+
+async function createAndLinkStripeCustomer(user: User): Promise<string | null> {
+  if (!user.email || !user.name) {
+    logger.warn(
+      { userId: user.id },
+      'User email or name missing, cannot create Stripe customer.'
+    )
+    return null
+  }
+  try {
+    const customer = await stripeServer.customers.create({
+      email: user.email,
+      name: user.name,
+      metadata: {
+        user_id: user.id,
+      },
+    })
+
+    // Create subscription with the usage price
+    await stripeServer.subscriptions.create({
+      customer: customer.id,
+      items: [{ price: env.STRIPE_USAGE_PRICE_ID }],
+    })
+
+    await db
+      .update(schema.user)
+      .set({
+        stripe_customer_id: customer.id,
+        stripe_price_id: env.STRIPE_USAGE_PRICE_ID,
+      })
+      .where(eq(schema.user.id, user.id))
+
+    logger.info(
+      { userId: user.id, customerId: customer.id },
+      'Stripe customer created with usage subscription and linked to user.'
+    )
+    return customer.id
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error creating Stripe customer'
+    logger.error(
+      { userId: user.id, error },
+      'Failed to create Stripe customer or update user record.'
+    )
+    await logSyncFailure(user.id, errorMessage)
+    return null
+  }
+}
+
+async function createInitialCreditGrant(userId: string): Promise<void> {
+  try {
+    const initialGrantCredits = CREDITS_USAGE_LIMITS.FREE
+    const operationId = `free-${userId}-${generateCompactId()}`
+
+    await processAndGrantCredit(
+      userId,
+      initialGrantCredits,
+      'free',
+      'Initial free credits',
+      null, // No expiration for initial grant
+      operationId
+    )
+
+    logger.info(
+      {
+        userId,
+        operationId,
+        creditsGranted: initialGrantCredits,
+      },
+      'Initial free credit grant created.'
+    )
+  } catch (grantError) {
+    const errorMessage = grantError instanceof Error ? grantError.message : 'Unknown error creating initial credit grant'
+    logger.error(
+      { userId, error: grantError },
+      'Failed to create initial credit grant.'
+    )
+    await logSyncFailure(userId, errorMessage)
+  }
+}
+
+async function sendSignupEventToLoops(user: User): Promise<void> {
+  if (!user.email) {
+    logger.warn(
+      { userId: user.id },
+      'User email missing, cannot send Loops event.'
+    )
+    return
+  }
+  try {
+    await fetch('https://app.loops.so/api/v1/events/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${env.LOOPS_API_KEY}`,
+      },
+      body: JSON.stringify({
+        email: user.email,
+        userId: user.id,
+        eventName: 'signup',
+        firstName: user.name?.split(' ')[0] ?? '',
+      }),
+    })
+    logger.info(
+      { email: user.email, userId: user.id },
+      'Sent signup event to Loops'
+    )
+  } catch (loopsError) {
+    logger.error(
+      { error: loopsError, email: user.email, userId: user.id },
+      'Failed to send Loops event'
+    )
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {
@@ -33,7 +151,6 @@ export const authOptions: NextAuthOptions = {
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id
-        session.user.subscription_active = user.subscription_active
         session.user.image = user.image
         session.user.name = user.name
         session.user.email = user.email
@@ -43,11 +160,9 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async redirect({ url, baseUrl }) {
-      // Parse the URL to check for auth_code
       const potentialRedirectUrl = new URL(url, baseUrl)
       const authCode = potentialRedirectUrl.searchParams.get('auth_code')
 
-      // If there's an auth_code, this is a CLI login flow - redirect to onboard
       if (authCode) {
         const onboardUrl = new URL(`${baseUrl}/onboard`)
         potentialRedirectUrl.searchParams.forEach((value, key) => {
@@ -60,7 +175,6 @@ export const authOptions: NextAuthOptions = {
         return onboardUrl.toString()
       }
 
-      // For web login flow, allow relative URLs and same-origin URLs
       if (url.startsWith('/') || potentialRedirectUrl.origin === baseUrl) {
         logger.info(
           { url, redirectTarget: potentialRedirectUrl.toString() },
@@ -69,7 +183,6 @@ export const authOptions: NextAuthOptions = {
         return potentialRedirectUrl.toString()
       }
 
-      // Default to base URL for external callback URLs
       logger.info(
         { url, baseUrl, redirectTarget: baseUrl },
         'Callback URL is external or invalid, redirecting to baseUrl'
@@ -79,52 +192,20 @@ export const authOptions: NextAuthOptions = {
   },
   events: {
     createUser: async ({ user }) => {
-      if (!user.email || !user.name) return
-      await stripeServer.customers
-        .create({
-          email: user.email,
-          name: user.name,
-          metadata: {
-            user_id: user.id,
-          },
-        })
-        .then(async (customer) => {
-          return db
-            .update(schema.user)
-            .set({
-              stripe_customer_id: customer.id,
-              quota_exceeded: false,
-              quota: CREDITS_USAGE_LIMITS.FREE,
-            })
-            .where(eq(schema.user.id, user.id))
-        })
+      logger.info(
+        { userId: user.id, email: user.email },
+        'createUser event triggered'
+      )
 
-      try {
-        await fetch('https://app.loops.so/api/v1/events/send', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${env.LOOPS_API_KEY}`,
-          },
-          body: JSON.stringify({
-            email: user.email,
-            userId: user.id,
-            eventName: 'signup',
-            firstName: user.name?.split(' ')[0],
-          }),
-        })
-        // TODO: Log these with logger
-        console.info('Sent signup event to Loops', {
-          email: user.email,
-          userId: user.id,
-        })
-      } catch (error) {
-        console.error('Failed to send Loops event', {
-          error,
-          email: user.email,
-          userId: user.id,
-        })
+      const customerId = await createAndLinkStripeCustomer(user)
+
+      if (customerId) {
+        await createInitialCreditGrant(user.id)
       }
+
+      await sendSignupEventToLoops(user)
+
+      logger.info({ userId: user.id }, 'createUser event processing finished.')
     },
   },
 }

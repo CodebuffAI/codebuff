@@ -23,7 +23,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { env } from '@/env.mjs'
 import { storeSearchParams } from '@/lib/trackConversions'
 
-
 const InputWithCopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
 
@@ -58,7 +57,11 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
   )
 }
 
-export default function RedeemPage({ params }: { params: { code: string } }) {
+export default function RedeemPage({
+  params,
+}: {
+  params: { code: string }
+}) {
   const code = params.code
   const { data: session, status } = useSession()
   const searchParams = useSearchParams()
