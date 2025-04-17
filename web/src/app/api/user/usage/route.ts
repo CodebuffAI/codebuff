@@ -40,21 +40,21 @@ export async function GET() {
 
     // SQL helper for checking if a grant is currently active
     const isActive = sql<boolean>`
-      ${schema.creditLedger.expires_at} IS NULL OR 
+      ${schema.creditLedger.expires_at} IS NULL OR
       ${schema.creditLedger.expires_at} > ${now}
     `
 
     // SQL helper for positive balance amount
     const positiveBalance = sql<number>`
-      CASE WHEN ${schema.creditLedger.balance} > 0 
-      THEN ${schema.creditLedger.balance} 
+      CASE WHEN ${schema.creditLedger.balance} > 0
+      THEN ${schema.creditLedger.balance}
       ELSE 0 END
     `
 
     // SQL helper for negative balance amount (as positive number)
     const debtAmount = sql<number>`
-      CASE WHEN ${schema.creditLedger.balance} < 0 
-      THEN ABS(${schema.creditLedger.balance}) 
+      CASE WHEN ${schema.creditLedger.balance} < 0
+      THEN ABS(${schema.creditLedger.balance})
       ELSE 0 END
     `
 
@@ -98,14 +98,10 @@ export async function GET() {
       .where(
         and(
           eq(schema.creditLedger.user_id, userId),
-          // Created before now and either:
-          // - Created after cycle start, OR
-          // - Expires after cycle start (or never expires)
-          sql`${schema.creditLedger.created_at} <= ${now}`,
           or(
-            gt(schema.creditLedger.created_at, quotaResetDate),
+            // - Expires after cycle start (or never expires)
             sql`${schema.creditLedger.expires_at} IS NULL`,
-            gt(schema.creditLedger.expires_at, quotaResetDate)
+            gt(schema.creditLedger.expires_at, now)
           )
         )
       )
@@ -135,7 +131,7 @@ export async function GET() {
     // Process totals from the query
     for (const total of grantTotals) {
       const grantType = total.type as GrantType
-      
+
       // Add to type-specific totals (overwriting the 0 defaults)
       balance.breakdown[grantType] = total.typeBalance
       balance.principals[grantType] = total.typePrincipal
