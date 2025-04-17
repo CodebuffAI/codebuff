@@ -27,13 +27,19 @@ if (fs.existsSync(progressPath)) {
   processedSubs = new Set(JSON.parse(fs.readFileSync(progressPath, 'utf-8')))
 }
 
+const processedPathKey = (customerId: string) => `cust_${customerId}` // helper
+
 async function processCustomer(entry: MigrationEntry) {
   if (!entry.stripeCustomerId) {
     console.warn(`User ${entry.userId} missing stripeCustomerId`)
     return
   }
 
-  // Fetch active legacy subscription (licensed usage_type)
+  if (processedSubs.has(processedPathKey(entry.stripeCustomerId))) {
+    return // already handled customer
+  }
+
+  // Fetch active subscriptions
   const subs = await stripeServer.subscriptions.list({
     customer: entry.stripeCustomerId,
     status: 'active',
@@ -41,64 +47,54 @@ async function processCustomer(entry: MigrationEntry) {
     expand: ['data.items.data.price'],
   })
 
-  const legacySub = subs.data.find((sub) =>
+  // Try to find legacy licensed subscription
+  const legacySub = subs.data.find(sub =>
     sub.items.data.some(
       (item: Stripe.SubscriptionItem) =>
         item.price.recurring?.usage_type === 'licensed'
     )
   )
 
-  if (!legacySub) {
-    console.warn(
-      `No legacy subscription for customer ${entry.stripeCustomerId}`
-    )
-    return
-  }
-
-  if (processedSubs.has(legacySub.id)) return // already handled
-
-  // 1) Cancel legacy subscription immediately without prorating (no refunds)
-  if (legacySub.status !== 'canceled') {
+  // Cancel legacy immediately (no refund) if it exists
+  if (legacySub && legacySub.status !== 'canceled') {
     await stripeServer.subscriptions.cancel(legacySub.id, {
-      invoice_now: false, // don't generate an extra invoice
-      prorate: false, // NO prorations → no refund / credit
+      invoice_now: false,
+      prorate: false,
     })
-    console.log(`Canceled legacy sub ${legacySub.id} immediately (no prorate).`)
+    console.log(`Canceled legacy sub ${legacySub.id} (no prorate).`)
   }
 
-  // 2) Check if customer already has a usage‑based sub
-  const hasUsageBasedSub = subs.data.some((sub) =>
+  // Does customer already have usage‑based sub?
+  const hasUsageBasedSub = subs.data.some(sub =>
     sub.items.data.every(
       (item: Stripe.SubscriptionItem) => item.price.id === USAGE_PRICE_ID
     )
   )
 
-  let newSub: Stripe.Subscription | undefined
   if (!hasUsageBasedSub) {
-    // Create new usage‑based subscription (price is $0 metered)
-    newSub = await stripeServer.subscriptions.create({
+    // Create new usage‑based subscription
+    const newSub = await stripeServer.subscriptions.create({
       customer: entry.stripeCustomerId,
       items: [{ price: USAGE_PRICE_ID }],
-      payment_behavior: 'default_incomplete', // avoids immediate invoice
+      payment_behavior: 'default_incomplete',
       expand: ['items.data.price'],
     })
-    console.log(
-      `Created usage sub ${newSub.id} for customer ${entry.stripeCustomerId}`
-    )
-
-    // 3) Persist price_id (usage price) to DB
-    await db
-      .update(schema.user)
-      .set({ stripe_price_id: USAGE_PRICE_ID })
-      .where(eq(schema.user.id, entry.userId))
-
-    processedSubs.add(legacySub.id)
-    fs.writeFileSync(
-      progressPath,
-      JSON.stringify(Array.from(processedSubs), null, 2)
-    )
-    console.log(`Processed customer ${entry.stripeCustomerId}`)
+    console.log(`Created usage sub ${newSub.id} for customer ${entry.stripeCustomerId}`)
   }
+
+  // Persist price ID to DB
+  await db
+    .update(schema.user)
+    .set({ stripe_price_id: USAGE_PRICE_ID })
+    .where(eq(schema.user.id, entry.userId))
+
+  // Mark customer processed
+  processedSubs.add(processedPathKey(entry.stripeCustomerId))
+  fs.writeFileSync(
+    progressPath,
+    JSON.stringify(Array.from(processedSubs), null, 2)
+  )
+  console.log(`Processed customer ${entry.stripeCustomerId}`)
 }
 
 ;(async () => {
