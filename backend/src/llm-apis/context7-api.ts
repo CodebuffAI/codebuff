@@ -1,114 +1,109 @@
 import { logger } from '../util/logger'
 
-const CONTEXT7_BASE_URL = 'https://context7.com'
+const CONTEXT7_API_BASE_URL = 'https://context7.com/api'
+const DEFAULT_TYPE = 'txt'
 const FETCH_TIMEOUT_MS = 10_000
 
-interface ProjectSettings {
-  title: string
-  project: string
-  folders: string[]
-  docsRepoUrl: string
-}
+const timeoutPromise = (ms: number) =>
+  new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Request timed out')), ms)
+  )
 
-interface Version {
-  lastUpdate: string
-  state:
-    | 'initial'
-    | 'parsed'
-    | 'finalized'
-    | 'invalid_docs'
-    | 'error'
-    | 'stop'
-    | 'delete'
-  parseDuration: number
-  totalTokens: number
-  totalSnippets: number
-  averageTokens: number
-}
-
-interface Project {
-  settings: ProjectSettings
-  version: Version
-}
-
-interface GetChunksOptions {
-  tokens?: number
-  topic?: string
-  folders?: string
+export interface SearchResponse {
+  projects: Array<{
+    settings: {
+      title: string
+      project: string
+      folders: string[]
+      docsRepoUrl: string
+    }
+    version: {
+      lastUpdate: string
+      state:
+        | 'initial'
+        | 'parsed'
+        | 'finalized'
+        | 'invalid_docs'
+        | 'error'
+        | 'stop'
+        | 'delete'
+      parseDuration: number
+      totalTokens: number
+      totalSnippets: number
+      averageTokens: number
+    }
+  }>
 }
 
 /**
  * Lists all available documentation projects from Context7
- * @returns Array of projects with their metadata, or empty array if the request fails
+ * @returns Array of projects with their metadata, or null if the request fails
  */
-async function listContext7Projects(): Promise<Project[]> {
+export async function listLibraries(): Promise<
+  SearchResponse['projects'] | null
+> {
   try {
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Request timed out')), FETCH_TIMEOUT_MS)
-    )
-
-    const response = await Promise.race([
-      fetch(`${CONTEXT7_BASE_URL}/api/projects`),
-      timeoutPromise,
-    ])
+    const url = new URL(`${CONTEXT7_API_BASE_URL}/projects`)
+    const response = (await Promise.race([
+      fetch(url),
+      timeoutPromise(FETCH_TIMEOUT_MS),
+    ])) as Response
 
     if (!response.ok) {
-      logger.error(`Failed to fetch Context7 projects: ${response.status}`)
-      return []
+      logger.error(`Failed to search libraries: ${response.status}`)
+      return null
     }
-    return await response.json()
+
+    const projects = await response.json()
+    return projects
   } catch (error) {
-    logger.error({ error }, 'Error fetching Context7 projects')
-    return []
+    logger.error('Error searching libraries:', error)
+    return null
   }
 }
-
 // Initialize the projects list once and export it as a promise
-export const context7ProjectsPromise: Promise<Project[]> =
-  listContext7Projects()
+export const context7LibrariesPromise: Promise<SearchResponse['projects']> =
+  listLibraries().then((res) => res || [])
 
 /**
- * Gets documentation chunks for a specific project
- * @param projectId The project ID or path to fetch documentation for
- * @param options Optional parameters for the request
- * @param options.tokens Number of tokens to retrieve (default: 5000)
- * @param options.topic Optional topic to rerank context for
- * @param options.folders Optional comma-separated list of folders to include
- * @returns The documentation text chunks or null if no results or request fails
+ * Fetches documentation context for a specific library
+ * @param libraryId The library ID to fetch documentation for
+ * @param options Options for the request
+ * @returns The documentation text or null if the request fails
  */
-export async function getContext7ProjectChunks(
-  projectId: string,
-  options: GetChunksOptions = {}
+export async function fetchContext7LibraryDocumentation(
+  libraryId: string,
+  options: {
+    tokens?: number
+    topic?: string
+    folders?: string
+  } = {}
 ): Promise<string | null> {
   try {
-    // Remove leading slash if present
-    if (projectId.startsWith('/')) {
-      projectId = projectId.slice(1)
+    if (libraryId.startsWith('/')) {
+      libraryId = libraryId.slice(1)
     }
 
-    // Build the URL with query parameters
-    const params = new URLSearchParams()
-    if (options.tokens) {
-      params.append('tokens', options.tokens.toString())
-    }
-    if (options.topic) {
-      params.append('topic', options.topic)
-    }
-    if (options.folders) {
-      params.append('folders', options.folders)
-    }
+    const url = new URL(`${CONTEXT7_API_BASE_URL}/v1/${libraryId}`)
+    if (options.tokens)
+      url.searchParams.set('tokens', options.tokens.toString())
+    if (options.topic) url.searchParams.set('topic', options.topic)
+    if (options.folders) url.searchParams.set('folders', options.folders)
+    url.searchParams.set('type', DEFAULT_TYPE)
 
-    const url = `${CONTEXT7_BASE_URL}/${projectId}/llms.txt${params.toString() ? `?${params.toString()}` : ''}`
-
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Request timed out')), FETCH_TIMEOUT_MS)
-    )
-
-    const response = await Promise.race([fetch(url), timeoutPromise])
+    const response = (await Promise.race([
+      fetch(url, {
+        headers: {
+          'X-Context7-Source': 'codebuff',
+        },
+      }),
+      timeoutPromise(FETCH_TIMEOUT_MS),
+    ])) as Response
 
     if (!response.ok) {
       logger.error(
-        `Failed to fetch Context7 documentation chunks: ${response.status}`
+        { status: response.status },
+        `Failed to fetch Context7 documentation: ${response.status}`
       )
       return null
     }
@@ -123,7 +118,7 @@ export async function getContext7ProjectChunks(
     }
     return text
   } catch (error) {
-    logger.error({ error }, 'Error fetching Context7 project chunks')
+    logger.error({ error }, 'Error fetching library documentation')
     return null
   }
 }
