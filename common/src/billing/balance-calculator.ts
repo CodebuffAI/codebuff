@@ -24,7 +24,10 @@ export interface CreditConsumptionResult {
 }
 
 // Add a minimal structural type that both `db` and `tx` satisfy
-type DbConn = Pick<typeof db, 'select' | 'update'> /* + whatever else you call */
+type DbConn = Pick<
+  typeof db,
+  'select' | 'update'
+> /* + whatever else you call */
 
 /**
  * Gets active grants for a user, ordered by expiration (soonest first), then priority, and creation date.
@@ -33,7 +36,7 @@ type DbConn = Pick<typeof db, 'select' | 'update'> /* + whatever else you call *
 export async function getOrderedActiveGrants(
   userId: string,
   now: Date,
-  conn: DbConn = db  // use DbConn instead of typeof db
+  conn: DbConn = db // use DbConn instead of typeof db
 ) {
   return conn
     .select()
@@ -129,7 +132,13 @@ async function consumeFromOrderedGrants(
       fromPurchased += consumeFromThisGrant
     }
 
-    await updateGrantBalance(userId, grant, consumeFromThisGrant, newBalance, tx)
+    await updateGrantBalance(
+      userId,
+      grant,
+      consumeFromThisGrant,
+      newBalance,
+      tx
+    )
   }
 
   // If we still have remaining to consume and no grants left, create debt in the last grant
@@ -265,15 +274,6 @@ export async function consumeCredits(
       creditsToConsume,
       activeGrants,
       tx
-    )
-    logger.info(
-      {
-        userId,
-        creditsRequested: creditsToConsume,
-        creditsConsumed: result.consumed,
-        fromPurchased: result.fromPurchased,
-      },
-      'Successfully consumed credits'
     )
 
     return result

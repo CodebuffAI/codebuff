@@ -193,7 +193,6 @@ async function syncMessageToStripe(messageData: {
           message_id: messageId,
         },
       })
-      logger.info(logContext, 'Successfully synced usage to Stripe.')
 
       await db
         .delete(schema.syncFailure)
@@ -333,10 +332,6 @@ async function insertMessageRecord(
       .returning()
 
     if (insertResult.length > 0) {
-      logger.debug(
-        { messageId: messageId, creditsUsed },
-        'Message saved to DB.'
-      )
       return insertResult[0]
     } else {
       logger.error(
@@ -373,14 +368,6 @@ async function sendCostResponseToClient(
           promptId: userInputId,
           credits: creditsUsed,
         })
-        logger.debug(
-          {
-            clientSessionId: clientSessionId,
-            promptId: userInputId,
-            credits: creditsUsed,
-          },
-          'Sent message cost response via WebSocket.'
-        )
       } else {
         logger.warn(
           { clientSessionId: clientSessionId },
@@ -422,8 +409,8 @@ async function updateUserCycleUsage(
     const result = await consumeCredits(userId, creditsUsed)
 
     logger.debug(
-      { userId, creditsUsed, fromPurchased: result.fromPurchased },
-      'Credits consumed successfully'
+      { userId, creditsUsed, ...result },
+      `Consumed credits (${creditsUsed})`
     )
 
     return result
@@ -485,7 +472,7 @@ export const saveMessage = async (value: {
           creditsUsed,
           centsPerCredit,
         },
-        'Calculated message cost and credits'
+        `Calculated credits (${creditsUsed})`
       )
 
       const savedMessageResult = await insertMessageRecord({
@@ -513,12 +500,15 @@ export const saveMessage = async (value: {
         creditsUsed
       )
 
-      // Only sync to Stripe if purchased credits were used
+      // Only sync the portion from purchased credits to Stripe
       if (consumptionResult.fromPurchased > 0) {
+        const purchasedCostInCents = Math.round(
+          (costInCents * consumptionResult.fromPurchased) / creditsUsed
+        )
         syncMessageToStripe({
           messageId: value.messageId,
           userId: value.userId,
-          costInCents,
+          costInCents: purchasedCostInCents,
           finishedAt: value.finishedAt,
         }).catch((syncError) => {
           logger.error(

@@ -25,7 +25,7 @@ import {
 import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
 import { generateCompactId } from 'common/util/string'
 import { pluralize } from 'common/util/string'
-import { getPlanFromPriceId, getMonthlyGrantForPlan } from '../billing/plans'
+import { getPlanFromPriceId, getMonthlyGrantForPlan } from 'common/src/billing/plans'
 
 type MiddlewareCallback = (
   action: ClientAction,
