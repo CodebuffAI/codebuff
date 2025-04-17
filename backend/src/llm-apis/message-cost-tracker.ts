@@ -1,3 +1,4 @@
+import { CoreMessage } from 'ai'
 import { models, TEST_USER_ID } from 'common/constants'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
@@ -151,7 +152,7 @@ export const saveMessage = async (value: {
   fingerprintId: string
   userInputId: string
   model: string
-  request: Message[] | OpenAIMessage[]
+  request: Message[] | OpenAIMessage[] | CoreMessage[]
   response: string
   inputTokens: number
   outputTokens: number
