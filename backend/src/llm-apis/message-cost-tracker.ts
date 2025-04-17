@@ -276,7 +276,7 @@ type InsertMessageParams = {
   fingerprintId: string
   userInputId: string
   model: string
-  request: Message[] | OpenAIMessage[]
+  request: Message[] | OpenAIMessage[] | CoreMessage[]
   response: string
   inputTokens: number
   outputTokens: number
