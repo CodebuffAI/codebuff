@@ -110,7 +110,7 @@ export class Client {
   private git: GitCommand
   private rl: readline.Interface
   private responseComplete: boolean = false
-  private topUpOccurred: boolean = false
+  private pendingTopUpMessageAmount: number | null = null
   private oneTimeTagsShown: Record<(typeof ONE_TIME_TAGS)[number], boolean> =
     Object.fromEntries(ONE_TIME_TAGS.map((tag) => [tag, false])) as Record<
       (typeof ONE_TIME_TAGS)[number],
@@ -334,7 +334,7 @@ export class Client {
           fs.unlinkSync(CREDENTIALS_PATH)
           console.log(`You (${this.user.name}) have been logged out.`)
           this.user = undefined
-          this.topUpOccurred = false
+          this.pendingTopUpMessageAmount = null
           this.usageData = {
             usage: 0,
             remainingBalance: 0,
@@ -542,14 +542,9 @@ export class Client {
 
       this.setUsage(parsedAction.data)
 
-      // Show auto-topup message if it occurred and we haven't shown it yet
-      if (parsedAction.data.autoTopupAdded && !this.topUpOccurred) {
-        console.log(
-          green(
-            `\n✨ Auto top-up successful! Added ${parsedAction.data.autoTopupAdded.toLocaleString()} credits.`
-          )
-        )
-        this.topUpOccurred = true
+      // Store auto-topup info if it occurred
+      if (parsedAction.data.autoTopupAdded) {
+        this.pendingTopUpMessageAmount = parsedAction.data.autoTopupAdded;
       }
 
       // Only show warning if the response is complete
@@ -855,7 +850,6 @@ export class Client {
 
     // Reset flags at the start of each response
     this.responseComplete = false
-    this.topUpOccurred = false
 
     return {
       responsePromise,
