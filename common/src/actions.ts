@@ -6,8 +6,7 @@ import {
   ToolResultSchema,
   ToolCallSchema as NewToolCallSchema,
 } from './types/agent-state'
-import { MessageSchema } from './types/message'
-import { grantTypeEnum } from './db/schema'
+import { GrantTypeValues } from './types/grant'
 
 export const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
@@ -62,7 +61,10 @@ export const UsageReponseSchema = z.object({
   usage: z.number(),
   remainingBalance: z.number(),
   balanceBreakdown: z
-    .record(z.enum(grantTypeEnum.enumValues), z.number())
+    .record(
+      z.enum([GrantTypeValues[0], ...GrantTypeValues.slice(1)]),
+      z.number()
+    )
     .optional(),
   next_quota_reset: z.coerce.date().nullable(),
   nextMonthlyGrant: z.number(),
