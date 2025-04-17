@@ -179,7 +179,11 @@ const CreditBranch = ({
             <span className="font-medium text-sm text-left">{title}</span>
             {isRenewable && nextQuotaReset && (
               <span className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                Renews {nextQuotaReset.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                Renews{' '}
+                {nextQuotaReset.toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                })}
               </span>
             )}
           </div>
@@ -191,14 +195,6 @@ const CreditBranch = ({
               {leftAmount.toLocaleString()}
             </span>
             <span className="text-xs text-muted-foreground">left</span>
-            {isRenewable && (
-              <>
-                <span className="text-xs text-muted-foreground mx-0.5">•</span>
-                <span className="text-xs text-muted-foreground">
-                  {totalAmount.toLocaleString()} total
-                </span>
-              </>
-            )}
           </div>
         </div>
       </button>
@@ -214,7 +210,7 @@ export const UsageDisplay = ({
   nextQuotaReset,
 }: UsageDisplayProps) => {
   const { totalRemaining, breakdown, totalDebt, principals } = balance
-  
+
   // Calculate used credits per type
   const usedCredits: Record<GrantType, number> = {
     free: 0,
@@ -229,7 +225,7 @@ export const UsageDisplay = ({
     const principal = principals?.[typeKey] || currentBalance
     usedCredits[typeKey] = Math.max(0, principal - currentBalance)
   })
-  
+
   // Group credits by expiration type
   const expiringTypes: GrantType[] = ['free', 'referral']
   const nonExpiringTypes: GrantType[] = ['admin', 'purchase']
@@ -255,19 +251,22 @@ export const UsageDisplay = ({
   )
 
   // Format date for display
-  const formattedRenewalDate = nextQuotaReset 
-    ? nextQuotaReset.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  const formattedRenewalDate = nextQuotaReset
+    ? nextQuotaReset.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+      })
     : null
 
   return (
     <Card className="w-full max-w-2xl mx-auto -mt-8">
       <CardHeader className="pb-4">
         <CardTitle className="text-xl font-bold mb-3">Credit Balance</CardTitle>
-        
+
         <div className="text-sm text-muted-foreground mb-3">
           We'll use your renewable credits before non-renewable ones
         </div>
-        
+
         {totalDebt > 500 && (
           <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-md">
             <p className="text-red-500 font-medium">
@@ -292,7 +291,7 @@ export const UsageDisplay = ({
               const currentBalance = breakdown[type] || 0
               const principal = principals?.[type] || currentBalance
               const used = usedCredits[type]
-              
+
               return (
                 <CreditLeaf
                   key={type}
@@ -305,7 +304,7 @@ export const UsageDisplay = ({
             })}
           </CreditBranch>
         </div>
-        
+
         <CreditBranch
           title="Non-renewable Credits"
           totalAmount={nonExpiringTotal}
@@ -315,7 +314,7 @@ export const UsageDisplay = ({
             const currentBalance = breakdown[type] || 0
             const principal = principals?.[type] || currentBalance
             const used = usedCredits[type]
-            
+
             return (
               <CreditLeaf
                 key={type}
@@ -349,24 +348,24 @@ export const UsageDisplaySkeleton = () => (
       <div className="h-5 w-64 bg-muted/70 rounded animate-pulse mb-3" />
       <div className="h-10 w-full bg-blue-100/50 dark:bg-blue-900/20 rounded-md animate-pulse mb-3" />
     </CardHeader>
-    
+
     <CardContent className="space-y-4">
       {/* Credit Category Branches */}
       <div className="space-y-1 border rounded-lg p-2 animate-pulse">
         <div className="h-12 bg-muted rounded-md" />
       </div>
-      
+
       <div className="space-y-1 border rounded-lg p-2 animate-pulse">
         <div className="h-12 bg-muted rounded-md" />
       </div>
-      
+
       {/* Summary section skeleton */}
       <div className="pt-4 mt-2 border-t space-y-3">
         <div className="flex justify-between items-center">
           <div className="h-5 w-32 bg-muted/70 rounded animate-pulse" />
           <div className="h-5 w-20 bg-muted/70 rounded animate-pulse" />
         </div>
-        
+
         <div className="flex justify-between items-center">
           <div className="h-7 w-24 bg-muted rounded animate-pulse" />
           <div className="h-7 w-28 bg-muted rounded animate-pulse" />
