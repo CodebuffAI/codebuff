@@ -35,7 +35,7 @@ async function applyCreditMigration() {
           type: entry.type,
           description: entry.description,
           priority: entry.priority,
-          expires_at: entry.expires_at,
+          expires_at: new Date(entry.expires_at),
         })
 
         processedIds.add(entry.operation_id)
@@ -43,7 +43,10 @@ async function applyCreditMigration() {
       }
 
       if (newIdsWritten) {
-        fs.writeFileSync(progressPath, JSON.stringify(Array.from(processedIds), null, 2))
+        fs.writeFileSync(
+          progressPath,
+          JSON.stringify(Array.from(processedIds), null, 2)
+        )
         console.log(`Processed credits for user ${userId}`)
       } else {
         console.log(`Skipped user ${userId} — all entries already migrated`)
@@ -57,5 +60,4 @@ async function applyCreditMigration() {
   }
 }
 
-// Don't run the script, just export the function
-export { applyCreditMigration }
+applyCreditMigration()
