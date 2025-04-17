@@ -48,7 +48,7 @@ describe('Saxy XML Parser', () => {
       expect(events).toEqual([
         {
           type: 'text',
-          data: { contents: '<root>' },
+          data: { contents: '<other>' },
         },
         {
           type: 'text',
@@ -64,7 +64,7 @@ describe('Saxy XML Parser', () => {
         },
         {
           type: 'text',
-          data: { contents: '</root>' },
+          data: { contents: '</other>' },
         },
       ])
     })
@@ -132,13 +132,9 @@ describe('Saxy XML Parser', () => {
 
       expect(events[1]).toEqual({
         type: 'text',
-        data: { contents: '< invalid>' },
+        data: { contents: '< invalid>content' },
       })
       expect(events[2]).toEqual({
-        type: 'text',
-        data: { contents: 'content' },
-      })
-      expect(events[3]).toEqual({
         type: 'text',
         data: { contents: '</invalid>' },
       })
@@ -194,5 +190,107 @@ describe('Saxy XML Parser', () => {
         data: { contents: '</invalid>' },
       })
     })
+  })
+
+  it('should handle text that looks like invalid XML tags', () => {
+    const parser = new Saxy()
+    const events: any[] = []
+    parser.on('text', (data) => events.push({ type: 'text', data }))
+    parser.on('tagopen', (data) => events.push({ type: 'tagopen', data }))
+    parser.on('tagclose', (data) => events.push({ type: 'tagclose', data }))
+
+    parser.write(
+      'This is < not a tag> and < another not a tag> but <valid>this is</valid>'
+    )
+    parser.end()
+
+    expect(events).toEqual([
+      {
+        type: 'text',
+        data: {
+          contents: 'This is < not a tag> and < another not a tag> but ',
+        },
+      },
+      {
+        type: 'tagopen',
+        data: { name: 'valid', isSelfClosing: false, attrs: '' },
+      },
+      {
+        type: 'text',
+        data: { contents: 'this is' },
+      },
+      {
+        type: 'tagclose',
+        data: { name: 'valid' },
+      },
+    ])
+  })
+
+  it('should handle text with angle brackets but no valid tag names', () => {
+    const parser = new Saxy()
+    const events: any[] = []
+    parser.on('text', (data) => events.push({ type: 'text', data }))
+
+    parser.write('Math expressions: 2 < 3 and 5 > 4')
+    parser.end()
+
+    expect(events).toEqual([
+      {
+        type: 'text',
+        data: { contents: 'Math expressions: 2 < 3 and 5 > 4' },
+      },
+    ])
+  })
+
+  it('should correctly parse mixed valid and invalid XML-like content', () => {
+    const parser = new Saxy()
+    const events: any[] = []
+    parser.on('text', (data) => events.push({ type: 'text', data }))
+    parser.on('tagopen', (data) => events.push({ type: 'tagopen', data }))
+    parser.on('tagclose', (data) => events.push({ type: 'tagclose', data }))
+
+    parser.write(
+      'Text with < brackets> and <valid-tag>real XML</valid-tag> mixed together'
+    )
+    parser.end()
+
+    expect(events).toEqual([
+      {
+        type: 'text',
+        data: { contents: 'Text with < brackets> and ' },
+      },
+      {
+        type: 'tagopen',
+        data: { name: 'valid-tag', isSelfClosing: false, attrs: '' },
+      },
+      {
+        type: 'text',
+        data: { contents: 'real XML' },
+      },
+      {
+        type: 'tagclose',
+        data: { name: 'valid-tag' },
+      },
+      {
+        type: 'text',
+        data: { contents: ' mixed together' },
+      },
+    ])
+  })
+
+  it('should handle edge cases with special characters after <', () => {
+    const parser = new Saxy()
+    const events: any[] = []
+    parser.on('text', (data) => events.push({ type: 'text', data }))
+
+    parser.write('Text with <1>, <@invalid>, and <!not-a-tag>')
+    parser.end()
+
+    expect(events).toEqual([
+      {
+        type: 'text',
+        data: { contents: 'Text with <1>, <@invalid>, and <!not-a-tag>' },
+      },
+    ])
   })
 })

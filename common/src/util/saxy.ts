@@ -480,13 +480,16 @@ export class Saxy extends Transform {
     const end = input.length
 
     while (chunkPos < end) {
-      if (input[chunkPos] !== '<') {
-        const nextTag = input.indexOf('<', chunkPos)
+      if (input[chunkPos] !== '<' || (chunkPos + 1 < end && !this._isXMLTagStart(input, chunkPos + 1))) {
+        // Find next potential tag, but verify it's actually a tag
+        let nextTag = input.indexOf('<', chunkPos)
+        while (nextTag !== -1 && nextTag + 1 < end && !this._isXMLTagStart(input, nextTag + 1)) {
+          nextTag = input.indexOf('<', nextTag + 1)
+        }
 
         // We read a TEXT node but there might be some
         // more text data left, so we wait
         if (nextTag === -1) {
-          // this._wait(Node.text, input.slice(chunkPos))
           let chunk = input.slice(chunkPos)
 
           if (this._tagStack.length === 1) {
@@ -611,5 +614,18 @@ export class Saxy extends Transform {
     }
 
     callback()
+  }
+
+  /**
+   * Check if a potential XML tag start is actually a valid tag
+   * @param input The input string
+   * @param pos Position after the < character
+   * @returns true if this is a valid XML tag start
+   */
+  private _isXMLTagStart(input: string, pos: number): boolean {
+    // Valid XML tags must start with a letter, underscore or colon
+    // https://www.w3.org/TR/xml/#NT-NameStartChar
+    const firstChar = input[pos]
+    return /[A-Za-z_:]/.test(firstChar) || firstChar === '/'
   }
 }
