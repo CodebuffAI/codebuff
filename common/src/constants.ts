@@ -196,12 +196,20 @@ export const deepseekModels = {
 } as const
 export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 
+// Vertex uses "endpoint IDs" for finetuned models, which are just integers
+export const finetunedVertexModels = {
+  ft_filepicker_003: '196166068534771712',
+} as const
+export type FinetunedVertexModel =
+  (typeof finetunedVertexModels)[keyof typeof finetunedVertexModels]
+
 export const models = {
   ...claudeModels,
   ...openaiModels,
   ...geminiModels,
   ...deepseekModels,
   ...openrouterModels,
+  ...finetunedVertexModels,
 } as const
 
 export const shortModelNames = {
@@ -211,7 +219,7 @@ export const shortModelNames = {
   'sonnet-3.6': models.sonnet,
   'gpt-4.1': models.gpt4_1,
   'o3-mini': models.o3mini,
-  'o3': models.o3,
+  o3: models.o3,
   'o4-mini': models.o4mini,
 }
 

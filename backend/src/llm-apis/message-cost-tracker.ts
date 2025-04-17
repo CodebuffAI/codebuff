@@ -1,3 +1,4 @@
+import { CoreMessage } from 'ai'
 import { models, TEST_USER_ID } from 'common/constants'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
@@ -39,6 +40,7 @@ const TOKENS_COST_PER_M = {
     [models.deepseekChat]: 0.14,
     [models.deepseekReasoner]: 0.55,
     [models.gemini2flash]: 0.1,
+    [models.ft_filepicker_003]: 0.1,
     [models.openrouter_gemini2_5_pro_preview]: 1.25,
   },
   output: {
@@ -54,6 +56,7 @@ const TOKENS_COST_PER_M = {
     [models.deepseekChat]: 0.28,
     [models.deepseekReasoner]: 2.19,
     [models.gemini2flash]: 0.4,
+    [models.ft_filepicker_003]: 0.4,
     [models.openrouter_gemini2_5_pro_preview]: 10,
   },
   cache_creation: {
@@ -74,6 +77,7 @@ const TOKENS_COST_PER_M = {
     [models.o3mini]: 0.55,
     [models.o4mini]: 0.275,
     [models.gemini2flash]: 0.025,
+    [models.ft_filepicker_003]: 0.025,
   },
 }
 
@@ -427,7 +431,7 @@ export const saveMessage = async (value: {
   fingerprintId: string
   userInputId: string
   model: string
-  request: Message[] | OpenAIMessage[]
+  request: Message[] | OpenAIMessage[] | CoreMessage[]
   response: string
   inputTokens: number
   outputTokens: number

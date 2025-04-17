@@ -2,8 +2,8 @@ import { geminiModels } from 'common/constants'
 import { generateCompactId } from 'common/util/string'
 
 import {
-  context7ProjectsPromise,
-  getContext7ProjectChunks,
+  context7LibrariesPromise,
+  fetchContext7LibraryDocumentation,
 } from './llm-apis/context7-api'
 import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 
@@ -38,7 +38,7 @@ export async function getDocumentationForQuery(
   let geminiDuration: number | null = null
 
   // Get the list of available projects
-  const projects = await context7ProjectsPromise
+  const projects = await context7LibrariesPromise
   if (projects.length === 0) {
     logger.warn('No Context7 projects available')
     return null
@@ -108,7 +108,7 @@ Respond in this exact JSON format:
   }
 
   // Get the chunks using the analyzed project and topic
-  const chunks = await getContext7ProjectChunks(analysis.projectId, {
+  const chunks = await fetchContext7LibraryDocumentation(analysis.projectId, {
     tokens: options.tokens,
     topic: analysis.topic,
   })

@@ -428,27 +428,30 @@ export class Saxy extends Transform {
    * corresponding event on the event emitter.
    *
    * @param node Information about the opened tag.
+   * @param rawTag The raw tag text including angle brackets
    */
-  private _handleTagOpening(node: TagOpenNode) {
+  private _handleTagOpening(node: TagOpenNode, rawTag: string) {
     const { name } = node
 
     // If we have a schema, validate against it
     if (this._schema) {
       // For top-level tags
       if (this._tagStack.length === 0) {
-        // Ignore if not in schema
+        // Convert to text if not in schema
         if (!this._schema[name]) {
+          this.emit(Node.text, { contents: rawTag })
           return
         }
       }
       // For nested tags
       else {
         const parentTag = this._tagStack[this._tagStack.length - 1]
-        // Ignore if parent not in schema or this tag not allowed as child
+        // Convert to text if parent not in schema or this tag not allowed as child
         if (
           !this._schema[parentTag] ||
           !this._schema[parentTag].includes(name)
         ) {
+          this.emit(Node.text, { contents: rawTag })
           return
         }
       }
@@ -477,13 +480,16 @@ export class Saxy extends Transform {
     const end = input.length
 
     while (chunkPos < end) {
-      if (input[chunkPos] !== '<') {
-        const nextTag = input.indexOf('<', chunkPos)
+      if (input[chunkPos] !== '<' || (chunkPos + 1 < end && !this._isXMLTagStart(input, chunkPos + 1))) {
+        // Find next potential tag, but verify it's actually a tag
+        let nextTag = input.indexOf('<', chunkPos)
+        while (nextTag !== -1 && nextTag + 1 < end && !this._isXMLTagStart(input, nextTag + 1)) {
+          nextTag = input.indexOf('<', nextTag + 1)
+        }
 
         // We read a TEXT node but there might be some
         // more text data left, so we wait
         if (nextTag === -1) {
-          // this._wait(Node.text, input.slice(chunkPos))
           let chunk = input.slice(chunkPos)
 
           if (this._tagStack.length === 1) {
@@ -538,11 +544,13 @@ export class Saxy extends Transform {
         const tagName = input.slice(chunkPos + 1, tagClose)
         const stackedTagName = this._tagStack[this._tagStack.length - 1]
 
-        // Only emit close tag if it matches schema validation
+        // Convert closing tag to text if it doesn't match schema validation
         if (this._schema) {
           // For top-level tags
           if (this._tagStack.length === 1) {
             if (!this._schema[tagName]) {
+              const rawTag = input.slice(chunkPos - 1, tagClose + 1)
+              this.emit(Node.text, { contents: rawTag })
               chunkPos = tagClose + 1
               continue
             }
@@ -554,6 +562,8 @@ export class Saxy extends Transform {
               !this._schema[parentTag] ||
               !this._schema[parentTag].includes(tagName)
             ) {
+              const rawTag = input.slice(chunkPos - 1, tagClose + 1)
+              this.emit(Node.text, { contents: rawTag })
               chunkPos = tagClose + 1
               continue
             }
@@ -578,29 +588,44 @@ export class Saxy extends Transform {
       // Extract the tag name and attributes
       const whitespace = input.slice(chunkPos).search(/\s/)
 
+      // Get the raw tag text for potential text node conversion
+      const rawTag = input.slice(chunkPos - 1, tagClose + 1)
+
       if (whitespace === -1 || whitespace >= tagClose - chunkPos) {
         // Tag without any attribute
         this._handleTagOpening({
           name: input.slice(chunkPos, realTagClose),
           attrs: '',
           isSelfClosing,
-        })
+        }, rawTag)
       } else if (whitespace === 0) {
-        // console.log('Tag names may not start with whitespace:', input)
-        // callback(new Error('Tag names may not start with whitespace'))
-        // return
+        // Invalid tag starting with whitespace - emit as text
+        this.emit(Node.text, { contents: rawTag })
       } else {
         // Tag with attributes
         this._handleTagOpening({
           name: input.slice(chunkPos, chunkPos + whitespace),
           attrs: input.slice(chunkPos + whitespace, realTagClose),
           isSelfClosing,
-        })
+        }, rawTag)
       }
 
       chunkPos = tagClose + 1
     }
 
     callback()
+  }
+
+  /**
+   * Check if a potential XML tag start is actually a valid tag
+   * @param input The input string
+   * @param pos Position after the < character
+   * @returns true if this is a valid XML tag start
+   */
+  private _isXMLTagStart(input: string, pos: number): boolean {
+    // Valid XML tags must start with a letter, underscore or colon
+    // https://www.w3.org/TR/xml/#NT-NameStartChar
+    const firstChar = input[pos]
+    return /[A-Za-z_:]/.test(firstChar) || firstChar === '/'
   }
 }

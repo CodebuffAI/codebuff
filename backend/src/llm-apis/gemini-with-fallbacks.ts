@@ -60,6 +60,12 @@ export async function promptGeminiWithFallbacks(
   const { costMode, useGPT4oInsteadOfClaude, ...geminiOptions } = options
 
   try {
+    // TODO: Just an example to test, remove once we get the finetuned model in!
+    // return await promptAiSdk_GeminiFormat(messages as OpenAIMessage[], system, {
+    //   ...geminiOptions,
+    //   model: finetunedVertexModels.ft_filepicker_003,
+    // })
+
     // First try Gemini
     return await promptGemini(
       system
