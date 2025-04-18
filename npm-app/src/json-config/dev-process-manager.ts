@@ -2,7 +2,7 @@ import path from 'path'
 
 import { generateCompactId } from 'common/util/string'
 import { yellow } from 'picocolors'
-import { runBackgroundCommand } from 'src/utils/terminal'
+import { runBackgroundCommand } from '../utils/terminal'
 
 import { StartupProcess } from './constants'
 
