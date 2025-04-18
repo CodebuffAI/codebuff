@@ -1,14 +1,21 @@
 import fs from 'fs'
 import path from 'path'
+
 import { FileChanges } from '../actions'
+import { isFileIgnored } from '../project-file-tree'
 import { applyPatch } from './patch'
 
 export function applyChanges(projectRoot: string, changes: FileChanges) {
   const created: string[] = []
   const modified: string[] = []
+  const ignored: string[] = []
 
   for (const change of changes) {
     const { path: filePath, content, type } = change
+    if (isFileIgnored(filePath, projectRoot)) {
+      ignored.push(filePath)
+      continue
+    }
     const fullPath = path.join(projectRoot, filePath)
     try {
       const fileExists = fs.existsSync(fullPath)
@@ -35,7 +42,7 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
     }
   }
 
-  return { created, modified }
+  return { created, modified, ignored }
 }
 
 export async function applyAndRevertChanges(

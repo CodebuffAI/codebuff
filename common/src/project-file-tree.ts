@@ -1,10 +1,12 @@
 import fs from 'fs'
-import path from 'path'
 import os from 'os'
+import path from 'path'
+
 import * as ignore from 'ignore'
-import { DirectoryNode, FileTreeNode } from './util/file'
 import { sortBy } from 'lodash'
+
 import { DEFAULT_IGNORED_FILES } from './constants'
+import { DirectoryNode, FileTreeNode } from './util/file'
 
 export const DEFAULT_MAX_FILES = 10_000
 
@@ -177,4 +179,27 @@ export function getLastReadFilePaths(
     .reverse()
     .slice(0, count)
     .map((node) => node.filePath)
+}
+
+export function isFileIgnored(filePath: string, projectRoot: string): boolean {
+  const defaultIgnore = ignore.default()
+  for (const pattern of DEFAULT_IGNORED_FILES) {
+    defaultIgnore.add(pattern)
+  }
+
+  const relativeFilePath = path.relative(
+    projectRoot,
+    path.join(projectRoot, filePath)
+  )
+  const dirPath = path.dirname(path.join(projectRoot, filePath))
+
+  // Get ignore patterns from the directory containing the file and all parent directories
+  const mergedIgnore = ignore.default().add(defaultIgnore)
+  let currentDir = dirPath
+  while (currentDir.startsWith(projectRoot)) {
+    mergedIgnore.add(parseGitignore(currentDir, projectRoot))
+    currentDir = path.dirname(currentDir)
+  }
+
+  return mergedIgnore.ignores(relativeFilePath)
 }

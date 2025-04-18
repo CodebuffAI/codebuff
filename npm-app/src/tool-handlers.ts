@@ -26,17 +26,22 @@ export const handleWriteFile: ToolHandler<{
   type: 'patch' | 'file'
 }> = async (parameters, _id, projectPath) => {
   const fileChange = FileChangeSchema.parse(parameters)
-  const { created, modified } = applyChanges(projectPath, [fileChange])
-  let result = ''
+  const { created, modified, ignored } = applyChanges(projectPath, [fileChange])
+  let result: string[] = []
   for (const file of created) {
-    result += `Wrote to ${file} successfully.\n`
+    result.push(`Wrote to ${file} successfully.`)
     console.log(green(`- Created ${file}`))
   }
   for (const file of modified) {
-    result += `Wrote to ${file} successfully.\n`
+    result.push(`Wrote to ${file} successfully.`)
     console.log(green(`- Updated ${file}`))
   }
-  return result
+  for (const file of ignored) {
+    result.push(
+      `Failed to write to ${file}; file is ignored by .gitignore or .codebuffignore`
+    )
+  }
+  return result.join('\n')
 }
 
 export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
