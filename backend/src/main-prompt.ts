@@ -253,7 +253,7 @@ export const mainPrompt = async (
   const {
     addedFiles,
     updatedFilePaths,
-    readFilesMessage,
+    printedPaths,
     clearReadFileToolResults,
   } = await getFileReadingUpdates(
     ws,
@@ -289,8 +289,13 @@ export const mainPrompt = async (
     }
   }
 
-  if (readFilesMessage !== undefined) {
-    onResponseChunk(`${readFilesMessage}\n\n`)
+  if (printedPaths.length > 0) {
+    const readFileToolCall = `<read_files>
+<paths>
+${printedPaths.join('\n')}
+</paths>
+</read_files>`
+    onResponseChunk(`${readFileToolCall}\n\n`)
   }
 
   if (updatedFiles.length > 0) {
@@ -860,12 +865,6 @@ async function getFileReadingUpdates(
       newFilesToRead,
       loadedFiles
     )
-    const isFirstRead = true
-    const readFilesMessage = getRelevantFileInfoMessage(
-      printedPaths,
-      isFirstRead
-    )
-
     logger.debug(
       {
         newFiles,
@@ -881,7 +880,7 @@ async function getFileReadingUpdates(
     return {
       addedFiles: newFiles,
       updatedFilePaths: updatedFilePaths,
-      readFilesMessage,
+      printedPaths,
       clearReadFileToolResults: true,
     }
   }
@@ -891,15 +890,11 @@ async function getFileReadingUpdates(
     newFilesToRead,
     loadedFiles
   )
-  const readFilesMessage =
-    printedPaths.length > 0
-      ? getRelevantFileInfoMessage(printedPaths, isFirstRead)
-      : undefined
 
   return {
     addedFiles,
     updatedFilePaths,
-    readFilesMessage,
+    printedPaths,
     clearReadFileToolResults: false,
   }
 }

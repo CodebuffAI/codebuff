@@ -69,11 +69,32 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   read_files: {
     ...defaultToolCallRenderer,
     onParamChunk: (content, paramName, toolName) => {
+      // Don't render chunks for paths, wait for the full list
       return null
     },
 
-    onParamEnd: (paramName, toolName, content) => bgBlack(content.trim()),
+    onParamEnd: (paramName, toolName, content) => {
+      const files = content.trim().split('\n').filter(Boolean) // Split by newline and remove empty entries
+      const numFiles = files.length
+      const maxInitialFiles = 3
+
+      if (numFiles <= maxInitialFiles) {
+        // If 3 or fewer files, list them all on new lines
+        return bgBlack(files.join('\n'))
+      } else {
+        // If more than 3 files
+        const initialFiles = files.slice(0, maxInitialFiles)
+        const remainingFiles = files.slice(maxInitialFiles)
+        const numRemaining = remainingFiles.length
+        const remainingFilesString = remainingFiles.join(' ')
+
+        return bgBlack(
+          `${initialFiles.map((file) => '- ' + file).join('\n')}\nand ${numRemaining} more: ${remainingFilesString}`
+        )
+      }
+    },
     onToolEnd: (toolName, params) => {
+      // Add a final newline after the file list
       return `\n`
     },
   },
