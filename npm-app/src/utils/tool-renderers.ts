@@ -72,7 +72,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       return null
     },
 
-    onParamEnd: (paramName, toolName, content) => content.trim(),
+    onParamEnd: (paramName, toolName, content) => bgBlack(content.trim()),
     onToolEnd: (toolName, params) => {
       return `\n`
     },
