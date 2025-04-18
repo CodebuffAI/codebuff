@@ -5,6 +5,7 @@ import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { stripeServer } from 'common/src/util/stripe'
 import { processAndGrantCredit } from 'common/src/billing/grant-credits'
+import { generateCompactId } from 'common/src/util/string'
 
 export class AutoTopupValidationError extends Error {
   constructor(message: string) {
@@ -95,6 +96,7 @@ export async function processAutoTopupPayment(userId: string) {
     throw new AutoTopupPaymentError('No payment methods available')
   }
 
+  const operationId = `auto-${userId}-${generateCompactId()}`
   const paymentIntent = await stripeServer.paymentIntents.create({
     amount: amountToTopUp * 100,
     currency: 'usd',
@@ -102,13 +104,28 @@ export async function processAutoTopupPayment(userId: string) {
     payment_method: paymentMethods.data[0].id,
     confirm: true,
     off_session: true,
+    description: `Auto top-up: ${amountToTopUp.toLocaleString()} credits`,
+    metadata: {
+      userId,
+      credits: amountToTopUp.toString(),
+      operationId,
+      grantType: 'purchase',
+      type: 'auto-topup',
+    },
   })
 
   if (paymentIntent.status !== 'succeeded') {
     throw new AutoTopupPaymentError('Payment failed')
   }
 
-  await processAndGrantCredit(userId, amountToTopUp, 'auto_topup')
+  await processAndGrantCredit(
+    userId,
+    amountToTopUp,
+    'purchase',
+    `Auto top-up of ${amountToTopUp.toLocaleString()} credits`,
+    null,
+    operationId
+  )
 
   logger.info({ userId, amount: amountToTopUp }, 'Auto top-up successful')
 }
