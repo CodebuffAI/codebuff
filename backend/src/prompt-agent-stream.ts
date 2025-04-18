@@ -44,11 +44,7 @@ export const getAgentStream = (params: {
   const fullSelectedModel =
     shortModelNames[(selectedModel ?? '') as keyof typeof shortModelNames]
 
-  const model =
-    fullSelectedModel ??
-    (costMode === 'experimental'
-      ? models.gemini2_5_pro_preview
-      : getModelForMode(costMode, 'agent'))
+  const model = fullSelectedModel ?? getModelForMode(costMode, 'agent')
 
   const provider = providerModelNames[model as keyof typeof providerModelNames]
 
