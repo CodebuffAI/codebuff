@@ -19,7 +19,7 @@ export async function getThinkingStream(
   const { getStream } = getAgentStream({
     costMode: options.costMode,
     selectedModel: 'gemini-2.5-pro',
-    stopSequences: ['</think_deeply>'],
+    stopSequences: ['</think_deeply>', '<think_deeply>'],
     clientSessionId: options.clientSessionId,
     fingerprintId: options.fingerprintId,
     userInputId: options.userInputId,
@@ -30,7 +30,19 @@ export async function getThinkingStream(
 
 The user cannot see anything you write, this is thinking that will be used to generate the response in the next step.
 
-Think step by step and respond with your analysis using a think_deeply tool call. Be concise and to the point. Do not write anything outside of the <think_deeply> tool call. Do not use any other tools or <end_turn> tags. Make sure to end your response with "</thought>\n</think_deeply>"`
+When the next action is clear, you can stop your thinking immediately. For example:
+- If you realize you need to read files, say what files you should read next, and then end your thinking.
+- If you realize you completed the user request, say it is time to use the <end_turn> tool and end your thinking.
+- If you already did thinking previously that outlines a plan you are continuing to implement, you can stop your thinking immediately and continue following the plan.
+
+Guidelines:
+- Think step by step and respond with your analysis using a think_deeply tool call.
+- Be concise and to the point.
+- It's fine to have a very short thinking session, like 1 sentence long, if the next action is clear.
+- Do not write anything outside of the <think_deeply> tool call.
+- DO NOT use any other tools! You are only thinking, not taking any actions.
+- Do not include <end_turn> tags (or any other tool call tags).
+- Make sure to end your response with "</thought>\n</think_deeply>"`
 
   const thinkDeeplyPrefix = '<think_deeply>\n<thought>'
 
@@ -47,6 +59,10 @@ Think step by step and respond with your analysis using a think_deeply tool call
   for await (const chunk of stream) {
     onChunk(chunk)
     response += chunk
+  }
+  if (!response.includes('</thought>')) {
+    onChunk('</thought>\n')
+    response += '</thought>\n'
   }
   onChunk('</think_deeply>')
   response += '</think_deeply>'
