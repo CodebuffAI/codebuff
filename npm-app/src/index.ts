@@ -24,13 +24,14 @@ async function codebuff(
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
 
+  const updatePromise = updateCodebuff()
+
   // Load codebuff.json config if it exists
   const config = loadCodebuffConfig(dir)
   if (config?.startupProcesses) {
     await startDevProcesses(config.startupProcesses, dir)
   }
 
-  const updatePromise = updateCodebuff()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
 
   const readyPromise = Promise.all([updatePromise, initFileContextPromise])
