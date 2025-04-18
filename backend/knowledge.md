@@ -58,6 +58,8 @@ Errors are logged with context and returned to the client as structured response
 - When updating mocks mid-test, update the existing mock reference and re-register with mock.module()
 - Always clean up mocks in afterEach with mock.restore()
 - Use try/catch in async tests to get better error messages
+- Verify specific error types and messages when testing error cases, not just that an error occurs
+- Be cautious of mocks that could hide implementation issues by not verifying actual behavior
 
 Run type checks after changes:
 ```bash
