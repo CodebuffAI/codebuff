@@ -27,7 +27,7 @@ if (fs.existsSync(progressPath)) {
   processedSubs = new Set(JSON.parse(fs.readFileSync(progressPath, 'utf-8')))
 }
 
-const processedPathKey = (customerId: string) => `cust_${customerId}` // helper
+const processedPathKey = (customerId: string) => `${customerId}` // helper
 
 async function processCustomer(entry: MigrationEntry) {
   if (!entry.stripeCustomerId) {
@@ -48,7 +48,7 @@ async function processCustomer(entry: MigrationEntry) {
   })
 
   // Try to find legacy licensed subscription
-  const legacySub = subs.data.find(sub =>
+  const legacySub = subs.data.find((sub) =>
     sub.items.data.some(
       (item: Stripe.SubscriptionItem) =>
         item.price.recurring?.usage_type === 'licensed'
@@ -65,7 +65,7 @@ async function processCustomer(entry: MigrationEntry) {
   }
 
   // Does customer already have usage‑based sub?
-  const hasUsageBasedSub = subs.data.some(sub =>
+  const hasUsageBasedSub = subs.data.some((sub) =>
     sub.items.data.every(
       (item: Stripe.SubscriptionItem) => item.price.id === USAGE_PRICE_ID
     )
@@ -79,7 +79,9 @@ async function processCustomer(entry: MigrationEntry) {
       payment_behavior: 'default_incomplete',
       expand: ['items.data.price'],
     })
-    console.log(`Created usage sub ${newSub.id} for customer ${entry.stripeCustomerId}`)
+    console.log(
+      `Created usage sub ${newSub.id} for customer ${entry.stripeCustomerId}`
+    )
   }
 
   // Persist price ID to DB
