@@ -117,6 +117,7 @@ export function promptGeminiStream(
     maxTokens?: number
     temperature?: number
     apiKey?: string
+    stopSequences?: string[]
   }
 ): ReadableStream<string> {
   const {
@@ -128,6 +129,7 @@ export function promptGeminiStream(
     model,
     maxTokens,
     apiKey,
+    stopSequences,
   } = options
 
   const streamController = new AbortController()
@@ -142,7 +144,7 @@ export function promptGeminiStream(
         const generationConfig = removeUndefinedProps({
           temperature: temperature ?? 0.7,
           maxOutputTokens: maxTokens,
-          stopSequences: ['</think_deeply>'],
+          stopSequences,
         })
 
         streamResult = await generativeModel.generateContentStream({
@@ -223,6 +225,7 @@ export async function promptGemini(
     maxTokens?: number
     temperature?: number
     apiKey?: string
+    stopSequences?: string[]
   }
 ): Promise<string> {
   const {
@@ -234,6 +237,7 @@ export async function promptGemini(
     model,
     maxTokens,
     apiKey,
+    stopSequences,
   } = options
 
   const startTime = Date.now()
@@ -246,6 +250,7 @@ export async function promptGemini(
     const generationConfig = removeUndefinedProps({
       temperature: temperature ?? 0.7,
       maxOutputTokens: maxTokens,
+      stopSequences,
     })
 
     const timeoutMs = model === geminiModels.gemini2flash ? 60_000 : 200_000

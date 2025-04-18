@@ -19,6 +19,7 @@ export async function getThinkingStream(
   const { getStream } = getAgentStream({
     costMode: options.costMode,
     selectedModel: 'gemini-2.5-pro',
+    stopSequences: ['</think_deeply>'],
     clientSessionId: options.clientSessionId,
     fingerprintId: options.fingerprintId,
     userInputId: options.userInputId,
@@ -40,12 +41,16 @@ Think step by step and respond with your analysis using a think_deeply tool call
   ]
 
   const stream = getStream(agentMessages, system)
+
   let response = thinkDeeplyPrefix
   onChunk(thinkDeeplyPrefix)
   for await (const chunk of stream) {
     onChunk(chunk)
     response += chunk
   }
+  onChunk('</think_deeply>')
+  response += '</think_deeply>'
+
   logger.debug({ response: response }, 'Thinking stream')
   return response
 }

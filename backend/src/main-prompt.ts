@@ -29,6 +29,7 @@ import {
   parseRawToolCall,
   parseToolCalls,
   TOOL_LIST,
+  TOOLS_WHICH_END_THE_RESPONSE,
   transformRunTerminalCommand,
   updateContextFromToolCalls,
 } from './tools'
@@ -73,6 +74,7 @@ export const mainPrompt = async (
   const { getStream, model } = getAgentStream({
     costMode,
     selectedModel,
+    stopSequences: TOOLS_WHICH_END_THE_RESPONSE.map((tool) => `</${tool}>`),
     clientSessionId,
     fingerprintId,
     userInputId: promptId,

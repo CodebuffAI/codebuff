@@ -102,6 +102,7 @@ export async function* promptOpenAIStream(
     userId: string | undefined
     predictedContent?: string
     temperature?: number
+    stopSequences?: string[]
   }
 ): AsyncGenerator<string, void, unknown> {
   const transformedMessages = transformMessages(messages, options.model)
@@ -129,6 +130,7 @@ export async function* promptOpenAIStream(
         stream_options: {
           include_usage: true,
         },
+        stop_sequences: options.stopSequences,
       })
     )
 
@@ -213,6 +215,7 @@ export interface OpenAIOptions {
   predictedContent?: string
   temperature?: number
   reasoningEffort?: ChatCompletionReasoningEffort
+  stopSequences?: string[]
 }
 
 export async function promptOpenAI(
@@ -348,13 +351,21 @@ export async function promptOpenAIWithContinuation(
   messages: OpenAIMessage[],
   options: {
     model: string
+    stopSequences?: string[]
     clientSessionId: string
     fingerprintId: string
     userInputId: string
     userId?: string
   }
 ) {
-  const { model, clientSessionId, fingerprintId, userInputId, userId } = options
+  const {
+    model,
+    stopSequences,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+  } = options
   let fullResponse = ''
   let continuedMessage: OpenAIMessage | null = null
   let isComplete = false
@@ -382,15 +393,18 @@ export async function promptOpenAIWithContinuation(
     const startTime = Date.now()
     try {
       const stream = await Promise.race([
-        openai.chat.completions.create({
-          model,
-          messages: messagesWithContinuedMessage,
-          stream: true,
-          temperature: 0,
-          stream_options: {
-            include_usage: true,
-          },
-        }),
+        openai.chat.completions.create(
+          removeUndefinedProps({
+            model,
+            messages: messagesWithContinuedMessage,
+            stream: true,
+            temperature: 0,
+            stop_sequences: stopSequences,
+            stream_options: {
+              include_usage: true,
+            },
+          })
+        ),
         timeoutPromise(120000) as Promise<
           Stream<OpenAI.Chat.Completions.ChatCompletionChunk>
         >,

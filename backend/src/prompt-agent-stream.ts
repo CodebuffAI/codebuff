@@ -17,6 +17,7 @@ import { messagesWithSystem } from './util/messages'
 export const getAgentStream = (params: {
   costMode: CostMode
   selectedModel: string | undefined
+  stopSequences?: string[]
   clientSessionId: string
   fingerprintId: string
   userInputId: string
@@ -25,6 +26,7 @@ export const getAgentStream = (params: {
   const {
     costMode,
     selectedModel,
+    stopSequences,
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -55,6 +57,7 @@ export const getAgentStream = (params: {
       ? promptClaudeStream(messages, {
           system,
           model: model as AnthropicModel,
+          stopSequences,
           clientSessionId,
           fingerprintId,
           userInputId,
@@ -63,6 +66,7 @@ export const getAgentStream = (params: {
       : provider === 'openai'
         ? promptOpenAIStream(messagesWithSystem(messages, system), {
             model: model as OpenAIModel,
+            stopSequences,
             clientSessionId,
             fingerprintId,
             userInputId,
@@ -75,6 +79,7 @@ export const getAgentStream = (params: {
               userInputId,
               userId,
               temperature: 0,
+              stopSequences,
             })
           : (() => {
               throw new Error(
