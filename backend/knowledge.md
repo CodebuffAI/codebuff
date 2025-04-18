@@ -1,6 +1,6 @@
 # Backend Knowledge
 
-## Auto Top-up System
+## Auto Top-up
 
 The backend implements an automatic credit top-up system that:
 - Triggers when a user's balance falls below their configured threshold
@@ -10,8 +10,9 @@ The backend implements an automatic credit top-up system that:
 - Grants credits immediately while waiting for Stripe webhook confirmation
 
 Key files:
-- `common/src/billing/auto-topup.ts`: Core auto top-up logic
+- `backend/src/billing/auto-topup.ts`: Core auto top-up logic (moved from common)
 - `backend/src/websockets/middleware.ts`: Integration with request flow
+- Still uses shared utilities from common (balance calculator, credit conversion)
 
 The middleware checks for auto top-up eligibility whenever a user runs out of credits during an action. If successful, the action proceeds automatically without user intervention.
 

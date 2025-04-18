@@ -7,6 +7,7 @@ import * as schema from 'common/db/schema'
 import { logger } from '@/util/logger'
 import { UserProfile } from '@/types/user'
 import { validateAutoTopupStatus } from 'common/src/billing/auto-topup'
+import { env } from '@/env.mjs'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -32,7 +33,8 @@ export async function GET() {
     }
 
     const { blockedReason: auto_topup_blocked_reason } = await validateAutoTopupStatus(
-      session.user.id
+      session.user.id,
+      env.NEXT_PUBLIC_APP_URL
     )
 
     const response: Partial<UserProfile> = {

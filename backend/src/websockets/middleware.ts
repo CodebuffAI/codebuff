@@ -22,7 +22,7 @@ import {
   getPreviousFreeGrantAmount,
   calculateTotalReferralBonus,
 } from 'common/src/billing/grant-credits'
-import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
+import { checkAndTriggerAutoTopup } from '../billing/auto-topup'
 import { generateCompactId } from 'common/util/string'
 import { pluralize } from 'common/util/string'
 import { getPlanFromPriceId, getMonthlyGrantForPlan } from 'common/src/billing/plans'

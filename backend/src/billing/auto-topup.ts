@@ -1,18 +1,17 @@
 import { calculateUsageAndBalance } from 'common/src/billing/balance-calculator'
-import { logger } from '../util/logger'
+import { logger } from '@/util/logger'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { stripeServer } from 'common/src/util/stripe'
 import { processAndGrantCredit } from 'common/src/billing/grant-credits'
 import { generateCompactId } from 'common/src/util/string'
+import { convertCreditsToUsdCents, getUserCostPerCredit } from 'common/src/billing/credit-conversion'
+import { validateAutoTopupStatus, AutoTopupValidationError, disableAutoTopup } from 'common/src/billing/auto-topup'
+import type Stripe from 'stripe'
+import { env } from '@/env.mjs'
 
-export class AutoTopupValidationError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'AutoTopupValidationError'
-  }
-}
+const MINIMUM_PURCHASE_CREDITS = 500
 
 export class AutoTopupPaymentError extends Error {
   constructor(message: string) {
@@ -21,89 +20,29 @@ export class AutoTopupPaymentError extends Error {
   }
 }
 
-export async function validateAutoTopupStatus(userId: string) {
-  const user = await db.query.user.findFirst({
-    where: eq(schema.user.id, userId),
-    columns: {
-      auto_topup_enabled: true,
-      auto_topup_threshold: true,
-      auto_topup_amount: true,
-      next_quota_reset: true,
-    },
-  })
-
-  if (!user) {
-    throw new AutoTopupValidationError('User not found')
-  }
-
-  if (!user.auto_topup_enabled) {
-    return false
-  }
-
-  if (!user.auto_topup_threshold || !user.auto_topup_amount) {
-    throw new AutoTopupValidationError('Auto top-up settings are incomplete')
-  }
-
-  const { balance } = await calculateUsageAndBalance(userId, user.next_quota_reset ?? new Date(0))
-
-  if (balance.totalRemaining > user.auto_topup_threshold && balance.totalDebt === 0) {
-    return false
-  }
-
-  return true
-}
-
-export async function disableAutoTopup(userId: string) {
-  await db
-    .update(schema.user)
-    .set({
-      auto_topup_enabled: false,
-      auto_topup_threshold: null,
-      auto_topup_amount: null,
-    })
-    .where(eq(schema.user.id, userId))
-
-  logger.info({ userId }, 'Auto top-up disabled')
-}
-
-export async function processAutoTopupPayment(userId: string) {
-  const user = await db.query.user.findFirst({
-    where: eq(schema.user.id, userId),
-    columns: {
-      auto_topup_enabled: true,
-      auto_topup_threshold: true,
-      auto_topup_amount: true,
-      stripe_customer_id: true,
-      next_quota_reset: true,
-    },
-  })
-
-  if (!user?.auto_topup_enabled || !user.auto_topup_amount || !user.stripe_customer_id) {
-    throw new AutoTopupValidationError('Invalid auto top-up configuration')
-  }
-
-  const { balance } = await calculateUsageAndBalance(userId, user.next_quota_reset ?? new Date(0))
-  const amountToTopUp = balance.totalDebt > 0
-    ? Math.max(user.auto_topup_amount, balance.totalDebt)
-    : user.auto_topup_amount
-
-  const paymentMethods = await stripeServer.paymentMethods.list({
-    customer: user.stripe_customer_id,
-    type: 'card',
-  })
-
-  if (!paymentMethods.data.length) {
-    throw new AutoTopupPaymentError('No payment methods available')
-  }
-
+async function processAutoTopupPayment(
+  userId: string,
+  amountToTopUp: number,
+  stripeCustomerId: string,
+  paymentMethod: Stripe.PaymentMethod
+): Promise<void> {
+  const logContext = { userId, amountToTopUp }
   const operationId = `auto-${userId}-${generateCompactId()}`
+
+  const centsPerCredit = await getUserCostPerCredit(userId)
+  const amountInCents = convertCreditsToUsdCents(amountToTopUp, centsPerCredit)
+
+  if (amountInCents <= 0) {
+    throw new AutoTopupPaymentError('Invalid payment amount calculated')
+  }
+
   const paymentIntent = await stripeServer.paymentIntents.create({
-    amount: amountToTopUp * 100,
+    amount: amountInCents,
     currency: 'usd',
-    customer: user.stripe_customer_id,
-    payment_method: paymentMethods.data[0].id,
-    confirm: true,
+    customer: stripeCustomerId,
+    payment_method: paymentMethod.id,
     off_session: true,
+    confirm: true,
     description: `Auto top-up: ${amountToTopUp.toLocaleString()} credits`,
     metadata: {
       userId,
@@ -115,7 +54,7 @@ export async function processAutoTopupPayment(userId: string) {
   })
 
   if (paymentIntent.status !== 'succeeded') {
-    throw new AutoTopupPaymentError('Payment failed')
+    throw new AutoTopupPaymentError('Payment failed or requires action')
   }
 
   await processAndGrantCredit(
@@ -127,24 +66,99 @@ export async function processAutoTopupPayment(userId: string) {
     operationId
   )
 
-  logger.info({ userId, amount: amountToTopUp }, 'Auto top-up successful')
+  logger.info(
+    {
+      ...logContext,
+      operationId,
+      paymentIntentId: paymentIntent.id,
+    },
+    'Auto top-up payment succeeded and credits granted'
+  )
 }
 
-export async function checkAndTriggerAutoTopup(userId: string) {
+export async function checkAndTriggerAutoTopup(userId: string): Promise<void> {
+  const logContext = { userId }
+
   try {
-    const shouldTopUp = await validateAutoTopupStatus(userId)
-    if (!shouldTopUp) {
+    const user = await db.query.user.findFirst({
+      where: eq(schema.user.id, userId),
+      columns: {
+        id: true,
+        stripe_customer_id: true,
+        auto_topup_enabled: true,
+        auto_topup_threshold: true,
+        auto_topup_amount: true,
+        next_quota_reset: true,
+      },
+    })
+
+    if (
+      !user ||
+      !user.auto_topup_enabled ||
+      user.auto_topup_threshold === null ||
+      user.auto_topup_amount === null ||
+      !user.stripe_customer_id
+    ) {
       return
     }
 
-    await processAutoTopupPayment(userId)
-  } catch (error) {
-    if (error instanceof AutoTopupValidationError) {
-      logger.warn({ userId, error: error.message }, 'Auto top-up validation failed')
-      await disableAutoTopup(userId)
-    } else {
-      logger.error({ userId, error }, 'Auto top-up processing failed')
-      throw error
+    const { blockedReason, validPaymentMethod } =
+      await validateAutoTopupStatus(userId, env.NEXT_PUBLIC_APP_URL)
+
+    if (blockedReason || !validPaymentMethod) {
+      throw new Error(blockedReason || 'Auto top-up is not available.')
     }
+
+    const { balance } = await calculateUsageAndBalance(userId, user.next_quota_reset ?? new Date(0))
+    
+    if (balance.totalRemaining >= user.auto_topup_threshold && balance.totalDebt === 0) {
+      return
+    }
+
+    const amountToTopUp = balance.totalDebt > 0
+      ? Math.max(user.auto_topup_amount, balance.totalDebt)
+      : user.auto_topup_amount
+
+    if (amountToTopUp < MINIMUM_PURCHASE_CREDITS) {
+      logger.warn(
+        logContext,
+        `Auto-top-up triggered but amount ${amountToTopUp} is less than minimum ${MINIMUM_PURCHASE_CREDITS}. Skipping top-up. Check user settings.`
+      )
+      return
+    }
+
+    logger.info(
+      {
+        ...logContext,
+        currentBalance: balance.totalRemaining,
+        currentDebt: balance.totalDebt,
+        threshold: user.auto_topup_threshold,
+        amountToTopUp,
+      },
+      `Auto-top-up triggered for user ${userId}. Attempting to purchase ${amountToTopUp} credits.`
+    )
+
+    try {
+      await processAutoTopupPayment(
+        userId,
+        amountToTopUp,
+        user.stripe_customer_id,
+        validPaymentMethod
+      )
+    } catch (error) {
+      const message =
+        error instanceof AutoTopupPaymentError
+          ? error.message
+          : 'Payment failed. Please check your payment method and re-enable auto top-up.'
+
+      await disableAutoTopup(userId)
+      throw new Error(message)
+    }
+  } catch (error) {
+    logger.error(
+      { ...logContext, error },
+      `Error during auto-top-up check for user ${userId}`
+    )
+    throw error
   }
 }
