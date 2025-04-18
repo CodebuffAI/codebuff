@@ -17,7 +17,7 @@
     "prepublishOnly": "bun run build && bun run clean-package.js",
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "test": "jest",
+    "test": "bun test",
     "start-js": "bun run build && bun run with-env -- node dist/index.js ..",
     "start": "bun run build && bun run with-env -- ts-node src/index.ts ..",
     "start-dir": "bun run with-env -- ts-node src/index.ts",
