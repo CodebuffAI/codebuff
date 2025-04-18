@@ -145,7 +145,7 @@ export const getModelForMode = (
     return costMode === 'experimental'
       ? models.gemini2_5_pro_exp
       : costMode === 'lite'
-        ? claudeModels.haiku
+        ? models.gemini2_5_flash
         : claudeModels.sonnet
   }
   if (operation === 'file-requests') {
@@ -177,6 +177,7 @@ export const openaiModels = {
 export type OpenAIModel = (typeof openaiModels)[keyof typeof openaiModels]
 
 export const geminiModels = {
+  gemini2_5_flash: 'gemini-2.5-flash-preview-04-17',
   gemini2flash: 'gemini-2.0-flash-001',
   gemini2_5_pro_exp: 'gemini-2.5-pro-exp-03-25',
   gemini2_5_pro_preview: 'gemini-2.5-pro-preview-03-25',
@@ -226,6 +227,7 @@ export const shortModelNames = {
 export const providerModelNames = {
   [models.gemini2_5_pro_preview]: 'gemini',
   [models.gemini2_5_pro_exp]: 'gemini',
+  [models.gemini2_5_flash]: 'gemini',
   [models.sonnet3_7]: 'anthropic',
   [models.sonnet]: 'anthropic',
   [models.gpt4_1]: 'openai',
@@ -249,10 +251,10 @@ export type AuthState = (typeof AuthState)[keyof typeof AuthState]
 
 export const UserState = {
   LOGGED_OUT: 'LOGGED_OUT',
-  GOOD_STANDING: 'GOOD_STANDING',         // >= 100 credits
-  ATTENTION_NEEDED: 'ATTENTION_NEEDED',   // 20-99 credits
-  CRITICAL: 'CRITICAL',                   // 1-19 credits
-  DEPLETED: 'DEPLETED',                  // <= 0 credits
+  GOOD_STANDING: 'GOOD_STANDING', // >= 100 credits
+  ATTENTION_NEEDED: 'ATTENTION_NEEDED', // 20-99 credits
+  CRITICAL: 'CRITICAL', // 1-19 credits
+  DEPLETED: 'DEPLETED', // <= 0 credits
 } as const
 
 export type UserState = (typeof UserState)[keyof typeof UserState]

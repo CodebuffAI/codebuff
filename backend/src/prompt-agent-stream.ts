@@ -78,7 +78,7 @@ export const getAgentStream = (params: {
             })
           : (() => {
               throw new Error(
-                `Unknown model/provider: ${selectedModel}/${provider}`
+                `Unknown model/provider: ${selectedModel}/${model}/${provider}`
               )
             })()
 

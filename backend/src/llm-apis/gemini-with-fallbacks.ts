@@ -302,3 +302,84 @@ export async function* streamGemini25ProWithFallbacks(
     throw claudeError
   }
 }
+
+/**
+ * Streams a response from Gemini with fallback strategies.
+ *
+ * Attempts the following endpoints in order until one succeeds:
+ * 1. Gemini API (Internal Key - gemini-2.5-pro-exp)
+ * 2. OpenRouter (Internal Key - google/gemini-2.5-pro-exp-03-25:free)
+ * 3. OpenRouter (Internal Key - google/gemini-2.5-pro-preview-03-25)
+ * 4. Claude Sonnet (Final Fallback)
+ *
+ * This function handles streaming requests and yields chunks of the response as they arrive.
+ * If a stream fails mid-way (e.g., due to rate limits), it appends the partially
+ * generated content to the message history before attempting the next fallback.
+ *
+ * @param messages - The array of messages forming the conversation history.
+ * @param system - An optional system prompt string or array of text blocks.
+ * @param options - Configuration options for the API call.
+ * @param options.clientSessionId - Unique ID for the client session.
+ * @param options.fingerprintId - Unique ID for the user's device/fingerprint.
+ * @param options.userInputId - Unique ID for the specific user input triggering this call.
+ * @param options.userId - The ID of the user making the request (required for user key fallback).
+ * @param options.maxTokens - Optional maximum number of tokens for the response.
+ * @param options.temperature - Optional temperature setting for generation (0-1).
+ * @yields {string} Chunks of the generated response text.
+ * @throws If all fallback attempts fail.
+ */
+export async function* streamGeminiWithFallbacks(
+  messages: Message[],
+  system: System | undefined,
+  options: {
+    model: GeminiModel
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    maxTokens?: number
+    temperature?: number
+  }
+): AsyncGenerator<string, void, any> {
+  const {
+    model,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    maxTokens,
+    temperature,
+  } = options
+
+  // Initialize the message list for the first attempt
+  let currentMessages: OpenAIMessage[] = system
+    ? messagesWithSystem(messages, system)
+    : (messages as OpenAIMessage[])
+
+  // --- Internal Fallbacks ---
+
+  // 1. Try Gemini API Stream (Internal Key - gemini-2.5-pro-exp)
+  const geminiExpOptions = {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    model,
+    maxTokens,
+    temperature,
+  }
+  try {
+    for await (const chunk of promptGeminiStream(
+      currentMessages,
+      geminiExpOptions
+    )) {
+      yield chunk
+    }
+    return // Success
+  } catch (error) {
+    logger.warn(
+      { error },
+      'Error calling Gemini 2.5 Pro (exp) via Gemini API Stream (Internal Key), falling back to OpenRouter (exp)'
+    )
+  }
+}
