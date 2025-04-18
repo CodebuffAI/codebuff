@@ -1,4 +1,4 @@
-import { bold } from 'picocolors'
+import { bold, bgBlack } from 'picocolors'
 import { capitalize, snakeToTitleCase } from 'common/util/string'
 import { ToolName } from 'common/constants/tools'
 
@@ -41,11 +41,11 @@ export interface ToolCallRenderer {
  */
 export const defaultToolCallRenderer: ToolCallRenderer = {
   onToolStart: (toolName) => {
-    return `[${bold(snakeToTitleCase(toolName))}]\n`
+    return bgBlack(`[${bold(snakeToTitleCase(toolName))}]\n`)
   },
 
   onParamChunk: (content, paramName, toolName) => {
-    return content
+    return bgBlack(content)
   },
 
   onParamEnd: () => null,
@@ -69,11 +69,32 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   read_files: {
     ...defaultToolCallRenderer,
     onParamChunk: (content, paramName, toolName) => {
+      // Don't render chunks for paths, wait for the full list
       return null
     },
 
-    onParamEnd: (paramName, toolName, content) => content.trim(),
+    onParamEnd: (paramName, toolName, content) => {
+      const files = content.trim().split('\n').filter(Boolean) // Split by newline and remove empty entries
+      const numFiles = files.length
+      const maxInitialFiles = 3
+
+      if (numFiles <= maxInitialFiles) {
+        // If 3 or fewer files, list them all on new lines
+        return bgBlack(files.join('\n'))
+      } else {
+        // If more than 3 files
+        const initialFiles = files.slice(0, maxInitialFiles)
+        const remainingFiles = files.slice(maxInitialFiles)
+        const numRemaining = remainingFiles.length
+        const remainingFilesString = remainingFiles.join(' ')
+
+        return bgBlack(
+          `${initialFiles.map((file) => '- ' + file).join('\n')}\nand ${numRemaining} more: ${remainingFilesString}`
+        )
+      }
+    },
     onToolEnd: (toolName, params) => {
+      // Add a final newline after the file list
       return `\n`
     },
   },
@@ -84,19 +105,19 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     ...defaultToolCallRenderer,
     onParamStart: (paramName) => {
       if (paramName === 'path') {
-        return 'Editing plan at '
+        return bgBlack('Editing plan at ')
       }
       return null
     },
     onParamChunk: (content, paramName) => {
       if (paramName === 'path') {
-        return content
+        return bgBlack(content)
       }
       return null
     },
     onParamEnd: (paramName) => {
       if (paramName === 'path') {
-        return '...\n'
+        return bgBlack('...\n')
       }
       return null
     },
@@ -105,13 +126,13 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     ...defaultToolCallRenderer,
     onParamStart: (paramName) => {
       if (paramName === 'path') {
-        return 'Editing file at '
+        return bgBlack('Editing file at ')
       }
       return null
     },
     onParamChunk: (content, paramName, toolName) => {
       if (paramName === 'path') {
-        return content
+        return bgBlack(content)
       }
       return null
     },
@@ -123,13 +144,13 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       if (paramName === 'id') {
         return null
       }
-      return capitalize(paramName) + ': '
+      return bgBlack(capitalize(paramName) + ': ')
     },
     onParamChunk: (content, paramName, toolName) => {
       if (paramName === 'id') {
         return null
       }
-      return content
+      return bgBlack(content)
     },
     onParamEnd: (paramName) => {
       const paramsWithNewLine = ['objective', 'status']
@@ -145,13 +166,13 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       if (paramName === 'id') {
         return null
       }
-      return capitalize(paramName) + ': '
+      return bgBlack(capitalize(paramName) + ': ')
     },
     onParamChunk: (content, paramName, toolName) => {
       if (paramName === 'id') {
         return null
       }
-      return content
+      return bgBlack(content)
     },
     onParamEnd: (paramName) => {
       const paramsWithNewLine = ['status']

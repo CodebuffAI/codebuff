@@ -59,6 +59,7 @@ async function* promptClaudeStreamWithoutRetry(
     model?: AnthropicModel
     maxTokens?: number
     thinking?: Thinking
+    stopSequences?: string[]
     clientSessionId: string
     fingerprintId: string
     userInputId: string
@@ -71,6 +72,7 @@ async function* promptClaudeStreamWithoutRetry(
     system,
     tools,
     thinking,
+    stopSequences,
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -129,7 +131,9 @@ async function* promptClaudeStreamWithoutRetry(
       system,
       tools,
       thinking,
-      stop_sequences: TOOLS_WHICH_END_THE_RESPONSE.map((tool) => `</${tool}>`),
+      stop_sequences: stopSequences
+        ? stopSequences
+        : TOOLS_WHICH_END_THE_RESPONSE.map((tool) => `</${tool}>`),
     })
   )
 
@@ -217,6 +221,7 @@ export async function* promptClaudeStream(
     system?: System
     tools?: Tool[]
     model?: AnthropicModel
+    stopSequences?: string[]
     maxTokens?: number
     thinking?: Thinking
     clientSessionId: string
@@ -264,6 +269,7 @@ export async function promptClaude(
     userInputId: string
     userId?: string
     ignoreDatabaseAndHelicone?: boolean
+    stopSequences?: string[]
   }
 ): Promise<string> {
   let result = ''
@@ -286,6 +292,7 @@ export async function promptClaudeWithContinuation(
     userInputId: string
     userId?: string
     ignoreDatabaseAndHelicone?: boolean
+    stopSequences?: string[]
   }
 ): Promise<string> {
   let result = ''

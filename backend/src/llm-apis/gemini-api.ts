@@ -22,19 +22,19 @@ type OpenAIMessageContentPart = OpenAI.Chat.ChatCompletionContentPart
 const safetySettings = [
   {
     category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
   },
   {
     category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
   },
   {
     category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
   },
   {
     category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
   },
 ]
 
@@ -117,6 +117,7 @@ export function promptGeminiStream(
     maxTokens?: number
     temperature?: number
     apiKey?: string
+    stopSequences?: string[]
   }
 ): ReadableStream<string> {
   const {
@@ -128,6 +129,7 @@ export function promptGeminiStream(
     model,
     maxTokens,
     apiKey,
+    stopSequences,
   } = options
 
   const streamController = new AbortController()
@@ -142,6 +144,7 @@ export function promptGeminiStream(
         const generationConfig = removeUndefinedProps({
           temperature: temperature ?? 0.7,
           maxOutputTokens: maxTokens,
+          stopSequences,
         })
 
         streamResult = await generativeModel.generateContentStream({
@@ -222,6 +225,7 @@ export async function promptGemini(
     maxTokens?: number
     temperature?: number
     apiKey?: string
+    stopSequences?: string[]
   }
 ): Promise<string> {
   const {
@@ -233,6 +237,7 @@ export async function promptGemini(
     model,
     maxTokens,
     apiKey,
+    stopSequences,
   } = options
 
   const startTime = Date.now()
@@ -245,6 +250,7 @@ export async function promptGemini(
     const generationConfig = removeUndefinedProps({
       temperature: temperature ?? 0.7,
       maxOutputTokens: maxTokens,
+      stopSequences,
     })
 
     const timeoutMs = model === geminiModels.gemini2flash ? 60_000 : 200_000

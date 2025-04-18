@@ -29,6 +29,7 @@ import {
   parseRawToolCall,
   parseToolCalls,
   TOOL_LIST,
+  TOOLS_WHICH_END_THE_RESPONSE,
   transformRunTerminalCommand,
   updateContextFromToolCalls,
 } from './tools'
@@ -51,6 +52,7 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
+import { getThinkingStream } from './thinking-stream'
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
 export const mainPrompt = async (
@@ -72,6 +74,7 @@ export const mainPrompt = async (
   const { getStream, model } = getAgentStream({
     costMode,
     selectedModel,
+    stopSequences: TOOLS_WHICH_END_THE_RESPONSE.map((tool) => `</${tool}>`),
     clientSessionId,
     fingerprintId,
     userInputId: promptId,
@@ -119,9 +122,12 @@ export const mainPrompt = async (
 
     `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
 
-    !justUsedATool &&
-      !recentlyDidThinking &&
-      'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
+    // Experimental gemini thinking
+    costMode === 'experimental'
+      ? 'Start your response with the <think_deeply> tool call to decide how to proceed.'
+      : !justUsedATool &&
+          !recentlyDidThinking &&
+          'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
 
     'If the user is starting a new feature or refactoring, consider invoking "<create_plan></create_plan>".',
 
@@ -247,7 +253,7 @@ export const mainPrompt = async (
   const {
     addedFiles,
     updatedFilePaths,
-    readFilesMessage,
+    printedPaths,
     clearReadFileToolResults,
   } = await getFileReadingUpdates(
     ws,
@@ -283,8 +289,13 @@ export const mainPrompt = async (
     }
   }
 
-  if (readFilesMessage !== undefined) {
-    onResponseChunk(`${readFilesMessage}\n\n`)
+  if (printedPaths.length > 0) {
+    const readFileToolCall = `<read_files>
+<paths>
+${printedPaths.join('\n')}
+</paths>
+</read_files>`
+    onResponseChunk(`${readFileToolCall}\n\n`)
   }
 
   if (updatedFiles.length > 0) {
@@ -399,7 +410,36 @@ ${newFiles.map((file) => file.path).join('\n')}
     Promise<{ path: string; content: string; patch?: string } | null>[]
   > = {}
 
-  const stream = getStream(agentMessages, system)
+  // Add deep thinking for experimental mode
+  if (costMode === 'experimental') {
+    await getThinkingStream(
+      agentMessages,
+      system,
+      (chunk) => {
+        onResponseChunk(chunk)
+        fullResponse += chunk
+      },
+      {
+        costMode,
+        clientSessionId,
+        fingerprintId,
+        userInputId: promptId,
+        userId,
+      }
+    )
+  }
+
+  const stream = getStream(
+    buildArray(
+      ...agentMessages,
+      // Add prefix of the response from fullResponse if it exists
+      fullResponse && {
+        role: 'assistant' as const,
+        content: fullResponse.trim(),
+      }
+    ),
+    system
+  )
 
   const streamWithTags = processStreamWithTags(stream, {
     write_file: {
@@ -825,12 +865,6 @@ async function getFileReadingUpdates(
       newFilesToRead,
       loadedFiles
     )
-    const isFirstRead = true
-    const readFilesMessage = getRelevantFileInfoMessage(
-      printedPaths,
-      isFirstRead
-    )
-
     logger.debug(
       {
         newFiles,
@@ -846,7 +880,7 @@ async function getFileReadingUpdates(
     return {
       addedFiles: newFiles,
       updatedFilePaths: updatedFilePaths,
-      readFilesMessage,
+      printedPaths,
       clearReadFileToolResults: true,
     }
   }
@@ -856,15 +890,11 @@ async function getFileReadingUpdates(
     newFilesToRead,
     loadedFiles
   )
-  const readFilesMessage =
-    printedPaths.length > 0
-      ? getRelevantFileInfoMessage(printedPaths, isFirstRead)
-      : undefined
 
   return {
     addedFiles,
     updatedFilePaths,
-    readFilesMessage,
+    printedPaths,
     clearReadFileToolResults: false,
   }
 }
