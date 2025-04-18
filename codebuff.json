@@ -1,0 +1,8 @@
+{
+  "startupProcesses": [
+    {
+      "name": "web server",
+      "command": "bun start-web"
+    }
+  ]
+}

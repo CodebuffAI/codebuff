@@ -181,9 +181,10 @@ function formatResult(command: string, stdout: string, status: string): string {
 
 const MAX_EXECUTION_TIME = 30_000
 
-const runBackgroundCommand = (
+export const runBackgroundCommand = (
   toolCallId: string,
   command: string,
+  mode: 'user' | 'assistant',
   projectPath: string,
   resolveCommand: (value: { result: string; stdout: string }) => void
 ) => {
@@ -191,7 +192,9 @@ const runBackgroundCommand = (
   const shell = isWindows ? 'cmd.exe' : 'bash'
   const shellArgs = isWindows ? ['/c'] : ['-c']
 
-  console.log(green(`Running background process...\n> ${command}`))
+  if (mode === 'assistant') {
+    console.log(green(`Running background process...\n> ${command}`))
+  }
 
   const initialStdout = ''
   const initialStderr = ''
@@ -303,6 +306,7 @@ export const runTerminalCommand = async (
       runBackgroundCommand(
         toolCallId,
         modifiedCommand,
+        mode,
         projectPath,
         resolveCommand
       )

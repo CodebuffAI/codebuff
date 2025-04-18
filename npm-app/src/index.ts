@@ -3,17 +3,19 @@
 import { Command } from 'commander'
 import { type CostMode } from 'common/constants'
 import { red } from 'picocolors'
-import packageJson from '../package.json'
 
+import packageJson from '../package.json'
 import { CLI } from './cli'
+import { createTemplateProject } from './create-template-project'
+import { startDevProcesses } from './json-config/dev-process-manager'
+import { loadCodebuffConfig } from './json-config/parser'
 import {
   initProjectFileContextWithWorker,
   setProjectRoot,
 } from './project-files'
-import { updateCodebuff } from './update-codebuff'
 import { CliOptions } from './types'
+import { updateCodebuff } from './update-codebuff'
 import { recreateShell } from './utils/terminal'
-import { createTemplateProject } from './create-template-project'
 
 async function codebuff(
   projectDir: string | undefined,
@@ -21,6 +23,12 @@ async function codebuff(
 ) {
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
+
+  // Load codebuff.json config if it exists
+  const config = loadCodebuffConfig(dir)
+  if (config?.startupProcesses) {
+    await startDevProcesses(config.startupProcesses, dir)
+  }
 
   const updatePromise = updateCodebuff()
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
