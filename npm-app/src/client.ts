@@ -842,6 +842,12 @@ export class Client {
           console.log(`${pluralize(credits, 'credit')} used for this request.`)
         }
 
+        // Show auto top-up success message if it occurred during this response
+        if (this.pendingTopUpMessageAmount) {
+          console.log(green(`Auto top-up successful! ${this.pendingTopUpMessageAmount.toLocaleString()} credits added.`))
+          this.pendingTopUpMessageAmount = null
+        }
+
         if (this.hadFileChanges) {
           let checkpointAddendum = ''
           try {
