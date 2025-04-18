@@ -227,6 +227,20 @@ Buffy can execute terminal commands using the `run_terminal_command` tool. This 
 
 - We don't specify return types for functions, since Typescript will infer them.
 - Always include 'src' in file paths when it's part of the actual directory structure, even though imports automatically remove it.
+- Keep transformations simple and pure:
+  - One clear purpose per function
+  - Handle edge cases with early returns
+  - Use const assertions for better type inference
+  - Prefer small, focused functions over complex abstractions
+
+## Architecture Principles
+
+- Use single sources of truth for core business logic:
+  - Put calculation logic in dedicated functions (e.g., `getNextQuotaReset`)
+  - Avoid treating database values as authoritative when they're derived
+  - Pass derived values through the dedicated calculation functions
+  - This ensures consistent behavior across the system
+  - Example: Quota reset dates are calculated by `getNextQuotaReset`, not read directly from DB
 
 ## Constants and Configuration
 

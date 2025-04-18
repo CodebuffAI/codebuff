@@ -8,29 +8,31 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { Adapter } from 'next-auth/adapters'
-import { parse, format } from 'url'
 import { CREDITS_USAGE_LIMITS } from 'common/src/constants'
 import { logger } from '@/util/logger'
-import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
-import { getUserCostPerCredit } from 'common/src/billing/conversion'
 import { logSyncFailure } from 'common/src/util/sync-failure'
 import { processAndGrantCredit } from 'common/src/billing/grant-credits'
 import { generateCompactId } from 'common/src/util/string'
+import { getNextQuotaReset } from 'common/src/util/dates'
 
-async function createAndLinkStripeCustomer(user: User): Promise<string | null> {
-  if (!user.email || !user.name) {
+async function createAndLinkStripeCustomer(
+  userId: string,
+  email: string | null,
+  name: string | null
+): Promise<string | null> {
+  if (!email || !name) {
     logger.warn(
-      { userId: user.id },
+      { userId },
       'User email or name missing, cannot create Stripe customer.'
     )
     return null
   }
   try {
     const customer = await stripeServer.customers.create({
-      email: user.email,
-      name: user.name,
+      email,
+      name,
       metadata: {
-        user_id: user.id,
+        user_id: userId,
       },
     })
 
@@ -46,35 +48,42 @@ async function createAndLinkStripeCustomer(user: User): Promise<string | null> {
         stripe_customer_id: customer.id,
         stripe_price_id: env.STRIPE_USAGE_PRICE_ID,
       })
-      .where(eq(schema.user.id, user.id))
+      .where(eq(schema.user.id, userId))
 
     logger.info(
-      { userId: user.id, customerId: customer.id },
+      { userId, customerId: customer.id },
       'Stripe customer created with usage subscription and linked to user.'
     )
     return customer.id
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error creating Stripe customer'
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : 'Unknown error creating Stripe customer'
     logger.error(
-      { userId: user.id, error },
+      { userId, error },
       'Failed to create Stripe customer or update user record.'
     )
-    await logSyncFailure(user.id, errorMessage)
+    await logSyncFailure(userId, errorMessage)
     return null
   }
 }
 
-async function createInitialCreditGrant(userId: string): Promise<void> {
+async function createInitialCreditGrant(
+  userId: string,
+  expiresAt: Date | null
+): Promise<void> {
   try {
     const initialGrantCredits = CREDITS_USAGE_LIMITS.FREE
     const operationId = `free-${userId}-${generateCompactId()}`
+    const nextQuotaReset = getNextQuotaReset(expiresAt)
 
     await processAndGrantCredit(
       userId,
       initialGrantCredits,
       'free',
       'Initial free credits',
-      null, // No expiration for initial grant
+      nextQuotaReset,
       operationId
     )
 
@@ -83,11 +92,15 @@ async function createInitialCreditGrant(userId: string): Promise<void> {
         userId,
         operationId,
         creditsGranted: initialGrantCredits,
+        expiresAt: nextQuotaReset,
       },
       'Initial free credit grant created.'
     )
   } catch (grantError) {
-    const errorMessage = grantError instanceof Error ? grantError.message : 'Unknown error creating initial credit grant'
+    const errorMessage =
+      grantError instanceof Error
+        ? grantError.message
+        : 'Unknown error creating initial credit grant'
     logger.error(
       { userId, error: grantError },
       'Failed to create initial credit grant.'
@@ -96,12 +109,13 @@ async function createInitialCreditGrant(userId: string): Promise<void> {
   }
 }
 
-async function sendSignupEventToLoops(user: User): Promise<void> {
-  if (!user.email) {
-    logger.warn(
-      { userId: user.id },
-      'User email missing, cannot send Loops event.'
-    )
+async function sendSignupEventToLoops(
+  userId: string,
+  email: string | null,
+  name: string | null
+): Promise<void> {
+  if (!email) {
+    logger.warn({ userId }, 'User email missing, cannot send Loops event.')
     return
   }
   try {
@@ -112,19 +126,16 @@ async function sendSignupEventToLoops(user: User): Promise<void> {
         Authorization: `Bearer ${env.LOOPS_API_KEY}`,
       },
       body: JSON.stringify({
-        email: user.email,
-        userId: user.id,
+        email,
+        userId,
         eventName: 'signup',
-        firstName: user.name?.split(' ')[0] ?? '',
+        firstName: name?.split(' ')[0] ?? '',
       }),
     })
-    logger.info(
-      { email: user.email, userId: user.id },
-      'Sent signup event to Loops'
-    )
+    logger.info({ email, userId }, 'Sent signup event to Loops')
   } catch (loopsError) {
     logger.error(
-      { error: loopsError, email: user.email, userId: user.id },
+      { error: loopsError, email, userId },
       'Failed to send Loops event'
     )
   }
@@ -197,15 +208,35 @@ export const authOptions: NextAuthOptions = {
         'createUser event triggered'
       )
 
-      const customerId = await createAndLinkStripeCustomer(user)
+      // Get all user data we need upfront
+      const userData = await db.query.user.findFirst({
+        where: eq(schema.user.id, user.id),
+        columns: {
+          id: true,
+          email: true,
+          name: true,
+          next_quota_reset: true,
+        },
+      })
 
-      if (customerId) {
-        await createInitialCreditGrant(user.id)
+      if (!userData) {
+        logger.error({ userId: user.id }, 'User data not found after creation')
+        return
       }
 
-      await sendSignupEventToLoops(user)
+      const customerId = await createAndLinkStripeCustomer(
+        userData.id,
+        userData.email,
+        userData.name
+      )
 
-      logger.info({ userId: user.id }, 'createUser event processing finished.')
+      if (customerId) {
+        await createInitialCreditGrant(userData.id, userData.next_quota_reset)
+      }
+
+      await sendSignupEventToLoops(userData.id, userData.email, userData.name)
+
+      logger.info({ user }, 'createUser event processing finished.')
     },
   },
 }
