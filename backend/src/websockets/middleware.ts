@@ -8,7 +8,7 @@ import { sendAction } from './websocket-action'
 import {
   calculateUsageAndBalance,
   consumeCredits,
-} from 'common/src/billing/balance-calculator'
+} from '../billing/balance-calculator'
 import { getNextQuotaReset } from 'common/src/util/dates'
 import db from 'common/db'
 import * as schema from 'common/db/schema'

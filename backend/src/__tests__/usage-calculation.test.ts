@@ -3,9 +3,8 @@ import {
   calculateUsageAndBalance,
   consumeCredits,
   getOrderedActiveGrants,
-} from 'common/src/billing/balance-calculator'
-import { CreditBalance } from 'common/src/billing/balance-calculator'
-import { GrantType } from 'common/db/schema'
+} from '../billing/balance-calculator'
+import { CreditBalance, GrantType } from 'common/src/types/billing'
 import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
 import { and, asc, gt, isNull, or, eq } from 'drizzle-orm'
 

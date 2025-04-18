@@ -1,4 +1,4 @@
-import { calculateUsageAndBalance } from 'common/src/billing/balance-calculator'
+import { calculateUsageAndBalance } from './balance-calculator'
 import { logger } from '@/util/logger'
 import db from 'common/db'
 import * as schema from 'common/db/schema'

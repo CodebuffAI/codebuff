@@ -7,7 +7,7 @@ import { stripeServer } from 'common/src/util/stripe'
 import { eq, sql } from 'drizzle-orm'
 import { WebSocket } from 'ws'
 import Stripe from 'stripe'
-import { consumeCredits } from 'common/src/billing/balance-calculator'
+import { consumeCredits } from '../billing/balance-calculator'
 
 import { stripNullCharsFromObject } from '../util/object'
 import { INITIAL_RETRY_DELAY, withRetry } from 'common/src/util/promise'

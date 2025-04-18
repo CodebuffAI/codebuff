@@ -289,3 +289,14 @@ Only run type checking when:
 1. Specifically requested by the user
 2. Making non-trivial changes that could affect types
 3. Changing code that is imported by other files
+
+## Architecture Guidelines
+
+### Package Boundaries
+- Keep npm-app isolated from database access
+- Define shared types in common/src/types/
+- Keep implementation details in backend/
+- When sharing types that match DB schema:
+  1. Define the type in common/src/types/
+  2. Import the type in both backend and common
+  3. Do not import from db/schema in common or npm-app
