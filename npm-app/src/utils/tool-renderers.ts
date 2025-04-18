@@ -1,4 +1,4 @@
-import { bold } from 'picocolors'
+import { bold, bgBlack } from 'picocolors'
 import { capitalize, snakeToTitleCase } from 'common/util/string'
 import { ToolName } from 'common/constants/tools'
 
@@ -41,11 +41,11 @@ export interface ToolCallRenderer {
  */
 export const defaultToolCallRenderer: ToolCallRenderer = {
   onToolStart: (toolName) => {
-    return `[${bold(snakeToTitleCase(toolName))}]\n`
+    return bgBlack(`[${bold(snakeToTitleCase(toolName))}]\n`)
   },
 
   onParamChunk: (content, paramName, toolName) => {
-    return content
+    return bgBlack(content)
   },
 
   onParamEnd: () => null,
@@ -84,19 +84,19 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     ...defaultToolCallRenderer,
     onParamStart: (paramName) => {
       if (paramName === 'path') {
-        return 'Editing plan at '
+        return bgBlack('Editing plan at ')
       }
       return null
     },
     onParamChunk: (content, paramName) => {
       if (paramName === 'path') {
-        return content
+        return bgBlack(content)
       }
       return null
     },
     onParamEnd: (paramName) => {
       if (paramName === 'path') {
-        return '...\n'
+        return bgBlack('...\n')
       }
       return null
     },
@@ -105,13 +105,13 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     ...defaultToolCallRenderer,
     onParamStart: (paramName) => {
       if (paramName === 'path') {
-        return 'Editing file at '
+        return bgBlack('Editing file at ')
       }
       return null
     },
     onParamChunk: (content, paramName, toolName) => {
       if (paramName === 'path') {
-        return content
+        return bgBlack(content)
       }
       return null
     },
@@ -123,13 +123,13 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       if (paramName === 'id') {
         return null
       }
-      return capitalize(paramName) + ': '
+      return bgBlack(capitalize(paramName) + ': ')
     },
     onParamChunk: (content, paramName, toolName) => {
       if (paramName === 'id') {
         return null
       }
-      return content
+      return bgBlack(content)
     },
     onParamEnd: (paramName) => {
       const paramsWithNewLine = ['objective', 'status']
@@ -145,13 +145,13 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       if (paramName === 'id') {
         return null
       }
-      return capitalize(paramName) + ': '
+      return bgBlack(capitalize(paramName) + ': ')
     },
     onParamChunk: (content, paramName, toolName) => {
       if (paramName === 'id') {
         return null
       }
-      return content
+      return bgBlack(content)
     },
     onParamEnd: (paramName) => {
       const paramsWithNewLine = ['status']
