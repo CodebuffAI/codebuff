@@ -1,17 +1,18 @@
-import { createPatch } from 'diff'
-import { Message } from 'common/types/message'
-import { logger } from './util/logger'
-import { cleanMarkdownCodeBlock } from 'common/util/file'
-import { hasLazyEdit } from 'common/util/string'
-import { countTokens } from './util/token-counter'
 import { CostMode, models } from 'common/constants'
+import { Message } from 'common/types/message'
+import { cleanMarkdownCodeBlock } from 'common/util/file'
+import { generateCompactId, hasLazyEdit } from 'common/util/string'
+import { createPatch } from 'diff'
+
+import { fastRewrite, shouldAddFilePlaceholders } from './fast-rewrite'
 import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
 import { promptOpenAI } from './llm-apis/openai-api'
-import { shouldAddFilePlaceholders } from './fast-rewrite'
-import { fastRewrite } from './fast-rewrite'
+import { sendToRelaceLongContext } from './llm-apis/relace-api'
+import { logger } from './util/logger'
+import { countTokens } from './util/token-counter'
 
 export async function processFileBlock(
   path: string,
@@ -67,6 +68,22 @@ export async function processFileBlock(
     countTokens(normalizedInitialContent) + countTokens(normalizedEditSnippet)
 
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
+    // Delete this later vvv
+    if (tokenCount < 64_000) {
+      // Temporary: send to relace
+      const messageId = generateCompactId('cb-')
+      // no need to await, just send the request and continue
+      sendToRelaceLongContext(normalizedInitialContent, normalizedEditSnippet, {
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+        messageId,
+        userMessage: lastUserPrompt,
+      })
+    }
+    // Delete this later ^^^
+
     const largeFileContent = await handleLargeFile(
       normalizedInitialContent,
       normalizedEditSnippet,

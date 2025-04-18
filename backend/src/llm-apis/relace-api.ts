@@ -1,18 +1,123 @@
 import { models, TEST_USER_ID } from 'common/constants'
-import { env } from '../env.mjs'
-import { saveMessage } from '../llm-apis/message-cost-tracker'
-import { logger } from '../util/logger'
-import { countTokens } from '../util/token-counter'
 import {
   createMarkdownFileBlock,
   parseMarkdownCodeBlock,
 } from 'common/util/file'
+
+import { env } from '../env.mjs'
+import { saveMessage } from '../llm-apis/message-cost-tracker'
+import { logger } from '../util/logger'
+import { countTokens } from '../util/token-counter'
 import { promptOpenAI } from './openai-api'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
     setTimeout(() => reject(new Error('Relace API request timed out')), ms)
   )
+
+export async function sendToRelaceLongContext(
+  initialCode: string,
+  editSnippet: string,
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    messageId: string
+    userMessage?: string
+  }
+) {
+  const {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    messageId,
+    userMessage,
+  } = options
+  const startTime = Date.now()
+
+  try {
+    const response = (await Promise.race([
+      fetch(
+        'https://instantapplylongcontext.dev-endpoint.relace.run/v1/code/apply',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${env.RELACE_API_KEY}`,
+          },
+          body: JSON.stringify({
+            initialCode,
+            editSnippet,
+            stream: false,
+            'relace-metadata': {
+              'codebuff-id': messageId,
+              'codebuff-user-prompt': userMessage,
+            },
+          }),
+        }
+      ),
+      timeoutPromise(100_000),
+    ])) as Response
+
+    if (!response.ok) {
+      const errorText = await response
+        .text()
+        .catch(() => 'No error text available')
+      logger.error(
+        {
+          status: response.status,
+          statusText: response.statusText,
+          errorText,
+          initialCodeLength: initialCode.length,
+          editSnippetLength: editSnippet.length,
+        },
+        'Relace Long Context API error'
+      )
+      return
+    }
+
+    const data = (await response.json()) as { mergedCode: string }
+
+    if (userId !== TEST_USER_ID) {
+      const fakeRequestContent = `Initial code:${createMarkdownFileBlock('', initialCode)}\n\nEdit snippet${createMarkdownFileBlock('', editSnippet)}`
+      saveMessage({
+        messageId,
+        userId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        model: 'relace-long-context-test',
+        request: [
+          {
+            role: 'user',
+            content: fakeRequestContent,
+          },
+        ],
+        response: data.mergedCode,
+        inputTokens: countTokens(initialCode + editSnippet),
+        outputTokens: countTokens(data.mergedCode),
+        finishedAt: new Date(),
+        latencyMs: Date.now() - startTime,
+      })
+    }
+
+    logger.info({ mergedCode: data.mergedCode }, 'Relace Long Context')
+  } catch (error) {
+    logger.error(
+      {
+        error:
+          error && typeof error === 'object' && 'message' in error
+            ? error.message
+            : 'Unknown error',
+      },
+      'Error calling Relace Long Context API'
+    )
+    // Silent failure as specified - no fallback needed
+    return
+  }
+}
 
 export async function promptRelaceAI(
   initialCode: string,
