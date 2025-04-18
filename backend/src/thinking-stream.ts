@@ -19,7 +19,7 @@ export async function getThinkingStream(
   const { getStream } = getAgentStream({
     costMode: options.costMode,
     selectedModel: 'gemini-2.5-pro',
-    stopSequences: ['</think_deeply>', '<think_deeply>'],
+    stopSequences: ['</think_deeply>', '<think_deeply>', '<read_files>'],
     clientSessionId: options.clientSessionId,
     fingerprintId: options.fingerprintId,
     userInputId: options.userInputId,
