@@ -27,8 +27,8 @@ export const env = createEnv({
     STRIPE_PRO_OVERAGE_PRICE_ID: z.string().min(1),
     STRIPE_MOAR_PRO_PRICE_ID: z.string().min(1),
     STRIPE_MOAR_PRO_OVERAGE_PRICE_ID: z.string().min(1),
+    STRIPE_USAGE_PRICE_ID: z.string().min(1).startsWith('price_'),
     LOOPS_API_KEY: z.string().min(1),
-    DEEPSEEK_API_KEY: z.string().min(1),
     DISCORD_PUBLIC_KEY: z.string().min(1),
     DISCORD_BOT_TOKEN: z.string().min(1),
     DISCORD_APPLICATION_ID: z.string().min(1),
@@ -40,7 +40,7 @@ export const env = createEnv({
     NEXT_PUBLIC_APP_URL: z.string().min(1),
     NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: z.string().url().min(1),
     NEXT_PUBLIC_LINKEDIN_PARTNER_ID: z.string().optional(),
-    NEXT_PUBLIC_POSTHOG_API_KEY: z.string().min(1),
+    NEXT_PUBLIC_POSTHOG_API_KEY: z.string().optional().default(''),
     NEXT_PUBLIC_POSTHOG_HOST_URL: z.string().url().optional(),
   },
   runtimeEnv: {
@@ -59,6 +59,7 @@ export const env = createEnv({
     STRIPE_MOAR_PRO_OVERAGE_PRICE_ID:
       process.env.STRIPE_MOAR_PRO_OVERAGE_PRICE_ID,
     STRIPE_MOAR_PRO_PRICE_ID: process.env.STRIPE_MOAR_PRO_PRICE_ID,
+    STRIPE_USAGE_PRICE_ID: process.env.STRIPE_USAGE_PRICE_ID,
     LOOPS_API_KEY: process.env.LOOPS_API_KEY,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,

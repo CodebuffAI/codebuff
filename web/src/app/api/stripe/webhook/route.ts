@@ -1,231 +1,268 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { eq, sql, SQL } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 import { env } from '@/env.mjs'
 import { stripeServer } from 'common/src/util/stripe'
-import {
-  getPlanFromPriceId,
-  getSubscriptionItemByType,
-  getTotalReferralCreditsForCustomer,
-} from '@/lib/stripe-utils'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { PLAN_CONFIGS, UsageLimits } from 'common/constants'
-import { match, P } from 'ts-pattern'
-import { AuthenticatedQuotaManager } from 'common/billing/quota-manager'
+import { logger } from '@/util/logger'
+import {
+  convertStripeGrantAmountToCredits,
+  getUserCostPerCredit,
+} from 'common/src/billing/conversion'
+import { GrantType } from 'common/types/grant'
+import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
+import { processAndGrantCredit, revokeGrantByOperationId } from 'common/src/billing/grant-credits'
+import { getStripeCustomerId } from '@/lib/stripe-utils'
 
-const getCustomerId = (
-  customer: string | Stripe.Customer | Stripe.DeletedCustomer
-) => {
-  return match(customer)
-    .with(
-      // string ID case
-      P.string,
-      (id) => id
-    )
-    .with(
-      // Customer or DeletedCustomer case
-      { object: 'customer' },
-      (customer) => customer.id
-    )
-    .exhaustive()
+async function handleCustomerCreated(customer: Stripe.Customer) {
+  logger.info({ customerId: customer.id }, 'New customer created')
 }
 
+async function handleCheckoutSessionCompleted(
+  session: Stripe.Checkout.Session
+) {
+  const sessionId = session.id
+  const metadata = session.metadata
+
+  if (
+    metadata?.grantType === 'purchase' &&
+    metadata?.userId &&
+    metadata?.credits &&
+    metadata?.operationId
+  ) {
+    const userId = metadata.userId
+    const credits = parseInt(metadata.credits, 10)
+    const operationId = metadata.operationId
+    const paymentStatus = session.payment_status
+
+    if (paymentStatus === 'paid') {
+      logger.info(
+        { sessionId, userId, credits, operationId },
+        'Checkout session completed and paid for credit purchase.'
+      )
+
+      await processAndGrantCredit(
+        userId,
+        credits,
+        'purchase',
+        `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`,
+        null,
+        operationId
+      )
+    } else {
+      logger.warn(
+        { sessionId, userId, credits, operationId, paymentStatus },
+        "Checkout session completed but payment status is not 'paid'. No credits granted."
+      )
+    }
+  } else {
+    logger.info(
+      { sessionId, metadata },
+      'Checkout session completed for non-credit purchase or missing metadata.'
+    )
+  }
+}
+
+async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
+  logger.info(
+    {
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      customerId: subscription.customer,
+    },
+    'Subscription event received'
+  )
+}
+
+async function handleInvoiceCreated(invoice: Stripe.Invoice) {
+  // Only handle non-auto-topup invoices that are in draft state
+  if (
+    invoice.status === 'draft' &&
+    invoice.metadata?.type !== 'auto-topup' &&
+    invoice.id
+  ) {
+    try {
+      // Create a credit note for the full amount since we handle usage internally
+      const creditNote = await stripeServer.creditNotes.create({
+        invoice: invoice.id,
+        lines: invoice.lines.data.map((line) => ({
+          type: 'invoice_line_item' as const,
+          invoice_line_item: line.id,
+          quantity: line.quantity ?? 1,
+        })),
+      })
+
+      logger.info(
+        {
+          invoiceId: invoice.id,
+          creditNoteId: creditNote.id,
+          amount: creditNote.amount,
+          customerId: invoice.customer,
+        },
+        'Created credit note for usage-based billing invoice'
+      )
+    } catch (error) {
+      logger.error(
+        {
+          error: (error as Error).message,
+          invoiceId: invoice.id,
+          customerId: invoice.customer,
+        },
+        'Failed to create credit note for invoice'
+      )
+      throw error // Let the webhook handler catch and process this
+    }
+  }
+}
+
+async function handleInvoicePaid(invoice: Stripe.Invoice) {
+  // For regular (non-auto-topup) invoices, verify credit note exists
+  const creditNotes = await stripeServer.creditNotes.list({
+    invoice: invoice.id,
+  })
+
+  let customerId: string | null = null
+  if (invoice.customer) {
+    customerId = getStripeCustomerId(invoice.customer)
+  }
+
+  if (creditNotes.data.length > 0) {
+    logger.info(
+      {
+        invoiceId: invoice.id,
+        creditNoteIds: creditNotes.data.map((cn) => cn.id),
+        customerId,
+      },
+      'Invoice paid with existing credit notes - no action needed'
+    )
+  } else {
+    logger.warn(
+      {
+        invoiceId: invoice.id,
+        customerId,
+      },
+      'Invoice paid but no credit notes found - this may indicate a missing credit note from draft stage'
+    )
+  }
+}
 
 const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
+  let event: Stripe.Event
   try {
     const buf = await req.text()
     const sig = req.headers.get('stripe-signature')!
 
-    let event: Stripe.Event
+    event = stripeServer.webhooks.constructEvent(
+      buf,
+      sig,
+      env.STRIPE_WEBHOOK_SECRET_KEY
+    )
+  } catch (err) {
+    const error = err as Error
+    logger.error(
+      { error: error.message },
+      'Webhook signature verification failed'
+    )
+    return NextResponse.json(
+      { error: { message: `Webhook Error: ${error.message}` } },
+      { status: 400 }
+    )
+  }
 
-    try {
-      event = stripeServer.webhooks.constructEvent(
-        buf,
-        sig,
-        env.STRIPE_WEBHOOK_SECRET_KEY
-      )
-    } catch (err) {
-      return NextResponse.json(
-        {
-          error: {
-            message: `Webhook Error - ${err}`,
-          },
-        },
-        { status: 400 }
-      )
-    }
+  logger.info({ type: event.type }, 'Received Stripe webhook event')
 
+  try {
     switch (event.type) {
       case 'customer.created':
-        // Misnomer; we always create a customer when a user signs up.
-        // We should use this webhook to send general onboarding material, welcome emails, etc.
         break
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
-        // Determine plan type from subscription items
-        const subscription = event.data.object as Stripe.Subscription
-
-        // Handle subscription states with ts-pattern match
-        await match(subscription)
-          .with(
-            { status: P.union('incomplete_expired', 'unpaid') },
-            async (sub) => {
-              // Immediately downgrade for payment-related failures
-              await handleSubscriptionChange(sub, UsageLimits.FREE)
-            }
+      case 'charge.refunded': {
+        const charge = event.data.object as Stripe.Charge
+        // Get the payment intent ID from the charge
+        const paymentIntentId = charge.payment_intent
+        if (paymentIntentId) {
+          // Get the payment intent to access its metadata
+          const paymentIntent = await stripeServer.paymentIntents.retrieve(
+            typeof paymentIntentId === 'string' ? paymentIntentId : paymentIntentId.toString()
           )
-          .with({ status: 'canceled', cancel_at_period_end: true }, () => {
-            // Keep user on current plan until period end
-            // No action needed, subscription.deleted event will handle the downgrade
-          })
-          .with(
-            { status: 'canceled', cancel_at_period_end: false },
-            async (sub) => {
-              // Immediate cancellation, downgrade now
-              await handleSubscriptionChange(sub, UsageLimits.FREE)
+          
+          if (paymentIntent.metadata?.operationId) {
+            const operationId = paymentIntent.metadata.operationId
+            logger.info(
+              { chargeId: charge.id, paymentIntentId, operationId },
+              'Processing refund, attempting to revoke credits'
+            )
+            
+            const revoked = await revokeGrantByOperationId(
+              operationId,
+              `Refund for charge ${charge.id}`
+            )
+            
+            if (!revoked) {
+              logger.error(
+                { chargeId: charge.id, operationId },
+                'Failed to revoke credits for refund - grant may not exist or credits already spent'
+              )
             }
-          )
-          .otherwise(async (sub) => {
-            // For other states (active, trialing, past_due), proceed normally
-            const basePriceId = getSubscriptionItemByType(sub, 'licensed')
-            const plan = getPlanFromPriceId(basePriceId?.price.id)
-            await handleSubscriptionChange(sub, plan)
-          })
+          } else {
+            logger.warn(
+              { chargeId: charge.id, paymentIntentId },
+              'Refund received but no operation ID found in payment intent metadata'
+            )
+          }
+        }
         break
       }
-      case 'customer.subscription.deleted':
-        // Only downgrade to FREE tier when subscription period has ended
-        await handleSubscriptionChange(event.data.object, UsageLimits.FREE)
+      case 'checkout.session.completed': {
+        await handleCheckoutSessionCompleted(
+          event.data.object as Stripe.Checkout.Session
+        )
         break
-      case 'invoice.created':
-        await handleInvoiceCreated(event)
+      }
+      case 'invoice.created': {
+        await handleInvoiceCreated(event.data.object as Stripe.Invoice)
         break
-      case 'invoice.paid':
-        await handleInvoicePaid(event)
+      }
+      case 'invoice.paid': {
+        await handleInvoicePaid(event.data.object as Stripe.Invoice)
         break
+      }
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice
+        if (
+          invoice.metadata?.type === 'auto-topup' &&
+          invoice.billing_reason === 'manual'
+        ) {
+          const userId = invoice.metadata?.userId
+          if (userId) {
+            logger.warn(
+              { invoiceId: invoice.id, userId },
+              `Invoice payment failed for auto-topup. Disabling setting for user ${userId}.`
+            )
+            await db
+              .update(schema.user)
+              .set({ auto_topup_enabled: false })
+              .where(eq(schema.user.id, userId))
+          }
+        }
+        break
+      }
       default:
         console.log(`Unhandled event type ${event.type}`)
-        return NextResponse.json(
-          {
-            error: {
-              message: 'Method Not Allowed',
-            },
-          },
-          { status: 405 }
-        )
     }
     return NextResponse.json({ received: true })
   } catch (err) {
     const error = err as Error
-    console.error('Error processing webhook:', error)
+    logger.error(
+      { error: error.message, eventType: event.type },
+      'Error processing webhook'
+    )
     return NextResponse.json(
-      {
-        error: {
-          message: error.message,
-        },
-      },
+      { error: { message: `Webhook handler error: ${error.message}` } },
       { status: 500 }
     )
   }
-}
-
-async function handleSubscriptionChange(
-  subscription: Stripe.Subscription,
-  usageTier: UsageLimits
-) {
-  const customerId = getCustomerId(subscription.customer)
-  console.log(`Customer ID: ${customerId}`)
-
-  // Get quota from the target plan and add referral credits
-  const baseQuota = PLAN_CONFIGS[usageTier].limit
-  const referralCredits = await getTotalReferralCreditsForCustomer(customerId)
-  const newQuota = baseQuota + referralCredits
-  console.log(
-    `Calculated new quota: ${newQuota} (base: ${baseQuota}, referral: ${referralCredits})`
-  )
-
-  let newSubscriptionId: string | null = subscription.id
-  if (subscription.canceled_at) {
-    const cancelTime = new Date(subscription.canceled_at * 1000)
-    const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000)
-    
-    if (cancelTime <= fiveMinutesFromNow) {
-      console.log(
-        `Subscription cancelled at ${cancelTime.toISOString()}`
-      )
-      newSubscriptionId = null
-    }
-  }
-  console.log(`New subscription ID: ${newSubscriptionId}`)
-
-  await db
-    .update(schema.user)
-    .set({
-      quota_exceeded: false,
-      quota: newQuota,
-      next_quota_reset: new Date(subscription.current_period_end * 1000),
-      subscription_active: !!newSubscriptionId,
-      stripe_price_id: newSubscriptionId,
-    })
-    .where(eq(schema.user.stripe_customer_id, customerId))
-}
-
-async function handleInvoiceCreated(
-  invoiceCreated: Stripe.InvoiceCreatedEvent
-) {
-  const customer = invoiceCreated.data.object.customer
-
-  if (!customer) {
-    throw new Error('No customer found in invoice paid event')
-  }
-
-  const customerId = getCustomerId(customer)
-
-  // Get total referral credits for this user
-  const referralCredits = await getTotalReferralCreditsForCustomer(customerId)
-  if (referralCredits > 0) {
-    await stripeServer.billing.meterEvents.create({
-      event_name: 'credits',
-      timestamp: Math.floor(new Date().getTime() / 1000),
-      payload: {
-        stripe_customer_id: customerId,
-        value: `-${referralCredits}`,
-        description: `Referral bonus: your bill was reduced by ${referralCredits} credits.`,
-      },
-    })
-  }
-}
-
-async function handleInvoicePaid(invoicePaid: Stripe.InvoicePaidEvent) {
-  const customer = invoicePaid.data.object.customer
-
-  if (!customer) {
-    throw new Error('No customer found in invoice paid event')
-  }
-
-  const customerId = getCustomerId(customer)
-  const subscriptionId = match(invoicePaid.data.object.subscription)
-    .with(P.string, (id) => id)
-    .with({ object: 'subscription' }, (subscription) => subscription.id)
-    .otherwise(() => null)
-
-  // Next month
-  const nextQuotaReset: SQL<string> | Date = invoicePaid.data.object
-    .next_payment_attempt
-    ? new Date(invoicePaid.data.object.next_payment_attempt * 1000)
-    : sql<string>`now() + INTERVAL '1 month'`
-
-  await db
-    .update(schema.user)
-    .set({
-      quota_exceeded: false,
-      next_quota_reset: nextQuotaReset,
-      subscription_active: true,
-      stripe_price_id: subscriptionId,
-    })
-    .where(eq(schema.user.stripe_customer_id, customerId))
 }
 
 export { webhookHandler as POST }

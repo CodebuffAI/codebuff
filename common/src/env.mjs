@@ -21,8 +21,11 @@ export const env = createEnv({
     NEXT_PUBLIC_ENVIRONMENT: z.string().min(1),
     DATABASE_URL: z.string().min(1),
     STRIPE_SECRET_KEY: z.string().min(1),
+    STRIPE_USAGE_PRICE_ID: z.string().min(1).startsWith('price_'),
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().min(1),
-    API_KEY_ENCRYPTION_SECRET: z.string().length(32, 'API_KEY_ENCRYPTION_SECRET must be 32 characters long'),
+    API_KEY_ENCRYPTION_SECRET: z
+      .string()
+      .length(32, 'API_KEY_ENCRYPTION_SECRET must be 32 characters long'),
   },
   client: {
     NEXT_PUBLIC_ENVIRONMENT: z.string().min(1),

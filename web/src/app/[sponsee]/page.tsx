@@ -7,13 +7,24 @@ import { eq } from 'drizzle-orm'
 import CardWithBeams from '@/components/card-with-beams'
 import { env } from '@/env.mjs'
 import Link from 'next/link'
+import { Metadata } from 'next'
+
+export const generateMetadata = async ({
+  params,
+}: {
+  params: { sponsee: string }
+}): Promise<Metadata> => {
+  return {
+    title: `${params.sponsee}'s Referral | Codebuff`,
+  }
+}
 
 export default async function SponseePage({
   params,
 }: {
   params: { sponsee: string }
 }) {
-  const sponseeName = params['sponsee'].toLowerCase()
+  const sponseeName = params.sponsee.toLowerCase()
 
   const referralCode = await db
     .select({
@@ -28,7 +39,7 @@ export default async function SponseePage({
     return (
       <CardWithBeams
         title="Hmm, that link doesn't look right."
-        description={`We don't have a referral code for "${params['sponsee']}".`}
+        description={`We don't have a referral code for "${params.sponsee}".`}
         content={
           <>
             <p className="text-center">

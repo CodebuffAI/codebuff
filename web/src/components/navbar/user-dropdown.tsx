@@ -6,6 +6,7 @@ import { signOut } from 'next-auth/react'
 import posthog from 'posthog-js'
 import { useRouter } from 'next/navigation'
 import { env } from '@/env.mjs'
+import { Gift, CreditCard } from 'lucide-react'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
@@ -24,47 +25,34 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>
-        <Image
-          className="overflow-hidden rounded-full"
-          src={`${user?.image}`}
-          alt={`${user?.name}`}
-          width={32}
-          height={32}
-        />
+        <div className="relative group">
+          <div className="absolute inset-0 bg-[rgb(255,110,11)] translate-x-0.5 -translate-y-0.5 rounded-md"></div>
+          <div className="relative bg-white border border-white/50 rounded-md overflow-hidden transition-all duration-300 group-hover:-translate-x-0.5 group-hover:translate-y-0.5">
+            <Image
+              className="w-8 h-8"
+              src={`${user?.image}`}
+              alt={`${user?.name}`}
+              width={32}
+              height={32}
+            />
+          </div>
+        </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+        <DropdownMenuLabel>{user?.name}</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => router.push('/referrals')}>
+          <Gift className="mr-2 size-4" /> <span>Referrals</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push('/usage')}>
+          <CreditCard className="mr-2 size-4" /> <span>Buy Credits</span>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <div className="flex flex-col items-center justify-center p-2">
-          <Image
-            className="overflow-hidden rounded-full"
-            src={`${user?.image}`}
-            alt={`${user?.name}`}
-            width={100}
-            height={100}
-          />
-          <h2 className="py-2 text-lg font-bold">{user?.name}</h2>
-          {user?.subscription_active ? (
-            <Button
-              onClick={() => window.location.href = `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(user?.email ?? '')}`}
-              className="w-64"
-            >
-              Manage Billing
-            </Button>
-          ) : (
-            <Button
-              onClick={() => router.push('/pricing')}
-              className="w-64"
-            >
-              Upgrade to pro
-            </Button>
-          )}
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => {
-          posthog.capture('auth.logout_completed')
-          signOut()
-        }}>
+        <DropdownMenuItem
+          onClick={() => {
+            posthog.capture('auth.logout_completed')
+            signOut()
+          }}
+        >
           <Icons.logOut className="mr-2 size-4" /> <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -38,5 +38,5 @@ function patchedFetchForFinetune(
 export const vertexFinetuned = createVertex({
   project: VERTEX_PROJECT,
   location: VERTEX_LOCATION,
-  fetch: patchedFetchForFinetune,
+  fetch: patchedFetchForFinetune as unknown as typeof globalThis.fetch,
 })

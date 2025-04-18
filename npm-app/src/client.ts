@@ -19,6 +19,7 @@ import {
   CREDITS_REFERRAL_BONUS,
   ONE_TIME_TAGS,
   REQUEST_CREDIT_SHOW_THRESHOLD,
+  UserState,
 } from 'common/constants'
 import {
   AgentState,
@@ -33,12 +34,15 @@ import {
   blue,
   blueBright,
   bold,
+  gray,
   green,
   red,
   underline,
   yellow,
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
+import { GrantType } from 'common/db/schema'
+import { z } from 'zod'
 
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
@@ -59,6 +63,44 @@ import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 
+const LOW_BALANCE_THRESHOLD = 100
+
+const WARNING_CONFIG = {
+  [UserState.LOGGED_OUT]: {
+    message: () => `Type "login" to unlock full access and get free credits!`,
+    threshold: 100,
+  },
+  [UserState.DEPLETED]: {
+    message: () =>
+      [
+        red(`\n❌ You have used all your credits.`),
+        `Visit ${bold(blue(websiteUrl + '/usage'))} to add more credits and continue coding.`,
+      ].join('\n'),
+    threshold: 100,
+  },
+  [UserState.CRITICAL]: {
+    message: (credits: number) =>
+      [
+        yellow(`\n🪫 Only ${bold(pluralize(credits, 'credit'))} remaining!`),
+        yellow(`Visit ${bold(websiteUrl + '/usage')} to add more credits.`),
+      ].join('\n'),
+    threshold: 85,
+  },
+  [UserState.ATTENTION_NEEDED]: {
+    message: (credits: number) =>
+      [
+        yellow(
+          `\n⚠️ ${bold(pluralize(credits, 'credit'))} remaining. Consider topping up soon.`
+        ),
+      ].join('\n'),
+    threshold: 75,
+  },
+  [UserState.GOOD_STANDING]: {
+    message: () => '',
+    threshold: 0,
+  },
+} as const
+
 export class Client {
   private webSocket: APIRealtimeClient
   private returnControlToUser: () => void
@@ -67,12 +109,21 @@ export class Client {
   private hadFileChanges: boolean = false
   private git: GitCommand
   private rl: readline.Interface
+  private responseComplete: boolean = false
+  private pendingTopUpMessageAmount: number | null = null
   private oneTimeTagsShown: Record<(typeof ONE_TIME_TAGS)[number], boolean> =
     Object.fromEntries(ONE_TIME_TAGS.map((tag) => [tag, false])) as Record<
       (typeof ONE_TIME_TAGS)[number],
       boolean
     >
 
+  public usageData: Omit<UsageResponse, 'type'> = {
+    usage: 0,
+    remainingBalance: 0,
+    balanceBreakdown: undefined,
+    next_quota_reset: null,
+    nextMonthlyGrant: 0,
+  }
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
   public agentState: AgentState | undefined
@@ -80,10 +131,7 @@ export class Client {
   public creditsByPromptId: Record<string, number[]> = {}
   public user: User | undefined
   public lastWarnedPct: number = 0
-  public usage: number = 0
-  public limit: number = 0
-  public subscription_active: boolean = false
-  public nextQuotaReset: Date | null = null
+  public nextMonthlyGrant: number = 0
   public storedApiKeyTypes: ApiKeyType[] = []
   public lastToolResults: ToolResult[] = []
   public model: string | undefined
@@ -286,6 +334,17 @@ export class Client {
           fs.unlinkSync(CREDENTIALS_PATH)
           console.log(`You (${this.user.name}) have been logged out.`)
           this.user = undefined
+          this.pendingTopUpMessageAmount = null
+          this.usageData = {
+            usage: 0,
+            remainingBalance: 0,
+            balanceBreakdown: undefined,
+            next_quota_reset: null,
+            nextMonthlyGrant: 0,
+          }
+          this.oneTimeTagsShown = Object.fromEntries(
+            ONE_TIME_TAGS.map((tag) => [tag, false])
+          ) as Record<(typeof ONE_TIME_TAGS)[number], boolean>
         } catch (error) {
           console.error('Error removing credentials file:', error)
         }
@@ -412,21 +471,27 @@ export class Client {
     }
   }
 
-  public setUsage({
-    usage,
-    limit,
-    subscription_active,
-    next_quota_reset,
-  }: Omit<UsageResponse, 'type'>) {
-    this.usage = usage
-    this.limit = limit
-    this.subscription_active = subscription_active
-    this.nextQuotaReset = next_quota_reset
+  public setUsage(usageData: Omit<UsageResponse, 'type'>) {
+    this.usageData = usageData
   }
 
   private setupSubscriptions() {
     this.webSocket.subscribe('action-error', (action) => {
-      console.error(['', red(`Error: ${action.message}`)].join('\n'))
+      if (action.error === 'Insufficient credits') {
+        console.error(['', red(`Error: ${action.message}`)].join('\n'))
+        console.error(
+          `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to add credits.`
+        )
+      } else if (action.error === 'Auto top-up disabled') {
+        console.error(['', red(`Error: ${action.message}`)].join('\n'))
+        console.error(
+          yellow(
+            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to update your payment settings.`
+          )
+        )
+      } else {
+        console.error(['', red(`Error: ${action.message}`)].join('\n'))
+      }
       this.returnControlToUser()
       return
     })
@@ -467,60 +532,53 @@ export class Client {
 
     this.webSocket.subscribe('usage-response', (action) => {
       const parsedAction = UsageReponseSchema.safeParse(action)
-      if (!parsedAction.success) return
+      if (!parsedAction.success) {
+        console.error(
+          red('Received invalid usage data from server:'),
+          parsedAction.error.errors
+        )
+        return
+      }
 
       this.setUsage(parsedAction.data)
 
-      this.showUsageWarning()
+      // Store auto-topup info if it occurred
+      if (parsedAction.data.autoTopupAdded) {
+        this.pendingTopUpMessageAmount = parsedAction.data.autoTopupAdded
+      }
+
+      // Only show warning if the response is complete
+      if (this.responseComplete) {
+        this.showUsageWarning()
+      }
     })
   }
 
-  public showUsageWarning() {
-    const errorCopy = [
-      this.user
-        ? `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/pricing'))} to upgrade – or refer a new user and earn ${CREDITS_REFERRAL_BONUS} credits per month: ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/referrals'))}`
-        : green('Type "login" below to sign up and get more credits!'),
-    ].join('\n')
+  private showUsageWarning() {
+    // Determine user state based on login status and credit balance
+    const state = match({
+      isLoggedIn: !!this.user,
+      credits: this.usageData.remainingBalance,
+    })
+      .with({ isLoggedIn: false }, () => UserState.LOGGED_OUT)
+      .with({ credits: P.number.gte(100) }, () => UserState.GOOD_STANDING)
+      .with({ credits: P.number.gte(20) }, () => UserState.ATTENTION_NEEDED)
+      .with({ credits: P.number.gte(1) }, () => UserState.CRITICAL)
+      .otherwise(() => UserState.DEPLETED)
 
-    const pct: number = match(Math.floor((this.usage / this.limit) * 100))
-      .with(P.number.gte(100), () => 100)
-      .with(P.number.gte(75), () => 75)
-      .otherwise(() => 0)
+    const config = WARNING_CONFIG[state]
 
-    if (pct >= 100) {
-      this.lastWarnedPct = 100
-      if (!this.subscription_active) {
-        console.error(
-          [red('\nYou have reached your monthly usage limit.'), errorCopy].join(
-            '\n'
-          )
-        )
-        this.returnControlToUser()
-        return
-      }
-
-      if (this.subscription_active && this.lastWarnedPct < 100) {
-        console.warn(
-          yellow(
-            `You have exceeded your monthly quota, but feel free to keep using Codebuff! We'll continue to charge you for the overage until your next billing cycle. See ${process.env.NEXT_PUBLIC_APP_URL}/usage for more details.`
-          )
-        )
-        this.returnControlToUser()
-        return
-      }
+    // Reset warning percentage if in good standing
+    if (state === UserState.GOOD_STANDING) {
+      this.lastWarnedPct = 0
+      return
     }
 
-    if (pct > 0 && pct > this.lastWarnedPct) {
-      console.warn(
-        [
-          '',
-          yellow(
-            `You have used over ${pct}% of your monthly usage limit (${this.usage}/${this.limit} credits).`
-          ),
-          errorCopy,
-        ].join('\n')
-      )
-      this.lastWarnedPct = pct
+    // Show warning if we haven't warned at this threshold yet
+    if (this.lastWarnedPct < config.threshold) {
+      const message = config.message(this.usageData.remainingBalance)
+      console.warn(message)
+      this.lastWarnedPct = config.threshold
       this.returnControlToUser()
     }
   }
@@ -691,16 +749,17 @@ export class Client {
         if (!parsedAction.success) return
         if (action.promptId !== userInputId) return
         const a = parsedAction.data
+        let isComplete = false
 
         Spinner.get().stop()
 
         this.agentState = a.agentState
-        let isComplete = false
         const toolResults: ToolResult[] = [...a.toolResults]
 
         for (const toolCall of a.toolCalls) {
           try {
             if (toolCall.name === 'end_turn') {
+              this.responseComplete = true
               isComplete = true
               continue
             }
@@ -714,6 +773,7 @@ export class Client {
               toolCall.parameters.mode === 'user'
             ) {
               // Special case: when terminal command is run it as a user command, then no need to reprompt assistant.
+              this.responseComplete = true
               isComplete = true
             }
             const toolResult = await handleToolCall(toolCall, getProjectRoot())
@@ -739,7 +799,6 @@ export class Client {
         if (!isComplete) {
           // Append process updates to existing tool results
           toolResults.push(...getBackgroundProcessUpdates())
-
           // Continue the prompt with the tool results.
           this.webSocket.sendAction({
             type: 'prompt',
@@ -780,6 +839,7 @@ export class Client {
             `\nComplete! Type "diff" to review changes${checkpointAddendum}.`
           )
           this.hadFileChanges = false
+          this.returnControlToUser()
         }
 
         unsubscribeChunks()
@@ -787,6 +847,9 @@ export class Client {
         resolveResponse({ ...a, wasStoppedByUser: false })
       }
     )
+
+    // Reset flags at the start of each response
+    this.responseComplete = false
 
     return {
       responsePromise,
@@ -819,20 +882,40 @@ export class Client {
 
       this.setUsage(parsedResponse)
 
+      const usageLink = `${websiteUrl}/usage`
+      const remainingColor =
+        this.usageData.remainingBalance <= 0
+          ? red
+          : this.usageData.remainingBalance <= LOW_BALANCE_THRESHOLD
+            ? red
+            : green
+
+      const totalCreditsUsedThisSession = Object.values(this.creditsByPromptId)
+        .flat()
+        .reduce((sum, credits) => sum + credits, 0)
       console.log(
-        green(underline(`Codebuff usage:`)),
-        `${parsedResponse.usage} / ${parsedResponse.limit} credits`
+        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
       )
+
+      if (this.usageData.next_quota_reset) {
+        console.log(
+          `Free credits will renew on ${this.usageData.next_quota_reset.toLocaleDateString()}. Details: ${underline(blue(usageLink))}`
+        )
+      }
 
       this.showUsageWarning()
     } catch (error) {
-      console.log({ error })
-
       console.error(
         red(
           `Error checking usage: Please reach out to ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
         )
       )
+      // Check if it's a ZodError for more specific feedback
+      if (error instanceof z.ZodError) {
+        console.error(red('Data validation failed:'), error.errors)
+      } else {
+        console.error(error)
+      }
     } finally {
       this.returnControlToUser()
     }

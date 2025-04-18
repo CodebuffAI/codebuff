@@ -1,245 +1,215 @@
 'use client'
 
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
-import { BackgroundBeams } from '@/components/ui/background-beams'
-import Link from 'next/link'
-import { cn } from '@/lib/utils'
-import {
-  ZapIcon,
-  RefreshCwIcon,
-  CheckCircle2Icon,
-  SparklesIcon,
-} from 'lucide-react'
-import { DecorativeBlocks, BlockColor } from '@/components/ui/decorative-blocks'
-import { motion } from 'framer-motion'
-import { PLAN_CONFIGS, UsageLimits } from 'common/constants'
 import { useSession } from 'next-auth/react'
-import { useUserPlan } from '@/hooks/use-user-plan'
-import { PaidPlanFooter } from '@/components/pricing/paid-plan-footer'
-import { FreePlanButton } from '@/components/pricing/free-plan-button'
+import { BlockColor } from '@/components/ui/decorative-blocks'
+import { SECTION_THEMES } from '@/components/ui/landing/constants'
+import { FeatureSection } from '@/components/ui/landing/feature'
 
-const PricingCards = () => {
-  const session = useSession()
-  // For logged-out users, we don't need to fetch the plan
-  const {
-    data: currentPlan,
-    isLoading,
-    isPending,
-  } = useUserPlan(session.data?.user?.stripe_customer_id)
+import { CheckCircle, Gift, Shield, XCircle } from 'lucide-react'
 
-  // Set currentPlan to ANON for logged-out users to ensure proper button rendering
-  const effectiveCurrentPlan = !session.data ? UsageLimits.ANON : currentPlan
-
-  const pricingPlans = [
-    ...Object.entries(PLAN_CONFIGS)
-      .filter(([key]) => key !== UsageLimits.ANON)
-      .map(
-        ([key, config]): {
-          name: UsageLimits
-          displayName: string
-          price: string
-          credits: number
-          features: (string | JSX.Element)[]
-          cardFooterChildren: JSX.Element
-        } => ({
-          name: config.planName,
-          displayName: config.displayName,
-          price: `$${config.monthlyPrice}`,
-          credits: config.limit,
-          features: [
-            config.overageRate ? (
-              <>
-                Overage allowed
-                <br />
-                {`($${config.overageRate.toFixed(2)} per 100 credits)`}
-              </>
-            ) : (
-              'No overage allowed'
-            ),
-            config.displayName === 'Free' ? (
-              <Link
-                key="community-support"
-                href="https://discord.gg/mcWTGjgTj3"
-                className="hover:underline"
-                target="_blank"
-              >
-                Community support
-              </Link>
-            ) : (
-              'Priority support over email and Discord'
-            ),
-          ],
-          cardFooterChildren:
-            config.planName === UsageLimits.FREE ? (
-              <FreePlanButton
-                currentPlan={effectiveCurrentPlan}
-                userEmail={session.data?.user?.email}
-              />
-            ) : (
-              <PaidPlanFooter
-                planName={config.planName as UsageLimits}
-                currentPlan={effectiveCurrentPlan ?? UsageLimits.FREE}
-                isLoading={isLoading || isPending}
-              />
-            ),
-        })
-      ),
-    {
-      name: 'TEAM',
-      displayName: 'Team',
-      price: '$99/seat',
-      credits: '$0.90 per 100',
-      features: [
-        'Custom credit limits per member',
-        'Custom account limits',
-        'Priority support over email, Discord, and Slack',
-      ],
-      cardFooterChildren: (
-        <DecorativeBlocks colors={[BlockColor.TerminalYellow]} placement="bottom-left">
-          <motion.div
-            whileHover={{ scale: 1.02, x: 2, y: -2 }}
-            whileTap={{ scale: 0.98, x: 0, y: 0 }}
-          >
-            <Button
-              className="w-full text-base font-medium px-8 py-4 h-auto border border-white/50 bg-white text-black hover:bg-white transition-all duration-300 relative group overflow-hidden"
-              asChild
-            >
-              <Link href={'mailto:founders@codebuff.com'}>Contact Sales</Link>
-            </Button>
-          </motion.div>
-        </DecorativeBlocks>
-      ),
-    },
-  ]
-
+function CreditVisual() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 container mx-auto px-4 md:px-6 max-w-7xl">
-      {pricingPlans.map((plan, index) => (
-        <Card
-          key={index}
-          className={cn(
-            'bg-gradient-to-br from-gray-900/90 to-gray-800/90 text-white flex flex-col relative backdrop-blur-sm',
-            'border border-gray-800/50 hover:border-green-500/50 transition-colors duration-500',
-            'shadow-lg hover:shadow-xl hover:shadow-green-900/30'
-          )}
-        >
-          <CardHeader className="min-h-[200px] flex flex-col">
-            <h3 className="text-2xl font-bold relative flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">
-              {plan.displayName}
-              {currentPlan === plan.name && (
-                <div className="absolute -right-8 -top-8 transform rotate-12">
-                  <div className="relative">
-                    <div className="relative bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-1 font-medium text-white ring-2 ring-green-500/50 text-xs rounded-lg shadow-lg transform hover:rotate-0 transition-transform duration-200">
-                      Current Plan
-                    </div>
-                  </div>
-                </div>
-              )}
-            </h3>
-            <div className="mt-4 space-y-3">
-              {' '}
-              <div className="text-center">
-                <p className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-400">
-                  {plan.price}
-                </p>
-                <p className="text-sm text-gray-400 mt-1">per month</p>
-              </div>
-              {plan.credits && (
-                <div className="flex items-center justify-center gap-2">
-                  <SparklesIcon className="h-5 w-5 text-yellow-500 animate-pulse" />
-                  <p className="text-base text-gray-300">
-                    {plan.credits.toLocaleString()} credits
-                  </p>
-                </div>
-              )}
+    <div className="flex flex-col items-center text-center space-y-4 mt-3">
+      <div className="flex flex-col items-center">
+        {/* Enhanced price display for better visual appeal */}
+        <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-green-400 flex items-baseline">
+          1¢
+          <span className="text-xs sm:text-sm md:text-base text-white/70 ml-2">
+            /credit
+          </span>
+        </div>
+        <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-green-400/40 to-transparent my-4"></div>
+
+        {/* Grid with improved spacing for mobile and desktop */}
+        <div className="grid grid-cols-2 gap-x-10 gap-y-6 sm:gap-x-16">
+          <div className="flex flex-col items-center group">
+            <div className="p-2 rounded-full bg-blue-500/10 mb-2">
+              <Gift className="h-5 w-5 text-blue-400" />
             </div>
-          </CardHeader>
-          <CardContent className="flex-grow flex flex-col justify-between pt-6">
-            <ul className="space-y-4 text-gray-300 text-left">
-              {plan.features.map((feature, idx) => (
-                <li key={idx} className="flex items-center gap-2">
-                  <CheckCircle2Icon className="h-5 w-5 text-green-500 flex-shrink-0" />
-                  <span className="text-sm">{feature}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-          <CardFooter className="w-full justify-center pt-6">
-            {plan.cardFooterChildren}
-          </CardFooter>
-        </Card>
-      ))}
+            <div className="text-lg font-bold text-blue-400">500</div>
+            <div className="text-xs sm:text-sm text-white/70">Free monthly</div>
+          </div>
+
+          <div className="flex flex-col items-center group">
+            <div className="p-2 rounded-full bg-purple-500/10 mb-2">
+              <Shield className="h-5 w-5 text-purple-400" />
+            </div>
+            <div className="text-lg font-bold text-white">∞</div>
+            <div className="text-xs sm:text-sm text-white/70">Never expire</div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
 
-const PricingPage = () => {
+function PricingCard() {
   return (
-    <div className="overflow-hidden min-h-screen">
-      <BackgroundBeams />
+    <div className="w-full bg-black overflow-hidden flex flex-col h-full">
+      <div className="p-6 sm:p-8 flex flex-col">
+        <CreditVisual />
+      </div>
+    </div>
+  )
+}
 
-      <main className="container mx-auto px-4 py-12 md:py-20 text-center relative z-10">
-        <div className="mb-12">
-          <h1 className="hero-heading text-white">
-            Choose Your Plan
-          </h1>
-          <p className="mt-4 text-xs font-semibold uppercase tracking-wider inline-block opacity-70 text-white">
-            Start with our free tier or upgrade for more credits and features
-          </p>
-        </div>
-
-        <div className="relative">
-          {/* Add subtle gradient behind cards */}
-          <div className="absolute inset-0 bg-gradient-to-b from-green-500/5 via-emerald-500/5 to-green-500/5 dark:from-green-900/10 dark:via-emerald-900/10 dark:to-green-900/10 blur-3xl -z-10" />
-          <PricingCards />
-        </div>
-
-        {/* Key benefits */}
-        <div className="mt-24 md:mt-32">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-16">
-            <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm transition-colors duration-200">
-              <ZapIcon className="h-8 w-8 text-yellow-500 mb-2" />
-              <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
-                Efficient
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-muted-foreground text-center">
-                500 credits = 1 hour coding
-              </p>
-            </div>
-            <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm transition-colors duration-200">
-              <SparklesIcon className="h-8 w-8 text-green-500 mb-2" />
-              <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
-                Credit Maximizer
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-muted-foreground text-center">
-                More done with fewer credits
-              </p>
-            </div>
-            <div className="flex flex-col items-center space-y-3 p-8 rounded-xl bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 shadow-sm transition-colors duration-200">
-              <RefreshCwIcon className="h-8 w-8 text-green-500 mb-2" />
-              <h3 className="font-semibold text-lg">Monthly Reset</h3>
-              <p className="text-sm text-muted-foreground text-center">
-                Credits reset every month
-              </p>
-            </div>
+function TeamPlanIllustration() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full max-w-screen-lg mx-auto">
+      {/* Team plan */}
+      <div className="bg-white border border-zinc-200 rounded-lg p-4 sm:p-6 flex flex-col h-full shadow-lg">
+        <div className="mb-4">
+          <h3 className="text-xl font-bold text-gray-900 mb-1">Team</h3>
+          <div className="flex items-baseline">
+            <span className="text-2xl sm:text-3xl font-bold text-gray-900">
+              $19
+            </span>
+            <span className="text-sm sm:text-base text-gray-500 ml-1">
+              /user/month
+            </span>
           </div>
         </div>
 
-        <div className="mt-8">
-          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            Need something custom?{' '}
-            <Link
-              href={'mailto:founders@codebuff.com'}
-              className="text-blue-500 hover:text-blue-400 underline decoration-blue-500/30 hover:decoration-blue-400"
-            >
-              Contact our team
-            </Link>
-          </p>
+        <ul className="space-y-2 sm:space-y-3 mb-auto">
+          <li className="flex text-gray-700">
+            <span className="text-green-600 mr-2">✓</span>
+            <span className="text-sm sm:text-base">
+              Team management dashboard
+            </span>
+          </li>
+          <li className="flex text-gray-700">
+            <span className="text-green-600 mr-2">✓</span>
+            <span className="text-sm sm:text-base">Pooled credit usage</span>
+          </li>
+          <li className="flex text-gray-700">
+            <span className="text-green-600 mr-2">✓</span>
+            <span className="text-sm sm:text-base">
+              Pay-as-you-go at 1¢ per credit
+            </span>
+          </li>
+        </ul>
+
+        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-200">
+          <a
+            href="mailto:support@codebuff.com"
+            className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm"
+          >
+            Reach out to support@codebuff.com
+          </a>
         </div>
-      </main>
+      </div>
+
+      {/* Enterprise plan */}
+      <div className="bg-gradient-to-b from-blue-50 to-white border border-blue-200 rounded-lg p-4 sm:p-6 flex flex-col h-full shadow-lg">
+        <div className="mb-4">
+          <h3 className="text-xl font-bold text-gray-900 mb-1">Enterprise</h3>
+          <div className="text-sm sm:text-base text-gray-500">
+            Custom Pricing
+          </div>
+        </div>
+
+        <ul className="space-y-2 sm:space-y-3 mb-auto">
+          <li className="flex text-gray-700">
+            <span className="text-blue-600 mr-2">✓</span>
+            <span className="text-sm sm:text-base">Everything in Team</span>
+          </li>
+          <li className="flex text-gray-700">
+            <span className="text-blue-600 mr-2">✓</span>
+            <span className="text-sm sm:text-base">Dedicated support</span>
+          </li>
+          <li className="flex text-gray-700">
+            <span className="text-blue-600 mr-2">✓</span>
+            <span className="text-sm sm:text-base">Custom integrations</span>
+          </li>
+        </ul>
+
+        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-blue-100">
+          <a
+            href="mailto:founders@codebuff.com"
+            className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm"
+          >
+            Reach out to founders@codebuff.com
+          </a>
+        </div>
+      </div>
     </div>
   )
 }
 
-export default PricingPage
+export default function PricingPage() {
+  const { status } = useSession()
+
+  return (
+    <>
+      <FeatureSection
+        title={<span>Simple, Usage-Based Pricing</span>}
+        description="Get 500 free credits monthly, then pay just 1¢ per credit. Credits are consumed based on task complexity — simple queries cost less, complex changes more. You'll see how many credits each task consumes."
+        backdropColor={SECTION_THEMES.competition.background}
+        decorativeColors={[BlockColor.GenerativeGreen, BlockColor.AcidMatrix]}
+        textColor="text-white"
+        tagline="PAY AS YOU GO"
+        highlightText="500 free credits monthly"
+        illustration={<PricingCard />}
+        learnMoreText={status === 'authenticated' ? 'My Usage' : 'Get Started'}
+        learnMoreLink={status === 'authenticated' ? '/usage' : '/login'}
+        keyPoints={[
+          {
+            icon: '💰',
+            title: 'Predictable Costs',
+            description:
+              'Only pay for what you actually use. No surprises at the end of the month.',
+          },
+          {
+            icon: '🔄',
+            title: 'Monthly Free Credits',
+            description:
+              'Get 500 free credits each month, automatically added to your account.',
+          },
+          {
+            icon: '🛡️',
+            title: 'No Failed Call Charges',
+            description:
+              'Only pay for successful API calls. Failed calls cost nothing.',
+          },
+        ]}
+      />
+
+      <FeatureSection
+        title={<span>Working with others</span>}
+        description="Collaborate with your team more closely using Codebuff by pooling credits and seeing usage analytics."
+        backdropColor={BlockColor.CRTAmber}
+        decorativeColors={[
+          BlockColor.DarkForestGreen,
+          BlockColor.GenerativeGreen,
+        ]}
+        textColor="text-black"
+        tagline="SCALE UP YOUR TEAM"
+        highlightText="Pooled resources and usage analytics"
+        illustration={<TeamPlanIllustration />}
+        learnMoreText="Contact Sales"
+        learnMoreLink="mailto:founders@codebuff.com"
+        imagePosition="left"
+        keyPoints={[
+          {
+            icon: '👥',
+            title: 'Team Dashboard',
+            description:
+              "Manage your entire team's usage from a centralized dashboard.",
+          },
+          {
+            icon: '🔋',
+            title: 'Pooled Credits',
+            description:
+              'Share credits across your organization for maximum flexibility.',
+          },
+          {
+            icon: '💼',
+            title: 'Enterprise Options',
+            description:
+              'Custom integrations and dedicated support available for larger teams.',
+          },
+        ]}
+      />
+    </>
+  )
+}

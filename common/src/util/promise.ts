@@ -4,14 +4,14 @@ export async function withRetry<T>(
   operation: () => Promise<T>,
   options: {
     maxRetries?: number
-    shouldRetry?: (error: any) => boolean
+    retryIf?: (error: any) => boolean
     onRetry?: (error: any, attempt: number) => void
     retryDelayMs?: number
   } = {}
 ): Promise<T> {
   const {
     maxRetries = 3,
-    shouldRetry = (error) => error?.type === 'APIConnectionError',
+    retryIf = (error) => error?.type === 'APIConnectionError',
     onRetry = () => {},
     retryDelayMs = INITIAL_RETRY_DELAY,
   } = options
@@ -24,7 +24,7 @@ export async function withRetry<T>(
     } catch (error) {
       lastError = error
 
-      if (!shouldRetry(error) || attempt === maxRetries - 1) {
+      if (!retryIf(error) || attempt === maxRetries - 1) {
         throw error
       }
 

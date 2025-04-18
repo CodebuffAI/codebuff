@@ -13,6 +13,10 @@ export type PlanPriceIds = {
   overagePriceId: string
 }
 
+export function getStripeCustomerId(customer: string | Stripe.Customer | Stripe.DeletedCustomer): string {
+  return typeof customer === 'string' ? customer : customer.id
+}
+
 export function getSubscriptionItemByType(
   subscription: Stripe.Subscription,
   usageType: 'licensed' | 'metered'

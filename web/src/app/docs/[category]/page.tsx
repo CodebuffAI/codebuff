@@ -64,9 +64,7 @@ const DocNavigation = ({ category }: { category: string }) => {
 }
 
 interface CategoryPageProps {
-  params: {
-    category: string
-  }
+  params: { category: string }
 }
 
 const DocPage = ({ doc, components }: { doc: Doc; components: any }) => {

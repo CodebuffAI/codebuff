@@ -23,10 +23,10 @@
     "drizzle-orm": "0.36.4",
     "ignore": "5.3.2",
     "lodash": "*",
-    "next": "14.2.11",
     "next-auth": "^4.24.7",
-    "pg": "^8.13.0",
+    "pg": "^8.14.1",
     "readable-stream": "^4.7.0",
+    "stripe": "^16.11.0",
     "zod": "3.23.8"
   },
   "peerDependencies": {
