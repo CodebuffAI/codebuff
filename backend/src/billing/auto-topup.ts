@@ -3,6 +3,8 @@ import { logger } from '../util/logger'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
+import { stripeServer } from 'common/src/util/stripe'
+import { processAndGrantCredit } from 'common/src/billing/grant-credits'
 
 export class AutoTopupValidationError extends Error {
   constructor(message: string) {
@@ -84,7 +86,31 @@ export async function processAutoTopupPayment(userId: string) {
     ? Math.max(user.auto_topup_amount, balance.totalDebt)
     : user.auto_topup_amount
 
-  throw new Error('Not implemented')
+  const paymentMethods = await stripeServer.paymentMethods.list({
+    customer: user.stripe_customer_id,
+    type: 'card',
+  })
+
+  if (!paymentMethods.data.length) {
+    throw new AutoTopupPaymentError('No payment methods available')
+  }
+
+  const paymentIntent = await stripeServer.paymentIntents.create({
+    amount: amountToTopUp * 100,
+    currency: 'usd',
+    customer: user.stripe_customer_id,
+    payment_method: paymentMethods.data[0].id,
+    confirm: true,
+    off_session: true,
+  })
+
+  if (paymentIntent.status !== 'succeeded') {
+    throw new AutoTopupPaymentError('Payment failed')
+  }
+
+  await processAndGrantCredit(userId, amountToTopUp, 'auto_topup')
+
+  logger.info({ userId, amount: amountToTopUp }, 'Auto top-up successful')
 }
 
 export async function checkAndTriggerAutoTopup(userId: string) {

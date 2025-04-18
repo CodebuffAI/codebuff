@@ -1,5 +1,5 @@
-import { describe, it, expect, mock, beforeEach } from 'bun:test'
-import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
+import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test'
+import { checkAndTriggerAutoTopup } from '../billing/auto-topup'
 import { CreditBalance } from 'common/src/billing/balance-calculator'
 import { debugLog } from '../util/debug'
 
@@ -15,6 +15,9 @@ describe('Auto Top-up System', () => {
     beforeEach(() => {
       debugLog('Setting up test mocks...')
       
+      // Reset all mocks before each test
+      mock.restore()
+
       // Reset mocks before each test
       dbMock = mock(() => ({
         id: 'test-user',
@@ -105,6 +108,11 @@ describe('Auto Top-up System', () => {
       debugLog('Mocks configured successfully')
     })
 
+    // Add explicit cleanup
+    afterEach(() => {
+      mock.restore()
+    })
+
     it('should trigger top-up when balance below threshold', async () => {
       try {
         debugLog('Starting test: trigger top-up when balance below threshold')
@@ -135,7 +143,7 @@ describe('Auto Top-up System', () => {
       try {
         debugLog('Starting test: no top-up when balance above threshold')
         
-        // Set up balance mock before the test
+        // Update the existing balanceMock
         balanceMock = mock(() =>
           Promise.resolve({
             usageThisCycle: 0,
@@ -174,7 +182,7 @@ describe('Auto Top-up System', () => {
       try {
         debugLog('Starting test: handle debt with max amount')
         
-        // Set up balance mock before the test
+        // Update the existing balanceMock
         balanceMock = mock(() =>
           Promise.resolve({
             usageThisCycle: 0,
