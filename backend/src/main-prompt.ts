@@ -122,13 +122,12 @@ export const mainPrompt = async (
 
     `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
 
-    costMode === 'max' &&
-      'Start your response with the <think_deeply> tool call to decide how to proceed.',
-
-    costMode !== 'max' &&
-      !justUsedATool &&
-      !recentlyDidThinking &&
-      'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
+    // Experimental gemini thinking
+    costMode === 'experimental'
+      ? 'Start your response with the <think_deeply> tool call to decide how to proceed.'
+      : !justUsedATool &&
+          !recentlyDidThinking &&
+          'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
 
     'If the user is starting a new feature or refactoring, consider invoking "<create_plan></create_plan>".',
 
@@ -406,8 +405,8 @@ ${newFiles.map((file) => file.path).join('\n')}
     Promise<{ path: string; content: string; patch?: string } | null>[]
   > = {}
 
-  // Add deep thinking for max mode
-  if (costMode === 'max') {
+  // Add deep thinking for experimental mode
+  if (costMode === 'experimental') {
     await getThinkingStream(
       agentMessages,
       system,
