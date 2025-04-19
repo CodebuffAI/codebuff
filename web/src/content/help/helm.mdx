@@ -1,0 +1,167 @@
+---
+title: 'Using Helm with Codebuff'
+section: 'help'
+tags: ['helm', 'kubernetes', 'deployment']
+order: 6
+---
+
+# Using Helm with Codebuff
+
+Helm is the package manager for Kubernetes. This guide covers how to install and use Helm effectively with your projects.
+
+## Installation
+
+You can install Helm through various package managers depending on your operating system:
+
+### macOS
+```bash
+brew install helm
+```
+
+### Windows
+Choose one of these methods:
+```bash
+# Using Chocolatey
+choco install kubernetes-helm
+
+# Using Scoop
+scoop install helm
+
+# Using Winget
+winget install Helm.Helm
+```
+
+### Linux
+```bash
+# Debian/Ubuntu
+curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+sudo apt-get install apt-transport-https --yes
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+sudo apt-get update
+sudo apt-get install helm
+
+# Fedora
+sudo dnf install helm
+
+# Using Snap
+snap install helm --classic
+```
+
+## Basic Usage
+
+After installation, you can start using Helm to manage Kubernetes applications. Here are some common commands:
+
+### Adding a Repository
+```bash
+helm repo add [name] [url]
+helm repo update
+```
+
+### Installing a Chart
+```bash
+helm install [release-name] [chart-name]
+```
+
+### Listing Releases
+```bash
+helm list
+```
+
+Example output:
+```plaintext
+NAME       NAMESPACE  REVISION  UPDATED                  STATUS    CHART           APP VERSION
+my-release default   1         2024-01-16 00:00:03 UTC deployed  my-chart-1.0.0  1.0.0
+```
+
+### Upgrading a Release
+```bash
+helm upgrade [release-name] [chart-name]
+```
+
+### Uninstalling a Release
+```bash
+helm uninstall [release-name]
+```
+
+## Configuration
+
+Helm uses several environment variables for configuration:
+
+```bash
+HELM_CACHE_HOME      # Cache directory
+HELM_CONFIG_HOME     # Config directory
+HELM_DATA_HOME       # Data directory
+HELM_DEBUG          # Enable debug output
+HELM_NAMESPACE      # Default namespace
+HELM_PLUGINS        # Plugin directory
+HELM_REGISTRY_CONFIG # Registry config file
+HELM_REPOSITORY_CONFIG # Repository config file
+```
+
+## Best Practices
+
+1. **Version Control**
+   - Keep chart versions in sync with application versions
+   - Use semantic versioning for charts
+   - Store charts in a version control system
+
+2. **Dependencies**
+   - Clearly define chart dependencies
+   - Use specific versions for dependencies
+   - Regularly update dependencies
+
+3. **Values Management**
+   - Use separate values files for different environments
+   - Document all configurable values
+   - Set appropriate default values
+
+4. **Security**
+   - Use RBAC for access control
+   - Secure sensitive data using Kubernetes secrets
+   - Regularly update Helm and charts for security patches
+
+## Common Issues and Solutions
+
+### Chart Not Found
+If you encounter "chart not found" errors:
+```bash
+# Update repositories
+helm repo update
+
+# Verify repository is added
+helm repo list
+```
+
+### Permission Issues
+For permission-related errors:
+```bash
+# Verify Kubernetes connection
+kubectl cluster-info
+
+# Check Helm permissions
+helm list --all-namespaces
+```
+
+## Additional Resources
+
+- [Helm Documentation](https://helm.sh/docs/)
+- [Helm Hub](https://artifacthub.io/)
+- [Helm GitHub Repository](https://github.com/helm/helm)
+
+## Getting Help
+
+If you encounter issues with Helm:
+
+1. Check the Helm logs:
+```bash
+helm --debug [command]
+```
+
+2. Verify your Helm version:
+```bash
+helm version
+```
+
+3. Join the Helm community:
+   - [Helm Slack](https://kubernetes.slack.com/messages/helm-users)
+   - [Helm GitHub Issues](https://github.com/helm/helm/issues)

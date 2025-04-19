@@ -1,5 +1,7 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { ClientAction } from 'common/actions'
+import { bigquery } from 'common/bigquery/client'
+import { AgentResponseTrace } from 'common/bigquery/schema'
 import {
   HIDDEN_FILE_READ_STATUS,
   models,
@@ -81,6 +83,10 @@ export const mainPrompt = async (
     userInputId: promptId,
     userId,
   })
+
+  // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
+  // This is used to link logs within a single agent loop
+  const agentStepId = generateCompactId()
 
   const relevantDocumentationPromise = prompt
     ? getDocumentationForQuery(prompt, {
@@ -520,6 +526,22 @@ export const mainPrompt = async (
     // (hacky) ends turn if LLM did not give a response.
     fullResponse = '<end_turn></end_turn>'
   }
+
+  const agentResponseTrace: AgentResponseTrace = {
+    type: 'agent-response',
+    createdAt: new Date(),
+    agentStepId: agentStepId,
+    id: generateCompactId(),
+    payload: {
+      output: fullResponse,
+      userInputId: promptId,
+      clientSessionId: clientSessionId,
+      fingerprintId: fingerprintId,
+      userId: userId ?? '',
+    },
+  }
+
+  bigquery.insertTrace(agentResponseTrace)
 
   const messagesWithResponse = [
     ...agentMessages,

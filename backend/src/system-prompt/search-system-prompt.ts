@@ -1,8 +1,11 @@
-import { ProjectFileContext } from 'common/util/file'
-import { buildArray } from 'common/util/array'
+import { bigquery } from 'common/bigquery/client'
 import { CostMode } from 'common/constants'
-import { countTokens, countTokensJson } from '../util/token-counter'
+import { buildArray } from 'common/util/array'
+import { ProjectFileContext } from 'common/util/file'
+import { generateCompactId } from 'common/util/string'
+
 import { logger } from '../util/logger'
+import { countTokens, countTokensJson } from '../util/token-counter'
 import {
   getGitChangesPrompt,
   getProjectFileTreePrompt,
@@ -37,6 +40,35 @@ export function getSearchSystemPrompt(
     fileTreeTokenBudget,
     'search'
   )
+
+  const t = Date.now()
+  const truncationBudgets = [5_000, 20_000, 40_000, 100_000, 500_000]
+  const truncatedTrees = truncationBudgets.reduce(
+    (acc, budget) => {
+      acc[budget] = getProjectFileTreePrompt(fileContext, budget, 'search')
+      return acc
+    },
+    {} as Record<number, string>
+  )
+
+  console.log('Truncationg time overhead', Date.now() - t)
+  const trace = {
+    id: generateCompactId(),
+    agentStepId: 'search', // TODO: Get real agent step ID
+    createdAt: new Date(),
+    type: 'file-trees' as const,
+    payload: {
+      filetrees: truncatedTrees,
+      userInputId: '', // TODO: Get real user input ID
+      clientSessionId: '', // TODO: Get real client session ID
+      fingerprintId: '', // TODO: Get real fingerprint ID
+      userId: '', // TODO: Get real user ID
+    },
+  }
+
+  bigquery.insertTrace(trace).catch((error) => {
+    logger.error({ error }, 'Failed to insert file trees trace')
+  })
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)
 
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)

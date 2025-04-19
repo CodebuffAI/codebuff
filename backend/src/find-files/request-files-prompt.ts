@@ -1,6 +1,8 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
+import { bigquery } from 'common/bigquery/client'
+import { GetRelevantFilesTrace } from 'common/bigquery/schema'
 import { models, type CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { Message } from 'common/types/message'
@@ -10,6 +12,7 @@ import {
   cleanMarkdownCodeBlock,
   createMarkdownFileBlock,
 } from 'common/util/file'
+import { generateCompactId } from 'common/util/string'
 import { range, shuffle, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
@@ -175,6 +178,7 @@ async function getRelevantFiles(
   userId: string | undefined,
   costMode: CostMode
 ) {
+  console.log('getRelevantFiles')
   const bufferTokens = 100_000
   const messagesWithPrompt = getMessagesSubset(
     [
@@ -199,6 +203,27 @@ async function getRelevantFiles(
   const duration = end - start
 
   const files = validateFilePaths(response.split('\n'))
+
+  console.log('getRelevantFiles: inserting trace')
+  const trace: GetRelevantFilesTrace = {
+    id: generateCompactId(),
+    agentStepId: clientSessionId,
+    createdAt: new Date(),
+    type: 'get-relevant-files',
+    payload: {
+      messages,
+      system,
+      output: response,
+      requestType,
+      costMode,
+      userInputId,
+      clientSessionId,
+      fingerprintId,
+      userId: userId ?? '',
+    },
+  }
+
+  bigquery.insertTrace(trace)
 
   return { files, duration, requestType, response }
 }
