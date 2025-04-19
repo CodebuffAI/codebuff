@@ -209,7 +209,8 @@ export const UsageDisplay = ({
   balance,
   nextQuotaReset,
 }: UsageDisplayProps) => {
-  const { totalRemaining, breakdown, totalDebt, principals } = balance
+  const { totalRemaining, breakdown, totalDebt, netBalance, principals } =
+    balance
 
   // Calculate used credits per type
   const usedCredits: Record<GrantType, number> = {
@@ -330,9 +331,28 @@ export const UsageDisplay = ({
         {/* Total remaining */}
         <div className="pt-4 mt-2 border-t">
           <div className="flex justify-between items-center md:px-6">
-            <span className="text-xl font-medium">Total Left</span>
-            <span className="text-xl font-bold">
-              {totalRemaining.toLocaleString()}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-xl font-medium flex items-center gap-2">
+                    Total
+                    {totalDebt > 0 ? <p>Owed</p> : <p>Left</p>}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    Available credits after accounting for any existing debt
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <span
+              className={cn(
+                'text-xl font-bold',
+                netBalance < 0 && 'text-red-500'
+              )}
+            >
+              {netBalance.toLocaleString()}
             </span>
           </div>
         </div>

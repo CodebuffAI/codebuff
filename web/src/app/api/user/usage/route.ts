@@ -2,10 +2,9 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
-import { and, eq, gt, or, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import * as schema from 'common/db/schema'
-import { CreditBalance } from 'common/src/billing/balance-calculator'
-import { GrantType } from 'common/db/schema'
+import { calculateUsageAndBalance } from 'common/src/billing/balance-calculator'
 import {
   getPlanFromPriceId,
   getMonthlyGrantForPlan,
@@ -38,112 +37,12 @@ export async function GET() {
     const now = new Date()
     const quotaResetDate = user.next_quota_reset ?? new Date(0)
 
-    // SQL helper for checking if a grant is currently active
-    const isActive = sql<boolean>`
-      ${schema.creditLedger.expires_at} IS NULL OR
-      ${schema.creditLedger.expires_at} > ${now}
-    `
-
-    // SQL helper for positive balance amount
-    const positiveBalance = sql<number>`
-      CASE WHEN ${schema.creditLedger.balance} > 0
-      THEN ${schema.creditLedger.balance}
-      ELSE 0 END
-    `
-
-    // SQL helper for negative balance amount (as positive number)
-    const debtAmount = sql<number>`
-      CASE WHEN ${schema.creditLedger.balance} < 0
-      THEN ABS(${schema.creditLedger.balance})
-      ELSE 0 END
-    `
-
-    // SQL helper for current balance of active grants
-    const activeBalance = sql<number>`
-      CASE WHEN ${isActive} THEN ${positiveBalance} ELSE 0 END
-    `
-
-    // SQL helper for current debt of active grants
-    const activeDebt = sql<number>`
-      CASE WHEN ${isActive} THEN ${debtAmount} ELSE 0 END
-    `
-
-    // SQL helper for usage calculation
-    const usage = sql<number>`
-      ${schema.creditLedger.principal} - ${schema.creditLedger.balance}
-    `
-
-    // Get all grant totals in a single query
-    const grantTotals = await db
-      .select({
-        // Current balances (only active grants)
-        currentBalance: sql<number>`
-          COALESCE(SUM(${activeBalance})::integer, 0)`,
-        // Total debt (only active grants)
-        totalDebt: sql<number>`
-          COALESCE(SUM(${activeDebt})::integer, 0)`,
-        // Usage this cycle (all grants)
-        usageThisCycle: sql<number>`
-          COALESCE(SUM(${usage})::integer, 0)`,
-        // Type-specific totals
-        type: schema.creditLedger.type,
-        // Current balance per type
-        typeBalance: sql<number>`
-          COALESCE(SUM(${activeBalance})::integer, 0)`,
-        // Principal per type
-        typePrincipal: sql<number>`
-          COALESCE(SUM(${schema.creditLedger.principal})::integer, 0)`,
-      })
-      .from(schema.creditLedger)
-      .where(
-        and(
-          eq(schema.creditLedger.user_id, userId),
-          or(
-            // - Expires after cycle start (or never expires)
-            sql`${schema.creditLedger.expires_at} IS NULL`,
-            gt(schema.creditLedger.expires_at, now)
-          )
-        )
-      )
-      .groupBy(schema.creditLedger.type)
-
-    // Initialize balance structure with all grant types set to 0
-    const balance: CreditBalance = {
-      totalRemaining: 0,
-      totalDebt: 0,
-      netBalance: 0,
-      breakdown: {
-        free: 0,
-        referral: 0,
-        purchase: 0,
-        admin: 0,
-      },
-      principals: {
-        free: 0,
-        referral: 0,
-        purchase: 0,
-        admin: 0,
-      },
-    }
-
-    let usageThisCycle = 0
-
-    // Process totals from the query
-    for (const total of grantTotals) {
-      const grantType = total.type as GrantType
-
-      // Add to type-specific totals (overwriting the 0 defaults)
-      balance.breakdown[grantType] = total.typeBalance
-      balance.principals[grantType] = total.typePrincipal
-
-      // Add to overall totals
-      balance.totalRemaining += total.currentBalance
-      balance.totalDebt += total.totalDebt
-      usageThisCycle += total.usageThisCycle
-    }
-
-    // Calculate net balance
-    balance.netBalance = balance.totalRemaining - balance.totalDebt
+    // Use the canonical balance calculation function
+    const { usageThisCycle, balance } = await calculateUsageAndBalance(
+      userId,
+      quotaResetDate,
+      now
+    )
 
     // Calculate next monthly grant
     const currentPlan = getPlanFromPriceId(

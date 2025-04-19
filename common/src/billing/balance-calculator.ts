@@ -195,6 +195,10 @@ export async function calculateUsageAndBalance(
 
   // Calculate both metrics in one pass
   let usageThisCycle = 0
+  let totalPositiveBalance = 0
+  let totalDebt = 0
+
+  // First pass: calculate initial totals and usage
   for (const grant of grants) {
     const grantType = grant.type as GrantType
 
@@ -210,23 +214,38 @@ export async function calculateUsageAndBalance(
     // Add to balance if grant is currently active
     if (!grant.expires_at || grant.expires_at > now) {
       if (grant.balance > 0) {
-        balance.totalRemaining += grant.balance
+        totalPositiveBalance += grant.balance
         balance.breakdown[grantType] =
           (balance.breakdown[grantType] || 0) + grant.balance
         balance.principals[grantType] =
           (balance.principals[grantType] || 0) + grant.principal
       } else if (grant.balance < 0) {
-        balance.totalDebt += Math.abs(grant.balance)
+        totalDebt += Math.abs(grant.balance)
       }
     }
   }
 
-  // Calculate net balance
-  balance.netBalance = balance.totalRemaining - balance.totalDebt
+  // Perform in-memory settlement if there's both debt and positive balance
+  if (totalDebt > 0 && totalPositiveBalance > 0) {
+    const settlementAmount = Math.min(totalDebt, totalPositiveBalance)
+    logger.debug(
+      { userId, totalDebt, totalPositiveBalance, settlementAmount },
+      'Performing in-memory settlement'
+    )
+    
+    // After settlement:
+    totalPositiveBalance -= settlementAmount
+    totalDebt -= settlementAmount
+  }
+
+  // Set final balance values after settlement
+  balance.totalRemaining = totalPositiveBalance
+  balance.totalDebt = totalDebt
+  balance.netBalance = totalPositiveBalance - totalDebt
 
   logger.debug(
     { userId, balance, usageThisCycle, grantsCount: grants.length },
-    'Calculated usage and balance'
+    'Calculated usage and settled balance'
   )
 
   return { usageThisCycle, balance }
@@ -240,7 +259,6 @@ export async function calculateUsageAndBalance(
  * @param userId The ID of the user
  * @param creditsToConsume Number of credits being consumed
  * @returns Promise resolving to number of credits consumed
- * @throws Error if user has any debt
  */
 export async function consumeCredits(
   userId: string,
@@ -256,17 +274,6 @@ export async function consumeCredits(
         'No active grants found to consume credits from'
       )
       throw new Error('No active grants found')
-    }
-
-    const hasDebt = activeGrants.some((grant) => grant.balance < 0)
-    if (hasDebt) {
-      logger.error(
-        { userId, creditsToConsume },
-        'Cannot consume credits - user has existing debt'
-      )
-      throw new Error(
-        'Cannot use credits while you have unpaid debt. Please add credits to clear your debt first.'
-      )
     }
 
     const result = await consumeFromOrderedGrants(

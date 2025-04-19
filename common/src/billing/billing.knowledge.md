@@ -40,27 +40,25 @@ When a refund is issued in Stripe:
   - balance: Current remaining amount (can go negative)
 - Usage is calculated as (principal - balance) for each grant
 - When consuming credits:
-  - First check if user has any debt - if yes, block usage
-  - Then consume from remaining grants in order:
+  - System calculates netBalance = totalRemaining - totalDebt
+  - If netBalance <= 0, request is blocked
+  - Otherwise, consume from remaining grants in order:
     1. Expiring soonest first (never-expiring last)
     2. Within same expiry, by priority (free -> referral -> purchase -> admin)
     3. Within same priority, oldest first (by created_at)
-  - Example:
-    ```
-    Initial state:
-    free (NULL): -20 (debt)
+    
+  Example:
+    debt: -20
     referral (2024-02-01): 30
     free (2024-03-01): 50
     
-    Result: Request blocked due to debt
-    System tries auto-topup to clear debt if enabled
-    If auto-topup fails, user must manually add credits
-    ```
+    netBalance = (30 + 50) - 20 = 60
+    Request allowed, will consume from referral first
+
   - Skip grants with 0 or negative balance when consuming
   - Only let the last grant go negative
   - Principal stays at original value
   - Never create new grants for debt
-  - Users cannot use any credits if they have debt
   - Maximum debt limit of 100 credits per user
   - If a request would exceed max debt limit, it's truncated and fails
 
@@ -90,8 +88,11 @@ When testing balance calculation:
 
 1. User makes a request
 2. System checks balance:
-   - If user has any debt: Try auto-topup, then block if still insufficient
-   - If totalRemaining <= 0: Try auto-topup, then block if still insufficient
+   - Calculate netBalance = totalRemaining - totalDebt
+   - If auto-topup enabled:
+     - If debt exists OR balance below threshold: Try auto-topup
+     - If auto-topup succeeds: Recalculate netBalance
+   - If netBalance <= 0: Block request
 3. If allowed, system:
    - Calculates credit cost based on tokens used
    - Consumes from grants in expiry + priority order
