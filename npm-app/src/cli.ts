@@ -7,19 +7,9 @@ import { getAllFilePaths } from 'common/project-file-tree'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import {
-  blue,
-  bold,
-  cyan,
-  green,
-  gray,
-  magenta,
-  red,
-  underline,
-  yellow,
-} from 'picocolors'
+import { green, yellow } from 'picocolors'
 
-import { backgroundProcesses } from './background-process-manager'
+import { killAllBackgroundProcesses } from './background-process-manager'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { detectApiKey, handleApiKeyInput } from './cli-handlers/api-key'
@@ -36,7 +26,7 @@ import {
 import { handleDiff } from './cli-handlers/diff'
 import { showEasterEgg } from './cli-handlers/easter-egg'
 import { Client } from './client'
-import { websocketUrl, websiteUrl } from './config'
+import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
 import { getProjectRoot } from './project-files'
 import { CliOptions, GitCommand } from './types'
@@ -115,7 +105,7 @@ export class CLI {
       Spinner.get().restoreCursor()
       process.exit(0)
     })
-    process.on('SIGTSTP', () => this.handleExit())
+    process.on('SIGTSTP', async () => await this.handleExit())
   }
 
   private initReadlineInterface() {
@@ -128,8 +118,8 @@ export class CLI {
     })
 
     this.rl.on('line', (line) => this.handleLine(line))
-    this.rl.on('SIGINT', () => this.handleSigint())
-    this.rl.on('close', () => this.handleExit())
+    this.rl.on('SIGINT', async () => await this.handleSigint())
+    this.rl.on('close', async () => await this.handleExit())
 
     process.stdin.on('keypress', (str, key) => this.handleKeyPress(str, key))
   }
@@ -289,7 +279,7 @@ export class CLI {
       return true
     }
     if (userInput === 'quit' || userInput === 'exit' || userInput === 'q') {
-      this.handleExit()
+      await this.handleExit()
       return true
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(userInput)) {
@@ -437,7 +427,7 @@ export class CLI {
     this.detectPasting()
   }
 
-  private handleSigint() {
+  private async handleSigint() {
     if (isCommandRunning()) {
       resetShell(getProjectRoot())
     }
@@ -451,7 +441,7 @@ export class CLI {
     } else {
       const now = Date.now()
       if (now - this.lastSigintTime < 5000) {
-        this.handleExit()
+        await this.handleExit()
       } else {
         this.lastSigintTime = now
         console.log('\nPress Ctrl-C again to exit')
@@ -475,26 +465,11 @@ export class CLI {
     Spinner.get().stop()
   }
 
-  private handleExit() {
+  private async handleExit() {
     Spinner.get().restoreCursor()
     console.log('\n')
 
-    for (const [pid, processInfo] of backgroundProcesses.entries()) {
-      if (processInfo.status === 'running') {
-        try {
-          processInfo.process.kill()
-          console.log(yellow(`Killed process: ${processInfo.command}`))
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error)
-          console.error(
-            red(
-              `Error killing process with PID ${pid} (${processInfo.command}): ${errorMessage}`
-            )
-          )
-        }
-      }
-    }
+    await killAllBackgroundProcesses()
 
     const logMessages = []
     const totalCreditsUsedThisSession = Object.values(

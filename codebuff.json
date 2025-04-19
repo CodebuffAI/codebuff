@@ -1,6 +1,10 @@
 {
   "startupProcesses": [
     {
+      "name": "drizzle",
+      "command": "bun start-studio"
+    },
+    {
       "name": "web server",
       "command": "bun start-web"
     }

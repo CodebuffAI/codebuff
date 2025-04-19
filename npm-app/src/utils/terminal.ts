@@ -11,6 +11,7 @@ import { green } from 'picocolors'
 import {
   backgroundProcesses,
   BackgroundProcessInfo,
+  spawnAndTrack,
 } from '../background-process-manager'
 import { setProjectRoot } from '../project-files'
 import { detectShell } from './detect-shell'
@@ -200,7 +201,7 @@ export const runBackgroundCommand = (
   const initialStderr = ''
 
   try {
-    const childProcess = spawn(shell, [...shellArgs, command], {
+    const childProcess = spawnAndTrack(shell, [...shellArgs, command], {
       cwd: projectPath,
       env: {
         ...process.env,
@@ -208,7 +209,7 @@ export const runBackgroundCommand = (
       },
       // Ensure detached is always false to link child lifetime to parent
       detached: false,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: 'pipe',
     })
 
     // An error should have been thrown when we called `spawn`

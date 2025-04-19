@@ -5,6 +5,7 @@ import { type CostMode } from 'common/constants'
 import { red } from 'picocolors'
 
 import packageJson from '../package.json'
+import { cleanupStoredProcesses } from './background-process-manager'
 import { CLI } from './cli'
 import { createTemplateProject } from './create-template-project'
 import { startDevProcesses } from './json-config/dev-process-manager'
@@ -23,6 +24,9 @@ async function codebuff(
 ) {
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
+
+  // Kill all processes we failed to kill before
+  cleanupStoredProcesses()
 
   const updatePromise = updateCodebuff()
 

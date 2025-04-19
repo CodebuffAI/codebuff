@@ -14,7 +14,7 @@ export async function startDevProcesses(
   projectPath: string
 ) {
   if (processes.length) {
-    console.log(yellow('Starting dev processes:'))
+    console.log(yellow('Starting development processes:'))
   }
   for (const { name, command, cwd } of processes) {
     // Resolve working directory
@@ -25,14 +25,19 @@ export async function startDevProcesses(
       : projectPath
 
     // Start the process
-    console.log(yellow(`- ${name}: \`${command}\``))
-
     await runBackgroundCommand(
       generateCompactId(),
       command,
       'user',
       workingDir,
-      () => {}
+      ({ result }) => {
+        const m = result.match(/<process_id>(\d+)<\/process_id>/)
+        if (m) {
+          console.log(yellow(`- ${name}: \`${command}\` (pid: ${m[1]})`))
+        } else {
+          console.log(yellow(`- ${name}: \`${command}\` failed to start`))
+        }
+      }
     )
   }
 }
