@@ -199,8 +199,14 @@ export class Client {
       return
     }
 
+    const TIMEOUT_MS = 5_000
+
     try {
-      const response = await fetch(
+      const timeoutPromise = new Promise<Response>((_, reject) => {
+        setTimeout(() => reject(new Error('Request timed out')), TIMEOUT_MS)
+      })
+
+      const fetchPromise = fetch(
         `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
         {
           method: 'GET',
@@ -212,6 +218,8 @@ export class Client {
         }
       )
 
+      const response = await Promise.race([fetchPromise, timeoutPromise])
+
       if (response.ok) {
         const { keyTypes } = await response.json()
         this.storedApiKeyTypes = keyTypes as ApiKeyType[]
@@ -219,6 +227,12 @@ export class Client {
         this.storedApiKeyTypes = []
       }
     } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(
+          'Error fetching stored API key types (is there something else on port 3000?):',
+          error
+        )
+      }
       this.storedApiKeyTypes = []
     }
   }
