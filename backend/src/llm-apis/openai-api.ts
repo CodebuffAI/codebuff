@@ -130,7 +130,10 @@ export async function* promptOpenAIStream(
         stream_options: {
           include_usage: true,
         },
-        stop_sequences: options.stopSequences,
+        stop:
+          model === openaiModels.o3 || model === openaiModels.o4mini
+            ? undefined
+            : options.stopSequences,
       })
     )
 
@@ -399,7 +402,10 @@ export async function promptOpenAIWithContinuation(
             messages: messagesWithContinuedMessage,
             stream: true,
             temperature: 0,
-            stop_sequences: stopSequences,
+            stop:
+              model === openaiModels.o3 || model === openaiModels.o4mini
+                ? stopSequences
+                : undefined,
             stream_options: {
               include_usage: true,
             },
