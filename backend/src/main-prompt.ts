@@ -105,6 +105,8 @@ export const mainPrompt = async (
     'Instructions:',
     'Proceed toward the user request and any subgoals.',
 
+    'If the user asks a question, simply answer the question rather than making changes to the code.',
+
     !isGPT4_1 &&
       "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
