@@ -49,6 +49,7 @@ Examples of non-terminal commands ('no'):
 - "yes"
 - "hi"
 - "I need to install the dependencies"
+- "run cargo check" (this is a natural language instruction to run a terminal command, not a terminal command itself)
 - [... long request ...]
 
 Input: ${JSON.stringify(prompt)}`,
