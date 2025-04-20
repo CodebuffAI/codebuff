@@ -25,3 +25,15 @@ export type ToolName = keyof typeof toolSchema
 
 // List of all available tools
 export const TOOL_LIST = Object.keys(toolSchema) as ToolName[]
+
+export const getToolCallString = (
+  toolName: ToolName,
+  params: Record<string, string>
+) => {
+  const openTag = `<${toolName}>`
+  const closeTag = `</${toolName}>`
+  const paramsString = Object.entries(params)
+    .map(([key, value]) => `<${key}>${value}</${key}>`)
+    .join('\n')
+  return `${openTag}\n${paramsString}\n${closeTag}`
+}

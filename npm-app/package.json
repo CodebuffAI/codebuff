@@ -11,7 +11,7 @@
   "scripts": {
     "prebuild": "bun run with-env -- bun clean && cd ../common && bun run build && cd ../packages/code-map && bun run build",
     "build": "tsc && tsc-alias",
-    "postbuild": "mkdir -p dist/common && cp -r ../common/dist/* dist/common && mkdir -p dist/code-map && cp -r ../packages/code-map/dist/* dist/code-map && tsc-alias",
+    "postbuild": "mkdir -p dist/common && cp -r ../common/dist/* dist/common && mkdir -p dist/code-map && cp -r ../packages/code-map/dist/* dist/code-map && mkdir -p dist/utils/__tests__ && cp -r src/utils/__tests__/*.txt dist/utils/__tests__/ && tsc-alias",
     "quick-build": "tsc && tsc-alias",
     "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
     "prepublishOnly": "bun run build && bun run clean-package.js",
@@ -74,5 +74,8 @@
   "trustedDependencies": [
     "@homebridge/node-pty-prebuilt-multiarch",
     "@vscode/ripgrep"
-  ]
+  ],
+  "devDependencies": {
+    "strip-ansi": "^7.1.0"
+  }
 }

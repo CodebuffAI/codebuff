@@ -4,6 +4,8 @@ import { Writable } from 'stream'
 
 // @ts-ignore
 import { describe, expect, test } from 'bun:test'
+import { getToolCallString } from 'common/constants/tools'
+import stripAnsi from 'strip-ansi'
 
 import { defaultToolCallRenderer } from '../tool-renderers'
 import { createXMLStreamParser } from '../xml-stream-parser'
@@ -16,8 +18,9 @@ const toolRenderers = {
 
 describe('Saxy Stream Processor', () => {
   test('pipes output to writable stream', async () => {
-    const xml =
-      '<run_terminal_command><command>echo hello</command></run_terminal_command>'
+    const xml = getToolCallString('run_terminal_command', {
+      command: 'echo hello',
+    })
     let result = ''
 
     const processor = createXMLStreamParser(toolRenderers)
@@ -44,7 +47,8 @@ describe('Saxy Stream Processor', () => {
 
   test('handles multiple tool calls in sequence', async () => {
     const xml =
-      '<run_terminal_command><command>ls</command></run_terminal_command><read_files><paths>file.txt</paths></read_files>'
+      getToolCallString('run_terminal_command', { command: 'ls' }) +
+      getToolCallString('read_files', { paths: 'file.txt' })
     let result = ''
 
     const processor = createXMLStreamParser(toolRenderers)
@@ -73,7 +77,9 @@ describe('Saxy Stream Processor', () => {
 
   test('handles text content between tool calls', async () => {
     const xml =
-      '<run_terminal_command><command>ls</command></run_terminal_command>Some text between tool calls<read_files><paths>file.txt</paths></read_files>'
+      getToolCallString('run_terminal_command', { command: 'ls' }) +
+      'Some text between tool calls' +
+      getToolCallString('read_files', { paths: 'file.txt' })
     let result = ''
 
     const processor = createXMLStreamParser(toolRenderers)
@@ -103,14 +109,20 @@ describe('Saxy Stream Processor', () => {
 
   test('processes chunks incrementally with output verification', async () => {
     // Define chunks that will be written one at a time
+    const terminalCommand = getToolCallString('run_terminal_command', {
+      command: 'npm install',
+    })
+    const codeSearch = getToolCallString('code_search', { pattern: 'function' })
+
+    // Split the XML into chunks
     const chunks = [
-      '<run_terminal_',
-      'command><comm',
-      'and>npm ',
-      'install',
-      '</command></run_terminal_command>',
-      '<code_search><patt',
-      'ern>function</pattern></code_search>',
+      terminalCommand.slice(0, 15),
+      terminalCommand.slice(15, 30),
+      terminalCommand.slice(30, 40),
+      terminalCommand.slice(40, 50),
+      terminalCommand.slice(50),
+      codeSearch.slice(0, 15),
+      codeSearch.slice(15),
     ]
 
     // Array to store output chunks as they're produced
@@ -143,7 +155,7 @@ describe('Saxy Stream Processor', () => {
     })
 
     // Verify the complete output
-    const fullOutput = outputChunks.join('')
+    const fullOutput = stripAnsi(outputChunks.join(''))
     expect(fullOutput).toContain('Run Terminal Command')
     expect(fullOutput).toContain('npm install')
     expect(fullOutput).toContain('Code Search')
