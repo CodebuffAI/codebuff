@@ -1,6 +1,6 @@
-import { bold, bgBlack } from 'picocolors'
-import { capitalize, snakeToTitleCase } from 'common/util/string'
 import { ToolName } from 'common/constants/tools'
+import { capitalize, snakeToTitleCase } from 'common/util/string'
+import { bold, gray } from 'picocolors'
 
 /**
  * Interface for handling tool call rendering
@@ -41,11 +41,11 @@ export interface ToolCallRenderer {
  */
 export const defaultToolCallRenderer: ToolCallRenderer = {
   onToolStart: (toolName) => {
-    return bgBlack(`[${bold(snakeToTitleCase(toolName))}]\n`)
+    return gray(`[${bold(snakeToTitleCase(toolName))}]\n`)
   },
 
   onParamChunk: (content, paramName, toolName) => {
-    return bgBlack(content)
+    return gray(content)
   },
 
   onParamEnd: () => null,
@@ -80,7 +80,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
 
       if (numFiles <= maxInitialFiles) {
         // If 3 or fewer files, list them all on new lines
-        return bgBlack(files.join('\n'))
+        return gray(files.join('\n'))
       } else {
         // If more than 3 files
         const initialFiles = files.slice(0, maxInitialFiles)
@@ -88,14 +88,14 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
         const numRemaining = remainingFiles.length
         const remainingFilesString = remainingFiles.join(' ')
 
-        return bgBlack(
+        return gray(
           `${initialFiles.map((file) => '- ' + file).join('\n')}\nand ${numRemaining} more: ${remainingFilesString}`
         )
       }
     },
     onToolEnd: (toolName, params) => {
       // Add a final newline after the file list
-      return `\n`
+      return gray(`\n`)
     },
   },
   think_deeply: {
@@ -105,19 +105,19 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     ...defaultToolCallRenderer,
     onParamStart: (paramName) => {
       if (paramName === 'path') {
-        return bgBlack('Editing plan at ')
+        return gray('Editing plan at ')
       }
       return null
     },
     onParamChunk: (content, paramName) => {
       if (paramName === 'path') {
-        return bgBlack(content)
+        return gray(content)
       }
       return null
     },
     onParamEnd: (paramName) => {
       if (paramName === 'path') {
-        return bgBlack('...\n')
+        return gray('...\n')
       }
       return null
     },
@@ -126,17 +126,17 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     ...defaultToolCallRenderer,
     onParamStart: (paramName) => {
       if (paramName === 'path') {
-        return bgBlack('Editing file at ')
+        return gray('Editing file at ')
       }
       return null
     },
     onParamChunk: (content, paramName, toolName) => {
       if (paramName === 'path') {
-        return bgBlack(content)
+        return gray(content)
       }
       return null
     },
-    onParamEnd: (paramName) => (paramName === 'path' ? '...' : null),
+    onParamEnd: (paramName) => (paramName === 'path' ? gray('...\n') : null),
   },
   add_subgoal: {
     ...defaultToolCallRenderer,
@@ -144,18 +144,18 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       if (paramName === 'id') {
         return null
       }
-      return bgBlack(capitalize(paramName) + ': ')
+      return gray(capitalize(paramName) + ': ')
     },
     onParamChunk: (content, paramName, toolName) => {
       if (paramName === 'id') {
         return null
       }
-      return bgBlack(content)
+      return gray(content)
     },
     onParamEnd: (paramName) => {
       const paramsWithNewLine = ['objective', 'status']
       if (paramsWithNewLine.includes(paramName)) {
-        return '\n'
+        return gray('\n')
       }
       return null
     },
@@ -166,18 +166,18 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       if (paramName === 'id') {
         return null
       }
-      return bgBlack(capitalize(paramName) + ': ')
+      return gray(capitalize(paramName) + ': ')
     },
     onParamChunk: (content, paramName, toolName) => {
       if (paramName === 'id') {
         return null
       }
-      return bgBlack(content)
+      return gray(content)
     },
     onParamEnd: (paramName) => {
       const paramsWithNewLine = ['status']
       if (paramsWithNewLine.includes(paramName)) {
-        return '\n'
+        return gray('\n')
       }
       return null
     },
