@@ -1,7 +1,7 @@
-import { EXISTING_CODE_MARKER } from 'src/constants'
-import { replaceNonStandardPlaceholderComments } from '../string'
-// @ts-ignore
 import { describe, expect, it } from 'bun:test'
+
+import { EXISTING_CODE_MARKER } from '../../constants'
+import { replaceNonStandardPlaceholderComments } from '../string'
 
 describe('replaceNonStandardPlaceholderComments', () => {
   it('should replace C-style comments', () => {

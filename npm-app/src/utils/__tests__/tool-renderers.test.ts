@@ -1,8 +1,10 @@
 // @ts-ignore
-import { describe, test, expect } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
+import { Writable } from 'stream'
+import { getToolCallString } from 'common/constants/tools'
+import stripAnsi from 'strip-ansi'
 import { toolRenderers } from '../tool-renderers'
 import { createXMLStreamParser } from '../xml-stream-parser'
-import { Writable } from 'stream'
 
 describe('Tool renderers with XML parser', () => {
   // Helper function to process XML through parser and get output
@@ -30,18 +32,21 @@ describe('Tool renderers with XML parser', () => {
   }
 
   test('formats write_file tool call', async () => {
-    const xml = `<write_file><path>test.ts</path><content>console.log("test");</content></write_file>`
+    const xml = getToolCallString('write_file', {
+      path: 'test.ts',
+      content: 'console.log("test");',
+    })
     const output = await processXML(xml)
-    // Remove ANSI color codes for testing
-    const stripped = output.replace(/\u001B\[\d+m/g, '')
-    expect(stripped).toBe('[Write File]\nEditing file at test.ts...')
+    const stripped = stripAnsi(output)
+    expect(stripped).toBe('[Write File]\nEditing file at test.ts...\n')
   })
 
   test('formats read_files tool call', async () => {
-    const xml = `<read_files>file1.ts\nfile2.ts</read_files>`
+    const xml = getToolCallString('read_files', {
+      paths: 'file1.ts\nfile2.ts',
+    })
     const output = await processXML(xml)
-    // Remove ANSI color codes for testing
-    const stripped = output.replace(/\u001B\[\d+m/g, '')
+    const stripped = stripAnsi(output)
     expect(stripped).toBe('[Read Files]\nfile1.ts\nfile2.ts\n')
   })
 })
