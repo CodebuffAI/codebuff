@@ -144,7 +144,9 @@ export const mainPrompt = async (
     isNotFirstUserMessage &&
       "If you have learned something useful for the future that is not derivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
 
-    "Don't run git commands or scripts without being specifically asked to do so. This can prevent costly accidents. Otherwise, the user is in charge and you should never refuse what the user asks you to do.",
+    "Don't run git commands or scripts or start a dev server without being specifically asked to do so. This can prevent costly accidents.",
+
+    'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
     'Important: You must write "<end_turn></end_turn>" at the end of your response, when you are done or want the user to respond -- but not if you are still working on the user\'s request!',
     "DO NOT END TURN IF YOU ARE STILL WORKING ON THE USER'S REQUEST. If the user's request requires multiple steps, please complete ALL the steps before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response."
