@@ -146,8 +146,9 @@ export const getProjectFileContext = async (
     const allFilePaths = flattenedNodes
       .filter((node) => node.type === 'file')
       .map((node) => node.filePath)
-    const knowledgeFilePaths = allFilePaths.filter((filePath) =>
-      filePath.endsWith('knowledge.md')
+    const knowledgeFilePaths = allFilePaths.filter(
+      (filePath) =>
+        filePath.endsWith('knowledge.md') || filePath.endsWith('claude.md')
     )
     const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
     const knowledgeFilesWithScrapedContent =

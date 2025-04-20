@@ -7,7 +7,7 @@ import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 export const knowledgeFilesPrompt = `
 # Knowledge files
 
-Knowledge files are your guide to the project. Knowledge files (files ending in "knowledge.md") within a directory capture knowledge about that portion of the codebase.
+Knowledge files are your guide to the project. Knowledge files (files ending in "knowledge.md" or "claude.md") within a directory capture knowledge about that portion of the codebase.
 
 Knowledge files were created by previous engineers working on the codebase, and they were given these same instructions. They contain key concepts or helpful tips that are not obvious from the code. e.g., let's say I want to use a package manager aside from the default. That is hard to find in the codebase and would therefore be an appropriate piece of information to add to a knowledge file.
 
