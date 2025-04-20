@@ -4,7 +4,7 @@ import path from 'path'
 
 import { FileChange } from 'common/actions'
 import { models, TEST_USER_ID } from 'common/constants'
-import { buildArray } from 'common/util/array'
+import { getToolCallString } from 'common/src/constants/tools'
 import { z } from 'zod'
 
 import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
@@ -22,11 +22,11 @@ Parameters:
 - status: (required) The status of the subgoal. One of ["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "ABORTED"]
 - plan: (optional) A plan for the subgoal.
 Usage:
-<add_subgoal>
-<id>1</id>
-<objective>Add a new "deploy api" subgoal</objective>
-<status>IN_PROGRESS</status>
-</add_subgoal>
+${getToolCallString('add_subgoal', {
+  id: '1',
+  objective: 'Add a new "deploy api" subgoal',
+  status: 'IN_PROGRESS',
+})}
     `.trim(),
   },
   {
@@ -40,29 +40,29 @@ Parameters:
 - plan: (optional) Change the plan for the subgoal.
 - log: (optional) Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go.
 Usage 1 (update status):
-<update_subgoal>
-<id>1</id>
-<status>COMPLETE</status>
-</update_subgoal>
+${getToolCallString('update_subgoal', {
+  id: '1',
+  status: 'COMPLETE',
+})}
 
 Usage 2 (update plan):
-<update_subgoal>
-<id>3</id>
-<plan>Create a file for the endpoint in the api, and register it in the router</plan>
-</update_subgoal>
+${getToolCallString('update_subgoal', {
+  id: '3',
+  plan: 'Create a file for the endpoint in the api, and register it in the router',
+})}
 
 Usage 3 (add log):
-<update_subgoal>
-<id>1</id>
-<log>I found the error in the tests, it's in the foo function.</log>
-</update_subgoal>
+${getToolCallString('update_subgoal', {
+  id: '1',
+  log: "I found the error in the tests, it's in the foo function.",
+})}
 
 Usage 4 (update status and add log):
-<update_subgoal>
-<id>1</id>
-<status>COMPLETE</status>
-<log>I reran the tests and they passed.</log>
-</update_subgoal>
+${getToolCallString('update_subgoal', {
+  id: '1',
+  status: 'COMPLETE',
+  log: 'I reran the tests and they passed.',
+})}
     `.trim(),
   },
   {
@@ -86,21 +86,22 @@ Parameters:
 - path: (required) Path to the file relative to the project root
 - content: (required) Content to write to the file. You should abridge the content of the file using placeholder comments like: \`// ... existing code ...\` or \`# ... existing code ...\` (or whichever is appropriate for the language).
 Usage:
-<write_file>
-<path>path/to/file</path>
-<content>
-Your file content here
-</content>
-</write_file>
+${getToolCallString('write_file', {
+  path: 'path/to/file',
+  content: 'Your file content here',
+})}
 
-Example:
+Example 1 - Simple file creation:
+${getToolCallString('write_file', {
+  path: 'new-file.ts',
+  content: 'console.log("Hello, world!");',
+})}
 
-The following example shows how the foo function is being updated, with appropriate "//... existing code ..." in placeholder comments to indicate where the code has not changed:
-
-<write_file>
-<path>foo.ts</path>
-<content>
-// ... existing code ...
+Example 2 - Editing with placeholder comments:
+${getToolCallString('write_file', {
+  path: 'foo.ts',
+  content:
+    `// ... existing code ...
 
 function foo() {
   console.log('foo');
@@ -110,10 +111,8 @@ function foo() {
   doSomething();
 }
 
-// ... existing code ...
-</content>
-</write_file>
-
+// ... existing code ...`
+})}
 
 Notes for editing a file:
 - Don't use XML attributes. If you do, the tool will NOT write to the file.
@@ -132,12 +131,10 @@ Description: Read the multiple files from disk and return their contents. Use th
 Parameters:
 - paths: (required) List of relative file paths to read, separated by newlines. Absolute file paths will not work.
 Usage:
-<read_files>
-<paths>
-path/to/file1.ts
-path/to/file2.ts
-</paths>
-</read_files>
+${getToolCallString('read_files', {
+  paths: 'path/to/file1.ts\npath/to/file2.ts',
+})}
+
 
 Note that there's no need to call this tool if you're already reading the files you need in context.`.trim(),
   },
@@ -165,35 +162,35 @@ Note that there's no need to call this tool if you're already reading the files 
   {
     name: 'code_search',
     description: `
-  ### code_search
-  Description: Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.
-  Parameters:
-  - pattern: (required) The pattern to search for.
-  Usage:
-  <code_search><pattern>foo</pattern></code_search>
-  <code_search><pattern>import.*foo</pattern></code_search>
+### code_search
+Description: Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.
+Parameters:
+- pattern: (required) The pattern to search for.
+Usage:
+${getToolCallString('code_search', { pattern: 'foo' })}
+${getToolCallString('code_search', { pattern: 'import.*foo' })}
 
-  Purpose: Search through code files to find files with specific text patterns, function names, variable names, and more.
+Purpose: Search through code files to find files with specific text patterns, function names, variable names, and more.
 
-  Note: quotes will be automatically added around your code search pattern. You might need to escape special characters like '-' or '.' or '\\' if you want to search for them.
+Note: quotes will be automatically added around your code search pattern. You might need to escape special characters like '-' or '.' or '\\' if you want to search for them.
 
-  Prefer to use read_files instead of code_search unless you need to search for a specific pattern in multiple files.
+Prefer to use read_files instead of code_search unless you need to search for a specific pattern in multiple files.
 
-  Use cases:
-  1. Finding all references to a function, class, or variable name across the codebase
-  2. Searching for specific code patterns or implementations
-  3. Looking up where certain strings or text appear
-  4. Finding files that contain specific imports or dependencies
-  5. Locating configuration settings or environment variables
+Use cases:
+1. Finding all references to a function, class, or variable name across the codebase
+2. Searching for specific code patterns or implementations
+3. Looking up where certain strings or text appear
+4. Finding files that contain specific imports or dependencies
+5. Locating configuration settings or environment variables
 
-  The pattern supports regular expressions and will search recursively through all files in the project by default. Some tips:
-  - Be as constraining in the pattern as possible to limit the number of files returned, e.g. if searching for the definition of a function, use "(function foo|const foo)" or "def foo" instead of merely "foo".
-  - Use word boundaries (\\b) to match whole words only
-  - Searches file content and filenames
-  - Automatically ignores binary files, hidden files, and files in .gitignore
-  - Case-sensitive by default. Use -i to make it case insensitive.
-  - Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
-      `.trim(),
+The pattern supports regular expressions and will search recursively through all files in the project by default. Some tips:
+- Be as constraining in the pattern as possible to limit the number of files returned, e.g. if searching for the definition of a function, use "(function foo|const foo)" or "def foo" instead of merely "foo".
+- Use word boundaries (\\b) to match whole words only
+- Searches file content and filenames
+- Automatically ignores binary files, hidden files, and files in .gitignore
+- Case-sensitive by default. Use -i to make it case insensitive.
+- Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
+    `.trim(),
   },
   {
     name: 'run_terminal_command',
@@ -206,10 +203,10 @@ Parameters:
   - SYNC: the command will be run in (and block) the current process. This is required if the output of the command is needed immediately. Most commands will be run in this way. Do not try to run processes in the background with process_type=SYNC and using & at the end of the command. Instead, use the process_type=BACKGROUND option.
   - BACKGROUND: the command will be run in a child background process. This is for running servers or other long-running processes.
 Usage:
-<run_terminal_command>
-<command>Your command here</command>
-<process_type>value</process_type>
-</run_terminal_command>
+${getToolCallString('run_terminal_command', {
+  command: 'Your command here',
+  process_type: 'value',
+})}
 
 Stick to these use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
@@ -250,11 +247,9 @@ ${gitCommitGuidePrompt}
 Description: Think through a complex change to the codebase, like implementing a new feature or refactoring some code. Brainstorm. Go deep on alternative approaches and consider the tradeoffs.
 Parameters: thought: (required) Your detailed thoughts.
 Usage:
-<think_deeply>
-<thought>
-[Insert detailed thoughts here]
-</thought>
-</think_deeply>
+${getToolCallString('think_deeply', {
+  thought: '[Insert detailed thoughts here]',
+})}
 
 Think step by step. For the first section of your thinking, only keep a minimum draft for each thinking step, with 5 words at most.
 
@@ -287,12 +282,10 @@ Parameters:
 - plan: (required) A detailed plan to solve the user's request.
 
 Usage:
-<create_plan>
-<path>feature-name-plan.md</path>
-<plan>
-[Insert long detailed plan here]
-</plan>
-</create_plan>
+${getToolCallString('create_plan', {
+  path: 'feature-name-plan.md',
+  plan: '[Insert long detailed plan here]',
+})}
 
 Use this tool when the user asks you to plan something, or asks you to help with a new feature or refactoring that requires planning.
 
@@ -345,11 +338,11 @@ Navigate:
    - Optional: <waitUntil> ('load', 'domcontentloaded', 'networkidle0')
 
 Usage:
-<browser_logs>
-<type>navigate</type>
-<url>localhost:3000</url>
-<waitUntil>domcontentloaded</waitUntil>
-</browser_logs>
+${getToolCallString('browser_logs', {
+  type: 'navigate',
+  url: 'localhost:3000',
+  waitUntil: 'domcontentloaded',
+})}
 
 IMPORTANT: make absolutely totally sure that you're using the XML tags as shown in the examples. Don't use JSON or any other formatting, only XML tags.
 
@@ -389,7 +382,7 @@ Use this data to:
 Description: End your turn. You must use this tool when you've fully responded to the user. Either you've completed the user's request, need more information from the user, or feel like you are not making progress and want help from the user.
 Parameters: None
 Usage:
-<end_turn></end_turn>
+${getToolCallString('end_turn', {})}
     `.trim(),
   },
 ] as const
@@ -846,18 +839,14 @@ function renderSubgoalUpdate(subgoal: {
   log?: string
 }) {
   const { id, objective, status, plan, log } = subgoal
-  const lines = buildArray(
-    `<id>${id}</id>`,
-    objective && `<objective>${objective}</objective>`,
-    status && `<status>${status}</status>`,
-    plan && `<plan>${plan}</plan>`,
-    log && `<log>${log}</log>`
-  )
-  return `
-<subgoal>
-${lines.join('\n')}
-</subgoal>
-`.trim()
+  const params: Record<string, string> = {
+    id: id.toString(),
+    ...(objective && { objective }),
+    ...(status && { status }),
+    ...(plan && { plan }),
+    ...(log && { log }),
+  }
+  return getToolCallString('add_subgoal', params)
 }
 
 export function transformRunTerminalCommand(command: string) {

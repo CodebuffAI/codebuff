@@ -6,6 +6,7 @@ import {
   ONE_TIME_TAGS,
   type CostMode,
 } from 'common/constants'
+import { getToolCallString } from 'common/src/constants/tools'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { buildArray } from 'common/util/array'
@@ -24,6 +25,7 @@ import { getAgentStream } from './prompt-agent-stream'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
+import { getThinkingStream } from './thinking-stream'
 import {
   ClientToolCall,
   parseRawToolCall,
@@ -52,7 +54,6 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
-import { getThinkingStream } from './thinking-stream'
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
 export const mainPrompt = async (
@@ -294,11 +295,9 @@ export const mainPrompt = async (
   }
 
   if (printedPaths.length > 0) {
-    const readFileToolCall = `<read_files>
-<paths>
-${printedPaths.join('\n')}
-</paths>
-</read_files>`
+    const readFileToolCall = getToolCallString('read_files', {
+      paths: printedPaths.join('\n'),
+    })
     onResponseChunk(`${readFileToolCall}\n\n`)
   }
 
@@ -322,11 +321,9 @@ ${printedPaths.join('\n')}
 
     readFileMessages.push({
       role: 'assistant' as const,
-      content: `<read_files>
-<paths>
-${newFiles.map((file) => file.path).join('\n')}
-</paths>
-</read_files>`,
+      content: getToolCallString('read_files', {
+        paths: newFiles.map((file) => file.path).join('\n'),
+      }),
     })
     readFileMessages.push({
       role: 'user' as const,

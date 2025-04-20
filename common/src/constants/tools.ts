@@ -32,8 +32,24 @@ export const getToolCallString = (
 ) => {
   const openTag = `<${toolName}>`
   const closeTag = `</${toolName}>`
-  const paramsString = Object.entries(params)
-    .map(([key, value]) => `<${key}>${value}</${key}>`)
-    .join('\n')
-  return `${openTag}\n${paramsString}\n${closeTag}`
+
+  // Get the parameter order from toolSchema
+  const paramOrder = toolSchema[toolName] as string[]
+
+  // Create an array of parameter strings in the correct order
+  const orderedParams = paramOrder
+    .filter((param) => param in params) // Only include params that are actually provided
+    .map((param) => `<${param}>${params[param]}</${param}>`)
+
+  // Get any additional parameters not in the schema order
+  const additionalParams = Object.entries(params)
+    .filter(([param]) => !paramOrder.includes(param))
+    .map(([param, value]) => `<${param}>${value}</${param}>`)
+
+  // Combine ordered and additional parameters
+  const paramsString = [...orderedParams, ...additionalParams].join('\n')
+
+  return paramsString
+    ? `${openTag}\n${paramsString}\n${closeTag}`
+    : `${openTag}${closeTag}`
 }
