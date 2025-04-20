@@ -139,7 +139,7 @@ export const mainPrompt = async (
     'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
 
     hasKnowledgeFiles &&
-      'If the knowledge files (or claude.md) say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
+      'If the knowledge files (or CLAUDE.md) say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
 
     isNotFirstUserMessage &&
       "If you have learned something useful for the future that is not derivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",

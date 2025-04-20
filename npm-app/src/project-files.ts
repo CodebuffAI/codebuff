@@ -146,10 +146,13 @@ export const getProjectFileContext = async (
     const allFilePaths = flattenedNodes
       .filter((node) => node.type === 'file')
       .map((node) => node.filePath)
-    const knowledgeFilePaths = allFilePaths.filter(
-      (filePath) =>
-        filePath.endsWith('knowledge.md') || filePath.endsWith('claude.md')
-    )
+    const knowledgeFilePaths = allFilePaths.filter((filePath) => {
+      const lowercaseFilePath = filePath.toLowerCase()
+      return (
+        lowercaseFilePath.endsWith('knowledge.md') ||
+        lowercaseFilePath.endsWith('claude.md')
+      )
+    })
     const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
     const knowledgeFilesWithScrapedContent =
       await addScrapedContentToFiles(knowledgeFiles)
