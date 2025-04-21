@@ -114,7 +114,7 @@ export async function getRecentTraces(
 ) {
   const query = `
     SELECT * FROM ${dataset}.${TRACES_TABLE}
-    ORDER BY createdAt DESC
+    ORDER BY created_at DESC
     LIMIT ${limit}
   `
   const [rows] = await client.query(query)
@@ -132,7 +132,7 @@ export async function getRecentRelabels(
 ) {
   const query = `
     SELECT * FROM ${dataset}.${RELABELS_TABLE}
-    ORDER BY createdAt DESC
+    ORDER BY created_at DESC
     LIMIT ${limit}
   `
   const [rows] = await client.query(query)
@@ -147,6 +147,7 @@ export async function getRecentRelabels(
 export async function getTracesWithoutRelabels(
   model: string,
   limit: number = 100,
+  userId: string | undefined = undefined,
   dataset: string = DATASET
 ) {
   // TODO: Optimize query, maybe only get traces in last 30 days etc
@@ -154,16 +155,17 @@ export async function getTracesWithoutRelabels(
     SELECT t.* 
     FROM \`${dataset}.${TRACES_TABLE}\` t
     LEFT JOIN (
-      SELECT r.agentStepId, r.userId, JSON_EXTRACT_SCALAR(r.payload, '$.userInputId') as userInputId
+      SELECT r.agent_step_id, r.user_id, JSON_EXTRACT_SCALAR(r.payload, '$.user_input_id') as user_input_id
       FROM \`${dataset}.${RELABELS_TABLE}\` r
       WHERE r.model = '${model}'
+      ${userId ? `AND r.user_id = '${userId}'` : ''}
     ) r
-    ON t.agentStepId = r.agentStepId 
-       AND t.userId = r.userId
-       AND JSON_EXTRACT_SCALAR(t.payload, '$.userInputId') = r.userInputId
+    ON t.agent_step_id = r.agent_step_id 
+       AND t.user_id = r.user_id
+       AND JSON_EXTRACT_SCALAR(t.payload, '$.user_input_id') = r.user_input_id
     WHERE t.type = 'get-relevant-files'
-      AND r.agentStepId IS NULL
-    ORDER BY t.createdAt DESC
+      AND r.agent_step_id IS NULL
+    ORDER BY t.created_at DESC
     LIMIT ${limit}
   `
 
@@ -192,13 +194,13 @@ export async function getTracesWithRelabels(
     FROM \`${dataset}.${RELABELS_TABLE}\` r
     WHERE r.model = '${model}'
   ) r
-  ON t.agentStepId = r.agentStepId 
-     AND t.userId = r.userId
-     AND JSON_EXTRACT_SCALAR(t.payload, '$.userInputId') = JSON_EXTRACT_SCALAR(r.payload, '$.userInputId')
+  ON t.agent_step_id = r.agent_step_id 
+     AND t.user_id = r.user_id
+     AND JSON_EXTRACT_SCALAR(t.payload, '$.user_input_id') = JSON_EXTRACT_SCALAR(r.payload, '$.user_input_id')
   WHERE t.type = 'get-relevant-files'
     AND JSON_EXTRACT_SCALAR(t.payload, '$.output') IS NOT NULL
     AND JSON_EXTRACT_SCALAR(r.payload, '$.output') IS NOT NULL
-  ORDER BY t.createdAt DESC
+  ORDER BY t.created_at DESC
   LIMIT ${limit}
   `
 
@@ -230,4 +232,72 @@ export async function getTracesWithRelabels(
           : row.relabel.payload,
     },
   })) as { trace: GetRelevantFilesTrace; relabel: Relabel }[]
+}
+
+export async function getTracesAndRelabelsForUser(
+  userId: string,
+  limit: number = 50,
+  dataset: string = DATASET
+) {
+  // Get recent traces for the user and any associated relabels
+  const query = `
+  WITH traces AS (
+    SELECT 
+      id, 
+      agent_step_id, 
+      user_id, 
+      created_at, 
+      type, 
+      payload
+    FROM \`${dataset}.${TRACES_TABLE}\`
+    WHERE user_id = '${userId}' AND type = 'get-relevant-files'
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  )
+  SELECT 
+    t.id, 
+    ANY_VALUE(t.agent_step_id) as agent_step_id, 
+    ANY_VALUE(t.user_id) as user_id, 
+    ANY_VALUE(t.created_at) as created_at, 
+    ANY_VALUE(t.type) as type, 
+    ANY_VALUE(t.payload) as payload,
+    ARRAY_AGG(r IGNORE NULLS) as relabels
+  FROM traces t
+  LEFT JOIN \`${dataset}.${RELABELS_TABLE}\` r
+  ON t.agent_step_id = r.agent_step_id 
+     AND t.user_id = r.user_id
+     AND JSON_EXTRACT_SCALAR(t.payload, '$.user_input_id') = JSON_EXTRACT_SCALAR(r.payload, '$.user_input_id')
+  GROUP BY t.id
+  ORDER BY ANY_VALUE(t.created_at) DESC
+  `
+
+  const [rows] = await client.query(query)
+
+  // Process and parse the results
+  return rows.map((row) => {
+    // Create trace object from individual fields
+    const trace = {
+      id: row.id,
+      agent_step_id: row.agent_step_id,
+      user_id: row.user_id,
+      created_at: row.created_at,
+      type: row.type,
+      payload:
+        typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload,
+    } as GetRelevantFilesTrace
+
+    // Parse relabel payloads (if any exist)
+    const relabels =
+      row.relabels && row.relabels.length > 0
+        ? (row.relabels.map((relabel: any) => ({
+            ...relabel,
+            payload:
+              typeof relabel.payload === 'string'
+                ? JSON.parse(relabel.payload)
+                : relabel.payload,
+          })) as Relabel[])
+        : []
+
+    return { trace, relabels }
+  })
 }

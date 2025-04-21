@@ -8,20 +8,28 @@ import { Input } from "@/components/ui/input"
 import {
     Table,
     TableBody,
-    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
-    TableRow,
+    TableRow
 } from "@/components/ui/table"
 
 // Mock user IDs
-const suggestedUsers = [
-    { name: "Venki", id: "user_venki123" },
-    { name: "Brandon", id: "user_brandon456" },
-    { name: "James", id: "user_james789" },
-    { name: "Charles", id: "user_charles101" },
+const productionUsers = [
+    { name: "Venki", id: "4c89ad24-e4ba-40f3-8473-b9e416a4ee99" },
+    { name: "Brandon", id: "fbdfd453-23db-4401-980e-da30515638ed" },
+    { name: "James", id: "a6474b40-ec21-4ace-a967-374d9fb3cc70" },
+    { name: "Charles", id: "dbbf5ce1-8de6-42c0-9e43-f93de88eba15" },
 ]
+
+const localUsers = [
+    { name: "Venki", id: "fad054ab-150b-4a1a-b6ec-1a797972638b" },
+]
+
+// Choose user list based on environment
+const suggestedUsers = process.env.NEXT_PUBLIC_ENVIRONMENT === 'local'
+    ? localUsers
+    : productionUsers
 
 // Mock response data
 const mockResponses = [
@@ -45,51 +53,91 @@ const mockResponses = [
     }
 ]
 
+type Result = {
+    timestamp: string
+    query: string
+    outputs: Record<string, string>
+}
+
 export default function FilePicker() {
     const [userId, setUserId] = useState("")
-    const [results, setResults] = useState(mockResponses)
+    const [results, setResults] = useState<Result[]>([])
     const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState("")
+
+    const fetchUserTraces = async (userId: string) => {
+        try {
+            setIsLoading(true)
+            setError("")
+
+            const response = await fetch(`/api/admin/32ff11e1a368da3d2cea24e50/get-traces-for-user?userId=${userId}`)
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`)
+            }
+
+            const { data } = await response.json() as { data: Result[] }
+
+            if (!data || !Array.isArray(data)) {
+                throw new Error("Invalid data format received from API")
+            }
+
+            console.log("data", data)
+
+            setResults(data)
+        } catch (err) {
+            console.error("Error fetching traces:", err)
+            setError(err instanceof Error ? err.message : "Failed to fetch user traces")
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        setIsLoading(true)
+        if (!userId.trim()) {
+            setError("Please enter a user ID")
+            return
+        }
 
-        // Simulate API call
-        setTimeout(() => {
-            // Add a new mock response with current timestamp
-            const newResponse = {
-                timestamp: new Date().toISOString(),
-                query: "Find documents for user " + userId,
-                outputs: {
-                    "GPT-4": "user_" + userId + "_profile.pdf, recent_activity_log.xlsx",
-                    "Claude": "user_profile_" + userId + ".pdf, activity_summary.docx, preferences.json",
-                    "Mixtral": userId + "_documents.zip, user_activity_report.pdf, settings_" + userId + ".json"
-                }
-            }
-
-            setResults([newResponse, ...results])
-            setIsLoading(false)
-        }, 1000)
+        await fetchUserTraces(userId)
     }
 
-    const handleRunRelabelling = () => {
-        setIsLoading(true)
+    const handleRunRelabelling = async () => {
+        if (!userId.trim()) {
+            setError("Please enter a user ID")
+            return
+        }
 
-        // Simulate API call for relabelling
-        setTimeout(() => {
-            const newResponse = {
-                timestamp: new Date().toISOString(),
-                query: "Relabelled files for user " + userId,
-                outputs: {
-                    "GPT-4": "relabelled_" + userId + "_data.pdf, metadata_updated.json",
-                    "Claude": "relabelled_files_" + userId + ".zip, updated_taxonomy.json",
-                    "Mixtral": "relabelled_collection_" + userId + ".zip, new_categories.json, updated_index.csv"
-                }
+        try {
+            setIsLoading(true)
+            setError("")
+
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'localhost:4242'
+            const protocol = backendUrl.startsWith('localhost') ? 'http://' : 'https://'
+            const response = await fetch(`${protocol}${backendUrl}/api/admin/32ff11e1a368da3d2cea24e50/relabel-for-user?userId=${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ limit: 10 }),
+            })
+
+            if (!response.ok) {
+                throw new Error(`Failed to run relabelling: ${response.status} ${response.statusText}`)
             }
 
-            setResults([newResponse, ...results])
+            const result = await response.json()
+            console.log("Relabelling result:", result)
+
+            // Refresh the user traces to show updated data
+            await fetchUserTraces(userId)
+        } catch (err) {
+            console.error("Error running relabelling:", err)
+            setError(err instanceof Error ? err.message : "Failed to run relabelling")
+        } finally {
             setIsLoading(false)
-        }, 1500)
+        }
     }
 
     // Get unique model names from all results
@@ -120,7 +168,6 @@ export default function FilePicker() {
                         </div>
 
                         <div>
-                            <p className="text-sm text-gray-500 mb-2">Suggested users:</p>
                             <div className="flex flex-wrap gap-2">
                                 {suggestedUsers.map((user) => (
                                     <div
@@ -133,12 +180,18 @@ export default function FilePicker() {
                                 ))}
                             </div>
                         </div>
+
+                        {error && (
+                            <div className="text-red-500 text-sm mt-2">
+                                {error}
+                            </div>
+                        )}
                     </form>
 
                     {results.length > 0 && (
                         <div className="mt-8">
                             <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-medium">Results</h3>
+                                <h3 className="text-lg font-medium">Results ({results.length})</h3>
                                 <Button
                                     onClick={handleRunRelabelling}
                                     variant="outline"
@@ -149,7 +202,6 @@ export default function FilePicker() {
                             </div>
 
                             <Table>
-                                <TableCaption>Model comparison results</TableCaption>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-[180px]">Timestamp</TableHead>
@@ -168,7 +220,23 @@ export default function FilePicker() {
                                             <TableCell>{result.query}</TableCell>
                                             {modelNames.map(model => (
                                                 <TableCell key={model} className="max-w-[300px] break-words">
-                                                    {result.outputs[model] || "N/A"}
+                                                    {result.outputs[model] ?
+                                                        result.outputs[model]
+                                                            .split('\n')
+                                                            .map(file => file.trim())
+                                                            .filter(file => file.length > 0)
+                                                            .sort()
+                                                            .map((file, fileIndex) => (
+                                                                <div
+                                                                    key={fileIndex}
+                                                                    className="block mb-2"
+                                                                >
+                                                                    <span className="px-2 py-1 bg-secondary rounded-full text-xs">
+                                                                        {file}
+                                                                    </span>
+                                                                </div>
+                                                            ))
+                                                        : "N/A"}
                                                 </TableCell>
                                             ))}
                                         </TableRow>

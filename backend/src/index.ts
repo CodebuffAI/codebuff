@@ -1,11 +1,14 @@
-import express from 'express'
 import http from 'http'
-import { listen as webSocketListen } from './websockets/server'
+
+import { setupBigQuery } from 'common/src/bigquery/client'
+import cors from 'cors'
+import express from 'express'
+
+import { relabelForUser } from './admin/relabelRuns'
+import usageHandler from './api/usage'
 import { env } from './env.mjs'
 import { logger } from './util/logger'
-import usageHandler from './api/usage'
-import { setupBigQuery } from 'common/src/bigquery/client'
-
+import { listen as webSocketListen } from './websockets/server'
 const app = express()
 const port = env.PORT
 
@@ -20,6 +23,16 @@ app.get('/healthz', (req, res) => {
 })
 
 app.post('/api/usage', usageHandler)
+
+// Enable CORS for preflight requests to the admin relabel endpoint
+app.options('/api/admin/32ff11e1a368da3d2cea24e50/relabel-for-user', cors())
+
+// Add the admin route with CORS
+app.post(
+  '/api/admin/32ff11e1a368da3d2cea24e50/relabel-for-user',
+  cors(),
+  relabelForUser
+)
 
 app.use(
   (
