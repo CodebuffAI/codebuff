@@ -1,15 +1,13 @@
-import { BigQueryClient } from 'common/src/bigquery/client'
+import { getRecentTraces } from 'common/src/bigquery/client'
 
 // Parse command line arguments to check for --prod flag
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
 
-async function getRecentTraces() {
+async function printRecentTraces() {
   try {
     // Use the BigQuery client to get recent traces
-    const bigquery = new BigQueryClient(DATASET)
-    await bigquery.initialize()
-    const traces = await bigquery.getRecentTraces(10)
+    const traces = await getRecentTraces(10, DATASET)
 
     console.log('\nLast 10 traces by timestamp:')
     console.log('--------------------------------')
@@ -32,4 +30,4 @@ Payload: ${JSON.stringify(trace.payload, null, 2).slice(0, 100)}...
 }
 
 // Run the function
-getRecentTraces()
+printRecentTraces()

@@ -1,7 +1,10 @@
 import { promptGeminiWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
 import { GetRelevantFilesPayload } from 'common/bigquery/schema'
 import { claudeModels, models } from 'common/constants'
-import { BigQueryClient } from 'common/src/bigquery/client'
+import {
+  getTracesWithoutRelabels,
+  insertRelabel,
+} from 'common/src/bigquery/client'
 import { Message } from 'common/types/message'
 import { generateCompactId } from 'common/util/string'
 
@@ -17,11 +20,9 @@ async function runTraces() {
   try {
     for (const model of MODELS_TO_TEST) {
       console.log(`\nProcessing traces for model ${model}...`)
-      const bigquery = new BigQueryClient(DATASET)
-      await bigquery.initialize()
 
       // Get the last 100 traces that don't have relabels for this model
-      const traces = await bigquery.getTracesWithoutRelabels(model, 100)
+      const traces = await getTracesWithoutRelabels(model, 100, DATASET)
 
       console.log(
         `Found ${traces.length} get-relevant-files traces without relabels for model ${model}`
@@ -82,7 +83,7 @@ async function runTraces() {
 
           // Store the relabel
           try {
-            const res = await bigquery.insertRelabel(relabel)
+            const res = await insertRelabel(relabel, DATASET)
             console.log('res', JSON.stringify(res, null, 2))
           } catch (error) {
             console.error(

@@ -1,4 +1,4 @@
-import { bigquery } from 'common/bigquery/client'
+import { insertTrace } from 'common/bigquery/client'
 import { CostMode } from 'common/constants'
 import { buildArray } from 'common/util/array'
 import { ProjectFileContext } from 'common/util/file'
@@ -71,7 +71,7 @@ export function getSearchSystemPrompt(
     },
   }
 
-  bigquery.insertTrace(trace).catch((error) => {
+  insertTrace(trace).catch((error: Error) => {
     logger.error({ error }, 'Failed to insert file trees trace')
   })
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)

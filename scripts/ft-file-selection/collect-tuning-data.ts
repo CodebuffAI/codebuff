@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, writeFileSync } from 'fs'
 
-import { BigQueryClient } from 'common/src/bigquery/client'
+import { getTracesWithRelabels } from 'common/bigquery/client'
 import { Message } from 'common/types/message'
 
 // Get model from command line args
@@ -198,14 +198,10 @@ function convertToOpenAIFormat(
 
 async function main() {
   try {
-    // Initialize BigQuery client
-    const bigquery = new BigQueryClient(DATASET)
-    await bigquery.initialize()
-
     console.log(`Using dataset: ${DATASET}`)
 
     // Get traces for the specified model from BigQuery
-    const traces = await bigquery.getTracesWithRelabels(model, 1000)
+    const traces = await getTracesWithRelabels(model, 1000, DATASET)
     console.log(`Found ${traces.length} traces for model ${model}`)
 
     // Process traces and convert to Gemini format

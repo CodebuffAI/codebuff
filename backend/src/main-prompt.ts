@@ -1,6 +1,6 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { ClientAction } from 'common/actions'
-import { BigQueryClient } from 'common/bigquery/client'
+import { insertTrace } from 'common/bigquery/client'
 import { AgentResponseTrace } from 'common/bigquery/schema'
 import {
   HIDDEN_FILE_READ_STATUS,
@@ -8,7 +8,7 @@ import {
   ONE_TIME_TAGS,
   type CostMode,
 } from 'common/constants'
-import { getToolCallString } from 'common/src/constants/tools'
+import { getToolCallString } from 'common/constants/tools'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { buildArray } from 'common/util/array'
@@ -549,11 +549,7 @@ export const mainPrompt = async (
     },
   }
 
-  logger.debug('About to insertTrace')
-  console.log('About to insertTrace')
-
-  const newBigQuery = new BigQueryClient('codebuff_data_dev')
-  newBigQuery.insertTrace(agentResponseTrace)
+  insertTrace(agentResponseTrace)
 
   const messagesWithResponse = [
     ...agentMessages,
@@ -562,6 +558,7 @@ export const mainPrompt = async (
       content: fullResponse,
     },
   ]
+
   const toolCalls = parseToolCalls(fullResponse)
   const clientToolCalls: ClientToolCall[] = []
   const serverToolResults: ToolResult[] = []

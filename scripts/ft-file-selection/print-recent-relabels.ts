@@ -1,15 +1,13 @@
-import { BigQueryClient } from 'common/src/bigquery/client'
+import { getRecentRelabels } from 'common/src/bigquery/client'
 
 // Parse command line arguments to check for --prod flag
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
 
-async function getRecentRelabels() {
+async function printRecentRelabels() {
   try {
     // Use the BigQuery client to get recent relabels
-    const bigquery = new BigQueryClient(DATASET)
-    await bigquery.initialize()
-    const relabels = await bigquery.getRecentRelabels(10)
+    const relabels = await getRecentRelabels(10, DATASET)
 
     console.log('\nLast 10 relabels by timestamp:')
     console.log('--------------------------------')
@@ -31,4 +29,4 @@ Payload: ${JSON.stringify(relabel.payload).slice(0, 100)}...
 }
 
 // Run the function
-getRecentRelabels()
+printRecentRelabels()

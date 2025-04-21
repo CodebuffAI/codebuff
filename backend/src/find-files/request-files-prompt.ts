@@ -1,7 +1,7 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import { bigquery } from 'common/bigquery/client'
+import { insertTrace } from 'common/bigquery/client'
 import { GetRelevantFilesTrace } from 'common/bigquery/schema'
 import { models, type CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
@@ -224,7 +224,9 @@ async function getRelevantFiles(
     },
   }
 
-  bigquery.insertTrace(trace)
+  insertTrace(trace).catch((error: Error) => {
+    logger.error({ error }, 'Failed to insert trace')
+  })
 
   return { files, duration, requestType, response }
 }
