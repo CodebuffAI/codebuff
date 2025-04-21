@@ -3,13 +3,13 @@ import { TableSchema } from '@google-cloud/bigquery'
 interface BaseEvent {
   id: string // primary key, ID for this specific event
   agentStepId: string // ID for a step of the agent loop, ie: a mainPrompt call
+  userId: string // user ID
 }
 
 interface BasePayload {
   userInputId: string // ID of a given user input in a sesson
   clientSessionId: string // ID for a given client session
   fingerprintId: string // ID for a specific device
-  userId: string // user ID
 }
 
 // Define possible trace types
@@ -23,7 +23,7 @@ export interface BaseTrace extends BaseEvent {
 }
 
 // Type-specific payload interfaces
-interface GetRelevantFilesPayload extends BasePayload {
+export interface GetRelevantFilesPayload extends BasePayload {
   messages: unknown
   system: unknown
   output: string
@@ -61,6 +61,7 @@ export const TRACES_SCHEMA: TableSchema = {
   fields: [
     { name: 'id', type: 'STRING', mode: 'REQUIRED' }, // UUID
     { name: 'agentStepId', type: 'STRING', mode: 'REQUIRED' }, // Used to link traces together within a single agent step
+    { name: 'userId', type: 'STRING', mode: 'REQUIRED' }, // user ID
     { name: 'createdAt', type: 'TIMESTAMP', mode: 'REQUIRED' },
     { name: 'type', type: 'STRING', mode: 'REQUIRED' },
     { name: 'payload', type: 'JSON', mode: 'REQUIRED' },
@@ -81,6 +82,7 @@ export const RELABELS_SCHEMA: TableSchema = {
   fields: [
     { name: 'id', type: 'STRING', mode: 'REQUIRED' }, // UUID
     { name: 'agentStepId', type: 'STRING', mode: 'REQUIRED' }, // Used to link traces together within a single agent step
+    { name: 'userId', type: 'STRING', mode: 'REQUIRED' }, // user ID
     { name: 'createdAt', type: 'TIMESTAMP', mode: 'REQUIRED' },
     { name: 'model', type: 'STRING', mode: 'REQUIRED' },
     { name: 'payload', type: 'JSON', mode: 'REQUIRED' },

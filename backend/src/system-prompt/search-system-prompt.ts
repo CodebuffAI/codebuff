@@ -15,7 +15,14 @@ import {
 export function getSearchSystemPrompt(
   fileContext: ProjectFileContext,
   costMode: CostMode,
-  messagesTokens: number
+  messagesTokens: number,
+  options: {
+    agentStepId: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+  }
 ) {
   const startTime = Date.now()
 
@@ -54,15 +61,15 @@ export function getSearchSystemPrompt(
   console.log('Truncationg time overhead', Date.now() - t)
   const trace = {
     id: generateCompactId(),
-    agentStepId: 'search', // TODO: Get real agent step ID
+    agentStepId: options.agentStepId,
     createdAt: new Date(),
     type: 'file-trees' as const,
+    userId: options.userId ?? '',
     payload: {
       filetrees: truncatedTrees,
-      userInputId: '', // TODO: Get real user input ID
-      clientSessionId: '', // TODO: Get real client session ID
-      fingerprintId: '', // TODO: Get real fingerprint ID
-      userId: '', // TODO: Get real user ID
+      userInputId: options.userInputId,
+      clientSessionId: options.clientSessionId,
+      fingerprintId: options.fingerprintId,
     },
   }
 

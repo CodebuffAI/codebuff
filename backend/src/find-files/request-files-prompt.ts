@@ -38,6 +38,7 @@ export async function requestRelevantFiles(
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
+  agentStepId: string,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
@@ -87,6 +88,7 @@ export async function requestRelevantFiles(
     },
     keyPrompt,
     'Key',
+    agentStepId,
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -115,6 +117,7 @@ export async function requestRelevantFiles(
       },
       nonObviousPrompt,
       'Non-Obvious',
+      agentStepId,
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -172,13 +175,13 @@ async function getRelevantFiles(
   },
   userPrompt: string,
   requestType: string,
+  agentStepId: string,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode
 ) {
-  console.log('getRelevantFiles')
   const bufferTokens = 100_000
   const messagesWithPrompt = getMessagesSubset(
     [
@@ -207,11 +210,12 @@ async function getRelevantFiles(
   console.log('getRelevantFiles: inserting trace')
   const trace: GetRelevantFilesTrace = {
     id: generateCompactId(),
-    agentStepId: clientSessionId,
+    agentStepId,
+    userId: userId ?? '',
     createdAt: new Date(),
     type: 'get-relevant-files',
     payload: {
-      messages,
+      messages: messagesWithPrompt,
       system,
       output: response,
       requestType,
@@ -219,7 +223,6 @@ async function getRelevantFiles(
       userInputId,
       clientSessionId,
       fingerprintId,
-      userId: userId ?? '',
     },
   }
 

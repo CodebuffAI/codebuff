@@ -259,7 +259,14 @@ export const mainPrompt = async (
   const searchSystem = getSearchSystemPrompt(
     fileContext,
     costMode,
-    fileRequestMessagesTokens
+    fileRequestMessagesTokens,
+    {
+      agentStepId,
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId: userId,
+    }
   )
   const {
     addedFiles,
@@ -274,6 +281,7 @@ export const mainPrompt = async (
     null,
     {
       skipRequestingFiles: !prompt,
+      agentStepId,
       clientSessionId,
       fingerprintId,
       userInputId: promptId,
@@ -531,13 +539,13 @@ export const mainPrompt = async (
     type: 'agent-response',
     createdAt: new Date(),
     agentStepId: agentStepId,
+    userId: userId ?? '',
     id: generateCompactId(),
     payload: {
       output: fullResponse,
       userInputId: promptId,
       clientSessionId: clientSessionId,
       fingerprintId: fingerprintId,
-      userId: userId ?? '',
     },
   }
 
@@ -600,12 +608,24 @@ export const mainPrompt = async (
       const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
         ws,
         messagesWithResponse,
-        getSearchSystemPrompt(fileContext, costMode, fileRequestMessagesTokens),
+        getSearchSystemPrompt(
+          fileContext,
+          costMode,
+          fileRequestMessagesTokens,
+          {
+            agentStepId,
+            clientSessionId,
+            fingerprintId,
+            userInputId: promptId,
+            userId,
+          }
+        ),
         fileContext,
         null,
         {
           skipRequestingFiles: false,
           requestedFiles: paths,
+          agentStepId,
           clientSessionId,
           fingerprintId,
           userInputId: promptId,
@@ -766,6 +786,7 @@ async function getFileReadingUpdates(
   options: {
     skipRequestingFiles: boolean
     requestedFiles?: string[]
+    agentStepId: string
     clientSessionId: string
     fingerprintId: string
     userInputId: string
@@ -776,6 +797,7 @@ async function getFileReadingUpdates(
   const FILE_TOKEN_BUDGET = 100_000
   const {
     skipRequestingFiles,
+    agentStepId,
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -809,6 +831,7 @@ async function getFileReadingUpdates(
         { messages, system },
         fileContext,
         prompt,
+        agentStepId,
         clientSessionId,
         fingerprintId,
         userInputId,
