@@ -1,7 +1,8 @@
 import assert from 'assert'
 import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
+import { createWriteStream, mkdirSync, WriteStream } from 'fs'
 import * as os from 'os'
-import path from 'path'
+import path, { dirname } from 'path'
 
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
 import { buildArray } from 'common/util/array'
@@ -182,13 +183,19 @@ function formatResult(command: string, stdout: string, status: string): string {
 
 const MAX_EXECUTION_TIME = 30_000
 
-export const runBackgroundCommand = (
-  toolCallId: string,
-  command: string,
-  mode: 'user' | 'assistant',
-  projectPath: string,
+export function runBackgroundCommand(
+  options: {
+    toolCallId: string
+    command: string
+    mode: 'user' | 'assistant'
+    projectPath: string
+    stdoutFile?: string
+    stderrFile?: string
+  },
   resolveCommand: (value: { result: string; stdout: string }) => void
-) => {
+): void {
+  const { toolCallId, command, mode, projectPath, stdoutFile, stderrFile } =
+    options
   const isWindows = os.platform() === 'win32'
   const shell = isWindows ? 'cmd.exe' : 'bash'
   const shellArgs = isWindows ? ['/c'] : ['-c']
@@ -232,17 +239,49 @@ export const runBackgroundCommand = (
       lastReportedStdoutLength: 0,
       lastReportedStderrLength: 0,
       lastReportedStatus: null,
+      stdoutFile,
+      stderrFile,
     }
     backgroundProcesses.set(processId, processInfo)
+
+    // Set up file streams if paths are provided
+    let stdoutStream: WriteStream | undefined
+    let stderrStream: WriteStream | undefined
+
+    if (stdoutFile) {
+      const stdoutAbs = path.isAbsolute(stdoutFile)
+        ? stdoutFile
+        : path.join(projectPath, stdoutFile)
+      mkdirSync(dirname(stdoutAbs), { recursive: true })
+      stdoutStream = createWriteStream(stdoutAbs)
+    }
+
+    if (stderrFile) {
+      const stderrAbs = path.isAbsolute(stderrFile)
+        ? stderrFile
+        : path.join(projectPath, stderrFile)
+      mkdirSync(dirname(stderrAbs), { recursive: true })
+      stderrStream = createWriteStream(stderrAbs)
+    }
 
     childProcess.stdout.on('data', (data: Buffer) => {
       const output = data.toString()
       processInfo.stdoutBuffer.push(output)
+
+      // Write to file if stream exists
+      if (stdoutStream) {
+        stdoutStream.write(output)
+      }
     })
 
     childProcess.stderr.on('data', (data: Buffer) => {
       const output = data.toString()
       processInfo.stderrBuffer.push(output)
+
+      // Write to file if stream exists
+      if (stderrStream) {
+        stderrStream.write(output)
+      }
     })
 
     childProcess.on('error', (error) => {
@@ -251,11 +290,19 @@ export const runBackgroundCommand = (
         `\nError spawning command: ${error.message}`
       )
       processInfo.endTime = Date.now()
+
+      // Close file streams
+      stdoutStream?.end()
+      stderrStream?.end()
     })
 
     childProcess.on('close', (code) => {
       processInfo.status = code === 0 ? 'completed' : 'error'
       processInfo.endTime = Date.now()
+
+      // Close file streams
+      stdoutStream?.end()
+      stderrStream?.end()
     })
 
     // Unreference the process so the parent can exit independently IF the child is the only thing keeping it alive.
@@ -281,7 +328,9 @@ export const runTerminalCommand = async (
   command: string,
   mode: 'user' | 'assistant',
   projectPath: string,
-  processType: 'SYNC' | 'BACKGROUND'
+  processType: 'SYNC' | 'BACKGROUND',
+  stdoutFile?: string,
+  stderrFile?: string
 ): Promise<{ result: string; stdout: string }> => {
   return new Promise((resolve) => {
     if (!persistentProcess) {
@@ -305,10 +354,14 @@ export const runTerminalCommand = async (
 
     if (processType === 'BACKGROUND') {
       runBackgroundCommand(
-        toolCallId,
-        modifiedCommand,
-        mode,
-        projectPath,
+        {
+          toolCallId,
+          command: modifiedCommand,
+          mode,
+          projectPath,
+          stdoutFile,
+          stderrFile,
+        },
         resolveCommand
       )
     } else if (persistentProcess.type === 'pty') {

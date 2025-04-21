@@ -10,7 +10,6 @@
 tags
 
 node_modules
-yarn-error.log
 dev
 dist
 tsconfig.tsbuildinfo
@@ -18,5 +17,4 @@ tsconfig.tsbuildinfo
 __mock-projects__
 .aider*
 .codebuff*
-debug.log
-debug-subset.log
+**.log

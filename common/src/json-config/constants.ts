@@ -19,6 +19,18 @@ export const StartupProcessSchema = z
       .optional()
       .default(true)
       .describe('Whether this process should be run.'),
+    stdoutFile: z
+      .string()
+      .optional()
+      .describe(
+        'Path to write process stdout output. If not specified, output is not stored.'
+      ),
+    stderrFile: z
+      .string()
+      .optional()
+      .describe(
+        'Path to write process stderr output. If not specified, output is not stored.'
+      ),
   })
   .describe(
     'Defines a single startup process. This validates the structure of an object representing a command that Codebuff can run automatically when it starts.'

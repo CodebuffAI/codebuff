@@ -16,7 +16,14 @@ export async function startDevProcesses(
   if (processes.length) {
     console.log(yellow('Starting development processes:'))
   }
-  for (const { name, command, cwd, enabled } of processes) {
+  for (const {
+    name,
+    command,
+    cwd,
+    enabled,
+    stderrFile,
+    stdoutFile,
+  } of processes) {
     if (!enabled) {
       continue
     }
@@ -30,10 +37,14 @@ export async function startDevProcesses(
 
     // Start the process
     await runBackgroundCommand(
-      generateCompactId(),
-      command,
-      'user',
-      workingDir,
+      {
+        toolCallId: generateCompactId(),
+        command,
+        mode: 'user',
+        projectPath: workingDir,
+        stdoutFile,
+        stderrFile,
+      },
       ({ result }) => {
         const m = result.match(/<process_id>(\d+)<\/process_id>/)
         if (m) {

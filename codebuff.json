@@ -2,11 +2,18 @@
   "startupProcesses": [
     {
       "name": "drizzle",
-      "command": "bun start-studio"
+      "command": "bun start-studio",
+      "stdoutFile": "drizzle.log",
+      "stderrFile": "drizzle.log"
     },
     {
       "name": "web server",
       "command": "bun start-web"
+    },
+    {
+      "name": "typechecker",
+      "command": "bun typecheck --watch # this doesn't actually work for some reason",
+      "enabled": false
     }
   ]
 }

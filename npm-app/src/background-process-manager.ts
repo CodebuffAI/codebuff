@@ -69,6 +69,10 @@ export interface BackgroundProcessInfo {
   lastReportedStderrLength: number
   // Last reported status
   lastReportedStatus: 'running' | 'completed' | 'error' | null
+  // Path to file where stdout is being written (if specified)
+  stdoutFile?: string
+  // Path to file where stderr is being written (if specified)
+  stderrFile?: string
 }
 
 /**
@@ -192,6 +196,7 @@ function cleanupReportedProcesses(): void {
     }
   }
 }
+
 function killAndWait(proc: ChildProcess, command: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
