@@ -4,6 +4,7 @@ import { listen as webSocketListen } from './websockets/server'
 import { env } from './env.mjs'
 import { logger } from './util/logger'
 import usageHandler from './api/usage'
+import { setupBigQuery } from 'common/src/bigquery/client'
 
 const app = express()
 const port = env.PORT
@@ -33,6 +34,16 @@ app.use(
 )
 
 logger.info('Initializing server')
+
+// Initialize BigQuery before starting the server
+setupBigQuery()
+  .catch((err) => {
+    logger.error('Failed to initialize BigQuery client', err)
+  })
+  .finally(() => {
+    logger.debug('BigQuery client initialized')
+  })
+
 const server = http.createServer(app)
 
 server.listen(port, () => {

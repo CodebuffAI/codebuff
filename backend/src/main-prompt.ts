@@ -1,12 +1,14 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { ClientAction } from 'common/actions'
+import { insertTrace } from 'common/bigquery/client'
+import { AgentResponseTrace } from 'common/bigquery/schema'
 import {
   HIDDEN_FILE_READ_STATUS,
   models,
   ONE_TIME_TAGS,
   type CostMode,
 } from 'common/constants'
-import { getToolCallString } from 'common/src/constants/tools'
+import { getToolCallString } from 'common/constants/tools'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { buildArray } from 'common/util/array'
@@ -81,6 +83,10 @@ export const mainPrompt = async (
     userInputId: promptId,
     userId,
   })
+
+  // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
+  // This is used to link logs within a single agent loop
+  const agentStepId = crypto.randomUUID()
 
   const relevantDocumentationPromise = prompt
     ? getDocumentationForQuery(prompt, {
@@ -253,7 +259,14 @@ export const mainPrompt = async (
   const searchSystem = getSearchSystemPrompt(
     fileContext,
     costMode,
-    fileRequestMessagesTokens
+    fileRequestMessagesTokens,
+    {
+      agentStepId,
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId: userId,
+    }
   )
   const {
     addedFiles,
@@ -268,6 +281,7 @@ export const mainPrompt = async (
     null,
     {
       skipRequestingFiles: !prompt,
+      agentStepId,
       clientSessionId,
       fingerprintId,
       userInputId: promptId,
@@ -522,6 +536,22 @@ export const mainPrompt = async (
     fullResponse = '<end_turn></end_turn>'
   }
 
+  const agentResponseTrace: AgentResponseTrace = {
+    type: 'agent-response',
+    created_at: new Date(),
+    agent_step_id: agentStepId,
+    user_id: userId ?? '',
+    id: crypto.randomUUID(),
+    payload: {
+      output: fullResponse,
+      user_input_id: promptId,
+      client_session_id: clientSessionId,
+      fingerprint_id: fingerprintId,
+    },
+  }
+
+  insertTrace(agentResponseTrace)
+
   const messagesWithResponse = [
     ...agentMessages,
     {
@@ -529,6 +559,7 @@ export const mainPrompt = async (
       content: fullResponse,
     },
   ]
+
   const toolCalls = parseToolCalls(fullResponse)
   const clientToolCalls: ClientToolCall[] = []
   const serverToolResults: ToolResult[] = []
@@ -579,12 +610,24 @@ export const mainPrompt = async (
       const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
         ws,
         messagesWithResponse,
-        getSearchSystemPrompt(fileContext, costMode, fileRequestMessagesTokens),
+        getSearchSystemPrompt(
+          fileContext,
+          costMode,
+          fileRequestMessagesTokens,
+          {
+            agentStepId,
+            clientSessionId,
+            fingerprintId,
+            userInputId: promptId,
+            userId,
+          }
+        ),
         fileContext,
         null,
         {
           skipRequestingFiles: false,
           requestedFiles: paths,
+          agentStepId,
           clientSessionId,
           fingerprintId,
           userInputId: promptId,
@@ -746,6 +789,7 @@ async function getFileReadingUpdates(
   options: {
     skipRequestingFiles: boolean
     requestedFiles?: string[]
+    agentStepId: string
     clientSessionId: string
     fingerprintId: string
     userInputId: string
@@ -756,6 +800,7 @@ async function getFileReadingUpdates(
   const FILE_TOKEN_BUDGET = 100_000
   const {
     skipRequestingFiles,
+    agentStepId,
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -789,6 +834,7 @@ async function getFileReadingUpdates(
         { messages, system },
         fileContext,
         prompt,
+        agentStepId,
         clientSessionId,
         fingerprintId,
         userInputId,

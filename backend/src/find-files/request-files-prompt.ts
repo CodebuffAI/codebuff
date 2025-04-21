@@ -1,6 +1,8 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
+import { insertTrace } from 'common/bigquery/client'
+import { GetRelevantFilesTrace } from 'common/bigquery/schema'
 import { models, type CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { Message } from 'common/types/message'
@@ -35,6 +37,7 @@ export async function requestRelevantFiles(
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
+  agentStepId: string,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
@@ -84,6 +87,7 @@ export async function requestRelevantFiles(
     },
     keyPrompt,
     'Key',
+    agentStepId,
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -112,6 +116,7 @@ export async function requestRelevantFiles(
       },
       nonObviousPrompt,
       'Non-Obvious',
+      agentStepId,
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -169,6 +174,7 @@ async function getRelevantFiles(
   },
   userPrompt: string,
   requestType: string,
+  agentStepId: string,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
@@ -199,6 +205,28 @@ async function getRelevantFiles(
   const duration = end - start
 
   const files = validateFilePaths(response.split('\n'))
+
+  const trace: GetRelevantFilesTrace = {
+    id: crypto.randomUUID(),
+    agent_step_id: agentStepId,
+    user_id: userId ?? '',
+    created_at: new Date(),
+    type: 'get-relevant-files',
+    payload: {
+      messages: messagesWithPrompt,
+      system,
+      output: response,
+      request_type: requestType,
+      cost_mode: costMode,
+      user_input_id: userInputId,
+      client_session_id: clientSessionId,
+      fingerprint_id: fingerprintId,
+    },
+  }
+
+  insertTrace(trace).catch((error: Error) => {
+    logger.error({ error }, 'Failed to insert trace')
+  })
 
   return { files, duration, requestType, response }
 }

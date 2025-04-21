@@ -1,8 +1,9 @@
-import { describe, it, expect, mock } from 'bun:test'
-import { applyPatch } from 'common/util/patch'
-import { processFileBlock } from '../process-file-block'
+import { describe, expect, it, mock } from 'bun:test'
 import { TEST_USER_ID } from 'common/constants'
 import { cleanMarkdownCodeBlock } from 'common/util/file'
+import { applyPatch } from 'common/util/patch'
+
+import { processFileBlock } from '../process-file-block'
 
 // Mock database interactions
 mock.module('pg-pool', () => ({
@@ -242,11 +243,11 @@ function divide(a: number, b: number) {
       expect(result.patch).toContain('\r\n')
       const updatedFile = applyPatch(oldContent, result.patch)
       expect(updatedFile).toBe(newContent)
-      
+
       // Verify patch can be applied and preserves line endings
       const patchLines = result.patch.split('\r\n')
-      expect(patchLines.some(line => line.startsWith('-const y'))).toBe(true)
-      expect(patchLines.some(line => line.startsWith('+const z'))).toBe(true)
+      expect(patchLines.some((line) => line.startsWith('-const y'))).toBe(true)
+      expect(patchLines.some((line) => line.startsWith('+const z'))).toBe(true)
     }
   })
 })

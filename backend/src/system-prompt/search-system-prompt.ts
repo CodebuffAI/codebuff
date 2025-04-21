@@ -1,8 +1,10 @@
-import { ProjectFileContext } from 'common/util/file'
-import { buildArray } from 'common/util/array'
+import { insertTrace } from 'common/bigquery/client'
 import { CostMode } from 'common/constants'
-import { countTokens, countTokensJson } from '../util/token-counter'
+import { buildArray } from 'common/util/array'
+import { ProjectFileContext } from 'common/util/file'
+
 import { logger } from '../util/logger'
+import { countTokens, countTokensJson } from '../util/token-counter'
 import {
   getGitChangesPrompt,
   getProjectFileTreePrompt,
@@ -12,7 +14,14 @@ import {
 export function getSearchSystemPrompt(
   fileContext: ProjectFileContext,
   costMode: CostMode,
-  messagesTokens: number
+  messagesTokens: number,
+  options: {
+    agentStepId: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+  }
 ) {
   const startTime = Date.now()
 
@@ -37,6 +46,34 @@ export function getSearchSystemPrompt(
     fileTreeTokenBudget,
     'search'
   )
+
+  const t = Date.now()
+  const truncationBudgets = [5_000, 20_000, 40_000, 100_000, 500_000]
+  const truncatedTrees = truncationBudgets.reduce(
+    (acc, budget) => {
+      acc[budget] = getProjectFileTreePrompt(fileContext, budget, 'search')
+      return acc
+    },
+    {} as Record<number, string>
+  )
+
+  const trace = {
+    id: crypto.randomUUID(),
+    agent_step_id: options.agentStepId,
+    created_at: new Date(),
+    type: 'file-trees' as const,
+    user_id: options.userId ?? '',
+    payload: {
+      filetrees: truncatedTrees,
+      user_input_id: options.userInputId,
+      client_session_id: options.clientSessionId,
+      fingerprint_id: options.fingerprintId,
+    },
+  }
+
+  insertTrace(trace).catch((error: Error) => {
+    logger.error({ error }, 'Failed to insert file trees trace')
+  })
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)
 
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)

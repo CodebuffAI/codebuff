@@ -1,0 +1,2 @@
+# Ignore any other potential tuning data files
+*-tune-data*.jsonl
