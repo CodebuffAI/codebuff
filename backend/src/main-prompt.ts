@@ -401,6 +401,7 @@ export const mainPrompt = async (
       iteration: iterationNum,
       toolResults,
       systemTokens,
+      model,
     },
     `Main prompt ${iterationNum}`
   )
@@ -692,6 +693,7 @@ export const mainPrompt = async (
       serverToolResults,
       agentContext: newAgentContext,
       messagesWithResponse,
+      model,
     },
     `Main prompt response ${iterationNum}`
   )
