@@ -142,11 +142,7 @@ export const getModelForMode = (
   operation: 'agent' | 'file-requests' | 'check-new-files'
 ) => {
   if (operation === 'agent') {
-    return costMode === 'experimental'
-      ? models.gemini2_5_pro_exp
-      : costMode === 'lite'
-        ? claudeModels.haiku
-        : claudeModels.sonnet
+    return costMode === 'lite' ? claudeModels.haiku : claudeModels.sonnet
   }
   if (operation === 'file-requests') {
     return costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku
@@ -250,10 +246,10 @@ export type AuthState = (typeof AuthState)[keyof typeof AuthState]
 
 export const UserState = {
   LOGGED_OUT: 'LOGGED_OUT',
-  GOOD_STANDING: 'GOOD_STANDING',         // >= 100 credits
-  ATTENTION_NEEDED: 'ATTENTION_NEEDED',   // 20-99 credits
-  CRITICAL: 'CRITICAL',                   // 1-19 credits
-  DEPLETED: 'DEPLETED',                  // <= 0 credits
+  GOOD_STANDING: 'GOOD_STANDING', // >= 100 credits
+  ATTENTION_NEEDED: 'ATTENTION_NEEDED', // 20-99 credits
+  CRITICAL: 'CRITICAL', // 1-19 credits
+  DEPLETED: 'DEPLETED', // <= 0 credits
 } as const
 
 export type UserState = (typeof UserState)[keyof typeof UserState]
