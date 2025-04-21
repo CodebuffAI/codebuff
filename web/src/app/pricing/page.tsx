@@ -4,21 +4,25 @@ import { useSession } from 'next-auth/react'
 import { BlockColor } from '@/components/ui/decorative-blocks'
 import { SECTION_THEMES } from '@/components/ui/landing/constants'
 import { FeatureSection } from '@/components/ui/landing/feature'
-
 import { CheckCircle, Gift, Shield, XCircle } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 function CreditVisual() {
   return (
-    <div className="flex flex-col items-center text-center space-y-4 mt-3">
-      <div className="flex flex-col items-center">
-        {/* Enhanced price display for better visual appeal */}
+    <div className="flex flex-col items-center text-center">
+      <div className="flex flex-col items-center space-y-4">
         <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-green-400 flex items-baseline">
           1¢
           <span className="text-xs sm:text-sm md:text-base text-white/70 ml-2">
             /credit
           </span>
         </div>
-        <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-green-400/40 to-transparent my-4"></div>
+        <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-green-400/40 to-transparent"></div>
 
         {/* Grid with improved spacing for mobile and desktop */}
         <div className="grid grid-cols-2 gap-x-10 gap-y-6 sm:gap-x-16">
@@ -39,14 +43,19 @@ function CreditVisual() {
           </div>
         </div>
       </div>
+
+      <div className="mt-8 text-sm text-white/90 max-w-sm border border-white/20 rounded-md p-3 bg-white/5">
+        <span>500 credits is typically enough for</span>{' '}
+        <span>a day of intense coding on a new project</span>
+      </div>
     </div>
   )
 }
 
 function PricingCard() {
   return (
-    <div className="w-full bg-black overflow-hidden flex flex-col h-full">
-      <div className="p-6 sm:p-8 flex flex-col">
+    <div className="w-full h-full bg-black overflow-hidden flex flex-col">
+      <div className="flex-1 p-6 sm:p-8 flex flex-col justify-center">
         <CreditVisual />
       </div>
     </div>
