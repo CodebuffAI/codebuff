@@ -2,14 +2,14 @@
 
 import { Command } from 'commander'
 import { type CostMode } from 'common/constants'
+import { loadCodebuffConfig } from 'common/json-config/parser'
 import { red } from 'picocolors'
 
 import packageJson from '../package.json'
 import { cleanupStoredProcesses } from './background-process-manager'
 import { CLI } from './cli'
 import { createTemplateProject } from './create-template-project'
-import { startDevProcesses } from './json-config/dev-process-manager'
-import { loadCodebuffConfig } from './json-config/parser'
+import { startDevProcesses } from './dev-process-manager'
 import {
   initProjectFileContextWithWorker,
   setProjectRoot,

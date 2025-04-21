@@ -1,10 +1,10 @@
 import path from 'path'
 
+import { StartupProcess } from 'common/json-config/constants'
 import { generateCompactId } from 'common/util/string'
 import { yellow } from 'picocolors'
 
-import { runBackgroundCommand } from '../utils/terminal'
-import { StartupProcess } from './constants'
+import { runBackgroundCommand } from './utils/terminal'
 
 /**
  * Starts background development processes defined in codebuff.json
