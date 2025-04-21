@@ -67,14 +67,12 @@ export async function insertTrace(trace: Trace, dataset: string = DATASET) {
 
     await client.dataset(dataset).table(TRACES_TABLE).insert(traceToInsert)
 
-    console.log('Inserted trace into BigQuery')
     logger.debug(
       { traceId: trace.id, type: trace.type },
       'Inserted trace into BigQuery'
     )
     return true
   } catch (error) {
-    console.log('Failed to insert trace into BigQuery', JSON.stringify(error))
     logger.error(
       { error, traceId: trace.id },
       'Failed to insert trace into BigQuery'
