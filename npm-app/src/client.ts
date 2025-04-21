@@ -34,14 +34,12 @@ import {
   blue,
   blueBright,
   bold,
-  gray,
   green,
   red,
   underline,
   yellow,
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
-import { GrantType } from 'common/db/schema'
 import { z } from 'zod'
 
 import { getBackgroundProcessUpdates } from './background-process-manager'
@@ -201,40 +199,42 @@ export class Client {
 
     const TIMEOUT_MS = 5_000
 
-    try {
-      const timeoutPromise = new Promise<Response>((_, reject) => {
-        setTimeout(() => reject(new Error('Request timed out')), TIMEOUT_MS)
-      })
+    //   try {
+    //     const timeoutPromise = new Promise<Response>((_, reject) => {
+    //       setTimeout(() => reject(new Error('Request timed out')), TIMEOUT_MS)
+    //     })
 
-      const fetchPromise = fetch(
-        `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Cookie: `next-auth.session-token=${this.user.authToken}`,
-            Authorization: `Bearer ${this.user.authToken}`,
-          },
-        }
-      )
+    //     const fetchPromise = fetch(
+    //       `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
+    //       {
+    //         method: 'GET',
+    //         headers: {
+    //           'Content-Type': 'application/json',
+    //           Cookie: `next-auth.session-token=${this.user.authToken}`,
+    //           Authorization: `Bearer ${this.user.authToken}`,
+    //         },
+    //       }
+    //     )
 
-      const response = await Promise.race([fetchPromise, timeoutPromise])
+    //     const response = await Promise.race([fetchPromise, timeoutPromise])
 
-      if (response.ok) {
-        const { keyTypes } = await response.json()
-        this.storedApiKeyTypes = keyTypes as ApiKeyType[]
-      } else {
-        this.storedApiKeyTypes = []
-      }
-    } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error(
-          'Error fetching stored API key types (is there something else on port 3000?):',
-          error
-        )
-      }
-      this.storedApiKeyTypes = []
-    }
+    //     if (response.ok) {
+    //       const { keyTypes } = await response.json()
+    //       this.storedApiKeyTypes = keyTypes as ApiKeyType[]
+    //     } else {
+    //       this.storedApiKeyTypes = []
+    //     }
+    //   } catch (error) {
+    //     if (process.env.NODE_ENV !== 'production') {
+    //       console.error(
+    //         'Error fetching stored API key types (is there something else on port 3000?):',
+    //         error
+    //       )
+    //     }
+    //     this.storedApiKeyTypes = []
+    //   }
+
+    this.storedApiKeyTypes = []
   }
 
   async handleAddApiKey(keyType: ApiKeyType, apiKey: string): Promise<void> {
@@ -844,7 +844,11 @@ export class Client {
 
         // Show auto top-up success message if it occurred during this response
         if (this.pendingTopUpMessageAmount) {
-          console.log(green(`Auto top-up successful! ${this.pendingTopUpMessageAmount.toLocaleString()} credits added.`))
+          console.log(
+            green(
+              `Auto top-up successful! ${this.pendingTopUpMessageAmount.toLocaleString()} credits added.`
+            )
+          )
           this.pendingTopUpMessageAmount = null
         }
 
