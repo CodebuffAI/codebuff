@@ -19,9 +19,9 @@ async function getRecentRelabels() {
     relabels.forEach((relabel) => {
       console.log(`
 ID: ${relabel.id}
-User ID: ${relabel.userId}
-Agent Step ID: ${relabel.agentStepId}
-Created at: ${JSON.stringify(relabel.createdAt)}
+User ID: ${relabel.user_id}
+Agent Step ID: ${relabel.agent_step_id}
+Created at: ${JSON.stringify(relabel.created_at)}
 Payload: ${JSON.stringify(relabel.payload).slice(0, 100)}...
 --------------------------------`)
     })

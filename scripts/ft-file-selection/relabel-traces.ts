@@ -68,14 +68,14 @@ async function runTraces() {
           // Create relabel record
           const relabel = {
             id: generateCompactId(),
-            agentStepId: trace.agentStepId,
-            userId: trace.userId,
-            createdAt: new Date(),
+            agent_step_id: trace.agent_step_id,
+            user_id: trace.user_id,
+            created_at: new Date(),
             model: model,
             payload: {
-              userInputId: payload.userInputId,
-              clientSessionId: payload.clientSessionId,
-              fingerprintId: payload.fingerprintId,
+              user_input_id: payload.user_input_id,
+              client_session_id: payload.client_session_id,
+              fingerprint_id: payload.fingerprint_id,
               output: output,
             },
           }

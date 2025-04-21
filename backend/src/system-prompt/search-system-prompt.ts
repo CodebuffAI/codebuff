@@ -2,7 +2,6 @@ import { bigquery } from 'common/bigquery/client'
 import { CostMode } from 'common/constants'
 import { buildArray } from 'common/util/array'
 import { ProjectFileContext } from 'common/util/file'
-import { generateCompactId } from 'common/util/string'
 
 import { logger } from '../util/logger'
 import { countTokens, countTokensJson } from '../util/token-counter'
@@ -58,18 +57,17 @@ export function getSearchSystemPrompt(
     {} as Record<number, string>
   )
 
-  console.log('Truncationg time overhead', Date.now() - t)
   const trace = {
-    id: generateCompactId(),
-    agentStepId: options.agentStepId,
-    createdAt: new Date(),
+    id: crypto.randomUUID(),
+    agent_step_id: options.agentStepId,
+    created_at: new Date(),
     type: 'file-trees' as const,
-    userId: options.userId ?? '',
+    user_id: options.userId ?? '',
     payload: {
       filetrees: truncatedTrees,
-      userInputId: options.userInputId,
-      clientSessionId: options.clientSessionId,
-      fingerprintId: options.fingerprintId,
+      user_input_id: options.userInputId,
+      client_session_id: options.clientSessionId,
+      fingerprint_id: options.fingerprintId,
     },
   }
 

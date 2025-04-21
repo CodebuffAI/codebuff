@@ -12,7 +12,6 @@ import {
   cleanMarkdownCodeBlock,
   createMarkdownFileBlock,
 } from 'common/util/file'
-import { generateCompactId } from 'common/util/string'
 import { range, shuffle, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
@@ -207,22 +206,21 @@ async function getRelevantFiles(
 
   const files = validateFilePaths(response.split('\n'))
 
-  console.log('getRelevantFiles: inserting trace')
   const trace: GetRelevantFilesTrace = {
-    id: generateCompactId(),
-    agentStepId,
-    userId: userId ?? '',
-    createdAt: new Date(),
+    id: crypto.randomUUID(),
+    agent_step_id: agentStepId,
+    user_id: userId ?? '',
+    created_at: new Date(),
     type: 'get-relevant-files',
     payload: {
       messages: messagesWithPrompt,
       system,
       output: response,
-      requestType,
-      costMode,
-      userInputId,
-      clientSessionId,
-      fingerprintId,
+      request_type: requestType,
+      cost_mode: costMode,
+      user_input_id: userInputId,
+      client_session_id: clientSessionId,
+      fingerprint_id: fingerprintId,
     },
   }
 

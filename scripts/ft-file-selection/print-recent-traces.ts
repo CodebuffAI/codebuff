@@ -19,10 +19,10 @@ async function getRecentTraces() {
     traces.forEach((trace) => {
       console.log(`
 ID: ${trace.id}
-User ID: ${trace.userId}
-Agent Step ID: ${trace.agentStepId}
+User ID: ${trace.user_id}
+Agent Step ID: ${trace.agent_step_id}
 Type: ${trace.type}
-Created at: ${JSON.stringify(trace.createdAt)}
+Created at: ${JSON.stringify(trace.created_at)}
 Payload: ${JSON.stringify(trace.payload, null, 2).slice(0, 100)}...
 --------------------------------`)
     })

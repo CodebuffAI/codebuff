@@ -40,10 +40,10 @@ export class BigQueryClient {
         schema: TRACES_SCHEMA,
         timePartitioning: {
           type: 'MONTH',
-          field: 'createdAt',
+          field: 'created_at',
         },
         clustering: {
-          fields: ['userId', 'agentStepId'],
+          fields: ['user_id', 'agent_step_id'],
         },
       })
       await dataset.table(this.relabelsTable).get({
@@ -51,14 +51,14 @@ export class BigQueryClient {
         schema: RELABELS_SCHEMA,
         timePartitioning: {
           type: 'MONTH',
-          field: 'createdAt',
+          field: 'created_at',
         },
         clustering: {
-          fields: ['userId', 'agentStepId'],
+          fields: ['user_id', 'agent_step_id'],
         },
       })
     } catch (error) {
-      console.error('Failed to initialize BigQuery', error)
+      console.log('Failed to initialize BigQuery', JSON.stringify(error))
       logger.error({ error }, 'Failed to initialize BigQuery')
     }
   }
@@ -79,17 +79,14 @@ export class BigQueryClient {
         .table(this.tracesTable)
         .insert(traceToInsert)
 
-      console.log('Inserted trace into BigQuery', trace)
+      console.log('Inserted trace into BigQuery')
       logger.debug(
         { traceId: trace.id, type: trace.type },
         'Inserted trace into BigQuery'
       )
       return true
     } catch (error) {
-      console.error(
-        'Failed to insert trace into BigQuery',
-        JSON.stringify(error)
-      )
+      console.log('Failed to insert trace into BigQuery', JSON.stringify(error))
       logger.error(
         { error, traceId: trace.id },
         'Failed to insert trace into BigQuery'
@@ -114,14 +111,9 @@ export class BigQueryClient {
         .table(this.relabelsTable)
         .insert(relabelToInsert)
 
-      console.log('Inserted relabel into BigQuery', relabel)
       logger.debug({ relabelId: relabel.id }, 'Inserted relabel into BigQuery')
       return true
     } catch (error) {
-      console.error(
-        'Failed to insert relabel into BigQuery',
-        JSON.stringify(error, null, 2)
-      )
       logger.error(
         { error, relabelId: relabel.id },
         'Failed to insert relabel into BigQuery'
@@ -243,6 +235,11 @@ export class BigQueryClient {
 
 // Export singleton instance
 export const bigquery = new BigQueryClient(DATASET)
-bigquery.initialize().catch((err) => {
-  console.error('Failed to initialize BigQuery client', err)
-})
+bigquery
+  .initialize()
+  .catch((err) => {
+    logger.error('Failed to initialize BigQuery client', err)
+  })
+  .finally(() => {
+    logger.debug('BigQuery client initialized')
+  })

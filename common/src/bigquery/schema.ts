@@ -2,14 +2,14 @@ import { TableSchema } from '@google-cloud/bigquery'
 
 interface BaseEvent {
   id: string // primary key, ID for this specific event
-  agentStepId: string // ID for a step of the agent loop, ie: a mainPrompt call
-  userId: string // user ID
+  agent_step_id: string // ID for a step of the agent loop, ie: a mainPrompt call
+  user_id: string // user ID
 }
 
 interface BasePayload {
-  userInputId: string // ID of a given user input in a sesson
-  clientSessionId: string // ID for a given client session
-  fingerprintId: string // ID for a specific device
+  user_input_id: string // ID of a given user input in a sesson
+  client_session_id: string // ID for a given client session
+  fingerprint_id: string // ID for a specific device
 }
 
 // Define possible trace types
@@ -17,7 +17,7 @@ export type TraceType = 'get-relevant-files' | 'file-trees' | 'agent-response'
 
 // Base trace interface
 export interface BaseTrace extends BaseEvent {
-  createdAt: Date
+  created_at: Date
   type: TraceType
   payload: unknown
 }
@@ -27,8 +27,8 @@ export interface GetRelevantFilesPayload extends BasePayload {
   messages: unknown
   system: unknown
   output: string
-  requestType: string
-  costMode: string
+  request_type: string
+  cost_mode: string
 }
 
 export interface GetRelevantFilesTrace extends BaseTrace {
@@ -60,9 +60,9 @@ export type Trace = GetRelevantFilesTrace | FileTreeTrace | AgentResponseTrace
 export const TRACES_SCHEMA: TableSchema = {
   fields: [
     { name: 'id', type: 'STRING', mode: 'REQUIRED' }, // UUID
-    { name: 'agentStepId', type: 'STRING', mode: 'REQUIRED' }, // Used to link traces together within a single agent step
-    { name: 'userId', type: 'STRING', mode: 'REQUIRED' }, // user ID
-    { name: 'createdAt', type: 'TIMESTAMP', mode: 'REQUIRED' },
+    { name: 'agent_step_id', type: 'STRING', mode: 'REQUIRED' }, // Used to link traces together within a single agent step
+    { name: 'user_id', type: 'STRING', mode: 'REQUIRED' }, // user ID
+    { name: 'created_at', type: 'TIMESTAMP', mode: 'REQUIRED' },
     { name: 'type', type: 'STRING', mode: 'REQUIRED' },
     { name: 'payload', type: 'JSON', mode: 'REQUIRED' },
   ],
@@ -73,7 +73,7 @@ interface RelabelPayload extends BasePayload {
 }
 
 export interface Relabel extends BaseEvent {
-  createdAt: Date
+  created_at: Date
   model: string
   payload: RelabelPayload
 }
@@ -81,9 +81,9 @@ export interface Relabel extends BaseEvent {
 export const RELABELS_SCHEMA: TableSchema = {
   fields: [
     { name: 'id', type: 'STRING', mode: 'REQUIRED' }, // UUID
-    { name: 'agentStepId', type: 'STRING', mode: 'REQUIRED' }, // Used to link traces together within a single agent step
-    { name: 'userId', type: 'STRING', mode: 'REQUIRED' }, // user ID
-    { name: 'createdAt', type: 'TIMESTAMP', mode: 'REQUIRED' },
+    { name: 'agent_step_id', type: 'STRING', mode: 'REQUIRED' }, // Used to link traces together within a single agent step
+    { name: 'user_id', type: 'STRING', mode: 'REQUIRED' }, // user ID
+    { name: 'created_at', type: 'TIMESTAMP', mode: 'REQUIRED' },
     { name: 'model', type: 'STRING', mode: 'REQUIRED' },
     { name: 'payload', type: 'JSON', mode: 'REQUIRED' },
   ],

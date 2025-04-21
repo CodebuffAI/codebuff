@@ -1,6 +1,6 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { ClientAction } from 'common/actions'
-import { bigquery } from 'common/bigquery/client'
+import { BigQueryClient } from 'common/bigquery/client'
 import { AgentResponseTrace } from 'common/bigquery/schema'
 import {
   HIDDEN_FILE_READ_STATUS,
@@ -86,7 +86,7 @@ export const mainPrompt = async (
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
   // This is used to link logs within a single agent loop
-  const agentStepId = generateCompactId()
+  const agentStepId = crypto.randomUUID()
 
   const relevantDocumentationPromise = prompt
     ? getDocumentationForQuery(prompt, {
@@ -537,19 +537,23 @@ export const mainPrompt = async (
 
   const agentResponseTrace: AgentResponseTrace = {
     type: 'agent-response',
-    createdAt: new Date(),
-    agentStepId: agentStepId,
-    userId: userId ?? '',
-    id: generateCompactId(),
+    created_at: new Date(),
+    agent_step_id: agentStepId,
+    user_id: userId ?? '',
+    id: crypto.randomUUID(),
     payload: {
       output: fullResponse,
-      userInputId: promptId,
-      clientSessionId: clientSessionId,
-      fingerprintId: fingerprintId,
+      user_input_id: promptId,
+      client_session_id: clientSessionId,
+      fingerprint_id: fingerprintId,
     },
   }
 
-  bigquery.insertTrace(agentResponseTrace)
+  logger.debug('About to insertTrace')
+  console.log('About to insertTrace')
+
+  const newBigQuery = new BigQueryClient('codebuff_data_dev')
+  newBigQuery.insertTrace(agentResponseTrace)
 
   const messagesWithResponse = [
     ...agentMessages,
