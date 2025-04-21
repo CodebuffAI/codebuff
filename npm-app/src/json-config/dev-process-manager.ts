@@ -2,8 +2,8 @@ import path from 'path'
 
 import { generateCompactId } from 'common/util/string'
 import { yellow } from 'picocolors'
-import { runBackgroundCommand } from '../utils/terminal'
 
+import { runBackgroundCommand } from '../utils/terminal'
 import { StartupProcess } from './constants'
 
 /**
@@ -16,7 +16,11 @@ export async function startDevProcesses(
   if (processes.length) {
     console.log(yellow('Starting development processes:'))
   }
-  for (const { name, command, cwd } of processes) {
+  for (const { name, command, cwd, enabled } of processes) {
+    if (!enabled) {
+      continue
+    }
+
     // Resolve working directory
     const workingDir = cwd
       ? path.isAbsolute(cwd)
