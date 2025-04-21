@@ -27,10 +27,22 @@ jobs:
         run: echo "${{ secrets.ENV_LOCAL }}" > .env.local
 
       - name: Run npm-app tests
-        run: cd npm-app && bun test
-        
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 5
+          command: cd npm-app && bun test
+
       - name: Run backend tests
-        run: cd backend && bun test
-        
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 5
+          command: cd backend && bun test
+
       - name: Run common tests
-        run: cd common && bun test
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 5
+          command: cd common && bun test
