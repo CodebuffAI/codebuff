@@ -428,12 +428,11 @@ export const mainPrompt = async (
 
   // Add deep thinking for experimental mode
   if (costMode === 'experimental') {
-    await getThinkingStream(
+    const response = await getThinkingStream(
       agentMessages,
       system,
       (chunk) => {
         onResponseChunk(chunk)
-        fullResponse += chunk
       },
       {
         costMode,
@@ -443,6 +442,7 @@ export const mainPrompt = async (
         userId,
       }
     )
+    fullResponse += response
   }
 
   const stream = getStream(

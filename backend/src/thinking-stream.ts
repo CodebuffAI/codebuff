@@ -1,8 +1,10 @@
-import { Message } from 'common/types/message'
-import { getAgentStream } from './prompt-agent-stream'
 import { CostMode } from 'common/constants'
-import { logger } from './util/logger'
+import { Message } from 'common/types/message'
+
 import { System } from './llm-apis/claude'
+import { getAgentStream } from './prompt-agent-stream'
+import { TOOL_LIST } from './tools'
+import { logger } from './util/logger'
 
 export async function getThinkingStream(
   messages: Message[],
@@ -19,7 +21,12 @@ export async function getThinkingStream(
   const { getStream } = getAgentStream({
     costMode: options.costMode,
     selectedModel: 'gemini-2.5-pro',
-    stopSequences: ['</think_deeply>', '<think_deeply>', '<read_files>'],
+    stopSequences: [
+      '</think_deeply>',
+      '<think_deeply>',
+      '<read_files>',
+      '<end_turn>',
+    ],
     clientSessionId: options.clientSessionId,
     fingerprintId: options.fingerprintId,
     userInputId: options.userInputId,
@@ -54,12 +61,33 @@ Guidelines:
 
   const stream = getStream(agentMessages, system)
 
-  let response = thinkDeeplyPrefix
+  let response = ''
   onChunk(thinkDeeplyPrefix)
+
+  let wasTruncated = false
   for await (const chunk of stream) {
-    onChunk(chunk)
     response += chunk
+
+    // Check for any complete tool tag
+    for (const tool of TOOL_LIST) {
+      const toolTag = `<${tool}>`
+      const tagIndex = response.indexOf(toolTag)
+      if (tagIndex !== -1) {
+        // Found a tool tag - truncate the response to remove it and everything after
+        response = response.slice(0, tagIndex)
+        wasTruncated = true
+        break
+      }
+    }
+    if (wasTruncated) {
+      break
+    }
+
+    onChunk(chunk)
   }
+
+  response = thinkDeeplyPrefix + response
+
   if (!response.includes('</thought>')) {
     onChunk('</thought>\n')
     response += '</thought>\n'
