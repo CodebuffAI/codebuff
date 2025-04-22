@@ -273,7 +273,7 @@ export async function cleanupStoredProcesses(): Promise<void> {
     const files = readdirSync(LOCK_DIR)
 
     if (files.length) {
-      console.log(gray('Detected running codebuff processes. Cleaning...'))
+      console.log(gray('Detected running codebuff processes. Cleaning...\n'))
     }
 
     for (const file of files) {
@@ -302,7 +302,6 @@ export async function cleanupStoredProcesses(): Promise<void> {
     }
   } catch (error: any) {
     console.error(red('Failed to clean up stored processes:'), error)
-  } finally {
     console.log()
   }
 }
