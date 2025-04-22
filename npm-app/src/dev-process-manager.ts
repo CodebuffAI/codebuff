@@ -13,7 +13,7 @@ export async function startDevProcesses(
   processes: StartupProcess[],
   projectPath: string
 ) {
-  if (processes.length) {
+  if (processes.some((process) => process.enabled)) {
     console.log(yellow('Starting development processes:'))
   }
   for (const {
