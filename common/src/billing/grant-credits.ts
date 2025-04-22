@@ -17,9 +17,12 @@ type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
 
 /**
  * Finds the amount of the most recent expired 'free' grant for a user.
+ * Finds the amount of the most recent expired 'free' grant for a user,
+ * excluding migration grants (operation_id starting with 'migration-').
+ * If there is a previous grant, caps the amount at 2000 credits.
  * If no expired 'free' grant is found, returns the default free limit.
  * @param userId The ID of the user.
- * @returns The amount of the last expired free grant or the default.
+ * @returns The amount of the last expired free grant (capped at 2000) or the default.
  */
 export async function getPreviousFreeGrantAmount(
   userId: string
@@ -41,11 +44,13 @@ export async function getPreviousFreeGrantAmount(
     .limit(1)
 
   if (lastExpiredFreeGrant.length > 0) {
+    // TODO: remove this once it's past May 22nd, after all users have been migrated over
+    const cappedAmount = Math.min(lastExpiredFreeGrant[0].principal, 2000)
     logger.debug(
       { userId, amount: lastExpiredFreeGrant[0].principal },
       'Found previous expired free grant amount.'
     )
-    return lastExpiredFreeGrant[0].principal
+    return cappedAmount
   } else {
     logger.debug(
       { userId, defaultAmount: CREDITS_USAGE_LIMITS.FREE },
@@ -278,70 +283,73 @@ export async function revokeGrantByOperationId(
 export async function triggerMonthlyResetAndGrant(
   userId: string
 ): Promise<Date> {
-  return await withSerializableTransaction(async (tx) => {
-    const now = new Date()
+  return await withSerializableTransaction(
+    async (tx) => {
+      const now = new Date()
 
-    // Get user's current reset date and plan
-    const user = await tx.query.user.findFirst({
-      where: eq(schema.user.id, userId),
-      columns: {
-        next_quota_reset: true,
-        stripe_price_id: true,
-      },
-    })
+      // Get user's current reset date and plan
+      const user = await tx.query.user.findFirst({
+        where: eq(schema.user.id, userId),
+        columns: {
+          next_quota_reset: true,
+          stripe_price_id: true,
+        },
+      })
 
-    if (!user) {
-      throw new Error(`User ${userId} not found`)
-    }
+      if (!user) {
+        throw new Error(`User ${userId} not found`)
+      }
 
-    const currentResetDate = user.next_quota_reset
+      const currentResetDate = user.next_quota_reset
 
-    // If reset date is in the future, no action needed
-    if (currentResetDate && currentResetDate > now) {
-      return currentResetDate
-    }
+      // If reset date is in the future, no action needed
+      if (currentResetDate && currentResetDate > now) {
+        return currentResetDate
+      }
 
-    // Calculate new reset date
-    const newResetDate = getNextQuotaReset(currentResetDate)
+      // Calculate new reset date
+      const newResetDate = getNextQuotaReset(currentResetDate)
 
-    // Calculate grant amount based on user's plan
-    const currentPlan = getPlanFromPriceId(
-      user.stripe_price_id,
-      process.env.STRIPE_PRO_PRICE_ID,
-      process.env.STRIPE_MOAR_PRO_PRICE_ID
-    )
-    const grantAmount = await getMonthlyGrantForPlan(currentPlan, userId)
+      // Calculate grant amount based on user's plan
+      const currentPlan = getPlanFromPriceId(
+        user.stripe_price_id,
+        process.env.STRIPE_PRO_PRICE_ID,
+        process.env.STRIPE_MOAR_PRO_PRICE_ID
+      )
+      const grantAmount = await getMonthlyGrantForPlan(currentPlan, userId)
 
-    // Generate a unique operation ID for this grant
-    const operationId = `free-${userId}-${generateCompactId()}`
+      // Generate a unique operation ID for this grant
+      const operationId = `free-${userId}-${generateCompactId()}`
 
-    // Update the user's next reset date first
-    await tx
-      .update(schema.user)
-      .set({ next_quota_reset: newResetDate })
-      .where(eq(schema.user.id, userId))
+      // Update the user's next reset date first
+      await tx
+        .update(schema.user)
+        .set({ next_quota_reset: newResetDate })
+        .where(eq(schema.user.id, userId))
 
-    // Then issue the grant
-    await grantCreditOperation(
-      userId,
-      grantAmount,
-      'free',
-      'Monthly free credits',
-      newResetDate, // Grant expires at next reset
-      operationId
-    )
-
-    logger.info(
-      {
+      // Then issue the grant
+      await grantCreditOperation(
         userId,
-        operationId,
         grantAmount,
-        newResetDate,
-        previousResetDate: currentResetDate,
-      },
-      'Processed monthly credit grant and reset'
-    )
+        'free',
+        'Monthly free credits',
+        newResetDate, // Grant expires at next reset
+        operationId
+      )
 
-    return newResetDate
-  }, { userId })
+      logger.info(
+        {
+          userId,
+          operationId,
+          grantAmount,
+          newResetDate,
+          previousResetDate: currentResetDate,
+        },
+        'Processed monthly credit grant and reset'
+      )
+
+      return newResetDate
+    },
+    { userId }
+  )
 }
