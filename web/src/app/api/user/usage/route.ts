@@ -9,6 +9,7 @@ import {
   getPlanFromPriceId,
   getMonthlyGrantForPlan,
 } from 'common/src/billing/plans'
+import { triggerMonthlyResetAndGrant } from 'common/src/billing/grant-credits'
 import { env } from '@/env.mjs'
 
 export async function GET() {
@@ -21,11 +22,22 @@ export async function GET() {
   const userId = session.user.id
 
   try {
-    // Fetch user's quota reset date and stripe price id
+    const now = new Date()
+
+    // Check if we need to reset quota and grant new credits
+    const effectiveQuotaResetDate = await triggerMonthlyResetAndGrant(userId)
+
+    // Use the canonical balance calculation function with the effective reset date
+    const { usageThisCycle, balance } = await calculateUsageAndBalance(
+      userId,
+      effectiveQuotaResetDate,
+      now
+    )
+
+    // Fetch user's current plan
     const user = await db.query.user.findFirst({
       where: eq(schema.user.id, userId),
       columns: {
-        next_quota_reset: true,
         stripe_price_id: true,
       },
     })
@@ -33,16 +45,6 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
-
-    const now = new Date()
-    const quotaResetDate = user.next_quota_reset ?? new Date(0)
-
-    // Use the canonical balance calculation function
-    const { usageThisCycle, balance } = await calculateUsageAndBalance(
-      userId,
-      quotaResetDate,
-      now
-    )
 
     // Calculate next monthly grant
     const currentPlan = getPlanFromPriceId(
@@ -56,7 +58,7 @@ export async function GET() {
     const usageData = {
       usageThisCycle,
       balance,
-      nextQuotaReset: user.next_quota_reset,
+      nextQuotaReset: effectiveQuotaResetDate,
       nextMonthlyGrant,
     }
 
