@@ -4,12 +4,19 @@ import { setupBigQuery } from 'common/src/bigquery/client'
 import cors from 'cors'
 import express from 'express'
 
-import { getTracesForUserHandler, relabelForUserHandler } from './admin/relabelRuns'
+import {
+  getTracesForUserHandler,
+  relabelForUserHandler,
+} from './admin/relabelRuns'
 import usageHandler from './api/usage'
 import { env } from './env.mjs'
-import { logger } from './util/logger'
-import { listen as webSocketListen } from './websockets/server'
 import { checkAdmin } from './util/check-auth'
+import { logger } from './util/logger'
+import {
+  sendRequestReconnect,
+  waitForAllClientsDisconnected,
+  listen as webSocketListen,
+} from './websockets/server'
 
 const app = express()
 const port = env.PORT
@@ -75,9 +82,36 @@ server.listen(port, () => {
 
 webSocketListen(server, '/ws')
 
-process.on('SIGINT', () => {
-  process.exit()
-})
+let shutdownInProgress = false
+// Graceful shutdown handler for both SIGTERM and SIGINT
+function handleShutdown(signal: string) {
+  if (shutdownInProgress) {
+    console.log(`\nReceived ${signal}. Already shutting down...`)
+    return
+  }
+  shutdownInProgress = true
+  console.log(`\nReceived ${signal}. Starting graceful shutdown...`)
+
+  // Don't shutdown, instead ask clients to disconnect from us
+  sendRequestReconnect()
+
+  waitForAllClientsDisconnected().then(() => {
+    console.log('All clients disconnected. Shutting down...')
+    process.exit(0)
+  })
+
+  // If graceful shutdown is not achieved after 5 minutes,
+  // force exit the process
+  setTimeout(() => {
+    console.error(
+      'Could not close connections in time, forcefully shutting down'
+    )
+    process.exit(1)
+  }, 300000).unref()
+}
+
+process.on('SIGTERM', () => handleShutdown('SIGTERM'))
+process.on('SIGINT', () => handleShutdown('SIGINT'))
 
 process.on('unhandledRejection', (reason, promise) => {
   // Don't rethrow the error, just log it. Keep the server running.

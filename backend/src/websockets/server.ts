@@ -1,13 +1,15 @@
 import { Server as HttpServer } from 'node:http'
-import { Server as WebSocketServer, RawData, WebSocket } from 'ws'
-import { isError } from 'lodash'
+
 import {
-  ServerMessage,
   CLIENT_MESSAGE_SCHEMA,
+  ServerMessage,
 } from 'common/websockets/websocket-schema'
+import { isError } from 'lodash'
+import { RawData, WebSocket, Server as WebSocketServer } from 'ws'
+
+import { logger } from '../util/logger'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
-import { logger } from '../util/logger'
 
 export const SWITCHBOARD = new Switchboard()
 
@@ -147,4 +149,14 @@ export function listen(server: HttpServer, path: string) {
 
 export const sendMessage = (ws: WebSocket, server: ServerMessage) => {
   ws.send(JSON.stringify(server))
+}
+
+export function sendRequestReconnect() {
+  for (const ws of SWITCHBOARD.clients.keys()) {
+    sendMessage(ws, { type: 'action', data: { type: 'request-reconnect' } })
+  }
+}
+
+export function waitForAllClientsDisconnected() {
+  return SWITCHBOARD.waitForAllClientsDisconnected()
 }

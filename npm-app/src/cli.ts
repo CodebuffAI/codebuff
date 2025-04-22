@@ -52,6 +52,7 @@ export class CLI {
   private consecutiveFastInputs: number = 0
   private pastedContent: string = ''
   private isPasting: boolean = false
+  private shouldReconnectWhenIdle: boolean = false
 
   constructor(
     readyPromise: Promise<[void, ProjectFileContext]>,
@@ -68,6 +69,7 @@ export class CLI {
       this.onWebSocketError.bind(this),
       this.onWebSocketReconnect.bind(this),
       this.returnControlToUser.bind(this),
+      this.reconnectWhenNextIdle.bind(this),
       this.costMode,
       this.git,
       this.rl,
@@ -381,7 +383,19 @@ export class CLI {
     this.freshPrompt()
   }
 
+  private reconnectWhenNextIdle() {
+    if (!this.isReceivingResponse) {
+      this.client.reconnect()
+    } else {
+      this.shouldReconnectWhenIdle = true
+    }
+  }
+
   private returnControlToUser() {
+    if (this.shouldReconnectWhenIdle) {
+      this.client.reconnect()
+      this.shouldReconnectWhenIdle = false
+    }
     this.freshPrompt()
     this.isReceivingResponse = false
     if (this.stopResponse) {

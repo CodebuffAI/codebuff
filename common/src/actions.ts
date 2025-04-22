@@ -1,12 +1,13 @@
 import { z } from 'zod'
-import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
+
 import { costModes } from './constants'
 import {
   AgentStateSchema,
-  ToolResultSchema,
   ToolCallSchema as NewToolCallSchema,
+  ToolResultSchema,
 } from './types/agent-state'
 import { GrantTypeValues } from './types/grant'
+import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
 
 export const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
@@ -160,6 +161,10 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('commit-message-response'),
     commitMessage: z.string(),
+  }),
+  z.object({
+    // The server is imminently going to shutdown, and the client should reconnect
+    type: z.literal('request-reconnect'),
   }),
 ])
 

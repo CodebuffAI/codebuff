@@ -102,6 +102,7 @@ const WARNING_CONFIG = {
 export class Client {
   private webSocket: APIRealtimeClient
   private returnControlToUser: () => void
+  private reconnectWhenNextIdle: () => void
   private fingerprintId!: string | Promise<string>
   private costMode: CostMode
   private hadFileChanges: boolean = false
@@ -139,6 +140,7 @@ export class Client {
     onWebSocketError: () => void,
     onWebSocketReconnect: () => void,
     returnControlToUser: () => void,
+    reconnectWhenNextIdle: () => void,
     costMode: CostMode,
     git: GitCommand,
     rl: readline.Interface,
@@ -155,6 +157,7 @@ export class Client {
     this.user = this.getUser()
     this.initFingerprintId()
     this.returnControlToUser = returnControlToUser
+    this.reconnectWhenNextIdle = reconnectWhenNextIdle
     this.rl = rl
   }
 
@@ -489,6 +492,11 @@ export class Client {
     this.usageData = usageData
   }
 
+  public reconnect() {
+    console.log(yellow('Server updated - reconnecting...'))
+    this.webSocket.forceReconnect()
+  }
+
   private setupSubscriptions() {
     this.webSocket.subscribe('action-error', (action) => {
       if (action.error === 'Insufficient credits') {
@@ -565,6 +573,11 @@ export class Client {
       if (this.responseComplete) {
         this.showUsageWarning()
       }
+    })
+
+    // Used to handle server restarts gracefully
+    this.webSocket.subscribe('request-reconnect', () => {
+      this.reconnectWhenNextIdle()
     })
   }
 

@@ -9,6 +9,9 @@ export type ClientState = {
 /** Tracks the relationship of clients to websockets and subscription lists. */
 export class Switchboard {
   clients: Map<WebSocket, ClientState>
+  private allClientsDisconnectedPromise: Promise<true> | null = null
+  private allClientsDisconnectedResolver: ((value: true) => void) | null = null
+
   constructor() {
     this.clients = new Map()
   }
@@ -40,6 +43,14 @@ export class Switchboard {
   disconnect(ws: WebSocket) {
     this.getClient(ws).sessionId = undefined
     this.clients.delete(ws)
+
+    // If this was the last client, resolve the promise
+    if (this.clients.size === 0 && this.allClientsDisconnectedResolver) {
+      console.log('Last client disconnected. Resolving promise.')
+      this.allClientsDisconnectedResolver(true)
+      this.allClientsDisconnectedResolver = null
+      this.allClientsDisconnectedPromise = Promise.resolve(true)
+    }
   }
   markSeen(ws: WebSocket) {
     this.getClient(ws).lastSeen = Date.now()
@@ -57,5 +68,27 @@ export class Switchboard {
       client.subscriptions.delete(topic)
     }
     this.markSeen(ws)
+  }
+
+  // Note: This function assumes that new clients are
+  // no longer being added to the switchboard after this is called
+  waitForAllClientsDisconnected(): Promise<true> {
+    // If there are no clients, resolve immediately
+    if (this.clients.size === 0) {
+      console.log('No clients connected. Resolving immediately.')
+      return Promise.resolve(true)
+    }
+
+    // If we don't have a promise yet, create one
+    if (
+      !this.allClientsDisconnectedPromise ||
+      this.allClientsDisconnectedPromise === Promise.resolve(true)
+    ) {
+      this.allClientsDisconnectedPromise = new Promise<true>((resolve) => {
+        this.allClientsDisconnectedResolver = resolve
+      })
+    }
+
+    return this.allClientsDisconnectedPromise
   }
 }

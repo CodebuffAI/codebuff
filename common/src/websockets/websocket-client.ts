@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws'
 
-import { ServerAction, ClientAction } from '../actions'
+import { ClientAction, ServerAction } from '../actions'
 import {
   ClientMessage,
   ClientMessageType,
@@ -147,6 +147,20 @@ export class APIRealtimeClient {
         this.connect()
       }, RECONNECT_WAIT_MS)
     }
+  }
+
+  forceReconnect() {
+    // Close the current connection if it's open
+    if (this.ws && this.state !== WebSocket.CLOSED) {
+      this.ws.close(1000, 'Forced reconnection due to server shutdown notice')
+    }
+
+    // Immediately attempt to reconnect
+    this.connect().catch((err) => {
+      console.error('Failed to reconnect after server shutdown notice:', err)
+      // Still set up delayed reconnect as fallback
+      this.waitAndReconnect()
+    })
   }
 
   receiveMessage(msg: ServerMessage) {
