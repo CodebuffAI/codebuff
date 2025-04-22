@@ -223,6 +223,7 @@ export const shortModelNames = {
 export const providerModelNames = {
   [models.gemini2_5_pro_preview]: 'gemini',
   [models.gemini2_5_pro_exp]: 'gemini',
+  [models.haiku]: 'anthropic',
   [models.sonnet3_7]: 'anthropic',
   [models.sonnet]: 'anthropic',
   [models.gpt4_1]: 'openai',
