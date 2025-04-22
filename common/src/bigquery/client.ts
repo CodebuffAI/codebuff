@@ -165,6 +165,7 @@ export async function getTracesWithoutRelabels(
        AND JSON_EXTRACT_SCALAR(t.payload, '$.user_input_id') = r.user_input_id
     WHERE t.type = 'get-relevant-files'
       AND r.agent_step_id IS NULL
+      ${userId ? `AND t.user_id = '${userId}'` : ''}
     ORDER BY t.created_at DESC
     LIMIT ${limit}
   `
