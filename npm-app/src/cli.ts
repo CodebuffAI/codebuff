@@ -55,7 +55,7 @@ export class CLI {
   private shouldReconnectWhenIdle: boolean = false
 
   constructor(
-    readyPromise: Promise<[void, ProjectFileContext]>,
+    readyPromise: Promise<[ProjectFileContext, void, void]>,
     { git, costMode, model }: CliOptions
   ) {
     this.git = git
@@ -78,7 +78,7 @@ export class CLI {
 
     this.readyPromise = Promise.all([
       readyPromise.then((results) => {
-        const [_, fileContext] = results
+        const [fileContext, ,] = results
         this.client.initAgentState(fileContext)
         return this.client.warmContextCache()
       }),

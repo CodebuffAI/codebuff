@@ -26,7 +26,7 @@ async function codebuff(
   recreateShell(dir)
 
   // Kill all processes we failed to kill before
-  cleanupStoredProcesses()
+  const processCleanupPromise = cleanupStoredProcesses()
 
   const updatePromise = updateCodebuff()
 
@@ -38,7 +38,11 @@ async function codebuff(
 
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
 
-  const readyPromise = Promise.all([updatePromise, initFileContextPromise])
+  const readyPromise = Promise.all([
+    initFileContextPromise,
+    updatePromise,
+    processCleanupPromise,
+  ])
 
   const cli = new CLI(readyPromise, { git, costMode, model })
 
