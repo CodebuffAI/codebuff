@@ -172,6 +172,12 @@ export class CLI {
    */
   private freshPrompt(userInput: string = '') {
     Spinner.get().stop()
+
+    if (this.shouldReconnectWhenIdle) {
+      this.client.reconnect()
+      this.shouldReconnectWhenIdle = false
+    }
+
     readline.cursorTo(process.stdout, 0)
     const rlAny = this.rl as any
 
@@ -392,10 +398,6 @@ export class CLI {
   }
 
   private returnControlToUser() {
-    if (this.shouldReconnectWhenIdle) {
-      this.client.reconnect()
-      this.shouldReconnectWhenIdle = false
-    }
     this.freshPrompt()
     this.isReceivingResponse = false
     if (this.stopResponse) {
