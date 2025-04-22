@@ -22,7 +22,6 @@ async function codebuff(
   projectDir: string | undefined,
   { initialInput, git, costMode, model }: CliOptions
 ) {
-  console.log('Starting Codebuff CLI...') // Added console.log
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
 
