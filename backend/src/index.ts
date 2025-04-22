@@ -4,11 +4,13 @@ import { setupBigQuery } from 'common/src/bigquery/client'
 import cors from 'cors'
 import express from 'express'
 
-import { relabelForUser } from './admin/relabelRuns'
+import { getTracesForUserHandler, relabelForUserHandler } from './admin/relabelRuns'
 import usageHandler from './api/usage'
 import { env } from './env.mjs'
 import { logger } from './util/logger'
 import { listen as webSocketListen } from './websockets/server'
+import { checkAdmin } from './util/check-auth'
+
 const app = express()
 const port = env.PORT
 
@@ -25,13 +27,21 @@ app.get('/healthz', (req, res) => {
 app.post('/api/usage', usageHandler)
 
 // Enable CORS for preflight requests to the admin relabel endpoint
-app.options('/api/admin/32ff11e1a368da3d2cea24e50/relabel-for-user', cors())
+app.options('/api/admin/relabel-for-user', cors())
 
-// Add the admin route with CORS
-app.post(
-  '/api/admin/32ff11e1a368da3d2cea24e50/relabel-for-user',
+// Add the admin routes with CORS and auth
+app.get(
+  '/api/admin/relabel-for-user',
   cors(),
-  relabelForUser
+  checkAdmin,
+  getTracesForUserHandler
+)
+
+app.post(
+  '/api/admin/relabel-for-user',
+  cors(),
+  checkAdmin,
+  relabelForUserHandler
 )
 
 app.use(

@@ -1,20 +1,86 @@
-import { GetRelevantFilesPayload } from 'common/bigquery/schema'
-import { claudeModels, geminiModels } from 'common/constants'
 import {
+  getTracesAndRelabelsForUser,
   getTracesWithoutRelabels,
   insertRelabel,
 } from 'common/src/bigquery/client'
+import { Request, Response } from 'express'
+import { logger } from '../util/logger'
+import { claudeModels, geminiModels } from 'common/constants'
+import { GetRelevantFilesPayload } from 'common/bigquery/schema'
 import { Message } from 'common/types/message'
 import { generateCompactId } from 'common/util/string'
-import { Request, Response } from 'express'
-
 import { promptClaude, System } from '../llm-apis/claude'
 import { promptGeminiWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
-import { logger } from '../util/logger'
+
+// --- GET Handler Logic ---
+
+export async function getTracesForUserHandler(req: Request, res: Response) {
+  try {
+    // Extract userId from the query parameters
+    const userId = req.query.userId as string
+
+    if (!userId) {
+      return res
+        .status(400)
+        .json({ error: 'Missing required parameter: userId' })
+    }
+
+    // Call the function to get traces and relabels
+    const tracesAndRelabels = await getTracesAndRelabelsForUser(userId)
+
+    // Transform data for the frontend
+    const formattedResults = tracesAndRelabels.map(({ trace, relabels }) => {
+      // Extract timestamp
+      const timestamp = (trace.created_at as unknown as { value: string }).value
+
+      // Extract query from the last message in the messages array
+      const messages = trace.payload.messages || []
+      const queryBody =
+        Array.isArray(messages) && messages.length > 0
+          ? messages[messages.length - 1].content[0].text || 'Unknown query'
+          : 'Unknown query'
+
+      // User prompt: User prompt: \"still not seeing it, can you see it on the page?\"
+      // Extract using regex the above specific substring, matching the bit inside quotes
+      const query = queryBody.match(/"(.*?)"/)?.[1] || 'Unknown query'
+
+      // Get base model output
+      const baseOutput = trace.payload.output || ''
+
+      // Initialize outputs with base model
+      const outputs: Record<string, string> = {
+        base: baseOutput,
+      }
+
+      // Add outputs from relabels
+      relabels.forEach((relabel) => {
+        if (relabel.model && relabel.payload?.output) {
+          outputs[relabel.model] = relabel.payload.output
+        }
+      })
+
+      return {
+        timestamp,
+        query,
+        outputs,
+      }
+    })
+
+    // Return the formatted data
+    return res.json({ data: formattedResults })
+  } catch (error) {
+    logger.error('Error fetching traces and relabels:', error)
+    return res
+      .status(500)
+      .json({ error: 'Failed to fetch traces and relabels' })
+  }
+}
+
+// --- POST Handler Logic ---
 
 const models = [geminiModels.gemini2_5_pro_exp, claudeModels.sonnet] as const
 
-export async function relabelForUser(req: Request, res: Response) {
+export async function relabelForUserHandler(req: Request, res: Response) {
   try {
     // Extract userId from the URL query params
     const userId = req.query.userId as string
