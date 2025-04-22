@@ -132,7 +132,7 @@ export const mainPrompt = async (
     `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
 
     // Experimental gemini thinking
-    costMode === 'experimental'
+    costMode === 'experimental' || costMode === 'max'
       ? 'Start your response with the <think_deeply> tool call to decide how to proceed.'
       : !justUsedATool &&
           !recentlyDidThinking &&
@@ -426,8 +426,8 @@ export const mainPrompt = async (
     Promise<{ path: string; content: string; patch?: string } | null>[]
   > = {}
 
-  // Add deep thinking for experimental mode
-  if (costMode === 'experimental') {
+  // Add deep thinking for experimental or max mode
+  if (costMode === 'experimental' || costMode === 'max') {
     const response = await getThinkingStream(
       agentMessages,
       system,
