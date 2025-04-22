@@ -112,12 +112,12 @@ export function getBackgroundProcessInfoString(
     `    <stdout>${truncateStringWithMessage({
       str: getOutputWithContext(newStdout, info.lastReportedStdoutLength),
       maxLength: COMMAND_OUTPUT_LIMIT,
-      truncate: 'START',
+      remove: 'START',
     })}</stdout>`,
     `    <stderr>${truncateStringWithMessage({
       str: getOutputWithContext(newStderr, info.lastReportedStderrLength),
       maxLength: COMMAND_OUTPUT_LIMIT,
-      truncate: 'START',
+      remove: 'START',
     })}</stderr>`,
     '  </terminal_command_result>',
     `  <status>${info.status}</status>`,

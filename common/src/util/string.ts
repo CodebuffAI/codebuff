@@ -11,24 +11,29 @@ export const truncateStringWithMessage = ({
   str,
   maxLength,
   message = 'TRUNCATED_DUE_TO_LENGTH',
-  truncate = 'END',
+  remove = 'END',
 }: {
   str: string
   maxLength: number
   message?: string
-  truncate?: 'END' | 'START'
+  remove?: 'END' | 'START' | 'MIDDLE'
 }) => {
   if (str.length <= maxLength) {
     return str
   }
 
-  if (truncate === 'END') {
+  if (remove === 'END') {
     const suffix = `\n[...${message}]`
     return str.slice(0, maxLength - suffix.length) + suffix
   }
+  if (remove === 'START') {
+    const prefix = `[${message}...]\n`
+    return prefix + str.slice(0, maxLength - prefix.length)
+  }
 
-  const prefix = `[${message}...]\n`
-  return prefix + str.slice(0, maxLength - prefix.length)
+  const middle = `\n[...${message}...]\n`
+  const length = Math.floor((maxLength - middle.length) / 2)
+  return str.slice(0, length) + middle + str.slice(-length)
 }
 
 /**
