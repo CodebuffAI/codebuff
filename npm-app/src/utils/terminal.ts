@@ -210,10 +210,7 @@ export function runBackgroundCommand(
   try {
     const childProcess = spawnAndTrack(shell, [...shellArgs, command], {
       cwd: projectPath,
-      env: {
-        ...process.env,
-        FORCE_COLOR: '1',
-      },
+      env: { ...process.env, FORCE_COLOR: '1' },
       // Ensure detached is always false to link child lifetime to parent
       detached: false,
       stdio: 'pipe',
@@ -265,7 +262,7 @@ export function runBackgroundCommand(
     }
 
     childProcess.stdout.on('data', (data: Buffer) => {
-      const output = data.toString()
+      const output = stripColors(data.toString())
       processInfo.stdoutBuffer.push(output)
 
       // Write to file if stream exists
@@ -275,7 +272,7 @@ export function runBackgroundCommand(
     })
 
     childProcess.stderr.on('data', (data: Buffer) => {
-      const output = data.toString()
+      const output = stripColors(data.toString())
       processInfo.stderrBuffer.push(output)
 
       // Write to file if stream exists
@@ -581,4 +578,7 @@ const runCommandChildProcess = (
       stdout: commandOutput,
     })
   })
+}
+function stripColors(output: string): any {
+  throw new Error('Function not implemented.')
 }
