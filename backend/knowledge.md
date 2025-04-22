@@ -27,6 +27,26 @@ Credits are managed through a combination of:
 - Stripe for payment processing
 - WebSocket actions for real-time updates
 
+### Transaction Isolation Levels
+
+Critical credit operations use SERIALIZABLE isolation with automatic retries:
+- Credit consumption must be serializable to prevent "double spending"
+- Monthly resets must be serializable to prevent duplicate grants
+- Both operations retry on serialization failures (error code 40001)
+- Helper: `withSerializableTransaction` in `common/src/db/transaction.ts`
+
+Other operations use default isolation (READ COMMITTED):
+- Grant operations (protected by unique operation IDs)
+- Revocations (idempotent balance zeroing)
+
+### Monthly Credit Resets
+
+Monthly credit resets are handled atomically:
+- Multiple processes might check reset dates simultaneously
+- SERIALIZABLE isolation prevents duplicate grants
+- One process will complete while others wait
+- After lock release, others will see updated reset date
+
 ## Middleware System
 
 The WebSocket middleware stack:
