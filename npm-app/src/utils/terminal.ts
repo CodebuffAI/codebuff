@@ -6,7 +6,7 @@ import path, { dirname } from 'path'
 
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
 import { buildArray } from 'common/util/array'
-import { truncateStringWithMessage } from 'common/util/string'
+import { stripColors, truncateStringWithMessage } from 'common/util/string'
 import { green } from 'picocolors'
 
 import {
@@ -578,7 +578,4 @@ const runCommandChildProcess = (
       stdout: commandOutput,
     })
   })
-}
-function stripColors(output: string): any {
-  throw new Error('Function not implemented.')
 }

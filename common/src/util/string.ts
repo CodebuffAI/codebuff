@@ -262,3 +262,8 @@ export const generateCompactId = (prefix?: string): string => {
 export const stripNullChars = (str: string): string => {
   return str.replace(/\u0000/g, '')
 }
+
+const ansiRegex = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g
+export function stripColors(str: string): string {
+  return str.replace(ansiRegex, '')
+}
