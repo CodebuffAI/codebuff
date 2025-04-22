@@ -6,7 +6,9 @@ Object (Defines a single startup process. This validates the structure of an obj
   name: String (A user-friendly name for the process.)
   command: String (The actual shell command to execute.)
   cwd: Optional<String> (The working directory from which to run the command.)
-  enabled: Default<Optional<Boolean>> (default: true) (Whether this process should be run (defaults to true).)
+  enabled: Default<Optional<Boolean>> (default: true) (Whether this process should be run.)
+  stdoutFile: Optional<String> (Path to write process stdout output. If not specified, output is not stored.)
+  stderrFile: Optional<String> (Path to write process stderr output. If not specified, output is not stored.)
 }"
 `;
 
@@ -17,7 +19,9 @@ Object (Defines the overall Codebuff configuration file (e.g., codebuff.json). T
     name: String (A user-friendly name for the process.)
     command: String (The actual shell command to execute.)
     cwd: Optional<String> (The working directory from which to run the command.)
-    enabled: Default<Optional<Boolean>> (default: true) (Whether this process should be run (defaults to true).)
+    enabled: Default<Optional<Boolean>> (default: true) (Whether this process should be run.)
+    stdoutFile: Optional<String> (Path to write process stdout output. If not specified, output is not stored.)
+    stderrFile: Optional<String> (Path to write process stderr output. If not specified, output is not stored.)
   }>> (An array of startup processes, each validated by the StartupProcessSchema.)
 }"
 `;
