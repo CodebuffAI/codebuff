@@ -1,8 +1,11 @@
-import { spawn, execSync } from 'child_process'
+import { execSync, spawn } from 'child_process'
+
 import { green, yellow } from 'picocolors'
-import { scrapeWebPage } from './web-scraper'
+
 import packageJson from '../package.json'
+import { killAllBackgroundProcesses } from './background-process-manager'
 import { isProduction } from './config'
+import { scrapeWebPage } from './web-scraper'
 
 export async function updateCodebuff() {
   if (!isProduction) return
@@ -22,6 +25,8 @@ export async function updateCodebuff() {
     console.log(green(`Updating Codebuff using ${installerInfo.installer}...`))
     try {
       runUpdateCodebuff(installerInfo)
+      await killAllBackgroundProcesses()
+
       console.log(green('Codebuff updated successfully.'))
       console.log(
         green('Please restart by running `codebuff` to use the new version.')
