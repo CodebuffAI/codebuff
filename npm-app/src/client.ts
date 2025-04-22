@@ -935,8 +935,16 @@ export class Client {
       )
 
       if (this.usageData.next_quota_reset) {
+        const resetDate = new Date(this.usageData.next_quota_reset);
+        const today = new Date();
+        const isToday = resetDate.toDateString() === today.toDateString();
+        
+        const dateDisplay = isToday 
+          ? resetDate.toLocaleString() // Show full date and time for today
+          : resetDate.toLocaleDateString(); // Just show date otherwise
+        
         console.log(
-          `Free credits will renew on ${this.usageData.next_quota_reset.toLocaleDateString()}. Details: ${underline(blue(usageLink))}`
+          `Free credits will renew on ${dateDisplay}. Details: ${underline(blue(usageLink))}`
         )
       }
 

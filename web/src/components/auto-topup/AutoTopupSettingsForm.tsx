@@ -11,6 +11,7 @@ import { AUTO_TOPUP_CONSTANTS } from './constants'
 import { AutoTopupSettingsFormProps } from './types'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { dollarsToCredits, creditsToDollars } from '@/lib/currency'
 
 const {
   MIN_THRESHOLD_CREDITS,
@@ -20,15 +21,9 @@ const {
   CENTS_PER_CREDIT,
 } = AUTO_TOPUP_CONSTANTS
 
-// Convert dollars to credits and vice versa
-const dollarsToCredits = (dollars: number) =>
-  Math.round((dollars * 100) / CENTS_PER_CREDIT)
-const creditsToDollars = (credits: number) =>
-  ((credits * CENTS_PER_CREDIT) / 100).toFixed(2)
-
 // Define min/max credits based on dollar limits
-const MIN_TOPUP_CREDITS = dollarsToCredits(MIN_TOPUP_DOLLARS)
-const MAX_TOPUP_CREDITS = dollarsToCredits(MAX_TOPUP_DOLLARS)
+const MIN_TOPUP_CREDITS = dollarsToCredits(MIN_TOPUP_DOLLARS, CENTS_PER_CREDIT)
+const MAX_TOPUP_CREDITS = dollarsToCredits(MAX_TOPUP_DOLLARS, CENTS_PER_CREDIT)
 
 export function AutoTopupSettingsForm({
   isEnabled,
@@ -42,7 +37,7 @@ export function AutoTopupSettingsForm({
   const [topUpCreditsError, setTopUpCreditsError] = useState<string>('')
 
   // Convert dollar amount to credits for display
-  const topUpAmountCredits = dollarsToCredits(topUpAmountDollars)
+  const topUpAmountCredits = dollarsToCredits(topUpAmountDollars, CENTS_PER_CREDIT)
 
   // Check threshold limits
   useEffect(() => {
@@ -152,7 +147,7 @@ export function AutoTopupSettingsForm({
               </p>
             ) : (
               <p className="text-xs text-muted-foreground mt-1 pl-1">
-                ${creditsToDollars(topUpAmountCredits)}
+                ${creditsToDollars(topUpAmountCredits, CENTS_PER_CREDIT)}
               </p>
             )}
           </div>

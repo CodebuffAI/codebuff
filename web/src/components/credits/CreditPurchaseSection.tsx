@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { useState } from 'react'
 import { convertCreditsToUsdCents } from 'common/src/billing/credit-conversion'
 import { toast } from '@/components/ui/use-toast'
+import { formatDollars } from '@/lib/currency'
 
 export const CREDIT_OPTIONS = [1000, 2500, 5000, 10000] as const
 export const CENTS_PER_CREDIT = 1
@@ -88,7 +89,8 @@ export function CreditPurchaseSection({
   const costInCents = effectiveCredits
     ? convertCreditsToUsdCents(effectiveCredits, CENTS_PER_CREDIT)
     : 0
-  const costInDollars = (costInCents / 100).toFixed(2)
+  
+  const costInDollars = formatDollars(costInCents)
 
   return (
     <div className="space-y-6">
@@ -98,7 +100,7 @@ export function CreditPurchaseSection({
             credits,
             CENTS_PER_CREDIT
           )
-          const optionCostInDollars = (optionCostInCents / 100).toFixed(2)
+          const optionCostInDollars = formatDollars(optionCostInCents)
 
           return (
             <Button

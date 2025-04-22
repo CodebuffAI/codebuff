@@ -9,6 +9,9 @@ import { generateCompactId } from '../util/string'
 import { CREDITS_USAGE_LIMITS } from '../constants'
 import { withRetry } from '../util/promise'
 import { logSyncFailure } from '../util/sync-failure'
+import { getNextQuotaReset } from '../util/dates'
+import { getPlanFromPriceId, getMonthlyGrantForPlan } from './plans'
+import { withSerializableTransaction } from '../db/transaction'
 
 type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
 
@@ -259,4 +262,86 @@ export async function revokeGrantByOperationId(
 
     return true
   })
+}
+
+/**
+ * Checks if a user's quota needs to be reset, and if so:
+ * 1. Calculates their new monthly grant amount
+ * 2. Issues the grant with the appropriate expiry
+ * 3. Updates their next_quota_reset date
+ * All of this is done in a single transaction with SERIALIZABLE isolation
+ * to prevent concurrent resets from creating duplicate grants.
+ *
+ * @param userId The ID of the user
+ * @returns The effective quota reset date (either existing or new)
+ */
+export async function triggerMonthlyResetAndGrant(
+  userId: string
+): Promise<Date> {
+  return await withSerializableTransaction(async (tx) => {
+    const now = new Date()
+
+    // Get user's current reset date and plan
+    const user = await tx.query.user.findFirst({
+      where: eq(schema.user.id, userId),
+      columns: {
+        next_quota_reset: true,
+        stripe_price_id: true,
+      },
+    })
+
+    if (!user) {
+      throw new Error(`User ${userId} not found`)
+    }
+
+    const currentResetDate = user.next_quota_reset
+
+    // If reset date is in the future, no action needed
+    if (currentResetDate && currentResetDate > now) {
+      return currentResetDate
+    }
+
+    // Calculate new reset date
+    const newResetDate = getNextQuotaReset(currentResetDate)
+
+    // Calculate grant amount based on user's plan
+    const currentPlan = getPlanFromPriceId(
+      user.stripe_price_id,
+      process.env.STRIPE_PRO_PRICE_ID,
+      process.env.STRIPE_MOAR_PRO_PRICE_ID
+    )
+    const grantAmount = await getMonthlyGrantForPlan(currentPlan, userId)
+
+    // Generate a unique operation ID for this grant
+    const operationId = `free-${userId}-${generateCompactId()}`
+
+    // Update the user's next reset date first
+    await tx
+      .update(schema.user)
+      .set({ next_quota_reset: newResetDate })
+      .where(eq(schema.user.id, userId))
+
+    // Then issue the grant
+    await grantCreditOperation(
+      userId,
+      grantAmount,
+      'free',
+      'Monthly free credits',
+      newResetDate, // Grant expires at next reset
+      operationId
+    )
+
+    logger.info(
+      {
+        userId,
+        operationId,
+        grantAmount,
+        newResetDate,
+        previousResetDate: currentResetDate,
+      },
+      'Processed monthly credit grant and reset'
+    )
+
+    return newResetDate
+  }, { userId })
 }

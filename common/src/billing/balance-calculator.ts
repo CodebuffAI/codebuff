@@ -4,6 +4,7 @@ import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
 import { GrantType } from '../db/schema'
 import { logger } from '../util/logger'
 import { GRANT_PRIORITIES } from '../constants/grant-priorities'
+import { withSerializableTransaction } from '../db/transaction'
 
 export interface CreditBalance {
   totalRemaining: number
@@ -232,7 +233,7 @@ export async function calculateUsageAndBalance(
       { userId, totalDebt, totalPositiveBalance, settlementAmount },
       'Performing in-memory settlement'
     )
-    
+
     // After settlement:
     totalPositiveBalance -= settlementAmount
     totalDebt -= settlementAmount
@@ -256,6 +257,9 @@ export async function calculateUsageAndBalance(
  * Follows priority order strictly - higher priority grants (lower number) are consumed first.
  * Returns details about credit consumption including how many came from purchased credits.
  *
+ * Uses SERIALIZABLE isolation to prevent concurrent modifications that could lead to
+ * incorrect credit usage (e.g., "double spending" credits).
+ *
  * @param userId The ID of the user
  * @param creditsToConsume Number of credits being consumed
  * @returns Promise resolving to number of credits consumed
@@ -264,27 +268,30 @@ export async function consumeCredits(
   userId: string,
   creditsToConsume: number
 ): Promise<CreditConsumptionResult> {
-  return await db.transaction(async (tx) => {
-    const now = new Date()
-    const activeGrants = await getOrderedActiveGrants(userId, now, tx as DbConn)
+  return await withSerializableTransaction(
+    async (tx) => {
+      const now = new Date()
+      const activeGrants = await getOrderedActiveGrants(userId, now, tx)
 
-    if (activeGrants.length === 0) {
-      logger.error(
-        { userId, creditsToConsume },
-        'No active grants found to consume credits from'
+      if (activeGrants.length === 0) {
+        logger.error(
+          { userId, creditsToConsume },
+          'No active grants found to consume credits from'
+        )
+        throw new Error('No active grants found')
+      }
+
+      const result = await consumeFromOrderedGrants(
+        userId,
+        creditsToConsume,
+        activeGrants,
+        tx
       )
-      throw new Error('No active grants found')
-    }
 
-    const result = await consumeFromOrderedGrants(
-      userId,
-      creditsToConsume,
-      activeGrants,
-      tx
-    )
-
-    return result
-  })
+      return result
+    },
+    { userId, creditsToConsume }
+  )
 }
 
 /**
