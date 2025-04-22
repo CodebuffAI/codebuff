@@ -493,7 +493,6 @@ export class Client {
   }
 
   public reconnect() {
-    console.log(yellow('Server updated - reconnecting...'))
     this.webSocket.forceReconnect()
   }
 
