@@ -46,15 +46,7 @@ describe('getBackgroundProcessInfoString', () => {
 
     const result = getBackgroundProcessInfoString(info)
 
-    expect(result).toContain('<background_process>')
-    expect(result).toContain('<process_id>123</process_id>')
-    expect(result).toContain('<command>npm test</command>')
-    expect(result).toContain('<duration_ms>2000</duration_ms>')
-    expect(result).toContain('<status>running</status>')
-    expect(result).toContain('<stdout>test output</stdout>')
-    expect(result).toContain('<stderr>test error</stderr>')
-    expect(result).not.toContain('<exit_code>')
-    expect(result).not.toContain('<signal_code>')
+    expect(result).toMatchSnapshot()
   })
 
   test('formats a completed process correctly', () => {
@@ -83,14 +75,7 @@ describe('getBackgroundProcessInfoString', () => {
 
     const result = getBackgroundProcessInfoString(info)
 
-    expect(result).toContain('<background_process>')
-    expect(result).toContain('<process_id>456</process_id>')
-    expect(result).toContain('<command>npm build</command>')
-    expect(result).toContain('<duration_ms>1000</duration_ms>')
-    expect(result).toContain('<status>completed</status>')
-    expect(result).toContain('<exit_code>0</exit_code>')
-    expect(result).toContain('<stdout>build successful</stdout>')
-    expect(result).toContain('<stderr>[NO NEW OUTPUT]</stderr>')
+    expect(result).toMatchSnapshot()
   })
 
   test('formats an errored process correctly', () => {
@@ -120,15 +105,7 @@ describe('getBackgroundProcessInfoString', () => {
 
     const result = getBackgroundProcessInfoString(info)
 
-    expect(result).toContain('<background_process>')
-    expect(result).toContain('<process_id>789</process_id>')
-    expect(result).toContain('<command>invalid-command</command>')
-    expect(result).toContain('<duration_ms>1500</duration_ms>')
-    expect(result).toContain('<status>error</status>')
-    expect(result).toContain('<exit_code>1</exit_code>')
-    expect(result).toContain('<signal_code>SIGTERM</signal_code>')
-    expect(result).toContain('<stdout>[NO NEW OUTPUT]</stdout>')
-    expect(result).toContain('<stderr>command not found</stderr>')
+    expect(result).toMatchSnapshot()
   })
 
   test('returns empty string for completed process with no changes', () => {
@@ -175,12 +152,10 @@ describe('getBackgroundProcessInfoString', () => {
 
     const result = getBackgroundProcessInfoString(info)
 
-    expect(result).toContain('<duration_ms>1000</duration_ms>')
-    expect(result).toContain('<stdout>[PREVIOUS OUTPUT]\n more output</stdout>')
-    expect(result).toContain('<stderr>[NO NEW OUTPUT]</stderr>')
+    expect(result).toMatchSnapshot()
   })
 
-  test('returns [NO NEW OUTPUT] when no new content', () => {
+  test('handles no new content', () => {
     const startTime = 1000
     const endTime = 2000
 
@@ -200,12 +175,11 @@ describe('getBackgroundProcessInfoString', () => {
     }
 
     const result = getBackgroundProcessInfoString(info)
-    expect(result).toContain('<duration_ms>1000</duration_ms>')
-    expect(result).toContain('<stdout>[NO NEW OUTPUT]</stdout>')
-    expect(result).toContain('<stderr>[NO NEW OUTPUT]</stderr>')
+
+    expect(result).toMatchSnapshot()
   })
 
-  test('shows new stderr without [PREVIOUS OUTPUT] when no previous stderr', () => {
+  test('handles new stderr without when no previous stderr', () => {
     const startTime = 1000
     const endTime = 2000
 
@@ -225,12 +199,11 @@ describe('getBackgroundProcessInfoString', () => {
     }
 
     const result = getBackgroundProcessInfoString(info)
-    expect(result).toContain('<duration_ms>1000</duration_ms>')
-    expect(result).toContain('<stdout>[NO NEW OUTPUT]</stdout>')
-    expect(result).toContain('<stderr>new error</stderr>')
+
+    expect(result).toMatchSnapshot()
   })
 
-  test('shows new stdout without [PREVIOUS OUTPUT] when no previous stdout', () => {
+  test('handles new stdout without when no previous stdout', () => {
     const startTime = 1000
 
     const info: BackgroundProcessInfo = {
@@ -249,9 +222,8 @@ describe('getBackgroundProcessInfoString', () => {
     }
 
     const result = getBackgroundProcessInfoString(info)
-    expect(result).toContain('<duration_ms>2000</duration_ms>')
-    expect(result).toContain('<stdout>first output</stdout>')
-    expect(result).toContain('<stderr>[NO NEW OUTPUT]</stderr>')
+
+    expect(result).toMatchSnapshot()
   })
 
   test('reports completed process with new stderr even if stdout unchanged', () => {
@@ -274,10 +246,8 @@ describe('getBackgroundProcessInfoString', () => {
     }
 
     const result = getBackgroundProcessInfoString(info)
-    expect(result).not.toBe('')
-    expect(result).toContain('<duration_ms>1000</duration_ms>')
-    expect(result).toContain('<stdout>[NO NEW OUTPUT]</stdout>')
-    expect(result).toContain('<stderr>new error</stderr>')
+
+    expect(result).toMatchSnapshot()
   })
 
   test('reports completed process with new stdout even if stderr unchanged', () => {
@@ -300,10 +270,8 @@ describe('getBackgroundProcessInfoString', () => {
     }
 
     const result = getBackgroundProcessInfoString(info)
-    expect(result).not.toBe('')
-    expect(result).toContain('<duration_ms>1000</duration_ms>')
-    expect(result).toContain('<stdout>[PREVIOUS OUTPUT]\n more</stdout>')
-    expect(result).toContain('<stderr>[NO NEW OUTPUT]</stderr>')
+
+    expect(result).toMatchSnapshot()
   })
 
   test('reports process when status changes even without output changes', () => {
@@ -326,11 +294,8 @@ describe('getBackgroundProcessInfoString', () => {
     }
 
     const result = getBackgroundProcessInfoString(info)
-    expect(result).not.toBe('')
-    expect(result).toContain('<duration_ms>1000</duration_ms>')
-    expect(result).toContain('<stdout>[NO NEW OUTPUT]</stdout>')
-    expect(result).toContain('<stderr>[NO NEW OUTPUT]</stderr>')
-    expect(result).toContain('<status>completed</status>')
+
+    expect(result).toMatchSnapshot()
   })
 
   test('calculates duration from endTime when available', () => {
@@ -353,9 +318,8 @@ describe('getBackgroundProcessInfoString', () => {
     }
 
     const result = getBackgroundProcessInfoString(info)
-    expect(result).toContain('<duration_ms>1500</duration_ms>') // endTime - startTime = 1500
-    expect(result).toContain('<stdout>test</stdout>')
-    expect(result).toContain('<stderr>[NO NEW OUTPUT]</stderr>')
+
+    expect(result).toMatchSnapshot()
   })
 
   test('calculates duration from current time when no endTime', () => {
@@ -377,8 +341,7 @@ describe('getBackgroundProcessInfoString', () => {
     }
 
     const result = getBackgroundProcessInfoString(info)
-    expect(result).toContain('<duration_ms>2000</duration_ms>') // currentTime - startTime = 2000
-    expect(result).toContain('<stdout>test</stdout>')
-    expect(result).toContain('<stderr>[NO NEW OUTPUT]</stderr>')
+
+    expect(result).toMatchSnapshot()
   })
 })
