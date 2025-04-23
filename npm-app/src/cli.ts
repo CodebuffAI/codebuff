@@ -103,8 +103,9 @@ export class CLI {
 
   private setupSignalHandlers() {
     process.on('exit', () => Spinner.get().restoreCursor())
-    process.on('SIGTERM', () => {
+    process.on('SIGTERM', async () => {
       Spinner.get().restoreCursor()
+      await killAllBackgroundProcesses()
       process.exit(0)
     })
     process.on('SIGTSTP', async () => await this.handleExit())
