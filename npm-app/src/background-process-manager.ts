@@ -171,7 +171,10 @@ export function spawnAndTrack(
   args: string[] = [],
   options: SpawnOptionsWithoutStdio
 ): ChildProcessWithoutNullStreams {
-  const child = spawn(command, args, options)
+  const child = spawn(command, args, {
+    ...options,
+    detached: true,
+  })
   assert(child.pid !== undefined)
 
   mkdirSync(LOCK_DIR, { recursive: true })
@@ -228,7 +231,7 @@ function waitForProcessExit(pid: number): Promise<boolean> {
 
 async function killAndWait(pid: number): Promise<void> {
   try {
-    process.kill(pid, 'SIGTERM')
+    process.kill(-pid, 'SIGTERM')
     if (await waitForProcessExit(pid)) {
       return
     }
@@ -290,7 +293,7 @@ export async function cleanupStoredProcesses(): Promise<void> {
       }
 
       try {
-        process.kill(pid, 'SIGTERM')
+        process.kill(-pid, 'SIGTERM')
         if (await waitForProcessExit(pid)) {
           deleteFileIfExists(filePath)
         }
