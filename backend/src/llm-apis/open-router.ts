@@ -160,3 +160,20 @@ export async function promptOpenRouter(
     throw error
   }
 }
+
+/**
+ * Get the account info for the OpenRouter API key.
+ * @returns The account info for the OpenRouter API key
+ */
+export async function getOpenRouterAccountInfo() {
+  const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${env.OPEN_ROUTER_API_KEY}`,
+    },
+  })
+
+  const data = await response.json()
+  console.log('data', data)
+  return data
+}
