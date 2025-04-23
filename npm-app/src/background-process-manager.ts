@@ -94,7 +94,7 @@ export function getBackgroundProcessInfoString(
     .join('')
     .slice(info.lastReportedStderrLength)
 
-  // For completed/error processes, only report if there are changes
+  // Only report finished processes if there are changes
   if (
     info.status !== 'running' &&
     !newStdout &&
@@ -111,31 +111,29 @@ export function getBackgroundProcessInfoString(
 
   return buildArray(
     '<background_process>',
-    `  <process_id>${info.pid}</process_id>`,
-    `  <command>${info.command}</command>`,
-    `  <start_time_utc>${new Date(info.startTime).toISOString()}</start_time_utc>`,
-    `  <duration_ms>${duration}</duration_ms>`,
-    `  <terminal_command_result>`,
-    `    <stdout>${truncateStringWithMessage({
-      str: getOutputWithContext(newStdout, info.lastReportedStdoutLength),
-      maxLength: COMMAND_OUTPUT_LIMIT,
-      remove: 'START',
-    })}</stdout>`,
-    `    <stderr>${truncateStringWithMessage({
-      str: getOutputWithContext(newStderr, info.lastReportedStderrLength),
-      maxLength: COMMAND_OUTPUT_LIMIT,
-      remove: 'START',
-    })}</stderr>`,
-    '  </terminal_command_result>',
-    `  <status>${info.status}</status>`,
+    `<process_id>${info.pid}</process_id>`,
+    `<command>${info.command}</command>`,
+    `<start_time_utc>${new Date(info.startTime).toISOString()}</start_time_utc>`,
+    `<duration_ms>${duration}</duration_ms>`,
+    newStdout &&
+      `<stdout>${truncateStringWithMessage({
+        str: getOutputWithContext(newStdout, info.lastReportedStdoutLength),
+        maxLength: COMMAND_OUTPUT_LIMIT,
+        remove: 'START',
+      })}</stdout>`,
+    newStderr &&
+      `<stderr>${truncateStringWithMessage({
+        str: getOutputWithContext(newStderr, info.lastReportedStderrLength),
+        maxLength: COMMAND_OUTPUT_LIMIT,
+        remove: 'START',
+      })}</stderr>`,
+    `<status>${info.status}</status>`,
     info.process.exitCode !== null &&
-      `  <exit_code>${info.process.exitCode}</exit_code>`,
+      `<exit_code>${info.process.exitCode}</exit_code>`,
     info.process.signalCode &&
-      `  <signal_code>${info.process.signalCode}</signal_code>`,
+      `<signal_code>${info.process.signalCode}</signal_code>`,
     '</background_process>'
-  )
-    .filter(Boolean)
-    .join('\n')
+  ).join('\n')
 }
 
 /**
