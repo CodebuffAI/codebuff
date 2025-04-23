@@ -121,7 +121,6 @@ export class Client {
     remainingBalance: 0,
     balanceBreakdown: undefined,
     next_quota_reset: null,
-    nextMonthlyGrant: 0,
   }
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
@@ -130,7 +129,6 @@ export class Client {
   public creditsByPromptId: Record<string, number[]> = {}
   public user: User | undefined
   public lastWarnedPct: number = 0
-  public nextMonthlyGrant: number = 0
   public storedApiKeyTypes: ApiKeyType[] = []
   public lastToolResults: ToolResult[] = []
   public model: string | undefined
@@ -201,41 +199,6 @@ export class Client {
     }
 
     const TIMEOUT_MS = 5_000
-
-    //   try {
-    //     const timeoutPromise = new Promise<Response>((_, reject) => {
-    //       setTimeout(() => reject(new Error('Request timed out')), TIMEOUT_MS)
-    //     })
-
-    //     const fetchPromise = fetch(
-    //       `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
-    //       {
-    //         method: 'GET',
-    //         headers: {
-    //           'Content-Type': 'application/json',
-    //           Cookie: `next-auth.session-token=${this.user.authToken}`,
-    //           Authorization: `Bearer ${this.user.authToken}`,
-    //         },
-    //       }
-    //     )
-
-    //     const response = await Promise.race([fetchPromise, timeoutPromise])
-
-    //     if (response.ok) {
-    //       const { keyTypes } = await response.json()
-    //       this.storedApiKeyTypes = keyTypes as ApiKeyType[]
-    //     } else {
-    //       this.storedApiKeyTypes = []
-    //     }
-    //   } catch (error) {
-    //     if (process.env.NODE_ENV !== 'production') {
-    //       console.error(
-    //         'Error fetching stored API key types (is there something else on port 3000?):',
-    //         error
-    //       )
-    //     }
-    //     this.storedApiKeyTypes = []
-    //   }
 
     this.storedApiKeyTypes = []
   }
@@ -357,7 +320,6 @@ export class Client {
             remainingBalance: 0,
             balanceBreakdown: undefined,
             next_quota_reset: null,
-            nextMonthlyGrant: 0,
           }
           this.oneTimeTagsShown = Object.fromEntries(
             ONE_TIME_TAGS.map((tag) => [tag, false])

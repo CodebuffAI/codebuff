@@ -10,7 +10,6 @@ export const usageDataSchema = z.object({
     breakdown: z.record(z.string(), z.number()).optional(),
   }),
   nextQuotaReset: z.coerce.date().nullable(),
-  nextMonthlyGrant: z.number(),
 })
 
 export type UsageData = z.infer<typeof usageDataSchema>

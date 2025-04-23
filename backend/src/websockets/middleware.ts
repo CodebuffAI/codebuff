@@ -21,11 +21,15 @@ import {
   processAndGrantCredit,
   getPreviousFreeGrantAmount,
   calculateTotalReferralBonus,
+  triggerMonthlyResetAndGrant,
 } from 'common/src/billing/grant-credits'
 import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
 import { generateCompactId } from 'common/util/string'
 import { pluralize } from 'common/util/string'
-import { getPlanFromPriceId, getMonthlyGrantForPlan } from 'common/src/billing/plans'
+import {
+  getPlanFromPriceId,
+  getMonthlyGrantForPlan,
+} from 'common/src/billing/plans'
 
 type MiddlewareCallback = (
   action: ClientAction,
@@ -166,7 +170,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     }
   }
 
-  // First check if we need to reset the quota
+  // Get user info for balance calculation and plan details
   const user = await db.query.user.findFirst({
     where: eq(schema.user.id, userId),
     columns: {
@@ -176,136 +180,13 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     },
   })
 
-  if (user && user.next_quota_reset && user.next_quota_reset <= new Date()) {
-    const currentResetDate = user.next_quota_reset
-    const nextResetDate = getNextQuotaReset(user.next_quota_reset)
-    const baseOperationIdSuffix = `-${userId}-${Date.now()}`
-
-    // Update next reset date
-    await db
-      .update(schema.user)
-      .set({
-        next_quota_reset: nextResetDate,
-      })
-      .where(eq(schema.user.id, userId))
-
-    try {
-      // Get the amount for the grants
-      const [freeGrantAmount, referralBonus] = await Promise.all([
-        getPreviousFreeGrantAmount(userId),
-        calculateTotalReferralBonus(userId),
-      ])
-
-      const grantsToProcess = []
-      grantsToProcess.push(
-        processAndGrantCredit(
-          userId,
-          freeGrantAmount,
-          'free',
-          `Monthly free grant`,
-          nextResetDate, // Expires next cycle
-          `free-${baseOperationIdSuffix}`
-        )
-      )
-
-      // Add referral grant if amount > 0
-      if (referralBonus > 0) {
-        grantsToProcess.push(
-          processAndGrantCredit(
-            userId,
-            referralBonus,
-            'referral',
-            `Monthly referral bonus grant based on history`,
-            nextResetDate, // Expires next cycle
-            `ref-${baseOperationIdSuffix}`
-          )
-        )
-      }
-
-      // Process grants only if there are any to process
-      await Promise.all(grantsToProcess)
-      logger.info(
-        { userId, baseOperationIdSuffix, freeGrantAmount, referralBonus },
-        'Monthly credit grants created.'
-      )
-    } catch (error) {
-      logger.error({ userId, error }, 'Failed to create monthly credit grants.')
-    }
-  }
+  // Check and trigger monthly reset if needed
+  await triggerMonthlyResetAndGrant(userId)
 
   const { usageThisCycle, balance } = await calculateUsageAndBalance(
     userId,
     user?.next_quota_reset ?? new Date(0)
   )
-
-  // Calculate next monthly grant amount once since we use it in multiple places
-  const nextMonthlyGrant = await getMonthlyGrantForPlan(
-    getPlanFromPriceId(user?.stripe_price_id),
-    userId
-  )
-
-  // Get user's auto top-up settings
-  const userWithSettings = await db.query.user.findFirst({
-    where: eq(schema.user.id, userId),
-    columns: {
-      auto_topup_enabled: true,
-      auto_topup_threshold: true,
-    },
-  })
-
-  // Try auto top-up if balance falls below threshold
-  if (userWithSettings?.auto_topup_enabled && 
-      userWithSettings.auto_topup_threshold && 
-      balance.totalRemaining < userWithSettings.auto_topup_threshold) {
-    try {
-      await checkAndTriggerAutoTopup(userId)
-      // Get updated balance after potential auto top-up
-      const newUsageAndBalance = await calculateUsageAndBalance(
-        userId,
-        user?.next_quota_reset ?? new Date(0)
-      )
-
-      // If auto-topup occurred, send updated usage info
-      if (newUsageAndBalance.balance.totalRemaining > balance.totalRemaining) {
-        const creditsAdded = newUsageAndBalance.balance.totalRemaining - balance.totalRemaining
-        logger.info(
-          {
-            userId,
-            newBalance: newUsageAndBalance.balance.totalRemaining,
-            creditsAdded,
-          },
-          'Auto top-up successful'
-        )
-
-        // Send updated usage info with auto top-up details
-        sendAction(ws, {
-          type: 'usage-response',
-          usage: newUsageAndBalance.usageThisCycle,
-          remainingBalance: newUsageAndBalance.balance.totalRemaining,
-          balanceBreakdown: newUsageAndBalance.balance.breakdown,
-          next_quota_reset: user?.next_quota_reset ?? null,
-          nextMonthlyGrant,
-          autoTopupAdded: creditsAdded,
-        })
-
-        // Use new balance for subsequent checks
-        balance.totalRemaining = newUsageAndBalance.balance.totalRemaining
-        balance.totalDebt = newUsageAndBalance.balance.totalDebt
-        balance.netBalance = newUsageAndBalance.balance.netBalance
-      }
-    } catch (error) {
-      logger.error({ userId, error }, 'Error during auto top-up attempt')
-      // Only return error if we don't have enough credits
-      if (balance.totalRemaining <= 0) {
-        return {
-          type: 'action-error',
-          error: 'Auto top-up disabled',
-          message: `Auto top-up has been disabled due to a payment issue. Please check your payment method and re-enable auto top-up in your settings.`,
-          remainingBalance: balance.totalRemaining,
-        }
-      }
-    }
-  }
 
   // Check if we have enough remaining credits
   if (balance.totalRemaining <= 0) {
@@ -330,7 +211,6 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     remainingBalance: balance.totalRemaining,
     balanceBreakdown: balance.breakdown,
     next_quota_reset: user?.next_quota_reset ?? null,
-    nextMonthlyGrant,
   })
 
   return undefined

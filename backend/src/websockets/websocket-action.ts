@@ -78,7 +78,6 @@ export async function genUsageResponse(
     remainingBalance: 0,
     balanceBreakdown: {},
     next_quota_reset: null,
-    nextMonthlyGrant: PLAN_CONFIGS[UsageLimits.FREE].limit, // Default for anonymous users
   }
 
   return withLoggerContext(logContext, async () => {
@@ -86,7 +85,6 @@ export async function genUsageResponse(
       where: eq(schema.user.id, userId),
       columns: {
         next_quota_reset: true,
-        stripe_price_id: true,
       },
     })
 
@@ -98,8 +96,6 @@ export async function genUsageResponse(
       // Get the usage data
       const { balance: balanceDetails, usageThisCycle } =
         await calculateUsageAndBalance(userId, new Date())
-      const currentPlan = getPlanFromPriceId(user.stripe_price_id)
-      const nextMonthlyGrant = await getMonthlyGrantForPlan(currentPlan, userId)
 
       return {
         type: 'usage-response' as const,
@@ -107,7 +103,6 @@ export async function genUsageResponse(
         remainingBalance: balanceDetails.totalRemaining,
         balanceBreakdown: balanceDetails.breakdown,
         next_quota_reset: user.next_quota_reset,
-        nextMonthlyGrant,
       }
     } catch (error) {
       logger.error(
@@ -251,7 +246,6 @@ const onInit = async (
         balanceBreakdown: {},
         next_quota_reset: null,
         type: 'init-response',
-        nextMonthlyGrant: PLAN_CONFIGS[UsageLimits.FREE].limit, // Default for anonymous users
       })
       return
     }

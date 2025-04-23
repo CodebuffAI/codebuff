@@ -62,9 +62,6 @@ export const checkAuth = async ({
     }
   }
 
-  // Check and trigger monthly reset if needed
-  await triggerMonthlyResetAndGrant(user.id)
-
   return
 }
 
