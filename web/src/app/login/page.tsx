@@ -1,64 +1,45 @@
-'use client'
+'use server'
 
-import { Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
+  CardContent,
 } from '@/components/ui/card'
-import CardWithBeams from '@/components/card-with-beams'
-import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
+import { env } from '@/env.mjs'
+import { LoginCard } from '@/components/login/login-card'
 
-function LoginContent() {
-  const searchParams = useSearchParams()
-  const authCode = searchParams.get('auth_code')
+// Server component that handles the auth code expiration check
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: { [key: string]: string | string[] | undefined }
+}) {
+  const authCode = searchParams?.auth_code as string | undefined
 
   if (authCode) {
     const [_fingerprintId, expiresAt, _receivedfingerprintHash] =
       authCode.split('.')
 
-    // Check for token expiration
-    if (expiresAt < Date.now().toString()) {
-      return CardWithBeams({
-        title: 'Uh-oh, spaghettio!',
-        description: 'Auth code expired.',
-        content: (
-          <p>
-            Please generate a new code and reach out to support@codebuff.com if
-            the problem persists.
-          </p>
-        ),
-      })
+    // Check for token expiration on the server side
+    if (parseInt(expiresAt) < Date.now()) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Uh-oh, spaghettio!</CardTitle>
+            <CardDescription>Auth code expired.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p>
+              Please try starting Codebuff in your terminal again. If the
+              problem persists, reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL}.
+            </p>
+          </CardContent>
+        </Card>
+      )
     }
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="mb-2">{authCode ? 'Login' : 'Login'}</CardTitle>
-        <CardDescription>
-          {authCode
-            ? 'Continue to sign in to the Codebuff CLI.'
-            : 'Increased rate limits, priority support, and more!'}
-        </CardDescription>
-      </CardHeader>
-      <SignInCardFooter />
-    </Card>
-  )
+  return <LoginCard authCode={authCode} />
 }
-
-const Home = () => {
-  return (
-    <main className="container mx-auto flex flex-col items-center relative z-10">
-      <div className="w-full sm:w-1/2 md:w-1/3">
-        <Suspense>
-          <LoginContent />
-        </Suspense>
-      </div>
-    </main>
-  )
-}
-
-export default Home
