@@ -1,4 +1,5 @@
 {
+  "description": "Template configuration for this project. See https://www.codebuff.com/docs/config for all options.",
   "startupProcesses": [
     {
       "name": "drizzle",

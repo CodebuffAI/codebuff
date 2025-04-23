@@ -7,10 +7,10 @@ import { yellow } from 'picocolors'
 import { runBackgroundCommand } from './utils/terminal'
 
 /**
- * Starts background development processes defined in codebuff.json.
+ * Starts background development processes defined in the config file.
  * Processes are started asynchronously and their output is tracked.
  * Only enabled processes are started.
- * 
+ *
  * @param processes - Array of startup process configurations
  * @param projectPath - Base path of the project
  */

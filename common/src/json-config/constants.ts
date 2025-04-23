@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+export const codebuffConfigFile = 'codebuff.json'
+export const codebuffConfigFileBackup = 'codebuff.jsonc'
+
 export const StartupProcessSchema = z
   .object({
     name: z
@@ -38,6 +41,10 @@ export const StartupProcessSchema = z
 
 export const CodebuffConfigSchema = z
   .object({
+    description: z
+      .any()
+      .optional()
+      .describe('Does nothing. Put any thing you want here!'),
     startupProcesses: z
       .array(StartupProcessSchema)
       .optional()
@@ -46,7 +53,7 @@ export const CodebuffConfigSchema = z
       ),
   })
   .describe(
-    'Defines the overall Codebuff configuration file (e.g., codebuff.json). This schema defines the top-level structure of the configuration.'
+    `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration.`
   )
 
 /**

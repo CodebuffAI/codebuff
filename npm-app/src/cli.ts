@@ -29,6 +29,7 @@ import {
 } from './cli-handlers/checkpoint'
 import { handleDiff } from './cli-handlers/diff'
 import { showEasterEgg } from './cli-handlers/easter-egg'
+import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
@@ -356,6 +357,13 @@ export class CLI {
       displayCheckpointMenu()
       this.freshPrompt()
       return true
+    }
+
+    if (userInput === 'init') {
+      await saveCheckpoint(userInput, this.client, this.readyPromise)
+      handleInitializationFlowLocally()
+      // Also forward user input to the backend
+      return false
     }
 
     return false

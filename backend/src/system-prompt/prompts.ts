@@ -1,8 +1,22 @@
-import { ProjectFileContext, createMarkdownFileBlock } from 'common/util/file'
-import { truncateString } from 'common/util/string'
 import { STOP_MARKER } from 'common/constants'
+import {
+  codebuffConfigFile,
+  CodebuffConfigSchema,
+} from 'common/json-config/constants'
+import { stringifySchemaForLLM } from 'common/json-config/stringify-schema'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
+import { createMarkdownFileBlock, ProjectFileContext } from 'common/util/file'
+import { truncateString } from 'common/util/string'
+
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
+
+export const configSchemaPrompt = `
+  # Codebuff Configuration (${codebuffConfigFile})
+  
+The following describes the structure of the \`./${codebuffConfigFile}\` configuration file that users might have in their project root. You can use this to understand user settings if they mention them.
+
+${stringifySchemaForLLM(CodebuffConfigSchema, 'CodebuffConfigSchema')}
+`.trim()
 
 export const knowledgeFilesPrompt = `
 # Knowledge files
@@ -52,6 +66,23 @@ Once again: BE CONCISE!
 
 If the user sends you the url to a page that is helpful now or could be helpful in the future (e.g. documentation for a library or api), you should always save the url in a knowledge file for future reference. Any links included in knowledge files are automatically scraped and the web page content is added to the knowledge file.
 `.trim()
+
+export const replacementPrompts = {
+  init: `
+Trigger initialization flow:
+
+First, read the knowldge file and the config file (${codebuffConfigFile}) to see their contents.
+
+Knowledge file:
+- If it does not exist, create a new one with updated information.
+- If it does, update it with the most up-to-date information.
+
+Config file (probably already exists):
+- If it is just a template without any configurations set, populate the fields to according to the project.
+- If it looks already populated, update it using information about the newest project state.
+- Do not edit the description field.
+`.trim(),
+} as const
 
 export const getProjectFileTreePrompt = (
   fileContext: ProjectFileContext,

@@ -24,7 +24,7 @@ async function codebuff(
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
 
-  // Load codebuff.json config if it exists
+  // Load config file if it exists
   const config = loadCodebuffConfig(dir)
 
   // Kill all processes we failed to kill before

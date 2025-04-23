@@ -16,6 +16,10 @@ import { countTokensJson } from './token-counter'
 export const messagesWithSystem = (messages: Message[], system: System) =>
   [{ role: 'system', content: system }, ...messages] as OpenAIMessage[]
 
+export function asSystemInstructions(str: string): string {
+  return `<system_instructions>${str}</system_instructions>`
+}
+
 /**
  * Extracts the text content from a message, handling both string and array content types
  * @param message - Message to extract text from

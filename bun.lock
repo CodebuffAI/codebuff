@@ -90,7 +90,7 @@
     },
     "npm-app": {
       "name": "codebuff",
-      "version": "1.0.227",
+      "version": "1.0.230",
       "bin": {
         "codebuff": "dist/index.js",
       },
@@ -103,11 +103,11 @@
         "env-cmd": "^10.1.0",
         "ignore": "7.0.3",
         "isomorphic-git": "^1.29.0",
+        "jsonc-parser": "^3.3.1",
         "lodash": "*",
         "nanoid": "5.0.7",
         "picocolors": "1.1.0",
         "puppeteer-core": "^24.2.0",
-        "strip-ansi": "^7.1.0",
         "systeminformation": "5.23.4",
         "tree-sitter": "0.21.1",
         "tree-sitter-c": "0.23.0",
@@ -124,6 +124,9 @@
         "ts-pattern": "5.3.1",
         "ws": "8.18.0",
         "zod": "3.23.8",
+      },
+      "devDependencies": {
+        "strip-ansi": "^7.1.0",
       },
       "optionalDependencies": {
         "@homebridge/node-pty-prebuilt-multiarch": "0.12.0-beta.5",
@@ -2198,6 +2201,8 @@
     "json-stable-stringify-without-jsonify": ["json-stable-stringify-without-jsonify@1.0.1", "", {}, "sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw=="],
 
     "json5": ["json5@2.2.3", "", { "bin": { "json5": "lib/cli.js" } }, "sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg=="],
+
+    "jsonc-parser": ["jsonc-parser@3.3.1", "", {}, "sha512-HUgH65KyejrUFPvHFPbqOY0rsFip3Bo5wb4ngvdi1EpCYWUQDC5V+Y7mZws+DLkr4M//zQJoanu1SP+87Dv1oQ=="],
 
     "jsondiffpatch": ["jsondiffpatch@0.6.0", "", { "dependencies": { "@types/diff-match-patch": "^1.0.36", "chalk": "^5.3.0", "diff-match-patch": "^1.0.5" }, "bin": { "jsondiffpatch": "bin/jsondiffpatch.js" } }, "sha512-3QItJOXp2AP1uv7waBkao5nCvhEv+QmJAd38Ybq7wNI74Q+BBmnLn4EDKz6yI9xGAIQoUF87qHt+kc1IVxB4zQ=="],
 

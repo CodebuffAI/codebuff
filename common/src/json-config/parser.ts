@@ -1,32 +1,44 @@
-import fs from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import path from 'path'
 
+import { parse as parseJsonc } from 'jsonc-parser'
 import { yellow } from 'picocolors'
 
-import { CodebuffConfig, CodebuffConfigSchema } from './constants'
+import {
+  CodebuffConfig,
+  codebuffConfigFile,
+  codebuffConfigFileBackup,
+  CodebuffConfigSchema,
+} from './constants'
 
 /**
- * Loads and validates the codebuff.json configuration file from the project directory.
+ * Loads and validates the configuration file from the project directory.
  * @param projectPath - The root directory of the project
  * @returns The parsed and validated configuration, or null if no valid config exists
  */
 export function loadCodebuffConfig(projectPath: string): CodebuffConfig | null {
-  const configPath = path.join(projectPath, 'codebuff.json')
+  const configPathPrimary = path.join(projectPath, codebuffConfigFile)
+  const configPathBackup = path.join(projectPath, codebuffConfigFileBackup)
+  const configPath = existsSync(configPathBackup)
+    ? configPathBackup
+    : existsSync(configPathPrimary)
+      ? configPathPrimary
+      : null
 
-  if (!fs.existsSync(configPath)) {
+  if (configPath === null) {
     return null
   }
 
   try {
-    const configContent = fs.readFileSync(configPath, 'utf-8')
-    const parsedConfig = JSON.parse(configContent)
+    const jsoncContent = readFileSync(configPath, 'utf-8')
+    const parsedConfig = parseJsonc(jsoncContent)
 
     const result = CodebuffConfigSchema.safeParse(parsedConfig)
 
     if (!result.success) {
       console.warn(
         yellow(
-          'Warning: Invalid codebuff.json configuration. Please check the schema:\n' +
+          `Warning: Invalid ${codebuffConfigFile} configuration. Please check the schema:\n` +
             result.error.errors
               .map((err) => `- ${err.path.join('.')}: ${err.message}`)
               .join('\n')
@@ -40,12 +52,14 @@ export function loadCodebuffConfig(projectPath: string): CodebuffConfig | null {
     if (error instanceof SyntaxError) {
       console.warn(
         yellow(
-          'Warning: Invalid JSON in codebuff.json. Please check the syntax.'
+          `Warning: Invalid JSON in ${codebuffConfigFile}. Please check the syntax.`
         )
       )
     } else {
       console.warn(
-        yellow('Warning: Error reading codebuff.json configuration file.')
+        yellow(
+          `Warning: Error reading ${codebuffConfigFile} configuration file.`
+        )
       )
     }
     return null

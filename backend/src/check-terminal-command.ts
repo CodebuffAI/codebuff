@@ -134,7 +134,7 @@ const isWhitelistedTerminalCommand = (command: string) => {
   return false
 }
 
-const blacklistedSingleWordCommands = ['halt', 'reboot']
+const blacklistedSingleWordCommands = ['halt', 'reboot', 'init']
 const blacklistedMultiWordCommands = ['yes']
 const isBlacklistedTerminalCommand = (command: string) => {
   if (blacklistedSingleWordCommands.includes(command)) {
