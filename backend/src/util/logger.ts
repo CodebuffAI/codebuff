@@ -51,7 +51,7 @@ export const pinoLogger = pino(
     },
     timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
   },
-  env.ENVIRONMENT === 'production' ? undefined : fileTransport
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production' ? undefined : fileTransport
 )
 
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
@@ -83,7 +83,7 @@ function splitAndLog(
 }
 
 export const logger: Record<LogLevel, pino.LogFn> =
-  process.env.ENVIRONMENT === 'local'
+  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
     ? pinoLogger
     : (Object.fromEntries(
         loggingLevels.map((level) => {

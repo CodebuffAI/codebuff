@@ -3,17 +3,18 @@ import dotenv from 'dotenv'
 import { z } from 'zod'
 
 dotenv.config({ path: '../stack.env' })
-if (!process.env.NEXT_PUBLIC_ENVIRONMENT) {
+if (!process.env.NEXT_PUBLIC_CB_ENVIRONMENT) {
   throw new Error(
-    'NEXT_PUBLIC_ENVIRONMENT is not set, please check `stack.env`'
+    'NEXT_PUBLIC_CB_ENVIRONMENT is not set, please check `stack.env`'
   )
 }
 const DOTENV_PATH = process.env.RENDER === 'true' ? '/etc/secrets' : '..'
-const path = `${DOTENV_PATH}/.env.${process.env.ENVIRONMENT}`
+const path = `${DOTENV_PATH}/.env.${process.env.NEXT_PUBLIC_CB_ENVIRONMENT}`
 dotenv.config({ path })
 
 export const env = createEnv({
   server: {
+    NEXT_PUBLIC_CB_ENVIRONMENT: z.string().min(1),
     DATABASE_URL: z.string().min(1),
     NEXT_PUBLIC_APP_URL: z.string().url().min(1),
     GOOGLE_SITE_VERIFICATION_ID: z.string().optional(),
@@ -35,7 +36,7 @@ export const env = createEnv({
   },
   client: {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
-    NEXT_PUBLIC_ENVIRONMENT: z.string().min(1),
+    NEXT_PUBLIC_CB_ENVIRONMENT: z.string().min(1),
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email().min(1),
     NEXT_PUBLIC_APP_URL: z.string().min(1),
     NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: z.string().url().min(1),
@@ -44,7 +45,7 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_HOST_URL: z.string().url().optional(),
   },
   runtimeEnv: {
-    NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT,
+    NEXT_PUBLIC_CB_ENVIRONMENT: process.env.NEXT_PUBLIC_CB_ENVIRONMENT,
     DATABASE_URL: process.env.DATABASE_URL,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     GOOGLE_SITE_VERIFICATION_ID: process.env.GOOGLE_SITE_VERIFICATION_ID,
@@ -64,7 +65,6 @@ export const env = createEnv({
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL:
       process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL,
     NEXT_PUBLIC_LINKEDIN_PARTNER_ID:

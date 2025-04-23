@@ -10,7 +10,7 @@ import {
 } from './schema'
 
 const DATASET =
-  process.env.ENVIRONMENT === 'production'
+  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
     ? 'codebuff_data'
     : 'codebuff_data_dev'
 
@@ -152,7 +152,7 @@ export async function getTracesWithoutRelabels(
 ) {
   // TODO: Optimize query, maybe only get traces in last 30 days etc
   const query = `
-    SELECT t.* 
+    SELECT t.*
     FROM \`${dataset}.${TRACES_TABLE}\` t
     LEFT JOIN (
       SELECT r.agent_step_id, r.user_id, JSON_EXTRACT_SCALAR(r.payload, '$.user_input_id') as user_input_id
@@ -160,7 +160,7 @@ export async function getTracesWithoutRelabels(
       WHERE r.model = '${model}'
       ${userId ? `AND r.user_id = '${userId}'` : ''}
     ) r
-    ON t.agent_step_id = r.agent_step_id 
+    ON t.agent_step_id = r.agent_step_id
        AND t.user_id = r.user_id
        AND JSON_EXTRACT_SCALAR(t.payload, '$.user_input_id') = r.user_input_id
     WHERE t.type = 'get-relevant-files'
@@ -186,7 +186,7 @@ export async function getTracesWithRelabels(
 ) {
   // Get traces that DO have matching relabels for the specified model
   const query = `
-  SELECT 
+  SELECT
     t as trace,
     r as relabel
   FROM \`${dataset}.${TRACES_TABLE}\` t
@@ -195,7 +195,7 @@ export async function getTracesWithRelabels(
     FROM \`${dataset}.${RELABELS_TABLE}\` r
     WHERE r.model = '${model}'
   ) r
-  ON t.agent_step_id = r.agent_step_id 
+  ON t.agent_step_id = r.agent_step_id
      AND t.user_id = r.user_id
      AND JSON_EXTRACT_SCALAR(t.payload, '$.user_input_id') = JSON_EXTRACT_SCALAR(r.payload, '$.user_input_id')
   WHERE t.type = 'get-relevant-files'
@@ -243,29 +243,29 @@ export async function getTracesAndRelabelsForUser(
   // Get recent traces for the user and any associated relabels
   const query = `
   WITH traces AS (
-    SELECT 
-      id, 
-      agent_step_id, 
-      user_id, 
-      created_at, 
-      type, 
+    SELECT
+      id,
+      agent_step_id,
+      user_id,
+      created_at,
+      type,
       payload
     FROM \`${dataset}.${TRACES_TABLE}\`
     WHERE user_id = '${userId}' AND type = 'get-relevant-files'
     ORDER BY created_at DESC
     LIMIT ${limit}
   )
-  SELECT 
-    t.id, 
-    ANY_VALUE(t.agent_step_id) as agent_step_id, 
-    ANY_VALUE(t.user_id) as user_id, 
-    ANY_VALUE(t.created_at) as created_at, 
-    ANY_VALUE(t.type) as type, 
+  SELECT
+    t.id,
+    ANY_VALUE(t.agent_step_id) as agent_step_id,
+    ANY_VALUE(t.user_id) as user_id,
+    ANY_VALUE(t.created_at) as created_at,
+    ANY_VALUE(t.type) as type,
     ANY_VALUE(t.payload) as payload,
     ARRAY_AGG(r IGNORE NULLS) as relabels
   FROM traces t
   LEFT JOIN \`${dataset}.${RELABELS_TABLE}\` r
-  ON t.agent_step_id = r.agent_step_id 
+  ON t.agent_step_id = r.agent_step_id
      AND t.user_id = r.user_id
      AND JSON_EXTRACT_SCALAR(t.payload, '$.user_input_id') = JSON_EXTRACT_SCALAR(r.payload, '$.user_input_id')
   GROUP BY t.id

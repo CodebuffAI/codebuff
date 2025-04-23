@@ -3,12 +3,14 @@ import { z } from 'zod'
 import dotenv from 'dotenv'
 
 dotenv.config({ path: '../stack.env' })
-if (!process.env.ENVIRONMENT) {
-  console.error('ENVIRONMENT is not set, please check `stack.env`')
+if (!process.env.NEXT_PUBLIC_CB_ENVIRONMENT) {
+  console.error(
+    'NEXT_PUBLIC_CB_ENVIRONMENT is not set, please check `stack.env`'
+  )
   process.exit(1)
 }
-console.log(`Using environment: ${process.env.ENVIRONMENT}`)
-dotenv.config({ path: `../.env.${process.env.ENVIRONMENT}` })
+console.log(`Using environment: ${process.env.NEXT_PUBLIC_CB_ENVIRONMENT}`)
+dotenv.config({ path: `../.env.${process.env.NEXT_PUBLIC_CB_ENVIRONMENT}` })
 
 export const env = createEnv({
   server: {
@@ -19,7 +21,7 @@ export const env = createEnv({
     STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
     STRIPE_SUBSCRIPTION_PRICE_ID: z.string().min(1),
     PORT: z.coerce.number().min(1000),
-    ENVIRONMENT: z.string().min(1),
+    NEXT_PUBLIC_CB_ENVIRONMENT: z.string().min(1),
   },
   runtimeEnv: process.env,
 })

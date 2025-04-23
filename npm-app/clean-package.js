@@ -1,6 +1,6 @@
 const fs = require('fs')
 const path = require('path')
-process.env.ENVIRONMENT = 'production'
+process.env.NEXT_PUBLIC_CB_ENVIRONMENT = 'production'
 const loadedEnv = await require('./loadEnv.js')
 
 const packageJsonPath = path.join(__dirname, 'package.json')
@@ -21,11 +21,11 @@ delete packageJson.peerDependencies
 // Write the cleaned package.json
 fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2))
 
-// Add ENVIRONMENT setting to index.js
+// Add NEXT_PUBLIC_CB_ENVIRONMENT setting to index.js
 if (fs.existsSync(indexJsPath)) {
   let indexJsContent = fs.readFileSync(indexJsPath, 'utf8')
 
-  // const envLine = "process.env.ENVIRONMENT = 'production';"
+  // const envLine = "process.env.NEXT_PUBLIC_CB_ENVIRONMENT = 'production';"
   const lines = indexJsContent.split('\n')
   lines.splice(
     1,
@@ -36,7 +36,7 @@ if (fs.existsSync(indexJsPath)) {
   ) // Insert after the shebang line
   indexJsContent = lines.join('\n')
   fs.writeFileSync(indexJsPath, indexJsContent)
-  console.log('ENVIRONMENT setting added to index.js')
+  console.log('NEXT_PUBLIC_CB_ENVIRONMENT setting added to index.js')
 } else {
   console.error('index.js not found in the dist directory')
 }

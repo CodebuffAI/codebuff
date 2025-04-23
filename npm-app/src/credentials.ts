@@ -30,8 +30,9 @@ export const CONFIG_DIR = path.join(
   '.config',
   'manicode' +
     // on a development stack?
-    (process.env.ENVIRONMENT && process.env.ENVIRONMENT !== 'production'
-      ? `-${process.env.ENVIRONMENT}`
+    (process.env.NEXT_PUBLIC_CB_ENVIRONMENT &&
+    process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production'
+      ? `-${process.env.NEXT_PUBLIC_CB_ENVIRONMENT}`
       : '')
 )
 

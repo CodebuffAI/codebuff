@@ -29,7 +29,9 @@ const localUsers = [
 
 // Choose user list based on environment
 const suggestedUsers =
-  process.env.NEXT_PUBLIC_ENVIRONMENT === 'local' ? localUsers : productionUsers
+  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
+    ? localUsers
+    : productionUsers
 
 type Result = {
   timestamp: string
