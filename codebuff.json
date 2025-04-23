@@ -3,14 +3,14 @@
     {
       "name": "drizzle",
       "command": "bun start-studio",
-      "stdoutFile": "drizzle.log",
-      "stderrFile": "drizzle.log"
+      "stdoutFile": "debug/drizzle.log",
+      "stderrFile": "debug/drizzle.log"
     },
     {
       "name": "web server",
       "command": "bun start-web",
-      "stdoutFile": "web.log",
-      "stderrFile": "web.log"
+      "stdoutFile": "debug/web.log",
+      "stderrFile": "debug/web.log"
     },
     {
       "name": "typechecker",
