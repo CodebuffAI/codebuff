@@ -8,7 +8,9 @@
     },
     {
       "name": "web server",
-      "command": "bun start-web"
+      "command": "bun start-web",
+      "stdoutFile": "web.log",
+      "stderrFile": "web.log"
     },
     {
       "name": "typechecker",
