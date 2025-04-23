@@ -59,12 +59,16 @@ export async function* promptOpenRouterStream(
       ...(predictedContent
         ? { prediction: { type: 'content', content: predictedContent } }
         : {}),
+      stream_options: {
+        include_usage: true,
+      },
     })
 
     let content = ''
     let messageId: string | undefined
     let inputTokens = 0
     let outputTokens = 0
+    let cacheReadInputTokens = 0
 
     for await (const chunk of stream) {
       if (chunk.choices[0]?.delta?.content) {
@@ -74,9 +78,13 @@ export async function* promptOpenRouterStream(
       }
 
       if (chunk.usage) {
-        messageId = chunk.id
-        inputTokens = chunk.usage.prompt_tokens
+        const totalInputTokens = chunk.usage.prompt_tokens
+        cacheReadInputTokens =
+          chunk.usage.prompt_tokens_details?.cached_tokens ?? 0
+        inputTokens = totalInputTokens - cacheReadInputTokens
         outputTokens = chunk.usage.completion_tokens
+
+        messageId = chunk.id
       }
     }
 
@@ -92,6 +100,7 @@ export async function* promptOpenRouterStream(
         response: content,
         inputTokens: inputTokens || 0,
         outputTokens: outputTokens || 0,
+        cacheReadInputTokens: cacheReadInputTokens || 0,
         finishedAt: new Date(),
         latencyMs: Date.now() - startTime,
       })

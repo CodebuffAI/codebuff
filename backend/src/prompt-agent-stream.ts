@@ -4,6 +4,7 @@ import {
   getModelForMode,
   models,
   OpenAIModel,
+  openrouterModels,
   providerModelNames,
   shortModelNames,
 } from 'common/constants'
@@ -13,6 +14,7 @@ import { promptClaudeStream, System } from './llm-apis/claude'
 import { streamGemini25ProWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptOpenAIStream } from './llm-apis/openai-api'
 import { messagesWithSystem } from './util/messages'
+import { promptOpenRouterStream } from './llm-apis/open-router'
 
 export const getAgentStream = (params: {
   costMode: CostMode
@@ -41,8 +43,9 @@ export const getAgentStream = (params: {
     )
   }
 
-  const fullSelectedModel =
-    shortModelNames[(selectedModel ?? '') as keyof typeof shortModelNames]
+  const fullSelectedModel = selectedModel
+    ? shortModelNames[selectedModel as keyof typeof shortModelNames]
+    : undefined
 
   const model = fullSelectedModel ?? getModelForMode(costMode, 'agent')
 
@@ -69,14 +72,23 @@ export const getAgentStream = (params: {
             userId,
           })
         : provider === 'gemini'
-          ? streamGemini25ProWithFallbacks(messages, system, {
-              clientSessionId,
-              fingerprintId,
-              userInputId,
-              userId,
-              temperature: 0,
-              stopSequences,
-            })
+          ? model === models.gemini2_5_flash_thinking
+            ? promptOpenRouterStream(messagesWithSystem(messages, system), {
+                clientSessionId,
+                fingerprintId,
+                userInputId,
+                userId,
+                model: openrouterModels.openrouter_gemini2_5_flash_thinking,
+              })
+            : 
+            streamGemini25ProWithFallbacks(messages, system, {
+                clientSessionId,
+                fingerprintId,
+                userInputId,
+                userId,
+                temperature: 0,
+                stopSequences,
+              })
           : (() => {
               throw new Error(
                 `Unknown model/provider: ${selectedModel}/${model}/${provider}`
