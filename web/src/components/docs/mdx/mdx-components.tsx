@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import { CodeDemo } from './code-demo'
 import { MarkdownTable } from './markdown-table'
+import { SchemaDisplay } from './schema-display'
 
 import { 
   HTMLAttributes, 
@@ -139,6 +140,7 @@ const components = {
   Image,
   CodeDemo,
   MarkdownTable,
+  SchemaDisplay,
 }
 
 export function Mdx({ code }: MdxProps) {

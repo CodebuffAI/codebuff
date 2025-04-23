@@ -102,6 +102,11 @@ export default function CategoryPage({ params }: CategoryPageProps) {
         (mod) => mod.MarkdownTable
       )
     ),
+    SchemaDisplay: dynamic(() =>
+      import('@/components/docs/mdx/schema-display').then(
+        (mod) => mod.SchemaDisplay
+      )
+    ),
     a: dynamic(() =>
       import('@/components/docs/mdx/custom-link').then((mod) => mod.CustomLink)
     ),

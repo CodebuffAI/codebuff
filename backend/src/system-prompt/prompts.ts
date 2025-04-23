@@ -3,7 +3,7 @@ import {
   codebuffConfigFile,
   CodebuffConfigSchema,
 } from 'common/json-config/constants'
-import { stringifySchemaForLLM } from 'common/json-config/stringify-schema'
+import { stringifySchema } from 'common/json-config/stringify-schema'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 import { createMarkdownFileBlock, ProjectFileContext } from 'common/util/file'
 import { truncateString } from 'common/util/string'
@@ -15,7 +15,7 @@ export const configSchemaPrompt = `
   
 The following describes the structure of the \`./${codebuffConfigFile}\` configuration file that users might have in their project root. You can use this to understand user settings if they mention them.
 
-${stringifySchemaForLLM(CodebuffConfigSchema, 'CodebuffConfigSchema')}
+${stringifySchema(CodebuffConfigSchema, 'CodebuffConfigSchema')}
 `.trim()
 
 export const knowledgeFilesPrompt = `

@@ -8,7 +8,9 @@ export const StartupProcessSchema = z
     name: z
       .string()
       .min(1, 'Process name is required')
-      .describe('A user-friendly name for the process.'),
+      .describe(
+        'A user-friendly name for the process. Should be one word and unique.'
+      ),
     command: z
       .string()
       .min(1, 'Command is required')
@@ -35,9 +37,7 @@ export const StartupProcessSchema = z
         'Path to write process stderr output. If not specified, output is not stored.'
       ),
   })
-  .describe(
-    'Defines a single startup process. This validates the structure of an object representing a command that Codebuff can run automatically when it starts.'
-  )
+  .describe('Defines a single startup process.')
 
 export const CodebuffConfigSchema = z
   .object({
@@ -48,9 +48,7 @@ export const CodebuffConfigSchema = z
     startupProcesses: z
       .array(StartupProcessSchema)
       .optional()
-      .describe(
-        'An array of startup processes, each validated by the StartupProcessSchema.'
-      ),
+      .describe('An array of startup processes.'),
   })
   .describe(
     `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration.`
