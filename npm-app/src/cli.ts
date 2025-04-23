@@ -9,7 +9,10 @@ import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 import { green, yellow } from 'picocolors'
 
-import { killAllBackgroundProcesses } from './background-process-manager'
+import {
+  killAllBackgroundProcesses,
+  sendKillSignalToAllBackgroundProcesses,
+} from './background-process-manager'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { detectApiKey, handleApiKeyInput } from './cli-handlers/api-key'
@@ -102,13 +105,22 @@ export class CLI {
   }
 
   private setupSignalHandlers() {
-    process.on('exit', () => Spinner.get().restoreCursor())
+    process.on('exit', () => {
+      Spinner.get().restoreCursor()
+      sendKillSignalToAllBackgroundProcesses()
+    })
     process.on('SIGTERM', async () => {
       Spinner.get().restoreCursor()
       await killAllBackgroundProcesses()
       process.exit(0)
     })
     process.on('SIGTSTP', async () => await this.handleExit())
+    process.on('SIGHUP', async () => {
+      Spinner.get().restoreCursor()
+      await killAllBackgroundProcesses()
+      process.exit(0)
+    })
+    // Doesn't catch SIGKILL (e.g. `kill -9`)
   }
 
   private initReadlineInterface() {

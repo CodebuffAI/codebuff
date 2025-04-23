@@ -5,7 +5,13 @@ import {
   spawn,
   SpawnOptionsWithoutStdio,
 } from 'child_process'
-import { mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'fs'
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
 import path from 'path'
 import process from 'process'
 
@@ -13,6 +19,7 @@ import { ToolResult } from 'common/types/agent-state'
 import { buildArray } from 'common/util/array'
 import { truncateStringWithMessage } from 'common/util/string'
 import { gray, red } from 'picocolors'
+import { z } from 'zod'
 
 import { CONFIG_DIR } from './credentials'
 
@@ -166,6 +173,79 @@ function deleteFileIfExists(fileName: string) {
   } catch {}
 }
 
+const zodMaybeNumber = z.preprocess((val) => {
+  const n = Number(val)
+  return typeof val === 'undefined' || isNaN(n) ? undefined : n
+}, z.number().optional())
+
+const lockFileSchema = z.object({
+  parentPid: zodMaybeNumber,
+})
+
+type LockFileSchema = z.infer<typeof lockFileSchema>
+
+/**
+ * Creates a lock file for a background process with the current process's PID.
+ * This allows tracking parent-child process relationships for cleanup.
+ *
+ * @param filePath - Path where the lock file should be created
+ */
+function createLockFile(filePath: string): void {
+  const data: LockFileSchema = {
+    parentPid: process.pid,
+  }
+
+  writeFileSync(filePath, JSON.stringify(data, null, 1))
+}
+
+/**
+ * Checks if a process with the given PID is still running.
+ *
+ * @param pid - Process ID to check
+ * @returns true if the process is running, false otherwise
+ */
+function isRunning(pid: number) {
+  try {
+    process.kill(pid, 0)
+  } catch (error: any) {
+    if (error.code === 'ESRCH') {
+      return false
+    }
+  }
+
+  return true
+}
+
+/**
+ * Determines whether the process associated with a given PID should be
+ * terminated, based on the lock file contents stored for that PID.
+ *
+ * If the parent process is no longer active or the file is invalid, the
+ * function assumes the process is orphaned and should be killed.
+ *
+ * @param lockFile - The path of the lock file.
+ * @returns `true` if the process should be killed (e.g. parent no longer exists or file is invalid),
+ *          `false` if the parent process is still alive and the process should be kept running.
+ */
+function shouldKillProcessUsingLock(lockFile: string): boolean {
+  const fileContents = String(readFileSync(lockFile))
+
+  let data: LockFileSchema
+  try {
+    data = lockFileSchema.parse(JSON.parse(fileContents))
+  } catch (error) {
+    data = {
+      parentPid: undefined,
+    }
+  }
+
+  if (data.parentPid && isRunning(data.parentPid)) {
+    return false
+  }
+
+  return true
+}
+
 export function spawnAndTrack(
   command: string,
   args: string[] = [],
@@ -179,7 +259,7 @@ export function spawnAndTrack(
 
   mkdirSync(LOCK_DIR, { recursive: true })
   const filePath = path.join(LOCK_DIR, `${child.pid}`)
-  writeFileSync(filePath, '')
+  createLockFile(filePath)
 
   child.on('exit', () => {
     deleteFileIfExists(filePath)
@@ -208,15 +288,11 @@ function waitForProcessExit(pid: number): Promise<boolean> {
     let resolved = false
 
     const interval = setInterval(() => {
-      try {
-        process.kill(pid, 0)
-      } catch (err: any) {
-        if (err.code === 'ESRCH') {
-          clearInterval(interval)
-          clearTimeout(timeout)
-          resolved = true
-          resolve(true)
-        }
+      if (!isRunning(pid)) {
+        clearInterval(interval)
+        clearTimeout(timeout)
+        resolved = true
+        resolve(true)
       }
     }, POLLING_INTERVAL_MS)
 
@@ -245,6 +321,19 @@ async function killAndWait(pid: number): Promise<void> {
   throw new Error(`Unable to kill process ${pid}`)
 }
 
+// Only to be run on exit
+export function sendKillSignalToAllBackgroundProcesses(): void {
+  for (const [pid, p] of backgroundProcesses.entries()) {
+    if (p.status !== 'running') {
+      continue
+    }
+
+    try {
+      process.kill(-pid, 'SIGTERM')
+    } catch {}
+  }
+}
+
 export async function killAllBackgroundProcesses(): Promise<void> {
   const killPromises = Array.from(backgroundProcesses.entries())
     .filter(([, p]) => p.status === 'running')
@@ -267,44 +356,68 @@ export async function killAllBackgroundProcesses(): Promise<void> {
 
 /**
  * Cleans up stale lock files and attempts to kill orphaned processes found in the lock directory.
- * This function is intended to run on startup or periodically to handle cases where
- * the application might have exited uncleanly, leaving orphaned processes or lock files.
+ * This function is intended to run on startup to handle cases where the application might have
+ * exited uncleanly, leaving orphaned processes or lock files.
+ *
+ * @returns Object containing:
+ *   - shouldStartNewProcesses: boolean indicating if it's safe to start new processes
+ *   - cleanUpPromise: Promise that resolves when cleanup is complete
  */
-export async function cleanupStoredProcesses(): Promise<void> {
+export function cleanupStoredProcesses(): {
+  separateCodebuffInstanceRunning: boolean
+  cleanUpPromise: Promise<any>
+} {
+  // Determine which processes to kill (sync)
+  let separateCodebuffInstanceRunning = false
+  const locksToProcess: string[] = []
   try {
     mkdirSync(LOCK_DIR, { recursive: true })
     const files = readdirSync(LOCK_DIR)
 
-    if (files.length) {
-      console.log(gray('Detected running codebuff processes. Cleaning...\n'))
-    }
-
     for (const file of files) {
-      const filePath = path.join(LOCK_DIR, file)
-      const pid = parseInt(file, 10)
-
-      if (isNaN(pid)) {
-        deleteFileIfExists(filePath)
-        continue
-      }
-
-      if (backgroundProcesses.has(pid)) {
-        continue
-      }
-
-      try {
-        process.kill(-pid, 'SIGTERM')
-        if (await waitForProcessExit(pid)) {
-          deleteFileIfExists(filePath)
-        }
-      } catch (err: any) {
-        if (err.code === 'ESRCH') {
-          deleteFileIfExists(filePath)
-        }
+      const lockFile = path.join(LOCK_DIR, file)
+      if (shouldKillProcessUsingLock(lockFile)) {
+        locksToProcess.push(file)
+      } else {
+        separateCodebuffInstanceRunning = true
       }
     }
-  } catch (error: any) {
-    console.error(red('Failed to clean up stored processes:'), error)
-    console.log()
+  } catch {}
+
+  if (locksToProcess.length) {
+    console.log(gray('Detected running codebuff processes. Cleaning...\n'))
+  }
+
+  // Actually kill processes (async)
+  const processLockFile = async (pidName: string) => {
+    const lockFile = path.join(LOCK_DIR, pidName)
+
+    const pid = parseInt(pidName, 10)
+    if (isNaN(pid)) {
+      deleteFileIfExists(lockFile)
+      return
+    }
+
+    if (backgroundProcesses.has(pid)) {
+      return
+    }
+
+    try {
+      process.kill(-pid, 'SIGTERM')
+      if (await waitForProcessExit(pid)) {
+        deleteFileIfExists(lockFile)
+      }
+    } catch (err: any) {
+      if (err.code === 'ESRCH') {
+        deleteFileIfExists(lockFile)
+      }
+    }
+  }
+
+  const cleanUpPromise = Promise.all(locksToProcess.map(processLockFile))
+
+  return {
+    separateCodebuffInstanceRunning,
+    cleanUpPromise,
   }
 }

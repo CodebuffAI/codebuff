@@ -6,14 +6,13 @@ import { loadCodebuffConfig } from 'common/json-config/parser'
 import { red } from 'picocolors'
 
 import packageJson from '../package.json'
-import { cleanupStoredProcesses } from './background-process-manager'
 import { CLI } from './cli'
 import { createTemplateProject } from './create-template-project'
-import { startDevProcesses } from './dev-process-manager'
 import {
   initProjectFileContextWithWorker,
   setProjectRoot,
 } from './project-files'
+import { logAndHandleStartup } from './startup-process-handler'
 import { CliOptions } from './types'
 import { updateCodebuff } from './update-codebuff'
 import { recreateShell } from './utils/terminal'
@@ -25,16 +24,13 @@ async function codebuff(
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
 
-  // Kill all processes we failed to kill before
-  const processCleanupPromise = cleanupStoredProcesses()
-
-  const updatePromise = updateCodebuff()
-
   // Load codebuff.json config if it exists
   const config = loadCodebuffConfig(dir)
-  if (config?.startupProcesses) {
-    await startDevProcesses(config.startupProcesses, dir)
-  }
+
+  // Kill all processes we failed to kill before
+  const processCleanupPromise = logAndHandleStartup(dir, config)
+
+  const updatePromise = updateCodebuff()
 
   const initFileContextPromise = initProjectFileContextWithWorker(dir)
 

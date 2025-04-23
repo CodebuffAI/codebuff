@@ -7,15 +7,25 @@ import { yellow } from 'picocolors'
 import { runBackgroundCommand } from './utils/terminal'
 
 /**
- * Starts background development processes defined in codebuff.json
+ * Starts background development processes defined in codebuff.json.
+ * Processes are started asynchronously and their output is tracked.
+ * Only enabled processes are started.
+ * 
+ * @param processes - Array of startup process configurations
+ * @param projectPath - Base path of the project
  */
-export async function startDevProcesses(
+export function startDevProcesses(
   processes: StartupProcess[],
   projectPath: string
 ) {
-  if (processes.some((process) => process.enabled)) {
-    console.log(yellow('Starting development processes:'))
+  const toStart = processes.filter((process) => process.enabled)
+
+  if (!toStart.length) {
+    return
   }
+
+  console.log(yellow('Starting development processes:'))
+
   for (const {
     name,
     command,
@@ -36,7 +46,7 @@ export async function startDevProcesses(
       : projectPath
 
     // Start the process
-    await runBackgroundCommand(
+    runBackgroundCommand(
       {
         toolCallId: generateCompactId(),
         command,
