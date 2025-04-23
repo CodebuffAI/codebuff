@@ -1,5 +1,5 @@
 import { exec } from 'child_process'
-import fs from 'fs'
+import fs, { existsSync, statSync } from 'fs'
 import os from 'os'
 import path, { isAbsolute } from 'path'
 import { promisify } from 'util'
@@ -30,6 +30,14 @@ import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 // Initialize chat ID on first import
 export const currentChatId = new Date().toISOString().replace(/:/g, '-')
 
+export function isDir(p: string): boolean {
+  try {
+    return statSync(p).isDirectory()
+  } catch {
+    return false
+  }
+}
+
 // Get the project-specific data directory
 export function getProjectDataDir(): string {
   const root = getProjectRoot()
@@ -57,7 +65,7 @@ let projectRoot: string
 
 export function setProjectRoot(dir: string | undefined) {
   const newDir = path.resolve(dir || getCurrentDirectory())
-  if (fs.existsSync(newDir)) {
+  if (existsSync(newDir)) {
     if (projectRoot) {
       checkpointManager.clearCheckpoints(true)
 
