@@ -180,10 +180,11 @@ async function consumeFromOrderedGrants(
 export async function calculateUsageAndBalance(
   userId: string,
   quotaResetDate: Date,
-  now: Date = new Date()
+  now: Date = new Date(),
+  conn: DbConn = db // Add optional conn parameter to pass transaction
 ): Promise<CreditUsageAndBalance> {
-  // Get all relevant grants in one query
-  const grants = await getOrderedActiveGrants(userId, now)
+  // Get all relevant grants in one query, using the provided connection
+  const grants = await getOrderedActiveGrants(userId, now, conn)
 
   // Initialize balance structure
   const balance: CreditBalance = {
