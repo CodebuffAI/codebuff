@@ -297,31 +297,6 @@ export async function revokeGrantByOperationId(
 }
 
 /**
- * Gets the total monthly credit grant amount for a user.
- * This includes both their base free credits and any referral bonuses,
- * combined into a single number.
- */
-export async function getMonthlyGrantAmount(userId?: string): Promise<number> {
-  // If no userId provided, just return the base free amount
-  if (!userId) {
-    return 500
-  }
-
-  // Calculate total grant by adding base free amount and referral bonuses
-  const [freeGrantAmount, referralBonus] = await Promise.all([
-    getPreviousFreeGrantAmount(userId),
-    calculateTotalReferralBonus(userId),
-  ])
-
-  const totalGrant = freeGrantAmount + referralBonus
-  logger.debug(
-    { userId, freeGrantAmount, referralBonus, totalGrant },
-    'Calculated total monthly grant amount'
-  )
-  return totalGrant
-}
-
-/**
  * Checks if a user's quota needs to be reset, and if so:
  * 1. Calculates their new monthly grant amount
  * 2. Issues the grant with the appropriate expiry
@@ -359,12 +334,16 @@ export async function triggerMonthlyResetAndGrant(
     // Calculate new reset date
     const newResetDate = getNextQuotaReset(currentResetDate)
 
-    // Calculate grant amount
-    const grantAmount = await getMonthlyGrantAmount(userId)
+    // Calculate grant amounts separately
+    const [freeGrantAmount, referralBonus] = await Promise.all([
+      getPreviousFreeGrantAmount(userId),
+      calculateTotalReferralBonus(userId),
+    ])
 
     // Generate a deterministic operation ID based on userId and reset date to minute precision
     const timestamp = generateOperationIdTimestamp(newResetDate)
-    const operationId = `free-${userId}-${timestamp}`
+    const freeOperationId = `free-${userId}-${timestamp}`
+    const referralOperationId = `referral-${userId}-${timestamp}`
 
     // Update the user's next reset date first
     await tx
@@ -372,25 +351,41 @@ export async function triggerMonthlyResetAndGrant(
       .set({ next_quota_reset: newResetDate })
       .where(eq(schema.user.id, userId))
 
-    // Then issue the grant
-    await grantCreditOperation(
-      userId,
-      grantAmount,
-      'free',
-      'Monthly free credits',
-      newResetDate, // Grant expires at next reset
-      operationId
-    )
+    // Then issue both grants concurrently
+    await Promise.all([
+      // Always grant free credits
+      grantCreditOperation(
+        userId,
+        freeGrantAmount,
+        'free',
+        'Monthly free credits',
+        newResetDate, // Free credits expire at next reset
+        freeOperationId
+      ),
+      // Only grant referral credits if there are any
+      referralBonus > 0
+        ? grantCreditOperation(
+            userId,
+            referralBonus,
+            'referral',
+            'Monthly referral bonus',
+            null, // Referral credits don't expire
+            referralOperationId
+          )
+        : Promise.resolve(),
+    ])
 
     logger.info(
       {
         userId,
-        operationId,
-        grantAmount,
+        freeOperationId,
+        referralOperationId,
+        freeGrantAmount,
+        referralBonus,
         newResetDate,
         previousResetDate: currentResetDate,
       },
-      'Processed monthly credit grant and reset'
+      'Processed monthly credit grants and reset'
     )
 
     return newResetDate
