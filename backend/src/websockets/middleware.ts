@@ -183,6 +183,17 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
   // Check and trigger monthly reset if needed
   await triggerMonthlyResetAndGrant(userId)
 
+  // Check if we need to trigger auto top-up
+  try {
+    await checkAndTriggerAutoTopup(userId)
+  } catch (error) {
+    logger.error(
+      { error, userId, clientSessionId },
+      'Error during auto top-up check in middleware'
+    )
+    // Continue execution to check remaining balance
+  }
+
   const { usageThisCycle, balance } = await calculateUsageAndBalance(
     userId,
     user?.next_quota_reset ?? new Date(0)

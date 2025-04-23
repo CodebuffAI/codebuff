@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { calculateUsageAndBalance } from 'common/src/billing/balance-calculator'
 import { triggerMonthlyResetAndGrant } from 'common/src/billing/grant-credits'
+import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
+import { logger } from '@/util/logger'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -18,6 +20,17 @@ export async function GET() {
 
     // Check if we need to reset quota and grant new credits
     const effectiveQuotaResetDate = await triggerMonthlyResetAndGrant(userId)
+
+    // Check if we need to trigger auto top-up
+    try {
+      await checkAndTriggerAutoTopup(userId)
+    } catch (error) {
+      logger.error(
+        { error, userId },
+        'Error during auto top-up check in usage route'
+      )
+      // Continue execution to return usage data even if auto top-up fails
+    }
 
     // Use the canonical balance calculation function with the effective reset date
     const { usageThisCycle, balance } = await calculateUsageAndBalance(
