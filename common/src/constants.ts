@@ -62,77 +62,34 @@ export function toOptionalFile(file: string | null) {
 export const REQUEST_CREDIT_SHOW_THRESHOLD = 1
 export const MAX_DATE = new Date(86399999999999)
 export const BILLING_PERIOD_DAYS = 30
-export const OVERAGE_RATE_PRO = 0.99
-export const OVERAGE_RATE_MOAR_PRO = 0.9
 export const CREDITS_REFERRAL_BONUS = 250
 export const AFFILIATE_USER_REFFERAL_LIMIT = 500
 
-export const getPlanDisplayName = (limit: UsageLimits): string => {
-  return PLAN_CONFIGS[limit].displayName
-}
-
-export const getUsageLimitFromPlanName = (planName: string): UsageLimits => {
-  const entry = Object.entries(PLAN_CONFIGS).find(
-    ([_, config]) => config.planName === planName
-  )
-  if (!entry) {
-    throw new Error(`Invalid plan name: ${planName}`)
-  }
-  return entry[0] as UsageLimits
-}
-
-export type PlanConfig = {
-  limit: number
-  planName: UsageLimits
-  displayName: string
-  monthlyPrice: number
-  overageRate: number | null
-}
-
-export const UsageLimits = {
-  ANON: 'ANON',
-  FREE: 'FREE',
-  PRO: 'PRO',
-  MOAR_PRO: 'MOAR_PRO',
+export const AuthState = {
+  LOGGED_OUT: 'LOGGED_OUT',
+  LOGGED_IN: 'LOGGED_IN',
 } as const
 
-export type UsageLimits = (typeof UsageLimits)[keyof typeof UsageLimits]
+export type AuthState = (typeof AuthState)[keyof typeof AuthState]
 
-export const PLAN_CONFIGS: Record<UsageLimits, PlanConfig> = {
-  ANON: {
-    limit: 250,
-    planName: UsageLimits.ANON,
-    displayName: 'Anonymous',
-    monthlyPrice: 0,
-    overageRate: null,
-  },
-  FREE: {
-    limit: 500,
-    planName: UsageLimits.FREE,
-    displayName: 'Free',
-    monthlyPrice: 0,
-    overageRate: null,
-  },
-  PRO: {
-    limit: 5_000,
-    planName: UsageLimits.PRO,
-    displayName: 'Pro',
-    monthlyPrice: 49,
-    overageRate: OVERAGE_RATE_PRO,
-  },
-  MOAR_PRO: {
-    limit: 27_500,
-    planName: UsageLimits.MOAR_PRO,
-    displayName: 'Pro Plus',
-    monthlyPrice: 249,
-    overageRate: OVERAGE_RATE_MOAR_PRO,
-  },
+export const UserState = {
+  LOGGED_OUT: 'LOGGED_OUT',
+  GOOD_STANDING: 'GOOD_STANDING', // >= 100 credits
+  ATTENTION_NEEDED: 'ATTENTION_NEEDED', // 20-99 credits
+  CRITICAL: 'CRITICAL', // 1-19 credits
+  DEPLETED: 'DEPLETED', // <= 0 credits
+} as const
+
+export type UserState = (typeof UserState)[keyof typeof UserState]
+
+export function getUserState(isLoggedIn: boolean, credits: number): UserState {
+  if (!isLoggedIn) return UserState.LOGGED_OUT
+
+  if (credits >= 100) return UserState.GOOD_STANDING
+  if (credits >= 20) return UserState.ATTENTION_NEEDED
+  if (credits >= 1) return UserState.CRITICAL
+  return UserState.DEPLETED
 }
-
-export const CREDITS_USAGE_LIMITS: Record<UsageLimits, number> =
-  Object.fromEntries(
-    Object.entries(PLAN_CONFIGS).map(([key, config]) => [key, config.limit])
-  ) as Record<UsageLimits, number>
 
 export const costModes = ['lite', 'normal', 'max', 'experimental'] as const
 export type CostMode = (typeof costModes)[number]
@@ -243,29 +200,3 @@ export const providerModelNames = {
 export type Model = (typeof models)[keyof typeof models]
 
 export const TEST_USER_ID = 'test-user-id'
-
-export const AuthState = {
-  LOGGED_OUT: 'LOGGED_OUT',
-  LOGGED_IN: 'LOGGED_IN',
-} as const
-
-export type AuthState = (typeof AuthState)[keyof typeof AuthState]
-
-export const UserState = {
-  LOGGED_OUT: 'LOGGED_OUT',
-  GOOD_STANDING: 'GOOD_STANDING', // >= 100 credits
-  ATTENTION_NEEDED: 'ATTENTION_NEEDED', // 20-99 credits
-  CRITICAL: 'CRITICAL', // 1-19 credits
-  DEPLETED: 'DEPLETED', // <= 0 credits
-} as const
-
-export type UserState = (typeof UserState)[keyof typeof UserState]
-
-export function getUserState(isLoggedIn: boolean, credits: number): UserState {
-  if (!isLoggedIn) return UserState.LOGGED_OUT
-
-  if (credits >= 100) return UserState.GOOD_STANDING
-  if (credits >= 20) return UserState.ATTENTION_NEEDED
-  if (credits >= 1) return UserState.CRITICAL
-  return UserState.DEPLETED
-}

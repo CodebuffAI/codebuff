@@ -15,12 +15,7 @@ import { logger, withLoggerContext } from '@/util/logger'
 import { generateCompactId } from 'common/util/string'
 import { renderToolResults } from '@/util/parse-tool-call-xml'
 import { buildArray } from 'common/util/array'
-import { toOptionalFile, UsageLimits, PLAN_CONFIGS } from 'common/constants'
-import {
-  getPlanFromPriceId,
-  getMonthlyGrantForPlan,
-} from 'common/src/billing/plans'
-import { triggerMonthlyResetAndGrant } from 'common/src/billing/grant-credits'
+import { toOptionalFile } from 'common/constants'
 
 /**
  * Sends an action to the client via WebSocket

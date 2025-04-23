@@ -2,15 +2,12 @@ import db from '../db'
 import * as schema from '../db/schema'
 import { GrantType } from '../db/schema'
 import { logger } from '../util/logger'
-import { getUserCostPerCredit } from './conversion'
+
 import { GRANT_PRIORITIES } from '../constants/grant-priorities'
 import { eq, desc, lte, and, or, sql, isNull, gt } from 'drizzle-orm'
-import { generateCompactId } from '../util/string'
-import { CREDITS_USAGE_LIMITS } from '../constants'
 import { withRetry } from '../util/promise'
 import { logSyncFailure } from '../util/sync-failure'
 import { getNextQuotaReset } from '../util/dates'
-import { getPlanFromPriceId, getMonthlyGrantForPlan } from './plans'
 import { generateOperationIdTimestamp } from './utils'
 
 type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
@@ -53,10 +50,10 @@ export async function getPreviousFreeGrantAmount(
     return cappedAmount
   } else {
     logger.debug(
-      { userId, defaultAmount: CREDITS_USAGE_LIMITS.FREE },
+      { userId, defaultAmount: 500 },
       'No previous expired free grant found. Using default.'
     )
-    return CREDITS_USAGE_LIMITS.FREE // Default if no previous grant found
+    return 500 // Default if no previous grant found
   }
 }
 
@@ -153,7 +150,10 @@ async function grantCreditOperation(
           })
         } catch (error: any) {
           // Check if this is a unique constraint violation on operation_id
-          if (error.code === '23505' && error.constraint === 'credit_ledger_pkey') {
+          if (
+            error.code === '23505' &&
+            error.constraint === 'credit_ledger_pkey'
+          ) {
             logger.info(
               { userId, operationId, type, amount },
               'Skipping duplicate credit grant due to idempotency check'
@@ -179,7 +179,10 @@ async function grantCreditOperation(
         })
       } catch (error: any) {
         // Check if this is a unique constraint violation on operation_id
-        if (error.code === '23505' && error.constraint === 'credit_ledger_pkey') {
+        if (
+          error.code === '23505' &&
+          error.constraint === 'credit_ledger_pkey'
+        ) {
           logger.info(
             { userId, operationId, type, amount },
             'Skipping duplicate credit grant due to idempotency check'
@@ -294,6 +297,31 @@ export async function revokeGrantByOperationId(
 }
 
 /**
+ * Gets the total monthly credit grant amount for a user.
+ * This includes both their base free credits and any referral bonuses,
+ * combined into a single number.
+ */
+export async function getMonthlyGrantAmount(userId?: string): Promise<number> {
+  // If no userId provided, just return the base free amount
+  if (!userId) {
+    return 500
+  }
+
+  // Calculate total grant by adding base free amount and referral bonuses
+  const [freeGrantAmount, referralBonus] = await Promise.all([
+    getPreviousFreeGrantAmount(userId),
+    calculateTotalReferralBonus(userId),
+  ])
+
+  const totalGrant = freeGrantAmount + referralBonus
+  logger.debug(
+    { userId, freeGrantAmount, referralBonus, totalGrant },
+    'Calculated total monthly grant amount'
+  )
+  return totalGrant
+}
+
+/**
  * Checks if a user's quota needs to be reset, and if so:
  * 1. Calculates their new monthly grant amount
  * 2. Issues the grant with the appropriate expiry
@@ -309,12 +337,11 @@ export async function triggerMonthlyResetAndGrant(
   return await db.transaction(async (tx) => {
     const now = new Date()
 
-    // Get user's current reset date and plan
+    // Get user's current reset date
     const user = await tx.query.user.findFirst({
       where: eq(schema.user.id, userId),
       columns: {
         next_quota_reset: true,
-        stripe_price_id: true,
       },
     })
 
@@ -332,13 +359,8 @@ export async function triggerMonthlyResetAndGrant(
     // Calculate new reset date
     const newResetDate = getNextQuotaReset(currentResetDate)
 
-    // Calculate grant amount based on user's plan
-    const currentPlan = getPlanFromPriceId(
-      user.stripe_price_id,
-      process.env.STRIPE_PRO_PRICE_ID,
-      process.env.STRIPE_MOAR_PRO_PRICE_ID
-    )
-    const grantAmount = await getMonthlyGrantForPlan(currentPlan, userId)
+    // Calculate grant amount
+    const grantAmount = await getMonthlyGrantAmount(userId)
 
     // Generate a deterministic operation ID based on userId and reset date to minute precision
     const timestamp = generateOperationIdTimestamp(newResetDate)

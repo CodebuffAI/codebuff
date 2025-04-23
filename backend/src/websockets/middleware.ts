@@ -5,31 +5,13 @@ import { checkAuth } from '../util/check-auth'
 import { logger, withLoggerContext } from '@/util/logger'
 import { getUserInfoFromAuthToken, UserInfo } from './auth'
 import { sendAction } from './websocket-action'
-import {
-  calculateUsageAndBalance,
-  consumeCredits,
-} from 'common/src/billing/balance-calculator'
-import { getNextQuotaReset } from 'common/src/util/dates'
+import { calculateUsageAndBalance } from 'common/src/billing/balance-calculator'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
-import {
-  CREDITS_USAGE_LIMITS,
-  CREDITS_REFERRAL_BONUS,
-} from 'common/src/constants'
-import {
-  processAndGrantCredit,
-  getPreviousFreeGrantAmount,
-  calculateTotalReferralBonus,
-  triggerMonthlyResetAndGrant,
-} from 'common/src/billing/grant-credits'
+import { triggerMonthlyResetAndGrant } from 'common/src/billing/grant-credits'
 import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
-import { generateCompactId } from 'common/util/string'
 import { pluralize } from 'common/util/string'
-import {
-  getPlanFromPriceId,
-  getMonthlyGrantForPlan,
-} from 'common/src/billing/plans'
 
 type MiddlewareCallback = (
   action: ClientAction,
@@ -170,13 +152,12 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     }
   }
 
-  // Get user info for balance calculation and plan details
+  // Get user info for balance calculation
   const user = await db.query.user.findFirst({
     where: eq(schema.user.id, userId),
     columns: {
       next_quota_reset: true,
       stripe_customer_id: true,
-      stripe_price_id: true,
     },
   })
 
