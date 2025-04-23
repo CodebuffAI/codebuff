@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -231,20 +231,19 @@ export default function FilePicker() {
                             >
                               {result.outputs[model]
                                 ? result.outputs[model]
-                                    .split('\n')
-                                    .map((file) => file.trim())
-                                    .filter((file) => file.length > 0)
-                                    .sort()
-                                    .map((file, fileIndex) => (
-                                      <div
-                                        key={fileIndex}
-                                        className="block mb-2"
-                                      >
-                                        <span className="px-2 py-1 bg-secondary rounded-full text-xs">
-                                          {file}
-                                        </span>
-                                      </div>
-                                    ))
+                                  .split('\n')
+                                  .map((file) => file.trim())
+                                  .filter((file) => file.length > 0)
+                                  .map((file, fileIndex) => (
+                                    <div
+                                      key={fileIndex}
+                                      className="block mb-2"
+                                    >
+                                      <span className="px-2 py-1 bg-secondary rounded-full text-xs">
+                                        {file}
+                                      </span>
+                                    </div>
+                                  ))
                                 : 'N/A'}
                             </TableCell>
                           ))}
