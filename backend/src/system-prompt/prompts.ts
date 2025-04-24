@@ -69,7 +69,7 @@ If the user sends you the url to a page that is helpful now or could be helpful 
 
 export const additionalSystemPrompts = {
   init: `
-Trigger initialization flow:
+User has typed "init". Trigger initialization flow:
 
 First, read knowldge.md and ${codebuffConfigFile} top level directory.
 
@@ -78,9 +78,15 @@ Knowledge file:
 - If it does, do nothing.
 
 Config file (probably already exists):
-- If it is just a template without any configurations set (empty arrays), populate the fields to according to the project.
-- If it looks already populated, do nothing.
 - Do not edit the description field.
+- If it looks already populated, do nothing.
+- If it is just a template without any configurations set (empty arrays), determine whether background processes are necessary for development. If they are, populate the fields to according to the project. Additionally:
+  - Do provide:
+    - startupProcesses.item.stdoutFile: "logs/{name}.log"
+  - Do not provide:
+    - startupProcesses.item.stderrFile
+    - startupProcesses.item.enabled
+  - Provide startupProcesses.item.cwd only if it is not '.'
 `.trim(),
 } as const
 
