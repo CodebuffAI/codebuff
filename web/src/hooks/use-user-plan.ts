@@ -1,5 +1,6 @@
+'use client'
+
 import { useQuery } from '@tanstack/react-query'
-import { PlanConfig, UsageLimits } from 'common/constants'
 
 export const useUserPlan = (subscriptionId: string | null | undefined) => {
   return useQuery({
@@ -10,9 +11,7 @@ export const useUserPlan = (subscriptionId: string | null | undefined) => {
       if (!response.ok) {
         throw new Error('Failed to fetch subscription details')
       }
-      const { currentPlan }: { currentPlan: UsageLimits } =
-        await response.json()
-      return currentPlan
+      return null // No longer returning plan info
     },
     enabled: !!subscriptionId,
   })

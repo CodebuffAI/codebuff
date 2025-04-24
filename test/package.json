@@ -11,6 +11,7 @@
     "test-quota-manager": "bun test quota-manager.test.ts"
   },
   "dependencies": {
+    "@codebuff/billing": "workspace:*",
     "tree-sitter": "0.21.1",
     "dotenv": "^16.4.5"
   },

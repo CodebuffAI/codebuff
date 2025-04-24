@@ -18,7 +18,8 @@
       "backend/*": ["../backend/src/*"],
       "common/*": ["../common/src/*"],
       "code-map/*": ["../packages/code-map/*"],
-      "npm-app/*": ["../npm-app/src/*"]
+      "npm-app/*": ["../npm-app/src/*"],
+      "@codebuff/billing": ["../packages/billing/src"]
     },
     "types": ["bun"],
     "outDir": "./dist"
@@ -29,6 +30,7 @@
     { "path": "../common" },
     { "path": "../backend" },
     { "path": "../packages/code-map" },
+    { "path": "../packages/billing" },
     { "path": "../npm-app" }
   ]
 }

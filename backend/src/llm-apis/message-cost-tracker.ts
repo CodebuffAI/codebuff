@@ -7,11 +7,9 @@ import { stripeServer } from 'common/src/util/stripe'
 import { eq, sql } from 'drizzle-orm'
 import { WebSocket } from 'ws'
 import Stripe from 'stripe'
-import { consumeCredits } from 'common/src/billing/balance-calculator'
-
+import { consumeCredits, getUserCostPerCredit } from '@codebuff/billing'
 import { stripNullCharsFromObject } from '../util/object'
 import { INITIAL_RETRY_DELAY, withRetry } from 'common/src/util/promise'
-import { getUserCostPerCredit } from 'common/src/billing/conversion'
 
 import { OpenAIMessage } from '@/llm-apis/openai-api'
 import { logger, withLoggerContext } from '@/util/logger'
@@ -61,7 +59,6 @@ const TOKENS_COST_PER_M = {
     [models.gemini2_5_flash]: 0.6,
     [models.gemini2_5_flash_thinking]: 3.5,
     [models.ft_filepicker_003]: 0.4,
-    [models.openrouter_gemini2_5_pro_preview]: 10,
   },
   cache_creation: {
     [models.sonnet]: 3.75,
@@ -462,7 +459,11 @@ export const saveMessage = async (value: {
         value.cacheReadInputTokens ?? 0
       )
 
-      const centsPerCredit = await getUserCostPerCredit(value.userId)
+      // Default to 1 cent per credit if no user ID
+      const centsPerCredit = value.userId
+        ? await getUserCostPerCredit(value.userId)
+        : 1
+
       const costInCents = Math.max(
         1,
         Math.round(

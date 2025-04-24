@@ -17,7 +17,8 @@
     "baseUrl": ".",
     "paths": {
       "common/*": ["./src/common/*", "../common/src/*"],
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@codebuff/billing": ["../packages/billing/src"]
     },
     "typeRoots": [
       "./node_modules/@types",
@@ -28,7 +29,10 @@
   },
   "include": ["src/**/*"],
   "exclude": ["src/**/__mock-data__/**/*"],
-  "references": [{ "path": "../common" }],
+  "references": [
+    { "path": "../common" },
+    { "path": "../packages/billing" }
+  ],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }

@@ -29,6 +29,7 @@
       "dependencies": {
         "@ai-sdk/google-vertex": "^2.2.15",
         "@anthropic-ai/sdk": "^0.39.0",
+        "@codebuff/billing": "workspace:*",
         "@google-cloud/vertexai": "^1.9.3",
         "@google/generative-ai": "^0.24.0",
         "@t3-oss/env-core": "0.11.1",
@@ -90,7 +91,7 @@
     },
     "npm-app": {
       "name": "codebuff",
-      "version": "1.0.227",
+      "version": "1.0.231",
       "bin": {
         "codebuff": "dist/index.js",
       },
@@ -127,6 +128,17 @@
       },
       "optionalDependencies": {
         "@homebridge/node-pty-prebuilt-multiarch": "0.12.0-beta.5",
+      },
+    },
+    "packages/billing": {
+      "name": "@codebuff/billing",
+      "version": "1.0.0",
+      "dependencies": {
+        "zod": "3.23.8",
+      },
+      "devDependencies": {
+        "@types/node": "*",
+        "typescript": "^5.0.0",
       },
     },
     "packages/code-map": {
@@ -167,6 +179,7 @@
       "name": "codebuff-tests",
       "version": "1.0.0",
       "dependencies": {
+        "@codebuff/billing": "workspace:*",
         "dotenv": "^16.4.5",
         "tree-sitter": "0.21.1",
       },
@@ -179,6 +192,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@auth/drizzle-adapter": "^1.8.0",
+        "@codebuff/billing": "workspace:*",
         "@emotion/is-prop-valid": "^1.3.1",
         "@hookform/resolvers": "^3.9.0",
         "@mdx-js/loader": "^3.1.0",
@@ -400,6 +414,8 @@
     "@babel/types": ["@babel/types@7.27.0", "", { "dependencies": { "@babel/helper-string-parser": "^7.25.9", "@babel/helper-validator-identifier": "^7.25.9" } }, "sha512-H45s8fVLYjbhFH62dIJ3WtmJ6RSPt/3DRO0ZcT2SUiYiQyz3BLVb9ADEnLl91m74aQPS3AzzeajZHYOalWe3bg=="],
 
     "@bcoe/v8-coverage": ["@bcoe/v8-coverage@0.2.3", "", {}, "sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw=="],
+
+    "@codebuff/billing": ["@codebuff/billing@workspace:packages/billing"],
 
     "@commitlint/cli": ["@commitlint/cli@19.8.0", "", { "dependencies": { "@commitlint/format": "^19.8.0", "@commitlint/lint": "^19.8.0", "@commitlint/load": "^19.8.0", "@commitlint/read": "^19.8.0", "@commitlint/types": "^19.8.0", "tinyexec": "^0.3.0", "yargs": "^17.0.0" }, "bin": { "commitlint": "./cli.js" } }, "sha512-t/fCrLVu+Ru01h0DtlgHZXbHV2Y8gKocTR5elDOqIRUzQd0/6hpt2VIWOj9b3NDo7y4/gfxeR2zRtXq/qO6iUg=="],
 
@@ -3650,6 +3666,8 @@
     "codebuff/tree-sitter": ["tree-sitter@0.21.1", "", { "dependencies": { "node-addon-api": "^8.0.0", "node-gyp-build": "^4.8.0" } }, "sha512-7dxoA6kYvtgWw80265MyqJlkRl4yawIjO7S5MigytjELkX43fV2WsAXzsNfO7sBpPPCF5Gp0+XzHk0DwLCq3xQ=="],
 
     "codebuff/ts-pattern": ["ts-pattern@5.3.1", "", {}, "sha512-1RUMKa8jYQdNfmnK4jyzBK3/PS/tnjcZ1CW0v1vWDeYe5RBklc/nquw03MEoB66hVBm4BnlCfmOqDVxHyT1DpA=="],
+
+    "codebuff-tests/dotenv": ["dotenv@16.5.0", "", {}, "sha512-m/C+AwOAr9/W1UOIZUo232ejMNnJAJtYQjUbHoNTBNTJSvqzzDh7vnrei3o3r3m9blf6ZoDkvcw0VmozNRFJxg=="],
 
     "codebuff-tests/tree-sitter": ["tree-sitter@0.21.1", "", { "dependencies": { "node-addon-api": "^8.0.0", "node-gyp-build": "^4.8.0" } }, "sha512-7dxoA6kYvtgWw80265MyqJlkRl4yawIjO7S5MigytjELkX43fV2WsAXzsNfO7sBpPPCF5Gp0+XzHk0DwLCq3xQ=="],
 

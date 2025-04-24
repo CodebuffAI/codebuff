@@ -3,17 +3,14 @@
 import Image from 'next/image'
 import { useEffect, Suspense } from 'react'
 import posthog from 'posthog-js'
-import { PLAN_CONFIGS } from 'common/constants'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import CardWithBeams from '@/components/card-with-beams'
 import { trackUpgrade } from '@/lib/trackConversions'
-import { useUserPlan } from '@/hooks/use-user-plan'
 import { capitalize } from 'common/util/string'
 
 function PaymentChangeContent() {
   const { data: session } = useSession()
-  const { data: currentPlan } = useUserPlan(session?.user?.stripe_customer_id)
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -27,11 +24,10 @@ function PaymentChangeContent() {
 
     if (session?.user) {
       posthog.capture('subscription.plan_changed', {
-        plan: currentPlan,
         modification,
       })
     }
-  }, [session, currentPlan, modification, searchParams, pathname, router])
+  }, [session, modification, searchParams, pathname, router])
 
   if (!session?.user) {
     return CardWithBeams({
@@ -47,20 +43,9 @@ function PaymentChangeContent() {
     })
   }
 
-  if (!currentPlan) {
-    return CardWithBeams({
-      title: 'Something went wrong',
-      description:
-        'We could not find your plan details. Please contact support for assistance.',
-    })
-  }
-
-  const credits = PLAN_CONFIGS[currentPlan].limit
-  const planDisplayName = PLAN_CONFIGS[currentPlan].displayName
-
   return CardWithBeams({
     title: `${capitalize(modification)} successful!`,
-    description: `Your plan has been ${modification}d to ${planDisplayName}. You now have ${credits.toLocaleString()} monthly credits.`,
+    description: `Your payment method has been updated.`,
     content: (
       <div className="flex flex-col space-y-2">
         <Image

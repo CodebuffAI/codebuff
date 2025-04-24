@@ -10,10 +10,10 @@ import { logger } from '@/util/logger'
 import {
   convertStripeGrantAmountToCredits,
   getUserCostPerCredit,
-} from 'common/src/billing/conversion'
+} from '@codebuff/billing'
 import { GrantType } from 'common/types/grant'
 import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
-import { processAndGrantCredit, revokeGrantByOperationId } from 'common/src/billing/grant-credits'
+import { processAndGrantCredit, revokeGrantByOperationId } from '@codebuff/billing'
 import { getStripeCustomerId } from '@/lib/stripe-utils'
 
 async function handleCustomerCreated(customer: Stripe.Customer) {

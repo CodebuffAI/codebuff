@@ -11,10 +11,10 @@ import { stripeServer } from 'common/src/util/stripe'
 import {
   convertCreditsToUsdCents,
   getUserCostPerCredit,
-} from 'common/src/billing/conversion'
+} from '@codebuff/billing'
 import { env } from '@/env.mjs'
 import { generateCompactId } from 'common/src/util/string'
-import { processAndGrantCredit } from 'common/src/billing/grant-credits'
+import { processAndGrantCredit } from '@codebuff/billing'
 
 const buyCreditsSchema = z.object({
   credits: z

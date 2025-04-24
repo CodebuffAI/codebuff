@@ -5,7 +5,7 @@ import { Loader2 as Loader } from 'lucide-react'
 import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
-import { convertCreditsToUsdCents } from 'common/src/billing/credit-conversion'
+import { convertCreditsToUsdCents } from '@codebuff/billing'
 import { toast } from '@/components/ui/use-toast'
 import { formatDollars } from '@/lib/currency'
 

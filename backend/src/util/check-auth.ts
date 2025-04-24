@@ -5,7 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { ServerAction } from 'common/actions'
 import { logger } from '@/util/logger'
-import { triggerMonthlyResetAndGrant } from 'common/src/billing/grant-credits'
+import { triggerMonthlyResetAndGrant } from '@codebuff/billing'
 
 // List of admin user emails
 const ADMIN_USER_EMAILS = [

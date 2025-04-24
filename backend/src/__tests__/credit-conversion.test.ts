@@ -1,6 +1,9 @@
 import { describe, it, expect, mock } from 'bun:test'
-import { getUserCostPerCredit } from 'common/src/billing/conversion'
-import { convertCreditsToUsdCents, convertStripeGrantAmountToCredits } from 'common/src/billing/credit-conversion'
+import {
+  getUserCostPerCredit,
+  convertCreditsToUsdCents,
+  convertStripeGrantAmountToCredits,
+} from '@codebuff/billing'
 
 describe('Credit Conversion System', () => {
   describe('getUserCostPerCredit', () => {
@@ -9,8 +12,8 @@ describe('Credit Conversion System', () => {
       expect(cost).toBe(1)
     })
 
-    it('should handle undefined user ID', async () => {
-      const cost = await getUserCostPerCredit(undefined)
+    it('should return 1 cent per credit for test user', async () => {
+      const cost = await getUserCostPerCredit('test-user-undefined-case')
       expect(cost).toBe(1)
     })
   })

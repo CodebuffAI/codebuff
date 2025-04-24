@@ -22,10 +22,14 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "common/*": ["../common/src/*"]
+      "common/*": ["../common/src/*"],
+      "@codebuff/billing": ["../packages/billing/src"]
     }
   },
-  "references": [{ "path": "../common" }],
+  "references": [
+    { "path": "../common" },
+    { "path": "../packages/billing" }
+  ],
   "include": [
     "next-env.d.ts",
     "**/*.ts",

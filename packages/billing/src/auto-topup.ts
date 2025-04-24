@@ -1,18 +1,17 @@
-import db from '../db'
-import * as schema from '../db/schema'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
-import { stripeServer } from '../util/stripe'
-import { logger } from '../util/logger'
-import { processAndGrantCredit } from './grant-credits'
-import { calculateUsageAndBalance } from './balance-calculator'
+import { stripeServer } from 'common/util/stripe'
+import { logger } from 'common/util/logger'
 import { convertCreditsToUsdCents, getUserCostPerCredit } from './conversion'
 import type Stripe from 'stripe'
-import { env } from 'src/env.mjs'
+import { processAndGrantCredit } from './grant-credits'
+import { calculateUsageAndBalance } from './balance-calculator'
 import { generateOperationIdTimestamp } from './utils'
 
 const MINIMUM_PURCHASE_CREDITS = 500
 
-interface AutoTopupValidationResult {
+export interface AutoTopupValidationResult {
   blockedReason: string | null
   validPaymentMethod: Stripe.PaymentMethod | null
 }
@@ -32,7 +31,8 @@ class AutoTopupPaymentError extends Error {
 }
 
 export async function validateAutoTopupStatus(
-  userId: string
+  userId: string,
+  appUrl: string
 ): Promise<AutoTopupValidationResult> {
   const logContext = { userId }
 
@@ -46,7 +46,7 @@ export async function validateAutoTopupStatus(
 
     if (!user?.stripe_customer_id) {
       throw new AutoTopupValidationError(
-        `You don't have a valid account with us. Please log in at ${env.NEXT_PUBLIC_APP_URL}/login`
+        `You don't have a valid account with us. Please log in at ${appUrl}/login`
       )
     }
 
@@ -161,7 +161,10 @@ async function processAutoTopupPayment(
   )
 }
 
-export async function checkAndTriggerAutoTopup(userId: string): Promise<void> {
+export async function checkAndTriggerAutoTopup(
+  userId: string,
+  appUrl: string
+): Promise<void> {
   const logContext = { userId }
 
   try {
@@ -189,7 +192,7 @@ export async function checkAndTriggerAutoTopup(userId: string): Promise<void> {
 
     // Validate payment method
     const { blockedReason, validPaymentMethod } =
-      await validateAutoTopupStatus(userId)
+      await validateAutoTopupStatus(userId, appUrl)
 
     if (blockedReason || !validPaymentMethod) {
       throw new Error(blockedReason || 'Auto top-up is not available.')

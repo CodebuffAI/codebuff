@@ -1,6 +1,6 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test'
-import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
-import { CreditBalance } from 'common/src/billing/balance-calculator'
+import { checkAndTriggerAutoTopup } from '@codebuff/billing'
+import { CreditBalance } from '@codebuff/billing'
 
 describe('Auto Top-up System', () => {
   describe('checkAndTriggerAutoTopup', () => {
@@ -94,7 +94,7 @@ describe('Auto Top-up System', () => {
     })
 
     it('should trigger top-up when balance below threshold', async () => {
-      await checkAndTriggerAutoTopup('test-user')
+      await checkAndTriggerAutoTopup('test-user', 'http://localhost:3000')
 
       // Should check user settings
       expect(dbMock).toHaveBeenCalled()
@@ -128,7 +128,7 @@ describe('Auto Top-up System', () => {
         calculateUsageAndBalance: balanceMock,
       }))
 
-      await checkAndTriggerAutoTopup('test-user')
+      await checkAndTriggerAutoTopup('test-user', 'http://localhost:3000')
 
       // Should still check settings and balance
       expect(dbMock).toHaveBeenCalled()
@@ -158,7 +158,7 @@ describe('Auto Top-up System', () => {
         calculateUsageAndBalance: balanceMock,
       }))
 
-      await checkAndTriggerAutoTopup('test-user')
+      await checkAndTriggerAutoTopup('test-user', 'http://localhost:3000')
 
       // Should grant credits
       expect(grantCreditsMock).toHaveBeenCalled()
@@ -186,7 +186,7 @@ describe('Auto Top-up System', () => {
         },
       }))
 
-      await expect(checkAndTriggerAutoTopup('test-user')).rejects.toThrow()
+      await expect(checkAndTriggerAutoTopup('test-user', 'http://localhost:3000')).rejects.toThrow()
     })
   })
 })

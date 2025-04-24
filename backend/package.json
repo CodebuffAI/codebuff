@@ -13,6 +13,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@codebuff/billing": "workspace:*",
     "@ai-sdk/google-vertex": "^2.2.15",
     "@anthropic-ai/sdk": "^0.39.0",
     "@google-cloud/vertexai": "^1.9.3",

@@ -5,13 +5,12 @@ import { checkAuth } from '../util/check-auth'
 import { logger, withLoggerContext } from '@/util/logger'
 import { getUserInfoFromAuthToken, UserInfo } from './auth'
 import { sendAction } from './websocket-action'
-import { calculateUsageAndBalance } from 'common/src/billing/balance-calculator'
+import { calculateUsageAndBalance, triggerMonthlyResetAndGrant, checkAndTriggerAutoTopup } from '@codebuff/billing'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
-import { triggerMonthlyResetAndGrant } from 'common/src/billing/grant-credits'
-import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
 import { pluralize } from 'common/util/string'
+import { env } from '@/env.mjs'
 
 type MiddlewareCallback = (
   action: ClientAction,
@@ -166,7 +165,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
 
   // Check if we need to trigger auto top-up
   try {
-    await checkAndTriggerAutoTopup(userId)
+    await checkAndTriggerAutoTopup(userId, env.APP_URL)
   } catch (error) {
     logger.error(
       { error, userId, clientSessionId },

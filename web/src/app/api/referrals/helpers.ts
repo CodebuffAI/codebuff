@@ -5,7 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { hasMaxedReferrals } from 'common/util/server/referral'
 import { logger } from '@/util/logger'
-import { grantCreditOperation } from 'common/src/billing/grant-credits'
+import { grantCreditOperation } from '@codebuff/billing'
 
 export async function redeemReferralCode(referralCode: string, userId: string) {
   try {
@@ -163,7 +163,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
           tx
         )
           .then(() => true)
-          .catch((error) => {
+          .catch((error: Error) => {
             logger.error(
               {
                 error,
@@ -189,7 +189,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
           tx
         )
           .then(() => true)
-          .catch((error) => {
+          .catch((error: Error) => {
             logger.error(
               {
                 error,
@@ -206,7 +206,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       const results = await Promise.all(grantPromises)
 
       // Check if any grant creation failed
-      if (results.some((result) => !result)) {
+      if (results.some((result: boolean) => !result)) {
         logger.error(
           { operationId, referrerId: referrer.id, referredId: userId },
           'One or more credit grants failed. Rolling back transaction.'

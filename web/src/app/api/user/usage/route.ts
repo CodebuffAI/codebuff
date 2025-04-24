@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import { calculateUsageAndBalance } from 'common/src/billing/balance-calculator'
-import { triggerMonthlyResetAndGrant } from 'common/src/billing/grant-credits'
-import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
+import {
+  calculateUsageAndBalance,
+  triggerMonthlyResetAndGrant,
+  checkAndTriggerAutoTopup,
+} from '@codebuff/billing'
 import { logger } from '@/util/logger'
+import { env } from '@/env.mjs'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -23,7 +26,7 @@ export async function GET() {
 
     // Check if we need to trigger auto top-up
     try {
-      await checkAndTriggerAutoTopup(userId)
+      await checkAndTriggerAutoTopup(userId, env.NEXT_PUBLIC_APP_URL)
     } catch (error) {
       logger.error(
         { error, userId },
@@ -43,7 +46,7 @@ export async function GET() {
     const usageData = {
       usageThisCycle,
       balance,
-      nextQuotaReset: effectiveQuotaResetDate,
+      nextQuotaReset: effectiveQuotaResetDate.toISOString(),
     }
 
     return NextResponse.json(usageData)
