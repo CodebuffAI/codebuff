@@ -205,7 +205,13 @@ export class CLI {
     rlAny._refreshLine()
   }
 
-  public async printInitialPrompt(initialInput?: string) {
+  public async printInitialPrompt({
+    initialInput,
+    runInitFlow,
+  }: {
+    initialInput?: string
+    runInitFlow?: boolean
+  }) {
     if (this.client.user) {
       displayGreeting(this.costMode, this.client.user.name)
     } else {
@@ -216,9 +222,13 @@ export class CLI {
       return
     }
     this.freshPrompt()
+    if (runInitFlow) {
+      process.stdout.write('init\n')
+      await this.handleUserInput('init')
+    }
     if (initialInput) {
       process.stdout.write(initialInput + '\n')
-      this.handleUserInput(initialInput)
+      await this.handleUserInput(initialInput)
     }
   }
 
