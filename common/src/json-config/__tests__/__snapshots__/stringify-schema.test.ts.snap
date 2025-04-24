@@ -22,11 +22,11 @@ exports[`stringifySchema should correctly stringify StartupProcessSchema 1`] = `
   Optional<Boolean> (default: true)
 
  \`stdoutFile\`:
-  (Path to write process stdout output. If not specified, output is not stored.)
+  (Path to write the process's stdout. If not specified, stderr is not stored.)
   Optional<String>
 
  \`stderrFile\`:
-  (Path to write process stderr output. If not specified, output is not stored.)
+  (Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile.)
   Optional<String>
 }"
 `;
@@ -64,11 +64,11 @@ exports[`stringifySchema should correctly stringify CodebuffConfigSchema 1`] = `
      Optional<Boolean> (default: true)
 
     \`stdoutFile\`:
-     (Path to write process stdout output. If not specified, output is not stored.)
+     (Path to write the process's stdout. If not specified, stderr is not stored.)
      Optional<String>
 
     \`stderrFile\`:
-     (Path to write process stderr output. If not specified, output is not stored.)
+     (Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile.)
      Optional<String>
    }
   >>
