@@ -1,7 +1,7 @@
 import { PostHog } from 'posthog-node'
 
-import { logger } from '../util/logger'
 import { AnalyticsEvent } from './events'
+import { logger } from '../util/logger'
 
 // Store the identified user ID
 let currentUserId: string | undefined
@@ -42,13 +42,13 @@ export function trackEvent(
     throw new Error('Analytics client not initialized')
   }
 
-  // if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
-  //   logger.info('Analytics event tracked:', event, {
-  //     distinctId,
-  //     properties,
-  //   })
-  //   return
-  // }
+  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
+    logger.info('Analytics event tracked:', event, {
+      distinctId,
+      properties,
+    })
+    return
+  }
 
   client.capture({
     distinctId,
@@ -63,9 +63,9 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
   // Store the user ID for future events
   currentUserId = userId
 
-  // if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
-  //   return
-  // }
+  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
+    return
+  }
 
   if (!client) {
     throw new Error('Analytics client not initialized')
