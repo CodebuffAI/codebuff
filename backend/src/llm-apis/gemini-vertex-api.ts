@@ -107,6 +107,7 @@ export async function* promptGeminiStream(
     userId: string | undefined
     maxTokens?: number
     temperature?: number
+    thinkingBudget?: number
   }
 ): AsyncGenerator<string, void, unknown> {
   const {
@@ -117,6 +118,7 @@ export async function* promptGeminiStream(
     userId,
     temperature,
     maxTokens,
+    thinkingBudget,
   } = options
 
   const startTime = Date.now()
@@ -133,6 +135,9 @@ export async function* promptGeminiStream(
         generationConfig: {
           temperature: temperature,
           // maxOutputTokens: maxTokens,
+          ...(thinkingBudget !== undefined
+            ? { thinkingConfig: { thinkingBudget } }
+            : {}),
         },
       },
       requestOptions
@@ -208,6 +213,7 @@ export async function promptGemini(
     userId: string | undefined
     maxTokens?: number
     temperature?: number
+    thinkingBudget?: number
   }
 ) {
   const {
@@ -217,6 +223,7 @@ export async function promptGemini(
     model,
     userId,
     temperature,
+    thinkingBudget,
   } = options
 
   const startTime = Date.now()
@@ -232,6 +239,9 @@ export async function promptGemini(
         model,
         generationConfig: {
           temperature: temperature,
+          ...(thinkingBudget !== undefined
+            ? { thinkingConfig: { thinkingBudget } }
+            : {}),
         },
       },
       requestOptions

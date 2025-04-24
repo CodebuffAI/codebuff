@@ -12,7 +12,6 @@ import { messagesWithSystem } from '../util/messages'
 import { promptClaude, promptClaudeStream, System } from './claude'
 import { promptGemini, promptGeminiStream } from './gemini-api'
 import { promptGemini as promptVertexGemini } from './gemini-vertex-api'
-import { promptOpenRouterStream } from './open-router'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 
 /**
@@ -40,7 +39,7 @@ import { OpenAIMessage, promptOpenAI } from './openai-api'
  * @returns A promise that resolves to the complete response string from the successful API call.
  * @throws If all API calls (primary and fallbacks) fail.
  */
-export async function promptGeminiWithFallbacks(
+export async function promptFlashWithFallbacks(
   messages: Message[],
   system: System | undefined,
   options: {
@@ -53,6 +52,7 @@ export async function promptGeminiWithFallbacks(
     temperature?: number
     costMode?: CostMode
     useGPT4oInsteadOfClaude?: boolean
+    thinkingBudget?: number
   }
 ): Promise<string> {
   const { costMode, useGPT4oInsteadOfClaude, ...geminiOptions } = options

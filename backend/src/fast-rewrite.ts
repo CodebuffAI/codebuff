@@ -1,12 +1,12 @@
+import { geminiModels, openaiModels } from 'common/constants'
 import { Message } from 'common/types/message'
-import { logger } from './util/logger'
+import { buildArray } from 'common/util/array'
 import { parseFileBlocks, parseMarkdownCodeBlock } from 'common/util/file'
 import { generateCompactId, hasLazyEdit } from 'common/util/string'
-import { geminiModels, openaiModels } from 'common/constants'
+import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptOpenAI } from './llm-apis/openai-api'
-import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptRelaceAI } from './llm-apis/relace-api'
-import { buildArray } from 'common/util/array'
+import { logger } from './util/logger'
 
 export async function fastRewrite(
   initialContent: string,
@@ -843,7 +843,7 @@ export const generate = action({
     { role: 'user' as const, content: prompt },
     { role: 'assistant' as const, content: '```\n' },
   ]
-  const response = await promptGeminiWithFallbacks(messages, undefined, {
+  const response = await promptFlashWithFallbacks(messages, undefined, {
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -922,7 +922,7 @@ Do not write anything else.
       content: prompt,
     }
   )
-  const response = await promptGeminiWithFallbacks(messages, undefined, {
+  const response = await promptFlashWithFallbacks(messages, undefined, {
     clientSessionId,
     fingerprintId,
     userInputId,

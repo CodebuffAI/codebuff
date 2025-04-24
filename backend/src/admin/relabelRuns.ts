@@ -1,16 +1,16 @@
+import { GetRelevantFilesPayload } from 'common/bigquery/schema'
+import { claudeModels, geminiModels } from 'common/constants'
 import {
   getTracesAndRelabelsForUser,
   getTracesWithoutRelabels,
   insertRelabel,
 } from 'common/src/bigquery/client'
-import { Request, Response } from 'express'
-import { logger } from '../util/logger'
-import { claudeModels, geminiModels } from 'common/constants'
-import { GetRelevantFilesPayload } from 'common/bigquery/schema'
 import { Message } from 'common/types/message'
 import { generateCompactId } from 'common/util/string'
+import { Request, Response } from 'express'
 import { promptClaude, System } from '../llm-apis/claude'
-import { promptGeminiWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
+import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
+import { logger } from '../util/logger'
 
 // --- GET Handler Logic ---
 
@@ -132,7 +132,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
                 ignoreDatabaseAndHelicone: true,
               })
             } else {
-              output = await promptGeminiWithFallbacks(
+              output = await promptFlashWithFallbacks(
                 messages as Message[],
                 system as System,
                 {

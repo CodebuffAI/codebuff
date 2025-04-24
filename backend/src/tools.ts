@@ -7,7 +7,7 @@ import { models, TEST_USER_ID } from 'common/constants'
 import { getToolCallString } from 'common/src/constants/tools'
 import { z } from 'zod'
 
-import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
 
 const tools = [
@@ -102,8 +102,7 @@ ${getToolCallString('write_file', {
 Example 2 - Editing with placeholder comments:
 ${getToolCallString('write_file', {
   path: 'foo.ts',
-  content:
-    `// ... existing code ...
+  content: `// ... existing code ...
 
 function foo() {
   console.log('foo');
@@ -113,7 +112,7 @@ function foo() {
   doSomething();
 }
 
-// ... existing code ...`
+// ... existing code ...`,
 })}
 
 Notes for editing a file:
@@ -594,7 +593,7 @@ Please rewrite the entire context using the update instructions in a <new_contex
       content: '<new_context>',
     },
   ]
-  const response = await promptGeminiWithFallbacks(messages, undefined, {
+  const response = await promptFlashWithFallbacks(messages, undefined, {
     model: models.gemini2flash,
     clientSessionId: 'strange-loop',
     fingerprintId: 'strange-loop',
@@ -824,7 +823,7 @@ export async function summarizeOutput(xml: string): Promise<string> {
     },
   ]
 
-  return promptGeminiWithFallbacks(messages, undefined, {
+  return promptFlashWithFallbacks(messages, undefined, {
     model: models.gemini2flash,
     clientSessionId: 'strange-loop',
     fingerprintId: 'strange-loop',

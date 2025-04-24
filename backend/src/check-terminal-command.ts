@@ -1,7 +1,7 @@
 import { models } from 'common/constants'
 import { withTimeout } from 'common/util/promise'
 
-import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptOpenAI } from './llm-apis/openai-api'
 import { logger } from './util/logger'
 
@@ -68,7 +68,7 @@ Input: ${JSON.stringify(prompt)}`,
         'OpenAI API request timed out'
       ),
       withTimeout(
-        promptGeminiWithFallbacks(messages, undefined, {
+        promptFlashWithFallbacks(messages, undefined, {
           model: models.gemini2flash,
           ...options,
         }),

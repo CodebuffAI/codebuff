@@ -1,4 +1,4 @@
-import { promptGeminiWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
+import { promptFlashWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
 import { GetRelevantFilesPayload } from 'common/bigquery/schema'
 import { claudeModels, models } from 'common/constants'
 import {
@@ -65,7 +65,7 @@ async function runTraces() {
                   ignoreDatabaseAndHelicone: true,
                 })
               } else {
-                output = await promptGeminiWithFallbacks(
+                output = await promptFlashWithFallbacks(
                   messages as Message[],
                   system as System,
                   {
