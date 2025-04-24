@@ -360,7 +360,7 @@ export class CLI {
     }
 
     if (userInput === 'init') {
-      await saveCheckpoint(userInput, this.client, this.readyPromise)
+      // no need to save checkpoint, since we are passing request to backend
       handleInitializationFlowLocally()
       // Also forward user input to the backend
       return false
