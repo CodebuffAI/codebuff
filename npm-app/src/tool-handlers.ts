@@ -26,27 +26,27 @@ export const handleWriteFile: ToolHandler<{
   type: 'patch' | 'file'
 }> = async (parameters, _id, projectPath) => {
   const fileChange = FileChangeSchema.parse(parameters)
+  const lines = fileChange.content.split('\n')
   const { created, modified, ignored } = applyChanges(projectPath, [fileChange])
   let result: string[] = []
 
-  // Calculate added/deleted lines from the diff content
-  const lines = fileChange.content.split('\n')
-  let addedLines = 0
-  let deletedLines = 0
-  lines.forEach((line) => {
-    if (line.startsWith('+') && !line.startsWith('@@')) {
-      addedLines++
-    } else if (line.startsWith('-') && !line.startsWith('@@')) {
-      deletedLines++
-    }
-  })
-
   for (const file of created) {
-    const counts = `(${green(`+${addedLines}`)})`
+    const counts = `(${green(`+${lines.length}`)})`
     result.push(`Wrote to ${file} successfully.`)
     console.log(green(`- Created ${file} ${counts}`))
   }
   for (const file of modified) {
+    // Calculate added/deleted lines from the diff content
+    let addedLines = 0
+    let deletedLines = 0
+    lines.forEach((line) => {
+      if (line.startsWith('+')) {
+        addedLines++
+      } else if (line.startsWith('-')) {
+        deletedLines++
+      }
+    })
+
     const counts = `(${green(`+${addedLines}`)}, ${red(`-${deletedLines}`)})`
     result.push(`Wrote to ${file} successfully.`)
     console.log(green(`- Updated ${file} ${counts}`))
