@@ -31,11 +31,14 @@ import {
   UserState,
 } from 'common/constants'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from 'common/json-config/constants'
+import { identifyUser, trackEvent } from 'common/src/analytics/client'
+import { AnalyticsEvent } from 'common/src/analytics/events'
 import {
   AgentState,
   getInitialAgentState,
   ToolResult,
 } from 'common/types/agent-state'
+import { buildArray } from 'common/util/array'
 import { User } from 'common/util/credentials'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
@@ -70,10 +73,7 @@ import { GitCommand } from './types'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
-import { getScrapedContentBlocks } from './web-scraper'
-import { parseUrlsFromContent } from './web-scraper'
-import { buildArray } from 'common/util/array'
-
+import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 const LOW_BALANCE_THRESHOLD = 100
 
 const WARNING_CONFIG = {
@@ -172,6 +172,8 @@ export class Client {
     this.returnControlToUser = returnControlToUser
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
     this.rl = rl
+
+    trackEvent(AnalyticsEvent.CLI_LAUNCHED)
   }
 
   async exit() {
@@ -199,6 +201,13 @@ export class Client {
     }
     const credentialsFile = readFileSync(CREDENTIALS_PATH, 'utf8')
     const user = userFromJson(credentialsFile)
+
+    if (user) {
+      identifyUser(user.id, {
+        name: user.name,
+        email: user.email,
+      })
+    }
     return user
   }
 
