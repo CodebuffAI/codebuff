@@ -25,7 +25,6 @@
     "lodash": "*",
     "next-auth": "^4.24.7",
     "pg": "^8.14.1",
-    "posthog-node": "^4.14.0",
     "readable-stream": "^4.7.0",
     "stripe": "^16.11.0",
     "zod": "3.23.8"

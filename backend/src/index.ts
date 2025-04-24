@@ -1,6 +1,5 @@
 import http from 'http'
 
-import { flushAnalytics, initAnalytics } from 'common/analytics/client'
 import { setupBigQuery } from 'common/src/bigquery/client'
 import cors from 'cors'
 import express from 'express'
@@ -75,8 +74,6 @@ setupBigQuery()
     logger.debug('BigQuery client initialized')
   })
 
-initAnalytics()
-
 const server = http.createServer(app)
 
 server.listen(port, () => {
@@ -88,7 +85,6 @@ webSocketListen(server, '/ws')
 let shutdownInProgress = false
 // Graceful shutdown handler for both SIGTERM and SIGINT
 function handleShutdown(signal: string) {
-  flushAnalytics()
   if (shutdownInProgress) {
     console.log(`\nReceived ${signal}. Already shutting down...`)
     return

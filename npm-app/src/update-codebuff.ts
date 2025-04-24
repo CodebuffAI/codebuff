@@ -1,6 +1,5 @@
 import { execSync, spawn } from 'child_process'
 
-import { flushAnalytics } from 'common/src/analytics/client'
 import { green, yellow } from 'picocolors'
 
 import packageJson from '../package.json'
@@ -27,7 +26,6 @@ export async function updateCodebuff() {
     try {
       runUpdateCodebuff(installerInfo)
       await killAllBackgroundProcesses()
-      flushAnalytics()
 
       console.log(green('Codebuff updated successfully.'))
       console.log(

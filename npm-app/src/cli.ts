@@ -5,7 +5,6 @@ import * as readline from 'readline'
 
 import { type ApiKeyType } from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
-import { flushAnalytics } from 'common/src/analytics/client'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
@@ -114,14 +113,12 @@ export class CLI {
     process.on('SIGTERM', async () => {
       Spinner.get().restoreCursor()
       await killAllBackgroundProcesses()
-      flushAnalytics()
       process.exit(0)
     })
     process.on('SIGTSTP', async () => await this.handleExit())
     process.on('SIGHUP', async () => {
       Spinner.get().restoreCursor()
       await killAllBackgroundProcesses()
-      flushAnalytics()
       process.exit(0)
     })
     // Doesn't catch SIGKILL (e.g. `kill -9`)
@@ -508,7 +505,6 @@ export class CLI {
     console.log('\n')
 
     await killAllBackgroundProcesses()
-    flushAnalytics()
 
     const logMessages = []
     const totalCreditsUsedThisSession = Object.values(

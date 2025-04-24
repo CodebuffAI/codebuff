@@ -1,78 +1,92 @@
-import { PostHog } from 'posthog-node'
-
-import { AnalyticsEvent } from './events'
+import { env } from '../env.mjs'
 import { logger } from '../util/logger'
 
-// Store the identified user ID
-let currentUserId: string | undefined
-let client: PostHog | undefined
+// // Store the identified user ID
+// let currentUserId: string | undefined
 
-export function initAnalytics() {
-  if (
-    !process.env.NEXT_PUBLIC_POSTHOG_API_KEY ||
-    !process.env.NEXT_PUBLIC_POSTHOG_HOST_URL
-  ) {
-    throw new Error(
-      'NEXT_PUBLIC_POSTHOG_API_KEY or NEXT_PUBLIC_POSTHOG_HOST_URL is not set'
-    )
-  }
+// // Use existing environment variables
+// const POSTHOG_API_KEY = process.env.NEXT_PUBLIC_POSTHOG_API_KEY
+// const POSTHOG_HOST_URL = process.env.NEXT_PUBLIC_POSTHOG_HOST_URL
+// const POSTHOG_ENDPOINT = `${POSTHOG_HOST_URL}/i/v0/e/`
 
-  client = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_API_KEY, {
-    host: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
-  })
-}
-export function flushAnalytics() {
-  if (!client) {
-    return
-  }
-  client.flush()
-}
-
-export function trackEvent(
-  event: AnalyticsEvent,
-  userId?: string,
-  properties?: Record<string, any>
+export async function identifyUser(
+  userId: string,
+  properties: Record<string, any> = {}
 ) {
-  const distinctId = userId || currentUserId
-  if (!distinctId) {
-    logger.error('Analytics event dropped due to missing user ID:', event)
-    return
-  }
-  if (!client) {
-    throw new Error('Analytics client not initialized')
+  if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !userId) return
+
+  // currentUserId = userId
+
+  const payload = {
+    api_key: env.NEXT_PUBLIC_POSTHOG_API_KEY,
+    event: '$identify',
+    distinct_id: userId,
+    properties: {
+      $set: properties,
+    },
   }
 
   if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
-    logger.info('Analytics event tracked:', event, {
-      distinctId,
-      properties,
-    })
+    logger.info({ userId, properties }, 'Identifying user in PostHog')
     return
   }
 
-  client.capture({
-    distinctId,
-    event,
-    properties,
-  })
+  try {
+    const response = await fetch(
+      `${env.NEXT_PUBLIC_POSTHOG_HOST_URL}/i/v0/e/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    )
+
+    return response.json()
+  } catch (error) {
+    logger.error({ error }, 'PostHog identify error')
+  }
 }
 
-// To be used by `npm-app`, but not by `backend`
-// Backend should pass in `userId` with each event instead.
-export function identifyUser(userId: string, properties?: Record<string, any>) {
-  // Store the user ID for future events
-  currentUserId = userId
+export async function trackEvent(
+  eventName: string,
+  userId?: string,
+  properties: Record<string, any> = {}
+) {
+  if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !eventName) return
 
-  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
+  if (!userId) {
+    logger.error('No user ID provided for event capture')
     return
   }
 
-  if (!client) {
-    throw new Error('Analytics client not initialized')
+  const payload = {
+    api_key: env.NEXT_PUBLIC_POSTHOG_API_KEY,
+    event: eventName,
+    distinct_id: userId,
+    properties: properties,
   }
 
-  client.identify({
-    distinctId: userId,
-    properties,
-  })
+  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
+    logger.info({ userId, eventName, properties }, 'Capturing event in PostHog')
+    return
+  }
+
+  try {
+    const response = await fetch(
+      `${env.NEXT_PUBLIC_POSTHOG_HOST_URL}/i/v0/e/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    )
+
+    return response.json()
+  } catch (error) {
+    logger.error({ error }, 'PostHog event capture error')
+  }
 }
