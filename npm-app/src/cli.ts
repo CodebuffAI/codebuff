@@ -375,13 +375,9 @@ export class CLI {
 
     this.client.lastChanges = []
 
-    const urls = parseUrlsFromContent(userInput)
-    const scrapedBlocks = await getScrapedContentBlocks(urls)
-    const scrapedContent =
-      scrapedBlocks.length > 0 ? scrapedBlocks.join('\n\n') + '\n\n' : ''
     const newMessage: Message = {
       role: 'user',
-      content: `${scrapedContent}${userInput}`,
+      content: userInput,
     }
 
     if (this.client.agentState) {
@@ -393,7 +389,7 @@ export class CLI {
       await this.client.sendUserInput(userInput)
 
     this.stopResponse = stopResponse
-    const response = await responsePromise
+    await responsePromise
     this.stopResponse = null
 
     this.isReceivingResponse = false

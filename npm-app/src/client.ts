@@ -70,6 +70,9 @@ import { GitCommand } from './types'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
+import { getScrapedContentBlocks } from './web-scraper'
+import { parseUrlsFromContent } from './web-scraper'
+import { buildArray } from 'common/util/array'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -655,11 +658,21 @@ export class Client {
       prompt
     )
 
+    const urls = parseUrlsFromContent(prompt)
+    const scrapedBlocks = await getScrapedContentBlocks(urls)
+    const scrapedContent =
+      scrapedBlocks.length > 0 ? scrapedBlocks.join('\n\n') + '\n\n' : ''
+
     // Append process updates to existing tool results
-    const toolResults = [
+    const toolResults = buildArray(
       ...(this.lastToolResults || []),
       ...getBackgroundProcessUpdates(),
-    ]
+      scrapedContent && {
+        id: 'scraped-content',
+        name: 'web-scraper',
+        result: scrapedContent,
+      }
+    )
 
     Spinner.get().start()
     this.webSocket.sendAction({
