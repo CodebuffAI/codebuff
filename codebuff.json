@@ -15,8 +15,10 @@
     },
     {
       "name": "typechecker",
-      "command": "bun typecheck --watch # this doesn't actually work for some reason",
-      "enabled": false
+      "command": "bun tsc -b -w --preserveWatchOutput",
+      "enabled": true,
+      "stdoutFile": "debug/typecheck.log",
+      "stderrFile": "debug/typecheck.log"
     }
   ]
 }
