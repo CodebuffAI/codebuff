@@ -5,42 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { hasMaxedReferrals } from 'common/util/server/referral'
 import { logger } from '@/util/logger'
-import { processAndGrantCredit } from 'common/src/billing/grant-credits'
-import { generateCompactId } from 'common/src/util/string'
-
-/**
- * Processes a single user (referrer or referred) for referral credit granting.
- */
-async function processAndGrantReferralCredit(
-  userToGrant: { id: string },
-  role: 'referrer' | 'referred',
-  creditsToGrant: number,
-  referrerId: string,
-  referredId: string,
-  baseOperationId: string,
-  expiresAt: Date
-): Promise<boolean> {
-  try {
-    // Create unique operation ID for each user by appending their role
-    const operationId = `${baseOperationId}-${role}`
-    
-    await processAndGrantCredit(
-      userToGrant.id,
-      creditsToGrant,
-      'referral',
-      `Referral bonus (${role})`,
-      expiresAt, // Expires at next quota reset
-      operationId
-    )
-    return true
-  } catch (error) {
-    logger.error(
-      { error, userId: userToGrant.id, role, creditsToGrant },
-      'Failed to process referral credit grant'
-    )
-    return false
-  }
-}
+import { grantCreditOperation } from 'common/src/billing/grant-credits'
 
 export async function redeemReferralCode(referralCode: string, userId: string) {
   try {
@@ -53,7 +18,10 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
 
     if (alreadyUsed.length > 0) {
       return NextResponse.json(
-        { error: "You've already been referred by someone. Each user can only be referred once." },
+        {
+          error:
+            "You've already been referred by someone. Each user can only be referred once.",
+        },
         { status: 429 }
       )
     }
@@ -120,10 +88,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       columns: { id: true },
     })
     if (!referrer) {
-      logger.warn(
-        { referralCode },
-        'Referrer not found.'
-      )
+      logger.warn({ referralCode }, 'Referrer not found.')
       return NextResponse.json(
         { error: 'Invalid referral code.' },
         { status: 400 }
@@ -140,10 +105,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
         { userId },
         'Referred user not found during referral redemption.'
       )
-      return NextResponse.json(
-        { error: 'User not found.' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'User not found.' }, { status: 404 })
     }
 
     // Check if the referrer has maxed out their referrals
@@ -191,28 +153,54 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
 
       // Process Referrer
       grantPromises.push(
-        processAndGrantReferralCredit(
-          referrer,
-          'referrer',
-          CREDITS_REFERRAL_BONUS,
+        grantCreditOperation(
           referrer.id,
-          referred.id,
-          operationId,
-          user.next_quota_reset
+          CREDITS_REFERRAL_BONUS,
+          'referral',
+          'Referral bonus (referrer)',
+          user.next_quota_reset,
+          `${operationId}-referrer`,
+          tx
         )
+          .then(() => true)
+          .catch((error) => {
+            logger.error(
+              {
+                error,
+                userId: referrer.id,
+                role: 'referrer',
+                creditsToGrant: CREDITS_REFERRAL_BONUS,
+              },
+              'Failed to process referral credit grant'
+            )
+            return false
+          })
       )
 
       // Process Referred User
       grantPromises.push(
-        processAndGrantReferralCredit(
-          referred,
-          'referred',
-          CREDITS_REFERRAL_BONUS,
-          referrer.id,
+        grantCreditOperation(
           referred.id,
-          operationId,
-          user.next_quota_reset
+          CREDITS_REFERRAL_BONUS,
+          'referral',
+          'Referral bonus (referred)',
+          user.next_quota_reset,
+          `${operationId}-referred`,
+          tx
         )
+          .then(() => true)
+          .catch((error) => {
+            logger.error(
+              {
+                error,
+                userId: referred.id,
+                role: 'referred',
+                creditsToGrant: CREDITS_REFERRAL_BONUS,
+              },
+              'Failed to process referral credit grant'
+            )
+            return false
+          })
       )
 
       const results = await Promise.all(grantPromises)

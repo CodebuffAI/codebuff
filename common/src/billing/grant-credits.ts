@@ -11,6 +11,7 @@ import { getNextQuotaReset } from '../util/dates'
 import { generateOperationIdTimestamp } from './utils'
 
 type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
+type DbTransaction = Parameters<typeof db.transaction>[0] extends (tx: infer T) => any ? T : never
 
 /**
  * Finds the amount of the most recent expired 'free' grant for a user.
@@ -92,87 +93,60 @@ export async function calculateTotalReferralBonus(
 }
 
 /**
- * Core grant operation wrapped in a single DB transaction.
+ * Core grant operation that can be part of a larger transaction.
  */
-async function grantCreditOperation(
+export async function grantCreditOperation(
   userId: string,
   amount: number,
   type: GrantType,
   description: string,
   expiresAt: Date | null,
-  operationId: string
+  operationId: string,
+  tx?: DbTransaction
 ) {
-  await db.transaction(async (tx) => {
-    const now = new Date()
+  const dbClient = tx || db
 
-    // First check for any negative balances
-    const negativeGrants = await tx
-      .select()
-      .from(schema.creditLedger)
-      .where(
-        and(
-          eq(schema.creditLedger.user_id, userId),
-          or(
-            isNull(schema.creditLedger.expires_at),
-            gt(schema.creditLedger.expires_at, now)
-          )
+  const now = new Date()
+
+  // First check for any negative balances
+  const negativeGrants = await dbClient
+    .select()
+    .from(schema.creditLedger)
+    .where(
+      and(
+        eq(schema.creditLedger.user_id, userId),
+        or(
+          isNull(schema.creditLedger.expires_at),
+          gt(schema.creditLedger.expires_at, now)
         )
       )
-      .then((grants) => grants.filter((g) => g.balance < 0))
+    )
+    .then((grants) => grants.filter((g) => g.balance < 0))
 
-    if (negativeGrants.length > 0) {
-      const totalDebt = negativeGrants.reduce(
-        (sum, g) => sum + Math.abs(g.balance),
-        0
-      )
-      for (const grant of negativeGrants) {
-        await tx
-          .update(schema.creditLedger)
-          .set({ balance: 0 })
-          .where(eq(schema.creditLedger.operation_id, grant.operation_id))
-      }
-      const remainingAmount = Math.max(0, amount - totalDebt)
-      if (remainingAmount > 0) {
-        try {
-          await tx.insert(schema.creditLedger).values({
-            operation_id: operationId,
-            user_id: userId,
-            principal: amount,
-            balance: remainingAmount,
-            type,
-            description:
-              totalDebt > 0
-                ? `${description} (${totalDebt} credits used to clear existing debt)`
-                : description,
-            priority: GRANT_PRIORITIES[type],
-            expires_at: expiresAt,
-            created_at: now,
-          })
-        } catch (error: any) {
-          // Check if this is a unique constraint violation on operation_id
-          if (
-            error.code === '23505' &&
-            error.constraint === 'credit_ledger_pkey'
-          ) {
-            logger.info(
-              { userId, operationId, type, amount },
-              'Skipping duplicate credit grant due to idempotency check'
-            )
-            return // Exit successfully, another concurrent request already created this grant
-          }
-          throw error // Re-throw any other error
-        }
-      }
-    } else {
-      // No debt - create grant normally
+  if (negativeGrants.length > 0) {
+    const totalDebt = negativeGrants.reduce(
+      (sum, g) => sum + Math.abs(g.balance),
+      0
+    )
+    for (const grant of negativeGrants) {
+      await dbClient
+        .update(schema.creditLedger)
+        .set({ balance: 0 })
+        .where(eq(schema.creditLedger.operation_id, grant.operation_id))
+    }
+    const remainingAmount = Math.max(0, amount - totalDebt)
+    if (remainingAmount > 0) {
       try {
-        await tx.insert(schema.creditLedger).values({
+        await dbClient.insert(schema.creditLedger).values({
           operation_id: operationId,
           user_id: userId,
           principal: amount,
-          balance: amount,
+          balance: remainingAmount,
           type,
-          description,
+          description:
+            totalDebt > 0
+              ? `${description} (${totalDebt} credits used to clear existing debt)`
+              : description,
           priority: GRANT_PRIORITIES[type],
           expires_at: expiresAt,
           created_at: now,
@@ -192,16 +166,45 @@ async function grantCreditOperation(
         throw error // Re-throw any other error
       }
     }
+  } else {
+    // No debt - create grant normally
+    try {
+      await dbClient.insert(schema.creditLedger).values({
+        operation_id: operationId,
+        user_id: userId,
+        principal: amount,
+        balance: amount,
+        type,
+        description,
+        priority: GRANT_PRIORITIES[type],
+        expires_at: expiresAt,
+        created_at: now,
+      })
+    } catch (error: any) {
+      // Check if this is a unique constraint violation on operation_id
+      if (
+        error.code === '23505' &&
+        error.constraint === 'credit_ledger_pkey'
+      ) {
+        logger.info(
+          { userId, operationId, type, amount },
+          'Skipping duplicate credit grant due to idempotency check'
+        )
+        return // Exit successfully, another concurrent request already created this grant
+      }
+      throw error // Re-throw any other error
+    }
+  }
 
-    logger.info(
-      { userId, operationId, type, amount, expiresAt },
-      'Created new credit grant'
-    )
-  })
+  logger.info(
+    { userId, operationId, type, amount, expiresAt },
+    'Created new credit grant'
+  )
 }
 
 /**
  * Processes a credit grant request with retries and failure logging.
+ * Used for standalone credit grants that need retry logic and failure tracking.
  */
 export async function processAndGrantCredit(
   userId: string,
@@ -345,35 +348,33 @@ export async function triggerMonthlyResetAndGrant(
     const freeOperationId = `free-${userId}-${timestamp}`
     const referralOperationId = `referral-${userId}-${timestamp}`
 
-    // Update the user's next reset date first
+    // Update the user's next reset date
     await tx
       .update(schema.user)
       .set({ next_quota_reset: newResetDate })
       .where(eq(schema.user.id, userId))
 
-    // Then issue both grants concurrently
-    await Promise.all([
-      // Always grant free credits
-      grantCreditOperation(
+    // Always grant free credits
+    await processAndGrantCredit(
+      userId,
+      freeGrantAmount,
+      'free',
+      'Monthly free credits',
+      newResetDate, // Free credits expire at next reset
+      freeOperationId
+    )
+
+    // Only grant referral credits if there are any
+    if (referralBonus > 0) {
+      await processAndGrantCredit(
         userId,
-        freeGrantAmount,
-        'free',
-        'Monthly free credits',
-        newResetDate, // Free credits expire at next reset
-        freeOperationId
-      ),
-      // Only grant referral credits if there are any
-      referralBonus > 0
-        ? grantCreditOperation(
-            userId,
-            referralBonus,
-            'referral',
-            'Monthly referral bonus',
-            null, // Referral credits don't expire
-            referralOperationId
-          )
-        : Promise.resolve(),
-    ])
+        referralBonus,
+        'referral',
+        'Monthly referral bonus',
+        newResetDate, // Referral credits expire at next reset
+        referralOperationId
+      )
+    }
 
     logger.info(
       {
