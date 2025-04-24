@@ -204,6 +204,7 @@ export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 // Vertex uses "endpoint IDs" for finetuned models, which are just integers
 export const finetunedVertexModels = {
   ft_filepicker_003: '196166068534771712',
+  ft_filepicker_005: '8493203957034778624',
 } as const
 export type FinetunedVertexModel =
   (typeof finetunedVertexModels)[keyof typeof finetunedVertexModels]

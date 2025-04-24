@@ -29,6 +29,7 @@ export interface GetRelevantFilesPayload extends BasePayload {
   output: string
   request_type: string
   cost_mode: string
+  model?: string
 }
 
 export interface GetRelevantFilesTrace extends BaseTrace {

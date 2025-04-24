@@ -1,6 +1,7 @@
 import {
   claudeModels,
   CostMode,
+  finetunedVertexModels,
   GeminiModel,
   geminiModels,
   openaiModels,
@@ -13,6 +14,7 @@ import { promptClaude, promptClaudeStream, System } from './claude'
 import { promptGemini, promptGeminiStream } from './gemini-api'
 import { promptGemini as promptVertexGemini } from './gemini-vertex-api'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
+import { promptAiSdk_GeminiFormat } from './vercel-ai-sdk/ai-sdk'
 
 /**
  * Prompts a Gemini model with fallback logic.
@@ -53,17 +55,40 @@ export async function promptFlashWithFallbacks(
     costMode?: CostMode
     useGPT4oInsteadOfClaude?: boolean
     thinkingBudget?: number
+    useFinetunedModel?: boolean
   }
 ): Promise<string> {
-  const { costMode, useGPT4oInsteadOfClaude, ...geminiOptions } = options
+  const {
+    costMode,
+    useGPT4oInsteadOfClaude,
+    useFinetunedModel,
+    ...geminiOptions
+  } = options
+
+  // Try finetuned model first if enabled
+  if (useFinetunedModel) {
+    try {
+      logger.info(
+        { model: finetunedVertexModels.ft_filepicker_005 },
+        'Using finetuned model for file-picker!'
+      )
+      return await promptAiSdk_GeminiFormat(
+        messages as OpenAIMessage[],
+        system,
+        {
+          ...geminiOptions,
+          model: finetunedVertexModels.ft_filepicker_005,
+        }
+      )
+    } catch (error) {
+      logger.warn(
+        { error },
+        'Error calling finetuned model, falling back to Gemini API'
+      )
+    }
+  }
 
   try {
-    // TODO: Just an example to test, remove once we get the finetuned model in!
-    // return await promptAiSdk_GeminiFormat(messages as OpenAIMessage[], system, {
-    //   ...geminiOptions,
-    //   model: finetunedVertexModels.ft_filepicker_003,
-    // })
-
     // First try Gemini
     return await promptGemini(
       system

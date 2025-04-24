@@ -14,7 +14,7 @@
   - ~$0.1 each on finetuning & relabeling
 
 `ft_filepicker_005`
-- Gemini Endpoint ID: 
+- Gemini Endpoint ID: 8493203957034778624
 - Finetune date: Apr 23, 2025
 - Finetune file: gemini-tune-data-007.jsonl, available in the GCS bucket
 - Finetune samples: 1934

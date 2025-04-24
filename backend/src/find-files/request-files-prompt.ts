@@ -193,6 +193,7 @@ async function getRelevantFiles(
     bufferTokens
   )
   const start = performance.now()
+  let useFinetunedModel = costMode === 'experimental'
   let response = await promptFlashWithFallbacks(messagesWithPrompt, system, {
     clientSessionId,
     fingerprintId,
@@ -200,6 +201,7 @@ async function getRelevantFiles(
     model: models.gemini2flash,
     userId,
     costMode,
+    useFinetunedModel,
   })
   const end = performance.now()
   const duration = end - start
@@ -221,6 +223,7 @@ async function getRelevantFiles(
       user_input_id: userInputId,
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
+      model: useFinetunedModel ? models.ft_filepicker_005 : models.gemini2flash,
     },
   }
 
