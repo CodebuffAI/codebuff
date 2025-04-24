@@ -164,9 +164,9 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
   await triggerMonthlyResetAndGrant(userId)
 
   // Check if we need to trigger auto top-up and get the amount added (if any)
-  let autoTopupAdded: number | undefined
+  let autoTopupAdded: number | undefined = undefined
   try {
-    autoTopupAdded = await checkAndTriggerAutoTopup(userId, env.APP_URL)
+    autoTopupAdded = (await checkAndTriggerAutoTopup(userId, env.APP_URL)) as number | undefined
   } catch (error) {
     logger.error(
       { error, userId, clientSessionId },

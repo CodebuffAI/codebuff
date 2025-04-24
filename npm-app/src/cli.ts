@@ -188,13 +188,13 @@ export class CLI {
     const rlAny = this.rl as any
 
     // Check for pending auto-topup message before showing prompt
-    if (this.client.pendingTopUpMessageAmount) {
+    if (this.client.pendingTopUpMessageAmount > 0) {
       console.log(
         green(
           `Auto top-up successful! ${this.client.pendingTopUpMessageAmount.toLocaleString()} credits added.`
         )
       )
-      this.client.pendingTopUpMessageAmount = null
+      this.client.pendingTopUpMessageAmount = 0
     }
 
     // clear line first
@@ -511,7 +511,11 @@ export class CLI {
       .reduce((sum, credits) => sum + credits, 0)
 
     logMessages.push(
-      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session, ${this.client.usageData.remainingBalance.toLocaleString()} credits left.`
+      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session${
+        this.client.usageData.remainingBalance !== null
+          ? `, ${this.client.usageData.remainingBalance.toLocaleString()} credits left.`
+          : '.'
+      }`
     )
 
     if (this.client.usageData.next_quota_reset) {

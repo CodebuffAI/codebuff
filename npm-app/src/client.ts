@@ -109,7 +109,7 @@ export class Client {
   private git: GitCommand
   private rl: readline.Interface
   private responseComplete: boolean = false
-  public pendingTopUpMessageAmount: number | null = null
+  public pendingTopUpMessageAmount: number = 0
   private oneTimeTagsShown: Record<(typeof ONE_TIME_TAGS)[number], boolean> =
     Object.fromEntries(ONE_TIME_TAGS.map((tag) => [tag, false])) as Record<
       (typeof ONE_TIME_TAGS)[number],
@@ -118,7 +118,7 @@ export class Client {
 
   public usageData: Omit<UsageResponse, 'type'> = {
     usage: 0,
-    remainingBalance: 0,
+    remainingBalance: null,
     balanceBreakdown: undefined,
     next_quota_reset: null,
   }
@@ -314,10 +314,10 @@ export class Client {
           fs.unlinkSync(CREDENTIALS_PATH)
           console.log(`You (${this.user.name}) have been logged out.`)
           this.user = undefined
-          this.pendingTopUpMessageAmount = null
+          this.pendingTopUpMessageAmount = 0
           this.usageData = {
             usage: 0,
-            remainingBalance: 0,
+            remainingBalance: null,
             balanceBreakdown: undefined,
             next_quota_reset: null,
           }
@@ -527,7 +527,7 @@ export class Client {
 
       // Store auto-topup amount if present, to be displayed when returning control to user
       if (parsedAction.data.autoTopupAdded) {
-        this.pendingTopUpMessageAmount = parsedAction.data.autoTopupAdded
+        this.pendingTopUpMessageAmount += parsedAction.data.autoTopupAdded
       }
 
       // Only show warning if the response is complete
@@ -563,7 +563,10 @@ export class Client {
     }
 
     // Show warning if we haven't warned at this threshold yet
-    if (this.lastWarnedPct < config.threshold) {
+    if (
+      this.lastWarnedPct < config.threshold &&
+      this.usageData.remainingBalance
+    ) {
       const message = config.message(this.usageData.remainingBalance)
       console.warn(message)
       this.lastWarnedPct = config.threshold
@@ -802,8 +805,6 @@ export class Client {
           return
         }
 
-        console.log('Response complete, prompt-response handler finished')
-
         this.lastToolResults = toolResults
         xmlStreamParser.end()
 
@@ -874,17 +875,23 @@ export class Client {
 
       const usageLink = `${websiteUrl}/usage`
       const remainingColor =
-        this.usageData.remainingBalance <= 0
-          ? red
-          : this.usageData.remainingBalance <= LOW_BALANCE_THRESHOLD
+        this.usageData.remainingBalance === null
+          ? yellow
+          : this.usageData.remainingBalance <= 0
             ? red
-            : green
+            : this.usageData.remainingBalance <= LOW_BALANCE_THRESHOLD
+              ? red
+              : green
 
       const totalCreditsUsedThisSession = Object.values(this.creditsByPromptId)
         .flat()
         .reduce((sum, credits) => sum + credits, 0)
       console.log(
-        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
+        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}${
+          this.usageData.remainingBalance !== null
+            ? `. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
+            : '.'
+        }`
       )
 
       if (this.usageData.next_quota_reset) {

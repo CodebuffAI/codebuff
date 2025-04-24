@@ -60,7 +60,7 @@ export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 export const UsageReponseSchema = z.object({
   type: z.literal('usage-response'),
   usage: z.number(),
-  remainingBalance: z.number(),
+  remainingBalance: z.number().nullable(),
   balanceBreakdown: z
     .record(
       z.enum([GrantTypeValues[0], ...GrantTypeValues.slice(1)]),
