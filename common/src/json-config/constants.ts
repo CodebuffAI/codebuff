@@ -28,13 +28,13 @@ export const StartupProcessSchema = z
       .string()
       .optional()
       .describe(
-        'Path to write process stdout output. If not specified, output is not stored.'
+        "Path to write the process's stdout. If not specified, stderr is not stored."
       ),
     stderrFile: z
       .string()
       .optional()
       .describe(
-        'Path to write process stderr output. If not specified, output is not stored.'
+        "Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile."
       ),
   })
   .describe('Defines a single startup process.')
