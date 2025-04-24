@@ -31,6 +31,7 @@ import {
   UserState,
 } from 'common/constants'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from 'common/json-config/constants'
+import { trackEvent } from 'common/src/analytics/client'
 import {
   AgentState,
   getInitialAgentState,
@@ -181,6 +182,8 @@ export class Client {
     this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
     this.rl = rl
+
+    trackEvent('app_launched')
   }
 
   async exit() {
