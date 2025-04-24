@@ -303,9 +303,25 @@ function waitForProcessExit(pid: number): Promise<boolean> {
   })
 }
 
+function killProcessTreeSoftly(pid: number): void {
+  if (process.platform === 'win32') {
+    // /T = kill tree, no /F = soft kill
+    spawn('taskkill', ['/PID', String(pid), '/T'], {
+      stdio: 'ignore',
+      detached: true,
+    }).unref()
+  } else {
+    try {
+      process.kill(-pid, 'SIGTERM')
+    } catch (err) {
+      if ((err as any)?.code !== 'ESRCH') throw err
+    }
+  }
+}
+
 async function killAndWait(pid: number): Promise<void> {
   try {
-    process.kill(-pid, 'SIGTERM')
+    killProcessTreeSoftly(pid)
     if (await waitForProcessExit(pid)) {
       return
     }
@@ -327,7 +343,7 @@ export function sendKillSignalToAllBackgroundProcesses(): void {
     }
 
     try {
-      process.kill(-pid, 'SIGTERM')
+      killProcessTreeSoftly(pid)
     } catch {}
   }
 }
@@ -401,7 +417,7 @@ export function cleanupStoredProcesses(): {
     }
 
     try {
-      process.kill(-pid, 'SIGTERM')
+      killProcessTreeSoftly(pid)
       if (await waitForProcessExit(pid)) {
         deleteFileIfExists(lockFile)
       }
