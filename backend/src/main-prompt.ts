@@ -444,7 +444,7 @@ export const mainPrompt = async (
 
   // Add deep thinking for experimental or max mode
   if (costMode === 'experimental' || costMode === 'max') {
-    const response = await getThinkingStream(
+    let response = await getThinkingStream(
       agentMessages,
       system,
       (chunk) => {
@@ -458,6 +458,10 @@ export const mainPrompt = async (
         userId,
       }
     )
+    if (model === models.gpt4_1) {
+      onResponseChunk('\n')
+      response += '\n'
+    }
     fullResponse += response
   }
 
