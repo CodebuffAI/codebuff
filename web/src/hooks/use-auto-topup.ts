@@ -5,7 +5,7 @@ import { UserProfile } from '@/types/user'
 import { clamp } from '@/lib/utils'
 import debounce from 'lodash/debounce'
 import { AUTO_TOPUP_CONSTANTS } from '@/components/auto-topup/constants'
-import { convertStripeGrantAmountToCredits } from '@codebuff/billing'
+import { convertStripeGrantAmountToCredits } from 'common/util/currency'
 import { AutoTopupState } from '@/components/auto-topup/types'
 
 const {

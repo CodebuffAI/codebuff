@@ -8,13 +8,15 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { logger } from '@/util/logger'
 import { stripeServer } from 'common/src/util/stripe'
+import { generateCompactId } from 'common/src/util/string'
+import { env } from '@/env.mjs'
 import {
   convertCreditsToUsdCents,
+} from 'common/util/currency'
+import {
   getUserCostPerCredit,
+  processAndGrantCredit,
 } from '@codebuff/billing'
-import { env } from '@/env.mjs'
-import { generateCompactId } from 'common/src/util/string'
-import { processAndGrantCredit } from '@codebuff/billing'
 
 const buyCreditsSchema = z.object({
   credits: z

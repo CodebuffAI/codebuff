@@ -27,9 +27,7 @@ export {
 
 // Credit conversion utilities
 export {
-  convertCreditsToUsdCents,
   getUserCostPerCredit,
-  convertStripeGrantAmountToCredits,
 } from './conversion'
 
 // Utilities

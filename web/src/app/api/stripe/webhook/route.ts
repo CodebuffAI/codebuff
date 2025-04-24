@@ -9,11 +9,12 @@ import * as schema from 'common/db/schema'
 import { logger } from '@/util/logger'
 import {
   convertStripeGrantAmountToCredits,
+} from 'common/util/currency'
+import {
   getUserCostPerCredit,
+  processAndGrantCredit,
+  revokeGrantByOperationId,
 } from '@codebuff/billing'
-import { GrantType } from 'common/types/grant'
-import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
-import { processAndGrantCredit, revokeGrantByOperationId } from '@codebuff/billing'
 import { getStripeCustomerId } from '@/lib/stripe-utils'
 
 async function handleCustomerCreated(customer: Stripe.Customer) {
