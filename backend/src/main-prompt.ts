@@ -25,7 +25,7 @@ import { processFileBlock } from './process-file-block'
 import { processStreamWithTags } from './process-stream'
 import { getAgentStream } from './prompt-agent-stream'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
-import { replacementPrompts } from './system-prompt/prompts'
+import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { getThinkingStream } from './thinking-stream'
@@ -39,7 +39,11 @@ import {
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
-import { asSystemInstructions, getMessagesSubset } from './util/messages'
+import {
+  asSystemInstructions,
+  asSystemMessage,
+  getMessagesSubset,
+} from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
@@ -112,61 +116,59 @@ export const mainPrompt = async (
   const isFlash =
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
-  const userInstructions = asSystemInstructions(
-    buildArray(
-      'Instructions:',
-      'Proceed toward the user request and any subgoals.',
+  const userInstructions = buildArray(
+    'Instructions:',
+    'Proceed toward the user request and any subgoals.',
 
-      'If the user asks a question, simply answer the question rather than making changes to the code.',
+    'If the user asks a question, simply answer the question rather than making changes to the code.',
 
-      !isGPT4_1 &&
-        "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
+    !isGPT4_1 &&
+      "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
-      'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
+    'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
 
-      'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
+    'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
-      'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Makes sure when using write_file to pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
+    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Makes sure when using write_file to pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
 
-      'When editing an existing file, write the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
+    'When editing an existing file, write the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
 
-      'When using tools, make sure to NOT use XML attributes. The format should contain nested XML tags. For example, when using write_file, the format should be <write_file><path>...</path><content>...</content></write_file>',
+    'When using tools, make sure to NOT use XML attributes. The format should contain nested XML tags. For example, when using write_file, the format should be <write_file><path>...</path><content>...</content></write_file>',
 
-      `Only use the tools listed, (i.e. ${TOOL_LIST.join(', ')}). If you use tools not listed, nothing will happen, but the user will get some unintended display issues.`,
+    `Only use the tools listed, (i.e. ${TOOL_LIST.join(', ')}). If you use tools not listed, nothing will happen, but the user will get some unintended display issues.`,
 
-      `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
+    `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
 
-      isFlash &&
-        "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
+    isFlash &&
+      "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
 
-      // Experimental gemini thinking
-      costMode === 'experimental' || costMode === 'max'
-        ? 'Start your response with the <think_deeply> tool call to decide how to proceed.'
-        : !justUsedATool &&
-            !recentlyDidThinking &&
-            'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
+    // Experimental gemini thinking
+    costMode === 'experimental' || costMode === 'max'
+      ? 'Start your response with the <think_deeply> tool call to decide how to proceed.'
+      : !justUsedATool &&
+          !recentlyDidThinking &&
+          'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
 
-      'If the user is starting a new feature or refactoring, consider invoking "<create_plan></create_plan>".',
+    'If the user is starting a new feature or refactoring, consider invoking "<create_plan></create_plan>".',
 
-      recentlyDidThinking &&
-        "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
+    recentlyDidThinking &&
+      "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
 
-      'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
+    'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
 
-      hasKnowledgeFiles &&
-        'If the knowledge files (or CLAUDE.md) say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
+    hasKnowledgeFiles &&
+      'If the knowledge files (or CLAUDE.md) say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
 
-      isNotFirstUserMessage &&
-        "If you have learned something useful for the future that is not derivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
+    isNotFirstUserMessage &&
+      "If you have learned something useful for the future that is not derivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
 
-      "Don't run git commands or scripts or start a dev server without being specifically asked to do so. This can prevent costly accidents.",
+    "Don't run git commands or scripts or start a dev server without being specifically asked to do so. This can prevent costly accidents.",
 
-      'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
+    'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
-      'Important: You must write "<end_turn></end_turn>" at the end of your response, when you are done or want the user to respond -- but not if you are still working on the user\'s request!',
-      "DO NOT END TURN IF YOU ARE STILL WORKING ON THE USER'S REQUEST. If the user's request requires multiple steps, please complete ALL the steps before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response."
-    ).join('\n\n')
-  )
+    'Important: You must write "<end_turn></end_turn>" at the end of your response, when you are done or want the user to respond -- but not if you are still working on the user\'s request!',
+    "DO NOT END TURN IF YOU ARE STILL WORKING ON THE USER'S REQUEST. If the user's request requires multiple steps, please complete ALL the steps before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response."
+  ).join('\n\n')
 
   const toolInstructions = buildArray(
     justRanTerminalCommand &&
@@ -342,16 +344,24 @@ export const mainPrompt = async (
       result: renderReadFilesResult(newFiles),
     }
 
-    readFileMessages.push({
-      role: 'assistant' as const,
-      content: getToolCallString('read_files', {
-        paths: newFiles.map((file) => file.path).join('\n'),
-      }),
-    })
-    readFileMessages.push({
-      role: 'user' as const,
-      content: renderToolResults([readFilesToolResult]),
-    })
+    readFileMessages.push(
+      {
+        role: 'user' as const,
+        content: asSystemInstructions(
+          'Before continuing with the user request, read some relevant files first.'
+        ),
+      },
+      {
+        role: 'assistant' as const,
+        content: getToolCallString('read_files', {
+          paths: newFiles.map((file) => file.path).join('\n'),
+        }),
+      },
+      {
+        role: 'user' as const,
+        content: asSystemMessage(renderToolResults([readFilesToolResult])),
+      }
+    )
   }
 
   const relevantDocumentation = await relevantDocumentationPromise
@@ -361,44 +371,49 @@ export const mainPrompt = async (
 
     toolResults.length > 0 && {
       role: 'user' as const,
-      content: renderToolResults(toolResults),
+      content: asSystemMessage(renderToolResults(toolResults)),
     },
 
     // Add in new copy of agent context.
     prompt &&
       agentContext && {
         role: 'user' as const,
-        content: agentContext.trim(),
+        content: asSystemMessage(agentContext.trim()),
       },
 
     prompt
       ? // Add in new copy of user instructions.
         {
           role: 'user' as const,
-          content: userInstructions,
+          content: asSystemInstructions(userInstructions),
         }
       : // Add in new copy of tool instructions.
         toolInstructions && {
           role: 'user' as const,
-          content: toolInstructions,
+          content: asSystemInstructions(toolInstructions),
         },
 
     relevantDocumentation && {
       role: 'user' as const,
-      content: `Relevant context from web documentation:\n${relevantDocumentation}`,
+      content: asSystemMessage(
+        `Relevant context from web documentation:\n${relevantDocumentation}`
+      ),
     },
 
-    prompt && {
-      role: 'user' as const,
-      content:
-        prompt +
-        (prompt in replacementPrompts
-          ? '\n' +
-            asSystemInstructions(
-              replacementPrompts[prompt as keyof typeof replacementPrompts]
-            )
-          : ''),
-    },
+    prompt && [
+      {
+        role: 'user' as const,
+        content: prompt,
+      },
+      prompt in additionalSystemPrompts && {
+        role: 'user' as const,
+        content: asSystemInstructions(
+          additionalSystemPrompts[
+            prompt as keyof typeof additionalSystemPrompts
+          ]
+        ),
+      },
+    ],
 
     ...readFileMessages
   )

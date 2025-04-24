@@ -20,6 +20,10 @@ export function asSystemInstructions(str: string): string {
   return `<system_instructions>${str}</system_instructions>`
 }
 
+export function asSystemMessage(str: string): string {
+  return `<system>${str}</system>`
+}
+
 /**
  * Extracts the text content from a message, handling both string and array content types
  * @param message - Message to extract text from
