@@ -58,7 +58,7 @@ export function startDevProcesses(
       ({ result }) => {
         const m = result.match(/<process_id>(\d+)<\/process_id>/)
         if (m) {
-          console.log(yellow(`- ${name}: \`${command}\` (pid: ${m[1]})`))
+          console.log(yellow(`- ${name}: \`${command}\``))
         } else {
           console.log(yellow(`- ${name}: \`${command}\` failed to start`))
         }
