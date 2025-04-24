@@ -3,6 +3,7 @@
 import { Command } from 'commander'
 import { type CostMode } from 'common/constants'
 import { loadCodebuffConfig } from 'common/json-config/parser'
+import { initAnalytics } from 'common/src/analytics/client'
 import { red } from 'picocolors'
 
 import packageJson from '../package.json'
@@ -29,6 +30,8 @@ async function codebuff(
 
   // Kill all processes we failed to kill before
   const processCleanupPromise = logAndHandleStartup(dir, config)
+
+  initAnalytics()
 
   const updatePromise = updateCodebuff()
 

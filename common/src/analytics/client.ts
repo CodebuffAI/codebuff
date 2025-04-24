@@ -1,17 +1,30 @@
 import { PostHog } from 'posthog-node'
 
-// import { logger } from '../util/logger'
+import { logger } from '../util/logger'
 import { AnalyticsEvent } from './events'
-
-// TODO: move this to env
-const client = new PostHog('phc_tug7g8yc10qNestK14QV8WyKwjfEl6vwzIbJkBdqeHS', {
-  host: 'https://us.i.posthog.com',
-})
 
 // Store the identified user ID
 let currentUserId: string | undefined
+let client: PostHog | undefined
 
+export function initAnalytics() {
+  if (
+    !process.env.NEXT_PUBLIC_POSTHOG_API_KEY ||
+    !process.env.NEXT_PUBLIC_POSTHOG_HOST_URL
+  ) {
+    throw new Error(
+      'NEXT_PUBLIC_POSTHOG_API_KEY or NEXT_PUBLIC_POSTHOG_HOST_URL is not set'
+    )
+  }
+
+  client = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_API_KEY, {
+    host: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
+  })
+}
 export function flushAnalytics() {
+  if (!client) {
+    return
+  }
   client.flush()
 }
 
@@ -22,20 +35,18 @@ export function trackEvent(
 ) {
   const distinctId = userId || currentUserId
   if (!distinctId) {
-    // logger.error('Analytics event dropped due to missing user ID:', event)
+    logger.error('Analytics event dropped due to missing user ID:', event)
     return
   }
-
-  console.log('Analytics event tracked:', event, {
-    distinctId,
-    properties,
-  })
+  if (!client) {
+    throw new Error('Analytics client not initialized')
+  }
 
   // if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
-  //   // logger.info('Analytics event tracked:', event, {
-  //   //   distinctId,
-  //   //   properties,
-  //   // })
+  //   logger.info('Analytics event tracked:', event, {
+  //     distinctId,
+  //     properties,
+  //   })
   //   return
   // }
 
@@ -52,14 +63,12 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
   // Store the user ID for future events
   currentUserId = userId
 
-  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
-    // logger.info('User identified:', userId, {
-    //   properties,
-    // })
-    console.log('User identified:', userId, {
-      properties,
-    })
-    return
+  // if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
+  //   return
+  // }
+
+  if (!client) {
+    throw new Error('Analytics client not initialized')
   }
 
   client.identify({

@@ -33,6 +33,7 @@ export const env = createEnv({
     DISCORD_PUBLIC_KEY: z.string().min(1),
     DISCORD_BOT_TOKEN: z.string().min(1),
     DISCORD_APPLICATION_ID: z.string().min(1),
+    NEXT_PUBLIC_POSTHOG_API_KEY: z.string().optional().default(''),
   },
   client: {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),

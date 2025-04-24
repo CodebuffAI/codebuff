@@ -173,7 +173,7 @@ export class Client {
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
     this.rl = rl
 
-    trackEvent(AnalyticsEvent.CLI_LAUNCHED)
+    trackEvent(AnalyticsEvent.APP_LAUNCHED)
   }
 
   async exit() {
