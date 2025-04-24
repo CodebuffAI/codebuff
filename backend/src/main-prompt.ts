@@ -108,6 +108,9 @@ export const mainPrompt = async (
     (t) => t.name === 'run_terminal_command'
   )
   const isGPT4_1 = model === models.gpt4_1
+  const isFlash =
+    model === 'gemini-2.5-flash-preview-04-17:thinking' ||
+    (model as any) === 'gemini-2.5-flash-preview-04-17'
   const userInstructions = buildArray(
     'Instructions:',
     'Proceed toward the user request and any subgoals.',
@@ -130,6 +133,9 @@ export const mainPrompt = async (
     `Only use the tools listed, (i.e. ${TOOL_LIST.join(', ')}). If you use tools not listed, nothing will happen, but the user will get some unintended display issues.`,
 
     `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
+
+    isFlash &&
+      "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
 
     // Experimental gemini thinking
     costMode === 'experimental' || costMode === 'max'

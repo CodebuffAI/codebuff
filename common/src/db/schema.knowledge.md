@@ -22,7 +22,7 @@ Important: The database setup requires:
 
 1. A running Docker instance
 2. Proper environment configuration:
-   - stack.env with ENVIRONMENT=local and NEXT_PUBLIC_ENVIRONMENT=local
+   - stack.env with NEXT_PUBLIC_CB_ENVIRONMENT=local
    - .env.local with DATABASE_URL matching docker-compose.yml settings
 3. Run commands in order:
    - Start Docker
@@ -45,7 +45,7 @@ Index Performance Guidelines:
 - Avoid indexing high cardinality columns (many unique values) without careful consideration
 - For timestamp columns used in range queries, consider:
   - Query patterns (point vs range queries)
-  - Data distribution 
+  - Data distribution
   - Write overhead vs read benefit
   - Avoid if used with dynamic BETWEEN clauses
 - Index foreign keys and common filter columns

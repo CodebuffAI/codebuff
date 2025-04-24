@@ -44,7 +44,7 @@ export const withLoggerContext = <T>(
 // Only use file transport when not running in Edge/browser‑like env
 const runningInEdge = process.env.NEXT_RUNTIME === 'edge'
 const fileTransport =
-  !runningInEdge && env.ENVIRONMENT !== 'production'
+  !runningInEdge && env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production'
     ? pino.transport({
         target: 'pino/file',
         options: { destination: path.join(__dirname, '..', 'debug.log') },

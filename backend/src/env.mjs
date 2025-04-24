@@ -4,16 +4,18 @@ import dotenv from 'dotenv'
 import path from 'path'
 
 dotenv.config({ path: path.join(__dirname, '../../stack.env') })
-if (!process.env.ENVIRONMENT) {
-  console.error('ENVIRONMENT is not set, please check `stack.env`')
+if (!process.env.NEXT_PUBLIC_CB_ENVIRONMENT) {
+  console.error(
+    'NEXT_PUBLIC_CB_ENVIRONMENT is not set, please check `stack.env`'
+  )
   process.exit(1)
 }
 
 const DOTENV_PATH_PREFIX =
   process.env.RENDER === 'true' ? '/etc/secrets' : path.join(__dirname, '../..')
-const DOTENV_PATH = `${DOTENV_PATH_PREFIX}/.env.${process.env.ENVIRONMENT}`
+const DOTENV_PATH = `${DOTENV_PATH_PREFIX}/.env.${process.env.NEXT_PUBLIC_CB_ENVIRONMENT}`
 console.log(
-  `Using environment: ${process.env.ENVIRONMENT} (path: ${DOTENV_PATH})`
+  `Using environment: ${process.env.NEXT_PUBLIC_CB_ENVIRONMENT} (path: ${DOTENV_PATH})`
 )
 dotenv.config({ path: DOTENV_PATH })
 
@@ -31,7 +33,7 @@ export const env = createEnv({
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
     PORT: z.coerce.number().min(1000),
-    ENVIRONMENT: z.string().min(1),
+    NEXT_PUBLIC_CB_ENVIRONMENT: z.string().min(1),
     NEXT_PUBLIC_APP_URL: z.string().min(1),
     NEXTAUTH_SECRET: z.string().min(1),
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().min(1),

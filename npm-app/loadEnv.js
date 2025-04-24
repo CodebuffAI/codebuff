@@ -9,18 +9,22 @@ const ENV_VARS_TO_PULL = [
 ]
 
 dotenv.config({ path: '../stack.env' })
-if (!process.env.ENVIRONMENT) {
-  console.error('ENVIRONMENT is not set, please check `stack.env`')
+if (!process.env.NEXT_PUBLIC_CB_ENVIRONMENT) {
+  console.error(
+    'NEXT_PUBLIC_CB_ENVIRONMENT is not set, please check `stack.env`'
+  )
   process.exit(1)
 }
 
-const path = `../.env.${process.env.ENVIRONMENT}`
-console.log(`Using environment: ${process.env.ENVIRONMENT} (path: ${path})`)
+const path = `../.env.${process.env.NEXT_PUBLIC_CB_ENVIRONMENT}`
+console.log(
+  `Using environment: ${process.env.NEXT_PUBLIC_CB_ENVIRONMENT} (path: ${path})`
+)
 
 const envFileContent = fs.readFileSync(path, 'utf-8')
 const lines = envFileContent.split('\n')
 const env = {
-  ENVIRONMENT: process.env.ENVIRONMENT,
+  NEXT_PUBLIC_CB_ENVIRONMENT: process.env.NEXT_PUBLIC_CB_ENVIRONMENT,
 }
 
 lines.forEach((line) => {

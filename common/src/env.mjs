@@ -3,22 +3,23 @@ import dotenv from 'dotenv'
 import { z } from 'zod'
 
 dotenv.config({ path: '../stack.env' })
-if (!process.env.NEXT_PUBLIC_ENVIRONMENT) {
-  console.error('ENVIRONMENT is not set, please check `stack.env`')
+if (!process.env.NEXT_PUBLIC_CB_ENVIRONMENT) {
+  console.error(
+    'NEXT_PUBLIC_CB_ENVIRONMENT is not set, please check `stack.env`'
+  )
   process.exit(1)
 }
 
 const DOTENV_PATH = process.env.RENDER === 'true' ? '/etc/secrets' : '..'
-const path = `${DOTENV_PATH}/.env.${process.env.NEXT_PUBLIC_ENVIRONMENT}`
+const path = `${DOTENV_PATH}/.env.${process.env.NEXT_PUBLIC_CB_ENVIRONMENT}`
 console.log(
-  `Using environment: ${process.env.NEXT_PUBLIC_ENVIRONMENT} (path: ${path})`
+  `Using environment: ${process.env.NEXT_PUBLIC_CB_ENVIRONMENT} (path: ${path})`
 )
 dotenv.config({ path })
 
 export const env = createEnv({
   server: {
-    ENVIRONMENT: z.string().min(1),
-    NEXT_PUBLIC_ENVIRONMENT: z.string().min(1),
+    NEXT_PUBLIC_CB_ENVIRONMENT: z.string().min(1),
     DATABASE_URL: z.string().min(1),
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_USAGE_PRICE_ID: z.string().min(1).startsWith('price_'),
@@ -28,7 +29,7 @@ export const env = createEnv({
       .length(32, 'API_KEY_ENCRYPTION_SECRET must be 32 characters long'),
   },
   client: {
-    NEXT_PUBLIC_ENVIRONMENT: z.string().min(1),
+    NEXT_PUBLIC_CB_ENVIRONMENT: z.string().min(1),
     NEXT_PUBLIC_APP_URL: z.string().min(1),
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().min(1),
   },
