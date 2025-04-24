@@ -5,7 +5,7 @@ import { AgentResponseTrace } from 'common/bigquery/schema'
 import {
   HIDDEN_FILE_READ_STATUS,
   models,
-  ONE_TIME_TAGS,
+  ONE_TIME_LABELS,
   type CostMode,
 } from 'common/constants'
 import { getToolCallString } from 'common/constants/tools'
@@ -542,7 +542,7 @@ export const mainPrompt = async (
   for await (const chunk of streamWithTags) {
     const trimmed = chunk.trim()
     if (
-      !ONE_TIME_TAGS.some(
+      !ONE_TIME_LABELS.some(
         (tag) => trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)
       )
     ) {
@@ -614,6 +614,7 @@ export const mainPrompt = async (
     ) {
       if (name === 'run_terminal_command') {
         parameters.command = transformRunTerminalCommand(parameters.command)
+        parameters.mode = 'assistant'
       }
       clientToolCalls.push({
         ...(toolCall as ClientToolCall),

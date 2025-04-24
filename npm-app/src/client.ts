@@ -1,7 +1,13 @@
 import { spawn } from 'child_process'
-import * as fs from 'fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
 import path from 'path'
-import * as readline from 'readline'
+import { Interface } from 'readline'
 
 import {
   FileChanges,
@@ -15,12 +21,16 @@ import {
 } from 'common/actions'
 import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
 import {
+  ASKED_CONFIG,
   CostMode,
   CREDITS_REFERRAL_BONUS,
+  ONE_TIME_LABELS,
   ONE_TIME_TAGS,
   REQUEST_CREDIT_SHOW_THRESHOLD,
+  SHOULD_ASK_CONFIG,
   UserState,
 } from 'common/constants'
+import { codebuffConfigFile as CONFIG_FILE_NAME } from 'common/json-config/constants'
 import {
   AgentState,
   getInitialAgentState,
@@ -107,12 +117,12 @@ export class Client {
   private costMode: CostMode
   private hadFileChanges: boolean = false
   private git: GitCommand
-  private rl: readline.Interface
+  private rl: Interface
   private responseComplete: boolean = false
   private pendingTopUpMessageAmount: number | null = null
-  private oneTimeTagsShown: Record<(typeof ONE_TIME_TAGS)[number], boolean> =
-    Object.fromEntries(ONE_TIME_TAGS.map((tag) => [tag, false])) as Record<
-      (typeof ONE_TIME_TAGS)[number],
+  private oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
+    Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
+      (typeof ONE_TIME_LABELS)[number],
       boolean
     >
 
@@ -143,7 +153,7 @@ export class Client {
     reconnectWhenNextIdle: () => void,
     costMode: CostMode,
     git: GitCommand,
-    rl: readline.Interface,
+    rl: Interface,
     model: string | undefined
   ) {
     this.costMode = costMode
@@ -181,10 +191,10 @@ export class Client {
   }
 
   private getUser(): User | undefined {
-    if (!fs.existsSync(CREDENTIALS_PATH)) {
+    if (!existsSync(CREDENTIALS_PATH)) {
       return
     }
-    const credentialsFile = fs.readFileSync(CREDENTIALS_PATH, 'utf8')
+    const credentialsFile = readFileSync(CREDENTIALS_PATH, 'utf8')
     const user = userFromJson(credentialsFile)
     return user
   }
@@ -348,7 +358,7 @@ export class Client {
         }
 
         try {
-          fs.unlinkSync(CREDENTIALS_PATH)
+          unlinkSync(CREDENTIALS_PATH)
           console.log(`You (${this.user.name}) have been logged out.`)
           this.user = undefined
           this.pendingTopUpMessageAmount = null
@@ -359,9 +369,9 @@ export class Client {
             next_quota_reset: null,
             nextMonthlyGrant: 0,
           }
-          this.oneTimeTagsShown = Object.fromEntries(
-            ONE_TIME_TAGS.map((tag) => [tag, false])
-          ) as Record<(typeof ONE_TIME_TAGS)[number], boolean>
+          this.oneTimeFlags = Object.fromEntries(
+            ONE_TIME_LABELS.map((tag) => [tag, false])
+          ) as Record<(typeof ONE_TIME_LABELS)[number], boolean>
         } catch (error) {
           console.error('Error removing credentials file:', error)
         }
@@ -456,11 +466,8 @@ export class Client {
             shouldRequestLogin = false
             this.user = user
             const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
-            fs.mkdirSync(credentialsPathDir, { recursive: true })
-            fs.writeFileSync(
-              CREDENTIALS_PATH,
-              JSON.stringify({ default: user })
-            )
+            mkdirSync(credentialsPathDir, { recursive: true })
+            writeFileSync(CREDENTIALS_PATH, JSON.stringify({ default: user }))
 
             const referralLink = `${process.env.NEXT_PUBLIC_APP_URL}/referrals`
             const responseToUser = [
@@ -470,9 +477,9 @@ export class Client {
             ]
             console.log('\n' + responseToUser.join('\n'))
             this.lastWarnedPct = 0
-            this.oneTimeTagsShown = Object.fromEntries(
-              ONE_TIME_TAGS.map((tag) => [tag, false])
-            ) as Record<(typeof ONE_TIME_TAGS)[number], boolean>
+            this.oneTimeFlags = Object.fromEntries(
+              ONE_TIME_LABELS.map((tag) => [tag, false])
+            ) as Record<(typeof ONE_TIME_LABELS)[number], boolean>
 
             displayGreeting(this.costMode, null)
             clearInterval(pollInterval)
@@ -741,7 +748,7 @@ export class Client {
       const trimmed = chunk.trim()
       for (const tag of ONE_TIME_TAGS) {
         if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)) {
-          if (this.oneTimeTagsShown[tag]) {
+          if (this.oneTimeFlags[tag]) {
             return
           }
           Spinner.get().stop()
@@ -749,7 +756,7 @@ export class Client {
             .replace(`<${tag}>`, '')
             .replace(`</${tag}>`, '')
           console.warn(yellow(`\n${warningMessage}`))
-          this.oneTimeTagsShown[tag] = true
+          this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
           return
         }
       }
@@ -802,6 +809,13 @@ export class Client {
               this.responseComplete = true
               isComplete = true
             }
+            if (
+              toolCall.name === 'run_terminal_command' &&
+              toolCall.parameters.mode === 'assistant' &&
+              toolCall.parameters.process_type === 'BACKGROUND'
+            ) {
+              this.oneTimeFlags[SHOULD_ASK_CONFIG] = true
+            }
             const toolResult = await handleToolCall(toolCall, getProjectRoot())
             toolResults.push(toolResult)
           } catch (error) {
@@ -842,6 +856,26 @@ export class Client {
 
         this.lastToolResults = toolResults
         xmlStreamParser.end()
+
+        askConfig: if (
+          this.oneTimeFlags[SHOULD_ASK_CONFIG] &&
+          !this.oneTimeFlags[ASKED_CONFIG]
+        ) {
+          this.oneTimeFlags[ASKED_CONFIG] = true
+          if (existsSync(path.join(getProjectRoot(), CONFIG_FILE_NAME))) {
+            break askConfig
+          }
+
+          console.log(
+            yellow(
+              `✨ Recommended: run the 'init' command in order to create a configuration file!
+
+If you would like background processes (like this one) to run automatically whenever codebuff starts, creating a ${CONFIG_FILE_NAME} config file can improve your workflow.
+Go to https://www.codebuff.com/config for more information.
+`
+            )
+          )
+        }
 
         if (this.agentState) {
           setMessages(this.agentState.messageHistory)
@@ -934,14 +968,14 @@ export class Client {
       )
 
       if (this.usageData.next_quota_reset) {
-        const resetDate = new Date(this.usageData.next_quota_reset);
-        const today = new Date();
-        const isToday = resetDate.toDateString() === today.toDateString();
-        
-        const dateDisplay = isToday 
+        const resetDate = new Date(this.usageData.next_quota_reset)
+        const today = new Date()
+        const isToday = resetDate.toDateString() === today.toDateString()
+
+        const dateDisplay = isToday
           ? resetDate.toLocaleString() // Show full date and time for today
-          : resetDate.toLocaleDateString(); // Just show date otherwise
-        
+          : resetDate.toLocaleDateString() // Just show date otherwise
+
         console.log(
           `Free credits will renew on ${dateDisplay}. Details: ${underline(blue(usageLink))}`
         )
