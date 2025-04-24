@@ -187,6 +187,16 @@ export class CLI {
     readline.cursorTo(process.stdout, 0)
     const rlAny = this.rl as any
 
+    // Check for pending auto-topup message before showing prompt
+    if (this.client.pendingTopUpMessageAmount) {
+      console.log(
+        green(
+          `Auto top-up successful! ${this.client.pendingTopUpMessageAmount.toLocaleString()} credits added.`
+        )
+      )
+      this.client.pendingTopUpMessageAmount = null
+    }
+
     // clear line first
     rlAny.line = ''
     this.setPrompt()

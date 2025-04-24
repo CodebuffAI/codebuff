@@ -163,9 +163,10 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
   // Check and trigger monthly reset if needed
   await triggerMonthlyResetAndGrant(userId)
 
-  // Check if we need to trigger auto top-up
+  // Check if we need to trigger auto top-up and get the amount added (if any)
+  let autoTopupAdded: number | undefined
   try {
-    await checkAndTriggerAutoTopup(userId, env.APP_URL)
+    autoTopupAdded = await checkAndTriggerAutoTopup(userId, env.APP_URL)
   } catch (error) {
     logger.error(
       { error, userId, clientSessionId },
@@ -202,6 +203,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     remainingBalance: balance.totalRemaining,
     balanceBreakdown: balance.breakdown,
     next_quota_reset: user?.next_quota_reset ?? null,
+    autoTopupAdded, // Include the amount added by auto top-up (if any)
   })
 
   return undefined

@@ -109,7 +109,7 @@ export class Client {
   private git: GitCommand
   private rl: readline.Interface
   private responseComplete: boolean = false
-  private pendingTopUpMessageAmount: number | null = null
+  public pendingTopUpMessageAmount: number | null = null
   private oneTimeTagsShown: Record<(typeof ONE_TIME_TAGS)[number], boolean> =
     Object.fromEntries(ONE_TIME_TAGS.map((tag) => [tag, false])) as Record<
       (typeof ONE_TIME_TAGS)[number],
@@ -525,7 +525,7 @@ export class Client {
 
       this.setUsage(parsedAction.data)
 
-      // Store auto-topup info if it occurred
+      // Store auto-topup amount if present, to be displayed when returning control to user
       if (parsedAction.data.autoTopupAdded) {
         this.pendingTopUpMessageAmount = parsedAction.data.autoTopupAdded
       }
@@ -802,6 +802,8 @@ export class Client {
           return
         }
 
+        console.log('Response complete, prompt-response handler finished')
+
         this.lastToolResults = toolResults
         xmlStreamParser.end()
 
@@ -814,16 +816,6 @@ export class Client {
           this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
         if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
           console.log(`${pluralize(credits, 'credit')} used for this request.`)
-        }
-
-        // Show auto top-up success message if it occurred during this response
-        if (this.pendingTopUpMessageAmount) {
-          console.log(
-            green(
-              `Auto top-up successful! ${this.pendingTopUpMessageAmount.toLocaleString()} credits added.`
-            )
-          )
-          this.pendingTopUpMessageAmount = null
         }
 
         if (this.hadFileChanges) {
@@ -896,14 +888,14 @@ export class Client {
       )
 
       if (this.usageData.next_quota_reset) {
-        const resetDate = new Date(this.usageData.next_quota_reset);
-        const today = new Date();
-        const isToday = resetDate.toDateString() === today.toDateString();
-        
-        const dateDisplay = isToday 
+        const resetDate = new Date(this.usageData.next_quota_reset)
+        const today = new Date()
+        const isToday = resetDate.toDateString() === today.toDateString()
+
+        const dateDisplay = isToday
           ? resetDate.toLocaleString() // Show full date and time for today
-          : resetDate.toLocaleDateString(); // Just show date otherwise
-        
+          : resetDate.toLocaleDateString() // Just show date otherwise
+
         console.log(
           `Free credits will renew on ${dateDisplay}. Details: ${underline(blue(usageLink))}`
         )

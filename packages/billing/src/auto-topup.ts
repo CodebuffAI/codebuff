@@ -165,7 +165,7 @@ async function processAutoTopupPayment(
 export async function checkAndTriggerAutoTopup(
   userId: string,
   appUrl: string
-): Promise<void> {
+): Promise<number | undefined> {
   const logContext = { userId }
 
   try {
@@ -188,7 +188,7 @@ export async function checkAndTriggerAutoTopup(
       user.auto_topup_amount === null ||
       !user.stripe_customer_id
     ) {
-      return
+      return undefined
     }
 
     // Validate payment method
@@ -218,7 +218,7 @@ export async function checkAndTriggerAutoTopup(
         },
         `Auto top-up not needed for user ${userId}. Balance ${balance.totalRemaining} is above threshold ${user.auto_topup_threshold} and no debt.`
       )
-      return
+      return undefined
     }
 
     const amountToTopUp =
@@ -231,7 +231,7 @@ export async function checkAndTriggerAutoTopup(
         logContext,
         `Auto-top-up triggered but amount ${amountToTopUp} is less than minimum ${MINIMUM_PURCHASE_CREDITS}. Skipping top-up. Check user settings.`
       )
-      return
+      return undefined
     }
 
     logger.info(
@@ -252,6 +252,7 @@ export async function checkAndTriggerAutoTopup(
         user.stripe_customer_id,
         validPaymentMethod
       )
+      return amountToTopUp // Return the amount that was successfully added
     } catch (error) {
       const message =
         error instanceof AutoTopupPaymentError
