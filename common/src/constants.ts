@@ -142,7 +142,11 @@ export const getModelForMode = (
   operation: 'agent' | 'file-requests' | 'check-new-files'
 ) => {
   if (operation === 'agent') {
-    return costMode === 'lite' ? models.gemini2_5_flash_thinking : claudeModels.sonnet
+    return costMode === 'experimental'
+      ? models.gpt4_1
+      : costMode === 'lite'
+        ? models.gemini2_5_flash_thinking
+        : claudeModels.sonnet
   }
   if (operation === 'file-requests') {
     return costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku
@@ -185,7 +189,8 @@ export const openrouterModels = {
   openrouter_gemini2_5_pro_exp: 'google/gemini-2.5-pro-exp-03-25:free',
   openrouter_gemini2_5_pro_preview: 'google/gemini-2.5-pro-preview-03-25',
   openrouter_gemini2_5_flash: 'google/gemini-2.5-flash-preview',
-  openrouter_gemini2_5_flash_thinking: 'google/gemini-2.5-flash-preview:thinking',
+  openrouter_gemini2_5_flash_thinking:
+    'google/gemini-2.5-flash-preview:thinking',
 } as const
 export type openrouterModel =
   (typeof openrouterModels)[keyof typeof openrouterModels]
