@@ -36,6 +36,7 @@ import {
   getInitialAgentState,
   ToolResult,
 } from 'common/types/agent-state'
+import { buildArray } from 'common/util/array'
 import { User } from 'common/util/credentials'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
@@ -70,9 +71,7 @@ import { GitCommand } from './types'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
-import { getScrapedContentBlocks } from './web-scraper'
-import { parseUrlsFromContent } from './web-scraper'
-import { buildArray } from 'common/util/array'
+import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -114,7 +113,7 @@ const WARNING_CONFIG = {
 
 export class Client {
   private webSocket: APIRealtimeClient
-  private returnControlToUser: () => void
+  private freshPrompt: () => void
   private reconnectWhenNextIdle: () => void
   private fingerprintId!: string | Promise<string>
   private costMode: CostMode
@@ -148,17 +147,27 @@ export class Client {
   public lastToolResults: ToolResult[] = []
   public model: string | undefined
 
-  constructor(
-    websocketUrl: string,
-    onWebSocketError: () => void,
-    onWebSocketReconnect: () => void,
-    returnControlToUser: () => void,
-    reconnectWhenNextIdle: () => void,
-    costMode: CostMode,
-    git: GitCommand,
-    rl: Interface,
+  constructor({
+    websocketUrl,
+    onWebSocketError,
+    onWebSocketReconnect,
+    freshPrompt,
+    reconnectWhenNextIdle,
+    costMode,
+    git,
+    rl,
+    model,
+  }: {
+    websocketUrl: string
+    onWebSocketError: () => void
+    onWebSocketReconnect: () => void
+    freshPrompt: () => void
+    reconnectWhenNextIdle: () => void
+    costMode: CostMode
+    git: GitCommand
+    rl: Interface
     model: string | undefined
-  ) {
+  }) {
     this.costMode = costMode
     this.model = model
     this.git = git
@@ -169,7 +178,7 @@ export class Client {
     )
     this.user = this.getUser()
     this.initFingerprintId()
-    this.returnControlToUser = returnControlToUser
+    this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
     this.rl = rl
   }
@@ -256,7 +265,7 @@ export class Client {
   async handleAddApiKey(keyType: ApiKeyType, apiKey: string): Promise<void> {
     if (!this.user || !this.user.authToken) {
       console.log(yellow("Please log in first using 'login'."))
-      this.returnControlToUser()
+      this.freshPrompt()
       return
     }
 
@@ -296,7 +305,7 @@ export class Client {
       const error = e as Error
       console.error(red('Error adding API key: ' + error.message))
     } finally {
-      this.returnControlToUser()
+      this.freshPrompt()
     }
   }
 
@@ -334,7 +343,7 @@ export class Client {
       } catch (e) {
         const error = e as Error
         console.error(red('Error: ' + error.message))
-        this.returnControlToUser()
+        this.freshPrompt()
       }
     } else {
       await this.login(referralCode)
@@ -389,7 +398,7 @@ export class Client {
       console.log(
         `You are currently logged in as ${this.user.name}. Please enter "logout" first if you want to login as a different user.`
       )
-      this.returnControlToUser()
+      this.freshPrompt()
       return
     }
 
@@ -406,7 +415,7 @@ export class Client {
       if (!response.ok) {
         const error = await response.text()
         console.error(red('Login code request failed: ' + error))
-        this.returnControlToUser()
+        this.freshPrompt()
         return
       }
 
@@ -438,7 +447,7 @@ export class Client {
           console.log(
             'Unable to login. Please try again by typing "login" in the terminal.'
           )
-          this.returnControlToUser()
+          this.freshPrompt()
           clearInterval(pollInterval)
           return
         }
@@ -486,7 +495,7 @@ export class Client {
 
             displayGreeting(this.costMode, null)
             clearInterval(pollInterval)
-            this.returnControlToUser()
+            this.freshPrompt()
           }
         } catch (error) {
           console.error('Error checking login status:', error)
@@ -494,7 +503,7 @@ export class Client {
       }, 5000)
     } catch (error) {
       console.error('Error during login:', error)
-      this.returnControlToUser()
+      this.freshPrompt()
     }
   }
 
@@ -523,7 +532,7 @@ export class Client {
       } else {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
       }
-      this.returnControlToUser()
+      this.freshPrompt()
       return
     })
 
@@ -615,7 +624,7 @@ export class Client {
       const message = config.message(this.usageData.remainingBalance)
       console.warn(message)
       this.lastWarnedPct = config.threshold
-      this.returnControlToUser()
+      this.freshPrompt()
     }
   }
 
@@ -725,14 +734,17 @@ export class Client {
       unsubscribeChunks()
       unsubscribeComplete()
 
-      const assistantMessage = {
-        role: 'user' as const,
-        content: `Received output:\n${responseBuffer}[RESPONSE_CANCELED_BY_USER]`,
-      }
+      const additionalMessages = [
+        { role: 'user' as const, content: prompt },
+        {
+          role: 'user' as const,
+          content: `<system><assistant_message>${responseBuffer}</assistant_message>[RESPONSE_CANCELED_BY_USER]</system>`,
+        },
+      ]
 
       // Update the agent state with just the assistant's response
       const { messageHistory } = this.agentState!
-      const newMessages = [...messageHistory, assistantMessage]
+      const newMessages = [...messageHistory, ...additionalMessages]
       this.agentState = {
         ...this.agentState!,
         messageHistory: newMessages,
@@ -922,7 +934,7 @@ Go to https://www.codebuff.com/config for more information.
             `\nComplete! Type "diff" to review changes${checkpointAddendum}.`
           )
           this.hadFileChanges = false
-          this.returnControlToUser()
+          this.freshPrompt()
         }
 
         unsubscribeChunks()
@@ -1008,7 +1020,7 @@ Go to https://www.codebuff.com/config for more information.
         console.error(error)
       }
     } finally {
-      this.returnControlToUser()
+      this.freshPrompt()
     }
   }
 

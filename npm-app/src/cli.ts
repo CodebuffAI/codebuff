@@ -37,7 +37,6 @@ import { getProjectRoot, isDir } from './project-files'
 import { CliOptions, GitCommand } from './types'
 import { Spinner } from './utils/spinner'
 import { isCommandRunning, resetShell } from './utils/terminal'
-import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 type ApiKeyDetectionResult =
   | { status: 'found'; type: ApiKeyType; key: string }
@@ -69,17 +68,17 @@ export class CLI {
     this.setupSignalHandlers()
     this.initReadlineInterface()
 
-    this.client = new Client(
+    this.client = new Client({
       websocketUrl,
-      this.onWebSocketError.bind(this),
-      this.onWebSocketReconnect.bind(this),
-      this.returnControlToUser.bind(this),
-      this.reconnectWhenNextIdle.bind(this),
-      this.costMode,
-      this.git,
-      this.rl,
-      model
-    )
+      onWebSocketError: this.onWebSocketError.bind(this),
+      onWebSocketReconnect: this.onWebSocketReconnect.bind(this),
+      freshPrompt: this.freshPrompt.bind(this),
+      reconnectWhenNextIdle: this.reconnectWhenNextIdle.bind(this),
+      costMode: this.costMode,
+      git: this.git,
+      rl: this.rl,
+      model,
+    })
 
     this.readyPromise = Promise.all([
       readyPromise.then((results) => {
@@ -179,6 +178,7 @@ export class CLI {
    */
   private freshPrompt(userInput: string = '') {
     Spinner.get().stop()
+    this.isReceivingResponse = false
 
     if (this.shouldReconnectWhenIdle) {
       this.client.reconnect()
@@ -293,7 +293,7 @@ export class CLI {
         this.client,
         detectionResult,
         this.readyPromise,
-        this.returnControlToUser.bind(this)
+        this.freshPrompt.bind(this)
       )
       return true // Indicate command was handled
     }
@@ -317,7 +317,7 @@ export class CLI {
       userInput === 'konami' ||
       userInput === 'codebuffy'
     ) {
-      showEasterEgg(this.returnControlToUser.bind(this))
+      showEasterEgg(this.freshPrompt.bind(this))
       return true
     }
 
@@ -417,14 +417,6 @@ export class CLI {
     }
   }
 
-  private returnControlToUser() {
-    this.freshPrompt()
-    this.isReceivingResponse = false
-    if (this.stopResponse) {
-      this.stopResponse()
-    }
-  }
-
   private onWebSocketError() {
     Spinner.get().stop()
     this.isReceivingResponse = false
@@ -437,7 +429,7 @@ export class CLI {
 
   private onWebSocketReconnect() {
     console.log(green('\nReconnected!'))
-    this.returnControlToUser()
+    this.freshPrompt()
   }
 
   private handleKeyPress(str: string, key: any) {
