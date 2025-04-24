@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.234",
+  "version": "1.0.235",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -75,8 +75,5 @@
   "trustedDependencies": [
     "@homebridge/node-pty-prebuilt-multiarch",
     "@vscode/ripgrep"
-  ],
-  "devDependencies": {
-    "strip-ansi": "^7.1.0"
-  }
+  ]
 }
