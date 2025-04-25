@@ -15,6 +15,7 @@ import {
 import { logAndHandleStartup } from './startup-process-handler'
 import { CliOptions } from './types'
 import { updateCodebuff } from './update-codebuff'
+import { initAnalytics } from './utils/analytics'
 import { recreateShell } from './utils/terminal'
 
 async function codebuff(
@@ -29,6 +30,8 @@ async function codebuff(
 
   // Kill all processes we failed to kill before
   const processCleanupPromise = logAndHandleStartup(dir, config)
+
+  initAnalytics()
 
   const updatePromise = updateCodebuff()
 

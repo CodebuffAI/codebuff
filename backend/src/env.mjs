@@ -1,7 +1,8 @@
-import { createEnv } from '@t3-oss/env-core'
-import { z } from 'zod'
-import dotenv from 'dotenv'
 import path from 'path'
+
+import { createEnv } from '@t3-oss/env-core'
+import dotenv from 'dotenv'
+import { z } from 'zod'
 
 dotenv.config({ path: path.join(__dirname, '../../stack.env') })
 if (!process.env.NEXT_PUBLIC_CB_ENVIRONMENT) {
@@ -37,6 +38,8 @@ export const env = createEnv({
     NEXT_PUBLIC_APP_URL: z.string().min(1),
     NEXTAUTH_SECRET: z.string().min(1),
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().min(1),
+    NEXT_PUBLIC_POSTHOG_API_KEY: z.string().min(1),
+    NEXT_PUBLIC_POSTHOG_HOST_URL: z.string().min(1),
   },
   runtimeEnv: process.env,
 })

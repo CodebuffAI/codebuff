@@ -31,6 +31,7 @@ import {
   UserState,
 } from 'common/constants'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from 'common/json-config/constants'
+import { AnalyticsEvent } from 'common/src/constants/analytics-events'
 import {
   AgentState,
   getInitialAgentState,
@@ -68,6 +69,7 @@ import {
 } from './project-files'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand } from './types'
+import { identifyUser, trackEvent } from './utils/analytics'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
@@ -181,6 +183,7 @@ export class Client {
     this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
     this.rl = rl
+    trackEvent(AnalyticsEvent.APP_LAUNCHED)
   }
 
   async exit() {
@@ -208,6 +211,12 @@ export class Client {
     }
     const credentialsFile = readFileSync(CREDENTIALS_PATH, 'utf8')
     const user = userFromJson(credentialsFile)
+    if (user) {
+      identifyUser(user.id, {
+        email: user.email,
+        name: user.name,
+      })
+    }
     return user
   }
 

@@ -1,26 +1,27 @@
-import { WebSocket } from 'ws'
-import { eq } from 'drizzle-orm'
-import _, { isEqual } from 'lodash'
-
-import { ClientMessage } from 'common/websockets/websocket-schema'
-import { mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
-import { sendMessage } from './server'
+import { PLAN_CONFIGS, toOptionalFile, UsageLimits } from 'common/constants'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { protec } from './middleware'
 import { calculateUsageAndBalance } from 'common/src/billing/balance-calculator'
-import { ensureEndsWithNewline } from 'common/src/util/file'
-import { logger, withLoggerContext } from '@/util/logger'
-import { generateCompactId } from 'common/util/string'
-import { renderToolResults } from '@/util/parse-tool-call-xml'
-import { buildArray } from 'common/util/array'
-import { toOptionalFile, UsageLimits, PLAN_CONFIGS } from 'common/constants'
 import {
-  getPlanFromPriceId,
   getMonthlyGrantForPlan,
+  getPlanFromPriceId,
 } from 'common/src/billing/plans'
-import { triggerMonthlyResetAndGrant } from 'common/src/billing/grant-credits'
+import { ensureEndsWithNewline } from 'common/src/util/file'
+import { buildArray } from 'common/util/array'
+import { generateCompactId } from 'common/util/string'
+import { ClientMessage } from 'common/websockets/websocket-schema'
+import { eq } from 'drizzle-orm'
+import { WebSocket } from 'ws'
+
+import { mainPrompt } from '../main-prompt'
+import { protec } from './middleware'
+import { sendMessage } from './server'
+
+import { trackEvent } from '@/util/analytics'
+import { logger, withLoggerContext } from '@/util/logger'
+import { renderToolResults } from '@/util/parse-tool-call-xml'
 
 /**
  * Sends an action to the client via WebSocket
@@ -143,6 +144,12 @@ const onPrompt = async (
       if (!userId) {
         throw new Error('User not found')
       }
+
+      trackEvent(AnalyticsEvent.PROMPT_SENT, userId, {
+        prompt,
+        promptId,
+      })
+
       try {
         const { agentState, toolCalls, toolResults } = await mainPrompt(
           ws,

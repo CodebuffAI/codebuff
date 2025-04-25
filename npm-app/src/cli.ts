@@ -35,6 +35,7 @@ import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
 import { getProjectRoot, isDir } from './project-files'
 import { CliOptions, GitCommand } from './types'
+import { flushAnalytics } from './utils/analytics'
 import { Spinner } from './utils/spinner'
 import { isCommandRunning, resetShell } from './utils/terminal'
 
@@ -113,12 +114,14 @@ export class CLI {
     process.on('SIGTERM', async () => {
       Spinner.get().restoreCursor()
       await killAllBackgroundProcesses()
+      flushAnalytics()
       process.exit(0)
     })
     process.on('SIGTSTP', async () => await this.handleExit())
     process.on('SIGHUP', async () => {
       Spinner.get().restoreCursor()
       await killAllBackgroundProcesses()
+      flushAnalytics()
       process.exit(0)
     })
     // Doesn't catch SIGKILL (e.g. `kill -9`)
@@ -498,6 +501,7 @@ export class CLI {
     console.log('\n')
 
     await killAllBackgroundProcesses()
+    flushAnalytics()
 
     const logMessages = []
     const totalCreditsUsedThisSession = Object.values(
