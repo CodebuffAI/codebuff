@@ -1,9 +1,8 @@
 import { eq, sql } from 'drizzle-orm'
-import * as schema from '../../db/schema'
-import db from '../../db'
-import { getReferralLink } from '../referral'
-
-import { env } from '../../env.mjs'
+import * as schema from 'common/db/schema'
+import db from 'common/db'
+import { getReferralLink } from 'common/util/referral'
+import { env } from '@/env.mjs'
 
 export type ReferralStatus =
   | {
@@ -61,8 +60,6 @@ export async function hasMaxedReferrals(
         },
       }
     }
-
-
 
     return {
       reason: undefined,

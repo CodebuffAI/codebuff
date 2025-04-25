@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { CREDITS_REFERRAL_BONUS } from 'common/src/constants'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { hasMaxedReferrals } from 'common/util/server/referral'
+import { hasMaxedReferrals } from '@/lib/server/referral'
 import { logger } from '@/util/logger'
 import { grantCreditOperation } from '@codebuff/billing'
 
