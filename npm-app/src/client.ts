@@ -30,8 +30,8 @@ import {
   SHOULD_ASK_CONFIG,
   UserState,
 } from 'common/constants'
-import { codebuffConfigFile as CONFIG_FILE_NAME } from 'common/json-config/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
+import { codebuffConfigFile as CONFIG_FILE_NAME } from 'common/json-config/constants'
 import {
   AgentState,
   getInitialAgentState,
@@ -739,6 +739,7 @@ export class Client {
     onStreamStart: () => void,
     prompt: string
   ) {
+    const rawChunkBuffer: string[] = []
     let responseBuffer = ''
     let streamStarted = false
     let responseStopped = false
@@ -769,7 +770,7 @@ export class Client {
         { role: 'user' as const, content: prompt },
         {
           role: 'user' as const,
-          content: `<system><assistant_message>${responseBuffer}</assistant_message>[RESPONSE_CANCELED_BY_USER]</system>`,
+          content: `<system><assistant_message>${rawChunkBuffer.join('')}</assistant_message>[RESPONSE_CANCELED_BY_USER]</system>`,
         },
       ]
 
@@ -800,6 +801,8 @@ export class Client {
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
+
+      rawChunkBuffer.push(chunk)
 
       const trimmed = chunk.trim()
       for (const tag of ONE_TIME_TAGS) {
