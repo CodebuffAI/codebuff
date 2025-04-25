@@ -1,5 +1,3 @@
-import fs from 'fs'
-
 import { BigQuery } from '@google-cloud/bigquery'
 
 import { logger } from '../util/logger'
@@ -24,42 +22,15 @@ let client: BigQuery | null = null
 
 function getClient(): BigQuery {
   if (!client) {
-    throw new Error(
-      'BigQuery client not initialized. Call setupBigQuery first.'
-    )
+    throw new Error('BigQuery client not initialized. Call setupBigQuery first.')
   }
   return client
 }
 
 export async function setupBigQuery(dataset: string = DATASET) {
   try {
-    const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS
-    if (!credentialsPath) {
-      throw new Error(
-        'GOOGLE_APPLICATION_CREDENTIALS environment variable not set'
-      )
-    } else {
-      logger.info('Setting up BigQuery client with path:' + credentialsPath)
-    }
-
-    if (!process.env.GOOGLE_CLOUD_PROJECT_ID) {
-      throw new Error('GOOGLE_CLOUD_PROJECT_ID environment variable not set')
-    } else {
-      logger.info(
-        'Setting up BigQuery client with project ID:' +
-          process.env.GOOGLE_CLOUD_PROJECT_ID
-      )
-    }
-
-    const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'))
-
-    logger.info('Got credentials' + credentials)
-
     logger.info('Creating BigQuery client...')
-    client = new BigQuery({
-      credentials,
-      projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-    })
+    client = new BigQuery()
     logger.info('BigQuery client created, initializing dataset...')
 
     // Ensure dataset exists
@@ -148,10 +119,7 @@ export async function insertRelabel(
           : relabel.payload,
     }
 
-    await getClient()
-      .dataset(dataset)
-      .table(RELABELS_TABLE)
-      .insert(relabelToInsert)
+    await getClient().dataset(dataset).table(RELABELS_TABLE).insert(relabelToInsert)
 
     logger.debug({ relabelId: relabel.id }, 'Inserted relabel into BigQuery')
     return true

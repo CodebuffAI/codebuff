@@ -36,7 +36,7 @@ export const withLoggerContext = <T>(
 // Ensure debug directory exists for local environment
 const debugDir = path.join(__dirname, '../../../debug')
 if (
-  // env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local' &&
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local' &&
   process.env.CODEBUFF_GITHUB_ACTIONS !== 'true'
 ) {
   try {
@@ -45,14 +45,6 @@ if (
     console.error('Failed to create debug directory:', err)
   }
 }
-
-const localFileTransport = pino.transport({
-  target: 'pino/file',
-  options: {
-    destination: path.join(debugDir, 'backend.log'),
-  },
-  level: 'debug',
-})
 
 const pinoLogger = pino(
   {
@@ -69,7 +61,13 @@ const pinoLogger = pino(
   },
   env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local' &&
     process.env.CODEBUFF_GITHUB_ACTIONS !== 'true'
-    ? localFileTransport
+    ? pino.transport({
+        target: 'pino/file',
+        options: {
+          destination: path.join(debugDir, 'backend.log'),
+        },
+        level: 'debug',
+      })
     : undefined
 )
 
