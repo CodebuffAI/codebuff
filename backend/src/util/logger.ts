@@ -53,9 +53,7 @@ const pinoLogger = pino(
     },
     timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
   },
-  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
-    ? undefined
-    : localFileTransport
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local' ? localFileTransport : undefined
 )
 
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const

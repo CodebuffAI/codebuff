@@ -1,5 +1,5 @@
 import { mkdirSync } from 'fs'
-import path from 'path'
+import path, { dirname } from 'path'
 import { format as stringFormat } from 'util'
 
 import { AnalyticsEvent } from 'common/constants/analytics-events'
@@ -21,17 +21,18 @@ export const loggerContext: LoggerContext = {}
 
 const analyticsBuffer: { analyticsEventId: AnalyticsEvent; toTrack: any }[] = []
 
-let logPath = process.env.NEXT_PUBLIC_CB_ENVIRONMENT
-  ? undefined
-  : path.join(__dirname, '../../../debug', 'npm-app.log')
-let fileTransport =
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
+let logPath =
+  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
     ? undefined
-    : pino.transport({
+    : path.join(__dirname, '../../../debug', 'npm-app.log')
+let fileTransport =
+  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
+    ? pino.transport({
         target: 'pino/file',
         options: { destination: logPath },
         level: 'debug',
       })
+    : undefined
 let lastKnownProjectRoot: string | undefined
 
 let pinoLogger: any = undefined
@@ -48,7 +49,7 @@ function sendAnalyticsAndLog(
   const projectRoot = getProjectRoot()
   if (!pinoLogger || !fileTransport || lastKnownProjectRoot !== projectRoot) {
     lastKnownProjectRoot = projectRoot
-    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production') {
+    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'local') {
       logPath = path.join(getCurrentChatDir(), 'log.jsonl')
       fileTransport = pino.transport({
         target: 'pino/file',
@@ -57,7 +58,7 @@ function sendAnalyticsAndLog(
       })
     }
 
-    mkdirSync(fileTransport, { recursive: true })
+    mkdirSync(dirname(logPath as string), { recursive: true })
     pinoLogger = pino(
       {
         level: 'debug',
