@@ -3,8 +3,8 @@ import { format as stringFormat } from 'util'
 
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import pino from 'pino'
-import { getCurrentChatDir, getProjectRoot } from '../project-files'
 
+import { getCurrentChatDir, getProjectRoot } from '../project-files'
 import { trackEvent } from './analytics'
 
 export interface LoggerContext {
@@ -41,9 +41,7 @@ let pinoLogger = pino(
     },
     timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
   },
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
-    ? productionFileTransport
-    : localFileTransport
+  localFileTransport
 )
 
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
@@ -55,10 +53,12 @@ function sendAnalyticsAndLog(
   msg?: string,
   ...args: any[]
 ): void {
+  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production') {
+    return
+  }
   if (
-    !productionFileTransport ||
-    (storedDir !== getProjectRoot() &&
-      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production')
+    (!productionFileTransport || storedDir !== getProjectRoot()) &&
+    process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
   ) {
     productionFileTransport = pino.transport({
       target: 'pino/file',
@@ -76,9 +76,7 @@ function sendAnalyticsAndLog(
         },
         timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
       },
-      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
-        ? productionFileTransport
-        : localFileTransport
+      productionFileTransport
     )
   }
 
