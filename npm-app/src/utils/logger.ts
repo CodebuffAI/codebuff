@@ -73,7 +73,10 @@ function sendAnalyticsAndLog(
     )
   }
 
-  logOrStore: if (Object.values(AnalyticsEvent).includes(data.eventId)) {
+  logOrStore: if (
+    process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'local' &&
+    Object.values(AnalyticsEvent).includes(data.eventId)
+  ) {
     const analyticsEventId = data.eventId as AnalyticsEvent
     const toTrack = {
       data,
