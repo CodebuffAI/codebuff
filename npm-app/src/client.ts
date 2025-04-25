@@ -31,7 +31,7 @@ import {
   UserState,
 } from 'common/constants'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from 'common/json-config/constants'
-import { AnalyticsEvent } from 'common/src/constants/analytics-events'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import {
   AgentState,
   getInitialAgentState,

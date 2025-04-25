@@ -3,7 +3,7 @@ import { format as stringFormat } from 'util'
 
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import pino from 'pino'
-import { getCurrentChatDir, getProjectRoot } from 'src/project-files'
+import { getCurrentChatDir, getProjectRoot } from '../project-files'
 
 import { trackEvent } from './analytics'
 

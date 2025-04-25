@@ -15,7 +15,7 @@ import {
 import path from 'path'
 import process from 'process'
 
-import { AnalyticsEvent } from 'common/src/constants/analytics-events'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { ToolResult } from 'common/types/agent-state'
 import { buildArray } from 'common/util/array'
 import { truncateStringWithMessage } from 'common/util/string'

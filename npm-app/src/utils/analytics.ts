@@ -1,4 +1,4 @@
-import { AnalyticsEvent } from 'common/src/constants/analytics-events'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { PostHog } from 'posthog-node'
 
 // Store the identified user ID
