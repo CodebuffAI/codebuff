@@ -5,7 +5,6 @@ import { logger } from './logger'
 
 import { env } from '@/env.mjs'
 
-// Store the identified user ID
 let client: PostHog | undefined
 
 export function initAnalytics() {
