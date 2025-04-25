@@ -20,6 +20,13 @@ const RELABELS_TABLE = 'relabels'
 // Create a single BigQuery client instance to be used by all functions
 let client: BigQuery | null = null
 
+function getClient(): BigQuery {
+  if (!client) {
+    throw new Error('BigQuery client not initialized. Call setupBigQuery first.')
+  }
+  return client
+}
+
 export async function setupBigQuery(dataset: string = DATASET) {
   try {
     logger.info('Creating BigQuery client...')
@@ -82,7 +89,7 @@ export async function insertTrace(trace: Trace, dataset: string = DATASET) {
           : trace.payload,
     }
 
-    await client.dataset(dataset).table(TRACES_TABLE).insert(traceToInsert)
+    await getClient().dataset(dataset).table(TRACES_TABLE).insert(traceToInsert)
 
     logger.debug(
       { traceId: trace.id, type: trace.type },
@@ -112,7 +119,7 @@ export async function insertRelabel(
           : relabel.payload,
     }
 
-    await client.dataset(dataset).table(RELABELS_TABLE).insert(relabelToInsert)
+    await getClient().dataset(dataset).table(RELABELS_TABLE).insert(relabelToInsert)
 
     logger.debug({ relabelId: relabel.id }, 'Inserted relabel into BigQuery')
     return true
@@ -134,7 +141,7 @@ export async function getRecentTraces(
     ORDER BY created_at DESC
     LIMIT ${limit}
   `
-  const [rows] = await client.query(query)
+  const [rows] = await getClient().query(query)
   // Parse the payload as JSON if it's a string
   return rows.map((row) => ({
     ...row,
@@ -152,7 +159,7 @@ export async function getRecentRelabels(
     ORDER BY created_at DESC
     LIMIT ${limit}
   `
-  const [rows] = await client.query(query)
+  const [rows] = await getClient().query(query)
   // Parse the payload as JSON if it's a string
   return rows.map((row) => ({
     ...row,
@@ -187,7 +194,7 @@ export async function getTracesWithoutRelabels(
     LIMIT ${limit}
   `
 
-  const [rows] = await client.query(query)
+  const [rows] = await getClient().query(query)
   // Parse the payload as JSON if it's a string
   return rows.map((row) => ({
     ...row,
@@ -223,7 +230,7 @@ export async function getTracesWithRelabels(
   LIMIT ${limit}
   `
 
-  const [rows] = await client.query(query)
+  const [rows] = await getClient().query(query)
 
   // Filter out any results where either trace or relabel data is missing
   const res = rows
@@ -290,7 +297,7 @@ export async function getTracesAndRelabelsForUser(
   ORDER BY ANY_VALUE(t.created_at) DESC
   `
 
-  const [rows] = await client.query(query)
+  const [rows] = await getClient().query(query)
 
   // Process and parse the results
   return rows.map((row) => {
