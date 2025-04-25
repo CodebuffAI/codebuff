@@ -18,14 +18,20 @@ const TRACES_TABLE = 'traces'
 const RELABELS_TABLE = 'relabels'
 
 // Create a single BigQuery client instance to be used by all functions
-const client = new BigQuery()
+let client: BigQuery | null = null
 
 export async function setupBigQuery(dataset: string = DATASET) {
   try {
+    logger.info('Creating BigQuery client...')
+    client = new BigQuery()
+    logger.info('BigQuery client created, initializing dataset...')
+
     // Ensure dataset exists
     const [ds] = await client.dataset(dataset).get({ autoCreate: true })
+    logger.info({ dataset }, 'Dataset initialized')
 
     // Ensure tables exist
+    logger.info('Creating/verifying tables...')
     await ds.table(TRACES_TABLE).get({
       autoCreate: true,
       schema: TRACES_SCHEMA,
@@ -48,9 +54,20 @@ export async function setupBigQuery(dataset: string = DATASET) {
         fields: ['user_id', 'agent_step_id'],
       },
     })
+    logger.info('Tables initialized successfully')
   } catch (error) {
-    console.log('Failed to initialize BigQuery', JSON.stringify(error))
-    logger.error({ error }, 'Failed to initialize BigQuery')
+    logger.error(
+      {
+        error,
+        stack: (error as Error).stack,
+        message: (error as Error).message,
+        name: (error as Error).name,
+        code: (error as any).code,
+        details: (error as any).details,
+      },
+      'Failed to initialize BigQuery'
+    )
+    throw error // Re-throw to be caught by caller
   }
 }
 

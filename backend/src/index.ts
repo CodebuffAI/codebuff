@@ -67,14 +67,23 @@ app.use(
 logger.info('Initializing server')
 
 // Initialize BigQuery before starting the server
+logger.info('Starting BigQuery initialization...')
 setupBigQuery()
   .catch((err) => {
-    logger.error('Failed to initialize BigQuery client', err)
+    logger.error({
+      error: err,
+      stack: err.stack,
+      message: err.message,
+      name: err.name,
+      code: err.code,
+      details: err.details,
+    }, 'Failed to initialize BigQuery client')
   })
   .finally(() => {
-    logger.debug('BigQuery client initialized')
+    logger.debug('BigQuery initialization completed')
   })
 
+logger.info('Initializing analytics...')
 initAnalytics()
 
 const server = http.createServer(app)
