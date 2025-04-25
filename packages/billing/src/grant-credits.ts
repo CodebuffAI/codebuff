@@ -3,6 +3,7 @@ import * as schema from 'common/db/schema'
 import { GrantType } from 'common/db/schema'
 import { logger } from 'common/util/logger'
 import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
+import { DEFAULT_FREE_CREDITS_GRANT } from 'common/constants'
 import { eq, desc, lte, and, or, sql, isNull, gt } from 'drizzle-orm'
 import { withRetry } from 'common/util/promise'
 import { logSyncFailure } from 'common/util/sync-failure'
@@ -50,10 +51,10 @@ export async function getPreviousFreeGrantAmount(
     return cappedAmount
   } else {
     logger.debug(
-      { userId, defaultAmount: 500 },
+      { userId, defaultAmount: DEFAULT_FREE_CREDITS_GRANT },
       'No previous expired free grant found. Using default.'
     )
-    return 500 // Default if no previous grant found
+    return DEFAULT_FREE_CREDITS_GRANT // Default if no previous grant found
   }
 }
 

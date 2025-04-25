@@ -459,10 +459,11 @@ export const saveMessage = async (value: {
         value.cacheReadInputTokens ?? 0
       )
 
-      // Default to 1 cent per credit if no user ID
-      const centsPerCredit = value.userId
-        ? await getUserCostPerCredit(value.userId)
-        : 1
+      // Default to 1 cent per credit
+      let centsPerCredit = 1
+      if (value.userId) {
+        centsPerCredit = await getUserCostPerCredit(value.userId)
+      }
 
       const costInCents = Math.max(
         1,

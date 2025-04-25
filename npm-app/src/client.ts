@@ -56,7 +56,7 @@ import {
   getProjectRoot,
 } from './project-files'
 import { handleToolCall } from './tool-handlers'
-import { GitCommand } from './types'
+import { GitCommand, MakeNullable } from './types'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
@@ -99,6 +99,8 @@ const WARNING_CONFIG = {
   },
 } as const
 
+type UsageData = Omit<MakeNullable<UsageResponse, 'remainingBalance'>, 'type'>
+
 export class Client {
   private webSocket: APIRealtimeClient
   private returnControlToUser: () => void
@@ -116,7 +118,7 @@ export class Client {
       boolean
     >
 
-  public usageData: Omit<UsageResponse, 'type'> = {
+  public usageData: UsageData = {
     usage: 0,
     remainingBalance: null,
     balanceBreakdown: undefined,
@@ -198,7 +200,41 @@ export class Client {
       return
     }
 
-    const TIMEOUT_MS = 5_000
+    // const TIMEOUT_MS = 5_000
+    //   try {
+    //     const timeoutPromise = new Promise<Response>((_, reject) => {
+    //       setTimeout(() => reject(new Error('Request timed out')), TIMEOUT_MS)
+    //     })
+
+    //     const fetchPromise = fetch(
+    //       `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
+    //       {
+    //         method: 'GET',
+    //         headers: {
+    //           'Content-Type': 'application/json',
+    //           Cookie: `next-auth.session-token=${this.user.authToken}`,
+    //           Authorization: `Bearer ${this.user.authToken}`,
+    //         },
+    //       }
+    //     )
+
+    //     const response = await Promise.race([fetchPromise, timeoutPromise])
+
+    //     if (response.ok) {
+    //       const { keyTypes } = await response.json()
+    //       this.storedApiKeyTypes = keyTypes as ApiKeyType[]
+    //     } else {
+    //       this.storedApiKeyTypes = []
+    //     }
+    //   } catch (error) {
+    //     if (process.env.NODE_ENV !== 'production') {
+    //       console.error(
+    //         'Error fetching stored API key types (is there something else on port 3000?):',
+    //         error
+    //       )
+    //     }
+    //     this.storedApiKeyTypes = []
+    //   }
 
     this.storedApiKeyTypes = []
   }

@@ -8,3 +8,10 @@ export interface CliOptions {
   costMode: CostMode
   model?: string
 }
+
+/**
+ * Utility type to make specific properties nullable
+ */
+export type MakeNullable<T, K extends keyof T> = {
+  [P in keyof T]: P extends K ? T[P] | null : T[P]
+}

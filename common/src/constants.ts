@@ -65,6 +65,9 @@ export const BILLING_PERIOD_DAYS = 30
 export const CREDITS_REFERRAL_BONUS = 250
 export const AFFILIATE_USER_REFFERAL_LIMIT = 500
 
+// Default number of free credits granted per cycle
+export const DEFAULT_FREE_CREDITS_GRANT = 500
+
 export const AuthState = {
   LOGGED_OUT: 'LOGGED_OUT',
   LOGGED_IN: 'LOGGED_IN',

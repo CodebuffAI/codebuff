@@ -5,7 +5,11 @@ import { checkAuth } from '../util/check-auth'
 import { logger, withLoggerContext } from '@/util/logger'
 import { getUserInfoFromAuthToken, UserInfo } from './auth'
 import { sendAction } from './websocket-action'
-import { calculateUsageAndBalance, triggerMonthlyResetAndGrant, checkAndTriggerAutoTopup } from '@codebuff/billing'
+import {
+  calculateUsageAndBalance,
+  triggerMonthlyResetAndGrant,
+  checkAndTriggerAutoTopup,
+} from '@codebuff/billing'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
@@ -166,7 +170,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
   // Check if we need to trigger auto top-up and get the amount added (if any)
   let autoTopupAdded: number | undefined = undefined
   try {
-    autoTopupAdded = (await checkAndTriggerAutoTopup(userId)) as number | undefined
+    autoTopupAdded = await checkAndTriggerAutoTopup(userId)
   } catch (error) {
     logger.error(
       { error, userId, clientSessionId },
