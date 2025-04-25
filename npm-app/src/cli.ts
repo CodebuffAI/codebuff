@@ -111,19 +111,17 @@ export class CLI {
       Spinner.get().restoreCursor()
       sendKillSignalToAllBackgroundProcesses()
     })
-    process.on('SIGTERM', async () => {
-      Spinner.get().restoreCursor()
-      await killAllBackgroundProcesses()
-      await flushAnalytics()
-      process.exit(0)
-    })
+    for (const signal of ['SIGTERM', 'SIGHUP']) {
+      process.on(signal, async () => {
+        process.removeAllListeners('unhandledRejection')
+        process.removeAllListeners('uncaughtException')
+        Spinner.get().restoreCursor()
+        await killAllBackgroundProcesses()
+        await flushAnalytics()
+        process.exit(0)
+      })
+    }
     process.on('SIGTSTP', async () => await this.handleExit())
-    process.on('SIGHUP', async () => {
-      Spinner.get().restoreCursor()
-      await killAllBackgroundProcesses()
-      await flushAnalytics()
-      process.exit(0)
-    })
     // Doesn't catch SIGKILL (e.g. `kill -9`)
   }
 
@@ -498,6 +496,8 @@ export class CLI {
 
   private async handleExit() {
     Spinner.get().restoreCursor()
+    process.removeAllListeners('unhandledRejection')
+    process.removeAllListeners('uncaughtException')
     console.log('\n')
 
     await killAllBackgroundProcesses()
