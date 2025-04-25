@@ -69,7 +69,8 @@ import {
 } from './project-files'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand } from './types'
-import { identifyUser, trackEvent } from './utils/analytics'
+import { identifyUser } from './utils/analytics'
+import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
@@ -183,7 +184,7 @@ export class Client {
     this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
     this.rl = rl
-    trackEvent(AnalyticsEvent.APP_LAUNCHED)
+    logger.info({ eventId: AnalyticsEvent.APP_LAUNCHED })
   }
 
   async exit() {

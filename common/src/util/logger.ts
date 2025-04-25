@@ -1,7 +1,9 @@
-import pino from 'pino'
-import path from 'path'
-import { env } from '../env.mjs'
 import type { AsyncLocalStorage as NodeAsyncLocalStorage } from 'async_hooks'
+import path from 'path'
+
+import pino from 'pino'
+
+import { env } from '../env.mjs'
 
 let AsyncLocalStorageImpl: typeof import('async_hooks').AsyncLocalStorage | null
 try {

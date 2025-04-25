@@ -1,15 +1,12 @@
 import { AsyncLocalStorage } from 'async_hooks'
 import path from 'path'
-import { format } from 'util'
+import { format as stringFormat } from 'util'
 
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import pino from 'pino'
+import { getCurrentChatDir } from 'src/project-files'
 
-import { env } from '../env.mjs'
-import { splitData } from './split-data'
-
-// --- Constants ---
-const MAX_LENGTH = 100_000 // Max total log size
-const BUFFER = 1000 // Buffer for context, etc.
+import { trackEvent } from './analytics'
 
 export interface LoggerContext {
   userId?: string
@@ -17,8 +14,6 @@ export interface LoggerContext {
   clientSessionId?: string
   fingerprintId?: string
   clientRequestId?: string
-  messageId?: string
-  discordId?: string
   [key: string]: any // Allow for future extensions
 }
 
@@ -35,8 +30,14 @@ export const withLoggerContext = <T>(
 const localFileTransport = pino.transport({
   target: 'pino/file',
   options: {
-    destination: path.join(__dirname, '../../../debug', 'backend.log'),
+    destination: path.join(__dirname, '../../../debug', 'npm-app.log'),
   },
+  level: 'debug',
+})
+
+const productionFileTransport = pino.transport({
+  target: 'pino/file',
+  options: { destination: path.join(getCurrentChatDir(), 'log.jsonl') },
   level: 'debug',
 })
 
@@ -53,39 +54,38 @@ const pinoLogger = pino(
     },
     timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
   },
-  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
-    ? undefined
+  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
+    ? productionFileTransport
     : localFileTransport
 )
 
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
 type LogLevel = (typeof loggingLevels)[number]
 
-function splitAndLog(
+function sendAnalyticsAndLog(
   level: LogLevel,
   data: any,
   msg?: string,
   ...args: any[]
 ): void {
-  const formattedMsg = format(msg ?? '', ...args)
-  const availableDataLimit = MAX_LENGTH - BUFFER - formattedMsg.length
-
-  // split data recursively into chunks small enough to log
-  const processedData: any[] = splitData(data, availableDataLimit)
-
-  if (processedData.length === 1) {
-    pinoLogger[level](processedData[0], msg, ...args)
-    return
+  if (Object.values(AnalyticsEvent).includes(data.eventId)) {
+    trackEvent(data.eventId as AnalyticsEvent, {
+      ...data,
+      level,
+      msg: stringFormat(msg, ...args),
+    })
   }
 
-  processedData.forEach((chunk, index) => {
-    pinoLogger[level](
-      chunk,
-      `${formattedMsg} (chunk ${index + 1}/${processedData.length})`
-    )
-  })
+  pinoLogger[level](data, msg, ...args)
 }
 
+/**
+ * Wrapper around Pino logger.
+ *
+ * To also send to Posthog, set data.eventId to type AnalyticsEvent
+ *
+ * e.g. logger.info({eventId: AnalyticsEvent.SOME_EVENT, data: otherData}, 'some message')
+ */
 export const logger: Record<LogLevel, pino.LogFn> =
   process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
     ? pinoLogger
@@ -94,7 +94,7 @@ export const logger: Record<LogLevel, pino.LogFn> =
           return [
             level,
             (data: any, msg?: string, ...args: any[]) =>
-              splitAndLog(level, data, msg, ...args),
+              sendAnalyticsAndLog(level, data, msg, ...args),
           ]
         })
       ) as Record<LogLevel, pino.LogFn>)

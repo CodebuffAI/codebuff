@@ -28,10 +28,9 @@ export function flushAnalytics() {
 
 export function trackEvent(
   event: AnalyticsEvent,
-  userId?: string,
   properties?: Record<string, any>
 ) {
-  const distinctId = userId || currentUserId
+  const distinctId = currentUserId
   if (!distinctId) {
     if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
       console.log(
