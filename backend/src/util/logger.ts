@@ -36,7 +36,7 @@ export const withLoggerContext = <T>(
 // Ensure debug directory exists for local environment
 const debugDir = path.join(__dirname, '../../../debug')
 if (
-  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local' &&
+  // env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local' &&
   process.env.CODEBUFF_GITHUB_ACTIONS !== 'true'
 ) {
   try {
