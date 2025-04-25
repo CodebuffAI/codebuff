@@ -125,6 +125,7 @@ export class Client {
   private rl: Interface
   private responseComplete: boolean = false
   private pendingTopUpMessageAmount: number | null = null
+  private responseBuffer: string = ''
   private oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
     Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
       (typeof ONE_TIME_LABELS)[number],
@@ -688,12 +689,12 @@ export class Client {
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
         Spinner.get().stop()
-        process.stdout.write(chunk)
+        this.displayChunk(chunk)
       },
       userInputId,
       () => {
         Spinner.get().stop()
-        process.stdout.write(green(underline('\nCodebuff') + ':') + ' ')
+        this.displayChunk(green(underline('\nCodebuff') + ':') + ' ')
       },
       prompt
     )
@@ -733,6 +734,21 @@ export class Client {
     }
   }
 
+  /**
+   * Shrinks all instances of more than 2 newlines in a row.
+   * @param chunk chunk to display
+   */
+  private displayChunk(chunk: string) {
+    // Process chunk to limit consecutive newlines
+    const combinedContent = this.responseBuffer + chunk
+    const processedContent = combinedContent.replace(/\n{3,}/g, '\n\n')
+    const processedChunk = processedContent.slice(this.responseBuffer.length)
+
+    this.responseBuffer = processedContent
+
+    process.stdout.write(processedChunk)
+  }
+
   private subscribeToResponse(
     onChunk: (chunk: string) => void,
     userInputId: string,
@@ -740,7 +756,7 @@ export class Client {
     prompt: string
   ) {
     const rawChunkBuffer: string[] = []
-    let responseBuffer = ''
+    this.responseBuffer = ''
     let streamStarted = false
     let responseStopped = false
     let resolveResponse: (
@@ -795,7 +811,6 @@ export class Client {
 
     const xmlStreamParser = createXMLStreamParser(toolRenderers, (chunk) => {
       onChunk(chunk)
-      responseBuffer += chunk
     })
 
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
@@ -814,7 +829,7 @@ export class Client {
           const warningMessage = trimmed
             .replace(`<${tag}>`, '')
             .replace(`</${tag}>`, '')
-          console.warn(yellow(`\n${warningMessage}`))
+          this.displayChunk(yellow(`\n\n${warningMessage}\n\n`))
           this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
           return
         }
@@ -875,20 +890,21 @@ export class Client {
             ) {
               this.oneTimeFlags[SHOULD_ASK_CONFIG] = true
             }
+            if (toolCall.name === 'run_terminal_command') {
+              this.displayChunk('\n\n')
+              this.responseBuffer = '\n'
+            }
             const toolResult = await handleToolCall(toolCall, getProjectRoot())
             toolResults.push(toolResult)
           } catch (error) {
-            console.error(
-              red(`Error parsing tool call ${toolCall.name}:\n${error}`)
+            this.displayChunk(
+              '\n\n' +
+                red(`Error parsing tool call ${toolCall.name}:\n${error}`) +
+                '\n\n'
             )
           }
         }
-        if (
-          toolResults.length > 0 ||
-          a.toolCalls.some((call) => call.name === 'end_turn')
-        ) {
-          console.log()
-        }
+        this.displayChunk('\n\n')
 
         // If we had any file changes, update the project context
         if (this.hadFileChanges) {
@@ -925,14 +941,13 @@ export class Client {
             break askConfig
           }
 
-          console.log(
-            yellow(
-              `✨ Recommended: run the 'init' command in order to create a configuration file!
+          this.displayChunk(
+            '\n\n' +
+              yellow(`✨ Recommended: run the 'init' command in order to create a configuration file!
 
 If you would like background processes (like this one) to run automatically whenever Codebuff starts, creating a ${CONFIG_FILE_NAME} config file can improve your workflow.
-Go to https://www.codebuff.com/config for more information.
-`
-            )
+Go to https://www.codebuff.com/config for more information.`) +
+              '\n\n'
           )
         }
 
@@ -944,15 +959,19 @@ Go to https://www.codebuff.com/config for more information.
         const credits =
           this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
         if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
-          console.log(`${pluralize(credits, 'credit')} used for this request.`)
+          this.displayChunk(
+            `\n\n${pluralize(credits, 'credit')} used for this request.\n`
+          )
         }
 
         // Show auto top-up success message if it occurred during this response
         if (this.pendingTopUpMessageAmount) {
-          console.log(
-            green(
-              `Auto top-up successful! ${this.pendingTopUpMessageAmount.toLocaleString()} credits added.`
-            )
+          this.displayChunk(
+            '\n\n' +
+              green(
+                `Auto top-up successful! ${this.pendingTopUpMessageAmount.toLocaleString()} credits added.`
+              ) +
+              '\n\n'
           )
           this.pendingTopUpMessageAmount = null
         }
@@ -964,8 +983,8 @@ Go to https://www.codebuff.com/config for more information.
           } catch (error) {
             // No latest checkpoint, don't show addendum
           }
-          console.log(
-            `\nComplete! Type "diff" to review changes${checkpointAddendum}.`
+          this.displayChunk(
+            `\n\nComplete! Type "diff" to review changes${checkpointAddendum}.\n\n`
           )
           this.hadFileChanges = false
           this.freshPrompt()
