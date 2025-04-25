@@ -135,14 +135,21 @@ process.on('unhandledRejection', (reason, promise) => {
   )
 })
 
-process.on('uncaughtException', (err) => {
-  console.error('uncaughtException', err.message, err.stack)
+process.on('uncaughtException', (err, origin) => {
+  console.error('uncaughtException', {
+    error: err,
+    message: err.message,
+    stack: err.stack,
+    name: err.name,
+    origin
+  })
   logger.fatal(
     {
       err,
       stack: err.stack,
       message: err.message,
       name: err.name,
+      origin
     },
     'uncaught exception detected'
   )
