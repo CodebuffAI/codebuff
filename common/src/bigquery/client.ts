@@ -53,6 +53,8 @@ export async function setupBigQuery(dataset: string = DATASET) {
 
     const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'))
 
+    logger.info('Got credentials' + credentials)
+
     logger.info('Creating BigQuery client...')
     client = new BigQuery({
       credentials,
