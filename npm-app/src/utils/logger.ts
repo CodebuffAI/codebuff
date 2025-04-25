@@ -31,7 +31,7 @@ const localFileTransport = pino.transport({
 let productionFileTransport: any
 let storedDir: string | undefined
 
-const pinoLogger = pino(
+let pinoLogger = pino(
   {
     level: 'debug',
     formatters: {
@@ -55,12 +55,31 @@ function sendAnalyticsAndLog(
   msg?: string,
   ...args: any[]
 ): void {
-  if (!productionFileTransport || storedDir !== getProjectRoot()) {
+  if (
+    !productionFileTransport ||
+    (storedDir !== getProjectRoot() &&
+      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production')
+  ) {
     productionFileTransport = pino.transport({
       target: 'pino/file',
       options: { destination: path.join(getCurrentChatDir(), 'log.jsonl') },
       level: 'debug',
     })
+
+    pinoLogger = pino(
+      {
+        level: 'debug',
+        formatters: {
+          level: (label) => {
+            return { level: label.toUpperCase() }
+          },
+        },
+        timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
+      },
+      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
+        ? productionFileTransport
+        : localFileTransport
+    )
   }
 
   logOrStore: if (Object.values(AnalyticsEvent).includes(data.eventId)) {
