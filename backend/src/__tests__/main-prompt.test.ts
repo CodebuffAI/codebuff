@@ -178,7 +178,7 @@ describe('mainPrompt', () => {
         prompt: userPromptText,
         agentState,
         fingerprintId: 'test',
-        costMode: 'max',
+        costMode: 'normal',
         promptId: 'test',
         toolResults,
       },
@@ -188,10 +188,6 @@ describe('mainPrompt', () => {
       undefined // Mock model
     )
 
-    // Expected order: [ToolResultsMsg, InstructionsMsg, PromptMsg, AssistantMsg]
-    // (Assuming empty initial history and no readFileMessages)
-
-    // 1. Find the message containing the tool results
     const userToolResultMessageIndex = newAgentState.messageHistory.findIndex(
       (m) =>
         m.role === 'user' &&
@@ -451,7 +447,7 @@ describe('mainPrompt', () => {
         prompt: 'Test prompt leading to empty response',
         agentState,
         fingerprintId: 'test',
-        costMode: 'max', // Ensure the mocked stream is used
+        costMode: 'normal',
         promptId: 'test',
         toolResults: [],
       },

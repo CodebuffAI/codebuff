@@ -7,10 +7,10 @@ order: 1
 
 # What models do you use?
 
-We use multiple models to get better results: Claude Sonnet for most of the coding, Gemini Flash for quick tasks and to find relevant files, and we also use a speculative decoding model from Relace AI for fast file rewrites. We use o3-mini as a file editing fallback, and gpt-4o-mini for some trivial tasks.
+We use multiple models to get better results: Claude Sonnet for most of the coding, Gemini Flash for quick tasks, and we also use a speculative decoding model from Relace AI for fast file rewrites. We use o3-mini as a file editing fallback, and gpt-4o-mini for some trivial tasks.
 
 We have several modes which change the model setup to achieve different goals:
 
-- `--lite`: Uses Claude Haiku instead of Sonnet (~1/3 the cost). It also pulls fewer files, meaning that the context cost will be much smaller.
-- `--max`: Uses Sonnet and also pulls more files on your codebase to better handle complex problems.
+- `--lite`: Uses Gemini 2.5 Flash Thinking instead of Sonnet (~1/5 the cost). It also pulls fewer files, meaning that the context cost will be smaller.
+- `--max`: Uses a hybrid approach with Gemini 2.5 Pro + Sonnet to better handle complex problems and pulls more files on your codebase.
 - `--experimental`: Uses cutting-edge experimental features and the most advanced models available (like Gemini 2.5 Pro Experimental). This mode is for users who want to try the latest AI capabilities, though it may be less stable.

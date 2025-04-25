@@ -253,10 +253,11 @@ export function runBackgroundCommand(
       stdoutStream = createWriteStream(stdoutAbs)
     }
 
-    if (stderrFile) {
-      const stderrAbs = path.isAbsolute(stderrFile)
-        ? stderrFile
-        : path.join(projectPath, stderrFile)
+    const realStderrFile = stderrFile || stdoutFile
+    if (realStderrFile) {
+      const stderrAbs = path.isAbsolute(realStderrFile)
+        ? realStderrFile
+        : path.join(projectPath, realStderrFile)
       mkdirSync(dirname(stderrAbs), { recursive: true })
       stderrStream = createWriteStream(stderrAbs)
     }

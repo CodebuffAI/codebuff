@@ -10,6 +10,7 @@ import {
 } from './admin/relabelRuns'
 import usageHandler from './api/usage'
 import { env } from './env.mjs'
+import { flushAnalytics, initAnalytics } from './util/analytics'
 import { checkAdmin } from './util/check-auth'
 import { logger } from './util/logger'
 import {
@@ -74,6 +75,8 @@ setupBigQuery()
     logger.debug('BigQuery client initialized')
   })
 
+initAnalytics()
+
 const server = http.createServer(app)
 
 server.listen(port, () => {
@@ -85,6 +88,7 @@ webSocketListen(server, '/ws')
 let shutdownInProgress = false
 // Graceful shutdown handler for both SIGTERM and SIGINT
 function handleShutdown(signal: string) {
+  flushAnalytics()
   if (shutdownInProgress) {
     console.log(`\nReceived ${signal}. Already shutting down...`)
     return

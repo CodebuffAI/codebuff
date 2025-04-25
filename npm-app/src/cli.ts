@@ -29,14 +29,15 @@ import {
 } from './cli-handlers/checkpoint'
 import { handleDiff } from './cli-handlers/diff'
 import { showEasterEgg } from './cli-handlers/easter-egg'
+import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { displayGreeting, displayMenu } from './menu'
 import { getProjectRoot, isDir } from './project-files'
 import { CliOptions, GitCommand } from './types'
+import { flushAnalytics } from './utils/analytics'
 import { Spinner } from './utils/spinner'
 import { isCommandRunning, resetShell } from './utils/terminal'
-import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 type ApiKeyDetectionResult =
   | { status: 'found'; type: ApiKeyType; key: string }
@@ -68,17 +69,17 @@ export class CLI {
     this.setupSignalHandlers()
     this.initReadlineInterface()
 
-    this.client = new Client(
+    this.client = new Client({
       websocketUrl,
-      this.onWebSocketError.bind(this),
-      this.onWebSocketReconnect.bind(this),
-      this.returnControlToUser.bind(this),
-      this.reconnectWhenNextIdle.bind(this),
-      this.costMode,
-      this.git,
-      this.rl,
-      model
-    )
+      onWebSocketError: this.onWebSocketError.bind(this),
+      onWebSocketReconnect: this.onWebSocketReconnect.bind(this),
+      freshPrompt: this.freshPrompt.bind(this),
+      reconnectWhenNextIdle: this.reconnectWhenNextIdle.bind(this),
+      costMode: this.costMode,
+      git: this.git,
+      rl: this.rl,
+      model,
+    })
 
     this.readyPromise = Promise.all([
       readyPromise.then((results) => {
@@ -113,12 +114,14 @@ export class CLI {
     process.on('SIGTERM', async () => {
       Spinner.get().restoreCursor()
       await killAllBackgroundProcesses()
+      flushAnalytics()
       process.exit(0)
     })
     process.on('SIGTSTP', async () => await this.handleExit())
     process.on('SIGHUP', async () => {
       Spinner.get().restoreCursor()
       await killAllBackgroundProcesses()
+      flushAnalytics()
       process.exit(0)
     })
     // Doesn't catch SIGKILL (e.g. `kill -9`)
@@ -178,6 +181,7 @@ export class CLI {
    */
   private freshPrompt(userInput: string = '') {
     Spinner.get().stop()
+    this.isReceivingResponse = false
 
     if (this.shouldReconnectWhenIdle) {
       this.client.reconnect()
@@ -214,7 +218,13 @@ export class CLI {
     rlAny._refreshLine()
   }
 
-  public async printInitialPrompt(initialInput?: string) {
+  public async printInitialPrompt({
+    initialInput,
+    runInitFlow,
+  }: {
+    initialInput?: string
+    runInitFlow?: boolean
+  }) {
     if (this.client.user) {
       displayGreeting(this.costMode, this.client.user.name)
     } else {
@@ -225,9 +235,13 @@ export class CLI {
       return
     }
     this.freshPrompt()
+    if (runInitFlow) {
+      process.stdout.write('init\n')
+      await this.handleUserInput('init')
+    }
     if (initialInput) {
       process.stdout.write(initialInput + '\n')
-      this.handleUserInput(initialInput)
+      await this.handleUserInput(initialInput)
     }
   }
 
@@ -292,7 +306,7 @@ export class CLI {
         this.client,
         detectionResult,
         this.readyPromise,
-        this.returnControlToUser.bind(this)
+        this.freshPrompt.bind(this)
       )
       return true // Indicate command was handled
     }
@@ -316,7 +330,7 @@ export class CLI {
       userInput === 'konami' ||
       userInput === 'codebuffy'
     ) {
-      showEasterEgg(this.returnControlToUser.bind(this))
+      showEasterEgg(this.freshPrompt.bind(this))
       return true
     }
 
@@ -368,6 +382,13 @@ export class CLI {
       return true
     }
 
+    if (userInput === 'init') {
+      // no need to save checkpoint, since we are passing request to backend
+      handleInitializationFlowLocally()
+      // Also forward user input to the backend
+      return false
+    }
+
     return false
   }
 
@@ -377,13 +398,9 @@ export class CLI {
 
     this.client.lastChanges = []
 
-    const urls = parseUrlsFromContent(userInput)
-    const scrapedBlocks = await getScrapedContentBlocks(urls)
-    const scrapedContent =
-      scrapedBlocks.length > 0 ? scrapedBlocks.join('\n\n') + '\n\n' : ''
     const newMessage: Message = {
       role: 'user',
-      content: `${scrapedContent}${userInput}`,
+      content: userInput,
     }
 
     if (this.client.agentState) {
@@ -395,7 +412,7 @@ export class CLI {
       await this.client.sendUserInput(userInput)
 
     this.stopResponse = stopResponse
-    const response = await responsePromise
+    await responsePromise
     this.stopResponse = null
 
     this.isReceivingResponse = false
@@ -413,14 +430,6 @@ export class CLI {
     }
   }
 
-  private returnControlToUser() {
-    this.freshPrompt()
-    this.isReceivingResponse = false
-    if (this.stopResponse) {
-      this.stopResponse()
-    }
-  }
-
   private onWebSocketError() {
     Spinner.get().stop()
     this.isReceivingResponse = false
@@ -433,7 +442,7 @@ export class CLI {
 
   private onWebSocketReconnect() {
     console.log(green('\nReconnected!'))
-    this.returnControlToUser()
+    this.freshPrompt()
   }
 
   private handleKeyPress(str: string, key: any) {
@@ -502,6 +511,7 @@ export class CLI {
     console.log('\n')
 
     await killAllBackgroundProcesses()
+    flushAnalytics()
 
     const logMessages = []
     const totalCreditsUsedThisSession = Object.values(

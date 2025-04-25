@@ -1,7 +1,7 @@
 import { models } from 'common/constants'
 import { withTimeout } from 'common/util/promise'
 
-import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptOpenAI } from './llm-apis/openai-api'
 import { logger } from './util/logger'
 
@@ -68,7 +68,7 @@ Input: ${JSON.stringify(prompt)}`,
         'OpenAI API request timed out'
       ),
       withTimeout(
-        promptGeminiWithFallbacks(messages, undefined, {
+        promptFlashWithFallbacks(messages, undefined, {
           model: models.gemini2flash,
           ...options,
         }),
@@ -134,7 +134,7 @@ const isWhitelistedTerminalCommand = (command: string) => {
   return false
 }
 
-const blacklistedSingleWordCommands = ['halt', 'reboot']
+const blacklistedSingleWordCommands = ['halt', 'reboot', 'init']
 const blacklistedMultiWordCommands = ['yes']
 const isBlacklistedTerminalCommand = (command: string) => {
   if (blacklistedSingleWordCommands.includes(command)) {

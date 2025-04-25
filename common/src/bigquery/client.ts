@@ -186,9 +186,9 @@ export async function getTracesWithRelabels(
 ) {
   // Get traces that DO have matching relabels for the specified model
   const query = `
-  SELECT
-    t as trace,
-    r as relabel
+  SELECT 
+    ANY_VALUE(t) as trace,
+    ARRAY_AGG(r ORDER BY r.created_at DESC LIMIT 1)[OFFSET(0)] as relabel
   FROM \`${dataset}.${TRACES_TABLE}\` t
   INNER JOIN (
     SELECT *
@@ -201,7 +201,8 @@ export async function getTracesWithRelabels(
   WHERE t.type = 'get-relevant-files'
     AND JSON_EXTRACT_SCALAR(t.payload, '$.output') IS NOT NULL
     AND JSON_EXTRACT_SCALAR(r.payload, '$.output') IS NOT NULL
-  ORDER BY t.created_at DESC
+  GROUP BY t.agent_step_id
+  ORDER BY MAX(t.created_at) DESC
   LIMIT ${limit}
   `
 

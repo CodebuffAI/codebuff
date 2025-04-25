@@ -1,5 +1,6 @@
 'use client'
 
+import { finetunedVertexModels } from 'common/constants'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
@@ -26,6 +27,11 @@ const productionUsers = [
 const localUsers = [
   { name: 'Venki', id: 'fad054ab-150b-4a1a-b6ec-1a797972638b' },
 ]
+
+const nameOverrides = {
+  [finetunedVertexModels.ft_filepicker_003]: 'ft_filepicker_003',
+  [finetunedVertexModels.ft_filepicker_005]: 'ft_filepicker_005',
+}
 
 // Choose user list based on environment
 const suggestedUsers =
@@ -215,7 +221,10 @@ export default function FilePicker() {
                         <TableHead className="w-[180px]">Timestamp</TableHead>
                         <TableHead>Query</TableHead>
                         {modelNames.map((model) => (
-                          <TableHead key={model}>{model}</TableHead>
+                          <TableHead key={model}>
+                            {nameOverrides[model as keyof typeof nameOverrides] ||
+                              model}
+                          </TableHead>
                         ))}
                       </TableRow>
                     </TableHeader>

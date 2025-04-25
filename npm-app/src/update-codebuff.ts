@@ -5,6 +5,7 @@ import { green, yellow } from 'picocolors'
 import packageJson from '../package.json'
 import { killAllBackgroundProcesses } from './background-process-manager'
 import { isProduction } from './config'
+import { flushAnalytics } from './utils/analytics'
 import { scrapeWebPage } from './web-scraper'
 
 export async function updateCodebuff() {
@@ -26,6 +27,7 @@ export async function updateCodebuff() {
     try {
       runUpdateCodebuff(installerInfo)
       await killAllBackgroundProcesses()
+      flushAnalytics()
 
       console.log(green('Codebuff updated successfully.'))
       console.log(

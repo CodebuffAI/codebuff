@@ -1,21 +1,22 @@
-import { WebSocket } from 'ws'
-import { eq } from 'drizzle-orm'
-import _, { isEqual } from 'lodash'
-
-import { ClientMessage } from 'common/websockets/websocket-schema'
-import { mainPrompt } from '../main-prompt'
 import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
-import { sendMessage } from './server'
+import { toOptionalFile } from 'common/constants'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { protec } from './middleware'
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { ensureEndsWithNewline } from 'common/src/util/file'
 import { logger, withLoggerContext } from '@/util/logger'
-import { generateCompactId } from 'common/util/string'
+import { trackEvent } from '@/util/analytics'
 import { renderToolResults } from '@/util/parse-tool-call-xml'
+import { generateCompactId } from 'common/util/string'
 import { buildArray } from 'common/util/array'
-import { toOptionalFile } from 'common/constants'
+import { ClientMessage } from 'common/websockets/websocket-schema'
+import { eq } from 'drizzle-orm'
+import { WebSocket } from 'ws'
+
+import { mainPrompt } from '../main-prompt'
+import { sendMessage } from './server'
 
 /**
  * Sends an action to the client via WebSocket
@@ -133,6 +134,12 @@ const onPrompt = async (
       if (!userId) {
         throw new Error('User not found')
       }
+
+      trackEvent(AnalyticsEvent.PROMPT_SENT, userId, {
+        prompt,
+        promptId,
+      })
+
       try {
         const { agentState, toolCalls, toolResults } = await mainPrompt(
           ws,

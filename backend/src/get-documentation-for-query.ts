@@ -5,7 +5,7 @@ import {
   context7LibrariesPromise,
   fetchContext7LibraryDocumentation,
 } from './llm-apis/context7-api'
-import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 
 import { logger } from '@/util/logger'
 
@@ -68,7 +68,7 @@ Respond in this exact JSON format:
   const geminiStartTime = Date.now()
   let response: string
   try {
-    response = await promptGeminiWithFallbacks(
+    response = await promptFlashWithFallbacks(
       [
         { role: 'user', content: prompt },
         { role: 'assistant', content: '{' },

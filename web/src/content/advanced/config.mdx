@@ -1,0 +1,78 @@
+---
+title: 'Configuration'
+section: 'help'
+tags: ['config', 'setup']
+order: 6
+---
+
+# Configuration
+
+Codebuff can be configured using a `codebuff.json` file in your project root. This file allows you to customize various aspects of how codebuff operates in your project.
+
+## Why configure codebuff?
+
+Configuring codebuff helps you create a seamless development environment where codebuff becomes your central development hub. Instead of juggling multiple terminal windows and manually starting various services, you can let codebuff manage your entire development workflow.
+
+### Startup Processes
+
+You can configure startup processes, which will run in the background every time codebuff starts! When you use this feature, codebuff will automatically:
+
+1. Start your development processes:
+   - Servers (frontend, backend, etc.)
+   - Launch your database
+   - Run any other necessary background services
+2. Manage all these processes for you
+3. Read the logs and outputs and automatically handle any errors that arise
+
+This means you can start your day with a single `codebuff` command, write code with codebuff's assistance, and when you're done, closing codebuff will cleanly shut down all your development processes. No more scattered terminal windows or forgotten running processes!
+
+## Configuration Schema
+
+The configuration file follows this structure:
+
+<SchemaDisplay />
+
+## Example Configuration
+
+Here's an example configuration file that starts a development server and database:
+
+<CodeDemo language="json">
+```
+{
+  "description": "Development environment configuration",
+  "startupProcesses": [
+    {
+      "name": "nextjs-server",
+      "command": "npm run dev",
+      "cwd": "./web",
+      "enabled": true
+    },
+    {
+      "name": "database",
+      "command": "docker-compose up",
+      "cwd": "./backend/db",
+      "stdoutFile": "logs/db-stdout.log",
+      "stderrFile": "logs/db-stderr.log"
+    }
+  ]
+}
+```
+</CodeDemo>
+
+## Best Practices
+
+1. **Process Names**: Use descriptive names that clearly indicate what each process does.
+2. **Working Directories**: Use relative paths for `cwd` to maintain portability.
+3. **Logging**: Consider using `stdoutFile` and `stderrFile` for important processes to help with debugging.
+4. **Process Management**: Use the `enabled` flag to temporarily disable processes without removing them from the configuration.
+
+## Troubleshooting
+
+If your startup processes aren't working as expected:
+
+1. Check that the commands work when run manually from the specified working directory
+2. Verify that any referenced paths (for logs or cwd) exist and are writable
+3. Check the process output in the specified log files if you've configured them
+4. Make sure the JSON syntax in your configuration file is valid
+
+Need more help? Check out our [Troubleshooting](/docs/advanced/troubleshooting) guide or join our [Discord community](https://discord.gg/mcWTGjgTj3).

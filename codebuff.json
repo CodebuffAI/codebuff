@@ -1,21 +1,20 @@
 {
+  "description": "Template configuration for this project. See https://www.codebuff.com/config for all options.",
   "startupProcesses": [
     {
       "name": "drizzle",
       "command": "bun start-studio",
-      "stdoutFile": "debug/drizzle.log",
-      "stderrFile": "debug/drizzle.log"
+      "stdoutFile": "debug/drizzle.log"
     },
     {
-      "name": "web server",
+      "name": "web-server",
       "command": "bun start-web",
-      "stdoutFile": "debug/web.log",
-      "stderrFile": "debug/web.log"
+      "stdoutFile": "debug/web.log"
     },
     {
       "name": "typechecker",
-      "command": "bun typecheck --watch # this doesn't actually work for some reason",
-      "enabled": false
+      "command": "bun tsc -b -w --preserveWatchOutput",
+      "stdoutFile": "debug/typecheck.log"
     }
   ]
 }

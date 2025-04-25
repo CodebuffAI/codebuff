@@ -1,11 +1,16 @@
 import { z } from 'zod'
 
+export const codebuffConfigFile = 'codebuff.json'
+export const codebuffConfigFileBackup = 'codebuff.jsonc'
+
 export const StartupProcessSchema = z
   .object({
     name: z
       .string()
       .min(1, 'Process name is required')
-      .describe('A user-friendly name for the process.'),
+      .describe(
+        'A user-friendly name for the process. Should be one word and unique.'
+      ),
     command: z
       .string()
       .min(1, 'Command is required')
@@ -23,30 +28,30 @@ export const StartupProcessSchema = z
       .string()
       .optional()
       .describe(
-        'Path to write process stdout output. If not specified, output is not stored.'
+        "Path to write the process's stdout. If not specified, stderr is not stored."
       ),
     stderrFile: z
       .string()
       .optional()
       .describe(
-        'Path to write process stderr output. If not specified, output is not stored.'
+        "Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile."
       ),
   })
-  .describe(
-    'Defines a single startup process. This validates the structure of an object representing a command that Codebuff can run automatically when it starts.'
-  )
+  .describe('Defines a single startup process.')
 
 export const CodebuffConfigSchema = z
   .object({
+    description: z
+      .any()
+      .optional()
+      .describe('Does nothing. Put any thing you want here!'),
     startupProcesses: z
       .array(StartupProcessSchema)
       .optional()
-      .describe(
-        'An array of startup processes, each validated by the StartupProcessSchema.'
-      ),
+      .describe('An array of startup processes.'),
   })
   .describe(
-    'Defines the overall Codebuff configuration file (e.g., codebuff.json). This schema defines the top-level structure of the configuration.'
+    `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration.`
   )
 
 /**

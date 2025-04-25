@@ -3,22 +3,16 @@ import { describe, expect, it } from 'bun:test'
 import { z } from 'zod'
 
 import { CodebuffConfigSchema, StartupProcessSchema } from '../constants'
-import { stringifySchemaForLLM } from '../stringify-schema'
+import { stringifySchema } from '../stringify-schema'
 
-describe('stringifySchemaForLLM', () => {
+describe('stringifySchema', () => {
   it('should correctly stringify StartupProcessSchema', () => {
-    const result = stringifySchemaForLLM(
-      StartupProcessSchema,
-      'StartupProcessSchema'
-    )
+    const result = stringifySchema(StartupProcessSchema, 'StartupProcessSchema')
     expect(result).toMatchSnapshot()
   })
 
   it('should correctly stringify CodebuffConfigSchema', () => {
-    const result = stringifySchemaForLLM(
-      CodebuffConfigSchema,
-      'CodebuffConfigSchema'
-    )
+    const result = stringifySchema(CodebuffConfigSchema, 'CodebuffConfigSchema')
     expect(result).toMatchSnapshot()
   })
 
@@ -42,13 +36,13 @@ describe('stringifySchemaForLLM', () => {
       })
       .describe('A complex test schema')
 
-    const result = stringifySchemaForLLM(ComplexSchema, 'ComplexSchema')
+    const result = stringifySchema(ComplexSchema, 'ComplexSchema')
     expect(result).toMatchSnapshot()
   })
 
   it('should handle an empty object schema', () => {
     const EmptySchema = z.object({}).describe('An empty schema')
-    const result = stringifySchemaForLLM(EmptySchema, 'EmptySchema')
+    const result = stringifySchema(EmptySchema, 'EmptySchema')
     expect(result).toMatchSnapshot()
   })
 
@@ -59,10 +53,7 @@ describe('stringifySchemaForLLM', () => {
         field2: z.number().optional().describe('Optional field 2'),
       })
       .describe('Schema with only optional fields')
-    const result = stringifySchemaForLLM(
-      OptionalOnlySchema,
-      'OptionalOnlySchema'
-    )
+    const result = stringifySchema(OptionalOnlySchema, 'OptionalOnlySchema')
     expect(result).toMatchSnapshot()
   })
 
@@ -74,7 +65,7 @@ describe('stringifySchemaForLLM', () => {
         enabled: z.boolean().default(false).describe('Enabled with default'),
       })
       .describe('Schema demonstrating default values')
-    const result = stringifySchemaForLLM(DefaultSchema, 'DefaultSchema')
+    const result = stringifySchema(DefaultSchema, 'DefaultSchema')
     expect(result).toMatchSnapshot()
   })
 })

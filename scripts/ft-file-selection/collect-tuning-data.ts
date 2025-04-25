@@ -5,8 +5,9 @@ import { Message } from 'common/types/message'
 
 // Get model from command line args
 const model = process.argv[2]
-const isProd = process.argv.includes('--production')
+const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
+const MAX_LENGTH_CHARS = 500_000
 
 if (!model) {
   console.log('Missing model argument')
@@ -201,7 +202,7 @@ async function main() {
     console.log(`Using dataset: ${DATASET}`)
 
     // Get traces for the specified model from BigQuery
-    const traces = await getTracesWithRelabels(model, 1000, DATASET)
+    const traces = await getTracesWithRelabels(model, 10000, DATASET)
     console.log(`Found ${traces.length} traces for model ${model}`)
 
     // Process traces and convert to Gemini format
@@ -221,15 +222,18 @@ async function main() {
       .filter(Boolean)
 
     // Save as JSONL with auto-incrementing filename
-    const jsonlContent = tuningData
+    const jsonlContentFiltered = tuningData
       .map((example) => JSON.stringify(example))
-      .join('\n')
+      // toss messages longer than 500k chars
+      .filter((example) => example.length < MAX_LENGTH_CHARS)
+
+    const jsonlContent = jsonlContentFiltered.join('\n')
 
     const geminiPath = getNextAvailableFilename('gemini-tune-data', 'jsonl')
     writeFileSync(geminiPath, jsonlContent)
 
     console.log(
-      `Successfully saved ${tuningData.length} examples to ${geminiPath}`
+      `Successfully saved ${jsonlContentFiltered.length} examples to ${geminiPath} (filtered ${tuningData.length - jsonlContentFiltered.length} examples due to length)`
     )
 
     // Convert to OpenAI format
@@ -255,15 +259,17 @@ async function main() {
     }
 
     // Save as JSONL with auto-incrementing filename
-    const openaiJsonlContent = openaiTuningData
+    const openaiJsonlContentFiltered = openaiTuningData
       .map((example) => JSON.stringify(example))
-      .join('\n')
+      .filter((example) => example.length < MAX_LENGTH_CHARS)
+
+    const openaiJsonlContent = openaiJsonlContentFiltered.join('\n')
 
     const openaiPath = getNextAvailableFilename('openai-tune-data', 'jsonl')
     writeFileSync(openaiPath, openaiJsonlContent)
 
     console.log(
-      `Successfully saved ${openaiTuningData.length} examples to ${openaiPath}`
+      `Successfully saved ${openaiJsonlContentFiltered.length} examples to ${openaiPath} (filtered ${openaiTuningData.length - openaiJsonlContentFiltered.length} examples due to length)`
     )
   } catch (error) {
     console.error('Error:', error)

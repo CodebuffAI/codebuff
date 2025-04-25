@@ -1,16 +1,24 @@
+import { GetRelevantFilesPayload } from 'common/bigquery/schema'
+import {
+  claudeModels,
+  finetunedVertexModels,
+  geminiModels,
+} from 'common/constants'
 import {
   getTracesAndRelabelsForUser,
   getTracesWithoutRelabels,
   insertRelabel,
 } from 'common/src/bigquery/client'
-import { Request, Response } from 'express'
-import { logger } from '../util/logger'
-import { claudeModels, geminiModels } from 'common/constants'
-import { GetRelevantFilesPayload } from 'common/bigquery/schema'
 import { Message } from 'common/types/message'
 import { generateCompactId } from 'common/util/string'
+import { Request, Response } from 'express'
+
 import { promptClaude, System } from '../llm-apis/claude'
-import { promptGeminiWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
+import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
+import { logger } from '../util/logger'
+
+import { GeminiMessage } from '@/llm-apis/gemini-vertex-api'
+import { promptAiSdk_GeminiFormat } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
 
 // --- GET Handler Logic ---
 
@@ -78,7 +86,11 @@ export async function getTracesForUserHandler(req: Request, res: Response) {
 
 // --- POST Handler Logic ---
 
-const models = [geminiModels.gemini2_5_pro_exp, claudeModels.sonnet] as const
+const models = [
+  geminiModels.gemini2_5_pro_exp,
+  claudeModels.sonnet,
+  finetunedVertexModels.ft_filepicker_005,
+] as const
 
 export async function relabelForUserHandler(req: Request, res: Response) {
   try {
@@ -131,12 +143,25 @@ export async function relabelForUserHandler(req: Request, res: Response) {
                 userInputId: 'relabel-trace-api',
                 ignoreDatabaseAndHelicone: true,
               })
-            } else {
-              output = await promptGeminiWithFallbacks(
+            } else if (model.startsWith('gemini')) {
+              output = await promptFlashWithFallbacks(
                 messages as Message[],
                 system as System,
                 {
                   model: model as typeof geminiModels.gemini2_5_pro_exp,
+                  clientSessionId: 'relabel-trace-api',
+                  fingerprintId: 'relabel-trace-api',
+                  userInputId: 'relabel-trace-api',
+                  userId: 'relabel-trace-api',
+                }
+              )
+            } else {
+              output = await promptAiSdk_GeminiFormat(
+                messages as GeminiMessage[],
+                system as System,
+                {
+                  model:
+                    model as (typeof finetunedVertexModels)[keyof typeof finetunedVertexModels],
                   clientSessionId: 'relabel-trace-api',
                   fingerprintId: 'relabel-trace-api',
                   userInputId: 'relabel-trace-api',

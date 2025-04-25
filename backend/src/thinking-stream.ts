@@ -45,11 +45,13 @@ When the next action is clear, you can stop your thinking immediately. For examp
 Guidelines:
 - Think step by step and respond with your analysis using a think_deeply tool call.
 - Be concise and to the point.
-- It's fine to have a very short thinking session, like 1 sentence long, if the next action is clear.
+- It's highly recommended to have a very short thinking session, like 1 sentence long, if the next action is clear.
 - Do not write anything outside of the <think_deeply> tool call.
 - DO NOT use any other tools! You are only thinking, not taking any actions.
 - Do not include <end_turn> tags (or any other tool call tags).
-- Make sure to end your response with "</thought>\n</think_deeply>"`
+- Make sure to end your response with "</thought>\n</think_deeply>"
+
+Important: Keep your thinking as short as possible! Just a few words suffices. Especially in simple cases or when the next action is clear.`
 
   const thinkDeeplyPrefix = '<think_deeply>\n<thought>'
 

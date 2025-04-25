@@ -1,8 +1,22 @@
-import { ProjectFileContext, createMarkdownFileBlock } from 'common/util/file'
-import { truncateString } from 'common/util/string'
 import { STOP_MARKER } from 'common/constants'
+import {
+  codebuffConfigFile,
+  CodebuffConfigSchema,
+} from 'common/json-config/constants'
+import { stringifySchema } from 'common/json-config/stringify-schema'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
+import { createMarkdownFileBlock, ProjectFileContext } from 'common/util/file'
+import { truncateString } from 'common/util/string'
+
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
+
+export const configSchemaPrompt = `
+  # Codebuff Configuration (${codebuffConfigFile})
+  
+The following describes the structure of the \`./${codebuffConfigFile}\` configuration file that users might have in their project root. You can use this to understand user settings if they mention them.
+
+${stringifySchema(CodebuffConfigSchema, 'CodebuffConfigSchema')}
+`.trim()
 
 export const knowledgeFilesPrompt = `
 # Knowledge files
@@ -52,6 +66,29 @@ Once again: BE CONCISE!
 
 If the user sends you the url to a page that is helpful now or could be helpful in the future (e.g. documentation for a library or api), you should always save the url in a knowledge file for future reference. Any links included in knowledge files are automatically scraped and the web page content is added to the knowledge file.
 `.trim()
+
+export const additionalSystemPrompts = {
+  init: `
+User has typed "init". Trigger initialization flow:
+
+First, read knowldge.md and ${codebuffConfigFile} top level directory.
+
+Knowledge file:
+- If it does not exist, create a new one with updated information.
+- If it does, do nothing.
+
+Config file (probably already exists):
+- Do not edit the description field.
+- If it looks already populated, do nothing.
+- If it is just a template without any configurations set (empty arrays), determine whether background processes are necessary for development. If they are, populate the fields to according to the project. Additionally:
+  - Do provide:
+    - startupProcesses.item.stdoutFile: "logs/{name}.log"
+  - Do not provide:
+    - startupProcesses.item.stderrFile
+    - startupProcesses.item.enabled
+  - Provide startupProcesses.item.cwd only if it is not '.'
+`.trim(),
+} as const
 
 export const getProjectFileTreePrompt = (
   fileContext: ProjectFileContext,

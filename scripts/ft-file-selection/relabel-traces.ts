@@ -1,4 +1,4 @@
-import { promptGeminiWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
+import { promptFlashWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
 import { GetRelevantFilesPayload } from 'common/bigquery/schema'
 import { claudeModels, models } from 'common/constants'
 import {
@@ -11,7 +11,9 @@ import { generateCompactId } from 'common/util/string'
 import { promptClaude, System } from '../../backend/src/llm-apis/claude'
 
 // Models we want to test
-const MODELS_TO_TEST = [models.gemini2_5_pro_exp, claudeModels.sonnet] as const
+const MODELS_TO_TEST = [
+  /*models.gemini2_5_pro_exp,*/ claudeModels.sonnet,
+] as const
 
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
@@ -25,7 +27,7 @@ async function runTraces() {
       // Get the last 100 traces that don't have relabels for this model
       const traces = await getTracesWithoutRelabels(
         model,
-        100,
+        1000,
         undefined,
         DATASET
       )
@@ -65,7 +67,7 @@ async function runTraces() {
                   ignoreDatabaseAndHelicone: true,
                 })
               } else {
-                output = await promptGeminiWithFallbacks(
+                output = await promptFlashWithFallbacks(
                   messages as Message[],
                   system as System,
                   {

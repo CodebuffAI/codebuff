@@ -2,7 +2,7 @@ import { CostMode, models } from 'common/constants'
 import { Message } from 'common/types/message'
 
 import { System } from '@/llm-apis/claude'
-import { promptGeminiWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
+import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
 import { getMessagesSubset } from '@/util/messages'
 
 export const checkNewFilesNecessary = async (
@@ -44,7 +44,7 @@ Answer with just 'YES' if reading new files is helpful, or 'NO' if the current f
 `.trim()
 
   const bufferTokens = 100_000
-  const response = await promptGeminiWithFallbacks(
+  const response = await promptFlashWithFallbacks(
     getMessagesSubset(
       [...messages, { role: 'user', content: prompt }],
       bufferTokens

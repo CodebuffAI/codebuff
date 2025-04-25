@@ -27,13 +27,13 @@ export const DEFAULT_IGNORED_FILES = [
 ]
 
 // Special message content tags indicating specific server states
-export const CODEBUFF_RATE_LIMIT_INFO = 'codebuff_rate_limit_info'
-export const CODEBUFF_CLAUDE_FALLBACK_INFO = 'codebuff_claude_fallback_info'
-export const CODEBUFF_INVALID_KEY_INFO = 'codebuff_invalid_gemini_key_info'
-export const ONE_TIME_TAGS = [
-  CODEBUFF_RATE_LIMIT_INFO,
-  CODEBUFF_CLAUDE_FALLBACK_INFO,
-  CODEBUFF_INVALID_KEY_INFO,
+export const ASKED_CONFIG = 'asked_config'
+export const SHOULD_ASK_CONFIG = 'should_ask_config'
+export const ONE_TIME_TAGS = [] as const
+export const ONE_TIME_LABELS = [
+  ...ONE_TIME_TAGS,
+  ASKED_CONFIG,
+  SHOULD_ASK_CONFIG,
 ] as const
 
 export const FILE_READ_STATUS = {
@@ -102,7 +102,11 @@ export const getModelForMode = (
   operation: 'agent' | 'file-requests' | 'check-new-files'
 ) => {
   if (operation === 'agent') {
-    return costMode === 'lite' ? models.gemini2_5_flash_thinking : claudeModels.sonnet
+    return costMode === 'experimental'
+      ? models.gpt4_1
+      : costMode === 'lite'
+        ? models.gemini2_5_flash_thinking
+        : claudeModels.sonnet
   }
   if (operation === 'file-requests') {
     return costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku
@@ -145,7 +149,8 @@ export const openrouterModels = {
   openrouter_gemini2_5_pro_exp: 'google/gemini-2.5-pro-exp-03-25:free',
   openrouter_gemini2_5_pro_preview: 'google/gemini-2.5-pro-preview-03-25',
   openrouter_gemini2_5_flash: 'google/gemini-2.5-flash-preview',
-  openrouter_gemini2_5_flash_thinking: 'google/gemini-2.5-flash-preview:thinking',
+  openrouter_gemini2_5_flash_thinking:
+    'google/gemini-2.5-flash-preview:thinking',
 } as const
 export type openrouterModel =
   (typeof openrouterModels)[keyof typeof openrouterModels]
@@ -159,6 +164,7 @@ export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 // Vertex uses "endpoint IDs" for finetuned models, which are just integers
 export const finetunedVertexModels = {
   ft_filepicker_003: '196166068534771712',
+  ft_filepicker_005: '8493203957034778624',
 } as const
 export type FinetunedVertexModel =
   (typeof finetunedVertexModels)[keyof typeof finetunedVertexModels]

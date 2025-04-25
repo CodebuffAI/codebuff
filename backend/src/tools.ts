@@ -7,7 +7,7 @@ import { models, TEST_USER_ID } from 'common/constants'
 import { getToolCallString } from 'common/src/constants/tools'
 import { z } from 'zod'
 
-import { promptGeminiWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
 
 const tools = [
@@ -76,6 +76,8 @@ When editing a file, please use this tool to output a simplified version of the 
 --- IMPORTANT OPTIMIZATION DETAIL ---
 Use "placeholder comments" i.e. "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->"  or however comments are written for other languages) in comments as often as you can, signifying unchanged regions of the file.
 The write_file tool is very expensive for each line of code you write, so try to write as little \`content\` as possible to accomplish the task. Often this will mean that the start/end of the file will be skipped, but that's okay! Rewrite the entire file only if specifically requested.
+
+However, for new files, you should write out the entire file and not use placeholder comments.
 --- IMPORTANT OPTIMIZATION DETAIL ---
 
 These edit codeblocks will be parsed and then read by a less intelligent "apply" language model to update the file. To help specify the edit to the apply model, be very careful to include a few lines of context when generating the codeblock to not introduce ambiguity. Specify all unchanged regions (code and comments) of the file with "// ... existing code ..." markers (in comments). This will ensure the apply model will not delete existing unchanged code or comments when editing the file. This is just an abstraction for your understanding, you should not mention the apply model to the user.
@@ -100,8 +102,7 @@ ${getToolCallString('write_file', {
 Example 2 - Editing with placeholder comments:
 ${getToolCallString('write_file', {
   path: 'foo.ts',
-  content:
-    `// ... existing code ...
+  content: `// ... existing code ...
 
 function foo() {
   console.log('foo');
@@ -111,7 +112,7 @@ function foo() {
   doSomething();
 }
 
-// ... existing code ...`
+// ... existing code ...`,
 })}
 
 Notes for editing a file:
@@ -592,7 +593,7 @@ Please rewrite the entire context using the update instructions in a <new_contex
       content: '<new_context>',
     },
   ]
-  const response = await promptGeminiWithFallbacks(messages, undefined, {
+  const response = await promptFlashWithFallbacks(messages, undefined, {
     model: models.gemini2flash,
     clientSessionId: 'strange-loop',
     fingerprintId: 'strange-loop',
@@ -822,7 +823,7 @@ export async function summarizeOutput(xml: string): Promise<string> {
     },
   ]
 
-  return promptGeminiWithFallbacks(messages, undefined, {
+  return promptFlashWithFallbacks(messages, undefined, {
     model: models.gemini2flash,
     clientSessionId: 'strange-loop',
     fingerprintId: 'strange-loop',

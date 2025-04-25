@@ -1,7 +1,13 @@
 import { spawn } from 'child_process'
-import * as fs from 'fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
 import path from 'path'
-import * as readline from 'readline'
+import { Interface } from 'readline'
 
 import {
   FileChanges,
@@ -15,17 +21,23 @@ import {
 } from 'common/actions'
 import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
 import {
+  ASKED_CONFIG,
   CostMode,
   CREDITS_REFERRAL_BONUS,
+  ONE_TIME_LABELS,
   ONE_TIME_TAGS,
   REQUEST_CREDIT_SHOW_THRESHOLD,
+  SHOULD_ASK_CONFIG,
   UserState,
 } from 'common/constants'
+import { codebuffConfigFile as CONFIG_FILE_NAME } from 'common/json-config/constants'
+import { AnalyticsEvent } from 'common/src/constants/analytics-events'
 import {
   AgentState,
   getInitialAgentState,
   ToolResult,
 } from 'common/types/agent-state'
+import { buildArray } from 'common/util/array'
 import { User } from 'common/util/credentials'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
@@ -57,9 +69,11 @@ import {
 } from './project-files'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
+import { identifyUser, trackEvent } from './utils/analytics'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
+import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -103,18 +117,17 @@ type UsageData = Omit<MakeNullable<UsageResponse, 'remainingBalance'>, 'type'>
 
 export class Client {
   private webSocket: APIRealtimeClient
-  private returnControlToUser: () => void
+  private freshPrompt: () => void
   private reconnectWhenNextIdle: () => void
   private fingerprintId!: string | Promise<string>
   private costMode: CostMode
   private hadFileChanges: boolean = false
   private git: GitCommand
-  private rl: readline.Interface
+  private rl: Interface
   private responseComplete: boolean = false
-  public pendingTopUpMessageAmount: number = 0
-  private oneTimeTagsShown: Record<(typeof ONE_TIME_TAGS)[number], boolean> =
-    Object.fromEntries(ONE_TIME_TAGS.map((tag) => [tag, false])) as Record<
-      (typeof ONE_TIME_TAGS)[number],
+  private oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
+    Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
+      (typeof ONE_TIME_LABELS)[number],
       boolean
     >
 
@@ -124,6 +137,7 @@ export class Client {
     balanceBreakdown: undefined,
     next_quota_reset: null,
   }
+  public pendingTopUpMessageAmount: number = 0
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
   public agentState: AgentState | undefined
@@ -135,17 +149,27 @@ export class Client {
   public lastToolResults: ToolResult[] = []
   public model: string | undefined
 
-  constructor(
-    websocketUrl: string,
-    onWebSocketError: () => void,
-    onWebSocketReconnect: () => void,
-    returnControlToUser: () => void,
-    reconnectWhenNextIdle: () => void,
-    costMode: CostMode,
-    git: GitCommand,
-    rl: readline.Interface,
+  constructor({
+    websocketUrl,
+    onWebSocketError,
+    onWebSocketReconnect,
+    freshPrompt,
+    reconnectWhenNextIdle,
+    costMode,
+    git,
+    rl,
+    model,
+  }: {
+    websocketUrl: string
+    onWebSocketError: () => void
+    onWebSocketReconnect: () => void
+    freshPrompt: () => void
+    reconnectWhenNextIdle: () => void
+    costMode: CostMode
+    git: GitCommand
+    rl: Interface
     model: string | undefined
-  ) {
+  }) {
     this.costMode = costMode
     this.model = model
     this.git = git
@@ -156,9 +180,10 @@ export class Client {
     )
     this.user = this.getUser()
     this.initFingerprintId()
-    this.returnControlToUser = returnControlToUser
+    this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
     this.rl = rl
+    trackEvent(AnalyticsEvent.APP_LAUNCHED)
   }
 
   async exit() {
@@ -181,11 +206,17 @@ export class Client {
   }
 
   private getUser(): User | undefined {
-    if (!fs.existsSync(CREDENTIALS_PATH)) {
+    if (!existsSync(CREDENTIALS_PATH)) {
       return
     }
-    const credentialsFile = fs.readFileSync(CREDENTIALS_PATH, 'utf8')
+    const credentialsFile = readFileSync(CREDENTIALS_PATH, 'utf8')
     const user = userFromJson(credentialsFile)
+    if (user) {
+      identifyUser(user.id, {
+        email: user.email,
+        name: user.name,
+      })
+    }
     return user
   }
 
@@ -242,7 +273,7 @@ export class Client {
   async handleAddApiKey(keyType: ApiKeyType, apiKey: string): Promise<void> {
     if (!this.user || !this.user.authToken) {
       console.log(yellow("Please log in first using 'login'."))
-      this.returnControlToUser()
+      this.freshPrompt()
       return
     }
 
@@ -282,7 +313,7 @@ export class Client {
       const error = e as Error
       console.error(red('Error adding API key: ' + error.message))
     } finally {
-      this.returnControlToUser()
+      this.freshPrompt()
     }
   }
 
@@ -320,7 +351,7 @@ export class Client {
       } catch (e) {
         const error = e as Error
         console.error(red('Error: ' + error.message))
-        this.returnControlToUser()
+        this.freshPrompt()
       }
     } else {
       await this.login(referralCode)
@@ -347,7 +378,7 @@ export class Client {
         }
 
         try {
-          fs.unlinkSync(CREDENTIALS_PATH)
+          unlinkSync(CREDENTIALS_PATH)
           console.log(`You (${this.user.name}) have been logged out.`)
           this.user = undefined
           this.pendingTopUpMessageAmount = 0
@@ -357,9 +388,9 @@ export class Client {
             balanceBreakdown: undefined,
             next_quota_reset: null,
           }
-          this.oneTimeTagsShown = Object.fromEntries(
-            ONE_TIME_TAGS.map((tag) => [tag, false])
-          ) as Record<(typeof ONE_TIME_TAGS)[number], boolean>
+          this.oneTimeFlags = Object.fromEntries(
+            ONE_TIME_LABELS.map((tag) => [tag, false])
+          ) as Record<(typeof ONE_TIME_LABELS)[number], boolean>
         } catch (error) {
           console.error('Error removing credentials file:', error)
         }
@@ -374,7 +405,7 @@ export class Client {
       console.log(
         `You are currently logged in as ${this.user.name}. Please enter "logout" first if you want to login as a different user.`
       )
-      this.returnControlToUser()
+      this.freshPrompt()
       return
     }
 
@@ -391,7 +422,7 @@ export class Client {
       if (!response.ok) {
         const error = await response.text()
         console.error(red('Login code request failed: ' + error))
-        this.returnControlToUser()
+        this.freshPrompt()
         return
       }
 
@@ -423,7 +454,7 @@ export class Client {
           console.log(
             'Unable to login. Please try again by typing "login" in the terminal.'
           )
-          this.returnControlToUser()
+          this.freshPrompt()
           clearInterval(pollInterval)
           return
         }
@@ -434,8 +465,9 @@ export class Client {
         }
 
         try {
+          const fingerprintId = await this.fingerprintId
           const statusResponse = await fetch(
-            `${websiteUrl}/api/auth/cli/status?fingerprintId=${await this.fingerprintId}&fingerprintHash=${fingerprintHash}&expiresAt=${expiresAt}`
+            `${websiteUrl}/api/auth/cli/status?fingerprintId=${fingerprintId}&fingerprintHash=${fingerprintHash}&expiresAt=${expiresAt}`
           )
 
           if (!statusResponse.ok) {
@@ -453,12 +485,18 @@ export class Client {
           if (user) {
             shouldRequestLogin = false
             this.user = user
+
+            identifyUser(user.id, {
+              email: user.email,
+              name: user.name,
+            })
+            trackEvent(AnalyticsEvent.LOGIN, user.id, {
+              fingerprintId,
+            })
+
             const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
-            fs.mkdirSync(credentialsPathDir, { recursive: true })
-            fs.writeFileSync(
-              CREDENTIALS_PATH,
-              JSON.stringify({ default: user })
-            )
+            mkdirSync(credentialsPathDir, { recursive: true })
+            writeFileSync(CREDENTIALS_PATH, JSON.stringify({ default: user }))
 
             const referralLink = `${process.env.NEXT_PUBLIC_APP_URL}/referrals`
             const responseToUser = [
@@ -468,13 +506,13 @@ export class Client {
             ]
             console.log('\n' + responseToUser.join('\n'))
             this.lastWarnedPct = 0
-            this.oneTimeTagsShown = Object.fromEntries(
-              ONE_TIME_TAGS.map((tag) => [tag, false])
-            ) as Record<(typeof ONE_TIME_TAGS)[number], boolean>
+            this.oneTimeFlags = Object.fromEntries(
+              ONE_TIME_LABELS.map((tag) => [tag, false])
+            ) as Record<(typeof ONE_TIME_LABELS)[number], boolean>
 
             displayGreeting(this.costMode, null)
             clearInterval(pollInterval)
-            this.returnControlToUser()
+            this.freshPrompt()
           }
         } catch (error) {
           console.error('Error checking login status:', error)
@@ -482,7 +520,7 @@ export class Client {
       }, 5000)
     } catch (error) {
       console.error('Error during login:', error)
-      this.returnControlToUser()
+      this.freshPrompt()
     }
   }
 
@@ -511,7 +549,7 @@ export class Client {
       } else {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
       }
-      this.returnControlToUser()
+      this.freshPrompt()
       return
     })
 
@@ -606,7 +644,7 @@ export class Client {
       const message = config.message(this.usageData.remainingBalance)
       console.warn(message)
       this.lastWarnedPct = config.threshold
-      this.returnControlToUser()
+      this.freshPrompt()
     }
   }
 
@@ -649,11 +687,21 @@ export class Client {
       prompt
     )
 
+    const urls = parseUrlsFromContent(prompt)
+    const scrapedBlocks = await getScrapedContentBlocks(urls)
+    const scrapedContent =
+      scrapedBlocks.length > 0 ? scrapedBlocks.join('\n\n') + '\n\n' : ''
+
     // Append process updates to existing tool results
-    const toolResults = [
+    const toolResults = buildArray(
       ...(this.lastToolResults || []),
       ...getBackgroundProcessUpdates(),
-    ]
+      scrapedContent && {
+        id: 'scraped-content',
+        name: 'web-scraper',
+        result: scrapedContent,
+      }
+    )
 
     Spinner.get().start()
     this.webSocket.sendAction({
@@ -706,14 +754,17 @@ export class Client {
       unsubscribeChunks()
       unsubscribeComplete()
 
-      const assistantMessage = {
-        role: 'user' as const,
-        content: `Received output:\n${responseBuffer}[RESPONSE_CANCELED_BY_USER]`,
-      }
+      const additionalMessages = [
+        { role: 'user' as const, content: prompt },
+        {
+          role: 'user' as const,
+          content: `<system><assistant_message>${responseBuffer}</assistant_message>[RESPONSE_CANCELED_BY_USER]</system>`,
+        },
+      ]
 
       // Update the agent state with just the assistant's response
       const { messageHistory } = this.agentState!
-      const newMessages = [...messageHistory, assistantMessage]
+      const newMessages = [...messageHistory, ...additionalMessages]
       this.agentState = {
         ...this.agentState!,
         messageHistory: newMessages,
@@ -742,7 +793,7 @@ export class Client {
       const trimmed = chunk.trim()
       for (const tag of ONE_TIME_TAGS) {
         if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)) {
-          if (this.oneTimeTagsShown[tag]) {
+          if (this.oneTimeFlags[tag]) {
             return
           }
           Spinner.get().stop()
@@ -750,7 +801,7 @@ export class Client {
             .replace(`<${tag}>`, '')
             .replace(`</${tag}>`, '')
           console.warn(yellow(`\n${warningMessage}`))
-          this.oneTimeTagsShown[tag] = true
+          this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
           return
         }
       }
@@ -803,6 +854,13 @@ export class Client {
               this.responseComplete = true
               isComplete = true
             }
+            if (
+              toolCall.name === 'run_terminal_command' &&
+              toolCall.parameters.mode === 'assistant' &&
+              toolCall.parameters.process_type === 'BACKGROUND'
+            ) {
+              this.oneTimeFlags[SHOULD_ASK_CONFIG] = true
+            }
             const toolResult = await handleToolCall(toolCall, getProjectRoot())
             toolResults.push(toolResult)
           } catch (error) {
@@ -844,6 +902,26 @@ export class Client {
         this.lastToolResults = toolResults
         xmlStreamParser.end()
 
+        askConfig: if (
+          this.oneTimeFlags[SHOULD_ASK_CONFIG] &&
+          !this.oneTimeFlags[ASKED_CONFIG]
+        ) {
+          this.oneTimeFlags[ASKED_CONFIG] = true
+          if (existsSync(path.join(getProjectRoot(), CONFIG_FILE_NAME))) {
+            break askConfig
+          }
+
+          console.log(
+            yellow(
+              `✨ Recommended: run the 'init' command in order to create a configuration file!
+
+If you would like background processes (like this one) to run automatically whenever codebuff starts, creating a ${CONFIG_FILE_NAME} config file can improve your workflow.
+Go to https://www.codebuff.com/config for more information.
+`
+            )
+          )
+        }
+
         if (this.agentState) {
           setMessages(this.agentState.messageHistory)
         }
@@ -866,7 +944,7 @@ export class Client {
             `\nComplete! Type "diff" to review changes${checkpointAddendum}.`
           )
           this.hadFileChanges = false
-          this.returnControlToUser()
+          this.freshPrompt()
         }
 
         unsubscribeChunks()
@@ -958,7 +1036,7 @@ export class Client {
         console.error(error)
       }
     } finally {
-      this.returnControlToUser()
+      this.freshPrompt()
     }
   }
 

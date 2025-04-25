@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "common" },
+    { "path": "backend" },
+    { "path": "npm-app" },
+    { "path": "web" },
+    { "path": "packages/code-map" }
+  ]
+}

@@ -31,6 +31,7 @@
     "openai": "^4.78.1",
     "pino": "9.4.0",
     "postgres": "3.4.4",
+    "posthog-node": "^4.14.0",
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
     "zod": "3.23.8"

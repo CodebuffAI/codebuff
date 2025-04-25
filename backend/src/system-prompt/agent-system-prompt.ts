@@ -1,8 +1,6 @@
 import fs from 'fs'
 import path from 'path'
 
-import { CodebuffConfigSchema } from 'common/json-config/constants'
-import { stringifySchemaForLLM } from 'common/json-config/stringify-schema'
 import { buildArray } from 'common/util/array'
 import { ProjectFileContext } from 'common/util/file'
 import { countTokens } from 'gpt-tokenizer'
@@ -11,6 +9,7 @@ import { toolsInstructions } from '../tools'
 import { logger } from '../util/logger'
 import { countTokensJson } from '../util/token-counter'
 import {
+  configSchemaPrompt,
   getGitChangesPrompt,
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
@@ -45,18 +44,13 @@ export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)
   const systemInfoTokens = countTokens(systemInfoPrompt)
 
-  const configSchemaPrompt = `# Codebuff Configuration (.codebuffrc.json)
-  
-  The following describes the structure of the \`./codebuff.json\` configuration file that users might have in their project root. You can use this to understand user settings if they mention them.
-  
-  ${stringifySchemaForLLM(CodebuffConfigSchema, 'CodebuffConfigSchema')}`
   const configSchemaTokens = countTokens(configSchemaPrompt)
 
   const systemPrompt = buildArray(
     agentInstructions,
     toolsInstructions,
-    configSchemaPrompt,
     knowledgeFilesPrompt,
+    configSchemaPrompt,
     projectFileTreePrompt,
     systemInfoPrompt,
     gitChangesPrompt

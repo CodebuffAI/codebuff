@@ -41,6 +41,7 @@ const TOKENS_COST_PER_M = {
     [models.gemini2_5_flash]: 0.15,
     [models.gemini2_5_flash_thinking]: 0.15,
     [models.ft_filepicker_003]: 0.1,
+    [models.ft_filepicker_005]: 0.1,
     [models.openrouter_gemini2_5_pro_preview]: 1.25,
   },
   output: {
@@ -59,6 +60,8 @@ const TOKENS_COST_PER_M = {
     [models.gemini2_5_flash]: 0.6,
     [models.gemini2_5_flash_thinking]: 3.5,
     [models.ft_filepicker_003]: 0.4,
+    [models.ft_filepicker_005]: 0.4,
+    [models.openrouter_gemini2_5_pro_preview]: 10,
   },
   cache_creation: {
     [models.sonnet]: 3.75,
@@ -81,6 +84,7 @@ const TOKENS_COST_PER_M = {
     [models.gemini2_5_flash]: 0.0375,
     [models.gemini2_5_flash_thinking]: 0.2625,
     [models.ft_filepicker_003]: 0.025,
+    [models.ft_filepicker_005]: 0.025,
   },
 }
 

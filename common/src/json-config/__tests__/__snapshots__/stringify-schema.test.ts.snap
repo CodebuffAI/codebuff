@@ -1,66 +1,163 @@
 // Bun Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`stringifySchemaForLLM should correctly stringify StartupProcessSchema 1`] = `
-"Schema: StartupProcessSchema
-Object (Defines a single startup process. This validates the structure of an object representing a command that Codebuff can run automatically when it starts.) {
-  name: String (A user-friendly name for the process.)
-  command: String (The actual shell command to execute.)
-  cwd: Optional<String> (The working directory from which to run the command.)
-  enabled: Default<Optional<Boolean>> (default: true) (Whether this process should be run.)
-  stdoutFile: Optional<String> (Path to write process stdout output. If not specified, output is not stored.)
-  stderrFile: Optional<String> (Path to write process stderr output. If not specified, output is not stored.)
+exports[`stringifySchema should correctly stringify StartupProcessSchema 1`] = `
+"\`StartupProcessSchema\`:
+ (Defines a single startup process.)
+ Object
+{
+ \`name\`:
+  (A user-friendly name for the process. Should be one word and unique.)
+  String
+
+ \`command\`:
+  (The actual shell command to execute.)
+  String
+
+ \`cwd\`:
+  (The working directory from which to run the command.)
+  Optional<String>
+
+ \`enabled\`:
+  (Whether this process should be run.)
+  Optional<Boolean> (default: true)
+
+ \`stdoutFile\`:
+  (Path to write the process's stdout. If not specified, stderr is not stored.)
+  Optional<String>
+
+ \`stderrFile\`:
+  (Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile.)
+  Optional<String>
 }"
 `;
 
-exports[`stringifySchemaForLLM should correctly stringify CodebuffConfigSchema 1`] = `
-"Schema: CodebuffConfigSchema
-Object (Defines the overall Codebuff configuration file (e.g., codebuff.json). This schema defines the top-level structure of the configuration.) {
-  startupProcesses: Optional<Array<Object (Defines a single startup process. This validates the structure of an object representing a command that Codebuff can run automatically when it starts.) {
-    name: String (A user-friendly name for the process.)
-    command: String (The actual shell command to execute.)
-    cwd: Optional<String> (The working directory from which to run the command.)
-    enabled: Default<Optional<Boolean>> (default: true) (Whether this process should be run.)
-    stdoutFile: Optional<String> (Path to write process stdout output. If not specified, output is not stored.)
-    stderrFile: Optional<String> (Path to write process stderr output. If not specified, output is not stored.)
-  }>> (An array of startup processes, each validated by the StartupProcessSchema.)
+exports[`stringifySchema should correctly stringify CodebuffConfigSchema 1`] = `
+"\`CodebuffConfigSchema\`:
+ (Defines the overall Codebuff configuration file (e.g., codebuff.json). This schema defines the top-level structure of the configuration.)
+ Object
+{
+ \`description\`:
+  (Does nothing. Put any thing you want here!)
+  Optional<Any>
+
+ \`startupProcesses\`:
+  (An array of startup processes.)
+  Optional<Array<
+   \`startupProcesses.item\`:
+    (Defines a single startup process.)
+    Object
+   {
+    \`name\`:
+     (A user-friendly name for the process. Should be one word and unique.)
+     String
+
+    \`command\`:
+     (The actual shell command to execute.)
+     String
+
+    \`cwd\`:
+     (The working directory from which to run the command.)
+     Optional<String>
+
+    \`enabled\`:
+     (Whether this process should be run.)
+     Optional<Boolean> (default: true)
+
+    \`stdoutFile\`:
+     (Path to write the process's stdout. If not specified, stderr is not stored.)
+     Optional<String>
+
+    \`stderrFile\`:
+     (Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile.)
+     Optional<String>
+   }
+  >>
 }"
 `;
 
-exports[`stringifySchemaForLLM should handle a more complex schema 1`] = `
-"Schema: ComplexSchema
-Object (A complex test schema) {
-  id: String (Unique identifier)
-  count: Number (A positive integer count)
-  isActive: Boolean (Activity status)
-  tags: Optional<Array<String>> (Optional list of tags)
-  nested: Object (A nested object structure) {
-    value: String
-    config: Object (Nested configuration) {
-      retries: Default<Number> (default: 3) (Number of retries)
-    }
+exports[`stringifySchema should handle a more complex schema 1`] = `
+"\`ComplexSchema\`:
+ (A complex test schema)
+ Object
+{
+ \`id\`:
+  (Unique identifier)
+  String
+
+ \`count\`:
+  (A positive integer count)
+  Number
+
+ \`isActive\`:
+  (Activity status)
+  Boolean
+
+ \`tags\`:
+  (Optional list of tags)
+  Optional<Array<
+   \`tags.item\`:
+    
+    String
+  >>
+
+ \`nested\`:
+  (A nested object structure)
+  Object
+ {
+  \`value\`:
+   
+   String
+
+  \`config\`:
+   (Nested configuration)
+   Object
+  {
+   \`retries\`:
+    (Number of retries)
+    Number (default: 3)
   }
+ }
 }"
 `;
 
-exports[`stringifySchemaForLLM should handle an empty object schema 1`] = `
-"Schema: EmptySchema
-Object (An empty schema) {
+exports[`stringifySchema should handle an empty object schema 1`] = `
+"\`EmptySchema\`:
+ (An empty schema)
+ Object
+{
 }"
 `;
 
-exports[`stringifySchemaForLLM should handle schema with only optional fields 1`] = `
-"Schema: OptionalOnlySchema
-Object (Schema with only optional fields) {
-  field1: Optional<String> (Optional field 1)
-  field2: Optional<Number> (Optional field 2)
+exports[`stringifySchema should handle schema with only optional fields 1`] = `
+"\`OptionalOnlySchema\`:
+ (Schema with only optional fields)
+ Object
+{
+ \`field1\`:
+  (Optional field 1)
+  Optional<String>
+
+ \`field2\`:
+  (Optional field 2)
+  Optional<Number>
 }"
 `;
 
-exports[`stringifySchemaForLLM should handle schema with default values 1`] = `
-"Schema: DefaultSchema
-Object (Schema demonstrating default values) {
-  name: Default<String> (default: "anonymous") (Name with default)
-  level: Default<Number> (default: 1) (Level with default)
-  enabled: Default<Boolean> (default: false) (Enabled with default)
+exports[`stringifySchema should handle schema with default values 1`] = `
+"\`DefaultSchema\`:
+ (Schema demonstrating default values)
+ Object
+{
+ \`name\`:
+  (Name with default)
+  String (default: "anonymous")
+
+ \`level\`:
+  (Level with default)
+  Number (default: 1)
+
+ \`enabled\`:
+  (Enabled with default)
+  Boolean (default: false)
 }"
 `;

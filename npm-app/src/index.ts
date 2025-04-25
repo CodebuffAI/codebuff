@@ -15,20 +15,23 @@ import {
 import { logAndHandleStartup } from './startup-process-handler'
 import { CliOptions } from './types'
 import { updateCodebuff } from './update-codebuff'
+import { initAnalytics } from './utils/analytics'
 import { recreateShell } from './utils/terminal'
 
 async function codebuff(
   projectDir: string | undefined,
-  { initialInput, git, costMode, model }: CliOptions
+  { initialInput, git, costMode, runInitFlow, model }: CliOptions
 ) {
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
 
-  // Load codebuff.json config if it exists
+  // Load config file if it exists
   const config = loadCodebuffConfig(dir)
 
   // Kill all processes we failed to kill before
   const processCleanupPromise = logAndHandleStartup(dir, config)
+
+  initAnalytics()
 
   const updatePromise = updateCodebuff()
 
@@ -42,7 +45,7 @@ async function codebuff(
 
   const cli = new CLI(readyPromise, { git, costMode, model })
 
-  await cli.printInitialPrompt(initialInput)
+  await cli.printInitialPrompt({ initialInput, runInitFlow })
 }
 
 if (require.main === module) {
@@ -64,6 +67,10 @@ if (require.main === module) {
       'Use cutting-edge experimental features and models'
     )
     .option('--create <template> [name]', 'Create new project from template')
+    .option(
+      '--init',
+      'Initialize codebuff on this project for a smoother experience'
+    )
     .option(
       '--model <model>',
       'Experimental: Specify the main model to use for the agent ("sonnet-3.6", "sonnet-3.7", "gpt-4.1", "gemini-2.5-pro", "o4-mini", "o3"). Be aware codebuff might not work as well with non-default models.'
@@ -135,5 +142,11 @@ The recommended way to get started is by running 'codebuff' in your project dire
   const projectPath = args[0]
   const initialInput = args.slice(1).join(' ')
 
-  codebuff(projectPath, { initialInput, git, costMode, model: options.model })
+  codebuff(projectPath, {
+    initialInput,
+    git,
+    costMode,
+    runInitFlow: options.init,
+    model: options.model,
+  })
 }

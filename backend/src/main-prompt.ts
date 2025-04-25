@@ -5,7 +5,7 @@ import { AgentResponseTrace } from 'common/bigquery/schema'
 import {
   HIDDEN_FILE_READ_STATUS,
   models,
-  ONE_TIME_TAGS,
+  ONE_TIME_LABELS,
   type CostMode,
 } from 'common/constants'
 import { getToolCallString } from 'common/constants/tools'
@@ -25,6 +25,7 @@ import { processFileBlock } from './process-file-block'
 import { processStreamWithTags } from './process-stream'
 import { getAgentStream } from './prompt-agent-stream'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
+import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { getThinkingStream } from './thinking-stream'
@@ -38,7 +39,11 @@ import {
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
-import { getMessagesSubset } from './util/messages'
+import {
+  asSystemInstructions,
+  asSystemMessage,
+  getMessagesSubset,
+} from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
@@ -126,7 +131,7 @@ export const mainPrompt = async (
 
     'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Makes sure when using write_file to pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
 
-    'When editing a file, write the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
+    'When editing an existing file, write the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
 
     'When using tools, make sure to NOT use XML attributes. The format should contain nested XML tags. For example, when using write_file, the format should be <write_file><path>...</path><content>...</content></write_file>',
 
@@ -339,16 +344,24 @@ export const mainPrompt = async (
       result: renderReadFilesResult(newFiles),
     }
 
-    readFileMessages.push({
-      role: 'assistant' as const,
-      content: getToolCallString('read_files', {
-        paths: newFiles.map((file) => file.path).join('\n'),
-      }),
-    })
-    readFileMessages.push({
-      role: 'user' as const,
-      content: renderToolResults([readFilesToolResult]),
-    })
+    readFileMessages.push(
+      {
+        role: 'user' as const,
+        content: asSystemInstructions(
+          'Before continuing with the user request, read some relevant files first.'
+        ),
+      },
+      {
+        role: 'assistant' as const,
+        content: getToolCallString('read_files', {
+          paths: newFiles.map((file) => file.path).join('\n'),
+        }),
+      },
+      {
+        role: 'user' as const,
+        content: asSystemMessage(renderToolResults([readFilesToolResult])),
+      }
+    )
   }
 
   const relevantDocumentation = await relevantDocumentationPromise
@@ -358,37 +371,49 @@ export const mainPrompt = async (
 
     toolResults.length > 0 && {
       role: 'user' as const,
-      content: renderToolResults(toolResults),
+      content: asSystemMessage(renderToolResults(toolResults)),
     },
 
     // Add in new copy of agent context.
     prompt &&
       agentContext && {
         role: 'user' as const,
-        content: agentContext.trim(),
+        content: asSystemMessage(agentContext.trim()),
       },
 
     prompt
       ? // Add in new copy of user instructions.
         {
           role: 'user' as const,
-          content: userInstructions,
+          content: asSystemInstructions(userInstructions),
         }
       : // Add in new copy of tool instructions.
         toolInstructions && {
           role: 'user' as const,
-          content: toolInstructions,
+          content: asSystemInstructions(toolInstructions),
         },
 
     relevantDocumentation && {
       role: 'user' as const,
-      content: `Relevant context from web documentation:\n${relevantDocumentation}`,
+      content: asSystemMessage(
+        `Relevant context from web documentation:\n${relevantDocumentation}`
+      ),
     },
 
-    prompt && {
-      role: 'user' as const,
-      content: prompt,
-    },
+    prompt && [
+      {
+        role: 'user' as const,
+        content: prompt,
+      },
+      prompt in additionalSystemPrompts && {
+        role: 'user' as const,
+        content: asSystemInstructions(
+          additionalSystemPrompts[
+            prompt as keyof typeof additionalSystemPrompts
+          ]
+        ),
+      },
+    ],
 
     ...readFileMessages
   )
@@ -434,7 +459,7 @@ export const mainPrompt = async (
 
   // Add deep thinking for experimental or max mode
   if (costMode === 'experimental' || costMode === 'max') {
-    const response = await getThinkingStream(
+    let response = await getThinkingStream(
       agentMessages,
       system,
       (chunk) => {
@@ -448,6 +473,10 @@ export const mainPrompt = async (
         userId,
       }
     )
+    if (model === models.gpt4_1) {
+      onResponseChunk('\n')
+      response += '\n'
+    }
     fullResponse += response
   }
 
@@ -528,7 +557,7 @@ export const mainPrompt = async (
   for await (const chunk of streamWithTags) {
     const trimmed = chunk.trim()
     if (
-      !ONE_TIME_TAGS.some(
+      !ONE_TIME_LABELS.some(
         (tag) => trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)
       )
     ) {
@@ -600,6 +629,7 @@ export const mainPrompt = async (
     ) {
       if (name === 'run_terminal_command') {
         parameters.command = transformRunTerminalCommand(parameters.command)
+        parameters.mode = 'assistant'
       }
       clientToolCalls.push({
         ...(toolCall as ClientToolCall),
