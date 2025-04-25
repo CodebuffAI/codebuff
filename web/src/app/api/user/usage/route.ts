@@ -7,7 +7,6 @@ import {
   checkAndTriggerAutoTopup,
 } from '@codebuff/billing'
 import { logger } from '@/util/logger'
-import { env } from '@/env.mjs'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -26,7 +25,7 @@ export async function GET() {
 
     // Check if we need to trigger auto top-up
     try {
-      await checkAndTriggerAutoTopup(userId, env.NEXT_PUBLIC_APP_URL)
+      await checkAndTriggerAutoTopup(userId)
     } catch (error) {
       logger.error(
         { error, userId },

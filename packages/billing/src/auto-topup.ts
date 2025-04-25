@@ -9,6 +9,7 @@ import type Stripe from 'stripe'
 import { processAndGrantCredit } from './grant-credits'
 import { calculateUsageAndBalance } from './balance-calculator'
 import { generateOperationIdTimestamp } from './utils'
+import { env } from 'common/src/env.mjs'
 
 const MINIMUM_PURCHASE_CREDITS = 500
 
@@ -32,8 +33,7 @@ class AutoTopupPaymentError extends Error {
 }
 
 export async function validateAutoTopupStatus(
-  userId: string,
-  appUrl: string
+  userId: string
 ): Promise<AutoTopupValidationResult> {
   const logContext = { userId }
 
@@ -47,7 +47,7 @@ export async function validateAutoTopupStatus(
 
     if (!user?.stripe_customer_id) {
       throw new AutoTopupValidationError(
-        `You don't have a valid account with us. Please log in at ${appUrl}/login`
+        `You don't have a valid account with us. Please log in at ${env.NEXT_PUBLIC_APP_URL}/login`
       )
     }
 
@@ -163,8 +163,7 @@ async function processAutoTopupPayment(
 }
 
 export async function checkAndTriggerAutoTopup(
-  userId: string,
-  appUrl: string
+  userId: string
 ): Promise<number | undefined> {
   const logContext = { userId }
 
@@ -193,7 +192,7 @@ export async function checkAndTriggerAutoTopup(
 
     // Validate payment method
     const { blockedReason, validPaymentMethod } =
-      await validateAutoTopupStatus(userId, appUrl)
+      await validateAutoTopupStatus(userId)
 
     if (blockedReason || !validPaymentMethod) {
       throw new Error(blockedReason || 'Auto top-up is not available.')
