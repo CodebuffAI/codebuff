@@ -58,11 +58,13 @@ function sendAnalyticsAndLog(
   msg?: string,
   ...args: any[]
 ): void {
-  setLogPath(
-    process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
-      ? path.join(__dirname, '../../../debug', 'npm-app.log')
-      : path.join(getCurrentChatDir(), 'log.jsonl')
-  )
+  if (process.env.CODEBUFF_GITHUB_ACTIONS !== 'true') {
+    setLogPath(
+      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
+        ? path.join(__dirname, '../../../debug', 'npm-app.log')
+        : path.join(getCurrentChatDir(), 'log.jsonl')
+    )
+  }
 
   logOrStore: if (
     process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'local' &&
