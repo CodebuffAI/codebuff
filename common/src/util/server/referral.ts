@@ -62,8 +62,6 @@ export async function hasMaxedReferrals(
       }
     }
 
-
-
     return {
       reason: undefined,
       referralLink: getReferralLink(user.referral_code),

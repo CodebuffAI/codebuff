@@ -90,12 +90,6 @@ const nextConfig = {
         destination: 'https://discord.gg/mcWTGjgTj3',
         permanent: false,
       },
-      {
-        source: '/vibe',
-        destination:
-          'https://codebuff.com/referrals/ref-e0a1a93e-d811-49f9-97bc-dd17af50e3ad',
-        permanent: false,
-      },
     ]
   },
   images: {
