@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'async_hooks'
+import { mkdirSync } from 'fs'
 import path from 'path'
 import { format } from 'util'
 
@@ -32,10 +33,23 @@ export const withLoggerContext = <T>(
   return loggerAsyncStorage.run({ ...store, ...additionalContext }, fn)
 }
 
+// Ensure debug directory exists for local environment
+const debugDir = path.join(__dirname, '../../../debug')
+if (
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local' &&
+  process.env.CODEBUFF_GITHUB_ACTIONS !== 'true'
+) {
+  try {
+    mkdirSync(debugDir, { recursive: true })
+  } catch (err) {
+    console.error('Failed to create debug directory:', err)
+  }
+}
+
 const localFileTransport = pino.transport({
   target: 'pino/file',
   options: {
-    destination: path.join(__dirname, '../../../debug', 'backend.log'),
+    destination: path.join(debugDir, 'backend.log'),
   },
   level: 'debug',
 })
