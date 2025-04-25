@@ -114,14 +114,14 @@ export class CLI {
     process.on('SIGTERM', async () => {
       Spinner.get().restoreCursor()
       await killAllBackgroundProcesses()
-      flushAnalytics()
+      await flushAnalytics()
       process.exit(0)
     })
     process.on('SIGTSTP', async () => await this.handleExit())
     process.on('SIGHUP', async () => {
       Spinner.get().restoreCursor()
       await killAllBackgroundProcesses()
-      flushAnalytics()
+      await flushAnalytics()
       process.exit(0)
     })
     // Doesn't catch SIGKILL (e.g. `kill -9`)
@@ -501,7 +501,6 @@ export class CLI {
     console.log('\n')
 
     await killAllBackgroundProcesses()
-    flushAnalytics()
 
     const logMessages = []
     const totalCreditsUsedThisSession = Object.values(
@@ -526,7 +525,9 @@ export class CLI {
     }
 
     console.log(logMessages.join(' '))
+    await flushAnalytics()
     console.log(green('Codebuff out!'))
+
     process.exit(0)
   }
 

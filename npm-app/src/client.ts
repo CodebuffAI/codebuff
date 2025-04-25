@@ -70,7 +70,7 @@ import {
 import { handleToolCall } from './tool-handlers'
 import { GitCommand } from './types'
 import { identifyUser } from './utils/analytics'
-import { logger } from './utils/logger'
+import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
@@ -184,7 +184,7 @@ export class Client {
     this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
     this.rl = rl
-    logger.info({ eventId: AnalyticsEvent.APP_LAUNCHED })
+    logger.info({ eventId: AnalyticsEvent.APP_LAUNCHED }, 'App launched')
   }
 
   async exit() {
@@ -216,7 +216,11 @@ export class Client {
       identifyUser(user.id, {
         email: user.email,
         name: user.name,
+        fingerprintId: this.fingerprintId,
       })
+      loggerContext.userId = user.id
+      loggerContext.userEmail = user.email
+      loggerContext.fingerprintId = user.fingerprintId
     }
     return user
   }
@@ -428,7 +432,6 @@ export class Client {
         this.freshPrompt()
         return
       }
-
       const { loginUrl, fingerprintHash, expiresAt } = await response.json()
 
       const responseToUser = [
@@ -492,10 +495,17 @@ export class Client {
             identifyUser(user.id, {
               email: user.email,
               name: user.name,
+              fingerprintId: fingerprintId,
             })
-            trackEvent(AnalyticsEvent.LOGIN, user.id, {
-              fingerprintId,
-            })
+            loggerContext.userId = user.id
+            loggerContext.userEmail = user.email
+            loggerContext.fingerprintId = fingerprintId
+            logger.info(
+              {
+                eventId: AnalyticsEvent.LOGIN,
+              },
+              'login'
+            )
 
             const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
             mkdirSync(credentialsPathDir, { recursive: true })

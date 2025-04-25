@@ -5,6 +5,8 @@ import { PostHog } from 'posthog-node'
 let currentUserId: string | undefined
 let client: PostHog | undefined
 
+export let identified: boolean = false
+
 export function initAnalytics() {
   if (
     !process.env.NEXT_PUBLIC_POSTHOG_API_KEY ||
@@ -19,11 +21,11 @@ export function initAnalytics() {
     host: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
   })
 }
-export function flushAnalytics() {
+export async function flushAnalytics() {
   if (!client) {
     return
   }
-  client.flush()
+  await client.flush()
 }
 
 export function trackEvent(
@@ -32,21 +34,10 @@ export function trackEvent(
 ) {
   const distinctId = currentUserId
   if (!distinctId) {
-    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
-      console.log(
-        '[dev] Analytics event dropped due to missing user ID:',
-        event
-      )
-    }
     return
   }
   if (!client) {
     throw new Error('Analytics client not initialized')
-  }
-
-  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
-    console.log('[dev] Analytics event tracked:', event)
-    return
   }
 
   client.capture({
@@ -59,11 +50,6 @@ export function trackEvent(
 export function identifyUser(userId: string, properties?: Record<string, any>) {
   // Store the user ID for future events
   currentUserId = userId
-
-  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
-    console.log('[dev] Analytics user identified:', userId)
-    return
-  }
 
   if (!client) {
     throw new Error('Analytics client not initialized')
