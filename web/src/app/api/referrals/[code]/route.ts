@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import * as schema from 'common/db/schema'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../auth/[...nextauth]/auth-options'
-import { hasMaxedReferrals, ReferralStatus } from 'common/util/server/referral'
+import { hasMaxedReferrals, ReferralStatus } from '@/lib/server/referral'
 
 export type ReferralCodeResponse = {
   referrerName: string | null

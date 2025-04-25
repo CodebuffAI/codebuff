@@ -2,9 +2,8 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test'
 import {
   calculateUsageAndBalance,
   consumeCredits,
-  getOrderedActiveGrants,
-} from 'common/src/billing/balance-calculator'
-import { CreditBalance } from 'common/src/billing/balance-calculator'
+  CreditBalance,
+} from '@codebuff/billing'
 import { GrantType } from 'common/db/schema'
 import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
 import { and, asc, gt, isNull, or, eq } from 'drizzle-orm'

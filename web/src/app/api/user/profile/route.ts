@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm'
 import * as schema from 'common/db/schema'
 import { logger } from '@/util/logger'
 import { UserProfile } from '@/types/user'
-import { validateAutoTopupStatus } from 'common/src/billing/auto-topup'
+import { validateAutoTopupStatus } from '@codebuff/billing'
 
 export async function GET() {
   const session = await getServerSession(authOptions)

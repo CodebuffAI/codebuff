@@ -9,7 +9,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { CreditBalance } from 'common/src/billing/balance-calculator'
+import { CreditBalance } from '@codebuff/billing'
 import { GrantType } from 'common/db/schema'
 import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
 import { pluralize } from 'common/util/string'

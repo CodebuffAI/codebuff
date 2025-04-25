@@ -228,7 +228,7 @@ Buffy can execute terminal commands using the `run_terminal_command` tool. This 
 Important constants and configuration values are centralized in `common/src/constants.ts`. This includes:
 
 - `CREDITS_REFERRAL_BONUS`: The number of credits awarded for a successful referral.
-- `CREDITS_USAGE_LIMITS`: Defines credit limits for different user types (ANON, FREE, PAID).
+- `DEFAULT_FREE_CREDITS_GRANT`: The default number of free credits granted per cycle (500).
 
 Centralizing these constants makes it easier to manage and update project-wide settings.
 

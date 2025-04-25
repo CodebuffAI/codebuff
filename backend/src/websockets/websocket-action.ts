@@ -1,27 +1,22 @@
 import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
-import { PLAN_CONFIGS, toOptionalFile, UsageLimits } from 'common/constants'
+import { toOptionalFile } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { calculateUsageAndBalance } from 'common/src/billing/balance-calculator'
-import {
-  getMonthlyGrantForPlan,
-  getPlanFromPriceId,
-} from 'common/src/billing/plans'
+import { protec } from './middleware'
+import { calculateUsageAndBalance } from '@codebuff/billing'
 import { ensureEndsWithNewline } from 'common/src/util/file'
-import { buildArray } from 'common/util/array'
+import { logger, withLoggerContext } from '@/util/logger'
+import { trackEvent } from '@/util/analytics'
+import { renderToolResults } from '@/util/parse-tool-call-xml'
 import { generateCompactId } from 'common/util/string'
+import { buildArray } from 'common/util/array'
 import { ClientMessage } from 'common/websockets/websocket-schema'
 import { eq } from 'drizzle-orm'
 import { WebSocket } from 'ws'
 
 import { mainPrompt } from '../main-prompt'
-import { protec } from './middleware'
 import { sendMessage } from './server'
-
-import { trackEvent } from '@/util/analytics'
-import { logger, withLoggerContext } from '@/util/logger'
-import { renderToolResults } from '@/util/parse-tool-call-xml'
 
 /**
  * Sends an action to the client via WebSocket
@@ -79,7 +74,6 @@ export async function genUsageResponse(
     remainingBalance: 0,
     balanceBreakdown: {},
     next_quota_reset: null,
-    nextMonthlyGrant: PLAN_CONFIGS[UsageLimits.FREE].limit, // Default for anonymous users
   }
 
   return withLoggerContext(logContext, async () => {
@@ -87,7 +81,6 @@ export async function genUsageResponse(
       where: eq(schema.user.id, userId),
       columns: {
         next_quota_reset: true,
-        stripe_price_id: true,
       },
     })
 
@@ -99,8 +92,6 @@ export async function genUsageResponse(
       // Get the usage data
       const { balance: balanceDetails, usageThisCycle } =
         await calculateUsageAndBalance(userId, new Date())
-      const currentPlan = getPlanFromPriceId(user.stripe_price_id)
-      const nextMonthlyGrant = await getMonthlyGrantForPlan(currentPlan, userId)
 
       return {
         type: 'usage-response' as const,
@@ -108,7 +99,6 @@ export async function genUsageResponse(
         remainingBalance: balanceDetails.totalRemaining,
         balanceBreakdown: balanceDetails.breakdown,
         next_quota_reset: user.next_quota_reset,
-        nextMonthlyGrant,
       }
     } catch (error) {
       logger.error(
@@ -258,7 +248,6 @@ const onInit = async (
         balanceBreakdown: {},
         next_quota_reset: null,
         type: 'init-response',
-        nextMonthlyGrant: PLAN_CONFIGS[UsageLimits.FREE].limit, // Default for anonymous users
       })
       return
     }

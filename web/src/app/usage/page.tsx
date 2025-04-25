@@ -18,7 +18,7 @@ import { useSession } from 'next-auth/react'
 import {
   convertCreditsToUsdCents,
   convertStripeGrantAmountToCredits,
-} from 'common/src/billing/credit-conversion'
+} from 'common/util/currency'
 import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
 import { cn, clamp } from '@/lib/utils'
 import {

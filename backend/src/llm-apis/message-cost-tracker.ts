@@ -2,16 +2,14 @@ import { CoreMessage } from 'ai'
 import { models, TEST_USER_ID } from 'common/constants'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { consumeCredits } from 'common/src/billing/balance-calculator'
-import { getUserCostPerCredit } from 'common/src/billing/conversion'
-import { withRetry } from 'common/src/util/promise'
-import { stripeServer } from 'common/src/util/stripe'
 import { Message } from 'common/types/message'
+import { stripeServer } from 'common/src/util/stripe'
 import { eq, sql } from 'drizzle-orm'
-import Stripe from 'stripe'
 import { WebSocket } from 'ws'
-
+import Stripe from 'stripe'
+import { consumeCredits, getUserCostPerCredit } from '@codebuff/billing'
 import { stripNullCharsFromObject } from '../util/object'
+import { INITIAL_RETRY_DELAY, withRetry } from 'common/src/util/promise'
 
 import { OpenAIMessage } from '@/llm-apis/openai-api'
 import { logger, withLoggerContext } from '@/util/logger'
@@ -465,7 +463,12 @@ export const saveMessage = async (value: {
         value.cacheReadInputTokens ?? 0
       )
 
-      const centsPerCredit = await getUserCostPerCredit(value.userId)
+      // Default to 1 cent per credit
+      let centsPerCredit = 1
+      if (value.userId) {
+        centsPerCredit = await getUserCostPerCredit(value.userId)
+      }
+
       const costInCents = Math.max(
         1,
         Math.round(

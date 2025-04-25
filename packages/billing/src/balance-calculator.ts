@@ -1,10 +1,10 @@
-import db from '../db'
-import * as schema from '../db/schema'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
 import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
-import { GrantType } from '../db/schema'
-import { logger } from '../util/logger'
-import { GRANT_PRIORITIES } from '../constants/grant-priorities'
-import { withSerializableTransaction } from '../db/transaction'
+import { GrantType } from 'common/db/schema'
+import { logger } from 'common/util/logger'
+import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
+import { withSerializableTransaction } from 'common/db/transaction'
 
 export interface CreditBalance {
   totalRemaining: number
@@ -180,10 +180,11 @@ async function consumeFromOrderedGrants(
 export async function calculateUsageAndBalance(
   userId: string,
   quotaResetDate: Date,
-  now: Date = new Date()
+  now: Date = new Date(),
+  conn: DbConn = db // Add optional conn parameter to pass transaction
 ): Promise<CreditUsageAndBalance> {
-  // Get all relevant grants in one query
-  const grants = await getOrderedActiveGrants(userId, now)
+  // Get all relevant grants in one query, using the provided connection
+  const grants = await getOrderedActiveGrants(userId, now, conn)
 
   // Initialize balance structure
   const balance: CreditBalance = {

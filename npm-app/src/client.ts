@@ -68,8 +68,9 @@ import {
   getProjectRoot,
 } from './project-files'
 import { handleToolCall } from './tool-handlers'
-import { GitCommand } from './types'
-import { identifyUser } from './utils/analytics'
+
+import { GitCommand, MakeNullable } from './types'
+import { identifyUser, trackEvent } from './utils/analytics'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
@@ -114,6 +115,8 @@ const WARNING_CONFIG = {
   },
 } as const
 
+type UsageData = Omit<MakeNullable<UsageResponse, 'remainingBalance'>, 'type'>
+
 export class Client {
   private webSocket: APIRealtimeClient
   private freshPrompt: () => void
@@ -124,7 +127,6 @@ export class Client {
   private git: GitCommand
   private rl: Interface
   private responseComplete: boolean = false
-  private pendingTopUpMessageAmount: number | null = null
   private responseBuffer: string = ''
   private oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
     Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
@@ -132,13 +134,13 @@ export class Client {
       boolean
     >
 
-  public usageData: Omit<UsageResponse, 'type'> = {
+  public usageData: UsageData = {
     usage: 0,
-    remainingBalance: 0,
+    remainingBalance: null,
     balanceBreakdown: undefined,
     next_quota_reset: null,
-    nextMonthlyGrant: 0,
   }
+  public pendingTopUpMessageAmount: number = 0
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
   public agentState: AgentState | undefined
@@ -146,7 +148,6 @@ export class Client {
   public creditsByPromptId: Record<string, number[]> = {}
   public user: User | undefined
   public lastWarnedPct: number = 0
-  public nextMonthlyGrant: number = 0
   public storedApiKeyTypes: ApiKeyType[] = []
   public lastToolResults: ToolResult[] = []
   public model: string | undefined
@@ -237,8 +238,7 @@ export class Client {
       return
     }
 
-    const TIMEOUT_MS = 5_000
-
+    // const TIMEOUT_MS = 5_000
     //   try {
     //     const timeoutPromise = new Promise<Response>((_, reject) => {
     //       setTimeout(() => reject(new Error('Request timed out')), TIMEOUT_MS)
@@ -388,13 +388,12 @@ export class Client {
           unlinkSync(CREDENTIALS_PATH)
           console.log(`You (${this.user.name}) have been logged out.`)
           this.user = undefined
-          this.pendingTopUpMessageAmount = null
+          this.pendingTopUpMessageAmount = 0
           this.usageData = {
             usage: 0,
-            remainingBalance: 0,
+            remainingBalance: null,
             balanceBreakdown: undefined,
             next_quota_reset: null,
-            nextMonthlyGrant: 0,
           }
           this.oneTimeFlags = Object.fromEntries(
             ONE_TIME_LABELS.map((tag) => [tag, false])
@@ -613,9 +612,9 @@ export class Client {
 
       this.setUsage(parsedAction.data)
 
-      // Store auto-topup info if it occurred
+      // Store auto-topup amount if present, to be displayed when returning control to user
       if (parsedAction.data.autoTopupAdded) {
-        this.pendingTopUpMessageAmount = parsedAction.data.autoTopupAdded
+        this.pendingTopUpMessageAmount += parsedAction.data.autoTopupAdded
       }
 
       // Only show warning if the response is complete
@@ -651,7 +650,10 @@ export class Client {
     }
 
     // Show warning if we haven't warned at this threshold yet
-    if (this.lastWarnedPct < config.threshold) {
+    if (
+      this.lastWarnedPct < config.threshold &&
+      this.usageData.remainingBalance
+    ) {
       const message = config.message(this.usageData.remainingBalance)
       console.warn(message)
       this.lastWarnedPct = config.threshold
@@ -736,9 +738,10 @@ export class Client {
 
   /**
    * Shrinks all instances of more than 2 newlines in a row.
+   * Note: don't start or end colored text with newlines
    * @param chunk chunk to display
    */
-  private displayChunk(chunk: string) {
+  public displayChunk(chunk: string) {
     // Process chunk to limit consecutive newlines
     const combinedContent = this.responseBuffer + chunk
     const processedContent = combinedContent.replace(/\n{3,}/g, '\n\n')
@@ -964,18 +967,6 @@ Go to https://www.codebuff.com/config for more information.`) +
           )
         }
 
-        // Show auto top-up success message if it occurred during this response
-        if (this.pendingTopUpMessageAmount) {
-          this.displayChunk(
-            '\n\n' +
-              green(
-                `Auto top-up successful! ${this.pendingTopUpMessageAmount.toLocaleString()} credits added.`
-              ) +
-              '\n\n'
-          )
-          this.pendingTopUpMessageAmount = null
-        }
-
         if (this.hadFileChanges) {
           let checkpointAddendum = ''
           try {
@@ -1032,17 +1023,23 @@ Go to https://www.codebuff.com/config for more information.`) +
 
       const usageLink = `${websiteUrl}/usage`
       const remainingColor =
-        this.usageData.remainingBalance <= 0
-          ? red
-          : this.usageData.remainingBalance <= LOW_BALANCE_THRESHOLD
+        this.usageData.remainingBalance === null
+          ? yellow
+          : this.usageData.remainingBalance <= 0
             ? red
-            : green
+            : this.usageData.remainingBalance <= LOW_BALANCE_THRESHOLD
+              ? red
+              : green
 
       const totalCreditsUsedThisSession = Object.values(this.creditsByPromptId)
         .flat()
         .reduce((sum, credits) => sum + credits, 0)
       console.log(
-        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
+        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}${
+          this.usageData.remainingBalance !== null
+            ? `. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
+            : '.'
+        }`
       )
 
       if (this.usageData.next_quota_reset) {

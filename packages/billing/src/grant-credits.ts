@@ -1,19 +1,17 @@
-import db from '../db'
-import * as schema from '../db/schema'
-import { GrantType } from '../db/schema'
-import { logger } from '../util/logger'
-import { getUserCostPerCredit } from './conversion'
-import { GRANT_PRIORITIES } from '../constants/grant-priorities'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { GrantType } from 'common/db/schema'
+import { logger } from 'common/util/logger'
+import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
+import { DEFAULT_FREE_CREDITS_GRANT } from 'common/constants'
 import { eq, desc, lte, and, or, sql, isNull, gt } from 'drizzle-orm'
-import { generateCompactId } from '../util/string'
-import { CREDITS_USAGE_LIMITS } from '../constants'
-import { withRetry } from '../util/promise'
-import { logSyncFailure } from '../util/sync-failure'
-import { getNextQuotaReset } from '../util/dates'
-import { getPlanFromPriceId, getMonthlyGrantForPlan } from './plans'
-import { withSerializableTransaction } from '../db/transaction'
+import { withRetry } from 'common/util/promise'
+import { logSyncFailure } from 'common/util/sync-failure'
+import { getNextQuotaReset } from 'common/util/dates'
+import { generateOperationIdTimestamp } from './utils'
 
 type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
+type DbTransaction = Parameters<typeof db.transaction>[0] extends (tx: infer T) => any ? T : never
 
 /**
  * Finds the amount of the most recent expired 'free' grant for a user.
@@ -53,10 +51,10 @@ export async function getPreviousFreeGrantAmount(
     return cappedAmount
   } else {
     logger.debug(
-      { userId, defaultAmount: CREDITS_USAGE_LIMITS.FREE },
+      { userId, defaultAmount: DEFAULT_FREE_CREDITS_GRANT },
       'No previous expired free grant found. Using default.'
     )
-    return CREDITS_USAGE_LIMITS.FREE // Default if no previous grant found
+    return DEFAULT_FREE_CREDITS_GRANT // Default if no previous grant found
   }
 }
 
@@ -95,48 +93,51 @@ export async function calculateTotalReferralBonus(
 }
 
 /**
- * Core grant operation wrapped in a single DB transaction.
+ * Core grant operation that can be part of a larger transaction.
  */
-async function grantCreditOperation(
+export async function grantCreditOperation(
   userId: string,
   amount: number,
   type: GrantType,
   description: string,
   expiresAt: Date | null,
-  operationId: string
+  operationId: string,
+  tx?: DbTransaction
 ) {
-  await db.transaction(async (tx) => {
-    const now = new Date()
+  const dbClient = tx || db
 
-    // First check for any negative balances
-    const negativeGrants = await tx
-      .select()
-      .from(schema.creditLedger)
-      .where(
-        and(
-          eq(schema.creditLedger.user_id, userId),
-          or(
-            isNull(schema.creditLedger.expires_at),
-            gt(schema.creditLedger.expires_at, now)
-          )
+  const now = new Date()
+
+  // First check for any negative balances
+  const negativeGrants = await dbClient
+    .select()
+    .from(schema.creditLedger)
+    .where(
+      and(
+        eq(schema.creditLedger.user_id, userId),
+        or(
+          isNull(schema.creditLedger.expires_at),
+          gt(schema.creditLedger.expires_at, now)
         )
       )
-      .then((grants) => grants.filter((g) => g.balance < 0))
+    )
+    .then((grants) => grants.filter((g) => g.balance < 0))
 
-    if (negativeGrants.length > 0) {
-      const totalDebt = negativeGrants.reduce(
-        (sum, g) => sum + Math.abs(g.balance),
-        0
-      )
-      for (const grant of negativeGrants) {
-        await tx
-          .update(schema.creditLedger)
-          .set({ balance: 0 })
-          .where(eq(schema.creditLedger.operation_id, grant.operation_id))
-      }
-      const remainingAmount = Math.max(0, amount - totalDebt)
-      if (remainingAmount > 0) {
-        await tx.insert(schema.creditLedger).values({
+  if (negativeGrants.length > 0) {
+    const totalDebt = negativeGrants.reduce(
+      (sum, g) => sum + Math.abs(g.balance),
+      0
+    )
+    for (const grant of negativeGrants) {
+      await dbClient
+        .update(schema.creditLedger)
+        .set({ balance: 0 })
+        .where(eq(schema.creditLedger.operation_id, grant.operation_id))
+    }
+    const remainingAmount = Math.max(0, amount - totalDebt)
+    if (remainingAmount > 0) {
+      try {
+        await dbClient.insert(schema.creditLedger).values({
           operation_id: operationId,
           user_id: userId,
           principal: amount,
@@ -150,10 +151,25 @@ async function grantCreditOperation(
           expires_at: expiresAt,
           created_at: now,
         })
+      } catch (error: any) {
+        // Check if this is a unique constraint violation on operation_id
+        if (
+          error.code === '23505' &&
+          error.constraint === 'credit_ledger_pkey'
+        ) {
+          logger.info(
+            { userId, operationId, type, amount },
+            'Skipping duplicate credit grant due to idempotency check'
+          )
+          return // Exit successfully, another concurrent request already created this grant
+        }
+        throw error // Re-throw any other error
       }
-    } else {
-      // No debt - create grant normally
-      await tx.insert(schema.creditLedger).values({
+    }
+  } else {
+    // No debt - create grant normally
+    try {
+      await dbClient.insert(schema.creditLedger).values({
         operation_id: operationId,
         user_id: userId,
         principal: amount,
@@ -164,17 +180,31 @@ async function grantCreditOperation(
         expires_at: expiresAt,
         created_at: now,
       })
+    } catch (error: any) {
+      // Check if this is a unique constraint violation on operation_id
+      if (
+        error.code === '23505' &&
+        error.constraint === 'credit_ledger_pkey'
+      ) {
+        logger.info(
+          { userId, operationId, type, amount },
+          'Skipping duplicate credit grant due to idempotency check'
+        )
+        return // Exit successfully, another concurrent request already created this grant
+      }
+      throw error // Re-throw any other error
     }
+  }
 
-    logger.info(
-      { userId, operationId, type, amount, expiresAt },
-      'Created new credit grant'
-    )
-  })
+  logger.info(
+    { userId, operationId, type, amount, expiresAt },
+    'Created new credit grant'
+  )
 }
 
 /**
  * Processes a credit grant request with retries and failure logging.
+ * Used for standalone credit grants that need retry logic and failure tracking.
  */
 export async function processAndGrantCredit(
   userId: string,
@@ -274,8 +304,7 @@ export async function revokeGrantByOperationId(
  * 1. Calculates their new monthly grant amount
  * 2. Issues the grant with the appropriate expiry
  * 3. Updates their next_quota_reset date
- * All of this is done in a single transaction with SERIALIZABLE isolation
- * to prevent concurrent resets from creating duplicate grants.
+ * All of this is done in a single transaction to ensure consistency.
  *
  * @param userId The ID of the user
  * @returns The effective quota reset date (either existing or new)
@@ -283,73 +312,83 @@ export async function revokeGrantByOperationId(
 export async function triggerMonthlyResetAndGrant(
   userId: string
 ): Promise<Date> {
-  return await withSerializableTransaction(
-    async (tx) => {
-      const now = new Date()
+  return await db.transaction(async (tx) => {
+    const now = new Date()
 
-      // Get user's current reset date and plan
-      const user = await tx.query.user.findFirst({
-        where: eq(schema.user.id, userId),
-        columns: {
-          next_quota_reset: true,
-          stripe_price_id: true,
-        },
-      })
+    // Get user's current reset date
+    const user = await tx.query.user.findFirst({
+      where: eq(schema.user.id, userId),
+      columns: {
+        next_quota_reset: true,
+      },
+    })
 
-      if (!user) {
-        throw new Error(`User ${userId} not found`)
-      }
+    if (!user) {
+      throw new Error(`User ${userId} not found`)
+    }
 
-      const currentResetDate = user.next_quota_reset
+    const currentResetDate = user.next_quota_reset
 
-      // If reset date is in the future, no action needed
-      if (currentResetDate && currentResetDate > now) {
-        return currentResetDate
-      }
+    // If reset date is in the future, no action needed
+    if (currentResetDate && currentResetDate > now) {
+      return currentResetDate
+    }
 
-      // Calculate new reset date
-      const newResetDate = getNextQuotaReset(currentResetDate)
+    // Calculate new reset date
+    const newResetDate = getNextQuotaReset(currentResetDate)
 
-      // Calculate grant amount based on user's plan
-      const currentPlan = getPlanFromPriceId(
-        user.stripe_price_id,
-        process.env.STRIPE_PRO_PRICE_ID,
-        process.env.STRIPE_MOAR_PRO_PRICE_ID
-      )
-      const grantAmount = await getMonthlyGrantForPlan(currentPlan, userId)
+    // Calculate grant amounts separately
+    const [freeGrantAmount, referralBonus] = await Promise.all([
+      getPreviousFreeGrantAmount(userId),
+      calculateTotalReferralBonus(userId),
+    ])
 
-      // Generate a unique operation ID for this grant
-      const operationId = `free-${userId}-${generateCompactId()}`
+    // Generate a deterministic operation ID based on userId and reset date to minute precision
+    const timestamp = generateOperationIdTimestamp(newResetDate)
+    const freeOperationId = `free-${userId}-${timestamp}`
+    const referralOperationId = `referral-${userId}-${timestamp}`
 
-      // Update the user's next reset date first
-      await tx
-        .update(schema.user)
-        .set({ next_quota_reset: newResetDate })
-        .where(eq(schema.user.id, userId))
+    // Update the user's next reset date
+    await tx
+      .update(schema.user)
+      .set({ next_quota_reset: newResetDate })
+      .where(eq(schema.user.id, userId))
 
-      // Then issue the grant
-      await grantCreditOperation(
+    // Always grant free credits
+    await processAndGrantCredit(
+      userId,
+      freeGrantAmount,
+      'free',
+      'Monthly free credits',
+      newResetDate, // Free credits expire at next reset
+      freeOperationId
+    )
+
+    // Only grant referral credits if there are any
+    if (referralBonus > 0) {
+      await processAndGrantCredit(
         userId,
-        grantAmount,
-        'free',
-        'Monthly free credits',
-        newResetDate, // Grant expires at next reset
-        operationId
+        referralBonus,
+        'referral',
+        'Monthly referral bonus',
+        newResetDate, // Referral credits expire at next reset
+        referralOperationId
       )
+    }
 
-      logger.info(
-        {
-          userId,
-          operationId,
-          grantAmount,
-          newResetDate,
-          previousResetDate: currentResetDate,
-        },
-        'Processed monthly credit grant and reset'
-      )
+    logger.info(
+      {
+        userId,
+        freeOperationId,
+        referralOperationId,
+        freeGrantAmount,
+        referralBonus,
+        newResetDate,
+        previousResetDate: currentResetDate,
+      },
+      'Processed monthly credit grants and reset'
+    )
 
-      return newResetDate
-    },
-    { userId }
-  )
+    return newResetDate
+  })
 }

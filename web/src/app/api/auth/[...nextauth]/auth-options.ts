@@ -8,10 +8,10 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { Adapter } from 'next-auth/adapters'
-import { CREDITS_USAGE_LIMITS } from 'common/src/constants'
+import { processAndGrantCredit } from '@codebuff/billing'
+import { DEFAULT_FREE_CREDITS_GRANT } from 'common/constants'
 import { logger } from '@/util/logger'
 import { logSyncFailure } from 'common/src/util/sync-failure'
-import { processAndGrantCredit } from 'common/src/billing/grant-credits'
 import { generateCompactId } from 'common/src/util/string'
 import { getNextQuotaReset } from 'common/src/util/dates'
 
@@ -74,13 +74,12 @@ async function createInitialCreditGrant(
   expiresAt: Date | null
 ): Promise<void> {
   try {
-    const initialGrantCredits = CREDITS_USAGE_LIMITS.FREE
     const operationId = `free-${userId}-${generateCompactId()}`
     const nextQuotaReset = getNextQuotaReset(expiresAt)
 
     await processAndGrantCredit(
       userId,
-      initialGrantCredits,
+      DEFAULT_FREE_CREDITS_GRANT,
       'free',
       'Initial free credits',
       nextQuotaReset,
@@ -91,7 +90,7 @@ async function createInitialCreditGrant(
       {
         userId,
         operationId,
-        creditsGranted: initialGrantCredits,
+        creditsGranted: DEFAULT_FREE_CREDITS_GRANT,
         expiresAt: nextQuotaReset,
       },
       'Initial free credit grant created.'

@@ -199,6 +199,18 @@ export class CLI {
     readline.cursorTo(process.stdout, 0)
     const rlAny = this.rl as any
 
+    // Check for pending auto-topup message before showing prompt
+    if (this.client.pendingTopUpMessageAmount > 0) {
+      this.client.displayChunk(
+        '\n\n' +
+          green(
+            `Auto top-up successful! ${this.client.pendingTopUpMessageAmount.toLocaleString()} credits added.`
+          ) +
+          '\n\n'
+      )
+      this.client.pendingTopUpMessageAmount = 0
+    }
+
     // clear line first
     rlAny.line = ''
     this.setPrompt()
@@ -523,7 +535,11 @@ export class CLI {
       .reduce((sum, credits) => sum + credits, 0)
 
     logMessages.push(
-      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session, ${this.client.usageData.remainingBalance.toLocaleString()} credits left.`
+      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session${
+        this.client.usageData.remainingBalance !== null
+          ? `, ${this.client.usageData.remainingBalance.toLocaleString()} credits left.`
+          : '.'
+      }`
     )
 
     if (this.client.usageData.next_quota_reset) {

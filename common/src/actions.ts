@@ -68,7 +68,6 @@ export const UsageReponseSchema = z.object({
     )
     .optional(),
   next_quota_reset: z.coerce.date().nullable(),
-  nextMonthlyGrant: z.number(),
   autoTopupAdded: z.number().optional(),
 })
 export type UsageResponse = z.infer<typeof UsageReponseSchema>

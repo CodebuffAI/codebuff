@@ -20,6 +20,7 @@ dotenv.config({ path })
 export const env = createEnv({
   server: {
     NEXT_PUBLIC_CB_ENVIRONMENT: z.string().min(1),
+    NEXT_PUBLIC_APP_URL: z.string().min(1),
     DATABASE_URL: z.string().min(1),
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_USAGE_PRICE_ID: z.string().min(1).startsWith('price_'),
