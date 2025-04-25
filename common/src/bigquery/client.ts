@@ -1,3 +1,5 @@
+import fs from 'fs'
+
 import { BigQuery } from '@google-cloud/bigquery'
 
 import { logger } from '../util/logger'
@@ -40,11 +42,21 @@ export async function setupBigQuery(dataset: string = DATASET) {
       logger.info('Setting up BigQuery client with path:', credentialsPath)
     }
 
-    // const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'))
+    if (!process.env.GOOGLE_CLOUD_PROJECT_ID) {
+      throw new Error('GOOGLE_CLOUD_PROJECT_ID environment variable not set')
+    } else {
+      logger.info(
+        'Setting up BigQuery client with project ID:',
+        process.env.GOOGLE_CLOUD_PROJECT_ID
+      )
+    }
+
+    const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'))
 
     logger.info('Creating BigQuery client...')
     client = new BigQuery({
-      keyFilename: credentialsPath,
+      credentials,
+      projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
     })
     logger.info('BigQuery client created, initializing dataset...')
 
