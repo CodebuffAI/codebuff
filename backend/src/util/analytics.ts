@@ -22,16 +22,18 @@ export function initAnalytics() {
       host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
     })
     logger.info('PostHog client created successfully')
-
   } catch (error) {
-    logger.error({
-      error,
-      stack: (error as Error).stack,
-      message: (error as Error).message,
-      name: (error as Error).name,
-      code: (error as any).code,
-      details: (error as any).details,
-    }, 'Failed to initialize analytics')
+    logger.error(
+      {
+        error,
+        stack: (error as Error).stack,
+        message: (error as Error).message,
+        name: (error as Error).name,
+        code: (error as any).code,
+        details: (error as any).details,
+      },
+      'Failed to initialize analytics'
+    )
     throw error
   }
 }
@@ -45,11 +47,14 @@ export function flushAnalytics() {
     client.flush()
     logger.info('Analytics flushed successfully')
   } catch (error) {
-    logger.error({
-      error,
-      stack: (error as Error).stack,
-      message: (error as Error).message,
-    }, 'Failed to flush analytics')
+    logger.error(
+      {
+        error,
+        stack: (error as Error).stack,
+        message: (error as Error).message,
+      },
+      'Failed to flush analytics'
+    )
   }
 }
 
@@ -74,12 +79,15 @@ export function trackEvent(
       properties,
     })
   } catch (error) {
-    logger.error({
-      error,
-      stack: (error as Error).stack,
-      message: (error as Error).message,
-      event,
-      userId,
-    }, 'Failed to track analytics event')
+    logger.error(
+      {
+        error,
+        stack: (error as Error).stack,
+        message: (error as Error).message,
+        event,
+        userId,
+      },
+      'Failed to track analytics event'
+    )
   }
 }
