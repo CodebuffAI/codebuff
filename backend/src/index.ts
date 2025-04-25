@@ -1,6 +1,5 @@
 import http from 'http'
 
-import { setupBigQuery } from 'common/src/bigquery/client'
 import cors from 'cors'
 import express from 'express'
 
@@ -29,7 +28,7 @@ app.get('/', (req, res) => {
 })
 
 app.get('/healthz', (req, res) => {
-  res.send('ok')
+  res.sendStatus(404)
 })
 
 app.post('/api/usage', usageHandler)
@@ -71,7 +70,7 @@ async function init() {
   // Initialize BigQuery before starting the server
   logger.info('Starting BigQuery initialization...')
   try {
-    await setupBigQuery()
+    // await setupBigQuery()
     logger.debug('BigQuery initialization completed')
   } catch (err: any) {
     logger.error(
