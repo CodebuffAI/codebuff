@@ -8,7 +8,7 @@ export function convertCreditsToUsdCents(
   credits: number,
   centsPerCredit: number
 ): number {
-  return Math.round(credits * centsPerCredit)
+  return Math.ceil(credits * centsPerCredit)
 }
 
 /**

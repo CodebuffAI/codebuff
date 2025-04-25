@@ -73,8 +73,9 @@ describe('Auto Top-up System', () => {
         },
       }))
 
-      mock.module('common/src/billing/balance-calculator', () => ({
+      mock.module('@codebuff/billing', () => ({
         calculateUsageAndBalance: balanceMock,
+        processAndGrantCredit: grantCreditsMock,
       }))
 
       mock.module('common/src/util/stripe', () => ({
@@ -86,10 +87,6 @@ describe('Auto Top-up System', () => {
             create: paymentIntentMock,
           },
         },
-      }))
-
-      mock.module('common/src/billing/grant-credits', () => ({
-        processAndGrantCredit: grantCreditsMock,
       }))
     })
 
@@ -124,8 +121,9 @@ describe('Auto Top-up System', () => {
       )
 
       // Update the module mock
-      mock.module('common/src/billing/balance-calculator', () => ({
+      mock.module('@codebuff/billing', () => ({
         calculateUsageAndBalance: balanceMock,
+        processAndGrantCredit: grantCreditsMock,
       }))
 
       await checkAndTriggerAutoTopup('test-user')
@@ -154,8 +152,9 @@ describe('Auto Top-up System', () => {
       )
 
       // Update the module mock
-      mock.module('common/src/billing/balance-calculator', () => ({
+      mock.module('@codebuff/billing', () => ({
         calculateUsageAndBalance: balanceMock,
+        processAndGrantCredit: grantCreditsMock,
       }))
 
       await checkAndTriggerAutoTopup('test-user')
