@@ -74,13 +74,12 @@ async function createInitialCreditGrant(
   expiresAt: Date | null
 ): Promise<void> {
   try {
-    const initialGrantCredits = DEFAULT_FREE_CREDITS_GRANT
     const operationId = `free-${userId}-${generateCompactId()}`
     const nextQuotaReset = getNextQuotaReset(expiresAt)
 
     await processAndGrantCredit(
       userId,
-      initialGrantCredits,
+      DEFAULT_FREE_CREDITS_GRANT,
       'free',
       'Initial free credits',
       nextQuotaReset,
@@ -91,7 +90,7 @@ async function createInitialCreditGrant(
       {
         userId,
         operationId,
-        creditsGranted: initialGrantCredits,
+        creditsGranted: DEFAULT_FREE_CREDITS_GRANT,
         expiresAt: nextQuotaReset,
       },
       'Initial free credit grant created.'
