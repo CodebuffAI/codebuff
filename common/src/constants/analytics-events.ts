@@ -4,6 +4,7 @@
 export enum AnalyticsEvent {
   // CLI
   APP_LAUNCHED = 'cli.app_launched',
+  LOGIN = 'cli.login',
   // Backend
   PROMPT_SENT = 'backend.prompt_sent',
 }

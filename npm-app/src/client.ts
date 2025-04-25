@@ -467,8 +467,9 @@ export class Client {
         }
 
         try {
+          const fingerprintId = await this.fingerprintId
           const statusResponse = await fetch(
-            `${websiteUrl}/api/auth/cli/status?fingerprintId=${await this.fingerprintId}&fingerprintHash=${fingerprintHash}&expiresAt=${expiresAt}`
+            `${websiteUrl}/api/auth/cli/status?fingerprintId=${fingerprintId}&fingerprintHash=${fingerprintHash}&expiresAt=${expiresAt}`
           )
 
           if (!statusResponse.ok) {
@@ -486,6 +487,15 @@ export class Client {
           if (user) {
             shouldRequestLogin = false
             this.user = user
+
+            identifyUser(user.id, {
+              email: user.email,
+              name: user.name,
+            })
+            trackEvent(AnalyticsEvent.LOGIN, user.id, {
+              fingerprintId,
+            })
+
             const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
             mkdirSync(credentialsPathDir, { recursive: true })
             writeFileSync(CREDENTIALS_PATH, JSON.stringify({ default: user }))
