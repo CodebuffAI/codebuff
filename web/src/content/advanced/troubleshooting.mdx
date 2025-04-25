@@ -48,9 +48,28 @@ If you see "command not found" when trying to run Codebuff:
 2. Check that your PATH includes npm's global bin directory
 3. Try running `which codebuff` to verify the installation location
 
+### Directory Not Empty
+
+If you see an error like this:
+
+```bash
+npm ERR! code ENOTEMPTY
+npm ERR! syscall rename
+npm ERR! path /some/path/to/node_modules/codebuff
+npm ERR! dest /some/path/to/node_modules/.codebuff-SOMEHASH
+npm ERR! errno -66
+npm ERR! ENOTEMPTY: directory not empty, rename '/some/path/to/node_modules/codebuff' -> '/some/path/to/node_modules/.codebuff-SOMEHASH'
+```
+
+It means you have a directory named `.codebuff-SOMEHASH` in your node_modules directory. This is a temporary directory created by npm when installing packages. You can safely delete this directory and try again:
+
+```bash
+rm -rf /some/path/to/node_modules/.codebuff-SOMEHASH
+```
+
 ### Need More Help?
 
 If you're still experiencing issues:
 
-1. Join our [Discord community](https://discord.gg/mcWTGjgTj3) for real-time help from other users!
+1. Join our [Discord community](https://codebuff.com/discord) for real-time help from other users!
 2. Contact us at [support@codebuff.com](mailto:support@codebuff.com) – please note we prioritize subscribers, but we'll likely reply within a week.

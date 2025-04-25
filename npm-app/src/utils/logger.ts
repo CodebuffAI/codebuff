@@ -5,7 +5,7 @@ import { format as stringFormat } from 'util'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import pino from 'pino'
 
-import { getCurrentChatDir, getProjectRoot } from '../project-files'
+import { getCurrentChatDir } from '../project-files'
 import { trackEvent } from './analytics'
 
 export interface LoggerContext {
@@ -21,24 +21,36 @@ export const loggerContext: LoggerContext = {}
 
 const analyticsBuffer: { analyticsEventId: AnalyticsEvent; toTrack: any }[] = []
 
-let logPath =
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
-    ? undefined
-    : path.join(__dirname, '../../../debug', 'npm-app.log')
-let fileTransport =
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
-    ? pino.transport({
-        target: 'pino/file',
-        options: { destination: logPath },
-        level: 'debug',
-      })
-    : undefined
-let lastKnownProjectRoot: string | undefined
-
+let logPath: string | undefined = undefined
 let pinoLogger: any = undefined
 
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
 type LogLevel = (typeof loggingLevels)[number]
+
+function setLogPath(p: string): void {
+  if (logPath === p) {
+    return
+  }
+
+  logPath = p
+  mkdirSync(dirname(p), { recursive: true })
+  pinoLogger = pino(
+    {
+      level: 'debug',
+      formatters: {
+        level: (label) => {
+          return { level: label.toUpperCase() }
+        },
+      },
+      timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
+    },
+    pino.transport({
+      target: 'pino/file',
+      options: { destination: p },
+      level: 'debug',
+    })
+  )
+}
 
 function sendAnalyticsAndLog(
   level: LogLevel,
@@ -46,30 +58,11 @@ function sendAnalyticsAndLog(
   msg?: string,
   ...args: any[]
 ): void {
-  const projectRoot = getProjectRoot()
-  if (!pinoLogger || !fileTransport || lastKnownProjectRoot !== projectRoot) {
-    lastKnownProjectRoot = projectRoot
-    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'local') {
-      logPath = path.join(getCurrentChatDir(), 'log.jsonl')
-      fileTransport = pino.transport({
-        target: 'pino/file',
-        options: { destination: logPath },
-        level: 'debug',
-      })
-    }
-
-    mkdirSync(dirname(logPath as string), { recursive: true })
-    pinoLogger = pino(
-      {
-        level: 'debug',
-        formatters: {
-          level: (label) => {
-            return { level: label.toUpperCase() }
-          },
-        },
-        timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
-      },
-      fileTransport
+  if (process.env.CODEBUFF_GITHUB_ACTIONS !== 'true') {
+    setLogPath(
+      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
+        ? path.join(__dirname, '../../../debug', 'npm-app.log')
+        : path.join(getCurrentChatDir(), 'log.jsonl')
     )
   }
 
@@ -98,7 +91,9 @@ function sendAnalyticsAndLog(
     trackEvent(analyticsEventId, toTrack)
   }
 
-  pinoLogger[level]({ ...loggerContext, data }, msg, ...args)
+  if (pinoLogger !== undefined) {
+    pinoLogger[level]({ ...loggerContext, data }, msg, ...args)
+  }
 }
 
 /**

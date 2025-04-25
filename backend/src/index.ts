@@ -67,14 +67,23 @@ app.use(
 logger.info('Initializing server')
 
 // Initialize BigQuery before starting the server
+logger.info('Starting BigQuery initialization...')
 setupBigQuery()
   .catch((err) => {
-    logger.error('Failed to initialize BigQuery client', err)
+    logger.error({
+      error: err,
+      stack: err.stack,
+      message: err.message,
+      name: err.name,
+      code: err.code,
+      details: err.details,
+    }, 'Failed to initialize BigQuery client')
   })
   .finally(() => {
-    logger.debug('BigQuery client initialized')
+    logger.debug('BigQuery initialization completed')
   })
 
+logger.info('Initializing analytics...')
 initAnalytics()
 
 const server = http.createServer(app)
@@ -135,14 +144,21 @@ process.on('unhandledRejection', (reason, promise) => {
   )
 })
 
-process.on('uncaughtException', (err) => {
-  console.error('uncaughtException', err.message, err.stack)
+process.on('uncaughtException', (err, origin) => {
+  console.error('uncaughtException', {
+    error: err,
+    message: err.message,
+    stack: err.stack,
+    name: err.name,
+    origin
+  })
   logger.fatal(
     {
       err,
       stack: err.stack,
       message: err.message,
       name: err.name,
+      origin
     },
     'uncaught exception detected'
   )
