@@ -39,15 +39,15 @@ export async function setupBigQuery(dataset: string = DATASET) {
         'GOOGLE_APPLICATION_CREDENTIALS environment variable not set'
       )
     } else {
-      logger.info('Setting up BigQuery client with path:', credentialsPath)
+      logger.info('Setting up BigQuery client with path:' + credentialsPath)
     }
 
     if (!process.env.GOOGLE_CLOUD_PROJECT_ID) {
       throw new Error('GOOGLE_CLOUD_PROJECT_ID environment variable not set')
     } else {
       logger.info(
-        'Setting up BigQuery client with project ID:',
-        process.env.GOOGLE_CLOUD_PROJECT_ID
+        'Setting up BigQuery client with project ID:' +
+          process.env.GOOGLE_CLOUD_PROJECT_ID
       )
     }
 
