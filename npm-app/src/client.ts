@@ -926,7 +926,7 @@ export class Client {
             yellow(
               `✨ Recommended: run the 'init' command in order to create a configuration file!
 
-If you would like background processes (like this one) to run automatically whenever codebuff starts, creating a ${CONFIG_FILE_NAME} config file can improve your workflow.
+If you would like background processes (like this one) to run automatically whenever Codebuff starts, creating a ${CONFIG_FILE_NAME} config file can improve your workflow.
 Go to https://www.codebuff.com/config for more information.
 `
             )

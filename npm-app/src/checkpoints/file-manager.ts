@@ -279,7 +279,7 @@ async function gitCommit({
     fs,
     dir: projectDir,
     gitdir: bareRepoPath,
-    author: { name: 'codebuff' },
+    author: { name: 'Codebuff' },
     message,
     ref: '/refs/heads/master',
   })
