@@ -131,7 +131,9 @@ const createPersistantProcess = (dir: string): PersistentProcess => {
   }
 }
 
-let persistentProcess: ReturnType<typeof createPersistantProcess> | null = null
+export let persistentProcess: ReturnType<
+  typeof createPersistantProcess
+> | null = null
 
 process.stdout.on('resize', () => {
   if (!persistentProcess) return
@@ -579,4 +581,11 @@ const runCommandChildProcess = (
       stdout: commandOutput,
     })
   })
+}
+
+export function killAndResetPersistentProcess() {
+  if (persistentProcess?.type === 'pty') {
+    persistentProcess.pty.kill()
+    persistentProcess = null
+  }
 }

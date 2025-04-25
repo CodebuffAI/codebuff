@@ -37,7 +37,12 @@ import { getProjectRoot, isDir } from './project-files'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics } from './utils/analytics'
 import { Spinner } from './utils/spinner'
-import { isCommandRunning, resetShell } from './utils/terminal'
+import {
+  isCommandRunning,
+  killAndResetPersistentProcess,
+  persistentProcess,
+  resetShell,
+} from './utils/terminal'
 
 type ApiKeyDetectionResult =
   | { status: 'found'; type: ApiKeyType; key: string }
@@ -109,7 +114,12 @@ export class CLI {
   private setupSignalHandlers() {
     process.on('exit', () => {
       Spinner.get().restoreCursor()
+      // Kill the persistent PTY process first
+      if (persistentProcess?.type === 'pty') {
+        persistentProcess.pty.kill()
+      }
       sendKillSignalToAllBackgroundProcesses()
+      console.log(green('Codebuff out!'))
     })
     for (const signal of ['SIGTERM', 'SIGHUP']) {
       process.on(signal, async () => {
@@ -500,6 +510,9 @@ export class CLI {
     process.removeAllListeners('uncaughtException')
     console.log('\n')
 
+    // Kill the persistent PTY process first
+    killAndResetPersistentProcess()
+
     await killAllBackgroundProcesses()
 
     const logMessages = []
@@ -526,7 +539,6 @@ export class CLI {
 
     console.log(logMessages.join(' '))
     await flushAnalytics()
-    console.log(green('Codebuff out!'))
 
     process.exit(0)
   }
