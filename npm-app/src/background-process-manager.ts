@@ -354,7 +354,7 @@ export async function killAllBackgroundProcesses(): Promise<void> {
     .map(async ([pid, processInfo]) => {
       try {
         await killAndWait(pid)
-        console.log(gray(`Killed process: \`${processInfo.command}\``))
+        // console.log(gray(`Killed process: \`${processInfo.command}\``))
       } catch (error: any) {
         console.error(
           red(

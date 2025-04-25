@@ -34,9 +34,11 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
     max: bold(blueBright('Max mode️ ⚡ enabled')),
     experimental: bold(magenta('Experimental mode 🧪 enabled')),
   }
-  console.log(`${costModeDescription[costMode]}`)
+  if (costModeDescription[costMode]) {
+    console.log(`${costModeDescription[costMode]}`)
+  }
   console.log(
-    `codebuff will read and write files in "${getProjectRoot()}". Type "help" for a list of commands.`
+    `Codebuff will read and write files in "${getProjectRoot()}". Type "help" for a list of commands.`
   )
 
   const gitDir = path.join(getProjectRoot(), '.git')
@@ -93,7 +95,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
 `)
   console.log(bold(green("Welcome! I'm your AI coding assistant.")))
   console.log(
-    `\ncodebuff will read and write files within your current directory (${getProjectRoot()}) and run commands in your terminal.`
+    `\nCodebuff will read and write files within your current directory (${getProjectRoot()}) and run commands in your terminal.`
   )
 
   console.log('\nASK CODEBUFF TO...')
