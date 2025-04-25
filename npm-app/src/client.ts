@@ -683,6 +683,7 @@ export class Client {
     }
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
+    loggerContext.clientRequestId = userInputId
 
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
