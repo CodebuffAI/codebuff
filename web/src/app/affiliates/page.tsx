@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { useSession } from 'next-auth/react'
 import {
   Card,
@@ -102,7 +103,7 @@ function SetHandleForm({
 }
 
 export default function AffiliatesPage() {
-  const { data: session, status: sessionStatus } = useSession()
+  const { status: sessionStatus } = useSession()
   const [userProfile, setUserProfile] = useState<
     { handle: string | null; referralCode: string | null } | undefined
   >(undefined)
@@ -123,7 +124,7 @@ export default function AffiliatesPage() {
       .then((data) => {
         setUserProfile({
           handle: data.handle ?? null,
-          referralCode: data.referralCode ?? null,
+          referralCode: data.referral_code ?? null,
         })
       })
       .catch((error) => {
@@ -222,7 +223,7 @@ export default function AffiliatesPage() {
               </div>
             )}
 
-            {userHandle && referralCode && (
+            {userHandle && (
               <div>
                 <h2 className="text-xl font-semibold mb-2">
                   Your Affiliate Handle
@@ -238,28 +239,9 @@ export default function AffiliatesPage() {
                 <p className="text-sm text-muted-foreground mt-1">
                   Your referral link is:{' '}
                   <Link
-                    href={`/referrals/${referralCode}?referrer=${userHandle}`}
+                    href={`/${userHandle}`}
                     className="underline"
                   >{`${env.NEXT_PUBLIC_APP_URL}/${userHandle}`}</Link>
-                </p>
-              </div>
-            )}
-
-            {userHandle && !referralCode && (
-              <div>
-                <h2 className="text-xl font-semibold mb-2">
-                  Your Affiliate Handle
-                </h2>
-                <p>
-                  Your affiliate handle is set to:{' '}
-                  <code className="font-mono bg-muted px-1 py-0.5 rounded">
-                    {userHandle}
-                  </code>
-                  . You can now refer up to{' '}
-                  {AFFILIATE_USER_REFFERAL_LIMIT.toLocaleString()} new users!
-                </p>
-                <p className="text-sm text-red-500 mt-1">
-                  Could not load your referral code. Please contact support.
                 </p>
               </div>
             )}
