@@ -1,5 +1,4 @@
 import { geminiModels } from 'common/constants'
-import { generateCompactId } from 'common/util/string'
 
 import {
   context7LibrariesPromise,
@@ -30,6 +29,7 @@ export async function getDocumentationForQuery(
   options: {
     tokens?: number
     clientSessionId: string
+    userInputId: string
     fingerprintId: string
     userId?: string
   }
@@ -75,11 +75,9 @@ Respond in this exact JSON format:
       ],
       undefined,
       {
-        model: geminiModels.gemini2flash,
-        clientSessionId: options.clientSessionId,
-        fingerprintId: options.fingerprintId,
-        userInputId: generateCompactId(),
+        ...options,
         userId: options.userId,
+        model: geminiModels.gemini2flash,
         temperature: 0,
       }
     )

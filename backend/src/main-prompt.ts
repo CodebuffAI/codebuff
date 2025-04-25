@@ -97,6 +97,7 @@ export const mainPrompt = async (
     ? getDocumentationForQuery(prompt, {
         tokens: 5000,
         clientSessionId,
+        userInputId: promptId,
         fingerprintId,
         userId,
       })
