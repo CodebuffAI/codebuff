@@ -57,16 +57,14 @@ export function trackEvent(
   })
 }
 
-// To be used by `npm-app`, but not by `backend`
-// Backend should pass in `userId` with each event instead.
 export function identifyUser(userId: string, properties?: Record<string, any>) {
   // Store the user ID for future events
   currentUserId = userId
 
-  //   if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
-  //     console.log('[dev] Analytics user identified:', userId)
-  //     return
-  //   }
+  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
+    console.log('[dev] Analytics user identified:', userId)
+    return
+  }
 
   if (!client) {
     throw new Error('Analytics client not initialized')
