@@ -20,29 +20,21 @@ export const loggerContext: LoggerContext = {}
 
 const analyticsBuffer: { analyticsEventId: AnalyticsEvent; toTrack: any }[] = []
 
-const localFileTransport = pino.transport({
-  target: 'pino/file',
-  options: {
-    destination: path.join(__dirname, '../../../debug', 'npm-app.log'),
-  },
-  level: 'debug',
-})
+let fileTransport =
+  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
+    ? undefined
+    : pino.transport({
+        target: 'pino/file',
+        options: {
+          destination: path.join(__dirname, '../../../debug', 'npm-app.log'),
+        },
+        level: 'debug',
+      })
 
 let productionFileTransport: any
 let storedDir: string | undefined
 
-let pinoLogger = pino(
-  {
-    level: 'debug',
-    formatters: {
-      level: (label) => {
-        return { level: label.toUpperCase() }
-      },
-    },
-    timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
-  },
-  localFileTransport
-)
+let pinoLogger: any = undefined
 
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
 type LogLevel = (typeof loggingLevels)[number]
@@ -53,9 +45,6 @@ function sendAnalyticsAndLog(
   msg?: string,
   ...args: any[]
 ): void {
-  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production') {
-    return
-  }
   if (
     (!productionFileTransport || storedDir !== getProjectRoot()) &&
     process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
