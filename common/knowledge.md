@@ -27,6 +27,7 @@ This package contains code shared between the `web` (Next.js frontend/backend) a
 ## Credit Grant Management
 
 When granting credits to users (monthly reset, referrals, etc.):
+
 - Use the shared `processAndGrantCredit` helper in `common/src/billing/grant-credits.ts`
 - Helper handles:
   - User validation
@@ -49,6 +50,7 @@ When granting credits to users (monthly reset, referrals, etc.):
 - For referrals, append the role (e.g. "-referrer" or "-referred") to the base operation ID
 
 ### Credit Grant Flow
+
 1. Create local credit grant record immediately
 2. Create Stripe grant asynchronously
 3. Webhook updates local grant with Stripe ID when confirmed
@@ -58,6 +60,7 @@ When granting credits to users (monthly reset, referrals, etc.):
    - Reconciliation: Can find/fix mismatches via webhook
 
 ### Monthly Reset Flow
+
 1. `calculateAndApplyRollover`:
    - Calculates unused purchase/rollover credits
    - Creates new rollover grant if needed

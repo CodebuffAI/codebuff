@@ -19,9 +19,9 @@ async function calculateDAU() {
     .orderBy(sql`DATE(${schema.message.finished_at})`)
 
   let totalUsers = 0
-  
+
   // Print daily stats
-  dailyStats.forEach(stat => {
+  dailyStats.forEach((stat) => {
     const users = parseInt(stat.uniqueUsers)
     totalUsers += users
     console.log(`${stat.date}: ${users} users`)

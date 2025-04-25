@@ -150,7 +150,9 @@ async function manicode(userPrompt: string | undefined) {
         const chat = chats[i]
         const isSelected = i === menuSelectedIndex
         const marker = isSelected ? '>' : ' '
-        console.log(`${marker} ${chat.id} (${new Date(chat.updatedAt).toLocaleString()})`)
+        console.log(
+          `${marker} ${chat.id} (${new Date(chat.updatedAt).toLocaleString()})`
+        )
       } else {
         const isSelected = i === menuSelectedIndex
         const marker = isSelected ? '>' : ' '
@@ -159,23 +161,30 @@ async function manicode(userPrompt: string | undefined) {
     }
 
     if (totalItems > CHATS_PER_PAGE) {
-      console.log(`\nShowing ${startIndex + 1}-${endIndex} of ${totalItems} items`)
+      console.log(
+        `\nShowing ${startIndex + 1}-${endIndex} of ${totalItems} items`
+      )
     }
 
     console.log('\nUse arrow keys to navigate, SPACE to select, ESC to exit')
   }
   const initializeMenu = () => {
     const chats = chatStorage.listChats()
-    const currentChatIndex = chats.findIndex(chat => chat.id === currentChat.id)
-    
+    const currentChatIndex = chats.findIndex(
+      (chat) => chat.id === currentChat.id
+    )
+
     if (currentChatIndex !== -1) {
       menuSelectedIndex = currentChatIndex
-      menuOffset = Math.max(0, Math.min(currentChatIndex, chats.length - CHATS_PER_PAGE + 1))
+      menuOffset = Math.max(
+        0,
+        Math.min(currentChatIndex, chats.length - CHATS_PER_PAGE + 1)
+      )
     } else {
       menuSelectedIndex = 0
       menuOffset = 0
     }
-    
+
     isInMenu = true
     displayMenu()
   }
@@ -204,7 +213,8 @@ async function manicode(userPrompt: string | undefined) {
     } else if (isInMenu) {
       const chats = chatStorage.listChats()
       const totalItems = chats.length + 1 // +1 for the "New Chat" option
-      if (key === '\u001B[A') { // Up arrow
+      if (key === '\u001B[A') {
+        // Up arrow
         if (menuSelectedIndex > menuOffset) {
           menuSelectedIndex--
         } else if (menuOffset > 0) {
@@ -212,8 +222,12 @@ async function manicode(userPrompt: string | undefined) {
           menuSelectedIndex--
         }
         displayMenu()
-      } else if (key === '\u001B[B') { // Down arrow
-        if (menuSelectedIndex < Math.min(menuOffset + CHATS_PER_PAGE - 1, totalItems - 1)) {
+      } else if (key === '\u001B[B') {
+        // Down arrow
+        if (
+          menuSelectedIndex <
+          Math.min(menuOffset + CHATS_PER_PAGE - 1, totalItems - 1)
+        ) {
           menuSelectedIndex++
         } else if (menuOffset + CHATS_PER_PAGE < totalItems) {
           menuOffset++

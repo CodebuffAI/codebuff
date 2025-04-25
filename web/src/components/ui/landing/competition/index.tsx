@@ -18,12 +18,12 @@ export function CompetitionSection() {
   // Function to advance to the next tab
   const advanceToNextTab = () => {
     if (competitors) {
-      const currentIndex = competitors.indexOf(activeTab);
+      const currentIndex = competitors.indexOf(activeTab)
       if (currentIndex !== -1) {
-        const nextIndex = (currentIndex + 1) % competitors.length;
-        setActiveTab(competitors[nextIndex]);
+        const nextIndex = (currentIndex + 1) % competitors.length
+        setActiveTab(competitors[nextIndex])
         // Reset progress when switching tabs
-        setProgress(0);
+        setProgress(0)
       }
     }
   }
@@ -36,15 +36,15 @@ export function CompetitionSection() {
     intervalRef.current = setInterval(() => {
       setProgress((prev) => {
         // Calculate the increment to complete in cycleTimeMs
-        const increment = 100 / (cycleTimeMs / 50); 
-        const newProgress = prev + increment;
-        
+        const increment = 100 / (cycleTimeMs / 50)
+        const newProgress = prev + increment
+
         if (newProgress >= 100) {
           // Schedule the tab advance for the next tick to avoid state update conflicts
-          setTimeout(() => advanceToNextTab(), 0);
-          return 100; // Cap at 100 until the next tick
+          setTimeout(() => advanceToNextTab(), 0)
+          return 100 // Cap at 100 until the next tick
         }
-        return newProgress;
+        return newProgress
       })
     }, 50) // Update every 50ms for smoother animation
   }
@@ -93,16 +93,19 @@ export function CompetitionSection() {
       setActiveTab(tab)
       setProgress(0)
       resetTimer()
-      
+
       posthog.capture('home.competition_tab_changed', {
-        competitor: tab
+        competitor: tab,
       })
     }
   }
 
   return (
     <Section background={SECTION_THEMES.competition.background}>
-      <div ref={sectionRef} className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div
+        ref={sectionRef}
+        className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+      >
         <div>
           <motion.h2
             className={`feature-heading ${SECTION_THEMES.competition.textColor}`}

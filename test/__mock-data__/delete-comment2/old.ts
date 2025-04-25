@@ -23,11 +23,21 @@ export const deleteComment: APIHandler<'delete-comment'> = async (
   const isContractCreator = contract.creatorId === auth.uid
   const isCommentCreator = comment.userId === auth.uid
 
-  if (!isAdminId(auth.uid) && !isContractCreator && !isCommentCreator && !isModId(auth.uid)) {
-    throw new APIError(403, 'Only the comment creator, market creator, or mod can delete comments')
+  if (
+    !isAdminId(auth.uid) &&
+    !isContractCreator &&
+    !isCommentCreator &&
+    !isModId(auth.uid)
+  ) {
+    throw new APIError(
+      403,
+      'Only the comment creator, market creator, or mod can delete comments'
+    )
   }
 
-  await pg.none('DELETE FROM contract_comments WHERE comment_id = $1', [commentId])
+  await pg.none('DELETE FROM contract_comments WHERE comment_id = $1', [
+    commentId,
+  ])
 
   return { success: true }
 }

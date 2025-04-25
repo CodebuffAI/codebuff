@@ -1,12 +1,12 @@
-'use client';
+'use client'
 
-import { ComponentProps } from 'react';
-import { Icons } from '@/components/icons';
-import { Button } from '@/components/ui/button';
+import { ComponentProps } from 'react'
+import { Icons } from '@/components/icons'
+import { Button } from '@/components/ui/button'
 
 type ThemeSwitcherProps = {
-  className?: ComponentProps<'button'>['className'];
-};
+  className?: ComponentProps<'button'>['className']
+}
 
 export const ThemeSwitcher = ({ className }: ThemeSwitcherProps) => {
   // Theme switcher is disabled, always showing dark mode icon
@@ -20,5 +20,5 @@ export const ThemeSwitcher = ({ className }: ThemeSwitcherProps) => {
     >
       <Icons.moon />
     </Button>
-  );
-};
+  )
+}

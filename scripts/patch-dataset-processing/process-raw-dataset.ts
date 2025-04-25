@@ -30,9 +30,15 @@ function processDataset() {
       oldFile: fs.readFileSync(path.join(entryDir, 'old_file'), 'utf-8'),
       claudeSketch: fs.readFileSync(path.join(entryDir, 'sketch'), 'utf-8'),
       patch: fs.readFileSync(path.join(entryDir, 'patch'), 'utf-8'),
-      updatedPatch: fs.readFileSync(path.join(entryDir, 'updated_patch'), 'utf-8'),
+      updatedPatch: fs.readFileSync(
+        path.join(entryDir, 'updated_patch'),
+        'utf-8'
+      ),
       newFile: fs.readFileSync(path.join(entryDir, 'new_file'), 'utf-8'),
-      updatedSketch: fs.readFileSync(path.join(entryDir, 'updated_sketch'), 'utf-8'),
+      updatedSketch: fs.readFileSync(
+        path.join(entryDir, 'updated_sketch'),
+        'utf-8'
+      ),
     }
 
     rawData.push(entry)

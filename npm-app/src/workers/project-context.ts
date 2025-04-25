@@ -11,7 +11,10 @@ if (maybeParentPort) {
     const initFileContext = await getProjectFileContext(dir, {})
 
     const relativeFilepaths = getAllFilePaths(initFileContext.fileTree)
-    await initializeCheckpointFileManager({ projectDir: dir, relativeFilepaths })
+    await initializeCheckpointFileManager({
+      projectDir: dir,
+      relativeFilepaths,
+    })
 
     parentPort.postMessage(initFileContext)
   })

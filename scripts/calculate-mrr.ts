@@ -40,7 +40,9 @@ async function calculateMRR() {
 
         if (basePriceItem?.price.unit_amount) {
           totalMRR += basePriceItem.price.unit_amount
-          console.log(`Active base MRR for customer ${subscription.customer}: $${(basePriceItem.price.unit_amount/100).toFixed(2)}`)
+          console.log(
+            `Active base MRR for customer ${subscription.customer}: $${(basePriceItem.price.unit_amount / 100).toFixed(2)}`
+          )
         }
       }
 
@@ -75,7 +77,9 @@ async function calculateMRR() {
 
         if (basePriceItem?.price.unit_amount) {
           totalPastDueMRR += basePriceItem.price.unit_amount
-          console.log(`Past due base MRR for customer ${subscription.customer}: $${(basePriceItem.price.unit_amount/100).toFixed(2)}`)
+          console.log(
+            `Past due base MRR for customer ${subscription.customer}: $${(basePriceItem.price.unit_amount / 100).toFixed(2)}`
+          )
           totalPastDueInvoices++
         }
       }
@@ -92,10 +96,16 @@ async function calculateMRR() {
 
     console.log(`\nProcessed ${totalSubscriptions} total subscriptions`)
     console.log(`Found ${totalPastDueInvoices} past due subscriptions`)
-    console.log(`Base MRR (from active subscriptions): $${mrrInDollars.toFixed(2)}`)
+    console.log(
+      `Base MRR (from active subscriptions): $${mrrInDollars.toFixed(2)}`
+    )
     console.log(`Past Due Base MRR: $${pastDueMRRInDollars.toFixed(2)}`)
-    console.log(`Total Base MRR: $${(mrrInDollars + pastDueMRRInDollars).toFixed(2)}`)
-    console.log(`Annual Base Run Rate (ARR): $${((mrrInDollars + pastDueMRRInDollars) * 12).toFixed(2)}`)
+    console.log(
+      `Total Base MRR: $${(mrrInDollars + pastDueMRRInDollars).toFixed(2)}`
+    )
+    console.log(
+      `Annual Base Run Rate (ARR): $${((mrrInDollars + pastDueMRRInDollars) * 12).toFixed(2)}`
+    )
   } catch (error) {
     console.error('Error calculating MRR:', error)
   }

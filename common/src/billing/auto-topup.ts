@@ -185,15 +185,22 @@ export async function checkAndTriggerAutoTopup(userId: string): Promise<void> {
       throw new Error(blockedReason || 'Auto top-up is not available.')
     }
 
-    const { balance } = await calculateUsageAndBalance(userId, user.next_quota_reset ?? new Date(0))
-    
-    if (balance.totalRemaining >= user.auto_topup_threshold && balance.totalDebt === 0) {
+    const { balance } = await calculateUsageAndBalance(
+      userId,
+      user.next_quota_reset ?? new Date(0)
+    )
+
+    if (
+      balance.totalRemaining >= user.auto_topup_threshold &&
+      balance.totalDebt === 0
+    ) {
       return
     }
 
-    const amountToTopUp = balance.totalDebt > 0
-      ? Math.max(user.auto_topup_amount, balance.totalDebt)
-      : user.auto_topup_amount
+    const amountToTopUp =
+      balance.totalDebt > 0
+        ? Math.max(user.auto_topup_amount, balance.totalDebt)
+        : user.auto_topup_amount
 
     if (amountToTopUp < MINIMUM_PURCHASE_CREDITS) {
       logger.warn(

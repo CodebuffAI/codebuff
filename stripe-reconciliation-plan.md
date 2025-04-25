@@ -3,7 +3,9 @@
 ## Current System Overview
 
 We have two parallel tracking systems:
+
 1. **Local Credit System**:
+
    - Tracks credits in `creditGrants` table
    - Records message costs in `message` table with both raw cost and credits used
    - Records sync failures in `syncFailures` table
@@ -17,56 +19,56 @@ We have two parallel tracking systems:
 ## Proposed Invoice Reconciliation
 
 async function handleInvoiceCreated(invoice: Stripe.Invoice) {
-  const { customer, period_start, period_end } = invoice
-  
-  const user = await db.query.user.findFirst({
-    where: eq(schema.user.stripe_customer_id, customer)
-  })
-  if (!user) {
-    logger.error({ customer }, 'No user found for Stripe customer')
-    return
-  }
+const { customer, period_start, period_end } = invoice
 
-  const meteredItems = invoice.lines.data.filter(
-    line => line.type === 'metered'
-  )
-  const stripeTotal = meteredItems.reduce(
-    (sum, item) => sum + item.amount,
-    0
-  )
+const user = await db.query.user.findFirst({
+where: eq(schema.user.stripe_customer_id, customer)
+})
+if (!user) {
+logger.error({ customer }, 'No user found for Stripe customer')
+return
+}
 
-  const localMessages = await db.query.message.findMany({
-    where: and(
-      eq(schema.message.user_id, user.id),
-      gte(schema.message.finished_at, new Date(period_start * 1000)),
-      lt(schema.message.finished_at, new Date(period_end * 1000))
-    ),
-    columns: {
-      id: true,
-      cost: true,
-      finished_at: true,
-    },
-  })
+const meteredItems = invoice.lines.data.filter(
+line => line.type === 'metered'
+)
+const stripeTotal = meteredItems.reduce(
+(sum, item) => sum + item.amount,
+0
+)
 
-  const localTotal = localMessages.reduce(
-    (sum, msg) => sum + Math.round(parseFloat(msg.cost) * 100 * (1 + PROFIT_MARGIN)),
-    0
-  )
+const localMessages = await db.query.message.findMany({
+where: and(
+eq(schema.message.user_id, user.id),
+gte(schema.message.finished_at, new Date(period_start _ 1000)),
+lt(schema.message.finished_at, new Date(period_end _ 1000))
+),
+columns: {
+id: true,
+cost: true,
+finished_at: true,
+},
+})
 
-  const discrepancy = Math.abs(stripeTotal - localTotal)
-  const discrepancyThreshold = 100 
-  
-  if (discrepancy > discrepancyThreshold) {
-    logger.error({
-      invoiceId: invoice.id,
-      userId: user.id,
-      stripeTotal,
-      localTotal,
-      discrepancy,
-      messageCount: localMessages.length,
-      periodStart: period_start,
-      periodEnd: period_end,
-    }, 'Large discrepancy found in invoice reconciliation')
+const localTotal = localMessages.reduce(
+(sum, msg) => sum + Math.round(parseFloat(msg.cost) _ 100 _ (1 + PROFIT_MARGIN)),
+0
+)
+
+const discrepancy = Math.abs(stripeTotal - localTotal)
+const discrepancyThreshold = 100
+
+if (discrepancy > discrepancyThreshold) {
+logger.error({
+invoiceId: invoice.id,
+userId: user.id,
+stripeTotal,
+localTotal,
+discrepancy,
+messageCount: localMessages.length,
+periodStart: period_start,
+periodEnd: period_end,
+}, 'Large discrepancy found in invoice reconciliation')
 
     const failedSyncs = await db.query.syncFailures.findMany({
       where: and(
@@ -114,18 +116,19 @@ async function handleInvoiceCreated(invoice: Stripe.Invoice) {
       period_start: new Date(period_start * 1000),
       period_end: new Date(period_end * 1000),
     })
-  }
+
+}
 }
 
 export const invoiceReconciliation = pgTable('invoice_reconciliation', {
-  invoice_id: text('invoice_id').notNull(),
-  user_id: text('user_id').notNull(),
-  stripe_total: integer('stripe_total').notNull(),
-  local_total: integer('local_total').notNull(),
-  discrepancy: integer('discrepancy').notNull(),
-  message_count: integer('message_count').notNull(),
-  failed_syncs_count: integer('failed_syncs_count').notNull(),
-  period_start: timestamp('period_start').notNull(),
-  period_end: timestamp('period_end').notNull(),
-  created_at: timestamp('created_at').defaultNow().notNull(),
+invoice_id: text('invoice_id').notNull(),
+user_id: text('user_id').notNull(),
+stripe_total: integer('stripe_total').notNull(),
+local_total: integer('local_total').notNull(),
+discrepancy: integer('discrepancy').notNull(),
+message_count: integer('message_count').notNull(),
+failed_syncs_count: integer('failed_syncs_count').notNull(),
+period_start: timestamp('period_start').notNull(),
+period_end: timestamp('period_end').notNull(),
+created_at: timestamp('created_at').defaultNow().notNull(),
 })

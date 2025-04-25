@@ -80,8 +80,7 @@ export const getAgentStream = (params: {
                 userId,
                 model: openrouterModels.openrouter_gemini2_5_flash_thinking,
               })
-            : 
-            streamGemini25ProWithFallbacks(messages, system, {
+            : streamGemini25ProWithFallbacks(messages, system, {
                 clientSessionId,
                 fingerprintId,
                 userInputId,

@@ -94,6 +94,7 @@ The referral system integrates with the user authentication flow and credit mana
 ## Backward Compatibility
 
 When replacing old patterns with new ones:
+
 - Keep support for old patterns during transition (e.g. .manicodeignore → .codebuffignore)
 - Use clear fallback chains (try current pattern first, fall back to legacy)
 - For ignore files specifically: .codebuffignore is standard, .manicodeignore is legacy support
@@ -103,10 +104,12 @@ When replacing old patterns with new ones:
 ## Backward Compatibility
 
 When replacing old patterns with new ones:
+
 - Keep support for old patterns during transition (e.g. .codebuffignore → .manicodeignore)
 - Use clear fallback chains (try new pattern first, fall back to old)
 - Document both old and new patterns in user-facing content
 - Plan to remove old pattern support in a future major version
+
 2. Follow existing code structure and naming conventions.
 3. Ensure alternating user and Buffy messages in conversation history.
 4. Update knowledge files for significant changes or new features.
@@ -290,13 +293,14 @@ Only run type checking when:
 When making changes, run the type checker for the specific package you modified:
 
 - For backend changes: `bun run --cwd backend typecheck`
-- For npm-app changes: `bun run --cwd npm-app typecheck` 
+- For npm-app changes: `bun run --cwd npm-app typecheck`
 - For common changes: `bun run --cwd common typecheck`
 - For web changes: `bun run --cwd web typecheck`
 
 Each package has its own tsconfig.json and dependencies, so running the type checker in the wrong directory won't catch relevant errors. For example, running backend's type checker won't catch errors in npm-app code.
 
 When running type checks:
+
 1. First identify which package(s) you modified
 2. Run the type checker for each modified package
 3. Fix any type errors before committing changes

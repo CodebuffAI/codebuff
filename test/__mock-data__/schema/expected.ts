@@ -1054,7 +1054,7 @@ export const API = (_apiTypeCheck = {
       status: 'success'
     },
   },
-  
+
   'get-likes-and-ships': {
     method: 'GET',
     visibility: 'public',
@@ -1492,9 +1492,11 @@ export const API = (_apiTypeCheck = {
     method: 'POST',
     visibility: 'public',
     authed: true,
-    props: z.object({
-      commentId: z.string(),
-    }).strict(),
+    props: z
+      .object({
+        commentId: z.string(),
+      })
+      .strict(),
     returns: {} as { success: boolean },
   },
 } as const)
@@ -1507,11 +1509,12 @@ export type ValidatedAPIParams<N extends APIPath> = z.output<
   APISchema<N>['props']
 >
 
-export type APIResponse<N extends APIPath> = APISchema<N> extends {
-  returns: Record<string, any>
-}
-  ? APISchema<N>['returns']
-  : void
+export type APIResponse<N extends APIPath> =
+  APISchema<N> extends {
+    returns: Record<string, any>
+  }
+    ? APISchema<N>['returns']
+    : void
 
 export type APIResponseOptionalContinue<N extends APIPath> =
   | { continue: () => Promise<void>; result: APIResponse<N> }

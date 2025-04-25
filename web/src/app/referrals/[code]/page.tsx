@@ -57,11 +57,7 @@ const InputWithCopyButton = ({ text }: { text: string }) => {
   )
 }
 
-export default function RedeemPage({
-  params,
-}: {
-  params: { code: string }
-}) {
+export default function RedeemPage({ params }: { params: { code: string } }) {
   const code = params.code
   const { data: session, status } = useSession()
   const searchParams = useSearchParams()
@@ -145,8 +141,8 @@ export default function RedeemPage({
             <p className="text-red-600 mt-2">{data.status.details.msg}</p>
           ) : (
             <p>
-              {referrerParam || data?.referrerName} just scored you some
-              sweet sweet credits.
+              {referrerParam || data?.referrerName} just scored you some sweet
+              sweet credits.
             </p>
           )}
         </CardContent>

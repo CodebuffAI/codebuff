@@ -40,21 +40,26 @@ const BrowserPreview = ({
       {/* Content area */}
       <div className="flex-1 border rounded-b-lg border-gray-200 dark:border-gray-700 p-6">
         {variant === 'before' ? (
-          <div className="bg-gray-800 h-full w-full" style={{ backgroundColor: '#222' }}>
+          <div
+            className="bg-gray-800 h-full w-full"
+            style={{ backgroundColor: '#222' }}
+          >
             <div className="text-left p-6">
-              <h1 className="text-xl text-white mb-4 font-mono">
-                Weather App
-              </h1>
-              
-              <div className="p-4 mb-4 border border-gray-700" style={{ backgroundColor: '#f0f0f0' }}>
+              <h1 className="text-xl text-white mb-4 font-mono">Weather App</h1>
+
+              <div
+                className="p-4 mb-4 border border-gray-700"
+                style={{ backgroundColor: '#f0f0f0' }}
+              >
                 <p className="text-red-600 mb-3 font-medium font-mono">
                   Error: API Key Missing
                 </p>
                 <p className="text-gray-800 text-sm mb-4 font-mono">
-                  Please configure the OpenWeatherMap API key to display weather information.
+                  Please configure the OpenWeatherMap API key to display weather
+                  information.
                 </p>
               </div>
-              
+
               <button className="px-4 py-1 bg-gray-700 border border-gray-600 text-gray-300 text-sm font-mono">
                 Configure API
               </button>

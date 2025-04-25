@@ -16,4 +16,7 @@ export async function getUserCostPerCredit(
 }
 
 // Re-export the pure conversion functions
-export { convertCreditsToUsdCents, convertStripeGrantAmountToCredits } from './credit-conversion'
+export {
+  convertCreditsToUsdCents,
+  convertStripeGrantAmountToCredits,
+} from './credit-conversion'

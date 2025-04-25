@@ -22,7 +22,6 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
 
-
 import { Separator } from '@/components/ui/separator'
 import { env } from '@/env.mjs'
 
@@ -114,7 +113,9 @@ const ReferralsPage = () => {
       )}
       <Card className="bg-gradient-to-br from-green-50/90 to-emerald-50/90 dark:from-green-950/90 dark:to-emerald-950/90 border border-green-200 dark:border-green-800 shadow-lg">
         <CardHeader>
-          <CardTitle className="text-green-800 dark:text-green-200">Your Referrals</CardTitle>
+          <CardTitle className="text-green-800 dark:text-green-200">
+            Your Referrals
+          </CardTitle>
           <CardDescription className="text-green-700 dark:text-green-300">
             Refer a friend and <b>you&apos;ll both</b> earn{' '}
             {CREDITS_REFERRAL_BONUS} credits per month!{' '}

@@ -7,7 +7,7 @@ export class LRUCache<K, V> {
 
   constructor(private maxSize: number) {
     if (maxSize <= 0) {
-      throw new Error('LRUCache maxSize must be a positive number.');
+      throw new Error('LRUCache maxSize must be a positive number.')
     }
   }
 
@@ -42,8 +42,9 @@ export class LRUCache<K, V> {
     else if (this.cache.size >= this.maxSize) {
       // Evict the least recently used item (the first item in the Map's iteration order)
       const oldestKey = this.cache.keys().next().value
-      if (oldestKey !== undefined) { // Should always be defined if size >= maxSize > 0
-          this.cache.delete(oldestKey)
+      if (oldestKey !== undefined) {
+        // Should always be defined if size >= maxSize > 0
+        this.cache.delete(oldestKey)
       }
     }
     // Add the new item (or re-add the updated item)
@@ -54,13 +55,13 @@ export class LRUCache<K, V> {
    * Returns the current number of items in the cache.
    */
   get size(): number {
-    return this.cache.size;
+    return this.cache.size
   }
 
   /**
    * Clears all items from the cache.
    */
   clear(): void {
-    this.cache.clear();
+    this.cache.clear()
   }
 }

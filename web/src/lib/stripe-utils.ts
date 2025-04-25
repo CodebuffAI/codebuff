@@ -13,7 +13,9 @@ export type PlanPriceIds = {
   overagePriceId: string
 }
 
-export function getStripeCustomerId(customer: string | Stripe.Customer | Stripe.DeletedCustomer): string {
+export function getStripeCustomerId(
+  customer: string | Stripe.Customer | Stripe.DeletedCustomer
+): string {
   return typeof customer === 'string' ? customer : customer.id
 }
 

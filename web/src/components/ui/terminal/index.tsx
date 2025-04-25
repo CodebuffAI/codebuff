@@ -50,7 +50,9 @@ const Terminal = ({
   const terminalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const wrapper = terminalRef.current?.closest('.react-terminal-wrapper') as HTMLElement | null
+    const wrapper = terminalRef.current?.closest(
+      '.react-terminal-wrapper'
+    ) as HTMLElement | null
     if (!wrapper) return
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -62,7 +64,8 @@ const Terminal = ({
     }
 
     wrapper.addEventListener('mousemove', handleMouseMove as EventListener)
-    return () => wrapper.removeEventListener('mousemove', handleMouseMove as EventListener)
+    return () =>
+      wrapper.removeEventListener('mousemove', handleMouseMove as EventListener)
   }, [])
 
   const updateCurrentLineInput = (event: ChangeEvent<HTMLInputElement>) => {

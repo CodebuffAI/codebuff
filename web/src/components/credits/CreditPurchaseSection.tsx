@@ -39,7 +39,14 @@ export function CreditPurchaseSection({
 
   const handlePurchaseClick = async () => {
     const credits = selectedCredits || parseInt(customCredits)
-    if (!credits || isProcessing || isPurchasePending || isPending || cooldownActive) return
+    if (
+      !credits ||
+      isProcessing ||
+      isPurchasePending ||
+      isPending ||
+      cooldownActive
+    )
+      return
 
     let canProceed = true
     if (isAutoTopupEnabled && onSaveAutoTopupSettings) {
@@ -89,7 +96,7 @@ export function CreditPurchaseSection({
   const costInCents = effectiveCredits
     ? convertCreditsToUsdCents(effectiveCredits, CENTS_PER_CREDIT)
     : 0
-  
+
   const costInDollars = formatDollars(costInCents)
 
   return (
@@ -113,7 +120,9 @@ export function CreditPurchaseSection({
                   ? 'border-primary bg-accent'
                   : 'hover:bg-accent/50'
               )}
-              disabled={isProcessing || isPending || isPurchasePending || cooldownActive}
+              disabled={
+                isProcessing || isPending || isPurchasePending || cooldownActive
+              }
             >
               <span className="text-lg font-semibold">
                 {credits.toLocaleString()}
@@ -157,17 +166,28 @@ export function CreditPurchaseSection({
 
               <NeonGradientButton
                 onClick={handlePurchaseClick}
-                disabled={!isValid || isProcessing || isPending || isPurchasePending || cooldownActive}
+                disabled={
+                  !isValid ||
+                  isProcessing ||
+                  isPending ||
+                  isPurchasePending ||
+                  cooldownActive
+                }
                 className={cn(
                   'w-full md:w-auto transition-opacity min-w-[120px]',
-                  (!isValid || isProcessing || isPending || isPurchasePending || cooldownActive) && 'opacity-50'
+                  (!isValid ||
+                    isProcessing ||
+                    isPending ||
+                    isPurchasePending ||
+                    cooldownActive) &&
+                    'opacity-50'
                 )}
                 neonColors={{
                   firstColor: '#4F46E5',
                   secondColor: '#06B6D4',
                 }}
               >
-                {(isProcessing || isPurchasePending) ? (
+                {isProcessing || isPurchasePending ? (
                   <Loader className="mr-2 size-4 animate-spin" />
                 ) : null}
                 Buy Credits

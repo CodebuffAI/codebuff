@@ -37,7 +37,10 @@ export function AutoTopupSettingsForm({
   const [topUpCreditsError, setTopUpCreditsError] = useState<string>('')
 
   // Convert dollar amount to credits for display
-  const topUpAmountCredits = dollarsToCredits(topUpAmountDollars, CENTS_PER_CREDIT)
+  const topUpAmountCredits = dollarsToCredits(
+    topUpAmountDollars,
+    CENTS_PER_CREDIT
+  )
 
   // Check threshold limits
   useEffect(() => {

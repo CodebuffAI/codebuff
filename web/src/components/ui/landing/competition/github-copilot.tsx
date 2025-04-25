@@ -225,25 +225,27 @@ function MatrixRainEffect({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const requestRef = useRef<number>()
-  
+
   // Only render if enabled and active
   const shouldRender = enabled && isActive
-  
+
   // Static matrix words for consistent rendering
   const matrixWordCount = 20
-  const matrixWordList = useRef<{word: string, x: number, y: number, speed: number, opacity: number}[]>([])
-  
+  const matrixWordList = useRef<
+    { word: string; x: number; y: number; speed: number; opacity: number }[]
+  >([])
+
   // Initialize the canvas and animation
   useEffect(() => {
     // Don't run if not active or enabled
     if (!shouldRender) return
-    
+
     const canvas = canvasRef.current
     if (!canvas) return
-    
+
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    
+
     // Set canvas size based on parent element
     const resizeCanvas = () => {
       if (canvas.parentElement) {
@@ -251,40 +253,40 @@ function MatrixRainEffect({
         canvas.height = canvas.parentElement.offsetHeight
       }
     }
-    
+
     resizeCanvas()
     window.addEventListener('resize', resizeCanvas)
-    
+
     // Initialize matrix words if not already created
     if (matrixWordList.current.length === 0) {
       const wordCount = Math.floor(matrixWordCount * intensity)
-      
+
       for (let i = 0; i < wordCount; i++) {
         matrixWordList.current.push({
           word: matrixWords[Math.floor(Math.random() * matrixWords.length)],
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
           speed: 1 + Math.random() * 2,
-          opacity: 0.2 + Math.random() * 0.4
+          opacity: 0.2 + Math.random() * 0.4,
         })
       }
     }
-    
+
     // Animation function
     const animate = () => {
       if (!canvas || !ctx) return
-      
+
       // Fade previous frame
       ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
-      
+
       // Draw and update words
       ctx.font = '12px monospace'
-      matrixWordList.current.forEach(word => {
+      matrixWordList.current.forEach((word) => {
         // Draw the word
         ctx.fillStyle = `rgba(129, 140, 248, ${word.opacity})`
         ctx.fillText(word.word, word.x, word.y)
-        
+
         // Update position
         word.y += word.speed
         if (word.y > canvas.height) {
@@ -292,14 +294,14 @@ function MatrixRainEffect({
           word.x = Math.random() * canvas.width
         }
       })
-      
+
       // Continue animation
       requestRef.current = requestAnimationFrame(animate)
     }
-    
+
     // Start animation
     requestRef.current = requestAnimationFrame(animate)
-    
+
     // Cleanup function
     return () => {
       window.removeEventListener('resize', resizeCanvas)
@@ -308,9 +310,9 @@ function MatrixRainEffect({
       }
     }
   }, [shouldRender, intensity]) // Only re-run if these values change
-  
+
   if (!enabled) return null
-  
+
   return (
     <canvas
       ref={canvasRef}
@@ -328,71 +330,70 @@ export function GithubCopilotVisualization({
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const [resetKey, setResetKey] = useState(0)
   const [currentAccuracy, setCurrentAccuracy] = useState(100)
-  
+
   // Calculate accuracy with random variations based on progress
-  const [lastProgress, setLastProgress] = useState(0);
-  
+  const [lastProgress, setLastProgress] = useState(0)
+
   useEffect(() => {
     if (!isActive) {
-      setCurrentAccuracy(100);
-      setLastProgress(0);
-      return;
+      setCurrentAccuracy(100)
+      setLastProgress(0)
+      return
     }
-    
+
     // Only update on meaningful progress changes to avoid too many updates
     if (Math.abs(progress - lastProgress) < 2 && progress !== 100) {
-      return;
+      return
     }
-    
-    setLastProgress(progress);
-    
+
+    setLastProgress(progress)
+
     // Reset accuracy to 100 when progress is 0
     if (progress === 0) {
-      setCurrentAccuracy(100);
-      return;
+      setCurrentAccuracy(100)
+      return
     }
-    
+
     // When progress is 100, reset everything
     if (progress >= 100) {
-      setResetKey(prev => prev + 1);
-      return;
+      setResetKey((prev) => prev + 1)
+      return
     }
-    
+
     // Calculate how far along we are in the animation cycle
-    const cycleProgress = progress / 100;
-    
+    const cycleProgress = progress / 100
+
     // Add randomized drops in accuracy that become more frequent and larger as progress increases
     // Early (0-30%): small drops
-    // Middle (30-70%): moderate drops 
+    // Middle (30-70%): moderate drops
     // Late (70-100%): large drops
-    let randomFactor = 0;
-    
+    let randomFactor = 0
+
     if (cycleProgress < 0.3) {
       // Small random drops early on
-      randomFactor = Math.random() * 8; // 0-8% variation
+      randomFactor = Math.random() * 8 // 0-8% variation
     } else if (cycleProgress < 0.7) {
       // Moderate drops in the middle
-      randomFactor = 5 + Math.random() * 15; // 5-20% variation
+      randomFactor = 5 + Math.random() * 15 // 5-20% variation
     } else {
       // Large drops toward the end
-      randomFactor = 15 + Math.random() * 25; // 15-40% variation
+      randomFactor = 15 + Math.random() * 25 // 15-40% variation
     }
-    
+
     // Base accuracy drops from 100 to 10 as progress increases
-    const baseAccuracy = 100 - (90 * cycleProgress);
-    
+    const baseAccuracy = 100 - 90 * cycleProgress
+
     // Apply random variation and ensure we don't go below 0
-    const newAccuracy = Math.max(0, baseAccuracy - randomFactor);
-    setCurrentAccuracy(newAccuracy);
-    
-  }, [progress, isActive, lastProgress]);
-  
+    const newAccuracy = Math.max(0, baseAccuracy - randomFactor)
+    setCurrentAccuracy(newAccuracy)
+  }, [progress, isActive, lastProgress])
+
   // Always scroll chat to bottom when messages are shown
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
-  }, [currentAccuracy, isActive]);
+  }, [currentAccuracy, isActive])
 
   // Optimize effect calculations to be less intensive at very low accuracy
   // Cap the maximum distortion level to prevent performance issues

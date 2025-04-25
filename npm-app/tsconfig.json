@@ -24,10 +24,7 @@
     "resolveJsonModule": true
   },
   "include": ["src/**/*", "package.json"],
-  "references": [
-    { "path": "../common" },
-    { "path": "../packages/code-map" }
-  ],
+  "references": [{ "path": "../common" }, { "path": "../packages/code-map" }],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }

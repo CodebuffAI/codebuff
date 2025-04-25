@@ -145,7 +145,9 @@ Please provide a sketch of how to turn the old file into the new file. First, ex
   })
 
   // Extract the content from the <write_file> block
-  const fileContentMatch = response.match(/<write_file>([\s\S]*?)<\/write_file>/)
+  const fileContentMatch = response.match(
+    /<write_file>([\s\S]*?)<\/write_file>/
+  )
   return fileContentMatch ? fileContentMatch[1].trim() : ''
 }
 

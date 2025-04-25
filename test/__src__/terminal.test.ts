@@ -1,6 +1,10 @@
 import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test'
 import { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
-import { recreateShell, resetShell, runCommandPty } from '../../npm-app/src/utils/terminal'
+import {
+  recreateShell,
+  resetShell,
+  runCommandPty,
+} from '../../npm-app/src/utils/terminal'
 
 const promptIdentifier = '@36261@'
 
@@ -16,14 +20,14 @@ describe('terminal command handling', () => {
     mockWrite = mock(() => {})
     mockDispose = mock(() => {})
     mockResolve = mock(() => {})
-    
+
     // Mock the IPty interface
     mockPty = {
       write: mockWrite,
       onData: (handler: (data: string) => void) => {
         dataHandler = handler
         return { dispose: mockDispose }
-      }
+      },
     } as unknown as IPty
 
     // Reset shell state
@@ -38,20 +42,20 @@ describe('terminal command handling', () => {
 
   it('should handle multi-line output with prompt at the end', async () => {
     const output = [
-      'test command\n',  // First line is command echo, will be skipped
+      'test command\n', // First line is command echo, will be skipped
       'line 2\r\n',
       'line 3\r\n',
-      promptIdentifier
+      promptIdentifier,
     ]
-    
+
     const promise = new Promise((resolve) => {
       const persistentProcess = {
         type: 'pty' as const,
         shell: 'pty' as const,
         pty: mockPty,
-        timerId: null
+        timerId: null,
       }
-      
+
       runCommandPty(
         persistentProcess,
         'test command',
@@ -72,26 +76,26 @@ describe('terminal command handling', () => {
 <output>line 2\r\nline 3\r\n</output>
 <status>Command completed</status>
 </terminal_command_result>`,
-      stdout: 'line 2\r\nline 3\r\n'
+      stdout: 'line 2\r\nline 3\r\n',
     })
   })
 
   it('should handle output with prompt identifier in the middle', async () => {
     const output = [
-      'test command\n',  // First line is command echo, will be skipped
+      'test command\n', // First line is command echo, will be skipped
       'some text\r\n',
       'line 3\r\n',
-      promptIdentifier
+      promptIdentifier,
     ]
-    
+
     const promise = new Promise((resolve) => {
       const persistentProcess = {
         type: 'pty' as const,
         shell: 'pty' as const,
         pty: mockPty,
-        timerId: null
+        timerId: null,
       }
-      
+
       runCommandPty(
         persistentProcess,
         'test command',
@@ -112,26 +116,26 @@ describe('terminal command handling', () => {
 <output>some text\r\nline 3\r\n</output>
 <status>Command completed</status>
 </terminal_command_result>`,
-      stdout: 'some text\r\nline 3\r\n'
+      stdout: 'some text\r\nline 3\r\n',
     })
   })
 
   it('should handle incomplete line output', async () => {
     const output = [
-      'test command\n',  // First line is command echo, will be skipped
+      'test command\n', // First line is command echo, will be skipped
       'partial line 1\r\n',
       'partial line 2\r\n',
-      promptIdentifier
+      promptIdentifier,
     ]
-    
+
     const promise = new Promise((resolve) => {
       const persistentProcess = {
         type: 'pty' as const,
         shell: 'pty' as const,
         pty: mockPty,
-        timerId: null
+        timerId: null,
       }
-      
+
       runCommandPty(
         persistentProcess,
         'test command',
@@ -152,25 +156,25 @@ describe('terminal command handling', () => {
 <output>partial line 1\r\npartial line 2\r\n</output>
 <status>Command completed</status>
 </terminal_command_result>`,
-      stdout: 'partial line 1\r\npartial line 2\r\n'
+      stdout: 'partial line 1\r\npartial line 2\r\n',
     })
   })
 
   it('should handle cd commands correctly', async () => {
     const output = [
-      'cd test\n',  // First line is command echo, will be skipped
+      'cd test\n', // First line is command echo, will be skipped
       'changing directory\r\n',
-      promptIdentifier
+      promptIdentifier,
     ]
-    
+
     const promise = new Promise((resolve) => {
       const persistentProcess = {
         type: 'pty' as const,
         shell: 'pty' as const,
         pty: mockPty,
-        timerId: null
+        timerId: null,
       }
-      
+
       runCommandPty(
         persistentProcess,
         'cd test',
@@ -191,7 +195,7 @@ describe('terminal command handling', () => {
 <output>changing directory\r\n</output>
 <status>Command completed</status>
 </terminal_command_result>`,
-      stdout: 'changing directory\r\n'
+      stdout: 'changing directory\r\n',
     })
     expect(mockWrite).toHaveBeenCalledWith(expect.stringContaining('cd '))
   })

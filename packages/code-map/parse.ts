@@ -7,7 +7,10 @@ import { getLanguageConfig } from './languages'
 export const DEBUG_PARSING = false
 const IGNORE_TOKENS = ['__init__', '__post_init__', '__call__', 'constructor']
 
-export async function getFileTokenScores(projectRoot: string, filePaths: string[]) {
+export async function getFileTokenScores(
+  projectRoot: string,
+  filePaths: string[]
+) {
   const startTime = Date.now()
   const tokenScores: { [filePath: string]: { [token: string]: number } } = {}
   const externalCalls: { [token: string]: number } = {}

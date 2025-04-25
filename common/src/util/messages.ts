@@ -73,14 +73,14 @@ export function withCacheControl(msg: Message): Message {
 }
 
 export function removeCache(messages: Message[]): Message[] {
-  return messages.map(msg => {
+  return messages.map((msg) => {
     if (typeof msg.content === 'object' && Array.isArray(msg.content)) {
       return {
         ...msg,
-        content: msg.content.map(item => {
+        content: msg.content.map((item) => {
           const { cache_control, ...rest } = item
           return rest
-        })
+        }),
       }
     }
     return msg

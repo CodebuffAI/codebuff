@@ -1,6 +1,9 @@
 import { describe, it, expect, mock } from 'bun:test'
 import { getUserCostPerCredit } from 'common/src/billing/conversion'
-import { convertCreditsToUsdCents, convertStripeGrantAmountToCredits } from 'common/src/billing/credit-conversion'
+import {
+  convertCreditsToUsdCents,
+  convertStripeGrantAmountToCredits,
+} from 'common/src/billing/credit-conversion'
 
 describe('Credit Conversion System', () => {
   describe('getUserCostPerCredit', () => {

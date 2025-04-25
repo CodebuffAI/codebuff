@@ -51,7 +51,7 @@ export function AnimatedElement({
 }: AnimatedElementProps) {
   const config = getAnimationConfig(type)
   const baseDelay = type === 'scale' ? 0 : (config as { delay: number }).delay
-  
+
   return (
     <motion.div
       initial={variants[type].initial}

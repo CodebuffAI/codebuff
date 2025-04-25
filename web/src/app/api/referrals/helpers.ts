@@ -23,7 +23,7 @@ async function processAndGrantReferralCredit(
   try {
     // Create unique operation ID for each user by appending their role
     const operationId = `${baseOperationId}-${role}`
-    
+
     await processAndGrantCredit(
       userToGrant.id,
       creditsToGrant,
@@ -53,7 +53,10 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
 
     if (alreadyUsed.length > 0) {
       return NextResponse.json(
-        { error: "You've already been referred by someone. Each user can only be referred once." },
+        {
+          error:
+            "You've already been referred by someone. Each user can only be referred once.",
+        },
         { status: 429 }
       )
     }
@@ -120,10 +123,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       columns: { id: true },
     })
     if (!referrer) {
-      logger.warn(
-        { referralCode },
-        'Referrer not found.'
-      )
+      logger.warn({ referralCode }, 'Referrer not found.')
       return NextResponse.json(
         { error: 'Invalid referral code.' },
         { status: 400 }
@@ -140,10 +140,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
         { userId },
         'Referred user not found during referral redemption.'
       )
-      return NextResponse.json(
-        { error: 'User not found.' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'User not found.' }, { status: 404 })
     }
 
     // Check if the referrer has maxed out their referrals

@@ -1647,24 +1647,17 @@ export const expectedFiles: FileChange[] = [
   //   filePath: 'npm-app/knowledge.md',
   //   content: `
   //   # Web Scraping and Caching in Manicode
-    
   //   ## Crawlee Integration
-    
   //   Manicode uses the \`crawlee\` library for web scraping instead of axios. This provides more robust and feature-rich web scraping capabilities.
-    
   //   ## Caching Mechanism
-    
   //   The web scraper implements a caching system with timed refreshes. This approach offers several benefits:
-    
   //   1. Reduced load on external servers: By caching results, we minimize repeated requests to the same URLs.
   //   2. Improved performance: Cached results can be returned quickly without making a new web request.
   //   3. Balance between data freshness and efficiency: Regular cache refreshes ensure data doesn't become stale while still maintaining performance benefits.
-    
   //   The cache refresh interval should be set based on the specific needs of the project, considering factors such as:
   //   - How frequently the scraped data typically changes
   //   - The acceptable level of data staleness
   //   - The volume of web scraping requests made by the application
-    
   //   Developers should be aware of this caching mechanism when working with or debugging the web scraper, as it may affect the immediacy of data updates.
   //   `,
   // },

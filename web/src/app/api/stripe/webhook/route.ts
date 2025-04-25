@@ -13,7 +13,10 @@ import {
 } from 'common/src/billing/conversion'
 import { GrantType } from 'common/types/grant'
 import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
-import { processAndGrantCredit, revokeGrantByOperationId } from 'common/src/billing/grant-credits'
+import {
+  processAndGrantCredit,
+  revokeGrantByOperationId,
+} from 'common/src/billing/grant-credits'
 import { getStripeCustomerId } from '@/lib/stripe-utils'
 
 async function handleCustomerCreated(customer: Stripe.Customer) {
@@ -184,21 +187,23 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
         if (paymentIntentId) {
           // Get the payment intent to access its metadata
           const paymentIntent = await stripeServer.paymentIntents.retrieve(
-            typeof paymentIntentId === 'string' ? paymentIntentId : paymentIntentId.toString()
+            typeof paymentIntentId === 'string'
+              ? paymentIntentId
+              : paymentIntentId.toString()
           )
-          
+
           if (paymentIntent.metadata?.operationId) {
             const operationId = paymentIntent.metadata.operationId
             logger.info(
               { chargeId: charge.id, paymentIntentId, operationId },
               'Processing refund, attempting to revoke credits'
             )
-            
+
             const revoked = await revokeGrantByOperationId(
               operationId,
               `Refund for charge ${charge.id}`
             )
-            
+
             if (!revoked) {
               logger.error(
                 { chargeId: charge.id, operationId },

@@ -46,7 +46,9 @@ const displayMenu = () => {
     const chat = chats[i]
     const isSelected = i === menuSelectedIndex
     const marker = isSelected ? '>' : ' '
-    console.log(`${marker} ${chat.id} (${new Date(chat.updatedAt).toLocaleString()})`)
+    console.log(
+      `${marker} ${chat.id} (${new Date(chat.updatedAt).toLocaleString()})`
+    )
   }
 
   if (endIndex < totalChats - 1) {
@@ -59,7 +61,7 @@ const displayMenu = () => {
 
 const initializeMenu = () => {
   const chats = chatStorage.listChats()
-  const currentChatIndex = chats.findIndex(chat => chat.id === currentChat.id)
+  const currentChatIndex = chats.findIndex((chat) => chat.id === currentChat.id)
 
   if (currentChatIndex !== -1) {
     menuSelectedIndex = currentChatIndex
@@ -95,12 +97,14 @@ process.stdin.on('data', (key: string) => {
   } else if (isInMenu) {
     const chats = chatStorage.listChats()
     const totalChats = chats.length
-    if (key === '\u001B[A') { // Up arrow
+    if (key === '\u001B[A') {
+      // Up arrow
       if (menuSelectedIndex > 0) {
         menuSelectedIndex--
         displayMenu()
       }
-    } else if (key === '\u001B[B') { // Down arrow
+    } else if (key === '\u001B[B') {
+      // Down arrow
       if (menuSelectedIndex < totalChats - 1) {
         menuSelectedIndex++
         displayMenu()

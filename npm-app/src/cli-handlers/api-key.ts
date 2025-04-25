@@ -1,6 +1,11 @@
 import { yellow } from 'picocolors'
 import { Client } from '../client'
-import { API_KEY_TYPES, ApiKeyType, KEY_LENGTHS, KEY_PREFIXES } from 'common/api-keys/constants'
+import {
+  API_KEY_TYPES,
+  ApiKeyType,
+  KEY_LENGTHS,
+  KEY_PREFIXES,
+} from 'common/api-keys/constants'
 
 export type ApiKeyDetectionResult =
   | { status: 'found'; type: ApiKeyType; key: string }
@@ -67,10 +72,7 @@ export async function handleApiKeyInput(
     case 'found':
       await readyPromise
       // Call the client method to add the valid key
-      await client.handleAddApiKey(
-        detectionResult.type,
-        detectionResult.key
-      )
+      await client.handleAddApiKey(detectionResult.type, detectionResult.key)
       // Note: client.handleAddApiKey calls returnControlToUser internally
       break
     case 'prefix_only':

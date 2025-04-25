@@ -118,7 +118,9 @@ describe('QuotaManager', () => {
       }))
 
       const result = await anonymousManager.checkQuota('test-fingerprint')
-      expect(result.endDate.getTime()).toBeGreaterThan(pastDate.getTime() - 1000)
+      expect(result.endDate.getTime()).toBeGreaterThan(
+        pastDate.getTime() - 1000
+      )
     })
 
     it('should detect if unauthenticated user has logged in', async () => {
@@ -228,7 +230,9 @@ describe('QuotaManager', () => {
       }))
 
       const result = await authenticatedManager.checkQuota('test-user-id')
-      expect(result.endDate.getTime()).toBeGreaterThan(pastDate.getTime() - 1000)
+      expect(result.endDate.getTime()).toBeGreaterThan(
+        pastDate.getTime() - 1000
+      )
     })
   })
 

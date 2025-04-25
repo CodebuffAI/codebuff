@@ -94,6 +94,7 @@ The referral system integrates with the user authentication flow and credit mana
 ## Backward Compatibility
 
 When replacing old patterns with new ones:
+
 - Keep support for old patterns during transition (e.g. .manicodeignore → .codebuffignore)
 - Use clear fallback chains (try current pattern first, fall back to legacy)
 - For ignore files specifically: .codebuffignore is standard, .manicodeignore is legacy support
@@ -103,10 +104,12 @@ When replacing old patterns with new ones:
 ## Backward Compatibility
 
 When replacing old patterns with new ones:
+
 - Keep support for old patterns during transition (e.g. .codebuffignore → .manicodeignore)
 - Use clear fallback chains (try new pattern first, fall back to old)
 - Document both old and new patterns in user-facing content
 - Plan to remove old pattern support in a future major version
+
 2. Follow existing code structure and naming conventions.
 3. Ensure alternating user and Buffy messages in conversation history.
 4. Update knowledge files for significant changes or new features.
@@ -213,8 +216,8 @@ Buffy can execute terminal commands using the `run_terminal_command` tool. This 
 
 ## Testing Guidelines
 
-- Prefer specific imports over import * to make dependencies explicit and improve maintainability
-- Exception: When mocking modules that have many internal dependencies (like isomorphic-git), it may be cleaner to use import * to avoid having to list every internal function that might be called
+- Prefer specific imports over import \* to make dependencies explicit and improve maintainability
+- Exception: When mocking modules that have many internal dependencies (like isomorphic-git), it may be cleaner to use import \* to avoid having to list every internal function that might be called
 
 ## TODO
 

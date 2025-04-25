@@ -45,9 +45,9 @@ describe('limitScreenshots', () => {
       },
     ]
     const result = limitScreenshots(messages, 2)
-    const images = result.flatMap(msg =>
+    const images = result.flatMap((msg) =>
       Array.isArray(msg.content)
-        ? msg.content.filter(item => item.type === 'image')
+        ? msg.content.filter((item) => item.type === 'image')
         : []
     )
     expect(images).toHaveLength(2)

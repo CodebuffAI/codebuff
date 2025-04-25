@@ -23,11 +23,18 @@ export const deleteComment: APIHandler<'delete-comment'> = async (
   const isContractCreator = contract.creatorId === auth.uid
   const isCommentCreator = comment.userId === auth.uid
 
-  if (!isAdminId(auth.uid) && !isContractCreator && !isCommentCreator && !isModId(auth.uid)) {
+  if (
+    !isAdminId(auth.uid) &&
+    !isContractCreator &&
+    !isCommentCreator &&
+    !isModId(auth.uid)
+  ) {
     throw new APIError(403, 'You do not have permission to delete this comment')
   }
 
-  await pg.none(`DELETE FROM contract_comments WHERE comment_id = $1`, [commentId])
+  await pg.none(`DELETE FROM contract_comments WHERE comment_id = $1`, [
+    commentId,
+  ])
 
   await revalidateContractStaticProps(contract)
 

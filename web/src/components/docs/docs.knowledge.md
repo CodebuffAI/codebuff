@@ -64,12 +64,14 @@ src/
 ## Mobile Support
 
 Important: For mobile navigation:
+
 - Use shadcn's official Sidebar component rather than custom mobile solutions
 - Follow the implementation guide at ui.shadcn.com/docs/components/sidebar
 - This ensures consistent behavior and maintainability
 - Provides built-in mobile-friendly navigation patterns
 
 ### Mobile Menu Button Placement
+
 - Place mobile menu triggers inline with section content
 - Avoid placing triggers that push other content to the right
 - Menu buttons should not affect the layout of surrounding elements
@@ -78,6 +80,7 @@ Important: For mobile navigation:
 - Reference ui.shadcn.com for latest mobile navigation patterns and examples
 
 ### Mobile Sheet Navigation
+
 - Bottom sheets must be scrollable when content exceeds height
 - Include visual affordances for closing:
   - Add visible handle/line at top of sheet that stays fixed
@@ -103,6 +106,7 @@ Important: For mobile navigation:
   - Copy exact markup structure from examples
 
 ### Shadcn Component Integration
+
 - Components may look different from shadcn.com even with identical code
 - Visual differences often come from missing CSS variables in globals.css
 - Each component relies on both:
@@ -118,6 +122,7 @@ Important: For mobile navigation:
   - Common examples: Sheet swipe gestures, Dialog animations, Drawer transitions
 
 ### Shadcn Component Integration
+
 - Components may look different from shadcn.com even with identical code
 - Visual differences often come from missing CSS variables in globals.css
 - Each component relies on both:
@@ -142,11 +147,13 @@ Important: For mobile navigation:
 - Contentlayer needs to transform the MDX into executable code
 
 ### MDX File Handling
+
 - Prefer dynamic imports over contentlayer computed fields for optional MDX files
 - Always handle missing MDX files gracefully with try/catch or existence checks
 - Example: For CTA content that may not exist in every category
 
 ### Component Separation Patterns
+
 - When separating list items with dividers:
   - Prefer CSS Grid with divide utilities over manual separators
   - Note: divide-y requires items to be directly adjacent
@@ -157,7 +164,9 @@ Important: For mobile navigation:
   - Example pattern with divide-y:
   ```tsx
   <div className="grid divide-y divide-border">
-    {items.map(item => <Item key={item.id} {...item} />)}
+    {items.map((item) => (
+      <Item key={item.id} {...item} />
+    ))}
   </div>
   ```
 
@@ -204,4 +213,7 @@ order: 1
 3. Keep sidebar visible and functional at all times
 4. Ensure smooth transitions between sections
 5. Preserve URL state with proper hash handling
+
+```
+
 ```

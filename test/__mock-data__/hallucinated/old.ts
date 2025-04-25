@@ -98,7 +98,14 @@ ${STOP_MARKER}
       const fileBlocks = parseFileBlocks(currentFileBlock)
       for (const [filePath, newFileContent] of Object.entries(fileBlocks)) {
         fileProcessingPromises.push(
-          processFileBlock(userId, ws, messages, fullResponse, filePath, newFileContent)
+          processFileBlock(
+            userId,
+            ws,
+            messages,
+            fullResponse,
+            filePath,
+            newFileContent
+          )
         )
 
         currentFileBlock = currentFileBlock.replace(fileRegex, '')

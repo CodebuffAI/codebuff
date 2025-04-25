@@ -80,26 +80,35 @@ export function ClaudeCodeVisualization({
             >
               <div className="border border-orange-500/30 bg-orange-900/10 rounded-lg p-4 text-center mb-4">
                 <div className="font-mono text-orange-500 text-lg mb-2">
-                  Slowculating ({Math.floor(elapsedSeconds)}s ... esc to interrupt)
+                  Slowculating ({Math.floor(elapsedSeconds)}s ... esc to
+                  interrupt)
                 </div>
-                <motion.div 
+                <motion.div
                   className="text-orange-300/70 text-sm"
                   animate={{ opacity: [0.5, 1, 0.5] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
-                  {Array(Math.min(5, Math.floor(elapsedSeconds / 4))).fill('.').join(' ')}
+                  {Array(Math.min(5, Math.floor(elapsedSeconds / 4)))
+                    .fill('.')
+                    .join(' ')}
                 </motion.div>
               </div>
-              
+
               <div className="text-white/40 text-xs mt-3 font-mono flex items-center">
                 <span className="text-orange-500 mr-2">⌛</span>
                 <span>Time elapsed: {formattedTime}</span>
               </div>
-              
+
               <div className="mt-6 text-white/50 text-sm max-w-xs text-center">
-                <span className="text-orange-400/80 font-semibold">Claude Code</span> needs 
-                <span className="text-orange-400 font-bold"> {Math.max(1, 40 - elapsedSeconds)}</span> more seconds 
-                to generate a simple toggle button
+                <span className="text-orange-400/80 font-semibold">
+                  Claude Code
+                </span>{' '}
+                needs
+                <span className="text-orange-400 font-bold">
+                  {' '}
+                  {Math.max(1, 40 - elapsedSeconds)}
+                </span>{' '}
+                more seconds to generate a simple toggle button
               </div>
             </motion.div>
           )}
@@ -158,22 +167,25 @@ export function ClaudeCodeVisualization({
             >
               <div className="border-2 border-orange-500/50 bg-orange-900/20 rounded-lg p-4 text-center mb-4 shadow-md shadow-orange-800/10">
                 <div className="font-mono text-orange-500 text-xl font-semibold mb-2">
-                  Slowculating ({Math.floor(elapsedSeconds)}s ... esc to interrupt)
+                  Slowculating ({Math.floor(elapsedSeconds)}s ... esc to
+                  interrupt)
                 </div>
-                <motion.div 
+                <motion.div
                   className="text-orange-300/70 text-lg font-mono"
                   animate={{ opacity: [0.5, 1, 0.5] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
                 >
-                  {Array(Math.min(10, Math.floor((progress - 55) / 4))).fill('.').join(' ')}
+                  {Array(Math.min(10, Math.floor((progress - 55) / 4)))
+                    .fill('.')
+                    .join(' ')}
                 </motion.div>
               </div>
-              
+
               <div className="text-white/60 text-sm mt-3 font-mono flex items-center">
                 <span className="text-orange-500 mr-2">⏱️</span>
                 <span>Time wasted: {formattedTime}</span>
               </div>
-              
+
               <div className="text-red-400/70 text-sm mt-4 max-w-xs text-center">
                 <span className="font-medium">Still slowiting...</span> Codebuff
                 would be done by now
@@ -199,7 +211,11 @@ export function ClaudeCodeVisualization({
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.5 }}
                 >
-                  <span className="text-orange-500/70">Still slowculating after {Math.floor(elapsedSeconds)} seconds</span>? Seriously?
+                  <span className="text-orange-500/70">
+                    Still slowculating after {Math.floor(elapsedSeconds)}{' '}
+                    seconds
+                  </span>
+                  ? Seriously?
                 </motion.div>
               )}
             </motion.div>
@@ -261,9 +277,7 @@ export function ClaudeCodeVisualization({
                 </div>
               </div>
             </div>
-            <div className="text-xs text-white/30">
-              Finally slowpleting...
-            </div>
+            <div className="text-xs text-white/30">Finally slowpleting...</div>
           </>
         ) : (
           // When calculating, show the "esc to interrupt" message prominently
@@ -271,7 +285,11 @@ export function ClaudeCodeVisualization({
             <div className="flex items-center">
               <span className="text-orange-500 text-xs mr-2">⌘</span>
               <span className="text-white/60 text-xs font-mono">
-                Press <kbd className="bg-black/30 text-orange-400 px-1 rounded">ESC</kbd> to interrupt slowculation...
+                Press{' '}
+                <kbd className="bg-black/30 text-orange-400 px-1 rounded">
+                  ESC
+                </kbd>{' '}
+                to interrupt slowculation...
               </span>
             </div>
             <div className="text-orange-400/70 text-xs font-mono">

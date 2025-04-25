@@ -3,6 +3,7 @@
 ## Build Configuration
 
 When using Next.js 15+ with contentlayer:
+
 - Disable worker threads in next.config.mjs to prevent worker errors:
   ```js
   experimental: {
@@ -701,6 +702,7 @@ The application includes a Discord bot integration using Discord's Interactions 
 ### Key Components
 
 1. **Interactions Endpoint**: `/api/discord/interactions`
+
    - Handles Discord slash commands
    - Verifies requests using Discord's public key
    - Rate limited to 5 requests per minute per user
@@ -918,6 +920,7 @@ Important: When integrating PostHog:
 ## Build Configuration
 
 When using Next.js 15+ with contentlayer:
+
 - Disable worker threads in next.config.mjs to prevent worker errors:
   ```js
   experimental: {
@@ -935,6 +938,7 @@ When using Next.js 15+ with contentlayer:
 ## Stripe Webhooks
 
 Webhook handlers are split by event type for clarity:
+
 - `handleCreditGrantCreated`: Handles credit grant creation/updates
   - Uses operation_id from metadata or falls back to grant.id
   - Defaults to 'free' grant type if not specified
@@ -946,18 +950,22 @@ Webhook handlers are split by event type for clarity:
 Each handler is responsible for its own validation and error handling.
 
 Important: Use ts-pattern's match with object structure validation:
+
 ```typescript
-match(event)
-  .with({
+match(event).with(
+  {
     type: P.string.startsWith('event.type'),
     data: {
       object: {
         id: P.string,
         // Validate required fields
-      }
-    }
-  }, handler)
+      },
+    },
+  },
+  handler
+)
 ```
+
 This ensures both event type and object structure are valid before processing.
 
 ### Webhook Error Handling

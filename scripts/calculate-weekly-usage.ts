@@ -3,7 +3,9 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 
 async function calculateWeeklyUsage() {
-  console.log('Calculating credit usage in the last 7 days (active subscribers only)...\n')
+  console.log(
+    'Calculating credit usage in the last 7 days (active subscribers only)...\n'
+  )
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
@@ -21,7 +23,9 @@ async function calculateWeeklyUsage() {
       )
 
     const totalCredits = parseInt(totalResult[0]?.totalCredits || '0')
-    console.log(`\nTotal credits used in last 7 days: ${totalCredits.toLocaleString()}`)
+    console.log(
+      `\nTotal credits used in last 7 days: ${totalCredits.toLocaleString()}`
+    )
 
     // Get credits used per user with active subscription
     const userResults = await db
@@ -66,7 +70,6 @@ async function calculateWeeklyUsage() {
       const credits = parseInt(result.dailyCredits)
       console.log(`${result.date}: ${credits.toLocaleString()} credits`)
     }
-
   } catch (error) {
     console.error('Error calculating weekly usage:', error)
   }

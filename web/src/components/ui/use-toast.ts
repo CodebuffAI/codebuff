@@ -161,7 +161,10 @@ function toast({ title, description, ...props }: Toast) {
   })
 
   // Track the toast in PostHog
-  const descriptionString = typeof description === 'string' ? description : JSON.stringify(description ?? null);
+  const descriptionString =
+    typeof description === 'string'
+      ? description
+      : JSON.stringify(description ?? null)
   posthog.capture('toast.shown', {
     title: typeof title === 'string' ? title : JSON.stringify(title ?? null),
     description: descriptionString,

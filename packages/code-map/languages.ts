@@ -119,5 +119,5 @@ export async function getLanguageConfig(
     }
   }
 
-  return config 
+  return config
 }

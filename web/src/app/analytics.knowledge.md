@@ -3,6 +3,7 @@
 ## PostHog Integration
 
 Important: When integrating PostHog:
+
 - Initialize after user consent
 - Respect Do Not Track browser setting
 - Anonymize IP addresses by setting `$ip: null`
@@ -17,6 +18,7 @@ Important: When integrating PostHog:
   - Place consent UI inside PostHogProvider to access context directly
 
 Example event tracking:
+
 ```typescript
 posthog.capture('event_name', {
   referrer: document.referrer,
@@ -28,6 +30,7 @@ posthog.capture('event_name', {
 ## Event Tracking Patterns
 
 Important event tracking considerations:
+
 - Track location/source of identical actions (e.g., 'copy_action' from different places)
 - For terminal interactions, track both the command and its result
 - Pass event handlers down as props rather than accessing global posthog in child components
@@ -41,11 +44,13 @@ Important event tracking considerations:
 The application uses the following event categories for consistent tracking:
 
 1. Home Page Events (`home.*`)
+
    - home.cta_clicked
    - home.video_opened
    - home.testimonial_clicked
 
 2. Demo Terminal Events (`demo_terminal.*`)
+
    - demo_terminal.command_executed
    - demo_terminal.help_viewed
    - demo_terminal.theme_changed
@@ -53,41 +58,49 @@ The application uses the following event categories for consistent tracking:
    - demo_terminal.rainbow_added
 
 3. Authentication Events (`auth.*`)
+
    - auth.login_started
    - auth.login_completed
    - auth.logout_completed
 
 4. Cookie Consent Events (`cookie_consent.*`)
+
    - cookie_consent.accepted
    - cookie_consent.declined
 
-4. Subscription Events (`subscription.*`)
+5. Subscription Events (`subscription.*`)
+
    - subscription.plan_viewed
    - subscription.upgrade_started
    - subscription.payment_completed
    - subscription.change_confirmed
 
-5. Referral Events (`referral.*`)
+6. Referral Events (`referral.*`)
+
    - referral.link_copied
    - referral.code_redeemed
    - referral.invite_sent
 
-6. Documentation Events (`docs.*`)
+7. Documentation Events (`docs.*`)
+
    - docs.viewed
 
-7. Banner Events (`banner.*`)
+8. Banner Events (`banner.*`)
+
    - banner.clicked
 
-8. Usage Events (`usage.*`)
+9. Usage Events (`usage.*`)
    - usage.warning_shown
 
 Progress bar color coding:
+
 - Blue: Normal usage (<90%)
 - Yellow: High usage (90-95%)
 - Red: Critical usage (>95%)
 - Shows warning message when exceeding quota with overage rate details
 
 9. Navigation Events (`navigation.*`)
+
    - navigation.docs_clicked
    - navigation.pricing_clicked
 
@@ -97,67 +110,71 @@ Progress bar color coding:
 Properties that should be included with events:
 
 1. Toast Events:
-    ```typescript
-    {
-      title?: string,      // The toast title if provided
-      variant?: 'default' | 'destructive'  // The toast variant
-    }
-    ```
+   ```typescript
+   {
+     title?: string,      // The toast title if provided
+     variant?: 'default' | 'destructive'  // The toast variant
+   }
+   ```
 
 Properties that should be included with events:
 
 1. Usage Events:
-    ```typescript
-    {
-      credits_used: number,
-      credits_limit: number,
-      percentage_used: number
-    }
-    ```
+   ```typescript
+   {
+     credits_used: number,
+     credits_limit: number,
+     percentage_used: number
+   }
+   ```
 
 Properties that should be included with events:
 
 1. Documentation Events:
-    ```typescript
-    {
-      section: string // The documentation section being viewed
-    }
-    ```
+
+   ```typescript
+   {
+     section: string // The documentation section being viewed
+   }
+   ```
 
 2. Banner Events:
-    ```typescript
-    {
-      type: 'youtube_referral' | 'referral',
-      source?: string // The referrer if available
-    }
-    ```
+   ```typescript
+   {
+     type: 'youtube_referral' | 'referral',
+     source?: string // The referrer if available
+   }
+   ```
 
 Other Events:
 
 1. Auth Events:
-    ```typescript
-    {
-      provider: 'github' | 'google'
-    }
-    ```
+
+   ```typescript
+   {
+     provider: 'github' | 'google'
+   }
+   ```
 
 2. Subscription Events:
-    ```typescript
-    {
-      current_plan?: string,
-      target_plan?: string
-    }
-    ```
+
+   ```typescript
+   {
+     current_plan?: string,
+     target_plan?: string
+   }
+   ```
 
 3. Referral Events:
-    ```typescript
-    {
-      referrer?: string,
-      code?: string
-    }
-    ```
+   ```typescript
+   {
+     referrer?: string,
+     code?: string
+   }
+   ```
 
 Example event tracking:
+
 ```typescript
 import posthog from 'posthog-js'
 
@@ -177,27 +194,32 @@ Event names should use dot notation to create natural groupings, with verb-first
 Examples by category:
 
 ### Demo Terminal Events
+
 - demo_terminal.command_executed
-- demo_terminal.help_viewed  
+- demo_terminal.help_viewed
 - demo_terminal.theme_changed
 - demo_terminal.bug_fixed
 
-### Authentication Events  
+### Authentication Events
+
 - auth.login_started
 - auth.login_completed
 - auth.logout_completed
 
 ### Subscription Events
+
 - subscription.plan_viewed
 - subscription.upgrade_started
 - subscription.payment_completed
 
 ### Referral Events
+
 - referral.link_copied
 - referral.code_redeemed
 - referral.invite_sent
 
 Example event properties:
+
 ```typescript
 // Terminal events
 {
@@ -227,6 +249,7 @@ Example event properties:
 1. **Consistent Categories**: Use established categories (demo_terminal, auth, subscription, etc.) for all new events
 
 2. **Event Properties**:
+
    - Include theme in all UI events
    - Add source/location for user actions
    - Include error details for failure cases
@@ -241,6 +264,7 @@ Example event properties:
 ## Component Patterns
 
 When adding analytics to React components:
+
 - Pass event handlers as props (e.g., `onTestimonialClick`) rather than using global PostHog directly
 - Avoid naming conflicts with component state by using aliases (e.g., `colorTheme` for theme context)
 - Keep all analytics event handlers in the parent component
@@ -250,6 +274,7 @@ When adding analytics to React components:
 ## TypeScript Integration
 
 Important: When integrating PostHog with Next.js:
+
 - Use the official PostHog React provider from 'posthog-js/react'
 - Wrap the provider with the PostHog client instance: `<PostHogProvider client={posthog}>`
 - Initialize PostHog before using the provider
@@ -258,6 +283,7 @@ Important: When integrating PostHog with Next.js:
 - Consider disabling automatic pageview tracking and handling it manually for more control
 
 Example setup:
+
 ```typescript
 'use client'
 import posthog from 'posthog-js'
@@ -284,6 +310,7 @@ export function PostHogProvider({ children }) {
 The application implements LinkedIn conversion tracking using a multi-step flow:
 
 1. Initial Visit:
+
    - Capture `li_fat_id` from URL query parameters
    - Store in localStorage
    - Clear from URL for cleaner user experience
@@ -305,6 +332,7 @@ Important: This pattern ensures accurate attribution even when users don't conve
 ## Implementation Guidelines
 
 1. Centralize Tracking Logic:
+
    - Keep tracking code DRY by centralizing in shared functions
    - Multiple UI components may trigger the same conversion event
    - Maintain consistent tracking parameters across all conversion points
@@ -320,6 +348,7 @@ Important: This pattern ensures accurate attribution even when users don't conve
 ## UTM Source Handling
 
 Special UTM sources:
+
 - youtube: Shows personalized banner with referrer name and bonus amount
 - Referrer name passed via `referrer` parameter
 - Used for tracking creator-driven referrals
@@ -329,6 +358,7 @@ Special UTM sources:
 ## Referral Link Handling
 
 Special UTM sources:
+
 - youtube: Shows personalized banner with referrer name and bonus amount
 - Referrer name passed via `referrer` parameter
 - Used for tracking creator-driven referrals
@@ -348,6 +378,7 @@ Special UTM sources:
 ## Sponsee Referral Configuration
 
 Each sponsee has three distinct identifiers:
+
 - Routing key: URL-friendly identifier for page routing (e.g., 'berman')
 - Display name: Full name for UI display (e.g., 'Matthew Berman')
 - Referral code: Unique code for tracking referrals
@@ -355,12 +386,14 @@ Each sponsee has three distinct identifiers:
 - Use routing key as object key for consistent lookup
 
 The sponseeConfig object in constants.ts is the single source of truth for:
+
 - Route validation (/[sponsee] page)
 - Display names (banner, referral pages)
 - Referral code mapping (referral system)
 - YouTube referral tracking
 
 Example flow:
+
 1. User visits /{routing-key}
 2. Redirects to /?utm_source=youtube&referrer={routing-key}
 3. Banner shows {display-name}
@@ -375,6 +408,7 @@ Example flow:
 ## Referral Link Handling
 
 Special UTM sources:
+
 - `youtube`: Indicates a referral likely came from a partner/creator.
 - The `referrer` parameter contains the handle associated with the referral link.
 - This information is used for tracking in PostHog.

@@ -60,7 +60,7 @@ Notes:
     - For straightforward requests, proceed directly without adding subgoals.
 7.  **Reading Files:** Try to read as many files as could possibly be relevant in your first 1 or 2 read_files tool calls. List multiple file paths in one tool call, as many as you can. You must read more files whenever it would improve your response.
 8.  **Minimal Changes:** You should make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more. When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.
-9. **Code Hygiene:** Make sure to leave things in a good state:
+9.  **Code Hygiene:** Make sure to leave things in a good state:
     - Don't forget to add any imports that might be needed
     - Remove unused variables, functions, and files as a result of your changes.
     - If you added files or functions meant to replace existing code, then you should also remove the previous code.

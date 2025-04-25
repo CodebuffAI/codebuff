@@ -16,12 +16,16 @@ function test() {
 >>>>>>> REPLACE`
 
     const result = parseAndGetDiffBlocksSingleFile(newContent, oldContent)
-    console.log(JSON.stringify({result}))
-    
+    console.log(JSON.stringify({ result }))
+
     expect(result.diffBlocks.length).toBe(1)
     expect(result.diffBlocksThatDidntMatch.length).toBe(0)
-    expect(result.diffBlocks[0].searchContent).toBe('function test() {\n  return true;\n}\n')
-    expect(result.diffBlocks[0].replaceContent).toBe('function test() {\n  if (!condition) return false;\n  return true;\n}\n')
+    expect(result.diffBlocks[0].searchContent).toBe(
+      'function test() {\n  return true;\n}\n'
+    )
+    expect(result.diffBlocks[0].replaceContent).toBe(
+      'function test() {\n  if (!condition) return false;\n  return true;\n}\n'
+    )
   })
 
   it('should parse diff blocks without newline before closing marker', () => {
@@ -37,11 +41,15 @@ function test() {
 }>>>>>>> REPLACE`
 
     const result = parseAndGetDiffBlocksSingleFile(newContent, oldContent)
-    
+
     expect(result.diffBlocks.length).toBe(1)
     expect(result.diffBlocksThatDidntMatch.length).toBe(0)
-    expect(result.diffBlocks[0].searchContent).toBe('function test() {\n  return true;\n}\n')
-    expect(result.diffBlocks[0].replaceContent).toBe('function test() {\n  if (!condition) return false;\n  return true;\n}')
+    expect(result.diffBlocks[0].searchContent).toBe(
+      'function test() {\n  return true;\n}\n'
+    )
+    expect(result.diffBlocks[0].replaceContent).toBe(
+      'function test() {\n  if (!condition) return false;\n  return true;\n}'
+    )
   })
 
   it('should handle multiple diff blocks with mixed newline patterns', () => {
@@ -82,11 +90,15 @@ function subtract(a, b) {
 >>>>>>> REPLACE`
 
     const result = parseAndGetDiffBlocksSingleFile(newContent, oldContent)
-    
+
     expect(result.diffBlocks.length).toBe(2)
     expect(result.diffBlocksThatDidntMatch.length).toBe(0)
-    expect(result.diffBlocks[0].searchContent).toBe('function add(a, b) {\n  return a + b;\n}\n')
-    expect(result.diffBlocks[1].searchContent).toBe('function subtract(a, b) {\n  return a - b;\n}\n')
+    expect(result.diffBlocks[0].searchContent).toBe(
+      'function add(a, b) {\n  return a + b;\n}\n'
+    )
+    expect(result.diffBlocks[1].searchContent).toBe(
+      'function subtract(a, b) {\n  return a - b;\n}\n'
+    )
   })
 
   it('should handle empty replace content (with just one newline)', () => {
@@ -102,7 +114,7 @@ function subtract(a, b) {
 >>>>>>> REPLACE`
 
     const result = parseAndGetDiffBlocksSingleFile(newContent, oldContent)
-    
+
     expect(result.diffBlocks.length).toBe(1)
     expect(result.diffBlocksThatDidntMatch.length).toBe(0)
     expect(result.diffBlocks[0].searchContent).toBe('  // This is a comment\n')

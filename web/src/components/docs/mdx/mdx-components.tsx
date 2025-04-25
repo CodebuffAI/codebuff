@@ -5,11 +5,7 @@ import { CodeDemo } from './code-demo'
 import { MarkdownTable } from './markdown-table'
 import { SchemaDisplay } from './schema-display'
 
-import { 
-  HTMLAttributes, 
-  AnchorHTMLAttributes, 
-  ImgHTMLAttributes 
-} from 'react'
+import { HTMLAttributes, AnchorHTMLAttributes, ImgHTMLAttributes } from 'react'
 
 interface MdxProps {
   code: string

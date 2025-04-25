@@ -147,7 +147,9 @@ export function promptGeminiStream(
           temperature: temperature ?? 0.7,
           maxOutputTokens: maxTokens,
           stopSequences,
-          ...(thinkingBudget !== undefined ? { thinkingConfig: { thinkingBudget } } : {}),
+          ...(thinkingBudget !== undefined
+            ? { thinkingConfig: { thinkingBudget } }
+            : {}),
         })
 
         streamResult = await generativeModel.generateContentStream({
@@ -256,7 +258,9 @@ export async function promptGemini(
       temperature: temperature ?? 0.7,
       maxOutputTokens: maxTokens,
       stopSequences,
-      ...(thinkingBudget !== undefined ? { thinkingConfig: { thinkingBudget } } : {}),
+      ...(thinkingBudget !== undefined
+        ? { thinkingConfig: { thinkingBudget } }
+        : {}),
     })
 
     const timeoutMs = model === geminiModels.gemini2flash ? 60_000 : 200_000

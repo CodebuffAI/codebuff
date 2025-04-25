@@ -1,4 +1,4 @@
-import { Loader2, LogOut, LucideProps, Moon, Sun } from 'lucide-react';
+import { Loader2, LogOut, LucideProps, Moon, Sun } from 'lucide-react'
 
 export const Icons = {
   sun: Sun,
@@ -13,4 +13,4 @@ export const Icons = {
       ></path>
     </svg>
   ),
-};
+}

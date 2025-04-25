@@ -16,7 +16,9 @@ export function LoginCard({ authCode }: { authCode?: string | null }) {
         <Suspense>
           <Card>
             <CardHeader>
-              <CardTitle className="mb-2">{authCode ? 'Login' : 'Login'}</CardTitle>
+              <CardTitle className="mb-2">
+                {authCode ? 'Login' : 'Login'}
+              </CardTitle>
               <CardDescription>
                 {authCode
                   ? 'Continue to sign in to the Codebuff CLI.'

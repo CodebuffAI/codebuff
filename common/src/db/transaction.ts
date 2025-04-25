@@ -7,7 +7,7 @@ type TransactionCallback<T> = Parameters<typeof db.transaction<T>>[0]
 /**
  * Executes a database transaction with SERIALIZABLE isolation level and automatic
  * retries on serialization failures.
- * 
+ *
  * @param callback The transaction callback
  * @param context Additional context for logging (e.g., userId, operationId)
  * @returns The result of the transaction
@@ -18,10 +18,7 @@ export async function withSerializableTransaction<T>(
 ): Promise<T> {
   return withRetry(
     async () => {
-      return await db.transaction(
-        callback,
-        { isolationLevel: 'serializable' }
-      )
+      return await db.transaction(callback, { isolationLevel: 'serializable' })
     },
     {
       maxRetries: 3,

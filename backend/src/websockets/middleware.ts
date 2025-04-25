@@ -25,7 +25,10 @@ import {
 import { checkAndTriggerAutoTopup } from 'common/src/billing/auto-topup'
 import { generateCompactId } from 'common/util/string'
 import { pluralize } from 'common/util/string'
-import { getPlanFromPriceId, getMonthlyGrantForPlan } from 'common/src/billing/plans'
+import {
+  getPlanFromPriceId,
+  getMonthlyGrantForPlan,
+} from 'common/src/billing/plans'
 
 type MiddlewareCallback = (
   action: ClientAction,
@@ -254,9 +257,11 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
   })
 
   // Try auto top-up if balance falls below threshold
-  if (userWithSettings?.auto_topup_enabled && 
-      userWithSettings.auto_topup_threshold && 
-      balance.totalRemaining < userWithSettings.auto_topup_threshold) {
+  if (
+    userWithSettings?.auto_topup_enabled &&
+    userWithSettings.auto_topup_threshold &&
+    balance.totalRemaining < userWithSettings.auto_topup_threshold
+  ) {
     try {
       await checkAndTriggerAutoTopup(userId)
       // Get updated balance after potential auto top-up
@@ -267,7 +272,8 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
 
       // If auto-topup occurred, send updated usage info
       if (newUsageAndBalance.balance.totalRemaining > balance.totalRemaining) {
-        const creditsAdded = newUsageAndBalance.balance.totalRemaining - balance.totalRemaining
+        const creditsAdded =
+          newUsageAndBalance.balance.totalRemaining - balance.totalRemaining
         logger.info(
           {
             userId,

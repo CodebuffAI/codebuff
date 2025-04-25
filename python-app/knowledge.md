@@ -48,6 +48,7 @@ Remember to keep this knowledge file updated as the project evolves.
 # Python Package Development
 
 ## Package Information
+
 - Name: codebuff
 - Description: An AI-powered coding assistant
 - Status: Placeholder package that redirects users to npm version
@@ -55,6 +56,7 @@ Remember to keep this knowledge file updated as the project evolves.
 ## Development Environment
 
 Important: Use virtual environments for package development:
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate

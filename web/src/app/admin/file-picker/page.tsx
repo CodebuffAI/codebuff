@@ -222,8 +222,9 @@ export default function FilePicker() {
                         <TableHead>Query</TableHead>
                         {modelNames.map((model) => (
                           <TableHead key={model}>
-                            {nameOverrides[model as keyof typeof nameOverrides] ||
-                              model}
+                            {nameOverrides[
+                              model as keyof typeof nameOverrides
+                            ] || model}
                           </TableHead>
                         ))}
                       </TableRow>
@@ -242,19 +243,19 @@ export default function FilePicker() {
                             >
                               {result.outputs[model]
                                 ? result.outputs[model]
-                                  .split('\n')
-                                  .map((file) => file.trim())
-                                  .filter((file) => file.length > 0)
-                                  .map((file, fileIndex) => (
-                                    <div
-                                      key={fileIndex}
-                                      className="block mb-2"
-                                    >
-                                      <span className="px-2 py-1 bg-secondary rounded-full text-xs">
-                                        {file}
-                                      </span>
-                                    </div>
-                                  ))
+                                    .split('\n')
+                                    .map((file) => file.trim())
+                                    .filter((file) => file.length > 0)
+                                    .map((file, fileIndex) => (
+                                      <div
+                                        key={fileIndex}
+                                        className="block mb-2"
+                                      >
+                                        <span className="px-2 py-1 bg-secondary rounded-full text-xs">
+                                          {file}
+                                        </span>
+                                      </div>
+                                    ))
                                 : 'N/A'}
                             </TableCell>
                           ))}

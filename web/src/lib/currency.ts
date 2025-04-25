@@ -4,7 +4,7 @@
  * @returns Formatted dollar amount as string (e.g. "10" or "10.50")
  */
 export const formatDollars = (cents: number) => {
-  return cents % 100 === 0 
+  return cents % 100 === 0
     ? Math.floor(cents / 100).toString()
     : (cents / 100).toFixed(2)
 }

@@ -5,11 +5,13 @@
 When testing diff block parsing:
 
 1. Test indentation preservation:
+
    - Include tests for languages where indentation is significant (e.g., Python)
    - Verify parser can handle search/replace blocks with different indentation than source
    - Test both spaces and tabs for indentation
 
 2. Test format variations:
+
    - Single-line vs multiline formats (e.g., imports)
    - Different whitespace patterns for the same logical code
    - Mixed indentation levels within a single block
@@ -24,15 +26,17 @@ Remember: The parser should be flexible in accepting search/replace blocks with 
 ## Code Block Detection
 
 When detecting truncated code blocks:
+
 - Check for explicit phrases like "rest of the"
 - Match comment patterns with ellipsis: `// ... code ...`
-- Support multiple comment styles: //, #, /* */
+- Support multiple comment styles: //, #, /\* \*/
 - Avoid false positives from regular ellipsis usage in comments
 - Only match comments containing specific words: rest, unchanged, keep, file, existing, some
 
 ## Code Block Detection
 
 When detecting truncated code blocks:
+
 - Check for explicit phrases like "rest of the"
 - Match comment patterns with ellipsis: `// ... code`
 - Support multiple comment styles:
@@ -52,11 +56,13 @@ When detecting truncated code blocks:
 When mocking database queries:
 
 1. Chain methods properly:
+
    - Mock all methods in the query chain (select, from, where, groupBy, etc.)
    - Return appropriate objects with next methods in chain
    - Pay special attention to groupBy and then methods
 
 2. Return consistent test data:
+
    - Match the shape of real database responses
    - Include all fields referenced in tests
    - Use realistic dates/values that won't cause test failures
@@ -68,12 +74,14 @@ When mocking database queries:
 When writing tests for the quota management system:
 
 1. Date Comparisons:
+
    - Use a buffer when comparing dates to account for processing time
    - Example: `expect(result.endDate.getTime()).toBeGreaterThan(pastDate.getTime() - 1000)`
    - For exact date matches, convert both dates to ISO strings first
    - When mocking dates from DB, always use toISOString() to match DB format
 
 2. Credit Values:
+
    - Always reference CREDITS_USAGE_LIMITS constants instead of hardcoding values
    - Remember values differ between local and production environments
    - Test both environments if values affect test logic
@@ -90,6 +98,7 @@ When writing tests for the quota management system:
 ## Test Infrastructure
 
 ### Test Command Timeouts
+
 - When tests hang or timeout, try running with explicit file path
 - If test command still fails, verify changes with type checker
 - Consider running individual test files directly with bun test
@@ -98,6 +107,7 @@ When writing tests for the quota management system:
 ### Tree-Sitter Test Isolation
 
 When writing tests that don't need tree-sitter functionality:
+
 - Place tests in a separate directory (e.g., `__tests__/browser/`)
 - Create a jest.mock() for tree-sitter in the test file itself
 - Don't rely on global mocks or setup files which may not be loaded in the right order
@@ -109,6 +119,7 @@ When writing tests that don't need tree-sitter functionality:
 ### Zod Schema Best Practices
 
 When using Zod for optional fields:
+
 - Split schemas into Required and Optional components
 - Use `.merge()` to combine them for the final schema
 - Keep required fields in RequiredXSchema (e.g., RequiredBrowserStartActionSchema)
@@ -118,6 +129,7 @@ When using Zod for optional fields:
 - Makes it easier to maintain consistent optional fields across related types
 
 When handling circular references in Zod schemas:
+
 - Break the cycle by creating a base schema without the circular reference
 - Use the base schema in the circular reference instead of the full schema
 - Then create the full schema that includes both the base and circular parts
@@ -125,6 +137,7 @@ When handling circular references in Zod schemas:
 - This prevents TypeScript errors from implicit circular type references
 
 When sharing code between packages:
+
 - Keep shared utilities in the common package
 - Avoid cross-package imports between backend and npm-app
 - If functionality is needed in multiple packages, move it to common
@@ -133,8 +146,9 @@ When sharing code between packages:
 ### Module Mocking Best Practices
 
 When mocking modules with default exports:
-  - Mock the module with { default: { ... } }
-  - Example: mock.module('puppeteer', () => ({ default: { launch: mockLaunch } }))
+
+- Mock the module with { default: { ... } }
+- Example: mock.module('puppeteer', () => ({ default: { launch: mockLaunch } }))
 - Reset mocks in beforeEach:
   - Use mockFn.mockReset() instead of modifying mock.calls directly
   - mock.calls is a readonly property in Bun
@@ -144,6 +158,7 @@ When mocking modules with default exports:
 ## Testing Event Handlers
 
 When testing code that uses event handlers:
+
 - Store handlers in mock implementation for later use
 - Example: mockOn.implementation = handler
 - Access stored handler to simulate events
@@ -154,6 +169,7 @@ When testing code that uses event handlers:
 ## Testing XML Tag Handling
 
 When testing XML tag processing:
+
 - Create custom handlers for specific test cases rather than using default handlers
 - Use string concatenation to avoid issues with XML tags in test strings
 - For nested tags, test both parent and child tag handling

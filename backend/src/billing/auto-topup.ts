@@ -41,9 +41,15 @@ export async function validateAutoTopupStatus(userId: string) {
     throw new AutoTopupValidationError('Auto top-up settings are incomplete')
   }
 
-  const { balance } = await calculateUsageAndBalance(userId, user.next_quota_reset ?? new Date(0))
+  const { balance } = await calculateUsageAndBalance(
+    userId,
+    user.next_quota_reset ?? new Date(0)
+  )
 
-  if (balance.totalRemaining > user.auto_topup_threshold && balance.totalDebt === 0) {
+  if (
+    balance.totalRemaining > user.auto_topup_threshold &&
+    balance.totalDebt === 0
+  ) {
     return false
   }
 
@@ -75,14 +81,22 @@ export async function processAutoTopupPayment(userId: string) {
     },
   })
 
-  if (!user?.auto_topup_enabled || !user.auto_topup_amount || !user.stripe_customer_id) {
+  if (
+    !user?.auto_topup_enabled ||
+    !user.auto_topup_amount ||
+    !user.stripe_customer_id
+  ) {
     throw new AutoTopupValidationError('Invalid auto top-up configuration')
   }
 
-  const { balance } = await calculateUsageAndBalance(userId, user.next_quota_reset ?? new Date(0))
-  const amountToTopUp = balance.totalDebt > 0
-    ? Math.max(user.auto_topup_amount, balance.totalDebt)
-    : user.auto_topup_amount
+  const { balance } = await calculateUsageAndBalance(
+    userId,
+    user.next_quota_reset ?? new Date(0)
+  )
+  const amountToTopUp =
+    balance.totalDebt > 0
+      ? Math.max(user.auto_topup_amount, balance.totalDebt)
+      : user.auto_topup_amount
 
   throw new Error('Not implemented')
 }
@@ -97,7 +111,10 @@ export async function checkAndTriggerAutoTopup(userId: string) {
     await processAutoTopupPayment(userId)
   } catch (error) {
     if (error instanceof AutoTopupValidationError) {
-      logger.warn({ userId, error: error.message }, 'Auto top-up validation failed')
+      logger.warn(
+        { userId, error: error.message },
+        'Auto top-up validation failed'
+      )
       await disableAutoTopup(userId)
     } else {
       logger.error({ userId, error }, 'Auto top-up processing failed')

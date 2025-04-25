@@ -480,10 +480,17 @@ export class Saxy extends Transform {
     const end = input.length
 
     while (chunkPos < end) {
-      if (input[chunkPos] !== '<' || (chunkPos + 1 < end && !this._isXMLTagStart(input, chunkPos + 1))) {
+      if (
+        input[chunkPos] !== '<' ||
+        (chunkPos + 1 < end && !this._isXMLTagStart(input, chunkPos + 1))
+      ) {
         // Find next potential tag, but verify it's actually a tag
         let nextTag = input.indexOf('<', chunkPos)
-        while (nextTag !== -1 && nextTag + 1 < end && !this._isXMLTagStart(input, nextTag + 1)) {
+        while (
+          nextTag !== -1 &&
+          nextTag + 1 < end &&
+          !this._isXMLTagStart(input, nextTag + 1)
+        ) {
           nextTag = input.indexOf('<', nextTag + 1)
         }
 
@@ -593,21 +600,27 @@ export class Saxy extends Transform {
 
       if (whitespace === -1 || whitespace >= tagClose - chunkPos) {
         // Tag without any attribute
-        this._handleTagOpening({
-          name: input.slice(chunkPos, realTagClose),
-          attrs: '',
-          isSelfClosing,
-        }, rawTag)
+        this._handleTagOpening(
+          {
+            name: input.slice(chunkPos, realTagClose),
+            attrs: '',
+            isSelfClosing,
+          },
+          rawTag
+        )
       } else if (whitespace === 0) {
         // Invalid tag starting with whitespace - emit as text
         this.emit(Node.text, { contents: rawTag })
       } else {
         // Tag with attributes
-        this._handleTagOpening({
-          name: input.slice(chunkPos, chunkPos + whitespace),
-          attrs: input.slice(chunkPos + whitespace, realTagClose),
-          isSelfClosing,
-        }, rawTag)
+        this._handleTagOpening(
+          {
+            name: input.slice(chunkPos, chunkPos + whitespace),
+            attrs: input.slice(chunkPos + whitespace, realTagClose),
+            isSelfClosing,
+          },
+          rawTag
+        )
       }
 
       chunkPos = tagClose + 1

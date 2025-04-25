@@ -142,7 +142,9 @@ async function manicode(userPrompt: string | undefined) {
     const totalItems = chats.length + 1 // +1 for the NEW_CHAT_OPTION
     const middleIndex = Math.floor(CHATS_PER_PAGE / 2)
 
-    const currentChatIndex = chats.findIndex(chat => chat.id === currentChat.id)
+    const currentChatIndex = chats.findIndex(
+      (chat) => chat.id === currentChat.id
+    )
 
     if (currentChatIndex !== -1) {
       menuSelectedIndex = currentChatIndex
@@ -150,7 +152,10 @@ async function manicode(userPrompt: string | undefined) {
       menuSelectedIndex = Math.min(middleIndex, totalItems - 1)
     }
 
-    menuOffset = Math.max(0, Math.min(menuSelectedIndex - middleIndex, totalItems - CHATS_PER_PAGE))
+    menuOffset = Math.max(
+      0,
+      Math.min(menuSelectedIndex - middleIndex, totalItems - CHATS_PER_PAGE)
+    )
 
     isInMenu = true
     displayMenu()
@@ -169,7 +174,9 @@ async function manicode(userPrompt: string | undefined) {
         const chat = chats[i]
         const isSelected = i === menuSelectedIndex
         const marker = isSelected ? '>' : ' '
-        console.log(`${marker} ${chat.id} (${new Date(chat.updatedAt).toLocaleString()})`)
+        console.log(
+          `${marker} ${chat.id} (${new Date(chat.updatedAt).toLocaleString()})`
+        )
       } else {
         const isSelected = i === menuSelectedIndex
         const marker = isSelected ? '>' : ' '
@@ -178,7 +185,9 @@ async function manicode(userPrompt: string | undefined) {
     }
 
     if (totalItems > CHATS_PER_PAGE) {
-      console.log(`\nShowing ${startIndex + 1}-${endIndex} of ${totalItems} items`)
+      console.log(
+        `\nShowing ${startIndex + 1}-${endIndex} of ${totalItems} items`
+      )
     }
 
     console.log('\nUse arrow keys to navigate, SPACE to select, ESC to exit')
@@ -210,7 +219,8 @@ async function manicode(userPrompt: string | undefined) {
       const totalItems = chats.length + 1 // +1 for the "New Chat" option
       const middleIndex = Math.floor(CHATS_PER_PAGE / 2)
 
-      if (key === '\u001B[A') { // Up arrow
+      if (key === '\u001B[A') {
+        // Up arrow
         if (menuSelectedIndex > 0) {
           menuSelectedIndex--
           if (menuSelectedIndex < menuOffset + middleIndex && menuOffset > 0) {
@@ -218,10 +228,14 @@ async function manicode(userPrompt: string | undefined) {
           }
         }
         displayMenu()
-      } else if (key === '\u001B[B') { // Down arrow
+      } else if (key === '\u001B[B') {
+        // Down arrow
         if (menuSelectedIndex < totalItems - 1) {
           menuSelectedIndex++
-          if (menuSelectedIndex >= menuOffset + middleIndex && menuOffset + CHATS_PER_PAGE < totalItems) {
+          if (
+            menuSelectedIndex >= menuOffset + middleIndex &&
+            menuOffset + CHATS_PER_PAGE < totalItems
+          ) {
             menuOffset++
           }
         }

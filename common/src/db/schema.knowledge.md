@@ -5,9 +5,11 @@
 ### Monitoring Database Changes
 
 For real-time monitoring of database changes, use psql's built-in `\watch` command instead of external watch tools:
+
 ```sql
 SELECT ... FROM table \watch seconds;
 ```
+
 This creates a single persistent connection rather than creating new connections on each refresh.
 
 Important: Local database must be initialized before running schema operations:
@@ -36,12 +38,14 @@ Note: Setup has been primarily tested on Mac. Windows users may encounter platfo
 ## Index Management
 
 Important: Define indexes in schema.ts rather than just migrations:
+
 - Keeps all structural database elements in one place
 - Makes indexes visible during schema review
 - Serves as documentation for query optimization
 - Helps track performance-critical queries
 
 Index Performance Guidelines:
+
 - Avoid indexing high cardinality columns (many unique values) without careful consideration
 - For timestamp columns used in range queries, consider:
   - Query patterns (point vs range queries)
@@ -52,6 +56,7 @@ Index Performance Guidelines:
 - Consider index selectivity - how well it narrows down results
 
 Key indexing decisions:
+
 - Index foreign keys used in joins (user_id, fingerprint_id)
 - Avoid indexing high-cardinality timestamp columns with range queries
 - Focus on columns with high selectivity in WHERE clauses

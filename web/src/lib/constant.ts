@@ -2,7 +2,8 @@ import { env } from '@/env.mjs'
 
 export const siteConfig = {
   title: 'Codebuff',
-  description: 'Code faster with AI using Codebuff. Edit your codebase and run terminal commands via natural language instruction.',
+  description:
+    'Code faster with AI using Codebuff. Edit your codebase and run terminal commands via natural language instruction.',
   keywords: () => [
     'Manicode',
     'Codebuff',

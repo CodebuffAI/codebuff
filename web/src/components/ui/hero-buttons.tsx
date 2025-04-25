@@ -35,7 +35,7 @@ export function HeroButtons({ className }: HeroButtonsProps) {
         onMouseLeave={() => setButtonHovered(false)}
       >
         <div className="absolute inset-0 bg-[rgb(143,228,87)] -translate-x-1 translate-y-1" />
-        
+
         <motion.div
           animate={{
             x: buttonHovered ? 2 : 0,

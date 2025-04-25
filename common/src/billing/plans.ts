@@ -1,5 +1,8 @@
 import { UsageLimits, PLAN_CONFIGS } from '../constants'
-import { getPreviousFreeGrantAmount, calculateTotalReferralBonus } from './grant-credits'
+import {
+  getPreviousFreeGrantAmount,
+  calculateTotalReferralBonus,
+} from './grant-credits'
 import { logger } from '../util/logger'
 
 /**
@@ -15,14 +18,14 @@ export function getPlanFromPriceId(
   if (!priceId) {
     return UsageLimits.FREE
   }
-  
+
   if (proPriceId && priceId === proPriceId) {
     return UsageLimits.PRO
   }
   if (moarProPriceId && priceId === moarProPriceId) {
     return UsageLimits.MOAR_PRO
   }
-  
+
   return UsageLimits.FREE // Default to FREE for unknown or non-matching IDs
 }
 

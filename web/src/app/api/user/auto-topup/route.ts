@@ -24,20 +24,34 @@ export async function POST(request: Request) {
     const validatedData = autoTopupSchema.parse(data)
 
     // Validate the data
-    if (validatedData.enabled && (validatedData.threshold === null || validatedData.amount === null)) {
+    if (
+      validatedData.enabled &&
+      (validatedData.threshold === null || validatedData.amount === null)
+    ) {
       return NextResponse.json(
-        { error: 'Threshold and amount are required when enabling auto top-up' },
+        {
+          error: 'Threshold and amount are required when enabling auto top-up',
+        },
         { status: 400 }
       )
     }
 
-    if (validatedData.enabled && validatedData.threshold !== null && validatedData.amount !== null) {
+    if (
+      validatedData.enabled &&
+      validatedData.threshold !== null &&
+      validatedData.amount !== null
+    ) {
       const minTopUpCredits = 500 // Corresponds to $5 at 1 credit = 1 cent
       const maxTopUpCredits = 10000 // Corresponds to $100 at 1 credit = 1 cent
 
-      if (validatedData.amount < minTopUpCredits || validatedData.amount > maxTopUpCredits) {
+      if (
+        validatedData.amount < minTopUpCredits ||
+        validatedData.amount > maxTopUpCredits
+      ) {
         return NextResponse.json(
-          { error: `Top-up amount must be between ${minTopUpCredits} and ${maxTopUpCredits} credits` },
+          {
+            error: `Top-up amount must be between ${minTopUpCredits} and ${maxTopUpCredits} credits`,
+          },
           { status: 400 }
         )
       }

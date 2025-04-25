@@ -70,6 +70,7 @@ sequenceDiagram
 ## Entry Points
 
 ### 1. First Time Login
+
 ```mermaid
 sequenceDiagram
     participant CLI as npm-app
@@ -83,6 +84,7 @@ sequenceDiagram
 ```
 
 ### 2. Logout Flow
+
 ```mermaid
 sequenceDiagram
     participant CLI as npm-app
@@ -102,6 +104,7 @@ sequenceDiagram
 ```
 
 ### 3. Missing Credentials
+
 ```mermaid
 sequenceDiagram
     participant CLI as npm-app
@@ -120,6 +123,7 @@ sequenceDiagram
 ## Exit Points
 
 ### 1. Success: New Device
+
 ```mermaid
 sequenceDiagram
     participant CLI as npm-app
@@ -136,6 +140,7 @@ sequenceDiagram
 ```
 
 ### 2. Success: Known Device
+
 ```mermaid
 sequenceDiagram
     participant CLI as npm-app
@@ -152,6 +157,7 @@ sequenceDiagram
 ```
 
 ### 3. Failure: Ownership Conflict
+
 ```mermaid
 sequenceDiagram
     participant CLI as npm-app
@@ -168,6 +174,7 @@ sequenceDiagram
 ```
 
 ### 4. Failure: Invalid/Expired Code
+
 ```mermaid
 sequenceDiagram
     participant CLI as npm-app
@@ -193,16 +200,19 @@ sequenceDiagram
 ## Implementation Guidelines
 
 1. Centralize Auth Logic:
+
    - Keep auth code in one place
    - Handle fingerprint and credentials together
    - Avoid duplicating auth checks
 
 2. Fingerprint Management:
+
    - Use existing fingerprintId from credentials when available
    - Only generate new ones for first-time users
    - Reference fingerprintId from Client instance (single source of truth)
 
 3. Class Initialization:
+
    - Initialize auth properties in constructors
    - Use pre-calculated async values with defaults
    - Override defaults with user values if available

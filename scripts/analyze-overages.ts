@@ -207,14 +207,15 @@ async function analyzeOverages(): Promise<void> {
 
     for (const [plan, stats] of statsByPlan.entries()) {
       // Filter customers who actually had overages
-      const customersWithOverage = stats.customers.filter(c => c.overage > 0);
-      const numCustomersWithOverage = customersWithOverage.length;
-      totalCustomersWithOverages += numCustomersWithOverage; // Accumulate for overall summary
+      const customersWithOverage = stats.customers.filter((c) => c.overage > 0)
+      const numCustomersWithOverage = customersWithOverage.length
+      totalCustomersWithOverages += numCustomersWithOverage // Accumulate for overall summary
 
       // Calculate average overage based only on customers who had overages
-      const avgOverage = numCustomersWithOverage > 0
-        ? stats.totalOverage / (numCustomersWithOverage * 100) // Convert cents to dollars
-        : 0;
+      const avgOverage =
+        numCustomersWithOverage > 0
+          ? stats.totalOverage / (numCustomersWithOverage * 100) // Convert cents to dollars
+          : 0
 
       const planConfig = PLAN_CONFIGS[plan as UsageLimits]
       const basePrice = planConfig?.monthlyPrice || 0
@@ -226,13 +227,19 @@ async function analyzeOverages(): Promise<void> {
       console.log(`\n${plan}:`)
       // Correctly report the number of customers *with* overages
       console.log(`  Number of established customers: ${stats.customerCount}`)
-      console.log(`  Number of customers with overages: ${numCustomersWithOverage}`)
+      console.log(
+        `  Number of customers with overages: ${numCustomersWithOverage}`
+      )
       console.log(
         `  Total overage amount: $${(stats.totalOverage / 100).toFixed(2)}`
       )
       // Report average overage only for those who had overages
-      console.log(`  Average overage (among those with overages): $${avgOverage.toFixed(2)}`)
-      console.log(`  Base MRR (from established customers): $${baseMRR.toFixed(2)}`)
+      console.log(
+        `  Average overage (among those with overages): $${avgOverage.toFixed(2)}`
+      )
+      console.log(
+        `  Base MRR (from established customers): $${baseMRR.toFixed(2)}`
+      )
       console.log(
         `  Total Revenue (MRR + overages): $${(
           baseMRR +
@@ -279,31 +286,42 @@ async function analyzeOverages(): Promise<void> {
     console.log(
       `Total Revenue (MRR + overages): $${(totalMRR + totalOverage).toFixed(2)}`
     )
-    const percentageFromOverages = totalMRR + totalOverage > 0
+    const percentageFromOverages =
+      totalMRR + totalOverage > 0
         ? (totalOverage / (totalMRR + totalOverage)) * 100
-        : 0;
+        : 0
     console.log(
       `Percentage of total revenue from overages: ${percentageFromOverages.toFixed(1)}%`
     )
 
-
     // Print combined averages for both plans
     console.log('\nCombined Plan Statistics:')
-    console.log(`Total established customers across all plans: ${totalEstablishedCustomers}`)
+    console.log(
+      `Total established customers across all plans: ${totalEstablishedCustomers}`
+    )
     console.log(
       `Average base MRR per established customer: $${(totalMRR / totalEstablishedCustomers).toFixed(2)}`
     )
     // Calculate average overage across *all* established customers
-    const avgOverageAllCustomers = totalEstablishedCustomers > 0 ? totalOverage / totalEstablishedCustomers : 0;
+    const avgOverageAllCustomers =
+      totalEstablishedCustomers > 0
+        ? totalOverage / totalEstablishedCustomers
+        : 0
     console.log(
       `Average overage per established customer: $${avgOverageAllCustomers.toFixed(2)}`
     )
-     // Calculate average overage across only customers *with* overages
-    const avgOverageAmongstOveragers = totalCustomersWithOverages > 0 ? totalOverage / totalCustomersWithOverages : 0;
+    // Calculate average overage across only customers *with* overages
+    const avgOverageAmongstOveragers =
+      totalCustomersWithOverages > 0
+        ? totalOverage / totalCustomersWithOverages
+        : 0
     console.log(
-        `Average overage (among those with overages): $${avgOverageAmongstOveragers.toFixed(2)}`
+      `Average overage (among those with overages): $${avgOverageAmongstOveragers.toFixed(2)}`
     )
-    const avgTotalRevenue = totalEstablishedCustomers > 0 ? (totalMRR + totalOverage) / totalEstablishedCustomers : 0;
+    const avgTotalRevenue =
+      totalEstablishedCustomers > 0
+        ? (totalMRR + totalOverage) / totalEstablishedCustomers
+        : 0
     console.log(
       `Average total revenue per established customer: $${avgTotalRevenue.toFixed(2)}`
     )
@@ -317,7 +335,7 @@ async function analyzeOverages(): Promise<void> {
 
     for (const stats of statsByPlan.values()) {
       // Iterate only over customers with overages
-      for (const customer of stats.customers.filter(c => c.overage > 0)) {
+      for (const customer of stats.customers.filter((c) => c.overage > 0)) {
         const overageAmountDollars = customer.overage / 100 // Convert cents to dollars
         if (overageAmountDollars <= 50) combinedUsageBuckets.small++
         else if (overageAmountDollars <= 100) combinedUsageBuckets.medium++

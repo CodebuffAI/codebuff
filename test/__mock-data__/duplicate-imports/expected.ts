@@ -5,9 +5,12 @@ const MANIFOLD_API_BASE_URL = 'https://manifold.markets/api/v0'
 
 async function searchManifoldMarkets(query: string): Promise<any> {
   try {
-    const response = await axios.get(`${MANIFOLD_API_BASE_URL}/search-markets`, {
-      params: { term: query, limit: 1 }
-    })
+    const response = await axios.get(
+      `${MANIFOLD_API_BASE_URL}/search-markets`,
+      {
+        params: { term: query, limit: 1 },
+      }
+    )
     return response.data[0]
   } catch (error) {
     console.error('Error searching Manifold Markets:', error)
@@ -32,7 +35,8 @@ export const getTools = (): Tool[] => {
     } as Tool,
     {
       name: 'search_manifold_market',
-      description: 'Searches for a relevant market on Manifold Markets and returns its current probability.',
+      description:
+        'Searches for a relevant market on Manifold Markets and returns its current probability.',
       input_schema: {
         type: 'object',
         properties: {
@@ -47,7 +51,10 @@ export const getTools = (): Tool[] => {
   ]
 }
 
-export const executeToolCall = async (name: string, input: any): Promise<any> => {
+export const executeToolCall = async (
+  name: string,
+  input: any
+): Promise<any> => {
   switch (name) {
     case 'search_manifold_market':
       const market = await searchManifoldMarkets(input.query)
