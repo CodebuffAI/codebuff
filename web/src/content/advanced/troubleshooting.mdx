@@ -55,16 +55,16 @@ If you see an error like this:
 ```bash
 npm ERR! code ENOTEMPTY
 npm ERR! syscall rename
-npm ERR! path /Users/my-user/.nvm/versions/node/v18.18.2/lib/node_modules/codebuff
-npm ERR! dest /Users/my-user/.nvm/versions/node/v18.18.2/lib/node_modules/.codebuff-NmQAW018
+npm ERR! path /some/path/to/node_modules/codebuff
+npm ERR! dest /some/path/to/node_modules/.codebuff-SOMEHASH
 npm ERR! errno -66
-npm ERR! ENOTEMPTY: directory not empty, rename '/Users/my-user/.nvm/versions/node/v18.18.2/lib/node_modules/codebuff' -> '/Users/my-user/.nvm/versions/node/v18.18.2/lib/node_modules/.codebuff-NmQAW018'
+npm ERR! ENOTEMPTY: directory not empty, rename '/some/path/to/node_modules/codebuff' -> '/some/path/to/node_modules/.codebuff-SOMEHASH'
 ```
 
-It means you have a directory named `.codebuff-NmQAW018` in your node_modules directory. This is a temporary directory created by npm when installing packages. You can safely delete this directory and try again:
+It means you have a directory named `.codebuff-SOMEHASH` in your node_modules directory. This is a temporary directory created by npm when installing packages. You can safely delete this directory and try again:
 
 ```bash
-rm -rf /Users/my-user/.nvm/versions/node/v18.18.2/lib/node_modules/.codebuff-NmQAW018
+rm -rf /some/path/to/node_modules/.codebuff-SOMEHASH
 ```
 
 ### Need More Help?
