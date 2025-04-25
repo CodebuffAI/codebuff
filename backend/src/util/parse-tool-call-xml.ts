@@ -39,7 +39,7 @@ ${toolResults
 <result>${result.result}</result>
 </tool_result>`
   )
-  .join('\n')}
+  .join('\n\n')}
 `.trim()
 }
 

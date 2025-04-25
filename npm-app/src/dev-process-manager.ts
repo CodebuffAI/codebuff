@@ -24,7 +24,7 @@ export function startDevProcesses(
     return
   }
 
-  console.log(yellow('Starting development processes:'))
+  console.log(yellow('Starting codebuff.json processes:'))
 
   for (const {
     name,
@@ -58,9 +58,9 @@ export function startDevProcesses(
       ({ result }) => {
         const m = result.match(/<process_id>(\d+)<\/process_id>/)
         if (m) {
-          console.log(yellow(`- ${name}: \`${command}\``))
+          console.log(yellow(`- ${name}: ${command}`))
         } else {
-          console.log(yellow(`- ${name}: \`${command}\` failed to start`))
+          console.log(yellow(`- ${name}: ${command} — failed to start`))
         }
       }
     )

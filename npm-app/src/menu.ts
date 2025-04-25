@@ -34,9 +34,11 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
     max: bold(blueBright('Max mode️ ⚡ enabled')),
     experimental: bold(magenta('Experimental mode 🧪 enabled')),
   }
-  console.log(`${costModeDescription[costMode]}`)
+  if (costModeDescription[costMode]) {
+    console.log(`${costModeDescription[costMode]}`)
+  }
   console.log(
-    `codebuff will read and write files in "${getProjectRoot()}". Type "help" for a list of commands.`
+    `Codebuff will read and write files in "${getProjectRoot()}". Type "help" for a list of commands.`
   )
 
   const gitDir = path.join(getProjectRoot(), '.git')
@@ -50,7 +52,7 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
   if (!fs.existsSync(gitDir)) {
     console.info(
       magenta(
-        "Just fyi, this project doesn't contain a .git directory (are you at the top level of your project?). codebuff works best with a git repo!"
+        "Just fyi, this project doesn't contain a .git directory (are you at the top level of your project?). Codebuff works best with a git repo!"
       )
     )
   }
@@ -93,7 +95,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
 `)
   console.log(bold(green("Welcome! I'm your AI coding assistant.")))
   console.log(
-    `\ncodebuff will read and write files within your current directory (${getProjectRoot()}) and run commands in your terminal.`
+    `\nCodebuff will read and write files within your current directory (${getProjectRoot()}) and run commands in your terminal.`
   )
 
   console.log('\nASK CODEBUFF TO...')
@@ -103,13 +105,13 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
   console.log('- Fix errors from compiling your project or running tests')
   console.log('- Write a script.')
   console.log(
-    '- Plan a feature before implementing it. Or, write your own plan in a file and ask codebuff to implement it step-by-step'
+    '- Plan a feature before implementing it. Or, write your own plan in a file and ask Codebuff to implement it step-by-step'
   )
   console.log(
     '- Build an integration after pasting in the URL to relevant documentation'
   )
   console.log(
-    '- "Create knowledge files for your codebase" to help codebuff understand your project'
+    '- "Create knowledge files for your codebase" to help Codebuff understand your project'
   )
 
   console.log('\nCommands:')
@@ -119,18 +121,18 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
   )
   console.log('- Press ESC to cancel generation')
   console.log(
-    '- Type "init" to have codebuff automatically configure your project for a smoother experience'
+    '- Type "init" to have Codebuff automatically configure your project for a smoother experience'
   )
   console.log(
     '- Type "undo" or "redo" (abbreviated "u" or "r") to undo or redo the last change'
   )
-  console.log('- Type "login" to log into codebuff')
-  console.log('- Type "exit" or press Ctrl+C twice to exit codebuff')
+  console.log('- Type "login" to log into Codebuff')
+  console.log('- Type "exit" or press Ctrl+C twice to exit Codebuff')
   console.log(
     '- Type "diff" or "d" to show changes from the last assistant response'
   )
   console.log(
-    '- Start codebuff with --lite for efficient responses, --max for higher quality responses, or --experimental for cutting-edge features'
+    '- Start Codebuff with --lite for efficient responses, --max for higher quality responses, or --experimental for cutting-edge features'
   )
 
   console.log('\nCheckpoint Commands:')
@@ -150,11 +152,11 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
   )
 
   console.log(
-    "\nAny files in .gitignore are not read by codebuff. You can ignore further files with .codebuffignore, or choose files codebuff should not ignore by adding a '!' prefix to the ignore pattern."
+    "\nAny files in .gitignore are not read by Codebuff. You can ignore further files with .codebuffignore, or choose files Codebuff should not ignore by adding a '!' prefix to the ignore pattern."
   )
   console.log(
     '\nEmail your feedback to',
     bold(blue('founders@codebuff.com.')),
-    'Thanks for using codebuff!'
+    'Thanks for using Codebuff!'
   )
 }

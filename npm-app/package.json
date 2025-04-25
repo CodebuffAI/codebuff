@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.238",
+  "version": "1.0.244",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -47,6 +47,7 @@
     "env-cmd": "^10.1.0",
     "ignore": "7.0.3",
     "isomorphic-git": "^1.29.0",
+    "pino": "9.4.0",
     "jsonc-parser": "^3.3.1",
     "lodash": "*",
     "nanoid": "5.0.7",

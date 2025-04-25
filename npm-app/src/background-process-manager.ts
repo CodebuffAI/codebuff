@@ -15,6 +15,7 @@ import {
 import path from 'path'
 import process from 'process'
 
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { ToolResult } from 'common/types/agent-state'
 import { buildArray } from 'common/util/array'
 import { truncateStringWithMessage } from 'common/util/string'
@@ -22,6 +23,7 @@ import { gray, red } from 'picocolors'
 import { z } from 'zod'
 
 import { CONFIG_DIR } from './credentials'
+import { logger } from './utils/logger'
 
 const COMMAND_OUTPUT_LIMIT = 5000 // Limit output to 10KB per stream
 const COMMAND_KILL_TIMEOUT_MS = 5000
@@ -254,6 +256,13 @@ export function spawnAndTrack(
     detached: true,
   })
   assert(child.pid !== undefined)
+  logger.info(
+    {
+      eventId: AnalyticsEvent.BACKGROUND_PROCESS_START,
+      pid: child.pid,
+    },
+    `Process start: \`${command} ${args.join(' ')}\``
+  )
 
   mkdirSync(LOCK_DIR, { recursive: true })
   const filePath = path.join(LOCK_DIR, `${child.pid}`)
@@ -261,6 +270,10 @@ export function spawnAndTrack(
 
   child.on('exit', () => {
     deleteFileIfExists(filePath)
+    logger.info(
+      { eventId: AnalyticsEvent.BACKGROUND_PROCESS_END, pid: child.pid },
+      `Graceful exit: \`${command} ${args.join(' ')}\``
+    )
   })
   return child
 }
@@ -354,7 +367,7 @@ export async function killAllBackgroundProcesses(): Promise<void> {
     .map(async ([pid, processInfo]) => {
       try {
         await killAndWait(pid)
-        console.log(gray(`Killed process: \`${processInfo.command}\``))
+        // console.log(gray(`Killed process: \`${processInfo.command}\``))
       } catch (error: any) {
         console.error(
           red(
@@ -400,6 +413,10 @@ export function cleanupStoredProcesses(): {
 
   if (locksToProcess.length) {
     console.log(gray('Detected running codebuff processes. Cleaning...\n'))
+    logger.info({
+      eventId: AnalyticsEvent.BACKGROUND_PROCESS_LEFTOVER_DETECTED,
+      pids: locksToProcess,
+    })
   }
 
   // Actually kill processes (async)
@@ -409,10 +426,18 @@ export function cleanupStoredProcesses(): {
     const pid = parseInt(pidName, 10)
     if (isNaN(pid)) {
       deleteFileIfExists(lockFile)
+      logger.info(
+        { eventId: AnalyticsEvent.BACKGROUND_PROCESS_END, pid },
+        'Lock found but process not running.'
+      )
       return
     }
 
     if (backgroundProcesses.has(pid)) {
+      logger.error(
+        { eventId: AnalyticsEvent.BACKGROUND_PROCESS_END, pid },
+        'Process running in current session. Should not occur.'
+      )
       return
     }
 
@@ -420,10 +445,28 @@ export function cleanupStoredProcesses(): {
       killProcessTreeSoftly(pid)
       if (await waitForProcessExit(pid)) {
         deleteFileIfExists(lockFile)
+        logger.info(
+          { eventId: AnalyticsEvent.BACKGROUND_PROCESS_END, pid },
+          'Process successfully killed.'
+        )
+      } else {
+        logger.warn(
+          { eventId: AnalyticsEvent.BACKGROUND_PROCESS_CONTINUE, pid },
+          'Process unable to be killed. Leaving lock file.'
+        )
       }
     } catch (err: any) {
       if (err.code === 'ESRCH') {
         deleteFileIfExists(lockFile)
+        logger.info(
+          { eventId: AnalyticsEvent.BACKGROUND_PROCESS_END, pid },
+          'Leftover process (with lock) died naturally.'
+        )
+      } else {
+        logger.error(
+          { eventId: AnalyticsEvent.BACKGROUND_PROCESS_CONTINUE, err, pid },
+          'Error killing process'
+        )
       }
     }
   }

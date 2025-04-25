@@ -30,8 +30,8 @@ import {
   SHOULD_ASK_CONFIG,
   UserState,
 } from 'common/constants'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from 'common/json-config/constants'
-import { AnalyticsEvent } from 'common/src/constants/analytics-events'
 import {
   AgentState,
   getInitialAgentState,
@@ -68,8 +68,10 @@ import {
   getProjectRoot,
 } from './project-files'
 import { handleToolCall } from './tool-handlers'
+
 import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
+import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
@@ -125,6 +127,7 @@ export class Client {
   private git: GitCommand
   private rl: Interface
   private responseComplete: boolean = false
+  private responseBuffer: string = ''
   private oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
     Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
       (typeof ONE_TIME_LABELS)[number],
@@ -183,7 +186,7 @@ export class Client {
     this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
     this.rl = rl
-    trackEvent(AnalyticsEvent.APP_LAUNCHED)
+    logger.info({ eventId: AnalyticsEvent.APP_LAUNCHED }, 'App launched')
   }
 
   async exit() {
@@ -215,7 +218,11 @@ export class Client {
       identifyUser(user.id, {
         email: user.email,
         name: user.name,
+        fingerprintId: this.fingerprintId,
       })
+      loggerContext.userId = user.id
+      loggerContext.userEmail = user.email
+      loggerContext.fingerprintId = user.fingerprintId
     }
     return user
   }
@@ -425,7 +432,6 @@ export class Client {
         this.freshPrompt()
         return
       }
-
       const { loginUrl, fingerprintHash, expiresAt } = await response.json()
 
       const responseToUser = [
@@ -489,10 +495,17 @@ export class Client {
             identifyUser(user.id, {
               email: user.email,
               name: user.name,
+              fingerprintId: fingerprintId,
             })
-            trackEvent(AnalyticsEvent.LOGIN, user.id, {
-              fingerprintId,
-            })
+            loggerContext.userId = user.id
+            loggerContext.userEmail = user.email
+            loggerContext.fingerprintId = fingerprintId
+            logger.info(
+              {
+                eventId: AnalyticsEvent.LOGIN,
+              },
+              'login'
+            )
 
             const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
             mkdirSync(credentialsPathDir, { recursive: true })
@@ -673,16 +686,17 @@ export class Client {
     }
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
+    loggerContext.clientRequestId = userInputId
 
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
         Spinner.get().stop()
-        process.stdout.write(chunk)
+        this.displayChunk(chunk)
       },
       userInputId,
       () => {
         Spinner.get().stop()
-        process.stdout.write(green(underline('\nCodebuff') + ':') + ' ')
+        this.displayChunk(green(underline('\nCodebuff') + ':') + ' ')
       },
       prompt
     )
@@ -722,13 +736,30 @@ export class Client {
     }
   }
 
+  /**
+   * Shrinks all instances of more than 2 newlines in a row.
+   * Note: don't start or end colored text with newlines
+   * @param chunk chunk to display
+   */
+  public displayChunk(chunk: string) {
+    // Process chunk to limit consecutive newlines
+    const combinedContent = this.responseBuffer + chunk
+    const processedContent = combinedContent.replace(/\n{3,}/g, '\n\n')
+    const processedChunk = processedContent.slice(this.responseBuffer.length)
+
+    this.responseBuffer = processedContent
+
+    process.stdout.write(processedChunk)
+  }
+
   private subscribeToResponse(
     onChunk: (chunk: string) => void,
     userInputId: string,
     onStreamStart: () => void,
     prompt: string
   ) {
-    let responseBuffer = ''
+    const rawChunkBuffer: string[] = []
+    this.responseBuffer = ''
     let streamStarted = false
     let responseStopped = false
     let resolveResponse: (
@@ -758,7 +789,7 @@ export class Client {
         { role: 'user' as const, content: prompt },
         {
           role: 'user' as const,
-          content: `<system><assistant_message>${responseBuffer}</assistant_message>[RESPONSE_CANCELED_BY_USER]</system>`,
+          content: `<system><assistant_message>${rawChunkBuffer.join('')}</assistant_message>[RESPONSE_CANCELED_BY_USER]</system>`,
         },
       ]
 
@@ -783,12 +814,13 @@ export class Client {
 
     const xmlStreamParser = createXMLStreamParser(toolRenderers, (chunk) => {
       onChunk(chunk)
-      responseBuffer += chunk
     })
 
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
+
+      rawChunkBuffer.push(chunk)
 
       const trimmed = chunk.trim()
       for (const tag of ONE_TIME_TAGS) {
@@ -800,7 +832,7 @@ export class Client {
           const warningMessage = trimmed
             .replace(`<${tag}>`, '')
             .replace(`</${tag}>`, '')
-          console.warn(yellow(`\n${warningMessage}`))
+          this.displayChunk(yellow(`\n\n${warningMessage}\n\n`))
           this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
           return
         }
@@ -861,20 +893,21 @@ export class Client {
             ) {
               this.oneTimeFlags[SHOULD_ASK_CONFIG] = true
             }
+            if (toolCall.name === 'run_terminal_command') {
+              this.displayChunk('\n\n')
+              this.responseBuffer = '\n'
+            }
             const toolResult = await handleToolCall(toolCall, getProjectRoot())
             toolResults.push(toolResult)
           } catch (error) {
-            console.error(
-              red(`Error parsing tool call ${toolCall.name}:\n${error}`)
+            this.displayChunk(
+              '\n\n' +
+                red(`Error parsing tool call ${toolCall.name}:\n${error}`) +
+                '\n\n'
             )
           }
         }
-        if (
-          toolResults.length > 0 ||
-          a.toolCalls.some((call) => call.name === 'end_turn')
-        ) {
-          console.log()
-        }
+        this.displayChunk('\n\n')
 
         // If we had any file changes, update the project context
         if (this.hadFileChanges) {
@@ -911,14 +944,13 @@ export class Client {
             break askConfig
           }
 
-          console.log(
-            yellow(
-              `✨ Recommended: run the 'init' command in order to create a configuration file!
+          this.displayChunk(
+            '\n\n' +
+              yellow(`✨ Recommended: run the 'init' command in order to create a configuration file!
 
-If you would like background processes (like this one) to run automatically whenever codebuff starts, creating a ${CONFIG_FILE_NAME} config file can improve your workflow.
-Go to https://www.codebuff.com/config for more information.
-`
-            )
+If you would like background processes (like this one) to run automatically whenever Codebuff starts, creating a ${CONFIG_FILE_NAME} config file can improve your workflow.
+Go to https://www.codebuff.com/config for more information.`) +
+              '\n\n'
           )
         }
 
@@ -930,7 +962,9 @@ Go to https://www.codebuff.com/config for more information.
         const credits =
           this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
         if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
-          console.log(`${pluralize(credits, 'credit')} used for this request.`)
+          this.displayChunk(
+            `\n\n${pluralize(credits, 'credit')} used for this request.\n`
+          )
         }
 
         if (this.hadFileChanges) {
@@ -940,8 +974,8 @@ Go to https://www.codebuff.com/config for more information.
           } catch (error) {
             // No latest checkpoint, don't show addendum
           }
-          console.log(
-            `\nComplete! Type "diff" to review changes${checkpointAddendum}.`
+          this.displayChunk(
+            `\n\nComplete! Type "diff" to review changes${checkpointAddendum}.\n\n`
           )
           this.hadFileChanges = false
           this.freshPrompt()

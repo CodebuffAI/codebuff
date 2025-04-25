@@ -92,7 +92,7 @@
     },
     "npm-app": {
       "name": "codebuff",
-      "version": "1.0.238",
+      "version": "1.0.240",
       "bin": {
         "codebuff": "dist/index.js",
       },
@@ -109,6 +109,7 @@
         "lodash": "*",
         "nanoid": "5.0.7",
         "picocolors": "1.1.0",
+        "pino": "9.4.0",
         "posthog-node": "^4.14.0",
         "puppeteer-core": "^24.2.0",
         "systeminformation": "5.23.4",

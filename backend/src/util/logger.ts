@@ -32,13 +32,15 @@ export const withLoggerContext = <T>(
   return loggerAsyncStorage.run({ ...store, ...additionalContext }, fn)
 }
 
-const fileTransport = pino.transport({
+const localFileTransport = pino.transport({
   target: 'pino/file',
-  options: { destination: path.join(__dirname, '..', 'debug.log') },
+  options: {
+    destination: path.join(__dirname, '../../../debug', 'backend.log'),
+  },
   level: 'debug',
 })
 
-export const pinoLogger = pino(
+const pinoLogger = pino(
   {
     level: 'debug',
     mixin() {
@@ -51,7 +53,7 @@ export const pinoLogger = pino(
     },
     timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
   },
-  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production' ? undefined : fileTransport
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local' ? localFileTransport : undefined
 )
 
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
