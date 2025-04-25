@@ -19,6 +19,7 @@ console.log(
   `Using environment: ${process.env.NEXT_PUBLIC_CB_ENVIRONMENT} (path: ${DOTENV_PATH})`
 )
 dotenv.config({ path: DOTENV_PATH })
+console.log(process.env.GOOGLE_APPLICATION_CREDENTIALS)
 
 export const env = createEnv({
   server: {
