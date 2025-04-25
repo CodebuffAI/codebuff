@@ -1,3 +1,4 @@
+import fs from 'fs'
 import path from 'path'
 
 import { createEnv } from '@t3-oss/env-core'
@@ -20,6 +21,20 @@ console.log(
 )
 dotenv.config({ path: DOTENV_PATH })
 console.log(process.env.GOOGLE_APPLICATION_CREDENTIALS)
+
+if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  try {
+    const contents = fs.readFileSync(
+      process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      'utf8'
+    )
+    console.log('Google credentials file contents:', contents)
+  } catch (error) {
+    console.log('Google credentials file does not exist')
+  }
+} else {
+  console.log('GOOGLE_APPLICATION_CREDENTIALS environment variable not set')
+}
 
 export const env = createEnv({
   server: {
