@@ -22,7 +22,9 @@ let client: BigQuery | null = null
 
 function getClient(): BigQuery {
   if (!client) {
-    throw new Error('BigQuery client not initialized. Call setupBigQuery first.')
+    throw new Error(
+      'BigQuery client not initialized. Call setupBigQuery first.'
+    )
   }
   return client
 }
@@ -30,8 +32,11 @@ function getClient(): BigQuery {
 export async function setupBigQuery(dataset: string = DATASET) {
   try {
     logger.info('Creating BigQuery client...')
-    client = new BigQuery()
+    client = new BigQuery({
+      projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
+    })
     logger.info('BigQuery client created, initializing dataset...')
+    logger.info({ envvars: process.env }, 'asdf')
 
     // Ensure dataset exists
     const [ds] = await client.dataset(dataset).get({ autoCreate: true })
@@ -119,7 +124,10 @@ export async function insertRelabel(
           : relabel.payload,
     }
 
-    await getClient().dataset(dataset).table(RELABELS_TABLE).insert(relabelToInsert)
+    await getClient()
+      .dataset(dataset)
+      .table(RELABELS_TABLE)
+      .insert(relabelToInsert)
 
     logger.debug({ relabelId: relabel.id }, 'Inserted relabel into BigQuery')
     return true
