@@ -1,9 +1,9 @@
-import { AnalyticsEvent } from 'common/src/constants/analytics-events'
 import { PostHog } from 'posthog-node'
 
-import { logger } from './logger'
+import { AnalyticsEvent } from 'common/src/constants/analytics-events'
 
-import { env } from '@/env.mjs'
+import { env } from './env.mjs'
+import { logger } from './util/logger'
 
 let client: PostHog | undefined
 
@@ -18,11 +18,11 @@ export function initAnalytics() {
     host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
   })
 }
-export function flushAnalytics() {
+export async function flushAnalytics() {
   if (!client) {
     return
   }
-  client.flush()
+  await client.flush()
 }
 
 export function trackEvent(
@@ -44,4 +44,16 @@ export function trackEvent(
     event,
     properties,
   })
+}
+
+// Designed for contexts where we don't guarantee
+// that we've run an init() ahead of time, or a flush() later
+export async function trackEventServerless(
+  event: AnalyticsEvent,
+  userId: string,
+  properties?: Record<string, any>
+) {
+  initAnalytics()
+  trackEvent(event, userId, properties)
+  await flushAnalytics()
 }
