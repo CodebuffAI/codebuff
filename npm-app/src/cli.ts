@@ -32,6 +32,7 @@ import { showEasterEgg } from './cli-handlers/easter-egg'
 import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
 import { Client } from './client'
 import { websocketUrl } from './config'
+import { disableSquashNewlines, enableSquashNewlines } from './display'
 import { displayGreeting, displayMenu } from './menu'
 import { getProjectRoot, isDir } from './project-files'
 import { CliOptions, GitCommand } from './types'
@@ -201,12 +202,12 @@ export class CLI {
 
     // Check for pending auto-topup message before showing prompt
     if (this.client.pendingTopUpMessageAmount > 0) {
-      this.client.displayChunk(
+      console.log(
         '\n\n' +
           green(
             `Auto top-up successful! ${this.client.pendingTopUpMessageAmount.toLocaleString()} credits added.`
           ) +
-          '\n\n'
+          '\n'
       )
       this.client.pendingTopUpMessageAmount = 0
     }
@@ -217,6 +218,8 @@ export class CLI {
 
     // then prompt
     this.rl.prompt()
+
+    disableSquashNewlines()
 
     if (!userInput) {
       return
@@ -275,6 +278,7 @@ export class CLI {
   }
 
   private async handleUserInput(userInput: string) {
+    enableSquashNewlines()
     this.rl.setPrompt('')
     if (!userInput) {
       this.freshPrompt()
