@@ -397,7 +397,7 @@ export const runCommandPty = (
   const ptyProcess = persistentProcess.pty
   let commandOutput = ''
   let pendingOutput = ''
-  let linesToSkip = command.split('\n').length // Count command lines to skip
+  let foundFirstNewLine = false
 
   if (mode === 'assistant') {
     console.log(green(`> ${command}`))
@@ -432,21 +432,15 @@ export const runCommandPty = (
 
     const prefix = commandOutput + pendingOutput + data
 
-    // Skip initial command echo lines
-    if (linesToSkip > 0) {
-      const lines = prefix.split('\n')
-
-      if (lines.length <= linesToSkip) {
-        // Not enough lines to finish skipping yet
-        pendingOutput = lines[lines.length - 1]
-        linesToSkip -= lines.length - 1
+    // Skip the first line of the output, because it's the command being printed.
+    if (!foundFirstNewLine) {
+      if (!prefix.includes('\n')) {
         return
-      } else {
-        // We have enough lines to finish skipping and start processing
-        pendingOutput = ''
-        data = lines.slice(linesToSkip).join('\n')
-        linesToSkip = 0
       }
+
+      foundFirstNewLine = true
+      const newLineIndex = prefix.indexOf('\n')
+      data = prefix.slice(newLineIndex + 1)
     }
 
     const dataLines = (pendingOutput + data).split('\r\n')
