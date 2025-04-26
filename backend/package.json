@@ -7,7 +7,7 @@
   "scripts": {
     "start": "bun run -r tsconfig-paths/register src/index.ts",
     "dev": "bun --hot run -r tsconfig-paths/register src/index.ts",
-    "build": "tsc",
+    "build": "tsc --build",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
     "build-and-typecheck": "bun run build && bun run typecheck-this-package",
     "typecheck": "bun run --cwd ../common build && bun run typecheck-this-package",
