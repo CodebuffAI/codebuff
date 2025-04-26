@@ -422,7 +422,6 @@ export const runCommandPty = (
   persistentProcess.timerId = timer
 
   const dataDisposable = ptyProcess.onData((data: string) => {
-    console.log({ data }, 'asdf')
     // Trim first line if it's the prompt identifier
     if (
       (commandOutput + pendingOutput).trim() === '' &&
