@@ -51,6 +51,9 @@ Guidelines:
 - Do not include <end_turn> tags (or any other tool call tags).
 - Make sure to end your response with "</thought>\n</think_deeply>"
 
+Misc Guidelines:
+- When mentioning a file path, make sure to include all the directories in the path to the file. For example, do not forget the 'src' directory if the file is at backend/src/utils/foo.ts.
+
 Important: Keep your thinking as short as possible! Just a few words suffices. Especially in simple cases or when the next action is clear.`
 
   const thinkDeeplyPrefix = '<think_deeply>\n<thought>'

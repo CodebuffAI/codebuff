@@ -132,7 +132,7 @@ export const mainPrompt = async (
 
     'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Makes sure when using write_file to pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
 
-    'When editing an existing file, write the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
+    'When editing an existing file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
 
     'When using tools, make sure to NOT use XML attributes. The format should contain nested XML tags. For example, when using write_file, the format should be <write_file><path>...</path><content>...</content></write_file>',
 
@@ -142,6 +142,10 @@ export const mainPrompt = async (
 
     isFlash &&
       "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
+    isFlash &&
+      'If you have thought of a whole plan, please execute the ENTIRE plan before using the end_turn tool.',
+    isFlash &&
+      'When using write_file, do NOT rewrite the entire file. Only write the parts of the file that have changed and write "... existing code ..." comments around the changed area.',
 
     // Experimental gemini thinking
     costMode === 'experimental' || costMode === 'max'
@@ -474,7 +478,7 @@ export const mainPrompt = async (
         userId,
       }
     )
-    if (model === models.gpt4_1) {
+    if (model === models.gpt4_1 || model === models.gemini2_5_flash) {
       onResponseChunk('\n')
       response += '\n'
     }
