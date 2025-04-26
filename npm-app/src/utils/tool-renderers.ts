@@ -98,6 +98,9 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       return '\n'
     },
   },
+  find_files: {
+    ...defaultToolCallRenderer,
+  },
   think_deeply: {
     ...defaultToolCallRenderer,
   },

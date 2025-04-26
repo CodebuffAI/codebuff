@@ -139,27 +139,31 @@ ${getToolCallString('read_files', {
 
 Note that there's no need to call this tool if you're already reading the files you need in context.`.trim(),
   },
-  //   {
-  //     name: 'find_files',
-  //     description: `
-  // ### find_files
-  // Description: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
-  // Parameters:
-  // - description: (required) A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.
-  // Usage:
-  // <find_files>
-  // <description>The implementation of function foo</description>
-  // </find_files>
+  {
+    name: 'find_files',
+    description: `
+### find_files
+Description: Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.
+Parameters:
+- description: (required) A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.
+Usage:
+<find_files>
+<description>The implementation of function foo</description>
+</find_files>
 
-  // Purpose: Better fulfill the user request by reading files which could contain information relevant to the user's request.
-  // Use cases:
-  // - If you are calling a function or creating a class and want to know how it works, use this tool to get the implementation.
-  // - If you need to understand a section of the codebase, read more files in that directory or subdirectories.
-  // - Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
+Purpose: Better fulfill the user request by reading files which could contain information relevant to the user's request.
+Use cases:
+- If you are calling a function or creating a class and want to know how it works, use this tool to get the implementation.
+- If you need to understand a section of the codebase, read more files in that directory or subdirectories.
+- Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
 
-  // Note that there's no need to call this tool if you're already reading the files you need in context.
-  //     `.trim(),
-  //   },
+Don't use this tool if:
+- You already know the exact path of the file(s) you are looking for — in this case, use read_files.
+- You already read the files you need in context.
+
+In general, prefer using read_files instead of find_files.
+      `.trim(),
+  },
   {
     name: 'code_search',
     description: `

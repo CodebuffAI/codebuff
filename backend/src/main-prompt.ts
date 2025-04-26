@@ -478,7 +478,7 @@ export const mainPrompt = async (
         userId,
       }
     )
-    if (model === models.gpt4_1 || model === models.gemini2_5_flash) {
+    if (model === models.gpt4_1) {
       onResponseChunk('\n')
       response += '\n'
     }
@@ -646,8 +646,6 @@ export const mainPrompt = async (
         .map((path) => path.trim())
         .filter(Boolean)
 
-      logger.debug(toolCall, 'tool call')
-
       const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
         ws,
         messagesWithResponse,
@@ -690,6 +688,61 @@ export const mainPrompt = async (
         name: 'read_files',
         result: renderReadFilesResult(addedFiles),
       })
+    } else if (name === 'find_files') {
+      const { addedFiles, updatedFilePaths, printedPaths } =
+        await getFileReadingUpdates(
+          ws,
+          messagesWithResponse,
+          getSearchSystemPrompt(
+            fileContext,
+            costMode,
+            fileRequestMessagesTokens,
+            {
+              agentStepId,
+              clientSessionId,
+              fingerprintId,
+              userInputId: promptId,
+              userId,
+            }
+          ),
+          fileContext,
+          parameters.description,
+          {
+            skipRequestingFiles: false,
+            agentStepId,
+            clientSessionId,
+            fingerprintId,
+            userInputId: promptId,
+            userId,
+            costMode,
+          }
+        )
+      logger.debug(
+        {
+          content: parameters.description,
+          description: parameters.description,
+          addedFilesPaths: addedFiles.map((f) => f.path),
+          updatedFilePaths,
+          printedPaths,
+        },
+        'find_files tool call'
+      )
+      serverToolResults.push({
+        id: generateCompactId(),
+        name: 'find_files',
+        result:
+          addedFiles.length > 0
+            ? renderReadFilesResult(addedFiles)
+            : `No new files found for description: ${parameters.description}`,
+      })
+      if (printedPaths.length > 0) {
+        onResponseChunk('\n\n')
+        onResponseChunk(
+          getToolCallString('read_files', {
+            paths: printedPaths.join('\n'),
+          })
+        )
+      }
     } else if (name === 'think_deeply') {
       const { thought } = parameters
       logger.debug(
