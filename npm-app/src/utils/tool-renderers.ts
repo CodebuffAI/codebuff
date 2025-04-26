@@ -41,7 +41,7 @@ export interface ToolCallRenderer {
  */
 export const defaultToolCallRenderer: ToolCallRenderer = {
   onToolStart: (toolName) => {
-    return gray(`[${bold(snakeToTitleCase(toolName))}]\n`)
+    return gray(`[${bold(snakeToTitleCase(toolName))}]`) + '\n'
   },
 
   onParamChunk: (content, paramName, toolName) => {
@@ -95,7 +95,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
     onToolEnd: (toolName, params) => {
       // Add a final newline after the file list
-      return gray(`\n`)
+      return '\n'
     },
   },
   think_deeply: {
@@ -117,7 +117,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
     onParamEnd: (paramName) => {
       if (paramName === 'path') {
-        return gray('...\n')
+        return gray('...') + '\n'
       }
       return null
     },
@@ -136,7 +136,8 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       }
       return null
     },
-    onParamEnd: (paramName) => (paramName === 'path' ? gray('...\n') : null),
+    onParamEnd: (paramName) =>
+      paramName === 'path' ? gray('...') + '\n' : null,
   },
   add_subgoal: {
     ...defaultToolCallRenderer,
@@ -155,7 +156,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     onParamEnd: (paramName) => {
       const paramsWithNewLine = ['objective', 'status']
       if (paramsWithNewLine.includes(paramName)) {
-        return gray('\n')
+        return '\n'
       }
       return null
     },
@@ -177,7 +178,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     onParamEnd: (paramName) => {
       const paramsWithNewLine = ['status']
       if (paramsWithNewLine.includes(paramName)) {
-        return gray('\n')
+        return '\n'
       }
       return null
     },
