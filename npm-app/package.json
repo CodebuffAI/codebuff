@@ -9,7 +9,7 @@
     "codebuff": "dist/index.js"
   },
   "scripts": {
-    "prebuild": "bun run with-env -- bun clean && cd ../common && bun run build && cd ../packages/code-map && bun run build",
+    "prebuild": "bun run with-env -- bun clean && cd ../common && bun run clean && bun run build && cd ../packages/code-map && bun run build",
     "build": "tsc && tsc-alias",
     "postbuild": "mkdir -p dist/common && cp -r ../common/dist/* dist/common && mkdir -p dist/code-map && cp -r ../packages/code-map/dist/* dist/code-map && mkdir -p dist/utils/__tests__ && cp -r src/utils/__tests__/*.txt dist/utils/__tests__/ && tsc-alias",
     "quick-build": "tsc && tsc-alias",
