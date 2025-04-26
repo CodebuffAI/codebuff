@@ -8,7 +8,9 @@ import {
   ONE_TIME_LABELS,
   type CostMode,
 } from 'common/constants'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { getToolCallString } from 'common/constants/tools'
+import { trackEvent } from 'common/src/analytics'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { buildArray } from 'common/util/array'
@@ -622,6 +624,10 @@ export const mainPrompt = async (
     }
 
     const { name, parameters } = toolCall
+    trackEvent(AnalyticsEvent.TOOL_USE, userId ?? '', {
+      tool: name,
+      parameters,
+    })
     if (name === 'write_file') {
       // write_file tool calls are handled as they are streamed in.
     } else if (name === 'add_subgoal' || name === 'update_subgoal') {

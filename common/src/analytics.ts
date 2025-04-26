@@ -17,7 +17,7 @@ export function initAnalytics() {
   client = new PostHog(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
     host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
     flushAt: 1,
-    flushInterval: 1000,
+    flushInterval: 0,
   })
 }
 export async function flushAnalytics() {
@@ -37,7 +37,7 @@ export function trackEvent(
   }
 
   if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
-    logger.info({ event }, 'Analytics event tracked')
+    logger.info({ payload: { event, properties } }, 'Analytics event tracked')
     return
   }
 
