@@ -3,7 +3,7 @@ import { processAndGrantCredit } from '@codebuff/billing'
 import { DEFAULT_FREE_CREDITS_GRANT } from 'common/constants'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { trackEventServerless } from 'common/src/analytics'
+import { trackEvent } from 'common/src/analytics'
 import { AnalyticsEvent } from 'common/src/constants/analytics-events'
 import { getNextQuotaReset } from 'common/src/util/dates'
 import { generateCompactId } from 'common/src/util/string'
@@ -237,7 +237,7 @@ export const authOptions: NextAuthOptions = {
 
       await sendSignupEventToLoops(userData.id, userData.email, userData.name)
 
-      await trackEventServerless(AnalyticsEvent.SIGNUP, userData.id)
+      trackEvent(AnalyticsEvent.SIGNUP, userData.id)
 
       logger.info({ user }, 'createUser event processing finished.')
     },

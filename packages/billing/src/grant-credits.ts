@@ -1,4 +1,6 @@
+import { trackEvent } from 'common/analytics'
 import { DEFAULT_FREE_CREDITS_GRANT } from 'common/constants'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
@@ -197,6 +199,14 @@ export async function grantCreditOperation(
       throw error // Re-throw any other error
     }
   }
+
+  trackEvent(AnalyticsEvent.CREDIT_GRANT, userId, {
+    operationId,
+    type,
+    description,
+    amount,
+    expiresAt,
+  })
 
   logger.info(
     { userId, operationId, type, amount, expiresAt },

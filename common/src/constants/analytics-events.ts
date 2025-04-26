@@ -12,6 +12,7 @@ export enum AnalyticsEvent {
 
   // Backend
   PROMPT_SENT = 'backend.prompt_sent',
+  CREDIT_GRANT = 'backend.credit_grant',
 
   // Web
   SIGNUP = 'web.signup',

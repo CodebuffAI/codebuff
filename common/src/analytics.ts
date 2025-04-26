@@ -16,6 +16,8 @@ export function initAnalytics() {
 
   client = new PostHog(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
     host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
+    flushAt: 1,
+    flushInterval: 1000,
   })
 }
 export async function flushAnalytics() {
@@ -44,16 +46,4 @@ export function trackEvent(
     event,
     properties,
   })
-}
-
-// Designed for contexts where we don't guarantee
-// that we've run an init() ahead of time, or a flush() later
-export async function trackEventServerless(
-  event: AnalyticsEvent,
-  userId: string,
-  properties?: Record<string, any>
-) {
-  initAnalytics()
-  trackEvent(event, userId, properties)
-  await flushAnalytics()
 }
