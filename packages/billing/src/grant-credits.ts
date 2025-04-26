@@ -1,17 +1,24 @@
+import { trackEvent } from 'common/analytics'
+import { DEFAULT_FREE_CREDITS_GRANT } from 'common/constants'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
+import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { GrantType } from 'common/db/schema'
+import { getNextQuotaReset } from 'common/util/dates'
 import { logger } from 'common/util/logger'
-import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
-import { DEFAULT_FREE_CREDITS_GRANT } from 'common/constants'
-import { eq, desc, lte, and, or, sql, isNull, gt } from 'drizzle-orm'
 import { withRetry } from 'common/util/promise'
 import { logSyncFailure } from 'common/util/sync-failure'
-import { getNextQuotaReset } from 'common/util/dates'
+import { and, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
+
 import { generateOperationIdTimestamp } from './utils'
 
 type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
-type DbTransaction = Parameters<typeof db.transaction>[0] extends (tx: infer T) => any ? T : never
+type DbTransaction = Parameters<typeof db.transaction>[0] extends (
+  tx: infer T
+) => any
+  ? T
+  : never
 
 /**
  * Finds the amount of the most recent expired 'free' grant for a user.
@@ -182,10 +189,7 @@ export async function grantCreditOperation(
       })
     } catch (error: any) {
       // Check if this is a unique constraint violation on operation_id
-      if (
-        error.code === '23505' &&
-        error.constraint === 'credit_ledger_pkey'
-      ) {
+      if (error.code === '23505' && error.constraint === 'credit_ledger_pkey') {
         logger.info(
           { userId, operationId, type, amount },
           'Skipping duplicate credit grant due to idempotency check'
@@ -195,6 +199,14 @@ export async function grantCreditOperation(
       throw error // Re-throw any other error
     }
   }
+
+  trackEvent(AnalyticsEvent.CREDIT_GRANT, userId, {
+    operationId,
+    type,
+    description,
+    amount,
+    expiresAt,
+  })
 
   logger.info(
     { userId, operationId, type, amount, expiresAt },

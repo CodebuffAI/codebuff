@@ -1,22 +1,22 @@
+import '@/lib/server-init'
 import '@/styles/globals.css'
 
-import { PropsWithChildren } from 'react'
 import type { Metadata } from 'next'
+import { PropsWithChildren } from 'react'
 
-import { Footer } from '@/components/footer'
-import { Navbar } from '@/components/navbar/navbar'
-import { ThemeProvider } from '@/components/theme-provider'
-import { Toaster } from '@/components/ui/toaster'
-import { PostHogProvider } from '@/lib/PostHogProvider'
 import { CookieConsentCard } from '@/components/CookieConsentCard'
+import { Footer } from '@/components/footer'
+import { LayoutWrapper } from '@/components/layout-wrapper'
+import { Navbar } from '@/components/navbar/navbar'
+import QueryProvider from '@/components/providers/query-client-provider'
+import { ThemeProvider } from '@/components/theme-provider'
 import { Banner } from '@/components/ui/banner'
+import { Toaster } from '@/components/ui/toaster'
 import { siteConfig } from '@/lib/constant'
 import { fonts } from '@/lib/fonts'
-import { cn } from '@/lib/utils'
+import { PostHogProvider } from '@/lib/PostHogProvider'
 import SessionProvider from '@/lib/SessionProvider'
-import QueryProvider from '@/components/providers/query-client-provider'
-import { LayoutWrapper } from '@/components/layout-wrapper'
-import { env } from '@/env.mjs'
+import { cn } from '@/lib/utils'
 
 export const generateMetadata = (): Metadata => ({
   metadataBase: new URL(siteConfig.url()),

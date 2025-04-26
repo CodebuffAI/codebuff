@@ -22,23 +22,21 @@ let client: BigQuery | null = null
 
 function getClient(): BigQuery {
   if (!client) {
-    throw new Error('BigQuery client not initialized. Call setupBigQuery first.')
+    throw new Error(
+      'BigQuery client not initialized. Call setupBigQuery first.'
+    )
   }
   return client
 }
 
 export async function setupBigQuery(dataset: string = DATASET) {
   try {
-    logger.info('Creating BigQuery client...')
     client = new BigQuery()
-    logger.info('BigQuery client created, initializing dataset...')
 
     // Ensure dataset exists
     const [ds] = await client.dataset(dataset).get({ autoCreate: true })
-    logger.info({ dataset }, 'Dataset initialized')
 
     // Ensure tables exist
-    logger.info('Creating/verifying tables...')
     await ds.table(TRACES_TABLE).get({
       autoCreate: true,
       schema: TRACES_SCHEMA,
@@ -61,7 +59,6 @@ export async function setupBigQuery(dataset: string = DATASET) {
         fields: ['user_id', 'agent_step_id'],
       },
     })
-    logger.info('Tables initialized successfully')
   } catch (error) {
     logger.error(
       {
@@ -119,7 +116,10 @@ export async function insertRelabel(
           : relabel.payload,
     }
 
-    await getClient().dataset(dataset).table(RELABELS_TABLE).insert(relabelToInsert)
+    await getClient()
+      .dataset(dataset)
+      .table(RELABELS_TABLE)
+      .insert(relabelToInsert)
 
     logger.debug({ relabelId: relabel.id }, 'Inserted relabel into BigQuery')
     return true
