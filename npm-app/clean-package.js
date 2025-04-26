@@ -15,6 +15,24 @@ fs.writeFileSync(
   JSON.stringify(packageJson, null, 2) + '\n'
 )
 
+for (const depType of ['dependencies', 'optionalDependencies']) {
+  if (packageJson[depType]) {
+    for (const [pkgName, version] of Object.entries(packageJson[depType])) {
+      if (typeof version === 'string' && version.startsWith('workspace:')) {
+        if (pkgName === 'common') {
+          delete packageJson[depType][pkgName]
+          console.log(
+            `Removed dependency on ${pkgName} because it's now bundled.`
+          )
+        } else {
+          packageJson[depType][pkgName] = '1.0.0'
+          console.warn(`No version found for ${pkgName}, defaulting to 1.0.0`)
+        }
+      }
+    }
+  }
+}
+
 delete packageJson.devDependencies
 delete packageJson.peerDependencies
 
