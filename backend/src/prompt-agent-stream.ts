@@ -47,7 +47,7 @@ export const getAgentStream = (params: {
     ? shortModelNames[selectedModel as keyof typeof shortModelNames]
     : undefined
 
-  const model = fullSelectedModel ?? getModelForMode(costMode, 'agent')
+  const model: string = fullSelectedModel ?? getModelForMode(costMode, 'agent')
 
   const provider = providerModelNames[model as keyof typeof providerModelNames]
 
