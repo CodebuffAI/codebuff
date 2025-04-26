@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "license": "UNLICENSED",
   "scripts": {
-    "build": "tsc && cp -R tree-sitter-queries ./dist/"
+    "build": "tsc && cp -R tree-sitter-queries ./dist/",
+    "typecheck": "tsc --noEmit",
+    "build-and-typecheck": "bun run build && bun run typecheck",
+    "typecheck-only": "tsc --noEmit"
   },
   "dependencies": {
     "tree-sitter": "0.22.4",

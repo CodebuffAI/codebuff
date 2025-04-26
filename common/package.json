@@ -8,6 +8,8 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "build-and-typecheck": "bun run build && bun run typecheck",
+    "typecheck-only": "tsc --noEmit",
     "clean": "rm -rf dist && rm tsconfig.tsbuildinfo",
     "db:generate": "drizzle-kit generate --config=./src/db/drizzle.config.ts",
     "db:migrate": "drizzle-kit push --config=./src/db/drizzle.config.ts",

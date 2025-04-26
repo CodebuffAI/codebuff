@@ -6,9 +6,12 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build-and-typecheck": "bun run build && bun run typecheck",
+    "typecheck-only": "tsc --noEmit"
   },
   "dependencies": {
+    "common": "workspace:*",
     "zod": "3.23.8"
   },
   "devDependencies": {

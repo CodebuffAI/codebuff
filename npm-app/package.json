@@ -29,7 +29,8 @@
     "start-nushell": "bun run with-env -- ts-node src/index.ts ../test/__mock-projects__/nushell",
     "start-prod": "bun run with-env -- ts-node src/index.ts",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
-    "typecheck": "bun run --cwd ../common build && bun run --cwd ../packages/code-map build && bun run typecheck-this-package"
+    "build-and-typecheck": "bun run build && bun run typecheck-this-package",
+    "typecheck-only": "tsc --noEmit && tsc-alias"
   },
   "files": [
     "dist",
@@ -39,6 +40,8 @@
     "node": ">=18"
   },
   "dependencies": {
+    "common": "workspace:*",
+    "code-map": "workspace:*",
     "@types/diff": "5.2.1",
     "@vscode/ripgrep": "1.15.9",
     "axios": "1.7.4",
