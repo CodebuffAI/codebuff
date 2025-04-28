@@ -5,6 +5,7 @@ import * as os from 'os'
 import path, { dirname } from 'path'
 
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { buildArray } from 'common/util/array'
 import { stripColors, truncateStringWithMessage } from 'common/util/string'
 import { green } from 'picocolors'
@@ -15,6 +16,7 @@ import {
   spawnAndTrack,
 } from '../background-process-manager'
 import { setProjectRoot } from '../project-files'
+import { trackEvent } from './analytics'
 import { detectShell } from './detect-shell'
 
 let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
@@ -196,7 +198,11 @@ export function runBackgroundCommand(
     stdoutFile?: string
     stderrFile?: string
   },
-  resolveCommand: (value: { result: string; stdout: string }) => void
+  resolveCommand: (value: {
+    result: string
+    stdout: string
+    exitCode: number | undefined
+  }) => void
 ): void {
   const { toolCallId, command, mode, projectPath, stdoutFile, stderrFile } =
     options
@@ -318,10 +324,15 @@ export function runBackgroundCommand(
     resolveCommand({
       result: resultMessage,
       stdout: initialStdout + initialStderr,
+      exitCode: undefined,
     })
   } catch (error: any) {
     const errorMessage = `<background_process>\n<command>${command}</command>\n<error>${error.message}</error>\n</background_process>`
-    resolveCommand({ result: errorMessage, stdout: error.message })
+    resolveCommand({
+      result: errorMessage,
+      stdout: error.message,
+      exitCode: undefined,
+    })
   }
 }
 
@@ -349,8 +360,18 @@ export const runTerminalCommand = async (
     const modifiedCommand =
       command.trim() === 'git log' ? 'git log -n 5' : command
 
-    const resolveCommand = (value: { result: string; stdout: string }) => {
+    const resolveCommand = (value: {
+      result: string
+      stdout: string
+      exitCode: number | undefined
+    }) => {
       commandIsRunning = false
+      trackEvent(AnalyticsEvent.TERMINAL_COMMAND_COMPLETED, {
+        command,
+        result: value.result,
+        stdout: value.stdout,
+        exitCode: value.exitCode,
+      })
       resolve(value)
     }
 
@@ -393,7 +414,11 @@ export const runCommandPty = (
   },
   command: string,
   mode: 'user' | 'assistant',
-  resolve: (value: { result: string; stdout: string }) => void,
+  resolve: (value: {
+    result: string
+    stdout: string
+    exitCode: number | undefined
+  }) => void,
   projectPath: string
 ) => {
   const ptyProcess = persistentProcess.pty
@@ -418,6 +443,7 @@ export const runCommandPty = (
           `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
         ),
         stdout: commandOutput,
+        exitCode: 124,
       })
     }
   }, MAX_EXECUTION_TIME)
@@ -479,6 +505,7 @@ export const runCommandPty = (
       resolve({
         result: formatResult(command, commandOutput, 'Command completed'),
         stdout: commandOutput,
+        exitCode: undefined,
       })
       return
     }
@@ -504,7 +531,11 @@ const runCommandChildProcess = (
   },
   command: string,
   mode: 'user' | 'assistant',
-  resolve: (value: { result: string; stdout: string }) => void,
+  resolve: (value: {
+    result: string
+    stdout: string
+    exitCode: number | undefined
+  }) => void,
   projectPath: string
 ) => {
   const isWindows = os.platform() === 'win32'
@@ -543,6 +574,7 @@ const runCommandChildProcess = (
           `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated.`
         ),
         stdout: commandOutput,
+        exitCode: 124,
       })
     }
   }, MAX_EXECUTION_TIME)
@@ -576,6 +608,7 @@ const runCommandChildProcess = (
     resolve({
       result: formatResult(command, commandOutput, `Command completed`),
       stdout: commandOutput,
+      exitCode: childProcess.exitCode ?? undefined,
     })
   })
 }

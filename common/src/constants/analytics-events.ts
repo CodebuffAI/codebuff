@@ -10,6 +10,7 @@ export enum AnalyticsEvent {
   BACKGROUND_PROCESS_START = 'cli.background_process_start',
   LOGIN = 'cli.login',
   CHECKPOINT_COMMAND_USED = 'cli.checkpoint_command_used',
+  TERMINAL_COMMAND_COMPLETED = 'cli.terminal_command_completed',
 
   // Backend
   PROMPT_SENT = 'backend.prompt_sent',
