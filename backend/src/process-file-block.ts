@@ -26,7 +26,12 @@ export async function processFileBlock(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode
-): Promise<{ path: string; content: string; patch?: string } | null> {
+): Promise<{
+  tool: 'write_file'
+  path: string
+  content: string
+  patch?: string
+} | null> {
   const initialContent = await initialContentPromise
 
   if (initialContent === null) {
@@ -45,6 +50,7 @@ export async function processFileBlock(
       `processFileBlock: Created new file ${path}`
     )
     return {
+      tool: 'write_file' as const,
       path,
       content: cleanContent,
     }
@@ -173,6 +179,7 @@ export async function processFileBlock(
   )
 
   return {
+    tool: 'write_file' as const,
     path,
     content: updatedContentOriginalLineEndings,
     patch: patchOriginalLineEndings,

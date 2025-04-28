@@ -20,7 +20,8 @@ export type ToolHandler<T extends Record<string, any>> = (
   projectPath: string
 ) => Promise<string | BrowserResponse>
 
-export const handleWriteFile: ToolHandler<{
+export const handleUpdateFile: ToolHandler<{
+  tool: 'write_file' | 'str_replace' | 'create_plan'
   path: string
   content: string
   type: 'patch' | 'file'
@@ -174,7 +175,9 @@ function formatResult(
 }
 
 export const toolHandlers: Record<string, ToolHandler<any>> = {
-  write_file: handleWriteFile,
+  write_file: handleUpdateFile,
+  str_replace: handleUpdateFile,
+  create_plan: handleUpdateFile,
   scrape_web_page: handleScrapeWebPage,
   run_terminal_command: ((parameters, id, projectPath) =>
     handleRunTerminalCommand(parameters, id, projectPath).then(

@@ -142,6 +142,22 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     onParamEnd: (paramName) =>
       paramName === 'path' ? gray('...') + '\n' : null,
   },
+  str_replace: {
+    onParamStart: (paramName) => {
+      if (paramName === 'path') {
+        return gray('Editing file at ')
+      }
+      return null
+    },
+    onParamChunk: (content, paramName) => {
+      if (paramName === 'path') {
+        return gray(content)
+      }
+      return null
+    },
+    onParamEnd: (paramName) =>
+      paramName === 'path' ? gray('...') + '\n' : null,
+  },
   add_subgoal: {
     ...defaultToolCallRenderer,
     onParamStart: (paramName, toolName) => {
