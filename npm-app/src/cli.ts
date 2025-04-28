@@ -5,6 +5,7 @@ import * as readline from 'readline'
 
 import { type ApiKeyType } from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
@@ -36,7 +37,7 @@ import { disableSquashNewlines, enableSquashNewlines } from './display'
 import { displayGreeting, displayMenu } from './menu'
 import { getProjectRoot, isDir } from './project-files'
 import { CliOptions, GitCommand } from './types'
-import { flushAnalytics } from './utils/analytics'
+import { flushAnalytics, trackEvent } from './utils/analytics'
 import { Spinner } from './utils/spinner'
 import {
   isCommandRunning,
@@ -350,6 +351,9 @@ export class CLI {
 
     // Checkpoint commands
     if (isCheckpointCommand(userInput)) {
+      trackEvent(AnalyticsEvent.CHECKPOINT_COMMAND_USED, {
+        command: userInput,
+      })
       if (isCheckpointCommand(userInput, 'undo')) {
         await saveCheckpoint(userInput, this.client, this.readyPromise)
         const toRestore = await handleUndo(this.client, this.rl)

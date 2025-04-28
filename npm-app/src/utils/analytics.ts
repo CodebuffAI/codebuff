@@ -1,6 +1,11 @@
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { PostHog } from 'posthog-node'
 
+// Prints the events to console
+// It's very noisy, so recommended you set this to true
+// only when you're actively adding new analytics
+let DEBUG_DEV_EVENTS = false
+
 // Store the identified user ID
 let currentUserId: string | undefined
 let client: PostHog | undefined
@@ -42,6 +47,12 @@ export function trackEvent(
   }
 
   if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
+    if (DEBUG_DEV_EVENTS) {
+      console.log('Analytics event sent', {
+        event,
+        properties,
+      })
+    }
     return
   }
 
@@ -61,6 +72,12 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
   }
 
   if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
+    if (DEBUG_DEV_EVENTS) {
+      console.log('Identify event sent', {
+        userId,
+        properties,
+      })
+    }
     return
   }
 

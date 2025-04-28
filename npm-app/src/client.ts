@@ -6,6 +6,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'fs'
+import os from 'os'
 import path from 'path'
 import { Interface } from 'readline'
 
@@ -54,6 +55,7 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
+import packageJson from '../package.json'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
@@ -185,7 +187,15 @@ export class Client {
     this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
     this.rl = rl
-    logger.info({ eventId: AnalyticsEvent.APP_LAUNCHED }, 'App launched')
+    logger.info(
+      {
+        eventId: AnalyticsEvent.APP_LAUNCHED,
+        platform: os.platform(),
+        costMode: this.costMode,
+        model: this.model,
+      },
+      'App launched'
+    )
   }
 
   async exit() {
@@ -218,6 +228,8 @@ export class Client {
         email: user.email,
         name: user.name,
         fingerprintId: this.fingerprintId,
+        platform: os.platform(),
+        version: packageJson.version,
       })
       loggerContext.userId = user.id
       loggerContext.userEmail = user.email
@@ -495,6 +507,8 @@ export class Client {
               email: user.email,
               name: user.name,
               fingerprintId: fingerprintId,
+              platform: os.platform(),
+              version: packageJson.version,
             })
             loggerContext.userId = user.id
             loggerContext.userEmail = user.email

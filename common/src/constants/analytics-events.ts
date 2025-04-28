@@ -9,6 +9,7 @@ export enum AnalyticsEvent {
   BACKGROUND_PROCESS_LEFTOVER_DETECTED = 'cli.background_process_leftover_detected',
   BACKGROUND_PROCESS_START = 'cli.background_process_start',
   LOGIN = 'cli.login',
+  CHECKPOINT_COMMAND_USED = 'cli.checkpoint_command_used',
 
   // Backend
   PROMPT_SENT = 'backend.prompt_sent',
