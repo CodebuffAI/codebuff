@@ -893,7 +893,7 @@ export class Client {
             ) {
               this.oneTimeFlags[SHOULD_ASK_CONFIG] = true
             }
-            const toolResult = await handleToolCall(toolCall, getProjectRoot())
+            const toolResult = await handleToolCall(toolCall)
             toolResults.push(toolResult)
           } catch (error) {
             console.error(

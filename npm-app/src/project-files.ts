@@ -70,18 +70,30 @@ export function setProjectRoot(dir: string | undefined) {
       checkpointManager.clearCheckpoints(true)
 
       console.log(
-        green('\nDirectory change:'),
+        '\n' + green('Directory change:'),
         `Codebuff will read and write files in "${newDir}".\n`
       )
     }
     projectRoot = newDir
+    setWorkingDirectory(newDir)
     return newDir
   }
+  setWorkingDirectory(projectRoot)
   return projectRoot
 }
 
 export function getProjectRoot() {
   return projectRoot
+}
+
+let workingDirectory: string
+export function setWorkingDirectory(dir: string) {
+  workingDirectory = dir
+  return workingDirectory
+}
+
+export function getWorkingDirectory() {
+  return workingDirectory
 }
 
 function getCurrentDirectory() {

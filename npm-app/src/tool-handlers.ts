@@ -10,21 +10,22 @@ import { truncateStringWithMessage } from 'common/util/string'
 import { cyan, green, red, yellow } from 'picocolors'
 
 import { handleBrowserInstruction } from './browser-runner'
+import { getProjectRoot } from './project-files'
 import { Spinner } from './utils/spinner'
 import { runTerminalCommand } from './utils/terminal'
 import { scrapeWebPage } from './web-scraper'
 
 export type ToolHandler<T extends Record<string, any>> = (
   parameters: T,
-  id: string,
-  projectPath: string
+  id: string
 ) => Promise<string | BrowserResponse>
 
 export const handleWriteFile: ToolHandler<{
   path: string
   content: string
   type: 'patch' | 'file'
-}> = async (parameters, _id, projectPath) => {
+}> = async (parameters, _id) => {
+  const projectPath = getProjectRoot()
   const fileChange = FileChangeSchema.parse(parameters)
   const lines = fileChange.content.split('\n')
   const { created, modified, ignored } = applyChanges(projectPath, [fileChange])
@@ -76,26 +77,24 @@ export const handleRunTerminalCommand = async (
     mode?: 'user' | 'assistant'
     process_type: 'SYNC' | 'BACKGROUND'
   },
-  id: string,
-  projectPath: string
+  id: string
 ): Promise<{ result: string; stdout: string }> => {
   const { command, mode = 'assistant', process_type = 'SYNC' } = parameters
   return runTerminalCommand(
     id,
     command,
     mode,
-    projectPath,
     process_type.toUpperCase() as 'SYNC' | 'BACKGROUND'
   )
 }
 
 export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
   parameters,
-  _id,
-  projectPath
+  _id
 ) => {
+  const projectPath = getProjectRoot()
   return new Promise((resolve) => {
-    let stdout = ''
+    let stdout = '            const toolResult = await h'
     let stderr = ''
 
     const basename = path.basename(projectPath)
@@ -176,8 +175,8 @@ function formatResult(
 export const toolHandlers: Record<string, ToolHandler<any>> = {
   write_file: handleWriteFile,
   scrape_web_page: handleScrapeWebPage,
-  run_terminal_command: ((parameters, id, projectPath) =>
-    handleRunTerminalCommand(parameters, id, projectPath).then(
+  run_terminal_command: ((parameters, id) =>
+    handleRunTerminalCommand(parameters, id).then(
       (result) => result.result
     )) as ToolHandler<{
     command: string
@@ -241,17 +240,14 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   },
 }
 
-export const handleToolCall = async (
-  toolCall: RawToolCall,
-  projectPath: string
-) => {
+export const handleToolCall = async (toolCall: RawToolCall) => {
   const { name, parameters } = toolCall
   const handler = toolHandlers[name]
   if (!handler) {
     throw new Error(`No handler found for tool: ${name}`)
   }
 
-  const content = await handler(parameters, toolCall.id, projectPath)
+  const content = await handler(parameters, toolCall.id)
 
   if (typeof content !== 'string') {
     throw new Error(

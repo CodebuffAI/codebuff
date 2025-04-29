@@ -1,4 +1,5 @@
 import { readdirSync } from 'fs'
+import * as os from 'os'
 import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
@@ -35,7 +36,7 @@ import { Client } from './client'
 import { websocketUrl } from './config'
 import { disableSquashNewlines, enableSquashNewlines } from './display'
 import { displayGreeting, displayMenu } from './menu'
-import { getProjectRoot, isDir } from './project-files'
+import { getProjectRoot, getWorkingDirectory, isDir } from './project-files'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
 import { Spinner } from './utils/spinner'
@@ -166,7 +167,7 @@ export class CLI {
       : dirname(input)
     const partial = input.endsWith(directorySuffix) ? '' : basename(input)
 
-    let baseDir = isAbsolute(dir) ? dir : path.join(getProjectRoot(), dir)
+    let baseDir = isAbsolute(dir) ? dir : path.join(getWorkingDirectory(), dir)
 
     try {
       const files = readdirSync(baseDir)
@@ -183,7 +184,16 @@ export class CLI {
   }
 
   private setPrompt() {
-    this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
+    const projectRoot = getProjectRoot()
+    const cwd = getWorkingDirectory()
+    const projectDirName = parse(projectRoot).base
+    const ps1Dir =
+      projectDirName +
+      (cwd === projectRoot
+        ? ''
+        : (os.platform() === 'win32' ? '\\' : '/') +
+          path.relative(projectRoot, cwd))
+    this.rl.setPrompt(green(`${ps1Dir} > `))
   }
 
   /**
@@ -455,11 +465,11 @@ export class CLI {
       this.stopResponse()
       this.stopResponse = null
     }
-    console.error(yellow('\nCould not connect. Retrying...'))
+    console.error('\n' + yellow('Could not connect. Retrying...'))
   }
 
   private onWebSocketReconnect() {
-    console.log(green('\nReconnected!'))
+    console.log('\n' + green('Reconnected!'))
     this.freshPrompt()
   }
 
