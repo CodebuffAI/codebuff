@@ -1,4 +1,4 @@
-import { GetRelevantFilesPayload } from 'common/bigquery/schema'
+import { GetRelevantFilesPayload } from '@codebuff/bigquery'
 import {
   claudeModels,
   finetunedVertexModels,
@@ -8,7 +8,7 @@ import {
   getTracesAndRelabelsForUser,
   getTracesWithoutRelabels,
   insertRelabel,
-} from 'common/src/bigquery/client'
+} from '@codebuff/bigquery'
 import { Message } from 'common/types/message'
 import { generateCompactId } from 'common/util/string'
 import { Request, Response } from 'express'

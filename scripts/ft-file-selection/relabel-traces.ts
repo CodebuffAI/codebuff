@@ -1,10 +1,10 @@
 import { promptFlashWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
-import { GetRelevantFilesPayload } from 'common/bigquery/schema'
+import { GetRelevantFilesPayload } from '@codebuff/bigquery'
 import { claudeModels, models } from 'common/constants'
 import {
   getTracesWithoutRelabels,
   insertRelabel,
-} from 'common/src/bigquery/client'
+} from '@codebuff/bigquery'
 import { Message } from 'common/types/message'
 import { generateCompactId } from 'common/util/string'
 

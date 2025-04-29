@@ -1,4 +1,4 @@
-import { insertTrace } from 'common/bigquery/client'
+import { insertTrace } from '@codebuff/bigquery'
 import { CostMode } from 'common/constants'
 import { buildArray } from 'common/util/array'
 import { ProjectFileContext } from 'common/util/file'

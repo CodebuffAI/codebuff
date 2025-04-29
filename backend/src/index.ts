@@ -1,6 +1,6 @@
 import http from 'http'
 
-import { setupBigQuery } from 'common/src/bigquery/client'
+import { setupBigQuery } from '@codebuff/bigquery'
 import cors from 'cors'
 import express from 'express'
 
@@ -54,7 +54,7 @@ app.post(
 
 app.use(
   (
-    err: Error,
+    err: unknown,
     req: express.Request,
     res: express.Response,
     next: express.NextFunction
@@ -69,14 +69,14 @@ logger.info('Initializing server')
 // Initialize BigQuery before starting the server
 logger.info('Starting BigQuery initialization...')
 setupBigQuery()
-  .catch((err) => {
+  .catch((err: unknown) => {
     logger.error({
       error: err,
-      stack: err.stack,
-      message: err.message,
-      name: err.name,
-      code: err.code,
-      details: err.details,
+      stack: err instanceof Error ? err.stack : undefined,
+      message: err instanceof Error ? err.message : undefined,
+      name: err instanceof Error ? err.name : undefined,
+      code: (err as any).code,
+      details: (err as any).details,
     }, 'Failed to initialize BigQuery client')
   })
   .finally(() => {
@@ -144,7 +144,7 @@ process.on('unhandledRejection', (reason, promise) => {
   )
 })
 
-process.on('uncaughtException', (err, origin) => {
+process.on('uncaughtException', (err: Error, origin) => {
   console.error('uncaughtException', {
     error: err,
     message: err.message,

@@ -1,6 +1,6 @@
 import { BigQuery } from '@google-cloud/bigquery'
 
-import { logger } from '../util/logger'
+import { logger } from 'common/src/util/logger'
 import {
   GetRelevantFilesTrace,
   Relabel,

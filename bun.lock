@@ -93,7 +93,7 @@
     },
     "npm-app": {
       "name": "codebuff",
-      "version": "1.0.244",
+      "version": "1.0.252",
       "bin": {
         "codebuff": "dist/index.js",
       },
@@ -134,6 +134,18 @@
       },
       "optionalDependencies": {
         "@homebridge/node-pty-prebuilt-multiarch": "0.12.0-beta.5",
+      },
+    },
+    "packages/bigquery": {
+      "name": "@codebuff/bigquery",
+      "version": "1.0.0",
+      "dependencies": {
+        "@google-cloud/bigquery": "^7.9.4",
+        "common": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "*",
+        "typescript": "^5.0.0",
       },
     },
     "packages/billing": {
@@ -422,6 +434,8 @@
     "@babel/types": ["@babel/types@7.27.0", "", { "dependencies": { "@babel/helper-string-parser": "^7.25.9", "@babel/helper-validator-identifier": "^7.25.9" } }, "sha512-H45s8fVLYjbhFH62dIJ3WtmJ6RSPt/3DRO0ZcT2SUiYiQyz3BLVb9ADEnLl91m74aQPS3AzzeajZHYOalWe3bg=="],
 
     "@bcoe/v8-coverage": ["@bcoe/v8-coverage@0.2.3", "", {}, "sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw=="],
+
+    "@codebuff/bigquery": ["@codebuff/bigquery@workspace:packages/bigquery"],
 
     "@codebuff/billing": ["@codebuff/billing@workspace:packages/billing"],
 
