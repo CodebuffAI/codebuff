@@ -18,7 +18,8 @@
     "paths": {
       "common/*": ["./src/common/*", "../common/src/*"],
       "@/*": ["./src/*"],
-      "@codebuff/billing": ["../packages/billing/src"]
+      "@codebuff/billing": ["../packages/billing/src"],
+      "@codebuff/bigquery": ["../packages/bigquery/src"]
     },
     "typeRoots": [
       "./node_modules/@types",
@@ -31,7 +32,8 @@
   "exclude": ["src/**/__mock-data__/**/*"],
   "references": [
     { "path": "../common" },
-    { "path": "../packages/billing" }
+    { "path": "../packages/billing" },
+    { "path": "../packages/bigquery" }
   ],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
