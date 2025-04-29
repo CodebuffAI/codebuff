@@ -7,12 +7,12 @@ import { stringifySchema } from '../stringify-schema'
 
 describe('stringifySchema', () => {
   it('should correctly stringify StartupProcessSchema', () => {
-    const result = stringifySchema(StartupProcessSchema, 'StartupProcessSchema')
+    const result = stringifySchema(StartupProcessSchema)
     expect(result).toMatchSnapshot()
   })
 
   it('should correctly stringify CodebuffConfigSchema', () => {
-    const result = stringifySchema(CodebuffConfigSchema, 'CodebuffConfigSchema')
+    const result = stringifySchema(CodebuffConfigSchema)
     expect(result).toMatchSnapshot()
   })
 
@@ -36,13 +36,13 @@ describe('stringifySchema', () => {
       })
       .describe('A complex test schema')
 
-    const result = stringifySchema(ComplexSchema, 'ComplexSchema')
+    const result = stringifySchema(ComplexSchema)
     expect(result).toMatchSnapshot()
   })
 
   it('should handle an empty object schema', () => {
     const EmptySchema = z.object({}).describe('An empty schema')
-    const result = stringifySchema(EmptySchema, 'EmptySchema')
+    const result = stringifySchema(EmptySchema)
     expect(result).toMatchSnapshot()
   })
 
@@ -53,7 +53,7 @@ describe('stringifySchema', () => {
         field2: z.number().optional().describe('Optional field 2'),
       })
       .describe('Schema with only optional fields')
-    const result = stringifySchema(OptionalOnlySchema, 'OptionalOnlySchema')
+    const result = stringifySchema(OptionalOnlySchema)
     expect(result).toMatchSnapshot()
   })
 
@@ -65,7 +65,7 @@ describe('stringifySchema', () => {
         enabled: z.boolean().default(false).describe('Enabled with default'),
       })
       .describe('Schema demonstrating default values')
-    const result = stringifySchema(DefaultSchema, 'DefaultSchema')
+    const result = stringifySchema(DefaultSchema)
     expect(result).toMatchSnapshot()
   })
 })

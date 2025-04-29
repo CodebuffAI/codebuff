@@ -1,163 +1,119 @@
 // Bun Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`stringifySchema should correctly stringify StartupProcessSchema 1`] = `
-"\`StartupProcessSchema\`:
- (Defines a single startup process.)
- Object
+"// Defines a single startup process.
 {
- \`name\`:
-  (A user-friendly name for the process. Should be one word and unique.)
-  String
+  // A user-friendly name for the process. Should be one word and unique.
+  "name": string,
 
- \`command\`:
-  (The actual shell command to execute.)
-  String
+  // The actual shell command to execute.
+  "command": string,
 
- \`cwd\`:
-  (The working directory from which to run the command.)
-  Optional<String>
+  // (optional): The working directory from which to run the command.
+  "cwd": string | undefined,
 
- \`enabled\`:
-  (Whether this process should be run.)
-  Optional<Boolean> (default: true)
+  // (optional): Whether this process should be run, default: true
+  "enabled": boolean | undefined,
 
- \`stdoutFile\`:
-  (Path to write the process's stdout. If not specified, stderr is not stored.)
-  Optional<String>
+  // (optional): Path to write the process's stdout. If not specified, stderr is not stored.
+  "stdoutFile": string | undefined,
 
- \`stderrFile\`:
-  (Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile.)
-  Optional<String>
+  // (optional): Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile.
+  "stderrFile": string | undefined
 }"
 `;
 
 exports[`stringifySchema should correctly stringify CodebuffConfigSchema 1`] = `
-"\`CodebuffConfigSchema\`:
- (Defines the overall Codebuff configuration file (e.g., codebuff.json). This schema defines the top-level structure of the configuration.)
- Object
+"// Defines the overall Codebuff configuration file (e.g., codebuff.json). This schema defines the top-level structure of the configuration.
 {
- \`description\`:
-  (Does nothing. Put any thing you want here!)
-  Optional<Any>
+  // (optional): Does nothing. Put any thing you want here!
+  "description": any | undefined,
 
- \`startupProcesses\`:
-  (An array of startup processes.)
-  Optional<Array<
-   \`startupProcesses.item\`:
-    (Defines a single startup process.)
-    Object
-   {
-    \`name\`:
-     (A user-friendly name for the process. Should be one word and unique.)
-     String
+  // (optional): An array of startup processes.
+  "startupProcesses": [
 
-    \`command\`:
-     (The actual shell command to execute.)
-     String
+    // Defines a single startup process.
+    {
+      // A user-friendly name for the process. Should be one word and unique.
+      "name": string,
 
-    \`cwd\`:
-     (The working directory from which to run the command.)
-     Optional<String>
+      // The actual shell command to execute.
+      "command": string,
 
-    \`enabled\`:
-     (Whether this process should be run.)
-     Optional<Boolean> (default: true)
+      // (optional): The working directory from which to run the command.
+      "cwd": string | undefined,
 
-    \`stdoutFile\`:
-     (Path to write the process's stdout. If not specified, stderr is not stored.)
-     Optional<String>
+      // (optional): Whether this process should be run, default: true
+      "enabled": boolean | undefined,
 
-    \`stderrFile\`:
-     (Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile.)
-     Optional<String>
-   }
-  >>
+      // (optional): Path to write the process's stdout. If not specified, stderr is not stored.
+      "stdoutFile": string | undefined,
+
+      // (optional): Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile.
+      "stderrFile": string | undefined
+    }
+  ] | undefined
 }"
 `;
 
 exports[`stringifySchema should handle a more complex schema 1`] = `
-"\`ComplexSchema\`:
- (A complex test schema)
- Object
+"// A complex test schema
 {
- \`id\`:
-  (Unique identifier)
-  String
+  // Unique identifier
+  "id": string,
 
- \`count\`:
-  (A positive integer count)
-  Number
+  // A positive integer count
+  "count": number,
 
- \`isActive\`:
-  (Activity status)
-  Boolean
+  // Activity status
+  "isActive": boolean,
 
- \`tags\`:
-  (Optional list of tags)
-  Optional<Array<
-   \`tags.item\`:
-    
-    String
-  >>
+  // (optional): Optional list of tags
+  "tags": [
 
- \`nested\`:
-  (A nested object structure)
-  Object
- {
-  \`value\`:
-   
-   String
+  string
+  ] | undefined,
 
-  \`config\`:
-   (Nested configuration)
-   Object
-  {
-   \`retries\`:
-    (Number of retries)
-    Number (default: 3)
-  }
- }
+  // A nested object structure
+  "nested": {
+  "value": string,
+
+  // Nested configuration
+  "config": {
+  // (optional): Number of retries, default: 3
+  "retries": number
+}
+}
 }"
 `;
 
 exports[`stringifySchema should handle an empty object schema 1`] = `
-"\`EmptySchema\`:
- (An empty schema)
- Object
+"// An empty schema
 {
 }"
 `;
 
 exports[`stringifySchema should handle schema with only optional fields 1`] = `
-"\`OptionalOnlySchema\`:
- (Schema with only optional fields)
- Object
+"// Schema with only optional fields
 {
- \`field1\`:
-  (Optional field 1)
-  Optional<String>
+  // (optional): Optional field 1
+  "field1": string | undefined,
 
- \`field2\`:
-  (Optional field 2)
-  Optional<Number>
+  // (optional): Optional field 2
+  "field2": number | undefined
 }"
 `;
 
 exports[`stringifySchema should handle schema with default values 1`] = `
-"\`DefaultSchema\`:
- (Schema demonstrating default values)
- Object
+"// Schema demonstrating default values
 {
- \`name\`:
-  (Name with default)
-  String (default: "anonymous")
+  // (optional): Name with default, default: "anonymous"
+  "name": string,
 
- \`level\`:
-  (Level with default)
-  Number (default: 1)
+  // (optional): Level with default, default: 1
+  "level": number,
 
- \`enabled\`:
-  (Enabled with default)
-  Boolean (default: false)
+  // (optional): Enabled with default, default: false
+  "enabled": boolean
 }"
 `;
