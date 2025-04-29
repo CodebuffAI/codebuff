@@ -6,6 +6,7 @@ export const toolSchema = {
   // File operations
   write_file: ['path', 'content'],
   read_files: ['paths'],
+  find_files: ['description'],
 
   // Search and terminal
   code_search: ['pattern'],

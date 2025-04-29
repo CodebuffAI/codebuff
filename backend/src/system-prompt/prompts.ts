@@ -2,8 +2,8 @@ import { STOP_MARKER } from 'common/constants'
 import {
   codebuffConfigFile,
   CodebuffConfigSchema,
-} from 'common/json-config/constants'
-import { stringifySchema } from 'common/json-config/stringify-schema'
+} from 'common/src/json-config/constants'
+import { stringifySchema } from 'common/src/json-config/stringify-schema'
 import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 import { createMarkdownFileBlock, ProjectFileContext } from 'common/util/file'
 import { truncateString } from 'common/util/string'
@@ -12,10 +12,10 @@ import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 
 export const configSchemaPrompt = `
   # Codebuff Configuration (${codebuffConfigFile})
-  
+
 The following describes the structure of the \`./${codebuffConfigFile}\` configuration file that users might have in their project root. You can use this to understand user settings if they mention them.
 
-${stringifySchema(CodebuffConfigSchema, 'CodebuffConfigSchema')}
+${stringifySchema(CodebuffConfigSchema)}
 `.trim()
 
 export const knowledgeFilesPrompt = `
@@ -120,7 +120,7 @@ The following is the path to the project on the user's computer. It is also the 
 ${currentWorkingDirectory}
 </project_path>
 
-Within this project directory, here is the file tree. 
+Within this project directory, here is the file tree.
 Note that the file tree:
 - Is cached from the start of this conversation. Files created after the start of this conversation will not appear.
 - Excludes files that are .gitignored.
@@ -197,14 +197,14 @@ export const gitCommitGuidePrompt = `
 
 When the user requests a new git commit, please follow these steps closely:
 
-1. **Run two run_terminal_command tool calls:**  
+1. **Run two run_terminal_command tool calls:**
    - Run \`git diff\` to review both staged and unstaged modifications.
    - Run \`git log\` to check recent commit messages, ensuring consistency with this repository’s style.
 
-2. **Select relevant files to include in the commit:**  
+2. **Select relevant files to include in the commit:**
    Use the git context established at the start of this conversation to decide which files are pertinent to the changes. Stage any new untracked files that are relevant, but avoid committing previously modified files (from the beginning of the conversation) unless they directly relate to this commit.
 
-3. **Analyze the staged changes and compose a commit message:**  
+3. **Analyze the staged changes and compose a commit message:**
    Enclose your analysis in <commit_analysis> tags. Within these tags, you should:
    - Note which files have been altered or added.
    - Categorize the nature of the changes (e.g., new feature, fix, refactor, documentation, etc.).
@@ -217,9 +217,9 @@ When the user requests a new git commit, please follow these steps closely:
    - Ensure the message provides clarity—avoid generic or vague terms like “Update” or “Fix” without context.
    - Revisit your draft to confirm it truly reflects the changes and their intention.
 
-4. **Create the commit, ending with this specific footer:**  
+4. **Create the commit, ending with this specific footer:**
    \`\`\`
-   Generated with Codebuff 🤖 
+   Generated with Codebuff 🤖
    Co-Authored-By: Codebuff <noreply@codebuff.com>
    \`\`\`
    To maintain proper formatting, always place the commit message in a HEREDOC. For instance:
@@ -449,7 +449,7 @@ Use this data to:
 - Debug issues
 - Guide next actions
 - Make informed decisions about fixes
-- Improve visual design 
+- Improve visual design
 
 ### Best Practices
 

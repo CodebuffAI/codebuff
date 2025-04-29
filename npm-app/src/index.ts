@@ -8,6 +8,7 @@ import { red } from 'picocolors'
 import packageJson from '../package.json'
 import { CLI } from './cli'
 import { createTemplateProject } from './create-template-project'
+import { enableSquashNewlines } from './display'
 import {
   initProjectFileContextWithWorker,
   setProjectRoot,
@@ -22,6 +23,7 @@ async function codebuff(
   projectDir: string | undefined,
   { initialInput, git, costMode, runInitFlow, model }: CliOptions
 ) {
+  enableSquashNewlines()
   const dir = setProjectRoot(projectDir)
   recreateShell(dir)
 

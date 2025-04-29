@@ -47,7 +47,7 @@ export const getAgentStream = (params: {
     ? shortModelNames[selectedModel as keyof typeof shortModelNames]
     : undefined
 
-  const model = fullSelectedModel ?? getModelForMode(costMode, 'agent')
+  const model: string = fullSelectedModel ?? getModelForMode(costMode, 'agent')
 
   const provider = providerModelNames[model as keyof typeof providerModelNames]
 
@@ -72,16 +72,19 @@ export const getAgentStream = (params: {
             userId,
           })
         : provider === 'gemini'
-          ? model === models.gemini2_5_flash_thinking
+          ? model === models.gemini2_5_flash_thinking ||
+            model === models.gemini2_5_flash
             ? promptOpenRouterStream(messagesWithSystem(messages, system), {
                 clientSessionId,
                 fingerprintId,
                 userInputId,
                 userId,
-                model: openrouterModels.openrouter_gemini2_5_flash_thinking,
+                model:
+                  model === models.gemini2_5_flash
+                    ? openrouterModels.openrouter_gemini2_5_flash
+                    : openrouterModels.openrouter_gemini2_5_flash_thinking,
               })
-            : 
-            streamGemini25ProWithFallbacks(messages, system, {
+            : streamGemini25ProWithFallbacks(messages, system, {
                 clientSessionId,
                 fingerprintId,
                 userInputId,

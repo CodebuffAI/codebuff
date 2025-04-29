@@ -8,7 +8,9 @@ import {
   ONE_TIME_LABELS,
   type CostMode,
 } from 'common/constants'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { getToolCallString } from 'common/constants/tools'
+import { trackEvent } from 'common/src/analytics'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { buildArray } from 'common/util/array'
@@ -132,7 +134,7 @@ export const mainPrompt = async (
 
     'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Makes sure when using write_file to pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
 
-    'When editing an existing file, write the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
+    'When editing an existing file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
 
     'When using tools, make sure to NOT use XML attributes. The format should contain nested XML tags. For example, when using write_file, the format should be <write_file><path>...</path><content>...</content></write_file>',
 
@@ -142,6 +144,10 @@ export const mainPrompt = async (
 
     isFlash &&
       "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
+    isFlash &&
+      'If you have thought of a whole plan, please execute the ENTIRE plan before using the end_turn tool.',
+    isFlash &&
+      'When using write_file, do NOT rewrite the entire file. Only write the parts of the file that have changed and write "... existing code ..." comments around the changed area.',
 
     // Experimental gemini thinking
     costMode === 'experimental' || costMode === 'max'
@@ -618,6 +624,10 @@ export const mainPrompt = async (
     }
 
     const { name, parameters } = toolCall
+    trackEvent(AnalyticsEvent.TOOL_USE, userId ?? '', {
+      tool: name,
+      parameters,
+    })
     if (name === 'write_file') {
       // write_file tool calls are handled as they are streamed in.
     } else if (name === 'add_subgoal' || name === 'update_subgoal') {
@@ -641,8 +651,6 @@ export const mainPrompt = async (
         .split(/\s+/)
         .map((path) => path.trim())
         .filter(Boolean)
-
-      logger.debug(toolCall, 'tool call')
 
       const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
         ws,
@@ -686,6 +694,61 @@ export const mainPrompt = async (
         name: 'read_files',
         result: renderReadFilesResult(addedFiles),
       })
+    } else if (name === 'find_files') {
+      const { addedFiles, updatedFilePaths, printedPaths } =
+        await getFileReadingUpdates(
+          ws,
+          messagesWithResponse,
+          getSearchSystemPrompt(
+            fileContext,
+            costMode,
+            fileRequestMessagesTokens,
+            {
+              agentStepId,
+              clientSessionId,
+              fingerprintId,
+              userInputId: promptId,
+              userId,
+            }
+          ),
+          fileContext,
+          parameters.description,
+          {
+            skipRequestingFiles: false,
+            agentStepId,
+            clientSessionId,
+            fingerprintId,
+            userInputId: promptId,
+            userId,
+            costMode,
+          }
+        )
+      logger.debug(
+        {
+          content: parameters.description,
+          description: parameters.description,
+          addedFilesPaths: addedFiles.map((f) => f.path),
+          updatedFilePaths,
+          printedPaths,
+        },
+        'find_files tool call'
+      )
+      serverToolResults.push({
+        id: generateCompactId(),
+        name: 'find_files',
+        result:
+          addedFiles.length > 0
+            ? renderReadFilesResult(addedFiles)
+            : `No new files found for description: ${parameters.description}`,
+      })
+      if (printedPaths.length > 0) {
+        onResponseChunk('\n\n')
+        onResponseChunk(
+          getToolCallString('read_files', {
+            paths: printedPaths.join('\n'),
+          })
+        )
+      }
     } else if (name === 'think_deeply') {
       const { thought } = parameters
       logger.debug(

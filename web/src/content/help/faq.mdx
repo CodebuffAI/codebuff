@@ -47,7 +47,34 @@ If you do not have a knowledge.md file, Codebuff typically will not create one, 
 
 ## Can I tell Codebuff to ignore certain files?
 
-Codebuff by default will not read files that are specified in your .gitignore. You can also create a '.codebuffignore' file to specify additional files or folders to ignore.
+Codebuff by default will not read files that are specified in your `.gitignore`. You can also create a `.codebuffignore` file to specify additional files or folders to ignore.
+
+### What if I want Codebuff to not ignore some files in the `.gitignore`?
+
+The `.codebuffignore` follows standard `.gitignore` negation rules as well! So to ignore a file from git but not from Codebuff:
+
+```.gitignore
+path/to/file
+```
+
+```.codebuffignore
+!path/to/file
+```
+
+Take note that if you want to negate something in a nested subdirectory, you need to first negate each of the parent directories first (assuming they were ignored by some other rule). So something like:
+
+```.gitignore
+# ignore everything
+**
+```
+
+```.codebuffignore
+# negate: path/to/file
+!path/to/
+!path/to/file
+```
+
+The final set of files ignored by Codebuff are determined by the contents of `.gitignore`, followed by the contents of `.codebuffignore`.
 
 ## Why does Codebuff cost more?
 

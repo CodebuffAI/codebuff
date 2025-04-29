@@ -1,15 +1,18 @@
+import { consumeCredits, getUserCostPerCredit } from '@codebuff/billing'
 import { CoreMessage } from 'ai'
+import { trackEvent } from 'common/analytics'
 import { models, TEST_USER_ID } from 'common/constants'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { Message } from 'common/types/message'
+import { withRetry } from 'common/src/util/promise'
 import { stripeServer } from 'common/src/util/stripe'
+import { Message } from 'common/types/message'
 import { eq, sql } from 'drizzle-orm'
-import { WebSocket } from 'ws'
 import Stripe from 'stripe'
-import { consumeCredits, getUserCostPerCredit } from '@codebuff/billing'
+import { WebSocket } from 'ws'
+
 import { stripNullCharsFromObject } from '../util/object'
-import { INITIAL_RETRY_DELAY, withRetry } from 'common/src/util/promise'
 
 import { OpenAIMessage } from '@/llm-apis/openai-api'
 import { logger, withLoggerContext } from '@/util/logger'
@@ -423,6 +426,11 @@ async function updateUserCycleUsage(
       { userId, creditsUsed, ...result },
       `Consumed credits (${creditsUsed})`
     )
+
+    trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
+      creditsUsed,
+      fromPurchased: result.fromPurchased,
+    })
 
     return result
   } catch (error) {
