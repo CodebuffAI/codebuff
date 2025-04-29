@@ -4,7 +4,7 @@ import { PostHog } from 'posthog-node'
 // Prints the events to console
 // It's very noisy, so recommended you set this to true
 // only when you're actively adding new analytics
-let DEBUG_DEV_EVENTS = false
+let DEBUG_DEV_EVENTS = true
 
 // Store the identified user ID
 let currentUserId: string | undefined

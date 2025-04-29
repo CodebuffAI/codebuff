@@ -371,6 +371,8 @@ export const runTerminalCommand = async (
         result: value.result,
         stdout: value.stdout,
         exitCode: value.exitCode,
+        mode,
+        processType,
       })
       resolve(value)
     }
@@ -499,13 +501,22 @@ export const runCommandPty = (
         projectPath = setProjectRoot(newWorkingDirectory)
       }
 
+      const exitCode = commandOutput.includes('Command completed')
+        ? undefined
+        : (() => {
+            const match = commandOutput.match(
+              /Command failed with exit code (\d+)\./
+            )
+            return match ? parseInt(match[1]) : undefined
+          })()
+
       // Reset the PTY to the project root
       ptyProcess.write(`cd ${projectPath}\r`)
 
       resolve({
         result: formatResult(command, commandOutput, 'Command completed'),
         stdout: commandOutput,
-        exitCode: undefined,
+        exitCode,
       })
       return
     }
