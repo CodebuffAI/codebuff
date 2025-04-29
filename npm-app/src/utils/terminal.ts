@@ -502,7 +502,7 @@ export const runCommandPty = (
       }
 
       const exitCode = commandOutput.includes('Command completed')
-        ? undefined
+        ? 0
         : (() => {
             const match = commandOutput.match(
               /Command failed with exit code (\d+)\./
