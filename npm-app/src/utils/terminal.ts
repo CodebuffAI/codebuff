@@ -490,8 +490,7 @@ export const runCommandPty = (
 
   let commandOutput = ''
   let buffer = promptIdentifier
-  let echoLinesRemaining =
-    os.platform() === 'win32' ? command.split('\n').length : 0
+  let echoLinesRemaining = os.platform() === 'win32' ? 1 : 0
 
   const timer = setTimeout(() => {
     if (mode === 'assistant') {
@@ -528,7 +527,7 @@ export const runCommandPty = (
   const dataDisposable = ptyProcess.onData((data: string) => {
     buffer += data
     const suffix = longestSuffixThatsPrefixOf(buffer, promptIdentifier)
-    const toProcess = buffer.slice(0, buffer.length - suffix.length)
+    let toProcess = buffer.slice(0, buffer.length - suffix.length)
     buffer = suffix
 
     const matches = toProcess.match(toRemovePattern)
@@ -538,11 +537,16 @@ export const runCommandPty = (
     }
 
     // Process normal output line
-    const toPrint = toProcess.replaceAll(toRemovePattern, '')
-    process.stdout.write(toPrint)
-    commandOutput += toPrint
+    toProcess = toProcess.replaceAll(toRemovePattern, '')
+    let commandCompleted = buffer === promptIdentifier
+    if (toProcess.includes(promptIdentifier)) {
+      toProcess = toProcess.replaceAll(promptIdentifier, '')
+      commandCompleted = true
+    }
+    process.stdout.write(toProcess)
+    commandOutput += toProcess
 
-    if (buffer === promptIdentifier && echoLinesRemaining === 0) {
+    if (commandCompleted && echoLinesRemaining === 0) {
       // Command is done
       clearTimeout(timer)
       dataDisposable.dispose()
