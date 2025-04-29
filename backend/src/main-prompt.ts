@@ -1,7 +1,7 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { ClientAction } from 'common/actions'
-import { insertTrace } from '@codebuff/bigquery'
-import { AgentResponseTrace } from '@codebuff/bigquery'
+import { insertTrace } from 'common/bigquery/client'
+import { AgentResponseTrace } from 'common/bigquery/schema'
 import {
   HIDDEN_FILE_READ_STATUS,
   models,
@@ -89,6 +89,8 @@ export const mainPrompt = async (
     userId,
   })
 
+  // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
+  // This is used to link logs within a single agent loop
   const agentStepId = crypto.randomUUID()
 
   const relevantDocumentationPromise = prompt
@@ -141,6 +143,7 @@ export const mainPrompt = async (
     isFlash &&
       "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
 
+    // Experimental gemini thinking
     costMode === 'experimental' || costMode === 'max'
       ? 'Start your response with the <think_deeply> tool call to decide how to proceed.'
       : !justUsedATool &&
@@ -186,6 +189,7 @@ export const mainPrompt = async (
   )
 
   if (prompt) {
+    // Check if this is a direct terminal command
     const startTime = Date.now()
     const terminalCommand = await checkTerminalCommand(prompt, {
       clientSessionId,
@@ -223,6 +227,7 @@ export const mainPrompt = async (
       }
     }
   } else {
+    // Check number of assistant messages since last user message with prompt
     const consecutiveAssistantMessages =
       agentState.consecutiveAssistantMessages ?? 0
     if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
@@ -262,6 +267,7 @@ export const mainPrompt = async (
     messagesWithToolResultsAndUser
   )
 
+  // Step 1: Read more files.
   const searchSystem = getSearchSystemPrompt(
     fileContext,
     costMode,
@@ -299,11 +305,13 @@ export const mainPrompt = async (
     updatedFilePaths.includes(f.path)
   )
   if (clearReadFileToolResults) {
+    // Update message history.
     for (const message of messageHistory) {
       if (isToolResult(message)) {
         message.content = simplifyReadFileResults(message.content)
       }
     }
+    // Update tool results.
     for (let i = 0; i < toolResults.length; i++) {
       const toolResult = toolResults[i]
       if (toolResult.name === 'read_files') {
@@ -367,16 +375,24 @@ export const mainPrompt = async (
       content: asSystemMessage(renderToolResults(toolResults)),
     },
 
-    agentContext && {
-      role: 'user' as const,
-      content: asSystemMessage(agentContext.trim()),
-    },
-
+    // Add in new copy of agent context.
     prompt &&
-      {
+      agentContext && {
         role: 'user' as const,
-        content: asSystemInstructions(userInstructions),
+        content: asSystemMessage(agentContext.trim()),
       },
+
+    prompt
+      ? // Add in new copy of user instructions.
+        {
+          role: 'user' as const,
+          content: asSystemInstructions(userInstructions),
+        }
+      : // Add in new copy of tool instructions.
+        toolInstructions && {
+          role: 'user' as const,
+          content: asSystemInstructions(toolInstructions),
+        },
 
     relevantDocumentation && {
       role: 'user' as const,
@@ -408,6 +424,7 @@ export const mainPrompt = async (
   const system = getAgentSystemPrompt(fileContext)
   const systemTokens = countTokensJson(system)
 
+  // Possibly truncated messagesWithUserMessage + cache.
   const agentMessages = getMessagesSubset(
     messagesWithUserMessage,
     systemTokens + countTokensJson({ agentContext, userInstructions })
@@ -415,6 +432,7 @@ export const mainPrompt = async (
 
   const debugPromptCaching = false
   if (debugPromptCaching) {
+    // Store the agent request to a file for debugging
     await saveAgentRequest(agentMessages, system, promptId)
   }
 
@@ -440,6 +458,7 @@ export const mainPrompt = async (
     Promise<{ path: string; content: string; patch?: string } | null>[]
   > = {}
 
+  // Add deep thinking for experimental or max mode
   if (costMode === 'experimental' || costMode === 'max') {
     let response = await getThinkingStream(
       agentMessages,
@@ -465,6 +484,7 @@ export const mainPrompt = async (
   const stream = getStream(
     buildArray(
       ...agentMessages,
+      // Add prefix of the response from fullResponse if it exists
       fullResponse && {
         role: 'assistant' as const,
         content: fullResponse.trim(),
@@ -481,6 +501,7 @@ export const mainPrompt = async (
         const { path, content } = parseToolCallXml(body)
         if (!content) return false
 
+        // Initialize state for this file path if needed
         if (!fileProcessingPromisesByPath[path]) {
           fileProcessingPromisesByPath[path] = []
         }
@@ -547,6 +568,7 @@ export const mainPrompt = async (
   }
 
   if (!fullResponse) {
+    // (hacky) ends turn if LLM did not give a response.
     fullResponse = '<end_turn></end_turn>'
   }
 
@@ -597,7 +619,9 @@ export const mainPrompt = async (
 
     const { name, parameters } = toolCall
     if (name === 'write_file') {
+      // write_file tool calls are handled as they are streamed in.
     } else if (name === 'add_subgoal' || name === 'update_subgoal') {
+      // add_subgoal and update_subgoal tool calls are handled above
     } else if (
       name === 'code_search' ||
       name === 'run_terminal_command' ||
@@ -679,6 +703,7 @@ export const mainPrompt = async (
         },
         'Create plan'
       )
+      // Add the plan file to the processing queue
       if (!fileProcessingPromisesByPath[path]) {
         fileProcessingPromisesByPath[path] = []
       }
@@ -696,6 +721,7 @@ export const mainPrompt = async (
     onResponseChunk('Applying file changes, please wait.\n')
   }
 
+  // Flatten all promises while maintaining order within each file path
   const fileProcessingPromises = Object.values(
     fileProcessingPromisesByPath
   ).flat()
@@ -761,15 +787,19 @@ export const mainPrompt = async (
 const getInitialFiles = (fileContext: ProjectFileContext) => {
   const { userKnowledgeFiles, knowledgeFiles } = fileContext
   return [
+    // Include user-level knowledge files.
     ...Object.entries(userKnowledgeFiles ?? {}).map(([path, content]) => ({
       path,
       content,
     })),
+
+    // Include top-level project knowledge files.
     ...Object.entries(knowledgeFiles)
       .map(([path, content]) => ({
         path,
         content,
       }))
+      // Only keep top-level knowledge files.
       .filter((f) => f.path.split('/').length === 1),
   ]
 }
@@ -878,6 +908,7 @@ async function getFileReadingUpdates(
     previousFilePaths
   )
   const newFilesToRead = uniq([
+    // NOTE: When the assistant specifically asks for a file, we force it to be shown even if it's not new or changed.
     ...(options.requestedFiles ?? []),
 
     ...newFiles,
@@ -959,7 +990,10 @@ function getPrintedPaths(
   newFilesToRead: string[],
   loadedFiles: Record<string, string | null>
 ) {
+  // If no files requests, we don't want to print anything.
+  // Could still have files added from initial files or edited files.
   if (requestedFiles.length === 0) return []
+  // Otherwise, only print files that don't start with a hidden file status.
   return newFilesToRead.filter(
     (path) =>
       loadedFiles[path] &&
