@@ -10,6 +10,7 @@
     "noImplicitReturns": true,
     "strict": true,
     "sourceMap": true,
-    "incremental": true
+    "incremental": true,
+    "skipLibCheck": true
   }
 }

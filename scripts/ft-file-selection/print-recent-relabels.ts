@@ -1,4 +1,4 @@
-import { getRecentRelabels } from 'common/src/bigquery/client'
+import { getRecentRelabels } from '@codebuff/bigquery'
 
 // Parse command line arguments to check for --prod flag
 const isProd = process.argv.includes('--prod')

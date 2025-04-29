@@ -1,7 +1,7 @@
 import http from 'http'
 
+import { setupBigQuery } from '@codebuff/bigquery'
 import { flushAnalytics, initAnalytics } from 'common/src/analytics'
-import { setupBigQuery } from 'common/src/bigquery/client'
 import cors from 'cors'
 import express from 'express'
 
@@ -70,17 +70,14 @@ logger.info('Initializing server')
 logger.info('Starting BigQuery initialization...')
 setupBigQuery()
   .catch((err) => {
-    logger.error(
-      {
-        error: err,
-        stack: err.stack,
-        message: err.message,
-        name: err.name,
-        code: err.code,
-        details: err.details,
-      },
-      'Failed to initialize BigQuery client'
-    )
+    logger.error({
+      error: err,
+      stack: err.stack,
+      message: err.message,
+      name: err.name,
+      code: err.code,
+      details: err.details,
+    }, 'Failed to initialize BigQuery client')
   })
   .finally(() => {
     logger.debug('BigQuery initialization completed')
@@ -153,7 +150,7 @@ process.on('uncaughtException', (err, origin) => {
     message: err.message,
     stack: err.stack,
     name: err.name,
-    origin,
+    origin
   })
   logger.fatal(
     {
@@ -161,7 +158,7 @@ process.on('uncaughtException', (err, origin) => {
       stack: err.stack,
       message: err.message,
       name: err.name,
-      origin,
+      origin
     },
     'uncaught exception detected'
   )
