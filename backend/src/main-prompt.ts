@@ -1,7 +1,8 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import { ClientAction } from 'common/actions'
-import { insertTrace } from 'common/bigquery/client'
-import { AgentResponseTrace } from 'common/bigquery/schema'
+import { insertTrace } from '@codebuff/bigquery'
+import { AgentResponseTrace } from '@codebuff/bigquery'
+import { ClientAction, FileChanges } from 'common/actions'
+import { trackEvent } from 'common/src/analytics'
 import {
   HIDDEN_FILE_READ_STATUS,
   models,
@@ -10,13 +11,12 @@ import {
 } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { getToolCallString } from 'common/constants/tools'
-import { trackEvent } from 'common/src/analytics'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { buildArray } from 'common/util/array'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
-import { toContentString } from 'common/util/messages'
 import { generateCompactId } from 'common/util/string'
+import { toContentString } from 'common/util/messages'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
@@ -63,6 +63,7 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
+
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
 export const mainPrompt = async (
