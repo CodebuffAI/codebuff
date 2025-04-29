@@ -16,25 +16,7 @@ import {
 } from 'isomorphic-git'
 
 import { getProjectDataDir } from '../project-files'
-
-/**
- * Checks if the native git command is available on the system.
- * Caches the result to avoid repeated checks.
- * @returns boolean indicating if git command is available
- */
-let cachedGitAvailable: boolean | null = null
-function gitCommandIsAvailable(): boolean {
-  if (cachedGitAvailable === null) {
-    try {
-      execFileSync('git', ['--version'], { stdio: 'ignore' })
-      cachedGitAvailable = true
-    } catch (error) {
-      cachedGitAvailable = false
-    }
-  }
-
-  return cachedGitAvailable
-}
+import { gitCommandIsAvailable } from '../utils/git'
 
 /**
  * Generates a unique path for storing the bare git repository based on the project directory.

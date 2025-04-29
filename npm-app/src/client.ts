@@ -72,6 +72,7 @@ import {
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
 import { identifyUser } from './utils/analytics'
+import { gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
@@ -230,6 +231,7 @@ export class Client {
         fingerprintId: this.fingerprintId,
         platform: os.platform(),
         version: packageJson.version,
+        hasGit: gitCommandIsAvailable(),
       })
       loggerContext.userId = user.id
       loggerContext.userEmail = user.email
@@ -509,6 +511,7 @@ export class Client {
               fingerprintId: fingerprintId,
               platform: os.platform(),
               version: packageJson.version,
+              hasGit: gitCommandIsAvailable(),
             })
             loggerContext.userId = user.id
             loggerContext.userEmail = user.email
