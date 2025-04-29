@@ -498,6 +498,13 @@ export const runCommandPty = (
         } else if (!path.isAbsolute(newWorkingDirectory)) {
           newWorkingDirectory = path.join(projectPath, newWorkingDirectory)
         }
+        trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
+          from: projectPath,
+          to: newWorkingDirectory,
+          isSubdir: !path
+            .relative(projectPath, newWorkingDirectory)
+            .startsWith('..'),
+        })
         projectPath = setProjectRoot(newWorkingDirectory)
       }
 
