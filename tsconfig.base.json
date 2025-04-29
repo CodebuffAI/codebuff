@@ -11,6 +11,8 @@
     "strict": true,
     "sourceMap": true,
     "incremental": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true
   }
 }
