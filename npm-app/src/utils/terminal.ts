@@ -18,6 +18,7 @@ import {
 import {
   getProjectRoot,
   getWorkingDirectory,
+  isDir,
   setWorkingDirectory,
 } from '../project-files'
 import { trackEvent } from './analytics'
@@ -440,17 +441,23 @@ function handleChangeDirectory(
   })
   const projectRoot = getProjectRoot()
   if (path.relative(projectRoot, newWorkingDirectory).startsWith('..')) {
-    console.log(
-      `Unable to cd outside of the project root (${projectRoot})
+    console.log(`
+Unable to cd outside of the project root (${projectRoot})
       
-If you want to change the project root, restart Codebuff in the desired project directory.`
-    )
-    return false
+If you want to change the project root:
+1. Exit Codebuff (type "exit").
+2. Navigate into the target directory.
+3. Restart Codebuff.`)
+    return true
   }
 
-  setWorkingDirectory(newWorkingDirectory)
-  ptyProcess.write(`cd ${newWorkingDirectory}\r`)
-  return true
+  if (isDir(newWorkingDirectory)) {
+    setWorkingDirectory(newWorkingDirectory)
+    ptyProcess.write(`cd ${newWorkingDirectory}\r`)
+    return true
+  }
+
+  return false
 }
 
 export const runCommandPty = (
