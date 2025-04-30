@@ -422,12 +422,12 @@ function handleChangeDirectory(
   command: string,
   ptyProcess: IPty,
   cwd: string
-): boolean {
+): string | null {
   if (!command.startsWith('cd ')) {
-    return false
+    return null
   }
   if (mode === 'assistant') {
-    return false
+    return null
   }
 
   let newWorkingDirectory = command.split(' ')[1]
@@ -453,16 +453,16 @@ If you want to change the project root:
 1. Exit Codebuff (type "exit").
 2. Navigate into the target directory.
 3. Restart Codebuff.`)
-    return true
+    return cwd
   }
 
   if (isDir(newWorkingDirectory)) {
     setWorkingDirectory(newWorkingDirectory)
     ptyProcess.write(`cd ${newWorkingDirectory}\r`)
-    return true
+    return newWorkingDirectory
   }
 
-  return false
+  return null
 }
 
 const echoLinePattern = new RegExp(`${promptIdentifier}[^\n]*\n`, 'g')
@@ -484,9 +484,10 @@ export const runCommandPty = (
 ) => {
   const ptyProcess = persistentProcess.pty
 
-  if (handleChangeDirectory(mode, command, ptyProcess, cwd)) {
+  const newDir = handleChangeDirectory(mode, command, ptyProcess, cwd)
+  if (newDir) {
     resolve({
-      result: formatResult(command, '', 'complete'),
+      result: formatResult(command, '', `Complete\nFinal cwd: ${newDir}`),
       stdout: '',
       exitCode: 0,
     })
@@ -497,7 +498,7 @@ export const runCommandPty = (
     // `clear` needs access to the main process stdout. This is a workaround.
     execSync('clear', { stdio: 'inherit' })
     resolve({
-      result: formatResult(command, '', 'complete'),
+      result: formatResult(command, '', `Complete\nFinal cwd: ${cwd}`),
       stdout: '',
       exitCode: 0,
     })
@@ -522,7 +523,7 @@ export const runCommandPty = (
         result: formatResult(
           command,
           commandOutput,
-          `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
+          `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.\nFinal cwd: ${cwd}`
         ),
         stdout: commandOutput,
         exitCode: 124,
@@ -581,11 +582,14 @@ export const runCommandPty = (
             return match ? parseInt(match[1]) : null
           })()
 
-      // Reset the PTY to the project root
-      ptyProcess.write(`cd ${getWorkingDirectory()}\r`)
+      ptyProcess.write(`cd ${cwd}\r`)
 
       resolve({
-        result: formatResult(command, commandOutput, 'complete'),
+        result: formatResult(
+          command,
+          commandOutput,
+          `Complete\nFinal cwd: ${cwd}`
+        ),
         stdout: commandOutput,
         exitCode,
       })
