@@ -95,7 +95,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
     onToolEnd: (toolName, params) => {
       // Add a final newline after the file list
-      return '\n'
+      return '\n\n'
     },
   },
   find_files: {
