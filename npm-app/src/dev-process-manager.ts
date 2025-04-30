@@ -65,4 +65,6 @@ export function startDevProcesses(
       }
     )
   }
+
+  console.log()
 }

@@ -20,7 +20,7 @@ export function logAndHandleStartup(
       console.log(
         gray(
           'Another instance of codebuff detected. Skipping startup processes.'
-        )
+        ) + '\n'
       )
     }
   }

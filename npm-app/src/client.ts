@@ -712,7 +712,7 @@ export class Client {
       userInputId,
       () => {
         Spinner.get().stop()
-        process.stdout.write(green(underline('\nCodebuff') + ':'))
+        process.stdout.write(green(underline('\nCodebuff') + ': '))
       },
       prompt
     )

@@ -115,7 +115,9 @@ const createPersistantProcess = (dir: string): PersistentProcess => {
     }
     // Set prompt for Unix shells after sourcing config
     if (!isWindows) {
-      persistentPty.write(`PS1=${promptIdentifier} && stty -echo\n`)
+      persistentPty.write(
+        `PS1=${promptIdentifier} && PS2=${promptIdentifier}\n`
+      )
     }
 
     return { type: 'pty', shell: 'pty', pty: persistentPty, timerId: null }
@@ -204,7 +206,7 @@ export function runBackgroundCommand(
   resolveCommand: (value: {
     result: string
     stdout: string
-    exitCode: number | undefined
+    exitCode: number | null
   }) => void
 ): void {
   const { toolCallId, command, mode, cwd, stdoutFile, stderrFile } = options
@@ -306,7 +308,10 @@ export function runBackgroundCommand(
       stderrStream?.end()
     })
 
+    let exitCode = null
+
     childProcess.on('close', (code) => {
+      exitCode = code
       processInfo.status = code === 0 ? 'completed' : 'error'
       processInfo.endTime = Date.now()
 
@@ -326,14 +331,14 @@ export function runBackgroundCommand(
     resolveCommand({
       result: resultMessage,
       stdout: initialStdout + initialStderr,
-      exitCode: undefined,
+      exitCode,
     })
   } catch (error: any) {
     const errorMessage = `<background_process>\n<command>${command}</command>\n<error>${error.message}</error>\n</background_process>`
     resolveCommand({
       result: errorMessage,
       stdout: error.message,
-      exitCode: undefined,
+      exitCode: null,
     })
   }
 }
@@ -365,7 +370,7 @@ export const runTerminalCommand = async (
     const resolveCommand = (value: {
       result: string
       stdout: string
-      exitCode: number | undefined
+      exitCode: number | null
     }) => {
       commandIsRunning = false
       trackEvent(AnalyticsEvent.TERMINAL_COMMAND_COMPLETED, {
@@ -460,6 +465,10 @@ If you want to change the project root:
   return false
 }
 
+const echoLinePattern = new RegExp(`${promptIdentifier}[^\n]*\n`, 'g')
+const unixCommandDonePattern = new RegExp(
+  `^${promptIdentifier}[\\s\\S]*${promptIdentifier}`
+)
 export const runCommandPty = (
   persistentProcess: PersistentProcess & {
     type: 'pty'
@@ -469,7 +478,7 @@ export const runCommandPty = (
   resolve: (value: {
     result: string
     stdout: string
-    exitCode: number | undefined
+    exitCode: number | null
   }) => void,
   cwd: string
 ) => {
@@ -477,8 +486,19 @@ export const runCommandPty = (
 
   if (handleChangeDirectory(mode, command, ptyProcess, cwd)) {
     resolve({
-      result: formatResult(command, 'Command completed.', 'Command completed'),
-      stdout: 'Command completed.',
+      result: formatResult(command, '', 'complete'),
+      stdout: '',
+      exitCode: 0,
+    })
+    return
+  }
+
+  if (command.trim() === 'clear') {
+    // `clear` needs access to the main process stdout. This is a workaround.
+    execSync('clear', { stdio: 'inherit' })
+    resolve({
+      result: formatResult(command, '', 'complete'),
+      stdout: '',
       exitCode: 0,
     })
     return
@@ -490,7 +510,8 @@ export const runCommandPty = (
 
   let commandOutput = ''
   let buffer = promptIdentifier
-  let echoLinesRemaining = os.platform() === 'win32' ? 1 : 0
+  const isWindows = os.platform() === 'win32'
+  let echoLinesRemaining = isWindows ? 1 : command.split('\n').length
 
   const timer = setTimeout(() => {
     if (mode === 'assistant') {
@@ -522,49 +543,49 @@ export const runCommandPty = (
     return ''
   }
 
-  const toRemovePattern = new RegExp(`${promptIdentifier}[^\n]*\n`, 'g')
-
   const dataDisposable = ptyProcess.onData((data: string) => {
     buffer += data
     const suffix = longestSuffixThatsPrefixOf(buffer, promptIdentifier)
     let toProcess = buffer.slice(0, buffer.length - suffix.length)
     buffer = suffix
 
-    const matches = toProcess.match(toRemovePattern)
+    const matches = toProcess.match(echoLinePattern)
     if (matches) {
       echoLinesRemaining -= matches.length
       echoLinesRemaining = Math.max(echoLinesRemaining, 0)
+      // Process normal output line
+      toProcess = toProcess.replaceAll(echoLinePattern, '')
     }
 
-    // Process normal output line
-    toProcess = toProcess.replaceAll(toRemovePattern, '')
-    let commandCompleted = buffer === promptIdentifier
-    if (toProcess.includes(promptIdentifier)) {
-      toProcess = toProcess.replaceAll(promptIdentifier, '')
-      commandCompleted = true
+    const indexOfPromptIdentifier = toProcess.indexOf(promptIdentifier)
+    if (indexOfPromptIdentifier !== -1) {
+      buffer = toProcess.slice(indexOfPromptIdentifier) + buffer
+      toProcess = toProcess.slice(0, indexOfPromptIdentifier)
     }
+
     process.stdout.write(toProcess)
     commandOutput += toProcess
 
-    if (commandCompleted && echoLinesRemaining === 0) {
+    const commandDone = isWindows
+      ? buffer.startsWith(promptIdentifier)
+      : unixCommandDonePattern.test(buffer)
+    if (commandDone && echoLinesRemaining === 0) {
       // Command is done
       clearTimeout(timer)
       dataDisposable.dispose()
 
-      const exitCode = commandOutput.includes('Command completed')
+      const exitCode = buffer.includes('Command completed')
         ? 0
         : (() => {
-            const match = commandOutput.match(
-              /Command failed with exit code (\d+)\./
-            )
-            return match ? parseInt(match[1]) : undefined
+            const match = buffer.match(/Command failed with exit code (\d+)\./)
+            return match ? parseInt(match[1]) : null
           })()
 
       // Reset the PTY to the project root
       ptyProcess.write(`cd ${getWorkingDirectory()}\r`)
 
       resolve({
-        result: formatResult(command, commandOutput, 'Command completed'),
+        result: formatResult(command, commandOutput, 'complete'),
         stdout: commandOutput,
         exitCode,
       })
@@ -572,17 +593,10 @@ export const runCommandPty = (
     }
   })
 
-  const isWindows = os.platform() === 'win32'
-
-  if (command.trim() === 'clear') {
-    // `clear` needs access to the main process stdout. This is a workaround.
-    execSync('clear', { stdio: 'inherit' })
-  }
-
   // Write the command
   const commandWithCheck = isWindows
-    ? command
-    : `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "Command completed."; else printf "Command failed with exit code $ec."; fi`
+    ? `${command}\r\necho "${promptIdentifier}"`
+    : `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "${promptIdentifier}Command completed."; else printf "${promptIdentifier}Command failed with exit code $ec."; fi`
   ptyProcess.write(commandWithCheck + '\r')
 }
 
@@ -595,7 +609,7 @@ const runCommandChildProcess = (
   resolve: (value: {
     result: string
     stdout: string
-    exitCode: number | undefined
+    exitCode: number | null
   }) => void,
   cwd: string
 ) => {
@@ -667,9 +681,9 @@ const runCommandChildProcess = (
     }
 
     resolve({
-      result: formatResult(command, commandOutput, `Command completed`),
+      result: formatResult(command, commandOutput, `complete`),
       stdout: commandOutput,
-      exitCode: childProcess.exitCode ?? undefined,
+      exitCode: childProcess.exitCode,
     })
   })
 }
