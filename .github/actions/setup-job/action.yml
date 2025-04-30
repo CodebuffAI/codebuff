@@ -8,7 +8,7 @@ inputs:
     default: '1.1.26'
 
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - name: Check out repository
       uses: actions/checkout@v3
@@ -18,11 +18,10 @@ runs:
       with:
         bun-version: ${{ inputs.bun-version }}
 
-    # Create .env.local file
-    - name: Get Credentials
+    # Set CI flag without modifying existing env vars
+    - name: Set CI Flag
       shell: bash
       run: |
-        echo "${{ env.ENV_LOCAL }}" > .env.local
         echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
     - name: Restore dependencies
