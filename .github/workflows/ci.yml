@@ -94,44 +94,16 @@ jobs:
       - name: Build dependencies
         run: bun run build
 
-  # Type checking job that ensures type safety
-  # Depends on: build
-  typecheck:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v3
+      - name: Typecheck dependencies
+        run: bun run typecheck-only
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.1.26
-
-      # Create .env.local file
-      - name: Get Credentials
-        run: |
-          echo "${{ secrets.ENV_LOCAL }}" > .env.local
-          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
-
-      - name: Restore dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            node_modules
-            */node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
-
-      - name: Typecheck all packages
-        run: bun run typecheck
-
-  # The following three test jobs run in parallel after typecheck completes
+  # The following three test jobs run in parallel after build completes
   # Each job uses retry logic to handle flaky tests
 
   # Test job for npm-app package
-  # Depends on: typecheck
+  # Depends on: build
   test-npm-app:
-    needs: typecheck
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -161,12 +133,12 @@ jobs:
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: bun test npm-app/**/*.test.ts
+          command: bun test ./npm-app/**/*.test.ts
 
   # Test job for backend package
-  # Depends on: typecheck
+  # Depends on: build
   test-backend:
-    needs: typecheck
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -196,12 +168,12 @@ jobs:
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: bun test backend/**/*.test.ts
+          command: bun test ./backend/**/*.test.ts
 
   # Test job for common package
-  # Depends on: typecheck
+  # Depends on: build
   test-common:
-    needs: typecheck
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -231,4 +203,4 @@ jobs:
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: bun test common/**/*.test.ts
+          command: bun test ./common/**/*.test.ts
