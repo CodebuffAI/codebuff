@@ -40,12 +40,16 @@ jobs:
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.1.26
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
       - name: Get Credentials
-        run: echo "${{ secrets.ENV_LOCAL }}" > .env.local
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
       # Cache node_modules to speed up subsequent jobs
       - name: Cache dependencies
@@ -58,13 +62,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-deps-
 
-      # Upload .env.local as an artifact to share between jobs
-      - name: Upload env file
-        uses: actions/upload-artifact@v4
-        with:
-          name: env-file
-          path: .env.local
-
   # Build job that compiles the project
   # Depends on: setup
   build:
@@ -76,6 +73,14 @@ jobs:
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.1.26
+
+      # Create .env.local file
+      - name: Get Credentials
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
       # Restore cached dependencies from setup job
       - name: Restore dependencies
@@ -85,12 +90,6 @@ jobs:
             node_modules
             */node_modules
           key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
-
-      # Download .env.local from artifacts
-      - name: Download env file
-        uses: actions/download-artifact@v4
-        with:
-          name: env-file
 
       - name: Build dependencies
         run: bun run build
@@ -106,6 +105,14 @@ jobs:
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.1.26
+
+      # Create .env.local file
+      - name: Get Credentials
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
       - name: Restore dependencies
         uses: actions/cache@v3
@@ -114,12 +121,6 @@ jobs:
             node_modules
             */node_modules
           key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
-
-      # Download .env.local from artifacts
-      - name: Download env file
-        uses: actions/download-artifact@v4
-        with:
-          name: env-file
 
       - name: Typecheck all packages
         run: bun run typecheck
@@ -138,6 +139,14 @@ jobs:
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.1.26
+
+      # Create .env.local file
+      - name: Get Credentials
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
       - name: Restore dependencies
         uses: actions/cache@v3
@@ -147,18 +156,12 @@ jobs:
             */node_modules
           key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
 
-      # Download .env.local from artifacts
-      - name: Download env file
-        uses: actions/download-artifact@v4
-        with:
-          name: env-file
-
       - name: Run npm-app tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: CODEBUFF_GITHUB_ACTIONS=true bun test npm-app/**/*.test.ts
+          command: bun test npm-app/**/*.test.ts
 
   # Test job for backend package
   # Depends on: typecheck
@@ -171,6 +174,14 @@ jobs:
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.1.26
+
+      # Create .env.local file
+      - name: Get Credentials
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
       - name: Restore dependencies
         uses: actions/cache@v3
@@ -180,18 +191,12 @@ jobs:
             */node_modules
           key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
 
-      # Download .env.local from artifacts
-      - name: Download env file
-        uses: actions/download-artifact@v4
-        with:
-          name: env-file
-
       - name: Run backend tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: CODEBUFF_GITHUB_ACTIONS=true bun test backend/**/*.test.ts
+          command: bun test backend/**/*.test.ts
 
   # Test job for common package
   # Depends on: typecheck
@@ -204,6 +209,14 @@ jobs:
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.1.26
+
+      # Create .env.local file
+      - name: Get Credentials
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
       - name: Restore dependencies
         uses: actions/cache@v3
@@ -213,15 +226,9 @@ jobs:
             */node_modules
           key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
 
-      # Download .env.local from artifacts
-      - name: Download env file
-        uses: actions/download-artifact@v4
-        with:
-          name: env-file
-
       - name: Run common tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: CODEBUFF_GITHUB_ACTIONS=true bun test common/**/*.test.ts
+          command: bun test common/**/*.test.ts
