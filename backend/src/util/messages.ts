@@ -116,6 +116,9 @@ export function trimMessagesToFitTokenLimit(
 
     // Handle string content (usually terminal output)
     if (typeof content === 'string') {
+      if (isSystemInstruction(content)) {
+        continue
+      }
       const result = simplifyTerminalHelper(content, numKept)
       newContent = result.result
       numKept = result.numKept

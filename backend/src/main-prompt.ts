@@ -44,6 +44,7 @@ import {
   asSystemInstruction,
   asSystemMessage,
   getMessagesSubset,
+  isSystemInstruction,
 } from './util/messages'
 import {
   isToolResult,
@@ -86,7 +87,8 @@ export const mainPrompt = async (
     toolResults,
     cwd,
   } = action
-  const { messageHistory, fileContext, agentContext } = agentState
+  const { fileContext, agentContext } = agentState
+  let messageHistory = agentState.messageHistory
 
   const { getStream, model } = getAgentStream({
     costMode,
@@ -337,6 +339,11 @@ export const mainPrompt = async (
         toolResults[i] = simplifyReadFileToolResult(toolResult)
       }
     }
+
+    messageHistory = messageHistory.filter((message) => {
+      typeof message.content !== 'string' ||
+        !isSystemInstruction(message.content)
+    })
   }
 
   if (printedPaths.length > 0) {
