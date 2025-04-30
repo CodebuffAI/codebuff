@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.260",
+  "version": "1.0.261",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -48,6 +48,7 @@
     "jsonc-parser": "^3.3.1",
     "lodash": "*",
     "nanoid": "5.0.7",
+    "onetime": "5.1.2",
     "picocolors": "1.1.0",
     "posthog-node": "^4.14.0",
     "puppeteer-core": "^24.2.0",
