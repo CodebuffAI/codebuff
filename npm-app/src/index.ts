@@ -28,13 +28,14 @@ async function codebuff(
 ) {
   enableSquashNewlines()
 
-  // First try to find a git root directory
-  if (!projectDir) {
-    projectDir = getStartingDirectory()
-  }
-  const gitRoot = findGitRoot(projectDir)
-  const dir = setProjectRoot(gitRoot || projectDir)
-  setWorkingDirectory(projectDir)
+  // Initialize starting directory
+  const startingDirectory = getStartingDirectory(projectDir)
+  // If starting directory not provided, find git root
+  const gitRoot = projectDir
+    ? startingDirectory
+    : findGitRoot(startingDirectory) ?? startingDirectory
+  const dir = setProjectRoot(gitRoot)
+  setWorkingDirectory(startingDirectory)
 
   recreateShell(dir)
 

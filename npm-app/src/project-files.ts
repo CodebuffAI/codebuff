@@ -95,15 +95,40 @@ export function getWorkingDirectory() {
   return workingDirectory
 }
 
-export function getStartingDirectory() {
+export function getStartingDirectory(
+  path: string | undefined = undefined
+): string {
+  let base
   try {
-    return process.cwd()
+    base = process.cwd()
   } catch (error) {
     throw new Error(
       'Failed to get current working directory. Is this directory deleted?',
       { cause: error }
     )
   }
+  if (!path) {
+    return base
+  }
+  return toAbsolutePath(path, base)
+}
+
+/**
+ * Transforms a relative filepath into an absolute one, using the project root as the base.
+ * Handles '..' and '.' in paths correctly. Also handles Windows paths.
+ *
+ * @param filepath The relative filepath to transform
+ * @param projectRoot The absolute path to the project root
+ * @returns The absolute filepath
+ */
+export function toAbsolutePath(filepath: string, projectRoot: string): string {
+  // If already absolute, normalize and return
+  if (path.isAbsolute(filepath)) {
+    return path.normalize(filepath)
+  }
+
+  // Handle '..' at the start by resolving against project root
+  return path.normalize(path.resolve(projectRoot, filepath))
 }
 
 let cachedProjectFileContext: ProjectFileContext | undefined
