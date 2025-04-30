@@ -31,7 +31,8 @@
     "build": "nx run-many --target=build --projects=common,packages/*,backend,npm-app,web",
     "clean": "nx run-many --target=clean --projects=common,packages/*,backend,npm-app,web",
     "typecheck-only": "nx run-many --target=typecheck-only --projects=common,packages/*,backend,npm-app,web",
-    "typecheck": "bun run build && bun run typecheck-only"
+    "typecheck": "bun run build && bun run typecheck-only",
+    "act": "bash .github/act/run-local.sh"
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.59.16",
