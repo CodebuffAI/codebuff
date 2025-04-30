@@ -40,6 +40,31 @@ it means you're having connection issues. In that case, try:
 1. Check your internet connection.
 2. Try logging out and back in with `logout` followed by `login`.
 
+### Endless Auto-Updates
+
+If Codebuff keeps trying to update itself in an endless loop, there could be several potential causes. Below are known issues and their solutions:
+
+#### Conflicting Node/npm Installations (Homebrew vs. nvm)
+
+One common cause is having conflicting Node/npm installations on your system, particularly between Homebrew and nvm. Here's how to diagnose and fix this:
+
+1. Check your Node and npm paths:
+   ```bash
+   which node
+   which npm
+   ```
+   If these point to Homebrew paths (e.g., `/opt/homebrew/bin/`) instead of nvm paths (e.g., `~/.nvm/versions/`), that's the issue.
+
+2. Check what packages depend on Node through Homebrew:
+   ```bash
+   brew uninstall node
+   ```
+   This will show you any packages that depend on Node.
+
+3. If you don't need those packages anymore, you can uninstall them. This will automatically remove Node as a dependency.
+
+4. After this cleanup, your `which node` and `which npm` commands should point to your nvm installation, and Codebuff should work as expected.
+
 ### Command Not Found
 
 If you see "command not found" when trying to run Codebuff:
