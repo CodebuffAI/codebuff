@@ -34,18 +34,18 @@ jobs:
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: CODEBUFF_GITHUB_ACTIONS=true cd npm-app && bun test **.ts
+          command: CODEBUFF_GITHUB_ACTIONS=true cd npm-app && bun test ./**.ts
 
       - name: Run backend tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: CODEBUFF_GITHUB_ACTIONS=true cd backend && bun test **.ts
+          command: CODEBUFF_GITHUB_ACTIONS=true cd backend && bun test ./**.ts
 
       - name: Run common tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: CODEBUFF_GITHUB_ACTIONS=true cd common && bun test **.ts
+          command: CODEBUFF_GITHUB_ACTIONS=true cd common && bun test ./**.ts
