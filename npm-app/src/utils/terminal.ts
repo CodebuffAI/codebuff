@@ -487,7 +487,7 @@ export const runCommandPty = (
   const newDir = handleChangeDirectory(mode, command, ptyProcess, cwd)
   if (newDir) {
     resolve({
-      result: formatResult(command, '', `Complete\nFinal cwd: ${newDir}`),
+      result: formatResult(command, '', `Complete`),
       stdout: '',
       exitCode: 0,
     })
@@ -498,7 +498,7 @@ export const runCommandPty = (
     // `clear` needs access to the main process stdout. This is a workaround.
     execSync('clear', { stdio: 'inherit' })
     resolve({
-      result: formatResult(command, '', `Complete\nFinal cwd: ${cwd}`),
+      result: formatResult(command, '', `Complete`),
       stdout: '',
       exitCode: 0,
     })
@@ -523,7 +523,7 @@ export const runCommandPty = (
         result: formatResult(
           command,
           commandOutput,
-          `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.\nFinal cwd: ${cwd}`
+          `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
         ),
         stdout: commandOutput,
         exitCode: 124,
@@ -585,11 +585,7 @@ export const runCommandPty = (
       ptyProcess.write(`cd ${cwd}\r`)
 
       resolve({
-        result: formatResult(
-          command,
-          commandOutput,
-          `Complete\nFinal cwd: ${cwd}`
-        ),
+        result: formatResult(command, commandOutput, `Complete`),
         stdout: commandOutput,
         exitCode,
       })

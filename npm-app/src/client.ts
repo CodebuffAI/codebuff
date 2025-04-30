@@ -68,6 +68,7 @@ import {
   getFiles,
   getProjectFileContext,
   getProjectRoot,
+  getWorkingDirectory,
 } from './project-files'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
@@ -744,6 +745,7 @@ export class Client {
       authToken: this.user?.authToken,
       costMode: this.costMode,
       model: this.model,
+      cwd: getWorkingDirectory(),
     })
 
     return {

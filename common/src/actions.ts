@@ -36,6 +36,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     agentState: AgentStateSchema,
     toolResults: z.array(ToolResultSchema),
     model: z.string().optional(),
+    cwd: z.string().optional(),
   }),
   z.object({
     type: z.literal('read-files-response'),

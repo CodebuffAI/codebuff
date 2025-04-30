@@ -1,4 +1,6 @@
 import { execFileSync } from 'child_process'
+import { existsSync, statSync } from 'fs'
+import path from 'path'
 
 /**
  * Checks if the native git command is available on the system.
@@ -17,4 +19,18 @@ export function gitCommandIsAvailable(): boolean {
   }
 
   return cachedGitAvailable
+}
+
+export function findGitRoot(startDir: string): string | null {
+  let currentDir = startDir
+
+  while (currentDir !== path.parse(currentDir).root) {
+    const gitDir = path.join(currentDir, '.git')
+    if (existsSync(gitDir) && statSync(gitDir).isDirectory()) {
+      return currentDir
+    }
+    currentDir = path.dirname(currentDir)
+  }
+
+  return null
 }

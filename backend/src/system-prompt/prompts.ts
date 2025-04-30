@@ -1,10 +1,10 @@
 import { STOP_MARKER } from 'common/constants'
+import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 import {
   codebuffConfigFile,
   CodebuffConfigSchema,
 } from 'common/src/json-config/constants'
 import { stringifySchema } from 'common/src/json-config/stringify-schema'
-import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
 import { createMarkdownFileBlock, ProjectFileContext } from 'common/util/file'
 import { truncateString } from 'common/util/string'
 
@@ -21,7 +21,7 @@ ${stringifySchema(CodebuffConfigSchema)}
 export const knowledgeFilesPrompt = `
 # Knowledge files
 
-Knowledge files are your guide to the project. Knowledge files (files ending in "knowledge.md" or "CLAUDE.md") within a directory capture knowledge about that portion of the codebase.
+Knowledge files are your guide to the project. Knowledge files (files ending in "knowledge.md" or "CLAUDE.md") within a directory capture knowledge about that portion of the codebase. They are another way to take notes in this "Memento"-style environment.
 
 Knowledge files were created by previous engineers working on the codebase, and they were given these same instructions. They contain key concepts or helpful tips that are not obvious from the code. e.g., let's say I want to use a package manager aside from the default. That is hard to find in the codebase and would therefore be an appropriate piece of information to add to a knowledge file.
 

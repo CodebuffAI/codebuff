@@ -63,20 +63,19 @@ const execAsync = promisify(exec)
 
 let projectRoot: string
 
-export function setProjectRoot(dir: string | undefined) {
-  const newDir = path.resolve(dir || getCurrentDirectory())
-  if (existsSync(newDir)) {
+export function setProjectRoot(dir: string) {
+  if (existsSync(dir)) {
     if (projectRoot) {
       checkpointManager.clearCheckpoints(true)
 
       console.log(
         '\n' + green('Directory change:'),
-        `Codebuff will read and write files in "${newDir}".\n`
+        `Codebuff will read and write files in "${dir}".\n`
       )
     }
-    projectRoot = newDir
-    setWorkingDirectory(newDir)
-    return newDir
+    projectRoot = dir
+    setWorkingDirectory(dir)
+    return dir
   }
   setWorkingDirectory(projectRoot)
   return projectRoot
@@ -96,7 +95,7 @@ export function getWorkingDirectory() {
   return workingDirectory
 }
 
-function getCurrentDirectory() {
+export function getStartingDirectory() {
   try {
     return process.cwd()
   } catch (error) {
