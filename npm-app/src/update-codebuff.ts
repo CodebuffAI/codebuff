@@ -29,9 +29,10 @@ export async function updateCodebuff() {
       await killAllBackgroundProcesses()
       flushAnalytics()
 
-      console.log(green('Codebuff updated successfully.'))
+      console.log('\n' + green('Codebuff updated successfully.'))
       console.log(
-        green('Please restart by running `codebuff` to use the new version.')
+        '\n' +
+          green('Please restart by running `codebuff` to use the new version.')
       )
       process.exit(0)
     } catch (error) {
