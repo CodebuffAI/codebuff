@@ -18,7 +18,6 @@ import {
 import {
   getProjectRoot,
   getWorkingDirectory,
-  isDir,
   setWorkingDirectory,
 } from '../project-files'
 import { trackEvent } from './analytics'
@@ -351,7 +350,7 @@ export const runTerminalCommand = async (
   stdoutFile?: string,
   stderrFile?: string
 ): Promise<{ result: string; stdout: string }> => {
-  const cwd = mode === 'assistant' ? getProjectRoot() : getWorkingDirectory()
+  const cwd = getWorkingDirectory()
   return new Promise((resolve) => {
     if (!persistentProcess) {
       throw new Error('Shell not initialized')
@@ -417,57 +416,9 @@ export const runTerminalCommand = async (
   })
 }
 
-function handleChangeDirectory(
-  mode: 'user' | 'assistant',
-  command: string,
-  ptyProcess: IPty,
-  cwd: string
-): string | null {
-  if (!command.startsWith('cd ')) {
-    return null
-  }
-  if (mode === 'assistant') {
-    return null
-  }
-
-  let newWorkingDirectory = command.split(' ')[1]
-  if (newWorkingDirectory === '~') {
-    newWorkingDirectory = os.homedir()
-  } else if (newWorkingDirectory.startsWith('~/')) {
-    newWorkingDirectory = path.join(os.homedir(), newWorkingDirectory.slice(2))
-  } else if (!path.isAbsolute(newWorkingDirectory)) {
-    newWorkingDirectory = path.join(cwd, newWorkingDirectory)
-  }
-
-  trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
-    from: cwd,
-    to: newWorkingDirectory,
-    isSubdir: !path.relative(cwd, newWorkingDirectory).startsWith('..'),
-  })
-  const projectRoot = getProjectRoot()
-  if (path.relative(projectRoot, newWorkingDirectory).startsWith('..')) {
-    console.log(`
-Unable to cd outside of the project root (${projectRoot})
-      
-If you want to change the project root:
-1. Exit Codebuff (type "exit").
-2. Navigate into the target directory.
-3. Restart Codebuff.`)
-    return cwd
-  }
-
-  if (isDir(newWorkingDirectory)) {
-    setWorkingDirectory(newWorkingDirectory)
-    ptyProcess.write(`cd ${newWorkingDirectory}\r`)
-    return newWorkingDirectory
-  }
-
-  return null
-}
-
 const echoLinePattern = new RegExp(`${promptIdentifier}[^\n]*\n`, 'g')
-const unixCommandDonePattern = new RegExp(
-  `^${promptIdentifier}[\\s\\S]*${promptIdentifier}`
+const commandDonePattern = new RegExp(
+  `^${promptIdentifier}(.*)${promptIdentifier}[\\s\\S]*${promptIdentifier}`
 )
 export const runCommandPty = (
   persistentProcess: PersistentProcess & {
@@ -483,16 +434,6 @@ export const runCommandPty = (
   cwd: string
 ) => {
   const ptyProcess = persistentProcess.pty
-
-  const newDir = handleChangeDirectory(mode, command, ptyProcess, cwd)
-  if (newDir) {
-    resolve({
-      result: formatResult(command, '', `Complete`),
-      stdout: '',
-      exitCode: 0,
-    })
-    return
-  }
 
   if (command.trim() === 'clear') {
     // `clear` needs access to the main process stdout. This is a workaround.
@@ -513,6 +454,7 @@ export const runCommandPty = (
   let buffer = promptIdentifier
   const isWindows = os.platform() === 'win32'
   let echoLinesRemaining = isWindows ? 1 : command.split('\n').length
+  const projectRoot = getProjectRoot()
 
   const timer = setTimeout(() => {
     if (mode === 'assistant') {
@@ -567,9 +509,7 @@ export const runCommandPty = (
     process.stdout.write(toProcess)
     commandOutput += toProcess
 
-    const commandDone = isWindows
-      ? buffer.startsWith(promptIdentifier)
-      : unixCommandDonePattern.test(buffer)
+    const commandDone = buffer.match(commandDonePattern)
     if (commandDone && echoLinesRemaining === 0) {
       // Command is done
       clearTimeout(timer)
@@ -582,10 +522,39 @@ export const runCommandPty = (
             return match ? parseInt(match[1]) : null
           })()
 
-      ptyProcess.write(`cd ${cwd}\r`)
+      const newWorkingDirectory = commandDone[1]
+      let outsideProject = false
+      if (newWorkingDirectory !== cwd) {
+        trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
+          from: cwd,
+          to: newWorkingDirectory,
+          isSubdir: !path.relative(cwd, newWorkingDirectory).startsWith('..'),
+        })
+        if (path.relative(projectRoot, newWorkingDirectory).startsWith('..')) {
+          outsideProject = true
+          if (mode === 'user') {
+            console.log(`
+Unable to cd outside of the project root (${projectRoot})
+      
+If you want to change the project root:
+1. Exit Codebuff (type "exit")
+2. Navigate into the target directory (type "cd ${newWorkingDirectory}")
+3. Restart Codebuff`)
+          }
+          ptyProcess.write(`cd ${cwd}\r`)
+        } else {
+          setWorkingDirectory(newWorkingDirectory)
+        }
+      }
+
+      const cwdMessage = outsideProject
+        ? `\nDetected final cwd outside project root. Reset cwd to ${cwd}`
+        : newWorkingDirectory === cwd
+          ? ''
+          : `\nFinal cwd: ${cwd}`
 
       resolve({
-        result: formatResult(command, commandOutput, `Complete`),
+        result: formatResult(command, commandOutput, `Complete${cwdMessage}`),
         stdout: commandOutput,
         exitCode,
       })
@@ -595,8 +564,8 @@ export const runCommandPty = (
 
   // Write the command
   const commandWithCheck = isWindows
-    ? `${command}\r\necho "${promptIdentifier}"`
-    : `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "${promptIdentifier}Command completed."; else printf "${promptIdentifier}Command failed with exit code $ec."; fi`
+    ? `${command} & echo ${promptIdentifier}%cd%${promptIdentifier}`
+    : `${command}; ec=$?; printf "${promptIdentifier}$(pwd)${promptIdentifier}"; if [ $ec -eq 0 ]; then printf "Command completed."; else printf "Command failed with exit code $ec."; fi`
   ptyProcess.write(commandWithCheck + '\r')
 }
 
