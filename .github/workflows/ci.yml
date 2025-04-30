@@ -10,13 +10,13 @@
 #     test1[Test npm-app]
 #     test2[Test backend]
 #     test3[Test common]
-#     
+#
 #     setup --> build
 #     build --> typecheck
 #     typecheck --> test1
 #     typecheck --> test2
 #     typecheck --> test3
-#     
+#
 #     style test1 fill:#f9f,stroke:#333,stroke-width:2px
 #     style test2 fill:#f9f,stroke:#333,stroke-width:2px
 #     style test3 fill:#f9f,stroke:#333,stroke-width:2px
@@ -60,7 +60,7 @@ jobs:
 
       # Upload .env.local as an artifact to share between jobs
       - name: Upload env file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: env-file
           path: .env.local
@@ -88,7 +88,7 @@ jobs:
 
       # Download .env.local from artifacts
       - name: Download env file
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: env-file
 
@@ -117,7 +117,7 @@ jobs:
 
       # Download .env.local from artifacts
       - name: Download env file
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: env-file
 
@@ -149,7 +149,7 @@ jobs:
 
       # Download .env.local from artifacts
       - name: Download env file
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: env-file
 
@@ -182,7 +182,7 @@ jobs:
 
       # Download .env.local from artifacts
       - name: Download env file
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: env-file
 
@@ -194,7 +194,7 @@ jobs:
           command: CODEBUFF_GITHUB_ACTIONS=true bun test backend/**/*.test.ts
 
   # Test job for common package
-  # Depends on: typecheck  
+  # Depends on: typecheck
   test-common:
     needs: typecheck
     runs-on: ubuntu-latest
@@ -215,7 +215,7 @@ jobs:
 
       # Download .env.local from artifacts
       - name: Download env file
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: env-file
 
