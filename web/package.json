@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "build": "bun run contentlayer && next build",
     "start": "next start",
     "preview": "next build && next start",
     "contentlayer": "contentlayer build",
