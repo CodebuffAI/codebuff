@@ -1,27 +1,26 @@
-import { mock } from 'bun:test'
-import path from 'path'
-import fs from 'fs'
-import { WebSocket } from 'ws'
 import { execSync } from 'child_process'
-
-import { blue } from 'picocolors'
+import { EventEmitter } from 'events'
+import fs from 'fs'
+import path from 'path'
 
 import * as mainPromptModule from 'backend/main-prompt'
-import { ProjectFileContext } from 'common/util/file'
-import { applyAndRevertChanges } from 'common/util/changes'
+import { ClientToolCall } from 'backend/tools'
+import { mock } from 'bun:test'
+import { getFileTokenScores } from 'code-map/parse'
+import { FileChanges } from 'common/actions'
+import { TEST_USER_ID } from 'common/constants'
 import {
   getAllFilePaths,
   getProjectFileTree,
 } from 'common/src/project-file-tree'
-import { getFileTokenScores } from 'code-map/parse'
-import { EventEmitter } from 'events'
-import { FileChanges } from 'common/actions'
-import { getSystemInfo } from 'npm-app/utils/system-info'
-import { TEST_USER_ID } from 'common/constants'
 import { AgentState, ToolResult } from 'common/src/types/agent-state'
+import { applyAndRevertChanges } from 'common/util/changes'
+import { ProjectFileContext } from 'common/util/file'
 import { generateCompactId } from 'common/util/string'
 import { handleToolCall } from 'npm-app/tool-handlers'
-import { ClientToolCall } from 'backend/tools'
+import { getSystemInfo } from 'npm-app/utils/system-info'
+import { blue } from 'picocolors'
+import { WebSocket } from 'ws'
 
 const DEBUG_MODE = true
 
@@ -109,7 +108,8 @@ export async function runMainPrompt(
       if (DEBUG_MODE) {
         process.stdout.write(chunk)
       }
-    }
+    },
+    undefined
   )
 }
 
@@ -119,7 +119,7 @@ export async function runToolCalls(
 ) {
   const toolResults: ToolResult[] = []
   for (const toolCall of toolCalls) {
-    const toolResult = await handleToolCall(toolCall, projectPath)
+    const toolResult = await handleToolCall(toolCall)
     toolResults.push(toolResult)
   }
   return toolResults
