@@ -20,7 +20,6 @@ runs:
 
     # Create .env.local file
     - name: Get Credentials
-      shell: bash
       run: |
         echo "${{ secrets.ENV_LOCAL }}" > .env.local
         echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
