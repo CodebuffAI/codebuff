@@ -9,8 +9,34 @@ export async function processStrReplace(
   initialContentPromise: Promise<string | null>
 ) {
   const initialContent = await initialContentPromise
-  if (initialContent === null) return null
+  
+  // Special case: if oldStr is empty and file doesn't exist, create the file
+  if (initialContent === null && !oldStr) {
+    const patch = createPatch(path, '', newStr)
+    const lines = patch.split('\n')
+    const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
+    const finalPatch = hunkStartIndex !== -1 ? lines.slice(hunkStartIndex).join('\n') : patch
+
+    logger.debug(
+      {
+        path,
+        content: newStr,
+        patch: finalPatch,
+      },
+      `processStrReplace: Created new file ${path}`
+    )
+
+    return {
+      tool: 'str_replace' as const,
+      path,
+      content: newStr,
+      patch: finalPatch,
+    }
+  }
+
+  // Regular case: require oldStr for replacements
   if (!oldStr) return null
+  if (initialContent === null) return null
 
   const lineEnding = initialContent.includes('\r\n') ? '\r\n' : '\n'
   const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')

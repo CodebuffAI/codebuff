@@ -69,7 +69,7 @@ describe('processStrReplace', () => {
     expect(result?.content).toBe('const x = 1;\nconst y = 3;\n')
   })
 
-  it('should return null if file content is null', async () => {
+  it('should return null if file content is null and oldStr is not empty', async () => {
     const result = await processStrReplace(
       'test.ts',
       'old',
@@ -80,7 +80,7 @@ describe('processStrReplace', () => {
     expect(result).toBeNull()
   })
 
-  it('should return null if oldStr is empty', async () => {
+  it('should return null if oldStr is empty and file exists', async () => {
     const result = await processStrReplace(
       'test.ts',
       '',
@@ -89,6 +89,23 @@ describe('processStrReplace', () => {
     )
 
     expect(result).toBeNull()
+  })
+
+  it('should create a new file if oldStr is empty and file does not exist', async () => {
+    const newContent = 'const x = 1;\nconst y = 2;\n'
+    const result = await processStrReplace(
+      'test.ts',
+      '',
+      newContent,
+      Promise.resolve(null)
+    )
+
+    expect(result).not.toBeNull()
+    expect(result?.content).toBe(newContent)
+    expect(result?.path).toBe('test.ts')
+    expect(result?.tool).toBe('str_replace')
+    expect(result?.patch).toContain('+const x = 1')
+    expect(result?.patch).toContain('+const y = 2')
   })
 
   it('should return null if no changes were made', async () => {

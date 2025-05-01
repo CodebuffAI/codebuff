@@ -139,6 +139,8 @@ ${getToolCallString('str_replace', {
   old: 'old',
   new: 'new',
 })}
+
+Note: You can create a new file with a new path by setting old to an empty string.
     `.trim(),
   },
   {
