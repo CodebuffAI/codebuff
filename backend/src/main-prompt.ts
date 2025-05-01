@@ -520,6 +520,16 @@ export const mainPrompt = async (
   )
 
   const streamWithTags = processStreamWithTags(stream, {
+    ...Object.fromEntries(
+      TOOL_LIST.map((tool) => [
+        tool,
+        {
+          attributeNames: [],
+          onTagStart: () => {},
+          onTagEnd: () => false,
+        },
+      ])
+    ),
     write_file: {
       attributeNames: [],
       onTagStart: () => {},
@@ -604,16 +614,6 @@ export const mainPrompt = async (
         return false
       },
     },
-    ...Object.fromEntries(
-      TOOL_LIST.filter((tool) => tool !== 'write_file').map((tool) => [
-        tool,
-        {
-          attributeNames: [],
-          onTagStart: () => {},
-          onTagEnd: () => false,
-        },
-      ])
-    ),
   })
 
   for await (const chunk of streamWithTags) {
