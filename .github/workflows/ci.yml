@@ -20,6 +20,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
       - uses: ./.github/actions/setup-job
 
       - name: Install dependencies
@@ -34,6 +37,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
       - uses: ./.github/actions/setup-job
 
       - name: Run npm-app tests
@@ -49,6 +55,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
       - uses: ./.github/actions/setup-job
 
       - name: Run backend tests
@@ -64,6 +73,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
       - uses: ./.github/actions/setup-job
 
       - name: Run common tests
