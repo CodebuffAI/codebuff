@@ -14,6 +14,7 @@ on:
 
 env:
   CODEBUFF_GITHUB_ACTIONS: 'true'
+  NEXT_PUBLIC_CB_ENVIRONMENT: 'local'
 
 jobs:
   # Initial build job that installs dependencies and caches them for other jobs
