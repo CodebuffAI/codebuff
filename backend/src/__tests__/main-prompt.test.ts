@@ -68,6 +68,7 @@ describe('mainPrompt', () => {
         return {
           path,
           content: newContent,
+          tool: 'write_file' as const,
         }
       }
     )
