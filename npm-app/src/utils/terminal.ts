@@ -65,17 +65,39 @@ const createPersistantProcess = (dir: string): PersistentProcess => {
     // Prepare shell init commands
     let shellInitCommands = ''
     if (!isWindows) {
-      const rcFile =
-        currShell === 'zsh'
-          ? '~/.zshrc'
-          : currShell === 'fish'
-            ? '~/.config/fish/config.fish'
-            : '~/.bashrc'
-      shellInitCommands = `source ${rcFile} 2>/dev/null || true\n`
+      // Source all relevant config files based on shell type
+      if (currShell === 'zsh') {
+        shellInitCommands = `
+          source ~/.zshenv 2>/dev/null || true
+          source ~/.zprofile 2>/dev/null || true
+          source ~/.zshrc 2>/dev/null || true
+          source ~/.zlogin 2>/dev/null || true
+        `
+      } else if (currShell === 'fish') {
+        shellInitCommands = `
+          source ~/.config/fish/config.fish 2>/dev/null || true
+        `
+      } else {
+        // Bash - source both profile and rc files
+        shellInitCommands = `
+          source ~/.bash_profile 2>/dev/null || true
+          source ~/.profile 2>/dev/null || true
+          source ~/.bashrc 2>/dev/null || true
+        `
+      }
     } else if (currShell === 'powershell') {
-      // Try to source PowerShell profile if it exists
-      shellInitCommands =
-        '$PSProfile = $PROFILE.CurrentUserAllHosts; if (Test-Path $PSProfile) { . $PSProfile }\n'
+      // Try to source all possible PowerShell profile locations
+      shellInitCommands = `
+        $profiles = @(
+          $PROFILE.AllUsersAllHosts,
+          $PROFILE.AllUsersCurrentHost,
+          $PROFILE.CurrentUserAllHosts,
+          $PROFILE.CurrentUserCurrentHost
+        )
+        foreach ($prof in $profiles) {
+          if (Test-Path $prof) { . $prof }
+        }
+      `
     }
 
     const persistentPty = pty.spawn(shell, isWindows ? [] : ['--login'], {
@@ -91,27 +113,31 @@ const createPersistantProcess = (dir: string): PersistentProcess => {
         ...(isWindows
           ? {
               TERM: 'cygwin',
-              ANSICON: '1', // Better ANSI support in cmd.exe
+              ANSICON: '1',
               PROMPT: promptIdentifier,
             }
           : {
               TERM: 'xterm-256color',
+              // Preserve important environment variables
+              PATH: process.env.PATH,
+              HOME: process.env.HOME,
+              USER: process.env.USER,
+              SHELL: shellWithoutExe,
             }),
         LESS: '-FRX',
         TERM_PROGRAM: 'mintty',
-        FORCE_COLOR: '1', // Enable colors in CI/CD
+        FORCE_COLOR: '1',
         // Locale settings for consistent output
         LANG: 'en_US.UTF-8',
         LC_ALL: 'en_US.UTF-8',
-        // Shell-specific settings
-        SHELL: shellWithoutExe,
       },
     })
 
-    // Source the shell config file if available
+    // Source the shell config files
     if (shellInitCommands) {
       persistentPty.write(shellInitCommands)
     }
+
     // Set prompt for Unix shells after sourcing config
     if (!isWindows) {
       persistentPty.write(
