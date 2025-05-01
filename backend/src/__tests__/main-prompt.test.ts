@@ -47,17 +47,19 @@ const mockAgentStream = (streamOutput: string) => {
 
 describe('mainPrompt', () => {
   beforeEach(() => {
-    // Mock logger
-    spyOn(logger, 'debug').mockImplementation(() => {})
-    spyOn(logger, 'error').mockImplementation(() => {})
-    spyOn(logger, 'info').mockImplementation(() => {})
-    spyOn(logger, 'warn').mockImplementation(() => {})
+    // // Mock logger
+    // spyOn(logger, 'debug').mockImplementation(() => {})
+    // spyOn(logger, 'error').mockImplementation(() => {})
+    // spyOn(logger, 'info').mockImplementation(() => {})
+    // spyOn(logger, 'warn').mockImplementation(() => {})
 
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
     analytics.initAnalytics() // Initialize the mock
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
-    spyOn(bigquery, 'insertTrace').mockImplementation(() => Promise.resolve(true)) // Return Promise<boolean>
+    spyOn(bigquery, 'insertTrace').mockImplementation(() =>
+      Promise.resolve(true)
+    ) // Return Promise<boolean>
 
     // Mock processFileBlock
     spyOn(processFileBlockModule, 'processFileBlock').mockImplementation(
