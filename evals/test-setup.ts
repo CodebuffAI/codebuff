@@ -30,6 +30,30 @@ function setupTestEnvironmentVariables() {
   // Add other required environment variables as needed
 }
 
+// Patch the run_docker.py script to add git config command
+function patchRunDockerScript() {
+  const runDockerPath = path.join(
+    SWE_BENCH_REPO_PATH,
+    'swebench_docker',
+    'run_docker.py'
+  )
+  let content = fs.readFileSync(runDockerPath, 'utf-8')
+
+  // Find the docker_command assignments and modify them to include git config
+  content = content.replace(
+    /docker_command = \[([\s\S]*?)\s+docker_image\n\s+\]/g,
+    (match, commandParts) => {
+      return `docker_command = [${commandParts}
+            docker_image,
+            '--entrypoint', '',
+            '/bin/bash', '-c', 'git config --global --add safe.directory \\'*\\' && exec /entrypoint.sh'
+        ]`
+    }
+  )
+
+  fs.writeFileSync(runDockerPath, content)
+}
+
 // Ensures test repositories are cloned and at the right commit
 export async function ensureTestRepos() {
   // Create test-repos directory if it doesn't exist
@@ -72,6 +96,11 @@ export async function ensureTestRepos() {
             }
           )
         }
+      }
+
+      // After cloning OR updating swe-bench-docker, patch the run_docker.py script
+      if (projectName === 'swe-bench-docker') {
+        patchRunDockerScript()
       }
     } else {
       // For existing repos, fetch and checkout the commit

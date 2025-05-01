@@ -58,9 +58,9 @@ export async function passesSweBenchTests(
   return new Promise((resolve) => {
     let output = ''
     const command = `${SWE_BENCH_PYTHON_PATH} ${SWE_BENCH_RUN_SINGLE_INSTANCE_PATH} --instance_id ${instanceId} --predictions_path ${predictionsPath}`
-    
+
     const child = spawn('bash', ['-c', command], {
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
 
     // Stream stdout while also capturing it
