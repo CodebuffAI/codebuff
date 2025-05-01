@@ -18,12 +18,6 @@ runs:
       with:
         bun-version: ${{ inputs.bun-version }}
 
-    # Create .env.local file
-    - name: Get Credentials
-      run: |
-        echo "${{ secrets.ENV_LOCAL }}" > .env.local
-        echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
-
     - name: Restore dependencies
       uses: actions/cache@v3
       with:

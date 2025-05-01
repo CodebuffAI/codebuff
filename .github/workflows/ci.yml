@@ -23,6 +23,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # Create .env.local file
+      - name: Get Credentials
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
+
       - uses: ./.github/actions/setup-job
 
       - name: Install dependencies
