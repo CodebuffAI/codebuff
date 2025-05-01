@@ -7,6 +7,8 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
+import * as bigquery from '@codebuff/bigquery'
+import * as analytics from 'common/analytics'
 import { TEST_USER_ID } from 'common/constants'
 import { getInitialAgentState } from 'common/types/agent-state'
 import { createWriteFileBlock } from 'common/util/file'
@@ -20,6 +22,7 @@ import * as gemini from '../llm-apis/gemini-api'
 import * as geminiWithFallbacks from '../llm-apis/gemini-with-fallbacks'
 import * as openai from '../llm-apis/openai-api'
 import { mainPrompt } from '../main-prompt'
+import * as processFileBlockModule from '../process-file-block'
 import { logger } from '../util/logger'
 import { renderToolResults } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
@@ -41,21 +44,38 @@ const mockAgentStream = (streamOutput: string) => {
     yield streamOutput
   } as any)
 }
+
 describe('mainPrompt', () => {
   beforeEach(() => {
+    // Mock logger
     spyOn(logger, 'debug').mockImplementation(() => {})
     spyOn(logger, 'error').mockImplementation(() => {})
     spyOn(logger, 'info').mockImplementation(() => {})
-    spyOn(logger, 'warn').mockImplementation(() => {}) // Corrected syntax if needed
-    // Mock logger - Ensure correct arrow function syntax
+    spyOn(logger, 'warn').mockImplementation(() => {})
 
-    // Set up mocks before each test
+    // Mock analytics and tracing
+    spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
+    analytics.initAnalytics() // Initialize the mock
+    spyOn(analytics, 'trackEvent').mockImplementation(() => {})
+    spyOn(bigquery, 'insertTrace').mockImplementation(() => Promise.resolve(true)) // Return Promise<boolean>
+
+    // Mock processFileBlock
+    spyOn(processFileBlockModule, 'processFileBlock').mockImplementation(
+      async (path, contentPromise, newContent) => {
+        return {
+          path,
+          content: newContent,
+        }
+      }
+    )
+
+    // Mock LLM APIs
     spyOn(claude, 'promptClaude').mockImplementation(() =>
       Promise.resolve('Test response')
     )
     spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
       yield 'Test response'
-      return // Important: return after first yield to prevent duplicate responses
+      return
     })
 
     spyOn(gemini, 'promptGemini').mockImplementation(() =>
@@ -91,6 +111,7 @@ describe('mainPrompt', () => {
         }) as any
     )
 
+    // Mock websocket actions
     spyOn(websocketAction, 'requestFiles').mockImplementation(
       async (ws: any, paths: string[]) => {
         const results: Record<string, string | null> = {}
