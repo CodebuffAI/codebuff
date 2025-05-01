@@ -16,8 +16,8 @@ env:
   CODEBUFF_GITHUB_ACTIONS: 'true'
   NEXT_PUBLIC_CB_ENVIRONMENT: 'local'
 
+# Define reusable job template
 jobs:
-  # Initial build job that installs dependencies and caches them for other jobs
   build:
     runs-on: ubuntu-latest
     steps:
@@ -47,8 +47,20 @@ jobs:
           bun run build
           bun run typecheck-only
 
-  test-npm-app:
+  # Template for test jobs
+  test:
     needs: build
+    strategy:
+      matrix:
+        package: [npm-app, backend, common]
+        include:
+          - package: npm-app
+            test_path: ./npm-app/src/utils/__tests__/**.test.ts
+          - package: backend
+            test_path: ./backend/src/**/*.test.ts
+          - package: common
+            test_path: ./common/src/**/*.test.ts
+    name: test-${{ matrix.package }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -72,73 +84,9 @@ jobs:
           echo "${{ secrets.ENV_LOCAL }}" > .env.local
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
-      - name: Run npm-app tests
+      - name: Run ${{ matrix.package }} tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: bun test ./npm-app/src/utils/__tests__/**.test.ts
-
-  test-backend:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.1.26'
-
-      - name: Restore dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            node_modules
-            */node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
-
-      - name: Set Environment Variables
-        run: |
-          echo "${{ secrets.ENV_LOCAL }}" > .env.local
-          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
-
-      - name: Run backend tests
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 10
-          max_attempts: 5
-          command: bun test ./backend/src/**/*.test.ts
-
-  test-common:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.1.26'
-
-      - name: Restore dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            node_modules
-            */node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
-
-      - name: Set Environment Variables
-        run: |
-          echo "${{ secrets.ENV_LOCAL }}" > .env.local
-          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
-
-      - name: Run common tests
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 10
-          max_attempts: 5
-          command: bun test ./common/src/**/*.test.ts
+          command: bun test ${{ matrix.test_path }}
