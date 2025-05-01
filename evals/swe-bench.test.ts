@@ -1,17 +1,18 @@
-import { expect, test, describe } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 
+import { describe, expect, test } from 'bun:test'
+
+import { PROMPT_PREFIX } from './constants'
 import { loopMainPrompt } from './scaffolding'
-import {
-  setupTestEnvironment,
-  createInitialAgentState,
-  ensureTestRepos,
-  TEST_REPOS_DIR,
-} from './test-setup'
 import { passesSweBenchTests } from './swe-bench-eval'
 import { SWE_BENCH_IDS } from './swe-bench-ids'
-import { PROMPT_PREFIX } from './constants'
+import {
+  createInitialAgentState,
+  ensureTestRepos,
+  setupTestEnvironment,
+  TEST_REPOS_DIR,
+} from './test-setup'
 
 const LITE_DATASET_PATH = path.join(
   TEST_REPOS_DIR,
@@ -58,7 +59,7 @@ describe('SWE-Bench', async () => {
               projectPath: repoPath,
               maxIterations: 100,
             })
-            expect(passesSweBenchTests(instanceId, repoPath)).toBeTruthy()
+            expect(await passesSweBenchTests(instanceId, repoPath)).toBeTruthy()
           },
           { timeout: 10 * 60 * 60 * 1000 } // 10 hours
         )

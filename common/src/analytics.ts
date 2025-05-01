@@ -32,13 +32,13 @@ export function trackEvent(
   userId: string,
   properties?: Record<string, any>
 ) {
-  if (!client) {
-    throw new Error('Analytics client not initialized')
-  }
-
   if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
     logger.info({ payload: { event, properties } }, 'Analytics event tracked')
     return
+  }
+
+  if (!client) {
+    throw new Error('Analytics client not initialized')
   }
 
   client.capture({

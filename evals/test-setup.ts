@@ -1,10 +1,16 @@
-import path from 'path'
-import fs from 'fs'
 import { execSync } from 'child_process'
-import { createFileReadingMock, resetRepoToCommit } from './scaffolding'
-import { recreateShell } from 'npm-app/utils/terminal'
-import { getProjectFileContext } from './scaffolding'
+import fs from 'fs'
+import path from 'path'
+
 import { getInitialAgentState } from 'common/types/agent-state'
+import { setProjectRoot, setWorkingDirectory } from 'npm-app/project-files'
+import { recreateShell } from 'npm-app/utils/terminal'
+
+import {
+  createFileReadingMock,
+  getProjectFileContext,
+  resetRepoToCommit,
+} from './scaffolding'
 
 export const TEST_REPOS_DIR = path.join(__dirname, 'test-repos')
 const TEST_PROJECTS_CONFIG = path.join(__dirname, 'test-repos.json')
@@ -118,6 +124,8 @@ export async function setupTestEnvironment(projectName: string) {
   const repoPath = path.join(TEST_REPOS_DIR, projectName)
   createFileReadingMock(repoPath)
   recreateShell(repoPath)
+  setProjectRoot(repoPath)
+  setWorkingDirectory(repoPath)
 
   // Return project info for use in tests
   return {

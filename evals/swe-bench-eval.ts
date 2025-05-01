@@ -1,13 +1,13 @@
-import { execSync } from 'child_process'
+import { execSync, spawn } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
 import { cyan, green, red } from 'picocolors'
 
 import {
-  TEST_REPOS_DIR,
-  SWE_BENCH_REPO_PATH,
   SWE_BENCH_PYTHON_PATH,
+  SWE_BENCH_REPO_PATH,
+  TEST_REPOS_DIR,
 } from './test-setup'
 
 const PREDICTIONS_DIR = path.join(TEST_REPOS_DIR, 'swebench_predictions')
@@ -16,10 +16,10 @@ const SWE_BENCH_RUN_SINGLE_INSTANCE_PATH = path.join(
   'run_single_instance.py'
 )
 
-export function passesSweBenchTests(
+export async function passesSweBenchTests(
   instanceId: string,
   projectDir: string
-): boolean {
+): Promise<boolean> {
   var patch = execSync(`cd ${projectDir} && git diff`, { encoding: 'utf8' })
 
   console.log()
@@ -54,15 +54,36 @@ export function passesSweBenchTests(
   )
 
   console.log(`Running SWE-Bench tests on ${instanceId}...`)
-  try {
-    execSync(
-      `${SWE_BENCH_PYTHON_PATH} ${SWE_BENCH_RUN_SINGLE_INSTANCE_PATH} ` +
-        `--instance_id ${instanceId} --predictions_path ${predictionsPath} ` +
-        `2>&1 | grep \"All Tests Passed\"`
-    )
-    return true
-  } catch (error) {
-    // Grep output no lines
-    return false
-  }
+
+  return new Promise((resolve) => {
+    let output = ''
+    const command = `${SWE_BENCH_PYTHON_PATH} ${SWE_BENCH_RUN_SINGLE_INSTANCE_PATH} --instance_id ${instanceId} --predictions_path ${predictionsPath}`
+    
+    const child = spawn('bash', ['-c', command], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+
+    // Stream stdout while also capturing it
+    child.stdout.on('data', (data) => {
+      const chunk = data.toString()
+      process.stdout.write(chunk)
+      output += chunk
+    })
+
+    // Stream stderr while also capturing it
+    child.stderr.on('data', (data) => {
+      const chunk = data.toString()
+      process.stderr.write(chunk)
+      output += chunk
+    })
+
+    // Check for success when the process ends
+    child.on('close', (code) => {
+      if (code === 0 && output.includes('All Tests Passed')) {
+        resolve(true)
+      } else {
+        resolve(false)
+      }
+    })
+  })
 }
