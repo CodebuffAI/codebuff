@@ -22,7 +22,7 @@ runs:
     - name: Get Credentials
       shell: bash
       run: |
-        echo "${{ env.ENV_LOCAL }}" > .env.local
+        echo "${{ secrets.ENV_LOCAL }}" > .env.local
         echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
     - name: Restore dependencies
