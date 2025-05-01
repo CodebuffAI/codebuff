@@ -69,6 +69,11 @@ jobs:
 
       - uses: ./.github/actions/setup-job
 
+      - name: Set Environment Variables
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
+
       - name: Run backend tests
         run: bun test ./src/**/*.test.ts
         working-directory: backend
